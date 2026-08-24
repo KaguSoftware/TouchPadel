@@ -1,0 +1,61 @@
+name: DB Migrate (staging)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/db/supabase/migrations/**'
+
+concurrency:
+  group: db-migrate
+  cancel-in-progress: false # never cancel a running migration push
+
+jobs:
+  staging:
+    name: Push migrations to staging
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to staging project
+        working-directory: packages/db
+        run: supabase link --project-ref "${{ secrets.PROJECT_REF }}"
+
+      - name: Push migrations
+        working-directory: packages/db
+        run: supabase db push
+
+  # ---------------------------------------------------------------------------
+  # W5 — PRODUCTION (client's Supabase project, Frankfurt eu-central-1).
+  # Uncomment once the Touch-owned project exists and the `production` GitHub
+  # Environment is configured with required reviewers (manual approval gate).
+  # Remember: the table-token Vault secret must be set to the SAME value on the
+  # client project before pushing, or every printed QR dies (see HANDOFF.md).
+  # ---------------------------------------------------------------------------
+  # production:
+  #   name: Push migrations to production
+  #   needs: staging
+  #   runs-on: ubuntu-latest
+  #   environment: production # protected — requires manual approval
+  #   env:
+  #     SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_PROD }}
+  #     SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD_PROD }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: supabase/setup-cli@v1
+  #       with:
+  #         version: latest
+  #     - name: Link to production project
+  #       working-directory: packages/db
+  #       run: supabase link --project-ref "${{ secrets.PROJECT_REF_PROD }}"
+  #     - name: Push migrations
+  #       working-directory: packages/db
+  #       run: supabase db push

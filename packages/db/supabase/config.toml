@@ -1,0 +1,61 @@
+# Touch Padel — local Supabase configuration.
+#
+# IMPORTANT: pg_cron must be enabled on the database. The Supabase local image ships
+# pg_cron preloaded; on the hosted project enable it under Database > Extensions
+# before applying migration 0017 (degraded-mode sweeps + hold expiry are pg_cron jobs).
+#
+# Run everything through the workspace devDependency binary:
+#   pnpm --filter @touch/db db:start / db:reset / db:types
+
+project_id = "touchpadel"
+
+[api]
+enabled = true
+port = 54321
+# `app` is exposed so SECURITY DEFINER RPCs are callable via supabase-js
+# (`client.schema('app').rpc(...)`) and included in generated types.
+schemas = ["public", "app", "graphql_public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+# Local mail-catcher: email verification flows in dev land here.
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+# Cafe guest sessions are Supabase ANONYMOUS sign-ins (design-data.md §1.5).
+enable_anonymous_sign_ins = true
+
+[auth.rate_limit]
+# Every cafe guest is an anonymous sign-in; the GoTrue default (30/hr/IP) is far
+# too low for a venue where many phones share one WAN IP — and it throttles the
+# concurrency test suite. Revisit before production handover (SEC gate 5).
+anonymous_users = 300
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+[analytics]
+enabled = false

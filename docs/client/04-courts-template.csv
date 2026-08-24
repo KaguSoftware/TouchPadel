@@ -1,0 +1,9 @@
+sheet,court_name_en,court_name_ar,indoor_outdoor,duration_options_min,days,window_start,window_end,duration_min,price_iqd
+COURTS,Court 1,ملعب ١,indoor,60;90;120,,,,,
+COURTS,Court 2,ملعب ٢,indoor,60;90;120,,,,,
+COURTS,Court 3,ملعب ٣,outdoor,60;90,,,,,
+RATES,Court 1,ملعب ١,,,all,09:00,17:00,60,30000
+RATES,Court 1,ملعب ١,,,all,09:00,17:00,90,40000
+RATES,Court 1,ملعب ١,,,Sun;Mon;Tue;Wed;Thu,17:00,24:00,60,35000
+RATES,Court 1,ملعب ١,,,Fri;Sat,17:00,24:00,60,40000
+RATES,Court 1,ملعب ١,,,Fri;Sat,17:00,24:00,90,55000

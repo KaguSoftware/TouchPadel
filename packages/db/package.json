@@ -1,0 +1,31 @@
+{
+  "name": "@touch/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
+    "gen:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
+    "db:fixtures": "psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f fixtures/courts.sql",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:concurrency": "vitest run tests/concurrency.test.ts"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "@types/node": "^20.17.0",
+    "dotenv": "^16.4.7",
+    "supabase": "^2.0.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

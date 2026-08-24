@@ -49,13 +49,30 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - Brands: Padel 2026 identity (green #A5D06F / blue #3360AB) on app/site/operator; Touch Cafe
   identity (blue + brown #603813) on the QR-menu/ordering pages.
 
-## Current status (2026-08-24)
-- Scope + diagrams read and assessed; 4-agent design workflow produced `docs/design/*` (reviewed,
-  contradictions resolved in the approved plan — the plan's "Resolved design calls" table governs
-  where docs disagree).
-- Plan approved. Repo initialized; docs committed. **No application code exists yet.**
-- Nothing verified against a running stack yet (Docker/supabase start not confirmed on this
-  machine).
+## Current status (2026-08-24, end of day 1)
+- Scope + diagrams read and assessed; design docs in `docs/design/*` (the plan's "Resolved design
+  calls" table governs where they disagree). Plan approved and executed through Drop 1.
+- **Monorepo scaffolded and green**: 11/11 turbo tasks, 159 tests passing. Apps: mobile (Expo SDK
+  53, React 19, expo-router), web (**Next 16.3 / React 19** — user-specified), operator (Vite +
+  TanStack Router), operator-shell (Electron skeleton: SQLite queue schema, LAN-KDS/heartbeat/
+  station stubs). Packages: db, core (money/pricing/availability/schemas/status — 100 tests),
+  i18n (EN + real AR), ui (two-palette tokens), config.
+- **Staging Supabase live** (Kagu account, ref `lczijabnorujcgmbuqlw`, Frankfurt): migrations
+  0001–0011 applied, seeded (dev staff + PINs per `packages/db/supabase/seed.sql` header),
+  anonymous sign-ins enabled via `supabase config push` (anon rate limit raised to 300/hr —
+  revisit at SEC gate 5). Linked at `packages/db`; keys in gitignored `.env` files (root
+  `.env.local` = master copy incl. service-role key).
+- **Contractual suites pass against staging**: concurrency 8/8 (20-way hold race → exactly 1
+  winner), RLS matrix 34/34.
+- **Two real security bugs found by the matrix and fixed**: (1) `is_staff()` returned NULL for
+  non-staff, so `if not is_staff(...)` guards silently passed for guests → migration 0010
+  (coalesce false); (2) PIN lockout could never engage — the failed-attempt row rolled back with
+  the PIN_INVALID raise → migration 0011 (invalid PIN returns NULL; only PIN_LOCKED raises;
+  composite RPCs re-raise). Pattern note: fixes amend the original migration in place AND ship a
+  follow-up migration for environments that ran the original.
+- **Docker Desktop still not installed on this machine** — local `supabase start` unavailable; the
+  db suites currently run against staging (env in `packages/db/.env`). Install Docker for offline
+  dev + CI parity.
 
 ## File map (key files)
 - `docs/scope/touch-padel-phase1-scope-of-work.pdf` — the signed contract (17pp; .txt extract alongside).

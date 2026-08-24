@@ -21,9 +21,10 @@ out/
 release/
 *.tsbuildinfo
 
-# Supabase local
-packages/db/supabase/.branches/
-packages/db/supabase/.temp/
+# Supabase local state (any location)
+**/supabase/.branches/
+**/supabase/.temp/
+/supabase/
 
 # Brand PDFs at repo root are too large for GitHub (kept local-only;
 # the two phase1 scope PDFs are committed under docs/scope/)

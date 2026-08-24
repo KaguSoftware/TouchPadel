@@ -1,0 +1,13 @@
+{
+  // "expo/tsconfig.base" resolves from node_modules — run `pnpm install` first.
+  // Fallback if the editor complains pre-install: temporarily extend "../../tsconfig.base.json"
+  // (loses Expo's jsx/module presets; restore before committing).
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["node_modules"]
+}

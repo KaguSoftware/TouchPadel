@@ -1,0 +1,17 @@
+sheet,item_en,item_ar,size_en,ingredient_or_subrecipe,quantity,unit,name_en,name_ar,pack_size,pack_cost_iqd,supplier,shelf_life_days
+RECIPES,Cappuccino,كابتشينو,Regular,Espresso beans,18,g,,,,,,
+RECIPES,Cappuccino,كابتشينو,Regular,Milk,180,ml,,,,,,
+RECIPES,Cappuccino,كابتشينو,Large,Espresso beans,18,g,,,,,,
+RECIPES,Cappuccino,كابتشينو,Large,Milk,260,ml,,,,,,
+RECIPES,Chicken Wrap,راب دجاج,Regular,Tortilla,1,pc,,,,,,
+RECIPES,Chicken Wrap,راب دجاج,Regular,Chicken breast,150,g,,,,,,
+RECIPES,Chicken Wrap,راب دجاج,Regular,Garlic sauce,40,ml,,,,,,
+SUB-RECIPES,Garlic sauce,صوص الثوم,,Garlic,100,g,,,,,,
+SUB-RECIPES,Garlic sauce,صوص الثوم,,Sunflower oil,700,ml,,,,,,
+SUB-RECIPES,Garlic sauce,صوص الثوم,,YIELD,800,ml,,,,,,
+INGREDIENTS,,,,,,,Espresso beans,حبوب إسبريسو,1000 g,25000,Example Supplier,90
+INGREDIENTS,,,,,,,Milk,حليب,1000 ml,2500,Example Supplier,5
+INGREDIENTS,,,,,,,Tortilla,خبز تورتيلا,10 pc,4000,Example Supplier,14
+INGREDIENTS,,,,,,,Chicken breast,صدر دجاج,1000 g,9000,Example Supplier,3
+INGREDIENTS,,,,,,,Garlic,ثوم,500 g,3000,Example Supplier,30
+INGREDIENTS,,,,,,,Sunflower oil,زيت دوار الشمس,2000 ml,6000,Example Supplier,180

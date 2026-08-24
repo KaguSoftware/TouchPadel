@@ -1,0 +1,25 @@
+# electron-builder config (design-arch.md §2.5, §8). Not wired into scripts yet —
+# operator-release.yml (tag operator-v*) will run: electron-builder --win nsis --publish always.
+appId: com.kagu.touchpadel.operator
+productName: Touch Padel Operator
+directories:
+  output: release
+files:
+  - dist/**
+  # TODO(W2): bundle the built apps/operator SPA as the renderer payload, e.g.:
+  # extraResources:
+  #   - { from: ../operator/dist, to: renderer }
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: true
+  # Launch-on-boot: runAfterFinish + HKCU Run key written by a first-run step,
+  # app.setLoginItemSettings as belt-and-braces (design-arch.md §2.5).
+  runAfterFinish: true
+# publish: commented until GitHub Releases channel is set up (design-arch.md §8;
+# code-signing decision due 2026-08-29 — self-signed + SmartScreen runbook if no cert).
+# publish:
+#   provider: github
+#   owner: KaguSoftware
+#   repo: TouchPadel

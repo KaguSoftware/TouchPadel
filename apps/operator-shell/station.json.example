@@ -1,0 +1,6 @@
+{
+  "station_id": "TILL1",
+  "mode": "till",
+  "till_host": "192.168.1.10",
+  "lan_psk": "REPLACE-WITH-INSTALL-GENERATED-PSK"
+}

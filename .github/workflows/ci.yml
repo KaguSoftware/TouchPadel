@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: lint / typecheck / test / build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # Frozen lockfile is the rule; the `|| pnpm install` fallback only exists so the very
+      # first runs (before pnpm-lock.yaml is committed) don't hard-fail. Remove the fallback
+      # once the lockfile lands.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Lint, typecheck, test, build
+        run: pnpm turbo lint typecheck test build
+
+  db:
+    name: db (migrations + RLS/concurrency tests)
+    runs-on: ubuntu-latest
+    # Honest signal: this job is REQUIRED (no continue-on-error). It will first go green
+    # once packages/db exists with migrations under packages/db/supabase/migrations/.
+    # Until then it fails, and that is correct — the pipeline promise is real, not decorative.
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        working-directory: packages/db
+        run: supabase start
+
+      - name: Apply migrations from a clean slate
+        working-directory: packages/db
+        run: supabase db reset
+
+      # Runs the @touch/db test suite — includes the RLS matrix and the reservation
+      # concurrency suite, which only make sense with the stack up (hence this job).
+      - name: DB tests (RLS + concurrency)
+        run: pnpm --filter @touch/db test
+
+      # Types drift guard: regenerate types from the live schema and fail if the committed
+      # src/types.gen.ts is stale. NOTE: until the first real generation is committed this
+      # step will fail alongside the rest of the job — expected; do NOT soften it with
+      # continue-on-error, the first migrations PR must also commit the generated types.
+      - name: Types drift check
+        run: |
+          pnpm --filter @touch/db db:types
+          git diff --exit-code -- packages/db/src/types.gen.ts
+
+      - name: Stop local Supabase stack
+        if: always()
+        working-directory: packages/db
+        run: supabase stop --no-backup

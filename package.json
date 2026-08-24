@@ -1,0 +1,26 @@
+{
+  "name": "touchpadel",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "db:start": "pnpm --filter @touch/db db:start",
+    "db:stop": "pnpm --filter @touch/db db:stop",
+    "db:reset": "pnpm --filter @touch/db db:reset",
+    "db:types": "pnpm --filter @touch/db db:types",
+    "db:fixtures": "pnpm --filter @touch/db db:fixtures",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

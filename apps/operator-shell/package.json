@@ -1,0 +1,30 @@
+{
+  "name": "@touch/operator-shell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron shell for the Touch Padel operator app: SQLite durable queue, LAN KDS server, heartbeat, printing, kiosk.",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json && electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dist": "echo TODO: electron-builder --win nsis --config electron-builder.yml (operator-release.yml, design-arch.md 8)"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "electron": "^33.2.0",
+    "typescript": "^5.7.2"
+  },
+  "x-notes": [
+    "CommonJS on purpose (no \"type\": \"module\"): Electron main/preload compile to CJS — the monorepo-wide ESM rule's one exception.",
+    "sharp ^0.33 is NOT installed yet — added in W3 for the ESC/POS 1-bit raster print pipeline (design-arch.md 6.1).",
+    "electron-builder + electron-updater are added when operator-release.yml lands (design-arch.md 8); config already drafted in electron-builder.yml.",
+    "Auto-update scheduling machinery is CUT from phase 1 (plan cut #7) — plain electron-updater only, no update windows."
+  ]
+}

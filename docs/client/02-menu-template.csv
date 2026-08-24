@@ -1,0 +1,7 @@
+category_en,category_ar,item_en,item_ar,description_en,description_ar,size_en,size_ar,price_iqd,modifier_group_en,modifier_group_ar,modifier_option_en,modifier_option_ar,modifier_price_delta_iqd,allergens
+Hot Drinks,مشروبات ساخنة,Cappuccino,كابتشينو,Double shot with steamed milk,جرعتان مع حليب مبخر,Regular,عادي,5000,,,,,,dairy
+Hot Drinks,مشروبات ساخنة,Cappuccino,كابتشينو,Double shot with steamed milk,جرعتان مع حليب مبخر,Large,كبير,7000,,,,,,dairy
+Hot Drinks,مشروبات ساخنة,Cappuccino,كابتشينو,,,Large,كبير,7000,Milk,الحليب,Oat milk,حليب الشوفان,1000,dairy
+Hot Drinks,مشروبات ساخنة,Cappuccino,كابتشينو,,,Large,كبير,7000,Extras,إضافات,Extra shot,جرعة إضافية,2000,dairy
+Cold Drinks,مشروبات باردة,Fresh Orange Juice,عصير برتقال طازج,Squeezed to order,يعصر عند الطلب,Regular,عادي,6000,,,,,,
+Food,طعام,Chicken Wrap,راب دجاج,Grilled chicken with garlic sauce,دجاج مشوي مع صوص الثوم,Regular,عادي,9000,Extras,إضافات,Extra fries,بطاطا إضافية,3000,"gluten,dairy"
