@@ -82,6 +82,66 @@ supabase db push                      # applies all migrations in order
 as staging at handover, or every printed QR dies. Enable **pg_cron** on the hosted
 project before pushing 0017. Rotate JWT secret → re-issue table tokens (budgeted W5).
 
+## Edge functions (`supabase/functions/`)
+
+`send-push` (outbox sender for Expo notifications, migration 0024) and `replay`
+(idempotent replay endpoint for the till's durable queue, design-arch §2.2), plus
+`_shared/` helpers. Nothing here runs at build time — deploy explicitly:
+
+```sh
+cd packages/db
+pnpm exec supabase functions deploy send-push replay   # hosted (linked project)
+pnpm exec supabase functions serve                     # local, against supabase start
+```
+
+Secrets: both functions use only the platform-injected `SUPABASE_URL` /
+`SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — no `supabase secrets set` needed.
+
+### Cron for send-push
+
+The sender is pull-based: nothing sends until something invokes it. Schedule it
+every minute (Dashboard → Integrations → Cron, or SQL with pg_cron + pg_net):
+
+```sql
+select cron.schedule('send-push-outbox', '* * * * *', $$
+  select net.http_post(
+    url     := 'https://<project-ref>.supabase.co/functions/v1/send-push',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets
+                                      where name = 'service_role_key')),
+    body    := '{}'::jsonb)
+$$);
+```
+
+Store the service-role key in Vault as `service_role_key` first (never inline it
+in cron SQL — `cron.job` is readable). The function rejects any caller that is
+not the service role, retries failed rows each run, caps at 5 attempts, and
+clears dead Expo tokens (`DeviceNotRegistered`) from `profiles`.
+
+### Replay endpoint
+
+`POST /functions/v1/replay` with a **staff session JWT** and body
+`{ idempotency_key, mutation_type, payload, station_id, staff_id }`.
+Duplicate key → stored result, 200. Exclusion conflict → 409 + `sync_replays`
+conflict row + `manager_alerts('replay_conflict')`. The mutation_type → RPC map
+in `functions/replay/index.ts` mirrors `packages/core/src/schemas/mutations.ts`
+— extend both together. Drop-2/3 entries are name-mapped ahead of their
+migrations and return 501 `RPC_NOT_DEPLOYED` until those RPCs land.
+
+## QR artwork (`scripts/qr-artwork.mjs`)
+
+Print-ready A6 SVG card per active `cafe_table` (Touch Cafe branding, huge table
+number, QR of `${SITE_URL}/t/<token>` signed by `app.generate_table_token`):
+
+```sh
+# needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (+ SITE_URL for real prints)
+pnpm --filter @touch/db qr:artwork      # writes packages/db/artwork/table-*.svg
+```
+
+`artwork/` is generated output — keep it gitignored. Token rotation
+(`cafe_tables.token_version` bump) invalidates printed cards: re-run + reprint.
+
 ## Tests
 
 - `tests/concurrency.test.ts` — the contractual acceptance suite (design-data.md §6.1
