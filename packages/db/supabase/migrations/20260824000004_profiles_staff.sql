@@ -58,11 +58,13 @@ create trigger on_auth_user_created
   for each row execute function app.handle_new_user();
 
 -- ---------------------------------------------------------------------------
--- PIN attempt rate limiting: 5 failures / 5 minutes per device => PIN_LOCKED.
--- Unlogged: throwaway telemetry, lives in `app`, definer-only access.
+-- PIN attempt rate limiting: 5 failures / 5 minutes per CALLER => PIN_LOCKED.
+-- device_id stores the composite key '{auth.uid()}:{client device id}' (0026):
+-- the client-supplied device id alone let a cashier rotate ids for unlimited
+-- guesses. Unlogged: throwaway telemetry, lives in `app`, definer-only access.
 -- ---------------------------------------------------------------------------
 create unlogged table app.pin_attempts (
-  device_id    text not null,
+  device_id    text not null,                   -- '{caller uid}:{device id}' composite (0026)
   attempted_at timestamptz not null default now(),
   success      boolean not null
 );
@@ -70,8 +72,9 @@ create index pin_attempts_device_at on app.pin_attempts (device_id, attempted_at
 
 -- ---------------------------------------------------------------------------
 -- app.set_staff_pin — owner-only. PINs are 4-6 digits, bcrypt-hashed.
--- (Audit row for pin changes is added when app.write_audit lands in 0005 — the
--- 0019 hardening sweep re-checks this.)
+-- Writes a 'staff.pin_set' audit row (0026) — never any PIN material.
+-- app.write_audit lands in 0005; plpgsql bodies resolve object references at
+-- call time, so the forward reference is safe on a fresh run.
 -- ---------------------------------------------------------------------------
 create or replace function app.set_staff_pin(p_staff_id uuid, p_pin text) returns void
 language plpgsql security definer set search_path = public as $$
@@ -90,6 +93,9 @@ begin
     raise exception 'STAFF_NOT_FOUND' using errcode = 'P0001',
       hint = 'PINs exist for active managers/owners only';
   end if;
+  -- Audit the CHANGE, never the PIN (0026).
+  perform app.write_audit('staff.pin_set', 'staff', p_staff_id::text,
+                          null, jsonb_build_object('staff_id', p_staff_id));
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -101,13 +107,21 @@ create or replace function app.verify_manager_pin(p_pin text, p_device_id text d
 returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
-  v_dev   text := coalesce(p_device_id, 'unknown');
-  v_fails int;
-  v_id    uuid;
+  v_caller text := coalesce(auth.uid()::text, 'anon');
+  v_key    text;
+  v_fails  int;
+  v_id     uuid;
 begin
+  -- RATE-LIMIT KEY (0026): p_device_id is client-supplied, so keying on it
+  -- alone let a caller rotate device ids for unlimited guesses. Attempts are
+  -- stored under '{caller}:{device}' and failures are COUNTED per caller
+  -- (prefix match across all that caller's devices): 5 fails / 5 min / caller.
+  v_key := v_caller || ':' || coalesce(p_device_id, 'unknown');
+
   select count(*) into v_fails
     from app.pin_attempts
-   where device_id = v_dev and not success
+   where device_id like v_caller || ':%'
+     and not success
      and attempted_at > now() - interval '5 minutes';
   if v_fails >= 5 then
     raise exception 'PIN_LOCKED' using errcode = 'P0001';
@@ -120,7 +134,7 @@ begin
      and pin_hash = extensions.crypt(p_pin, pin_hash)
    limit 1;
 
-  insert into app.pin_attempts (device_id, success) values (v_dev, v_id is not null);
+  insert into app.pin_attempts (device_id, success) values (v_key, v_id is not null);
 
   -- Returns NULL on an invalid PIN instead of raising: a raise would roll back
   -- the attempt row above (PostgREST wraps each RPC in one transaction) and the

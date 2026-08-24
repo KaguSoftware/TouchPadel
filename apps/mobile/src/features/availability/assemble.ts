@@ -62,6 +62,9 @@ export interface VenueSettingsPublic {
   opening_hours: unknown;
   closed_dates: string[] | null;
   cancellation_window_hours: number | null;
+  /** Venue contact number for the degraded-mode message. Optional: the column
+   *  lands with a later migration — treat null/absent identically. */
+  phone?: string | null;
 }
 
 export const DEFAULT_TZ = 'Asia/Baghdad';

@@ -96,6 +96,70 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- app.assert_bookable (0026) — closed dates + venue-local opening hours guard.
+-- Walks every venue-local calendar day the half-open range [start, end)
+-- touches: a closed date raises CLOSED_DATE; each day's segment must fit
+-- entirely inside ONE opening_hours window ([start, end] half-open — a booking
+-- may end exactly at closing) or OUTSIDE_HOURS raises. p_court_id is unused
+-- today (venue-wide hours) but kept for per-court hours later.
+-- Called FIRST in hold_slot and staff_create_reservation (maintenance exempt:
+-- blocking time on a closed day is legitimate).
+-- ---------------------------------------------------------------------------
+create or replace function app.assert_bookable(
+  p_court_id uuid,
+  p_start_at timestamptz,
+  p_end_at   timestamptz
+) returns void
+language plpgsql stable security definer set search_path = public as $$
+declare
+  v_tz      text;
+  v_closed  date[];
+  v_hours   jsonb;
+  v_ls      timestamp;                          -- venue-local wall clock
+  v_le      timestamp;
+  v_day     date;
+  v_seg_s   interval;                           -- segment bounds since local midnight
+  v_seg_e   interval;
+  v_win     jsonb;
+  v_ok      boolean;
+begin
+  select timezone, closed_dates, opening_hours into v_tz, v_closed, v_hours
+    from venue_settings;
+  v_ls := p_start_at at time zone coalesce(v_tz, 'Asia/Baghdad');
+  v_le := p_end_at   at time zone coalesce(v_tz, 'Asia/Baghdad');
+
+  for v_day in
+    select d::date
+      from generate_series(v_ls::date, (v_le - interval '1 microsecond')::date,
+                           interval '1 day') d
+  loop
+    if v_day = any (coalesce(v_closed, '{}')) then
+      raise exception 'CLOSED_DATE' using errcode = 'P0001',
+        detail = v_day::text, hint = 'the venue is closed on this date';
+    end if;
+
+    v_seg_s := greatest(v_ls, v_day::timestamp) - v_day::timestamp;
+    v_seg_e := least(v_le, (v_day + 1)::timestamp) - v_day::timestamp;
+
+    v_ok := false;
+    for v_win in
+      select * from jsonb_array_elements(
+        coalesce(v_hours -> lower(to_char(v_day, 'Dy')), '[]'::jsonb))
+    loop
+      if v_seg_s >= (v_win ->> 0)::interval and v_seg_e <= (v_win ->> 1)::interval then
+        v_ok := true;
+        exit;
+      end if;
+    end loop;
+    if not v_ok then
+      raise exception 'OUTSIDE_HOURS' using errcode = 'P0001',
+        detail = format('%s local %s-%s', v_day, v_seg_s, v_seg_e),
+        hint = 'outside venue opening hours';
+    end if;
+  end loop;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- app.hold_slot — guest (mobile) creates a TTL hold on a slot.
 -- Exactly one concurrent caller wins: exclusion violation is mapped to SLOT_TAKEN.
 -- ---------------------------------------------------------------------------
@@ -139,14 +203,19 @@ begin
   if not (p_duration_min = any (v_court.duration_options)) then
     raise exception 'INVALID_DURATION' using errcode = 'P0001';
   end if;
+
+  v_end := p_start_at + make_interval(mins => p_duration_min);
+  v_period := tstzrange(p_start_at, v_end, '[)');
+
+  -- BOOKING-HOURS GUARD (0026): closed dates + venue-local opening hours,
+  -- ahead of every other business gate.
+  perform app.assert_bookable(p_court_id, p_start_at, v_end);
+
   if p_start_at <= now() then
     raise exception 'SLOT_IN_PAST' using errcode = 'P0001';
   end if;
 
   perform app.assert_not_degraded_for(p_start_at);
-
-  v_end := p_start_at + make_interval(mins => p_duration_min);
-  v_period := tstzrange(p_start_at, v_end, '[)');
 
   -- Lazy expiry: clear any expired-hold corpse in this range before inserting.
   perform app.expire_stale_holds(p_court_id, v_period);
@@ -268,19 +337,23 @@ end $$;
 
 -- ---------------------------------------------------------------------------
 -- app.staff_create_reservation — desk creates booking / hold / maintenance.
+-- 0026: booking-hours guard (maintenance exempt) + unpriced bookings raise
+-- NO_RATE unless a manager/owner passes p_price_override_iqd (audited with
+-- reason 'price_override' — applied_by and the value are both recorded).
 -- ---------------------------------------------------------------------------
 create or replace function app.staff_create_reservation(
-  p_court_id        uuid,
-  p_kind            reservation_kind,
-  p_start_at        timestamptz,
-  p_end_at          timestamptz,
-  p_guest_name      text default null,
-  p_guest_phone     text default null,
-  p_guest_id        uuid default null,
-  p_notes           text default null,
-  p_idempotency_key text default null,
-  p_client_ref      text default null,
-  p_device_id       text default null
+  p_court_id           uuid,
+  p_kind               reservation_kind,
+  p_start_at           timestamptz,
+  p_end_at             timestamptz,
+  p_guest_name         text default null,
+  p_guest_phone        text default null,
+  p_guest_id           uuid default null,
+  p_notes              text default null,
+  p_idempotency_key    text default null,
+  p_client_ref         text default null,
+  p_device_id          text default null,
+  p_price_override_iqd bigint default null
 ) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -308,6 +381,12 @@ begin
     end if;
   end if;
 
+  -- BOOKING-HOURS GUARD (0026): maintenance is exempt — blocking time on a
+  -- closed day (repairs, private events) is legitimate.
+  if p_kind <> 'maintenance' then
+    perform app.assert_bookable(p_court_id, p_start_at, p_end_at);
+  end if;
+
   if p_kind = 'booking' and p_guest_id is null and p_guest_name is null then
     raise exception 'GUEST_REQUIRED' using errcode = 'P0001';
   end if;
@@ -324,8 +403,22 @@ begin
     v_dur := (extract(epoch from (p_end_at - p_start_at)) / 60)::int;
     select ps.rule_id, ps.price_iqd into v_rule, v_price
       from app.price_slot(p_court_id, p_start_at, v_dur) ps;
-    -- Desk may book durations no rule prices (odd ranges): price stays null and
-    -- the audit row records it; a price override RPC lands with the till drop.
+    if p_price_override_iqd is not null then
+      -- Explicit price under manager/owner authority (odd ranges no rule
+      -- prices, or a deliberate override). Audited below.
+      if not app.is_staff('manager','owner') then
+        raise exception 'FORBIDDEN' using errcode = 'P0001',
+          hint = 'price overrides are manager/owner only';
+      end if;
+      if p_price_override_iqd < 0 then
+        raise exception 'INVALID_PRICE' using errcode = 'P0001';
+      end if;
+      v_price := p_price_override_iqd;
+    elsif v_rule is null then
+      -- 0026: an unpriced booking is never stored silently any more.
+      raise exception 'NO_RATE' using errcode = 'P0001',
+        hint = 'no rate rule prices this range - a manager/owner may pass p_price_override_iqd';
+    end if;
   end if;
 
   begin
@@ -355,6 +448,15 @@ begin
   perform app.write_audit('reservation.create', 'reservations', v_res.id::text,
                           null, to_jsonb(v_res), null, null, p_device_id);
 
+  if p_kind = 'booking' and p_price_override_iqd is not null then
+    perform app.write_audit('reservation.price_override', 'reservations', v_res.id::text,
+                            null,
+                            jsonb_build_object('price_override_iqd', p_price_override_iqd,
+                                               'applied_by', auth.uid(),
+                                               'rate_rule_id', v_rule),
+                            'price_override', null, p_device_id);
+  end if;
+
   return jsonb_build_object('duplicate', false, 'reservation_id', v_res.id,
     'status', v_res.status, 'rate_rule_id', v_rule, 'price_iqd', v_price);
 end $$;
@@ -366,7 +468,8 @@ create or replace function app.move_reservation(
   p_reservation_id uuid,
   p_court_id       uuid default null,
   p_start_at       timestamptz default null,
-  p_end_at         timestamptz default null
+  p_end_at         timestamptz default null,
+  p_reason         text default 'staff_op'      -- recorded in the audit row (0026)
 ) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -409,7 +512,7 @@ begin
   end;
 
   perform app.write_audit('reservation.move', 'reservations', v.id::text,
-                          v_before, to_jsonb(v));
+                          v_before, to_jsonb(v), coalesce(p_reason, 'staff_op'));
 
   return jsonb_build_object('reservation_id', v.id, 'court_id', v.court_id,
     'start_at', v.start_at, 'end_at', v.end_at);
@@ -420,7 +523,8 @@ end $$;
 -- ---------------------------------------------------------------------------
 create or replace function app.extend_reservation(
   p_reservation_id uuid,
-  p_new_end_at     timestamptz
+  p_new_end_at     timestamptz,
+  p_reason         text default 'staff_op'      -- recorded in the audit row (0026)
 ) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -457,7 +561,7 @@ begin
   end;
 
   perform app.write_audit('reservation.extend', 'reservations', v.id::text,
-                          v_before, to_jsonb(v));
+                          v_before, to_jsonb(v), coalesce(p_reason, 'staff_op'));
 
   return jsonb_build_object('reservation_id', v.id, 'end_at', v.end_at);
 end $$;
@@ -520,7 +624,8 @@ end $$;
 -- ---------------------------------------------------------------------------
 create or replace function app.mark_reservation(
   p_reservation_id uuid,
-  p_status         reservation_status
+  p_status         reservation_status,
+  p_reason         text default 'staff_op'      -- recorded in the audit row (0026)
 ) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
@@ -552,7 +657,8 @@ begin
    returning * into v;
 
   perform app.write_audit('reservation.mark_' || p_status::text, 'reservations',
-                          v.id::text, v_before, to_jsonb(v));
+                          v.id::text, v_before, to_jsonb(v),
+                          coalesce(p_reason, 'staff_op'));
 
   return jsonb_build_object('reservation_id', v.id, 'status', v.status);
 end $$;
@@ -587,6 +693,8 @@ grant execute on function app.is_degraded() to anon, authenticated;
 
 revoke all on function app.assert_not_degraded_for(timestamptz) from public, anon, authenticated;
 
+revoke all on function app.assert_bookable(uuid, timestamptz, timestamptz) from public, anon, authenticated;
+
 revoke all on function app.expire_stale_holds(uuid, tstzrange) from public, anon;
 grant execute on function app.expire_stale_holds(uuid, tstzrange) to authenticated;
 
@@ -596,17 +704,17 @@ grant execute on function app.hold_slot(uuid, timestamptz, int, text, text, text
 revoke all on function app.confirm_booking(uuid, text, text) from public, anon;
 grant execute on function app.confirm_booking(uuid, text, text) to authenticated;
 
-revoke all on function app.staff_create_reservation(uuid, reservation_kind, timestamptz, timestamptz, text, text, uuid, text, text, text, text) from public, anon;
-grant execute on function app.staff_create_reservation(uuid, reservation_kind, timestamptz, timestamptz, text, text, uuid, text, text, text, text) to authenticated;
+revoke all on function app.staff_create_reservation(uuid, reservation_kind, timestamptz, timestamptz, text, text, uuid, text, text, text, text, bigint) from public, anon;
+grant execute on function app.staff_create_reservation(uuid, reservation_kind, timestamptz, timestamptz, text, text, uuid, text, text, text, text, bigint) to authenticated;
 
-revoke all on function app.move_reservation(uuid, uuid, timestamptz, timestamptz) from public, anon;
-grant execute on function app.move_reservation(uuid, uuid, timestamptz, timestamptz) to authenticated;
+revoke all on function app.move_reservation(uuid, uuid, timestamptz, timestamptz, text) from public, anon;
+grant execute on function app.move_reservation(uuid, uuid, timestamptz, timestamptz, text) to authenticated;
 
-revoke all on function app.extend_reservation(uuid, timestamptz) from public, anon;
-grant execute on function app.extend_reservation(uuid, timestamptz) to authenticated;
+revoke all on function app.extend_reservation(uuid, timestamptz, text) from public, anon;
+grant execute on function app.extend_reservation(uuid, timestamptz, text) to authenticated;
 
 revoke all on function app.cancel_reservation(uuid, text) from public, anon;
 grant execute on function app.cancel_reservation(uuid, text) to authenticated;
 
-revoke all on function app.mark_reservation(uuid, reservation_status) from public, anon;
-grant execute on function app.mark_reservation(uuid, reservation_status) to authenticated;
+revoke all on function app.mark_reservation(uuid, reservation_status, text) from public, anon;
+grant execute on function app.mark_reservation(uuid, reservation_status, text) to authenticated;

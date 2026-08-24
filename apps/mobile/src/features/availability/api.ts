@@ -16,12 +16,12 @@ import type {
 type Client = SupabaseClient<Database>;
 
 export async function fetchVenueSettings(client: Client): Promise<VenueSettingsPublic> {
-  const { data, error } = await client
-    .from('venue_settings_public')
-    .select('venue_name, timezone, opening_hours, closed_dates, cancellation_window_hours')
-    .single();
+  // '*' rather than an explicit column list: `phone` is being added to the
+  // view — selecting it by name would 400 on a stack where the migration has
+  // not landed yet, while '*' degrades to phone-less settings.
+  const { data, error } = await client.from('venue_settings_public').select('*').single();
   if (error) throw error;
-  return data as VenueSettingsPublic;
+  return data as unknown as VenueSettingsPublic;
 }
 
 export async function fetchCourts(client: Client): Promise<CourtRow[]> {

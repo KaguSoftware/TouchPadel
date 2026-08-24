@@ -20,6 +20,7 @@ const item: MenuItem = {
   photo_path: null,
   sort_order: 1,
   orderable: true,
+  suggestedItemIds: [],
   variants: [
     { id: 'v-s', name_en: 'Small', name_ar: 'صغير', price_iqd: 4000, is_default: true, sort_order: 1 },
     { id: 'v-l', name_en: 'Large', name_ar: 'كبير', price_iqd: 5500, is_default: false, sort_order: 2 },

@@ -27,11 +27,12 @@ import { isDegradedRefusal, mapErrorToKey } from '../../src/features/booking/err
 import { theme, slotColors } from '../../src/theme';
 import { Button, ErrorText, Hint, Loading, Screen } from '../../src/components/ui';
 
-// TODO: venue phone for the degraded message — venue_settings_public carries no
-// phone column yet; falls back to degraded.bookingRefusedShort until it does.
+// Venue phone for the degraded message (venue_settings_public.phone).
+// Defensive: the column may be null or absent on an older stack — fall back to
+// degraded.bookingRefusedShort in that case.
 function venuePhoneOf(settings: unknown): string | null {
-  const p = (settings as { venue_phone?: unknown } | undefined)?.venue_phone;
-  return typeof p === 'string' && p.length > 0 ? p : null;
+  const p = (settings as { phone?: unknown } | null | undefined)?.phone;
+  return typeof p === 'string' && p.trim().length > 0 ? p : null;
 }
 
 /** Day availability grid: date picker (today + 14) x per-court priced slots. */

@@ -448,16 +448,15 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'menu_item_availability',
-    // KNOWN DEFECT (documented, not desired): the 0018 stock-aware view calls
-    // app.item_required_ingredients / app.ingredient_on_hand, whose EXECUTE was
-    // revoked from anon/authenticated — Postgres checks function EXECUTE against
-    // the CALLING role even in a security_invoker=off view, so every client gets
-    // "permission denied for function item_required_ingredients". Design intent
-    // (§1.4) is public 'rows'; fix = grant EXECUTE on those two functions to
-    // anon+authenticated (they leak nothing) in a follow-up migration, then flip
-    // this row back to ex('rows').
-    expect: ex<SelectExpectation>('denied'),
-    note: 'DEFECT PIN: stock-aware availability view unusable by clients (0018 function grants)',
+    // FIXED by 0025: the 0018 view called app.item_required_ingredients /
+    // app.ingredient_on_hand, whose EXECUTE was revoked from anon/authenticated
+    // (Postgres checks function EXECUTE against the CALLING role even in a
+    // security_invoker=off view) — every client got "permission denied". 0025
+    // wraps the logic in ONE granted SECURITY DEFINER function
+    // (app.menu_availability) and points the view at it; the internal helpers
+    // stay revoked. Design intent (§1.4) restored: public 'rows'.
+    expect: ex<SelectExpectation>('rows'),
+    note: 'stock-aware availability is public (0025 wrapper fn; internal helpers stay revoked)',
     drop: 3,
   },
   {

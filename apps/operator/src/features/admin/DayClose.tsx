@@ -28,6 +28,17 @@ interface CloseSummary {
   card_expected_iqd: number;
   card_terminal_batch_iqd: number | null;
 }
+/** v_day_close_summary (0020) — audit sums with authorizer names. */
+interface DayCloseSummaryRow {
+  discounts_iqd: number;
+  adjustment_count: number;
+  authorizer_names: string[] | null;
+  voided_lines_iqd: number;
+  voided_line_count: number;
+  refunds_iqd: number;
+  refund_count: number;
+  waste_cost_iqd: number;
+}
 
 export function DayClose() {
   const { tr, locale } = useLocale();
@@ -121,7 +132,26 @@ export function DayClose() {
   const blockedByTabs =
     error instanceof AppRpcError && error.code === 'DAY_OPEN_TABS' ? openTabsQ.data ?? [] : [];
 
+  // Day-close audit summary (v_day_close_summary, 0020): discounts / voids /
+  // refunds / waste with authorizer names — rendered after a successful close.
+  const auditQ = useQuery({
+    queryKey: ['dayCloseSummary', summary?.day_session_id],
+    enabled: Boolean(summary),
+    queryFn: async (): Promise<DayCloseSummaryRow | null> => {
+      const { data, error: err } = await supabase
+        .from('v_day_close_summary')
+        .select(
+          'discounts_iqd, adjustment_count, authorizer_names, voided_lines_iqd, voided_line_count, refunds_iqd, refund_count, waste_cost_iqd',
+        )
+        .eq('day_session_id', summary?.day_session_id ?? '')
+        .maybeSingle();
+      if (err) throw err;
+      return data as unknown as DayCloseSummaryRow | null;
+    },
+  });
+
   if (summary) {
+    const audit = auditQ.data ?? null;
     return (
       <div style={{ ...card, maxInlineSize: '26rem' }}>
         <h3 style={{ marginBlockStart: 0 }}>{tr('op.dayClose.closedOk')}</h3>
@@ -134,6 +164,32 @@ export function DayClose() {
         <SummaryRow label={tr('op.dayClose.cardExpected')} value={formatIQD(summary.card_expected_iqd, locale)} />
         {summary.card_terminal_batch_iqd != null && (
           <SummaryRow label={tr('op.dayClose.cardBatch')} value={formatIQD(summary.card_terminal_batch_iqd, locale)} />
+        )}
+        {audit && (
+          <>
+            <hr style={{ border: 'none', borderBlockStart: '1px solid var(--tp-border)' }} />
+            <h4 style={{ marginBlock: '0.3rem', fontSize: '0.95rem' }}>{tr('op.dayClose.summaryTitle')}</h4>
+            <SummaryRow
+              label={tr('op.dayClose.discounts', { count: audit.adjustment_count })}
+              value={formatIQD(audit.discounts_iqd, locale)}
+            />
+            <SummaryRow
+              label={tr('op.dayClose.voids', { count: audit.voided_line_count })}
+              value={formatIQD(audit.voided_lines_iqd, locale)}
+            />
+            <SummaryRow
+              label={tr('op.dayClose.refunds', { count: audit.refund_count })}
+              value={formatIQD(audit.refunds_iqd, locale)}
+            />
+            <SummaryRow label={tr('op.dayClose.waste')} value={formatIQD(audit.waste_cost_iqd, locale)} />
+            {(audit.authorizer_names ?? []).length > 0 && (
+              <p style={{ marginBlock: '0.3rem', fontSize: '0.85rem', color: 'var(--tp-muted-fg)' }}>
+                {tr('op.dayClose.authorizedBy', {
+                  names: (audit.authorizer_names ?? []).join(locale === 'ar' ? '، ' : ', '),
+                })}
+              </p>
+            )}
+          </>
         )}
       </div>
     );

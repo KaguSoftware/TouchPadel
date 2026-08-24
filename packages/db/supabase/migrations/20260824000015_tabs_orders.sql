@@ -861,7 +861,16 @@ begin
    where id = p_tab_id
    returning * into v_tab;
 
-  select coalesce(sum(amount_iqd), 0) into v_paid from payments where tab_id = p_tab_id;
+  -- Paid NET of refunds (0026): a refunded payment no longer counts toward the
+  -- bill, so the refund-then-void unwind path can settle the remainder instead
+  -- of dead-ending on ALREADY_PAID.
+  select coalesce(sum(p.amount_iqd), 0)
+       - coalesce((select sum(r.amount_iqd)
+                     from refunds r
+                     join payments p2 on p2.id = r.payment_id
+                    where p2.tab_id = p_tab_id), 0)
+    into v_paid
+    from payments p where p.tab_id = p_tab_id;
   v_due := v_tab.total_iqd - v_paid;
   if v_due <= 0 then
     raise exception 'ALREADY_PAID' using errcode = 'P0001';
@@ -1086,6 +1095,10 @@ end $$;
 -- app.void_after_send — PIN-gated. The item is STRUCK, never deleted; if the
 -- whole order is struck the order + ticket flip to 'voided'.
 -- (Void BEFORE send does not exist server-side: drafts never hit the server.)
+-- 0026: a void that would drop the tab total below what is already paid (net
+-- of refunds) raises VOID_REQUIRES_REFUND — otherwise the tab could never be
+-- settled (due <= 0 forever) and would block day close forever. The unwind
+-- path is app.refund first, then void, then settle the remainder.
 -- ---------------------------------------------------------------------------
 create or replace function app.void_after_send(
   p_order_item_id uuid,
@@ -1095,11 +1108,13 @@ create or replace function app.void_after_send(
 ) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
-  v_auth   uuid;
-  v_oi     order_items%rowtype;
-  v_order  orders%rowtype;
-  v_tab    tabs%rowtype;
-  v_before jsonb;
+  v_auth      uuid;
+  v_oi        order_items%rowtype;
+  v_order     orders%rowtype;
+  v_tab       tabs%rowtype;
+  v_before    jsonb;
+  v_paid      bigint;
+  v_new_total bigint;
 begin
   if not app.is_staff('cashier','manager','owner') then
     raise exception 'FORBIDDEN' using errcode = 'P0001';
@@ -1134,6 +1149,25 @@ begin
      set voided = true, void_reason_code = p_reason_code
    where id = p_order_item_id
    returning * into v_oi;
+
+  -- VOID-AFTER-PAYMENT GUARD (0026): with the line struck, the tab total must
+  -- still cover what has already been paid net of refunds — otherwise raise
+  -- (rolling the void back). app.refund is the unwind path.
+  select coalesce(sum(p.amount_iqd), 0)
+       - coalesce((select sum(r.amount_iqd)
+                     from refunds r
+                     join payments p2 on p2.id = r.payment_id
+                    where p2.tab_id = v_tab.id), 0)
+    into v_paid
+    from payments p where p.tab_id = v_tab.id;
+  if v_paid > 0 then
+    select t.total_iqd into v_new_total from app.compute_tab_totals(v_tab.id) t;
+    if v_new_total < v_paid then
+      raise exception 'VOID_REQUIRES_REFUND' using errcode = 'P0001',
+        detail = format('paid %s, post-void total %s', v_paid, v_new_total),
+        hint = 'refund the difference via app.refund before voiding';
+    end if;
+  end if;
 
   -- STOCK HOOK (0018): a 'void_after_send' waste movement per consumed
   -- ingredient of this line is wired here by the stock drop (the food was

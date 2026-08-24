@@ -15,11 +15,16 @@ export function ItemSheet({
   locale,
   onAdd,
   onClose,
+  suggestions = [],
+  onAddSuggestion,
 }: {
   item: MenuItem;
   locale: Locale;
   onAdd: (line: BasketLine) => void;
   onClose: () => void;
+  /** Resolved, orderable addon_suggestions for this item ("goes well with"). */
+  suggestions?: MenuItem[];
+  onAddSuggestion?: (item: MenuItem) => void;
 }) {
   const tr = useMemo(() => makeT(locale), [locale]);
   const ar = locale === 'ar';
@@ -150,6 +155,29 @@ export function ItemSheet({
             ))}
           </div>
         ))}
+
+        {suggestions.length > 0 && onAddSuggestion && (
+          <div className="tp-sheet__group">
+            <h3>{tr('cafe.goesWellWith')}</h3>
+            <div className="tp-chips">
+              {suggestions.map((s) => {
+                const def = s.variants.find((v) => v.is_default) ?? s.variants[0];
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="tp-chip"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => onAddSuggestion(s)}
+                  >
+                    + {ar ? s.name_ar : s.name_en}
+                    {def ? ` · ${formatIQD(def.price_iqd, locale)}` : ''}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="tp-sheet__group">
           <h3>{tr('cafe.notesLabel')}</h3>

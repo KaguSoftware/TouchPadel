@@ -21,7 +21,8 @@ create table device_heartbeats (
   device_id    text primary key,               -- 'TILL-01', 'DESK-01', 'KDS-01'
   last_seen_at timestamptz not null default now(),
   queue_depth  int not null default 0,         -- unreplayed offline writes on the device
-  app_version  text
+  app_version  text,
+  is_till      boolean not null default false  -- 0026: explicit till flag; 'TILL%' names still count (back-compat)
 );
 
 create table degraded_periods (
@@ -54,10 +55,13 @@ create trigger sync_replays_ao
 -- ---------------------------------------------------------------------------
 create or replace function app.is_degraded() returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from device_heartbeats where device_id like 'TILL%')
+  -- A till is a row flagged is_till (0026) OR named 'TILL%' (back-compat with
+  -- clients that predate the flag).
+  select exists (select 1 from device_heartbeats
+                  where is_till or device_id like 'TILL%')
      and not exists (
        select 1 from device_heartbeats
-        where device_id like 'TILL%'
+        where (is_till or device_id like 'TILL%')
           and last_seen_at > now() - make_interval(
                 secs => (select heartbeat_stale_seconds from venue_settings))
      )
@@ -89,7 +93,8 @@ end $$;
 create or replace function app.heartbeat(
   p_device_id   text,
   p_queue_depth int default 0,
-  p_app_version text default null
+  p_app_version text default null,
+  p_is_till     boolean default false           -- 0026: explicit till identification
 ) returns jsonb
 language plpgsql security definer set search_path = public as $$
 begin
@@ -100,12 +105,16 @@ begin
     raise exception 'DEVICE_REQUIRED' using errcode = 'P0001';
   end if;
 
-  insert into device_heartbeats (device_id, last_seen_at, queue_depth, app_version)
-  values (p_device_id, now(), greatest(coalesce(p_queue_depth, 0), 0), p_app_version)
+  insert into device_heartbeats (device_id, last_seen_at, queue_depth, app_version, is_till)
+  values (p_device_id, now(), greatest(coalesce(p_queue_depth, 0), 0), p_app_version,
+          coalesce(p_is_till, false))
   on conflict (device_id) do update
      set last_seen_at = excluded.last_seen_at,
          queue_depth  = excluded.queue_depth,
-         app_version  = coalesce(excluded.app_version, device_heartbeats.app_version);
+         app_version  = coalesce(excluded.app_version, device_heartbeats.app_version),
+         -- Sticky: once a device has identified as a till it stays one — an
+         -- older client build omitting the flag must not undo detection.
+         is_till      = device_heartbeats.is_till or excluded.is_till;
 
   perform app.sweep_degraded_periods();
 
@@ -324,8 +333,8 @@ grant execute on function app.is_degraded() to anon, authenticated;
 revoke all on function app.sweep_degraded_periods() from public, anon, authenticated;
 revoke all on function app.flag_expired_batches() from public, anon, authenticated;
 
-revoke all on function app.heartbeat(text, int, text) from public, anon;
-grant execute on function app.heartbeat(text, int, text) to authenticated;
+revoke all on function app.heartbeat(text, int, text, boolean) from public, anon;
+grant execute on function app.heartbeat(text, int, text, boolean) to authenticated;
 
 revoke all on function app.venue_mode() from public;
 grant execute on function app.venue_mode() to anon, authenticated;

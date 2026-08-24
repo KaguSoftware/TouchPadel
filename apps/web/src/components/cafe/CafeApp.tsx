@@ -10,6 +10,7 @@ import { fetchMenu, type MenuCategory, type MenuItem } from '@/lib/menu';
 import {
   basketCount,
   basketTotal,
+  buildLine,
   loadDraft,
   saveDraft,
   toOrderPayload,
@@ -37,6 +38,56 @@ type Phase =
 
 const VENUE_MODE_POLL_MS = 30_000;
 const WAITER_POLL_MS = 20_000;
+
+type BootResult =
+  | { name: 'invalid' }
+  | { name: 'error' }
+  | { name: 'ready'; session: SessionInfo };
+
+/**
+ * One shared boot per token (module scope). React 18 StrictMode double-mounts
+ * the boot effect in dev, and two PARALLEL anonymous sign-ins mint two anon
+ * users racing for the auth cookie — the page could then bind its state to the
+ * session whose user LOST the cookie race, after which its own orders/status
+ * are invisible (RLS scopes them to the cookie's user). Sharing the in-flight
+ * promise makes any concurrent mount reuse the first sign-in + table session.
+ */
+const bootCache = new Map<string, Promise<BootResult>>();
+
+function bootSession(sb: BrowserSupabase, token: string): Promise<BootResult> {
+  const cached = bootCache.get(token);
+  if (cached) return cached;
+  const p = (async (): Promise<BootResult> => {
+    const { data: sessionData } = await sb.auth.getSession();
+    if (!sessionData.session) {
+      const { error } = await sb.auth.signInAnonymously();
+      if (error) return { name: 'error' };
+    }
+    const { data, error } = await appRpc(sb, 'open_table_session', { p_token: token });
+    if (error) return isRpcError(error, 'TOKEN_INVALID') ? { name: 'invalid' } : { name: 'error' };
+    const row = data as {
+      session_id: string;
+      table_id: string;
+      table_number: string;
+      expires_at: string;
+    };
+    return {
+      name: 'ready',
+      session: {
+        sessionId: row.session_id,
+        tableId: row.table_id,
+        tableNumber: row.table_number,
+        expiresAt: row.expires_at,
+      },
+    };
+  })().catch((): BootResult => ({ name: 'error' }));
+  bootCache.set(token, p);
+  // Only a successful boot stays cached — "Try again" must retry for real.
+  void p.then((r) => {
+    if (r.name !== 'ready') bootCache.delete(token);
+  });
+  return p;
+}
 
 export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
   const tr = useMemo(() => makeT(locale), [locale]);
@@ -66,39 +117,11 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
   // ------------------------------------------------------------------ boot
   useEffect(() => {
     let cancelled = false;
-    const sb = supabase();
-    (async () => {
-      const { data: sessionData } = await sb.auth.getSession();
-      if (!sessionData.session) {
-        const { error } = await sb.auth.signInAnonymously();
-        if (error) {
-          if (!cancelled) setPhase({ name: 'error' });
-          return;
-        }
-      }
-      const { data, error } = await appRpc(sb, 'open_table_session', { p_token: token });
+    void bootSession(supabase(), token).then((result) => {
       if (cancelled) return;
-      if (error) {
-        setPhase(isRpcError(error, 'TOKEN_INVALID') ? { name: 'invalid' } : { name: 'error' });
-        return;
-      }
-      const row = data as {
-        session_id: string;
-        table_id: string;
-        table_number: string;
-        expires_at: string;
-      };
-      setPhase({
-        name: 'ready',
-        session: {
-          sessionId: row.session_id,
-          tableId: row.table_id,
-          tableNumber: row.table_number,
-          expiresAt: row.expires_at,
-        },
-      });
-    })().catch(() => {
-      if (!cancelled) setPhase({ name: 'error' });
+      if (result.name === 'ready') setPhase({ name: 'ready', session: result.session });
+      else if (result.name === 'invalid') setPhase({ name: 'invalid' });
+      else setPhase({ name: 'error' });
     });
     return () => {
       cancelled = true;
@@ -270,6 +293,36 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
     (line: BasketLine) => {
       setBasket((prev) => [...prev, line]);
       setSheetItem(null);
+      showToast(tr('cafe.addedToBasket'));
+    },
+    [showToast, tr],
+  );
+
+  // addon_suggestions chips: resolve ids against the loaded menu.
+  const itemsById = useMemo(() => {
+    const map = new Map<string, MenuItem>();
+    for (const cat of menu) for (const it of cat.items) map.set(it.id, it);
+    return map;
+  }, [menu]);
+
+  const sheetSuggestions = useMemo(() => {
+    if (!sheetItem) return [];
+    return sheetItem.suggestedItemIds
+      .map((id) => itemsById.get(id))
+      .filter((s): s is MenuItem => Boolean(s && s.orderable && s.variants.length > 0));
+  }, [sheetItem, itemsById]);
+
+  /** One-tap add of a suggested item (default variant, qty 1). Items that
+   *  require modifier choices open their own sheet instead. */
+  const addSuggestion = useCallback(
+    (item: MenuItem) => {
+      if (item.modifierGroups.some((g) => g.min_select > 0)) {
+        setSheetItem(item);
+        return;
+      }
+      const variant = item.variants.find((v) => v.is_default) ?? item.variants[0];
+      if (!variant) return;
+      setBasket((prev) => [...prev, buildLine(item, variant.id, 1, [], null)]);
       showToast(tr('cafe.addedToBasket'));
     },
     [showToast, tr],
@@ -449,7 +502,14 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
       </div>
 
       {sheetItem && (
-        <ItemSheet item={sheetItem} locale={locale} onAdd={addLine} onClose={() => setSheetItem(null)} />
+        <ItemSheet
+          item={sheetItem}
+          locale={locale}
+          onAdd={addLine}
+          onClose={() => setSheetItem(null)}
+          suggestions={sheetSuggestions}
+          onAddSuggestion={addSuggestion}
+        />
       )}
       {basketOpen && (
         <BasketSheet

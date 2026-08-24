@@ -135,8 +135,13 @@ export async function ensureTestRateRule(svc: SupabaseClient): Promise<void> {
 }
 
 let slotCounter = 0;
-/** A unique future slot (each call gets its own day+hour so tests never collide). */
-export function futureSlot(hoursFromMidnightUtc = 10): { start: Date; plus: (min: number) => Date } {
+/**
+ * A unique future slot (each call gets its own day+hour so tests never collide).
+ * Base hour 6 UTC = 09:00 venue-local (Asia/Baghdad): hours 6..17 UTC keep any
+ * slot up to +120min inside the 09:00-23:00 opening window enforced by
+ * app.assert_bookable (0026).
+ */
+export function futureSlot(hoursFromMidnightUtc = 6): { start: Date; plus: (min: number) => Date } {
   const day = 7 + Math.floor(slotCounter / 12);
   const hour = hoursFromMidnightUtc + (slotCounter % 12);
   slotCounter++;
@@ -434,14 +439,15 @@ export async function forceCloseAllDays(svc: SupabaseClient): Promise<void> {
 }
 
 /**
- * Un-degrade the venue: refresh every TILL heartbeat (a previous aborted
- * degraded-mode test must never poison unrelated suites).
+ * Un-degrade the venue: refresh every till heartbeat — flagged via is_till
+ * (0026) or named 'TILL%' (legacy prefix) — so a previous aborted
+ * degraded-mode test never poisons unrelated suites.
  */
 export async function ensureTillFresh(svc: SupabaseClient): Promise<void> {
   const { error } = await svc
     .from('device_heartbeats')
     .update({ last_seen_at: new Date().toISOString(), queue_depth: 0 })
-    .like('device_id', 'TILL%');
+    .or('is_till.eq.true,device_id.like.TILL*');
   if (error) throw new Error(`ensureTillFresh failed: ${error.message}`);
 }
 

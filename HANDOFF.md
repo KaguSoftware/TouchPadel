@@ -28,15 +28,16 @@ Desk payment only. Degraded offline mode (till keeps trading through outages). T
 submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04.
 
 ## Stack & environment
-- pnpm + Turborepo monorepo; TypeScript strict everywhere; packages scoped `@touch/*`.
-- Apps: `apps/mobile` (Expo SDK 52+, expo-router) · `apps/web` (Next.js 15 App Router) ·
+- pnpm + Turborepo monorepo; TypeScript strict; Node ≥22 (supabase-js needs native WebSocket);
+  packages scoped `@touch/*`; React 19 workspace-wide.
+- Apps: `apps/mobile` (Expo SDK 53, expo-router) · `apps/web` (**Next 16.3** App Router, Vercel) ·
   `apps/operator` (Vite + React + TanStack Router SPA) · `apps/operator-shell` (Electron main/
-  preload — SQLite queue, LAN KDS server, ESC/POS printing, heartbeat, kiosk).
-- DB: Supabase CLI + Docker locally (`supabase start`); schema-first migrations in
-  `packages/db/supabase/migrations/` (19-file plan in `docs/design/design-data.md` — canonical).
-  **No client Supabase project yet** — Kagu staging until W5, then `supabase link` + `db push`.
+  preload — SQLite queue, LAN KDS server, ESC/POS printing, heartbeat, kiosk — still skeleton).
+- DB: Supabase CLI + Docker locally (`supabase start`); schema-first migrations 0001–0026 in
+  `packages/db/supabase/migrations/` (design in `docs/design/design-data.md`; the SQL files are
+  now the ground truth). Hosted = the client's long-term project, linked at `packages/db`.
 - Money: integer IQD (`bigint` domains), largest-remainder splits, no bill rounding by default.
-- Dev OS: Windows 11 (Docker Desktop + WSL2 required).
+- Dev OS: Windows 11 (Docker Desktop + WSL2 required). e2e: Playwright at `e2e/` (`pnpm e2e`).
 
 ## Conventions
 - All schema changes are migration files — no dashboard edits, ever.
@@ -46,37 +47,32 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
   (lint-enforced); every demo runs once in Arabic.
 - Fonts: brand faces are **Next Art** (Latin) + **Frutiger LT Arabic** — commercial, files not yet
   in hand; free stand-ins live behind tokens in `packages/ui` (one-line swap later).
+- **Mobile native-feel rule (owner, 2026-08-24):** if it can look/behave native in React Native, it
+  must — bottom tabs via expo-router `Tabs`, native stack with platform back gestures/transitions,
+  platform pickers/switches/action sheets. No web-styled custom nav in `apps/mobile`.
 - Brands: Padel 2026 identity (green #A5D06F / blue #3360AB) on app/site/operator; Touch Cafe
   identity (blue + brown #603813) on the QR-menu/ordering pages.
 
-## Current status (2026-08-24, end of day 1)
-- Scope + diagrams read and assessed; design docs in `docs/design/*` (the plan's "Resolved design
-  calls" table governs where they disagree). Plan approved and executed through Drop 1.
-- **Monorepo scaffolded and green**: 11/11 turbo tasks, 159 tests passing. Apps: mobile (Expo SDK
-  53, React 19, expo-router), web (**Next 16.3 / React 19** — user-specified), operator (Vite +
-  TanStack Router), operator-shell (Electron skeleton: SQLite queue schema, LAN-KDS/heartbeat/
-  station stubs). Packages: db, core (money/pricing/availability/schemas/status — 100 tests),
-  i18n (EN + real AR), ui (two-palette tokens), config.
-- **Hosted Supabase live** (ref `lczijabnorujcgmbuqlw`, Frankfurt): migrations 0001–0011 applied,
-  seeded (dev staff + PINs per `packages/db/supabase/seed.sql` header), anonymous sign-ins enabled
-  via `supabase config push` (anon rate limit raised to 300/hr — revisit at SEC gate 5). Linked at
-  `packages/db`; keys in gitignored `.env` files (root `.env.local` = master copy incl.
-  service-role key). **This project is THE CLIENT'S, long-term (owner confirmed 2026-08-24)** —
-  not a throwaway staging: additive migrations only, NEVER `db reset --linked` or other
-  destructive ops against it. Local Docker stack is the place to break things. The W5 "handover"
-  shrinks to: account/billing transfer to Touch, secrets custody, SMTP config, dev-account
-  rotation — no project migration.
-- **Contractual suites pass against staging**: concurrency 8/8 (20-way hold race → exactly 1
-  winner), RLS matrix 34/34.
-- **Two real security bugs found by the matrix and fixed**: (1) `is_staff()` returned NULL for
-  non-staff, so `if not is_staff(...)` guards silently passed for guests → migration 0010
-  (coalesce false); (2) PIN lockout could never engage — the failed-attempt row rolled back with
-  the PIN_INVALID raise → migration 0011 (invalid PIN returns NULL; only PIN_LOCKED raises;
-  composite RPCs re-raise). Pattern note: fixes amend the original migration in place AND ship a
-  follow-up migration for environments that ran the original.
-- **Docker Desktop installed 2026-08-24** (user-scope: `%LOCALAPPDATA%\Programs\DockerDesktop`);
-  local `supabase start` in use for dev. `packages/db/.env` points db tests at the hosted project —
-  remove/comment it to run them against the local stack (helpers default to `127.0.0.1:54321`).
+## Current status (2026-08-24, end of day 1 — both sessions)
+- **All 14 turbo tasks green: 289 unit/integration tests + 8/8 Playwright e2e** (cafe QR journey
+  with live-broadcast status, operator journeys, public menu — each passing in English AND Arabic
+  RTL). Fresh `supabase db reset --local` applies migrations 0001–0026 + seed cleanly; fixtures
+  (`pnpm db:fixtures`) load the sample venue.
+- **Hosted Supabase** (ref `lczijabnorujcgmbuqlw`, Frankfurt — **THE CLIENT'S long-term project**,
+  owner-confirmed): migrations 0001–0026 applied, seeded, anonymous sign-ins on (rate limit
+  300/hr — revisit SEC gate 5). Additive migrations only, NEVER destructive ops there; local
+  Docker is where things break. W5 "handover" = account/billing transfer, secrets custody, SMTP,
+  dev-account rotation — no project migration. Keys: root `.env.local` (master incl. service-role)
+  + per-app `.env*`; db tests default to LOCAL (`packages/db/.env.remote` holds hosted creds for
+  deliberate runs).
+- **Security bugs found by our own suites and fixed** (pattern: amend original migration in place
+  AND ship a follow-up migration): `is_staff()` NULL guard bypass (0010) · PIN lockout rollback
+  (0011) · pgcrypto schema qualification (0009) · service_role grants on local stacks (0012) ·
+  menu-availability view function grants (0025) · PIN brute-force via device-id rotation, booking
+  writes ignoring opening hours/closed dates, unpriced staff bookings, missing audit reasons,
+  void-after-payment deadlock, degraded-detection device-naming fragility (all 0026).
+- **Docker Desktop installed** (user-scope `%LOCALAPPDATA%\Programs\DockerDesktop` — stale shells
+  need a PATH prefix or a reboot).
 - **Client input form SENT to Touch 2026-08-24** (based on `docs/client/` pack) — awaiting returns;
   chase at call #1 (Fri 2026-08-28).
 - **Apple Developer + Play Console both verified in good standing 2026-08-24** — risk R3 (Play
@@ -87,19 +83,33 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - `docs/design/design-data.md` — canonical schema: 19 migrations, DDL, RLS matrix, FEFO, tests.
 - `docs/design/design-arch.md` — monorepo, Electron/queue/LAN-KDS/printing/degraded-mode design.
 - `docs/design/design-delivery.md` — week-by-week plan, client-chase checklist, risk register, drill script.
-- `docs/design/design-critique.md` — cross-review; its gap list became plan work items.
-- `docs/client/` — client-facing pack (input checklist, CSV templates, printer spec) — being drafted.
+- `docs/design/design-critique.md` — pre-build cross-review; `docs/design/sow-gap-review-2026-08-24.md`
+  — post-build SOW-vs-code sweep (roadmap item 4 is its digest).
+- `docs/client/` — client-facing pack (input checklist, CSV templates, printer spec) — SENT 2026-08-24.
+- `packages/db/tests/` — contractual suites (concurrency, rls-matrix, cafe-flow, degraded, hardening).
+- `e2e/` — Playwright config + specs (cafe journey, operator journeys, public menu; EN + AR).
 
 ## Roadmap / next steps
-1. ✔ DONE (2026-08-24): repo + monorepo scaffold · migrations 0001–0012 (Drop 1) applied locally
-   AND on the hosted project · contractual suites green in both (concurrency 8/8, RLS 34/34) ·
-   CI workflows · app shells · client pack sent · Docker local stack working.
-2. **← ACTIVE** Week-1 remainder (D2–D5): auth e2e on the three clients (email verify/reset via
-   Mailpit) · EAS dev builds on phones · Vercel preview pipeline · Electron shell handoff to FE2 ·
-   SEC Gate 1 (Fri) · Mustafa call #1 (Fri 2026-08-28: IQD in writing; chase form returns).
-3. Week 2: Drop 2 migrations (menu/orders/tabs/tickets/table tokens) + booking flow + QR binding.
-4. Weeks 3–4 per `docs/design/design-delivery.md`; store submission Wed 2026-09-16; weeks 5–6
-   review/training/handover.
+1. ✔ DONE Day 1 AM: scaffold · Drop 1 · contractual suites green both envs · CI · shells · client
+   pack sent · Docker working.
+2. ✔ DONE Day 1 PM (the "maximal autonomous build" session): **database complete for all 7 SOW
+   modules** (migrations 0001–0026, local + hosted) · fixture venue (30-item bilingual menu with
+   full recipes/batches, 12 tables, 4 courts) · functional flows in all three apps (mobile booking,
+   web QR cafe, operator desk/KDS/till/admin) · **Playwright e2e 8/8 incl. live-broadcast status +
+   full Arabic RTL passes** · replay + send-push edge functions (written, not yet deployed) ·
+   adversarial SOW sweep + hardening (PIN brute-force rekey, booking-hours guard, replay map fixes,
+   audit reasons, void-deadlock guard) · 289 unit/integration tests + 8 e2e green.
+3. **← ACTIVE — Week-1 remainder / user actions:** EAS login + dev builds on phones (FE1 takes
+   mobile from here — native-feel rule above) · Vercel link + first deploy · deploy edge functions
+   (`supabase functions deploy replay send-push` + cron for send-push) · SEC Gate 1 (Fri, review
+   the two found-and-fixed security bugs + 0019-hardening checklist) · Mustafa call #1 Fri
+   2026-08-28 (IQD in writing, chase form returns, demo: e2e cafe journey + booking).
+4. Week 2+ (from the critic's gap list, mapped to the delivery plan): stock UI (module 5 — DB done,
+   `stock.tsx` is a placeholder) · staff-admin RPC+UI (owner role, module 1 acceptance) · court
+   records admin + photos rendering · week calendar view + shorten/move-duration · split-by-item +
+   refund/merge/override UIs · audit-log viewer + manager-alerts reader · QR artwork UI (script
+   exists) · Sentry wiring · short-lived till sessions · Electron queue wiring (single write path)
+   + LAN KDS · printing pipeline. Store submission Wed 2026-09-16.
 
 ## Deliberately partial — grows later (scope ledger)
 | Area | What ships now | Intended full shape | Grows in |
@@ -114,7 +124,20 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - **The hosted Supabase project is the client's future production.** Before real trading starts:
   rotate/remove the seeded dev staff accounts and PINs, revisit the 300/hr anonymous rate limit,
   transfer billing/ownership to Touch (SEC gate 5 checklist). Until then it doubles as our shared
-  staging — additive changes only.
+  staging — additive changes only. Fixtures + e2e test residue exist locally only; **hosted has
+  schema 0001–0026 + seed but NO fixtures** (applying them needs the DB password — one command,
+  see packages/db/README.md, or ask the owner).
+- Migration numbering: **0023 intentionally unused** (reserved gap; 0024 = push outbox). Not a
+  lost file.
+- **KDS item-level ready marks are local component state only** (whole-ticket status is real) —
+  SOW L460 wants item marks notifying floor+guest; scheduled with the KDS polish pass.
+- Charge-to-booking: tab links to reservation (picker in NewTabDialog ✔) but `compute_tab_totals`
+  does **not yet add the court price** to the bill — the "one payment" SOW promise needs that in
+  the till drop (W3).
+- Full critic report (SOW-vs-code sweep, 2026-08-24): `docs/design/sow-gap-review-2026-08-24.md`;
+  roadmap item 4 above is its digest.
+- e2e runs locally only (`pnpm e2e`; needs local stack + both dev servers; CI job stub is a
+  comment block in ci.yml — enable later).
 - **Client inputs: NONE received yet** (courts, rates, menu, recipes, domain, Supabase, fonts,
   branding assets beyond PDFs). Chase pack is Day-1 deliverable; recipes are the SOW's own #1 risk.
 - **Currency**: building IQD-only per owner decision — get Mustafa's written confirmation at call

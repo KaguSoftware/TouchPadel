@@ -54,6 +54,8 @@ export interface MenuItem {
   variants: MenuVariant[];
   allergens: MenuAllergen[];
   modifierGroups: MenuModifierGroup[];
+  /** addon_suggestions (0013): suggested item ids in sort order — "goes well with" chips. */
+  suggestedItemIds: string[];
 }
 
 export interface MenuCategory {
@@ -67,7 +69,7 @@ export interface MenuCategory {
 const bySort = <T extends { sort_order: number }>(a: T, b: T) => a.sort_order - b.sort_order;
 
 export async function fetchMenu(client: SupabaseClient<Database>): Promise<MenuCategory[]> {
-  const [categoriesRes, itemsRes, availabilityRes] = await Promise.all([
+  const [categoriesRes, itemsRes, availabilityRes, suggestionsRes] = await Promise.all([
     client
       .from('menu_categories')
       .select('id, name_en, name_ar, sort_order')
@@ -84,6 +86,10 @@ export async function fetchMenu(client: SupabaseClient<Database>): Promise<MenuC
       )
       .eq('is_active', true),
     client.from('menu_item_availability').select('item_id, orderable'),
+    client
+      .from('addon_suggestions')
+      .select('item_id, suggested_item_id, sort_order')
+      .order('sort_order'),
   ]);
 
   if (categoriesRes.error) throw categoriesRes.error;
@@ -92,6 +98,13 @@ export async function fetchMenu(client: SupabaseClient<Database>): Promise<MenuC
   const orderableById = new Map<string, boolean>();
   for (const row of availabilityRes.data ?? []) {
     if (row.item_id) orderableById.set(row.item_id, row.orderable ?? true);
+  }
+  // Suggestions are a progressive enhancement too — a failed read shows no chips.
+  const suggestionsById = new Map<string, string[]>();
+  for (const row of suggestionsRes.data ?? []) {
+    const list = suggestionsById.get(row.item_id) ?? [];
+    list.push(row.suggested_item_id);
+    suggestionsById.set(row.item_id, list);
   }
 
   const items: MenuItem[] = (itemsRes.data ?? []).map((row) => ({
@@ -104,6 +117,7 @@ export async function fetchMenu(client: SupabaseClient<Database>): Promise<MenuC
     photo_path: row.photo_path,
     sort_order: row.sort_order,
     orderable: orderableById.get(row.id) ?? true,
+    suggestedItemIds: suggestionsById.get(row.id) ?? [],
     variants: (row.menu_item_variants ?? [])
       .map((v) => ({
         id: v.id,

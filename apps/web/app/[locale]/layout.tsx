@@ -24,7 +24,11 @@ export async function generateMetadata({
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
     title: { default: title, template: `%s · ${t(locale, 'common.appName')}` },
     description,
-    icons: { icon: '/brand/touch_padel_logo_transparent.png' },
+    icons: {
+      icon: '/brand/touch_padel_logo_transparent.png',
+      apple: '/brand/icon-192.png',
+    },
+    manifest: '/manifest.webmanifest',
     alternates: {
       languages: { en: '/en', ar: '/ar' },
     },

@@ -165,6 +165,18 @@ describe.skipIf(!up)('RLS role matrix (drops 1-3: 0004-0021 + 0024 surface)', ()
   it('verify_manager_pin: correct PIN returns authorizer; wrong PIN -> null; 6th attempt -> PIN_LOCKED', async () => {
     const device = `TEST-PIN-${Date.now()}`;
 
+    // The 0026 rekey counts failures per CALLER (not per client device id), so
+    // this test's own failures from a rerun < 5 minutes ago would still lock
+    // the cashier. pin_attempts is throwaway telemetry — clear the cashier's
+    // window first (composite key '{uid}:{device}').
+    const cashierUid = (await clients.cashier.auth.getUser()).data.user!.id;
+    const { error: clearErr } = await svc
+      .schema('app')
+      .from('pin_attempts')
+      .delete()
+      .like('device_id', `${cashierUid}:%`);
+    expect(clearErr).toBeNull();
+
     const good = await appRpc(clients.cashier, 'verify_manager_pin', {
       p_pin: DEV_PINS.manager,
       p_device_id: device,

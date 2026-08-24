@@ -32,7 +32,9 @@ import {
 
 const up = await stackAvailable();
 
-const TILL_DEVICE = 'TILL-01';
+// Deliberately NOT 'TILL%'-prefixed: degraded detection must key off the
+// explicit is_till flag (0026); the name prefix is only legacy back-compat.
+const TILL_DEVICE = 'REG-01';
 
 describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)', () => {
   let svc: SupabaseClient;
@@ -44,26 +46,45 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
 
   async function makeDegraded(): Promise<void> {
     const stale = new Date(Date.now() - (staleSeconds + 120) * 1000).toISOString();
-    // Ensure at least one TILL device exists (bootstrap deviation: a venue that
-    // never heartbeated is NOT degraded), then stale every TILL.
+    // Ensure at least one till device exists (bootstrap deviation: a venue that
+    // never heartbeated is NOT degraded), then stale every till — flag or
+    // legacy 'TILL%' name (0026).
     const { error: upErr } = await svc
       .from('device_heartbeats')
       .upsert(
-        { device_id: TILL_DEVICE, last_seen_at: stale, queue_depth: 0 },
+        { device_id: TILL_DEVICE, last_seen_at: stale, queue_depth: 0, is_till: true },
         { onConflict: 'device_id' },
       );
     if (upErr) throw new Error(`heartbeat upsert failed: ${upErr.message}`);
     const { error } = await svc
       .from('device_heartbeats')
       .update({ last_seen_at: stale, queue_depth: 0 })
-      .like('device_id', 'TILL%');
+      .or('is_till.eq.true,device_id.like.TILL*');
     if (error) throw new Error(`heartbeat stale update failed: ${error.message}`);
+  }
+
+  /** A slot inside the protected horizon AND inside opening hours: the next
+   *  07:00 UTC (= 10:00 venue-local) is always < 24h out — well inside the
+   *  default 48h horizon — and always bookable per app.assert_bookable. */
+  function insideHorizonOpenSlot(): Date {
+    const d = new Date();
+    d.setUTCHours(7, 0, 0, 0);
+    if (d.getTime() <= Date.now()) d.setUTCDate(d.getUTCDate() + 1);
+    return d;
   }
 
   beforeAll(async () => {
     svc = serviceClient();
     manager = await signedInClient(SEED_STAFF.manager);
     cashier = await signedInClient(SEED_STAFF.cashier);
+    // Single-till invariant for the recovery test: drop till rows left over
+    // from earlier runs (flagged or legacy-named) so ONE fresh heartbeat
+    // un-degrades the venue.
+    const { error: delErr } = await svc
+      .from('device_heartbeats')
+      .delete()
+      .or('is_till.eq.true,device_id.like.TILL*');
+    if (delErr) throw new Error(`till cleanup failed: ${delErr.message}`);
     await ensureTestRateRule(svc);
     courtId = await createTestCourt(svc, 'DEGRADED');
 
@@ -81,20 +102,43 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
     if (svc) await ensureTillFresh(svc);
   });
 
-  it('stale TILL heartbeats -> app.is_degraded() = true', async () => {
+  it('stale is_till-flagged heartbeats -> app.is_degraded() = true (0026 flag, non-TILL name)', async () => {
     await makeDegraded();
     const { data, error } = await appRpc(anonClient(), 'is_degraded', {});
     expect(error).toBeNull();
     expect(data).toBe(true);
   });
 
+  it('legacy TILL%-named device without the flag still counts (back-compat)', async () => {
+    // Make the un-flagged, legacy-named device the ONLY till: its staleness
+    // alone must flip degraded (proving the name-prefix path still detects).
+    const { error: delAll } = await svc
+      .from('device_heartbeats')
+      .delete()
+      .or('is_till.eq.true,device_id.like.TILL*');
+    expect(delAll).toBeNull();
+    const stale = new Date(Date.now() - (staleSeconds + 120) * 1000).toISOString();
+    const { error } = await svc
+      .from('device_heartbeats')
+      .insert({ device_id: 'TILL-LEGACY', last_seen_at: stale, queue_depth: 0, is_till: false });
+    expect(error).toBeNull();
+    const { data } = await appRpc(anonClient(), 'is_degraded', {});
+    expect(data).toBe(true);
+    // Remove the legacy probe so the single-till invariant holds again.
+    const { error: delErr } = await svc
+      .from('device_heartbeats')
+      .delete()
+      .eq('device_id', 'TILL-LEGACY');
+    expect(delErr).toBeNull();
+  });
+
   it('guest hold INSIDE the protected horizon is refused with DEGRADED_LOCKOUT', async () => {
     await makeDegraded();
+    expect(horizonHours).toBeGreaterThanOrEqual(24); // insideHorizonOpenSlot() assumption
     const guest = await anonymousSessionClient();
-    const insideHorizon = new Date(Date.now() + Math.min(2, horizonHours - 1) * 3600_000);
     const res = await appRpc(guest, 'hold_slot', {
       p_court_id: courtId,
-      p_start_at: insideHorizon.toISOString(),
+      p_start_at: insideHorizonOpenSlot().toISOString(),
       p_duration_min: 60,
     }).then(outcome);
     expect(res.ok).toBe(false);
@@ -137,6 +181,7 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
       p_device_id: TILL_DEVICE,
       p_queue_depth: 0,
       p_app_version: 'test',
+      p_is_till: true, // 0026 explicit flag — the device name carries no TILL prefix
     }).then(outcome);
     expect(hb.ok, hb.errorMessage).toBe(true);
     expect((hb.data as { degraded: boolean }).degraded).toBe(false);

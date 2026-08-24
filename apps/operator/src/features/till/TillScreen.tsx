@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { splitEvenly } from '@touch/core';
-import { formatIQD } from '@touch/i18n';
+import { formatIQD, formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { idemKey, deviceId } from '../../lib/idem';
@@ -23,6 +23,7 @@ import {
   inputStyle,
 } from '../../components/ui';
 import { computeChange } from './change';
+import { WaiterCallsPanel } from './WaiterCallsPanel';
 
 // ---------------------------------------------------------------------------
 // row shapes (manual mirrors of the nested selects)
@@ -210,7 +211,7 @@ export function TillScreen() {
     topic: 'floor',
     isPrivate: true,
     events: ['waiter_call'],
-    invalidateKeys: [['tabs']],
+    invalidateKeys: [['tabs'], ['waiterCalls']],
   });
 
   const categories = useMemo(
@@ -305,8 +306,9 @@ export function TillScreen() {
 
   return (
     <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
-      {/* Open tabs rail */}
+      {/* Floor + open tabs rail */}
       <div style={{ inlineSize: '13rem', flexShrink: 0 }}>
+        <WaiterCallsPanel />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1rem' }}>{tr('op.till.openTabs')}</h2>
           <Button kind="primary" onClick={() => setShowNewTab(true)}>
@@ -616,9 +618,10 @@ function NewTabDialog({
   onClose: () => void;
   onOpened: (tabId: string) => void;
 }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const [tableId, setTableId] = useState('');
   const [label, setLabel] = useState('');
+  const [reservationId, setReservationId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -635,6 +638,35 @@ function NewTabDialog({
     },
   });
 
+  // Charge-to-booking: today's confirmed/arrived reservations that have no tab
+  // yet (the embedded tabs list is empty). RLS: cashiers may see none — the
+  // picker simply stays empty for them.
+  const reservationsQ = useQuery({
+    queryKey: ['openTabReservations'],
+    queryFn: async () => {
+      const dayStart = new Date();
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+      const { data, error: err } = await supabase
+        .from('reservations')
+        .select('id, start_at, end_at, guest_name, court:courts(name_en, name_ar), tabs(id)')
+        .in('status', ['confirmed', 'arrived'])
+        .gte('start_at', dayStart.toISOString())
+        .lt('start_at', dayEnd.toISOString())
+        .order('start_at');
+      if (err) throw err;
+      return (
+        data as unknown as {
+          id: string;
+          start_at: string;
+          guest_name: string | null;
+          court: { name_en: string; name_ar: string } | null;
+          tabs: { id: string }[];
+        }[]
+      ).filter((r) => (r.tabs ?? []).length === 0);
+    },
+  });
+
   async function submit() {
     setBusy(true);
     setError(null);
@@ -642,6 +674,7 @@ function NewTabDialog({
       const res = await appRpc<{ tab_id: string }>('open_tab', {
         p_table_id: tableId || null,
         p_label: label || null,
+        p_reservation_id: reservationId || null,
         p_idempotency_key: idemKey('tab.open'),
         p_device_id: deviceId(),
       });
@@ -668,10 +701,32 @@ function NewTabDialog({
       <Field label={tr('op.till.byName')}>
         <input style={inputStyle} value={label} onChange={(e) => setLabel(e.target.value)} />
       </Field>
+      <Field label={tr('op.till.reservationLabel')}>
+        <select
+          style={inputStyle}
+          value={reservationId}
+          onChange={(e) => setReservationId(e.target.value)}
+        >
+          <option value="">{tr('op.till.noReservation')}</option>
+          {(reservationsQ.data ?? []).map((r) => (
+            <option key={r.id} value={r.id}>
+              {tr('op.till.reservationOption', {
+                time: formatTime(new Date(r.start_at), locale),
+                court: pickName(locale, r.court),
+                guest: r.guest_name ?? '—',
+              })}
+            </option>
+          ))}
+        </select>
+      </Field>
       <ErrorText error={error} />
       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
         <Button onClick={onClose}>{tr('common.cancel')}</Button>
-        <Button kind="primary" disabled={busy || (!tableId && !label)} onClick={() => void submit()}>
+        <Button
+          kind="primary"
+          disabled={busy || (!tableId && !label && !reservationId)}
+          onClick={() => void submit()}
+        >
           {tr('op.till.openTabBtn')}
         </Button>
       </div>
