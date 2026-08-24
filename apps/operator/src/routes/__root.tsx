@@ -1,47 +1,161 @@
 import { Link, Outlet, createRootRoute } from '@tanstack/react-router';
-import { t } from '@touch/i18n';
+import { useState, type FormEvent, type ReactNode } from 'react';
+import { useAuth, canAccess, allowedRoutes, type StaffRole } from '../lib/auth';
+import { useLocale } from '../lib/i18n';
+import { Button, ErrorText, Field, card, inputStyle } from '../components/ui';
 import { touch } from '../ipc/bridge';
 
 export const rootRoute = createRootRoute({
   component: RootShell,
 });
 
-const NAV = [
-  ['/till', 'till.title'],
-  ['/desk', 'desk.title'],
-  ['/kds', 'kds.title'],
-  ['/stock', 'stock.title'],
-  ['/admin', 'admin.title'],
-] as const;
+const NAV: readonly { to: string; key: 'till' | 'desk' | 'kds' | 'stock' | 'admin' }[] = [
+  { to: '/till', key: 'till' },
+  { to: '/desk', key: 'desk' },
+  { to: '/kds', key: 'kds' },
+  { to: '/stock', key: 'stock' },
+  { to: '/admin', key: 'admin' },
+];
 
-// Role-based nav shell. TODO(W2+): filter NAV by station mode (getStation — a KDS1
-// machine boots straight into /kds) and by unlocked staff role (design-arch.md §2.1, §4).
-// Inline styles below use logical properties only (HANDOFF conventions).
+// Nav filtering is UX only; RLS + in-RPC role guards are the real wall.
 function RootShell() {
+  const { session, staff, loading, notStaff, signOut } = useAuth();
+  const { tr, toggleLocale } = useLocale();
   const station = touch.getStation();
+
+  if (loading) {
+    return <p style={{ paddingBlock: '2rem', paddingInline: '2rem' }}>{tr('common.loading')}</p>;
+  }
+  if (!session) return <SignInScreen />;
+  if (notStaff || !staff) {
+    return (
+      <div style={{ paddingBlock: '2rem', paddingInline: '2rem' }}>
+        <p style={card}>{tr('op.signIn.notStaff')}</p>
+        <Button onClick={() => void signOut()}>{tr('auth.signOut')}</Button>
+      </div>
+    );
+  }
+
+  const routes = allowedRoutes(staff.role);
+
   return (
     <div style={{ display: 'flex', minBlockSize: '100vh' }}>
       <nav
         style={{
-          inlineSize: '13rem',
-          borderInlineEnd: '1px solid #ccc',
+          inlineSize: '12rem',
+          flexShrink: 0,
+          borderInlineEnd: '1px solid var(--tp-border)',
           paddingBlock: '1rem',
-          paddingInline: '1rem',
+          paddingInline: '0.8rem',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <p style={{ fontWeight: 700 }}>{t('en', 'operator.appName')}</p>
-        <p style={{ fontSize: '0.8rem' }}>
-          {station.stationId} · {station.mode}
+        <p style={{ fontWeight: 700, marginBlockStart: 0 }}>{tr('operator.appName')}</p>
+        <p style={{ fontSize: '0.75rem', color: 'var(--tp-muted-fg)', marginBlockStart: 0 }}>
+          {station.stationId} · {staff.displayName} · {tr(`op.roles.${staff.role}` as const)}
         </p>
-        {NAV.map(([to, key]) => (
-          <Link key={to} to={to} style={{ display: 'block', paddingBlock: '0.5rem' }}>
-            {t('en', key)}
+        {NAV.filter((n) => routes.includes(n.to)).map((n) => (
+          <Link
+            key={n.to}
+            to={n.to}
+            style={{ display: 'block', paddingBlock: '0.5rem', color: 'var(--tp-accent)' }}
+            activeProps={{ style: { fontWeight: 700, color: 'var(--tp-fg)' } }}
+          >
+            {tr(`${n.key}.title` as const)}
           </Link>
         ))}
+        <span style={{ flex: 1 }} />
+        <Button kind="ghost" onClick={toggleLocale}>
+          {tr('op.common.language')}
+        </Button>
+        <Button kind="ghost" onClick={() => void signOut()}>
+          {tr('auth.signOut')}
+        </Button>
       </nav>
-      <main style={{ flex: 1, paddingBlock: '1rem', paddingInline: '1rem' }}>
+      <main style={{ flex: 1, paddingBlock: '1rem', paddingInline: '1rem', minInlineSize: 0 }}>
         <Outlet />
       </main>
     </div>
   );
+}
+
+function SignInScreen() {
+  const { signIn } = useAuth();
+  const { tr, toggleLocale } = useLocale();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setFailed(false);
+    try {
+      await signIn(email, password);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        minBlockSize: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <form onSubmit={(e) => void submit(e)} style={{ ...card, inlineSize: 'min(22rem, 92vw)' }}>
+        <h1 style={{ marginBlockStart: 0, fontSize: '1.2rem' }}>{tr('op.signIn.title')}</h1>
+        <Field label={tr('auth.emailLabel')}>
+          <input
+            style={inputStyle}
+            dir="ltr"
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
+        <Field label={tr('auth.passwordLabel')}>
+          <input
+            style={inputStyle}
+            dir="ltr"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </Field>
+        {failed && (
+          <p role="alert" style={{ color: 'var(--tp-danger)', fontSize: '0.9rem' }}>
+            {tr('op.signIn.failed')}
+          </p>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Button kind="ghost" onClick={toggleLocale}>
+            {tr('op.common.language')}
+          </Button>
+          <Button kind="primary" type="submit" disabled={busy || !email || !password}>
+            {tr('op.signIn.submit')}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/** Per-route role guard (belt; RLS is braces). */
+export function RequireRole({ route, children }: { route: string; children: ReactNode }) {
+  const { staff } = useAuth();
+  const { tr } = useLocale();
+  if (!canAccess(staff?.role as StaffRole | undefined, route)) {
+    return <p style={card}>{tr('op.common.forbidden')}</p>;
+  }
+  return <>{children}</>;
 }

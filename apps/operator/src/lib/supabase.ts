@@ -1,17 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@touch/db';
 
-// Renderer Supabase client is for READS + REALTIME ONLY (design-arch.md §2.1).
-// Every durable write goes through the IPC bridge (src/ipc/bridge.ts) to the
-// main-process SQLite queue — even when online.
-// TODO: type as createClient<Database> once @touch/db types.gen.ts is generated.
+// Renderer Supabase client. In browser mode (this session) it carries both
+// reads AND writes (writes go through app.* RPCs — see lib/appRpc.ts).
+// TODO(Electron): durable writes move to the IPC bridge -> SQLite queue; this
+// client then returns to READS + REALTIME only (design-arch.md §2.1).
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Local `supabase start` demo defaults so `vite dev` works with zero setup.
+const LOCAL_URL = 'http://127.0.0.1:54321';
+const LOCAL_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
 
-if (!url || !anonKey) {
-  // TODO: shared zod env loader (design-arch.md §7). In Electron the station signs in
-  // once with its station account (role 'station' — design-arch.md §4).
-  throw new Error('Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY — copy .env.example to .env');
-}
+const url = import.meta.env.VITE_SUPABASE_URL ?? LOCAL_URL;
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? LOCAL_ANON_KEY;
 
-export const supabase = createClient(url, anonKey);
+export const supabase = createClient<Database>(url, anonKey);

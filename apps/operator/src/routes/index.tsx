@@ -1,11 +1,18 @@
-import { createRoute } from '@tanstack/react-router';
-import { t } from '@touch/i18n';
+import { createRoute, Navigate } from '@tanstack/react-router';
 import { rootRoute } from './__root';
+import { useAuth, homeRoute } from '../lib/auth';
+import { useLocale } from '../lib/i18n';
 
-// Landing: will redirect to the station's home module per station.json mode
-// (design-arch.md §2.1 getStation) — placeholder for now.
+// Landing: redirect to the signed-in role's home module.
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: () => <h1>{t('en', 'operator.home')}</h1>,
+  component: IndexRedirect,
 });
+
+function IndexRedirect() {
+  const { staff } = useAuth();
+  const { tr } = useLocale();
+  if (!staff) return <p>{tr('common.loading')}</p>;
+  return <Navigate to={homeRoute(staff.role)} />;
+}

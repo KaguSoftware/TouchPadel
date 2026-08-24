@@ -27,7 +27,7 @@ jobs:
       # first runs (before pnpm-lock.yaml is committed) don't hard-fail. Remove the fallback
       # once the lockfile lands.
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install
+        run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
 
       - name: Lint, typecheck, test, build
         run: pnpm turbo lint typecheck test build
@@ -50,7 +50,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install
+        run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
 
       - uses: supabase/setup-cli@v1
         with:

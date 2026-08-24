@@ -1,6 +1,6 @@
 import { createRoute } from '@tanstack/react-router';
-import { t } from '@touch/i18n';
-import { rootRoute } from './__root';
+import { rootRoute, RequireRole } from './__root';
+import { useLocale } from '../lib/i18n';
 
 // Stock placeholder — ledger/FEFO/variance UI lands W4 (design-delivery.md).
 // Recipes: max ONE level of sub-recipe nesting, cycle guard stays (plan cut #7).
@@ -8,5 +8,14 @@ import { rootRoute } from './__root';
 export const stockRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/stock',
-  component: () => <h1>{t('en', 'stock.title')}</h1>,
+  component: StockPlaceholder,
 });
+
+function StockPlaceholder() {
+  const { tr } = useLocale();
+  return (
+    <RequireRole route="/stock">
+      <h1>{tr('stock.title')}</h1>
+    </RequireRole>
+  );
+}

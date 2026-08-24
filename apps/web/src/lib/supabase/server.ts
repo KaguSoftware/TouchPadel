@@ -1,9 +1,11 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@touch/db';
 
 // Server-side Supabase client for Server Components / Route Handlers.
-// TODO: type as createServerClient<Database> once @touch/db types.gen.ts is generated.
-export async function createServerSupabase() {
+// (Return cast: see client.ts — unifies @supabase/ssr's older generic arity.)
+export async function createServerSupabase(): Promise<SupabaseClient<Database>> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
@@ -12,7 +14,7 @@ export async function createServerSupabase() {
   }
 
   const cookieStore = await cookies();
-  return createServerClient(url, anonKey, {
+  const client = createServerClient<Database>(url, anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -28,4 +30,5 @@ export async function createServerSupabase() {
       },
     },
   });
+  return client as unknown as SupabaseClient<Database>;
 }

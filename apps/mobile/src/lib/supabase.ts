@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import * as SecureStore from 'expo-secure-store';
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@touch/db';
 
 // TODO: replace the throw with the shared zod env loader once @touch/core exposes one
 // (design-arch.md §7: "env.ts zod-validated loader in each app fails fast").
@@ -20,9 +21,7 @@ const secureStoreAdapter = {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
-// TODO: type as createClient<Database> once @touch/db types.gen.ts is generated
-// (design-arch.md §7 type generation).
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: secureStoreAdapter,
     autoRefreshToken: true,
@@ -30,3 +29,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+/**
+ * All business writes go through app.* RPCs (schema-qualified — mirrors
+ * packages/db/tests/helpers.ts appRpc). The generated Database type covers the
+ * `app` schema, so function names and args are typed.
+ */
+export const appSchema = () => supabase.schema('app');

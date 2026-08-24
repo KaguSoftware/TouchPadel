@@ -8,15 +8,21 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.0",
+    "@tanstack/react-query": "^5.62.0",
     "@touch/core": "workspace:*",
+    "@touch/db": "workspace:*",
     "@touch/i18n": "workspace:*",
+    "@touch/ui": "workspace:*",
     "expo": "~53.0.0",
     "expo-constants": "~17.0.0",
+    "expo-device": "~7.1.0",
     "expo-linking": "~7.0.0",
+    "expo-notifications": "~0.31.0",
     "expo-router": "~5.1.0",
     "expo-secure-store": "~14.2.0",
     "expo-status-bar": "~2.2.0",
@@ -29,6 +35,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.0",
     "@types/react": "~19.0.10",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

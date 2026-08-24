@@ -1,25 +1,67 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { t } from '@touch/i18n';
+import { useState } from 'react';
+import { ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
+import { supabase } from '../../src/lib/supabase';
+import { signIn } from '../../src/features/auth/api';
+import { mapErrorToKey } from '../../src/features/booking/errors';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { Button, ErrorText, Field, LinkText, Screen, Title } from '../../src/components/ui';
 
-// Sign-in placeholder. Real flow: Supabase email+password with email verification,
-// refresh tokens persisted via expo-secure-store (design-arch.md §4). FE1, Drop 1.
 export default function SignInScreen() {
+  const { t } = useLocale();
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onSubmit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await signIn(supabase, email, password);
+      router.replace('/(app)');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (/invalid login credentials/i.test(message)) {
+        setError(t('auth.invalidCredentials'));
+      } else if (/email not confirmed/i.test(message)) {
+        router.push({ pathname: '/(auth)/verify-email', params: { email } });
+      } else {
+        setError(t(mapErrorToKey(err)));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t('en', 'auth.signIn')}</Text>
-      <Text style={styles.hint}>{t('en', 'auth.placeholder')}</Text>
-    </View>
+    <Screen>
+      <ScrollView keyboardShouldPersistTaps="handled">
+        <Title>{t('auth.signIn')}</Title>
+        <Field
+          label={t('auth.emailLabel')}
+          value={email}
+          onChangeText={setEmail}
+          placeholder={t('auth.placeholder')}
+          keyboardType="email-address"
+          autoComplete="email"
+        />
+        <Field
+          label={t('auth.passwordLabel')}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoComplete="password"
+        />
+        <ErrorText>{error}</ErrorText>
+        <Button label={t('auth.signIn')} onPress={() => void onSubmit()} busy={busy} />
+        <LinkText
+          label={t('auth.forgotPassword')}
+          onPress={() => router.push('/(auth)/forgot-password')}
+        />
+        <LinkText label={t('auth.noAccount')} onPress={() => router.push('/(auth)/sign-up')} />
+      </ScrollView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingStart: 16,
-    paddingEnd: 16,
-  },
-  title: { fontSize: 24, fontWeight: '700' },
-  hint: { marginTop: 8, fontSize: 14, textAlign: 'center' },
-});

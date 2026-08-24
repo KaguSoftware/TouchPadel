@@ -1,33 +1,36 @@
-import { useEffect } from 'react';
 import { I18nManager } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { supabase } from '../src/lib/supabase';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '../src/lib/queryClient';
+import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
+import { AuthProvider } from '../src/features/auth/context';
 
-// I18n init — Arabic is a first-class locale (HANDOFF: bilingual EN/AR, full RTL).
-// TODO(FE1): initialise the active locale from device settings + user preference via
-// @touch/i18n once its catalog API is wired here; flipping I18nManager.forceRTL
-// requires an app restart — surface that in the language switcher.
+// Arabic is a first-class locale (bilingual EN/AR, full RTL). forceRTL flips in
+// the settings language switcher; RN applies it after an app restart.
 I18nManager.allowRTL(true);
 
-export default function RootLayout() {
-  useEffect(() => {
-    // Supabase session bootstrap stub. Refresh tokens live in expo-secure-store
-    // (design-arch.md §4 auth table). Real flow (email+password, email verify,
-    // redirect to (auth)/sign-in when signed out): FE1, Drop 1 (design-delivery.md W1).
-    void supabase.auth.getSession().then(({ data }) => {
-      // TODO: hydrate an auth context / route guard from data.session.
-      void data.session;
-    });
-  }, []);
-
+function RootStack() {
+  const { t } = useLocale();
   return (
-    <>
-      <StatusBar style="auto" />
-      <Stack>
-        <Stack.Screen name="index" options={{ title: 'Touch Padel' }} />
-        <Stack.Screen name="(auth)/sign-in" options={{ title: 'Sign in' }} />
-      </Stack>
-    </>
+    <Stack>
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(app)" options={{ headerShown: false }} />
+      <Stack.Screen name="reset-password" options={{ title: t('auth.resetPasswordTitle') }} />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <LocaleProvider>
+        <AuthProvider>
+          <StatusBar style="auto" />
+          <RootStack />
+        </AuthProvider>
+      </LocaleProvider>
+    </QueryClientProvider>
   );
 }
