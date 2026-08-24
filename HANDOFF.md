@@ -57,11 +57,15 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
   TanStack Router), operator-shell (Electron skeleton: SQLite queue schema, LAN-KDS/heartbeat/
   station stubs). Packages: db, core (money/pricing/availability/schemas/status — 100 tests),
   i18n (EN + real AR), ui (two-palette tokens), config.
-- **Staging Supabase live** (Kagu account, ref `lczijabnorujcgmbuqlw`, Frankfurt): migrations
-  0001–0011 applied, seeded (dev staff + PINs per `packages/db/supabase/seed.sql` header),
-  anonymous sign-ins enabled via `supabase config push` (anon rate limit raised to 300/hr —
-  revisit at SEC gate 5). Linked at `packages/db`; keys in gitignored `.env` files (root
-  `.env.local` = master copy incl. service-role key).
+- **Hosted Supabase live** (ref `lczijabnorujcgmbuqlw`, Frankfurt): migrations 0001–0011 applied,
+  seeded (dev staff + PINs per `packages/db/supabase/seed.sql` header), anonymous sign-ins enabled
+  via `supabase config push` (anon rate limit raised to 300/hr — revisit at SEC gate 5). Linked at
+  `packages/db`; keys in gitignored `.env` files (root `.env.local` = master copy incl.
+  service-role key). **This project is THE CLIENT'S, long-term (owner confirmed 2026-08-24)** —
+  not a throwaway staging: additive migrations only, NEVER `db reset --linked` or other
+  destructive ops against it. Local Docker stack is the place to break things. The W5 "handover"
+  shrinks to: account/billing transfer to Touch, secrets custody, SMTP config, dev-account
+  rotation — no project migration.
 - **Contractual suites pass against staging**: concurrency 8/8 (20-way hold race → exactly 1
   winner), RLS matrix 34/34.
 - **Two real security bugs found by the matrix and fixed**: (1) `is_staff()` returned NULL for
@@ -70,9 +74,13 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
   the PIN_INVALID raise → migration 0011 (invalid PIN returns NULL; only PIN_LOCKED raises;
   composite RPCs re-raise). Pattern note: fixes amend the original migration in place AND ship a
   follow-up migration for environments that ran the original.
-- **Docker Desktop still not installed on this machine** — local `supabase start` unavailable; the
-  db suites currently run against staging (env in `packages/db/.env`). Install Docker for offline
-  dev + CI parity.
+- **Docker Desktop installed 2026-08-24** (user-scope: `%LOCALAPPDATA%\Programs\DockerDesktop`);
+  local `supabase start` in use for dev. `packages/db/.env` points db tests at the hosted project —
+  remove/comment it to run them against the local stack (helpers default to `127.0.0.1:54321`).
+- **Client input form SENT to Touch 2026-08-24** (based on `docs/client/` pack) — awaiting returns;
+  chase at call #1 (Fri 2026-08-28).
+- **Apple Developer + Play Console both verified in good standing 2026-08-24** — risk R3 (Play
+  new-account tester rule) cleared.
 
 ## File map (key files)
 - `docs/scope/touch-padel-phase1-scope-of-work.pdf` — the signed contract (17pp; .txt extract alongside).
@@ -100,6 +108,10 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 | Batch expiry UI | First candidate to slip to W5 per SOW priority order | Full expiry UI | W5 if squeezed |
 
 ## Gotchas / open issues
+- **The hosted Supabase project is the client's future production.** Before real trading starts:
+  rotate/remove the seeded dev staff accounts and PINs, revisit the 300/hr anonymous rate limit,
+  transfer billing/ownership to Touch (SEC gate 5 checklist). Until then it doubles as our shared
+  staging — additive changes only.
 - **Client inputs: NONE received yet** (courts, rates, menu, recipes, domain, Supabase, fonts,
   branding assets beyond PDFs). Chase pack is Day-1 deliverable; recipes are the SOW's own #1 risk.
 - **Currency**: building IQD-only per owner decision — get Mustafa's written confirmation at call
