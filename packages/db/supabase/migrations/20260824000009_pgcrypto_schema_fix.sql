@@ -55,4 +55,4 @@ begin
   -- composite sensitive RPCs re-raise it themselves. Found by the RLS matrix
   -- suite against staging (lockout test).
   return v_id;
-end $;
+end $$;
