@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
+import { supabaseEnv } from './env';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
 
@@ -8,12 +9,7 @@ import type { Database } from '@touch/db';
 // .d.ts was built against an older supabase-js and instantiates SupabaseClient
 // with a different arity, which otherwise poisons every downstream query type.
 export function createBrowserSupabase(): SupabaseClient<Database> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    // TODO: shared zod env loader (design-arch.md §7).
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  }
+  const { url, anonKey } = supabaseEnv();
   return createBrowserClient<Database>(url, anonKey) as unknown as SupabaseClient<Database>;
 }
 

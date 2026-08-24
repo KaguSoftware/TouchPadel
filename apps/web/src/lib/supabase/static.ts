@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
+import { supabaseEnv } from './env';
 
 /**
  * Cookie-free, session-free Supabase client for STATIC/ISR server rendering
@@ -8,11 +9,7 @@ import type { Database } from '@touch/db';
  * (venue_settings_public, active menu tables, menu_item_availability).
  */
 export function createStaticSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  }
+  const { url, anonKey } = supabaseEnv();
   return createClient<Database>(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
