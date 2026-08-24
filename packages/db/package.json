@@ -15,7 +15,7 @@
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
     "gen:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
-    "db:fixtures": "psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f fixtures/courts.sql",
+    "db:fixtures": "psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f fixtures/courts.sql -f fixtures/menu.sql -f fixtures/tables.sql -f fixtures/stock.sql",
     "qr:artwork": "node scripts/qr-artwork.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

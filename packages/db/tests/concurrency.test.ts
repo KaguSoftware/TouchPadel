@@ -1,7 +1,7 @@
 /**
- * CONTRACTUAL concurrency suite — design-data.md §6.1, cases 1–7.
- * (Case 8 replay-idempotency-through-sync_replays and case 9 FEFO land with
- * Drops 2/3 — migrations 0011/0014/0017.)
+ * CONTRACTUAL concurrency suite — design-data.md §6.1, cases 1–9.
+ * Cases 1–7: booking layer (Drop 1). Cases 8–9 (below): replay idempotency at
+ * the DB layer and FEFO consumption under contention (Drops 2/3).
  *
  * Runs against a live local stack (`pnpm db:start && pnpm db:reset`); skips
  * itself cleanly when the stack is unreachable.
@@ -20,6 +20,14 @@ import {
   testIdemKey,
   outcome,
   SEED_STAFF,
+  createTestMenuItem,
+  createTestIngredient,
+  addRecipeLine,
+  addStockBatch,
+  createTestCafeTable,
+  openGuestSession,
+  ensureOpenDay,
+  ensureTillFresh,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -296,5 +304,160 @@ describe.skipIf(!up)('booking concurrency (contractual acceptance suite)', () =>
 
     const { data } = await svc.from('reservations').select('id').eq('idempotency_key', key);
     expect(data).toHaveLength(1);
+  });
+});
+
+describe.skipIf(!up)('cafe concurrency (contractual cases 8-9, drops 2/3)', () => {
+  let svc: SupabaseClient;
+  let manager: SupabaseClient;
+  let cashier: SupabaseClient;
+
+  beforeAll(async () => {
+    svc = serviceClient();
+    manager = await signedInClient(SEED_STAFF.manager);
+    cashier = await signedInClient(SEED_STAFF.cashier);
+    await ensureTillFresh(svc); // degraded mode would block create_guest_order
+    await ensureOpenDay(manager, svc);
+  });
+
+  it('case 8: create_guest_order replayed with one idempotency key -> ONE order, duplicate indication', async () => {
+    const table = await createTestCafeTable(svc, 'C8');
+    const menu = await createTestMenuItem(svc, 'replay', 4_000);
+    const guest = await openGuestSession(manager, table);
+
+    // Sequential replay (the till/browser queue re-sends after a timeout).
+    const key = testIdemKey('order.create');
+    const args = {
+      p_items: [{ variant_id: menu.variantId, qty: 1 }],
+      p_idempotency_key: key,
+    };
+    const first = await appRpc(guest.client, 'create_guest_order', args).then(outcome);
+    const second = await appRpc(guest.client, 'create_guest_order', args).then(outcome);
+    expect(first.ok, first.errorMessage).toBe(true);
+    expect(first.duplicate).toBe(false);
+    expect(second.ok, second.errorMessage).toBe(true);
+    expect(second.duplicate).toBe(true); // 0015 dedupes on orders.idempotency_key
+    expect((second.data as { order_id: string }).order_id).toBe(
+      (first.data as { order_id: string }).order_id,
+    );
+
+    // Concurrent replay of one key: the unique-violation path converts the
+    // loser into the same duplicate answer — never a second order.
+    const raceKey = testIdemKey('order.create');
+    const raceArgs = {
+      p_items: [{ variant_id: menu.variantId, qty: 1 }],
+      p_idempotency_key: raceKey,
+    };
+    const [a, b] = await Promise.all([
+      appRpc(guest.client, 'create_guest_order', raceArgs).then(outcome),
+      appRpc(guest.client, 'create_guest_order', raceArgs).then(outcome),
+    ]);
+    expect(a.ok, a.errorMessage).toBe(true);
+    expect(b.ok, b.errorMessage).toBe(true);
+    expect([a, b].filter((r) => r.duplicate === false)).toHaveLength(1);
+    expect([a, b].filter((r) => r.duplicate === true)).toHaveLength(1);
+
+    for (const k of [key, raceKey]) {
+      const { data: orders } = await svc.from('orders').select('id').eq('idempotency_key', k);
+      expect(orders).toHaveLength(1);
+      const { data: tickets } = await svc
+        .from('tickets')
+        .select('id')
+        .eq('order_id', (orders![0] as { id: string }).id);
+      expect(tickets).toHaveLength(1); // replay never spawned a second KDS ticket
+    }
+
+    // Replay bookkeeping (0021): the till's log of the same key dedupes too.
+    const logArgs = {
+      p_device_id: 'TILL-TEST',
+      p_idempotency_key: key,
+      p_entity: 'order',
+      p_result: 'duplicate',
+    };
+    const log1 = await appRpc(cashier, 'log_replay', logArgs).then(outcome);
+    const log2 = await appRpc(cashier, 'log_replay', logArgs).then(outcome);
+    expect(log1.ok, log1.errorMessage).toBe(true);
+    expect(log1.duplicate).toBe(false);
+    expect(log2.duplicate).toBe(true);
+  });
+
+  it('case 9: 10 concurrent orders FEFO-draining 3 batches -> exact sums, no negative batch, ONE overdraft alert', async () => {
+    // 10 orders × 100ml against 3 batches of 300ml => 100ml overdraft.
+    const ingredient = await createTestIngredient(svc, 'عصير برتقال طازج', 'ml');
+    const batchIds = [
+      await addStockBatch(svc, ingredient, 300, 3, 1),
+      await addStockBatch(svc, ingredient, 300, 3, 2),
+      await addStockBatch(svc, ingredient, 300, 3, 3),
+    ];
+    const menu = await createTestMenuItem(svc, 'fefo-juice', 2_000);
+    await addRecipeLine(svc, { variantId: menu.variantId }, ingredient, 100);
+
+    const tab = await appRpc(cashier, 'open_tab', {
+      p_label: `طاولة تجربة السحب ${Date.now()}`,
+      p_idempotency_key: testIdemKey('tab.open'),
+    }).then(outcome);
+    expect(tab.ok, tab.errorMessage).toBe(true);
+    const tabId = (tab.data as { tab_id: string }).tab_id;
+
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        appRpc(cashier, 'till_add_items', {
+          p_tab_id: tabId,
+          p_items: [{ variant_id: menu.variantId, qty: 1 }],
+          p_idempotency_key: testIdemKey('order.add'),
+        }).then(outcome),
+      ),
+    );
+    // A sale is NEVER blocked by stock — all 10 must succeed.
+    expect(results.filter((r) => r.ok)).toHaveLength(10);
+
+    const { data: moves } = await svc
+      .from('stock_movements')
+      .select('batch_id, qty_delta')
+      .eq('ingredient_id', ingredient)
+      .eq('movement_type', 'sale_consumption');
+    type Move = { batch_id: string | null; qty_delta: number };
+    const m = moves as Move[];
+
+    // Ledger truth: total consumed = total demanded, split 900 batched + 100 overdraft.
+    const totalConsumed = m.reduce((s, x) => s + Number(x.qty_delta), 0);
+    expect(totalConsumed).toBe(-1000);
+    const overdraft = m.filter((x) => x.batch_id === null);
+    expect(overdraft.reduce((s, x) => s + Number(x.qty_delta), 0)).toBe(-100);
+    const batched = m.filter((x) => x.batch_id !== null);
+    expect(batched.reduce((s, x) => s + Number(x.qty_delta), 0)).toBe(-900);
+
+    // Per-batch conservation: consumed exactly what each batch held, never below zero.
+    const { data: batches } = await svc
+      .from('stock_batches')
+      .select('id, qty_remaining')
+      .in('id', batchIds);
+    for (const b of batches as { id: string; qty_remaining: number }[]) {
+      expect(Number(b.qty_remaining)).toBe(0);
+      expect(Number(b.qty_remaining)).toBeGreaterThanOrEqual(0);
+      const consumedFromBatch = batched
+        .filter((x) => x.batch_id === b.id)
+        .reduce((s, x) => s + Number(x.qty_delta), 0);
+      expect(consumedFromBatch).toBe(-300);
+    }
+
+    // Exactly ONE negative_stock alert: FOR UPDATE serializes the drain, so
+    // only the single overdrafting transaction sees a shortfall.
+    const { data: alerts } = await svc
+      .from('manager_alerts')
+      .select('id, payload')
+      .eq('kind', 'negative_stock')
+      .eq('payload->>ingredient_id', ingredient);
+    expect(alerts).toHaveLength(1);
+    expect(Number((alerts![0] as { payload: { shortfall: number } }).payload.shortfall)).toBe(100);
+
+    // Keep the shared day closable for later suites: settle the tab.
+    const settle = await appRpc(cashier, 'settle_tab', {
+      p_tab_id: tabId,
+      p_method: 'cash',
+      p_tendered_iqd: 20_000,
+      p_idempotency_key: testIdemKey('payment.settle'),
+    }).then(outcome);
+    expect(settle.ok, settle.errorMessage).toBe(true);
   });
 });

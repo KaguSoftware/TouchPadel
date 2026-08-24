@@ -17,6 +17,8 @@ import {
   guestClient,
   ensureTestRateRule,
   createTestCourt,
+  ensureCafeProbeData,
+  ensureTillFresh,
   appRpc,
   SEED_STAFF,
   DEV_PINS,
@@ -39,7 +41,9 @@ function isPermissionDenied(error: PgError): boolean {
   return !!error && (error.code === '42501' || /permission denied/i.test(error.message));
 }
 function isGuarded(error: PgError): boolean {
-  return !!error && /(FORBIDDEN|AUTH_REQUIRED)/.test(error.message);
+  // SESSION_EXPIRED joins in drop 2: guest-session-bound RPCs refuse callers
+  // without a live table session at the guard layer (0014 touch_guest_session).
+  return !!error && /(FORBIDDEN|AUTH_REQUIRED|SESSION_EXPIRED)/.test(error.message);
 }
 
 /** update/delete need a PostgREST filter; harmless per-table primary-key filters. */
@@ -47,9 +51,11 @@ const WRITE_FILTERS: Record<string, [string, unknown]> = {
   venue_settings: ['id', true],
   rate_rule_prices: ['rule_id', '00000000-0000-4000-8000-000000000000'],
   audit_log: ['id', -1],
+  stock_movements: ['id', -1],
+  notification_outbox: ['id', -1],
 };
 
-describe.skipIf(!up)('RLS role matrix (drop 1: 0004-0008 surface)', () => {
+describe.skipIf(!up)('RLS role matrix (drops 1-3: 0004-0021 + 0024 surface)', () => {
   const clients = {} as Record<Principal, SupabaseClient>;
   let svc: SupabaseClient;
 
@@ -58,6 +64,8 @@ describe.skipIf(!up)('RLS role matrix (drop 1: 0004-0008 surface)', () => {
 
     // Probe data every 'rows' expectation can rely on.
     await ensureTestRateRule(svc);
+    await ensureCafeProbeData(svc); // drop 2+3 probe rows (ee57 prefix)
+    await ensureTillFresh(svc); // degraded mode would corrupt guest-RPC guard outcomes
     const probeCourt = await createTestCourt(svc, 'RLS-probe');
     const { error: resErr } = await svc.from('reservations').insert({
       court_id: probeCourt,
