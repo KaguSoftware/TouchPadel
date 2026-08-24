@@ -20,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       # Frozen lockfile is the rule; the `|| pnpm install` fallback only exists so the very
@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -82,3 +82,29 @@ jobs:
         if: always()
         working-directory: packages/db
         run: supabase stop --no-backup
+
+  # ---------------------------------------------------------------------------
+  # e2e (Playwright) — NOT ENABLED YET. The suite exists at e2e/ and runs
+  # locally with `pnpm e2e` (requires the local Supabase stack + fixtures:
+  # `pnpm db:start && pnpm db:reset && pnpm db:fixtures`). Enabling it in CI
+  # means paying the cost of booting BOTH dev servers (Next 16 first compile is
+  # slow) on top of `supabase start`, so it is parked until the pipeline gets a
+  # dedicated job. Sketch for later:
+  #
+  # e2e:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: pnpm/action-setup@v4
+  #     - uses: actions/setup-node@v4
+  #       with: { node-version: 22, cache: pnpm }
+  #     - uses: supabase/setup-cli@v1
+  #     - run: pnpm install --frozen-lockfile
+  #     - run: supabase start          # in packages/db
+  #     - run: supabase db reset       # migrations + seed
+  #     - run: pnpm db:fixtures        # menu/tables/courts/stock fixtures
+  #     - run: pnpm e2e:install        # playwright install chromium
+  #     - run: pnpm e2e                # config boots both dev webServers itself
+  #     - run: supabase stop --no-backup
+  #       if: always()
+  # ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "build": "turbo build",
@@ -16,9 +16,13 @@
     "db:reset": "pnpm --filter @touch/db db:reset",
     "db:types": "pnpm --filter @touch/db db:types",
     "db:fixtures": "pnpm --filter @touch/db db:fixtures",
+    "e2e": "playwright test --config e2e/playwright.config.ts",
+    "e2e:install": "playwright install chromium",
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@supabase/supabase-js": "^2.47.0",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2"
