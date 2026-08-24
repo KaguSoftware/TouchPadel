@@ -1,0 +1,113 @@
+PAGES: 14
+
+
+
+HOW THE SYSTEM
+WORKS.
+IN PICTURES.
+Twelve diagrams covering the Phase 1 scope — from the big picture for the venue
+to the data model for the build team. Companion to the Scope of Work v1.0.
+CLIENT   Touch Padel · IraqSUPPLIER   Kagu Web StudioDOCUMENT   System Diagrams · v1.0
+
+CONTENTS
+THE BIG PICTURE
+1 · The System at a Glance03
+2 · Who Sees What — The Five Roles04
+GUEST JOURNEYS
+3 · How a Guest Books a Court05
+4 · Why Double-Booking Is Impossible06
+5 · How a Guest Orders at the Cafe07
+OPERATIONS
+6 · Life of a Cafe Order08
+7 · Life of a Court Booking09
+8 · Closing the Day10
+9 · When the Internet Drops — Degraded Mode11
+FOR THE BUILD TEAM
+10 · Technical Architecture12
+11 · Data Model (ER Diagram)13
+DELIVERY
+12 · Delivery Plan — Six Weeks14
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOCONTENTS   ·   02
+
+1 · The System at a Glance
+AUDIENCE: EVERYONE
+WHAT THIS SHOWS
+Three apps, one shared database. Guests use the mobile app for courts and the website for the cafe. Staff use one Windows desktop app whose screens depend on the
+person's role. Everything reads and writes the same records, and changes push out live — no refreshing.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: EVERYONE   ·   03
+
+2 · Who Sees What — The Five Roles
+AUDIENCE: EVERYONE
+WHAT THIS SHOWS
+Each staff role sees only what its permissions allow, and the rules live in the database itself — they can't be bypassed by opening a different screen. Discounts, voids,
+overrides and stock adjustments all land in a permanent audit log with the person, the change, and the reason.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: EVERYONE   ·   04
+
+3 · How a Guest Books a Court
+AUDIENCE: EVERYONE
+WHAT THIS SHOWS
+A slot is briefly held while the guest completes the booking, so nobody else can grab it mid-checkout. The moment it's confirmed, it appears on the desk calendar. Payment
+stays at the desk — there is no online payment in Phase 1.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: EVERYONE   ·   05
+
+4 · Why Double-Booking Is Impossible
+AUDIENCE: EVERYONE · KEY GUARANTEE
+WHAT THIS SHOWS
+All court time — app bookings, desk bookings, holds, maintenance — goes into one table the database itself refuses to overlap. A clash isn't a bug we hope to catch; it's a write
+that physically cannot be stored. Proven by automated tests firing simultaneous requests at the same slot.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: EVERYONE · KEY GUARANTEE   ·   06
+
+5 · How a Guest Orders at the Cafe
+AUDIENCE: EVERYONE
+WHAT THIS SHOWS
+No app, no account: the phone camera scans the table's QR code and the menu opens already bound to that table, in the guest's language. The order flows to the kitchen
+screen live, and status updates on the guest's page. Ordering is not paying — everything settles at the desk.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: EVERYONE   ·   07
+
+6 · Life of a Cafe Order
+AUDIENCE: STAFF + TEAM
+WHAT THIS SHOWS
+Every order moves through defined stages. Nothing disappears: a void after the kitchen has the ticket is recorded as waste, and refunds (manager only) reverse the stock
+movement. This is what makes the day-close and variance numbers trustworthy.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: STAFF + TEAM   ·   08
+
+7 · Life of a Court Booking
+AUDIENCE: STAFF + TEAM
+WHAT THIS SHOWS
+From the short hold to completion, cancellation, or no-show. Every staff override — moving, extending, cancelling — is stamped into the audit log with who did it and why.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: STAFF + TEAM   ·   09
+
+8 · Closing the Day
+AUDIENCE: STAFF + MANAGER
+WHAT THIS SHOWS
+The day cannot close while a tab is still open on the floor. Cash is counted against what the system expects, the card terminal batch is entered for reconciliation, and every
+discount, void, refund and waste entry is listed with the person who authorised it.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: STAFF + MANAGER   ·   10
+
+9 · When the Internet Drops — Degraded Mode
+AUDIENCE: EVERYONE · KEY GUARANTEE
+WHAT THIS SHOWS
+The till and kitchen keep working from a local queue; nothing typed is lost even in a power cut. The app and website are blocked from near-term bookings so a slot can never
+be sold twice while offline. On reconnect, the queue replays exactly once and totals reconcile.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: EVERYONE · KEY GUARANTEE   ·   11
+
+10 · Technical Architecture
+AUDIENCE: TEAM
+WHAT THIS SHOWS
+TypeScript end to end. Supabase Postgres is the single source of truth with row-level security, the booking exclusion constraint, and append-only ledgers. Realtime channels
+push tickets, statuses and freed slots to every client. Types are generated from the schema, so a schema change breaks the build — not the venue.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: TEAM   ·   12
+
+11 · Data Model (ER Diagram)
+AUDIENCE: TEAM
+WHAT THIS SHOWS
+The core entities and how they relate. Notable: one RESERVATION table with an exclusion constraint carries all court time; each booking stores the RATE_RULE that priced it;
+stock is an append-only ledger of movements against expiry-dated batches (first-expiring-first); a cafe TAB can be charged to a court booking.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: TEAM   ·   13
+
+12 · Delivery Plan — Six Weeks
+AUDIENCE: EVERYONE
+WHAT THIS SHOWS
+Four parallel build tracks over four weeks, then two weeks reserved for store review, defect fixing, training and handover. Track A (platform) runs a few days ahead in week 1
+— it is the foundation the other tracks build on. A working build is demonstrated at the end of every week.
+TOUCH PADEL · PHASE 1 — SYSTEM DIAGRAMS · KAGU WEB STUDIOAUDIENCE: EVERYONE   ·   14

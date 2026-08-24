@@ -1,0 +1,1038 @@
+PAGES: 17
+
+
+
+K A G U   W E B   S T U D I O
+S C O P E   O F   W O R K   ·   P H A S E   1   ·   V 1 . 0
+WHAT WE
+ARE BUILDING.
+EXACTLY.
+Foundations, padel reservation, the full cafe system and stock
+management. This document defines what is included, what is
+excluded, what Touch must provide, and the conditions under which
+the phase is accepted.
+C L I E N T
+Touch Padel · Iraq
+S U P P L I E R
+Kagu Web Studio
+W I N D O W
+4 weeks build + 2 review
+S T A T U S
+For signature
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E   O F   W O R KCONTENTS
+00
+CONTENTS &
+DOCUMENT CONTROL
+This document supersedes the scope described in the proposal for Phase 1 only.
+Where the two disagree, this document governs.
+S U M M A R Y
+01
+Scope at a glance
+In, out, and what gets delivered03
+02
+Architecture & stack
+Fixed technology choices for this phase04
+M O D U L E S
+03
+Foundations
+Accounts, roles, bilingual RTL, platform05
+04
+Padel reservation
+Guest booking, desk calendar, rates, integrity06
+05
+Cafe — guest side
+Menu, table binding, ordering and waiter call — on the web07
+06
+Cashier & dispatch
+Till, kitchen screen, tabs, day close08
+07
+Stock & recipes
+Recipes, consumption, expiry by batch, counts, variance, margin09
+08
+The website
+The platform module 3 runs on, and the public face of the venue10
+09
+Degraded mode
+Single-writer fallback and local queue when the connection drops11
+C O N D I T I O N S   &   D E L I V E R Y
+10
+Operating in Iraq
+Tax, currency and connectivity decisions12
+11
+What Touch must provide
+Client-side inputs, when they are needed, and the cost of delay13
+12
+Delivery plan
+Four parallel build tracks, then the review and handover window14
+13
+Acceptance, change & terms
+Sign-off conditions, change control, commercials16
+14
+Agreement
+Signature page17
+DOCUMENT CONTROL
+Version1.0 — for signature
+SupplierKagu Web Studio
+ClientTouch Padel, Iraq
+ApproverMustafa
+StartOn receipt of the down payment
+Build4 weeks from start
+Review & handover2 further weeks
+HOW TO READ THIS
+Each module lists what is included and what is not
+included. If a capability is not written in this
+document, it is not in Phase 1 — regardless of
+whether it appeared in the proposal, in a
+conversation, or in a screen mock-up.
+That is not a way of narrowing the work. It is how
+both sides can tell, on the final day, whether the
+phase is finished.
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OC O N T E N T S   &   D O C U M E N T   C O N T R O L02
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E01 / SCOPE SUMMARY
+01
+SCOPE AT
+A GLANCE
+The whole phase on one page. Detail follows in the module sections.
+IN SCOPE — PHASE 1OUT OF SCOPE — LATER PHASES
+A P P L I C A T I O N S
+Mobile · Desktop ·
+Web
+L A N G U A G E S
+English & Arabic,
+RTL
+P A Y M E N T
+At the desk only
+V E N U E
+1 till · 1 prep
+station
+DELIVERABLES
+DELIVERABLEFORMDELIVERED TO
+Guest mobile appiOS and Android builds via Expo EAS — padel
+booking only
+Published by Kagu under Kagu's developer
+accounts
+Operator desktop appWindows installer — Electron or Tauri wrapperInstalled on the till and desk machines
+Public websiteNext.js on Vercel — carries the cafe guest experienceTouch's domain
+BackendSupabase project — database, auth, storageOwned by Touch, administered by Touch
+Source codeGit repositoriesTouch's account, transferred at acceptance
+DocumentationRunbook and staff guide, English and ArabicWritten, plus recorded training
+Accounts, email authentication, roles and
+permissions
+Bilingual English / Arabic with full right-to-left
+Padel court reservation in the mobile app and at
+the desk
+Cafe menu, QR table binding, ordering and
+waiter call — on the web, no app install
+Cashier and payment at the desk, tabs, splits,
+discounts
+Kitchen display screen for preparation dispatch
+Charge a cafe order to a court booking
+Recipe-level stock with consumption, expiry
+tracking, counts and variance
+Degraded mode — the till keeps trading and
+queues locally through an outage
+Public website carrying the whole cafe guest
+experience
+Deployment, store publishing, and handover
+documentation
+Online and in-app payment — desk payment
+only
+Coaching, courses, coach schedules and
+commission settlement
+Open matches and seat splitting
+Tournaments and leagues
+Touch Shop retail and pro-shop inventory
+Loyalty points, rewards and tiers
+The management analytics panel and Customer
+360
+PostHog behavioural analytics instrumentation
+Offline operation — the system requires a
+connection to trade
+Purchase orders and supplier management
+Multi-venue and multi-location stock
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OS C O P E   A T   A   G L A N C E03
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E02 / ARCHITECTURE
+02
+ARCHITECTURE
+& STACK
+Fixed for this phase. Any change to this list is a change request.
+COMPONENTTECHNOLOGYNOTES
+Guest mobile appReact Native + ExpoOne codebase for iOS and Android, built and submitted through Expo EAS.
+Padel booking only — no cafe section. Over-the-air updates for copy and non-
+native fixes.
+Push notificationsExpo PushBooking confirmation, reminder and cancellation. Cafe order status is shown
+live on the web page instead.
+Operator desktop appElectron or TauriWindows only. A wrapper around the same web application, installed on the till
+and desk machines so it opens on boot and cannot be closed as a browser tab.
+The wrapper is confirmed in week 1 against thermal-printer support; the
+application inside it is identical either way.
+Public websiteNext.jsServer-rendered on Vercel. Carries the whole cafe guest experience — menu,
+table binding, ordering, waiter call — from the same records as the desktop app.
+Database & authSupabase — PostgresSingle source of truth for all three clients. Row-level security enforces roles at
+the database, not in the interface.
+RealtimeSupabase RealtimePushes new tickets to the kitchen screen, order status to the guest's page, and
+released courts back onto the booking grid, without polling.
+LanguageTypeScript throughoutDatabase types generated from the schema, so a column change breaks the
+build rather than a shift.
+ONE APPLICATION, ROLE-BASED VIEWS
+The desktop app is a single build. What a user sees is
+decided by their role, not by which program they opened
+— a cashier gets the till, a manager on the same machine
+also gets the desk and stock views. One codebase, one
+deployment, one place to change a permission.
+ROLES DELIVERED IN THIS PHASE
+CashierTill, orders, table service
+PrepKitchen display only
+Court deskReservation calendar, walk-in bookings
+ManagerAll of the above, plus stock, menu, rates, day
+close and discounts
+OwnerAll of the above, plus staff and role
+administration
+WHY THE CAFE LIVES ON THE WEB AND NOT IN THE APP
+A guest at a table will not install an application to order a coffee, and requiring one is the largest cause of failure in QR ordering.
+Scanning the table code with the phone's own camera opens the menu in the browser, already bound to that table, with nothing
+to install and no account to create. The app is reserved for padel, where a guest has reason to return and hold an account.
+NOT INCLUDED IN THE STACK
+RevenueCat is not used. It handles App Store and Play subscriptions, and both stores prohibit in-app purchase for real-world
+goods and services — court time and food are paid for outside the app. Phase 1 is desk payment only, so no payment SDK of
+any kind is integrated. Recorded here so it is not mistaken for an omission.
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OA R C H I T E C T U R E   &   S T A C K04
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E03 / MODULE 1
+03
+MODULE 1
+FOUNDATIONS
+Everything the other four modules stand on. Built first, and the reason the phase is
+sequenced the way it is.
+INCLUDED
+ACCOUNTS & AUTHENTICATION
+ROLES & PERMISSIONS
+BILINGUAL & RIGHT-TO-LEFT
+PLATFORM & DELIVERY
+NOT INCLUDED
+WHY EMAIL AND NOT PHONE
+Phone one-time codes cost money per
+message and need a regional SMS
+provider contracted before launch. Email
+removes that dependency and that cost
+from Phase 1 entirely. Phone-based
+identity can be added later without a data
+migration, because the phone number is
+captured on the profile from day one.
+ACCEPTANCE
+A guest can register, verify, sign in and
+change language on all three clients with
+layout correctly mirrored. Each of the five
+roles sees only what its permission set
+allows, confirmed by a written role test.
+Guest sign-up and sign-in by email and password, with email
+verification and password reset
+Guest profile: name, phone number, preferred language
+Staff accounts created and managed by the owner role
+Session handling across mobile, desktop and web, with
+anonymous table sessions on the cafe site
+Short-lived sessions on shared till machines, with a PIN for
+sensitive actions
+The five roles listed in the architecture section
+Permissions enforced by row-level security in the database
+An append-only audit log recording actor, action, before and after
+values, and a reason code on discounts, voids, price overrides,
+stock adjustments and reservation overrides
+English and Arabic across all three clients
+Full RTL layout using logical properties, not a mirrored stylesheet
+Bidirectional text handling for Latin fragments inside Arabic
+strings
+Numeral system, date, time and currency formatting per locale
+Menu items, court names, categories and notifications stored in
+both languages in a single record, edited side by side in the
+desktop app
+Fallback to the other language where a translation is missing
+Supabase project, schema, migrations and generated types
+Staging and production environments
+Deployment pipeline for all three clients
+Error tracking and uptime monitoring on the booking and
+ordering paths
+Automated daily backups with point-in-time recovery
+Phone / SMS one-time-code login
+Social or Apple / Google sign-in
+Household or family account linking
+Customer-facing profile history beyond
+their own bookings and orders
+Any third language
+Staff shift scheduling or time clock
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OF O U N D A T I O N S05
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E04 / MODULE 2
+04
+MODULE 2
+PADEL RESERVATION
+Court hire, guest side and desk side, on one calendar.
+INCLUDED
+GUEST BOOKING, MOBILE APP
+DESK AND CALENDAR, DESKTOP APP
+RULES & PRICING
+DOUBLE-BOOKING PREVENTION
+All court time — guest bookings, desk
+bookings, holds and maintenance blocks
+— is written to a single reservation table
+protected by a database exclusion
+constraint on court and time range. Two
+overlapping reservations cannot be
+stored, so an overlap is not a bug to be
+caught in code but a write that fails.
+Delivered with concurrency tests that fire
+simultaneous requests at one slot and
+assert that exactly one succeeds.
+NOT INCLUDED
+ACCEPTANCE
+A guest books a court from the app and it
+appears immediately on the desk
+calendar. Staff create, move and cancel
+bookings. The concurrency test suite
+passes. Touch has taken real bookings on
+the system.
+Day view of live availability per court, with the price for that
+specific slot
+Court records: name, indoor or outdoor, description, photograph
+Duration options configured per court
+A short exclusive hold on the slot while the guest completes
+booking, expiring automatically and returning the slot to the grid
+Booking confirmation, with the reservation visible in the guest's
+account
+Guest-initiated cancellation, subject to the configured policy
+Push notifications for confirmation, reminder and cancellation
+Day and week calendar across all courts
+Create a booking for a walk-in, with or without a linked guest
+account
+Move, shorten, extend and cancel a reservation
+Block court time for maintenance or a private event
+Mark a booking as arrived, completed or no-show
+Every override written to the audit log with actor and reason
+Rate rules by weekday, time window and court, with peak and off-
+peak
+Each booking stores the rule that produced its price, so a
+historical figure can always be explained
+Configurable cancellation window and no-show handling
+Opening hours and closed days
+Payment at the time of booking —
+guests reserve, then pay at the desk
+Open matches, seat claiming and cost
+splitting between players
+Player levels and matchmaking
+Tournaments, leagues and fixtures
+Coaching and lesson booking of any
+kind
+Memberships, subscriptions and
+member rates
+Recurring or block bookings
+Waiting lists
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OP A D E L   R E S E R V A T I O N06
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E05 / MODULE 3
+05
+MODULE 3
+CAFE — GUEST SIDE
+The menu, the table it is bound to, and how a guest gets a member of staff. All of it
+on the web, with nothing to install and no account to create.
+INCLUDED
+MENU
+TABLE BINDING
+ORDERING & WAITER CALL
+NOT INCLUDED
+ORDERING IS NOT PAYING
+An order placed from a phone opens a tab
+against the table. It is prepared and
+served exactly like a counter order and
+settled at the desk before the guest
+leaves. This is the single most important
+thing for staff to understand at launch and
+is covered explicitly in training.
+ACCEPTANCE
+A guest with no app and no account scans
+a table code, orders in either language,
+the ticket reaches the kitchen screen, the
+status updates on their page, the waiter
+call reaches the floor view, and the tab
+settles correctly at the till.
+Categories and items with photograph, description, price and
+availability
+Sizes and variants, each with its own price
+Modifiers and options with price differences — milk type, extra
+shot, sides
+Allergen and dietary flags
+Add-on suggestions attached to an item as it is added to the
+basket
+Item marked unavailable by staff, restoring automatically the next
+day
+Items greyed out automatically when a required ingredient is out
+of stock
+All content bilingual, edited once in the desktop app and live
+everywhere
+Printed QR code per table, scanned with the phone's native
+camera — no app, no scanner, no install
+The code carries a signed table token, not a plain table number,
+so the binding cannot be forged by editing a web address
+The page opens already bound to that table, in the guest's
+device language
+Tokens are rotatable per table, so a photographed code can be
+retired
+Binding expires after a configured period of inactivity
+Print-ready QR artwork supplied for every table, in Touch's
+branding
+Basket, review and send to the bound table
+Ordering is anonymous by default — no sign-up required.
+Signing in is optional and attaches the order to an existing
+account
+Live order status on the page while it is open, updating as the
+kitchen works: sent, being prepared, ready
+One-tap waiter call with a reason — order, bill, water, assistance
+Calls rate-limited per table, moving through raised,
+acknowledged and resolved, each stamped with who acted and
+when
+Full bilingual English and Arabic with right-to-left layout
+Any cafe functionality in the mobile app
+— the app carries padel only and has no
+cafe section
+Paying for the order on the web — the
+bill is settled at the desk
+Web push notifications when an order is
+ready — status is shown live on the
+open page
+An account requirement, tipping, or
+loyalty points on cafe spend
+Delivery, collection or ordering from
+outside the venue
+Scheduled or pre-orders, and guest-to-
+guest bill splitting
+Behavioural analytics on menu views
+and suggestion take-up
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OC A F E   —   G U E S T   S I D E07
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E06 / MODULE 4
+06
+MODULE 4
+CASHIER & DISPATCH
+The till, and the screen the kitchen works from. One till station and one preparation
+station in this phase.
+INCLUDED
+CASHIER
+KITCHEN DISPLAY
+SHIFT & DAY CLOSE
+NOT INCLUDED
+RECEIPT PRINTING
+A thermal receipt printer is supported for
+the guest bill. Where the bill language is
+Arabic it is composed and sent as a
+rendered image rather than as characters,
+because low-cost thermal printers cannot
+shape Arabic from their built-in character
+sets. Touch supplies the printer against
+the specification we issue.
+ACCEPTANCE
+A full trading day is completed on the
+system and the day close reconciles cash
+and card against the terminal batch, with
+every discount, void and refund traceable
+to a named actor.
+Category and item grid built for speed, keyboard-first with touch
+supported
+Open tabs by table, by court or by name
+Add items with modifiers and sizes; edit a tab before sending
+Merge tables; split a bill by item or evenly
+Charge a cafe order to a court booking so a group settles courts
+and drinks in one payment
+Payment recorded at the desk — cash and card, with the card
+terminal operating independently of this system
+Change calculation and a cash drawer opening record
+Discounts and price overrides behind an authorised PIN with a
+reason code
+Voids after a ticket has been sent recorded as waste, not deleted
+Refunds by a manager role, reversing the stock movement
+Configurable tax rate per item group, applied and shown on the
+bill
+Printed or on-screen bill for the guest
+Live ticket list with age, items, modifiers, and table or court
+number
+Colour change as a ticket passes its target time
+Mark item ready and ticket complete, notifying the floor and the
+guest
+Actual preparation time stored per ticket
+Tickets from the guest app and the till appear in one list, in arrival
+order, tagged with where they came from
+Opening float, cash counted at close, expected against counted
+with the variance stated
+Card total for reconciliation against the terminal batch
+Summary of discounts, voids, refunds and waste with the
+authoriser named
+Day cannot be closed while a tab is still open on the floor
+Integration with a card terminal — the
+terminal is operated separately and its
+total is entered at close
+Integrated or automated cash drawer
+hardware control
+Printed kitchen tickets — the kitchen
+works from the screen
+A second till or second preparation
+station
+Staff performance reporting
+Accounting system integration
+Fiscal or government-registered receipt
+devices — see section 10
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OC A S H I E R   &   D I S P A T C H08
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E07 / MODULE 5
+07
+MODULE 5
+STOCK & RECIPES
+Recipe-level consumption, one location. Stock falls as orders are made, not at
+month end.
+INCLUDED
+INGREDIENTS & RECIPES
+STOCK LEDGER
+EXPIRY & SHELF LIFE
+COUNTS, VARIANCE & COST
+NOT INCLUDED
+THE DEPENDENCY THAT DECIDES
+WHETHER THIS WORKS
+Stock accuracy is capped by recipe
+accuracy. If quantities are estimated
+rather than measured, the variance report
+will show noise and staff will stop trusting
+it within a month. Touch supplies
+measured recipes against the template
+we issue in week one. This is the single
+largest client-side input in the phase and
+the most common cause of delay.
+ACCEPTANCE
+A physical count is run against a period of
+trading and the variance report reconciles
+to Touch's satisfaction, with every
+movement traceable to the order, delivery
+or waste entry that caused it.
+Ingredient records with unit, pack size, cost and supplier
+A bill of materials per product — quantities per ingredient
+Usable yield percentage per ingredient
+Waste allowance per unit, held separately from recorded waste
+Sub-recipes: a syrup or sauce batch produced once and
+consumed by many products
+Modifier-aware consumption — oat milk deducts oat milk, a
+double shot deducts twice the coffee
+Per-size quantities, not a multiplier
+Stock held as an append-only ledger of movements, never an
+editable number
+Goods received against a delivery, with short-delivery capture
+and an expiry date per received batch
+Automatic deduction from the recipe when an order is confirmed
+Waste recorded by staff with a reason: spill, spoilage, void after
+send
+Adjustment only as the result of a physical count
+Shelf life per ingredient; expiry captured or calculated at goods-in
+Stock tracked by batch, so one ingredient can be held with
+several expiry dates at once
+Consumption deducts first-expiring first, matching how a kitchen
+actually works rather than assuming one undifferentiated pile
+Expiring-soon report with a configurable window, and an expired
+list
+Expired stock written off with its own reason code, separated
+from spillage and spoilage in the variance report
+Physical count entry per ingredient
+Variance report — theoretical against counted, by ingredient and
+period, with the movements behind it one click away
+Cost of goods and gross margin per menu item, moving with
+supplier cost
+Low-stock and par-level alerts; menu items greyed out when an
+ingredient runs out
+Purchase orders and supplier ordering
+workflow — goods received only
+Supplier price history and cost drift
+reporting
+Suggested order quantities
+Transfers between locations — one
+location in this phase
+Retail or pro-shop stock
+Automated reordering
+Supplier lot numbers and recall tracing
+— expiry is tracked per received batch,
+not per manufacturer lot
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OS T O C K   &   R E C I P E S09
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E08 / MODULE 6
+08
+MODULE 6
+THE WEBSITE
+The Next.js platform that module 3 runs on, plus the public face of the venue. Built
+once, serving every cafe guest who scans a table code.
+INCLUDED
+PLATFORM
+PUBLIC PAGES
+DELIVERY
+NOT INCLUDED
+ONE SURFACE, TWO AUDIENCES
+The same site serves the guest at table
+nine who wants a flat white and the
+stranger who searched for the venue last
+night. The first arrives with a table token
+and sees ordering; the second sees the
+menu and the venue details. There is no
+second site to build or keep in step.
+ACCEPTANCE
+The site is live on Touch's domain in both
+languages, matches the desktop app
+exactly, reflects an availability change
+made at the till without a redeploy, and
+completes an order end to end from a
+scanned table code.
+Next.js application deployed on Vercel to Touch's own domain
+Server-rendered, reading the same Supabase records as the
+desktop app — one menu, one place to edit it, live within
+seconds of a change at the till
+Bilingual English and Arabic with locale routing and full right-to-
+left
+Mobile-first throughout — effectively every visitor arrives from a
+phone camera
+Installable to the home screen, so a regular can return without
+scanning
+Performance budget suited to a venue connection, with images
+optimised and served at device size
+Touch branding, applied from the assets supplied in week 1
+The cafe menu and ordering experience described in module 3
+Venue information: address, opening hours, contact and map link
+Search-engine metadata, page titles, descriptions and social
+preview images
+A link through to the mobile app for padel booking, on both stores
+Preview deployment per change, so Touch can review before
+anything goes live
+Custom domain, TLS and DNS configuration
+Error tracking on the ordering path
+Court booking from the website —
+booking lives in the mobile app and at
+the desk
+A wider marketing site — about pages,
+galleries, blog, contact forms, events
+listings
+Guest account management on the web
+beyond optional sign-in at checkout
+A content management system beyond
+what the desktop app already edits
+Analytics, marketing tags or advertising
+pixels
+Copywriting, photography and
+translation — supplied by Touch
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OT H E   W E B S I T E10
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E09 / MODULE 7
+09
+MODULE 7
+DEGRADED MODE
+What happens when the venue loses its connection: while the desk cannot reach the
+server, the desk is the only thing allowed to write.
+WHY A SINGLE WRITER, RATHER THAN SYNCING EVERYONE
+A cafe order is an append-only fact — two never contend, and replaying them is safe. A court booking is not. If the desk sells
+court 3 at 19:00 offline while the app sells the same slot, both guests have been told they have it, and no merge rule invented
+afterwards makes that true. Rather than detect such conflicts and telephone a customer to cancel, the system removes the
+possibility: during an outage only one channel writes.
+INCLUDED
+DETECTION
+WHAT EACH CLIENT DOES
+THE QUEUE
+THE PROTECTED HORIZON
+Blocking every guest booking during an outage
+would stop a member booking next Saturday
+from home because a router failed at the
+venue. The lockout covers only what the desk
+could plausibly sell offline — today and
+tomorrow, configurable. Bookings beyond it
+continue normally.
+NOT INCLUDED
+THE ONE HONEST LIMIT
+There is a short window between the desk
+losing its connection and the server noticing. A
+booking made in those seconds can still
+collide with one taken offline; the database
+constraint catches it on replay and shows the
+desk a conflict rather than an overwrite. A short
+heartbeat keeps that window to seconds — not
+to zero, and it is not claimed to be.
+ACCEPTANCE
+With the network disconnected the till keeps
+taking orders and the kitchen screen keeps
+receiving them; app and website refuse near-
+term writes; and on reconnect every queued
+item appears exactly once, with stock and
+totals reconciling.
+The desktop app sends a heartbeat to the server on a short interval
+When it stops, the venue is marked degraded and guest writes are
+refused server-side — not hidden in the interface
+Normal operation resumes on the first successful heartbeat; every
+degraded period is logged with its start, end and duration
+Desktop app — keeps trading from cached reference data: menu,
+prices, recipes, courts, tables and today's reservations. Writes go to a
+durable local queue
+Kitchen display — continues from that same queue, so food still
+reaches the pass
+Mobile app — browsing and existing bookings stay visible; new
+bookings inside the protected horizon are blocked, with a clear
+message and the venue's phone number
+Cafe website — menu stays readable; ordering and waiter call are
+blocked, directing the guest to a member of staff
+Every write flushed to disk before the screen confirms it, so a power cut
+cannot lose a confirmed ticket
+Device-prefixed identifiers and an idempotency key per write, so two
+stations cannot collide and a replay cannot double-charge
+Replayed in order on reconnect with server-assigned timestamps; stock
+settles server-side, and anything driven negative is raised to the
+manager
+A banner states the mode and the queued count, and the day cannot be
+closed while unsynced items remain
+Full offline operation from a local on-
+premises database — a later phase
+Offline use of the mobile app or website;
+both need a connection
+Automatic conflict merging — see below
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OD E G R A D E D   M O D E11
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E10 / LOCAL CONDITIONS
+10
+OPERATING IN
+IRAQ
+Three local conditions that change what the software has to do. Recorded here so
+they are decided now rather than discovered during installation.
+TAX — NO FISCAL DEVICE REQUIRED
+Iraq does not operate a general VAT or sales tax system, and there is no requirement for a government-registered
+fiscal cash register or certified receipt device of the kind found in Turkey or the Gulf. A sales tax of 10% applies to
+services rendered by deluxe and first-class restaurants and hotels; whether Touch Cafe falls within that
+classification is a determination for Touch's accountant, not for Kagu.
+What we build: a configurable tax rate held per item group, applied at the till, shown separately on the bill and
+reported at day close. Setting it to zero, to ten per cent, or to different rates by category is a configuration Touch
+controls. No fiscal device integration and no e-invoicing submission is in scope.
+CURRENCY
+The system holds one trading currency, configured
+at setup, in which all prices, bills, stock costs and
+reports are expressed.
+Touch must confirm before build starts whether the
+venue prices in Iraqi dinar or in US dollars. If both
+are taken at the counter in practice, that is a dual-
+currency till — a second display currency, a fixed or
+editable daily rate, change given in the other
+currency, and both totals reconciled at day close.
+Dual currency is not included in this scope and
+would be quoted as an addition.
+CONNECTIVITY AND POWER
+Iraq's power and connectivity conditions are the
+reason module 7 exists. The till keeps trading
+through an outage, queueing locally and syncing on
+reconnect, while the app and website are locked
+out of near-term writes so nothing can be sold
+twice.
+Two things remain Touch's responsibility: a
+business internet connection wired to the till, and a
+UPS on the till, its printer, the router and the switch.
+Most interruptions in practice are power rather than
+network, and a UPS costs little against the trading
+it protects. Full offline running from an on-premises
+database is a later phase.
+LANGUAGE
+The phase delivers English and Arabic. If the venue is in the Kurdistan Region and Kurdish is expected by guests
+or staff, that is a third locale and a change request — inexpensive once the framework exists, but it must be raised
+before content is written rather than after.
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OO P E R A T I N G   I N   I R A Q12
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E11 / DEPENDENCIES
+11
+WHAT TOUCH
+MUST PROVIDE
+Kagu works remotely. Everything below is client-side. The build is four weeks, so these
+land earlier than they would on a longer plan — a week's delay here is a week off the end.
+ITEMNEEDED BYCONSEQUENCE IF LATE
+Down paymentBefore startThe four-week build begins on receipt, not before
+Named approver available weeklyThroughoutPhase acceptance cannot be signed
+Court list, hours, rates, cancellation policyWeek 1Module 2 cannot be configured or tested
+Trading currency and tax decisionWeek 1Till and reporting cannot be finalised
+Branding assets — logo, colours, photographyWeek 1Interfaces ship in placeholder styling
+Full menu with prices, sizes and modifiersWeek 1Track C has nothing to render; the website slips
+Domain registered, with DNS accessWeek 1The website cannot go live on Touch's domain
+Supabase account funded in Touch's nameWeek 1Production cannot be provisioned; the system stays on
+development limits
+English and Arabic copy for all contentWeek 2The Arabic build cannot be accepted
+Table numbering and floor layoutWeek 2QR artwork cannot be issued
+Measured recipes per productWeek 2Module 5 cannot be delivered — the single largest risk
+in this phase
+Ingredients — pack size, cost, supplier, shelf lifeWeek 2Margin reporting and batch expiry are unusable
+Staff list with intended rolesWeek 3Accounts cannot be created for training
+Hardware in place — till, kitchen screen, printer, networkWeek 3Installation and testing cannot proceed
+Staff available for trainingWeek 5Handover is incomplete
+COSTS BILLED TO TOUCH
+Two services only. Paid by Touch directly, in Touch's
+name, and not included in the phase fee:
+SERVICEINDICATIVE
+Supabase — database, auth, storagefrom $25/mo
+Domain registration and renewalannual
+Nothing else is charged on. Every other service the
+system runs on is carried by Kagu, and no further billable
+service is adopted without Touch agreeing first.
+CARRIED BY KAGU
+Developer accounts, website hosting, the build service
+and error tracking are held and paid for by Kagu. Touch
+opens, funds and administers none of them.
+Stated plainly: those accounts sit under Kagu. Should
+Touch wish to hold any directly, Kagu transfers it at no
+charge — Touch opens the account, and for the stores the
+timing is theirs, not ours.
+STORE REVIEW
+Apple and Google review submissions on their own
+timetable, typically a few days but occasionally longer,
+and a rejection resets the clock. Weeks 5 and 6 are held
+for exactly this. The review outcome remains outside
+our control, and acceptance of the mobile app is on
+submission of a working build, not on store approval.
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OW H A T   T O U C H   M U S T   P R O V I D E13
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E12 / DELIVERY PLAN
+12
+DELIVERY PLAN
+Four weeks of build, then two weeks held for store review, fixes, training and
+handover. The build runs as parallel tracks against a shared foundation, not as one
+queue.
+B U I L D
+4 weeks
+R E V I E W   &   H A N D O V E R
+2 weeks
+T O T A L   W I N D O W
+6 weeks
+S T A R T S
+On down payment
+BUILD — WEEKS 1 TO 4
+TRACKWEEK 1WEEK 2WEEK 3WEEK 4
+A · Platform
+& data
+Schema, migrations, email
+auth, roles and row-level
+security, bilingual content
+model, environments and
+pipeline
+Reservation model with its
+exclusion constraint and
+concurrency tests, menu
+and recipe schema,
+realtime channels
+Audit log, tax
+configuration, day-close
+model, reporting queries,
+heartbeat and degraded-
+mode lockout
+Backups and point-in-time
+recovery, monitoring, load test
+at twice peak
+B · Mobile app
+padel
+App shell, EAS pipeline,
+authentication screens, RTL
+foundation
+Court browsing, live
+availability grid, slot holds
+Booking end to end, push
+notifications, cancellation
+policy
+Polish, store listing assets,
+submitted to both stores
+C · Website
+cafe guest
+Next.js shell, locale routing
+and RTL, deploy pipeline,
+domain and TLS
+Menu rendering from live
+data, signed table-token
+binding
+Basket, ordering, waiter
+call, live order status
+Venue information, metadata,
+home-screen install, live on
+Touch's domain
+D · Desktop
+till & desk
+Wrapper and shell, role-
+based routing, staff sign-in
+Desk calendar with create,
+move and cancel; menu
+and content editor
+Cashier, tabs, splits,
+discounts, charge-to-
+booking, kitchen display,
+day close
+Local cache and durable write
+queue with replay; stock —
+ingredients, recipes, goods-in
+with batch expiry, consumption,
+counts, variance
+REVIEW & HANDOVER — WEEKS 5 AND 6
+WEEK 1 IS FOUNDATION-LED
+Tracks B, C and D can build their shells
+immediately, but they cannot go deep
+until track A has landed the schema, the
+authentication model and the reservation
+table. Track A therefore runs a few days
+ahead throughout week 1. This is the one
+genuine sequencing constraint in the
+plan, and it is the reason the foundation is
+not something that can be moved later.
+Store review. Apple and Google assess the submission, typically
+within days. Two weeks are held so that one rejection and
+resubmission still lands inside the window
+Defect fixing against the acceptance tests in each module,
+including the disconnection drill for module 7
+Staff training by role, recorded in both languages
+Runbook and staff documentation delivered
+Restore rehearsal and repository handover
+Acceptance walkthrough and sign-off with Mustafa
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OD E L I V E R Y   P L A N14
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E12 / DELIVERY PLAN
+PRIORITY ORDER IF THE WINDOW TIGHTENS
+A four-week build leaves no slack, and both sides should agree now what gives way first rather than deciding it in week
+four. In descending order of priority:
+WHAT THE TWO-WEEK BUFFER IS FOR —
+AND WHAT IT IS NOT
+It exists to absorb store review, including one
+rejection, and the defect fixing that follows a first
+real week of use. It is not spare build time.
+Spending it on late scope means there is nothing
+left to absorb a store rejection, and the mobile app
+is then the thing that slips.
+Acceptance of the mobile app is on submission of a
+working build. Store approval timing is controlled by
+Apple and Google and sits outside Kagu's
+commitment.
+WHAT WOULD EXTEND THE WINDOW
+WEEKLY RHYTHM
+A working build is demonstrable at the end of every
+week, and a short review call with Mustafa closes
+each one. Four weeks is too short to discover a
+misunderstanding in week three; the weekly
+demonstration is how that is prevented.
+Platform and padel reservation — the phase has no value without these and they are not negotiable. They are also
+on the critical path for the store submission, which cannot slip without spending the review buffer
+01
+Cashier and kitchen display — the cafe cannot trade on the system without them
+02
+Web ordering and waiter call — the cafe can trade at the till while these follow, though the website itself carries the
+menu and must ship
+03
+Degraded mode — the heartbeat lockout is cheap and ships regardless, since it is what prevents a slot being sold
+twice. The desk-side cache and write queue is the larger half and can follow in the review weeks if it must
+04
+Stock and recipes — the largest module, last in the build and first to move. It will move if measured recipes have not
+arrived by the end of week 2
+05
+Batch expiry tracking — if stock must be reduced rather than deferred, expiry gives way first and recipe-level
+consumption stays intact
+06
+A dependency in section 11 arriving after the
+week shown
+A change request accepted mid-phase
+Dual-currency handling at the till
+A third interface language
+More than one store rejection, or a review that
+runs beyond two weeks
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OD E L I V E R Y   P L A N15
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E13 / ACCEPTANCE
+13
+ACCEPTANCE,
+CHANGE & TERMS
+How the phase is signed off, how changes are handled, and what happens
+afterwards.
+ACCEPTANCE
+Each module carries its own acceptance test, stated in its
+section. The phase is accepted when all seven have been
+demonstrated to Mustafa and signed off in writing, and when:
+Acceptance is not withheld for items listed as out of scope in
+this document, nor for matters outside Kagu's control such as
+store review timing. The mobile app is accepted on submission
+of a working build.
+AFTER ACCEPTANCE
+CHANGE CONTROL
+Any request that adds to, removes from or
+alters what is written here is recorded in
+writing with its effect on the delivery date and
+the fee, and is either approved by Touch or
+deferred to a later phase before work on it
+begins. Nothing is absorbed silently, and
+nothing is refused out of hand.
+COMMERCIAL TERMS
+Feeas agreed — see contract
+CurrencyUS dollars
+Down paymentDue before start; the four-week
+build begins on receipt
+BalanceOn written acceptance of the
+phase
+Running costsSupabase and the domain only,
+paid by Touch directly and not
+included — see section 11
+Everything elseHosting, build service, error
+tracking and store accounts are
+carried by Kagu
+HardwareBought and installed locally by
+Touch against Kagu's written
+specification
+OWNERSHIP
+On acceptance and settlement, Touch owns
+the source code, the database and its
+migration history, all customer and transaction
+data, the domain and its Supabase project,
+together with the runbook and technical
+documentation. Hosting, the build service,
+error tracking and the store listings are held
+under Kagu's accounts and are transferable to
+Touch on request, as set out in section 11.
+A guest can register and book a court in the mobile app, and
+order to a table from the website with no app and no
+account, in English and in Arabic
+Staff can run a full trading day and close it with cash and
+card reconciled
+A physical stock count produces a variance report that
+reconciles
+Every role sees only what its permission set allows
+The concurrency test suite passes on the booking path
+Staff can complete their daily procedures unaided after
+training
+Touch holds administrative ownership of every repository
+and account
+30-day warranty on defects — behaviour that does not
+match this document is fixed at no charge
+New capability, including anything listed as out of scope, is a
+new phase
+Ongoing support and maintenance is optional and quoted
+separately
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OA C C E P T A N C E ,   C H A N G E   &   T E R M S16
+
+T O U C H   P A D E L   ·   P H A S E   1   S C O P E14 / AGREEMENT
+14
+AGREEMENT
+Signing below confirms that both parties have read this document and agree that
+it defines the whole of Phase 1.
+WHAT IS BEING AGREED
+F O R   T O U C H   P A D E L
+Signature
+Name — Mustafa
+Date
+F O R   K A G U   W E B   S T U D I O
+Signature
+Name
+Date
+K A G U   W E B   S T U D I O
+TOUCH PADEL — PHASE 1 SCOPE OF WORK
+Version 1.0 · for signature
+The seven modules described in sections 03 to 09 are delivered in full
+Everything listed as not included is excluded from this phase and from its fee
+Touch supplies the items in section 11 by the weeks shown
+Four weeks of build and two weeks for store review, fixes, training and handover, beginning on receipt of the
+down payment
+Payment is taken at the desk only; there is no online or in-app payment
+All cafe guest functionality is on the website; the mobile app carries padel only
+Touch pays for Supabase and the domain only; every other service is carried by Kagu
+The till keeps trading through an outage; full offline running from a local database is a later phase
+Changes follow the change-control process in section 13
+T O U C H   P A D E L   ·   K A G U   W E B   S T U D I OA G R E E M E N T17

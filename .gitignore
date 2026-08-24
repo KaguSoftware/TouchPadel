@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Env & secrets — never commit
+.env
+.env.*
+!.env.example
+station.json
+*.pem
+*.p12
+*.keystore
+
+# Build output
+dist/
+build/
+.next/
+.turbo/
+.expo/
+out/
+release/
+*.tsbuildinfo
+
+# Supabase local
+packages/db/supabase/.branches/
+packages/db/supabase/.temp/
+
+# Brand PDFs at repo root are too large for GitHub (kept local-only;
+# the two phase1 scope PDFs are committed under docs/scope/)
+/*.pdf
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Logs & coverage
+*.log
+coverage/
+playwright-report/
+test-results/
