@@ -124,9 +124,17 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - **The hosted Supabase project is the client's future production.** Before real trading starts:
   rotate/remove the seeded dev staff accounts and PINs, revisit the 300/hr anonymous rate limit,
   transfer billing/ownership to Touch (SEC gate 5 checklist). Until then it doubles as our shared
-  staging — additive changes only. Fixtures + e2e test residue exist locally only; **hosted has
-  schema 0001–0026 + seed but NO fixtures** (applying them needs the DB password — one command,
-  see packages/db/README.md, or ask the owner).
+  staging — additive changes only. Hosted has schema 0001–0026 + seed **+ fixtures (loaded
+  2026-08-24 via `supabase db query --linked`; test residue cleaned same day — 4 courts remain)**.
+- **Vercel production menu was empty (2026-08-24, root-caused):** the dashboard env var
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` was pasted with a second line glued on
+  (`...OJFGZdCDSUPABASE_URL=https://...` — verified verbatim in the served client bundle), so every
+  Supabase request 401'd and the menu page's try/catch rendered empty. DB itself verified fine (all
+  4 menu queries return data with both the anon JWT and the clean publishable key). Fix = edit that
+  one var to end at `...OJFGZdCD`, redeploy **without build cache** (NEXT_PUBLIC_* is inlined at
+  build). Same mangling existed in root `.env.local` (fixed 2026-08-24). Also recommended: delete
+  `SUPABASE_SERVICE_ROLE_KEY` + `SUPABASE_ANON_KEY` from Vercel — the web app never reads them.
+  Lesson: the "(FIXTURE)" footer address is a hardcoded i18n string, NOT proof of DB connectivity.
 - Migration numbering: **0023 intentionally unused** (reserved gap; 0024 = push outbox). Not a
   lost file.
 - **KDS item-level ready marks are local component state only** (whole-ticket status is real) —
