@@ -26,9 +26,10 @@ release/
 **/supabase/.temp/
 /supabase/
 
-# Brand PDFs at repo root are too large for GitHub (kept local-only;
-# the two phase1 scope PDFs are committed under docs/scope/)
-/*.pdf
+# PDFs stay local-only everywhere (owner decision 2026-08-24) — the brand decks
+# are far over GitHub's limits and the scope PDFs live on as .txt extracts in
+# docs/scope/. Share originals out-of-band.
+*.pdf
 
 # OS / editor
 .DS_Store
