@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserSupabase } from '@/lib/supabase/client';
+import { tryCreateBrowserSupabase } from '@/lib/supabase/client';
 
 /**
  * Invisible client island: re-renders the server menu the moment the till
@@ -14,7 +14,10 @@ export function MenuLive() {
   const router = useRouter();
 
   useEffect(() => {
-    const supabase = createBrowserSupabase();
+    // Live refresh is optional — a misconfigured client must not crash the
+    // server-rendered menu (the page is complete without it).
+    const supabase = tryCreateBrowserSupabase();
+    if (!supabase) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     // broadcast-from-database topics are private; setAuth falls back to the
