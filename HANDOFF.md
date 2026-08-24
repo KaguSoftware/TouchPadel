@@ -91,12 +91,15 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - `docs/client/` — client-facing pack (input checklist, CSV templates, printer spec) — being drafted.
 
 ## Roadmap / next steps
-1. **← ACTIVE** Step 0–5 of the plan: repo pushed · Docker/supabase verified · monorepo scaffold ·
-   migrations 0001–0008 + fixtures + generated types + concurrency suite · CI + app shells ·
-   client pack drafted.
-2. Week-1 day plan (D2–D5): Drop 1 migrations → auth e2e → CI/EAS → staging + SEC Gate 1 +
-   Mustafa call #1 (Fri 2026-08-28: confirm IQD in writing; chase courts/menu/domain/fonts).
-3. Weeks 2–4 per `docs/design/design-delivery.md`; store submission Wed 2026-09-16.
+1. ✔ DONE (2026-08-24): repo + monorepo scaffold · migrations 0001–0012 (Drop 1) applied locally
+   AND on the hosted project · contractual suites green in both (concurrency 8/8, RLS 34/34) ·
+   CI workflows · app shells · client pack sent · Docker local stack working.
+2. **← ACTIVE** Week-1 remainder (D2–D5): auth e2e on the three clients (email verify/reset via
+   Mailpit) · EAS dev builds on phones · Vercel preview pipeline · Electron shell handoff to FE2 ·
+   SEC Gate 1 (Fri) · Mustafa call #1 (Fri 2026-08-28: IQD in writing; chase form returns).
+3. Week 2: Drop 2 migrations (menu/orders/tabs/tickets/table tokens) + booking flow + QR binding.
+4. Weeks 3–4 per `docs/design/design-delivery.md`; store submission Wed 2026-09-16; weeks 5–6
+   review/training/handover.
 
 ## Deliberately partial — grows later (scope ledger)
 | Area | What ships now | Intended full shape | Grows in |
