@@ -104,25 +104,77 @@ export function useAuth(): AuthContextValue {
   return ctx;
 }
 
-/** Route -> roles allowed. Manager/owner see everything. */
+/**
+ * Route -> roles allowed. Resolved by LONGEST-PREFIX match, and a route that
+ * matches no prefix is DENIED (operator-slice.md §1.3 — closes the old
+ * default-allow hole). Sub-routes inherit the parent's roles unless listed
+ * explicitly ('/admin/telegram' and '/admin/staff' are owner-only).
+ */
 export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/till': ['cashier', 'manager', 'owner'],
   '/desk': ['court_desk', 'manager', 'owner'],
   '/kds': ['prep', 'manager', 'owner'],
   '/stock': ['manager', 'owner'],
   '/admin': ['manager', 'owner'],
+  '/admin/telegram': ['owner'],
+  '/admin/staff': ['owner'],
+  '/analytics': ['owner'],
 };
 
-export function allowedRoutes(role: StaffRole): string[] {
-  return Object.entries(ROUTE_ROLES)
-    .filter(([, roles]) => roles.includes(role))
-    .map(([route]) => route);
+/** Every known sub-route per layout prefix — drives the admin sub-nav. */
+export const SUB_ROUTES = {
+  '/admin': [
+    '/admin/menu',
+    '/admin/categories',
+    '/admin/addons',
+    '/admin/suggested',
+    '/admin/hero',
+    '/admin/qr',
+    '/admin/rates',
+    '/admin/hours',
+    '/admin/day-close',
+    '/admin/telegram',
+    '/admin/settings',
+    '/admin/staff',
+  ],
+} as const satisfies Record<string, readonly string[]>;
+export type SubRoutePrefix = keyof typeof SUB_ROUTES;
+
+/** Strip query/hash and trailing slashes so '/admin/menu/?x' matches '/admin/menu'. */
+function normalizeRoute(route: string): string {
+  const bare = route.replace(/[?#].*$/, '').replace(/\/+$/, '');
+  return bare === '' ? '/' : bare;
+}
+
+/** Longest ROUTE_ROLES key equal to the route or one of its path ancestors. */
+function matchRouteKey(route: string): string | undefined {
+  const target = normalizeRoute(route);
+  let best: string | undefined;
+  for (const key of Object.keys(ROUTE_ROLES)) {
+    if (target === key || target.startsWith(`${key}/`)) {
+      if (best === undefined || key.length > best.length) best = key;
+    }
+  }
+  return best;
 }
 
 export function canAccess(role: StaffRole | undefined, route: string): boolean {
   if (!role) return false;
-  const roles = ROUTE_ROLES[route];
-  return roles ? roles.includes(role) : true;
+  const key = matchRouteKey(route);
+  if (key === undefined) return false;
+  return ROUTE_ROLES[key]?.includes(role) ?? false;
+}
+
+/** Top-level routes (single path segment) the role may open — sidebar filtering. */
+export function allowedRoutes(role: StaffRole): string[] {
+  return Object.keys(ROUTE_ROLES)
+    .filter((route) => route.lastIndexOf('/') === 0)
+    .filter((route) => canAccess(role, route));
+}
+
+/** Sub-routes of a layout prefix the role may open — sub-nav filtering. */
+export function allowedSubRoutes(role: StaffRole, prefix: SubRoutePrefix): string[] {
+  return SUB_ROUTES[prefix].filter((route) => canAccess(role, route));
 }
 
 /** The screen a freshly signed-in staff member lands on. */

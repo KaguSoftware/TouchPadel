@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, card, inputStyle } from '../../components/ui';
+import { BilingualFields } from '../../components/inputs';
 
 interface CategoryRow {
   id: string;
@@ -56,34 +57,6 @@ interface ModifierRow {
   price_delta_iqd: number;
   sort_order: number;
   is_active: boolean;
-}
-
-/** Paired EN (ltr) / AR (rtl) inputs — dir is per FIELD, not per document. */
-function BilingualFields({
-  labelEn,
-  labelAr,
-  en,
-  ar,
-  onEn,
-  onAr,
-}: {
-  labelEn: string;
-  labelAr: string;
-  en: string;
-  ar: string;
-  onEn: (v: string) => void;
-  onAr: (v: string) => void;
-}) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-      <Field label={labelEn}>
-        <input style={inputStyle} dir="ltr" value={en} onChange={(e) => onEn(e.target.value)} />
-      </Field>
-      <Field label={labelAr}>
-        <input style={inputStyle} dir="rtl" lang="ar" value={ar} onChange={(e) => onAr(e.target.value)} />
-      </Field>
-    </div>
-  );
 }
 
 export function MenuEditor() {

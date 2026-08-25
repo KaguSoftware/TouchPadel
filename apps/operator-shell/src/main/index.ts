@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { BrowserWindow, app, ipcMain } from 'electron';
+import { BrowserWindow, app, ipcMain, shell } from 'electron';
 import { IPC, type MutationEnvelope, type PrintJob, type PrintResult } from '../ipc-channels';
 import { enqueue, getCachedRef, openQueue, queueStatus } from './queue';
 import { loadStation } from './station';
@@ -31,7 +31,17 @@ function createWindow(): BrowserWindow {
       // TODO(W3): bundle the preload to a single file (esbuild) and set sandbox: true —
       // sandboxed preloads cannot require sibling compiled modules.
       sandbox: false,
+      // KDS / floor chimes (WebAudio) must play without a click on a station;
+      // browser dev keeps the "Start shift" arming gesture (operator-slice.md §4.5).
+      autoplayPolicy: 'no-user-gesture-required',
     },
+  });
+
+  // Links the renderer opens (Telegram setup doc, etc.) go to the system
+  // browser — never a second Electron window inside the kiosk.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    void shell.openExternal(url);
+    return { action: 'deny' };
   });
 
   if (devServerUrl) {

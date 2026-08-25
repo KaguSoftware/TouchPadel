@@ -10,6 +10,8 @@ import { deskRoute } from './routes/desk';
 import { kdsRoute } from './routes/kds';
 import { stockRoute } from './routes/stock';
 import { adminRoute } from './routes/admin';
+import { adminChildren } from './routes/admin/_children';
+import { analyticsRoute } from './routes/analytics';
 import { LocaleProvider, useLocale } from './lib/i18n';
 import { AuthProvider } from './lib/auth';
 
@@ -21,7 +23,8 @@ const routeTree = rootRoute.addChildren([
   deskRoute,
   kdsRoute,
   stockRoute,
-  adminRoute,
+  adminRoute.addChildren([...adminChildren]),
+  analyticsRoute,
 ]);
 
 const router = createRouter({ routeTree });

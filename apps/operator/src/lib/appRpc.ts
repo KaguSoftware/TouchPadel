@@ -41,11 +41,7 @@ export function toAppRpcError(error: PgError): AppRpcError {
   return new AppRpcError(code, message, error.hint ?? undefined, error.details ?? undefined);
 }
 
-/** Call an app-schema RPC; resolves to the function result or throws AppRpcError. */
-export async function appRpc<T = unknown>(
-  fn: AppFunctionName,
-  args: Record<string, unknown> = {},
-): Promise<T> {
+async function callAppRpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   // Loose cast: the generated arg unions fight optional-parameter call sites;
   // the SQL migrations remain the source of truth for names/args.
   const { data, error } = await (
@@ -56,4 +52,24 @@ export async function appRpc<T = unknown>(
   )(fn, args);
   if (error) throw toAppRpcError(error);
   return data as T;
+}
+
+/** Call an app-schema RPC; resolves to the function result or throws AppRpcError. */
+export async function appRpc<T = unknown>(
+  fn: AppFunctionName,
+  args: Record<string, unknown> = {},
+): Promise<T> {
+  return callAppRpc<T>(fn, args);
+}
+
+/**
+ * Escape hatch for RPCs that exist in the migrations but not yet in the
+ * generated Database types (names live in lib/rpcNames.ts). Same error
+ * mapping as `appRpc`; switch call sites to typed `appRpc` after `pnpm db:types`.
+ */
+export async function appRpcUntyped<T = unknown>(
+  fn: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
+  return callAppRpc<T>(fn, args);
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { t } from '@touch/i18n';
 import { AppRpcError, toAppRpcError } from './appRpc';
+import { EdgeError } from './edge';
 import { errorCodeToMessageKey, errorToMessageKey } from './errors';
 
 describe('error -> i18n mapping', () => {
@@ -28,7 +29,11 @@ describe('error -> i18n mapping', () => {
   });
 
   it('parses PostgREST errors: message IS the raise-exception code', () => {
-    const err = toAppRpcError({ message: 'SLOT_TAKEN', hint: null, details: 'reservations_no_overlap' });
+    const err = toAppRpcError({
+      message: 'SLOT_TAKEN',
+      hint: null,
+      details: 'reservations_no_overlap',
+    });
     expect(err).toBeInstanceOf(AppRpcError);
     expect(err.code).toBe('SLOT_TAKEN');
     expect(errorToMessageKey(err)).toBe('op.errors.SLOT_TAKEN');
@@ -42,5 +47,23 @@ describe('error -> i18n mapping', () => {
 
   it('maps fetch TypeErrors to the network message', () => {
     expect(errorToMessageKey(new TypeError('Failed to fetch'))).toBe('errors.network');
+  });
+
+  it('maps EdgeError codes to op.errors.EDGE_* in both catalogs', () => {
+    const codes = [
+      'NOT_CONFIGURED',
+      'FORBIDDEN',
+      'AUTH_REQUIRED',
+      'UPSTREAM',
+      'RATE_LIMITED',
+      'UNKNOWN',
+    ] as const;
+    for (const code of codes) {
+      const key = errorToMessageKey(new EdgeError(500, code, 'x'));
+      expect(key).toBe(`op.errors.EDGE_${code}`);
+      expect(t('en', key)).not.toBe(key);
+      expect(t('ar', key)).not.toBe(key);
+      expect(t('ar', key)).not.toBe(t('en', key));
+    }
   });
 });

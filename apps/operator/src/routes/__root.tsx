@@ -3,18 +3,39 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { useAuth, canAccess, allowedRoutes, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { Button, ErrorText, Field, card, inputStyle } from '../components/ui';
+import { GlobalStyles } from '../components/GlobalStyles';
+import { ToastProvider } from '../components/toast';
+import { ConfirmProvider } from '../components/ConfirmDialog';
 import { touch } from '../ipc/bridge';
 
 export const rootRoute = createRootRoute({
-  component: RootShell,
+  component: RootProviders,
 });
 
-const NAV: readonly { to: string; key: 'till' | 'desk' | 'kds' | 'stock' | 'admin' }[] = [
+// Global CSS (keyframes + print) and the toast / confirm hosts sit above every
+// screen, including sign-in, so any component may call useToast / useConfirm.
+function RootProviders() {
+  return (
+    <>
+      <GlobalStyles />
+      <ToastProvider>
+        <ConfirmProvider>
+          <RootShell />
+        </ConfirmProvider>
+      </ToastProvider>
+    </>
+  );
+}
+
+type NavKey = 'till' | 'desk' | 'kds' | 'stock' | 'admin' | 'analytics';
+
+const NAV: readonly { to: string; key: NavKey }[] = [
   { to: '/till', key: 'till' },
   { to: '/desk', key: 'desk' },
   { to: '/kds', key: 'kds' },
   { to: '/stock', key: 'stock' },
   { to: '/admin', key: 'admin' },
+  { to: '/analytics', key: 'analytics' },
 ];
 
 // Nav filtering is UX only; RLS + in-RPC role guards are the real wall.
@@ -41,6 +62,7 @@ function RootShell() {
   return (
     <div style={{ display: 'flex', minBlockSize: '100vh' }}>
       <nav
+        data-no-print
         style={{
           inlineSize: '12rem',
           flexShrink: 0,

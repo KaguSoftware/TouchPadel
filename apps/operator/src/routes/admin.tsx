@@ -1,54 +1,97 @@
-import { createRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+/**
+ * `/admin` LAYOUT route: role gate + grouped left sub-nav + <Outlet/>.
+ * Child routes live in routes/admin/*.tsx and are attached in main.tsx via
+ * `adminRoute.addChildren(adminChildren)` (routes/admin/_children.ts), which
+ * keeps this module free of an import cycle with its children.
+ */
+import { Outlet, createRoute } from '@tanstack/react-router';
 import { rootRoute, RequireRole } from './__root';
+import { useAuth, allowedSubRoutes } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
-import { Button } from '../components/ui';
-import { MenuEditor } from '../features/admin/MenuEditor';
-import { RateRuleEditor } from '../features/admin/RateRuleEditor';
-import { OpeningHoursEditor } from '../features/admin/OpeningHoursEditor';
-import { DayClose } from '../features/admin/DayClose';
+import { SubNav, type SubNavGroup } from '../components/SubNav';
 
 export const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
   component: () => (
     <RequireRole route="/admin">
-      <AdminScreen />
+      <AdminShell />
     </RequireRole>
   ),
 });
 
-type AdminTab = 'menu' | 'rates' | 'hours' | 'dayClose';
+type AdminNavKey =
+  | 'menu'
+  | 'categories'
+  | 'addons'
+  | 'suggested'
+  | 'hero'
+  | 'qr'
+  | 'rates'
+  | 'hours'
+  | 'dayClose'
+  | 'telegram'
+  | 'settings'
+  | 'staff';
 
-function AdminScreen() {
+type GroupKey = 'groupMenu' | 'groupGuest' | 'groupOps' | 'groupSystem';
+
+/** Sub-nav groups per operator-slice.md §1.2 (visual headers only, not routes). */
+const ADMIN_GROUPS: readonly {
+  label: GroupKey;
+  items: readonly { to: string; key: AdminNavKey }[];
+}[] = [
+  {
+    label: 'groupMenu',
+    items: [
+      { to: '/admin/menu', key: 'menu' },
+      { to: '/admin/categories', key: 'categories' },
+      { to: '/admin/addons', key: 'addons' },
+      { to: '/admin/suggested', key: 'suggested' },
+    ],
+  },
+  {
+    label: 'groupGuest',
+    items: [
+      { to: '/admin/hero', key: 'hero' },
+      { to: '/admin/qr', key: 'qr' },
+    ],
+  },
+  {
+    label: 'groupOps',
+    items: [
+      { to: '/admin/rates', key: 'rates' },
+      { to: '/admin/hours', key: 'hours' },
+      { to: '/admin/day-close', key: 'dayClose' },
+    ],
+  },
+  {
+    label: 'groupSystem',
+    items: [
+      { to: '/admin/telegram', key: 'telegram' },
+      { to: '/admin/settings', key: 'settings' },
+      { to: '/admin/staff', key: 'staff' },
+    ],
+  },
+];
+
+export function AdminShell() {
+  const { staff } = useAuth();
   const { tr } = useLocale();
-  const [tab, setTab] = useState<AdminTab>('menu');
-  const tabs: { id: AdminTab; label: string }[] = [
-    { id: 'menu', label: tr('op.admin.menuTab') },
-    { id: 'rates', label: tr('op.admin.ratesTab') },
-    { id: 'hours', label: tr('op.admin.hoursTab') },
-    { id: 'dayClose', label: tr('op.admin.dayCloseTab') },
-  ];
+  const visible = new Set(staff ? allowedSubRoutes(staff.role, '/admin') : []);
+  const groups: SubNavGroup[] = ADMIN_GROUPS.map((group) => ({
+    label: tr(`op.adminNav.${group.label}` as const),
+    items: group.items
+      .filter((item) => visible.has(item.to))
+      .map((item) => ({ to: item.to, label: tr(`op.adminNav.${item.key}` as const) })),
+  }));
+
   return (
-    <div>
-      <div style={{ display: 'flex', gap: '0.4rem', marginBlockEnd: '0.8rem', flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0, fontSize: '1.3rem', marginInlineEnd: '0.8rem' }}>
-          {tr('admin.title')}
-        </h1>
-        {tabs.map((entry) => (
-          <Button
-            key={entry.id}
-            kind={tab === entry.id ? 'primary' : 'default'}
-            onClick={() => setTab(entry.id)}
-          >
-            {entry.label}
-          </Button>
-        ))}
+    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+      <SubNav title={tr('admin.title')} groups={groups} />
+      <div style={{ flex: 1, minInlineSize: 0 }}>
+        <Outlet />
       </div>
-      {tab === 'menu' && <MenuEditor />}
-      {tab === 'rates' && <RateRuleEditor />}
-      {tab === 'hours' && <OpeningHoursEditor />}
-      {tab === 'dayClose' && <DayClose />}
     </div>
   );
 }

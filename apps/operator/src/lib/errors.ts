@@ -4,6 +4,7 @@
  */
 import type { MessageKey } from '@touch/i18n';
 import { AppRpcError } from './appRpc';
+import { EdgeError } from './edge';
 
 /** Codes with a dedicated op.errors.* message (kept in BOTH catalogs). */
 const MAPPED_CODES = new Set([
@@ -56,6 +57,13 @@ const MAPPED_CODES = new Set([
   'NOT_EXTENDABLE',
   'NOT_CANCELLABLE',
   'INVALID_SPLIT_COUNT',
+  // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
+  'EDGE_NOT_CONFIGURED',
+  'EDGE_FORBIDDEN',
+  'EDGE_AUTH_REQUIRED',
+  'EDGE_UPSTREAM',
+  'EDGE_RATE_LIMITED',
+  'EDGE_UNKNOWN',
 ]);
 
 /** Map a raw server code to a message key. */
@@ -64,9 +72,10 @@ export function errorCodeToMessageKey(code: string): MessageKey {
   return 'errors.generic';
 }
 
-/** Map any thrown value (AppRpcError, network failure, …) to a message key. */
+/** Map any thrown value (AppRpcError, EdgeError, network failure, …) to a message key. */
 export function errorToMessageKey(error: unknown): MessageKey {
   if (error instanceof AppRpcError) return errorCodeToMessageKey(error.code);
+  if (error instanceof EdgeError) return errorCodeToMessageKey(`EDGE_${error.code}`);
   if (error instanceof TypeError) return 'errors.network'; // fetch failure
   return 'errors.generic';
 }

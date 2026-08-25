@@ -2,7 +2,14 @@
  * Tiny shared UI kit for the operator app. Inline styles, CSS LOGICAL
  * PROPERTIES ONLY (RTL flips via dir on <html>), theme tokens from @touch/ui.
  */
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { useLocale } from '../lib/i18n';
 import { errorToMessageKey } from '../lib/errors';
 
@@ -33,6 +40,9 @@ export function Button({
   disabled,
   type = 'button',
   style,
+  autoFocus,
+  title,
+  'aria-label': ariaLabel,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -40,6 +50,9 @@ export function Button({
   disabled?: boolean;
   type?: 'button' | 'submit';
   style?: CSSProperties;
+  autoFocus?: boolean;
+  title?: string;
+  'aria-label'?: string;
 }) {
   const base: CSSProperties = {
     paddingBlock: '0.45rem',
@@ -65,7 +78,15 @@ export function Button({
     base.border = '1px solid transparent';
   }
   return (
-    <button type={type} onClick={onClick} disabled={disabled} style={{ ...base, ...style }}>
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      style={{ ...base, ...style }}
+      autoFocus={autoFocus}
+      title={title}
+      aria-label={ariaLabel}
+    >
       {children}
     </button>
   );
@@ -97,6 +118,34 @@ export function Field({
   );
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+  'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Keep Tab / Shift+Tab cycling inside the panel (dialog focus trap). */
+function trapTab(e: KeyboardEvent<HTMLElement>, panel: HTMLElement | null) {
+  if (!panel) return;
+  const nodes = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+  if (nodes.length === 0) {
+    e.preventDefault();
+    return;
+  }
+  const first = nodes[0]!;
+  const last = nodes[nodes.length - 1]!;
+  const active = document.activeElement;
+  if (e.shiftKey && (active === first || active === panel)) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+/**
+ * Centered dialog: click-outside and Esc call `onClose`; focus is trapped
+ * inside and restored to the opener on unmount.
+ */
 export function Modal({
   title,
   onClose,
@@ -108,9 +157,33 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    // Callers may autoFocus a control; only claim focus when nothing inside has it.
+    if (panel && !panel.contains(document.activeElement)) panel.focus();
+    return () => {
+      if (opener && typeof opener.focus === 'function' && opener.isConnected) opener.focus();
+    };
+  }, []);
+
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      onCloseRef.current();
+    } else if (e.key === 'Tab') {
+      trapTab(e, panelRef.current);
+    }
+  }
+
   return (
     <div
       role="dialog"
+      aria-modal="true"
       aria-label={title}
       style={{
         position: 'fixed',
@@ -122,8 +195,11 @@ export function Modal({
         zIndex: 100,
       }}
       onClick={onClose}
+      onKeyDown={onKeyDown}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--tp-bg)',
@@ -133,6 +209,7 @@ export function Modal({
           inlineSize: wide ? 'min(56rem, 94vw)' : 'min(30rem, 94vw)',
           maxBlockSize: '90vh',
           overflowY: 'auto',
+          outline: 'none',
         }}
       >
         <div
@@ -159,7 +236,10 @@ export function ErrorText({ error }: { error: unknown }) {
   const { tr } = useLocale();
   if (error == null) return null;
   return (
-    <p role="alert" style={{ color: 'var(--tp-danger)', fontSize: '0.9rem', marginBlock: '0.4rem' }}>
+    <p
+      role="alert"
+      style={{ color: 'var(--tp-danger)', fontSize: '0.9rem', marginBlock: '0.4rem' }}
+    >
       {tr(errorToMessageKey(error))}
     </p>
   );
@@ -270,10 +350,222 @@ export function PinReasonModal({
       <ErrorText error={error} />
       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
         <Button onClick={onClose}>{tr('common.cancel')}</Button>
-        <Button kind="primary" disabled={busy || pin.length < 4} onClick={() => onSubmit(pin, reason)}>
+        <Button
+          kind="primary"
+          disabled={busy || pin.length < 4}
+          onClick={() => onSubmit(pin, reason)}
+        >
           {tr('common.confirm')}
         </Button>
       </div>
     </Modal>
+  );
+}
+
+/* ---------- W0 foundation primitives (operator-slice.md §2) ---------- */
+
+const SPINNER_PX: Record<'xs' | 'sm' | 'md', string> = {
+  xs: '0.8rem',
+  sm: '1.1rem',
+  md: '1.6rem',
+};
+
+/** Inline spinner; `tpSpin` keyframes come from <GlobalStyles/>. */
+export function Spinner({
+  size = 'sm',
+  label,
+  style,
+}: {
+  size?: 'xs' | 'sm' | 'md';
+  label?: string;
+  style?: CSSProperties;
+}) {
+  const { tr } = useLocale();
+  const px = SPINNER_PX[size];
+  return (
+    <span
+      role="status"
+      aria-label={label ?? tr('common.loading')}
+      style={{
+        display: 'inline-block',
+        inlineSize: px,
+        blockSize: px,
+        verticalAlign: 'middle',
+        ...style,
+      }}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="100%"
+        height="100%"
+        aria-hidden="true"
+        style={{ animation: 'tpSpin 0.8s linear infinite', display: 'block' }}
+      >
+        <circle cx="12" cy="12" r="9" fill="none" stroke="var(--tp-border)" strokeWidth="3" />
+        <path
+          d="M21 12a9 9 0 0 0-9-9"
+          fill="none"
+          stroke="var(--tp-accent)"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
+/** Shimmer placeholder blocks while a list/card loads (`tpPulse` keyframes). */
+export function Skeleton({
+  lines = 3,
+  blockSize = '0.9rem',
+  style,
+}: {
+  lines?: number;
+  blockSize?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <div aria-hidden="true" style={{ display: 'grid', gap: '0.5rem', ...style }}>
+      {Array.from({ length: Math.max(1, lines) }, (_, i) => (
+        <div
+          key={i}
+          style={{
+            blockSize,
+            inlineSize: i === lines - 1 && lines > 1 ? '60%' : '100%',
+            borderRadius: '0.3rem',
+            background: 'var(--tp-border)',
+            animation: 'tpPulse 1.4s ease-in-out infinite',
+            animationDelay: `${i * 0.12}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export interface TabItem<T extends string> {
+  id: T;
+  label: string;
+  disabled?: boolean;
+}
+
+/** In-section tab strip (`role="tablist"`); arrow keys move, dir-aware. */
+export function Tabs<T extends string>({
+  value,
+  onChange,
+  items,
+  style,
+}: {
+  value: T;
+  onChange: (next: T) => void;
+  items: readonly TabItem<T>[];
+  style?: CSSProperties;
+}) {
+  const { dir } = useLocale();
+  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const enabled = items.filter((t) => !t.disabled);
+    const index = enabled.findIndex((t) => t.id === value);
+    if (index === -1 || enabled.length === 0) return;
+    const forward = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+    const backward = dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
+    let next = index;
+    if (e.key === forward) next = (index + 1) % enabled.length;
+    else if (e.key === backward) next = (index - 1 + enabled.length) % enabled.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = enabled.length - 1;
+    else return;
+    e.preventDefault();
+    onChange(enabled[next]!.id);
+  }
+  return (
+    <div
+      role="tablist"
+      onKeyDown={onKeyDown}
+      style={{
+        display: 'flex',
+        gap: '0.25rem',
+        borderBlockEnd: '1px solid var(--tp-border)',
+        marginBlockEnd: '0.8rem',
+        overflowX: 'auto',
+        ...style,
+      }}
+    >
+      {items.map((item) => {
+        const selected = item.id === value;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            tabIndex={selected ? 0 : -1}
+            disabled={item.disabled}
+            onClick={() => onChange(item.id)}
+            style={{
+              paddingBlock: '0.5rem',
+              paddingInline: '0.9rem',
+              border: 'none',
+              borderBlockEnd: selected ? '2px solid var(--tp-accent)' : '2px solid transparent',
+              marginBlockEnd: '-1px',
+              background: 'transparent',
+              color: selected ? 'var(--tp-fg)' : 'var(--tp-muted-fg)',
+              fontWeight: selected ? 700 : 400,
+              fontSize: '0.95rem',
+              cursor: item.disabled ? 'not-allowed' : 'pointer',
+              opacity: item.disabled ? 0.5 : 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {item.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export interface SelectOption<T extends string> {
+  value: T;
+  label: string;
+  disabled?: boolean;
+}
+
+/** Thin wrapper over a native `<select>` styled like our inputs. */
+export function Select<T extends string>({
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+  id,
+  style,
+}: {
+  value: T | '';
+  onChange: (next: T) => void;
+  options: readonly SelectOption<T>[];
+  placeholder?: string;
+  disabled?: boolean;
+  id?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value as T)}
+      style={{ ...inputStyle, ...style }}
+    >
+      {placeholder !== undefined && (
+        <option value="" disabled>
+          {placeholder}
+        </option>
+      )}
+      {options.map((o) => (
+        <option key={o.value} value={o.value} disabled={o.disabled}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 }
