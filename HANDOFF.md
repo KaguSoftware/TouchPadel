@@ -1,8 +1,10 @@
 # Touch Padel — Handoff
 
 > Read this first when starting a fresh chat. Companions: `docs/scope/` (signed SOW + diagrams),
-> `docs/design/` (architecture · data model · delivery · critique), the approved plan at
-> `~/.claude/plans/read-the-pdfs-in-mutable-perlis.md`.
+> `docs/design/` (architecture · data model · delivery · critique), **`docs/design/cafe-rebuild/`**
+> (the current slice: db/web/operator design + the UpperDeck reference spec + owner decisions), and
+> the approved plans at `~/.claude/plans/read-the-pdfs-in-mutable-perlis.md` (platform) and
+> `~/.claude/plans/this-system-has-three-cuddly-moon.md` (cafe rebuild).
 
 ## Working style
 - **Git: NO AI co-author trailers, ever. Commits are authored by Parsa alone.** Pushing to
@@ -52,113 +54,144 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
   platform pickers/switches/action sheets. No web-styled custom nav in `apps/mobile`.
 - Brands: Padel 2026 identity (green #A5D06F / blue #3360AB) on app/site/operator; Touch Cafe
   identity (blue + brown #603813) on the QR-menu/ordering pages.
+## Current status (2026-08-25, day 2 — the Touch Cafe rebuild)
 
-## Current status (2026-08-24, end of day 1 — both sessions)
-- **All 14 turbo tasks green: 289 unit/integration tests + 8/8 Playwright e2e** (cafe QR journey
-  with live-broadcast status, operator journeys, public menu — each passing in English AND Arabic
-  RTL). Fresh `supabase db reset --local` applies migrations 0001–0026 + seed cleanly; fixtures
-  (`pnpm db:fixtures`) load the sample venue.
-- **Hosted Supabase** (ref `lczijabnorujcgmbuqlw`, Frankfurt — **THE CLIENT'S long-term project**,
-  owner-confirmed): migrations 0001–0026 applied, seeded, anonymous sign-ins on (rate limit
-  300/hr — revisit SEC gate 5). Additive migrations only, NEVER destructive ops there; local
-  Docker is where things break. W5 "handover" = account/billing transfer, secrets custody, SMTP,
-  dev-account rotation — no project migration. Keys: root `.env.local` (master incl. service-role)
-  + per-app `.env*`; db tests default to LOCAL (`packages/db/.env.remote` holds hosted creds for
-  deliberate runs).
-- **Security bugs found by our own suites and fixed** (pattern: amend original migration in place
-  AND ship a follow-up migration): `is_staff()` NULL guard bypass (0010) · PIN lockout rollback
-  (0011) · pgcrypto schema qualification (0009) · service_role grants on local stacks (0012) ·
-  menu-availability view function grants (0025) · PIN brute-force via device-id rotation, booking
-  writes ignoring opening hours/closed dates, unpriced staff bookings, missing audit reasons,
-  void-after-payment deadlock, degraded-detection device-naming fragility (all 0026).
-- **Docker Desktop installed** (user-scope `%LOCALAPPDATA%\Programs\DockerDesktop` — stale shells
-  need a PATH prefix or a reboot).
-- **Client input form SENT to Touch 2026-08-24** (based on `docs/client/` pack) — awaiting returns;
-  chase at call #1 (Fri 2026-08-28).
-- **Apple Developer + Play Console both verified in good standing 2026-08-24** — risk R3 (Play
-  new-account tester rule) cleared.
+**Day 1 (2026-08-24)** delivered the whole platform foundation: migrations 0001–0026 on both the
+local Docker stack and the client's hosted project, fixture venue, functional flows in all three
+apps, 289 unit/integration tests + 8 Playwright e2e (EN + AR), CI, client pack sent.
+
+**Day 2 is the cafe rebuild** — the QR-menu section rebuilt to feature parity with the reference
+project `KaguSoftware/UpperDeck` (Telegram ordering + analytics + hero/photos/reveals + operator
+admin), on top of our own schema and the Touch Cafe brand. The approved plan is
+`~/.claude/plans/this-system-has-three-cuddly-moon.md`; the design pack is committed at
+`docs/design/cafe-rebuild/`.
+
+Landed and verified (committed):
+- **DB: migrations 0027–0035** — menu extensions (`hook_en/ar`, `highlight`, `sold_out`,
+  `photo_blur`, category photos, `menu_item_costs`), modifier **reveals** (depth-1 invariant +
+  `app.item_active_groups`), `cafe_settings` key/value registry + `cafe_settings_public` view,
+  server-side **featured discount** in `add_order_items` (+ `list_price_iqd`/`discount_pct`),
+  `cafe_tables.bell_enabled` + QR-token RPC + `menu-media` storage bucket, **Telegram** outbox /
+  actions ledger / claim / apply-action / state-machine refactor, guest-visible `waiter_call_status`
+  broadcast + wider `menu_changed`, **analytics** RPCs + LLM tables + `normalize_finding`.
+- **DB tests: 214/214 green** (`pnpm --filter @touch/db test`) — new `cafe-menu-ext` (14),
+  `telegram` (13), `analytics` (12), `telegram-render` (16), `insights-text-parity` (1), RLS matrix
+  now 128 rows. The suites found and fixed a real **Telegram double-send** bug (0035).
+- **Edge functions**: `telegram-send`, `telegram-callback` (secret-token webhook, idempotent
+  button write-back, message edit), `analytics-posthog` (batch HogQL proxy, 16 named queries),
+  `analytics-insights` (Groq, five scan angles, degraded templated fallback) + `_shared/telegram.ts`,
+  `_shared/auth.ts`, `SETUP-telegram.md`.
+- **`@touch/core`**: `applyPctDiscountIqd` (SQL parity-tested) + 12 pure analytics modules
+  (range, business day, confidence, compare, menu matrix, menu position, price bands, basket,
+  overview, patterns, insightsText, exclusions) — 227 tests.
+- **Operator app**: `/admin` layout + URL-synced child routes with default-deny role matching;
+  primitives (toast, confirm, switch, tabs, image field + webp compression, money/percent inputs);
+  menu family (items with photo/hook/highlight/sold-out/cost, categories, add-ons + reveals editor,
+  suggested); hero builder + ticker + live preview; **A6 QR cards** with per-table bell toggle and
+  print; Telegram settings + outbox viewer + test message; cafe settings; staff list; **KDS/floor
+  sound + stale alarms** with a reconnecting realtime pill. 125 operator tests.
+- **Web foundation**: `middleware.ts` → `proxy.ts`, **Arabic default**, site root is the cafe app,
+  padel landing dropped, `/t/{token}` still rewritten verbatim, **SSR menu** (ISR 60) so the page
+  never blanks, Touch Cafe tokens/styles/icons + brand components, guest analytics client.
+
+In flight when this was written (three agents): guest UI shell + hooks, the item/basket/QR sheets,
+and the operator analytics dashboard UI. e2e specs for the new journeys are the last step.
 
 ## File map (key files)
-- `docs/scope/touch-padel-phase1-scope-of-work.pdf` — the signed contract (17pp; .txt extract alongside).
-- `docs/design/design-data.md` — canonical schema: 19 migrations, DDL, RLS matrix, FEFO, tests.
-- `docs/design/design-arch.md` — monorepo, Electron/queue/LAN-KDS/printing/degraded-mode design.
-- `docs/design/design-delivery.md` — week-by-week plan, client-chase checklist, risk register, drill script.
-- `docs/design/design-critique.md` — pre-build cross-review; `docs/design/sow-gap-review-2026-08-24.md`
-  — post-build SOW-vs-code sweep (roadmap item 4 is its digest).
+- `docs/design/cafe-rebuild/` — **the cafe rebuild design pack**: `db-slice.md`, `web-slice.md`,
+  `operator-slice.md`, `upperdeck-spec.md` (the reference project's full spec), `decisions.md`
+  (owner decisions, binding), `context-existing-cafe.md`, `context-operator.md`.
+- `docs/brand/cafe/p01–16.png` — the Touch Cafe brand deck, rendered (blue #3360AB / brown #603813).
+- `docs/scope/touch-padel-phase1-scope-of-work.pdf` — the signed contract (17pp; .txt alongside).
+- `docs/design/design-data.md` · `design-arch.md` · `design-delivery.md` · `design-critique.md` ·
+  `sow-gap-review-2026-08-24.md`.
 - `docs/client/` — client-facing pack (input checklist, CSV templates, printer spec) — SENT 2026-08-24.
-- `packages/db/tests/` — contractual suites (concurrency, rls-matrix, cafe-flow, degraded, hardening).
-- `e2e/` — Playwright config + specs (cafe journey, operator journeys, public menu; EN + AR).
+- `packages/db/supabase/migrations/` — 0001–0026 (platform) + **0027–0035 (cafe rebuild)**.
+- `packages/db/supabase/functions/` — `replay`, `send-push`, `telegram-send`, `telegram-callback`,
+  `analytics-posthog`, `analytics-insights`, `_shared/`, `SETUP-telegram.md`.
+- `packages/db/tests/` — contractual suites (concurrency, rls-matrix, cafe-flow, degraded,
+  hardening, cafe-menu-ext, telegram, analytics, + two pure suites).
+- `packages/core/src/analytics/` — pure analytics modules shared by the operator and the edge fn.
+- `apps/web/src/{components/cafe,hooks/cafe,styles/cafe,lib}` — the guest cafe app.
+- `apps/operator/src/features/{admin,analytics,kds,till}` — operator surfaces.
+- `e2e/` — Playwright config + specs (EN + AR).
 
 ## Roadmap / next steps
-1. ✔ DONE Day 1 AM: scaffold · Drop 1 · contractual suites green both envs · CI · shells · client
-   pack sent · Docker working.
-2. ✔ DONE Day 1 PM (the "maximal autonomous build" session): **database complete for all 7 SOW
-   modules** (migrations 0001–0026, local + hosted) · fixture venue (30-item bilingual menu with
-   full recipes/batches, 12 tables, 4 courts) · functional flows in all three apps (mobile booking,
-   web QR cafe, operator desk/KDS/till/admin) · **Playwright e2e 8/8 incl. live-broadcast status +
-   full Arabic RTL passes** · replay + send-push edge functions (written, not yet deployed) ·
-   adversarial SOW sweep + hardening (PIN brute-force rekey, booking-hours guard, replay map fixes,
-   audit reasons, void-deadlock guard) · 289 unit/integration tests + 8 e2e green.
-3. **← ACTIVE — Week-1 remainder / user actions:** EAS login + dev builds on phones (FE1 takes
-   mobile from here — native-feel rule above) · Vercel link + first deploy · deploy edge functions
-   (`supabase functions deploy replay send-push` + cron for send-push) · SEC Gate 1 (Fri, review
-   the two found-and-fixed security bugs + 0019-hardening checklist) · Mustafa call #1 Fri
-   2026-08-28 (IQD in writing, chase form returns, demo: e2e cafe journey + booking).
-4. Week 2+ (from the critic's gap list, mapped to the delivery plan): stock UI (module 5 — DB done,
-   `stock.tsx` is a placeholder) · staff-admin RPC+UI (owner role, module 1 acceptance) · court
-   records admin + photos rendering · week calendar view + shorten/move-duration · split-by-item +
-   refund/merge/override UIs · audit-log viewer + manager-alerts reader · QR artwork UI (script
-   exists) · Sentry wiring · short-lived till sessions · Electron queue wiring (single write path)
-   + LAN KDS · printing pipeline. Store submission Wed 2026-09-16.
+1. ✔ DONE Day 1: platform foundation (see above).
+2. ✔ DONE Day 2 waves 0–6, 9–12: design pack, DB 0027–0035 + tests, edge functions, core analytics,
+   operator foundations + admin sections + KDS alarms, web foundation + data layer + i18n.
+3. **← ACTIVE — finish the cafe slice**: guest UI (shell/hooks + sheets), operator analytics
+   dashboard UI, then **e2e specs** (`cafe-root`, rewritten `cafe-journey` incl. reveals + featured
+   discount + broadcast waiter status, `cafe-menu-live`, `cafe-rtl-layout`, operator journeys) and a
+   full `pnpm turbo lint typecheck test` + `pnpm e2e` gate.
+4. **Owner setup** (nothing exists yet — everything degrades gracefully until then): Telegram bot +
+   staff group + webhook secret; PostHog EU project; Groq key; the real domain in
+   `NEXT_PUBLIC_SITE_URL` / `VITE_GUEST_SITE_URL`; the official Touch Cafe logo files. Checklist in
+   `packages/db/supabase/functions/SETUP-telegram.md` and plan §5.
+5. **Hosted rollout**: `supabase db push` (0027–0035 are additive), `supabase secrets set`,
+   `functions deploy`, Vault (`service_role_key`, `functions_base_url`) + `pg_net`/`pg_cron`,
+   `setWebhook`, Vercel env + redeploy without build cache.
+6. Then back to the pre-cafe roadmap: stock UI, staff-admin RPC+UI, court records admin, week
+   calendar view, split-by-item/refund/override UIs, audit-log viewer, Sentry, short-lived till
+   sessions, Electron queue wiring + LAN KDS, printing pipeline. Store submission Wed 2026-09-16.
 
 ## Deliberately partial — grows later (scope ledger)
 | Area | What ships now | Intended full shape | Grows in |
 |---|---|---|---|
-| Business data | Fixture courts/menu/recipes/tables (reserved UUID prefix) | Client's real data via CSV import scripts | W5 (or when client delivers) |
-| Fonts | IBM Plex Sans Arabic + free Latin behind tokens | Licensed Next Art + Frutiger LT Arabic | When Touch supplies files/licenses |
+| Business data | Fixture courts/menu/recipes/tables (reserved UUID prefix `f1f7`) | Client's real data via CSV import scripts | W5 (or when client delivers) |
+| Fonts | Montserrat + IBM Plex Sans Arabic behind tokens | Licensed Next Art + Frutiger LT Arabic | When Touch supplies files/licenses |
+| Touch Cafe logo | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments) | The official supplied artwork | When Touch supplies it |
+| Telegram / PostHog / Groq | Code complete; **no accounts yet** — every path no-ops or degrades | Live bot group, EU PostHog project, Groq key | Owner setup (roadmap 4) |
+| Analytics | Vendor-added (SOW excludes it) — sales side from our till data, engagement via PostHog | Same, once PostHog is live | Owner setup |
 | Payments | Desk only (cash/card recorded; terminal separate) | Online payment | Later phase (SOW) |
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
-| Batch expiry UI | First candidate to slip to W5 per SOW priority order | Full expiry UI | W5 if squeezed |
+| Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 
 ## Gotchas / open issues
-- **The hosted Supabase project is the client's future production.** Before real trading starts:
-  rotate/remove the seeded dev staff accounts and PINs, revisit the 300/hr anonymous rate limit,
-  transfer billing/ownership to Touch (SEC gate 5 checklist). Until then it doubles as our shared
-  staging — additive changes only. Hosted has schema 0001–0026 + seed **+ fixtures (loaded
-  2026-08-24 via `supabase db query --linked`; test residue cleaned same day — 4 courts remain)**.
+- **Analytics + PostHog are OUT of the signed SOW** (scope lines 148–150, 410). They are shipped as
+  a vendor addition on the owner's instruction — never let acceptance hinge on them.
+- **Local test flakiness is a connection-pool symptom, not a code bug.** If DB suites fail with
+  `Timed out acquiring connection from connection pool`, a dev server / Playwright session leaked
+  PostgREST connections: `docker restart supabase_rest_touchpadel supabase_realtime_touchpadel`,
+  then re-run (214/214 green). Don't chase it in the SQL.
+- **Migration 0035 fixed a real Telegram double-send**: `claim_due_telegram` bumped `attempts` but
+  left `scheduled_for`, so the pg_net nudge and the 10 s cron sweep could claim the same row twice.
+  Claims now push `scheduled_for` forward with a backoff.
+- **`upsert_menu_item` no longer takes a photo argument** (0027). Photos, sold-out and cost each
+  have their own RPC (`set_item_photo`, `set_item_sold_out`, `set_item_cost`) so the day-1
+  photo-wipe bug cannot recur.
+- **Item costs live in `menu_item_costs`**, not on `menu_items` — a column grant would have leaked
+  margins to guests or broken every `select *`.
+- **`packages/db/supabase/buckets/menu-media/` must contain only real images.** An empty
+  `.gitkeep` is seeded as `text/plain` and the bucket's mime allow-list rejects it, failing
+  `supabase db reset`.
+- **The hosted Supabase project is the client's future production.** Additive migrations only;
+  rotate the seeded dev staff accounts/PINs and revisit the 300/hr anonymous rate limit before
+  launch. Hosted currently has 0001–0026 — **0027–0035 are NOT pushed yet** (roadmap 5).
 - **Vercel production menu was empty (2026-08-24, root-caused):** the dashboard env var
-  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` was pasted with a second line glued on
-  (`...OJFGZdCDSUPABASE_URL=https://...` — verified verbatim in the served client bundle), so every
-  Supabase request 401'd and the menu page's try/catch rendered empty. DB itself verified fine (all
-  4 menu queries return data with both the anon JWT and the clean publishable key). Fix = edit that
-  one var to end at `...OJFGZdCD`, redeploy **without build cache** (NEXT_PUBLIC_* is inlined at
-  build). Same mangling existed in root `.env.local` (fixed 2026-08-24). Also recommended: delete
-  `SUPABASE_SERVICE_ROLE_KEY` + `SUPABASE_ANON_KEY` from Vercel — the web app never reads them.
-  Lesson: the "(FIXTURE)" footer address is a hardcoded i18n string, NOT proof of DB connectivity.
-- Migration numbering: **0023 intentionally unused** (reserved gap; 0024 = push outbox). Not a
-  lost file.
-- **KDS item-level ready marks are local component state only** (whole-ticket status is real) —
-  SOW L460 wants item marks notifying floor+guest; scheduled with the KDS polish pass.
-- Charge-to-booking: tab links to reservation (picker in NewTabDialog ✔) but `compute_tab_totals`
-  does **not yet add the court price** to the bill — the "one payment" SOW promise needs that in
-  the till drop (W3).
-- Full critic report (SOW-vs-code sweep, 2026-08-24): `docs/design/sow-gap-review-2026-08-24.md`;
-  roadmap item 4 above is its digest.
-- e2e runs locally only (`pnpm e2e`; needs local stack + both dev servers; CI job stub is a
-  comment block in ci.yml — enable later).
-- **Client inputs: NONE received yet** (courts, rates, menu, recipes, domain, Supabase, fonts,
-  branding assets beyond PDFs). Chase pack is Day-1 deliverable; recipes are the SOW's own #1 risk.
-- **Currency**: building IQD-only per owner decision — get Mustafa's written confirmation at call
-  #1 (2026-08-28). Dual currency = change request (SOW §10).
-- **SOW promises PITR; Supabase PITR is a paid add-on** beyond the quoted "$25/mo" — cost gap must
-  be raised with the client in the week-1 pack.
-- **Apple/Play accounts**: enrollment + Play new-account 12-tester/14-day rule NOT yet verified
-  (Day-1 item — needs the owner to check dashboards; write a Claude-Chrome prompt when doing this).
-- Brand PDFs at repo root are 257MB/66MB — gitignored (`/*.pdf`), local-only; do not force-add.
-- The two padel brand decks differ (2024 vs 2026): **2026 (`touch full brand2.pdf`) governs.**
-- Table-token Vault secret must be set to the same value on Touch's project at W5 handover or
-  every printed QR dies (see plan "Resolved design calls").
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` had a second line glued on, so every request 401'd.
+  Fix = one clean var + redeploy **without build cache** (NEXT_PUBLIC_* is inlined at build).
+  `apps/web/.env.local` still points at staging, which lacks 0027+ — pass local env inline when
+  running the web app against the local stack.
+- Migration numbering: **0023 intentionally unused** (0024 = push outbox). Not a lost file.
+- **KDS item-level ready marks are local component state only** (whole-ticket status is real).
+- Charge-to-booking: `compute_tab_totals` still does **not** add the court price to the bill —
+  the "one payment" SOW promise needs that in the till drop (W3).
+- **Client inputs: NONE received yet** (courts, rates, menu, recipes, domain, fonts, branding
+  assets beyond PDFs). Recipes are the SOW's own #1 risk.
+- **Currency**: IQD-only per owner decision — get Mustafa's written confirmation at call #1.
+- **SOW promises PITR; Supabase PITR is a paid add-on** beyond the quoted "$25/mo".
+- Brand PDFs at repo root are 257MB/66MB — gitignored (`/*.pdf`), local-only. The rendered cafe
+  deck lives at `docs/brand/cafe/`. The two padel decks differ: **2026 governs**.
+- Table-token Vault secret must be set to the same value on Touch's project at W5 handover or every
+  printed QR dies.
 
 ## Running it
-Nothing runs yet. Once scaffolded: `pnpm i` · `pnpm db:start` (supabase via Docker) · `pnpm db:reset` ·
-`pnpm dev` per app · `pnpm turbo lint typecheck test` · concurrency suite: `pnpm --filter @touch/db test:concurrency`.
+- `pnpm i` · `cd packages/db && pnpm exec supabase start` · `pnpm exec supabase db reset --local` ·
+  `pnpm run db:fixtures` (loads through the DB container when `psql` is absent) · `pnpm run db:types`.
+- `pnpm turbo lint typecheck test` — the full gate. `pnpm --filter @touch/db test` needs the local
+  stack. `pnpm e2e` needs the stack plus both dev servers.
+- Web against the LOCAL stack: `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon from supabase status> pnpm --filter @touch/web dev`.
+- Operator: `pnpm --filter @touch/operator dev` (port 5174). Edge functions:
+  `cd packages/db && pnpm exec supabase functions serve --env-file supabase/functions/.env`.
