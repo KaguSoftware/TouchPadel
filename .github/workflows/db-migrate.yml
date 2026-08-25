@@ -15,9 +15,21 @@ jobs:
   staging:
     name: Push migrations to staging
     runs-on: ubuntu-latest
+
+    # The linked Supabase project is the CLIENT'S long-term production database
+    # (HANDOFF.md: additive migrations only, never destructive ops). Binding the
+    # job to a GitHub Environment gives that push a human gate: add "Required
+    # reviewers" to the `staging` environment in
+    #   Settings → Environments → staging
+    # and every migration push waits for an approval instead of applying itself
+    # the moment someone merges to main. Without reviewers configured this is a
+    # no-op, so ADD THEM before the deploy secrets go in.
+    environment: staging
+
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,11 +37,64 @@ jobs:
         with:
           version: latest
 
+      # The hosted rollout is owner-run and the deploy secrets are deliberately
+      # absent until then (see HANDOFF roadmap). An unconfigured repo must SKIP
+      # this push with a visible notice, not fail every migration commit red —
+      # a permanently-failing required check trains everyone to ignore it.
+      - name: Preflight — are the deploy secrets configured?
+        id: preflight
+        env:
+          ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "${ACCESS_TOKEN:-}" ] || missing="${missing} SUPABASE_ACCESS_TOKEN"
+          [ -n "${PROJECT_REF:-}" ]  || missing="${missing} PROJECT_REF"
+          [ -n "${DB_PASSWORD:-}" ]  || missing="${missing} SUPABASE_DB_PASSWORD"
+
+          if [ -n "${missing}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Staging migration push skipped::Missing repository secrets:${missing}"
+            {
+              echo "### ⏭️ Staging migration push skipped"
+              echo
+              echo "Missing repository secrets:"
+              for s in ${missing}; do echo "- \`${s}\`"; done
+              echo
+              echo "Migrations were **not** applied to the hosted project."
+              echo "Add the secrets under *Settings → Secrets and variables → Actions*"
+              echo "(and required reviewers on the \`staging\` environment) when the"
+              echo "hosted rollout is ready."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # A malformed ref otherwise surfaces as a confusing CLI error. The ref is
+          # the bare project id (e.g. abcdefghijklmnopqrst) — NOT a URL, and not
+          # the full db host. Reject anything with a scheme, dot or slash in it.
+          if ! printf '%s' "${PROJECT_REF}" | grep -Eq '^[a-z0-9]{15,40}$'; then
+            echo "::error title=Bad PROJECT_REF::Expected a bare Supabase project ref (lowercase id, no scheme/dots/slashes)."
+            exit 1
+          fi
+
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
       - name: Link to staging project
+        if: steps.preflight.outputs.configured == 'true'
         working-directory: packages/db
         run: supabase link --project-ref "${{ secrets.PROJECT_REF }}"
 
+      # Print the plan before touching the client's database, so the run log
+      # shows exactly which migrations a push applied.
+      - name: Show pending migrations
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: supabase migration list
+
       - name: Push migrations
+        if: steps.preflight.outputs.configured == 'true'
         working-directory: packages/db
         run: supabase db push
 
