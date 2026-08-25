@@ -19,6 +19,7 @@ import {
   testIdemKey,
   outcome,
   SEED_STAFF,
+  SEED_STAFF_IDS,
   createTestMenuItem,
   addModifierToItem,
   createTestCafeTable,
@@ -34,6 +35,11 @@ const up = await stackAvailable();
 
 const CHAT_ID = '-1001234567890';
 const AHMED = { tg_user_id: 4242, first_name: 'Ahmed', username: 'ahmed_tp' };
+// 0039: allowlisted, but WITHOUT can_void.
+const SARA = { tg_user_id: 4243, first_name: 'Sara', username: 'sara_tp' };
+const NOOR = { tg_user_id: 4244, first_name: 'Noor', username: 'noor_tp' };
+// 0039: not on the allowlist at all.
+const STRANGER = { tg_user_id: 9999, first_name: 'Stranger', username: 'nope' };
 const NIL_UUID = '00000000-0000-4000-8000-000000000000';
 
 type OutboxRow = {
@@ -72,10 +78,24 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
   let outboxCallId: number;
   let testOutboxId: number;
 
-  const applyAction = (action: string, refId: string, actor: Record<string, unknown> = AHMED) =>
+  // Since 0039 the RPC is fail-closed: the tap must come from the configured
+  // chat AND from an active telegram_staff row. Both default to the happy path
+  // here so the pre-0039 assertions keep testing the state machine; the
+  // authorization cases below override them explicitly.
+  const applyAction = (
+    action: string,
+    refId: string,
+    actor: Record<string, unknown> = AHMED,
+    chatId: string | null = CHAT_ID,
+  ) =>
     svc
       .schema('app')
-      .rpc('telegram_apply_action', { p_action: action, p_ref_id: refId, p_actor: actor })
+      .rpc('telegram_apply_action', {
+        p_action: action,
+        p_ref_id: refId,
+        p_actor: actor,
+        p_chat_id: chatId,
+      })
       .then(outcome);
 
   const outboxFor = async (kind: string, refId: string) => {
@@ -112,6 +132,27 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
 
     await setCafeSetting(owner, 'telegram_enabled', true);
     await setCafeSetting(owner, 'telegram_chat_id', CHAT_ID);
+
+    // 0039 allowlist: Ahmed is a mapped manager who may void; Sara is mapped
+    // but may not. Anyone else is off the list entirely.
+    await appRpc(owner, 'set_telegram_staff', {
+      p_tg_user_id: AHMED.tg_user_id,
+      p_staff_id: SEED_STAFF_IDS.manager,
+      p_label: 'Ahmed',
+      p_can_void: true,
+    });
+    await appRpc(owner, 'set_telegram_staff', {
+      p_tg_user_id: SARA.tg_user_id,
+      p_staff_id: SEED_STAFF_IDS.cashier,
+      p_label: 'Sara',
+      p_can_void: false,
+    });
+    await appRpc(owner, 'set_telegram_staff', {
+      p_tg_user_id: NOOR.tg_user_id,
+      p_staff_id: SEED_STAFF_IDS.cashier,
+      p_label: 'Noor',
+      p_can_void: false,
+    });
   });
 
   afterAll(async () => {
@@ -289,7 +330,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
     const { data: o } = await svc.from('orders').select('status').eq('id', orderId).single();
     expect((o as { status: string }).status).toBe('preparing');
 
-    const again = await applyAction('o:seen', orderId, { tg_user_id: 7, first_name: 'Sara' });
+    const again = await applyAction('o:seen', orderId, SARA);
     expect(again.ok, again.errorMessage).toBe(true);
     const r2 = again.data as { result: string; keyboard: string };
     expect(r2.result).toBe('duplicate');
@@ -348,7 +389,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
     const ackAgain = await applyAction('w:ack', callId);
     expect((ackAgain.data as { result: string }).result).toBe('duplicate');
 
-    const done = await applyAction('w:done', callId, { tg_user_id: 99, first_name: 'Noor' });
+    const done = await applyAction('w:done', callId, NOOR);
     expect(done.ok, done.errorMessage).toBe(true);
     const d = done.data as { result: string; status: string; keyboard: string; actor_label: string };
     expect(d.result).toBe('applied');
@@ -547,5 +588,157 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
     expect(client.error?.message).toMatch(/permission denied/i);
     const payload = await appRpc(owner, 'telegram_order_payload', { p_order_id: orderId });
     expect(payload.error?.message).toMatch(/permission denied/i);
+  });
+
+  // -------------------------------------------------------------------------
+  // 0039: authorization. The webhook secret authenticates TELEGRAM; the chat
+  // and the allowlist authorize the PERSON. Every refusal is a ledgered
+  // no-op, never an error (an error would make Telegram redeliver forever).
+  // -------------------------------------------------------------------------
+  describe('0039 — chat binding + staff allowlist', () => {
+    let freshOrder: string;
+    let freshTicket: string;
+
+    const ledgerFor = async (refId: string) => {
+      const { data } = await svc
+        .from('telegram_actions')
+        .select('action, result, detail, tg_user_id')
+        .eq('ref_id', refId)
+        .order('id');
+      return (data ?? []) as { action: string; result: string; detail: string | null; tg_user_id: number }[];
+    };
+
+    beforeAll(async () => {
+      // The "disabled => silent" cases above leave telegram_chat_id null.
+      await setCafeSetting(owner, 'telegram_enabled', true);
+      await setCafeSetting(owner, 'telegram_chat_id', CHAT_ID);
+
+      const res = await appRpc(guest.client, 'create_guest_order', {
+        p_items: [{ variant_id: tea.variantId, qty: 1 }],
+        p_idempotency_key: testIdemKey('order.create'),
+      }).then(outcome);
+      expect(res.ok, res.errorMessage).toBe(true);
+      const d = res.data as { order_id: string; ticket_id: string };
+      freshOrder = d.order_id;
+      freshTicket = d.ticket_id;
+    });
+
+    const ticketStatus = async (id: string) => {
+      const { data } = await svc.from('tickets').select('status').eq('id', id).single();
+      return (data as { status: string }).status;
+    };
+
+    it('a tap from the wrong chat is refused and changes nothing', async () => {
+      const r = await applyAction('o:seen', freshOrder, AHMED, '-100999');
+      expect(r.ok, r.errorMessage).toBe(true);
+      expect((r.data as { result: string }).result).toBe('refused');
+      expect(await ticketStatus(freshTicket)).toBe('queued');
+      expect(ledgerFor(freshOrder).then((l) => l.at(-1)!.detail)).resolves.toBe('wrong_chat');
+    });
+
+    it('a tap with no chat id at all is refused (fail closed)', async () => {
+      const r = await applyAction('o:seen', freshOrder, AHMED, null);
+      expect((r.data as { result: string }).result).toBe('refused');
+      expect(await ticketStatus(freshTicket)).toBe('queued');
+    });
+
+    it('a tap from someone off the allowlist is refused and ledgered', async () => {
+      const r = await applyAction('o:seen', freshOrder, STRANGER);
+      expect(r.ok, r.errorMessage).toBe(true);
+      expect((r.data as { result: string }).result).toBe('refused');
+      expect(await ticketStatus(freshTicket)).toBe('queued');
+
+      const tail = (await ledgerFor(freshOrder)).at(-1)!;
+      expect(tail.detail).toBe('not_allowlisted');
+      expect(tail.tg_user_id).toBe(STRANGER.tg_user_id);
+    });
+
+    it('an allowlisted member without can_void may bump but not void', async () => {
+      const bump = await applyAction('o:seen', freshOrder, SARA);
+      expect((bump.data as { result: string }).result).toBe('applied');
+      expect(await ticketStatus(freshTicket)).toBe('preparing');
+
+      const nope = await applyAction('o:void', freshOrder, SARA);
+      expect((nope.data as { result: string }).result).toBe('refused');
+      expect((await ledgerFor(freshOrder)).at(-1)!.detail).toBe('void_not_authorized');
+      const { data: items } = await svc.from('order_items').select('voided').eq('order_id', freshOrder);
+      expect((items as { voided: boolean }[]).every((i) => !i.voided)).toBe(true);
+    });
+
+    it('a can_void member voids, and the line is attributed to the mapped staff member', async () => {
+      const r = await applyAction('o:void', freshOrder, AHMED);
+      expect((r.data as { result: string }).result).toBe('applied');
+
+      const { data: items } = await svc.from('order_items').select('id, voided').eq('order_id', freshOrder);
+      expect((items as { voided: boolean }[]).every((i) => i.voided)).toBe(true);
+
+      // 0039: authorizer was NULL before this migration — the day-close
+      // adjustment report named nobody for a Telegram void.
+      const { data: audit } = await svc
+        .from('audit_log')
+        .select('action, authorizer_id, actor_role')
+        .eq('entity', 'order_items')
+        .eq('entity_id', (items as { id: string }[])[0]!.id)
+        .eq('action', 'order_item.void')
+        .limit(1);
+      const row = (audit as { authorizer_id: string | null; actor_role: string }[])[0]!;
+      expect(row.actor_role).toBe('telegram');
+      expect(row.authorizer_id).toBe(SEED_STAFF_IDS.manager);
+    });
+
+    it('set_telegram_staff is owner-only, and the table is not client-writable', async () => {
+      for (const [label, client] of [
+        ['manager', manager],
+        ['cashier', cashier],
+        ['guest', guest.client],
+      ] as const) {
+        const r = await appRpc(client, 'set_telegram_staff', {
+          p_tg_user_id: 5555,
+          p_staff_id: SEED_STAFF_IDS.cashier,
+        });
+        expect(r.error?.message, label).toMatch(/FORBIDDEN|permission denied/i);
+      }
+      const ins = await manager.from('telegram_staff').insert({
+        tg_user_id: 5556,
+        staff_id: SEED_STAFF_IDS.cashier,
+      });
+      expect(ins.error).not.toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 0039 (#14): line order is a real column now, not the physical tuple
+  // location, so an UPDATE to a line cannot reshuffle the kitchen's ticket.
+  // -------------------------------------------------------------------------
+  it('the order payload keeps its line order after a line is updated', async () => {
+    const res = await appRpc(guest.client, 'create_guest_order', {
+      p_items: [
+        { variant_id: tea.variantId, qty: 1 },
+        { variant_id: cake.variantId, qty: 1 },
+      ],
+      p_idempotency_key: testIdemKey('order.create'),
+    }).then(outcome);
+    expect(res.ok, res.errorMessage).toBe(true);
+    const oid = (res.data as { order_id: string }).order_id;
+
+    const names = async () => {
+      const { data } = await svc.schema('app').rpc('telegram_order_payload', { p_order_id: oid });
+      return ((data as { items: { name_en: string }[] }).items ?? []).map((i) => i.name_en);
+    };
+    const before = await names();
+    expect(before).toEqual(['Iraqi Tea', 'Date Cake']);
+
+    // Rewrite the FIRST line: pre-0039 this moved its ctid to the end of the
+    // heap and the payload came back reversed.
+    const { data: lines } = await svc
+      .from('order_items')
+      .select('id, line_no, menu_item_id')
+      .eq('order_id', oid)
+      .order('line_no');
+    const first = (lines as { id: string; line_no: number }[])[0]!;
+    expect(first.line_no).toBe(1);
+    await svc.from('order_items').update({ notes: 'rewritten' }).eq('id', first.id);
+
+    expect(await names()).toEqual(before);
   });
 });

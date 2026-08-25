@@ -161,11 +161,16 @@ export function useTableSession(token: string | null): UseTableSession {
   const touched = useCallback(() => {
     if (!supabase || !session) return;
     void (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('guest_sessions')
         .select('expires_at')
         .eq('id', session.sessionId)
         .maybeSingle();
+      // A failed read is NOT evidence about the session — only a successful
+      // read that came back with a row is. Swallowing the error here used to
+      // make "the network blipped" and "the row is gone" the same thing; the
+      // local timer just keeps its previous value until a read succeeds.
+      if (error) return;
       if (data?.expires_at) {
         setSession((prev) => (prev ? { ...prev, expiresAt: data.expires_at } : prev));
       }

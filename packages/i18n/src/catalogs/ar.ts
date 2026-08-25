@@ -488,6 +488,7 @@ export const ar: Messages = {
     sendToWaiter: 'أرسل إلى النادل',
     sendingToWaiter: 'جارٍ الإرسال إلى النادل…',
     sentToWaiter: 'تم الإرسال — النادل استلم طلبك.',
+    alreadySent: 'أُرسل مسبقًا — هذا الطلب مع النادل. سلتك كما هي.',
     orderNote: 'ملاحظة للنادل',
     orderNotePlaceholder: 'هل من شيء آخر نحتاج معرفته؟',
     featuredDiscount: 'عرض مميز −{pct}%',

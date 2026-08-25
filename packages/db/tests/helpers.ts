@@ -806,6 +806,20 @@ export async function ensureCafeProbeDataDrop4(svc: SupabaseClient): Promise<voi
     if (error) throw new Error(`probe telegram_actions insert failed: ${error.message}`);
   }
 
+  // telegram_staff (0039): the allowlist that authorizes a bot-button tap.
+  await up(
+    'telegram_staff',
+    {
+      tg_user_id: 570039,
+      staff_id: SEED_STAFF_IDS.manager,
+      label: 'Probe',
+      can_void: false,
+      is_active: true,
+      created_at: past,
+    },
+    'tg_user_id',
+  );
+
   // LLM tables (owner-only reads).
   await up('analytics_insights', {
     id: probeId('601'), range_from: '2001-01-01', range_to: '2001-01-07',

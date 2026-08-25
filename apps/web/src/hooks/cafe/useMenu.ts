@@ -28,6 +28,14 @@ import type { MenuStatus } from '@/lib/menu.server';
  */
 const DEBOUNCE_MS = 500;
 const STALE_MS = 60_000;
+/**
+ * Extra random delay on a broadcast-driven refetch. `menu_changed` fans out to
+ * EVERY connected guest at once, so a fixed debounce has the whole room hit the
+ * menu queries on the same tick — one admin save turning into a synchronised
+ * stampede. Spreading arrivals over a couple of seconds costs the guest nothing
+ * perceptible and flattens the peak.
+ */
+const JITTER_MS = 2_000;
 
 export interface UseMenu {
   menu: MenuCategory[];
@@ -87,7 +95,7 @@ export function useMenu(
     let timer: ReturnType<typeof setTimeout> | null = null;
     const bump = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => void refresh(), DEBOUNCE_MS);
+      timer = setTimeout(() => void refresh(), DEBOUNCE_MS + Math.random() * JITTER_MS);
     };
     void supabase.realtime.setAuth();
     const channel = supabase

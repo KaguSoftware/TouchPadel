@@ -132,6 +132,20 @@ export function useCafeActions(d: CafeActionsDeps) {
     );
     d.setSending(false);
 
+    // A `duplicate` is the server saying "I already have this exact basket".
+    // Treating it as a plain success used to clear the basket and toast "sent
+    // to waiter" — which is right for a true retry, but silently discarded the
+    // guest's items whenever the key had gone stale. Keep the basket, re-mint
+    // the key, and let them see for themselves what did and did not arrive.
+    if (result.kind === 'ok' && result.duplicate) {
+      basket.idemKey.reset();
+      d.setBasketOpen(false);
+      toasts.show(tr('cafe.alreadySent'), 'info');
+      void orders.reload();
+      table.touched();
+      return;
+    }
+
     if (result.kind === 'ok') {
       track.orderSubmitted({
         order_id: result.orderId,

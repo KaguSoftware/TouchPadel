@@ -479,6 +479,7 @@ export const en = {
     sendToWaiter: 'Send to waiter',
     sendingToWaiter: 'Sending to the waiter…',
     sentToWaiter: 'Sent — a waiter has your order.',
+    alreadySent: 'Already sent — this order is with the waiter. Your basket is untouched.',
     orderNote: 'Note for the waiter',
     orderNotePlaceholder: 'Anything else we should know?',
     featuredDiscount: 'Featured offer −{pct}%',

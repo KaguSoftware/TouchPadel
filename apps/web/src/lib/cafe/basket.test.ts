@@ -3,9 +3,11 @@ import {
   activeGroups,
   basketCount,
   basketDiscountTotal,
+  basketFingerprint,
   basketSubtotal,
   basketTotal,
   buildLine,
+  fingerprintHash,
   lineTotal,
   mergeDrafts,
   parseDraft,
@@ -381,5 +383,59 @@ describe('reconcile', () => {
     expect(reconcile([a], []).removed).toEqual([a.key]);
     const unchanged: BasketLine[] = reconcile([a], menu).lines;
     expect(unchanged).toEqual([a]);
+  });
+});
+
+describe('basketFingerprint / fingerprintHash (idempotency key input)', () => {
+  const line = (over: Partial<BasketLine> = {}): BasketLine => ({
+    key: 'k1',
+    itemId: 'i1',
+    variantId: 'v1',
+    qty: 1,
+    notes: null,
+    modifiers: [],
+    item_name_en: '',
+    item_name_ar: '',
+    variant_name_en: '',
+    variant_name_ar: '',
+    list_unit_price_iqd: 1_000,
+    discount_pct: 0,
+    unit_price_iqd: 1_000,
+    ...over,
+  });
+
+  it('is stable across reorderings of the same basket', () => {
+    const a = [line({ key: 'a', variantId: 'v1' }), line({ key: 'b', variantId: 'v2' })];
+    const b = [line({ key: 'b', variantId: 'v2' }), line({ key: 'a', variantId: 'v1' })];
+    expect(basketFingerprint(a, 'hi')).toBe(basketFingerprint(b, 'hi'));
+  });
+
+  it('changes when anything that gets SENT changes', () => {
+    const base = basketFingerprint([line()], '');
+    expect(basketFingerprint([line({ qty: 2 })], '')).not.toBe(base);
+    expect(basketFingerprint([line({ variantId: 'v2' })], '')).not.toBe(base);
+    expect(basketFingerprint([line({ notes: 'no sugar' })], '')).not.toBe(base);
+    expect(basketFingerprint([line()], 'note')).not.toBe(base);
+    expect(
+      basketFingerprint(
+        [line({ modifiers: [{ modifierId: 'm1', qty: 1, name_en: '', name_ar: '', price_delta_iqd: 0 }] })],
+        '',
+      ),
+    ).not.toBe(base);
+    // A second line is a different basket — this is the case that used to be
+    // silently swallowed as a "duplicate" of the first order.
+    expect(basketFingerprint([line({ key: 'a' }), line({ key: 'b', variantId: 'v2' })], '')).not.toBe(base);
+  });
+
+  it('ignores display-only fields the server re-snapshots anyway', () => {
+    const base = basketFingerprint([line()], '');
+    expect(basketFingerprint([line({ item_name_en: 'Tea', unit_price_iqd: 9_999 })], '')).toBe(base);
+  });
+
+  it('hashes to a compact stable string', () => {
+    const s = basketFingerprint([line()], '');
+    expect(fingerprintHash(s)).toBe(fingerprintHash(s));
+    expect(fingerprintHash(s)).toMatch(/^[a-z0-9]+$/);
+    expect(fingerprintHash(s)).not.toBe(fingerprintHash(`${s}x`));
   });
 });

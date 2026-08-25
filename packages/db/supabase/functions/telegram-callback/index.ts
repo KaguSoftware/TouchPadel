@@ -9,8 +9,12 @@
  *   - not a callback_query           -> 200 {ok:true} (ignored; allowed_updates
  *                                       is set to callback_query only anyway)
  *   - callback_data off-contract     -> answerCallbackQuery 'غير معروف', 200
- *   - app.telegram_apply_action(action, ref_id, {tg_user_id, first_name, username})
- *     with the service client (idempotent: a double tap yields 'duplicate')
+ *   - app.telegram_apply_action(action, ref_id, {tg_user_id, first_name, username},
+ *     chat_id) with the service client (idempotent: a double tap yields
+ *     'duplicate'). Since 0039 the RPC refuses a tap from a chat other than the
+ *     configured group, or from a tg_user_id absent from telegram_staff, and
+ *     o:void additionally requires that row to carry can_void — those come back
+ *     as result 'refused', not as an error.
  *   - answerCallbackQuery(toastFor(result))
  *   - keyboard !== 'unchanged'       -> editMessageText(original outbox text +
  *                                       "\n\n" + status footer, reduced keyboard);
@@ -111,6 +115,11 @@ Deno.serve(async (req) => {
         first_name: cq.from?.first_name ?? null,
         username: cq.from?.username ?? null,
       },
+      // 0039: the webhook secret authenticates TELEGRAM, not the person who
+      // tapped. The chat the tap came from, plus the telegram_staff allowlist,
+      // is what authorizes the action — and the DB check is the authority, so
+      // we only forward the claim here.
+      p_chat_id: cq.message?.chat?.id != null ? String(cq.message.chat.id) : null,
     });
     if (error) {
       console.error('telegram_apply_action failed:', error.message, error.details ?? '');

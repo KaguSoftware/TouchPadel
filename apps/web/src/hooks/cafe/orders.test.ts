@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  mergeStatus,
   ordersPartition,
   orderStepIndex,
   orderTotal,
@@ -92,5 +93,35 @@ describe('orderTotal', () => {
       ],
     });
     expect(orderTotal(o)).toBe(1_000);
+  });
+});
+
+describe('mergeStatus', () => {
+  // Broadcasts are at-least-once and unordered, and a REST reload can carry a
+  // snapshot older than a broadcast we already applied. Neither may walk the
+  // guest's progress bar backwards.
+  it('advances on a forward status', () => {
+    expect(mergeStatus('sent', 'preparing')).toBe('preparing');
+    expect(mergeStatus('preparing', 'ready')).toBe('ready');
+    expect(mergeStatus('ready', 'served')).toBe('served');
+  });
+
+  it('ignores a re-delivered earlier status', () => {
+    expect(mergeStatus('ready', 'preparing')).toBe('ready');
+    expect(mergeStatus('served', 'sent')).toBe('served');
+    expect(mergeStatus('preparing', 'sent')).toBe('preparing');
+  });
+
+  it('is idempotent', () => {
+    for (const s of ['sent', 'preparing', 'ready', 'served', 'voided'] as const) {
+      expect(mergeStatus(s, s)).toBe(s);
+    }
+  });
+
+  it('lets voided win from anywhere, and never un-voids', () => {
+    for (const s of ['sent', 'preparing', 'ready', 'served'] as const) {
+      expect(mergeStatus(s, 'voided')).toBe('voided');
+      expect(mergeStatus('voided', s)).toBe('voided');
+    }
   });
 });

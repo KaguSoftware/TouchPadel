@@ -396,9 +396,49 @@ export function mergeDrafts(walkin: BasketDraft, table: BasketDraft): BasketDraf
   };
 }
 
-/** Fresh idempotency key for one submit attempt batch. */
+/**
+ * Fresh idempotency SALT. Combined with a basket fingerprint (below) to form
+ * the key actually sent, so that retrying the same basket replays while a
+ * changed basket is a genuinely new order.
+ */
 export function newIdemKey(): string {
   const c = globalThis.crypto as Crypto | undefined;
   if (c && typeof c.randomUUID === 'function') return c.randomUUID();
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/**
+ * Deterministic fingerprint of everything that would actually be SENT for this
+ * basket — ids and quantities, never display snapshots or prices (the server
+ * re-snapshots those). Order-insensitive, so reordering the same lines is the
+ * same basket.
+ */
+export function basketFingerprint(lines: readonly BasketLine[], note: string): string {
+  const norm = lines
+    .map((l) =>
+      [
+        l.variantId,
+        l.qty,
+        l.notes?.trim() ?? '',
+        l.modifiers
+          .map((m) => `${m.modifierId}x${m.qty}`)
+          .sort()
+          .join(','),
+      ].join('|'),
+    )
+    .sort();
+  return `${norm.join(';')}#${note.trim()}`;
+}
+
+/**
+ * 32-bit FNV-1a, base36. Not cryptographic and not meant to be — it only has
+ * to change when the basket changes, within one guest's own key namespace.
+ */
+export function fingerprintHash(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
 }

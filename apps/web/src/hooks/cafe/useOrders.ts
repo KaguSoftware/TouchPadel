@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BrowserSupabase } from '@/lib/supabase/client';
 import {
+  mergeStatus,
   ordersPartition,
   type GuestOrder,
   type GuestOrderStatus,
@@ -17,6 +18,8 @@ import {
 const PARTITION_TICK_MS = 60_000;
 
 export interface UseOrders {
+  /** last reload failure, if the list on screen may be stale */
+  loadError: string | null;
   orders: GuestOrder[];
   live: GuestOrder[];
   earlier: GuestOrder[];
@@ -27,6 +30,7 @@ export interface UseOrders {
 
 export function useOrders(supabase: BrowserSupabase | null, sessionId: string | null): UseOrders {
   const [orders, setOrders] = useState<GuestOrder[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   // The 10-minute "served" rule needs a clock, not just new data.
   const [tick, setTick] = useState(() => Date.now());
 
@@ -35,7 +39,7 @@ export function useOrders(supabase: BrowserSupabase | null, sessionId: string | 
       setOrders([]);
       return;
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('orders')
       .select(
         `id, status, placed_at,
@@ -45,27 +49,41 @@ export function useOrders(supabase: BrowserSupabase | null, sessionId: string | 
       )
       .eq('guest_session_id', sessionId)
       .order('placed_at', { ascending: false });
+    // A PostgREST error used to be indistinguishable from "no orders": the old
+    // `if (!data) return` silently kept whatever was on screen, so a guest
+    // whose reload failed saw a stale list with no hint anything was wrong.
+    if (error) {
+      setLoadError(error.message);
+      return;
+    }
+    setLoadError(null);
     if (!data) return;
     const now = new Date().toISOString();
     setOrders((prev) => {
-      const servedAt = new Map(prev.map((o) => [o.id, o.served_at ?? null]));
-      return data.map((o) => ({
-        id: o.id,
-        status: o.status as GuestOrderStatus,
-        placed_at: o.placed_at,
-        served_at:
-          o.status === 'served' ? (servedAt.get(o.id) ?? now) : null,
-        items: (o.order_items ?? []).map((oi) => ({
-          id: oi.id,
-          qty: oi.qty,
-          line_total_iqd: oi.line_total_iqd,
-          voided: oi.voided ?? false,
-          name_en: oi.menu_items?.name_en ?? '',
-          name_ar: oi.menu_items?.name_ar ?? '',
-          variant_en: oi.menu_item_variants?.name_en ?? '',
-          variant_ar: oi.menu_item_variants?.name_ar ?? '',
-        })),
-      }));
+      const previous = new Map(prev.map((o) => [o.id, o]));
+      return data.map((o) => {
+        // A reload can race a broadcast we already applied; never go backwards.
+        const seen = previous.get(o.id);
+        const status = seen
+          ? mergeStatus(seen.status, o.status as GuestOrderStatus)
+          : (o.status as GuestOrderStatus);
+        return {
+          id: o.id,
+          status,
+          placed_at: o.placed_at,
+          served_at: status === 'served' ? (seen?.served_at ?? now) : null,
+          items: (o.order_items ?? []).map((oi) => ({
+            id: oi.id,
+            qty: oi.qty,
+            line_total_iqd: oi.line_total_iqd,
+            voided: oi.voided ?? false,
+            name_en: oi.menu_items?.name_en ?? '',
+            name_ar: oi.menu_items?.name_ar ?? '',
+            variant_en: oi.menu_item_variants?.name_en ?? '',
+            variant_ar: oi.menu_item_variants?.name_ar ?? '',
+          })),
+        };
+      });
     });
     setTick(Date.now());
   }, [supabase, sessionId]);
@@ -80,16 +98,18 @@ export function useOrders(supabase: BrowserSupabase | null, sessionId: string | 
       setOrders((prev) => {
         known = prev.some((o) => o.id === orderId);
         if (!known) return prev;
-        return prev.map((o) =>
-          o.id === orderId
-            ? {
-                ...o,
-                status,
-                served_at:
-                  status === 'served' ? (o.served_at ?? new Date().toISOString()) : null,
-              }
-            : o,
-        );
+        return prev.map((o) => {
+          if (o.id !== orderId) return o;
+          // Broadcasts are unordered and at-least-once: a re-delivered
+          // `preparing` after `ready` must not walk the progress bar back.
+          const merged = mergeStatus(o.status, status);
+          return {
+            ...o,
+            status: merged,
+            served_at:
+              merged === 'served' ? (o.served_at ?? new Date().toISOString()) : null,
+          };
+        });
       });
       // A brand-new order (or one placed on another device) needs its lines.
       if (!known) void reload();
@@ -106,5 +126,5 @@ export function useOrders(supabase: BrowserSupabase | null, sessionId: string | 
 
   const { live, earlier } = useMemo(() => ordersPartition(orders, tick), [orders, tick]);
 
-  return { orders, live, earlier, reload, applyStatus };
+  return { orders, live, earlier, reload, applyStatus, loadError };
 }

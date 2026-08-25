@@ -1220,6 +1220,22 @@ export const matrix: MatrixRule[] = [
     note: 'the tap ledger is written only by app.telegram_apply_action (service role)',
     drop: 4,
   },
+  {
+    kind: 'select',
+    name: 'telegram_staff',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    note: '0039 allowlist: who may drive the bot, and who may void from it',
+    drop: 4,
+  },
+  {
+    kind: 'write',
+    name: 'telegram_staff',
+    op: 'insert',
+    payload: { tg_user_id: 999001, staff_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'RPC-only (app.set_telegram_staff, owner) — a client insert would be a self-grant',
+    drop: 4,
+  },
 
   // ── analytics LLM tables: owner reads only, RPC-only writes ───────────────
   {

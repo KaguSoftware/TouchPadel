@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   basketCount,
   basketDiscountTotal,
+  basketFingerprint,
   basketSubtotal,
   basketTotal,
   clearDraft,
+  fingerprintHash,
   loadDraft,
   mergeDrafts,
   newIdemKey,
@@ -23,8 +25,10 @@ import type { CafeSettings, MenuCategory, MenuItem } from '@/lib/menu';
  * class flow (owner decision 7), so the walk-in draft FOLDS INTO the table
  * draft the moment the table binds and the walk-in key is dropped.
  *
- * The idempotency key is persisted with the draft: a guest who reloads mid
- * send must not create a second order when they retry.
+ * The idempotency SALT is persisted with the draft: a guest who reloads mid
+ * send must not create a second order when they retry. The key actually sent
+ * is that salt plus a fingerprint of the basket, so a retry of the same basket
+ * replays while a changed basket is a new order (see `idemKey` below).
  */
 export type BasketToast = 'priceChanged' | 'removedUnavailable';
 
@@ -110,16 +114,26 @@ export function useBasket(
 
   const idemKey = useMemo(
     () => ({
-      /** stable across retries of the SAME basket; only `reset()` mints a new one */
+      /**
+       * Salt + fingerprint of the current basket.
+       *
+       * The salt alone used to BE the key, reset only on a successful submit.
+       * So if a submit committed server-side but the response was lost, the
+       * guest could add an item, send again with the same key, and get back
+       * `duplicate: true` for the FIRST order — the added item was never
+       * ordered and the guest was told it was. Folding the basket contents in
+       * makes "retry of the same basket" (a real replay) and "send a changed
+       * basket" (a new order) distinguishable server-side.
+       */
       current(): string {
         idemRef.current ??= newIdemKey();
-        return idemRef.current;
+        return `${idemRef.current}:${fingerprintHash(basketFingerprint(lines, note))}`;
       },
       reset(): void {
         idemRef.current = null;
       },
     }),
-    [],
+    [lines, note],
   );
 
   const reconcile = useCallback(

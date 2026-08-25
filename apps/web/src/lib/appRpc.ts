@@ -38,6 +38,9 @@ const RPC_ERROR_KEYS: Record<string, MessageKey> = {
   SLOT_TAKEN: 'booking.slotTaken',
   PIN_INVALID: 'auth.pinInvalid',
   FORBIDDEN: 'errors.forbidden',
+  // 0038: the idempotency key we sent belongs to someone else's order. Not
+  // actionable for the guest — retrying mints a fresh key.
+  IDEMPOTENCY_CONFLICT: 'errors.generic',
 };
 
 /** Map a Postgrest/RPC error to a translatable message key (never throws). */

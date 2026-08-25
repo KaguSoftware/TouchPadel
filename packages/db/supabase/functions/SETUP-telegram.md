@@ -81,6 +81,44 @@ Then place a fixture order from the guest menu and tap `✅ شوهد`: the toast
 `تم ✅`, the message gains a `✅ شوهد · Seen — <name> · HH:mm` footer, and the KDS
 ticket flips to *preparing*.
 
+## 8b. Allowlist the people who may drive the bot (0039 — REQUIRED)
+
+The webhook secret authenticates *Telegram*, not the person tapping. Since
+migration 0039 a tap is refused unless **both** hold:
+
+1. the message came from the chat in `cafe_settings.telegram_chat_id` (step 8), and
+2. `from.id` is an active row in `telegram_staff`.
+
+`❌ إلغاء` additionally requires that row to carry `can_void` — it is the
+Telegram equivalent of the manager PIN that `void_after_send` demands
+everywhere else, so grant it to managers and owners only.
+
+**This fails closed: until the allowlist is seeded, every button is refused.**
+Do it in the same maintenance window as the migration, not after.
+
+Read each person's numeric Telegram id — have them tap any button once and read
+it back from the ledger:
+
+```sql
+select tg_user_id, tg_first_name, tg_username, result, detail, at
+  from telegram_actions
+ order by id desc limit 20;   -- refused rows carry detail = 'not_allowlisted'
+```
+
+Then map each one to a staff row (owner only):
+
+```sql
+select app.set_telegram_staff(
+  p_tg_user_id => 4242,
+  p_staff_id   => '<staff.id>',
+  p_label      => 'Ahmed (manager)',
+  p_can_void   => true,        -- managers/owners only
+  p_is_active  => true);
+```
+
+Revoke by re-running with `p_is_active => false`; the row stays for the audit
+trail. Every call writes a `telegram.staff_set` audit entry.
+
 ## 9. Troubleshooting
 
 | Symptom | Look at |
@@ -91,6 +129,7 @@ ticket flips to *preparing*.
 | Slow (> 10 s) | Only the cron sweep is running: Vault names `service_role_key` / `functions_base_url` missing or `pg_net` disabled (step 5). |
 | Toast `غير ممكن الآن` on every tap | The ticket/call was already moved from the till; the tap is recorded in `telegram_actions` with `result = invalid`. |
 | Toast `الطلب مدفوع — الإلغاء من الكاشير` | The tab was settled; Telegram cannot void a paid order — cancel from the till. |
+| Every tap refused, nothing changes | `select action, result, detail from telegram_actions order by id desc limit 10;` — `wrong_chat` = the message came from a chat other than `cafe_settings.telegram_chat_id` (or that setting is unset); `not_allowlisted` = the tapper is missing from `telegram_staff`; `void_not_authorized` = allowlisted but without `can_void`. See step 8b. |
 
 ## Local development
 

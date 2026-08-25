@@ -43,6 +43,31 @@ export function isLiveStatus(status: GuestOrderStatus): boolean {
   return status === 'sent' || status === 'preparing' || status === 'ready';
 }
 
+/**
+ * How far along the flow each status is. `voided` ranks above every live step:
+ * a cancellation is terminal and must never be undone by a late `preparing`.
+ */
+const STATUS_RANK: Record<GuestOrderStatus, number> = {
+  sent: 0,
+  preparing: 1,
+  ready: 2,
+  served: 3,
+  voided: 4,
+};
+
+/**
+ * Fold an incoming status into the one we already show, never moving backwards.
+ *
+ * Broadcasts are at-least-once and unordered: a re-delivered `preparing` can
+ * land after `ready`, and a REST reload can return a snapshot older than a
+ * broadcast we already applied. Either one used to visibly regress the guest's
+ * progress bar. Monotonic by rank, so the worst case is a stale update being
+ * ignored rather than the guest watching their order go backwards.
+ */
+export function mergeStatus(prev: GuestOrderStatus, next: GuestOrderStatus): GuestOrderStatus {
+  return STATUS_RANK[next] >= STATUS_RANK[prev] ? next : prev;
+}
+
 const ts = (v: string | null | undefined): number => {
   const n = v ? Date.parse(v) : NaN;
   return Number.isNaN(n) ? 0 : n;

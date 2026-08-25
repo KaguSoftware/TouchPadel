@@ -260,6 +260,7 @@ export type Database = {
         Returns: Json
       }
       current_open_day: { Args: never; Returns: string }
+      current_open_day_locked: { Args: never; Returns: string }
       enqueue_telegram: {
         Args: { p_kind: string; p_payload?: Json; p_ref_id: string }
         Returns: number
@@ -533,6 +534,17 @@ export type Database = {
         Args: { p_enabled: boolean; p_table_id: string }
         Returns: undefined
       }
+      set_telegram_staff: {
+        Args: {
+          p_can_void?: boolean
+          p_device_id?: string
+          p_is_active?: boolean
+          p_label?: string
+          p_staff_id: string
+          p_tg_user_id: number
+        }
+        Returns: Json
+      }
       set_ticket_status: {
         Args: {
           p_device_id?: string
@@ -584,10 +596,16 @@ export type Database = {
       start_count: { Args: never; Returns: Json }
       sweep_degraded_periods: { Args: never; Returns: undefined }
       tab_is_callers: { Args: { p_tab_id: string }; Returns: boolean }
+      tab_net_paid: { Args: { p_tab_id: string }; Returns: number }
       table_qr_tokens: { Args: never; Returns: Json }
       table_token_secret: { Args: never; Returns: string }
       telegram_apply_action: {
-        Args: { p_action: string; p_actor: Json; p_ref_id: string }
+        Args: {
+          p_action: string
+          p_actor: Json
+          p_chat_id?: string
+          p_ref_id: string
+        }
         Returns: Json
       }
       telegram_call_payload: { Args: { p_call_id: string }; Returns: Json }
@@ -766,6 +784,7 @@ export type Database = {
           p_action: string
           p_actor_role: string
           p_after?: Json
+          p_authorizer?: string
           p_before?: Json
           p_entity: string
           p_entity_id: string
@@ -1855,6 +1874,7 @@ export type Database = {
           discount_pct: number
           discount_source: string | null
           id: string
+          line_no: number
           line_total_iqd: number
           list_price_iqd: number | null
           menu_item_id: string
@@ -1871,6 +1891,7 @@ export type Database = {
           discount_pct?: number
           discount_source?: string | null
           id?: string
+          line_no: number
           line_total_iqd: number
           list_price_iqd?: number | null
           menu_item_id: string
@@ -1887,6 +1908,7 @@ export type Database = {
           discount_pct?: number
           discount_source?: string | null
           id?: string
+          line_no?: number
           line_total_iqd?: number
           list_price_iqd?: number | null
           menu_item_id?: string
@@ -3048,6 +3070,51 @@ export type Database = {
           text?: string | null
         }
         Relationships: []
+      }
+      telegram_staff: {
+        Row: {
+          added_by: string | null
+          can_void: boolean
+          created_at: string
+          is_active: boolean
+          label: string | null
+          staff_id: string
+          tg_user_id: number
+        }
+        Insert: {
+          added_by?: string | null
+          can_void?: boolean
+          created_at?: string
+          is_active?: boolean
+          label?: string | null
+          staff_id: string
+          tg_user_id: number
+        }
+        Update: {
+          added_by?: string | null
+          can_void?: boolean
+          created_at?: string
+          is_active?: boolean
+          label?: string | null
+          staff_id?: string
+          tg_user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_staff_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "telegram_staff_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tickets: {
         Row: {
