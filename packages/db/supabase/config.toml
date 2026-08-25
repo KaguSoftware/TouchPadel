@@ -36,6 +36,18 @@ port = 54324
 enabled = true
 file_size_limit = "50MiB"
 
+# Cafe menu media (item/category photos, hero image/video). Public read; staff
+# writes are gated by the storage.objects policies in migration 0031 (which
+# also upserts the same bucket on hosted). objects_path seeds local fixture
+# placeholders on `supabase start` / `db reset`: the directory MUST exist and
+# every file in it is uploaded and must pass allowed_mime_types (no .gitkeep —
+# an empty file sniffs as text/plain and fails the seed).
+[storage.buckets.menu-media]
+public = true
+file_size_limit = "25MiB"
+allowed_mime_types = ["image/webp", "image/jpeg", "image/png", "video/mp4", "video/webm"]
+objects_path = "./buckets/menu-media"
+
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
@@ -59,3 +71,15 @@ enable_confirmations = true
 
 [analytics]
 enabled = false
+
+# Edge functions — verify_jwt declared here so `supabase functions deploy`
+# applies it without remembering --no-verify-jwt. replay / send-push keep the
+# default (true) and are not listed.
+[functions.telegram-callback]
+verify_jwt = false                          # Telegram carries no Supabase JWT; secret_token header is the auth
+[functions.telegram-send]
+verify_jwt = true                           # pg_net posts with the service-role JWT
+[functions.analytics-posthog]
+verify_jwt = true
+[functions.analytics-insights]
+verify_jwt = true
