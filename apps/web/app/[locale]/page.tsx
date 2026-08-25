@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { makeT } from '@touch/i18n';
 import { asLocale, LOCALES } from '@/lib/locales';
-import { getCachedCafeSettings, getCachedMenu } from '@/lib/menu.server';
+import { getCachedCafeSettings, getCachedMenu, getCachedVenue } from '@/lib/menu.server';
 import { CafeApp } from '@/components/cafe/CafeApp';
 
 /**
@@ -27,7 +27,12 @@ export async function generateMetadata({
 
 export default async function CafeRootPage({ params }: { params: Promise<{ locale: string }> }) {
   const locale = asLocale((await params).locale);
-  const [menuResult, settings] = await Promise.all([getCachedMenu(), getCachedCafeSettings()]);
+  const [menuResult, settings, venue] = await Promise.all([
+    getCachedMenu(),
+    getCachedCafeSettings(),
+    // Footer hours + phone and the hero strapline (web-slice §2).
+    getCachedVenue(),
+  ]);
   return (
     <CafeApp
       locale={locale}
@@ -35,6 +40,7 @@ export default async function CafeRootPage({ params }: { params: Promise<{ local
       initialMenu={menuResult.categories}
       menuStatus={menuResult.status}
       settings={settings}
+      venue={venue}
     />
   );
 }

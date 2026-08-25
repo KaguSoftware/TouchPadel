@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { makeT } from '@touch/i18n';
 import { asLocale } from '@/lib/locales';
-import { getCachedCafeSettings, getCachedMenu } from '@/lib/menu.server';
+import { getCachedCafeSettings, getCachedMenu, getCachedVenue } from '@/lib/menu.server';
 import { CafeApp } from '@/components/cafe/CafeApp';
 
 // Cafe table-bound ordering (Touch Cafe identity). The token in the URL is a
@@ -28,7 +28,12 @@ export default async function TableSessionPage({
   params: Promise<{ locale: string; token: string }>;
 }) {
   const { locale: rawLocale, token } = await params;
-  const [menuResult, settings] = await Promise.all([getCachedMenu(), getCachedCafeSettings()]);
+  const [menuResult, settings, venue] = await Promise.all([
+    getCachedMenu(),
+    getCachedCafeSettings(),
+    // Footer hours + phone and the hero strapline (web-slice §2).
+    getCachedVenue(),
+  ]);
   return (
     <CafeApp
       locale={asLocale(rawLocale)}
@@ -36,6 +41,7 @@ export default async function TableSessionPage({
       initialMenu={menuResult.categories}
       menuStatus={menuResult.status}
       settings={settings}
+      venue={venue}
     />
   );
 }

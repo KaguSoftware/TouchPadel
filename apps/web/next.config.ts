@@ -2,6 +2,14 @@ import type { NextConfig } from 'next';
 
 const MEDIA_PATH = '/storage/v1/object/public/menu-media/**';
 
+// Next 16 refuses to proxy images from private IPs (SSRF guard). The LOCAL
+// Supabase stack IS a private IP, so dev and e2e would render every fixture
+// photo as a 500. Only lift the guard when the configured Supabase URL is
+// itself local — a hosted deployment can never take this branch.
+const isLocalSupabase = /^https?:\/\/(127\.0\.0\.1|localhost)([:/]|$)/.test(
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+);
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Internal packages export raw .ts with no build step (HANDOFF conventions) —
@@ -21,6 +29,7 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 64, 96, 128, 160, 224, 320],
     // Storage paths are versioned (items/{id}/{version}.jpg) → cache 30 days.
     minimumCacheTTL: 2592000,
+    ...(isLocalSupabase ? { dangerouslyAllowLocalIP: true } : {}),
   },
   async redirects() {
     return [

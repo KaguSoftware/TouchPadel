@@ -476,20 +476,23 @@ export interface VenueOpeningHours {
   venue_name: string;
   opening_hours: Record<string, [string, string][]>;
   closed_dates: string[];
+  /** venue phone (0026 added the column to the public view); null = not set */
+  phone: string | null;
 }
 
-/** Opening hours & venue name from the anon-safe venue_settings_public view. */
+/** Opening hours, venue name & phone from the anon-safe venue_settings_public view. */
 export async function fetchVenuePublic(
   client: SupabaseClient<Database>,
 ): Promise<VenueOpeningHours | null> {
   const { data, error } = await client
     .from('venue_settings_public')
-    .select('venue_name, opening_hours, closed_dates')
+    .select('venue_name, opening_hours, closed_dates, phone')
     .maybeSingle();
   if (error || !data) return null;
   return {
     venue_name: data.venue_name ?? 'Touch Padel',
     opening_hours: (data.opening_hours ?? {}) as Record<string, [string, string][]>,
     closed_dates: data.closed_dates ?? [],
+    phone: data.phone ?? null,
   };
 }

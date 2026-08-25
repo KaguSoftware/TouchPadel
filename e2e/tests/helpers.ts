@@ -3,6 +3,7 @@
  * in packages/db/tests/helpers.ts (service-role client, staff sign-in,
  * generate_table_token as owner, ensureOpenDay, ensureTillFresh).
  */
+import type { Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -107,14 +108,34 @@ export async function ensureOpenDay(svc: SupabaseClient): Promise<string> {
   }
 }
 
-/** Un-degrade the venue: refresh every TILL heartbeat (aborted degraded-mode
- *  experiments must never poison the e2e run). */
+/**
+ * Un-degrade the venue: refresh every till heartbeat (aborted degraded-mode
+ * experiments must never poison the e2e run).
+ *
+ * The filter MUST mirror `app.is_degraded()`, which counts a row as a till when
+ * `is_till` is set OR the id starts with TILL. Matching on the name alone
+ * silently updated ZERO rows once the seeds moved to `REG-01` (is_till = true),
+ * so the venue stayed degraded and guest ordering was refused mid-journey.
+ * With no till row at all, seed one: `is_degraded()` is false in that state, but
+ * the till screens still expect a heartbeat to exist.
+ */
 export async function ensureTillFresh(svc: SupabaseClient): Promise<void> {
-  const { error } = await svc
+  const now = new Date().toISOString();
+  const { data, error } = await svc
     .from('device_heartbeats')
-    .update({ last_seen_at: new Date().toISOString(), queue_depth: 0 })
-    .like('device_id', 'TILL%');
+    .update({ last_seen_at: now, queue_depth: 0 })
+    .or('is_till.eq.true,device_id.like.TILL%')
+    .select('device_id');
   if (error) throw new Error(`ensureTillFresh failed: ${error.message}`);
+  if (data && data.length > 0) return;
+
+  const { error: insErr } = await svc
+    .from('device_heartbeats')
+    .upsert(
+      { device_id: 'TILL-E2E', last_seen_at: now, queue_depth: 0, is_till: true },
+      { onConflict: 'device_id' },
+    );
+  if (insErr) throw new Error(`ensureTillFresh seed failed: ${insErr.message}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,4 +215,82 @@ export async function openWaiterCall(
   if (error) throw new Error(`openWaiterCall failed: ${error.message}`);
   if (!data?.length) throw new Error('openWaiterCall: no open call on table');
   return data[0] as { id: string };
+}
+
+// ---------------------------------------------------------------------------
+// Anonymous guest sessions — the same two calls the web app makes on scan
+// ---------------------------------------------------------------------------
+
+/**
+ * Mint a token for `tableId`, then bind it from a fresh ANONYMOUS client, which
+ * is the only principal `app.create_guest_order` accepts (it reads the session
+ * from auth.uid(), never from an argument). Use this to fabricate guest orders
+ * for staff-side tests without driving the browser.
+ */
+export async function openGuestSession(
+  tableId: string,
+): Promise<{ client: SupabaseClient; sessionId: string; token: string }> {
+  const token = await mintTableToken(tableId);
+  const client = createClient(SUPABASE_URL, ANON_KEY, clientOptions);
+  const { error: authErr } = await client.auth.signInAnonymously();
+  if (authErr) throw new Error(`anonymous sign-in failed: ${authErr.message}`);
+  const opened = await appRpc<{ session_id: string }>(client, 'open_table_session', {
+    p_token: token,
+  });
+  return { client, sessionId: opened.session_id, token };
+}
+
+/**
+ * Keep the venue OUT of degraded mode for the whole of a long test.
+ *
+ * `venue_settings.heartbeat_stale_seconds` is 45s and `app.is_degraded()` blocks
+ * guest ordering the moment the last TILL heartbeat ages past it. A real till
+ * beats continuously; a test that runs longer than 45s must do the same, or the
+ * basket comes back "Online ordering is temporarily paused" halfway through.
+ *
+ * Returns a stop function — always call it in `afterAll`/`finally`, otherwise
+ * the interval keeps the Playwright worker alive.
+ */
+export function startTillHeartbeat(svc: SupabaseClient, everyMs = 15_000): () => void {
+  let stopped = false;
+  const beat = () => {
+    if (stopped) return;
+    void ensureTillFresh(svc).catch(() => {
+      /* a transient failure just means the next beat covers it */
+    });
+  };
+  const timer = setInterval(beat, everyMs);
+  beat();
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Realtime: wait for a broadcast subscription instead of racing it
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve once a page has actually JOINED a broadcast topic.
+ *
+ * A broadcast fired before the join lands is simply not delivered, and the
+ * guest app's other refetch triggers (`online`, visibility) never fire in a
+ * headless run — so a test that writes immediately after `goto` fails for
+ * timing reasons that say nothing about the product. Call this BEFORE
+ * `page.goto` so the websocket listener is attached in time, then await it.
+ *
+ * React StrictMode double-mounts in dev, so the first channel leaves and
+ * re-joins — settle briefly after the first successful reply.
+ */
+export function channelJoined(page: Page, topic = 'menu'): Promise<void> {
+  return new Promise<void>((resolve) => {
+    page.on('websocket', (ws) => {
+      if (!ws.url().includes('/realtime/v1/websocket')) return;
+      ws.on('framereceived', (frame) => {
+        const payload = String(frame.payload);
+        if (payload.includes(`realtime:${topic}`) && payload.includes('"status":"ok"')) resolve();
+      });
+    });
+  }).then(() => page.waitForTimeout(1_000));
 }

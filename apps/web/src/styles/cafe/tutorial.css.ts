@@ -10,4 +10,7 @@ export const tutorialCss = `
 .tp-tutorial__arrow { position: absolute; inset-inline-start: var(--tp-space-5); inset-block-end: calc(5.5rem + env(safe-area-inset-bottom)); inline-size: 5rem; block-size: 4rem; }
 .tp-tutorial__arrow path { stroke: currentColor; stroke-width: 3; fill: none; stroke-linecap: round; stroke-dasharray: 200; stroke-dashoffset: 200; animation: tp-arrow-draw 900ms var(--tp-ease-out) 300ms forwards; }
 [dir='rtl'] .tp-tutorial__arrow { transform: scale(-1, 1); }
+/* On the dark scrim the eyebrow inherits the tutorial's white, not muted-fg. */
+.tp-tutorial .tp-eyebrow { color: inherit; opacity: 0.8; }
+.tp-tutorial__card .tp-btn { align-self: center; margin-block-start: var(--tp-space-3); }
 `;

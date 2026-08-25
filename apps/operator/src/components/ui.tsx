@@ -43,6 +43,7 @@ export function Button({
   autoFocus,
   title,
   'aria-label': ariaLabel,
+  'aria-pressed': ariaPressed,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -53,6 +54,8 @@ export function Button({
   autoFocus?: boolean;
   title?: string;
   'aria-label'?: string;
+  /** For toggle-group buttons (range presets): exposes which one is active. */
+  'aria-pressed'?: boolean;
 }) {
   const base: CSSProperties = {
     paddingBlock: '0.45rem',
@@ -86,6 +89,7 @@ export function Button({
       autoFocus={autoFocus}
       title={title}
       aria-label={ariaLabel}
+      aria-pressed={ariaPressed}
     >
       {children}
     </button>

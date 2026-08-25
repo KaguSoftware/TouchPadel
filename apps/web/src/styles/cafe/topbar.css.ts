@@ -34,4 +34,17 @@ export const topbarCss = `
 .tp-beans { position: absolute; inset: 0; pointer-events: none; background-size: var(--tp-cafe-bean-tile-w) var(--tp-cafe-bean-tile-h); }
 .tp-beans[data-tone='brown'] { background-image: var(--tp-cafe-beans-brown); opacity: var(--tp-beans-opacity, var(--tp-beans-opacity-brown)); }
 .tp-beans[data-tone='white'] { background-image: var(--tp-cafe-beans-white); opacity: var(--tp-beans-opacity, var(--tp-beans-opacity-white)); }
+
+/* Table chip states. invalid/expired render as a BUTTON (tap → re-scan sheet),
+   so the element defaults have to be reset back to the chip look. */
+button.tp-cafe__table { border: 1px solid var(--tp-brand-white); font-family: inherit; }
+.tp-cafe__table[data-state='invalid'], .tp-cafe__table[data-state='expired'], .tp-cafe__table[data-state='error'] {
+  background: var(--tp-warn-bg); color: var(--tp-warn-fg); border-color: var(--tp-warn-border); font-size: var(--tp-fs-xs); }
+.tp-cafe__table[data-state='binding'] { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+/* Locale link + basket button inside the blue bar */
+.tp-locale-switch { flex: none; white-space: nowrap; }
+.tp-basket-btn { flex: none; gap: 0.4rem; padding-inline: 0.7rem; min-block-size: 2.25rem; }
+.tp-basket-btn__total { font-variant-numeric: tabular-nums; font-size: var(--tp-fs-sm); }
+.tp-cafe__topbar-inner > .tp-wordmark { flex: none; }
 `;

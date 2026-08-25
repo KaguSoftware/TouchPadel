@@ -4,9 +4,11 @@ import { createStaticSupabase } from './supabase/static';
 import {
   fetchCafeSettings,
   fetchMenu,
+  fetchVenuePublic,
   DEFAULT_CAFE_SETTINGS,
   type CafeSettings,
   type MenuCategory,
+  type VenueOpeningHours,
 } from './menu';
 
 /**
@@ -56,5 +58,23 @@ export const getCachedCafeSettings = unstable_cache(
     }
   },
   ['cafe-settings'],
+  { tags: ['menu'], revalidate: 60 },
+);
+
+/**
+ * Venue name / opening hours / phone for the footer + hero strapline. Same
+ * `menu` tag as the read model above, so an operator settings change
+ * revalidates all three together. A failed read renders the footer without
+ * hours rather than taking the page down.
+ */
+export const getCachedVenue = unstable_cache(
+  (): Promise<VenueOpeningHours | null> => {
+    try {
+      return fetchVenuePublic(createStaticSupabase()).catch(() => null);
+    } catch {
+      return Promise.resolve(null);
+    }
+  },
+  ['cafe-venue'],
   { tags: ['menu'], revalidate: 60 },
 );

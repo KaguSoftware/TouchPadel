@@ -20,14 +20,18 @@ const LOCAL_SUPABASE_URL = 'http://127.0.0.1:54321';
 const LOCAL_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
 
+export const WEB_URL = 'http://localhost:3000';
+
 const localEnv = {
   NEXT_PUBLIC_SUPABASE_URL: LOCAL_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: LOCAL_ANON_KEY,
   VITE_SUPABASE_URL: LOCAL_SUPABASE_URL,
   VITE_SUPABASE_ANON_KEY: LOCAL_ANON_KEY,
+  // The QR admin refuses to render printable cards without a guest site URL
+  // (it must never print localhost onto a real table card). For e2e the local
+  // web app IS the guest site.
+  VITE_GUEST_SITE_URL: WEB_URL,
 };
-
-export const WEB_URL = 'http://localhost:3000';
 export const OPERATOR_URL = 'http://localhost:5174';
 
 export default defineConfig({

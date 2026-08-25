@@ -1,16 +1,19 @@
-// SCOPE(cafe-rebuild W10-W11): placeholder — GROWS LATER → features/analytics/AnalyticsPage
-// (mount it with lazyRouteComponent so the Recharts chunk never loads on a till/KDS station).
-import { createRoute } from '@tanstack/react-router';
+// Owner-only (ROUTE_ROLES): exposes item costs/margins and each AI re-check bills Groq.
+// `lazyRouteComponent` keeps Recharts (and the whole analytics feature) out of the
+// main bundle, so a till or KDS station never downloads a charting library.
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { rootRoute, RequireRole } from './__root';
-import { ComingSoon } from '../components/ComingSoon';
+import { validateSearch, type AnalyticsSearch } from '../features/analytics/search';
 
-// Owner-only (ROUTE_ROLES): exposes item costs/margins and each recheck bills Groq.
+const LazyAnalyticsPage = lazyRouteComponent(() => import('../features/analytics/AnalyticsPage'), 'AnalyticsPage');
+
 export const analyticsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/analytics',
+  validateSearch: (raw: Record<string, unknown>): AnalyticsSearch => validateSearch(raw),
   component: () => (
     <RequireRole route="/analytics">
-      <ComingSoon titleKey="analytics.title" />
+      <LazyAnalyticsPage />
     </RequireRole>
   ),
 });

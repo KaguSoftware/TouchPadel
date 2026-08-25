@@ -215,6 +215,17 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
   });
 
   it('claim_due_telegram (service role) returns due rows and bumps attempts; an immediate second claim is empty; clients denied', async () => {
+    // Nothing sends locally, so every earlier run (db suite AND e2e) leaves its
+    // rows `queued` and due forever. Past ~50 of them the claim below stops
+    // returning THIS test's rows at all and "a second claim is empty" can never
+    // hold. Park the unrelated backlog in the future so the assertions describe
+    // the claim semantics, not the size of the leftovers.
+    await svc
+      .from('telegram_outbox')
+      .update({ scheduled_for: new Date(Date.now() + 86_400_000).toISOString() })
+      .eq('status', 'queued')
+      .not('id', 'in', `(${[outboxOrderId, outboxCallId].join(',')})`);
+
     const first = await svc.schema('app').rpc('claim_due_telegram', { p_limit: 50 });
     expect(first.error, first.error?.message).toBeNull();
     const claimed = first.data as OutboxRow[];

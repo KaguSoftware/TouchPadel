@@ -16,4 +16,14 @@ export const stageCss = `
 .tp-menu-unavailable { text-align: center; padding-block: var(--tp-space-6); padding-inline: var(--tp-space-5); display: flex; flex-direction: column; align-items: center; gap: var(--tp-space-3); }
 .tp-menu-unavailable h2 { font-family: var(--tp-font-display); font-size: var(--tp-fs-lg); }
 .tp-menu-unavailable p { color: var(--tp-muted-fg); max-inline-size: 26rem; }
+
+/* The category heading lives INSIDE the collapse button, so the
+   ".tp-menu-cat > h2" rule above cannot reach it. */
+.tp-stage__head h2 { font-family: var(--tp-font-display); font-size: 1.3rem; font-weight: var(--tp-fw-display);
+  text-transform: uppercase; letter-spacing: var(--tp-tracking-caps); line-height: var(--tp-lh-tight); }
+[dir='rtl'] .tp-stage__head h2 { font-family: var(--tp-font-arabic); font-weight: 700; text-transform: none; }
+.tp-stage { border-block-end: 1px solid var(--tp-border); }
+.tp-stage:last-of-type { border-block-end: 0; }
+.tp-stage__head { color: inherit; }
+.tp-stage__band img { object-fit: cover; }
 `;

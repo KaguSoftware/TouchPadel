@@ -17,4 +17,28 @@ export const heroCss = `
   border-radius: var(--tp-radius-pill); padding-block: 0.25rem; padding-inline: 0.7rem; font-size: var(--tp-fs-xs); font-weight: 800; text-transform: uppercase; letter-spacing: var(--tp-tracking-eyebrow); }
 .tp-price--struck { text-decoration: line-through; color: var(--tp-muted-fg); font-weight: 400; margin-inline-end: 0.4rem; }
 .tp-price--promo { color: var(--tp-cafe-brown); font-weight: 800; }
+
+/* Hero mode "featured" — the whole card is the button. */
+button.tp-hero__featured { display: block; inline-size: calc(100% - 2 * var(--tp-space-4)); border: 0; padding: 0; text-align: start; color: inherit; }
+.tp-hero__featured-photo { position: relative; display: block; inline-size: 100%; aspect-ratio: 16 / 9; background: var(--tp-cafe-brown-tint); }
+.tp-hero__featured-photo img { object-fit: cover; }
+.tp-hero__featured-body { display: flex; align-items: baseline; justify-content: space-between; gap: var(--tp-space-3);
+  padding-block: var(--tp-space-3); padding-inline: var(--tp-space-4); }
+.tp-hero__featured-name { font-family: var(--tp-font-display); font-weight: var(--tp-fw-display); font-size: var(--tp-fs-lg);
+  text-transform: uppercase; letter-spacing: var(--tp-tracking-caps); line-height: var(--tp-lh-tight); }
+[dir='rtl'] .tp-hero__featured-name { font-family: var(--tp-font-arabic); font-weight: 700; text-transform: none; }
+.tp-hero__featured-price { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 700; }
+.tp-hero__discount { position: absolute; inset-block-start: var(--tp-space-3); inset-inline-end: var(--tp-space-3);
+  background: var(--tp-accent); color: var(--tp-accent-contrast); border-radius: var(--tp-radius-pill);
+  padding-block: 0.25rem; padding-inline: 0.7rem; font-size: var(--tp-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* Brown marquee under the featured card — same --tp-dir-sign trick as the ticker. */
+.tp-hero__marquee { display: block; overflow: hidden; background: var(--tp-cafe-brown); color: var(--tp-accent-2-contrast); block-size: 1.75rem; }
+.tp-hero__marquee-track { display: inline-flex; gap: var(--tp-space-6); white-space: nowrap; padding-inline-start: var(--tp-space-6);
+  line-height: 1.75rem; animation: tp-tick var(--tp-ticker-dur) linear infinite; }
+.tp-hero__marquee-item { font-size: var(--tp-fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: var(--tp-tracking-eyebrow); }
+@media (prefers-reduced-motion: reduce) { .tp-hero__marquee-track { animation: none; translate: 0 0; } }
+
+/* Hero sentinel: a zero-height probe read by useHeroCollapse. */
+[data-hero-sentinel] { block-size: 1px; }
 `;

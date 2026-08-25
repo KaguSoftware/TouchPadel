@@ -14,7 +14,7 @@
  */
 import { palettes, type ThemeName } from './tokens/palette';
 import { fontVars } from './tokens/typography';
-import { cafeBrandVars, statusVars } from './tokens/cafeBrand';
+import { cafeBrandVars, dirVars, statusVars } from './tokens/cafeBrand';
 
 function varsBlock(vars: Readonly<Record<string, string>>, indent = '  '): string {
   return Object.entries(vars)
@@ -37,7 +37,10 @@ function themeBlock(name: ThemeName): string {
 
 export const themeCss: string = [
   `/* Generated from @touch/ui tokens — do not edit by hand. */`,
-  `:root {\n${varsBlock(fontVars)}\n}`,
+  // Base block: fonts plus the direction sign. --tp-dir-sign MUST live here and
+  // not in a theme block — `:root[data-theme='cafe']` (0,2,0) would out-specify
+  // the `[dir='rtl']` override below (0,1,0) and pin the sign to +1.
+  `:root {\n${varsBlock({ ...fontVars, ...dirVars })}\n}`,
   themeBlock('padel'),
   themeBlock('cafe'),
   // Base ground: paint from tokens so an unthemed flash never shows raw UA colors.

@@ -94,8 +94,41 @@ Landed and verified (committed):
   padel landing dropped, `/t/{token}` still rewritten verbatim, **SSR menu** (ISR 60) so the page
   never blanks, Touch Cafe tokens/styles/icons + brand components, guest analytics client.
 
-In flight when this was written (three agents): guest UI shell + hooks, the item/basket/QR sheets,
-and the operator analytics dashboard UI. e2e specs for the new journeys are the last step.
+- **Guest cafe app (complete)**: `CafeApp` orchestrator + hooks (`useTableSession`, `useMenu`,
+  `useBasket`, `useSessionChannel`, `useOrders`, `useWaiterCall`, `useVenueMode`, scroll-spy, hero
+  collapse, sheet drag, dwell) and the full component tree — top bar + table chip, hero
+  (none/media/featured with marquee + discount), category rail, menu stage/cards with
+  photo/hook/highlight/sold-out stamp, item sheet with **nested revealed groups**, pinch-zoom
+  lightbox, basket sheet, QR-required gate, waiter button/sheet, bell coach mark, orders
+  strip/sheet, ticker, offline banner. **141 web tests.**
+- **Operator analytics dashboard (complete)**: control deck (presets, compare, business day, covers,
+  auto-refresh, exclusions), five zones, 13 cards and 8 charts, lazy-loaded so till/KDS never pull
+  Recharts.
+- **e2e: 29/29 green in EN and AR** (`pnpm e2e`) — `cafe-root` (locale negotiation, /menu alias,
+  SSR-without-JS, QR scan-gate, zero PostHog traffic when unconfigured), `cafe-journey` EN+AR
+  (verbatim `/t/{token}`, reveals incl. transitive clearing, featured discount previewed AND
+  persisted server-side, live ticket status + waiter ack/resolve over broadcast), `cafe-menu-live`,
+  `cafe-rtl-layout`, `operator-cafe-admin` cases (a)–(f), plus the original operator journeys.
+  The stale `public-menu.spec.ts` (asserted the dropped padel landing) was removed.
+
+Bugs the new e2e suite caught and fixed — all real product/harness defects, none were test tweaks:
+- **Bell coach mark never dismissed.** Its 6 s auto-dismiss timer depended on an inline callback, so
+  every parent re-render restarted it; the scrim covered the whole menu and the guest could not open
+  a single item. Timer is now armed once via a ref (+ memoised callback in `CafeApp`).
+- **`--tp-dir-sign` was pinned to +1 in Arabic.** It was emitted inside the cafe theme block
+  (`:root[data-theme='cafe']`, specificity 0,2,0), out-specifying the `[dir='rtl']` override
+  (0,1,0) — so every marquee scrolled the wrong way in RTL. It now lives in the base `:root` block,
+  and `cafe-rtl-layout` asserts the computed sign.
+- **Every fixture image 500'd locally.** Next 16 blocks private-IP image upstreams;
+  `images.dangerouslyAllowLocalIP` is now set ONLY when the configured Supabase URL is local.
+- **Analytics range presets exposed no pressed state** — `Button` now forwards `aria-pressed`.
+- **e2e harness: `ensureTillFresh` updated zero rows.** It filtered `device_id like 'TILL%'` but the
+  seeded till is `REG-01` with `is_till = true`, so the venue silently went degraded 45 s into every
+  long test and refused guest ordering. It now mirrors `app.is_degraded()`, and long suites run a
+  heartbeat keep-alive (`startTillHeartbeat`).
+- **DB `telegram` suite was order-dependent.** Nothing sends locally, so every run leaves rows
+  `queued` and due forever; past ~50 of them `claim_due_telegram(p_limit => 50)` stopped returning
+  the test's own rows. The test now parks unrelated backlog before asserting claim semantics.
 
 ## File map (key files)
 - `docs/design/cafe-rebuild/` — **the cafe rebuild design pack**: `db-slice.md`, `web-slice.md`,
@@ -120,11 +153,10 @@ and the operator analytics dashboard UI. e2e specs for the new journeys are the 
 1. ✔ DONE Day 1: platform foundation (see above).
 2. ✔ DONE Day 2 waves 0–6, 9–12: design pack, DB 0027–0035 + tests, edge functions, core analytics,
    operator foundations + admin sections + KDS alarms, web foundation + data layer + i18n.
-3. **← ACTIVE — finish the cafe slice**: guest UI (shell/hooks + sheets), operator analytics
-   dashboard UI, then **e2e specs** (`cafe-root`, rewritten `cafe-journey` incl. reveals + featured
-   discount + broadcast waiter status, `cafe-menu-live`, `cafe-rtl-layout`, operator journeys) and a
-   full `pnpm turbo lint typecheck test` + `pnpm e2e` gate.
-4. **Owner setup** (nothing exists yet — everything degrades gracefully until then): Telegram bot +
+3. ✔ DONE Day 2 waves 7–8, 13–14: guest UI (shell/hooks + sheets), operator analytics dashboard UI,
+   the e2e suite, and a full green gate — `pnpm turbo lint typecheck test` (14/14 tasks, 214/214 DB)
+   + `pnpm e2e` (29/29, EN + AR). **The cafe slice is code-complete locally.**
+4. **← ACTIVE — Owner setup** (nothing exists yet — everything degrades gracefully until then): Telegram bot +
    staff group + webhook secret; PostHog EU project; Groq key; the real domain in
    `NEXT_PUBLIC_SITE_URL` / `VITE_GUEST_SITE_URL`; the official Touch Cafe logo files. Checklist in
    `packages/db/supabase/functions/SETUP-telegram.md` and plan §5.
@@ -154,6 +186,18 @@ and the operator analytics dashboard UI. e2e specs for the new journeys are the 
   `Timed out acquiring connection from connection pool`, a dev server / Playwright session leaked
   PostgREST connections: `docker restart supabase_rest_touchpadel supabase_realtime_touchpadel`,
   then re-run (214/214 green). Don't chase it in the SQL.
+- **e2e depends on a live till heartbeat.** `venue_settings.heartbeat_stale_seconds` is 45 s; once a
+  suite runs longer than that with no heartbeat, `app.is_degraded()` flips and guest ordering is
+  refused mid-test. Long specs must call `startTillHeartbeat(svc)` in `beforeAll` and stop it in
+  `afterAll`. The seeded till is `REG-01` (`is_till = true`) — match on `is_till`, never on a
+  `TILL%` name.
+- **e2e must not race broadcast subscriptions.** A `menu_changed` fired before the page joins the
+  `menu` topic is simply never delivered, and the guest's other refetch triggers (`online`,
+  visibility) don't fire headless. Use `channelJoined(page)` — registered BEFORE `goto` — instead of
+  a sleep.
+- **The local outbox never drains** (no sender runs), so `telegram_outbox` accumulates `queued` rows
+  across runs. Any test that calls `claim_due_telegram` must neutralise unrelated backlog first, or
+  it starts failing once the backlog passes the claim limit.
 - **Migration 0035 fixed a real Telegram double-send**: `claim_due_telegram` bumped `attempts` but
   left `scheduled_for`, so the pg_net nudge and the 10 s cron sweep could claim the same row twice.
   Claims now push `scheduled_for` forward with a backoff.

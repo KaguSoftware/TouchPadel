@@ -19,4 +19,9 @@ export const cardCss = `
   border: 3px solid var(--tp-danger); color: var(--tp-danger); border-radius: var(--tp-radius-xs); font-family: var(--tp-font-display); font-weight: 800; text-transform: uppercase;
   letter-spacing: var(--tp-tracking-caps); background: var(--tp-bg); animation: tp-stamp-slam var(--tp-dur-slow) var(--tp-ease-out) both; pointer-events: none; }
 [dir='rtl'] .tp-stamp { rotate: 12deg; }
+/* next/image 'fill' needs an explicitly positioned box (the photo well is
+   already position: relative) and must cover it. */
+.tp-menu-item__photo img { object-fit: cover; }
+.tp-menu-item[data-sold-out='true'] .tp-menu-item__photo { opacity: 0.55; }
+.tp-menu-item__prices { display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem; }
 `;

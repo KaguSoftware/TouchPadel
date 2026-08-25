@@ -154,6 +154,11 @@ export const zIndexVars = {
  * Direction sign for the few animations that must travel "forward" (marquee):
  * `translate: calc(var(--tp-dir-sign) * -33.333%) 0`. theme.ts flips it to −1
  * under `[dir='rtl']` — the ONLY dir-scoped rule in the whole token sheet.
+ *
+ * It is emitted in the BASE :root block, never inside a theme block: a theme
+ * block is `:root[data-theme='cafe']` (0,2,0) and would out-specify the
+ * `[dir='rtl']` override (0,1,0), pinning the sign to +1 and scrolling every
+ * marquee the wrong way in Arabic.
  */
 export const dirVars = {
   '--tp-dir-sign': '1',
@@ -168,7 +173,6 @@ export const cafeBrandVars = {
   ...layoutVars,
   ...motionVars,
   ...zIndexVars,
-  ...dirVars,
 } as const satisfies BrandVars;
 
 export type CafeBrandVars = typeof cafeBrandVars;
