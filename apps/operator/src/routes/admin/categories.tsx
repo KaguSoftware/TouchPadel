@@ -1,15 +1,16 @@
-// SCOPE(cafe-rebuild W10-W11): placeholder — GROWS LATER → features/admin/categories
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { adminRoute } from '../admin';
-import { ComingSoon } from '../../components/ComingSoon';
-import { guarded } from './_shared';
+import { RoutePending, guarded } from './_shared';
 
-function CategoriesPlaceholder() {
-  return <ComingSoon titleKey="op.adminNav.categories" />;
-}
+const CategoryEditor = lazyRouteComponent(
+  () => import('../../features/admin/menu/CategoryEditor'),
+  'CategoryEditor',
+);
 
 export const adminCategoriesRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'categories',
-  component: guarded('/admin/categories', CategoriesPlaceholder),
+  component: guarded('/admin/categories', CategoryEditor),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
 });

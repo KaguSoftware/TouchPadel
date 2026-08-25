@@ -603,4 +603,222 @@ export async function ensureCafeProbeData(svc: SupabaseClient): Promise<void> {
     });
     if (error) throw new Error(`probe stock_movements insert failed: ${error.message}`);
   }
+
+  await ensureCafeProbeDataDrop4(svc); // 0027–0034 probe rows (drop 4)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Drop 4 cafe-rebuild helpers (0027–0034: settings / reveals / telegram /
+// analytics)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Owner/manager write path for cafe_settings (app.set_cafe_setting); throws on error. */
+export async function setCafeSetting(
+  staffClient: SupabaseClient,
+  key: string,
+  value: unknown,
+): Promise<void> {
+  const { error } = await appRpc(staffClient, 'set_cafe_setting', { p_key: key, p_value: value });
+  if (error) throw new Error(`set_cafe_setting(${key}) failed: ${error.message}`);
+}
+
+/**
+ * Restore EVERY cafe setting to its registry default (app.cafe_setting_specs,
+ * service role only). Note: this also undoes the fixtures' featured hero —
+ * suites that only want to undo their own edits should prefer
+ * snapshotCafeSettings().
+ */
+export async function resetCafeSettings(svc: SupabaseClient, owner?: SupabaseClient): Promise<void> {
+  const { data, error } = await svc.schema('app').rpc('cafe_setting_specs', {});
+  if (error) throw new Error(`cafe_setting_specs failed: ${error.message}`);
+  const specs = data as { key: string; is_public: boolean; default_value: unknown }[];
+  await writeCafeSettingRows(svc, specs.map((s) => ({ key: s.key, value: s.default_value, is_public: s.is_public })), owner);
+}
+
+/**
+ * Snapshot the whole cafe_settings table; the returned function restores it
+ * verbatim. Pass the owner client so JSON-null values (nullable keys) can be
+ * restored through app.set_cafe_setting — PostgREST turns a JSON null into a
+ * SQL NULL on a direct upsert, which the NOT NULL column refuses.
+ */
+export async function snapshotCafeSettings(
+  svc: SupabaseClient,
+  owner?: SupabaseClient,
+): Promise<() => Promise<void>> {
+  const { data, error } = await svc.from('cafe_settings').select('key, value, is_public');
+  if (error) throw new Error(`snapshotCafeSettings failed: ${error.message}`);
+  const rows = (data ?? []) as { key: string; value: unknown; is_public: boolean }[];
+  return () => writeCafeSettingRows(svc, rows, owner);
+}
+
+/**
+ * Non-null values: direct service-role upsert. JSON-null values: through the
+ * owner RPC when available, else the row is deleted — app.cafe_setting()
+ * falls back to the registry default (null for every nullable key), so the
+ * effective value is identical either way.
+ */
+async function writeCafeSettingRows(
+  svc: SupabaseClient,
+  rows: { key: string; value: unknown; is_public: boolean }[],
+  owner?: SupabaseClient,
+): Promise<void> {
+  const nonNull = rows.filter((r) => r.value !== null && r.value !== undefined);
+  const nulls = rows.filter((r) => r.value === null || r.value === undefined);
+  if (nonNull.length > 0) {
+    const { error } = await svc
+      .from('cafe_settings')
+      .upsert(nonNull.map((r) => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'key' });
+    if (error) throw new Error(`restore cafe_settings failed: ${error.message}`);
+  }
+  for (const r of nulls) {
+    if (owner) {
+      await setCafeSetting(owner, r.key, null);
+    } else {
+      const { error } = await svc.from('cafe_settings').delete().eq('key', r.key);
+      if (error) throw new Error(`restore cafe_settings (${r.key}) failed: ${error.message}`);
+    }
+  }
+}
+
+/**
+ * Create a modifier group revealed by `revealingModifierId` (0028), with the
+ * given modifiers. Direct service-role insert into modifier_reveals (the
+ * belt trigger still refuses self-reveals); app.set_modifier_reveals is
+ * exercised separately by the RPC tests.
+ */
+export async function addRevealGroup(
+  svc: SupabaseClient,
+  revealingModifierId: string,
+  select: { min: number; max: number },
+  modifiers: { nameAr: string; deltaIqd: number }[],
+): Promise<{ groupId: string; modifierIds: string[] }> {
+  const n = cafeCounter++;
+  const { data: grp, error: gErr } = await svc
+    .from('modifier_groups')
+    .insert({
+      name_en: `Revealed Group ${n}`,
+      name_ar: `مجموعة مكشوفة ${n}`,
+      min_select: select.min,
+      max_select: select.max,
+    })
+    .select('id')
+    .single();
+  if (gErr) throw new Error(`addRevealGroup group failed: ${gErr.message}`);
+  const groupId = (grp as { id: string }).id;
+
+  const modifierIds: string[] = [];
+  for (const [i, m] of modifiers.entries()) {
+    const { data: mod, error: mErr } = await svc
+      .from('modifiers')
+      .insert({
+        group_id: groupId,
+        name_en: `Revealed Modifier ${n}-${i}`,
+        name_ar: m.nameAr,
+        price_delta_iqd: m.deltaIqd,
+        sort_order: i,
+        is_active: true,
+      })
+      .select('id')
+      .single();
+    if (mErr) throw new Error(`addRevealGroup modifier failed: ${mErr.message}`);
+    modifierIds.push((mod as { id: string }).id);
+  }
+
+  const { error: rErr } = await svc
+    .from('modifier_reveals')
+    .insert({ modifier_id: revealingModifierId, group_id: groupId, sort_order: 0 });
+  if (rErr) throw new Error(`addRevealGroup reveal failed: ${rErr.message}`);
+  return { groupId, modifierIds };
+}
+
+/**
+ * Drop-4 probe rows for the RLS matrix (same ee57 scheme + idempotency as
+ * ensureCafeProbeData, which calls this at the end): a probe reveal
+ * (modifier 106 -> group 107 with modifier 108), a cost on probe item 102,
+ * telegram_outbox / telegram_actions rows (identity pks: keyed on a probe
+ * marker), and analytics_insights / patterns / rejections rows.
+ */
+export async function ensureCafeProbeDataDrop4(svc: SupabaseClient): Promise<void> {
+  const up = async (table: string, row: Record<string, unknown>, onConflict = 'id') => {
+    const { error } = await svc.from(table).upsert(row, { onConflict, ignoreDuplicates: true });
+    if (error) throw new Error(`probe ${table} failed: ${error.message}`);
+  };
+  const past = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
+
+  // Probe reveal: choosing 'Extra Mint' (106) reveals group 107 (min 0 so the
+  // probe item stays orderable without it).
+  await up('modifier_groups', {
+    id: probeId('107'), name_en: 'Probe Revealed', name_ar: 'مكشوفة الفحص',
+    min_select: 0, max_select: 1,
+  });
+  await up('modifiers', {
+    id: probeId('108'), group_id: probeId('107'),
+    name_en: 'Probe Reveal Option', name_ar: 'خيار مكشوف', price_delta_iqd: 0, is_active: true,
+  });
+  await up(
+    'modifier_reveals',
+    { modifier_id: probeId('106'), group_id: probeId('107'), sort_order: 0 },
+    'modifier_id,group_id',
+  );
+
+  // Cost on the probe item (manager|owner-only surface).
+  await up('menu_item_costs', { item_id: probeId('102'), cost_iqd: 800 }, 'item_id');
+
+  // telegram_outbox / telegram_actions have identity pks — key on a marker.
+  const { data: ob, error: obErr } = await svc
+    .from('telegram_outbox')
+    .select('id')
+    .eq('kind', 'test')
+    .contains('payload', { probe: 'ee57' })
+    .limit(1);
+  if (obErr) throw new Error(`probe telegram_outbox lookup failed: ${obErr.message}`);
+  if (!ob || ob.length === 0) {
+    const { error } = await svc.from('telegram_outbox').insert({
+      kind: 'test',
+      ref_id: null,
+      chat_id: '-100000000000',
+      payload: { probe: 'ee57', sent_by: 'probe', at: past },
+      status: 'sent',
+      attempts: 1,
+      sent_at: past,
+      scheduled_for: past,
+      created_at: past,
+    });
+    if (error) throw new Error(`probe telegram_outbox insert failed: ${error.message}`);
+  }
+  const { data: act, error: actErr } = await svc
+    .from('telegram_actions')
+    .select('id')
+    .eq('ref_id', probeId('303'))
+    .eq('detail', 'ee57-probe')
+    .limit(1);
+  if (actErr) throw new Error(`probe telegram_actions lookup failed: ${actErr.message}`);
+  if (!act || act.length === 0) {
+    const { error } = await svc.from('telegram_actions').insert({
+      at: past,
+      action: 'o:seen',
+      ref_id: probeId('303'),
+      tg_user_id: 1,
+      tg_first_name: 'Probe',
+      result: 'duplicate',
+      detail: 'ee57-probe',
+    });
+    if (error) throw new Error(`probe telegram_actions insert failed: ${error.message}`);
+  }
+
+  // LLM tables (owner-only reads).
+  await up('analytics_insights', {
+    id: probeId('601'), range_from: '2001-01-01', range_to: '2001-01-07',
+    compare_basis: 'prev', locale: 'ar',
+    insights: [{ text: 'probe', kind: 'probe', subjects: [], metrics: {}, confidence: 'low' }],
+    created_by: SEED_STAFF_IDS.owner, created_at: past,
+  });
+  await up('analytics_patterns', {
+    id: probeId('602'), range_from: '2001-01-01', range_to: '2001-01-07', locale: 'ar',
+    patterns: [{ text: 'probe' }], created_by: SEED_STAFF_IDS.owner, created_at: past,
+  });
+  await up('analytics_insight_rejections', {
+    id: probeId('603'), text: 'ee57 probe rejection', text_key: 'ee57 probe rejection',
+    reason: 'probe', created_by: SEED_STAFF_IDS.owner, created_at: past,
+  });
 }

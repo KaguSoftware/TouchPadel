@@ -53,9 +53,14 @@ const WRITE_FILTERS: Record<string, [string, unknown]> = {
   audit_log: ['id', -1],
   stock_movements: ['id', -1],
   notification_outbox: ['id', -1],
+  // drop 4 (0027–0034)
+  telegram_outbox: ['id', -1],
+  telegram_actions: ['id', -1],
+  cafe_settings: ['key', '__none__'],
+  menu_item_costs: ['item_id', '00000000-0000-4000-8000-000000000000'],
 };
 
-describe.skipIf(!up)('RLS role matrix (drops 1-3: 0004-0021 + 0024 surface)', () => {
+describe.skipIf(!up)('RLS role matrix (drops 1-4: 0004-0021 + 0024 + 0027-0034 surface)', () => {
   const clients = {} as Record<Principal, SupabaseClient>;
   let svc: SupabaseClient;
 

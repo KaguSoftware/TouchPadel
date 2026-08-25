@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { t } from '@touch/i18n';
 import { AppRpcError, toAppRpcError } from './appRpc';
 import { EdgeError } from './edge';
-import { errorCodeToMessageKey, errorToMessageKey } from './errors';
+import { MAPPED_CODES, errorCodeToMessageKey, errorToMessageKey } from './errors';
 
 describe('error -> i18n mapping', () => {
   it('maps known server codes to op.errors keys', () => {
@@ -19,9 +19,11 @@ describe('error -> i18n mapping', () => {
     expect(errorCodeToMessageKey('UNKNOWN')).toBe('errors.generic');
   });
 
-  it('every mapped key resolves in BOTH catalogs (no raw key leaks)', () => {
-    for (const code of ['SLOT_TAKEN', 'PIN_INVALID', 'TENDER_SHORT', 'DAY_UNSYNCED', 'NO_RATE']) {
+  it('every code in MAPPED_CODES resolves in BOTH catalogs (no raw key leaks)', () => {
+    expect(MAPPED_CODES.size).toBeGreaterThan(50);
+    for (const code of MAPPED_CODES) {
       const key = errorCodeToMessageKey(code);
+      expect(key).toBe(`op.errors.${code}`);
       expect(t('en', key)).not.toBe(key);
       expect(t('ar', key)).not.toBe(key);
       expect(t('ar', key)).not.toBe(t('en', key)); // real Arabic, not copied English

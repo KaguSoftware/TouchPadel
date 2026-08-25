@@ -14,6 +14,10 @@ const GLOBAL_CSS = `
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+@keyframes tpMarquee {
+  from { transform: translateX(calc(100% * var(--tp-dir-sign, 1))); }
+  to { transform: translateX(calc(-100% * var(--tp-dir-sign, 1))); }
+}
 @media print {
   [data-no-print] { display: none !important; }
   body { background: #fff; }

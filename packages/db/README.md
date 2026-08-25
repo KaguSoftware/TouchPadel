@@ -171,3 +171,105 @@ Both suites read `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_K
 6. PIN: online server-side `crypt()` check; no per-staff HMAC pin-proof machinery.
 7. Cut: cash-drawer kick, auto-update scheduling machinery, >1-level sub-recipe nesting
    (cycle guard stays), 250-rounding default.
+
+### Analytics functions (`analytics-posthog`, `analytics-insights`)
+
+Owner-only proxies (staff JWT, `role = 'owner'`, `_shared/auth.ts requireStaffRole`)
+so the PostHog personal key and the Groq key never reach the operator. Both are
+stateless: the operator gathers `app.analytics_*` data, posts it, and persists
+results itself through `save_analytics_insights` / `save_analytics_patterns`.
+Errors follow `apps/operator/src/lib/edge.ts statusToEdgeCode`: 401 `AUTH_REQUIRED`,
+403 `FORBIDDEN`, 400 `INVALID_REQUEST`, 502 `{error:'UPSTREAM'}`.
+
+**`POST /functions/v1/analytics-posthog`** — batch of named HogQL templates (the
+client never sends HogQL):
+
+```jsonc
+{ "queries": [{ "name": "daily_engagement", "from": "2026-08-01", "to": "2026-08-25", "params": { "limit": 80 } }],
+  "business_day_start_hour": 4 }
+// -> { configured: true, floor: "2026-08-01" | null, results: { daily_engagement: { columns: [...], rows: [[...]] } } }
+```
+
+Names: `ping, daily_engagement, top_viewed_items, top_carted_items, abandoned_by_dwell,
+funnel, basket_to_call, locale_split, table_activity, week_heatmap, peak_hours,
+promo_engagement, item_views_with_price, session_stats, category_popularity,
+locale_preferences`. Dates are business days (`Asia/Baghdad` shifted back by
+`business_day_start_hour`); span ≤ 400 days; only `params.limit` is accepted.
+Without `POSTHOG_PERSONAL_API_KEY` + `POSTHOG_PROJECT_ID` the answer is
+`200 {configured:false, floor:null, results:{}}`. 30 s in-memory cache per
+`(name, from, to, hour, params)`, 3 attempts on 5xx, per-query failures come back
+as `{columns:[], rows:[], error}` without failing the batch.
+
+**`POST /functions/v1/analytics-insights`** — Groq findings / pattern judge:
+
+```jsonc
+{ "mode": "insights" | "patterns" | "revalidate" | "replace_rejected", "lang": "ar" | "en",
+  "range_from": "2026-08-01", "range_to": "2026-08-25", "compare_basis": "prev" | "4w" | "52w",
+  "data": { "kpis": {}, "daily": [], "best_sellers": [], "margins": {}, "bought_together": [],
+            "price_bands": [], "promo": {}, "engagement": {}, "prior_insights": [], "rejections": [],
+            "patterns": [], "basis": { "salesDays": 20, "weekdayCounts": [] }, "excluded_names": [] } }
+// -> { degraded: false, model: "openai/gpt-oss-120b",
+//      insights: [{ text, kind, subjects, metrics, confidence, status }], resolved?: [], patterns?: [] }
+```
+
+`data.*` are the raw jsonb results of the 0034 RPCs. Post-model gates reuse
+`_shared/insightsText.ts` (a byte copy of `packages/core/src/analytics/insightsText.ts`,
+guarded by `tests/insights-text-parity.test.ts`): owner rejections via
+`normalizeFinding` (twin of `app.normalize_finding`), thin-sample claims when
+`data.basis` is given, excluded-item mentions, then ranked by money cited and
+capped at 8. Without `GROQ_API_KEY` → `200 {degraded:true, model:null}` with
+templated sentences (best seller, thinnest-margin costed item, top pair, promo,
+busiest day); `patterns` mode then phrases `data.patterns[].fallbackText`.
+Groq 429 / 5xx / 25 s budget → `502 {error:'UPSTREAM'}`.
+
+Secrets (`pnpm exec supabase secrets set …`; template in `supabase/functions/.env.example`):
+
+| Secret | Function | Default |
+|---|---|---|
+| `POSTHOG_PERSONAL_API_KEY` | analytics-posthog | unset → `configured:false` |
+| `POSTHOG_PROJECT_ID` | analytics-posthog | unset → `configured:false` |
+| `POSTHOG_HOST` | analytics-posthog | `https://eu.posthog.com` |
+| `POSTHOG_ENGAGEMENT_FLOOR` | analytics-posthog | unset (no clipping) |
+| `GROQ_API_KEY` | analytics-insights | unset → `degraded:true` |
+| `GROQ_MODEL` | analytics-insights | `openai/gpt-oss-120b` |
+| `GROQ_JUDGE_MODEL` | analytics-insights | `llama-3.1-8b-instant` |
+
+Local smoke test:
+
+```sh
+pnpm exec supabase functions serve --env-file supabase/functions/.env.example
+curl -s -X POST http://127.0.0.1:54321/functions/v1/analytics-posthog -d '{}'   # 401 without a JWT
+curl -s -X POST http://127.0.0.1:54321/functions/v1/analytics-posthog \
+  -H "Authorization: Bearer <owner JWT>" -H "Content-Type: application/json" \
+  -d '{"queries":[{"name":"ping","from":"2026-08-01","to":"2026-08-25"}]}'      # {configured:false,...}
+```
+
+### Telegram functions (`telegram-send`, `telegram-callback`)
+
+Staff-group notifications for guest orders and waiter calls (migration 0032):
+`create_guest_order` / `raise_waiter_call` / `telegram_send_test` enqueue a render
+snapshot into `telegram_outbox`; the sender posts it with inline buttons; taps come
+back through the webhook and drive the KDS via `app.telegram_apply_action`. Owner
+setup walkthrough: `supabase/functions/SETUP-telegram.md`. Pure rendering lives in
+`_shared/telegram.ts` (templates unit-tested by `tests/telegram-render.test.ts`).
+
+| Function | Auth | Does |
+|---|---|---|
+| `POST /functions/v1/telegram-send` | service-role key (`verify_jwt = true`); called by `app.telegram_nudge` (pg_net) and cron | `app.claim_due_telegram(50)` → `sendMessage` (HTML + keyboard) → stamps `sent` / `queued`+`scheduled_for` (429 `retry_after`, transient backoff `min(5s·2^attempts, 5min)`) / `failed` (other 4xx, or attempts ≥ 8) / `skipped` (`NOT_CONFIGURED` when the token is unset). Returns `{configured, claimed, sent, failed, skipped}`. |
+| `POST /functions/v1/telegram-callback` | `X-Telegram-Bot-Api-Secret-Token` = `TELEGRAM_WEBHOOK_SECRET` (`verify_jwt = false`; unset → 401) | `callback_query` → `app.telegram_apply_action` → `answerCallbackQuery` toast → `editMessageText` (original outbox `text` + status footer, reduced keyboard) → stamps `cafe_settings.telegram_last_callback_at`. Always HTTP 200 (`{ok:false}` on internal errors) so Telegram never re-delivers. |
+
+Secrets (`pnpm exec supabase secrets set …`; template in `supabase/functions/.env.example`):
+
+| Secret | Function | Default |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | telegram-send, telegram-callback | unset → rows `skipped`, `{configured:false}` |
+| `TELEGRAM_WEBHOOK_SECRET` | telegram-callback | unset → every webhook call is 401 |
+
+Cron / Vault: migration 0032 schedules `tp_telegram_sweep` (pg_cron, every 10 s;
+per-minute on pg_cron < 1.5) which calls `app.telegram_nudge()`; the nudge POSTs to
+the sender only when a due row exists, using two Vault secrets you create once —
+`service_role_key` (the service-role JWT) and `functions_base_url`
+(`https://<ref>.supabase.co/functions/v1`). Without them only the sweep runs and
+no HTTP is issued, so messages wait in the outbox; without `pg_net` the same. The
+chat id, enable flag and language (`telegram_chat_id`, `telegram_enabled`,
+`telegram_lang`) are `cafe_settings` keys written by the owner from the operator app.

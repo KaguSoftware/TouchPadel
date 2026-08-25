@@ -14,6 +14,7 @@
  */
 import { palettes, type ThemeName } from './tokens/palette';
 import { fontVars } from './tokens/typography';
+import { cafeBrandVars, statusVars } from './tokens/cafeBrand';
 
 function varsBlock(vars: Readonly<Record<string, string>>, indent = '  '): string {
   return Object.entries(vars)
@@ -24,7 +25,14 @@ function varsBlock(vars: Readonly<Record<string, string>>, indent = '  '): strin
 function themeBlock(name: ThemeName): string {
   // :root[data-theme=…] for the document; bare [data-theme=…] also matches
   // scoped sub-trees (e.g. a cafe-branded embed inside the padel site).
-  return `:root[data-theme='${name}'],\n[data-theme='${name}'] {\n${varsBlock(palettes[name])}\n}`;
+  // Semantic status tokens ride along in BOTH themes; the cafe brand extras
+  // (radii, shadows, type scale, motion, z-index, swoosh/bean tiles) only in cafe.
+  const vars: Readonly<Record<string, string>> = {
+    ...palettes[name],
+    ...statusVars,
+    ...(name === 'cafe' ? cafeBrandVars : {}),
+  };
+  return `:root[data-theme='${name}'],\n[data-theme='${name}'] {\n${varsBlock(vars)}\n}`;
 }
 
 export const themeCss: string = [
@@ -37,6 +45,8 @@ export const themeCss: string = [
   // Arabic rendering: same tokens; the arabic-capable body stack already leads.
   // dir='rtl' needs no per-property overrides (logical properties only).
   `[dir='rtl'] {\n  font-family: var(--tp-font-arabic);\n}`,
+  // The single direction-aware token: marquee/travel animations multiply by it.
+  `[dir='rtl'] {\n  --tp-dir-sign: -1;\n}`,
 ].join('\n\n');
 
 /** id of the <style> element ThemeProvider injects (idempotent). */

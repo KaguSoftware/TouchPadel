@@ -140,7 +140,7 @@ describe.skipIf(!up)('cafe flow (QR -> order -> KDS -> stock -> settle -> day cl
 
     const { data: items } = await svc
       .from('order_items')
-      .select('id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd')
+      .select('id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd, list_price_iqd, discount_pct')
       .eq('order_id', orderId);
     expect(items).toHaveLength(2);
     type Item = {
@@ -149,7 +149,14 @@ describe.skipIf(!up)('cafe flow (QR -> order -> KDS -> stock -> settle -> day cl
       qty: number;
       unit_price_iqd: number;
       line_total_iqd: number;
+      list_price_iqd: number | null;
+      discount_pct: number;
     };
+    // 0030: no promo on these items -> list price kept beside the snapshot, no discount.
+    for (const i of items as Item[]) {
+      expect(i.list_price_iqd).toBe(i.unit_price_iqd);
+      expect(i.discount_pct).toBe(0);
+    }
     const latteLine = (items as Item[]).find((i) => i.menu_item_id === latte.itemId)!;
     const croissantLine = (items as Item[]).find((i) => i.menu_item_id === croissant.itemId)!;
     latteOrderItemId = latteLine.id;

@@ -1,14 +1,27 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
-// Subpath import: the @touch/ui barrel also exports the client-side
+// Subpath imports: the @touch/ui barrel also exports the client-side
 // ThemeProvider (React hooks), which a Server Component must not pull in.
 import { themeCss } from '@touch/ui/theme';
+import { cafePalette } from '@touch/ui/tokens/palette';
 import { dirAttr, t } from '@touch/i18n';
 import { asLocale, LOCALES } from '@/lib/locales';
-import { appCss } from '@/styles/app-css';
+import { cafeCss } from '@/styles/cafe';
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
+}
+
+const FONTS_HREF =
+  'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap';
+
+export function generateViewport(): Viewport {
+  return {
+    width: 'device-width',
+    initialScale: 1,
+    viewportFit: 'cover',
+    themeColor: cafePalette['--tp-accent'],
+  };
 }
 
 export async function generateMetadata({
@@ -18,35 +31,45 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const locale = asLocale((await params).locale);
   const title = t(locale, 'seo.siteTitle');
-  const description = t(locale, 'seo.siteDescription');
+  const description = t(locale, 'seo.menuDescription');
+  const cafeName = t(locale, 'common.cafeName');
   return {
     // Touch's real domain lands at DNS setup (SOW module 6 delivery).
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
-    title: { default: title, template: `%s · ${t(locale, 'common.appName')}` },
+    title: { default: title, template: `%s · ${cafeName}` },
     description,
+    applicationName: cafeName,
     icons: {
-      icon: '/brand/touch_padel_logo_transparent.png',
-      apple: '/brand/icon-192.png',
+      icon: [
+        { url: '/brand/cafe/favicon.svg', type: 'image/svg+xml' },
+        { url: '/brand/cafe/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { url: '/brand/cafe/icon-512.png', sizes: '512x512', type: 'image/png' },
+      ],
+      apple: '/brand/cafe/apple-icon-180.png',
     },
     manifest: '/manifest.webmanifest',
+    appleWebApp: { capable: true, title: cafeName, statusBarStyle: 'default' },
     alternates: {
-      languages: { en: '/en', ar: '/ar' },
+      canonical: `/${locale}`,
+      languages: { en: '/en', ar: '/ar', 'x-default': '/ar' },
     },
     openGraph: {
       title,
       description,
       type: 'website',
       locale: locale === 'ar' ? 'ar_IQ' : 'en_US',
-      siteName: t(locale, 'common.appName'),
-      images: [{ url: '/brand/touch_padel_logo_transparent.png' }],
+      alternateLocale: locale === 'ar' ? 'en_US' : 'ar_IQ',
+      siteName: cafeName,
+      images: [{ url: '/brand/cafe/og-1200x630.png', width: 1200, height: 630, alt: cafeName }],
     },
+    twitter: { card: 'summary_large_image', title, description, images: ['/brand/cafe/og-1200x630.png'] },
   };
 }
 
-// Root layout at [locale] (middleware guarantees the segment). dir flips per
-// locale — full RTL for Arabic. Theme tokens (@touch/ui) are inlined
-// server-side; free stand-in webfonts load from Google Fonts until the
-// licensed brand faces (Next Art / Frutiger LT Arabic) arrive.
+// Root layout at [locale] (proxy.ts guarantees the segment). dir flips per
+// locale — full RTL for Arabic. Touch Cafe theme tokens + the cafe stylesheet
+// (@touch/ui + src/styles/cafe) are inlined server-side; free stand-in
+// webfonts load from Google Fonts until the licensed brand faces arrive.
 export default async function LocaleLayout({
   children,
   params,
@@ -57,17 +80,16 @@ export default async function LocaleLayout({
   const locale = asLocale((await params).locale);
   const dir = dirAttr(locale);
   return (
-    <html lang={locale} dir={dir} data-theme="padel">
+    <html lang={locale} dir={dir} data-theme="cafe">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap"
-          rel="stylesheet"
-        />
+        {/* The display weights paint the wordmark + headlines above the fold. */}
+        <link rel="preload" as="style" href={FONTS_HREF} />
+        <link href={FONTS_HREF} rel="stylesheet" />
         <style
-          // Token stylesheet + app styles — logical properties only (RTL-safe).
-          dangerouslySetInnerHTML={{ __html: `${themeCss}\n${appCss}` }}
+          // Token stylesheet + cafe styles — logical properties only (RTL-safe).
+          dangerouslySetInnerHTML={{ __html: `${themeCss}\n${cafeCss}` }}
         />
       </head>
       <body>{children}</body>

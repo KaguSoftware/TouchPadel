@@ -10,10 +10,12 @@ import { formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
-import { useBroadcast } from '../../lib/realtime';
 import { useLocale, pickName } from '../../lib/i18n';
+import { StartShiftBanner } from '../../lib/audio';
 import { Button, ErrorText, card } from '../../components/ui';
+import { ConnectionPill } from '../../components/ConnectionPill';
 import { ageColor, ageColorVar, formatAge } from './ageColor';
+import { useKdsAlarms } from './useKdsAlarms';
 
 const COMPLETED_LINGER_MS = 2 * 60 * 1000;
 
@@ -23,6 +25,8 @@ interface TicketRow {
   target_seconds: number;
   created_at: string;
   completed_at: string | null;
+  /** 'Telegram: Ahmed' when a tap moved the ticket (0032). */
+  last_actor_label: string | null;
   order: {
     id: string;
     source: 'guest_web' | 'till';
@@ -48,7 +52,7 @@ interface TicketRow {
   } | null;
 }
 
-const TICKET_SELECT = `id, status, target_seconds, created_at, completed_at,
+const TICKET_SELECT = `id, status, target_seconds, created_at, completed_at, last_actor_label,
   order:orders (
     id, source, status,
     tab:tabs ( id, label, table:cafe_tables ( table_number ),
@@ -87,13 +91,6 @@ export function KdsBoard() {
     refetchInterval: 30_000, // safety net under the broadcast
   });
 
-  useBroadcast({
-    topic: 'kds',
-    isPrivate: true,
-    events: ['ticket_created', 'ticket_status'],
-    invalidateKeys: [['tickets']],
-  });
-
   const setStatus = useMutation({
     mutationFn: (vars: { ticketId: string; status: 'preparing' | 'ready' | 'completed' }) =>
       appRpc('set_ticket_status', {
@@ -114,6 +111,9 @@ export function KdsBoard() {
     );
   }, [ticketsQ.data, now]);
 
+  // Owns the 'kds' subscription (invalidates ['tickets']), chimes, stale alarms, unseen title.
+  const { stale, status } = useKdsAlarms(tickets, tr('kds.title'));
+
   function tag(t: TicketRow): string {
     const tab = t.order?.tab;
     if (tab?.table) return tr('op.kds.table', { table: tab.table.table_number });
@@ -131,7 +131,34 @@ export function KdsBoard() {
 
   return (
     <div>
-      <h1 style={{ marginBlockStart: 0, fontSize: '1.3rem' }}>{tr('kds.title')}</h1>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.6rem',
+          marginBlockEnd: '0.6rem',
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: '1.3rem' }}>{tr('kds.title')}</h1>
+        <ConnectionPill status={status} />
+      </div>
+      <StartShiftBanner />
+      {stale.size > 0 && (
+        <div
+          role="alert"
+          data-testid="stale-banner"
+          style={{
+            ...card,
+            marginBlockEnd: '0.6rem',
+            borderInlineStart: '6px solid var(--tp-danger)',
+            color: 'var(--tp-danger)',
+            fontWeight: 700,
+          }}
+        >
+          ⚠ {tr('op.kds.staleBanner', { count: stale.size })}
+        </div>
+      )}
       <ErrorText error={setStatus.error} />
       {tickets.length === 0 && <p style={card}>{tr('op.kds.empty')}</p>}
       <div
@@ -145,13 +172,23 @@ export function KdsBoard() {
           const ageSec = (now - new Date(t.created_at).getTime()) / 1000;
           const color = ageColor(ageSec, t.target_seconds);
           const items = (t.order?.order_items ?? []).filter((i) => !i.voided);
+          const isStale = stale.has(t.id);
+          const isGuest = t.order?.source === 'guest_web';
           return (
             <div
               key={t.id}
+              data-stale={isStale || undefined}
               style={{
                 ...card,
                 borderBlockStart: `6px solid ${t.status === 'completed' ? 'var(--tp-muted)' : ageColorVar(color)}`,
                 opacity: t.status === 'completed' ? 0.6 : 1,
+                ...(isStale
+                  ? {
+                      border: '2px solid var(--tp-danger)',
+                      borderBlockStart: '6px solid var(--tp-danger)',
+                      animation: 'tpPulse 1.2s infinite',
+                    }
+                  : {}),
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -166,10 +203,35 @@ export function KdsBoard() {
                   {formatAge(ageSec)}
                 </span>
               </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.4rem' }}>
-                {t.order?.source === 'guest_web' ? tr('op.kds.sourceGuest') : tr('op.kds.sourceTill')}
+              <div
+                style={{
+                  fontSize: '0.78rem',
+                  color: 'var(--tp-muted-fg)',
+                  marginBlockEnd: '0.4rem',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                }}
+              >
+                <span
+                  style={{
+                    background: isGuest ? 'var(--tp-accent)' : 'var(--tp-muted)',
+                    color: isGuest ? 'var(--tp-accent-contrast)' : 'var(--tp-muted-fg)',
+                    borderRadius: '999px',
+                    paddingInline: '0.45rem',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
+                  }}
+                >
+                  {isGuest ? tr('op.kds.sourceGuest') : tr('op.kds.sourceTill')}
+                </span>
+                {isStale && (
+                  <span style={{ color: 'var(--tp-danger)', fontWeight: 700 }}>{tr('op.kds.stale')}</span>
+                )}
                 {' · '}
                 {statusLabel[t.status] ?? t.status}
+                {t.last_actor_label && ` (${t.last_actor_label})`}
                 {' · '}
                 {tr('op.kds.ageTarget', { minutes: Math.round(t.target_seconds / 60) })}
                 {' · '}

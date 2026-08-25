@@ -1,26 +1,48 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { makeT, formatIQD, isolate, type Locale } from '@touch/i18n';
-import { makeIdempotencyKey } from '@touch/core';
+import { makeIdempotencyKey, applyPctDiscountIqd } from '@touch/core';
 import { createBrowserSupabase, type BrowserSupabase } from '@/lib/supabase/client';
 import { appRpc, isRpcError, rpcErrorKey } from '@/lib/appRpc';
-import { fetchMenu, type MenuCategory, type MenuItem } from '@/lib/menu';
+import {
+  decorateFeatured,
+  fetchMenu,
+  type CafeSettings,
+  type MenuCategory,
+  type MenuItem,
+} from '@/lib/menu';
 import {
   basketCount,
   basketTotal,
   buildLine,
+  clearDraft,
   loadDraft,
+  mergeDrafts,
   saveDraft,
   toOrderPayload,
   type BasketLine,
 } from '@/lib/cafe/basket';
-import { otherLocale } from '@/lib/locales';
+import { LOCALE_COOKIE, otherLocale } from '@/lib/locales';
+import type { MenuStatus } from '@/lib/menu.server';
 import { ItemSheet } from './ItemSheet';
 import { BasketSheet } from './BasketSheet';
 import { OrdersPanel, type GuestOrder } from './OrdersPanel';
 import { WaiterSheet, type WaiterCallState } from './WaiterSheet';
+import { Wordmark } from './brand/Wordmark';
+import { Swoosh } from './brand/Swoosh';
+import { Loader } from './brand/Loader';
+
+/**
+ * FOUNDATION SHIM (web-slice §9 "Foundation"): the previous single-component
+ * app, minimally adapted to the new page contract —
+ *   • the menu arrives server-rendered via `initialMenu` (no blank-until-RPC);
+ *   • table binding / basket send / orders / realtime run only when `token`
+ *     is set; without a table the guest can browse + build a basket, and
+ *     "send" / "call waiter" open the "scan the QR on your table" notice;
+ *   • `menuStatus !== 'ok'` renders an explicit unavailable state + retry.
+ * Wave 7 (hooks + core UI) replaces this file wholesale — do not grow it.
+ */
 
 interface SessionInfo {
   sessionId: string;
@@ -30,6 +52,7 @@ interface SessionInfo {
 }
 
 type Phase =
+  | { name: 'none' } // no token: browse-only
   | { name: 'connecting' }
   | { name: 'invalid' } // bad / rotated token
   | { name: 'expired' } // inactivity expiry — re-scan prompt
@@ -45,12 +68,10 @@ type BootResult =
   | { name: 'ready'; session: SessionInfo };
 
 /**
- * One shared boot per token (module scope). React 18 StrictMode double-mounts
+ * One shared boot per token (module scope). React StrictMode double-mounts
  * the boot effect in dev, and two PARALLEL anonymous sign-ins mint two anon
- * users racing for the auth cookie — the page could then bind its state to the
- * session whose user LOST the cookie race, after which its own orders/status
- * are invisible (RLS scopes them to the cookie's user). Sharing the in-flight
- * promise makes any concurrent mount reuse the first sign-in + table session.
+ * users racing for the auth cookie — sharing the in-flight promise makes any
+ * concurrent mount reuse the first sign-in + table session.
  */
 const bootCache = new Map<string, Promise<BootResult>>();
 
@@ -89,20 +110,33 @@ function bootSession(sb: BrowserSupabase, token: string): Promise<BootResult> {
   return p;
 }
 
-export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
+export interface CafeAppProps {
+  locale: Locale;
+  /** null = browsing without a table (site root) */
+  token: string | null;
+  initialMenu: MenuCategory[];
+  menuStatus: MenuStatus;
+  settings: CafeSettings;
+}
+
+export function CafeApp({ locale, token, initialMenu, menuStatus, settings }: CafeAppProps) {
   const tr = useMemo(() => makeT(locale), [locale]);
   const supabaseRef = useRef<BrowserSupabase | null>(null);
   const supabase = () => (supabaseRef.current ??= createBrowserSupabase());
 
-  const [phase, setPhase] = useState<Phase>({ name: 'connecting' });
-  const [menu, setMenu] = useState<MenuCategory[]>([]);
-  const [activeCat, setActiveCat] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>(token ? { name: 'connecting' } : { name: 'none' });
+  const [bootAttempt, setBootAttempt] = useState(0);
+  const [menu, setMenu] = useState<MenuCategory[]>(() => decorateFeatured(initialMenu, settings));
+  const [status, setStatus] = useState<MenuStatus>(menuStatus);
+  const [retrying, setRetrying] = useState(false);
   const [degraded, setDegraded] = useState(false);
   const [orders, setOrders] = useState<GuestOrder[]>([]);
   const [basket, setBasket] = useState<BasketLine[]>([]);
+  const [draftReady, setDraftReady] = useState(false);
   const [sheetItem, setSheetItem] = useState<MenuItem | null>(null);
   const [basketOpen, setBasketOpen] = useState(false);
   const [waiterOpen, setWaiterOpen] = useState(false);
+  const [qrRequired, setQrRequired] = useState<'order' | 'waiter' | null>(null);
   const [waiterCall, setWaiterCall] = useState<WaiterCallState>(null);
   const [toast, setToast] = useState<{ text: string; kind: 'info' | 'error' } | null>(null);
   const [sending, setSending] = useState(false);
@@ -116,7 +150,9 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
 
   // ------------------------------------------------------------------ boot
   useEffect(() => {
+    if (!token) return;
     let cancelled = false;
+    setPhase({ name: 'connecting' });
     void bootSession(supabase(), token).then((result) => {
       if (cancelled) return;
       if (result.name === 'ready') setPhase({ name: 'ready', session: result.session });
@@ -126,9 +162,10 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, bootAttempt]);
 
   const session = phase.name === 'ready' ? phase.session : null;
+  const tableId = session?.tableId ?? null;
 
   // -------------------------------------------------- expiry: re-scan prompt
   const armExpiry = useCallback((expiresAt: string) => {
@@ -159,29 +196,43 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
     if (data?.expires_at) armExpiry(data.expires_at);
   }, [session, armExpiry]);
 
-  // ------------------------------------------------------------- menu load
+  // ------------------------------------------------------------- menu refresh
+  const refreshMenu = useCallback(async () => {
+    setRetrying(true);
+    try {
+      const cats = await fetchMenu(supabase());
+      setMenu(decorateFeatured(cats, settings));
+      setStatus(cats.length > 0 ? 'ok' : 'empty');
+    } catch {
+      setStatus((s) => (s === 'ok' ? 'ok' : 'error'));
+      showToast(tr('errors.network'), 'error');
+    } finally {
+      setRetrying(false);
+    }
+  }, [settings, showToast, tr]);
+
+  // Once the table binds, re-read the live menu (availability may have moved
+  // since the ISR snapshot); the SSR menu stays on screen meanwhile.
   useEffect(() => {
-    if (!session) return;
-    let cancelled = false;
-    fetchMenu(supabase())
-      .then((cats) => {
-        if (cancelled) return;
-        setMenu(cats);
-        setActiveCat((c) => c ?? cats[0]?.id ?? null);
-      })
-      .catch(() => showToast(tr('errors.network'), 'error'));
-    return () => {
-      cancelled = true;
-    };
-  }, [session, showToast, tr]);
+    if (session) void refreshMenu();
+  }, [session, refreshMenu]);
 
   // ----------------------------------------------------------- basket draft
+  // Draft v2 keyed per table ('walkin' before a QR bind); the walk-in draft
+  // folds into the table draft on bind.
   useEffect(() => {
-    if (session) setBasket(loadDraft(session.tableId));
-  }, [session]);
+    if (tableId) {
+      const merged = mergeDrafts(loadDraft(null), loadDraft(tableId));
+      clearDraft(null);
+      setBasket(merged.lines);
+    } else {
+      setBasket(loadDraft(null).lines);
+    }
+    setDraftReady(true);
+  }, [tableId]);
   useEffect(() => {
-    if (session) saveDraft(session.tableId, basket);
-  }, [session, basket]);
+    if (draftReady) saveDraft(tableId, { lines: basket, note: '', idemKey: null });
+  }, [tableId, basket, draftReady]);
 
   // -------------------------------------------------------- degraded poll
   useEffect(() => {
@@ -244,8 +295,6 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
   useEffect(() => {
     if (!session) return;
     const sb = supabase();
-    // Private broadcast channel (0022): realtime auth carries the anonymous
-    // JWT; RLS on realtime.messages checks the topic suffix is OUR live session.
     void sb.realtime.setAuth();
     const channel = sb
       .channel(`session:${session.sessionId}`, { config: { private: true } })
@@ -270,8 +319,6 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
   }, [session, loadOrders]);
 
   // ------------------------------------------------ waiter call state (poll)
-  // 0022 broadcasts waiter calls to the staff-only 'floor' topic — guests
-  // cannot subscribe, so resolution arrives via a light poll of our own call.
   useEffect(() => {
     if (!session || !waiterCall || waiterCall.status === 'resolved') return;
     const id = setInterval(async () => {
@@ -298,7 +345,6 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
     [showToast, tr],
   );
 
-  // addon_suggestions chips: resolve ids against the loaded menu.
   const itemsById = useMemo(() => {
     const map = new Map<string, MenuItem>();
     for (const cat of menu) for (const it of cat.items) map.set(it.id, it);
@@ -312,8 +358,6 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
       .filter((s): s is MenuItem => Boolean(s && s.orderable && s.variants.length > 0));
   }, [sheetItem, itemsById]);
 
-  /** One-tap add of a suggested item (default variant, qty 1). Items that
-   *  require modifier choices open their own sheet instead. */
   const addSuggestion = useCallback(
     (item: MenuItem) => {
       if (item.modifierGroups.some((g) => g.min_select > 0)) {
@@ -329,9 +373,13 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
   );
 
   const submitOrder = useCallback(async () => {
-    if (!session || basket.length === 0 || sending) return;
+    if (basket.length === 0 || sending) return;
+    if (!session) {
+      setBasketOpen(false);
+      setQrRequired('order');
+      return;
+    }
     setSending(true);
-    // One idempotency key per attempt batch — kept across retries, cleared on success.
     orderIdemKey.current ??= makeIdempotencyKey('WEB', 'order.create');
     const { error } = await appRpc(supabase(), 'create_guest_order', {
       p_items: toOrderPayload(basket) as never,
@@ -355,6 +403,14 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
     void refreshExpiry();
   }, [session, basket, sending, showToast, tr, loadOrders, refreshExpiry]);
 
+  const openWaiter = useCallback(() => {
+    if (!session) {
+      setQrRequired('waiter');
+      return;
+    }
+    setWaiterOpen(true);
+  }, [session]);
+
   const raiseCall = useCallback(
     async (reason: 'order' | 'bill' | 'water' | 'assistance') => {
       setWaiterOpen(false);
@@ -369,7 +425,6 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
           showToast(tr('degraded.waiterCallRefused'), 'error');
           return;
         }
-        // ALREADY_NOTIFIED / CALL_COOLDOWN — cooldown feedback, not an error tone.
         showToast(tr(rpcErrorKey(error)), 'info');
         return;
       }
@@ -381,61 +436,69 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
     [showToast, tr, refreshExpiry],
   );
 
+  const jumpTo = useCallback((id: string) => {
+    document.getElementById(`cat-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
   // ----------------------------------------------------------------- render
   const other = otherLocale(locale);
-
-  if (phase.name !== 'ready' || !session) {
-    return (
-      <div className="tp-cafe" data-theme="cafe">
-        <main className="tp-boot">
-          {phase.name === 'connecting' && <p>{tr('cafe.linkingTable')}</p>}
-          {phase.name === 'invalid' && (
-            <>
-              <h1>{tr('common.cafeName')}</h1>
-              <p>{tr('cafe.invalidQr')}</p>
-            </>
-          )}
-          {phase.name === 'expired' && (
-            <>
-              <h1>{tr('common.cafeName')}</h1>
-              <p>{tr('errors.sessionTableExpired')}</p>
-              <p style={{ fontWeight: 700 }}>{tr('cafe.scanAgain')}</p>
-            </>
-          )}
-          {phase.name === 'error' && (
-            <>
-              <h1>{tr('common.cafeName')}</h1>
-              <p>{tr('errors.generic')}</p>
-              <button className="tp-btn tp-btn--primary" onClick={() => window.location.reload()}>
-                {tr('common.retry')}
-              </button>
-            </>
-          )}
-        </main>
-      </div>
-    );
-  }
-
+  const otherHref = token ? `/${other}/t/${token}` : `/${other}`;
+  const rememberLocale = () => {
+    document.cookie = `${LOCALE_COOKIE}=${other}; path=/; max-age=31536000; samesite=lax`;
+  };
   const count = basketCount(basket);
-  const activeCategory = menu.find((c) => c.id === activeCat) ?? menu[0];
+  const ar = locale === 'ar';
 
   return (
     <div className="tp-cafe tp-page-with-bar" data-theme="cafe">
       <header className="tp-cafe__topbar">
         <div className="tp-container tp-cafe__topbar-inner">
-          <strong>{tr('common.cafeName')}</strong>
-          <span className="tp-cafe__table">
-            {tr('cafe.tableLabel', { table: isolate(session.tableNumber) })}
-          </span>
-          <Link href={`/${other}/t/${token}`} lang={other}>
-            {other === 'ar' ? 'العربية' : 'English'}
-          </Link>
+          <Wordmark tone="onBlue" />
+          {session && (
+            <span className="tp-cafe__table">
+              {tr('cafe.tableLabel', { table: isolate(session.tableNumber) })}
+            </span>
+          )}
+          {phase.name === 'connecting' && (
+            <span className="tp-cafe__table" data-state="binding">
+              <Loader size="xs" tone="onDark" /> {tr('cafe.tableChipBinding')}
+            </span>
+          )}
+          <a href={otherHref} lang={other} onClick={rememberLocale}>
+            {tr('cafe.localeSwitch')}
+          </a>
         </div>
       </header>
+      <div className="tp-topbar__band" aria-hidden="true">
+        <Swoosh />
+      </div>
       {/* SOW: ordering is NOT paying — persistent notice. */}
       <div className="tp-paynotice">{tr('cafe.payAtDesk')}</div>
 
       <main className="tp-container">
+        {phase.name === 'invalid' && (
+          <div className="tp-banner tp-banner--error" role="status">
+            {tr('cafe.invalidQr')}
+          </div>
+        )}
+        {phase.name === 'expired' && (
+          <div className="tp-banner tp-banner--warn" role="status">
+            {tr('errors.sessionTableExpired')} <strong>{tr('cafe.scanAgain')}</strong>
+          </div>
+        )}
+        {phase.name === 'error' && (
+          <div className="tp-banner tp-banner--error" role="status">
+            {tr('errors.generic')}{' '}
+            <button
+              type="button"
+              className="tp-btn tp-btn--ghost"
+              style={{ minBlockSize: '2rem', paddingBlock: '0.1rem' }}
+              onClick={() => setBootAttempt((n) => n + 1)}
+            >
+              {tr('common.retry')}
+            </button>
+          </div>
+        )}
         {degraded && (
           <div className="tp-banner tp-banner--warn" role="status">
             {tr('degraded.orderingRefused')} {tr('degraded.readOnlyNotice')}
@@ -449,49 +512,65 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
             {toast.text}
           </div>
         )}
-
         {waiterCall && waiterCall.status !== 'resolved' && (
           <div className="tp-banner tp-banner--info" role="status">
             {tr('cafe.waiterCalled')}
           </div>
         )}
 
-        <OrdersPanel orders={orders} locale={locale} />
+        {session && <OrdersPanel orders={orders} locale={locale} />}
 
-        <nav className="tp-cattabs" aria-label={tr('cafe.menu')}>
-          {menu.map((cat) => (
+        {status !== 'ok' ? (
+          <section className="tp-menu-unavailable" role="status">
+            <Loader size="md" tone="onLight" />
+            <h2>{tr('cafe.menuUnavailable.title')}</h2>
+            <p>{tr('cafe.menuUnavailable.body')}</p>
             <button
-              key={cat.id}
-              aria-current={cat.id === activeCategory?.id}
-              onClick={() => setActiveCat(cat.id)}
+              type="button"
+              className="tp-btn tp-btn--primary"
+              disabled={retrying}
+              onClick={() => void refreshMenu()}
             >
-              {locale === 'ar' ? cat.name_ar : cat.name_en}
+              {tr('common.retry')}
             </button>
-          ))}
-        </nav>
-
-        {activeCategory && (
-          <section className="tp-menu-cat" style={{ marginBlockStart: 0 }}>
-            {activeCategory.items.map((item) => (
-              <CafeMenuRow
-                key={item.id}
-                item={item}
-                locale={locale}
-                unavailableLabel={tr('cafe.itemUnavailable')}
-                onOpen={() => item.orderable && setSheetItem(item)}
-              />
-            ))}
           </section>
+        ) : (
+          <>
+            <nav className="tp-cattabs tp-cattabs--sticky" aria-label={tr('cafe.menu')}>
+              {menu.map((cat) => (
+                <button key={cat.id} type="button" onClick={() => jumpTo(cat.id)}>
+                  {ar ? cat.name_ar : cat.name_en}
+                </button>
+              ))}
+            </nav>
+
+            {menu.map((cat) => (
+              <section key={cat.id} id={`cat-${cat.id}`} className="tp-menu-cat">
+                <h2>{ar ? cat.name_ar : cat.name_en}</h2>
+                {cat.items.map((item) => (
+                  <CafeMenuRow
+                    key={item.id}
+                    item={item}
+                    locale={locale}
+                    unavailableLabel={tr('cafe.itemUnavailable')}
+                    soldOutLabel={tr('cafe.soldOut')}
+                    onOpen={() => item.orderable && setSheetItem(item)}
+                  />
+                ))}
+              </section>
+            ))}
+          </>
         )}
       </main>
 
       <div className="tp-basketbar">
         <div className="tp-container tp-basketbar__inner">
-          <button className="tp-btn tp-btn--ghost" onClick={() => setWaiterOpen(true)}>
+          <button type="button" className="tp-btn tp-btn--ghost" onClick={openWaiter}>
             {tr('cafe.callWaiter')}
           </button>
           <span className="tp-header__spacer" />
           <button
+            type="button"
             className="tp-btn tp-btn--primary"
             disabled={count === 0}
             onClick={() => setBasketOpen(true)}
@@ -523,7 +602,39 @@ export function CafeApp({ locale, token }: { locale: Locale; token: string }) {
         />
       )}
       {waiterOpen && (
-        <WaiterSheet locale={locale} degraded={degraded} onPick={raiseCall} onClose={() => setWaiterOpen(false)} />
+        <WaiterSheet
+          locale={locale}
+          degraded={degraded}
+          onPick={raiseCall}
+          onClose={() => setWaiterOpen(false)}
+        />
+      )}
+      {qrRequired && (
+        <>
+          <div className="tp-sheet-backdrop" onClick={() => setQrRequired(null)} />
+          <div
+            className="tp-sheet tp-qr-required"
+            role="dialog"
+            aria-modal="true"
+            aria-label={tr('cafe.qrRequired.title')}
+          >
+            <svg className="tp-qr-art" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+              <rect x="6" y="6" width="20" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="4" />
+              <rect x="38" y="6" width="20" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="4" />
+              <rect x="6" y="38" width="20" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="4" />
+              <rect x="13" y="13" width="6" height="6" fill="currentColor" />
+              <rect x="45" y="13" width="6" height="6" fill="currentColor" />
+              <rect x="13" y="45" width="6" height="6" fill="currentColor" />
+              <path d="M38 38h8v8h-8zM50 38h8v4h-8zM38 50h4v8h-4zM46 50h12v8H46z" fill="currentColor" />
+            </svg>
+            <h2>{tr('cafe.qrRequired.title')}</h2>
+            <p>{tr(qrRequired === 'order' ? 'cafe.qrRequired.bodyOrder' : 'cafe.qrRequired.bodyWaiter')}</p>
+            {qrRequired === 'order' && count > 0 && <p>{tr('cafe.qrRequired.keepBasket')}</p>}
+            <button type="button" className="tp-btn tp-btn--primary" onClick={() => setQrRequired(null)}>
+              {tr('common.ok')}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
@@ -533,11 +644,13 @@ function CafeMenuRow({
   item,
   locale,
   unavailableLabel,
+  soldOutLabel,
   onOpen,
 }: {
   item: MenuItem;
   locale: Locale;
   unavailableLabel: string;
+  soldOutLabel: string;
   onOpen: () => void;
 }) {
   const ar = locale === 'ar';
@@ -545,9 +658,15 @@ function CafeMenuRow({
     (min, v) => Math.min(min, v.price_iqd),
     Number.MAX_SAFE_INTEGER,
   );
+  const hasPrice = fromPrice !== Number.MAX_SAFE_INTEGER;
+  const hook = ar ? item.hook_ar : item.hook_en;
+  const desc = ar ? item.description_ar : item.description_en;
   return (
     <article
       className={item.orderable ? 'tp-menu-item' : 'tp-menu-item tp-menu-item--off'}
+      data-highlight={item.highlight !== 'none' ? item.highlight : undefined}
+      data-sold-out={item.sold_out ? 'true' : undefined}
+      data-unavailable={!item.orderable ? 'true' : undefined}
       onClick={onOpen}
       role={item.orderable ? 'button' : undefined}
       tabIndex={item.orderable ? 0 : undefined}
@@ -558,11 +677,15 @@ function CafeMenuRow({
         }
       }}
     >
+      {item.photo_url && (
+        <div className="tp-menu-item__photo">
+          <img src={item.photo_url} alt="" loading="lazy" decoding="async" />
+        </div>
+      )}
       <div className="tp-menu-item__body">
         <div className="tp-menu-item__name">{ar ? item.name_ar : item.name_en}</div>
-        {(ar ? item.description_ar : item.description_en) && (
-          <p className="tp-menu-item__desc">{ar ? item.description_ar : item.description_en}</p>
-        )}
+        {hook && <div className="tp-menu-item__hook">{hook}</div>}
+        {desc && <p className="tp-menu-item__desc">{desc}</p>}
         {(item.allergens.length > 0 || !item.orderable) && (
           <div className="tp-chips">
             {item.allergens.map((a) => (
@@ -575,8 +698,18 @@ function CafeMenuRow({
         )}
       </div>
       <div className="tp-menu-item__prices">
-        {fromPrice !== Number.MAX_SAFE_INTEGER && <span>{formatIQD(fromPrice, locale)}</span>}
+        {hasPrice && item.discountPct > 0 ? (
+          <>
+            <span className="tp-price--struck">{formatIQD(fromPrice, locale)}</span>
+            <span className="tp-price--promo">
+              {formatIQD(applyPctDiscountIqd(fromPrice, item.discountPct), locale)}
+            </span>
+          </>
+        ) : (
+          hasPrice && <span>{formatIQD(fromPrice, locale)}</span>
+        )}
       </div>
+      {item.sold_out && <span className="tp-stamp">{soldOutLabel}</span>}
     </article>
   );
 }

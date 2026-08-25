@@ -1,15 +1,16 @@
-// SCOPE(cafe-rebuild W10-W11): placeholder — GROWS LATER → features/admin/settings
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { adminRoute } from '../admin';
-import { ComingSoon } from '../../components/ComingSoon';
-import { guarded } from './_shared';
+import { RoutePending, guarded } from './_shared';
 
-function SettingsPlaceholder() {
-  return <ComingSoon titleKey="op.adminNav.settings" />;
-}
+const CafeSettings = lazyRouteComponent(
+  () => import('../../features/admin/settings/CafeSettings'),
+  'CafeSettings',
+);
 
 export const adminSettingsRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'settings',
-  component: guarded('/admin/settings', SettingsPlaceholder),
+  component: guarded('/admin/settings', CafeSettings),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
 });

@@ -1,15 +1,16 @@
-// SCOPE(cafe-rebuild W10-W11): placeholder — GROWS LATER → features/admin/suggested
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { adminRoute } from '../admin';
-import { ComingSoon } from '../../components/ComingSoon';
-import { guarded } from './_shared';
+import { RoutePending, guarded } from './_shared';
 
-function SuggestedPlaceholder() {
-  return <ComingSoon titleKey="op.adminNav.suggested" />;
-}
+const SuggestedEditor = lazyRouteComponent(
+  () => import('../../features/admin/suggested/SuggestedEditor'),
+  'SuggestedEditor',
+);
 
 export const adminSuggestedRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'suggested',
-  component: guarded('/admin/suggested', SuggestedPlaceholder),
+  component: guarded('/admin/suggested', SuggestedEditor),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
 });

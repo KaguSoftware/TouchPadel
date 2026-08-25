@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { idemKey, deviceId } from '../../lib/idem';
 import { useBroadcast } from '../../lib/realtime';
+import { chime, StartShiftBanner } from '../../lib/audio';
 import { useLocale, pickName } from '../../lib/i18n';
 import {
   AmountPad,
@@ -207,11 +208,13 @@ export function TillScreen() {
     },
   });
 
-  useBroadcast({
+  const { status: floorStatus } = useBroadcast({
     topic: 'floor',
     isPrivate: true,
     events: ['waiter_call'],
     invalidateKeys: [['tabs'], ['waiterCalls']],
+    // chime() is a no-op until audio is armed (StartShiftBanner / Electron autoplay policy).
+    onEvent: (_e, p) => (p as { status?: string } | null)?.status === 'raised' && chime('call'),
   });
 
   const categories = useMemo(
@@ -308,7 +311,8 @@ export function TillScreen() {
     <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
       {/* Floor + open tabs rail */}
       <div style={{ inlineSize: '13rem', flexShrink: 0 }}>
-        <WaiterCallsPanel />
+        <StartShiftBanner />
+        <WaiterCallsPanel status={floorStatus} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1rem' }}>{tr('op.till.openTabs')}</h2>
           <Button kind="primary" onClick={() => setShowNewTab(true)}>

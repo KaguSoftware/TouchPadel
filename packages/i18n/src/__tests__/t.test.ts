@@ -34,4 +34,18 @@ describe('t()', () => {
       );
     expect(keys(ar).sort()).toEqual(keys(en).sort());
   });
+
+  it('placeholders match between locales for every key', () => {
+    const leaves = (obj: object, prefix = ''): [string, string][] =>
+      Object.entries(obj).flatMap(([k, v]) =>
+        typeof v === 'string'
+          ? [[`${prefix}${k}`, v] as [string, string]]
+          : leaves(v as object, `${prefix}${k}.`),
+      );
+    const holes = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort();
+    const arMap = new Map(leaves(ar));
+    for (const [key, enText] of leaves(en)) {
+      expect(holes(arMap.get(key) ?? ''), key).toEqual(holes(enText));
+    }
+  });
 });

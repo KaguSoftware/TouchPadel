@@ -4,7 +4,7 @@ import { RoutePending, guarded } from './_shared';
 
 // Lazy so the (large) menu editor chunk only loads on this section.
 const MenuEditor = lazyRouteComponent(
-  () => import('../../features/admin/MenuEditor'),
+  () => import('../../features/admin/menu/MenuEditor'),
   'MenuEditor',
 );
 

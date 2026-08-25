@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Touch Cafe app mark — SWAP POINT: overwrite this file with the official mark
+    when Touch supplies it, then re-run packages/ui/scripts/render-cafe-icons.mjs.
+    Rounded Touch Blue tile, Coffee Brown bean with the white centre split, brown
+    smile arc (the wordmark's swoosh) beneath — brand deck p04/p05.
+  -->
+  <rect width="512" height="512" rx="112" fill="#3360AB"/>
+  <g transform="rotate(-28 256 236)">
+    <ellipse cx="256" cy="236" rx="92" ry="134" fill="#603813"/>
+    <path d="M256 106 C 202 176, 310 296, 256 366" fill="none" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round"/>
+  </g>
+  <path d="M112 372 C 176 440, 336 440, 400 372" fill="none" stroke="#603813" stroke-width="26" stroke-linecap="round"/>
+</svg>

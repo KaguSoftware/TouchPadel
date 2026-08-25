@@ -1,15 +1,16 @@
-// SCOPE(cafe-rebuild W10-W11): placeholder — GROWS LATER → features/admin/staff
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { adminRoute } from '../admin';
-import { ComingSoon } from '../../components/ComingSoon';
-import { guarded } from './_shared';
+import { RoutePending, guarded } from './_shared';
 
-function StaffPlaceholder() {
-  return <ComingSoon titleKey="op.adminNav.staff" />;
-}
+const StaffList = lazyRouteComponent(
+  () => import('../../features/admin/staff/StaffList'),
+  'StaffList',
+);
 
 export const adminStaffRoute = createRoute({
   getParentRoute: () => adminRoute,
   path: 'staff',
-  component: guarded('/admin/staff', StaffPlaceholder),
+  component: guarded('/admin/staff', StaffList),
+  pendingComponent: RoutePending,
+  wrapInSuspense: true,
 });

@@ -30,6 +30,8 @@ export interface ImageFieldProps {
   accept?: 'image' | 'image+video';
   /** Input size ceiling before compression (default 10). */
   maxMb?: number;
+  /** Videos pass through untouched, so they get their own ceiling (default = maxMb). */
+  maxVideoMb?: number;
   aspect?: '1:1' | '16:9';
   /** Longest edge after compression (default 1200; hero 1600). */
   maxPx?: number;
@@ -47,6 +49,7 @@ export function ImageField({
   ownerId = null,
   accept = 'image',
   maxMb = 10,
+  maxVideoMb = maxMb,
   aspect = '1:1',
   maxPx,
   maxBytes,
@@ -67,11 +70,12 @@ export function ImageField({
 
   async function handleFile(file: File) {
     if (disabled || uploading) return;
-    if (file.size > maxMb * 1024 * 1024) {
-      toast.err(tr('op.toast.tooLarge', { mb: maxMb }));
+    const video = accept === 'image+video' && isVideoFile(file);
+    const ceilingMb = video ? maxVideoMb : maxMb;
+    if (file.size > ceilingMb * 1024 * 1024) {
+      toast.err(tr('op.toast.tooLarge', { mb: ceilingMb }));
       return;
     }
-    const video = accept === 'image+video' && isVideoFile(file);
     if (!video && !isImageFile(file)) {
       toast.err(tr('op.toast.invalidImage'));
       return;

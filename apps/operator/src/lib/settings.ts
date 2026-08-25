@@ -29,8 +29,10 @@ export interface CafeSettings {
   telegram_enabled: boolean;
   telegram_chat_id: string | null;
   telegram_lang: TelegramLang;
+  telegram_last_callback_at: string | null;
   analytics_business_day_start_hour: number;
   analytics_excluded_item_ids: string[];
+  analytics_engagement_floor: string | null;
 }
 export type CafeSettingKey = keyof CafeSettings;
 
@@ -51,8 +53,10 @@ export const CAFE_SETTING_DEFAULTS: Readonly<CafeSettings> = {
   telegram_enabled: false,
   telegram_chat_id: null,
   telegram_lang: 'ar',
+  telegram_last_callback_at: null,
   analytics_business_day_start_hour: 4,
   analytics_excluded_item_ids: [],
+  analytics_engagement_floor: null,
 };
 
 export const CAFE_SETTING_KEYS = Object.keys(CAFE_SETTING_DEFAULTS) as readonly CafeSettingKey[];
@@ -62,8 +66,10 @@ export const OWNER_ONLY_SETTING_KEYS: readonly CafeSettingKey[] = [
   'telegram_enabled',
   'telegram_chat_id',
   'telegram_lang',
+  'telegram_last_callback_at',
   'analytics_business_day_start_hour',
   'analytics_excluded_item_ids',
+  'analytics_engagement_floor',
 ];
 
 /** Keys guests can read through `cafe_settings_public` (the rest never leave staff). */
@@ -86,6 +92,8 @@ const NULLABLE_KEYS: ReadonlySet<CafeSettingKey> = new Set<CafeSettingKey>([
   'hero_media_path',
   'featured_item_id',
   'telegram_chat_id',
+  'telegram_last_callback_at',
+  'analytics_engagement_floor',
 ]);
 
 export const CAFE_SETTINGS_QUERY_KEY: QueryKey = ['cafeSettings'];

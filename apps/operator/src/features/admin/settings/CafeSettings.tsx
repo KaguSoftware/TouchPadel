@@ -1,0 +1,299 @@
+/**
+ * Cafe settings (operator-slice.md §3g): business-day start hour (owner),
+ * waiter-call cooldown (`set_waiter_call_cooldown`), analytics excluded items
+ * (owner), covers multiplier (per station, localStorage), engagement floor.
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatDate } from '@touch/i18n';
+import { supabase } from '../../../lib/supabase';
+import { appRpc } from '../../../lib/appRpc';
+import { useAuth } from '../../../lib/auth';
+import { useLocale } from '../../../lib/i18n';
+import { useCafeSettings, useSetCafeSetting } from '../../../lib/settings';
+import { useToast } from '../../../components/toast';
+import { Button, ErrorText, Field, Select, Skeleton, card, inputStyle } from '../../../components/ui';
+
+export const COVERS_MULT_STORAGE_KEY = 'tp-analytics-covers-mult';
+const COVERS_MULT_OPTIONS = ['1', '1.1', '1.25', '1.5', '1.75', '2'] as const;
+const BUSINESS_DAY_HOURS = [0, 4, 5, 6, 7, 8] as const;
+const COOLDOWN_MIN = 30;
+const COOLDOWN_MAX = 600;
+
+function readCoversMult(): string {
+  try {
+    const raw = localStorage.getItem(COVERS_MULT_STORAGE_KEY);
+    return raw && (COVERS_MULT_OPTIONS as readonly string[]).includes(raw) ? raw : '1';
+  } catch {
+    return '1';
+  }
+}
+
+interface MenuItemLite {
+  id: string;
+  name_en: string;
+  name_ar: string;
+}
+
+export function CafeSettings() {
+  const { tr, locale } = useLocale();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { staff } = useAuth();
+  const isOwner = staff?.role === 'owner';
+  const { settings, isLoading } = useCafeSettings();
+  const setSetting = useSetCafeSetting();
+
+  // --- waiter-call cooldown (venue_settings) ---
+  const venueQ = useQuery({
+    queryKey: ['venueSettingsCooldown'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('venue_settings')
+        .select('waiter_call_cooldown_seconds')
+        .single();
+      if (error) throw error;
+      return data.waiter_call_cooldown_seconds;
+    },
+  });
+  const [cooldown, setCooldown] = useState<string | null>(null);
+  useEffect(() => {
+    if (venueQ.data !== undefined && cooldown === null) setCooldown(String(venueQ.data));
+  }, [venueQ.data, cooldown]);
+  const cooldownNum = Number(cooldown);
+  const cooldownValid =
+    cooldown !== null && /^\d+$/.test(cooldown) && cooldownNum >= COOLDOWN_MIN && cooldownNum <= COOLDOWN_MAX;
+  const saveCooldown = useMutation({
+    mutationFn: () => appRpc('set_waiter_call_cooldown', { p_seconds: cooldownNum }),
+    onSuccess: () => {
+      toast.ok(tr('op.toast.saved'));
+      void queryClient.invalidateQueries({ queryKey: ['venueSettingsCooldown'] });
+    },
+    onError: (e) => toast.err(e),
+  });
+
+  // --- excluded items (owner) ---
+  const itemsQ = useQuery({
+    queryKey: ['settingsMenuItems'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('id, name_en, name_ar')
+        .order('sort_order');
+      if (error) throw error;
+      return (data ?? []) as MenuItemLite[];
+    },
+    enabled: isOwner,
+    staleTime: 60_000,
+  });
+  const [search, setSearch] = useState('');
+  const [excluded, setExcluded] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!isLoading && excluded === null) setExcluded(new Set(settings.analytics_excluded_item_ids));
+  }, [isLoading, settings.analytics_excluded_item_ids, excluded]);
+  const filteredItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const all = itemsQ.data ?? [];
+    if (!q) return all;
+    return all.filter((i) => i.name_en.toLowerCase().includes(q) || i.name_ar.includes(q));
+  }, [itemsQ.data, search]);
+  const excludedDirty =
+    excluded !== null &&
+    (excluded.size !== settings.analytics_excluded_item_ids.length ||
+      settings.analytics_excluded_item_ids.some((id) => !excluded.has(id)));
+
+  // --- covers multiplier (station-local) ---
+  const [coversMult, setCoversMult] = useState(readCoversMult);
+  function changeCoversMult(next: string) {
+    setCoversMult(next);
+    try {
+      localStorage.setItem(COVERS_MULT_STORAGE_KEY, next);
+    } catch {
+      /* private mode — falls back to 1 on next boot */
+    }
+  }
+
+  // --- engagement floor (owner) ---
+  const [floor, setFloor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isLoading && floor === null) setFloor(settings.analytics_engagement_floor ?? '');
+  }, [isLoading, settings.analytics_engagement_floor, floor]);
+
+  async function write<K extends Parameters<typeof setSetting.mutateAsync>[0]['key']>(
+    key: K,
+    value: Parameters<typeof setSetting.mutateAsync>[0]['value'],
+  ) {
+    try {
+      await setSetting.mutateAsync({ key, value } as Parameters<typeof setSetting.mutateAsync>[0]);
+      toast.ok(tr('op.toast.saved'));
+    } catch (e) {
+      toast.err(e);
+    }
+  }
+
+  if (isLoading) return <Skeleton lines={6} />;
+
+  const hint: React.CSSProperties = { margin: 0, marginBlockStart: '0.3rem', fontSize: '0.8rem', color: 'var(--tp-muted-fg)' };
+
+  return (
+    <div style={{ maxInlineSize: '40rem', display: 'grid', gap: '0.8rem' }}>
+      <h2 style={{ margin: 0 }}>{tr('op.settings.title')}</h2>
+
+      {isOwner && (
+        <section style={card}>
+          <Field label={tr('op.settings.businessDay')}>
+            <Select
+              value={String(settings.analytics_business_day_start_hour)}
+              style={{ maxInlineSize: '14rem' }}
+              options={BUSINESS_DAY_HOURS.map((h) => ({
+                value: String(h),
+                label: h === 0 ? tr('op.settings.calendarDay') : tr('op.settings.hour', { hour: String(h).padStart(2, '0') }),
+              }))}
+              onChange={(v) => void write('analytics_business_day_start_hour', Number(v))}
+            />
+          </Field>
+          <p style={hint}>{tr('op.settings.businessDayHint')}</p>
+        </section>
+      )}
+
+      <section style={card}>
+        <Field label={tr('op.settings.cooldown')}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <input
+              style={{ ...inputStyle, inlineSize: '7rem', fontVariantNumeric: 'tabular-nums' }}
+              dir="ltr"
+              type="number"
+              inputMode="numeric"
+              min={COOLDOWN_MIN}
+              max={COOLDOWN_MAX}
+              value={cooldown ?? ''}
+              disabled={venueQ.isLoading}
+              onChange={(e) => setCooldown(e.target.value)}
+            />
+            <Button
+              kind="primary"
+              disabled={!cooldownValid || cooldownNum === venueQ.data || saveCooldown.isPending}
+              onClick={() => saveCooldown.mutate()}
+            >
+              {tr('common.save')}
+            </Button>
+          </div>
+        </Field>
+        <ErrorText error={venueQ.error} />
+        <p style={{ ...hint, color: cooldown !== null && !cooldownValid ? 'var(--tp-danger)' : hint.color }}>
+          {tr('op.settings.cooldownHint')} {tr('op.settings.cooldownRange')}
+        </p>
+      </section>
+
+      {isOwner && excluded && (
+        <section style={card}>
+          <Field label={tr('op.settings.excludedItems')}>
+            <input
+              style={inputStyle}
+              type="search"
+              placeholder={tr('op.common.search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </Field>
+          <div
+            style={{
+              maxBlockSize: '14rem',
+              overflowY: 'auto',
+              border: '1px solid var(--tp-border)',
+              borderRadius: '0.35rem',
+              background: 'var(--tp-bg)',
+              paddingBlock: '0.3rem',
+              paddingInline: '0.5rem',
+            }}
+          >
+            {itemsQ.isLoading && <Skeleton lines={3} />}
+            {filteredItems.map((i) => (
+              <label key={i.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', paddingBlock: '0.2rem' }}>
+                <input
+                  type="checkbox"
+                  checked={excluded.has(i.id)}
+                  onChange={(e) => {
+                    const next = new Set(excluded);
+                    if (e.target.checked) next.add(i.id);
+                    else next.delete(i.id);
+                    setExcluded(next);
+                  }}
+                />
+                <span>{locale === 'ar' ? i.name_ar : i.name_en}</span>
+              </label>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginBlockStart: '0.5rem' }}>
+            <Button
+              kind="primary"
+              disabled={!excludedDirty || setSetting.isPending}
+              onClick={() => void write('analytics_excluded_item_ids', [...excluded])}
+            >
+              {tr('common.save')}
+            </Button>
+            <span style={{ fontSize: '0.85rem', color: 'var(--tp-muted-fg)' }}>
+              {tr('op.settings.excludedCount', { count: excluded.size })}
+            </span>
+          </div>
+          <p style={hint}>{tr('op.settings.excludedHint')}</p>
+        </section>
+      )}
+
+      <section style={card}>
+        <Field label={tr('op.settings.coversMult')}>
+          <Select
+            value={coversMult}
+            style={{ maxInlineSize: '10rem' }}
+            options={COVERS_MULT_OPTIONS.map((v) => ({ value: v, label: `×${v}` }))}
+            onChange={changeCoversMult}
+          />
+        </Field>
+        <p style={hint}>{tr('op.settings.coversMultHint')}</p>
+      </section>
+
+      <section style={card}>
+        <Field label={tr('op.settings.engagementFloor')}>
+          {isOwner ? (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                style={{ ...inputStyle, inlineSize: 'auto' }}
+                dir="ltr"
+                type="date"
+                value={floor ?? ''}
+                onChange={(e) => setFloor(e.target.value)}
+              />
+              <Button
+                kind="primary"
+                disabled={!floor || floor === (settings.analytics_engagement_floor ?? '') || setSetting.isPending}
+                onClick={() => void write('analytics_engagement_floor', floor)}
+              >
+                {tr('common.save')}
+              </Button>
+              {settings.analytics_engagement_floor && (
+                <Button
+                  kind="ghost"
+                  disabled={setSetting.isPending}
+                  onClick={() => {
+                    setFloor('');
+                    void write('analytics_engagement_floor', null);
+                  }}
+                >
+                  {tr('op.settings.clear')}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <span dir="ltr">
+              {settings.analytics_engagement_floor
+                ? formatDate(new Date(`${settings.analytics_engagement_floor}T00:00:00`), locale)
+                : tr('op.settings.notSet')}{' '}
+              <span style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>({tr('op.settings.readOnly')})</span>
+            </span>
+          )}
+        </Field>
+        <p style={hint}>{tr('op.settings.engagementFloorHint')}</p>
+      </section>
+    </div>
+  );
+}
