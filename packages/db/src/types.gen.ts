@@ -330,6 +330,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      lock_court: { Args: { p_court_id: string }; Returns: undefined }
       log_replay: {
         Args: {
           p_conflict_detail?: Json

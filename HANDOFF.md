@@ -188,6 +188,11 @@ Bugs the new e2e suite caught and fixed — all real product/harness defects, no
   `Timed out acquiring connection from connection pool`, a dev server / Playwright session leaked
   PostgREST connections: `docker restart supabase_rest_touchpadel supabase_realtime_touchpadel`,
   then re-run (214/214 green). Don't chase it in the SQL.
+- **A booking RPC returning `deadlock detected` is a REGRESSION, not a flake.** Reservation writers
+  serialize per court on a transaction advisory lock (`app.lock_court`, 0042) precisely so the loser of
+  a slot race gets `23P01` -> `SLOT_TAKEN` instead of a 40P01. Before 0038 the GiST exclusion check let
+  two overlapping inserters wait on each other's xid; CI run #17 died on it. If it reappears, a new
+  writer reached the exclusion window without taking the court lock.
 - **Deploy order is a live hazard: Vercel ships on every push to main, migrations do not.** Code can
   therefore land ahead of the schema — which is exactly what broke production on 2026-08-25: the new
   build queried `hook_en`/`highlight`/`sold_out`/`photo_path` (400) and `modifier_reveals` /

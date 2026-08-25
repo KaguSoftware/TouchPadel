@@ -800,6 +800,7 @@ Tooling: **pgTAP** (via `supabase test db`, files in `packages/db/supabase/tests
 Vitest, each case with real parallel connections (`Promise.allSettled` over N distinct clients):
 
 1. **N=20 simultaneous `hold_slot`** on the same court/slot → exactly 1 fulfilled, 19 rejected with the mapped `SLOT_TAKEN` error (exclusion violation `23P01`).
+   The `23P01` is only guaranteed because writers serialize per court on a transaction advisory lock (`app.lock_court`, 0042): a GiST exclusion check inserts its tuple before scanning the index, so two unserialized overlapping inserters can wait on each other's xid and one dies with `40P01` — which bypasses the `exclusion_violation` handler and never maps to `SLOT_TAKEN`.
 2. **Hold vs direct desk booking** race on one slot → exactly one write survives.
 3. **Adjacent slots** (`[18:00,19:00)` + `[19:00,20:00)`) → both succeed (half-open range correctness).
 4. **Expired-hold race**: create a hold, let TTL pass without the sweeper, fire 10 concurrent `hold_slot` → exactly one succeeds (lazy `expire_stale_holds` inside the RPC works under contention).
