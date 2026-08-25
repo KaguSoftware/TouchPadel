@@ -160,9 +160,11 @@ Bugs the new e2e suite caught and fixed — all real product/harness defects, no
    staff group + webhook secret; PostHog EU project; Groq key; the real domain in
    `NEXT_PUBLIC_SITE_URL` / `VITE_GUEST_SITE_URL`; the official Touch Cafe logo files. Checklist in
    `packages/db/supabase/functions/SETUP-telegram.md` and plan §5.
-5. **Hosted rollout**: `supabase db push` (0027–0035 are additive), `supabase secrets set`,
-   `functions deploy`, Vault (`service_role_key`, `functions_base_url`) + `pg_net`/`pg_cron`,
-   `setWebhook`, Vercel env + redeploy without build cache.
+5. **Hosted rollout**: ✔ `supabase db push` DONE 2026-08-25 (0027–0035 applied, 0 pending; guest
+   reads 200, the new private tables 401 for anon, `cafe_settings` seeded with safe defaults, the
+   `menu-media` bucket created without needing the dashboard fallback). **Still to do:**
+   `supabase secrets set`, `functions deploy`, Vault (`service_role_key`, `functions_base_url`) +
+   `pg_net`/`pg_cron`, Telegram `setWebhook`, Vercel env + redeploy without build cache.
 6. Then back to the pre-cafe roadmap: stock UI, staff-admin RPC+UI, court records admin, week
    calendar view, split-by-item/refund/override UIs, audit-log viewer, Sentry, short-lived till
    sessions, Electron queue wiring + LAN KDS, printing pipeline. Store submission Wed 2026-09-16.
@@ -186,6 +188,17 @@ Bugs the new e2e suite caught and fixed — all real product/harness defects, no
   `Timed out acquiring connection from connection pool`, a dev server / Playwright session leaked
   PostgREST connections: `docker restart supabase_rest_touchpadel supabase_realtime_touchpadel`,
   then re-run (214/214 green). Don't chase it in the SQL.
+- **Deploy order is a live hazard: Vercel ships on every push to main, migrations do not.** Code can
+  therefore land ahead of the schema — which is exactly what broke production on 2026-08-25: the new
+  build queried `hook_en`/`highlight`/`sold_out`/`photo_path` (400) and `modifier_reveals` /
+  `cafe_settings_public` (404) against a DB still on 0026, and the whole menu fell back to "The menu
+  is taking a moment". **Always push migrations BEFORE merging code that reads the new schema.** The
+  fallback page is working as designed here — it is a symptom of ordering, not a web bug. (Deliberate
+  decision 2026-08-25: not gating the Vercel deploy on the migration job for now.)
+- **`DB Migrate (staging)` skips instead of failing when the deploy secrets are unset**, which is the
+  current state. It is bound to the `staging` GitHub Environment: add **required reviewers** there
+  before adding the secrets, or a merge to main will apply migrations to the client's database with
+  nobody approving it.
 - **e2e depends on a live till heartbeat.** `venue_settings.heartbeat_stale_seconds` is 45 s; once a
   suite runs longer than that with no heartbeat, `app.is_degraded()` flips and guest ordering is
   refused mid-test. Long specs must call `startTillHeartbeat(svc)` in `beforeAll` and stop it in
@@ -211,7 +224,9 @@ Bugs the new e2e suite caught and fixed — all real product/harness defects, no
   `supabase db reset`.
 - **The hosted Supabase project is the client's future production.** Additive migrations only;
   rotate the seeded dev staff accounts/PINs and revisit the 300/hr anonymous rate limit before
-  launch. Hosted currently has 0001–0026 — **0027–0035 are NOT pushed yet** (roadmap 5).
+  launch. Hosted is at **0027–0035 as of 2026-08-25** (`supabase migration list` → 0 pending).
+  Edge functions, secrets, Vault + `pg_net`/`pg_cron` and the Telegram webhook are still NOT done,
+  so Telegram/PostHog/Groq no-op there by design.
 - **Vercel production menu was empty (2026-08-24, root-caused):** the dashboard env var
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` had a second line glued on, so every request 401'd.
   Fix = one clean var + redeploy **without build cache** (NEXT_PUBLIC_* is inlined at build).
