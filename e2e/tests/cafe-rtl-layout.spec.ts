@@ -42,7 +42,7 @@ test.describe('cafe RTL layout @ar', () => {
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
 
     await assertWithinViewport(page.locator('.tp-cafe__topbar').first(), 'top bar');
-    await assertWithinViewport(page.locator('.tp-topbar__band').first(), 'swoosh band');
+    await assertWithinViewport(page.locator('.tp-hero__band').first(), 'swoosh band');
     // The ticker TRACK is deliberately wider than the viewport (it is the
     // marquee); its clipping container is what must stay put.
     await assertWithinViewport(page.locator('.tp-ticker').first(), 'ticker');
