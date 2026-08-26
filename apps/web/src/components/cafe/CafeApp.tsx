@@ -155,6 +155,7 @@ export function CafeApp({
     <div className="tp-app" data-theme="cafe">
       <AnalyticsProvider locale={locale} tableNumber={table.session?.tableNumber ?? null} />
       <OfflineBanner locale={locale} online={online} />
+
       <TopBar
         locale={locale}
         token={token}

@@ -5,8 +5,14 @@
  */
 export const baseCss = `
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; block-size: 100%; }
-body { margin: 0; min-block-size: 100dvh; overscroll-behavior-block: none; -webkit-tap-highlight-color: transparent; }
+/* Blue ground behind the fixed shell, so a rubber-band overscroll never
+   flashes white against the blue crown. It has to live on html AND body AND
+   .tp-app below: the bounce happens inside .tp-app__scroll, which is
+   transparent, so what actually shows through is .tp-app — NOT the document.
+   html/body are painted too for the browser's own top-of-document bounce. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; block-size: 100%; background: var(--tp-accent); }
+body { margin: 0; min-block-size: 100dvh; overscroll-behavior-block: none; -webkit-tap-highlight-color: transparent;
+  background: var(--tp-accent); }
 img, video { max-inline-size: 100%; block-size: auto; }
 h1, h2, h3, h4, p, figure { margin-block: 0; }
 button { font: inherit; cursor: pointer; color: inherit; }
@@ -19,8 +25,13 @@ input, textarea, select { font-size: max(16px, 1rem); font-family: inherit; }
 .tp-visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Fixed-viewport shell: the document never scrolls; .tp-app__scroll does. */
-.tp-app { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--tp-bg); color: var(--tp-fg); overflow: hidden; }
+/* Blue, not --tp-bg: the scroller in front carries the page ground, so the
+   only thing this surface shows is the rubber-band gutter past its edges. */
+.tp-app { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--tp-accent); color: var(--tp-fg); overflow: hidden; }
+/* Carries the PAGE ground so content never sits on the shell's blue; only the
+   rubber-band gutter beyond this box exposes it. */
 .tp-app__scroll { flex: 1 1 auto; min-block-size: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; overflow-anchor: none; -webkit-overflow-scrolling: touch;
+  background: var(--tp-bg);
   padding-block-end: calc(var(--tp-ticker-h) + env(safe-area-inset-bottom)); }
 .tp-app[inert] { pointer-events: none; }
 

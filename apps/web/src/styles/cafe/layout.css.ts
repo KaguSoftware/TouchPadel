@@ -12,8 +12,8 @@ export const layoutCss = `
   /* Centred 44rem column; the gutters carry the brown bean pattern (brand p14). */
   .tp-app__scroll, .tp-cafe { background-color: var(--tp-cafe-cream); background-image: var(--tp-cafe-beans-brown); background-size: var(--tp-cafe-bean-tile-w) var(--tp-cafe-bean-tile-h); }
   .tp-app__scroll > .tp-container, .tp-cafe > main.tp-container { background: var(--tp-bg); min-block-size: 100%; box-shadow: var(--tp-shadow-card); }
-  /* The hero, the pill rail and the footer are full-bleed but stay on the column. */
-  .tp-app__scroll > .tp-hero, .tp-app__scroll > .tp-cattabs, .tp-app__scroll > .tp-footer {
+  /* The crown, the pill rail and the footer are full-bleed but stay on the column. */
+  .tp-app__scroll > .tp-crown, .tp-app__scroll > .tp-cattabs, .tp-app__scroll > .tp-footer {
     max-inline-size: var(--tp-column-w); margin-inline: auto; }
 }
 /* The shell's inert state must READ as inert too, not just behave that way. */

@@ -1,14 +1,18 @@
 'use client';
 
 import { makeT, isolate, type Locale } from '@touch/i18n';
-import { Swoosh } from '../brand/Swoosh';
 import { BeanPattern } from '../brand/BeanPattern';
 import type { TodayHours } from '@/lib/cafe/hours';
 
 /**
- * Hero mode `none` — the brand panel (deck p08): solid Touch Blue, an ALL-CAPS
- * extra-bold two-line headline, a faint white outline-bean pattern, and the
- * white swoosh closing the panel into the page.
+ * Hero mode `none` — the brand panel (deck p08): an ALL-CAPS extra-bold
+ * two-line headline on the crown's Touch Blue.
+ *
+ * It carries no swoosh of its own — the single one that closes the crown is
+ * rendered by `Hero` outside the collapsing row, so it survives the collapse.
+ * Its bean layer is viewport-anchored (`background-attachment: fixed`, see
+ * topbar.css.ts), which is what lets it and the topbar's layer read as ONE
+ * continuous field across the seam rather than two patterns that restart.
  *
  * The meta line is the only live data here: today's opening window and how
  * many items are on the menu, so the hero is never purely decorative.
@@ -41,7 +45,6 @@ export function HeroBrand({
             })}
         {itemCount > 0 && <> · {tr('cafe.hero.itemsCount', { count: itemCount })}</>}
       </p>
-      <Swoosh />
     </div>
   );
 }

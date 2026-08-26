@@ -1,11 +1,32 @@
 /** Hero (modes none | media | featured). Collapse via grid-template-rows on [data-collapsed]. */
 export const heroCss = `
-.tp-hero { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--tp-dur-slow) var(--tp-ease-out); }
-.tp-hero[data-collapsed='true'] { grid-template-rows: 0fr; }
-.tp-hero > * { min-block-size: 0; overflow: hidden; }
-.tp-hero__brand { position: relative; background: var(--tp-accent); color: var(--tp-accent-contrast); text-align: center;
-  padding-block: var(--tp-space-6) 2.75rem; padding-inline: var(--tp-space-5); }
-.tp-hero__brand .tp-swoosh { position: absolute; inset-inline: 0; inset-block-end: -1px; block-size: 2rem; }
+/* The hero is the lower half of the crown, closed by a single swoosh. Only
+   mode "none" rides the blue — "media" and "featured" render their own card on
+   the page background, so the crown ends at the bar and the swoosh closes it
+   there (see .tp-hero__band order below). */
+.tp-hero { position: relative; display: flex; flex-direction: column; }
+/* Mode "none" continues the bar's blue; the other modes are a card on the
+   page background. Both bar and panel are painted --tp-accent and share ONE
+   viewport-anchored bean field (topbar.css.ts), so the seam is invisible. */
+.tp-hero[data-mode='none'] { background: var(--tp-accent); }
+.tp-hero:not([data-mode='none']) { background: var(--tp-bg); }
+/* Collapse: 1fr -> 0fr on the INNER row only. The swoosh below is outside it,
+   so it rides up against the topbar instead of collapsing away with the hero. */
+.tp-hero__collapse { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--tp-dur-slow) var(--tp-ease-out); }
+.tp-hero[data-collapsed='true'] .tp-hero__collapse { grid-template-rows: 0fr; }
+.tp-hero__collapse > * { min-block-size: 0; overflow: hidden; }
+/* The crown's bottom edge: blue behind the curve, so the sweep reads as the
+   blue field ENDING rather than as a stripe floating on the page. It is
+   therefore ordered (order: -1) ABOVE the content in modes "media"/"featured",
+   where that content is a card on the page background and the blue field is
+   the topbar alone — closing it under the card would detach the stripe from
+   the only blue there is. In mode "none" the panel itself is blue, so the
+   swoosh stays below it and closes the whole crown. */
+.tp-hero__band { position: relative; block-size: 2rem; background: var(--tp-accent); order: -1; }
+.tp-hero[data-mode='none'] .tp-hero__band { order: 0; }
+.tp-hero__band .tp-swoosh { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; }
+.tp-hero__brand { position: relative; color: var(--tp-accent-contrast); text-align: center;
+  padding-block: var(--tp-space-6) var(--tp-space-5); padding-inline: var(--tp-space-5); }
 .tp-hero__headline { position: relative; font-family: var(--tp-font-display); font-weight: var(--tp-fw-display); font-size: var(--tp-fs-display);
   line-height: var(--tp-lh-tight); letter-spacing: var(--tp-tracking-caps); text-transform: uppercase; }
 [dir='rtl'] .tp-hero__headline { font-family: var(--tp-font-arabic); font-weight: 700; }

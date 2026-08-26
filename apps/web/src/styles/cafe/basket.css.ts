@@ -1,7 +1,5 @@
-/** Fixed basket bar, pay-at-desk notice, basket lines. */
+/** Fixed basket bar, basket lines. */
 export const basketCss = `
-.tp-paynotice { text-align: center; font-size: 0.8rem; background: var(--tp-accent-2); color: var(--tp-accent-2-contrast);
-  padding-block: 0.35rem; padding-inline: var(--tp-space-4); }
 .tp-basketbar { position: fixed; inset-block-end: 0; inset-inline: 0; z-index: var(--tp-z-fab);
   background: var(--tp-bg); border-block-start: 1px solid var(--tp-border); padding-block: 0.6rem;
   padding-block-end: calc(0.6rem + env(safe-area-inset-bottom)); }
