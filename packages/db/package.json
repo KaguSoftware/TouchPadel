@@ -20,7 +20,9 @@
     "qr:artwork": "node scripts/qr-artwork.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:concurrency": "vitest run tests/concurrency.test.ts"
+    "test:concurrency": "vitest run tests/concurrency.test.ts",
+    "check:locks": "node scripts/check-lock-order.mjs",
+    "check:authz": "node scripts/check-rpc-authz.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.47.0",

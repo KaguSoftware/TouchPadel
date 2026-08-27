@@ -344,4 +344,37 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
 
     await openFreshDay(manager, 100_000);
   });
+
+  // -------------------------------------------------------------------------
+  // 0045 #21 — inclusive tax is EXTRACTED, not omitted
+  // -------------------------------------------------------------------------
+  it('EXTRACTS embedded tax when venue_settings.tax_inclusive is on', async () => {
+    // tax_inclusive means the menu price already CONTAINS the tax, so the
+    // figure to report is base * rate/(10000+rate), not base * rate/10000.
+    // Pre-0045 compute_tab_totals only ever used the exclusive form and then
+    // declined to add it: the total was right, the tax line was overstated.
+    // On 20,000 at 10% inclusive: 20000 * 1000/11000 = 1818.18 -> 1818.
+    // The pre-0045 answer was 2,000, and the total stays 20,000 either way.
+    await svc.from('tax_groups').update({ is_active: true }).eq('id', TAX_RESTAURANT_10);
+    await svc
+      .from('menu_categories')
+      .update({ tax_group_id: TAX_RESTAURANT_10 })
+      .eq('id', coffee.categoryId);
+    await svc.from('venue_settings').update({ tax_inclusive: true }).not('id', 'is', null);
+    try {
+      const { tabId } = await freshTab([{ variant_id: coffee.variantId, qty: 2 }]);
+      expect(await settleAndRead(tabId)).toMatchObject({
+        subtotal: 20_000,
+        tax: 1_818,
+        total: 20_000, // inclusive: never added on top
+      });
+    } finally {
+      await svc.from('venue_settings').update({ tax_inclusive: false }).not('id', 'is', null);
+      await svc
+        .from('menu_categories')
+        .update({ tax_group_id: TAX_STANDARD_0 })
+        .eq('id', coffee.categoryId);
+      await svc.from('tax_groups').update({ is_active: false }).eq('id', TAX_RESTAURANT_10);
+    }
+  });
 });

@@ -237,4 +237,63 @@ describe.skipIf(!up)('stock reversal + analytics visits (0043)', () => {
     // Pre-0043 this was 0 — a full day of trade reported as zero footfall.
     expect(row!.visits).toBeGreaterThanOrEqual(1);
   });
+
+  it('0047: one tab with BOTH a guest order and a till order is ONE visit', async () => {
+    // The normal upsell: a QR party orders from the phone, then the waiter adds
+    // a forgotten item at the till against that same tab. 0043 keyed visits on
+    // coalesce(guest_session_id, 'till:'||tab_id), which mixes two identifier
+    // spaces in one distinct — so this single party counted as TWO visits.
+    const day = '2026-07-15';
+    const at = `${day}T09:00:00.000Z`; // 12:00 Asia/Baghdad, inside the 04:00-start day
+    const ids = {
+      day: '0a11b71d-0000-4000-8000-000000000001',
+      table: '0a11b71d-0000-4000-8000-000000000002',
+      session: '0a11b71d-0000-4000-8000-000000000003',
+      tab: '0a11b71d-0000-4000-8000-000000000004',
+      guestOrder: '0a11b71d-0000-4000-8000-000000000005',
+      tillOrder: '0a11b71d-0000-4000-8000-000000000006',
+      user: '0a11b71d-0000-4000-8000-000000000007',
+    };
+
+    await svc.from('day_sessions').upsert({
+      id: ids.day, business_date: day, status: 'closed',
+      opened_at: at, opened_by: SEED_STAFF_IDS.manager, opening_float_iqd: 0,
+      closed_at: at, closed_by: SEED_STAFF_IDS.manager,
+    });
+    await svc.from('cafe_tables').upsert({
+      id: ids.table, table_number: `MIX-${day}`, capacity: 4, is_active: true,
+    });
+    // guest_sessions.auth_user_id references auth.users, so mint a real one.
+    const { data: created } = await svc.auth.admin.createUser({
+      email: `mixed-${day}@test.touch.local`, password: 'touch-dev-password', email_confirm: true,
+    });
+    const authUserId = created?.user?.id ?? ids.user;
+    await svc.from('guest_sessions').upsert({
+      id: ids.session, table_id: ids.table, auth_user_id: authUserId,
+      created_at: at, last_activity_at: at, expires_at: `${day}T23:00:00.000Z`,
+    });
+    await svc.from('tabs').upsert({
+      id: ids.tab, day_session_id: ids.day, table_id: ids.table, status: 'settled',
+      opened_at: at, settled_at: at,
+      subtotal_iqd: 20_000, tax_iqd: 0, discount_iqd: 0, total_iqd: 20_000,
+    });
+    await svc.from('orders').upsert([
+      {
+        id: ids.guestOrder, tab_id: ids.tab, source: 'guest_web', status: 'served',
+        guest_session_id: ids.session, placed_at: at,
+      },
+      {
+        id: ids.tillOrder, tab_id: ids.tab, source: 'till', status: 'served',
+        placed_by_staff_id: SEED_STAFF_IDS.cashier, placed_at: at,
+      },
+    ]);
+
+    const res = await appRpc(owner, 'analytics_daily_sales', { p_from: day, p_to: day }).then(outcome);
+    expect(res.ok, res.errorMessage).toBe(true);
+    const rows = res.data as { business_date: string; orders: number; visits: number }[];
+    const row = rows.find((r) => r.business_date === day);
+    expect(row, `no analytics row for ${day}`).toBeDefined();
+    expect(row!.orders).toBe(2); // two orders...
+    expect(row!.visits).toBe(1); // ...but one tab, one bill, one party. Pre-0047: 2.
+  });
 });

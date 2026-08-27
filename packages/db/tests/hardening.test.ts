@@ -160,7 +160,16 @@ describe.skipIf(!up)('hardening fixes (0026)', () => {
   // ── 2. PIN rekey: rotating device ids no longer evades the lockout ────────
 
   it('PIN rekey: 5 failures across ROTATED device ids lock the caller; other callers unaffected', async () => {
-    const attacker = await guestClient(svc, 'pin-rotate');
+    // Staff callers since 0046. This case used to drive the rotation through a
+    // GUEST account, which was itself the hole: anonymous sign-up is unlimited,
+    // so a fresh identity per attempt reset the per-caller window and the
+    // lockout never bound at all (20 wrong PINs, 0 lockouts, reproduced).
+    // `prep` and `court_desk` are two distinct staff identities and neither is
+    // the `cashier` the rls-matrix suite clears attempts for.
+    const attacker = await signedInClient(SEED_STAFF.prep);
+    const attackerUid = (await attacker.auth.getUser()).data.user!.id;
+    await svc.schema('app').from('pin_attempts').delete().like('device_id', `${attackerUid}:%`);
+
     for (let i = 0; i < 5; i++) {
       const bad = await appRpc(attacker, 'verify_manager_pin', {
         p_pin: '000000',
@@ -178,13 +187,34 @@ describe.skipIf(!up)('hardening fixes (0026)', () => {
     expect(locked.error?.message).toContain('PIN_LOCKED');
 
     // A different caller with the correct PIN is not collateral damage.
-    const bystander = await guestClient(svc, 'pin-clean');
+    const bystander = await signedInClient(SEED_STAFF.court_desk);
+    const bystanderUid = (await bystander.auth.getUser()).data.user!.id;
+    await svc.schema('app').from('pin_attempts').delete().like('device_id', `${bystanderUid}:%`);
     const ok = await appRpc(bystander, 'verify_manager_pin', {
       p_pin: DEV_PINS.manager,
       p_device_id: 'ROTATE-bystander',
     });
     expect(ok.error).toBeNull();
     expect(typeof ok.data).toBe('string'); // authorizer staff uuid
+  });
+
+  // ── 2b. 0046: the PIN oracle is closed to non-staff ───────────────────────
+
+  it('0046: a guest cannot probe verify_manager_pin at all', async () => {
+    // The lockout is keyed on auth.uid(), and anonymous sign-up mints a new one
+    // on demand — so while guests could call this, rotating identities gave
+    // unlimited guesses against the manager PIN space. A guest holding a PIN
+    // still could not call apply_discount / override_price / void_after_send,
+    // but a CASHIER who learned one that way gains manager authority over all
+    // three from their own till account.
+    const guest = await guestClient(svc, 'pin-oracle');
+    for (const pin of ['000000', DEV_PINS.manager]) {
+      const res = await appRpc(guest, 'verify_manager_pin', { p_pin: pin, p_device_id: 'probe' });
+      // Refused before any bcrypt work, so the response cannot leak by timing
+      // either, and crucially the CORRECT pin is refused identically.
+      expect(res.error?.message).toContain('FORBIDDEN');
+      expect(res.data).toBeNull();
+    }
   });
 
   // ── 3. NO_RATE + manager/owner price override ─────────────────────────────

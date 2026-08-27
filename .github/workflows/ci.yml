@@ -64,6 +64,19 @@ jobs:
         working-directory: packages/db
         run: supabase db reset
 
+      # Structural guard for the 0038/0044 lock order. Catches an inverted or a
+      # missing lock by walking the pg_proc call graph (helpers and triggers
+      # included) - the two 0043 money defects were both invisible to race tests,
+      # because after correct serialization the legitimate interleavings and the
+      # buggy one reach identical end states.
+      - name: Lock-order invariant
+        run: pnpm --filter @touch/db check:locks
+      # Executes every client-callable SECURITY DEFINER RPC as an anonymous guest.
+      # Guests hold `authenticated` exactly as staff do, so an RPC missing its own
+      # guard is open to anyone who scans a table QR. Static scanning is not enough
+      # here - the analytics family guards one call deep, inside analytics_guard().
+      - name: RPC authorization sweep
+        run: pnpm --filter @touch/db check:authz
       # Runs the @touch/db test suite — includes the RLS matrix and the reservation
       # concurrency suite, which only make sense with the stack up (hence this job).
       - name: DB tests (RLS + concurrency)
