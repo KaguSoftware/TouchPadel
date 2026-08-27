@@ -37,8 +37,8 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 
 ## Stack & environment
 - pnpm + Turborepo monorepo; TypeScript strict; Node ≥22 (supabase-js needs native WebSocket);
-  packages scoped `@touch/*`; React 19 workspace-wide.
-- Apps: `apps/mobile` (Expo SDK 53, expo-router) · `apps/web` (**Next 16.3** App Router, Vercel) ·
+  packages scoped `@touch/*`; **React 19.1** workspace-wide (pinned via root `pnpm.overrides`).
+- Apps: `apps/mobile` (**Expo SDK 54**, expo-router 6, RN 0.81) · `apps/web` (**Next 16.3** App Router, Vercel) ·
   `apps/operator` (Vite + React + TanStack Router SPA) · `apps/operator-shell` (Electron main/
   preload — SQLite queue, LAN KDS server, ESC/POS printing, heartbeat, kiosk — still skeleton).
 - DB: Supabase CLI + Docker locally (`supabase start`); schema-first migrations 0001–0026 in
@@ -52,8 +52,8 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - All operator writes go through IPC → SQLite queue → replay (single write path, online too).
 - Writes to business tables are RPC-only (`SECURITY DEFINER` in schema `app`); RLS is the backstop.
 - Bilingual content = paired `_en` / `_ar` columns (not jsonb). CSS logical properties only
-  (**NOT lint-enforced — see Day 4**: the preset exists at `packages/config/src/eslint.js` but no
-  package consumes it); every demo runs once in Arabic.
+  (lint-enforced **in `apps/mobile` only** as of day 5 — `packages/config/src/eslint.js` is still
+  consumed by no other package); every demo runs once in Arabic.
 - Fonts: brand faces are **Next Art** (Latin) + **Frutiger LT Arabic** — commercial, files not yet
   in hand; free stand-ins live behind tokens in `packages/ui` (one-line swap later).
 - **Mobile native-feel rule (owner, 2026-08-24):** if it can look/behave native in React Native, it
@@ -228,6 +228,45 @@ cancel) **works end to end** — it has simply never been executed by the test s
 anonymous sessions throughout and routes the confirm through the desk client to work *around* the
 NULL-guest bug rather than failing on it.
 
+## Day 5 (2026-08-27) — mobile: SDK 54 + the reliability layer
+
+`apps/mobile` moved from a functional wireframe on SDK 53 to **SDK 54 with real error
+handling, caching and wiring**. Commit `d95cad8`. Gate: `turbo lint typecheck test` **15/15 green
+(0 cached)**, `expo-doctor` **18/18**, and the app **bundles for iOS and Android** — a gate this
+repo had never run.
+
+- **The booking crash is fixed and guarded.** `react-native-get-random-values` in a new
+  `index.js` entry shim (`main` is now `index.js`), an explicitly seeded ulid factory in
+  `idempotency.ts` as an independent second layer, and a unit test that reads `index.js` and
+  asserts the import order. Verified present in the shipped bundle.
+- **React 19.0.0 → 19.1.0 atomically** across mobile/web/operator/ui + root `pnpm.overrides`.
+  `node-linker=hoisted` means one physical React; verified zero nested copies, web and operator
+  still green. Also corrected `expo-constants`/`expo-linking`, which were on **SDK 52** ranges.
+- **Error handling**: expo-router `ErrorBoundary` at the root (there was none anywhere),
+  `src/lib/telemetry.ts` as the single seam every failure reports through (Sentry is a one-line
+  swap once a dev build exists), distinct loading/empty/error/offline states, and a Retry that
+  refetches **all five** queries instead of one. The court list and My Bookings no longer render a
+  network failure as "no courts" / "no bookings".
+- **Caching**: query cache persisted to AsyncStorage (cold start paints real data, works offline),
+  `onlineManager` on netinfo, `focusManager` on AppState, retry that separates transport failures
+  from RPC decisions, and a **SecureStore chunking adapter** for the >2 KB session.
+- **Correctness**: `confirm.tsx`'s `venue_phone` → `phone` (the contractual degraded number now
+  renders), `CLOSED_DATE`/`OUTSIDE_HOURS` mapped, `clearAllCaches` on `SIGNED_OUT` (cross-account
+  leak), the duration `Modal` no longer traps the Android back button.
+- **RTL actually configured**: `expo-localization` + the `supportsRTL` plugin. `extra.supportsRTL`
+  had been inert since ~SDK 44, and the device locale was never read — an Arabic phone opened in
+  English.
+- **Lint is real for mobile.** `packages/config/src/eslint.js` (RTL guard included) had been
+  consumed by nobody; `apps/mobile/eslint.config.mjs` wires it and it immediately caught the
+  `@touch/ui` barrel import that was dragging a DOM ThemeProvider into the native bundle.
+- **CI**: new `mobile` job running `expo-doctor` + a two-platform bundle; the
+  `--frozen-lockfile` fallback is gone. Mobile tests 17 → 29.
+
+**Still outstanding on mobile** (unchanged by this work): no app icon/splash assets, no
+`eas init`/projectId, `REPLACE_*` env in `eas.json`, push dead end-to-end, no account deletion,
+no Sentry in a build, and the native-UI rebuild (tabs, sheets, pickers) — see
+`docs/design/mobile-audit-2026-08-27.md`.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -293,7 +332,7 @@ NULL-guest bug rather than failing on it.
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
-| Mobile app | Functional wireframe on fixture data; booking logic solid, presentation and release plumbing absent | Native UI on SDK 54, push, profile, account deletion, Sentry, store build | Roadmap 6 (by 2026-09-16) |
+| Mobile app | SDK 54; crash fixed, error handling + caching + wiring done (day 5). Presentation still a wireframe; release plumbing still absent | Native UI on SDK 54, push, profile, account deletion, Sentry, store build | Roadmap 6 (by 2026-09-16) |
 
 ## Gotchas / open issues
 - **PADEL BACKEND: an anonymous session can block any court** (audit 2026-08-27, reproduced).
