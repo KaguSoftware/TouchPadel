@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { pickLocale } from '@touch/core';
@@ -20,20 +21,14 @@ import {
   DEFAULT_TZ,
   groupByStart,
   listBookableDates,
+  venuePhoneOf,
   type GridCell,
 } from '../../src/features/availability/assemble';
 import { useHoldSlot } from '../../src/features/booking/hooks';
 import { isDegradedRefusal, mapErrorToKey } from '../../src/features/booking/errors';
+import { ErrorState, SkeletonList } from '../../src/components/states';
 import { theme, slotColors } from '../../src/theme';
-import { Button, ErrorText, Hint, Loading, Screen } from '../../src/components/ui';
-
-// Venue phone for the degraded message (venue_settings_public.phone).
-// Defensive: the column may be null or absent on an older stack — fall back to
-// degraded.bookingRefusedShort in that case.
-function venuePhoneOf(settings: unknown): string | null {
-  const p = (settings as { phone?: unknown } | null | undefined)?.phone;
-  return typeof p === 'string' && p.trim().length > 0 ? p : null;
-}
+import { Button, ErrorText, Hint, Screen } from '../../src/components/ui';
 
 /** Day availability grid: date picker (today + 14) x per-court priced slots. */
 export default function AvailabilityScreen() {
@@ -137,14 +132,28 @@ export default function AvailabilityScreen() {
       <ErrorText>{error}</ErrorText>
 
       {day.isLoading ? (
-        <Loading />
+        <SkeletonList rows={3} height={110} />
       ) : day.isError ? (
-        <>
-          <Hint>{t('errors.network')}</Hint>
-          <Button label={t('common.retry')} onPress={day.refetch} />
-        </>
+        // day.refetch now retries ALL five queries behind this screen, not just
+        // `availability` — previously a failed courts/rates/settings fetch left
+        // this button doing nothing at all, forever.
+        <ErrorState
+          title={t('errors.loadFailedTitle')}
+          message={t('errors.network')}
+          retryLabel={t('common.retry')}
+          onRetry={day.refetch}
+          busy={day.isRefetching}
+        />
       ) : (
-        <ScrollView>
+        <ScrollView
+          refreshControl={
+            <RefreshControl
+              refreshing={day.isRefetching}
+              onRefresh={day.refetch}
+              tintColor={theme.accent}
+            />
+          }
+        >
           {day.grid
             .filter((cs) => visibleCourts.some((c) => c.id === cs.courtId))
             .map((courtSlots) => {
@@ -156,7 +165,7 @@ export default function AvailabilityScreen() {
                     {court ? pickLocale({ en: court.name_en, ar: court.name_ar }, locale) : ''}
                   </Text>
                   {cells.length === 0 ? (
-                    <Hint>{t('courts.noCourts')}</Hint>
+                    <Hint>{t('booking.noSlots')}</Hint>
                   ) : (
                     <View style={styles.slotWrap}>
                       {cells.map((cell) => {
@@ -198,7 +207,14 @@ export default function AvailabilityScreen() {
       )}
 
       {/* Duration picker for the tapped start time */}
-      <Modal visible={picker !== null} transparent animationType="fade">
+      <Modal
+        visible={picker !== null}
+        transparent
+        animationType="fade"
+        // Without onRequestClose the Android hardware back button is TRAPPED:
+        // the duration sheet could not be dismissed at all on that platform.
+        onRequestClose={() => setPicker(null)}
+      >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('booking.selectDuration')}</Text>

@@ -7,6 +7,7 @@ import { useConfirmBooking } from '../../src/features/booking/hooks';
 import { secondsUntil } from '../../src/features/booking/logic';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../../src/features/booking/errors';
 import { useVenueSettings } from '../../src/features/availability/hooks';
+import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { theme } from '../../src/theme';
 import { Button, ErrorText, Hint, Screen, Title } from '../../src/components/ui';
 
@@ -52,7 +53,7 @@ export default function ConfirmScreen() {
       onError: (err) => {
         const code = rpcErrorCode(err instanceof Error ? err.message : null);
         if (isDegradedRefusal(err instanceof Error ? err.message : null)) {
-          const phone = (settings.data as { venue_phone?: string } | undefined)?.venue_phone;
+          const phone = venuePhoneOf(settings.data);
           setError(
             phone ? t('degraded.bookingRefused', { phone }) : t('degraded.bookingRefusedShort'),
           );

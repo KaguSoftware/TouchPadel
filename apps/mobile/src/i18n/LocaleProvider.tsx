@@ -8,9 +8,12 @@ import {
   type ReactNode,
 } from 'react';
 import { I18nManager } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import * as Localization from 'expo-localization';
 import { makeT, isRtl, type Locale, type MessageKey, type TParams } from '@touch/i18n';
 import { supabase } from '../lib/supabase';
+import { addBreadcrumb, captureException } from '../lib/telemetry';
 
 const LOCALE_KEY = 'tp.locale';
 
@@ -37,17 +40,67 @@ export function useLocale(): LocaleContextValue {
   return useContext(LocaleContext);
 }
 
+/** The device's preferred language, when we ship it. Venue is in Iraq. */
+function deviceLocale(): Locale {
+  try {
+    const tags = Localization.getLocales();
+    return tags.some((l) => l.languageCode === 'ar') ? 'ar' : 'en';
+  } catch (error) {
+    captureException(error, { label: 'locale.device' });
+    return 'en';
+  }
+}
+
+/**
+ * Read the stored preference. Historically this lived in SecureStore, which is
+ * keychain/keystore-backed: slow, size-capped, and entirely the wrong store for
+ * a non-secret UI preference. New writes go to AsyncStorage; SecureStore is
+ * still read once so existing installs keep their choice.
+ */
+async function readStoredLocale(): Promise<Locale | null> {
+  try {
+    const fresh = await AsyncStorage.getItem(LOCALE_KEY);
+    if (fresh === 'en' || fresh === 'ar') return fresh;
+    const legacy = await SecureStore.getItemAsync(LOCALE_KEY);
+    if (legacy === 'en' || legacy === 'ar') {
+      await AsyncStorage.setItem(LOCALE_KEY, legacy); // migrate forward
+      return legacy;
+    }
+    return null;
+  } catch (error) {
+    captureException(error, { label: 'locale.read' });
+    return null;
+  }
+}
+
+/** Keep the native RTL flag in step with the active locale. */
+function applyRtl(next: Locale): void {
+  const wantRtl = isRtl(next);
+  if (I18nManager.isRTL !== wantRtl) {
+    I18nManager.allowRTL(wantRtl);
+    I18nManager.forceRTL(wantRtl);
+    addBreadcrumb('locale.forceRTL', { wantRtl });
+  }
+}
+
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('en');
 
-  // Hydrate the persisted locale once at mount.
   useEffect(() => {
     let cancelled = false;
-    void SecureStore.getItemAsync(LOCALE_KEY)
-      .then((stored) => {
-        if (!cancelled && (stored === 'en' || stored === 'ar')) setLocaleState(stored);
-      })
-      .catch(() => {});
+    void readStoredLocale().then((stored) => {
+      if (cancelled) return;
+      // First run has no stored preference. Falling back to 'en' meant an
+      // Arabic phone in Iraq opened the app in English — the device language
+      // was never consulted at all, because expo-localization wasn't installed.
+      const next = stored ?? deviceLocale();
+      setLocaleState(next);
+      // Reconcile the native flag on every cold start. The hydration path used
+      // to call setLocaleState directly and skip this, so the persisted locale
+      // and I18nManager.isRTL could silently disagree (e.g. after a reinstall).
+      applyRtl(next);
+      addBreadcrumb('locale.hydrated', { locale: next, fromStore: stored !== null });
+    });
     return () => {
       cancelled = true;
     };
@@ -56,26 +109,23 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const setLocale = useCallback(async (next: Locale) => {
     setLocaleState(next);
     try {
-      await SecureStore.setItemAsync(LOCALE_KEY, next);
-    } catch {
-      // storage failure is non-fatal — locale still applies for this run
+      await AsyncStorage.setItem(LOCALE_KEY, next);
+    } catch (error) {
+      // Non-fatal: the locale still applies for this run. Recorded, not swallowed.
+      captureException(error, { label: 'locale.persist', next });
     }
-    // Persist the preference on the profile (best-effort; guest may be offline).
     try {
       const { data } = await supabase.auth.getUser();
       const uid = data.user?.id;
       if (uid) {
-        await supabase.from('profiles').update({ preferred_lang: next }).eq('id', uid);
+        const { error } = await supabase.from('profiles').update({ preferred_lang: next }).eq('id', uid);
+        if (error) throw error;
       }
-    } catch {
-      // ignore — retried next time the user flips language while online
+    } catch (error) {
+      // Best-effort: a guest may be offline. Retried next time they flip.
+      captureException(error, { label: 'locale.profileSync', next });
     }
-    // I18nManager: takes effect after an app restart (surface rtlRestartNote).
-    const wantRtl = isRtl(next);
-    if (I18nManager.isRTL !== wantRtl) {
-      I18nManager.allowRTL(wantRtl);
-      I18nManager.forceRTL(wantRtl);
-    }
+    applyRtl(next);
   }, []);
 
   const value = useMemo<LocaleContextValue>(

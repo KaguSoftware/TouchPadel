@@ -1,4 +1,6 @@
-import { padelPalette } from '@touch/ui';
+// Subpath, not the barrel: '@touch/ui' re-exports a DOM-only ThemeProvider and
+// a large CSS string that have no business in a native bundle.
+import { padelPalette } from '@touch/ui/tokens/palette';
 
 /**
  * RN-side theme derived from the shared @touch/ui padel palette tokens.

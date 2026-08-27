@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import { formatDate, formatIQD, formatTime } from '@touch/i18n';
 import type { MessageKey } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
@@ -9,7 +9,8 @@ import { canCancel, splitBookings, type BookingRow } from '../../src/features/bo
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { useCourts, useCourtsBroadcast, useVenueSettings } from '../../src/features/availability/hooks';
 import { theme } from '../../src/theme';
-import { Button, ErrorText, Hint, Loading, Screen } from '../../src/components/ui';
+import { Button, ErrorText, Hint, Screen } from '../../src/components/ui';
+import { ErrorState, SkeletonList } from '../../src/components/states';
 
 const STATUS_KEY: Record<string, MessageKey> = {
   pending: 'booking.statusPending',
@@ -39,10 +40,17 @@ export default function BookingsScreen() {
     ];
   }, [bookings.data, t]);
 
-  const courtName = (courtId: string): string => {
-    const c = courts.data?.find((x) => x.id === courtId);
-    return c ? pickLocale({ en: c.name_en, ar: c.name_ar }, locale) : '';
-  };
+  // O(1) lookup built once, instead of an O(n) `.find` per row inside
+  // renderItem (which ran on every render of every visible row).
+  const courtNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of courts.data ?? []) {
+      m.set(c.id, pickLocale({ en: c.name_en, ar: c.name_ar }, locale));
+    }
+    return m;
+  }, [courts.data, locale]);
+
+  const courtName = (courtId: string): string => courtNames.get(courtId) ?? '';
 
   const windowHours = settings.data?.cancellation_window_hours ?? 12;
 
@@ -62,7 +70,30 @@ export default function BookingsScreen() {
     ]);
   };
 
-  if (bookings.isLoading) return <Loading />;
+  if (bookings.isLoading) {
+    return (
+      <Screen>
+        <SkeletonList rows={3} height={96} />
+      </Screen>
+    );
+  }
+
+  // Same lie as the court list: a failed fetch used to render the empty-state
+  // copy, telling the guest they have no bookings when we simply could not
+  // reach the server. That is the worst possible thing to be wrong about here.
+  if (bookings.isError) {
+    return (
+      <Screen>
+        <ErrorState
+          title={t('errors.loadFailedTitle')}
+          message={t(mapErrorToKey(bookings.error))}
+          retryLabel={t('common.retry')}
+          onRetry={() => void bookings.refetch()}
+          busy={bookings.isRefetching}
+        />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -70,6 +101,13 @@ export default function BookingsScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl
+            refreshing={bookings.isRefetching}
+            onRefresh={() => void bookings.refetch()}
+            tintColor={theme.accent}
+          />
+        }
         renderSectionHeader={({ section }) => (
           <Text style={styles.sectionTitle}>{section.title}</Text>
         )}

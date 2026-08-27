@@ -23,14 +23,41 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # Frozen lockfile is the rule; the `|| pnpm install` fallback only exists so the very
-      # first runs (before pnpm-lock.yaml is committed) don't hard-fail. Remove the fallback
-      # once the lockfile lands.
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Lint, typecheck, test, build
         run: pnpm turbo lint typecheck test build
+
+  mobile:
+    name: mobile (doctor + bundle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Catches dependency ranges that drift off the SDK, duplicate copies of a
+      # native module, and a broken metro/babel config.
+      - name: expo-doctor
+        working-directory: apps/mobile
+        run: npx --yes expo-doctor@latest
+
+      # The decisive one: runs the whole Metro graph for both platforms, so a
+      # module that cannot resolve — or a module-scope throw — fails the build
+      # instead of shipping.
+      - name: Bundle for iOS and Android
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+        run: pnpm exec expo export --platform ios --platform android --output-dir dist
 
   db:
     name: db (migrations + RLS/concurrency tests)
@@ -50,7 +77,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - uses: supabase/setup-cli@v1
         with:

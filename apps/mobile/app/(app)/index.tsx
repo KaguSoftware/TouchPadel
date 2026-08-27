@@ -1,12 +1,15 @@
 import { useEffect } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useCourts } from '../../src/features/availability/hooks';
 import { registerPushToken } from '../../src/features/profile/push';
+import { addBreadcrumb } from '../../src/lib/telemetry';
 import { theme } from '../../src/theme';
-import { Button, Hint, Loading, Screen, Title } from '../../src/components/ui';
+import { Button, Hint, Screen, Title } from '../../src/components/ui';
+import { ErrorState, SkeletonList } from '../../src/components/states';
+import { mapErrorToKey } from '../../src/features/booking/errors';
 
 /** Court list from the DB (bilingual names via pickLocale). */
 export default function CourtListScreen() {
@@ -14,12 +17,41 @@ export default function CourtListScreen() {
   const router = useRouter();
   const courts = useCourts();
 
-  // Best-effort push registration once signed in (silently no-ops in dev/simulator).
+  // Best-effort push registration once signed in. The outcome is recorded —
+  // this used to be a bare `void` over a function whose every failure path was
+  // swallowed, which is why push being dead on device was invisible for days.
   useEffect(() => {
-    void registerPushToken();
+    void registerPushToken().then((state) => addBreadcrumb('push.register', { state }));
   }, []);
 
-  if (courts.isLoading) return <Loading />;
+  // A content-shaped skeleton instead of a bare centred spinner: nothing jumps
+  // when the data lands.
+  if (courts.isLoading) {
+    return (
+      <Screen>
+        <Title>{t('courts.title')}</Title>
+        <SkeletonList rows={4} height={92} />
+      </Screen>
+    );
+  }
+
+  // THIS BRANCH IS THE POINT. Previously only isLoading was checked, so a failed
+  // fetch fell through to ListEmptyComponent and the screen said "No courts are
+  // available right now" — presenting a network error as fact, with no retry.
+  if (courts.isError) {
+    return (
+      <Screen>
+        <Title>{t('courts.title')}</Title>
+        <ErrorState
+          title={t('errors.loadFailedTitle')}
+          message={t(mapErrorToKey(courts.error))}
+          retryLabel={t('common.retry')}
+          onRetry={() => void courts.refetch()}
+          busy={courts.isRefetching}
+        />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -27,6 +59,13 @@ export default function CourtListScreen() {
       <FlatList
         data={courts.data ?? []}
         keyExtractor={(c) => c.id}
+        refreshControl={
+          <RefreshControl
+            refreshing={courts.isRefetching}
+            onRefresh={() => void courts.refetch()}
+            tintColor={theme.accent}
+          />
+        }
         ListEmptyComponent={<Hint>{t('courts.noCourts')}</Hint>}
         renderItem={({ item }) => (
           <Pressable

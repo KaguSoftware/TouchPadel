@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react';
+import {useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { addBreadcrumb, captureMessage } from '../../lib/telemetry';
 import {
   fetchCourts,
   fetchDayAvailability,
@@ -56,6 +57,7 @@ export interface DayGrid {
   settings: VenueSettingsPublic | undefined;
   isLoading: boolean;
   isError: boolean;
+  isRefetching: boolean;
   refetch: () => void;
 }
 
@@ -75,6 +77,16 @@ export function useDayGrid(date: string): DayGrid {
     refetchInterval: 60_000, // holds expire server-side; keep the grid honest
   });
 
+  // `now` decides which slots render as `past`. It used to be `new Date()`
+  // inside this useMemo, whose deps contain no clock — so the boundary froze at
+  // the last data change and a slot starting in five minutes still showed as
+  // free half an hour later. Tick it on the same cadence as the grid refetch.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const grid = useMemo<CourtSlots[]>(() => {
     if (!settings.data || !courts.data || !rules.data || !prices.data || !availability.data) {
       return [];
@@ -86,9 +98,9 @@ export function useDayGrid(date: string): DayGrid {
       availability: availability.data,
       rules: rules.data,
       prices: prices.data,
-      now: new Date(),
+      now,
     });
-  }, [date, settings.data, courts.data, rules.data, prices.data, availability.data]);
+  }, [date, settings.data, courts.data, rules.data, prices.data, availability.data, now]);
 
   const queries = [settings, courts, rules, prices, availability];
   return {
@@ -96,8 +108,12 @@ export function useDayGrid(date: string): DayGrid {
     settings: settings.data,
     isLoading: queries.some((q) => q.isLoading),
     isError: queries.some((q) => q.isError),
+    isRefetching: queries.some((q) => q.isRefetching),
+    // Retry every query that can set isError. This used to refetch ONLY
+    // `availability` while isError was `some()` over all five — so if courts,
+    // rates or settings failed, the Retry button did nothing, forever.
     refetch: () => {
-      void availability.refetch();
+      void Promise.all(queries.map((q) => q.refetch()));
     },
   };
 }
@@ -123,7 +139,13 @@ export function useCourtsBroadcast(): void {
       channel = supabase
         .channel('courts', { config: { private: true } })
         .on('broadcast', { event: 'slot_changed' }, () => invalidate.current())
-        .subscribe();
+        .subscribe((status) => {
+          // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
+          // quietly stale with no signal to the user or to telemetry.
+          if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
+          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
+            captureMessage('realtime.courts.' + status, 'warning');
+        });
     });
     return () => {
       disposed = true;

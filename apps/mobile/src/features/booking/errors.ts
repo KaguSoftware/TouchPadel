@@ -10,6 +10,12 @@ import type { MessageKey } from '@touch/i18n';
 
 const CODE_TO_KEY = {
   SLOT_TAKEN: 'booking.slotTaken',
+  // 0026 wired app.assert_bookable into hold_slot ahead of every other gate, but
+  // neither client ever mapped its two codes — both rendered 'Something went
+  // wrong', which is the opposite of what SOW L319 (opening hours / closed days)
+  // asks the guest to be told.
+  CLOSED_DATE: 'booking.closedDate',
+  OUTSIDE_HOURS: 'booking.outsideHours',
   HOLD_EXPIRED: 'booking.holdExpired',
   HOLD_NOT_FOUND: 'errors.notFound',
   RESERVATION_NOT_FOUND: 'errors.notFound',
@@ -30,13 +36,23 @@ const CODE_TO_KEY = {
 
 export type RpcErrorCode = keyof typeof CODE_TO_KEY;
 
+/**
+ * Codes longest-first, so a code that is a substring of another can never win
+ * by accident. Previously this iterated in object-literal order, which meant
+ * the mapping silently depended on how the keys happened to be typed.
+ */
+const CODES_BY_LENGTH = (Object.keys(CODE_TO_KEY) as RpcErrorCode[]).sort(
+  (a, b) => b.length - a.length,
+);
+
 /** Extract a known RPC error code from a raw error message, or null. */
 export function rpcErrorCode(message: string | null | undefined): RpcErrorCode | null {
   if (!message) return null;
-  for (const code of Object.keys(CODE_TO_KEY) as RpcErrorCode[]) {
-    // Codes surface either verbatim or embedded ("... SLOT_TAKEN ...").
-    if (message === code || message.includes(code)) return code;
-  }
+  const trimmed = message.trim();
+  // Exact match first — the common case, and immune to substring collisions.
+  for (const code of CODES_BY_LENGTH) if (trimmed === code) return code;
+  // Then embedded ("... raised SLOT_TAKEN ..."), longest code wins.
+  for (const code of CODES_BY_LENGTH) if (trimmed.includes(code)) return code;
   return null;
 }
 

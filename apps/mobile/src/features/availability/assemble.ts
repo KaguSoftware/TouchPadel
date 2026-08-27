@@ -157,7 +157,7 @@ export interface GridCell {
   startAt: Date;
   /** Overall cell state = state of the shortest-duration slot at this start. */
   state: Slot['state'];
-  options: Array<{ durationMin: number; state: Slot['state']; priceIqd: number | null }>;
+  options: { durationMin: number; state: Slot['state']; priceIqd: number | null }[];
 }
 
 /** Group a court's slots by start time for rendering (sorted by start). */
@@ -182,4 +182,18 @@ export function groupByStart(slots: readonly Slot[]): GridCell[] {
   }
   cells.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
   return cells;
+}
+
+/**
+ * Venue contact number for the degraded-mode message (venue_settings_public.phone).
+ *
+ * Lives here, shared, because it used to be duplicated: availability.tsx read
+ * `.phone` correctly while confirm.tsx read `.venue_phone` — a column that does
+ * not exist — behind an `as` cast that silenced the type error. The guest hit
+ * by the degraded lockout at confirm time therefore never saw the phone number
+ * the SOW requires (L676-678). One definition, one column name.
+ */
+export function venuePhoneOf(settings: unknown): string | null {
+  const p = (settings as { phone?: unknown } | null | undefined)?.phone;
+  return typeof p === 'string' && p.trim().length > 0 ? p : null;
 }

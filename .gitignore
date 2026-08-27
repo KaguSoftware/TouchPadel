@@ -43,3 +43,6 @@ Thumbs.db
 coverage/
 playwright-report/
 test-results/
+
+# Expo export output
+apps/mobile/dist/
