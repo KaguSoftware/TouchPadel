@@ -16,6 +16,7 @@ import {
   serviceClient,
   signedInClient,
   anonymousSessionClient,
+  guestClient,
   appRpc,
   createTestCourt,
   ensureTestRateRule,
@@ -135,7 +136,7 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
   it('guest hold INSIDE the protected horizon is refused with DEGRADED_LOCKOUT', async () => {
     await makeDegraded();
     expect(horizonHours).toBeGreaterThanOrEqual(24); // insideHorizonOpenSlot() assumption
-    const guest = await anonymousSessionClient();
+    const guest = await guestClient(svc, 'degraded-inside');
     const res = await appRpc(guest, 'hold_slot', {
       p_court_id: courtId,
       p_start_at: insideHorizonOpenSlot().toISOString(),
@@ -147,7 +148,7 @@ describe.skipIf(!up)('degraded mode: heartbeat staleness + guest lockout (0021)'
 
   it('guest hold OUTSIDE the protected horizon still succeeds while degraded', async () => {
     await makeDegraded();
-    const guest = await anonymousSessionClient();
+    const guest = await guestClient(svc, 'degraded-outside');
     const slot = futureSlot(); // ≥ 7 days out — far beyond the 48h horizon
     const res = await appRpc(guest, 'hold_slot', {
       p_court_id: courtId,

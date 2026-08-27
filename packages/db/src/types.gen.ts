@@ -27,6 +27,30 @@ export type Database = {
         }
         Relationships: []
       }
+      rpc_replays: {
+        Row: {
+          at: string
+          caller: string
+          fn: string
+          idempotency_key: string
+          result: Json | null
+        }
+        Insert: {
+          at?: string
+          caller: string
+          fn: string
+          idempotency_key: string
+          result?: Json | null
+        }
+        Update: {
+          at?: string
+          caller?: string
+          fn?: string
+          idempotency_key?: string
+          result?: Json | null
+        }
+        Relationships: []
+      }
       secrets: {
         Row: {
           name: string
@@ -131,6 +155,7 @@ export type Database = {
       apply_discount: {
         Args: {
           p_device_id?: string
+          p_idempotency_key?: string
           p_kind: Database["public"]["Enums"]["adjustment_kind"]
           p_order_item_id?: string
           p_pin: string
@@ -208,6 +233,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_replay: { Args: { p_fn: string; p_key: string }; Returns: Json }
       close_day: {
         Args: {
           p_card_batch_iqd?: number
@@ -280,6 +306,10 @@ export type Database = {
       finalize_count: {
         Args: { p_count_id: string; p_device_id?: string; p_lines?: Json }
         Returns: Json
+      }
+      finish_replay: {
+        Args: { p_key: string; p_result: Json }
+        Returns: undefined
       }
       flag_expired_batches: { Args: never; Returns: undefined }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
@@ -402,6 +432,7 @@ export type Database = {
       override_price: {
         Args: {
           p_device_id?: string
+          p_idempotency_key?: string
           p_new_unit_price_iqd: number
           p_order_item_id: string
           p_pin: string
@@ -416,6 +447,7 @@ export type Database = {
           rule_id: string
         }[]
       }
+      push_nudge: { Args: never; Returns: undefined }
       raise_waiter_call: {
         Args: { p_reason: Database["public"]["Enums"]["waiter_call_reason"] }
         Returns: Json
@@ -441,6 +473,7 @@ export type Database = {
       record_waste: {
         Args: {
           p_device_id?: string
+          p_idempotency_key?: string
           p_ingredient_id: string
           p_movement_type?: Database["public"]["Enums"]["movement_type"]
           p_qty: number
@@ -3179,6 +3212,8 @@ export type Database = {
           heartbeat_stale_seconds: number
           hold_ttl_seconds: number
           id: boolean
+          max_booking_horizon_days: number
+          max_live_holds_per_guest: number
           opening_hours: Json
           phone: string | null
           protected_horizon_hours: number
@@ -3197,6 +3232,8 @@ export type Database = {
           heartbeat_stale_seconds?: number
           hold_ttl_seconds?: number
           id?: boolean
+          max_booking_horizon_days?: number
+          max_live_holds_per_guest?: number
           opening_hours: Json
           phone?: string | null
           protected_horizon_hours?: number
@@ -3215,6 +3252,8 @@ export type Database = {
           heartbeat_stale_seconds?: number
           hold_ttl_seconds?: number
           id?: boolean
+          max_booking_horizon_days?: number
+          max_live_holds_per_guest?: number
           opening_hours?: Json
           phone?: string | null
           protected_horizon_hours?: number
@@ -3583,6 +3622,7 @@ export type Database = {
           cancellation_window_hours: number | null
           closed_dates: string[] | null
           currency: string | null
+          max_booking_horizon_days: number | null
           opening_hours: Json | null
           phone: string | null
           protected_horizon_hours: number | null
@@ -3594,6 +3634,7 @@ export type Database = {
           cancellation_window_hours?: number | null
           closed_dates?: string[] | null
           currency?: string | null
+          max_booking_horizon_days?: number | null
           opening_hours?: Json | null
           phone?: string | null
           protected_horizon_hours?: number | null
@@ -3605,6 +3646,7 @@ export type Database = {
           cancellation_window_hours?: number | null
           closed_dates?: string[] | null
           currency?: string | null
+          max_booking_horizon_days?: number | null
           opening_hours?: Json | null
           phone?: string | null
           protected_horizon_hours?: number | null

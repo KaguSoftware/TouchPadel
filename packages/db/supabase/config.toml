@@ -21,7 +21,7 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+major_version = 17
 
 [studio]
 enabled = true
@@ -73,8 +73,8 @@ enable_confirmations = true
 enabled = false
 
 # Edge functions — verify_jwt declared here so `supabase functions deploy`
-# applies it without remembering --no-verify-jwt. replay / send-push keep the
-# default (true) and are not listed.
+# applies it without remembering --no-verify-jwt. Every function is listed: relying
+# on the platform default is one silent redeploy away from being wrong (0048).
 [functions.telegram-callback]
 verify_jwt = false                          # Telegram carries no Supabase JWT; secret_token header is the auth
 [functions.telegram-send]
@@ -83,3 +83,7 @@ verify_jwt = true                           # pg_net posts with the service-role
 verify_jwt = true
 [functions.analytics-insights]
 verify_jwt = true
+[functions.replay]
+verify_jwt = true                           # staff session JWT; the body then re-checks the staff row
+[functions.send-push]
+verify_jwt = true                           # cron/pg_net posts with the service-role JWT

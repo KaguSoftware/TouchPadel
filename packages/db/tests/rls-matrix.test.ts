@@ -43,7 +43,7 @@ function isPermissionDenied(error: PgError): boolean {
 function isGuarded(error: PgError): boolean {
   // SESSION_EXPIRED joins in drop 2: guest-session-bound RPCs refuse callers
   // without a live table session at the guard layer (0014 touch_guest_session).
-  return !!error && /(FORBIDDEN|AUTH_REQUIRED|SESSION_EXPIRED)/.test(error.message);
+  return !!error && /(FORBIDDEN|AUTH_REQUIRED|ACCOUNT_REQUIRED|SESSION_EXPIRED)/.test(error.message);
 }
 
 /** update/delete need a PostgREST filter; harmless per-table primary-key filters. */

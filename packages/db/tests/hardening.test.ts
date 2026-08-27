@@ -79,7 +79,7 @@ describe.skipIf(!up)('hardening fixes (0026)', () => {
       const start = `${closed}T09:00:00Z`;
       const end = `${closed}T10:00:00Z`;
 
-      const guest = await anonymousSessionClient();
+      const guest = await guestClient(svc, 'closed-date');
       const hold = await appRpc(guest, 'hold_slot', {
         p_court_id: courtId,
         p_start_at: start,
@@ -116,7 +116,7 @@ describe.skipIf(!up)('hardening fixes (0026)', () => {
 
   it('OUTSIDE_HOURS: starts after close / ends past close refused; ending AT close allowed', async () => {
     const d = isoDatePlus(41);
-    const guest = await anonymousSessionClient();
+    const guest = await guestClient(svc, 'outside-hours');
 
     // 20:30 UTC = 23:30 local — starts after closing.
     const late = await appRpc(guest, 'hold_slot', {

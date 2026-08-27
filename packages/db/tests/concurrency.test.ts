@@ -12,7 +12,7 @@ import {
   stackAvailable,
   serviceClient,
   signedInClient,
-  anonymousSessionClient,
+  guestClient,
   appRpc,
   createTestCourt,
   ensureTestRateRule,
@@ -43,7 +43,7 @@ describe.skipIf(!up)('booking concurrency (contractual acceptance suite)', () =>
   });
 
   async function guests(n: number): Promise<SupabaseClient[]> {
-    return Promise.all(Array.from({ length: n }, () => anonymousSessionClient()));
+    return Promise.all(Array.from({ length: n }, (_, i) => guestClient(svc, `conc${i}`)));
   }
 
   it('case 1: N=20 simultaneous hold_slot on one slot -> exactly 1 wins, 19 SLOT_TAKEN', async () => {

@@ -1,5 +1,42 @@
 # Padel Booking Backend — Adversarial Audit (2026-08-27)
 
+> **STATUS (2026-08-27, later the same day): C1 and H1-H5 are FIXED and pushed.**
+>
+> Migrations `20260827000048_booking_hardening.sql` and
+> `20260827000049_replay_idempotency.sql` implement fix-order items 1, 2, 3, 4 and 7
+> and are applied to the linked project `lczijabnorujcgmbuqlw`. Verified live against
+> that project: an anonymous session calling `hold_slot` now returns `ACCOUNT_REQUIRED`,
+> the exact call this document reproduces as succeeding.
+>
+> | Finding | State | Where |
+> |---|---|---|
+> | C1 anonymous hold | fixed — `ACCOUNT_REQUIRED`, live-hold cap, booking horizon, audit row | 0048 |
+> | H1 no re-pricing on move/extend | fixed — `price_slot` re-resolved; manual overrides preserved | 0048 |
+> | H2 no re-validation on move/extend | fixed — `assert_bookable` called | 0048 |
+> | H3 idempotency read oracle | fixed — caller-scoped, `IDEMPOTENCY_CONFLICT` | 0048 |
+> | H4 overnight rate rule divergence | fixed — `check (start_time < end_time)` + RPC guard | 0048 |
+> | H5 lock-the-peeked-court | fixed — court re-checked after `FOR UPDATE`, raises `40001` | 0048 |
+> | M1-M8 | **still open** — deliberately out of scope for this pass | — |
+>
+> Also closed here, found while fixing the above:
+> * `app.pin_attempts` was the only table without RLS (not client-reachable — its
+>   sole grant is to `service_role` — so a missing layer, not an open hole). 0048.
+> * `send-push` and `replay` had **never been deployed** to the project, so
+>   `notification_outbox` had never been drained. Deployed; the cron that drives
+>   the sender now lives in 0048 instead of only in prose (README:100-119).
+> * The offline `replay` path could apply `apply_discount`, `override_price` and
+>   `record_waste` **twice**. 0049.
+>
+> Both CI guards that blessed C1 were the reason it shipped, and both now fail on it:
+> `check:authz` no longer exempts `hold_slot` and probes ownership with two real
+> principals; `check:locks` understands `app.lock_court` and no longer reads SQL
+> comments as code. Regression suites: `tests/booking-hardening.test.ts`,
+> `tests/replay-idempotency.test.ts`.
+>
+> **The findings below are left exactly as written.** They record what was true when
+> the audit ran, which is what makes the reproductions checkable.
+
+
 ## Scope and method
 
 The cafe backend has had **two** adversarial passes (17 defects in `01057bb`, 6 more in `e273b6c`).
@@ -450,7 +487,9 @@ gets a generic error for the two guards 0026 exists to add.
 
 ## Recommended fix order
 
-Reported for decision; nothing below was implemented.
+Reported for decision. **Items 1, 2, 3, 4 and 7 were implemented in migrations 0048/0049 —
+see the STATUS block at the top of this file.** Items 5, 6, 8 (partially), 9 and 10 remain open;
+item 8 is done for both guard scripts.
 
 | # | Work | Why first | Size |
 |---|---|---|---|

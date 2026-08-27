@@ -37,7 +37,7 @@ export type WriteExpectation = 'allowed' | 'denied';
  *  - 'execute' — grant admits the call; it may still fail business validation
  *                (anything except permission-denied / role-guard)
  *  - 'guarded' — grant admits the call but the in-function role/auth guard
- *                raises FORBIDDEN / AUTH_REQUIRED
+ *                raises FORBIDDEN / AUTH_REQUIRED / ACCOUNT_REQUIRED
  *  - 'denied'  — no EXECUTE grant: permission denied (42501)
  */
 export type RpcExpectation = 'execute' | 'guarded' | 'denied';
@@ -298,8 +298,14 @@ export const matrix: MatrixRule[] = [
     schema: 'app',
     name: 'hold_slot',
     args: { p_court_id: NIL_UUID, p_start_at: FUTURE, p_duration_min: 60 },
-    expect: ex<RpcExpectation>('execute', { anon: 'denied' }),
-    note: 'any authenticated principal may hold; validation then rejects the nil court',
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note:
+      'CRITICAL (0048/C1): an ACCOUNT is required. This row previously read ' +
+      '"any authenticated principal may hold" and that is exactly how C1 shipped: ' +
+      'a Supabase anonymous sign-in IS `authenticated`, so it held courts under ' +
+      'guest_id = NULL -- unreadable, unconfirmable and uncancellable by its own ' +
+      'creator, yet still occupying the exclusion constraint against real guests. ' +
+      'Anonymous sessions are cafe guests; they never book courts.',
     drop: 1,
   },
   {

@@ -99,6 +99,18 @@ Secrets: both functions use only the platform-injected `SUPABASE_URL` /
 
 ### Cron for send-push
 
+**Since migration 0048 this is scheduled by the migration itself** (`tp_push_sweep`,
+every minute, calling `app.push_nudge()`), so there is nothing to do by hand. It was a
+manual step living only in this README until 2026-08-27, which is exactly why it was
+never run on the hosted project and no booking notification had ever sent.
+
+`app.push_nudge()` reads `functions_base_url` and `service_role_key` through
+`app.secret()` (Vault first, `app.secrets` fallback) — the same indirection
+`app.telegram_nudge` uses, so no migration references a project ref. **Set both
+secrets or the sender stays a no-op**; see `supabase/functions/SETUP-telegram.md`.
+
+The SQL below is kept for reference / manual re-scheduling:
+
 The sender is pull-based: nothing sends until something invokes it. Schedule it
 every minute (Dashboard → Integrations → Cron, or SQL with pg_cron + pg_net):
 

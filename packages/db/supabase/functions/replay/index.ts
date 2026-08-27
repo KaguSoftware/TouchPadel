@@ -164,7 +164,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
           p_new_unit_price_iqd: p?.newUnitPriceIqd,
           p_pin: p?.pin,
           p_reason_code: p?.reasonCode,
-          p_device_id: c.stationId,
+          ...common(c),        // 0049: was p_device_id only -- a replay re-overrode
         }),
       };
     }
@@ -178,13 +178,15 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
         p_pin: p?.pin,
         p_reason_code: p?.reasonCode,
         p_order_item_id: p?.orderItemId ?? null,
-        p_device_id: c.stationId,
+        ...common(c),          // 0049: was p_device_id only -- a replay discounted twice
       }),
     };
   },
   'waiter_call.action': (p) => ({
     rpc: p?.action === 'resolve' ? 'resolve_waiter_call' : 'ack_waiter_call',
     entity: 'waiter_call',
+    // Transition-idempotent (app.waiter_call_transition, 0032:648 "idempotent
+    // double-tap" -> {duplicate:true}), so it needs no key -- audited in 0049.
     args: () => ({ p_call_id: p.callId }),
   }),
   'stock.waste': (p, c) => ({
@@ -195,7 +197,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_qty: p?.qty,
       p_movement_type: p?.movementType ?? 'waste_spill',
       p_reason_code: p?.reasonCode ?? null,
-      p_device_id: c.stationId,
+      ...common(c),            // 0049: was p_device_id only -- a replay deducted stock twice
     }),
   }),
 };

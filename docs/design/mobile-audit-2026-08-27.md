@@ -513,6 +513,21 @@ trigger broadcasts `slot_changed` and other guests see the slot free immediately
 
 ### 7.3 `send-push` was never deployed, and its cron was never scheduled
 
+> **RESOLVED 2026-08-27.** Both functions are deployed to `lczijabnorujcgmbuqlw`
+> (`supabase functions list` now returns 6, with `verify_jwt = true` on each), and the
+> sender cron moved out of prose into migration `20260827000048` as `tp_push_sweep`,
+> alongside `app.push_nudge()` — which resolves the base URL and service-role key
+> through `app.secret()` exactly as `app.telegram_nudge` does, so no migration
+> references a project ref. `config.toml` now declares `verify_jwt` for every
+> function rather than relying on the platform default.
+>
+> Still to confirm by hand: that `tp_hold_sweep`, `tp_degraded_sweep` and
+> `tp_expiry_flagging` actually registered back on 2026-08-24. Their `cron.schedule`
+> calls sit inside a `DO` block that swallows a missing extension with `raise notice`,
+> so if pg_cron was enabled AFTER migration 0021 applied they were silently skipped
+> and holds never expire. `pg_dump` cannot show `cron.job` (extension-owned), so run
+> `select jobname, schedule, active from cron.job;` in Studio — expect 6 rows.
+
 `HANDOFF.md` Day-3 records *"All four edge functions deployed"* and names them:
 `telegram-send`, `telegram-callback`, `analytics-posthog`, `analytics-insights`.
 **`send-push` is not among them** — nor is `replay`.
