@@ -196,6 +196,38 @@ surface was built out. Full audit: `docs/design/mobile-audit-2026-08-27.md`. Hea
 Target is **Expo SDK 54** — deliberately, because Expo Go on the Apple App Store stops at SDK 54, so
 it is the highest SDK that keeps the Expo Go loop alive on a physical iPhone. (Latest is 57.)
 
+## Day 4 (2026-08-27) — the padel booking backend was audited too
+
+The cafe backend had two adversarial passes; the **booking** backend — the contract's #1 technical
+promise — had had one reactive fix and no audit. Full report with reproductions:
+`docs/design/padel-backend-audit-2026-08-27.md`. **Report-only; nothing was fixed.**
+
+Every finding was **reproduced against the live local stack**, not inferred. Headlines:
+
+- **CRITICAL: an anonymous session can block any court.** Anonymous users get no `profiles` row, so
+  `hold_slot` writes `guest_id = NULL` — and then the holder cannot read, confirm or cancel their own
+  hold (`FORBIDDEN` from `guest_id is distinct from uid`), while the row still sits in the exclusion
+  constraint. Reproduced: a real guest hitting that slot gets `SLOT_TAKEN`; **one anonymous identity
+  took 12/12 holds in 127 ms**; zero audit rows. No quota, no rate limit, no booking horizon.
+- **Real money: `move`/`extend` never re-price.** Reproduced: moving a booking off-peak → peak keeps
+  40 000 instead of 60 000; extending 60 → 90 min keeps 40 000 instead of 55 000. Both are one-click
+  desk buttons. They also **bypass `assert_bookable` entirely** — reproduced moving a booking to
+  00:00 local and extending onto a `closed_dates` day, while *creating* on that same closed date is
+  correctly refused.
+- **Cross-principal read oracle.** The booking RPCs never got 0038's caller-scoped idempotency fix.
+  Reproduced: guest B supplied guest A's key on a different court and received A's `reservation_id`
+  and `status` — while a direct table read by B correctly returns 0 rows.
+- **Quote ≠ charge.** An overnight rate rule (creatable — `rate_rules` has **zero CHECK
+  constraints**) is *wrapped* by SQL and *refused* by `@touch/core`. Reproduced on the same slot and
+  data: SQL charges **90 000**, the app shows **60 000**.
+- **A future paid booking can be silently resold**: `mark_reservation` has no temporal guard.
+  Reproduced on a booking 556 days out, then re-held by another guest. The guest is never told.
+
+**Good news, and it matters:** the contractual guest journey (account sign-up → hold → confirm →
+cancel) **works end to end** — it has simply never been executed by the test suite, which uses
+anonymous sessions throughout and routes the confirm through the desk client to work *around* the
+NULL-guest bug rather than failing on it.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -260,9 +292,32 @@ it is the highest SDK that keeps the Expo Go loop alive on a physical iPhone. (L
 | Payments | Desk only (cash/card recorded; terminal separate) | Online payment | Later phase (SOW) |
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
+| Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
 | Mobile app | Functional wireframe on fixture data; booking logic solid, presentation and release plumbing absent | Native UI on SDK 54, push, profile, account deletion, Sentry, store build | Roadmap 6 (by 2026-09-16) |
 
 ## Gotchas / open issues
+- **PADEL BACKEND: an anonymous session can block any court** (audit 2026-08-27, reproduced).
+  Anonymous users have no `profiles` row, so `hold_slot` writes `guest_id = NULL`; the holder then
+  cannot confirm or cancel it, but the row still occupies the exclusion constraint. Unlimited
+  anonymous signup + no hold quota + no booking horizon = a repeatable denial primitive, with no
+  audit row to attribute it. **Every guard blesses it**: `rls-matrix.ts:301` expects it to succeed
+  and `check-rpc-authz.mjs:48` exempts `hold_slot` under `PUBLIC_BY_DESIGN`.
+- **PADEL BACKEND: `move_reservation`/`extend_reservation` neither re-price nor re-validate**
+  (reproduced). Off-peak → peak keeps the off-peak price *and* the off-peak `rate_rule_id`; extend
+  60→90 keeps the 60-min price; both bypass `assert_bookable`, so a booking can be moved past
+  closing or extended onto a closed date. Creating on a closed date is correctly refused — the guard
+  exists, it is just absent from the mutate paths.
+- **PADEL BACKEND: an overnight rate rule diverges SQL from `@touch/core`** (reproduced: SQL charges
+  90 000, the app displays 60 000). `rate_rules` has **zero CHECK constraints**, so
+  `start_time > end_time` is creatable; SQL wraps such a window, `rateRules.ts:79` refuses it. Pick
+  one semantic before a rate is ever configured that way.
+- **PADEL BACKEND: the account-guest journey has never been executed by any test.** It *works* —
+  verified 2026-08-27 — but every padel test uses anonymous sessions, and `concurrency.test.ts:197`
+  routes the confirm through the desk client to dodge the NULL-guest `FORBIDDEN`. There is no
+  happy-path `confirm_booking` test at all.
+- **`check:locks` cannot see advisory locks.** Its detector matches only `FOR UPDATE` and `app.x(`
+  calls, so 0042's entire `pg_advisory_xact_lock` fix — including the cross-court
+  `least()/greatest()` ordering — is unguarded by the guard CI runs to protect it.
 - **MOBILE: `send-push` was never deployed and its cron was never scheduled.** Day 3 records "all
   four edge functions deployed" and names `telegram-send`, `telegram-callback`, `analytics-posthog`,
   `analytics-insights` — **`send-push` and `replay` are not among them**. The every-minute cron is a
