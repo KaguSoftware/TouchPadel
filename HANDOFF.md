@@ -52,7 +52,8 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - All operator writes go through IPC → SQLite queue → replay (single write path, online too).
 - Writes to business tables are RPC-only (`SECURITY DEFINER` in schema `app`); RLS is the backstop.
 - Bilingual content = paired `_en` / `_ar` columns (not jsonb). CSS logical properties only
-  (lint-enforced); every demo runs once in Arabic.
+  (**NOT lint-enforced — see Day 4**: the preset exists at `packages/config/src/eslint.js` but no
+  package consumes it); every demo runs once in Arabic.
 - Fonts: brand faces are **Next Art** (Latin) + **Frutiger LT Arabic** — commercial, files not yet
   in hand; free stand-ins live behind tokens in `packages/ui` (one-line swap later).
 - **Mobile native-feel rule (owner, 2026-08-24):** if it can look/behave native in React Native, it
@@ -169,6 +170,32 @@ Every external account was created and wired. **Telegram, PostHog and Groq are n
 the button write-back (tap → `telegram_apply_action` → KDS status flip) is deployed but untested
 against the hosted project.
 
+## Day 4 (2026-08-27) — the mobile app was audited, and it is the weak link
+
+`apps/mobile` had **zero commits since 2026-08-24** while the DB went 0026 → 0047 and every other
+surface was built out. Full audit: `docs/design/mobile-audit-2026-08-27.md`. Headlines:
+
+- **A confirmed crash on the money path.** `ulid@2.4.0` has no CSPRNG under Hermes: no
+  `window.crypto`, Expo's winter runtime does not polyfill `getRandomValues`, and ulid's `browser`
+  field redirects `crypto` to a **0-byte stub**. `detectPrng()` therefore succeeds at module-init and
+  throws `TypeError` on the first id — i.e. **on every slot hold**. The unit tests pass because
+  `vitest.config.ts` sets `environment: 'node'`, where `require('crypto')` is real.
+- **Push is dead on three independent counts** (see Gotchas). Fixing only the client changes nothing.
+- **Account deletion is FK-blocked**, not merely unbuilt (see Gotchas). Apple 5.1.1(v) auto-rejects.
+- **Two of five auth flows cannot complete on a device** — password reset and email verification both
+  redirect to `localhost:3000` and there is zero `Linking`/`exchangeCodeForSession` code anywhere.
+- **The native-feel rule is violated wholesale**: zero `Tabs`, `Switch`, `Platform.`, `Haptics`,
+  `RefreshControl`, SafeArea, `Image`, `KeyboardAvoidingView`, `accessibilityLabel`. Navigation
+  between Courts / Bookings / Settings is two `<Button>`s at the bottom of the court list.
+- **Nothing can be built**: `eas init` has never run, there is no `assets/` directory at all, and every
+  `eas.json` env value is a `REPLACE_*` placeholder.
+- **`pnpm turbo lint` is a green no-op across the whole monorepo** — no package defines a `lint`
+  script and no `eslint.config.*` exists, despite `packages/config/src/eslint.js` shipping a complete
+  preset *including the RTL logical-properties guard this file claims is enforced*.
+
+Target is **Expo SDK 54** — deliberately, because Expo Go on the Apple App Store stops at SDK 54, so
+it is the highest SDK that keeps the Expo Go loop alive on a physical iPhone. (Latest is 57.)
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -201,20 +228,23 @@ against the hosted project.
    + `pnpm e2e` (29/29, EN + AR). **The cafe slice is code-complete locally.**
 4. ✔ DONE 2026-08-27 — **Owner setup**: Telegram bot + staff group + webhook secret, PostHog EU
    project, Groq key. **Still outstanding from this step:** the real domain (blocked on the client,
-   see step 7) and the official Touch Cafe logo files.
+   see step 8) and the official Touch Cafe logo files.
 5. ✔ DONE — **Hosted rollout**: 0027–0035 pushed 2026-08-25; **0036–0043 pushed 2026-08-27**;
    secrets set, all four functions deployed, Vault + `pg_net`/`pg_cron` confirmed, Telegram webhook
    registered, Vercel env set and redeployed without build cache.
-6. **← ACTIVE — real data over fixtures.** The `staff` table still holds only `Dev` seed rows, so
+6. **← ACTIVE — the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). Day-zero unblocks
+   first (`eas init`, Play account type, Apple team id, real EAS env), then the crash fix + SDK 54,
+   then the native-UI rebuild and the four backend gaps. Store submission Wed 2026-09-16.
+7. **Real data over fixtures.** The `staff` table still holds only `Dev` seed rows, so
    the Telegram allowlist currently points at `Dev Owner`. Create the venue's real staff, repoint
    the allowlist in the same session, and rotate the seeded dev PINs. Then place a live order and
    tap a Telegram button to prove the write-back path end to end.
-7. **Blocked on the client — domain.** `touchpadel.com` is taken (aftermarket, ~$65k);
+8. **Blocked on the client — domain.** `touchpadel.com` is taken (aftermarket, ~$65k);
    `touchpadel.iq` is restricted; `touchpadel.com.iq` is available at ~$330/yr; a short `.com`
    variant would be ~$15/yr. Brand decision, Mustafa's call. Until it exists, QR table cards
    **cannot be printed** — the operator refuses rather than print a `vercel.app` URL onto physical
    cards. Then set `NEXT_PUBLIC_SITE_URL` (Vercel) + `VITE_GUEST_SITE_URL` (each station).
-8. Then back to the pre-cafe roadmap: stock UI, staff-admin RPC+UI, court records admin, week
+9. Then back to the pre-cafe roadmap: stock UI, staff-admin RPC+UI, court records admin, week
    calendar view, split-by-item/refund/override UIs, audit-log viewer, Sentry, short-lived till
    sessions, Electron queue wiring + LAN KDS, printing pipeline. Store submission Wed 2026-09-16.
 
@@ -230,8 +260,38 @@ against the hosted project.
 | Payments | Desk only (cash/card recorded; terminal separate) | Online payment | Later phase (SOW) |
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
+| Mobile app | Functional wireframe on fixture data; booking logic solid, presentation and release plumbing absent | Native UI on SDK 54, push, profile, account deletion, Sentry, store build | Roadmap 6 (by 2026-09-16) |
 
 ## Gotchas / open issues
+- **MOBILE: `send-push` was never deployed and its cron was never scheduled.** Day 3 records "all
+  four edge functions deployed" and names `telegram-send`, `telegram-callback`, `analytics-posthog`,
+  `analytics-insights` — **`send-push` and `replay` are not among them**. The every-minute cron is a
+  manual deploy step (`packages/db/README.md:100-108`, restated at `0024:164-167`) and was never run.
+  Combined with the client never obtaining a token (no `projectId` passed to
+  `getExpoPushTokenAsync()`, inside a `catch` that discards the error), push fails on **three**
+  independent counts. Verify with `select jobname, schedule, active from cron.job;` and
+  `supabase functions list --linked`.
+- **MOBILE: account deletion is blocked by a foreign key, not just missing UI.**
+  `profiles.id references auth.users(id) on delete cascade` (0004:9) but
+  `reservations.guest_id references profiles(id)` has **no on-delete clause** (0008:21), so
+  `auth.admin.deleteUser()` raises a FK violation for any guest who has ever booked. And
+  `check (kind <> 'booking' or (guest_id is not null or guest_name is not null))` (0008:38) means the
+  column cannot simply be nulled — the RPC must snapshot `full_name`/`phone` into
+  `guest_name`/`guest_phone` first. **A migration is mandatory.** Apple 5.1.1(v) is an automatic
+  rejection without this.
+- **MOBILE: `cancel_reservation` cannot release a hold.** Non-staff callers hit the
+  `cancellation_window_hours` guard (0008:600-605, default 12 h), so releasing a hold for tonight
+  raises `CANCELLATION_WINDOW`. Abandoning the confirm screen therefore blocks the slot for the full
+  `hold_ttl_seconds` for every other guest. Needs a new `app.release_hold()`.
+- **Google Play: the 12-testers/14-days rule applies ONLY to *personal* accounts created after
+  2023-11-13; organization accounts are exempt** — but org accounts need a D-U-N-S number, which
+  averages 4–8 weeks. Whether Kagu already holds a D-U-N-S decides whether Android can make
+  2026-09-16 at all. The contractual escape hatch is SOW L789-790: acceptance is on **submission of
+  a working build**, and an internal-track upload qualifies.
+- **Push notifications do not work in Expo Go on SDK 53+.** All push verification needs an EAS
+  development build — budget device time, do not discover this in week 4.
+- **`apps/mobile/.env` points at the HOSTED project, not `127.0.0.1:54321`**, contradicting its own
+  `.env.example` header. `pnpm --filter @touch/mobile dev` writes to the client's database.
 - **Analytics + PostHog are OUT of the signed SOW** (scope lines 148–150, 410). They are shipped as
   a vendor addition on the owner's instruction — never let acceptance hinge on them.
 - **Local test flakiness is a connection-pool symptom, not a code bug.** If DB suites fail with
