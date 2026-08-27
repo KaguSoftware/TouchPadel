@@ -10,9 +10,15 @@ rates, fonts, hardware) and
 cleanly when its key is absent — the menu, ordering, KDS, till and day-close all work today without a
 single one of them. What you lose is listed per service under *"What breaks without it"*.
 
-Status as of **2026-08-25**: none of these are configured. The hosted database is fully migrated
-(0027–0035), but the edge functions are **not deployed** yet, so Telegram, PostHog and Groq are all
-dormant regardless.
+Status as of **2026-08-27**: **items 1–6 are done.** The hosted database is migrated to 0043, all
+five secrets are set, all four edge functions are deployed, the Telegram webhook is registered and
+the PostHog key is live in the shipped Vercel bundle. Telegram, PostHog and Groq are no longer
+dormant.
+
+Two things remain. **#7, the domain**, is blocked on the client and is the only item still gating a
+feature (printing QR table cards). And the `staff` table on the hosted project still holds only
+`Dev` seed rows, so the Telegram allowlist points at `Dev Owner` and must be repointed once real
+staff exist. Sections 1–6 below are kept as the reference for re-doing any of this on a new project.
 
 ---
 
@@ -197,7 +203,27 @@ Currently live at `touch-padel-web.vercel.app`, which is fine for testing and wr
 
 ---
 
-## 8. Already provisioned — for reference
+## 8. Which account owns what
+
+Verified 2026-08-26. The project spans four separate identities — check this table before
+concluding an account "has no access", and note that three of these are **Kagu** accounts holding
+client production data, which has to be resolved at handover.
+
+| Service | Account / owner | Identifier |
+|---|---|---|
+| GitHub | org **KaguSoftware**, repo `TouchPadel` | admin `ParSaMnSS` (parsaxavier@gmail.com) |
+| Supabase | org **touch padel** (`knajulxwjmkypzvgybpb`) | project `lczijabnorujcgmbuqlw`, `eu-central-1` — **not** visible to parsamanes@yahoo.com |
+| Vercel | team **BAU ENG's projects**, slug `bau-engs-projects` | project `touch-padel-web`; `bauseengineers-7480` is **not** a valid slug |
+| PostHog | bau.se.engineers@gmail.com | project `touch-padel` — region unverified, must be EU |
+
+The Supabase CLI on the dev machine is already authenticated against the project
+(`pnpm exec supabase projects list` shows it linked), and `packages/db/.env.remote` holds the
+service-role key locally — so CLI work does not need a dashboard login. The **database password is
+stored nowhere in the repo**; `supabase/.temp/pooler-url` contains the user and host only.
+
+---
+
+## 9. Already provisioned — for reference
 
 Nothing needed from you here; recorded so nobody re-creates them by accident.
 
