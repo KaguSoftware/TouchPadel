@@ -91,6 +91,15 @@ jobs:
         working-directory: packages/db
         run: supabase db reset
 
+      # The authz sweep's ownership stage cannot be static: it has to hold a real
+      # slot as one account and prove a second account can neither confirm, cancel
+      # nor read it (the C1/H3 class). That needs an active court, and courts live
+      # only in fixtures/courts.sql — `db reset` does not load them. Without this
+      # the stage refuses to report a pass and exits 1, so those seven ownership
+      # assertions were never actually running here.
+      - name: Load fixtures
+        run: pnpm db:fixtures
+
       # Structural guard for the 0038/0044 lock order. Catches an inverted or a
       # missing lock by walking the pg_proc call graph (helpers and triggers
       # included) - the two 0043 money defects were both invisible to race tests,
