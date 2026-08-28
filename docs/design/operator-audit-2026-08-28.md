@@ -9,8 +9,9 @@ inferred from the design docs; where a design doc and the code disagree, the cod
 The contract text is `docs/scope/touch-padel-phase1-scope-of-work.txt` and every `L…` reference
 points into that file.
 
-**Standing:** report plus a scheduled fix plan. Wave 0 (lint, test harness, CI e2e, this
-document) has landed; nothing else has. See §8.
+**Standing:** report plus a scheduled fix plan. **Waves 0 and 1 have landed** — the gate is
+real, and every High finding except H6 (features whose RPC exists but has no caller) is fixed.
+The three Critical findings are scheduled, not done. See §8 for exactly what changed.
 
 ---
 
@@ -126,7 +127,7 @@ Module-5 acceptance (L509-514) cannot be demonstrated except by typing SQL.
 
 ## 3. High
 
-### H1 — No error boundary and no 404 route, in a kiosk with no menu bar
+### H1 — No error boundary and no 404 route, in a kiosk with no menu bar · **FIXED (wave 1)**
 
 Searching `apps/operator/src` for `ErrorBoundary`, `componentDidCatch`,
 `getDerivedStateFromError`, `errorComponent` or `notFoundComponent` returns **nothing**. The
@@ -137,7 +138,7 @@ window is created with `kiosk: true` and `autoHideMenuBar: true` for till and KD
 it will not recover. A cashier facing a blank kiosk mid-service has no menu, no address bar and
 no way back.
 
-### H2 — Three query cache keys are shared across features with different data
+### H2 — Three query cache keys are shared across features with different data · **FIXED (wave 1)**
 
 One global `QueryClient` (`main.tsx:40`), `staleTime: 10_000`.
 
@@ -152,7 +153,7 @@ One global `QueryClient` (`main.tsx:40`), `staleTime: 10_000`.
 - `['courts']` — `DeskCalendar.tsx:83` (5 columns including `sort_order`) versus
   `RateRuleEditor.tsx:48` (4 columns). The desk grid's ordering field can vanish from under it.
 
-### H3 — A reorder can silently revert another manager's edit
+### H3 — A reorder can silently revert another manager's edit · **FIXED (wave 1, migration 0050)**
 
 `features/admin/menu/MenuEditor.tsx:61` and `menu/CategoryEditor.tsx:180` implement the ▲▼
 buttons by calling `upsert_menu_item` / `upsert_menu_category` with the **entire row rebuilt
@@ -161,7 +162,7 @@ from the local React Query cache** (`itemUpsertArgs`; `photo.ts:32-59` shows the
 `p_tax_group_id`). If a colleague edited that item since this client last fetched, moving it one
 position up reverts their edit — no warning, no conflict.
 
-### H4 — Multi-write saves are neither atomic nor resumable
+### H4 — Multi-write saves are neither atomic nor resumable · **FIXED (wave 1, migration 0050)**
 
 - `features/admin/hero/HeroBuilder.tsx:190` — `for (const write of writes) await
   setSetting.mutateAsync(write);` with no rollback. A mid-loop failure leaves the guest hero
@@ -169,7 +170,7 @@ position up reverts their edit — no warning, no conflict.
 - `features/admin/qr/QrPage.tsx:91-94` — token rotation in a loop. A failure at table 7 of 20
   leaves **seven printed QR cards dead and thirteen live**, with nothing on screen saying which.
 
-### H5 — Electron: nothing constrains navigation, and `openExternal` takes any string
+### H5 — Electron: nothing constrains navigation, and `openExternal` takes any string · **FIXED (wave 1)**
 
 `operator-shell/src/main/index.ts` has no `will-navigate` or `will-redirect` handler, so a
 renderer compromise or a stray `location.href` can navigate the window to arbitrary remote
@@ -224,23 +225,23 @@ drinks in one payment" (L131, L445-446) produces a bill with the court missing.
   `extend_reservation` and `mark_reservation` write audit rows with no reason code, against L313
   ("Every override written to the audit log with actor and reason"). Only cancel takes one.
   `set_staff_pin` writes no audit row at all.
-- **M4 — Silent localhost fallback.** `lib/supabase.ts:10-15` falls back to `127.0.0.1:54321`
+- **M4 (FIXED, wave 1) — Silent localhost fallback.** `lib/supabase.ts:10-15` falls back to `127.0.0.1:54321`
   plus the well-known demo anon JWT when `VITE_SUPABASE_URL` is unset. A packaged build with a
   missing variable boots pointed at localhost and merely looks "offline".
-- **M5 — Guarding renders a paragraph instead of redirecting.** `RequireRole`
+- **M5 (PARTLY FIXED, wave 1) — Guarding renders a paragraph instead of redirecting.** `RequireRole`
   (`routes/__root.tsx:176-183`) runs inside `component`, not `beforeLoad`, so a cashier typing
   `/analytics` downloads the entire Recharts chunk before being told no. Two further role checks
   live outside the matrix as inline `staff?.role === 'owner'` (`settings/CafeSettings.tsx:43`,
   `qr/QrPage.tsx:38`), against L185's "one place to change a permission".
-- **M6 — No polling fallback on `['reservations']` and `['tabs']`.** Tickets, waiter calls, the
+- **M6 (FIXED, wave 1) — No polling fallback on `['reservations']` and `['tabs']`.** Tickets, waiter calls, the
   Telegram outbox and analytics all have one; the desk grid and the till's tab list go stale
   until a manual refresh if a broadcast is missed.
-- **M7 — The covers multiplier disagrees with itself.** The same `localStorage` key is declared
+- **M7 (FIXED, wave 1) — The covers multiplier disagrees with itself.** The same `localStorage` key is declared
   twice: `settings/CafeSettings.tsx:17` defaults to 1, `analytics/useAnalyticsData.ts:59`
   defaults to 2. Until the owner touches the setting once, the settings page says ×1 while the
   dashboard computes ×2. `VENUE_TZ` is likewise re-declared at `useAnalyticsData.ts:55` instead
   of imported from `@touch/i18n`.
-- **M8 — Stale scaffolding that now misleads.** `lib/rpcNames.ts` claims the generated types do
+- **M8 (FIXED, wave 1) — Stale scaffolding that now misleads.** `lib/rpcNames.ts` claims the generated types do
   not carry these names; all 16 are present in `packages/db/src/types.gen.ts`, and 15 of the 16
   constants are unused. `lib/settings.ts:141` keeps a `.from('cafe_settings' as never)` cast for
   the same non-reason. `components/ComingSoon.tsx` has zero importers.
@@ -324,7 +325,7 @@ nsis …`. Running it prints a string and exits 0.
 
 ---
 
-## 8. Landed on 2026-08-28 (Wave 0)
+## 8. Landed on 2026-08-28
 
 - `apps/operator/eslint.config.mjs` and `apps/operator-shell/eslint.config.mjs`, plus a `lint`
   script in each. The RTL guard now runs on the operator and **the existing code is clean** — one
@@ -345,3 +346,87 @@ nsis …`. Running it prints a string and exits 0.
 - The Playwright job is enabled in CI, EN and AR, with trace upload on failure.
 - Gate: `pnpm turbo lint typecheck test` — **18/18 tasks green**, where three of those eighteen
   did not previously exist.
+
+## 9. Landed on 2026-08-28 (Wave 1 — bulletproofing)
+
+No new features. Everything here closes a finding above.
+
+**H1 — the blank kiosk.** A route `errorComponent`, a `notFoundComponent`, and a class
+boundary above the router for the providers and sign-in, all reporting through a new
+`src/lib/telemetry.ts` (the single seam Sentry plugs into in wave 5). Global `error` and
+`unhandledrejection` handlers catch what React cannot — escaped handlers, timers, unawaited
+promises. The panel offers three escapes, cheapest first: re-render the screen, go to the
+role's home screen, restart the app. The stack sits behind a collapsed `<details>` because a
+guest can read this screen over the cashier's shoulder. 7 tests.
+
+**H2 — the cache-key collisions.** `src/lib/queries.ts` now owns every shared key and the
+fetchers behind them: one key, one shape. Where two screens wanted the same rows they share a
+fetcher selecting the union of the columns; where they wanted different rows they have
+different keys (`['cafeTables','active']` vs `['cafeTables','all']`). A test asserts the keys
+stay pairwise distinct and that neither table key prefix-matches the other, since React Query
+invalidates by prefix.
+
+**H3 — reorder was a rewrite.** Migration **0050** adds `app.reorder_menu_items`,
+`app.reorder_menu_categories` and `app.reorder_modifiers`: array position becomes `sort_order`
+in one UPDATE that touches no other column. The set is locked first so two managers serialize,
+a duplicated id is refused rather than tie-broken, an unknown id fails the whole batch, and one
+audit row is written for the batch against the container whose ordering changed. Client-side,
+`reorderPlan` (a sparse write list) became `reorderedIds` (the complete new ordering). The
+regression test edits a row behind the client's back, reorders, and asserts every column except
+`sort_order` is untouched. The add-on options case mattered most: the column being reverted
+there was `price_delta_iqd`.
+
+**H4 — half-configured saves.** 0050 adds `app.set_cafe_settings(jsonb)`, which delegates each
+key to the existing single-key function so the registry lookup, the per-key owner-only rule,
+the validation and the per-key audit row all stay in one place — transactionality, not a second
+authorization path. Tested by pairing a valid key with an invalid one and asserting the valid
+one did not land. QR token rotation cannot be transactional (each rotation is an irreversible
+act against a physical card), so it now runs every table and **names the ones that failed** —
+that list is what tells the operator which cards to reprint.
+
+**H5 — Electron.** `will-navigate` / `will-redirect` pin the top-level frame to the packaged
+renderer (and the dev-server origin in development), so a compromised or merely buggy renderer
+cannot move the window to remote content with `window.touch` still attached. `openExternal` is
+allowlisted to `https:` (plus `http:` in dev). `will-attach-webview` is refused. The
+single-instance lock now actually stops execution and focuses the running station on a second
+launch. All five `ipcMain.handle` callbacks validate their arguments at runtime and return only
+known fields; the patterns mirror `@touch/core` and a test asserts the mirrors are
+byte-identical to the real exports, since the shell is CommonJS and cannot import the ESM-only
+package until it is bundled. 19 + 29 tests.
+
+**M4** — `resolveSupabaseEnv` keeps the demo fallback for `import.meta.env.DEV` and throws in a
+packaged build, naming the missing variable, instead of booting a station against localhost and
+presenting as an outage. **M5** — the four owner-only in-screen controls moved out of inline
+`staff?.role === 'owner'` comparisons into `CAPABILITY_ROLES` + `can()` beside `ROUTE_ROLES`,
+default-deny and tested, so SOW L185 is true of controls as well as routes; `RequireRole` also
+offers a way home rather than a bare sentence. The guard stays render-time on purpose —
+`beforeLoad` runs before the session resolves, and a redirect loop on a kiosk with no address
+bar is worse than the paragraph it replaces. **M6** — polling fallbacks on `reservations` and
+`tabs`. **M7** — one `coversMultiplier` module: one key, one option list (the union of what the
+two pickers offered, so no stored value becomes invalid), one default (2, what the dashboard has
+always computed). **M8** — `appRpcUntyped`, `lib/rpcNames.ts`, `ComingSoon.tsx` and the
+`cafe_settings as never` cast are gone; all sixteen names had been in the generated types for
+days.
+
+**Two e2e failures found while verifying, neither caused by this work:**
+
+- The analytics case needs `supabase functions serve`. Without the edge runtime
+  `analytics-posthog` 404s, `statusToEdgeCode` maps that to `UNKNOWN`, engagement resolves to
+  `error` rather than `unconfigured`, and the sales-only notice never renders. `supabase start`
+  does **not** serve functions, so the CI job added in wave 0 would have failed on it. The job
+  now starts the runtime and waits for it.
+- The Arabic journey asserted the "ordering is not payment" notice in the top bar. It stopped
+  living there in `195b13a`, which restyled the cafe top bar; the notice is in the basket sheet
+  and the footer, and the English journey already asserted the basket copy. Arabic now asserts
+  the same place — both locales check the promise where the guest meets it (L345-352) instead of
+  a placement the product no longer has.
+
+**Gate after wave 1:** `pnpm turbo lint typecheck test` 18/18 · `@touch/db` **279 tests**
+(15 files) · `check:locks` and `check:authz` clean · `pnpm e2e` **29/29 in EN and AR**.
+Operator unit tests 125 → 165; operator-shell 0 → 62.
+
+## 10. Still open
+
+C1 (heartbeat), C2 (the write path and the durable queue) and C3 (module 5) are unchanged, as
+is H6 — `refund`, `override_price`, `merge_tabs`, the audit-log viewer and `manager_alerts`
+still have a working RPC and no caller. Everything in §5 (packaging) is unchanged.

@@ -52,8 +52,8 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - All operator writes go through IPC → SQLite queue → replay (single write path, online too).
 - Writes to business tables are RPC-only (`SECURITY DEFINER` in schema `app`); RLS is the backstop.
 - Bilingual content = paired `_en` / `_ar` columns (not jsonb). CSS logical properties only
-  (lint-enforced **in `apps/mobile` only** as of day 5 — `packages/config/src/eslint.js` is still
-  consumed by no other package); every demo runs once in Arabic.
+  (lint-enforced in `apps/mobile`, `apps/operator` and `apps/operator-shell` as of day 6;
+  `apps/web` and the packages still define no `lint` script); every demo runs once in Arabic.
 - Fonts: brand faces are **Next Art** (Latin) + **Frutiger LT Arabic** — commercial, files not yet
   in hand; free stand-ins live behind tokens in `packages/ui` (one-line swap later).
 - **Mobile native-feel rule (owner, 2026-08-24):** if it can look/behave native in React Native, it
@@ -267,6 +267,58 @@ repo had never run.
 no Sentry in a build, and the native-UI rebuild (tabs, sheets, pickers) — see
 `docs/design/mobile-audit-2026-08-27.md`.
 
+## Day 6 (2026-08-28) — the desktop app: audit, then a real gate, then bulletproofing
+
+`apps/operator` + `apps/operator-shell` are the SOW’s "Operator desktop app" — the only
+deliverable installed on Touch’s own hardware, and the subject of four separate acceptance
+promises. Full audit with file:line evidence for every claim:
+**`docs/design/operator-audit-2026-08-28.md`**. Commits `b7dca19`, `2350694`, `4eab239`.
+
+**The gate was checking almost nothing on this app.** `pnpm turbo lint` was a green no-op for
+both packages (only `apps/mobile` had a lint script, while `packages/config/src/eslint.js`
+shipped the RTL guard the conventions claim is enforced). No React component could be tested at
+all — vitest included only `*.test.ts` under `environment: node`, so 89 `.tsx` files including
+the 1,162-line till had zero unit coverage. `apps/operator-shell` had no `test` script, so
+`turbo test` skipped the SQLite durability layer in silence. And the Playwright suite was
+commented out of CI. All four are fixed; e2e now runs in CI in EN and AR.
+
+**Three critical findings, none of them fixed yet:**
+
+- **The heartbeat has never worked, and fails silently.** `heartbeat.ts:25` POSTs to
+  `/functions/v1/heartbeat` — **that edge function does not exist**; it also sends no auth
+  header, omits `p_is_till`, returns early because `SUPABASE_URL` is never set in a packaged
+  build, and swallows every error. The only writer of `device_heartbeats` in the whole repo is
+  `e2e/tests/helpers.ts:125`. In production the table stays empty, so `app.is_degraded()` is
+  permanently **false** and every guest-write outage guard already wired live is inert. The
+  contract’s most-emphasised safety property does not exist in the shipped product.
+- **The "one write path" is not implemented.** `touch.enqueue` is called **zero times**; the
+  only three bridge call sites are `getStation()`. Every operator write is an online PostgREST
+  round-trip. The shell’s queue has no dequeue, `ack()` is never called, nothing writes
+  `ref_cache` or `pin_cache`, and the sync worker is a comment. The till cannot trade through an
+  outage. The **server** half (`functions/replay/`, two-layer idempotency, 409-on-conflict) is
+  finished and tested.
+- **Module 5 has no UI at all.** `routes/stock.tsx` renders one `<h1>`; there is no
+  `src/features/stock/`. Every RPC and view it needs exists and is called by nothing. `/stock`
+  is a live sidebar link for managers and owners.
+
+**Fixed (wave 1):** no error boundary or 404 route in a kiosk with no menu bar; three
+TanStack Query cache keys shared between features with different filters and column sets (the
+worst put switched-off tables into the till’s new-tab picker); reorder re-sending the whole row
+from the local cache, so an up-arrow silently reverted a colleague’s edit — including a
+price on add-on options; the hero builder’s no-rollback save loop; Electron having no
+`will-navigate` handler, an unfiltered `shell.openExternal`, a single-instance lock that did
+not stop execution, and zero runtime IPC validation; the unconditional localhost fallback; four
+owner-only controls gated by inline role comparisons instead of a matrix; and a covers
+multiplier that three modules disagreed about.
+
+**Migration 0050** (`operator_atomic_writes`) adds `reorder_menu_items` /
+`reorder_menu_categories` / `reorder_modifiers` and `set_cafe_settings(jsonb)`. Local only —
+**not yet pushed to hosted**.
+
+**Gate now:** `turbo lint typecheck test` 18/18 · DB **279** tests · `check:locks` +
+`check:authz` clean · `pnpm e2e` **29/29 EN + AR**. Operator unit tests 125 → 165;
+operator-shell 0 → 62.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -277,6 +329,8 @@ no Sentry in a build, and the native-UI rebuild (tabs, sheets, pickers) — see
   (owner decisions, binding), `context-existing-cafe.md`, `context-operator.md`.
 - `docs/brand/cafe/p01–16.png` — the Touch Cafe brand deck, rendered (blue #3360AB / brown #603813).
 - `docs/scope/touch-padel-phase1-scope-of-work.pdf` — the signed contract (17pp; .txt alongside).
+- **`docs/design/operator-audit-2026-08-28.md`** — the desktop-app audit: 3 critical, 7 high,
+  10 medium, every one with file:line evidence, plus what waves 0 and 1 closed.
 - `docs/design/design-data.md` · `design-arch.md` · `design-delivery.md` · `design-critique.md` ·
   `sow-gap-review-2026-08-24.md`.
 - `docs/client/` — client-facing pack (input checklist, CSV templates, printer spec) — SENT 2026-08-24.
@@ -303,19 +357,26 @@ no Sentry in a build, and the native-UI rebuild (tabs, sheets, pickers) — see
 5. ✔ DONE — **Hosted rollout**: 0027–0035 pushed 2026-08-25; **0036–0043 pushed 2026-08-27**;
    secrets set, all four functions deployed, Vault + `pg_net`/`pg_cron` confirmed, Telegram webhook
    registered, Vercel env set and redeployed without build cache.
-6. **← ACTIVE — the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). Day-zero unblocks
+6. **← ACTIVE — the operator desktop app** (`docs/design/operator-audit-2026-08-28.md`).
+   Waves 0 (real gate) and 1 (bulletproofing) landed 2026-08-28. Next, in the SOW’s own
+   priority order (L893-931): modules 1/2/4 completeness (staff admin, audit viewer, week
+   calendar, court records, closed dates, refund / price override / merge / split-by-item /
+   cash-drawer record, charge-to-booking totals, KDS item-ready persistence), then module 7
+   (heartbeat first — it is cheap and it is a safety property — then the queue and replay),
+   then module 5 (stock UI), then printing and the Windows installer.
+7. **the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). Day-zero unblocks
    first (`eas init`, Play account type, Apple team id, real EAS env), then the crash fix + SDK 54,
    then the native-UI rebuild and the four backend gaps. Store submission Wed 2026-09-16.
-7. **Real data over fixtures.** The `staff` table still holds only `Dev` seed rows, so
+8. **Real data over fixtures.** The `staff` table still holds only `Dev` seed rows, so
    the Telegram allowlist currently points at `Dev Owner`. Create the venue's real staff, repoint
    the allowlist in the same session, and rotate the seeded dev PINs. Then place a live order and
    tap a Telegram button to prove the write-back path end to end.
-8. **Blocked on the client — domain.** `touchpadel.com` is taken (aftermarket, ~$65k);
+9. **Blocked on the client — domain.** `touchpadel.com` is taken (aftermarket, ~$65k);
    `touchpadel.iq` is restricted; `touchpadel.com.iq` is available at ~$330/yr; a short `.com`
    variant would be ~$15/yr. Brand decision, Mustafa's call. Until it exists, QR table cards
    **cannot be printed** — the operator refuses rather than print a `vercel.app` URL onto physical
    cards. Then set `NEXT_PUBLIC_SITE_URL` (Vercel) + `VITE_GUEST_SITE_URL` (each station).
-9. Then back to the pre-cafe roadmap: stock UI, staff-admin RPC+UI, court records admin, week
+10. Then back to the pre-cafe roadmap: stock UI, staff-admin RPC+UI, court records admin, week
    calendar view, split-by-item/refund/override UIs, audit-log viewer, Sentry, short-lived till
    sessions, Electron queue wiring + LAN KDS, printing pipeline. Store submission Wed 2026-09-16.
 
@@ -332,9 +393,25 @@ no Sentry in a build, and the native-UI rebuild (tabs, sheets, pickers) — see
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
+| Operator desktop | Audited 2026-08-28. Gate made real + every High finding except H6 fixed (waves 0–1) | Modules 1/2/4/5/7 completeness, ESC/POS printing, Windows installer | Roadmap 6 |
 | Mobile app | SDK 54; crash fixed, error handling + caching + wiring done (day 5). Presentation still a wireframe; release plumbing still absent | Native UI on SDK 54, push, profile, account deletion, Sentry, store build | Roadmap 6 (by 2026-09-16) |
 
 ## Gotchas / open issues
+- **OPERATOR: the heartbeat has never worked and fails silently** (audit 2026-08-28, C1).
+  `apps/operator-shell/src/main/heartbeat.ts:25` POSTs to a `/functions/v1/heartbeat` edge
+  function **that does not exist**, with no auth header, no `p_is_till`, an unset
+  `SUPABASE_URL`, and a `catch {}`. Nothing in production writes `device_heartbeats`, so
+  `app.is_degraded()` is permanently false and every degraded guard is inert. Fix by calling
+  `app.heartbeat` over PostgREST with a staff JWT — no new edge function needed.
+- **OPERATOR: no operator write goes through the IPC queue** (audit C2). `touch.enqueue` has
+  zero call sites; the shell has no dequeue and no replay worker. The till cannot trade
+  through an outage, and `close_day`’s queue-depth guard is inert for the same reason as C1.
+- **OPERATOR: `/stock` is a live sidebar link to a bare `<h1>`** for every manager and owner
+  (audit C3). Module 5 has no UI; all of its RPCs and views exist and are called by nothing.
+- **`pnpm e2e` needs `supabase functions serve` as well as the stack and both dev servers.**
+  Without the edge runtime `analytics-posthog` 404s, the client reads that as a generic error
+  rather than `NOT_CONFIGURED`, and the operator analytics case fails on a missing
+  "sales-only" notice. `supabase start` does not serve functions. The CI e2e job starts it.
 - **PADEL BACKEND: an anonymous session can block any court** (audit 2026-08-27, reproduced).
   Anonymous users have no `profiles` row, so `hold_slot` writes `guest_id = NULL`; the holder then
   cannot confirm or cancel it, but the row still occupies the exclusion constraint. Unlimited
