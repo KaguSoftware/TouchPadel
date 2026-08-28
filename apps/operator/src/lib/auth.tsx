@@ -136,6 +136,7 @@ export const SUB_ROUTES = {
     '/admin/telegram',
     '/admin/settings',
     '/admin/staff',
+    '/admin/audit',
   ],
 } as const satisfies Record<string, readonly string[]>;
 export type SubRoutePrefix = keyof typeof SUB_ROUTES;

@@ -32,7 +32,8 @@ type AdminNavKey =
   | 'dayClose'
   | 'telegram'
   | 'settings'
-  | 'staff';
+  | 'staff'
+  | 'audit';
 
 type GroupKey = 'groupMenu' | 'groupGuest' | 'groupOps' | 'groupSystem';
 
@@ -71,6 +72,7 @@ const ADMIN_GROUPS: readonly {
       { to: '/admin/telegram', key: 'telegram' },
       { to: '/admin/settings', key: 'settings' },
       { to: '/admin/staff', key: 'staff' },
+      { to: '/admin/audit', key: 'audit' },
     ],
   },
 ];

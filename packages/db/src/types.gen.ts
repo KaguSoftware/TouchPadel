@@ -177,6 +177,10 @@ export type Database = {
         Args: { p_start_at: string }
         Returns: undefined
       }
+      audit_staff_password_reset: {
+        Args: { p_actor_id: string; p_staff_id: string }
+        Returns: undefined
+      }
       b64url_decode: { Args: { p: string }; Returns: string }
       b64url_encode: { Args: { p: string }; Returns: string }
       business_date:
@@ -234,6 +238,7 @@ export type Database = {
         }
       }
       claim_replay: { Args: { p_fn: string; p_key: string }; Returns: Json }
+      clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
       close_day: {
         Args: {
           p_card_batch_iqd?: number
@@ -361,6 +366,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      list_staff: {
+        Args: never
+        Returns: {
+          display_name: string
+          has_pin: boolean
+          id: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["staff_role"]
+        }[]
+      }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
       log_replay: {
         Args: {
@@ -429,6 +444,7 @@ export type Database = {
           qty: number
         }[]
       }
+      other_active_owners: { Args: { p_staff_id: string }; Returns: number }
       override_price: {
         Args: {
           p_device_id?: string
@@ -492,9 +508,22 @@ export type Database = {
         }
         Returns: Json
       }
+      register_staff: {
+        Args: {
+          p_actor_id: string
+          p_display_name: string
+          p_role: Database["public"]["Enums"]["staff_role"]
+          p_staff_id: string
+        }
+        Returns: Json
+      }
       reject_insight: {
         Args: { p_reason?: string; p_text: string }
         Returns: string
+      }
+      rename_staff: {
+        Args: { p_display_name: string; p_staff_id: string }
+        Returns: Json
       }
       reorder_menu_categories: { Args: { p_ids: string[] }; Returns: number }
       reorder_menu_items: { Args: { p_ids: string[] }; Returns: number }
@@ -563,9 +592,21 @@ export type Database = {
         Args: { p_closed_dates?: string[]; p_opening_hours?: Json }
         Returns: undefined
       }
+      set_staff_active: {
+        Args: { p_active: boolean; p_reason_code?: string; p_staff_id: string }
+        Returns: Json
+      }
       set_staff_pin: {
         Args: { p_pin: string; p_staff_id: string }
         Returns: undefined
+      }
+      set_staff_role: {
+        Args: {
+          p_reason_code?: string
+          p_role: Database["public"]["Enums"]["staff_role"]
+          p_staff_id: string
+        }
+        Returns: Json
       }
       set_table_bell: {
         Args: { p_enabled: boolean; p_table_id: string }

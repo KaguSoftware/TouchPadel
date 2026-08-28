@@ -8,7 +8,7 @@
  */
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 
-export type EdgeFunctionName = 'analytics-posthog' | 'analytics-insights';
+export type EdgeFunctionName = 'analytics-posthog' | 'analytics-insights' | 'staff-admin';
 
 export type EdgeErrorCode =
   'NOT_CONFIGURED' | 'FORBIDDEN' | 'AUTH_REQUIRED' | 'UPSTREAM' | 'RATE_LIMITED' | 'UNKNOWN';

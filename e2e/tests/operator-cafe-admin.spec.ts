@@ -9,6 +9,8 @@
  *  (d) Telegram     — the test message enqueues even with no bot configured.
  *  (e) Analytics    — the zones render sales-only, saying PostHog is missing.
  *  (f) KDS          — a ticket left queued raises the stale banner.
+ *  (g) Audit log    — a real action taken here is traceable to a named actor.
+ *  (h) Staff        — the owner creates an account, changes its role, removes it.
  *
  * Role gates matter here: /admin/telegram, /admin/staff and /analytics are
  * owner-only, so these sign in as the owner unless the case is about a manager.
@@ -325,6 +327,142 @@ test.describe('operator cafe admin', () => {
       await appRpc(owner, 'set_cafe_setting', { p_key: 'featured_item_id', p_value: KAHI });
     } finally {
       await owner.auth.signOut();
+    }
+  });
+  test('(g) an action taken in the app is traceable in the audit log', async ({ page }) => {
+    // SOW L241-243 promises the log; L434-439 makes "every discount, void and
+    // refund traceable to a named actor" an acceptance test. The log has been
+    // written correctly since day 1 and, until this screen existed, read by
+    // nothing — so the promise was demonstrable only by typing SQL.
+    await signIn(page, SEED_STAFF.owner);
+
+    // Take a real, audited action first: the sold-out switch writes
+    // 'menu.item.sold_out' against the item id.
+    await gotoAdmin(page, 'menu');
+    const soldOut = page.getByRole('switch').first();
+    await expect(soldOut).toBeVisible({ timeout: 30_000 });
+    const wasOn = (await soldOut.getAttribute('aria-checked')) === 'true';
+    await soldOut.click();
+    await expect(soldOut).toHaveAttribute('aria-checked', String(!wasOn), { timeout: 15_000 });
+
+    await gotoAdmin(page, 'audit');
+    await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // The actor is a NAME, not a uuid — that is the contractual word.
+    const search = page.getByLabel('Search');
+    await search.fill('sold_out');
+    const firstRow = page.locator('tbody tr').first();
+    await expect(firstRow).toContainText('menu.item.sold_out');
+    await expect(firstRow).toContainText('Dev Owner');
+
+    // Before/after is a field-level diff, not two blobs of jsonb.
+    await firstRow.getByRole('button', { name: /Changes/ }).click();
+    await expect(page.getByText('sold_out', { exact: true }).first()).toBeVisible();
+
+    // Filtering by area narrows to that family and nothing else.
+    await firstRow.getByRole('button', { name: 'Hide' }).click();
+    await search.fill('');
+    await page.getByLabel('Area').selectOption('menu');
+    // Scoped by attribute: the expanded before/after table repeats the column
+    // positions, so an nth-child selector would also match its cells.
+    const actions = await page.locator('[data-audit-action]').allInnerTexts();
+    expect(actions.length).toBeGreaterThan(0);
+    expect(actions.every((a) => a.startsWith('menu.'))).toBe(true);
+
+    // Put the item back the way it was.
+    await gotoAdmin(page, 'menu');
+    const restore = page.getByRole('switch').first();
+    await expect(restore).toBeVisible({ timeout: 30_000 });
+    await restore.click();
+    await expect(restore).toHaveAttribute('aria-checked', String(wasOn), { timeout: 15_000 });
+  });
+  test('(h) the owner creates, re-roles and removes a staff account', async ({ page }) => {
+    // SOW L234 — "Staff accounts created and managed by the owner role" — and a
+    // phase-acceptance condition (L997). This screen was a read-only table whose
+    // own header said invites stay in the Supabase dashboard, so the promise
+    // could not be demonstrated at handover at all.
+    const stamp = Date.now();
+    const email = `e2e-staff-${stamp}@test.touch.local`;
+    // Unique per run: a run that fails BEFORE the id is known cannot clean up
+    // after itself, and a fixed name then makes every later run ambiguous.
+    const name = `E2E Staff ${stamp}`;
+    let createdId: string | null = null;
+
+    // Sweep anything an earlier interrupted run left behind.
+    const { data: stale } = await svc
+      .from('staff')
+      .select('id')
+      .like('display_name', 'E2E Staff %');
+    for (const row of (stale ?? []) as { id: string }[]) {
+      await svc.from('staff').delete().eq('id', row.id);
+      await svc.auth.admin.deleteUser(row.id).catch(() => undefined);
+    }
+
+    try {
+      await signIn(page, SEED_STAFF.owner);
+      await gotoAdmin(page, 'staff');
+      await expect(page.getByRole('heading', { name: 'Staff' })).toBeVisible({
+        timeout: 30_000,
+      });
+
+      await page.getByRole('button', { name: 'Add staff member' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Add staff member' });
+      await dialog.getByLabel('Email').fill(email);
+      await dialog.getByLabel('Name').fill(name);
+      await dialog.getByLabel('Password').fill('a-long-enough-password');
+      await dialog.getByRole('button', { name: 'Add staff member' }).click();
+
+      await expect(page.getByText('Account created.')).toBeVisible({ timeout: 30_000 });
+      const row = page.locator(`tr:has-text("${name}")`);
+      await expect(row).toBeVisible();
+
+      const { data: staffRow } = await svc
+        .from('staff')
+        .select('id, role, is_active')
+        .eq('display_name', name)
+        .single();
+      createdId = (staffRow as { id: string }).id;
+      expect((staffRow as { role: string }).role).toBe('cashier');
+
+      // Promote to manager through the row select.
+      await row.getByRole('combobox').selectOption('manager');
+      await expect(async () => {
+        const { data } = await svc.from('staff').select('role').eq('id', createdId!).single();
+        expect((data as { role: string }).role).toBe('manager');
+      }).toPass({ timeout: 20_000 });
+
+      // A manager can hold an authorisation PIN; a cashier has nothing to
+      // authorise, so the control only appears once the role allows it.
+      await expect(row.getByRole('button', { name: 'Set PIN' })).toBeVisible({
+        timeout: 15_000,
+      });
+
+      // Remove access. The row is KEPT — past work stays attributable.
+      await row.getByRole('button', { name: 'Remove', exact: true }).click();
+      const confirmDialog = page.getByRole('dialog', { name: 'Remove access?' });
+      await confirmDialog.getByRole('button', { name: 'Remove', exact: true }).click();
+      await expect(async () => {
+        const { data } = await svc
+          .from('staff')
+          .select('is_active, display_name')
+          .eq('id', createdId!)
+          .single();
+        expect((data as { is_active: boolean }).is_active).toBe(false);
+        expect((data as { display_name: string }).display_name).toBe(name);
+      }).toPass({ timeout: 20_000 });
+
+      // The owner cannot re-role or remove their OWN account: with one owner
+      // that guard is all that stands between the venue and a lockout.
+      const selfRow = page.locator('tr', { hasText: '(you)' });
+      await expect(selfRow.getByRole('button', { name: 'Remove', exact: true })).toBeDisabled();
+      await expect(selfRow.getByRole('combobox')).toBeDisabled();
+    } finally {
+      if (createdId) {
+        await svc.from('staff').delete().eq('id', createdId);
+        await svc.auth.admin.deleteUser(createdId).catch(() => undefined);
+      }
     }
   });
 });

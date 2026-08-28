@@ -16,6 +16,7 @@ import { adminDayCloseRoute } from './day-close';
 import { adminTelegramRoute } from './telegram';
 import { adminSettingsRoute } from './settings';
 import { adminStaffRoute } from './staff';
+import { adminAuditRoute } from './audit';
 
 export const adminChildren = [
   adminIndexRoute,
@@ -31,4 +32,5 @@ export const adminChildren = [
   adminTelegramRoute,
   adminSettingsRoute,
   adminStaffRoute,
+  adminAuditRoute,
 ] as const;
