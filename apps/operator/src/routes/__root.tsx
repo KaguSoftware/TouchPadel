@@ -1,5 +1,5 @@
 import { Link, Outlet, createRootRoute } from '@tanstack/react-router';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useState, type FormEvent, type ReactNode } from 'react';
 import { useAuth, canAccess, allowedRoutes, homeRoute, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { Button, Field, card, inputStyle } from '../components/ui';
@@ -7,6 +7,8 @@ import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
 import { ConfirmProvider } from '../components/ConfirmDialog';
 import { touch } from '../ipc/bridge';
+import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
+import { VenueStatusBanner } from '../components/VenueStatusBanner';
 
 export const rootRoute = createRootRoute({
   component: RootProviders,
@@ -29,6 +31,9 @@ function RootProviders() {
 
 type NavKey = 'till' | 'desk' | 'kds' | 'stock' | 'admin' | 'analytics';
 
+/** Stamped into device_heartbeats so a station's build is visible server-side. */
+const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? 'dev';
+
 const NAV: readonly { to: string; key: NavKey }[] = [
   { to: '/till', key: 'till' },
   { to: '/desk', key: 'desk' },
@@ -43,6 +48,16 @@ function RootShell() {
   const { session, staff, loading, notStaff, signOut } = useAuth();
   const { tr, toggleLocale } = useLocale();
   const station = touch.getStation();
+  const [venue, setVenue] = useState<HeartbeatState | null>(null);
+
+  // SOW L666: "The desktop app sends a heartbeat to the server on a short
+  // interval." Nothing in the product ever did — see lib/heartbeat.ts. It runs
+  // here because it needs a staff session and the whole shell has one.
+  useHeartbeat({
+    enabled: !!staff,
+    appVersion: APP_VERSION,
+    onState: useCallback((s: HeartbeatState) => setVenue(s), []),
+  });
 
   if (loading) {
     return <p style={{ paddingBlock: '2rem', paddingInline: '2rem' }}>{tr('common.loading')}</p>;
@@ -60,7 +75,9 @@ function RootShell() {
   const routes = allowedRoutes(staff.role);
 
   return (
-    <div style={{ display: 'flex', minBlockSize: '100vh' }}>
+    <div style={{ display: 'flex', minBlockSize: '100vh', flexDirection: 'column' }}>
+      <VenueStatusBanner state={venue} />
+      <div style={{ display: 'flex', flex: 1, minBlockSize: 0 }}>
       <nav
         data-no-print
         style={{
@@ -95,9 +112,10 @@ function RootShell() {
           {tr('auth.signOut')}
         </Button>
       </nav>
-      <main style={{ flex: 1, paddingBlock: '1rem', paddingInline: '1rem', minInlineSize: 0 }}>
-        <Outlet />
-      </main>
+        <main style={{ flex: 1, paddingBlock: '1rem', paddingInline: '1rem', minInlineSize: 0 }}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

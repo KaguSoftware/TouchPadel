@@ -1,38 +1,40 @@
-import { app } from 'electron';
 import type { StationConfig } from './station';
-import { queueStatus } from './queue';
 
-// Heartbeat (plan override #5): the TILL POSTs every 10 s. Staleness threshold is
-// venue_settings.heartbeat_stale_seconds (default 45), enforced INLINE in the guest
-// write RPCs — pg_cron only logs degraded periods + sweeps holds. Recovery: guest
-// writes inside the protected horizon stay refused until queue_depth = 0 is reported
-// (design-arch.md §3.5).
-
-const HEARTBEAT_INTERVAL_MS = 10_000;
-
-export function startHeartbeat(station: StationConfig): NodeJS.Timeout {
-  const timer = setInterval(() => void sendHeartbeat(station), HEARTBEAT_INTERVAL_MS);
-  timer.unref?.();
-  return timer;
-}
-
-async function sendHeartbeat(station: StationConfig): Promise<void> {
-  // TODO(W2): resolve the Supabase URL from a proper config source (station.json or a
-  // packaged env), not a raw process env; add the station's auth token header.
-  const base = process.env.SUPABASE_URL;
-  if (!base) return;
-  try {
-    await fetch(`${base}/functions/v1/heartbeat`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        station_id: station.stationId,
-        queue_depth: queueStatus().depth,
-        app_version: app.getVersion(),
-      }),
-    });
-  } catch {
-    // Offline — expected during outages; the SQLite queue keeps trading and this
-    // silence is exactly what flips the venue to degraded (design-arch.md §3).
-  }
+/**
+ * The heartbeat does NOT live here any more. This module is kept as a marker so
+ * the next person to look for it finds the reasoning rather than re-adding the
+ * bug.
+ *
+ * What used to be here POSTed to `${SUPABASE_URL}/functions/v1/heartbeat`:
+ *
+ *   - that edge function does not exist and never did (config.toml registers
+ *     six, none of them heartbeat);
+ *   - it sent no Authorization header, while `app.heartbeat` opens with a staff
+ *     guard;
+ *   - it omitted `p_is_till`, so `app.is_degraded()` would only have recognised
+ *     the station through the `TILL%` name-prefix back-compat, by accident;
+ *   - it returned early when `process.env.SUPABASE_URL` was unset, which it
+ *     always is in a packaged build;
+ *   - and it swallowed every error, 404 included, in a bare `catch {}`.
+ *
+ * The consequence was not a missing feature but an inert safety property: with
+ * `device_heartbeats` never written, `app.is_degraded()` is permanently false
+ * and every guest-write outage guard in the booking and ordering RPCs does
+ * nothing. SOW L666-670 and L723-736 describe the one thing that stops a slot
+ * being sold twice during an outage.
+ *
+ * It now lives in `apps/operator/src/lib/heartbeat.ts`, in the RENDERER,
+ * because `app.heartbeat` requires a staff session and the session is there.
+ * The main process has no Supabase client, no JWT and no refresh loop; putting
+ * the sender here means building a token-forwarding channel before the
+ * contract's cheapest safety property can work at all. The queue depth the
+ * renderer reports still comes from this process, over `IPC.queueUpdate`.
+ *
+ * If this ever moves back — for instance so a station keeps beating while the
+ * renderer is reloading — it needs the staff JWT forwarded over IPC, and it
+ * must call `app.heartbeat` over PostgREST, not an edge function.
+ */
+export function startHeartbeat(_station: StationConfig): null {
+  // Deliberately nothing. See above.
+  return null;
 }

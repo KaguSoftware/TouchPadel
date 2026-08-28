@@ -606,6 +606,12 @@ export const ar: Messages = {
       notStaff: 'هذا الحساب غير مسجل كموظف.',
       signedInAs: 'مسجل الدخول باسم {name} ({role})',
     },
+    // SOW L688: "A banner states the mode and the queued count." Nothing did.
+    status: {
+      degraded: 'وضع عدم الاتصال — لا يمكن للتطبيق والموقع استقبال حجوزات أو طلبات قريبة. المكتب هو القناة الوحيدة للبيع.',
+      offline: 'لا تستطيع هذه المحطة الوصول إلى الخادم. استمر في الخدمة؛ سيتحول النادي إلى البيع من المكتب فقط حتى تعود.',
+      queued: '{count} بانتظار المزامنة',
+    },
     common: {
       forbidden: 'لا تملك صلاحية الوصول إلى هذه الشاشة.',
       language: 'العربية / English',

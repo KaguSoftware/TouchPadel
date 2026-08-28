@@ -602,6 +602,12 @@ export const en = {
       notStaff: 'This account is not registered as staff.',
       signedInAs: 'Signed in as {name} ({role})',
     },
+    // SOW L688: "A banner states the mode and the queued count." Nothing did.
+    status: {
+      degraded: 'Offline mode — the app and website cannot take near-term bookings or orders. The desk is the only channel selling.',
+      offline: 'This station cannot reach the server. Keep serving; the venue will switch to desk-only until it reconnects.',
+      queued: '{count} waiting to sync',
+    },
     common: {
       forbidden: 'Your role does not have access to this screen.',
       language: 'العربية / English',
