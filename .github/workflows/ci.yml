@@ -167,6 +167,23 @@ jobs:
       - name: Load fixtures
         run: pnpm db:fixtures
 
+      # The analytics e2e case asserts the operator sales-only mode, which it can
+      # only reach by getting a 503 NOT_CONFIGURED from analytics-posthog. With no
+      # runtime the request 404s, the client reads that as a generic error, and the
+      # notice never renders — the suite would fail for a reason that has nothing to
+      # do with the code under test. supabase start does NOT serve functions.
+      - name: Serve edge functions
+        working-directory: packages/db
+        run: |
+          nohup supabase functions serve > /tmp/functions.log 2>&1 &
+          # Any HTTP status means the runtime is answering; 401 is the expected
+          # one here, since analytics-posthog has verify_jwt = true.
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null --max-time 2 "http://127.0.0.1:54321/functions/v1/analytics-posthog" && break
+            sleep 2
+          done
+          cat /tmp/functions.log
+
       - name: Install Playwright browser
         run: pnpm e2e:install
 

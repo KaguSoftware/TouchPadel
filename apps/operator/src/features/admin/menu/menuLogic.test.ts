@@ -7,7 +7,7 @@ import {
   marginPct,
   matchesSearch,
   nextDayIso,
-  reorderPlan,
+  reorderedIds,
   sortRows,
 } from './menuLogic';
 
@@ -59,7 +59,7 @@ describe('matchesSearch', () => {
   });
 });
 
-describe('sortRows / reorderPlan', () => {
+describe('sortRows / reorderedIds', () => {
   const rows = [
     { id: 'c', sort_order: 2, name_en: 'C' },
     { id: 'a', sort_order: 0, name_en: 'A' },
@@ -68,30 +68,46 @@ describe('sortRows / reorderPlan', () => {
   it('sorts by sort_order then name', () => {
     expect(sortRows(rows).map((r) => r.id)).toEqual(['a', 'b', 'c']);
   });
-  it('swaps two distinct sort orders', () => {
-    expect(reorderPlan(rows, 1, 'up')).toEqual([
-      { id: 'b', sort_order: 0 },
-      { id: 'a', sort_order: 1 },
-    ]);
-    expect(reorderPlan(rows, 1, 'down')).toEqual([
-      { id: 'b', sort_order: 2 },
-      { id: 'c', sort_order: 1 },
-    ]);
+
+  // reorderedIds replaced reorderPlan, which returned a SPARSE list of
+  // {id, sort_order} writes that the client then applied one row at a time
+  // through upsert_menu_item — re-sending each whole row rebuilt from its own
+  // cache, so an up-arrow could silently revert a colleague's edit (audit H3).
+  // The server now takes the complete ordering and assigns positions itself.
+  it('returns the complete new ordering, not a sparse diff', () => {
+    expect(reorderedIds(rows, 1, 'up')).toEqual(['b', 'a', 'c']);
+    expect(reorderedIds(rows, 1, 'down')).toEqual(['a', 'c', 'b']);
   });
-  it('renumbers when the list has ties', () => {
+
+  it('works when every row shares a sort order, as a fresh menu does', () => {
+    // The old swap-two-values path was a no-op here and needed a special case;
+    // positions come from the array now, so ties are not a special case at all.
     const tied = [
       { id: 'a', sort_order: 0, name_en: 'A' },
       { id: 'b', sort_order: 0, name_en: 'B' },
       { id: 'c', sort_order: 0, name_en: 'C' },
     ];
-    expect(reorderPlan(tied, 2, 'up')).toEqual([
-      { id: 'c', sort_order: 1 },
-      { id: 'b', sort_order: 2 },
-    ]);
+    expect(reorderedIds(tied, 2, 'up')).toEqual(['a', 'c', 'b']);
   });
+
+  it('orders from the SORTED view, not the input order', () => {
+    // rows is given as c, a, b — index 0 must mean 'a'.
+    expect(reorderedIds(rows, 0, 'down')).toEqual(['b', 'a', 'c']);
+  });
+
   it('does nothing at the edges', () => {
-    expect(reorderPlan(rows, 0, 'up')).toEqual([]);
-    expect(reorderPlan(rows, 2, 'down')).toEqual([]);
+    expect(reorderedIds(rows, 0, 'up')).toEqual([]);
+    expect(reorderedIds(rows, 2, 'down')).toEqual([]);
+  });
+
+  it('does nothing for an out-of-range index', () => {
+    expect(reorderedIds(rows, -1, 'down')).toEqual([]);
+    expect(reorderedIds(rows, 99, 'up')).toEqual([]);
+  });
+
+  it('keeps every id exactly once', () => {
+    const out = reorderedIds(rows, 1, 'up');
+    expect([...out].sort()).toEqual(['a', 'b', 'c']);
   });
 });
 

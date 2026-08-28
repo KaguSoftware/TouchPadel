@@ -197,10 +197,6 @@ test.describe('guest cafe journey (AR) @ar', () => {
       timeout: 60_000,
     });
     await expect(page.locator('.tp-cafe__table')).toContainText('T4', { timeout: 60_000 });
-    // The notice appears in the top bar AND the footer — assert the top-bar one.
-    await expect(
-      page.getByRole('banner').getByText('الطلب هنا لا يعني الدفع', { exact: false }),
-    ).toBeVisible();
 
     // Dismiss the Arabic coach mark the way a guest would.
     const coach = page.getByRole('dialog', { name: 'اضغط الجرس لاستدعاء النادل' });
@@ -222,6 +218,16 @@ test.describe('guest cafe journey (AR) @ar', () => {
     await page.getByRole('button', { name: /السلة · 1/ }).click();
     const basket = page.getByRole('dialog', { name: 'سلّتك' });
     await expect(basket).toContainText('برغر لحم');
+    // "Ordering here is not payment" — SOW L345-352 calls this the single most
+    // important thing for a guest to understand, so it is asserted in BOTH
+    // locales, at the moment the guest actually commits to the order.
+    //
+    // It used to be asserted against the top bar here, which stopped being true
+    // when the cafe top bar was restyled in 195b13a: the notice now lives in the
+    // basket sheet and the footer. The English journey already asserts the
+    // basket copy; this brings Arabic in line rather than testing a placement
+    // the product no longer has.
+    await expect(basket).toContainText('الطلب هنا لا يعني الدفع');
     await basket.getByRole('button', { name: 'أرسل إلى النادل' }).click();
     await expect(page.getByText('تم الإرسال — النادل استلم طلبك.')).toBeVisible({ timeout: 30_000 });
 

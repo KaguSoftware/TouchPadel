@@ -11,7 +11,7 @@ import { Button, card, inputStyle } from '../../../components/ui';
 import { MoneyInput, SortButtons } from '../../../components/inputs';
 import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
-import { reorderPlan, sortRows } from '../menu/menuLogic';
+import { reorderedIds, sortRows } from '../menu/menuLogic';
 import { RevealsEditor } from './RevealsEditor';
 import { patchCachedModifiers, useAddons, type AddonsData, type GroupRow, type ModifierRow } from './useAddons';
 
@@ -50,18 +50,19 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
 
   const reorder = useMutation({
     mutationFn: async ({ index, direction }: { index: number; direction: 'up' | 'down' }) => {
-      const plan = reorderPlan(options, index, direction);
-      if (plan.length === 0) return;
-      const byId = new Map(options.map((m) => [m.id, m]));
+      const ids = reorderedIds(options, index, direction);
+      if (ids.length === 0) return;
+      const position = new Map(ids.map((id, i) => [id, i]));
       patchCachedModifiers(queryClient, (mods) =>
         mods.map((m) => {
-          const u = plan.find((p) => p.id === m.id);
-          return u ? { ...m, sort_order: u.sort_order } : m;
+          const pos = position.get(m.id);
+          return pos === undefined ? m : { ...m, sort_order: pos };
         }),
       );
-      for (const u of plan) {
-        await appRpc('upsert_modifier', modifierArgs(byId.get(u.id)!, { sort_order: u.sort_order }));
-      }
+      // The row this used to re-send carried price_delta_iqd, so reordering
+      // options could silently revert a colleague's price change from a stale
+      // cache. One statement, sort_order only.
+      await appRpc('reorder_modifiers', { p_ids: ids });
     },
     onSuccess: () => toast.ok(tr('op.toast.saved')),
     onError: (e) => toast.err(e),

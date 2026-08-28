@@ -79,6 +79,13 @@ export function QrPage() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: TABLE_QR_QUERY_KEY }),
   });
 
+  /** Table number for a message the operator has to act on; the id is no use to them. */
+  function tableNumberOf(tableId: string): string {
+    return (
+      (tokensQ.data ?? []).find((r) => r.table_id === tableId)?.table_number ?? tableId.slice(0, 8)
+    );
+  }
+
   async function rotate(ids: string[]) {
     const ok = await confirm({
       title: tr('op.confirm.rotateTokens'),
@@ -88,14 +95,36 @@ export function QrPage() {
     });
     if (!ok) return;
     setRotating({ done: 0, total: ids.length });
+    // Rotation is per-table and irreversible: it kills the PRINTED card for that
+    // table. Aborting the loop on the first failure used to leave, say, seven
+    // cards dead and thirteen live with nothing on screen saying which. So it
+    // runs every table and then reports exactly what happened — the operator
+    // needs that list to know which cards to reprint.
+    const failed: string[] = [];
+    let done = 0;
     try {
-      for (let i = 0; i < ids.length; i++) {
-        await appRpc('rotate_table_token', { p_table_id: ids[i] });
-        setRotating({ done: i + 1, total: ids.length });
+      for (const id of ids) {
+        try {
+          await appRpc('rotate_table_token', { p_table_id: id });
+          done += 1;
+        } catch {
+          failed.push(tableNumberOf(id));
+        }
+        setRotating({ done: done + failed.length, total: ids.length });
       }
-      toast.ok(tr('op.toast.rotated'));
-    } catch (e) {
-      toast.err(e);
+      if (failed.length === 0) {
+        toast.ok(tr('op.toast.rotated'));
+      } else {
+        toast.err(
+          new Error(
+            tr('op.qr.rotatedPartial', {
+              done,
+              total: ids.length,
+              tables: failed.join(', '),
+            }),
+          ),
+        );
+      }
     } finally {
       setRotating(null);
       await refetchAll();

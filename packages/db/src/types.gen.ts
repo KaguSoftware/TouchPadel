@@ -496,6 +496,9 @@ export type Database = {
         Args: { p_reason?: string; p_text: string }
         Returns: string
       }
+      reorder_menu_categories: { Args: { p_ids: string[] }; Returns: number }
+      reorder_menu_items: { Args: { p_ids: string[] }; Returns: number }
+      reorder_modifiers: { Args: { p_ids: string[] }; Returns: number }
       resolve_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
@@ -527,6 +530,7 @@ export type Database = {
         Args: { p_key: string; p_value: Json }
         Returns: Json
       }
+      set_cafe_settings: { Args: { p_settings: Json }; Returns: Json }
       set_category_photo: {
         Args: {
           p_category_id: string

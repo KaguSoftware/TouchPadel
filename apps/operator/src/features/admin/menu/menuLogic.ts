@@ -63,42 +63,32 @@ export function sortRows<T extends Sortable>(rows: readonly T[]): T[] {
   );
 }
 
-export interface SortUpdate {
-  id: string;
-  sort_order: number;
-}
-
 /**
- * Plan the writes for moving the row at `index` one step in `direction`.
- * When neighbouring sort orders are distinct the two rows simply swap values
- * (two writes). When the list has ties (fresh menus are all `0`) a swap would
- * be a no-op, so every row is renumbered to its new position instead.
+ * The COMPLETE id order after moving the row at `index` one step in
+ * `direction`; empty when the move is not possible (already at an edge).
+ *
+ * Replaces the old `reorderPlan`, which returned a sparse list of
+ * {id, sort_order} writes that the client then applied one row at a time
+ * through `upsert_menu_item` / `upsert_menu_category` — re-sending each ENTIRE
+ * row rebuilt from the local cache. If a colleague had edited an item since
+ * this client last fetched, an up-arrow silently reverted their edit
+ * (docs/design/operator-audit-2026-08-28.md H3).
+ *
+ * `app.reorder_menu_items` / `app.reorder_menu_categories` take this list and
+ * assign sort_order = position in one statement, touching no other column.
  */
-export function reorderPlan<T extends Sortable>(
+export function reorderedIds<T extends Sortable>(
   rows: readonly T[],
   index: number,
   direction: 'up' | 'down',
-): SortUpdate[] {
+): string[] {
   const ordered = sortRows(rows);
   const target = direction === 'up' ? index - 1 : index + 1;
   if (index < 0 || index >= ordered.length || target < 0 || target >= ordered.length) return [];
-  const a = ordered[index]!;
-  const b = ordered[target]!;
-  const strictlyIncreasing = ordered.every(
-    (row, i) => i === 0 || ordered[i - 1]!.sort_order < row.sort_order,
-  );
-  if (strictlyIncreasing) {
-    return [
-      { id: a.id, sort_order: b.sort_order },
-      { id: b.id, sort_order: a.sort_order },
-    ];
-  }
   const next = [...ordered];
-  next[index] = b;
-  next[target] = a;
-  return next
-    .map((row, i) => ({ id: row.id, sort_order: i }))
-    .filter((u) => ordered.find((r) => r.id === u.id)!.sort_order !== u.sort_order);
+  next[index] = ordered[target]!;
+  next[target] = ordered[index]!;
+  return next.map((row) => row.id);
 }
 
 export const HOOK_MAX = 60;

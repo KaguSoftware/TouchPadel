@@ -14,8 +14,7 @@ import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Chip, HighlightDot, MarginChip, Thumb } from './chips';
-import { countWithoutCost, defaultPrice, matchesSearch, reorderPlan, sortRows } from './menuLogic';
-import { itemUpsertArgs } from './photo';
+import { countWithoutCost, defaultPrice, matchesSearch, reorderedIds, sortRows } from './menuLogic';
 import { CategoryForm } from './CategoryEditor';
 import { ItemForm } from './ItemForm';
 import { patchCachedItems, useAdminMenu, type CategoryRow, type ItemRow } from './useAdminMenu';
@@ -48,18 +47,19 @@ export function MenuEditor() {
 
   const reorder = useMutation({
     mutationFn: async ({ rows, index, direction }: { rows: ItemRow[]; index: number; direction: 'up' | 'down' }) => {
-      const plan = reorderPlan(rows, index, direction);
-      if (plan.length === 0) return;
-      const byId = new Map(rows.map((r) => [r.id, r]));
+      const ids = reorderedIds(rows, index, direction);
+      if (ids.length === 0) return;
+      const position = new Map(ids.map((id, i) => [id, i]));
       patchCachedItems(queryClient, (items) =>
         items.map((i) => {
-          const u = plan.find((p) => p.id === i.id);
-          return u ? { ...i, sort_order: u.sort_order } : i;
+          const pos = position.get(i.id);
+          return pos === undefined ? i : { ...i, sort_order: pos };
         }),
       );
-      for (const u of plan) {
-        await appRpc('upsert_menu_item', itemUpsertArgs(byId.get(u.id)!, { sort_order: u.sort_order }));
-      }
+      // ONE statement that touches only sort_order. This used to be a loop of
+      // `upsert_menu_item` calls carrying the whole row from the local cache,
+      // so a reorder could silently revert a colleague's concurrent edit.
+      await appRpc('reorder_menu_items', { p_ids: ids });
     },
     onSuccess: () => toast.ok(tr('op.toast.saved')),
     onError: (e) => toast.err(e),

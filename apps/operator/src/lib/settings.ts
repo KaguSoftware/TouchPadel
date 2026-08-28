@@ -188,3 +188,41 @@ export function useSetCafeSetting() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: CAFE_SETTINGS_QUERY_KEY }),
   });
 }
+
+/**
+ * `set_cafe_settings(p_settings)` — apply several keys ATOMICALLY.
+ *
+ * The hero builder used to loop `await setSetting.mutateAsync(write)` with no
+ * rollback, so a failure part-way through left the guest hero half-configured:
+ * mode changed and media not, or the reverse. The server applies the whole
+ * object in one transaction and still writes one audit row per key, because it
+ * delegates each key to the same single-key function.
+ */
+export function useSetCafeSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (writes: readonly SetCafeSettingInput[]) => {
+      if (writes.length === 0) return [];
+      const payload: Record<string, unknown> = {};
+      for (const w of writes) payload[w.key] = w.value;
+      return appRpc<unknown[]>('set_cafe_settings', { p_settings: payload });
+    },
+    onMutate: async (writes) => {
+      await queryClient.cancelQueries({ queryKey: CAFE_SETTINGS_QUERY_KEY });
+      const previous = queryClient.getQueryData<CafeSettings>(CAFE_SETTINGS_QUERY_KEY);
+      if (previous) {
+        const next = { ...previous } as Record<string, unknown>;
+        for (const w of writes) next[w.key] = w.value;
+        queryClient.setQueryData<CafeSettings>(CAFE_SETTINGS_QUERY_KEY, next as unknown as CafeSettings);
+      }
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      // All or nothing on the server, so all or nothing in the cache too.
+      if (context?.previous) {
+        queryClient.setQueryData(CAFE_SETTINGS_QUERY_KEY, context.previous);
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: CAFE_SETTINGS_QUERY_KEY }),
+  });
+}

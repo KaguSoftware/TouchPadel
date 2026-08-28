@@ -966,6 +966,8 @@ export const ar: Messages = {
       bellOn: 'الجرس مفعّل',
       bellOff: 'الجرس معطّل',
       rotate: 'تدوير الرمز',
+      rotatedPartial:
+        'تم تدوير {done} من {total}. لم يتم تدوير هذه الطاولات: {tables}. أعد طباعة بطاقات التي تم تدويرها.',
       rotateAll: 'تدوير كل الرموز',
       version: 'الإصدار {v}',
       scanLine: 'امسح الرمز لعرض القائمة والطلب',

@@ -11,7 +11,7 @@ import { useLocale } from '../../../lib/i18n';
 import { isVideoPath, removeMedia } from '../../../lib/storage';
 import {
   useCafeSettings,
-  useSetCafeSetting,
+  useSetCafeSettings,
   type CafeSettings,
   type HeroMode,
   type SetCafeSettingInput,
@@ -122,7 +122,7 @@ export function HeroBuilder() {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const { settings, isLoading } = useCafeSettings();
-  const setSetting = useSetCafeSetting();
+  const setSettings = useSetCafeSettings();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -187,7 +187,9 @@ export function HeroBuilder() {
     setSaving(true);
     const previousMedia = settings.hero_media_path;
     try {
-      for (const write of writes) await setSetting.mutateAsync(write);
+      // One transaction. This was a `for … await` loop with no rollback, so a
+      // failure part-way left the guest hero half-configured.
+      await setSettings.mutateAsync(writes);
       if (previousMedia && previousMedia !== draft!.hero_media_path) void removeMedia(previousMedia);
       toast.ok(tr('op.toast.saved'));
     } catch (e) {

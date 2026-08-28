@@ -14,8 +14,8 @@ import { BilingualFields, SortButtons } from '../../../components/inputs';
 import { ImageField } from '../../../components/ImageField';
 import { useToast } from '../../../components/toast';
 import { Thumb } from './chips';
-import { NAME_MAX, reorderPlan, sortRows } from './menuLogic';
-import { categoryUpsertArgs, savePhoto } from './photo';
+import { NAME_MAX, reorderedIds, sortRows } from './menuLogic';
+import { savePhoto } from './photo';
 import {
   patchCachedCategories,
   useAdminMenu,
@@ -167,18 +167,17 @@ export function useCategoryReorder() {
   const mutation = useMutation({
     mutationFn: async ({ index, direction }: { index: number; direction: 'up' | 'down' }) => {
       const rows = data?.categories ?? [];
-      const plan = reorderPlan(rows, index, direction);
-      if (plan.length === 0) return;
-      const byId = new Map(rows.map((r) => [r.id, r]));
+      const ids = reorderedIds(rows, index, direction);
+      if (ids.length === 0) return;
+      const position = new Map(ids.map((id, i) => [id, i]));
       patchCachedCategories(queryClient, (cats) =>
         cats.map((c) => {
-          const u = plan.find((p) => p.id === c.id);
-          return u ? { ...c, sort_order: u.sort_order } : c;
+          const pos = position.get(c.id);
+          return pos === undefined ? c : { ...c, sort_order: pos };
         }),
       );
-      for (const u of plan) {
-        await appRpc('upsert_menu_category', categoryUpsertArgs(byId.get(u.id)!, { sort_order: u.sort_order }));
-      }
+      // See MenuEditor: one statement, sort_order only.
+      await appRpc('reorder_menu_categories', { p_ids: ids });
     },
     onSuccess: () => toast.ok(tr('op.toast.saved')),
     onError: (e) => toast.err(e),

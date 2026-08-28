@@ -962,6 +962,8 @@ export const en = {
       bellOn: 'Bell on',
       bellOff: 'Bell off',
       rotate: 'Rotate code',
+      rotatedPartial:
+        'Rotated {done} of {total}. These tables were NOT rotated: {tables}. Reprint the cards for the ones that were.',
       rotateAll: 'Rotate all codes',
       version: 'v{v}',
       scanLine: 'Scan to see the menu & order',
