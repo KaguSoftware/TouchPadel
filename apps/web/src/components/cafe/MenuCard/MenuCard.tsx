@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback } from 'react';
+import Image from 'next/image';
 import { makeT, type Locale } from '@touch/i18n';
 import { applyPctDiscountIqd } from '@touch/core';
 import type { MenuItem } from '@/lib/menu';
 import { TempChips } from '../TempChips';
+import { CategoryIcon, type SectionArt } from '../MenuStage/sectionArt';
 import { priceLayout } from './sizeColumns';
 
 /**
@@ -23,9 +25,11 @@ const ARABIC = /[؀-ۿ]/;
  * an optional small note, then the price cells lined up under the section's
  * size headers.
  *
- * The design carries no thumbnail here - the photo lives in the sheet this row
- * opens, and pointer-down warms it so it is usually decoded by the time the
- * sheet slides up.
+ * The row leads with a thumbnail: the item's own photo when it has one, and
+ * otherwise the section's icon on the band's tint - a category-true placeholder
+ * for the whole menu until the photography exists, rather than an empty frame.
+ * The full photo still lives in the sheet this row opens, and pointer-down
+ * warms it so it is usually decoded by the time the sheet slides up.
  *
  * `data-highlight` paints the operator's blue/green tint + inset ring,
  * `data-sold-out` slams the stamp on, `data-unavailable` greys an 86'd item.
@@ -36,12 +40,15 @@ export function MenuCard({
   item,
   locale,
   columns,
+  art,
   onOpen,
 }: {
   item: MenuItem;
   locale: Locale;
   /** the section's size headers; [] when the category prices a single size */
   columns: string[];
+  /** the section's art — its icon stands in for a missing item photo */
+  art?: SectionArt;
   onOpen(item: MenuItem): void;
 }) {
   const tr = makeT(locale);
@@ -100,6 +107,19 @@ export function MenuCard({
           : undefined
       }
     >
+      {/* A category the design draws no icon for (an operator's own) and an item
+          with no photo have nothing to put here — that section keeps the
+          design's text-only rows rather than printing an empty frame. */}
+      {(item.photo_url || art) && (
+        <div className="tp-menu-item__thumb" data-tone={art?.tone ?? 'blue'}>
+          {item.photo_url ? (
+            <Image src={item.photo_url} alt="" width={46} height={46} quality={45} sizes="46px" />
+          ) : (
+            <CategoryIcon art={art} className="tp-menu-item__thumb-icon" />
+          )}
+        </div>
+      )}
+
       <div className="tp-menu-item__body">
         <div className="tp-menu-item__head">
           <span className="tp-menu-item__name" data-latin={ARABIC.test(name) ? undefined : 'true'}>

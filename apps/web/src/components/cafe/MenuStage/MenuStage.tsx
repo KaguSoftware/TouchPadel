@@ -22,6 +22,10 @@ import { TempChips } from '../TempChips';
  * HTML (that is the point of the ISR read model), which keeps the scroll-spy
  * offsets and in-page search working.
  *
+ * Every row carries a thumbnail. Until the items have their own photography it
+ * is the section's own icon on the band's tint (`art` below), so a row reads as
+ * belonging to its category instead of showing a hole where a picture goes.
+ *
  * The size headers are derived from the category's own variants
  * (`sizeHeaders`), so a section priced at one size prints no header row at all
  * — exactly as the design does for شاي and حلويات.
@@ -54,7 +58,9 @@ export function MenuStage({
               <TempChips temp={cat.serve_temp} locale={locale} className="tp-stage__badge" />
             </div>
 
-            <div className="tp-stage__band" data-tone={art?.tone ?? 'blue'}>
+            {/* data-cat-hero: the scroll spy's activation anchor — this band
+                reaching the top of the reading area is what flips the rail. */}
+            <div className="tp-stage__band" data-cat-hero="" data-tone={art?.tone ?? 'blue'}>
               <span className="tp-stage__word" data-len={art?.len ?? 'medium'} aria-hidden="true">
                 {art?.word ?? cat.name_en.toUpperCase()}
               </span>
@@ -78,6 +84,7 @@ export function MenuStage({
                   item={item}
                   locale={locale}
                   columns={columns}
+                  art={art}
                   onOpen={onOpenItem}
                 />
               ))}

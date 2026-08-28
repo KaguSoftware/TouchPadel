@@ -9,9 +9,11 @@
  * size is brand blue. Sections priced at a single size render one blue cell
  * that sizes to its content (`data-cols="1"`).
  *
- * The design carries no thumbnails in the list — an item's photo lives in the
- * sheet the row opens. A row stays tappable: `role="button"` is set only while
- * the item is orderable, so a sold-out row never opens a sheet with a dead CTA.
+ * Every row leads with a 46 px thumbnail on the section band's own tint: the
+ * item's photo when it has one, otherwise the section's icon (MenuCard). The
+ * full photo still lives in the sheet the row opens. A row stays tappable:
+ * `role="button"` is set only while the item is orderable, so a sold-out row
+ * never opens a sheet with a dead CTA.
  */
 export const cardCss = `
 .tp-menu-item { display: flex; align-items: center; gap: 8px; padding-block: 9px; padding-inline: 4px;
@@ -23,6 +25,14 @@ export const cardCss = `
 .tp-menu-item--off, .tp-menu-item[data-unavailable='true'] { opacity: 0.45; }
 .tp-menu-item[data-highlight='blue'] { background: var(--tp-highlight-blue-bg); box-shadow: var(--tp-highlight-ring-blue); border-radius: var(--tp-radius-sm); }
 .tp-menu-item[data-highlight='brown'] { background: var(--tp-highlight-green-bg); box-shadow: var(--tp-highlight-ring-green); border-radius: var(--tp-radius-sm); }
+
+/* Thumbnail: the band's tint under the section icon, or the item's photo
+   cropped to fill. Square and flex: none, so a long name never squeezes it. */
+.tp-menu-item__thumb { flex: none; inline-size: 46px; block-size: 46px; border-radius: var(--tp-radius-sm);
+  background: var(--tp-cafe-blue-tint); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.tp-menu-item__thumb[data-tone='green'] { background: var(--tp-cafe-green-tint); }
+.tp-menu-item__thumb img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.tp-menu-item__thumb-icon { inline-size: 34px; block-size: 34px; }
 
 .tp-menu-item__body { flex: 1; min-inline-size: 0; }
 .tp-menu-item__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

@@ -9,13 +9,20 @@
 export const topbarCss = `
 .tp-cafe__topbar { position: sticky; inset-block-start: 0; z-index: var(--tp-z-topbar);
   background: var(--tp-bg); color: var(--tp-fg); padding-block-start: env(safe-area-inset-top); }
-/* Design: 22px 24px 14px, lockup centred. Outer tracks are equal so the lockup
-   sits on the true centre whatever the chip and basket are showing. */
-.tp-cafe__topbar-inner { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--tp-space-2);
+/* Design: 22px 24px 14px, lockup centred.
+   The bar is a FLEX row, not a three-column grid: the ordering controls the
+   design does not draw (table chip, locale, basket) are content-sized and never
+   shrink, and the lockup is the only flexible item — it takes the design's
+   175 px whenever the controls leave room and gives width back when they do
+   not. Equal grid tracks could not do that: their content overflowed its track
+   and printed the locale switch ON TOP of the wordmark. An auto inline margin
+   keeps whatever width the lockup gets centred in the space left over. */
+.tp-cafe__topbar-inner { display: flex; align-items: center; gap: var(--tp-space-2);
   padding-block: 22px 14px; padding-inline: 24px; }
-.tp-cafe__topbar-side { display: flex; align-items: center; gap: var(--tp-space-2); min-inline-size: 0; }
+.tp-cafe__topbar-side { display: flex; align-items: center; gap: var(--tp-space-2); flex: 0 0 auto; }
 .tp-cafe__topbar-side--end { justify-content: flex-end; }
-.tp-cafe__lockup { inline-size: 175px; block-size: auto; display: block; }
+.tp-cafe__lockup { flex: 0 1 175px; min-inline-size: 104px; max-inline-size: 175px; inline-size: auto;
+  block-size: auto; display: block; margin-inline: auto; }
 
 .tp-cafe__table { font-weight: 800; font-size: var(--tp-fs-sm); padding-block: 0.2rem; padding-inline: 0.6rem; border-radius: var(--tp-radius-pill);
   background: var(--tp-cafe-blue-tint); color: var(--tp-accent); white-space: nowrap; }
@@ -58,8 +65,15 @@ button.tp-cafe__table { border: 1px solid var(--tp-cafe-blue-tint); font-family:
   background: var(--tp-warn-bg); color: var(--tp-warn-fg); border-color: var(--tp-warn-border); font-size: var(--tp-fs-xs); }
 .tp-cafe__table[data-state='binding'] { display: inline-flex; align-items: center; gap: 0.35rem; }
 
-/* Locale link + basket button inside the header */
-.tp-locale-switch { flex: none; white-space: nowrap; }
+/* Locale link + basket button inside the header. The locale switch is a globe
+   + the target language's code (AR / EN), sized like the basket button beside
+   it; its accessible name is still the language's own name. */
+.tp-locale-switch { flex: none; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;
+  min-block-size: 2.25rem; padding-inline: 0.55rem; border-radius: var(--tp-radius-pill);
+  background: var(--tp-cafe-blue-tint); color: var(--tp-accent); text-decoration: none; }
+.tp-locale-switch__globe { inline-size: 17px; block-size: 17px; flex: none; }
+.tp-locale-switch__code { font-family: var(--tp-font-display); font-weight: 800; font-size: 12px;
+  letter-spacing: var(--tp-tracking-caps); line-height: 1; }
 .tp-basket-btn { flex: none; gap: 0.4rem; padding-inline: 0.7rem; min-block-size: 2.25rem; background: var(--tp-accent); color: var(--tp-accent-contrast); }
 .tp-basket-btn__total { font-variant-numeric: tabular-nums; font-family: var(--tp-font-numeric); font-size: var(--tp-fs-sm); }
 `;

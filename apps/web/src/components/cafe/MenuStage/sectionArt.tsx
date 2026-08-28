@@ -316,5 +316,36 @@ export function SectionIllustration({ art }: { art: SectionArt | undefined }) {
   );
 }
 
+/**
+ * The same drawing at row scale — the menu-row thumbnail's placeholder until an
+ * item carries its own photo. It is the band's illustration with the band's
+ * placement dropped (no tilt, no corner offsets) and a heavier stroke, which is
+ * what keeps a 64-unit line drawing legible inside a 46 px chip.
+ */
+export function CategoryIcon({
+  art,
+  className,
+}: {
+  art: SectionArt | undefined;
+  className?: string;
+}) {
+  if (!art) return null;
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="var(--tp-accent)"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {art.art}
+    </svg>
+  );
+}
+
 /** Section art for a category, or undefined when the name is not one of the design's. */
 export const sectionArtFor = (nameEn: string): SectionArt | undefined => SECTION_ART[nameEn];

@@ -11,9 +11,10 @@ import type { TableSession, TableSessionState } from '@/hooks/cafe/useTableSessi
  * The design's header: the Touch Cafe lockup centred on white, 175 px wide.
  *
  * The ordering controls the design does not draw — the table chip, the locale
- * switch and the basket — keep their place either side of it. The bar is a
- * three-column grid whose outer tracks are equal, so the lockup stays optically
- * centred whatever those controls are showing.
+ * switch and the basket — keep their place either side of it. They are sized by
+ * their content and the LOCKUP is what flexes (topbar.css.ts), so the wordmark
+ * takes its full 175 px when they leave room and narrows instead of being
+ * printed over when they do not.
  *
  * Sticky, not fixed: it belongs to the app shell, above the single scroller.
  */
