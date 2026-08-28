@@ -3,7 +3,7 @@
 ## 1. Contradictions between plans
 
 **Naming / structure**
-- Operator layout: A = two packages (`apps/operator` SPA + `apps/operator-shell` Electron); C = single `apps/operator` with `src/main/queue.ts` (and "electron-vite" Day 4). Same file, two different homes.
+- ~~Operator layout: A = two packages (`apps/operator` SPA + `apps/operator-shell` Electron); C = single `apps/operator` with `src/main/queue.ts`.~~ **RESOLVED: layout A shipped** — two packages, the queue at `apps/operator-shell/src/main/queue.ts`, and plain `tsc` rather than electron-vite (noted 2026-08-28).
 - Package scope: A `@touch/*` vs B `@touchpadel/*`.
 - Staff table: A/C `staff_members` (+ C separate `staff_pins` table) vs B `staff` with `pin_hash` inline.
 - Degraded-state table: A `venue_status` (singleton) vs B `device_heartbeats` + computed `is_degraded()` vs C `venue_state`.
@@ -59,8 +59,12 @@
 5. **Client Supabase handover.** A calls `supabase link && db push` "a one-hour operation." Reality: JWT secret rotation kills every printed QR and every session (C catches this), storage object migration, edge-function secrets, SMTP config, pg_cron re-creation, and PITR is a paid add-on Touch must fund (SOW line 258 promises PITR; line 771 quotes "from $25/mo," which doesn't include it). This lands in W5 on top of store-rejection fixes.
 
 ### Critical Files for Implementation
-- C:/Users/PD0CA~1.MAN/AppData/Local/Temp/claude/c--Users-p-mansouri-Desktop-kagu-software-TouchPadel/65855773-06d7-4451-8226-dfea69621de8/scratchpad/touch-padel-phase1-scope-of-work.txt (governing scope; all citations above)
+- `docs/scope/touch-padel-phase1-scope-of-work.txt` (governing scope; all citations above). This
+  line used to point at a temp scratchpad from the session that wrote it — a path that no longer
+  exists on any machine.
 - packages/db/supabase/migrations/*_reservations.sql (unify A/B/C naming, exclusion constraint, hold TTL)
-- apps/operator-shell/src/main/queue/queue.ts (resolve A-vs-C location; add read-overlay design, not just writes)
+- `apps/operator-shell/src/main/queue.ts` — location resolved (layout A). The read overlay is
+  still unbuilt, and so is everything else past storage: see
+  `docs/design/operator-audit-2026-08-28.md` C2.
 - packages/core/src/money/splitEvenly.ts (pick ONE remainder/rounding rule before any till code)
 - apps/operator/src/features/admin/ (the unplanned menu/rates/content editor — biggest missing work item)

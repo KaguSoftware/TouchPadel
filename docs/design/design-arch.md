@@ -85,7 +85,7 @@ packages:
 }
 ```
 
-**tsconfig strategy:** `tsconfig.base.json` with `strict: true`, `verbatimModuleSyntax`, `noUncheckedIndexedAccess`. Packages use TS project references and export raw `.ts` via `exports` + `tsx`-friendly bundler resolution — apps compile packages themselves (no build step for internal packages; keeps 4-week velocity). `apps/mobile` extends `expo/tsconfig.base`; `operator-shell` has a second tsconfig for `main`/`preload` targeting node.
+**tsconfig strategy:** `tsconfig.base.json` with `strict: true`, `verbatimModuleSyntax`, `noUncheckedIndexedAccess`. Packages use TS project references and export raw `.ts` via `exports` + `tsx`-friendly bundler resolution — apps compile packages themselves (no build step for internal packages; keeps 4-week velocity). `apps/mobile` extends `expo/tsconfig.base`; `operator-shell` has ONE tsconfig covering both `main` and `preload` (CommonJS, node types) — plus, since 2026-08-28, a `tsconfig.test.json` that exists only because the build project sets `rootDir: src` / `outDir: dist` and test files must not be emitted into the packaged output.
 
 **Team mapping (SoW tracks → this team):**
 - Track A (platform/data/degraded/queue/LAN/printing) → **user + AI agents** (weeks 1–4).
@@ -330,6 +330,11 @@ Only `EXPO_PUBLIC_`/`NEXT_PUBLIC_`/`VITE_` anon keys ship to clients; service-ro
 ### Critical Files for Implementation
 - `packages/db/supabase/migrations/0001_foundations.sql` (roles, staff, RLS helpers, audit_log)
 - `packages/db/supabase/migrations/0002_reservations.sql` (EXCLUDE USING gist, holds, rate rules)
-- `apps/operator-shell/src/main/queue/queue.ts` (SQLite durable queue + replay engine)
+- `apps/operator-shell/src/main/queue.ts` — SQLite durable queue. **NOT a replay engine**: as
+  of 2026-08-28 it stores and reports, and there is no dequeue, no sync worker and no caller.
+  `touch.enqueue` has zero call sites in the SPA. See
+  `docs/design/operator-audit-2026-08-28.md` C2 for what is actually there and what building the
+  replay half requires (starting with `staffId`/`deviceId`, which the envelope omits and
+  `functions/replay/index.ts` rejects the request without).
 - `packages/core/src/schemas/mutations.ts` (mutation envelope, idempotency keys — shared by queue, replay function, tests)
 - `packages/db/supabase/functions/replay/index.ts` (idempotent replay endpoint + `processed_mutations`)
