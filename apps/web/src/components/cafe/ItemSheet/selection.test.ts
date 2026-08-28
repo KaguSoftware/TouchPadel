@@ -46,6 +46,7 @@ const item: MenuItem = {
   description_ar: null,
   highlight: 'none',
   sold_out: false,
+  serve_temp: 'none',
   photo_path: null,
   photo_url: null,
   photo_blur: null,

@@ -20,20 +20,23 @@
 export type FontVars = Readonly<Record<`--tp-font-${string}`, string>>;
 
 /**
- * Latin display stack. Free stand-in: Montserrat (geometric, closest free
- * neighbour to Next Art), then a system geometric-ish fallback chain.
+ * Latin display stack. The approved Touch Cafe menu design sets every Latin
+ * string in **Poppins** — the section words (COFFEE, SMOOTHIE…), the size
+ * column headers and every price — so Poppins leads here rather than the older
+ * Montserrat stand-in.
  * SWAP: prepend `'Next Art', ` when licensed files land.
  */
 export const latinDisplayStack =
-  "'Montserrat', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
+  "'Poppins', 'Montserrat', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
 
 /**
- * Arabic stack. Free stand-ins: IBM Plex Sans Arabic, then Noto Sans Arabic,
- * then system Arabic-capable faces.
+ * Arabic stack. The menu design sets all Arabic — headings, item names, chips —
+ * in **Cairo**, so Cairo leads; IBM Plex Sans Arabic and Noto Sans Arabic stay
+ * behind it as fallbacks.
  * SWAP: prepend `'Frutiger LT Arabic', ` when licensed files land.
  */
 export const arabicStack =
-  "'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif";
+  "'Cairo', 'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif";
 
 /** Body text: Arabic-capable first so mixed EN/AR body copy stays consistent. */
 export const bodyStack = `${arabicStack}`;
@@ -41,9 +44,17 @@ export const bodyStack = `${arabicStack}`;
 /** Monospace for order refs, idempotency keys, debug panes. */
 export const monoStack = "'Cascadia Code', 'SF Mono', Consolas, 'Roboto Mono', monospace";
 
+/**
+ * Numerals + Latin micro-labels. The menu design prices everything in Poppins
+ * even inside an otherwise Arabic row, so prices and size headers get their own
+ * token instead of borrowing the display stack by accident.
+ */
+export const numericStack = latinDisplayStack;
+
 export const fontVars = {
   '--tp-font-display': latinDisplayStack,
   '--tp-font-arabic': arabicStack,
   '--tp-font-body': bodyStack,
+  '--tp-font-numeric': numericStack,
   '--tp-font-mono': monoStack,
 } as const satisfies FontVars;

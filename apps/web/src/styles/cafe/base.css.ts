@@ -5,14 +5,14 @@
  */
 export const baseCss = `
 *, *::before, *::after { box-sizing: border-box; }
-/* Blue ground behind the fixed shell, so a rubber-band overscroll never
-   flashes white against the blue crown. It has to live on html AND body AND
-   .tp-app below: the bounce happens inside .tp-app__scroll, which is
-   transparent, so what actually shows through is .tp-app — NOT the document.
-   html/body are painted too for the browser's own top-of-document bounce. */
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; block-size: 100%; background: var(--tp-accent); }
+/* The design's page ground: the menu is a 430 px white column floating on a
+   pale blue-grey field. It has to live on html AND body AND .tp-app below: the
+   bounce happens inside .tp-app__scroll, so what actually shows through past
+   the column's edges is that ground — NOT the document. html/body are painted
+   too for the browser's own top-of-document bounce. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; block-size: 100%; background: var(--tp-cafe-page); }
 body { margin: 0; min-block-size: 100dvh; overscroll-behavior-block: none; -webkit-tap-highlight-color: transparent;
-  background: var(--tp-accent); }
+  background: var(--tp-cafe-page); }
 img, video { max-inline-size: 100%; block-size: auto; }
 h1, h2, h3, h4, p, figure { margin-block: 0; }
 button { font: inherit; cursor: pointer; color: inherit; }
@@ -24,12 +24,14 @@ input, textarea, select { font-size: max(16px, 1rem); font-family: inherit; }
 
 .tp-visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-/* Fixed-viewport shell: the document never scrolls; .tp-app__scroll does. */
-/* Blue, not --tp-bg: the scroller in front carries the page ground, so the
-   only thing this surface shows is the rubber-band gutter past its edges. */
-.tp-app { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--tp-accent); color: var(--tp-fg); overflow: hidden; }
-/* Carries the PAGE ground so content never sits on the shell's blue; only the
-   rubber-band gutter beyond this box exposes it. */
+/* Fixed-viewport shell: the document never scrolls; .tp-app__scroll does.
+   The shell IS the design's column — 430 px of white centred on the page
+   ground, lifted by one soft blue shadow. A fixed box with both inline insets
+   at 0, a max inline size and auto inline margins centres itself, so the header
+   and the scroller below it share one column with no wrapper between them. */
+.tp-app { position: fixed; inset: 0; max-inline-size: var(--tp-column-w); margin-inline: auto;
+  display: flex; flex-direction: column; background: var(--tp-bg); color: var(--tp-fg); overflow: hidden;
+  box-shadow: var(--tp-shadow-column); }
 .tp-app__scroll { flex: 1 1 auto; min-block-size: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; overflow-anchor: none; -webkit-overflow-scrolling: touch;
   background: var(--tp-bg);
   padding-block-end: calc(var(--tp-ticker-h) + env(safe-area-inset-bottom)); }
@@ -48,6 +50,12 @@ input, textarea, select { font-size: max(16px, 1rem); font-family: inherit; }
 .tp-btn--onblue { background: var(--tp-brand-white); color: var(--tp-accent); }
 .tp-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
 .tp-btn--block { inline-size: 100%; }
+
+/* The design's serve-temperature chips: red "حار", blue "بارد". */
+.tp-temp { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; line-height: 1.5;
+  padding-block: 1px; padding-inline: 0.55rem; border-radius: var(--tp-radius-pill); white-space: nowrap; }
+.tp-temp--hot { background: var(--tp-cafe-hot-bg); color: var(--tp-cafe-hot-fg); }
+.tp-temp--cold { background: var(--tp-cafe-blue-tint-2); color: var(--tp-accent); }
 
 /* cards / chips */
 .tp-card { background: var(--tp-surface); border: 1px solid var(--tp-border); border-radius: var(--tp-radius-md); padding: var(--tp-space-4); }

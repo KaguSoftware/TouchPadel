@@ -30,8 +30,15 @@ export function svgDataUri(svg: string): string {
 // ---------------------------------------------------------------------------
 // Brand raw colours (brand deck: Touch Blue / Coffee Brown / White)
 // ---------------------------------------------------------------------------
-const BLUE = '#3360AB';
-const BROWN = '#603813';
+const BLUE = '#2456B4';
+/**
+ * The second brand colour. The approved menu design (brand/Touch Cafe Menu
+ * Final) carries no brown at all — every accent, section rule and illustration
+ * highlight is green — so GREEN replaces the old coffee brown here and the
+ * `--tp-cafe-brown*` names below are kept only as aliases onto it.
+ */
+const GREEN = '#7FB05A';
+const GREEN_LIGHT = '#A5CE7F';
 const WHITE = '#FFFFFF';
 
 /**
@@ -71,7 +78,7 @@ export const statusVars = {
   '--tp-error-border': '#EAB5B0',
   '--tp-success': '#2E7D32',
   '--tp-success-bg': '#E4F2E5',
-  '--tp-backdrop': 'rgba(43, 26, 14, 0.55)',
+  '--tp-backdrop': 'rgba(30, 43, 69, 0.55)',
 } as const satisfies BrandVars;
 
 // ---------------------------------------------------------------------------
@@ -79,13 +86,26 @@ export const statusVars = {
 // ---------------------------------------------------------------------------
 export const cafeColorVars = {
   '--tp-cafe-blue': BLUE,
-  '--tp-cafe-brown': BROWN,
-  '--tp-cafe-blue-deep': '#274B85',
-  '--tp-cafe-blue-tint': '#E8EEF8',
-  '--tp-cafe-brown-tint': '#F1E7DD',
-  '--tp-cafe-cream': '#F8F5F1',
+  '--tp-cafe-blue-deep': '#1A3F87', // hover / pressed blue
+  '--tp-cafe-blue-ink': '#17376F', // label on a green fill (active pill)
+  '--tp-cafe-blue-tint': '#EDF2FB', // section illustration band
+  '--tp-cafe-blue-tint-2': '#E9F1FC', // "بارد" chip + section badge fill
+  '--tp-cafe-sky': '#7FA3E0', // middle stroke of the hero sweep
+  '--tp-cafe-green': GREEN,
+  '--tp-cafe-green-light': GREEN_LIGHT, // section rule + active pill fill
+  '--tp-cafe-green-tint': '#F3F8EC', // green illustration band
+  '--tp-cafe-ink': '#1E2B45', // item names
+  '--tp-cafe-ink-soft': '#93A0B5', // the small note line under a name
+  '--tp-cafe-rule': '#F0F3F8', // hairline under every menu row
+  '--tp-cafe-hot-bg': '#FDEBE7', // "حار" chip
+  '--tp-cafe-hot-fg': '#E8432A',
+  '--tp-cafe-page': '#E7EBF1', // ground either side of the 430 px column
+  // Deprecated aliases — modules not yet renamed keep rendering in palette.
+  '--tp-cafe-brown': GREEN,
+  '--tp-cafe-brown-tint': '#F3F8EC',
+  '--tp-cafe-cream': '#E7EBF1',
   '--tp-cafe-swoosh': svgDataUri(SWOOSH_SVG),
-  '--tp-cafe-beans-brown': svgDataUri(beanTile(BROWN, WHITE)),
+  '--tp-cafe-beans-brown': svgDataUri(beanTile(GREEN, WHITE)),
   '--tp-cafe-beans-white': svgDataUri(beanTile(null, WHITE)),
   '--tp-cafe-bean-tile-w': '40px',
   '--tp-cafe-bean-tile-h': '48px',
@@ -101,9 +121,11 @@ export const radiusVars = {
 } as const satisfies BrandVars;
 
 export const shadowVars = {
-  '--tp-shadow-card': '0 1px 2px rgba(43, 26, 14, 0.06), 0 6px 18px rgba(43, 26, 14, 0.08)',
-  '--tp-shadow-sheet': '0 -8px 32px rgba(43, 26, 14, 0.22)',
-  '--tp-shadow-fab': '0 6px 18px rgba(51, 96, 171, 0.35), 0 2px 4px rgba(43, 26, 14, 0.15)',
+  // Cooled toward the blue ink to match the design's column shadow.
+  '--tp-shadow-card': '0 1px 2px rgba(30, 43, 69, 0.05), 0 6px 18px rgba(30, 43, 69, 0.07)',
+  '--tp-shadow-column': '0 0 60px rgba(36, 86, 180, 0.15)',
+  '--tp-shadow-sheet': '0 -8px 32px rgba(30, 43, 69, 0.22)',
+  '--tp-shadow-fab': '0 6px 18px rgba(36, 86, 180, 0.35), 0 2px 4px rgba(30, 43, 69, 0.15)',
 } as const satisfies BrandVars;
 
 export const typeScaleVars = {
@@ -128,7 +150,8 @@ export const layoutVars = {
   '--tp-space-4': '1rem',
   '--tp-space-5': '1.5rem',
   '--tp-space-6': '2rem',
-  '--tp-column-w': '44rem',
+  // The design is drawn on a 430 px phone column and centred on the page ground.
+  '--tp-column-w': '430px',
 } as const satisfies BrandVars;
 
 export const motionVars = {

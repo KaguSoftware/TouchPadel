@@ -13,6 +13,13 @@ import { publicMediaUrl } from './media';
 
 export type MenuHighlight = 'none' | 'blue' | 'brown';
 
+/**
+ * Serve-temperature chip from the menu design (migration 0054): the red "حار"
+ * and/or blue "بارد" pill beside a name. `both` paints both chips; `none`
+ * paints neither (cakes, snacks — the question does not apply).
+ */
+export type ServeTemp = 'none' | 'hot' | 'cold' | 'both';
+
 export interface MenuModifier {
   id: string;
   name_en: string;
@@ -64,6 +71,8 @@ export interface MenuItem {
   highlight: MenuHighlight;
   /** sticky manager flag (0027) — distinct from `orderable` (ingredient 86 / auto) */
   sold_out: boolean;
+  /** hot/cold chips on the row (0054) */
+  serve_temp: ServeTemp;
   photo_path: string | null;
   photo_url: string | null;
   photo_blur: string | null;
@@ -84,6 +93,8 @@ export interface MenuCategory {
   name_en: string;
   name_ar: string;
   sort_order: number;
+  /** hot/cold badge on the section heading (0054) */
+  serve_temp: ServeTemp;
   photo_path: string | null;
   photo_url: string | null;
   photo_blur: string | null;
@@ -304,17 +315,20 @@ export function itemsById(menu: readonly MenuCategory[]): Map<string, MenuItem> 
 
 const asHighlight = (v: string): MenuHighlight => (v === 'blue' || v === 'brown' ? v : 'none');
 
+const asServeTemp = (v: string | null | undefined): ServeTemp =>
+  v === 'hot' || v === 'cold' || v === 'both' ? v : 'none';
+
 export async function fetchMenu(client: SupabaseClient<Database>): Promise<MenuCategory[]> {
   const [categoriesRes, itemsRes, availabilityRes, suggestionsRes, revealsRes] = await Promise.all([
     client
       .from('menu_categories')
-      .select('id, name_en, name_ar, sort_order, photo_path, photo_blur')
+      .select('id, name_en, name_ar, sort_order, serve_temp, photo_path, photo_blur')
       .eq('is_active', true),
     client
       .from('menu_items')
       .select(
         `id, category_id, name_en, name_ar, hook_en, hook_ar, description_en, description_ar,
-         highlight, sold_out, photo_path, photo_blur, sort_order,
+         highlight, sold_out, serve_temp, photo_path, photo_blur, sort_order,
          menu_item_variants ( id, name_en, name_ar, price_iqd, is_default, sort_order ),
          menu_item_allergens ( allergens ( code, label_en, label_ar ) ),
          menu_item_modifier_groups ( sort_order,
@@ -414,6 +428,7 @@ export async function fetchMenu(client: SupabaseClient<Database>): Promise<MenuC
     description_ar: row.description_ar,
     highlight: asHighlight(row.highlight),
     sold_out: row.sold_out ?? false,
+    serve_temp: asServeTemp(row.serve_temp),
     photo_path: row.photo_path,
     photo_url: publicMediaUrl(row.photo_path),
     photo_blur: row.photo_blur,
@@ -463,6 +478,7 @@ export async function fetchMenu(client: SupabaseClient<Database>): Promise<MenuC
       name_en: c.name_en,
       name_ar: c.name_ar,
       sort_order: c.sort_order,
+      serve_temp: asServeTemp(c.serve_temp),
       photo_path: c.photo_path,
       photo_url: publicMediaUrl(c.photo_path),
       photo_blur: c.photo_blur,

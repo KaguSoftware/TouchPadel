@@ -12,8 +12,10 @@ export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
 }
 
+// The menu design sets Arabic in Cairo and every Latin string / price in
+// Poppins; the 900 weight paints the hero word and the section headings.
 const FONTS_HREF =
-  'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap';
+  'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Poppins:wght@500;600;700;800&display=swap';
 
 export function generateViewport(): Viewport {
   return {
@@ -84,7 +86,7 @@ export default async function LocaleLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* The display weights paint the wordmark + headlines above the fold. */}
+        {/* The display weights paint the hero word + section headings above the fold. */}
         <link rel="preload" as="style" href={FONTS_HREF} />
         <link href={FONTS_HREF} rel="stylesheet" />
         <style

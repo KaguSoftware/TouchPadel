@@ -438,6 +438,9 @@ export const en = {
     // SOW module 3/6: ordering is NOT paying — persistent notice on every cafe surface.
     payAtDesk: 'Ordering here is not payment — please settle your bill at the desk.',
     size: 'Size',
+    // Serve-temperature chips from the menu design.
+    tempHot: 'Hot',
+    tempCold: 'Cold',
     required: 'Required',
     chooseUpTo: 'Choose up to {max}',
     chooseRange: 'Choose {min}–{max}',
@@ -463,6 +466,9 @@ export const en = {
     hero: {
       line1: 'COFFEE CRAFTED',
       line2: 'WITH PASSION',
+      // The masthead in the approved menu design: one word + the brand line.
+      menuWord: 'THE MENU',
+      strapline: 'JUST ONE TOUCH',
       itemsCount: '{count} items',
       openToday: 'Open today {from}–{to}',
       closedToday: 'Closed today',

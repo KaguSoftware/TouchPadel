@@ -447,6 +447,9 @@ export const ar: Messages = {
     // العقد: الطلب هنا ليس دفعًا — إشعار دائم على كل صفحات الكافيه.
     payAtDesk: 'الطلب هنا لا يعني الدفع — يرجى تسديد الحساب لدى المكتب.',
     size: 'الحجم',
+    // Serve-temperature chips from the menu design.
+    tempHot: 'حار',
+    tempCold: 'بارد',
     required: 'مطلوب',
     chooseUpTo: 'اختر حتى {max}',
     chooseRange: 'اختر {min}–{max}',
@@ -472,6 +475,9 @@ export const ar: Messages = {
     hero: {
       line1: 'قهوة مصنوعة',
       line2: 'بشغف',
+      // The masthead in the approved menu design: one word + the brand line.
+      menuWord: 'المنيو',
+      strapline: 'JUST ONE TOUCH',
       itemsCount: '{count} صنفًا',
       openToday: 'مفتوح اليوم {from}–{to}',
       closedToday: 'مغلق اليوم',

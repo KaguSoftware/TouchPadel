@@ -173,8 +173,6 @@ export function CafeApp({
           locale={locale}
           settings={menu.settings}
           featured={menu.featured}
-          itemCount={menu.itemsById.size}
-          venue={venue}
           collapsed={collapsed}
           onOpenFeatured={(item) => {
             track.featuredItemClicked({ item_id: item.id });
@@ -195,7 +193,8 @@ export function CafeApp({
           }}
         />
 
-        <main className="tp-container">
+        {/* No page gutter here: every section carries the design's own 24 px. */}
+        <main>
           <OrdersStrip locale={locale} live={orders.live} onOpen={() => setOrdersOpen(true)} />
           {menu.status === 'ok' ? (
             <MenuStage

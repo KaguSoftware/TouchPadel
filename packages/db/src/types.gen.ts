@@ -744,6 +744,7 @@ export type Database = {
           p_is_active?: boolean
           p_name_ar: string
           p_name_en: string
+          p_serve_temp?: string
           p_sort_order?: number
           p_tax_group_id: string
         }
@@ -761,6 +762,7 @@ export type Database = {
           p_is_active?: boolean
           p_name_ar: string
           p_name_en: string
+          p_serve_temp?: string
           p_sort_order?: number
         }
         Returns: string
@@ -1549,6 +1551,7 @@ export type Database = {
           name_en: string
           photo_blur: string | null
           photo_path: string | null
+          serve_temp: string
           sort_order: number
           tax_group_id: string
         }
@@ -1559,6 +1562,7 @@ export type Database = {
           name_en: string
           photo_blur?: string | null
           photo_path?: string | null
+          serve_temp?: string
           sort_order?: number
           tax_group_id: string
         }
@@ -1569,6 +1573,7 @@ export type Database = {
           name_en?: string
           photo_blur?: string | null
           photo_path?: string | null
+          serve_temp?: string
           sort_order?: number
           tax_group_id?: string
         }
@@ -1733,6 +1738,7 @@ export type Database = {
           name_en: string
           photo_blur: string | null
           photo_path: string | null
+          serve_temp: string
           sold_out: boolean
           sort_order: number
           unavailable_on: string | null
@@ -1750,6 +1756,7 @@ export type Database = {
           name_en: string
           photo_blur?: string | null
           photo_path?: string | null
+          serve_temp?: string
           sold_out?: boolean
           sort_order?: number
           unavailable_on?: string | null
@@ -1767,6 +1774,7 @@ export type Database = {
           name_en?: string
           photo_blur?: string | null
           photo_path?: string | null
+          serve_temp?: string
           sold_out?: boolean
           sort_order?: number
           unavailable_on?: string | null

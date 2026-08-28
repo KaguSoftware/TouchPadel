@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 import { makeT, isolate, type Locale, type MessageKey } from '@touch/i18n';
 import type { VenueOpeningHours } from '@/lib/menu';
 import { todayHours, weekHours, type DayKey } from '@/lib/cafe/hours';
-import { BeanPattern } from '../brand/BeanPattern';
 
 const DAY_LABEL: Record<DayKey, MessageKey> = {
   mon: 'cafe.days.mon',
@@ -17,8 +16,14 @@ const DAY_LABEL: Record<DayKey, MessageKey> = {
 };
 
 /**
- * Coffee-brown footer: the week's opening hours (today in bold), the venue
- * phone as a real `tel:` link, the pay-at-desk reminder and the Kagu credit.
+ * The design's footer: a blue field with a shallow arched top that caps the
+ * white column, carrying the JUST ONE TOUCH strapline, the venue line and a
+ * green rule.
+ *
+ * The week's opening hours, the phone and the pay-at-desk notice sit under that
+ * masthead - the design does not draw them, but they are the only place on the
+ * page a guest can find them, so they keep their home here in the design's
+ * type and colour.
  *
  * The phone is `dir="ltr"` + isolated: an Iraqi number inside an Arabic
  * sentence otherwise renders with its `+` at the wrong end.
@@ -56,11 +61,32 @@ export function Footer({
 
   const today = todayHours(venue);
   const phone = venue?.phone?.trim() ?? '';
+  const venueName = venue?.venue_name?.trim() ?? '';
 
   return (
     <footer className="tp-footer" ref={ref}>
-      <BeanPattern tone="white" opacity={0.05} />
       <div className="tp-footer__inner">
+        <div>
+          <div className="tp-footer__strapline" lang="en" dir="ltr">
+            {tr('cafe.hero.strapline')}
+          </div>
+          {venueName && <div className="tp-footer__venue">{venueName}</div>}
+          <svg
+            className="tp-footer__rule"
+            viewBox="0 0 100 12"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              d="M2 10 Q 50 -6 98 8"
+              stroke="var(--tp-cafe-green-light)"
+              strokeWidth="5"
+              fill="none"
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+
         <section>
           <h2 className="tp-footer__title">{tr('cafe.footer.hours')}</h2>
           <dl className="tp-hours">
@@ -73,7 +99,7 @@ export function Footer({
                   {windows.length === 0
                     ? tr('cafe.footer.closed')
                     : windows
-                        .map(([from, to]) => `${isolate(from)}–${isolate(to)}`)
+                        .map(([from, to]) => `${isolate(from)}-${isolate(to)}`)
                         .join(locale === 'ar' ? '، ' : ', ')}
                 </dd>
               </div>

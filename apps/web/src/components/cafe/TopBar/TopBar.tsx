@@ -1,25 +1,21 @@
 'use client';
 
-import type { Locale } from '@touch/i18n';
-import { Wordmark } from '../brand/Wordmark';
-import { BeanPattern } from '../brand/BeanPattern';
+import Image from 'next/image';
+import { t, type Locale } from '@touch/i18n';
 import { TableChip } from './TableChip';
 import { LocaleSwitcher } from './LocaleSwitcher';
 import { BasketButton } from './BasketButton';
 import type { TableSession, TableSessionState } from '@/hooks/cafe/useTableSession';
 
 /**
- * Solid Touch Blue bar with the wordmark, the table chip, the locale switch
- * and the basket. It ends FLAT: the bar and the hero below it are one
- * continuous blue field, closed by the hero's single swoosh (brand p01/p07).
- * The bar is sticky, not fixed: it belongs to the app shell, above the single
- * scroller.
+ * The design's header: the Touch Cafe lockup centred on white, 175 px wide.
  *
- * The bean layer here and the hero's are the SAME field: `.tp-beans` is
- * viewport-anchored (`background-attachment: fixed`, topbar.css.ts), so both
- * resolve the tile against the viewport rather than their own box and the
- * pattern runs continuously across the seam. The bar cannot simply share the
- * hero's layer — it lives outside the scroller, which clips its children.
+ * The ordering controls the design does not draw — the table chip, the locale
+ * switch and the basket — keep their place either side of it. The bar is a
+ * three-column grid whose outer tracks are equal, so the lockup stays optically
+ * centred whatever those controls are showing.
+ *
+ * Sticky, not fixed: it belongs to the app shell, above the single scroller.
  */
 export function TopBar({
   locale,
@@ -42,23 +38,32 @@ export function TopBar({
 }) {
   return (
     <header className="tp-cafe__topbar">
-      <BeanPattern tone="white" />
-      <div className="tp-container tp-cafe__topbar-inner">
-        <Wordmark tone="onBlue" />
-        <TableChip
-          locale={locale}
-          state={sessionState}
-          session={session}
-          onNeedsRescan={onNeedsRescan}
+      <div className="tp-cafe__topbar-inner">
+        <div className="tp-cafe__topbar-side">
+          <TableChip
+            locale={locale}
+            state={sessionState}
+            session={session}
+            onNeedsRescan={onNeedsRescan}
+          />
+        </div>
+        <Image
+          className="tp-cafe__lockup"
+          src="/brand/cafe/wordmark.png"
+          alt={t(locale, 'common.cafeName')}
+          width={540}
+          height={140}
+          priority
         />
-        <span className="tp-header__spacer" />
-        <LocaleSwitcher locale={locale} token={token} />
-        <BasketButton
-          locale={locale}
-          count={basketCount}
-          total={basketTotal}
-          onOpen={onOpenBasket}
-        />
+        <div className="tp-cafe__topbar-side tp-cafe__topbar-side--end">
+          <LocaleSwitcher locale={locale} token={token} />
+          <BasketButton
+            locale={locale}
+            count={basketCount}
+            total={basketTotal}
+            onOpen={onOpenBasket}
+          />
+        </div>
       </div>
     </header>
   );

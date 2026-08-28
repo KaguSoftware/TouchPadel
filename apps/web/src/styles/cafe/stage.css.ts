@@ -1,29 +1,55 @@
-/** Menu stage: category sections with photo band + ALL-CAPS name, collapsible. */
+/**
+ * Menu stage — one section per category, exactly as the design draws it:
+ *
+ *   قهوة ~~~~~~  [بارد]      <- 900-weight blue heading, green rule, optional badge
+ *   ┌──────────────────────┐
+ *   │ COFFEE          ☕   │  <- tinted band: outlined Latin word + line illustration
+ *   └──────────────────────┘
+ *          MEDIUM   LARGE     <- size headers, in the SAME order as the price cells
+ *
+ * The band tone is per section (`data-tone`): blue for the coffee/dairy half of
+ * the menu, green for the fresh/healthy half.
+ *
+ * The illustration hangs off the band's trailing corner. In the Arabic design
+ * that is the physical left, so it is pinned with inset-inline-END and the whole
+ * composition mirrors cleanly in English.
+ */
 export const stageCss = `
-.tp-menu-cat { margin-block-start: var(--tp-space-6); }
-.tp-menu-cat > h2 { font-family: var(--tp-font-display); font-size: 1.3rem; font-weight: var(--tp-fw-display); text-transform: uppercase; letter-spacing: var(--tp-tracking-caps);
-  padding-block-end: var(--tp-space-2); border-block-end: 2px solid var(--tp-accent-2); margin-block-end: var(--tp-space-3); }
-[dir='rtl'] .tp-menu-cat > h2 { font-family: var(--tp-font-arabic); font-weight: 700; }
-.tp-stage__head { display: flex; align-items: center; gap: var(--tp-space-3); inline-size: 100%; background: none; border: 0; padding-block: var(--tp-space-3); padding-inline: 0; text-align: start; }
-.tp-stage__band { position: relative; inline-size: 4.5rem; block-size: 3rem; border-radius: var(--tp-radius-sm); overflow: hidden; background: var(--tp-cafe-brown-tint); flex: none; }
-.tp-stage__band img { inline-size: 100%; block-size: 100%; object-fit: cover; }
-.tp-stage__count { color: var(--tp-muted-fg); font-size: var(--tp-fs-sm); }
-.tp-stage__chevron { margin-inline-start: auto; transition: transform var(--tp-dur-base) var(--tp-ease-out); }
-.tp-stage[data-open='false'] .tp-stage__chevron { transform: rotate(-90deg); }
-.tp-stage__body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--tp-dur-base) var(--tp-ease-out); }
-.tp-stage[data-open='false'] .tp-stage__body { grid-template-rows: 0fr; }
-.tp-stage__body > * { min-block-size: 0; overflow: hidden; }
-.tp-menu-unavailable { text-align: center; padding-block: var(--tp-space-6); padding-inline: var(--tp-space-5); display: flex; flex-direction: column; align-items: center; gap: var(--tp-space-3); }
-.tp-menu-unavailable h2 { font-family: var(--tp-font-display); font-size: var(--tp-fs-lg); }
-.tp-menu-unavailable p { color: var(--tp-muted-fg); max-inline-size: 26rem; }
+.tp-menu-cat, .tp-stage { padding-block: 22px 6px; padding-inline: 24px; scroll-margin-block-start: 62px; }
+.tp-stage:last-of-type { padding-block-end: 14px; }
 
-/* The category heading lives INSIDE the collapse button, so the
-   ".tp-menu-cat > h2" rule above cannot reach it. */
-.tp-stage__head h2 { font-family: var(--tp-font-display); font-size: 1.3rem; font-weight: var(--tp-fw-display);
-  text-transform: uppercase; letter-spacing: var(--tp-tracking-caps); line-height: var(--tp-lh-tight); }
-[dir='rtl'] .tp-stage__head h2 { font-family: var(--tp-font-arabic); font-weight: 700; text-transform: none; }
-.tp-stage { border-block-end: 1px solid var(--tp-border); }
-.tp-stage:last-of-type { border-block-end: 0; }
-.tp-stage__head { color: inherit; }
-.tp-stage__band img { object-fit: cover; }
+.tp-stage__head { display: flex; align-items: flex-end; gap: 10px; }
+.tp-stage__head h2 { font-family: var(--tp-font-arabic); font-weight: 900; font-size: 30px; line-height: 1; color: var(--tp-accent); }
+[dir='ltr'] .tp-stage__head h2 { font-family: var(--tp-font-display); font-weight: 800; text-transform: uppercase; letter-spacing: var(--tp-tracking-caps); }
+/* The hand-drawn green rule that underscores every heading. */
+.tp-stage__rule { flex: none; block-size: 12px; margin-block-end: 4px; }
+/* Placement only — the chip's colour comes from .tp-temp--hot / --cold. */
+.tp-stage__badge { flex: none; margin-block-end: 4px; }
+
+.tp-stage__band { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; background: var(--tp-cafe-blue-tint); border-radius: 20px; padding-block: 20px; padding-inline: 18px;
+  min-block-size: 96px; margin-block-start: 14px; }
+.tp-stage__band[data-tone='green'] { background: var(--tp-cafe-green-tint); }
+.tp-stage__word { font-family: var(--tp-font-display); font-weight: 800; font-size: 26px; letter-spacing: 0.04em;
+  color: transparent; -webkit-text-stroke: 1.3px var(--tp-accent); }
+.tp-stage__band[data-tone='green'] .tp-stage__word { -webkit-text-stroke-color: var(--tp-cafe-green); }
+/* Long words step down so they never collide with the illustration. */
+.tp-stage__word[data-len='long'] { font-size: 22px; }
+.tp-stage__word[data-len='medium'] { font-size: 24px; }
+/* Size, offsets and tilt come from the design per section (sectionArt.tsx sets
+   them inline, including --tp-illo-rot); only the mirror lives here. */
+.tp-stage__illo { position: absolute; rotate: var(--tp-illo-rot, -8deg); pointer-events: none; }
+[dir='ltr'] .tp-stage__illo { rotate: calc(-1 * var(--tp-illo-rot, -8deg)); }
+
+/* Size headers. Emitted in the SAME DOM order as the price cells on each row,
+   with no direction override, so header and column stay aligned in both
+   reading directions (a fixed \`direction: ltr\` here would misalign in LTR). */
+.tp-stage__cols { display: flex; gap: 8px; justify-content: flex-end; font-family: var(--tp-font-numeric);
+  font-size: 10px; font-weight: 600; color: var(--tp-muted); margin-block: 12px 2px; margin-inline: 4px; }
+.tp-stage__cols span { inline-size: 46px; text-align: end; }
+.tp-stage__rows { display: grid; gap: 2px; }
+
+.tp-menu-unavailable { text-align: center; padding-block: var(--tp-space-6); padding-inline: var(--tp-space-5); display: flex; flex-direction: column; align-items: center; gap: var(--tp-space-3); }
+.tp-menu-unavailable h2 { font-family: var(--tp-font-arabic); font-weight: 800; font-size: var(--tp-fs-lg); }
+.tp-menu-unavailable p { color: var(--tp-muted-fg); max-inline-size: 26rem; }
 `;

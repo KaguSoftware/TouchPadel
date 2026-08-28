@@ -42,7 +42,9 @@ test.describe('cafe RTL layout @ar', () => {
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
 
     await assertWithinViewport(page.locator('.tp-cafe__topbar').first(), 'top bar');
-    await assertWithinViewport(page.locator('.tp-hero__band').first(), 'swoosh band');
+    // The menu design ends the blue crown: there is no swoosh band any more,
+    // so the hero panel itself is the wide decorative box to guard here.
+    await assertWithinViewport(page.locator('.tp-hero').first(), 'hero');
     // The ticker TRACK is deliberately wider than the viewport (it is the
     // marquee); its clipping container is what must stay put.
     await assertWithinViewport(page.locator('.tp-ticker').first(), 'ticker');

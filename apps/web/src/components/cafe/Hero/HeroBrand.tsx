@@ -1,50 +1,26 @@
 'use client';
 
-import { makeT, isolate, type Locale } from '@touch/i18n';
-import { BeanPattern } from '../brand/BeanPattern';
-import type { TodayHours } from '@/lib/cafe/hours';
+import { makeT, type Locale } from '@touch/i18n';
+import { HeroArt } from './HeroArt';
 
 /**
- * Hero mode `none` — the brand panel (deck p08): an ALL-CAPS extra-bold
- * two-line headline on the crown's Touch Blue.
+ * Hero mode `none` — the design's masthead: the brand sweep filling a 320 px
+ * white panel, with المنيو and the JUST ONE TOUCH strapline set in the open
+ * half of the composition.
  *
- * It carries no swoosh of its own — the single one that closes the crown is
- * rendered by `Hero` outside the collapsing row, so it survives the collapse.
- * Its bean layer is viewport-anchored (`background-attachment: fixed`, see
- * topbar.css.ts), which is what lets it and the topbar's layer read as ONE
- * continuous field across the seam rather than two patterns that restart.
- *
- * The meta line is the only live data here: today's opening window and how
- * many items are on the menu, so the hero is never purely decorative.
+ * The design states no opening hours here; today's window and the full week
+ * live in the footer, so nothing is lost by keeping this panel to the two lines
+ * the design draws.
  */
-export function HeroBrand({
-  locale,
-  itemCount,
-  hours,
-}: {
-  locale: Locale;
-  itemCount: number;
-  hours: TodayHours;
-}) {
+export function HeroBrand({ locale }: { locale: Locale }) {
   const tr = makeT(locale);
-  const window0 = hours.windows[0];
   return (
     <div className="tp-hero__brand">
-      <BeanPattern tone="white" />
-      <h1 className="tp-hero__headline">
-        {tr('cafe.hero.line1')}
-        <br />
-        {tr('cafe.hero.line2')}
-      </h1>
-      <p className="tp-hero__meta">
-        {hours.closed || !window0
-          ? tr('cafe.hero.closedToday')
-          : tr('cafe.hero.openToday', {
-              from: isolate(window0[0]),
-              to: isolate(window0[1]),
-            })}
-        {itemCount > 0 && <> · {tr('cafe.hero.itemsCount', { count: itemCount })}</>}
-      </p>
+      <HeroArt />
+      <div className="tp-hero__headline-wrap">
+        <h1 className="tp-hero__headline">{tr('cafe.hero.menuWord')}</h1>
+        <p className="tp-hero__strapline">{tr('cafe.hero.strapline')}</p>
+      </div>
     </div>
   );
 }
