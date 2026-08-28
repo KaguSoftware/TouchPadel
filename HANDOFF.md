@@ -319,6 +319,37 @@ multiplier that three modules disagreed about.
 `check:authz` clean · `pnpm e2e` **29/29 EN + AR**. Operator unit tests 125 → 165;
 operator-shell 0 → 62.
 
+
+### Day 6, continued — modules 1, 2 and 4 closed, and the heartbeat fixed
+
+Commits `2504dbb`, `3bfd697`, `7df48e7`, `3713b70`, `2d4c1cf`. Migrations **0050-0053**,
+local only — **not pushed to hosted**.
+
+- **The heartbeat now beats.** It moved into the RENDERER
+  (`apps/operator/src/lib/heartbeat.ts`), because `app.heartbeat` needs a staff session and the
+  main process has none. The banner L688 asks for exists. Eight DB tests assert the degraded
+  machinery actually moves. The shell’s `heartbeat.ts` is now a marker holding the reasoning.
+- **Two settings screens have never been able to save.** `set_opening_hours` and
+  `set_waiter_call_cooldown` did a WHERE-less `update venue_settings`, which Supabase’s
+  `safeupdate` refuses on every PostgREST connection. Fixed in 0052, plus a new structural guard
+  `pnpm --filter @touch/db check:safeupdate`, verified RED against the pre-fix body and wired
+  into the CI db job.
+- **Module 1**: `/admin/audit` (the log had never been read by anything) and real staff
+  administration — create, re-role, rename, PIN, deactivate, password reset — replacing a
+  read-only table whose own header said invites stay in the Supabase dashboard.
+- **Module 2**: week calendar, shorten, closed days, and a real reason on every override (the
+  RPCs took `p_reason` since 0048; the desk never passed one, so every row said `staff_op`).
+- **Module 4**: refund, price override, merge tabs, guest bill, split BY ITEM, cash-drawer
+  record — and charge-to-booking now actually adds the court fee, which it never did.
+
+**Gate:** `turbo lint typecheck test` 18/18 · DB **332** · `check:locks` + `check:authz` +
+`check:safeupdate` clean · `pnpm e2e` **34/34 EN + AR**.
+
+**Still open on the desktop app** (see `docs/design/operator-audit-2026-08-28.md` §12): the
+durable write path and replay (C2), the whole stock module (C3), the Windows installer,
+thermal printing, KDS item-ready persistence, short-lived till sessions, court records admin,
+and Sentry.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -393,7 +424,7 @@ operator-shell 0 → 62.
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
-| Operator desktop | Audited 2026-08-28. Gate made real + every High finding except H6 fixed (waves 0–1) | Modules 1/2/4/5/7 completeness, ESC/POS printing, Windows installer | Roadmap 6 |
+| Operator desktop | Audited 2026-08-28. Waves 0-2: real gate, every High fixed, heartbeat live, modules 1/2/4 complete (migrations 0050-0053, local only) | Durable write path + replay, stock module, ESC/POS printing, Windows installer, KDS persistence, till session lock, court admin, Sentry | Roadmap 6 |
 | Mobile app | SDK 54; crash fixed, error handling + caching + wiring done (day 5). Presentation still a wireframe; release plumbing still absent | Native UI on SDK 54, push, profile, account deletion, Sentry, store build | Roadmap 6 (by 2026-09-16) |
 
 ## Gotchas / open issues
@@ -408,7 +439,9 @@ operator-shell 0 → 62.
   through an outage, and `close_day`’s queue-depth guard is inert for the same reason as C1.
 - **OPERATOR: `/stock` is a live sidebar link to a bare `<h1>`** for every manager and owner
   (audit C3). Module 5 has no UI; all of its RPCs and views exist and are called by nothing.
-- **`pnpm e2e` needs `supabase functions serve` as well as the stack and both dev servers.**
+- **`pnpm e2e` needs a FRESH database as well as `supabase functions serve`.** Run
+  `supabase db reset && pnpm db:fixtures` first: the DB suites leave menu rows and cafe-settings
+  state that make two cafe cases fail, which is why CI resets before the e2e job. And:
   Without the edge runtime `analytics-posthog` 404s, the client reads that as a generic error
   rather than `NOT_CONFIGURED`, and the operator analytics case fails on a missing
   "sales-only" notice. `supabase start` does not serve functions. The CI e2e job starts it.

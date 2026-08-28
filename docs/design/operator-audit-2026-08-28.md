@@ -9,9 +9,9 @@ inferred from the design docs; where a design doc and the code disagree, the cod
 The contract text is `docs/scope/touch-padel-phase1-scope-of-work.txt` and every `L…` reference
 points into that file.
 
-**Standing:** report plus a scheduled fix plan. **Waves 0 and 1 have landed** — the gate is
-real, and every High finding except H6 (features whose RPC exists but has no caller) is fixed.
-The three Critical findings are scheduled, not done. See §8 for exactly what changed.
+**Standing:** report plus a fix log. **Waves 0, 1 and 2 have landed.** Every High finding is
+fixed, C1 (the heartbeat) is fixed, and the module-1/2/4 contract gaps are closed. C2 (the
+durable write path) and C3 (module 5) remain, as does packaging. See §§8-10.
 
 ---
 
@@ -35,7 +35,7 @@ any kind (§6).
 
 ## 2. Critical
 
-### C1 — The heartbeat has never worked, and its failure is invisible
+### C1 — The heartbeat has never worked, and its failure is invisible · **FIXED (wave 2)**
 
 `apps/operator-shell/src/main/heartbeat.ts:25` POSTs to `${SUPABASE_URL}/functions/v1/heartbeat`.
 
@@ -187,7 +187,7 @@ The single-instance lock is also broken: `index.ts:13-15` calls `app.quit()` **w
 returning**, so module evaluation continues and `app.whenReady()` is still registered — and there
 is no `second-instance` handler to focus the existing window.
 
-### H6 — Contract features with a working RPC and no caller
+### H6 — Contract features with a working RPC and no caller · **FIXED (wave 2)**
 
 All of these are granted and tested server-side and have **zero call sites** in the operator:
 
@@ -205,7 +205,7 @@ a code no UI can currently produce or resolve.
 
 Split a bill **by item** (L444) has neither an RPC nor a UI; only `app.split_evenly` exists.
 
-### H7 — Charge-to-booking does not add up
+### H7 — Charge-to-booking does not add up · **FIXED (wave 2, migration 0053)**
 
 `tabs.reservation_id` exists and `NewTabDialog` offers the booking picker, but
 `app.compute_tab_totals` never adds the court price. The SOW's "so a group settles courts and
@@ -219,9 +219,9 @@ drinks in one payment" (L131, L445-446) produces a bill with the court missing.
   `useState<Set<string>>`. A refresh or a navigation away wipes them mid-service, and nothing
   notifies the floor or the guest as L460 requires. Actual preparation time per ticket (L462) is
   not stored.
-- **M2 — No closed-dates editor.** `OpeningHoursEditor.tsx:38` reads `closed_dates` and
+- **M2 (FIXED, wave 2) — No closed-dates editor.** `OpeningHoursEditor.tsx:38` reads `closed_dates` and
   `DeskCalendar.tsx:125` honours it, but nothing in the app can write it (L319).
-- **M3 — Reservation overrides are audited without a reason.** `move_reservation`,
+- **M3 (FIXED, wave 2 — and the original claim was already stale: 0048 added `p_reason`, but the desk never passed one, so every row read `staff_op`) — Reservation overrides are audited without a reason.** `move_reservation`,
   `extend_reservation` and `mark_reservation` write audit rows with no reason code, against L313
   ("Every override written to the audit log with actor and reason"). Only cancel takes one.
   `set_staff_pin` writes no audit row at all.
@@ -430,3 +430,98 @@ Operator unit tests 125 → 165; operator-shell 0 → 62.
 C1 (heartbeat), C2 (the write path and the durable queue) and C3 (module 5) are unchanged, as
 is H6 — `refund`, `override_price`, `merge_tabs`, the audit-log viewer and `manager_alerts`
 still have a working RPC and no caller. Everything in §5 (packaging) is unchanged.
+
+## 11. Landed on 2026-08-28 (Wave 2 — contract completeness, modules 1, 2, 4 and the heartbeat)
+
+### Module 1 — the two phase-acceptance blockers
+
+**Audit-log viewer** (L241-243; L434-439 makes it an acceptance test). The log has been written
+correctly since day 1 and read by nothing. `/admin/audit` shows the newest 200 entries with
+filters by area, actor and free text, and a FIELD-LEVEL before/after diff rather than two blobs
+of jsonb. It also has a filter for rows whose action requires a reason code and carries none, so
+the remaining gaps are visible rather than buried.
+
+**Owner-run staff administration** (L234; phase gate L997). Migration **0051** adds
+`set_staff_role`, `set_staff_active`, `rename_staff`, `clear_staff_pin` and `list_staff`, all
+owner-gated and audited; a new `staff-admin` edge function does account creation and password
+reset, which need the GoTrue admin API, and rolls back the auth user if the staff row cannot be
+written. An owner cannot change or deactivate their own account, and a role dropping below
+manager loses its authorisation PIN in the same statement.
+
+### Module 2 — the desk
+
+**Week calendar** (L307), days-as-columns with each chip naming its court and opening the same
+detail modal. **Shorten** (L310), which had no UI path at all; the floor is the court’s own
+shortest bookable duration, because rate rules price what the venue sells. **Closed days**
+(L319) — see the safeupdate finding below. **A real reason on every override** (L313): the RPCs
+have taken `p_reason` since 0048 and the desk never passed one, so every move, extend and status
+change was audited as the generic `staff_op`.
+
+### Module 4 — the till
+
+**Refund** (L453), **price override** (L450-451), **merge tabs** (L444) and the **guest bill**
+(L456) — four clauses whose RPCs were granted and tested and whose UI did not exist. Migration
+**0053** adds what needed schema: the **court fee on a tab charged to a booking** (L131,
+L445-446 — `compute_tab_totals` never added it, so the "one payment" bill was short by the
+court), **split by item** (L444, where only the even split existed), and the **cash-drawer
+record** (L449).
+
+The till’s totals arithmetic moved out of a `useMemo` in the middle of a 1,162-line component
+into `features/till/tabTotals.ts` with 15 tests, and the bill renders from that same
+computation so the two cannot drift.
+
+### C1 — the heartbeat
+
+Fixed, and it is the most consequential change of the day. The sender now lives in the RENDERER
+(`apps/operator/src/lib/heartbeat.ts`) rather than the Electron main process, because
+`app.heartbeat` needs a staff session and the session is there; the main process has no Supabase
+client, no JWT and no refresh loop. `p_is_till` is sent explicitly. Failures surface on the
+station and through telemetry instead of being swallowed. The banner L688 asks for now exists.
+Eight DB tests drive the RPC exactly as the operator does and assert the degraded machinery
+moves — none of which could run before, because nothing wrote the table.
+
+### A defect found while testing, not by reading
+
+**`app.set_opening_hours` and `app.set_waiter_call_cooldown` have NEVER worked from a client.**
+Both do a bare `update venue_settings set …` with no WHERE clause, and Supabase loads
+`safeupdate` on PostgREST connections, so both are refused with "UPDATE requires a WHERE clause"
+for every real caller. SECURITY DEFINER does not exempt them. SOW L319 was therefore
+unsatisfiable from the product since day 1: the screen rendered, the button worked, the write
+was refused, and the venue’s trading hours could not be changed at all.
+
+It survived because no test ever SAVED — the DB suites write through the service role, where
+safeupdate is not loaded, so they took the one path on which the bug does not exist. Migration
+**0052** fixes both; `packages/db/tests/venue-settings.test.ts` drives them through a signed-in
+staff client; and `pnpm --filter @touch/db check:safeupdate` walks `pg_proc` for WHERE-less
+writes, verified RED against the pre-fix body before being wired into CI.
+
+Two further guard corrections, both self-inflicted and both caught by the guards:
+`check:safeupdate` rejected my own first draft of `split_by_item` (a temp table with a
+WHERE-less DELETE), and `check:authz` reported `list_staff` as unguarded because it builds probe
+arguments from `proargnames`, which includes OUT parameters — so any `returns table (…)` RPC
+looked like it took its own result columns as arguments and PostgREST 404’d. Un-probed read as
+unguarded. Fixed to filter on `proargmodes`; `list_staff` now raises rather than filtering to an
+empty set.
+
+**Gate after wave 2:** `pnpm turbo lint typecheck test` 18/18 · `@touch/db` **332 tests** ·
+`check:locks`, `check:authz` (97 RPCs, 81 guarded, 16 public by design) and `check:safeupdate`
+clean · `pnpm e2e` **34/34 EN + AR** from a clean reset. Operator unit tests 125 → 237;
+operator-shell 62.
+
+## 12. Still open after wave 2
+
+| Finding | State |
+|---|---|
+| **C2** — no operator write goes through the IPC queue; no dequeue, no replay worker, no `ref_cache` | Untouched. The till still cannot trade through an outage. |
+| **C3** — module 5 has no UI; `/stock` is a live sidebar link to an `<h1>` | Untouched. |
+| **§5** — no Windows installer: no electron-builder, no icon, no signing, renderer not bundled, native ABI unhandled | Untouched. |
+| **M1** — KDS item-ready marks are component state; prep time not stored; source not tagged | Untouched. |
+| L237 — short-lived sessions / idle lock on the shared till | Untouched. |
+| L299-300 — court records admin (name, indoor/outdoor, photo, duration options) | Untouched; needs an `upsert_court` RPC. |
+| L425-433 — thermal receipt printing (Arabic as a rendered image) | Untouched; the on-screen bill satisfies L456 today. |
+| L256-257 — error tracking (Sentry) on the booking and ordering paths | Seam exists (`lib/telemetry.ts`); no reporter installed. |
+
+The charge-to-booking money model in 0053 is worth a line-review: the court fee sits OUTSIDE
+`subtotal_iqd` (so percentage discounts apply to goods only) and outside the tax base (tax is
+per item group, L454-455), and there is deliberately no separate "reservation paid" flag — a
+settled tab carrying that `reservation_id` is the record.
