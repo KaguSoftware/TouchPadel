@@ -12,6 +12,8 @@ import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { idemKey, deviceId } from '../../lib/idem';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow } from '../../lib/queries';
+import { WeekGrid } from './WeekGrid';
+import { shiftIsoDate, startOfWeek, weekDates } from './weekLogic';
 import { useBroadcast } from '../../lib/realtime';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Modal, card, inputStyle } from '../../components/ui';
@@ -47,12 +49,42 @@ function shiftDate(date: string, days: number): string {
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
 
+/**
+ * SOW L313: "Every override written to the audit log with actor and reason."
+ *
+ * The RPCs have taken `p_reason` since 0048 and default it to 'staff_op'; the
+ * desk never passed one, so every move, extend and status change in the audit
+ * log said 'staff_op' — an actor with no reason, which is exactly what the
+ * clause exists to prevent. These are the reasons a desk actually has.
+ */
+const OVERRIDE_REASONS = [
+  'customer_request',
+  'staff_error',
+  'weather',
+  'duplicate',
+  'other',
+] as const;
+
+/**
+ * Shorten and extend move in half-hour steps, matching the grid.
+ *
+ * The FLOOR is the court's own shortest bookable duration, not a constant:
+ * rate rules price the durations the venue actually sells (60/90/120 in the
+ * fixtures), so shortening a 60-minute booking to 30 leaves the server with
+ * nothing to charge and it refuses with "No rate rule prices this slot". The
+ * refusal is correct — the button should simply not offer the move.
+ */
+const STEP_MIN = 30;
+
 export function DeskCalendar() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const [date, setDate] = useState<string>(() => todayInTz(VENUE_TZ));
   const [createAt, setCreateAt] = useState<{ courtId: string; startAt: Date } | null>(null);
   const [selected, setSelected] = useState<ReservationRow | null>(null);
+  // SOW L307 asks for a day AND week calendar; the desk was day-only, so
+  // "are we free Saturday afternoon?" meant seven presses of the arrow.
+  const [view, setView] = useState<'day' | 'week'>('day');
 
   // Both fetchers live in lib/queries.ts. They used to be declared here AND,
   // more narrowly, in the admin editors under the same cache keys — so whichever
@@ -63,6 +95,36 @@ export function DeskCalendar() {
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
   const dayStart = useMemo(() => wallTimeToUtc(date, 0, tz), [date, tz]);
   const dayEnd = useMemo(() => wallTimeToUtc(date, 24 * 60, tz), [date, tz]);
+
+  // The week query is separate rather than a widened day query: the day grid
+  // is on the critical path for the desk and must not start fetching seven
+  // days of rows because a week view exists somewhere on the screen.
+  const weekStart = startOfWeek(date);
+  const weekBounds = useMemo(() => {
+    const days = weekDates(date);
+    return {
+      from: wallTimeToUtc(days[0]!, 0, tz),
+      to: wallTimeToUtc(shiftIsoDate(days[6]!, 1), 0, tz),
+    };
+  }, [date, tz]);
+
+  const weekQ = useQuery({
+    queryKey: ['reservationsWeek', weekStart],
+    enabled: view === 'week' && settingsQ.isSuccess,
+    queryFn: async (): Promise<ReservationRow[]> => {
+      const { data, error } = await supabase
+        .from('reservations')
+        .select(
+          'id, court_id, kind, status, start_at, end_at, guest_id, guest_name, guest_phone, price_iqd, hold_expires_at, notes',
+        )
+        .gte('start_at', weekBounds.from.toISOString())
+        .lt('start_at', weekBounds.to.toISOString())
+        .order('start_at');
+      if (error) throw error;
+      return data as unknown as ReservationRow[];
+    },
+    refetchInterval: 60_000,
+  });
 
   const reservationsQ = useQuery({
     queryKey: ['reservations', date],
@@ -90,7 +152,7 @@ export function DeskCalendar() {
     topic: 'courts',
     isPrivate: true,
     events: ['slot_changed'],
-    invalidateKeys: [['reservations']],
+    invalidateKeys: [['reservations'], ['reservationsWeek']],
   });
 
   const dayKey = DAY_KEYS[new Date(`${date}T12:00:00Z`).getUTCDay()] as DayKey;
@@ -104,6 +166,16 @@ export function DeskCalendar() {
     () => Array.from({ length: rowCount }, (_, i) => openMin + i * SLOT_MIN),
     [rowCount, openMin],
   );
+
+  // The week grid spans days with different hours, so it needs the widest
+  // window in the week rather than today's.
+  const allWindows = DAY_KEYS.flatMap((k) => settingsQ.data?.opening_hours?.[k] ?? []);
+  const weekOpenMin = allWindows.length
+    ? Math.min(...allWindows.map(([o]) => parseHHMM(o)))
+    : 0;
+  const weekCloseMin = allWindows.length
+    ? Math.max(...allWindows.map(([, c]) => parseHHMM(c)))
+    : 0;
 
   const courts = courtsQ.data ?? [];
   const reservations = reservationsQ.data ?? [];
@@ -156,6 +228,20 @@ export function DeskCalendar() {
         />
         <Button onClick={() => setDate(shiftDate(date, 1))}>›</Button>
         <Button onClick={() => setDate(todayInTz(tz))}>{tr('common.today')}</Button>
+        <Button
+          aria-pressed={view === 'day'}
+          kind={view === 'day' ? 'primary' : undefined}
+          onClick={() => setView('day')}
+        >
+          {tr('op.desk.viewDay')}
+        </Button>
+        <Button
+          aria-pressed={view === 'week'}
+          kind={view === 'week' ? 'primary' : undefined}
+          onClick={() => setView('week')}
+        >
+          {tr('op.desk.viewWeek')}
+        </Button>
         <span style={{ flex: 1 }} />
         <Button
           kind="ghost"
@@ -165,7 +251,24 @@ export function DeskCalendar() {
         </Button>
       </div>
 
-      {closed || rowCount === 0 ? (
+      {view === 'week' ? (
+        <>
+          <ErrorText error={weekQ.error} />
+          <WeekGrid
+            date={date}
+            timeZone={tz}
+            openMin={weekOpenMin}
+            closeMin={weekCloseMin}
+            closedDates={settingsQ.data?.closed_dates ?? []}
+            courts={courts}
+            reservations={(weekQ.data ?? []).filter(visible)}
+            onSelect={(id) => {
+              const row = (weekQ.data ?? []).find((r) => r.id === id);
+              if (row) setSelected(row);
+            }}
+          />
+        </>
+      ) : closed || rowCount === 0 ? (
         <p style={card}>{tr('op.desk.closedToday')}</p>
       ) : (
         <div style={{ overflowX: 'auto' }}>
@@ -524,6 +627,7 @@ function ReservationActionsDialog({
   const [moveCourt, setMoveCourt] = useState(r.court_id);
   const [moveStartMin, setMoveStartMin] = useState<number | ''>('');
   const [cancelReason, setCancelReason] = useState<string>(CANCEL_REASONS[0]);
+  const [reason, setReason] = useState<string>(OVERRIDE_REASONS[0]);
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -540,6 +644,10 @@ function ReservationActionsDialog({
 
   const durationMs = new Date(r.end_at).getTime() - new Date(r.start_at).getTime();
   const live = ['pending', 'confirmed', 'arrived'].includes(r.status);
+  const court = courts.find((c) => c.id === r.court_id);
+  const minDurationMin = court?.duration_options?.length
+    ? Math.min(...court.duration_options)
+    : STEP_MIN;
 
   return (
     <Modal title={r.guest_name ?? tr('op.desk.walkIn')} onClose={onClose}>
@@ -556,13 +664,28 @@ function ReservationActionsDialog({
       {r.notes && <p style={{ color: 'var(--tp-muted-fg)' }}>{r.notes}</p>}
       <ErrorText error={error} />
       {live && !showMove && !showCancel && (
+        <Field label={tr('op.desk.overrideReason')}>
+          <select style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value)}>
+            {OVERRIDE_REASONS.map((code) => (
+              <option key={code} value={code}>
+                {tr(`op.reasons.${code}`)}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+      {live && !showMove && !showCancel && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           {r.status === 'confirmed' && (
             <Button
               disabled={busy}
               onClick={() =>
                 void run(() =>
-                  appRpc('mark_reservation', { p_reservation_id: r.id, p_status: 'arrived' }),
+                  appRpc('mark_reservation', {
+                    p_reservation_id: r.id,
+                    p_status: 'arrived',
+                    p_reason: reason,
+                  }),
                 )
               }
             >
@@ -574,7 +697,11 @@ function ReservationActionsDialog({
               disabled={busy}
               onClick={() =>
                 void run(() =>
-                  appRpc('mark_reservation', { p_reservation_id: r.id, p_status: 'completed' }),
+                  appRpc('mark_reservation', {
+                    p_reservation_id: r.id,
+                    p_status: 'completed',
+                    p_reason: reason,
+                  }),
                 )
               }
             >
@@ -586,20 +713,47 @@ function ReservationActionsDialog({
               disabled={busy}
               onClick={() =>
                 void run(() =>
-                  appRpc('mark_reservation', { p_reservation_id: r.id, p_status: 'no_show' }),
+                  appRpc('mark_reservation', {
+                    p_reservation_id: r.id,
+                    p_status: 'no_show',
+                    p_reason: reason,
+                  }),
                 )
               }
             >
               {tr('op.desk.noShow')}
             </Button>
           )}
+          {/* SOW L310 lists "move, SHORTEN, extend and cancel". Shorten had no UI
+              path at all; app.extend_reservation takes an absolute end, so it is
+              the same call with an earlier time — and since 0048 it re-prices
+              either way, which is the reason it must not be a raw UPDATE. */}
+          <Button
+            disabled={busy || durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000}
+            onClick={() =>
+              void run(() =>
+                appRpc('extend_reservation', {
+                  p_reservation_id: r.id,
+                  p_new_end_at: new Date(
+                    new Date(r.end_at).getTime() - STEP_MIN * 60_000,
+                  ).toISOString(),
+                  p_reason: reason,
+                }),
+              )
+            }
+          >
+            {tr('op.desk.shorten30')}
+          </Button>
           <Button
             disabled={busy}
             onClick={() =>
               void run(() =>
                 appRpc('extend_reservation', {
                   p_reservation_id: r.id,
-                  p_new_end_at: new Date(new Date(r.end_at).getTime() + 30 * 60000).toISOString(),
+                  p_new_end_at: new Date(
+                    new Date(r.end_at).getTime() + STEP_MIN * 60_000,
+                  ).toISOString(),
+                  p_reason: reason,
                 }),
               )
             }
@@ -655,6 +809,7 @@ function ReservationActionsDialog({
                     p_court_id: moveCourt,
                     p_start_at: start.toISOString(),
                     p_end_at: new Date(start.getTime() + durationMs).toISOString(),
+                    p_reason: reason,
                   }),
                 );
               }}

@@ -104,6 +104,13 @@ jobs:
       # here - the analytics family guards one call deep, inside analytics_guard().
       - name: RPC authorization sweep
         run: pnpm --filter @touch/db check:authz
+      # safeupdate is loaded on PostgREST connections, so a WHERE-less UPDATE or
+      # DELETE inside a definer function is refused for every real caller while
+      # working fine from the service role the DB suites use. That is exactly how
+      # set_opening_hours and set_waiter_call_cooldown shipped broken and stayed
+      # broken — the opening-hours screen could not save, ever.
+      - name: safeupdate invariant
+        run: pnpm --filter @touch/db check:safeupdate
       # Runs the @touch/db test suite — includes the RLS matrix and the reservation
       # concurrency suite, which only make sense with the stack up (hence this job).
       - name: DB tests (RLS + concurrency)
