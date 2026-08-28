@@ -10,6 +10,9 @@ import { formatIQD, formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { idemKey, deviceId } from '../../lib/idem';
+import { computeTabTotals } from './tabTotals';
+import { BillView } from './BillView';
+import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerActions';
 import { QK, fetchOpenDay, fetchActiveCafeTables } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
@@ -738,6 +741,11 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
   );
   const [discountValue, setDiscountValue] = useState(10);
   const [voidItemId, setVoidItemId] = useState<string | null>(null);
+  // The four cashier surfaces the contract names and the till could not do.
+  const [billOpen, setBillOpen] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [overrideItemId, setOverrideItemId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<unknown>(null);
   const [pinError, setPinError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -792,33 +800,11 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
 
   const tab = tabQ.data;
 
-  // Display totals mirror app.compute_tab_totals; the settle RPC re-stamps the
-  // authoritative figures server-side.
-  const totals = useMemo(() => {
-    if (!tab) return { subtotal: 0, discount: 0, tax: 0, total: 0, paid: 0 };
-    const lines = tab.orders
-      .filter((o) => o.status !== 'voided')
-      .flatMap((o) => o.order_items.filter((i) => !i.voided));
-    const subtotal = lines.reduce((s, l) => s + l.line_total_iqd, 0);
-    const discount = Math.min(
-      tab.tab_adjustments
-        .filter((a) => a.kind === 'discount_percent' || a.kind === 'discount_amount')
-        .reduce((s, a) => s + a.amount_iqd, 0),
-      subtotal,
-    );
-    const byGroup = new Map<number, number>();
-    for (const l of lines) {
-      const rate = taxQ.data?.rateByCategory.get(l.menu_item?.category_id ?? '') ?? 0;
-      byGroup.set(rate, (byGroup.get(rate) ?? 0) + l.line_total_iqd);
-    }
-    let tax = 0;
-    for (const [rate, grp] of byGroup) tax += Math.round((grp * rate) / 10000);
-    const total = Math.max(subtotal - discount + (taxQ.data?.taxInclusive ? 0 : tax), 0);
-    const paid = tab.payments.reduce((s, p) => s + p.amount_iqd, 0);
-    return { subtotal, discount, tax, total, paid };
-  }, [tab, taxQ.data]);
-
-  const due = Math.max(totals.total - totals.paid, 0);
+  // Extracted to features/till/tabTotals.ts so the money arithmetic on the
+  // till has tests, and so the guest bill renders from the SAME computation
+  // the settle buttons use rather than a second one that can drift.
+  const totals = useMemo(() => computeTabTotals(tab ?? null, taxQ.data ?? null), [tab, taxQ.data]);
+  const due = totals.due;
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['tab', tabId] });
@@ -940,9 +926,17 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
                   <span style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
                     {formatIQD(i.line_total_iqd, locale)}
                     {!i.voided && !settled && (
-                      <Button kind="ghost" onClick={() => setVoidItemId(i.id)}>
-                        {tr('op.till.voidItem')}
-                      </Button>
+                      <>
+                        {/* SOW L450-451 pairs price overrides with discounts
+                            behind the same authorised PIN. Discounts were
+                            wired; overrides never were. */}
+                        <Button kind="ghost" onClick={() => setOverrideItemId(i.id)}>
+                          {tr('op.till.override')}
+                        </Button>
+                        <Button kind="ghost" onClick={() => setVoidItemId(i.id)}>
+                          {tr('op.till.voidItem')}
+                        </Button>
+                      </>
                     )}
                   </span>
                 </div>
@@ -979,14 +973,97 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
               {tr('op.till.splitEvenly')}
             </Button>
             <Button onClick={() => setDiscountOpen(true)}>{tr('op.till.discount')}</Button>
+            {/* SOW L444, "Merge tables". app.merge_tabs has always existed and
+                the tab list already filters on merged_into_tab_id — a column
+                nothing in the product could set. */}
+            <Button onClick={() => setMergeOpen(true)}>{tr('op.till.merge')}</Button>
           </div>
         )}
+        {/* SOW L456: "Printed or on-screen bill for the guest" — there was
+            neither, so a questioned total had nothing to point at. Available
+            after settling too, which is when it is usually asked for. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBlockStart: '0.4rem' }}>
+          <Button onClick={() => setBillOpen(true)}>{tr('op.till.bill')}</Button>
+          {/* SOW L453: refunds are a manager action that also reverses the
+              stock movement, which is why the dialog asks which items. */}
+          {tab.payments.length > 0 && (
+            <Button kind="danger" onClick={() => setRefundOpen(true)}>
+              {tr('op.till.refund')}
+            </Button>
+          )}
+        </div>
         {settled && (
           <Button style={{ marginBlockStart: '0.4rem' }} onClick={onClosedTab}>
             {tr('common.close')}
           </Button>
         )}
       </div>
+
+      {billOpen && (
+        <BillView
+          venueName={tr('common.appName')}
+          heading={
+            tab.table
+              ? `${tr('op.till.table')} ${tab.table.table_number}`
+              : (tab.reservation?.guest_name ?? tab.label ?? '—')
+          }
+          orders={tab.orders}
+          totals={totals}
+          payments={tab.payments}
+          taxInclusive={Boolean(taxQ.data?.taxInclusive)}
+          onClose={() => setBillOpen(false)}
+        />
+      )}
+
+      {refundOpen && (
+        <RefundDialog
+          payments={tab.payments}
+          lines={tab.orders
+            .filter((o) => o.status !== 'voided')
+            .flatMap((o) => o.order_items)}
+          onDone={() => {
+            setRefundOpen(false);
+            refresh();
+          }}
+          onClose={() => setRefundOpen(false)}
+        />
+      )}
+
+      {mergeOpen && (
+        <MergeTabsDialog
+          survivorTabId={tabId}
+          survivorLabel={
+            tab.table
+              ? `${tr('op.till.table')} ${tab.table.table_number}`
+              : (tab.reservation?.guest_name ?? tab.label ?? '—')
+          }
+          onDone={() => {
+            setMergeOpen(false);
+            refresh();
+          }}
+          onClose={() => setMergeOpen(false)}
+        />
+      )}
+
+      {overrideItemId &&
+        (() => {
+          const item = tab.orders
+            .flatMap((o) => o.order_items)
+            .find((i) => i.id === overrideItemId);
+          if (!item) return null;
+          return (
+            <OverridePriceDialog
+              orderItemId={item.id}
+              label={`${item.qty}× ${pickName(locale, item.menu_item)}`}
+              currentUnitPriceIqd={item.unit_price_iqd}
+              onDone={() => {
+                setOverrideItemId(null);
+                refresh();
+              }}
+              onClose={() => setOverrideItemId(null)}
+            />
+          );
+        })()}
 
       {/* cash settle */}
       {settleMode === 'cash' && (

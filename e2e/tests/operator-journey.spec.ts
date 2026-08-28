@@ -7,6 +7,10 @@
  *  3. court_desk — week view (SOW L307) and the reason recorded on an override
  *     (SOW L313), which the desk used to leave as the 'staff_op' default.
  *  4. manager — closed days (SOW L319), which nothing could write until now.
+ *  5. cashier — price override (L450-451), the guest bill (L456) and a refund
+ *     that reverses stock (L453): three clauses whose RPCs existed and whose
+ *     UI did not, so "every discount, void and refund traceable to a named
+ *     actor" (L434-439) had no refund to trace.
  */
 import { test, expect, type Page } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -296,5 +300,93 @@ test.describe('operator journeys', () => {
         await owner.auth.signOut();
       }
     }
+  });
+  test('cashier: override a price, show the bill, refund with items', async ({ page }) => {
+    // The RPCs behind all three have been granted and tested since the first
+    // drops. Nothing called them.
+    const TABLE = fixtureTableId(7); // T7 — away from the T8 journey above
+    await voidOpenTabsForTable(svc, TABLE);
+
+    await signIn(page, SEED_STAFF.manager);
+    // A manager lands on the desk (homeRoute), not the till.
+    await page.goto(`${OPERATOR_URL}/till`);
+    await expect(page.getByRole('heading', { name: 'Open tabs' })).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await page.getByRole('button', { name: '+', exact: true }).click();
+    const newTab = page.getByRole('dialog', { name: 'New tab' });
+    await newTab.getByLabel('Table').selectOption({ label: 'T7' });
+    await newTab.getByRole('button', { name: 'Open tab' }).click();
+    await expect(newTab).toBeHidden();
+
+    await page.getByRole('button', { name: /Hot Drinks/ }).click();
+    await page.getByRole('button', { name: /^Turkish Coffee/ }).click();
+    const turk = page.getByRole('dialog', { name: 'Turkish Coffee' });
+    await turk.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByRole('button', { name: 'Send to kitchen' }).click();
+    await expect(page.getByText('IQD 3,000').first()).toBeVisible();
+
+    // ---- price override (L450-451): PIN + reason, same as a discount -----
+    await page.getByRole('button', { name: 'Change price' }).first().click();
+    const override = page.getByRole('dialog', { name: 'Change price' });
+    await override.getByLabel('New price each').fill('2500');
+    await override.getByRole('button', { name: 'Change price' }).click();
+    const pin = page.getByRole('dialog', { name: 'Change price' }).last();
+    await pin.getByLabel('Reason').selectOption('staff_error');
+    await pin.getByLabel('Manager PIN').fill('222222');
+    await pin.getByRole('button', { name: /Confirm|Apply|Change price/ }).last().click();
+
+    await expect(async () => {
+      const { data } = await svc
+        .from('tabs')
+        .select('id, orders(order_items(unit_price_iqd))')
+        .eq('table_id', TABLE)
+        .in('status', ['open', 'awaiting_payment'])
+        .single();
+      const prices = (data as { orders: { order_items: { unit_price_iqd: number }[] }[] }).orders
+        .flatMap((o) => o.order_items)
+        .map((i) => i.unit_price_iqd);
+      expect(prices).toContain(2500);
+    }).toPass({ timeout: 20_000 });
+
+    // ---- the guest bill (L456) -------------------------------------------
+    await page.getByRole('button', { name: 'Bill', exact: true }).click();
+    const bill = page.getByRole('dialog', { name: 'Bill' });
+    await expect(bill).toContainText('Turkish Coffee');
+    await expect(bill).toContainText('IQD 2,500');
+    await bill.getByRole('button', { name: 'Close' }).click();
+
+    // ---- settle, then refund with the item going back to stock (L453) ----
+    await page.getByRole('button', { name: 'Cash', exact: true }).click();
+    const cash = page.getByRole('dialog', { name: 'Cash' });
+    await cash.getByLabel('Tendered').fill('2500');
+    await cash.getByRole('button', { name: 'Record payment' }).click();
+    await expect(cash).toBeHidden();
+    await expect(page.getByText('Tab settled.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Refund', exact: true }).click();
+    const refund = page.getByRole('dialog', { name: 'Refund' });
+    await refund.getByLabel('Amount to refund').fill('2500');
+    await refund.getByLabel('Turkish Coffee').fill('1');
+    await refund.getByRole('button', { name: 'Refund', exact: true }).click();
+    const refundPin = page.getByRole('dialog', { name: 'Refund' }).last();
+    await refundPin.getByLabel('Reason').selectOption('quality');
+    await refundPin.getByLabel('Manager PIN').fill('222222');
+    await refundPin.getByRole('button', { name: /Confirm|Apply|Refund/ }).last().click();
+
+    // The audit row is the acceptance test: a refund traceable to a named
+    // actor, with a reason.
+    await expect(async () => {
+      const { data } = await svc
+        .from('audit_log')
+        .select('action, reason_code, authorizer_id')
+        .eq('action', 'payment.refund')
+        .order('id', { ascending: false })
+        .limit(1)
+        .single();
+      expect((data as { reason_code: string }).reason_code).toBe('quality');
+      expect((data as { authorizer_id: string | null }).authorizer_id).not.toBeNull();
+    }).toPass({ timeout: 20_000 });
   });
 });
