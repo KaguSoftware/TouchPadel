@@ -16,9 +16,34 @@ function hasPsql() {
   return r.status === 0;
 }
 
+/**
+ * The docker fallback execs `psql` INSIDE the local Supabase container, so it
+ * can only ever reach that container — it cannot honour DATABASE_URL. Without
+ * this check, pointing DATABASE_URL at staging or production on a machine with
+ * no psql silently loads into the local database instead, reports success, and
+ * leaves the intended target untouched.
+ */
+function isLocalTarget(url) {
+  try {
+    const { hostname } = new URL(url);
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch {
+    return false; // unparseable: treat as remote and refuse rather than guess
+  }
+}
+
 if (hasPsql()) {
   execFileSync('psql', [DB_URL, '-v', 'ON_ERROR_STOP=1', '-f', file], { stdio: 'inherit' });
 } else {
+  if (!isLocalTarget(DB_URL)) {
+    console.error(
+      `[db-menu] refusing to run: DATABASE_URL points at ${new URL(DB_URL).host}, but psql is\n` +
+        `          not installed, and the docker fallback can only reach the LOCAL container.\n` +
+        `          Loading there would seed the wrong database.\n` +
+        `          Install psql, or apply seeds/touch-cafe-menu.sql through the Supabase SQL editor.`,
+    );
+    process.exit(1);
+  }
   const container = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel';
   const r = spawnSync(
     'docker',
