@@ -251,6 +251,7 @@ export type Database = {
       compute_tab_totals: {
         Args: { p_tab_id: string }
         Returns: {
+          court_iqd: number
           discount_iqd: number
           subtotal_iqd: number
           tax_iqd: number
@@ -477,6 +478,10 @@ export type Database = {
         }
         Returns: Json
       }
+      record_drawer_open: {
+        Args: { p_device_id?: string; p_reason_code: string; p_tab_id?: string }
+        Returns: undefined
+      }
       record_production: {
         Args: {
           p_device_id?: string
@@ -645,6 +650,10 @@ export type Database = {
           p_tendered_iqd?: number
         }
         Returns: Json
+      }
+      split_by_item: {
+        Args: { p_groups: Json; p_tab_id: string }
+        Returns: number[]
       }
       split_evenly: {
         Args: { p_n: number; p_tab_id: string }
@@ -2940,6 +2949,7 @@ export type Database = {
       }
       tabs: {
         Row: {
+          court_iqd: number
           day_session_id: string
           device_id: string | null
           discount_iqd: number | null
@@ -2958,6 +2968,7 @@ export type Database = {
           total_iqd: number | null
         }
         Insert: {
+          court_iqd?: number
           day_session_id: string
           device_id?: string | null
           discount_iqd?: number | null
@@ -2976,6 +2987,7 @@ export type Database = {
           total_iqd?: number | null
         }
         Update: {
+          court_iqd?: number
           day_session_id?: string
           device_id?: string | null
           discount_iqd?: number | null

@@ -774,6 +774,12 @@ export const en = {
       voidItem: 'Void',
       // SOW L456 — there was neither a printed nor an on-screen bill.
       bill: 'Bill',
+      // SOW L444 asks for by-item AND evenly; only evenly existed.
+      splitByItem: 'Split by item',
+      splitPart: 'Person {index}',
+      // SOW L449 — the record, not the hardware (L474-475 excludes control).
+      openDrawer: 'Open drawer',
+      drawerNoted: 'Drawer opening recorded.',
       printBill: 'Print',
       billThanks: 'Thank you — payment is taken at the desk.',
       taxIncluded: 'Tax (included)',

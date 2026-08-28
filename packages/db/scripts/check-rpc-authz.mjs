@@ -62,10 +62,19 @@ const psql = (sql) =>
     { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
   );
 
+// proargnames carries OUT parameters too, so a `returns table (...)` function
+// looked to this sweep like it took its own result columns as arguments —
+// PostgREST then 404s with PGRST202 and the function reads as UNGUARDED when it
+// is simply un-probed. proargmodes is null when every parameter is IN; when it
+// is present, only 'i' and 'b' are inputs.
 const fns = JSON.parse(
   psql(`select coalesce(json_agg(json_build_object(
            'name', p.proname,
-           'args', coalesce((select json_agg(a) from unnest(p.proargnames) a), '[]'::json))), '[]')
+           'args', coalesce((
+             select json_agg(a.name order by a.ord)
+               from unnest(p.proargnames) with ordinality as a(name, ord)
+              where p.proargmodes is null
+                 or p.proargmodes[a.ord] in ('i','b')), '[]'::json))), '[]')
           from pg_proc p join pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'app' and p.prosecdef
            and (has_function_privilege('anon', p.oid, 'EXECUTE')

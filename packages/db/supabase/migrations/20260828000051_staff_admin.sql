@@ -322,12 +322,21 @@ returns table (
   is_active    boolean,
   has_pin      boolean
 )
-language sql stable security definer set search_path = public as $list_staff$
-  select s.id, s.display_name, s.role, s.is_active, s.pin_hash is not null
-    from staff s
-   where app.is_staff('manager','owner')
-   order by s.is_active desc, s.display_name
-$list_staff$;
+language plpgsql stable security definer set search_path = public as $list_staff$
+begin
+  -- Raising rather than filtering to an empty set: every other RPC in this
+  -- schema refuses out loud, and the authorization sweep reads a refusal as the
+  -- pass condition. An RPC that answers "nothing here" to an unauthorised
+  -- caller is indistinguishable from one with no guard at all.
+  if not app.is_staff('manager','owner') then
+    raise exception 'FORBIDDEN' using errcode = 'P0001';
+  end if;
+
+  return query
+    select s.id, s.display_name, s.role, s.is_active, s.pin_hash is not null
+      from staff s
+     order by s.is_active desc, s.display_name;
+end $list_staff$;
 
 revoke all on function app.list_staff() from public, anon;
 grant execute on function app.list_staff() to authenticated;

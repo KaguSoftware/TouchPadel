@@ -13,6 +13,7 @@ import { idemKey, deviceId } from '../../lib/idem';
 import { computeTabTotals } from './tabTotals';
 import { BillView } from './BillView';
 import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerActions';
+import { SplitByItemDialog } from './SplitByItemDialog';
 import { QK, fetchOpenDay, fetchActiveCafeTables } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
@@ -746,6 +747,8 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
   const [refundOpen, setRefundOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [overrideItemId, setOverrideItemId] = useState<string | null>(null);
+  const [splitItemOpen, setSplitItemOpen] = useState(false);
+  const [drawerNoted, setDrawerNoted] = useState(false);
   const [actionError, setActionError] = useState<unknown>(null);
   const [pinError, setPinError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -833,6 +836,20 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
       setActionError(e);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function openDrawer() {
+    setActionError(null);
+    try {
+      await appRpc('record_drawer_open', {
+        p_reason_code: 'other',
+        p_device_id: deviceId(),
+        p_tab_id: tabId,
+      });
+      setDrawerNoted(true);
+    } catch (e) {
+      setActionError(e);
     }
   }
 
@@ -972,6 +989,12 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
             <Button disabled={due <= 0} onClick={() => { setSettleMode('split'); setShares(null); }}>
               {tr('op.till.splitEvenly')}
             </Button>
+            {/* SOW L444 asks for BOTH: "split a bill by item or evenly". Only
+                the even split existed, and by-item is the one a group of
+                friends actually asks for. */}
+            <Button disabled={due <= 0} onClick={() => setSplitItemOpen(true)}>
+              {tr('op.till.splitByItem')}
+            </Button>
             <Button onClick={() => setDiscountOpen(true)}>{tr('op.till.discount')}</Button>
             {/* SOW L444, "Merge tables". app.merge_tabs has always existed and
                 the tab list already filters on merged_into_tab_id — a column
@@ -984,6 +1007,12 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
             after settling too, which is when it is usually asked for. */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBlockStart: '0.4rem' }}>
           <Button onClick={() => setBillOpen(true)}>{tr('op.till.bill')}</Button>
+          {/* SOW L449: "Change calculation and a cash drawer opening record."
+              Hardware control is excluded (L474-475) — the drawer is opened by
+              hand. What the contract asks for is the RECORD, because an
+              unexplained opening between sales is what day close exists to
+              surface. */}
+          <Button onClick={() => void openDrawer()}>{tr('op.till.openDrawer')}</Button>
           {/* SOW L453: refunds are a manager action that also reverses the
               stock movement, which is why the dialog asks which items. */}
           {tab.payments.length > 0 && (
@@ -998,6 +1027,25 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
           </Button>
         )}
       </div>
+
+      {drawerNoted && (
+        <p style={{ fontSize: '0.8rem', color: 'var(--tp-accent)' }}>
+          {tr('op.till.drawerNoted')}
+        </p>
+      )}
+
+      {splitItemOpen && (
+        <SplitByItemDialog
+          tabId={tabId}
+          lines={tab.orders
+            .filter((o) => o.status !== 'voided')
+            .flatMap((o) => o.order_items)}
+          due={due}
+          busy={busy}
+          onSettleShare={(amount) => void settle('cash', amount, amount)}
+          onClose={() => setSplitItemOpen(false)}
+        />
+      )}
 
       {billOpen && (
         <BillView

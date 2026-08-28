@@ -778,6 +778,12 @@ export const ar: Messages = {
       voidItem: 'إلغاء',
       // SOW L456 — there was neither a printed nor an on-screen bill.
       bill: 'الفاتورة',
+      // SOW L444 asks for by-item AND evenly; only evenly existed.
+      splitByItem: 'تقسيم حسب الأصناف',
+      splitPart: 'الشخص {index}',
+      // SOW L449 — the record, not the hardware (L474-475 excludes control).
+      openDrawer: 'فتح الدرج',
+      drawerNoted: 'تم تسجيل فتح الدرج.',
       printBill: 'طباعة',
       billThanks: 'شكراً لكم — الدفع يتم لدى المكتب.',
       taxIncluded: 'الضريبة (متضمَّنة)',
