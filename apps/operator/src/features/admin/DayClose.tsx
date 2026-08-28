@@ -9,16 +9,10 @@ import { formatIQD, formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
+import { QK, fetchOpenDay } from '../../lib/queries';
 import { useLocale } from '../../lib/i18n';
 import { AmountPad, Button, ErrorText, Field, card, inputStyle } from '../../components/ui';
 
-interface DayRow {
-  id: string;
-  status: string;
-  business_date: string;
-  opened_at: string;
-  opening_float_iqd: number;
-}
 interface CloseSummary {
   day_session_id: string;
   business_date: string;
@@ -51,20 +45,8 @@ export function DayClose() {
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<CloseSummary | null>(null);
 
-  const dayQ = useQuery({
-    queryKey: ['day'],
-    queryFn: async (): Promise<DayRow | null> => {
-      const { data, error: err } = await supabase
-        .from('day_sessions')
-        .select('id, status, business_date, opened_at, opening_float_iqd')
-        .in('status', ['open', 'closing'])
-        .order('opened_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (err) throw err;
-      return data as DayRow | null;
-    },
-  });
+  // Identical query to the till's — same key, same shape, deliberately shared.
+  const dayQ = useQuery({ queryKey: QK.day, queryFn: fetchOpenDay });
 
   const day = dayQ.data ?? null;
 
@@ -89,7 +71,7 @@ export function DayClose() {
   });
 
   function refresh() {
-    void queryClient.invalidateQueries({ queryKey: ['day'] });
+    void queryClient.invalidateQueries({ queryKey: QK.day });
     void queryClient.invalidateQueries({ queryKey: ['dayOpenTabs'] });
     void queryClient.invalidateQueries({ queryKey: ['tabs'] });
   }

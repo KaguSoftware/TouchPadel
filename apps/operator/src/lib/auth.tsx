@@ -177,6 +177,37 @@ export function allowedSubRoutes(role: StaffRole, prefix: SubRoutePrefix): strin
   return SUB_ROUTES[prefix].filter((route) => canAccess(role, route));
 }
 
+/**
+ * Capabilities gated INSIDE a screen the role can otherwise open.
+ *
+ * These were inline `staff?.role === 'owner'` comparisons scattered through
+ * two components, which is exactly the thing SOW L185 says must not happen:
+ * "One codebase, one deployment, one place to change a permission." A route
+ * matrix that only covers routes is not one place.
+ *
+ * Like ROUTE_ROLES this is UX only — the RPCs enforce these same rules
+ * server-side, and that is the wall. What it buys is that a manager is not
+ * shown a button that will refuse them.
+ */
+export const CAPABILITY_ROLES = {
+  /** Rotate a table QR token — retires every printed card for that table. */
+  rotateTableToken: ['owner'],
+  /** Business-day start hour: moves every historical daily figure. */
+  setBusinessDayStart: ['owner'],
+  /** Exclude menu items from analytics. */
+  setAnalyticsExclusions: ['owner'],
+  /** Engagement floor: the date before which engagement data is ignored. */
+  setEngagementFloor: ['owner'],
+} as const satisfies Record<string, readonly StaffRole[]>;
+
+export type Capability = keyof typeof CAPABILITY_ROLES;
+
+/** Default-deny, exactly like `canAccess`: no role, no capability. */
+export function can(role: StaffRole | undefined, capability: Capability): boolean {
+  if (!role) return false;
+  return (CAPABILITY_ROLES[capability] as readonly StaffRole[]).includes(role);
+}
+
 /** The screen a freshly signed-in staff member lands on. */
 export function homeRoute(role: StaffRole): string {
   switch (role) {

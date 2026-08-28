@@ -6,8 +6,7 @@
  */
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { supabase } from './supabase';
-import { appRpcUntyped } from './appRpc';
-import { RPC } from './rpcNames';
+import { appRpc } from './appRpc';
 
 export type HeroMode = 'none' | 'media' | 'featured';
 export type HeroMediaKind = 'image' | 'video';
@@ -138,16 +137,12 @@ export function foldCafeSettings(rows: readonly CafeSettingRow[]): CafeSettings 
 }
 
 async function fetchCafeSettings(): Promise<CafeSettings> {
-  // TODO(db:types): `cafe_settings` is absent from the generated Database types
-  // until `pnpm db:types` runs after migration 0029 — cast localised here.
-  const { data, error } = (await supabase
-    .from('cafe_settings' as never)
-    .select('key, value, updated_at')) as unknown as {
-    data: CafeSettingRow[] | null;
-    error: { message: string } | null;
-  };
+  // `cafe_settings` has been in the generated types since 0029 was regenerated.
+  // The `as never` cast that used to sit here outlived its reason and was
+  // suppressing real type checking on this read.
+  const { data, error } = await supabase.from('cafe_settings').select('key, value, updated_at');
   if (error) throw new Error(error.message);
-  return foldCafeSettings(data ?? []);
+  return foldCafeSettings((data ?? []) as CafeSettingRow[]);
 }
 
 /** All cafe settings as one object (defaults until loaded / for non-manager roles). */
@@ -173,7 +168,7 @@ export function useSetCafeSetting() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ key, value }: SetCafeSettingInput) =>
-      appRpcUntyped<unknown>(RPC.SET_CAFE_SETTING, { p_key: key, p_value: value }),
+      appRpc<unknown>('set_cafe_setting', { p_key: key, p_value: value }),
     onMutate: async ({ key, value }) => {
       await queryClient.cancelQueries({ queryKey: CAFE_SETTINGS_QUERY_KEY });
       const previous = queryClient.getQueryData<CafeSettings>(CAFE_SETTINGS_QUERY_KEY);

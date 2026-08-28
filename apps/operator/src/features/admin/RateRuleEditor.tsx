@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
+import { QK, fetchActiveCourts } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, card, inputStyle } from '../../components/ui';
 
@@ -44,18 +45,9 @@ export function RateRuleEditor() {
     },
   });
 
-  const courtsQ = useQuery({
-    queryKey: ['courts'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('courts')
-        .select('id, name_en, name_ar, duration_options')
-        .eq('is_active', true)
-        .order('sort_order');
-      if (error) throw error;
-      return data as unknown as { id: string; name_en: string; name_ar: string; duration_options: number[] }[];
-    },
-  });
+  // Shared fetcher — this selected one column fewer than the desk calendar
+  // under the same key, so the grid could lose the field it orders by.
+  const courtsQ = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts });
 
   const durations = useMemo(() => {
     const set = new Set<number>([60, 90, 120]);

@@ -221,6 +221,9 @@ importers:
       '@touch/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@touch/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@types/better-sqlite3':
         specifier: ^7.6.11
         version: 7.6.13

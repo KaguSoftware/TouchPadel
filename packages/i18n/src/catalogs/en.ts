@@ -582,6 +582,19 @@ export const en = {
   // Operator (staff) surfaces — apps/operator. Every staff-facing label lives here
   // so the same app doubles as the Arabic staff UI.
   op: {
+    // Shown when a screen throws, or an unknown URL is opened. This matters
+    // more here than in a browser app: till and KDS stations run in kiosk mode
+    // with no menu bar and no address bar, so a blank screen is a dead station.
+    crash: {
+      title: 'This screen stopped working',
+      body: 'The rest of the app is still running. Try the screen again, or go back to your home screen.',
+      retry: 'Try this screen again',
+      home: 'Go to my home screen',
+      reload: 'Restart the app',
+      details: 'Technical details',
+      notFoundTitle: 'Screen not found',
+      notFoundBody: 'There is no screen at this address.',
+    },
     signIn: {
       title: 'Staff sign-in',
       submit: 'Sign in',

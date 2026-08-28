@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../../lib/appRpc';
 import { supabase } from '../../../lib/supabase';
-import { useAuth } from '../../../lib/auth';
+import { useAuth, can } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
@@ -35,7 +35,8 @@ export function QrPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { staff } = useAuth();
-  const isOwner = staff?.role === 'owner';
+  // Capability matrix, not an inline role comparison — see lib/auth.tsx.
+  const canRotate = can(staff?.role, 'rotateTableToken');
   const siteUrl = import.meta.env.VITE_GUEST_SITE_URL;
   const [editing, setEditing] = useState<TableDraft | null>(null);
   const [rotating, setRotating] = useState<{ done: number; total: number } | null>(null);
@@ -118,7 +119,7 @@ export function QrPage() {
         </h2>
         <Button onClick={() => void navigate({ to: '/admin' })}>{tr('op.common.back')}</Button>
         <Button onClick={() => setEditing(NEW_TABLE)}>{tr('op.qr.addTable')}</Button>
-        {isOwner && (
+        {canRotate && (
           <Button
             kind="danger"
             disabled={rows.length === 0 || rotating !== null}
@@ -215,7 +216,7 @@ export function QrPage() {
                   >
                     {tr('op.common.edit')}
                   </Button>
-                  {isOwner && (
+                  {canRotate && (
                     <Button kind="ghost" disabled={rotating !== null} onClick={() => void rotate([row.table_id])}>
                       {tr('op.qr.rotate')}
                     </Button>

@@ -13,6 +13,7 @@ import type { MessageKey } from '@touch/i18n';
 import { Button, ErrorText, Select, inputStyle } from '../../components/ui';
 import { useLocale } from '../../lib/i18n';
 import { useSetCafeSetting } from '../../lib/settings';
+import { COVERS_MULTIPLIER_OPTIONS } from '../../lib/coversMultiplier';
 import { ExcludedItemsModal } from './ExcludedItemsModal';
 import { ZoneNav } from './ZoneNav';
 import { REFRESH_OPTIONS, type AnalyticsData } from './useAnalyticsData';
@@ -153,7 +154,7 @@ export function ControlDeck({
         <Select<string>
           value={String(data.coversMultiplier)}
           onChange={(v) => data.setCoversMultiplier(Number(v))}
-          options={[1, 1.5, 2, 2.5, 3, 4].map((n) => ({ value: String(n), label: `× ${n}` }))}
+          options={COVERS_MULTIPLIER_OPTIONS.map((n) => ({ value: String(n), label: `× ${n}` }))}
           style={small}
         />
       </div>

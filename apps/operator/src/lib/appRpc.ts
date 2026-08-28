@@ -62,14 +62,8 @@ export async function appRpc<T = unknown>(
   return callAppRpc<T>(fn, args);
 }
 
-/**
- * Escape hatch for RPCs that exist in the migrations but not yet in the
- * generated Database types (names live in lib/rpcNames.ts). Same error
- * mapping as `appRpc`; switch call sites to typed `appRpc` after `pnpm db:types`.
- */
-export async function appRpcUntyped<T = unknown>(
-  fn: string,
-  args: Record<string, unknown> = {},
-): Promise<T> {
-  return callAppRpc<T>(fn, args);
-}
+// The `appRpcUntyped` escape hatch and its lib/rpcNames.ts name map are gone.
+// They existed because the cafe-rebuild RPCs predated a `pnpm db:types` run —
+// every one of those sixteen names has been in packages/db/src/types.gen.ts
+// since, so the hatch was doing nothing but opting one call site out of the
+// type checking the rest of the app relies on.

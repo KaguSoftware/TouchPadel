@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CAPABILITY_ROLES,
   ROUTE_ROLES,
   SUB_ROUTES,
   allowedRoutes,
   allowedSubRoutes,
+  can,
   canAccess,
   homeRoute,
+  type Capability,
   type StaffRole,
 } from './auth';
 
@@ -119,5 +122,42 @@ describe('homeRoute', () => {
     expect(homeRoute('prep')).toBe('/kds');
     expect(homeRoute('court_desk')).toBe('/desk');
     expect(homeRoute('manager')).toBe('/desk');
+  });
+});
+
+describe('capability matrix', () => {
+  // These four were inline `staff?.role === 'owner'` comparisons inside two
+  // components. SOW L185 promises "one place to change a permission", and a
+  // route matrix that only covers routes is not one place.
+  const ALL_CAPS = Object.keys(CAPABILITY_ROLES) as Capability[];
+
+  it('is default-deny for a signed-out caller', () => {
+    for (const capability of ALL_CAPS) expect(can(undefined, capability)).toBe(false);
+  });
+
+  it('grants every listed capability to the owner', () => {
+    for (const capability of ALL_CAPS) expect(can('owner', capability)).toBe(true);
+  });
+
+  it('withholds all four from every non-owner role', () => {
+    for (const role of ALL_ROLES.filter((r) => r !== 'owner')) {
+      for (const capability of ALL_CAPS) {
+        expect(can(role, capability), `${role} / ${capability}`).toBe(false);
+      }
+    }
+  });
+
+  it('gates the four controls that actually needed it', () => {
+    // Named explicitly so deleting one from the matrix fails here rather
+    // than silently exposing the control.
+    expect(ALL_CAPS.sort()).toEqual(
+      ['rotateTableToken', 'setAnalyticsExclusions', 'setBusinessDayStart', 'setEngagementFloor'].sort(),
+    );
+  });
+
+  it('never lists an unknown role', () => {
+    for (const roles of Object.values(CAPABILITY_ROLES)) {
+      for (const role of roles) expect(ALL_ROLES).toContain(role);
+    }
   });
 });

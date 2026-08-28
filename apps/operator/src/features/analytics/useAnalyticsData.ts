@@ -25,7 +25,7 @@ import {
   type RangePreset,
 } from '@touch/core';
 import type { Json } from '@touch/db';
-import type { Locale } from '@touch/i18n';
+import { VENUE_TZ, type Locale } from '@touch/i18n';
 import { EdgeError } from '../../lib/edge';
 import {
   analyticsRpc,
@@ -51,12 +51,14 @@ import {
   type RawAnalytics,
 } from './derive';
 import * as S from './shape';
+import {
+  COVERS_MULTIPLIER_KEY,
+  DEFAULT_COVERS_MULTIPLIER,
+  isCoversMultiplier,
+} from '../../lib/coversMultiplier';
 
-export const VENUE_TZ = 'Asia/Baghdad';
-export const COVERS_KEY = 'tp-analytics-covers-mult';
 export const REFRESH_KEY = 'tp-analytics-refresh';
 export const REFRESH_OPTIONS = [0, 1, 2, 5] as const;
-export const DEFAULT_COVERS_MULTIPLIER = 2;
 /** Deep pool: the conversion table and the momentum join both want more than the top 10. */
 const TOP_LIMIT = 80;
 
@@ -101,7 +103,9 @@ function usePageVisible(): boolean {
   return visible;
 }
 
-const acceptCovers = (n: number) => n >= 1 && n <= 10;
+// Was `n >= 1 && n <= 10`, which accepted values neither picker offers and
+// which the settings screen then silently rewrote to 1.
+const acceptCovers = isCoversMultiplier;
 const acceptRefresh = (n: number) => (REFRESH_OPTIONS as readonly number[]).includes(n);
 
 /** The named PostHog templates the dashboard needs for the selected window. */
@@ -233,7 +237,11 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   const excludedIds = settings.settings.analytics_excluded_item_ids;
   const settingFloor = settings.settings.analytics_engagement_floor;
 
-  const [coversMultiplier, setCoversMultiplier] = useStoredNumber(COVERS_KEY, DEFAULT_COVERS_MULTIPLIER, acceptCovers);
+  const [coversMultiplier, setCoversMultiplier] = useStoredNumber(
+    COVERS_MULTIPLIER_KEY,
+    DEFAULT_COVERS_MULTIPLIER,
+    acceptCovers,
+  );
   const [refreshMinutes, setRefreshMinutes] = useStoredNumber(REFRESH_KEY, 0, acceptRefresh);
   const visible = usePageVisible();
 

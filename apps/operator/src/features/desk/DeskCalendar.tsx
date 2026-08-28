@@ -6,11 +6,12 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { parseHHMM, wallTimeToUtc, type OpeningHours, type DayKey } from '@touch/core';
+import { parseHHMM, wallTimeToUtc, type DayKey } from '@touch/core';
 import { formatIQD, formatTime, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { idemKey, deviceId } from '../../lib/idem';
+import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Modal, card, inputStyle } from '../../components/ui';
@@ -28,20 +29,6 @@ type ReservationRow = {
   price_iqd: number | null;
   hold_expires_at: string | null;
   notes: string | null;
-};
-
-type CourtRow = {
-  id: string;
-  name_en: string;
-  name_ar: string;
-  duration_options: number[];
-  sort_order: number;
-};
-
-type SettingsRow = {
-  timezone: string;
-  opening_hours: OpeningHours;
-  closed_dates: string[] | null;
 };
 
 const DAY_KEYS: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -67,30 +54,11 @@ export function DeskCalendar() {
   const [createAt, setCreateAt] = useState<{ courtId: string; startAt: Date } | null>(null);
   const [selected, setSelected] = useState<ReservationRow | null>(null);
 
-  const settingsQ = useQuery({
-    queryKey: ['settings'],
-    queryFn: async (): Promise<SettingsRow> => {
-      const { data, error } = await supabase
-        .from('venue_settings_public')
-        .select('timezone, opening_hours, closed_dates')
-        .single();
-      if (error) throw error;
-      return data as unknown as SettingsRow;
-    },
-  });
-
-  const courtsQ = useQuery({
-    queryKey: ['courts'],
-    queryFn: async (): Promise<CourtRow[]> => {
-      const { data, error } = await supabase
-        .from('courts')
-        .select('id, name_en, name_ar, duration_options, sort_order')
-        .eq('is_active', true)
-        .order('sort_order');
-      if (error) throw error;
-      return data as unknown as CourtRow[];
-    },
-  });
+  // Both fetchers live in lib/queries.ts. They used to be declared here AND,
+  // more narrowly, in the admin editors under the same cache keys — so whichever
+  // screen loaded first decided what the other one saw.
+  const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings });
+  const courtsQ = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts });
 
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
   const dayStart = useMemo(() => wallTimeToUtc(date, 0, tz), [date, tz]);
@@ -111,6 +79,11 @@ export function DeskCalendar() {
       return data as unknown as ReservationRow[];
     },
     enabled: settingsQ.isSuccess,
+    // Safety net under the 'courts' broadcast. Without it a missed realtime
+    // frame left the desk grid showing a slot as free after a guest had taken
+    // it — the exclusion constraint would still refuse the double booking, but
+    // only after the desk had promised it to someone standing there.
+    refetchInterval: 60_000,
   });
 
   useBroadcast({

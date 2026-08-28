@@ -5,9 +5,9 @@
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { OpeningHours, DayKey } from '@touch/core';
-import { supabase } from '../../lib/supabase';
+import type { DayKey } from '@touch/core';
 import { appRpc } from '../../lib/appRpc';
+import { QK, fetchVenueSettings } from '../../lib/queries';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText, card, inputStyle } from '../../components/ui';
 
@@ -27,17 +27,10 @@ export function OpeningHoursEditor() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const settingsQ = useQuery({
-    queryKey: ['settings'],
-    queryFn: async () => {
-      const { data, error: err } = await supabase
-        .from('venue_settings_public')
-        .select('opening_hours, closed_dates')
-        .single();
-      if (err) throw err;
-      return data as unknown as { opening_hours: OpeningHours; closed_dates: string[] | null };
-    },
-  });
+  // Shared fetcher. This selected a NARROWER column set under the same key as
+  // the desk calendar, which then read `timezone` as undefined and rendered the
+  // whole grid in the fallback timezone, silently.
+  const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings });
 
   useEffect(() => {
     if (!settingsQ.data || draft) return;
@@ -65,7 +58,7 @@ export function OpeningHoursEditor() {
       }
       await appRpc('set_opening_hours', { p_opening_hours: hours });
       setSaved(true);
-      void queryClient.invalidateQueries({ queryKey: ['settings'] });
+      void queryClient.invalidateQueries({ queryKey: QK.venueSettings });
     } catch (e) {
       setError(e);
     } finally {

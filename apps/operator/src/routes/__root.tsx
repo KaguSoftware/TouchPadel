@@ -1,6 +1,6 @@
 import { Link, Outlet, createRootRoute } from '@tanstack/react-router';
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { useAuth, canAccess, allowedRoutes, type StaffRole } from '../lib/auth';
+import { useAuth, canAccess, allowedRoutes, homeRoute, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { Button, Field, card, inputStyle } from '../components/ui';
 import { GlobalStyles } from '../components/GlobalStyles';
@@ -172,12 +172,33 @@ function SignInScreen() {
   );
 }
 
-/** Per-route role guard (belt; RLS is braces). */
+/**
+ * Per-route role guard (belt; RLS + the in-RPC guards are braces).
+ *
+ * Deliberately a RENDER-time guard rather than a router `beforeLoad`
+ * redirect. `beforeLoad` runs before the Supabase session resolves, so on a cold
+ * start it would see `staff === undefined`, deny, and redirect — on a kiosk
+ * that is a redirect loop with no address bar to escape from. Rendering the
+ * guard lets it simply wait for auth, which is what `AuthProvider` already
+ * does correctly.
+ *
+ * It shows a way out rather than a bare sentence: a cashier who lands here
+ * from a stale bookmark on a kiosk has no back button.
+ */
 export function RequireRole({ route, children }: { route: string; children: ReactNode }) {
   const { staff } = useAuth();
   const { tr } = useLocale();
   if (!canAccess(staff?.role as StaffRole | undefined, route)) {
-    return <p style={card}>{tr('op.common.forbidden')}</p>;
+    return (
+      <div style={card} role="alert">
+        <p style={{ marginBlockStart: 0 }}>{tr('op.common.forbidden')}</p>
+        {staff && (
+          <Link to={homeRoute(staff.role)} style={{ color: 'var(--tp-accent)' }}>
+            {tr('op.crash.home')}
+          </Link>
+        )}
+      </div>
+    );
   }
   return <>{children}</>;
 }

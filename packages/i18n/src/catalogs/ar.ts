@@ -586,6 +586,19 @@ export const ar: Messages = {
     dayCloseBlocked: 'لا يمكن إغلاق اليوم بينما لا يزال {count} من العناصر غير متزامن.',
   },
   op: {
+    // Shown when a screen throws, or an unknown URL is opened. This matters
+    // more here than in a browser app: till and KDS stations run in kiosk mode
+    // with no menu bar and no address bar, so a blank screen is a dead station.
+    crash: {
+      title: 'توقفت هذه الشاشة عن العمل',
+      body: 'بقية التطبيق لا يزال يعمل. جرّب الشاشة مرة أخرى، أو ارجع إلى شاشتك الرئيسية.',
+      retry: 'إعادة محاولة هذه الشاشة',
+      home: 'الذهاب إلى شاشتي الرئيسية',
+      reload: 'إعادة تشغيل التطبيق',
+      details: 'تفاصيل تقنية',
+      notFoundTitle: 'الشاشة غير موجودة',
+      notFoundBody: 'لا توجد شاشة على هذا العنوان.',
+    },
     signIn: {
       title: 'تسجيل دخول الموظفين',
       submit: 'تسجيل الدخول',

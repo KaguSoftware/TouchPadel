@@ -8,26 +8,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDate } from '@touch/i18n';
 import { supabase } from '../../../lib/supabase';
 import { appRpc } from '../../../lib/appRpc';
-import { useAuth } from '../../../lib/auth';
+import { useAuth, can } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
+import {
+  COVERS_MULTIPLIER_OPTIONS,
+  readCoversMultiplier,
+  writeCoversMultiplier,
+} from '../../../lib/coversMultiplier';
 import { useCafeSettings, useSetCafeSetting } from '../../../lib/settings';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Field, Select, Skeleton, card, inputStyle } from '../../../components/ui';
 
-export const COVERS_MULT_STORAGE_KEY = 'tp-analytics-covers-mult';
-const COVERS_MULT_OPTIONS = ['1', '1.1', '1.25', '1.5', '1.75', '2'] as const;
 const BUSINESS_DAY_HOURS = [0, 4, 5, 6, 7, 8] as const;
 const COOLDOWN_MIN = 30;
 const COOLDOWN_MAX = 600;
-
-function readCoversMult(): string {
-  try {
-    const raw = localStorage.getItem(COVERS_MULT_STORAGE_KEY);
-    return raw && (COVERS_MULT_OPTIONS as readonly string[]).includes(raw) ? raw : '1';
-  } catch {
-    return '1';
-  }
-}
 
 interface MenuItemLite {
   id: string;
@@ -40,7 +34,10 @@ export function CafeSettings() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { staff } = useAuth();
-  const isOwner = staff?.role === 'owner';
+  // Capability matrix, not an inline role comparison — see lib/auth.tsx.
+  const canSetBusinessDay = can(staff?.role, 'setBusinessDayStart');
+  const canSetExclusions = can(staff?.role, 'setAnalyticsExclusions');
+  const canSetFloor = can(staff?.role, 'setEngagementFloor');
   const { settings, isLoading } = useCafeSettings();
   const setSetting = useSetCafeSetting();
 
@@ -83,7 +80,7 @@ export function CafeSettings() {
       if (error) throw error;
       return (data ?? []) as MenuItemLite[];
     },
-    enabled: isOwner,
+    enabled: canSetFloor,
     staleTime: 60_000,
   });
   const [search, setSearch] = useState('');
@@ -103,14 +100,13 @@ export function CafeSettings() {
       settings.analytics_excluded_item_ids.some((id) => !excluded.has(id)));
 
   // --- covers multiplier (station-local) ---
-  const [coversMult, setCoversMult] = useState(readCoversMult);
+  // Shared with the analytics control deck via lib/coversMultiplier — the two
+  // used to keep separate option lists and separate defaults for the SAME key.
+  const [coversMult, setCoversMult] = useState(readCoversMultiplier);
   function changeCoversMult(next: string) {
-    setCoversMult(next);
-    try {
-      localStorage.setItem(COVERS_MULT_STORAGE_KEY, next);
-    } catch {
-      /* private mode — falls back to 1 on next boot */
-    }
+    const n = Number(next);
+    setCoversMult(n);
+    writeCoversMultiplier(n);
   }
 
   // --- engagement floor (owner) ---
@@ -139,7 +135,7 @@ export function CafeSettings() {
     <div style={{ maxInlineSize: '40rem', display: 'grid', gap: '0.8rem' }}>
       <h2 style={{ margin: 0 }}>{tr('op.settings.title')}</h2>
 
-      {isOwner && (
+      {canSetBusinessDay && (
         <section style={card}>
           <Field label={tr('op.settings.businessDay')}>
             <Select
@@ -185,7 +181,7 @@ export function CafeSettings() {
         </p>
       </section>
 
-      {isOwner && excluded && (
+      {canSetExclusions && excluded && (
         <section style={card}>
           <Field label={tr('op.settings.excludedItems')}>
             <input
@@ -243,9 +239,9 @@ export function CafeSettings() {
       <section style={card}>
         <Field label={tr('op.settings.coversMult')}>
           <Select
-            value={coversMult}
+            value={String(coversMult)}
             style={{ maxInlineSize: '10rem' }}
-            options={COVERS_MULT_OPTIONS.map((v) => ({ value: v, label: `×${v}` }))}
+            options={COVERS_MULTIPLIER_OPTIONS.map((v) => ({ value: String(v), label: `×${v}` }))}
             onChange={changeCoversMult}
           />
         </Field>
@@ -254,7 +250,7 @@ export function CafeSettings() {
 
       <section style={card}>
         <Field label={tr('op.settings.engagementFloor')}>
-          {isOwner ? (
+          {canSetFloor ? (
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <input
                 style={{ ...inputStyle, inlineSize: 'auto' }}

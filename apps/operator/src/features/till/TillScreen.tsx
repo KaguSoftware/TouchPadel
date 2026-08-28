@@ -10,6 +10,7 @@ import { formatIQD, formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { idemKey, deviceId } from '../../lib/idem';
+import { QK, fetchOpenDay, fetchActiveCafeTables } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -136,20 +137,7 @@ export function TillScreen() {
   const filterRef = useRef<HTMLInputElement>(null);
 
   // ---- data -----------------------------------------------------------------
-  const dayQ = useQuery({
-    queryKey: ['day'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('day_sessions')
-        .select('id, status, business_date, opened_at, opening_float_iqd')
-        .in('status', ['open', 'closing'])
-        .order('opened_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
+  const dayQ = useQuery({ queryKey: QK.day, queryFn: fetchOpenDay });
 
   const menuQ = useQuery({
     queryKey: ['menu'],
@@ -206,6 +194,10 @@ export function TillScreen() {
       if (error) throw error;
       return data as unknown as TabListRow[];
     },
+    // Safety net under the 'floor' broadcast, matching KDS tickets. A missed
+    // realtime frame used to leave the open-tabs rail stale until someone
+    // navigated away and back — on the screen that takes the money.
+    refetchInterval: 30_000,
   });
 
   const { status: floorStatus } = useBroadcast({
@@ -629,18 +621,10 @@ function NewTabDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  const tablesQ = useQuery({
-    queryKey: ['cafeTables'],
-    queryFn: async () => {
-      const { data, error: err } = await supabase
-        .from('cafe_tables')
-        .select('id, table_number')
-        .eq('is_active', true)
-        .order('table_number');
-      if (err) throw err;
-      return data as { id: string; table_number: string }[];
-    },
-  });
+  // ACTIVE tables only. This shared the bare ['cafeTables'] key with the QR
+  // admin's all-rows query, so opening QR admin first offered the cashier
+  // tables that are switched off.
+  const tablesQ = useQuery({ queryKey: QK.activeCafeTables, queryFn: fetchActiveCafeTables });
 
   // Charge-to-booking: today's confirmed/arrived reservations that have no tab
   // yet (the embedded tabs list is empty). RLS: cashiers may see none — the
