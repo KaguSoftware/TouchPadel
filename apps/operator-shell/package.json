@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json && electron .",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "test": "vitest run",
     "dist": "echo TODO: electron-builder --win nsis --config electron-builder.yml (operator-release.yml, design-arch.md 8)"
   },
   "dependencies": {
@@ -15,11 +17,14 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@touch/config": "workspace:*",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.13",
     "electron": "^33.2.0",
-    "typescript": "^5.7.2"
+    "eslint": "^9.15.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   },
   "x-notes": [
     "CommonJS on purpose (no \"type\": \"module\"): Electron main/preload compile to CJS — the monorepo-wide ESM rule's one exception.",

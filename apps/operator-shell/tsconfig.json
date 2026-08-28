@@ -13,5 +13,8 @@
     "lib": ["ES2022"],
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Tests are typechecked by tsconfig.test.json; keeping them out of the build
+  // project stops vitest specs being emitted into the packaged dist/.
+  "exclude": ["src/**/*.test.ts"]
 }

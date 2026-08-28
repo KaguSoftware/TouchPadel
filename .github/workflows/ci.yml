@@ -124,27 +124,67 @@ jobs:
         run: supabase stop --no-backup
 
   # ---------------------------------------------------------------------------
-  # e2e (Playwright) — NOT ENABLED YET. The suite exists at e2e/ and runs
-  # locally with `pnpm e2e` (requires the local Supabase stack + fixtures:
-  # `pnpm db:start && pnpm db:reset && pnpm db:fixtures`). Enabling it in CI
-  # means paying the cost of booting BOTH dev servers (Next 16 first compile is
-  # slow) on top of `supabase start`, so it is parked until the pipeline gets a
-  # dedicated job. Sketch for later:
+  # e2e (Playwright) — ENABLED 2026-08-28.
   #
-  # e2e:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: pnpm/action-setup@v4
-  #     - uses: actions/setup-node@v4
-  #       with: { node-version: 22, cache: pnpm }
-  #     - uses: supabase/setup-cli@v1
-  #     - run: pnpm install --frozen-lockfile
-  #     - run: supabase start          # in packages/db
-  #     - run: supabase db reset       # migrations + seed
-  #     - run: pnpm db:fixtures        # menu/tables/courts/stock fixtures
-  #     - run: pnpm e2e:install        # playwright install chromium
-  #     - run: pnpm e2e                # config boots both dev webServers itself
-  #     - run: supabase stop --no-backup
-  #       if: always()
+  # This was parked from day 1 because booting both dev servers on top of
+  # `supabase start` is expensive. The cost of leaving it parked turned out to
+  # be higher: the operator has 89 React components and, until 2026-08-28, no
+  # way to unit-test any of them, so this suite was the ONLY thing exercising
+  # the till, the desk calendar, the KDS and every admin editor — and it ran
+  # only when someone remembered to run it locally.
+  #
+  # Both locales run: the config splits chromium-en / chromium-ar by @ar tag.
   # ---------------------------------------------------------------------------
+  e2e:
+    name: e2e (Playwright, EN + AR)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        working-directory: packages/db
+        run: supabase start
+
+      - name: Apply migrations from a clean slate
+        working-directory: packages/db
+        run: supabase db reset
+
+      # Courts, menu, recipes, tables, stock — the suites assert against these.
+      - name: Load fixtures
+        run: pnpm db:fixtures
+
+      - name: Install Playwright browser
+        run: pnpm e2e:install
+
+      # playwright.config.ts boots both dev servers itself and forces them onto
+      # the local stack, so staging is never touched from CI.
+      - name: Run e2e
+        run: pnpm e2e
+
+      - name: Upload traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results/
+          retention-days: 7
+
+      - name: Stop local Supabase stack
+        if: always()
+        working-directory: packages/db
+        run: supabase stop --no-backup

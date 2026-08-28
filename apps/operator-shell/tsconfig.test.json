@@ -1,0 +1,18 @@
+{
+  // Typecheck-only project for the shell's tests and its vitest config. The
+  // build project has `rootDir: src` + `outDir: dist`, so test files cannot live
+  // inside it without being emitted into the packaged output.
+  //
+  // `module: ESNext` here (the build project is CommonJS): vitest transpiles the
+  // specs itself, and vitest.config.ts uses `import.meta.url`, which tsc rejects
+  // under a CommonJS module target.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"]
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}

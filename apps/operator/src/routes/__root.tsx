@@ -2,7 +2,7 @@ import { Link, Outlet, createRootRoute } from '@tanstack/react-router';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useAuth, canAccess, allowedRoutes, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
-import { Button, ErrorText, Field, card, inputStyle } from '../components/ui';
+import { Button, Field, card, inputStyle } from '../components/ui';
 import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
 import { ConfirmProvider } from '../components/ConfirmDialog';
