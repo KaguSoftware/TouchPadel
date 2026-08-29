@@ -43,13 +43,17 @@ export const SECTION_ART: Record<string, SectionArt> = {
     illo: { size: 108, end: -14, bottom: -14, rot: -10 },
     art: (
       <>
-        <ellipse cx="32" cy="54" rx="20" ry="5" fill="var(--tp-bg)" />
-        <path d="M 18 30 C 19 42 24 50 32 50 C 40 50 45 42 46 30" fill="var(--tp-bg)" />
-        <path d="M 46 33 C 53 33 53 42 44 43" />
-        <ellipse cx="32" cy="30" rx="14" ry="4" fill="var(--tp-bg)" />
-        <ellipse cx="32" cy="30" rx="9.5" ry="2.5" fill="var(--tp-cafe-blue-tint)" strokeWidth="1.6" />
-        <path d="M 26 22 C 23 18 29 15 26 10" stroke="var(--tp-cafe-green)" strokeWidth="2" />
-        <path d="M 34 22 C 31 18 37 15 34 10" stroke="var(--tp-cafe-green)" strokeWidth="2" />
+        <g stroke="var(--tp-cafe-green)" strokeLinecap="round">
+          <path d="M 25 14.7 C 22.4 11.5 27.5 10.2 25.6 7" strokeWidth="2.9" />
+          <path d="M 32 14 C 29.4 10.2 35.2 9 32.6 5.1" strokeWidth="3.2" />
+          <path d="M 39 14.7 C 36.4 11.5 41.5 10.2 39.6 7" strokeWidth="2.9" />
+        </g>
+        <path d="M 20.5 42.2 C 11.5 46 14.1 53.8 32 53.8 C 49.9 53.8 52.5 46 43.5 42.2" strokeWidth="2.6" />
+        <path d="M 23.7 43.5 C 19.8 46 22.4 49.9 32 49.9 C 41.6 49.9 44.2 46 40.3 43.5" strokeWidth="1.9" opacity=".45" />
+        <path d="M 47.4 28.2 H 49.9 A 6.4 6.4 0 0 1 49.9 41 H 47.4" strokeWidth="3.8" />
+        <path d="M 16.6 24.3 V 32 A 15.4 15.4 0 0 0 47.4 32 V 24.3 Z" fill="var(--tp-bg)" strokeWidth="3.8" />
+        <ellipse cx="32" cy="24.3" rx="15.4" ry="5.1" fill="var(--tp-bg)" strokeWidth="3.8" />
+        <ellipse cx="32" cy="24.3" rx="10.9" ry="3.2" fill="var(--tp-cafe-blue-tint)" stroke="none" />
       </>
     ),
   },
@@ -61,13 +65,27 @@ export const SECTION_ART: Record<string, SectionArt> = {
     illo: { size: 104, end: -12, bottom: -12, rot: 8 },
     art: (
       <>
-        <path d="M 21 26 L 25 56 L 39 56 L 43 26" fill="var(--tp-bg)" />
-        <path d="M 21 26 A 11 10 0 0 1 43 26" fill="var(--tp-cafe-blue-tint)" />
-        <path d="M 19 26 L 45 26" />
-        <path d="M 34 20 L 37 8 L 43 6" />
-        <circle cx="29" cy="37" r="2.2" stroke="var(--tp-cafe-green)" strokeWidth="1.8" />
-        <circle cx="35" cy="45" r="2.2" stroke="var(--tp-cafe-green)" strokeWidth="1.8" />
-        <circle cx="30" cy="50" r="1.5" stroke="var(--tp-cafe-green)" strokeWidth="1.8" />
+        <g transform="scale(0.6667)" strokeWidth="4.5">
+          <path
+            d="M30.4 54c4.4-3.6 8.8-3.6 13.2 0s8.8 3.6 13.2 0c2.9-1.2 5.9-1.4 8.8 0.2L63.1 84a5 5 0 0 1-5 4.6H38.4a5 5 0 0 1-5-4.6L30.4 54z"
+            fill="var(--tp-cafe-green)"
+            fillOpacity="0.38"
+            stroke="none"
+          />
+          <path d="M30.4 54c4.4-3.6 8.8-3.6 13.2 0s8.8 3.6 13.2 0c2.9-1.2 5.9-1.4 8.8 0.2" stroke="var(--tp-cafe-green)" />
+          <g transform="rotate(-45 48 75)" stroke="var(--tp-cafe-green)">
+            <path d="M46 65 A10 10 0 0 0 46 85 Z" fill="var(--tp-cafe-green-tint)" strokeWidth="2.6" />
+            <path d="M46 67.2 A7.8 7.8 0 0 0 46 82.8" strokeWidth="1.5" />
+            <path d="M46 75 H38.7 M46 75 L40.8 69.8 M46 75 L40.8 80.2" strokeWidth="1.5" />
+            <path d="M50 65 A10 10 0 0 1 50 85 Z" fill="var(--tp-cafe-green-tint)" strokeWidth="2.6" />
+            <path d="M50 67.2 A7.8 7.8 0 0 1 50 82.8" strokeWidth="1.5" />
+            <path d="M50 75 H57.3 M50 75 L55.2 69.8 M50 75 L55.2 80.2" strokeWidth="1.5" />
+          </g>
+          <path d="M22 36a26 19 0 0 1 52 0" fill="var(--tp-cafe-blue-tint)" />
+          <path d="M48 50V5" />
+          <path d="M22 36h52" />
+          <path d="M26.5 36h43l-4.2 48.5a7 7 0 0 1-7 6.5H37.7a7 7 0 0 1-7-6.5z" />
+        </g>
       </>
     ),
   },
@@ -79,10 +97,28 @@ export const SECTION_ART: Record<string, SectionArt> = {
     illo: { size: 106, end: -12, bottom: -14, rot: -8 },
     art: (
       <>
-        <ellipse cx="32" cy="56" rx="13" ry="3.5" fill="var(--tp-bg)" />
-        <path d="M 23 14 C 23 24 28 27 28 33 C 28 39 23 42 23 50 L 41 50 C 41 42 36 39 36 33 C 36 27 41 24 41 14 Z" fill="var(--tp-bg)" />
-        <path d="M 26 43 L 38 43" stroke="var(--tp-cafe-green)" strokeWidth="2" />
-        <path d="M 32 10 C 29 7 35 5 32 1" stroke="var(--tp-cafe-green)" strokeWidth="2" />
+        <g transform="translate(3.43 0) scale(0.5714) translate(0 14)">
+          <g stroke="var(--tp-cafe-green)" strokeLinecap="round" transform="translate(0 -15) scale(1 0.86) translate(0 2)">
+            <path d="M39 23c-4-5 4-7 1-12" strokeWidth="4.5" />
+            <path d="M50 22c-4-6 5-8 1-14" strokeWidth="5" />
+            <path d="M61 23c-4-5 4-7 1-12" strokeWidth="4.5" />
+          </g>
+          <path d="M24 79C25.5 87.5 35.5 92 50 92C64.5 92 74.5 87.5 76 79" fill="var(--tp-cafe-blue-tint)" strokeWidth="5" strokeLinecap="round" />
+          <ellipse cx="50" cy="79" rx="26" ry="8" fill="var(--tp-cafe-blue-tint)" strokeWidth="5" />
+          <ellipse cx="50" cy="79" rx="17" ry="4.6" fill="var(--tp-accent)" fillOpacity=".2" stroke="none" />
+          <path
+            d="M31 22C31.5 30 36.5 32.5 36.5 39.5C36.5 48 32 53 32 61C32 69.5 37.5 74 41.5 77.5H58.5C62.5 74 68 69.5 68 61C68 53 63.5 48 63.5 39.5C63.5 32.5 68.5 30 69 22Z"
+            fill="var(--tp-cafe-blue-tint)"
+            stroke="none"
+          />
+          <path
+            d="M31 22C31.5 30 36.5 32.5 36.5 39.5C36.5 48 32 53 32 61C32 69.5 37.5 74 41.5 77.5H58.5C62.5 74 68 69.5 68 61C68 53 63.5 48 63.5 39.5C63.5 32.5 68.5 30 69 22"
+            strokeWidth="6"
+            strokeLinecap="round"
+          />
+          <ellipse cx="50" cy="22" rx="19" ry="6.5" fill="var(--tp-cafe-blue-tint)" strokeWidth="6" />
+          <ellipse cx="50" cy="22" rx="13" ry="4" fill="var(--tp-accent)" fillOpacity=".2" stroke="none" />
+        </g>
       </>
     ),
   },
@@ -94,14 +130,21 @@ export const SECTION_ART: Record<string, SectionArt> = {
     illo: { size: 104, end: -12, bottom: -12, rot: 8 },
     art: (
       <>
-        <path d="M 20 14 L 24 56 L 40 56 L 44 14 Z" fill="var(--tp-bg)" />
-        <path d="M 22.4 30 L 24.6 54 L 39.4 54 L 41.6 30 Z" fill="var(--tp-cafe-blue-tint)" stroke="none" />
-        <path d="M 22.5 30 L 41.5 30" strokeWidth="1.8" />
-        <path d="M 36 14 L 41 4 L 47 3" stroke="var(--tp-cafe-green)" strokeWidth="2" />
-        <circle cx="49" cy="14" r="7.5" fill="var(--tp-bg)" stroke="var(--tp-cafe-green)" strokeWidth="2" />
-        <path d="M 49 8 L 49 20 M 43.5 14 L 54.5 14 M 45 10 L 53 18 M 45 18 L 53 10" stroke="var(--tp-cafe-green)" strokeWidth="1.4" />
-        <circle cx="30" cy="40" r="1.5" strokeWidth="1.5" />
-        <circle cx="34" cy="47" r="1.5" strokeWidth="1.5" />
+        <g transform="scale(0.6667)" strokeWidth="4.5">
+          <path d="M49 36a11 11 0 0 1 22 0z" fill="var(--tp-cafe-green)" stroke="none" />
+          <path d="M60 34.5V27M53.5 32 60 34.5M66.5 32 60 34.5" stroke="var(--tp-bg)" strokeWidth="2.4" />
+          <path d="M38 35c-7.4 0-10.6-3.6-10.6-9.2 6.6-1.2 10.6 2.6 10.6 9.2z" fill="var(--tp-cafe-green)" stroke="none" />
+          <path
+            d="M30.4 54c4.4-3.6 8.8-3.6 13.2 0s8.8 3.6 13.2 0c2.9-1.2 5.9-1.4 8.8 0.2L63.1 84a5 5 0 0 1-5 4.6H38.4a5 5 0 0 1-5-4.6L30.4 54z"
+            fill="var(--tp-cafe-green)"
+            fillOpacity="0.38"
+            stroke="none"
+          />
+          <path d="M30.4 54c4.4-3.6 8.8-3.6 13.2 0s8.8 3.6 13.2 0c2.9-1.2 5.9-1.4 8.8 0.2" stroke="var(--tp-cafe-green)" />
+          <path d="M47 50.2L40.6 21l8.4-7" />
+          <path d="M22 36h52" />
+          <path d="M26.5 36h43l-4.2 48.5a7 7 0 0 1-7 6.5H37.7a7 7 0 0 1-7-6.5z" />
+        </g>
       </>
     ),
   },
@@ -113,12 +156,12 @@ export const SECTION_ART: Record<string, SectionArt> = {
     illo: { size: 104, end: -12, bottom: -12, rot: -8 },
     art: (
       <>
-        <path d="M 22 26 L 26 56 L 38 56 L 42 26" fill="var(--tp-bg)" />
-        <path d="M 28 32 L 29.5 50 M 36 32 L 34.5 50" strokeWidth="1.3" opacity=".45" />
-        <path d="M 22 26 C 20 20 26 18 28 20 C 27 13 37 13 36 20 C 38 18 44 20 42 26 Z" fill="var(--tp-cafe-blue-tint)" />
-        <circle cx="32" cy="11" r="2.6" fill="var(--tp-cafe-green-light)" stroke="none" />
-        <path d="M 37 16 L 41 5" />
-        <path d="M 26 31 L 29 28.5 L 32 31 L 35 28.5 L 38 31" stroke="var(--tp-cafe-green)" strokeWidth="1.8" />
+        <path d="M 22 28 L 26 56 L 38 56 L 42 28" fill="var(--tp-bg)" />
+        <path d="M 28 34 L 29.5 51 M 36 34 L 34.5 51" strokeWidth="1.3" opacity=".45" />
+        <path d="M 20 28 L 44 28" />
+        <path d="M 23 28 C 21 22 27 20 28.5 22.5 C 28 16 36 16 35.5 22 C 38.5 20 43 23 41 28 Z" fill="var(--tp-cafe-blue-tint)" />
+        <path d="M 35.5 22 L 40 10 L 47 7" strokeWidth="3.2" />
+        <circle cx="32" cy="16" r="2.4" fill="var(--tp-cafe-green-light)" stroke="none" />
       </>
     ),
   },
