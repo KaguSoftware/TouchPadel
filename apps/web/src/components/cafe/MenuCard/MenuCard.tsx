@@ -12,7 +12,7 @@ import { priceLayout } from './sizeColumns';
 /**
  * The design prints bare numerals in the price columns - no currency mark and no
  * thousands separator - because the whole menu is in IQD and the columns are
- * 46 px wide. `formatIQD` is still what prices the basket, the sheet and every
+ * 58 px wide. `formatIQD` is still what prices the basket, the sheet and every
  * total, where the unit does have to be stated.
  */
 const menuPrice = (iqd: number): string => String(iqd);
@@ -21,9 +21,10 @@ const menuPrice = (iqd: number): string => String(iqd);
 const ARABIC = /[؀-ۿ]/;
 
 /**
- * One menu row, as the design lists it: the name, its serve-temperature chips,
- * an optional small note, then the price cells lined up under the section's
- * size headers.
+ * One menu row, as the design lists it: the name and an optional small note,
+ * then the serve-temperature chips and the price cells, both lined up under the
+ * section's size headers. The chips sit in a fixed column of their own rather
+ * than trailing the name, so they align down the section whatever the names do.
  *
  * The row leads with a thumbnail: the item's own photo when it has one, and
  * otherwise the section's icon on the band's tint - a category-true placeholder
@@ -113,7 +114,7 @@ export function MenuCard({
       {(item.photo_url || art) && (
         <div className="tp-menu-item__thumb" data-tone={art?.tone ?? 'blue'}>
           {item.photo_url ? (
-            <Image src={item.photo_url} alt="" width={46} height={46} quality={45} sizes="46px" />
+            <Image src={item.photo_url} alt="" width={66} height={66} quality={55} sizes="66px" />
           ) : (
             <CategoryIcon art={art} className="tp-menu-item__thumb-icon" />
           )}
@@ -125,7 +126,6 @@ export function MenuCard({
           <span className="tp-menu-item__name" data-latin={ARABIC.test(name) ? undefined : 'true'}>
             {name}
           </span>
-          <TempChips temp={item.serve_temp} locale={locale} />
           {!orderable && !item.sold_out && (
             <span className="tp-temp tp-temp--cold">{tr('cafe.unavailableShort')}</span>
           )}
@@ -139,6 +139,15 @@ export function MenuCard({
         )}
         {desc && <div className="tp-menu-item__desc">{desc}</div>}
       </div>
+
+      {/* The serve-temp chips ride in their own column just before the prices,
+          so they line up down the whole section however long the names run
+          (the design stacks حار over بارد rather than trailing the name). */}
+      {item.serve_temp !== 'none' && (
+        <div className="tp-menu-item__temps">
+          <TempChips temp={item.serve_temp} locale={locale} />
+        </div>
+      )}
 
       {layout?.kind === 'columns' &&
         layout.cells.map((value, i) =>

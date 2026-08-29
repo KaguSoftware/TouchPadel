@@ -4,15 +4,10 @@
  * Modes "media" and "featured" stay operator-selectable and render their own
  * card on the same white column.
  *
- * Collapse is unchanged and CSS-only: `[data-collapsed]` animates
- * grid-template-rows 1fr → 0fr on the inner row, so nothing unmounts and
- * scrolling back up restores the panel without a re-layout jump.
+ * The panel does not collapse — it scrolls away like any other block.
  */
 export const heroCss = `
 .tp-hero { position: relative; display: flex; flex-direction: column; background: var(--tp-bg); }
-.tp-hero__collapse { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--tp-dur-slow) var(--tp-ease-out); }
-.tp-hero[data-collapsed='true'] .tp-hero__collapse { grid-template-rows: 0fr; }
-.tp-hero__collapse > * { min-block-size: 0; overflow: hidden; }
 
 /* ---- mode "none": the design's masthead ---- */
 .tp-hero__brand { position: relative; block-size: 320px; overflow: hidden; }
@@ -26,7 +21,7 @@ export const heroCss = `
 .tp-hero__headline { font-family: var(--tp-font-arabic); font-weight: 900; font-size: 44px;
   line-height: 1.05; color: var(--tp-accent); }
 [dir='ltr'] .tp-hero__headline { font-family: var(--tp-font-display); font-weight: 800; text-transform: uppercase; letter-spacing: var(--tp-tracking-caps); }
-.tp-hero__strapline { font-family: var(--tp-font-display); font-weight: 600; font-size: 12px;
+.tp-hero__strapline { font-family: var(--tp-font-display); font-weight: 600; font-size: 16px;
   letter-spacing: 0.16em; color: var(--tp-cafe-green); margin-block-start: 6px; }
 
 /* ---- modes "media" / "featured" ---- */
@@ -50,13 +45,16 @@ button.tp-hero__featured { display: block; inline-size: calc(100% - 2 * var(--tp
   background: var(--tp-accent); color: var(--tp-accent-contrast); border-radius: var(--tp-radius-pill);
   padding-block: 0.25rem; padding-inline: 0.7rem; font-size: var(--tp-fs-xs); font-weight: 800; font-variant-numeric: tabular-nums; }
 
-/* Green marquee under the featured card — same --tp-dir-sign trick as the ticker. */
+/* Green marquee under the featured card. Content is TRIPLED by the component and
+   the track travels one third of its width in the reading direction — multiplied
+   by --tp-dir-sign so it reverses under [dir='rtl'] with no duplicated keyframes. */
 .tp-hero__marquee { display: block; overflow: hidden; background: var(--tp-cafe-green); color: var(--tp-accent-2-contrast); block-size: 1.75rem; }
 .tp-hero__marquee-track { display: inline-flex; gap: var(--tp-space-6); white-space: nowrap; padding-inline-start: var(--tp-space-6);
-  line-height: 1.75rem; animation: tp-tick var(--tp-ticker-dur) linear infinite; }
+  line-height: 1.75rem; animation: tp-marquee var(--tp-marquee-dur) linear infinite; }
 .tp-hero__marquee-item { font-size: var(--tp-fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: var(--tp-tracking-eyebrow); }
 @media (prefers-reduced-motion: reduce) { .tp-hero__marquee-track { animation: none; translate: 0 0; } }
-
-/* Hero sentinel: a zero-height probe read by useHeroCollapse. */
-[data-hero-sentinel] { block-size: 1px; }
+@keyframes tp-marquee {
+  from { translate: 0 0; }
+  to { translate: calc(var(--tp-dir-sign) * -33.333%) 0; }
+}
 `;

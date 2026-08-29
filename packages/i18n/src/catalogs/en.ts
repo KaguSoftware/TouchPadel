@@ -475,11 +475,6 @@ export const en = {
       featured: 'Featured',
       discountBadge: '−{pct}%',
     },
-    ticker: {
-      fallback1: 'Specialty coffee',
-      fallback2: 'Fresh pastries',
-      fallback3: 'Order from your table',
-    },
     soldOut: 'Sold out',
     soldOutCta: 'Sold out today',
     unavailableShort: 'Unavailable',

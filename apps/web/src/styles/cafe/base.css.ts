@@ -34,7 +34,7 @@ input, textarea, select { font-size: max(16px, 1rem); font-family: inherit; }
   box-shadow: var(--tp-shadow-column); }
 .tp-app__scroll { flex: 1 1 auto; min-block-size: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; overflow-anchor: none; -webkit-overflow-scrolling: touch;
   background: var(--tp-bg);
-  padding-block-end: calc(var(--tp-ticker-h) + env(safe-area-inset-bottom)); }
+  padding-block-end: env(safe-area-inset-bottom); }
 .tp-app[inert] { pointer-events: none; }
 
 .tp-container { inline-size: 100%; max-inline-size: var(--tp-column-w); margin-inline: auto; padding-inline: var(--tp-space-4); }

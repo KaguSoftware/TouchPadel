@@ -24,7 +24,6 @@ export const motionCss = `
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
-  .tp-ticker__track { animation: none; translate: 0 0; }
   .tp-loader__ring { animation: none; }
   .tp-loader__bean { animation: none; }
   .tp-hero__media video { display: none; }

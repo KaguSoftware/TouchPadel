@@ -88,7 +88,7 @@ export const sheetCss = `
   inline-size: 2.5rem; block-size: 2.5rem; border-radius: 50%; border: none; display: grid; place-items: center;
   background: var(--tp-bg); color: var(--tp-fg); font-size: 1.2rem; line-height: 1; }
 
-.tp-toast { position: fixed; inset-block-end: calc(var(--tp-ticker-h) + 4.5rem + env(safe-area-inset-bottom)); inset-inline: 0; z-index: var(--tp-z-toast); display: flex; justify-content: center; pointer-events: none; }
+.tp-toast { position: fixed; inset-block-end: calc(4.5rem + env(safe-area-inset-bottom)); inset-inline: 0; z-index: var(--tp-z-toast); display: flex; justify-content: center; pointer-events: none; }
 .tp-toast__pill { pointer-events: auto; background: var(--tp-fg); color: var(--tp-bg); border-radius: var(--tp-radius-pill); padding-block: 0.6rem; padding-inline: 1rem; font-size: var(--tp-fs-sm); font-weight: 600;
   max-inline-size: calc(100% - 2rem); box-shadow: var(--tp-shadow-card); animation: tp-slide-up var(--tp-dur-base) var(--tp-ease-out) both; }
 .tp-toast__pill[data-kind='error'] { background: var(--tp-danger); color: var(--tp-danger-contrast); }

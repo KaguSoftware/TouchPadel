@@ -484,11 +484,6 @@ export const ar: Messages = {
       featured: 'مميز',
       discountBadge: '−{pct}%',
     },
-    ticker: {
-      fallback1: 'قهوة مختصة',
-      fallback2: 'معجنات طازجة',
-      fallback3: 'اطلب من طاولتك',
-    },
     soldOut: 'نفد',
     soldOutCta: 'نفد اليوم',
     unavailableShort: 'غير متوفر',

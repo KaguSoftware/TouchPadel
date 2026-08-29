@@ -19,7 +19,6 @@ import { basketCss } from './basket.css';
 import { waiterCss } from './waiter.css';
 import { ordersCss } from './orders.css';
 import { tutorialCss } from './tutorial.css';
-import { tickerCss } from './ticker.css';
 import { footerCss } from './footer.css';
 import { motionCss } from './motion.css';
 
@@ -38,7 +37,6 @@ export const cafeCssModules = {
   waiter: waiterCss,
   orders: ordersCss,
   tutorial: tutorialCss,
-  ticker: tickerCss,
   footer: footerCss,
   motion: motionCss,
 } as const;

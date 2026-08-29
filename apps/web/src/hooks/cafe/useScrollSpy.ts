@@ -25,7 +25,7 @@ import { scrollSpyPick, type SectionOffset } from './scrollSpy';
  * as the guard expired.
  */
 const JUMP_GUARD_MS = 800;
-/** Long enough for the smooth scroll AND the hero's 400 ms collapse to finish. */
+/** Long enough for the smooth scroll to finish before the landing is checked. */
 const SETTLE_MS = 700;
 /** Activation line: the bottom edge of the sticky pill rail (measured; this is the fallback). */
 const RAIL_HEIGHT_FALLBACK = 52;
@@ -124,12 +124,11 @@ export function useScrollSpy(
 
       scroller.scrollTo({ top: target(), behavior: 'smooth' });
 
-      /* The first jump off the top of the page pulls the hero masthead out of
-         the way, and its 400 ms collapse shortens the column ABOVE the target
-         while the scroll is still flying — so the offset we just aimed at is
-         not where the band ends up. Re-measure once everything has settled and
-         close the gap. Later jumps (masthead already collapsed) measure equal
-         and do nothing. */
+      /* Anything that changes height ABOVE the target while the scroll is
+         still flying (a web font swapping in, hero media decoding) moves the
+         offset we just aimed at. Re-measure once the scroll has settled and
+         close the gap; a jump that landed true measures equal and does
+         nothing. */
       window.clearTimeout(settle.current);
       settle.current = window.setTimeout(() => {
         const top = target();

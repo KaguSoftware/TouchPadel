@@ -10,7 +10,6 @@ import { AnalyticsProvider } from '@/lib/analytics/AnalyticsProvider';
 import { tap } from '@/lib/haptics';
 import {
   useBasket,
-  useHeroCollapse,
   useMenu,
   useOnline,
   useOrders,
@@ -32,7 +31,6 @@ import { MenuUnavailable } from './MenuUnavailable/MenuUnavailable';
 import { Footer } from './Footer/Footer';
 import { ScrollTopFab } from './ScrollTopFab/ScrollTopFab';
 import { WaiterButton } from './WaiterButton/WaiterButton';
-import { Ticker } from './Ticker/Ticker';
 import { CafeOverlays } from './CafeOverlays';
 import { hasSeenBellTutorial } from './BellTutorial/BellTutorial';
 import { useCafeActions } from './useCafeActions';
@@ -93,10 +91,8 @@ export function CafeApp({
   const sourceRef = useRef<ItemSource>('list');
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const bellRef = useRef<HTMLButtonElement | null>(null);
 
-  const collapsed = useHeroCollapse(scrollRef, sentinelRef);
   const categoryIds = useMemo(() => menu.menu.map((c) => c.id), [menu.menu]);
   const spy = useScrollSpy(scrollRef, categoryIds);
   const anySheet =
@@ -173,19 +169,16 @@ export function CafeApp({
           locale={locale}
           settings={menu.settings}
           featured={menu.featured}
-          collapsed={collapsed}
           onOpenFeatured={(item) => {
             track.featuredItemClicked({ item_id: item.id });
             actions.openItem(item, 'featured');
           }}
         />
-        <div data-hero-sentinel="" ref={sentinelRef} />
 
         <CategoryPills
           locale={locale}
           categories={menu.menu}
           activeId={spy.activeId}
-          compact={collapsed}
           onSelect={(cat) => {
             tap();
             spy.jumpTo(cat.id);
@@ -227,8 +220,6 @@ export function CafeApp({
         visible={scrolled && !footerVisible && !anySheet}
         onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
       />
-      <Ticker locale={locale} settings={menu.settings} />
-
       <CafeOverlays
         locale={locale}
         settings={menu.settings}

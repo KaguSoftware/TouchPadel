@@ -143,7 +143,6 @@ export const typeScaleVars = {
 
 export const layoutVars = {
   '--tp-topbar-h': '3.5rem',
-  '--tp-ticker-h': '2rem',
   '--tp-space-1': '0.25rem',
   '--tp-space-2': '0.5rem',
   '--tp-space-3': '0.75rem',
@@ -159,7 +158,7 @@ export const motionVars = {
   '--tp-dur-fast': '150ms',
   '--tp-dur-base': '250ms',
   '--tp-dur-slow': '400ms',
-  '--tp-ticker-dur': '22s',
+  '--tp-marquee-dur': '22s',
 } as const satisfies BrandVars;
 
 export const zIndexVars = {

@@ -4,7 +4,7 @@ import { makeT, type Locale } from '@touch/i18n';
 import { formatCooldown, type WaiterPhase } from '@/hooks/cafe/waiter';
 
 /**
- * The bell FAB on the LEADING edge, above the ticker strip.
+ * The bell FAB on the LEADING edge, above the safe-area inset.
  *
  * Hidden (animated out, kept mounted) when the table's bell is switched off
  * (0031 `bell_enabled`), while a sheet owns the screen, and once the footer is

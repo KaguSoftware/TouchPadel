@@ -58,8 +58,8 @@ export function BellTutorial({
   }, [targetRef]);
 
   // The auto-dismiss timer must be armed ONCE, on mount. Depending on
-  // `onDismiss` would restart it on every parent render (the ticker, the waiter
-  // cooldown and the dwell timer all re-render CafeApp well inside 6 s), and
+  // `onDismiss` would restart it on every parent render (the waiter cooldown
+  // and the dwell timer both re-render CafeApp well inside 6 s), and
   // the scrim would sit over the whole menu forever — the guest could not open
   // a single item. Keep the callback in a ref so identity churn cannot reach
   // the timer.

@@ -61,27 +61,24 @@ test.describe('live menu updates', () => {
     await expect(nuts).toHaveAttribute('data-sold-out', 'true', { timeout: 60_000 });
   });
 
-  test('a ticker settings change reaches the guest page', async ({ page }) => {
+  test('a hero settings change reaches the guest page', async ({ page }) => {
     const owner = await signedInClient(SEED_STAFF.owner);
     try {
       const joined = channelJoined(page);
       await page.goto('/en');
-      await expect(page.locator('.tp-ticker__item').first()).toBeVisible({ timeout: 60_000 });
+      await expect(page.locator('.tp-hero__marquee-item').first()).toBeVisible({ timeout: 60_000 });
       await joined;
 
       const phrase = `Live check ${Date.now()}`;
-      await appRpc(owner, 'set_cafe_setting', {
-        p_key: 'ticker_en',
-        p_value: [phrase, 'Pay at the desk'],
-      });
-      await expect(page.locator('.tp-ticker__item', { hasText: phrase }).first()).toBeVisible({
-        timeout: 20_000,
-      });
+      await appRpc(owner, 'set_cafe_setting', { p_key: 'featured_label_en', p_value: phrase });
+      await expect(
+        page.locator('.tp-hero__marquee-item', { hasText: phrase }).first(),
+      ).toBeVisible({ timeout: 20_000 });
     } finally {
-      // Restore the fixture ticker.
+      // Restore the fixture label.
       await appRpc(owner, 'set_cafe_setting', {
-        p_key: 'ticker_en',
-        p_value: ['Fresh beans roasted weekly', 'Pay at the desk', 'Free Wi-Fi: touchcafe'],
+        p_key: 'featured_label_en',
+        p_value: 'A true Baghdadi breakfast',
       });
       await owner.auth.signOut();
     }

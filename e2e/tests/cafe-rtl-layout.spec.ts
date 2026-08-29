@@ -2,8 +2,8 @@
  * RTL layout guard for the guest cafe app @ar.
  *
  * The brand chrome is full of things that leak in Arabic if a physical property
- * sneaks in: the white swoosh band, the featured marquee, the ticker, the
- * category rail's mask fade and the bell FAB. These assertions are geometric,
+ * sneaks in: the white swoosh band, the featured marquee, the category rail's
+ * mask fade and the bell FAB. These assertions are geometric,
  * not textual — they fail on a broken layout even when every string is right.
  */
 import { test, expect, type Page, type Locator } from '@playwright/test';
@@ -45,9 +45,9 @@ test.describe('cafe RTL layout @ar', () => {
     // The menu design ends the blue crown: there is no swoosh band any more,
     // so the hero panel itself is the wide decorative box to guard here.
     await assertWithinViewport(page.locator('.tp-hero').first(), 'hero');
-    // The ticker TRACK is deliberately wider than the viewport (it is the
-    // marquee); its clipping container is what must stay put.
-    await assertWithinViewport(page.locator('.tp-ticker').first(), 'ticker');
+    // The featured marquee TRACK is deliberately wider than the viewport (that
+    // is what makes it scroll); its clipping container is what must stay put.
+    await assertWithinViewport(page.locator('.tp-hero__marquee').first(), 'featured marquee');
   });
 
   test('the bell FAB flips to the inline-start side in Arabic', async ({ page }) => {

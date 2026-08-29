@@ -15,21 +15,20 @@ import { HeroFeatured } from './HeroFeatured';
  * white topbar. There is no blue crown and therefore no swoosh closing one —
  * the design's column is white from the logo down to the footer's blue arch.
  *
- * Collapse is CSS-only: `[data-collapsed]` animates `grid-template-rows`
- * 1fr → 0fr (hero.css.ts). Nothing unmounts, so scrolling back up restores the
- * hero without a re-layout jump or a re-decode of the image.
+ * The hero does not collapse: it is an ordinary block at the top of the column
+ * and simply scrolls away. It used to animate itself to zero height once the
+ * guest scrolled past it, which shortened the column UNDER the scroll — enough
+ * to land a category jump in the wrong place.
  */
 export function Hero({
   locale,
   settings,
   featured,
-  collapsed,
   onOpenFeatured,
 }: {
   locale: Locale;
   settings: CafeSettings;
   featured: MenuItem | null;
-  collapsed: boolean;
   onOpenFeatured(item: MenuItem): void;
 }) {
   const mode =
@@ -40,23 +39,14 @@ export function Hero({
         : settings.hero_mode;
 
   return (
-    <section className="tp-hero" data-mode={mode} data-collapsed={collapsed ? 'true' : 'false'}>
-      <div className="tp-hero__collapse" aria-hidden={collapsed ? true : undefined}>
-        <div>
-          {mode === 'media' ? (
-            <HeroMedia settings={settings} />
-          ) : mode === 'featured' && featured ? (
-            <HeroFeatured
-              locale={locale}
-              item={featured}
-              settings={settings}
-              onOpen={onOpenFeatured}
-            />
-          ) : (
-            <HeroBrand locale={locale} />
-          )}
-        </div>
-      </div>
+    <section className="tp-hero" data-mode={mode}>
+      {mode === 'media' ? (
+        <HeroMedia settings={settings} />
+      ) : mode === 'featured' && featured ? (
+        <HeroFeatured locale={locale} item={featured} settings={settings} onOpen={onOpenFeatured} />
+      ) : (
+        <HeroBrand locale={locale} />
+      )}
     </section>
   );
 }

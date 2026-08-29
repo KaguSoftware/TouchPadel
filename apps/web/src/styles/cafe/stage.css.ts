@@ -45,9 +45,9 @@ export const stageCss = `
    with no direction override, so header and column stay aligned in both
    reading directions (a fixed \`direction: ltr\` here would misalign in LTR). */
 .tp-stage__cols { display: flex; gap: 8px; justify-content: flex-end; font-family: var(--tp-font-numeric);
-  font-size: 10px; font-weight: 600; color: var(--tp-muted); margin-block: 12px 2px; margin-inline: 4px; }
-.tp-stage__cols span { inline-size: 46px; text-align: end; }
-.tp-stage__rows { display: grid; gap: 2px; }
+  font-size: 13px; font-weight: 600; color: var(--tp-muted); margin-block: 14px 4px; margin-inline: 0; }
+.tp-stage__cols span { inline-size: 52px; text-align: end; }
+.tp-stage__rows { display: grid; gap: 3px; }
 
 .tp-menu-unavailable { text-align: center; padding-block: var(--tp-space-6); padding-inline: var(--tp-space-5); display: flex; flex-direction: column; align-items: center; gap: var(--tp-space-3); }
 .tp-menu-unavailable h2 { font-family: var(--tp-font-arabic); font-weight: 800; font-size: var(--tp-fs-lg); }

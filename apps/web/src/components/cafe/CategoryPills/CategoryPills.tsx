@@ -7,9 +7,9 @@ import { makeT } from '@touch/i18n';
 import type { MenuCategory } from '@/lib/menu';
 
 /**
- * Sticky category rail. Each pill carries a round category thumbnail that
- * COLLAPSES (inline-size → 0) once the hero is out of the way, so the rail
- * shrinks to a thin thumb bar as the guest reads the menu.
+ * Sticky category rail. Each pill carries a round category thumbnail, kept in
+ * the DOM at zero inline size (pills.css.ts) so a photo-led rail stays one
+ * operator setting away; the design's own rail is text only.
  *
  * `data-cat-rail` marks it for the scroll spy: the rail's own height IS the top
  * of the reading area, the line a category's hero band has to reach before the
@@ -28,13 +28,11 @@ export function CategoryPills({
   locale,
   categories,
   activeId,
-  compact,
   onSelect,
 }: {
   locale: Locale;
   categories: MenuCategory[];
   activeId: string | null;
-  compact: boolean;
   onSelect(category: MenuCategory): void;
 }) {
   const tr = makeT(locale);
@@ -59,7 +57,6 @@ export function CategoryPills({
       ref={railRef}
       className="tp-cattabs tp-cattabs--sticky"
       data-cat-rail=""
-      data-compact={compact ? 'true' : 'false'}
       aria-label={tr('cafe.menu')}
     >
       {categories.map((cat) => (

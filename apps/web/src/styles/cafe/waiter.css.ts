@@ -4,7 +4,7 @@ export const waiterCss = `
 .tp-reasons button { padding-block: 0.9rem; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: var(--tp-surface);
   color: var(--tp-fg); font-weight: 600; min-block-size: 3.25rem; }
 .tp-reasons button:active { background: var(--tp-cafe-blue-tint); }
-.tp-fab { position: fixed; z-index: var(--tp-z-fab); inset-block-end: calc(var(--tp-ticker-h) + var(--tp-space-4) + env(safe-area-inset-bottom));
+.tp-fab { position: fixed; z-index: var(--tp-z-fab); inset-block-end: calc(var(--tp-space-4) + env(safe-area-inset-bottom));
   inline-size: 3.5rem; block-size: 3.5rem; border-radius: 50%; border: 0; display: grid; place-items: center; box-shadow: var(--tp-shadow-fab);
   transition: transform var(--tp-dur-base) var(--tp-ease-out), opacity var(--tp-dur-base); }
 .tp-fab[data-hidden='true'] { transform: scale(0.6); opacity: 0; pointer-events: none; }
