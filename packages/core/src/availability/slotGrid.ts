@@ -9,8 +9,13 @@ import type { IQD } from '../money/iqd';
  * Conventions:
  * - All ranges are half-open [startAt, endAt): a booking 18:00-19:00 does NOT collide with a
  *   slot starting at 19:00.
- * - Opening-hours windows that cross midnight (close <= open) are UNSUPPORTED in Phase 1 and
- *   throw — the venue closes 23:00; revisit if Touch ever trades past midnight.
+ * - A SINGLE window that wraps past midnight (close <= open) is unsupported and throws. Touch
+ *   trades 09:00-02:00, and that is expressed as two windows on adjacent calendar days --
+ *   `[["00:00","02:00"],["09:00","24:00"]]` -- which this builder already handles as an ordinary
+ *   split day. See `../time/openingHours.ts` for the conversion.
+ * - A slot must fit ENTIRELY inside one window, so midnight is a hard slot boundary: with 60-min
+ *   durations on a 30-min grid the starts run ...22:30, 23:00 | 00:00, 00:30, 01:00. The 23:30
+ *   start is deliberately not offered (decision 2026-08-29).
  * - A date listed in closedDates yields an empty slot list (nothing bookable, nothing shown).
  * - Expired holds (holdExpiresAt <= now) count as free — matching the DB's lazy-expiry reads.
  */
@@ -152,7 +157,8 @@ export function buildSlotGrid(args: BuildSlotGridArgs): CourtSlots[] {
       const c = parseHHMM(close);
       if (c <= o) {
         throw new RangeError(
-          `midnight-crossing opening window ${open}-${close} is unsupported in Phase 1`,
+          `opening window ${open}-${close} wraps past midnight; store it as two windows on ` +
+            `adjacent days (see @touch/core splitOvernight)`,
         );
       }
       windows.push([o, c]);

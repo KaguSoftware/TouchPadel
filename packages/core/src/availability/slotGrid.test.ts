@@ -60,10 +60,47 @@ describe('buildSlotGrid — grid generation', () => {
     expect(grid?.slots).toHaveLength(0);
   });
 
-  it('throws on midnight-crossing opening windows (documented unsupported)', () => {
+  it('throws on a SINGLE window that wraps past midnight (store two windows instead)', () => {
     expect(() => buildSlotGrid(base({ openingHours: { mon: [['22:00', '02:00']] } }))).toThrowError(
-      /midnight-crossing/,
+      /wraps past midnight/,
     );
+  });
+
+  /**
+   * Touch trades 09:00-02:00 every day (intake pack 2026-08-29), stored as two windows on
+   * adjacent calendar days. Midnight is a hard slot boundary because a slot must fit inside one
+   * window, so 23:30 is deliberately not offered -- exactly one start per court per night.
+   */
+  it("builds Touch's overnight day: 23:00 is the last evening start, 01:00 the last of the night", () => {
+    const TOUCH_DAY: [string, string][] = [
+      ['00:00', '02:00'],
+      ['09:00', '24:00'],
+    ];
+    const [grid] = buildSlotGrid(
+      base({ openingHours: { mon: TOUCH_DAY }, slotIncrementMin: 30 }),
+    );
+    const starts = (grid?.slots ?? []).map((s) => s.startAt.getTime()).sort((a, b) => a - b);
+
+    expect(starts).toContain(at('00:00').getTime());
+    expect(starts).toContain(at('01:00').getTime());
+    expect(starts).toContain(at('23:00').getTime());
+    // 01:30 + 60 would run past the 02:00 close; 23:30 + 60 would cross midnight.
+    expect(starts).not.toContain(at('01:30').getTime());
+    expect(starts).not.toContain(at('23:30').getTime());
+    // 02:00-09:00 is shut.
+    expect(starts).not.toContain(at('03:00').getTime());
+    expect(starts).not.toContain(at('08:00').getTime());
+
+    // 00:00, 00:30, 01:00 + 09:00..23:00 on the half hour = 3 + 29.
+    expect(starts).toHaveLength(32);
+  });
+
+  it("a 24:00 close puts the evening's last slot end exactly at local midnight", () => {
+    const [grid] = buildSlotGrid(base({ openingHours: { mon: [['09:00', '24:00']] } }));
+    const last = grid?.slots.at(-1);
+    expect(last?.startAt.getTime()).toBe(at('23:00').getTime());
+    // 24:00 Monday Baghdad == 00:00 Tuesday Baghdad == 21:00 UTC Monday.
+    expect(last?.endAt.toISOString()).toBe('2026-09-07T21:00:00.000Z');
   });
 
   it('supports split windows (e.g. siesta close)', () => {

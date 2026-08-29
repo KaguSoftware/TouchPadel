@@ -1184,6 +1184,11 @@ export const ar: Messages = {
       closedDateAdd: 'إضافة يوم إغلاق',
       closedDatesNone: 'لا توجد أيام إغلاق قادمة.',
       closedDatesPast: 'أيام إغلاق سابقة ({count})',
+      // Touch trades 09:00-02:00, so a closing time before the opening time is
+      // the normal case here, not a mistake.
+      nextDay: 'اليوم التالي',
+      splitNotice:
+        'هذا اليوم يحتوي على أكثر من فترة عمل واحدة، ولا يمكن تعديله من هذه الشاشة. غيّره في قاعدة البيانات وإلا سيتم دمجه.',
     },
     dayClose: {
       title: 'يوم العمل',
@@ -1234,6 +1239,12 @@ export const ar: Messages = {
       INVALID_TRANSITION: 'تغيير الحالة هذا غير مسموح.',
       HOLD_EXPIRED: 'انتهت صلاحية الحجز المؤقت.',
       NO_RATE: 'لا توجد قاعدة سعر لهذه الفترة.',
+      // The two guards migration 0026 exists to add. The desk showed the
+      // generic "something went wrong" for both until the client's real
+      // opening hours and closed days made them everyday errors.
+      CLOSED_DATE: 'النادي مغلق في هذا التاريخ.',
+      OUTSIDE_HOURS: 'هذا الوقت خارج ساعات العمل.',
+      INVALID_TIME_RANGE: 'يجب أن يكون وقت البداية قبل وقت النهاية. قسّم أي قاعدة تمتد بعد منتصف الليل إلى قاعدتين.',
       GUEST_REQUIRED: 'الحجز يحتاج اسم ضيف أو حسابًا مرتبطًا.',
       INVALID_RANGE: 'يجب أن يكون وقت النهاية بعد وقت البداية.',
       CANCELLATION_WINDOW: 'ضمن نافذة الإلغاء.',

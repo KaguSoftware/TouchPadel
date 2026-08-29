@@ -18,13 +18,47 @@
 -- ---------------------------------------------------------------------------
 -- 1. venue_settings singleton (row created in 0006; pin values here)
 -- ---------------------------------------------------------------------------
+--
+-- HOURS. Touch trades 09:00 -> 02:00 the NEXT morning, seven days a week (client intake pack
+-- 2026-08-29, `touch-padel.hours.*`; the record is packages/db/client-data/).
+--
+-- opening_hours windows are measured from each day's OWN local midnight, and app.assert_bookable
+-- fits every per-calendar-day segment of a booking inside a single window of that day. An
+-- overnight night is therefore stored as TWO windows on ADJACENT days:
+--
+--     ["00:00","02:00"]  the tail of the PREVIOUS day's night
+--     ["09:00","24:00"]  this day's evening, closing exactly at midnight
+--
+-- '24:00'::interval is 24 hours, which is precisely what a full-day segment compares against, so
+-- SQL needs no special case. The TS side agrees since @touch/core parseHHMM accepts '24:00'.
+-- Conversion to and from the way a human says it lives in @touch/core time/openingHours.ts --
+-- never hand-roll it.
+--
+-- CANCELLATION. "When somone books they can maximum cancel before 4 hours of their booked time"
+-- (pack `touch-padel.policy.cancelNote`). Down from the 12 h default.
+--
+-- PHONE. Named approver Mustafa Awad, Owner (pack `touch-padel.filler.contact`). Surfaced to
+-- guests through venue_settings_public -- it is the number shown in degraded mode.
+-- !! UNVERIFIED: 00995419010203 parses as +995 (Georgia), not +964 (Iraq). Confirm with Mustafa
+-- !! before go-live; see docs/client/06-outstanding-2026-08-29.md.
+--
+-- closed_dates is deliberately left EMPTY. The pack names four closures -- 9 and 10 Muharram,
+-- Arbaeen, Wafat al-Rasool -- but gives no Gregorian dates, and they follow the Hijri calendar on
+-- local moon sighting. A guessed closure either turns away paying guests or takes a booking the
+-- venue cannot honour, so the dates are chased, not computed.
 update venue_settings
    set venue_name    = 'Touch Padel',
-       currency      = 'IQD',
+       currency      = 'IQD',                   -- confirmed by Mustafa (pack currency.mode)
        timezone      = 'Asia/Baghdad',
-       opening_hours = '{"mon":[["09:00","23:00"]],"tue":[["09:00","23:00"]],"wed":[["09:00","23:00"]],
-                         "thu":[["09:00","23:00"]],"fri":[["09:00","23:00"]],"sat":[["09:00","23:00"]],
-                         "sun":[["09:00","23:00"]]}'::jsonb,
+       opening_hours = '{"mon":[["00:00","02:00"],["09:00","24:00"]],
+                         "tue":[["00:00","02:00"],["09:00","24:00"]],
+                         "wed":[["00:00","02:00"],["09:00","24:00"]],
+                         "thu":[["00:00","02:00"],["09:00","24:00"]],
+                         "fri":[["00:00","02:00"],["09:00","24:00"]],
+                         "sat":[["00:00","02:00"],["09:00","24:00"]],
+                         "sun":[["00:00","02:00"],["09:00","24:00"]]}'::jsonb,
+       cancellation_window_hours = 4,           -- pack policy.cancelNote
+       phone         = '00995419010203',        -- pack filler.contact -- see UNVERIFIED note above
        cash_rounding_iqd = 1                    -- resolved override #1: rounding OFF
  where id;
 
