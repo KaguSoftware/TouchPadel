@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { makeT, type Locale } from '@touch/i18n';
-import { useSheetDrag } from '@/hooks/cafe/useSheetDrag';
+import { SheetShell } from '../ItemSheet/SheetShell';
+import { useSheetDrag } from '../ItemSheet/drag';
 import type { GuestOrder } from '@/hooks/cafe/orders';
 import { OrderCard } from './OrderCard';
 
@@ -12,7 +13,9 @@ import { OrderCard } from './OrderCard';
  * "Earlier".
  *
  * Drag-to-close is armed on the header only (`useSheetDrag`) — the list below
- * it must stay scrollable on iOS.
+ * it must stay scrollable on iOS. The sheet goes through SheetShell like every
+ * other one, so it gets the exit animation, Escape, the focus trap and the
+ * backdrop fade rather than a hand-rolled scrim that vanished on the spot.
  */
 export function OrdersSheet({
   locale,
@@ -28,47 +31,65 @@ export function OrdersSheet({
   onClose(): void;
 }) {
   const headerRef = useRef<HTMLDivElement | null>(null);
-  const { style } = useSheetDrag(headerRef, onClose);
+  /** SheetShell's deferred close, so the Close button and the drag play the exit. */
+  const dismiss = useRef<(() => void) | null>(null);
+  const close = useCallback(() => {
+    if (dismiss.current) dismiss.current();
+    else onClose();
+  }, [onClose]);
+  /**
+   * True when this closing came from the swipe, so the sheet fades out from
+   * where the finger left it instead of replaying the slide. The sheet stays
+   * mounted between openings (it only returns null), so the flag has to be
+   * cleared on the way IN or a later tap-close would inherit it.
+   */
+  const [dragClosed, setDragClosed] = useState(false);
+  useEffect(() => {
+    if (open) setDragClosed(false);
+  }, [open]);
+  const drag = useSheetDrag(headerRef, () => {
+    setDragClosed(true);
+    close();
+  });
   const tr = makeT(locale);
   if (!open) return null;
 
   return (
-    <>
-      <div className="tp-sheet-backdrop" onClick={onClose} />
-      <div
-        className="tp-sheet"
-        style={style}
-        role="dialog"
-        aria-modal="true"
-        aria-label={tr('cafe.yourOrders')}
-      >
-        <div className="tp-sheet__header" ref={headerRef}>
-          <div className="tp-sheet__grip" aria-hidden="true" />
-          <div className="tp-sheet__row">
-            <h2>{tr('cafe.yourOrders')}</h2>
-            <button type="button" className="tp-btn tp-btn--ghost" onClick={onClose}>
-              {tr('common.close')}
-            </button>
-          </div>
+    <SheetShell
+      label={tr('cafe.yourOrders')}
+      onClose={onClose}
+      closeRef={dismiss}
+      className="tp-sheet"
+      style={drag.style}
+      backdropStyle={drag.backdropStyle}
+      dragged={dragClosed}
+    >
+      <div className="tp-sheet__header" ref={headerRef}>
+        <div className="tp-sheet__grip" aria-hidden="true" />
+        <div className="tp-sheet__row">
+          <h2>{tr('cafe.yourOrders')}</h2>
+          <button type="button" className="tp-btn tp-btn--ghost" onClick={close}>
+            {tr('common.close')}
+          </button>
         </div>
-
-        {live.length === 0 && earlier.length === 0 && (
-          <p className="tp-basket-empty">{tr('cafe.orders.emptyTitle')}</p>
-        )}
-
-        {live.map((order) => (
-          <OrderCard key={order.id} locale={locale} order={order} />
-        ))}
-
-        {earlier.length > 0 && (
-          <section className="tp-orders__earlier">
-            <h3 className="tp-eyebrow">{tr('cafe.orders.earlier')}</h3>
-            {earlier.map((order) => (
-              <OrderCard key={order.id} locale={locale} order={order} />
-            ))}
-          </section>
-        )}
       </div>
-    </>
+
+      {live.length === 0 && earlier.length === 0 && (
+        <p className="tp-basket-empty">{tr('cafe.orders.emptyTitle')}</p>
+      )}
+
+      {live.map((order) => (
+        <OrderCard key={order.id} locale={locale} order={order} />
+      ))}
+
+      {earlier.length > 0 && (
+        <section className="tp-orders__earlier">
+          <h3 className="tp-eyebrow">{tr('cafe.orders.earlier')}</h3>
+          {earlier.map((order) => (
+            <OrderCard key={order.id} locale={locale} order={order} />
+          ))}
+        </section>
+      )}
+    </SheetShell>
   );
 }

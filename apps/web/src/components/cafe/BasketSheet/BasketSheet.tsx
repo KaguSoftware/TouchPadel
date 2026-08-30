@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { formatIQD, makeT } from '@touch/i18n';
 import { CloseIcon, Loader } from '../brand';
 import { SheetShell } from '../ItemSheet/SheetShell';
@@ -60,7 +60,22 @@ export function BasketSheet(props: BasketSheetProps): JSX.Element | null {
     if (dismiss.current) dismiss.current();
     else onBrowse();
   }, [onBrowse]);
-  const drag = useSheetDrag(headerRef, close);
+  /**
+   * True when this closing came from the swipe. Without it the released sheet
+   * replays the slide-out from the top (sheet.css [data-closing]) instead of
+   * fading away from where the finger left it, which read as the cart bouncing
+   * back up — the reason the drag felt broken even though it was wired.
+   * The sheet stays mounted between openings, so the flag is cleared on the way
+   * IN or a later tap on the X would inherit the dragged exit.
+   */
+  const [dragClosed, setDragClosed] = useState(false);
+  useEffect(() => {
+    if (open) setDragClosed(false);
+  }, [open]);
+  const drag = useSheetDrag(headerRef, () => {
+    setDragClosed(true);
+    close();
+  });
   const discountPct = useMemo(
     () => lines.reduce((max, l) => Math.max(max, l.discount_pct), 0),
     [lines],
@@ -145,6 +160,7 @@ export function BasketSheet(props: BasketSheetProps): JSX.Element | null {
       style={drag.style}
       backdropStyle={drag.backdropStyle}
       sheetRef={sheetRef}
+      dragged={dragClosed}
     >
       <div className="tp-sheet__header tp-sheet__drag" ref={headerRef}>
         <div className="tp-sheet__grip" aria-hidden="true" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { makeT, type Locale } from '@touch/i18n';
 import { SheetShell } from '../ItemSheet/SheetShell';
 import { useSheetDrag } from '../ItemSheet/drag';
@@ -31,7 +31,19 @@ export function QrRequiredSheet({
     if (dismiss.current) dismiss.current();
     else onClose();
   }, [onClose]);
-  const drag = useSheetDrag(headerRef, close);
+  /**
+   * True when this closing came from the swipe, so the sheet fades out from
+   * where the finger left it rather than replaying the slide. Cleared on the
+   * way in — the sheet stays mounted between openings.
+   */
+  const [dragClosed, setDragClosed] = useState(false);
+  useEffect(() => {
+    if (reason) setDragClosed(false);
+  }, [reason]);
+  const drag = useSheetDrag(headerRef, () => {
+    setDragClosed(true);
+    close();
+  });
 
   if (!reason) return null;
 
@@ -43,6 +55,7 @@ export function QrRequiredSheet({
       className="tp-sheet tp-qr-required"
       style={drag.style}
       backdropStyle={drag.backdropStyle}
+      dragged={dragClosed}
     >
       <div className="tp-sheet__header" ref={headerRef}>
         <div className="tp-sheet__grip" aria-hidden="true" />

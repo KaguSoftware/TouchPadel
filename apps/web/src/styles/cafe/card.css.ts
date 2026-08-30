@@ -1,14 +1,15 @@
 /**
  * Menu rows, exactly as the design lists them:
  *
- *   لاتيه              [حار]    3000    4000
+ *   لاتيه              [حار]      3000
  *                     [بارد]
- *   ├ name ┤   ├ temps ┤  MEDIUM │ LARGE
+ *   ├ name ┤   ├ temps ┤  ├ price ┤
  *
- * Two price cells of 52 px, in the same DOM order as the size headers above
- * (cheapest first). `data-tier` colours them: the base size is grey, the top
- * size is brand blue. Sections priced at a single size render one blue cell
- * that sizes to its content (`data-cols="1"`).
+ * Every item is sold in one size, so a row prints ONE price. Its cell is a
+ * fixed 66 px at the end of the row and the number is set flush to that edge,
+ * so every price in the menu stacks in one straight vertical line no matter
+ * how long the names, chips or descriptions beside them run. There are no size
+ * headers over a section for the same reason. The cell is brand blue.
  *
  * The serve-temp chips sit in a 54 px column of their own between the name and
  * the prices, so they line up down the section instead of trailing names of
@@ -50,11 +51,15 @@ export const cardCss = `
 .tp-menu-item__desc { font-size: 17px; color: var(--tp-cafe-ink-soft); margin-block-start: -2px; }
 .tp-menu-item__hook { font-size: 15px; text-transform: uppercase; letter-spacing: var(--tp-tracking-eyebrow); color: var(--tp-cafe-green); font-weight: 700; margin-block-start: 0.15rem; }
 
-.tp-menu-item__price { flex: none; inline-size: 52px; text-align: end; font-family: var(--tp-font-numeric);
-  font-weight: 600; font-size: 21px; font-variant-numeric: tabular-nums; }
-.tp-menu-item__price[data-tier='base'] { color: var(--tp-muted-fg); }
-.tp-menu-item__price[data-tier='top'] { color: var(--tp-accent); }
-.tp-menu-item[data-cols='1'] .tp-menu-item__price { inline-size: auto; }
+.tp-menu-item__price { flex: none; inline-size: 66px; text-align: end; font-family: var(--tp-font-numeric);
+  font-weight: 600; font-size: 21px; font-variant-numeric: tabular-nums; line-height: 1.15;
+  color: var(--tp-accent); }
+/* A discounted row stacks the promo over the struck list price instead of
+   setting them side by side, so its column stays the same width as every
+   other row's and the vertical line of prices holds. */
+.tp-menu-item__price .tp-price--promo,
+.tp-menu-item__price .tp-price--struck { display: block; margin-inline-end: 0; }
+.tp-menu-item__price .tp-price--struck { font-size: 15px; }
 
 /* Serve-temp chips get a fixed column of their own, immediately before the
    price cells, so every row's chips land in the same place no matter how long
