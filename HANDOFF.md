@@ -317,8 +317,8 @@ owner-only controls gated by inline role comparisons instead of a matrix; and a 
 multiplier that three modules disagreed about.
 
 **Migration 0050** (`operator_atomic_writes`) adds `reorder_menu_items` /
-`reorder_menu_categories` / `reorder_modifiers` and `set_cafe_settings(jsonb)`. Local only —
-**not yet pushed to hosted**.
+`reorder_menu_categories` / `reorder_modifiers` and `set_cafe_settings(jsonb)`. (Pushed to
+hosted 2026-08-30 with 0051–0056.)
 
 **Gate now:** `turbo lint typecheck test` 18/18 · DB **279** tests · `check:locks` +
 `check:authz` clean · `pnpm e2e` **29/29 EN + AR**. Operator unit tests 125 → 165;
@@ -327,8 +327,8 @@ operator-shell 0 → 62.
 
 ### Day 6, continued — modules 1, 2 and 4 closed, and the heartbeat fixed
 
-Commits `2504dbb`, `3bfd697`, `7df48e7`, `3713b70`, `2d4c1cf`. Migrations **0050-0053**,
-local only — **not pushed to hosted**.
+Commits `2504dbb`, `3bfd697`, `7df48e7`, `3713b70`, `2d4c1cf`. Migrations **0050-0053**
+(pushed to hosted 2026-08-30, with 0054-0056).
 
 - **The heartbeat now beats.** It moved into the RENDERER
   (`apps/operator/src/lib/heartbeat.ts`), because `app.heartbeat` needs a staff session and the
@@ -386,14 +386,15 @@ rates, menu, recipes, staff — so `NO_RATE` still blocks real-court booking. Wh
   `docs/client/next-session-prompts-2026-08-30.md`.
 - Also merged before this session: **PR #1 from `sait`** (frontend: drawer fixes, menu icons,
   logo alignment, email-confirmation bug) — the first non-Parsa commits in the repo.
-- **Hosted-DB truth corrected**: the linked ledger shows hosted at **0049** (0044–0049 were
-  pushed since the day-3 record of 0043). Pending on hosted: **0050–0056** — including 0052
-  (without it two settings screens cannot save on production) and the new
-  **0056_venue_config_client_packs**, written after verifying live production still served the
-  placeholder hours (09:00–23:00) and no phone: the client's confirmed venue config now travels
-  as a migration so it reaches production through the reviewed CI `DB Migrate` path. Apply =
-  approve that job on the next main push, or run `pnpm exec supabase db push --linked` in
-  `packages/db`. seed.sql and 0056 mirror each other — change both or drift.
+- **Hosted DB fully caught up: 0050–0056 APPLIED 2026-08-30** (Parsa ran the push; ledger
+  verified 0 pending). The trail: the linked ledger had shown hosted at 0049 (0044–0049 were
+  pushed since the day-3 record of 0043), and live production still served the placeholder
+  hours (09:00–23:00) with no phone — the client's confirmed venue config had never left
+  seed.sql, which never re-runs on hosted. Fix = new migration
+  **0056_venue_config_client_packs** (mirrors seed.sql's venue block — change BOTH or the
+  environments drift). **Verified on the live site after apply: footer shows 09:00–02:00 ×7 and
+  the phone number.** 0052's settings-save fix and the staff-admin/till/serve_temp/heartbeat
+  migrations are now on production too.
 
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
@@ -477,7 +478,7 @@ rates, menu, recipes, staff — so `NO_RATE` still blocks real-court booking. Wh
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
-| Operator desktop | Audited 2026-08-28. Waves 0-2: real gate, every High fixed, heartbeat live, modules 1/2/4 complete (migrations 0050-0053, local only) | Durable write path + replay, stock module, ESC/POS printing, Windows installer, KDS persistence, till session lock, court admin, Sentry | Roadmap 6 |
+| Operator desktop | Audited 2026-08-28. Waves 0-2: real gate, every High fixed, heartbeat live, modules 1/2/4 complete (migrations 0050-0053, on hosted since 2026-08-30) | Durable write path + replay, stock module, ESC/POS printing, Windows installer, KDS persistence, till session lock, court admin, Sentry | Roadmap 6 |
 | Mobile app | SDK 54; crash fixed, error handling + caching + wiring done (day 5). Presentation still a wireframe; release plumbing still absent | Native UI on SDK 54, push, profile, account deletion, Sentry, store build | Roadmap 6 (by 2026-09-16) |
 
 ## Gotchas / open issues
@@ -617,7 +618,7 @@ rates, menu, recipes, staff — so `NO_RATE` still blocks real-court booking. Wh
   `supabase db reset`.
 - **The hosted Supabase project is the client's future production.** Additive migrations only;
   rotate the seeded dev staff accounts/PINs and revisit the 300/hr anonymous rate limit before
-  launch. Hosted is at **0043 as of 2026-08-27** (`supabase migration list --linked` → 0 pending);
+  launch. Hosted is at **0056 as of 2026-08-30** (`supabase migration list --linked` → 0 pending);
   secrets, all four edge functions, Vault, `pg_net`/`pg_cron` and the Telegram webhook are all done.
 - **`app.set_telegram_staff` cannot be called the way `SETUP-telegram.md` §8b describes.** The
   function opens with `if not app.is_staff('owner')`, and `app.staff_role()` reads the caller's JWT
