@@ -24,6 +24,13 @@ describe('formatIQD', () => {
   it('formats zero', () => {
     expect(formatIQD(0, 'en')).toContain('0');
   });
+
+  // House style: the unit trails the amount in BOTH languages. CLDR already
+  // does that for Arabic but would print "IQD 15,000" in English.
+  it('puts the currency after the amount', () => {
+    expect(formatIQD(15000, 'en')).toBe('15,000 IQD');
+    expect(formatIQD(15000, 'ar')).toMatch(/15,000\s*د\.ع/);
+  });
 });
 
 describe('formatDate / formatTime', () => {

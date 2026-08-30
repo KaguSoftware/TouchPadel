@@ -9,8 +9,10 @@ export const basketCss = `
   background: var(--tp-cafe-brown); color: var(--tp-accent-2-contrast); font-size: var(--tp-fs-xs); font-weight: 800; padding-inline: 0.35rem; }
 /* Keeps tp-counter's own size and colour — only the alignment and the spacing
    change, so it sits tight under the heading instead of end-aligned under the
-   CTA. The negative top margin absorbs the scroll container's leading. */
-.tp-basket-keep { margin-block: calc(-1 * var(--tp-space-2)) var(--tp-space-3); text-align: start; }
+   CTA. No negative top margin: this is the first child of an overflow:auto
+   scroller, so pulling it upwards put it outside the scroll box and the line
+   was clipped. The header's own bottom padding is trimmed instead. */
+.tp-basket-keep { margin-block: 0 var(--tp-space-3); text-align: start; }
 
 .tp-basket-line { display: flex; gap: var(--tp-space-3); align-items: flex-start; padding-block: var(--tp-space-3); border-block-end: 1px solid var(--tp-border); }
 /* Removal: the row fades and slides out, then collapses the space it held so

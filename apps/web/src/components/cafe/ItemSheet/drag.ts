@@ -58,6 +58,28 @@ export function useSheetDrag(
   const { threshold = DRAG_CLOSE_PX, intent = DRAG_INTENT_PX } = options;
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
+  /**
+   * The header node as of the last render, so the binding effect re-runs when
+   * it appears. A ref's `.current` is neither a render nor a dependency, so a
+   * sheet that returns null on its first render (QrRequiredSheet, and any sheet
+   * mounted before its content exists) bound to nothing and stayed unbound for
+   * the life of the component — the drag silently did nothing.
+   */
+  const [header, setHeader] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (headerRef.current !== header) setHeader(headerRef.current);
+  });
+
+  /**
+   * Start every opening at rest. A sheet that closes by swipe keeps the offset
+   * it was released at, so the exit can carry on from there — but the sheets
+   * that stay mounted between openings (the basket, the QR notice) would then
+   * REOPEN still pushed down by that old offset. The header remounting is the
+   * signal that a new opening has begun.
+   */
+  useEffect(() => {
+    if (header) setOffset(0);
+  }, [header]);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
@@ -109,8 +131,19 @@ export function useSheetDrag(
       if (pointerId !== e.pointerId) return;
       const dy = e.clientY - startY;
       const closing = mode === 'vertical' && shouldClose(dy, threshold);
+      if (closing) {
+        // Leave the offset where the finger let go. Resetting first snapped the
+        // sheet back to the top and only then played the exit, so a long swipe
+        // appeared to bounce up before falling away. The sheet keeps its
+        // transform and the exit carries on from there.
+        pointerId = null;
+        mode = 'pending';
+        setDragging(false);
+        closeRef.current();
+        return;
+      }
+      // Not far enough — spring back to rest and stay open.
       reset();
-      if (closing) closeRef.current();
     };
 
     el.addEventListener('pointerdown', onDown);
@@ -123,7 +156,7 @@ export function useSheetDrag(
       el.removeEventListener('pointerup', onUp);
       el.removeEventListener('pointercancel', onUp);
     };
-  }, [headerRef, threshold, intent]);
+  }, [headerRef, header, threshold, intent]);
 
   return {
     offset,

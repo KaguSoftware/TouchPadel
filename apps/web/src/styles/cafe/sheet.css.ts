@@ -49,7 +49,11 @@ export const sheetCss = `
 /* The top margin keeps the pill off the sheet's rounded edge. It has to live on
    the grip: the .tp-sheet--panel .tp-sheet__header rule below zeroes padding-block
    and, as a two-class selector, outranks any padding set on .tp-sheet__drag. */
-.tp-sheet__grip { inline-size: 2.5rem; block-size: 0.3rem; border-radius: var(--tp-radius-pill); background: var(--tp-border); margin-inline: auto;
+.tp-sheet__grip { inline-size: 2.5rem; block-size: 0.3rem; border-radius: var(--tp-radius-pill);
+  /* --tp-border is the menu hairline: near-invisible on the sheet's white, which
+     hid the one affordance telling a guest the sheet can be swiped away. Grey
+     enough to read, still quiet enough not to be a control. */
+  background: var(--tp-cafe-ink-soft); opacity: .55; margin-inline: auto;
   margin-block-start: var(--tp-space-3); margin-block-end: var(--tp-space-3); }
 .tp-sheet__row { display: flex; align-items: center; justify-content: space-between; gap: var(--tp-space-3); padding-block: 0.6rem; }
 .tp-sheet__group { margin-block-start: var(--tp-space-4); }
@@ -122,11 +126,10 @@ export const sheetCss = `
    --tp-bg prints a pale strip above it and the placeholder looks clipped at the
    sheet's rounded top. The header keeps its padding so the drag target and the
    grip's clearance are unchanged; the grip simply sits on the tint, and gets a
-   darker fill to stay visible against it. A real photo is untouched — the strip
-   above it is intentional there. */
+   A real photo is untouched — the strip above it is intentional there. The grip
+   needs no special case here: its own rule is already grey enough for the tint. */
 .tp-sheet__drag[data-placeholder='true'] { background: var(--tp-cafe-blue-tint); }
 .tp-sheet__drag[data-placeholder='true'][data-tone='green'] { background: var(--tp-cafe-green-tint); }
-.tp-sheet__drag[data-placeholder='true'] .tp-sheet__grip { background: var(--tp-muted-fg); opacity: .55; }
 /* No photo yet: the band's tint under a large section icon, so the frame reads
    as a deliberate placeholder rather than an empty box. Matches the menu row's
    thumbnail treatment, one size up for the sheet's much larger frame. */
