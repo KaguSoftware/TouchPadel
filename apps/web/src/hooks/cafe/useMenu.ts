@@ -7,6 +7,7 @@ import {
   fetchCafeSettings,
   fetchMenu,
   itemsById as buildItemsById,
+  categoryNameByItemId,
   type CafeSettings,
   type MenuCategory,
   type MenuItem,
@@ -42,6 +43,8 @@ export interface UseMenu {
   status: MenuStatus;
   settings: CafeSettings;
   itemsById: Map<string, MenuItem>;
+  /** item id -> its category `name_en`, the key section art is looked up by */
+  categoryNames: Map<string, string>;
   /** the settings' featured item, if it is still on the menu */
   featured: MenuItem | null;
   /** true while a refetch is in flight (drives the MenuUnavailable retry button) */
@@ -126,10 +129,11 @@ export function useMenu(
   }, [supabase, refresh]);
 
   const byId = useMemo(() => buildItemsById(menu), [menu]);
+  const categoryNames = useMemo(() => categoryNameByItemId(menu), [menu]);
   const featured = useMemo(() => {
     if (settings.hero_mode !== 'featured' || !settings.featured_item_id) return null;
     return byId.get(settings.featured_item_id) ?? null;
   }, [settings, byId]);
 
-  return { menu, status, settings, itemsById: byId, featured, refreshing, refresh };
+  return { menu, status, settings, itemsById: byId, categoryNames, featured, refreshing, refresh };
 }

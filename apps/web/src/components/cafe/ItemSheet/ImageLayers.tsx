@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { Loader } from '../brand';
+import { CategoryIcon, type SectionArt } from '../MenuStage/sectionArt';
 
 /**
  * Three stacked layers (UpperDeck ItemModal L428-459):
@@ -10,11 +11,17 @@ import { Loader } from '../brand';
  *   2. the brand Loader while the full-res request is in flight;
  *   3. the full-res `next/image`, faded in on load.
  * Plus the expand glyph that opens the lightbox.
+ *
+ * With no photo yet, the frame is not left empty: it holds the item's section
+ * icon on the band's tint, the same category-true placeholder the menu row
+ * uses, so the sheet reads as finished until the operator's photography lands.
+ * A category the design draws no icon for keeps the plain tinted frame.
  */
 export function ImageLayers({
   src,
   blur,
   alt,
+  art,
   expandLabel,
   loadingLabel,
   onExpand,
@@ -22,6 +29,8 @@ export function ImageLayers({
   src: string | null;
   blur: string | null;
   alt: string;
+  /** the item's section art — its icon stands in for a missing photo */
+  art?: SectionArt;
   expandLabel: string;
   loadingLabel?: string;
   onExpand(): void;
@@ -34,7 +43,12 @@ export function ImageLayers({
   const hasBlur = Boolean(blur && blur.startsWith('data:'));
 
   return (
-    <div className="tp-itemsheet__media">
+    <div className="tp-itemsheet__media" data-placeholder={src ? undefined : 'true'} data-tone={src ? undefined : (art?.tone ?? 'blue')}>
+      {!src && art && (
+        <span className="tp-itemsheet__placeholder" aria-hidden="true">
+          <CategoryIcon art={art} className="tp-itemsheet__placeholder-icon" />
+        </span>
+      )}
       {hasBlur && (
         // eslint-disable-next-line @next/next/no-img-element -- data-URI placeholder, never optimised
         <img

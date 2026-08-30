@@ -302,6 +302,17 @@ export function activeGroups(
   return out;
 }
 
+/**
+ * Category `name_en` for every item id — the key `sectionArtFor` wants, so the
+ * item sheet can fall back to the same category icon the menu row uses when an
+ * item has no photograph of its own.
+ */
+export function categoryNameByItemId(menu: readonly MenuCategory[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const c of menu) for (const i of c.items) map.set(i.id, c.name_en);
+  return map;
+}
+
 /** Flat lookup of every item in a menu. */
 export function itemsById(menu: readonly MenuCategory[]): Map<string, MenuItem> {
   const map = new Map<string, MenuItem>();

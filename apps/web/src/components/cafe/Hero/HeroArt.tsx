@@ -49,14 +49,14 @@ export function HeroArt() {
         />
         <rect
           x="196"
-          y="176"
+          y="146"
           width="16"
           height="16"
           rx="4"
           stroke="var(--tp-cafe-green)"
           strokeWidth="3"
           fill="var(--tp-bg)"
-          transform="rotate(16 204 184)"
+          transform="rotate(16 204 154)"
         />
         <rect
           x="118"
@@ -80,7 +80,6 @@ export function HeroArt() {
           fill="var(--tp-bg)"
           transform="rotate(20 256 50)"
         />
-        <circle cx="226" cy="132" r="3" fill="var(--tp-cafe-green-light)" />
         <circle cx="92" cy="180" r="3" fill="var(--tp-cafe-green-light)" />
         <circle cx="176" cy="58" r="3" fill="var(--tp-cafe-green-light)" />
       </g>

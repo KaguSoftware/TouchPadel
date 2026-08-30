@@ -16,5 +16,9 @@ export const layoutCss = `
   .tp-app { box-shadow: none; }
 }
 /* The shell's inert state must READ as inert too, not just behave that way. */
-.tp-app__scroll[inert] { opacity: 0.55; }
+.tp-app__scroll[inert] { opacity: 0.55; transition: opacity var(--tp-dur-fast) var(--tp-ease-out); }
+/* A closing sheet is still mounted, so the shell is still inert — but the page
+   must come back to full strength immediately rather than staying greyed out
+   behind the departing sheet, which reads as an overlay stuck on the screen. */
+[data-sheet-closing] .tp-app__scroll[inert] { opacity: 1; }
 `;

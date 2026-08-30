@@ -17,6 +17,16 @@ export const waiterCss = `
 .tp-waiter-phase[data-phase='done'] { color: var(--tp-success); font-weight: 700; }
 .tp-waiter-phase[data-phase='failed'] { color: var(--tp-danger); }
 .tp-qr-art { inline-size: 7rem; block-size: 7rem; margin-inline: auto; color: var(--tp-accent); animation: tp-float 1.8s ease-in-out infinite; }
+/* align-items: center shrink-wraps every child to its content width. The drag
+   header contains only the grip, so it collapsed to ~40px: there was almost
+   nothing to grab and the grip sat in a tiny box instead of centred across the
+   sheet. The header spans the full width and centres its own content instead. */
 .tp-qr-required { text-align: center; display: flex; flex-direction: column; gap: var(--tp-space-3); align-items: center; }
+/* This sheet keeps the base .tp-sheet padding (unlike the --panel sheets, which
+   zero it), so the grip sat ~44px down from the rounded top edge. Pull the
+   header back out of that padding, and drop its own padding, so the grip lands
+   at the same 12px as every other sheet rather than 20. */
+.tp-qr-required > .tp-sheet__header { align-self: stretch; padding-block: 0;
+  margin-block-start: calc(-1 * var(--tp-space-5)); margin-inline: calc(-1 * var(--tp-space-5)); }
 .tp-qr-required p { color: var(--tp-muted-fg); max-inline-size: 26rem; }
 `;

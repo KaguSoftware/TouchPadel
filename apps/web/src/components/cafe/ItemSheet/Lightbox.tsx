@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { CloseIcon } from '../brand';
 import { DOUBLE_TAP_MS } from './constants';
 import {
   clampPan,
@@ -149,7 +150,7 @@ export function Lightbox({
         <img src={src} alt={alt} draggable={false} />
       </div>
       <button type="button" className="tp-lightbox__close" onClick={onClose} aria-label={closeLabel}>
-        ×
+        <CloseIcon />
       </button>
     </div>
   );

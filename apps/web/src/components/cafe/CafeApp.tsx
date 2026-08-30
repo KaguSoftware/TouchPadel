@@ -80,6 +80,7 @@ export function CafeApp({
 
   // ------------------------------------------------------------ overlay state
   const [sheetItem, setSheetItem] = useState<MenuItem | null>(null);
+
   const [basketOpen, setBasketOpen] = useState(false);
   const [waiterOpen, setWaiterOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
@@ -95,8 +96,14 @@ export function CafeApp({
 
   const categoryIds = useMemo(() => menu.menu.map((c) => c.id), [menu.menu]);
   const spy = useScrollSpy(scrollRef, categoryIds);
+  // A closing sheet is still mounted and still counts here; SheetShell marks
+  // <html data-sheet-closing> so the page un-dims during the exit (layout.css).
   const anySheet =
     sheetItem !== null || basketOpen || waiterOpen || ordersOpen || qrRequired !== null;
+
+  /** Read inside the coach-mark effect without making it a dependency. */
+  const anySheetRef = useRef(anySheet);
+  anySheetRef.current = anySheet;
 
   const actions = useCafeActions({
     locale,
@@ -118,18 +125,27 @@ export function CafeApp({
 
   // Coach mark: bound table + live bell + operator switch on, once per browser
   // session, and never over a sheet (web-slice §2).
+  //
+  // `anySheet` is deliberately NOT a dependency. It belongs in the guard — the
+  // mark must not open over a sheet — but re-running on it turned suppression
+  // into deferral: with a sheet open the effect bailed, and the moment the
+  // guest closed it the coach mark opened, dropping a full-screen spotlight
+  // scrim over the menu right as they came back to it. The mark is for a guest
+  // arriving at the menu, so it is only ever offered while nothing is open.
   useEffect(() => {
     if (
       table.state !== 'bound' ||
       !table.bellEnabled ||
       !menu.settings.bell_tutorial_enabled ||
-      anySheet ||
+      anySheetRef.current ||
       hasSeenBellTutorial()
     ) {
       return;
     }
     setTutorialOpen(true);
-  }, [table.state, table.bellEnabled, menu.settings.bell_tutorial_enabled, anySheet]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above: opening
+    // a sheet must not schedule the coach mark for when it closes.
+  }, [table.state, table.bellEnabled, menu.settings.bell_tutorial_enabled]);
 
   const dismissTutorial = useCallback(() => setTutorialOpen(false), []);
 
@@ -224,6 +240,7 @@ export function CafeApp({
         locale={locale}
         settings={menu.settings}
         itemsById={menu.itemsById}
+        categoryNames={menu.categoryNames}
         item={sheetItem}
         basketOpen={basketOpen}
         waiterOpen={waiterOpen}

@@ -22,7 +22,12 @@ export const topbarCss = `
 .tp-cafe__topbar-side { display: flex; align-items: center; gap: var(--tp-space-2); flex: 0 0 auto; }
 .tp-cafe__topbar-side--end { justify-content: flex-end; }
 .tp-cafe__lockup { flex: 0 1 175px; min-inline-size: 104px; max-inline-size: 175px; inline-size: auto;
-  block-size: auto; display: block; margin-inline: auto; }
+  block-size: auto; display: block;
+  /* Left-aligned, not centred: the lockup sits at the start of the space the
+     controls leave, with only the row gap between it and the table chip. The
+     trailing auto margin absorbs the slack so the locale + basket pair stays
+     pinned to the end edge. */
+  margin-inline: 0 auto; }
 
 .tp-cafe__table { font-weight: 800; font-size: var(--tp-fs-sm); padding-block: 0.2rem; padding-inline: 0.6rem; border-radius: var(--tp-radius-pill);
   background: var(--tp-cafe-blue-tint); color: var(--tp-accent); white-space: nowrap; }

@@ -13,6 +13,11 @@ export type ItemSheetProps = {
   settings: CafeSettings;
   /** flat menu lookup — resolves `suggestedItemIds` for the "goes well with" rail */
   itemsById: Map<string, MenuItem>;
+  /**
+   * item id -> its category `name_en`. Resolves the section icon that stands in
+   * for a missing photo, exactly as the menu row does.
+   */
+  categoryNames: Map<string, string>;
   onClose(): void;
   onAdd(line: BasketLine): void;
   onOpenSuggested(item: MenuItem): void;

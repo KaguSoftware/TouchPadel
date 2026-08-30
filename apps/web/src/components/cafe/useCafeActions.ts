@@ -78,7 +78,9 @@ export function useCafeActions(d: CafeActionsDeps) {
   const addLine = useCallback(
     (line: BasketLine) => {
       basket.add(line);
-      d.setSheetItem(null);
+      // The item sheet closes ITSELF here (ItemSheet.add -> finish), so that the
+      // exit animation plays. Clearing sheetItem from under it would unmount the
+      // sheet on the spot and the add would look like the sheet just vanished.
       tap();
       toasts.show(tr('cafe.addedToBasket'));
       track.itemAddedToBasket({

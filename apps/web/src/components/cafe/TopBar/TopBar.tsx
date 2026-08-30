@@ -52,8 +52,8 @@ export function TopBar({
           className="tp-cafe__lockup"
           src="/brand/cafe/wordmark.png"
           alt={t(locale, 'common.cafeName')}
-          width={540}
-          height={140}
+          width={1080}
+          height={222}
           priority
         />
         <div className="tp-cafe__topbar-side tp-cafe__topbar-side--end">
