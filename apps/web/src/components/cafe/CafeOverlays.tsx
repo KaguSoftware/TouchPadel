@@ -26,6 +26,8 @@ export interface CafeOverlaysProps {
   locale: Locale;
   settings: CafeSettings;
   itemsById: Map<string, MenuItem>;
+  /** item id -> category `name_en`, so a photo-less item can borrow its section icon */
+  categoryNames: Map<string, string>;
 
   item: MenuItem | null;
   basketOpen: boolean;
@@ -77,6 +79,7 @@ export function CafeOverlays(p: CafeOverlaysProps) {
         item={p.item}
         settings={p.settings}
         itemsById={p.itemsById}
+        categoryNames={p.categoryNames}
         onClose={p.onCloseItem}
         onAdd={p.onAddLine}
         onOpenSuggested={p.onOpenSuggested}

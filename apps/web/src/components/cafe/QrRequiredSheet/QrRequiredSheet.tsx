@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, type JSX } from 'react';
+import { useCallback, useMemo, useRef, type JSX } from 'react';
 import { makeT, type Locale } from '@touch/i18n';
 import { SheetShell } from '../ItemSheet/SheetShell';
 import { useSheetDrag } from '../ItemSheet/drag';
@@ -25,7 +25,13 @@ export function QrRequiredSheet({
 }: QrRequiredSheetProps): JSX.Element | null {
   const tr = useMemo(() => makeT(locale), [locale]);
   const headerRef = useRef<HTMLDivElement | null>(null);
-  const drag = useSheetDrag(headerRef, onClose);
+  /** SheetShell's deferred close, so the OK button and the drag play the exit. */
+  const dismiss = useRef<(() => void) | null>(null);
+  const close = useCallback(() => {
+    if (dismiss.current) dismiss.current();
+    else onClose();
+  }, [onClose]);
+  const drag = useSheetDrag(headerRef, close);
 
   if (!reason) return null;
 
@@ -33,6 +39,7 @@ export function QrRequiredSheet({
     <SheetShell
       label={tr('cafe.qrRequired.title')}
       onClose={onClose}
+      closeRef={dismiss}
       className="tp-sheet tp-qr-required"
       style={drag.style}
       backdropStyle={drag.backdropStyle}
@@ -44,7 +51,7 @@ export function QrRequiredSheet({
       <h2>{tr('cafe.qrRequired.title')}</h2>
       <p>{tr(reason === 'order' ? 'cafe.qrRequired.bodyOrder' : 'cafe.qrRequired.bodyWaiter')}</p>
       <p>{tr('cafe.qrRequired.keepBasket')}</p>
-      <button type="button" className="tp-btn tp-btn--primary tp-btn--block" onClick={onClose}>
+      <button type="button" className="tp-btn tp-btn--primary tp-btn--block" onClick={close}>
         {tr('common.ok')}
       </button>
     </SheetShell>
