@@ -3,19 +3,22 @@
 import { makeT, type Locale } from '@touch/i18n';
 import type { MenuCategory, MenuItem } from '@/lib/menu';
 import { MenuCard } from '../MenuCard/MenuCard';
-import { sizeHeaders } from '../MenuCard/sizeColumns';
-import { SectionIllustration, SectionRule, sectionArtFor } from './sectionArt';
+import { SectionIllustration, sectionArtFor } from './sectionArt';
 import { TempChips } from '../TempChips';
 
 /**
  * The menu itself: one section per category, drawn as the approved design does.
  *
- *   قهوة ~~~~~~ [بارد]
+ *                                  [بارد]
  *   ┌────────────────────────┐
- *   │ COFFEE            ☕  │
+ *   │ قهوة              ☕  │
  *   └────────────────────────┘
- *              MEDIUM  LARGE
- *   لاتيه [حار][بارد]  3000  4000
+ *   لاتيه [حار][بارد]      3000
+ *   كابتشينو [حار]         3000
+ *
+ * The band IS the section heading — the category is named once, inside the
+ * tinted band, in the reading language (Arabic name in Arabic, the design's
+ * Latin word in English). There is no second heading above the band.
  *
  * Sections are plain sections, not collapsibles: the design lists the whole
  * menu open, so there is no chevron and nothing to expand. They stay in the SSR
@@ -26,9 +29,9 @@ import { TempChips } from '../TempChips';
  * is the section's own icon on the band's tint (`art` below), so a row reads as
  * belonging to its category instead of showing a hole where a picture goes.
  *
- * The size headers are derived from the category's own variants
- * (`sizeHeaders`), so a section priced at one size prints no header row at all
- * — exactly as the design does for شاي and حلويات.
+ * Every item is sold in ONE size, so no section carries size headers and every
+ * row prints a single price in the same fixed-width column at the end of the
+ * row — the numbers run straight down the section.
  */
 export function MenuStage({
   locale,
@@ -47,35 +50,29 @@ export function MenuStage({
   return (
     <>
       {categories.map((cat) => {
-        const name = ar ? cat.name_ar : cat.name_en;
         const art = sectionArtFor(cat.name_en);
-        const columns = sizeHeaders(cat, locale);
+        // The band's word is the section's only name, so it follows the
+        // reading language: the operator's Arabic name in Arabic, the design's
+        // Latin word in English. Arabic names are not in the design's art, so
+        // their size step is measured from the name itself.
+        const word = ar ? cat.name_ar : (art?.word ?? cat.name_en.toUpperCase());
+        const len = ar ? lenFor(word) : (art?.len ?? 'medium');
         return (
           <section key={cat.id} id={sectionId(cat.id)} className="tp-menu-cat tp-stage">
-            <div className="tp-stage__head">
-              <h2>{name}</h2>
-              <SectionRule width={art?.rule ?? 84} />
-              <TempChips temp={cat.serve_temp} locale={locale} className="tp-stage__badge" />
-            </div>
+            {cat.serve_temp !== 'none' && (
+              <div className="tp-stage__head">
+                <TempChips temp={cat.serve_temp} locale={locale} className="tp-stage__badge" />
+              </div>
+            )}
 
             {/* data-cat-hero: the scroll spy's activation anchor — this band
                 reaching the top of the reading area is what flips the rail. */}
             <div className="tp-stage__band" data-cat-hero="" data-tone={art?.tone ?? 'blue'}>
-              <span className="tp-stage__word" data-len={art?.len ?? 'medium'} aria-hidden="true">
-                {art?.word ?? cat.name_en.toUpperCase()}
-              </span>
+              <h2 className="tp-stage__word" data-len={len}>
+                {word}
+              </h2>
               <SectionIllustration art={art} />
             </div>
-
-            {/* One named column still prints its header (Signature is LARGE-only);
-                a section with no named size prints none (Tea, Desserts). */}
-            {columns.length > 0 && (
-              <div className="tp-stage__cols" aria-hidden="true">
-                {columns.map((c) => (
-                  <span key={c}>{c}</span>
-                ))}
-              </div>
-            )}
 
             <div className="tp-stage__rows">
               {cat.items.map((item) => (
@@ -83,7 +80,6 @@ export function MenuStage({
                   key={item.id}
                   item={item}
                   locale={locale}
-                  columns={columns}
                   art={art}
                   onOpen={onOpenItem}
                 />
@@ -97,4 +93,15 @@ export function MenuStage({
       })}
     </>
   );
+}
+
+/**
+ * Size step for a name the design has no art for (every Arabic name): the
+ * same three buckets `SectionArt.len` uses, measured on the rendered word so a
+ * long name steps down instead of colliding with the illustration.
+ */
+function lenFor(word: string): 'short' | 'medium' | 'long' {
+  if (word.length <= 6) return 'short';
+  if (word.length <= 10) return 'medium';
+  return 'long';
 }

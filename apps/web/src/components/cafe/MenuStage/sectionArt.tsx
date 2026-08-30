@@ -22,8 +22,6 @@ export interface SectionArt {
   tone: 'blue' | 'green';
   /** word length bucket -> font size step (stage.css.ts) */
   len: 'short' | 'medium' | 'long';
-  /** width in px of the green rule under the heading */
-  rule: number;
   /**
    * Per-section placement, straight off the design: the illustration is a
    * different size and sits at a different tilt in every band. `end` is the
@@ -39,7 +37,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'COFFEE',
     tone: 'blue',
     len: 'short',
-    rule: 84,
     illo: { size: 108, end: -14, bottom: -14, rot: -10 },
     art: (
       <>
@@ -61,7 +58,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'SMOOTHIE',
     tone: 'green',
     len: 'medium',
-    rule: 84,
     illo: { size: 104, end: -12, bottom: -12, rot: 8 },
     art: (
       <>
@@ -93,7 +89,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'TEA',
     tone: 'blue',
     len: 'short',
-    rule: 84,
     illo: { size: 106, end: -12, bottom: -14, rot: -8 },
     art: (
       <>
@@ -126,7 +121,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'JUICE',
     tone: 'green',
     len: 'short',
-    rule: 64,
     illo: { size: 104, end: -12, bottom: -12, rot: 8 },
     art: (
       <>
@@ -152,7 +146,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'FRAPPUCCINO',
     tone: 'blue',
     len: 'long',
-    rule: 74,
     illo: { size: 104, end: -12, bottom: -12, rot: -8 },
     art: (
       <>
@@ -169,7 +162,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'COCKTAIL',
     tone: 'green',
     len: 'medium',
-    rule: 84,
     illo: { size: 106, end: -12, bottom: -14, rot: 8 },
     art: (
       <>
@@ -211,7 +203,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'MILKSHAKE',
     tone: 'blue',
     len: 'long',
-    rule: 74,
     illo: { size: 102, end: -10, bottom: -10, rot: -8 },
     art: (
       <>
@@ -234,7 +225,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'MILK',
     tone: 'green',
     len: 'short',
-    rule: 54,
     illo: { size: 104, end: -12, bottom: -12, rot: 8 },
     art: (
       <>
@@ -260,7 +250,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'DESSERTS',
     tone: 'blue',
     len: 'medium',
-    rule: 84,
     illo: { size: 100, end: -12, bottom: -4, rot: 8 },
     art: (
       <>
@@ -293,7 +282,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'SIGNATURE',
     tone: 'green',
     len: 'long',
-    rule: 74,
     illo: { size: 104, end: -12, bottom: -12, rot: -8 },
     art: (
       <>
@@ -315,7 +303,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'MOJITO',
     tone: 'blue',
     len: 'short',
-    rule: 84,
     illo: { size: 104, end: -12, bottom: -12, rot: 8 },
     art: (
       <>
@@ -366,7 +353,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'HEALTHY',
     tone: 'green',
     len: 'medium',
-    rule: 84,
     illo: { size: 104, end: -12, bottom: -12, rot: -8 },
     art: (
       <>
@@ -388,7 +374,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'SPECIALTY',
     tone: 'blue',
     len: 'long',
-    rule: 64,
     illo: { size: 104, end: -12, bottom: -12, rot: -8 },
     art: (
       <>
@@ -417,27 +402,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     ),
   },
 };
-
-/** The design's green heading rule — one hand-drawn stroke, 100x12. */
-export function SectionRule({ width }: { width: number }) {
-  return (
-    <svg
-      className="tp-stage__rule"
-      viewBox="0 0 100 12"
-      style={{ inlineSize: `${width}px` }}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M2 10 Q 50 -6 98 8"
-        stroke="var(--tp-cafe-green-light)"
-        strokeWidth="5"
-        fill="none"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
 /** The line illustration in a section band. Renders nothing for an unmapped category. */
 export function SectionIllustration({ art }: { art: SectionArt | undefined }) {

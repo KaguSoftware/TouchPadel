@@ -32,6 +32,4 @@ export { useVenueMode } from './useVenueMode';
 export { useScrollSpy } from './useScrollSpy';
 export { scrollSpyPick } from './scrollSpy';
 export type { SectionOffset } from './scrollSpy';
-export { useSheetDrag } from './useSheetDrag';
-export type { UseSheetDrag, SheetDragOptions } from './useSheetDrag';
 export { useItemDwell } from './useItemDwell';

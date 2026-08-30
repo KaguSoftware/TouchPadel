@@ -7,12 +7,12 @@ import { applyPctDiscountIqd } from '@touch/core';
 import type { MenuItem } from '@/lib/menu';
 import { TempChips } from '../TempChips';
 import { CategoryIcon, type SectionArt } from '../MenuStage/sectionArt';
-import { priceLayout } from './sizeColumns';
+import { rowPrice } from './rowPrice';
 
 /**
- * The design prints bare numerals in the price columns - no currency mark and no
- * thousands separator - because the whole menu is in IQD and the columns are
- * 58 px wide. `formatIQD` is still what prices the basket, the sheet and every
+ * The design prints bare numerals in the price column - no currency mark and no
+ * thousands separator - because the whole menu is in IQD and the column is
+ * narrow. `formatIQD` is still what prices the basket, the sheet and every
  * total, where the unit does have to be stated.
  */
 const menuPrice = (iqd: number): string => String(iqd);
@@ -22,9 +22,11 @@ const ARABIC = /[؀-ۿ]/;
 
 /**
  * One menu row, as the design lists it: the name and an optional small note,
- * then the serve-temperature chips and the price cells, both lined up under the
- * section's size headers. The chips sit in a fixed column of their own rather
- * than trailing the name, so they align down the section whatever the names do.
+ * then the serve-temperature chips and the row's single price. The menu sells
+ * one size per item, so there is exactly one price cell, and it is a fixed
+ * width at the end of the row — every price in the section lines up vertically
+ * however long the names beside them run. The chips sit in a fixed column of
+ * their own rather than trailing the name, for the same reason.
  *
  * The row leads with a thumbnail: the item's own photo when it has one, and
  * otherwise the section's icon on the band's tint - a category-true placeholder
@@ -40,14 +42,11 @@ const ARABIC = /[؀-ۿ]/;
 export function MenuCard({
   item,
   locale,
-  columns,
   art,
   onOpen,
 }: {
   item: MenuItem;
   locale: Locale;
-  /** the section's size headers; [] when the category prices a single size */
-  columns: string[];
   /** the section's art — its icon stands in for a missing item photo */
   art?: SectionArt;
   onOpen(item: MenuItem): void;
@@ -67,13 +66,17 @@ export function MenuCard({
   const name = ar ? item.name_ar : item.name_en;
   const desc = ar ? item.description_ar : item.description_en;
   const hook = ar ? item.hook_ar : item.hook_en;
-  const layout = priceLayout(item, columns);
+  const price = rowPrice(item);
   const discount = item.discountPct;
 
-  /** A price cell: promo price over the struck list price when a promo applies. */
-  const cell = (value: number | null, tier: 'base' | 'top', key: string) => (
-    <div className="tp-menu-item__price" data-tier={tier} key={key}>
-      {value === null ? null : discount > 0 ? (
+  /**
+   * The row's price cell: the promo price over the struck list price when a
+   * promo applies. The two stack rather than sit side by side, so a discounted
+   * row keeps the same column width as every other row in the section.
+   */
+  const priceCell = (value: number) => (
+    <div className="tp-menu-item__price">
+      {discount > 0 ? (
         <>
           <span className="tp-price--promo">
             {menuPrice(applyPctDiscountIqd(value, discount))}
@@ -89,7 +92,6 @@ export function MenuCard({
   return (
     <article
       className="tp-menu-item"
-      data-cols={layout?.kind === 'columns' ? columns.length : 1}
       data-highlight={item.highlight !== 'none' ? item.highlight : undefined}
       data-sold-out={item.sold_out ? 'true' : undefined}
       data-unavailable={!orderable ? 'true' : undefined}
@@ -131,16 +133,10 @@ export function MenuCard({
           )}
         </div>
         {hook && <div className="tp-menu-item__hook">{hook}</div>}
-        {/* Sizes outside the section grid print inline, as espresso does. */}
-        {layout?.kind === 'inline' && (
-          <div className="tp-menu-item__desc">
-            {layout.parts.map((p) => `${p.label} ${menuPrice(p.price)}`).join(' · ')}
-          </div>
-        )}
         {desc && <div className="tp-menu-item__desc">{desc}</div>}
       </div>
 
-      {/* The serve-temp chips ride in their own column just before the prices,
+      {/* The serve-temp chips ride in their own column just before the price,
           so they line up down the whole section however long the names run
           (the design stacks حار over بارد rather than trailing the name). */}
       {item.serve_temp !== 'none' && (
@@ -149,11 +145,7 @@ export function MenuCard({
         </div>
       )}
 
-      {layout?.kind === 'columns' &&
-        layout.cells.map((value, i) =>
-          cell(value, i === layout.cells.length - 1 ? 'top' : 'base', columns[i] ?? String(i)),
-        )}
-      {layout?.kind === 'single' && cell(layout.price, 'top', 'single')}
+      {price !== null && priceCell(price)}
 
       {item.sold_out && <span className="tp-stamp">{tr('cafe.soldOut')}</span>}
     </article>
