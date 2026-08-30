@@ -5,6 +5,14 @@ section 11) is explicit: **a week's delay here is a week off the end.**
 
 مدة البناء أربعة أسابيع فقط. كل بند أدناه من جهة العميل، وأي تأخير أسبوع هنا يعني أسبوعاً أقل في النهاية.
 
+> **Status 2026-08-30** (after intake pack 2, 16/21): answered — items 1, 2 (Mustafa), 3-partial
+> (courts + hours + cancellation ✓, **rates still missing**), 4 ✓, 5 (sent via WhatsApp — not yet
+> in the build), 7 (domain chosen: `touch-padel.com`, recovery in progress), 8 ✓, 14-partial
+> (printer arrived, UPS in hand; model unverified), 15 ✓ (training agreed), PITR → **decided:
+> daily backups only** (see below). Still open: rates, menu (6), copy (9), floor (10), recipes
+> (11), ingredients (12), staff (13), fonts, static IP (we handle at install). Current chase
+> list: `07-outstanding-2026-08-30.md`.
+
 ## Contract items (SOW section 11)
 
 | # | Item / البند | Needed by | Consequence if late (per SOW) |
@@ -49,3 +57,7 @@ Please confirm in writing which option Touch funds. This is a Supabase cost, not
 (SOW: only Supabase and the domain are billed to Touch).
 
 يرجى التأكيد كتابياً أي الخيارين تعتمدون: الاسترجاع الزمني الكامل (إضافة مدفوعة) أم النسخ الاحتياطي اليومي فقط.
+
+> **Decided 2026-08-30: option 2 — daily backups only** (owner decision, superseding the pack's
+> "pitr" answer). Written acknowledgment of the SOW deviation requested in
+> `07-outstanding-2026-08-30.md` §4.

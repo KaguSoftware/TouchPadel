@@ -61,7 +61,7 @@ Dependency arrows: `→` means "blocks". The one structural constraint (per the 
 ### Week 4 · Sep 14–20 — Offline queue, LAN KDS, stock UI, **SUBMIT**
 | Person | Work | Depends on |
 |---|---|---|
-| Parsa | **Offline subsystem** (the week's centerpiece, design in §1.1 below): SQLite write queue in Electron main (`better-sqlite3`, WAL, flush-before-confirm), device-prefixed ULIDs + idempotency keys, ordered replay worker, **LAN KDS server** (WebSocket server in till's Electron main on static IP `:8433`, KDS Electron app falls back to it when Supabase Realtime heartbeat fails); load test 2× peak; backups + PITR verification on staging; **EAS submit with FE1 (target Wed Sep 16, hard stop Fri Sep 18)** | Drop 3, week-3 heartbeat |
+| Parsa | **Offline subsystem** (the week's centerpiece, design in §1.1 below): SQLite write queue in Electron main (`better-sqlite3`, WAL, flush-before-confirm), device-prefixed ULIDs + idempotency keys, ordered replay worker, **LAN KDS server** (WebSocket server in till's Electron main on static IP `:47810`, KDS Electron app falls back to it when Supabase Realtime heartbeat fails); load test 2× peak; backup restore verification on staging (daily Supabase backups — **PITR declined by owner 2026-08-30**, SOW deviation recorded in `docs/client/07-outstanding-2026-08-30.md`); **EAS submit with FE1 (target Wed Sep 16, hard stop Fri Sep 18)** | Drop 3, week-3 heartbeat |
 | FE1 | Store assets, privacy policy page (on `apps/web`), app review notes + demo account, **submission Wed–Fri**; then bug triage from internal TestFlight | All mobile features frozen Tue Sep 15 |
 | FE2 | Operator: stock screens (ingredients, recipes editor, goods-in with batch expiry, counts entry, variance report, low-stock/grey-out), day-close screen (float, counted vs expected, card batch entry, blocks on open tabs/unsynced queue); Web: venue info pages, metadata, PWA install, domain go-live (**if DNS received**) | Drop 3, Parsa's queue API (IPC contract frozen Mon Sep 14) |
 | SEC | **Gate 4 (Thu, pre-submission):** full RLS policy pass on every table, idempotent-replay review (double-charge attempt), mobile build secrets audit, dependency audit | Queue implementation |
@@ -79,14 +79,14 @@ Dependency arrows: `→` means "blocks". The one structural constraint (per the 
 
 ### Week 6 · Sep 28 – Oct 4 — Review buffer, part 2 / handover
 - Staff training by role, recorded, en/ar. Runbook + staff guide delivered.
-- Restore rehearsal (PITR restore to scratch project, documented).
+- Restore rehearsal (daily-backup restore to scratch project, documented — PITR declined 2026-08-30).
 - Repository transfer to Touch's Git account; account-ownership checklist.
 - Acceptance walkthrough with Mustafa against the seven module tests; written sign-off; balance invoice.
 
 ### 1.1 Offline/LAN subsystem (so week 4 isn't underestimated — design it now, build it then)
 - `apps/operator/src/main/queue.ts`: every mutating IPC call writes `{id: '<deviceId>_<ulid>', op, payload, idempotency_key, created_at}` to SQLite **and fsyncs before the renderer gets its ack**. Renderer never talks to Supabase directly for writes; always through IPC → queue → sync worker. Online, the worker drains in ~instantly, so there is **one write path** exercised all day, not a rarely-tested offline branch. This is the single most important de-risking decision.
 - Replay: server RPC `apply_queued_write(idempotency_key, op, payload)` — `insert … on conflict (idempotency_key) do nothing`, server timestamps, stock settles server-side, negative stock raises `manager_alerts` row.
-- LAN KDS: till main process always runs `ws://<till-static-ip>:8433` broadcasting ticket events sourced from the queue. KDS app subscribes to Supabase Realtime **and** the LAN socket; it renders whichever heartbeat is alive (LAN wins during degraded). Static IP configured in KDS settings screen (skip mDNS — Windows mDNS is flaky; a static IP on the venue LAN is one line in the runbook). Reference-data cache: hourly snapshot of menu/prices/recipes/courts/tables/today's reservations into SQLite (`cache_*` tables).
+- LAN KDS: till main process always runs `ws://<till-static-ip>:47810` (the port the shell actually binds — `apps/operator-shell/src/main/lan-kds-server.ts`; this doc used to say 8433, which was never what the code used) broadcasting ticket events sourced from the queue. KDS app subscribes to Supabase Realtime **and** the LAN socket; it renders whichever heartbeat is alive (LAN wins during degraded). Static IP configured in KDS settings screen (skip mDNS — Windows mDNS is flaky; a static IP on the venue LAN is one line in the runbook). Reference-data cache: hourly snapshot of menu/prices/recipes/courts/tables/today's reservations into SQLite (`cache_*` tables).
 
 ---
 

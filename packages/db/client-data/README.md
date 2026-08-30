@@ -14,10 +14,10 @@ directory may reference a `70c4` UUID.
 
 ## Why this is not applied by default
 
-`pnpm db:client` is **deliberately not** part of `db:fixtures`. As of the 2026-08-29 pack Touch has
-sent **courts but no rate rules**, so the real courts price as `NO_RATE` and nothing can be booked
-on them. Until rates arrive, the `f1f7` fixtures remain the dev and test default — they are the only
-coherent, fully-priced dataset in the repo.
+`pnpm db:client` is **deliberately not** part of `db:fixtures`. As of the 2026-08-30 pack Touch has
+sent **courts but no rate rules** (the rates table is empty in both packs), so the real courts price
+as `NO_RATE` and nothing can be booked on them. Until rates arrive, the `f1f7` fixtures remain the
+dev and test default — they are the only coherent, fully-priced dataset in the repo.
 
 Run `pnpm db:client` when you specifically want to see Touch's own data, and expect booking to fail
 until `rates.sql` exists.
@@ -38,12 +38,13 @@ pack answer key quoted in a comment beside every value. A reusable JSON→SQL im
 | Pack | Answered | Landed | Notes |
 |---|---|---|---|
 | `touch-padel-pack-2026-08-29.json` | 8 / 21 | hours, cancellation window, currency, tax, phone, courts | `submittedAt: null`. Rates, menu, recipes, ingredients and staff all empty — see `docs/client/06-outstanding-2026-08-29.md` |
+| `touch-padel-pack-2026-08-30.json` | 16 / 21 | Decisions pack — no new data files derivable. Confirms every 08-29 answer unchanged (13 answers added, 0 changed). Landed as records/docs: domain `touch-padel.com`, backups decision, Kurdish no, fonts/logo/photos received via WhatsApp, printer arrived, UPS, training yes, floor count 12, approver + hosting email, 4 operational notes | `submittedAt: null`. Rates, menu, recipes and staff STILL empty — see `docs/client/07-outstanding-2026-08-30.md`. Pack answer `pitr.mode = "pitr"` was **superseded by the owner 2026-08-30**: daily backups, no PITR |
 
-> **The 2026-08-29 pack file is not yet in this directory.** It reached the build through a
-> transcoded copy in which every Arabic string was mojibake'd (UTF-8 read as Latin-1, lossily), so
-> re-serialising it here would have committed corrupted Arabic as the contractual record. Export it
-> again from Kagu OS and drop the original in, then check the reconstructed Arabic in `courts.sql`
-> against it.
+> **Both pack files above are the clean Kagu OS originals** (verified UTF-8, intact Arabic),
+> copied in byte-for-byte on 2026-08-30. The mojibake that kept the 2026-08-29 pack out of the
+> repo existed only in a transcoded intermediary copy, not in the exports themselves. The Arabic
+> court names in `courts.sql` are now verified against the originals (Court 1 follows the pack's
+> own spelling, `الملعب الاول` — plain alef).
 
 ## Swap procedure
 
