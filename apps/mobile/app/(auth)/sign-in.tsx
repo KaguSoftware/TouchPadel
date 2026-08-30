@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { signIn } from '../../src/features/auth/api';
+import { linkErrorParam } from '../../src/features/auth/deepLink';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { Button, ErrorText, Field, LinkText, Screen, Title } from '../../src/components/ui';
@@ -14,6 +15,9 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // useAuthDeepLink lands here when a verification link is dead, so the user is
+  // told why instead of finding themselves back on sign-in for no visible reason.
+  const linkError = linkErrorParam(useLocalSearchParams<{ authError?: string }>().authError);
 
   const onSubmit = async () => {
     setBusy(true);
@@ -54,7 +58,7 @@ export default function SignInScreen() {
           secureTextEntry
           autoComplete="password"
         />
-        <ErrorText>{error}</ErrorText>
+        <ErrorText>{error ?? (linkError ? t(linkError) : null)}</ErrorText>
         <Button label={t('auth.signIn')} onPress={() => void onSubmit()} busy={busy} />
         <LinkText
           label={t('auth.forgotPassword')}

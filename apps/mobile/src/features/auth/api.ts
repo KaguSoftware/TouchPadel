@@ -8,8 +8,21 @@ import type { Locale } from '@touch/i18n';
 
 type Client = SupabaseClient<Database>;
 
-/** Deep-link target for the password-recovery email (app.config.ts scheme). */
+/**
+ * Deep-link targets for the auth emails in a BUILT app (scheme from
+ * app.config.ts). Callers pass the environment-resolved value from
+ * features/auth/redirects.ts instead — under Expo Go the app is not reachable
+ * at this scheme at all. These remain the defaults so the pure module keeps
+ * working (and testing) without an expo-linking import.
+ *
+ * BOTH must be present in the HOSTED project's Auth -> URL Configuration
+ * redirect allow-list. When a link is not allow-listed (or the option is simply
+ * omitted, as signUp used to omit it) GoTrue silently falls back to the
+ * project's Site URL -- http://localhost:3000 -- and the confirmation link
+ * lands the phone's browser on a port nothing is listening on.
+ */
 export const RESET_REDIRECT = 'touchpadel://reset-password';
+export const VERIFY_REDIRECT = 'touchpadel://verify-email';
 
 export interface SignUpArgs {
   fullName: string;
@@ -23,11 +36,12 @@ export interface SignUpArgs {
  * Email+password sign-up. The DB trigger app.handle_new_user creates the
  * profiles row from this metadata (full_name / phone / preferred_lang).
  */
-export async function signUp(client: Client, args: SignUpArgs) {
+export async function signUp(client: Client, args: SignUpArgs, redirectTo = VERIFY_REDIRECT) {
   const { data, error } = await client.auth.signUp({
     email: args.email.trim(),
     password: args.password,
     options: {
+      emailRedirectTo: redirectTo,
       data: {
         full_name: args.fullName.trim(),
         phone: args.phone.trim() || null,
@@ -48,14 +62,24 @@ export async function signIn(client: Client, email: string, password: string) {
   return data;
 }
 
-export async function resendVerification(client: Client, email: string) {
-  const { error } = await client.auth.resend({ type: 'signup', email: email.trim() });
+export async function resendVerification(
+  client: Client,
+  email: string,
+  redirectTo = VERIFY_REDIRECT,
+) {
+  const { error } = await client.auth.resend({
+    type: 'signup',
+    email: email.trim(),
+    // Without this the RESENT mail repeats the original bug and points at the
+    // Site URL again -- the resend button would "work" and still dead-end.
+    options: { emailRedirectTo: redirectTo },
+  });
   if (error) throw error;
 }
 
-export async function sendPasswordReset(client: Client, email: string) {
+export async function sendPasswordReset(client: Client, email: string, redirectTo = RESET_REDIRECT) {
   const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: RESET_REDIRECT,
+    redirectTo,
   });
   if (error) throw error;
 }

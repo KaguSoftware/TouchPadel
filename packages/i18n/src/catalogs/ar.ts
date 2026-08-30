@@ -58,6 +58,8 @@ export const ar: Messages = {
     passwordUpdated: 'تم تحديث كلمة المرور.',
     passwordMismatch: 'كلمتا المرور غير متطابقتين.',
     passwordTooShort: 'يجب ألا تقل كلمة المرور عن 8 أحرف.',
+    linkExpired: 'انتهت صلاحية هذا الرابط. سجّل الدخول لإرسال رابط جديد.',
+    linkInvalid: 'تعذّر استخدام هذا الرابط. سجّل الدخول للمتابعة.',
   },
   courts: {
     title: 'الملاعب',
