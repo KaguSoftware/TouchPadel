@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import type { Locale } from '@touch/i18n';
 import { supabase } from '../../src/lib/supabase';
 import { signUp, validateSignUp } from '../../src/features/auth/api';
+import { verifyRedirect } from '../../src/features/auth/redirects';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { theme } from '../../src/theme';
@@ -29,7 +30,7 @@ export default function SignUpScreen() {
     if (invalid) return setError(t('errors.validation'));
     setBusy(true);
     try {
-      await signUp(supabase, { fullName, email, phone, password, preferredLang });
+      await signUp(supabase, { fullName, email, phone, password, preferredLang }, verifyRedirect());
       // The chosen language becomes the app language right away.
       await setLocale(preferredLang);
       router.replace({ pathname: '/(auth)/verify-email', params: { email } });

@@ -13,6 +13,7 @@ import { configError, startAuthRefreshLifecycle } from '../src/lib/supabase';
 import { addBreadcrumb, captureException } from '../src/lib/telemetry';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
 import { AuthProvider } from '../src/features/auth/context';
+import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { ErrorState, OfflineBanner } from '../src/components/states';
 import { theme } from '../src/theme';
 
@@ -67,6 +68,9 @@ function ConfigErrorScreen() {
 
 function RootStack() {
   const { t } = useLocale();
+  // Inside the navigator, so the emailed verification / recovery link can be
+  // exchanged for a session and a dead link can route somewhere it is explained.
+  useAuthDeepLink();
   return (
     <Stack>
       <Stack.Screen name="index" options={{ headerShown: false }} />

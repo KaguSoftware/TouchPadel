@@ -3,6 +3,8 @@
  * simulators, dev builds without the notifications module, and permission
  * denials all resolve to 'unavailable' instead of throwing.
  */
+import { isRunningInExpoGo } from 'expo';
+
 import { supabase } from '../../lib/supabase';
 import { updatePushToken } from './api';
 
@@ -14,6 +16,9 @@ export async function registerPushToken(): Promise<PushRegistrationResult> {
     // may be absent in Expo Go / web / test environments.
     const Device = await import('expo-device');
     if (!Device.isDevice) return 'unavailable';
+    // Expo Go dropped remote push in SDK 53; importing expo-notifications there
+    // console.errors on Android (red box) before we could do anything useful.
+    if (isRunningInExpoGo()) return 'unavailable';
     const Notifications = await import('expo-notifications');
 
     const { status: existing } = await Notifications.getPermissionsAsync();

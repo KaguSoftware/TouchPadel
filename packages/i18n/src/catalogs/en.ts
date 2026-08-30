@@ -55,6 +55,10 @@ export const en = {
     passwordUpdated: 'Your password has been updated.',
     passwordMismatch: 'Passwords do not match.',
     passwordTooShort: 'Password must be at least 8 characters.',
+    // Shown when an emailed link could not be used — expired, already spent, or
+    // opened on a device other than the one that requested it.
+    linkExpired: 'That link has expired. Sign in to send yourself a new one.',
+    linkInvalid: 'That link could not be used. Sign in to continue.',
   },
   courts: {
     title: 'Courts',

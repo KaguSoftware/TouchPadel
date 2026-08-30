@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { resendVerification } from '../../src/features/auth/api';
+import { verifyRedirect } from '../../src/features/auth/redirects';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { Button, ErrorText, Hint, LinkText, Screen, Title } from '../../src/components/ui';
@@ -21,7 +22,7 @@ export default function VerifyEmailScreen() {
     setError(null);
     setNotice(null);
     try {
-      await resendVerification(supabase, email);
+      await resendVerification(supabase, email, verifyRedirect());
       setNotice(t('auth.resendEmailDone'));
     } catch (err) {
       setError(t(mapErrorToKey(err)));
