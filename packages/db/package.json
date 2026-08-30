@@ -17,6 +17,7 @@
     "gen:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
     "db:fixtures": "node scripts/db-fixtures.mjs",
     "db:menu": "node scripts/db-menu.mjs",
+    "db:client": "node scripts/db-client.mjs",
     "db:placeholders": "node scripts/make-placeholders.mjs",
     "qr:artwork": "node scripts/qr-artwork.mjs",
     "typecheck": "tsc --noEmit",

@@ -77,11 +77,22 @@ export function localParts(instant: Date, tz: string): LocalParts {
   };
 }
 
-/** Parse 'HH:MM' (24h) to minutes since midnight. Throws on malformed input. */
+/**
+ * Parse 'HH:MM' (24h) to minutes since midnight. Throws on malformed input.
+ *
+ * `24:00` is accepted and returns 1440 — end-of-day. Touch trades 09:00-02:00, and an
+ * overnight night is stored as two windows on adjacent calendar days
+ * (`[["00:00","02:00"],["09:00","24:00"]]`), so the evening window's exclusive end IS
+ * midnight. Postgres already reads it that way (`'24:00'::interval` = 24 hours, which is
+ * what `app.assert_bookable` compares a full day segment against); this makes the TS side
+ * agree. `24:01`..`24:59` stay invalid — 1440 is a boundary, not an hour.
+ */
 export function parseHHMM(value: string): number {
-  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
-  if (!m) throw new RangeError(`expected 'HH:MM' (00:00-23:59), got '${value}'`);
-  return Number(m[1]) * 60 + Number(m[2]);
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$|^(24):(00)$/.exec(value);
+  if (!m) throw new RangeError(`expected 'HH:MM' (00:00-23:59, or 24:00), got '${value}'`);
+  const hh = m[1] ?? m[3];
+  const mm = m[2] ?? m[4];
+  return Number(hh) * 60 + Number(mm);
 }
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;

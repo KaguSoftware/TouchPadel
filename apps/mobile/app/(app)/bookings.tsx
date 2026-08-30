@@ -52,7 +52,17 @@ export default function BookingsScreen() {
 
   const courtName = (courtId: string): string => courtNames.get(courtId) ?? '';
 
-  const windowHours = settings.data?.cancellation_window_hours ?? 12;
+  /**
+   * The venue's real policy is 4 hours (client intake pack 2026-08-29), read live from
+   * `venue_settings_public`. The fallback used to be a hardcoded 12 — so whenever the settings
+   * fetch failed, a guest was silently denied cancellation for three times longer than the policy
+   * actually allows, with no button and no explanation.
+   *
+   * When the policy is unknown, offer the action: `app.cancel_reservation` enforces the window
+   * server-side and returns CANCELLATION_WINDOW, which `booking/errors.ts` already maps to a real
+   * message. A refusal the guest can read beats a control that quietly is not there.
+   */
+  const windowHours = settings.data?.cancellation_window_hours ?? 0;
 
   const onCancel = (row: BookingRow) => {
     Alert.alert(t('booking.cancelBooking'), t('booking.cancelConfirmPrompt'), [

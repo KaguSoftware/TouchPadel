@@ -1,8 +1,20 @@
 /**
- * Opening hours AND closed days (SOW L319) — one window per day (Phase 1;
- * midnight-crossing windows are unsupported by the slot grid), plus the list of
- * dates the venue does not trade at all. Both save through
+ * Opening hours AND closed days (SOW L319) — one opening period per day, plus
+ * the list of dates the venue does not trade at all. Both save through
  * `app.set_opening_hours` (0013), which has always taken `p_closed_dates`.
+ *
+ * OVERNIGHT. Touch trades 09:00 → 02:00, so a closing time EARLIER than the
+ * opening time is the normal case on this screen. `venue_settings.opening_hours`
+ * cannot express that directly — its windows are measured from each day's own
+ * midnight — so such a night is stored as two windows on adjacent days
+ * (`[["00:00","02:00"],["09:00","24:00"]]`).
+ *
+ * This screen used to read `windows[0]` and write `[[open, close]]`, which
+ * silently DELETED the inherited 00:00–02:00 tail on every save. The conversion
+ * now goes through `readOpeningHours` / `writeOpeningHours` in @touch/core, which
+ * is the single implementation shared with the desk grid and the public footer.
+ * A day carrying a genuine multi-period split (a siesta close) is shown
+ * read-only rather than flattened.
  *
  * The closed-dates half is new: the column has existed since 0006,
  * `assert_bookable` refuses bookings on those days and the desk calendar greys
@@ -11,7 +23,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { DayKey } from '@touch/core';
+import { readOpeningHours, writeOpeningHours, type DayKey } from '@touch/core';
 import { appRpc } from '../../lib/appRpc';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { useLocale } from '../../lib/i18n';
@@ -26,10 +38,23 @@ import {
 
 const DAY_KEYS: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
+/**
+ * A close at or before the open means the venue shuts after midnight. Mirrors
+ * `splitOvernight` in @touch/core — kept here only to label the input live as the
+ * manager types, before anything is serialised.
+ */
+function isOvernight(open: string, close: string): boolean {
+  return close === '00:00' ? false : close <= open;
+}
+
 interface DayDraft {
   closed: boolean;
   open: string;
   close: string;
+  /** The close falls on the next calendar day (09:00 → 02:00). Derived, not edited. */
+  overnight: boolean;
+  /** The stored day has more periods than one open/close pair can describe. */
+  split: boolean;
 }
 
 export function OpeningHoursEditor() {
@@ -49,13 +74,17 @@ export function OpeningHoursEditor() {
 
   useEffect(() => {
     if (!settingsQ.data || draft) return;
+    const pairs = readOpeningHours(settingsQ.data.opening_hours, DAY_KEYS);
     const next = {} as Record<DayKey, DayDraft>;
     for (const key of DAY_KEYS) {
-      const windows = settingsQ.data.opening_hours[key] ?? [];
-      const first = windows[0];
-      next[key] = first
-        ? { closed: false, open: first[0], close: first[1] }
-        : { closed: true, open: '09:00', close: '23:00' };
+      const p = pairs[key];
+      next[key] = {
+        closed: p.closed,
+        open: p.open,
+        close: p.close,
+        overnight: p.overnight,
+        split: p.split,
+      };
     }
     setDraft(next);
     setClosed(settingsQ.data.closed_dates ?? []);
@@ -67,11 +96,10 @@ export function OpeningHoursEditor() {
     setError(null);
     setSaved(false);
     try {
-      const hours: Record<string, [string, string][]> = {};
-      for (const key of DAY_KEYS) {
-        const d = draft[key];
-        hours[key] = d.closed ? [] : [[d.open, d.close]];
-      }
+      // writeOpeningHours places each day's evening window and pushes every
+      // overnight tail onto the FOLLOWING day — including wrapping Saturday's
+      // tail onto Sunday. Never rebuild this inline.
+      const hours = writeOpeningHours(draft, DAY_KEYS);
       // Both halves in one call: they are one screen and one audit row.
       // An EMPTY array is meaningful — the RPC coalesces null to "unchanged",
       // so reopening the venue has to send [] rather than nothing.
@@ -123,24 +151,40 @@ export function OpeningHoursEditor() {
                   style={{ ...inputStyle, inlineSize: 'auto' }}
                   dir="ltr"
                   type="time"
+                  disabled={d.split}
                   aria-label={tr('op.hours.open')}
                   value={d.open}
-                  onChange={(e) => setDraft({ ...draft, [key]: { ...d, open: e.target.value } })}
+                  onChange={(e) =>
+                    setDraft({ ...draft, [key]: { ...d, open: e.target.value, overnight: isOvernight(e.target.value, d.close) } })
+                  }
                 />
                 <span>–</span>
                 <input
                   style={{ ...inputStyle, inlineSize: 'auto' }}
                   dir="ltr"
                   type="time"
+                  disabled={d.split}
                   aria-label={tr('op.hours.close')}
                   value={d.close}
-                  onChange={(e) => setDraft({ ...draft, [key]: { ...d, close: e.target.value } })}
+                  onChange={(e) =>
+                    setDraft({ ...draft, [key]: { ...d, close: e.target.value, overnight: isOvernight(d.open, e.target.value) } })
+                  }
                 />
+                {d.overnight && (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>
+                    {tr('op.hours.nextDay')}
+                  </span>
+                )}
               </>
             )}
           </div>
         );
       })}
+      {DAY_KEYS.some((k) => draft[k].split) && (
+        <p style={{ fontSize: '0.85rem', color: 'var(--tp-danger)', marginBlockStart: 0 }}>
+          {tr('op.hours.splitNotice')}
+        </p>
+      )}
       <h3 style={{ marginBlockEnd: '0.2rem' }}>{tr('op.hours.closedDatesTitle')}</h3>
       <p style={{ fontSize: '0.85rem', color: 'var(--tp-muted-fg)', marginBlockStart: 0 }}>
         {tr('op.hours.closedDatesHint')}

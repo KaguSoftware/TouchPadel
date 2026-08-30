@@ -10,7 +10,22 @@
 --
 -- Content: 4 courts (2 indoor / 2 outdoor), rate rules for weekday off-peak /
 -- weekday peak (17:00-23:00) / weekend (Iraq weekend = Fri+Sat; days_of_week
--- 0=Sun..6=Sat), per-duration absolute prices in round IQD.
+-- 0=Sun..6=Sat), per-duration absolute prices in round IQD, plus the late-night
+-- pair that covers trading past midnight.
+--
+-- OVERNIGHT. The venue trades 09:00-02:00 (seed.sql), so every hour from 23:00
+-- to 02:00 needs a rule or the slot fails with NO_RATE. Migration 0048 forbids a
+-- rate rule whose window wraps midnight (check start_time < end_time), so each
+-- night is TWO rules:
+--
+--     23:00-24:00  on the night's own weekday
+--     00:00-02:00  on the FOLLOWING weekday
+--
+-- The day shift is the subtle part: app.price_slot matches the venue-local
+-- weekday of the SLOT START, and a slot starting 00:30 Monday is the tail of
+-- SUNDAY night. So the weekday nights (Sun-Thu = {0,1,2,3,4}) have their tails
+-- on {1,2,3,4,5}, and the weekend nights (Fri+Sat = {5,6}) have theirs on
+-- {6,0}. Get this wrong and Friday night's 01:00 slot bills as a weekday.
 
 begin;
 
@@ -35,7 +50,13 @@ on conflict (id) do nothing;
 insert into rate_rules (id, name, court_id, days_of_week, start_time, end_time, priority, is_active) values
   ('f1f70000-0000-4000-8000-00000000a001', 'Weekday off-peak', null, '{0,1,2,3,4}', '09:00', '17:00', 0,  true),
   ('f1f70000-0000-4000-8000-00000000a002', 'Weekday peak',     null, '{0,1,2,3,4}', '17:00', '23:00', 10, true),
-  ('f1f70000-0000-4000-8000-00000000a003', 'Weekend',          null, '{5,6}',       '09:00', '23:00', 5,  true)
+  ('f1f70000-0000-4000-8000-00000000a003', 'Weekend',          null, '{5,6}',       '09:00', '23:00', 5,  true),
+  -- Late night, split at midnight. See the OVERNIGHT note above for why the
+  -- after-midnight rules carry the FOLLOWING day's weekdays.
+  ('f1f70000-0000-4000-8000-00000000a004', 'Weekday late',     null, '{0,1,2,3,4}', '23:00', '24:00', 10, true),
+  ('f1f70000-0000-4000-8000-00000000a005', 'Weekday post-midnight', null, '{1,2,3,4,5}', '00:00', '02:00', 10, true),
+  ('f1f70000-0000-4000-8000-00000000a006', 'Weekend late',     null, '{5,6}',       '23:00', '24:00', 5,  true),
+  ('f1f70000-0000-4000-8000-00000000a007', 'Weekend post-midnight', null, '{6,0}',   '00:00', '02:00', 5,  true)
 on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -53,7 +74,21 @@ insert into rate_rule_prices (rule_id, duration_min, price_iqd) values
   -- Weekend (Fri + Sat)
   ('f1f70000-0000-4000-8000-00000000a003',  60,  60000),
   ('f1f70000-0000-4000-8000-00000000a003',  90,  85000),
-  ('f1f70000-0000-4000-8000-00000000a003', 120, 110000)
+  ('f1f70000-0000-4000-8000-00000000a003', 120, 110000),
+  -- Weekday late + post-midnight: same money as weekday peak
+  ('f1f70000-0000-4000-8000-00000000a004',  60,  50000),
+  ('f1f70000-0000-4000-8000-00000000a004',  90,  70000),
+  ('f1f70000-0000-4000-8000-00000000a004', 120,  90000),
+  ('f1f70000-0000-4000-8000-00000000a005',  60,  50000),
+  ('f1f70000-0000-4000-8000-00000000a005',  90,  70000),
+  ('f1f70000-0000-4000-8000-00000000a005', 120,  90000),
+  -- Weekend late + post-midnight: same money as the weekend rate
+  ('f1f70000-0000-4000-8000-00000000a006',  60,  60000),
+  ('f1f70000-0000-4000-8000-00000000a006',  90,  85000),
+  ('f1f70000-0000-4000-8000-00000000a006', 120, 110000),
+  ('f1f70000-0000-4000-8000-00000000a007',  60,  60000),
+  ('f1f70000-0000-4000-8000-00000000a007',  90,  85000),
+  ('f1f70000-0000-4000-8000-00000000a007', 120, 110000)
 on conflict (rule_id, duration_min) do nothing;
 
 commit;

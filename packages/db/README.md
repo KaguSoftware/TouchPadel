@@ -58,9 +58,12 @@ Fixture rows are **clearly marked**: every fixture UUID starts with the reserved
    `delete from rate_rules where id::text like 'f1f7%';`
    `delete from courts where id::text like 'f1f7%';`
    (refuse the swap if any live reservation references a fixture court — resolve those first).
-2. Run the client-data import scripts (`scripts/import-courts.ts`, `import-menu.ts`,
-   `import-recipes.ts` — land with Drops 2/3; CSV templates are the ones issued to Touch
-   in week 1/2).
+2. Apply the client data. Touch's real business data lives in **`client-data/`** (reserved UUID
+   prefix `70c4`), derived by hand from the Kagu OS intake packs committed alongside it, and is
+   loaded by `pnpm --filter @touch/db db:client`. See `client-data/README.md`. A reusable
+   JSON/CSV importer (`scripts/import-courts.ts`, `import-menu.ts`, `import-recipes.ts`) is still
+   NOT built — the packs are transcribed by hand, with the pack answer key quoted beside every
+   value.
 3. Re-run the test suites against staging; then repeat on production.
 
 Never hand-enter client data; the swap is only ever seed/import scripts.

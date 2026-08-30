@@ -49,6 +49,11 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 
 ## Conventions
 - All schema changes are migration files — no dashboard edits, ever.
+- Four data tiers, in load order: `supabase/seed.sql` (environment-invariant reference data **plus
+  the venue config Touch has confirmed**) -> `fixtures/*.sql` (`f1f7`, dev/staging demo data) ->
+  `seeds/touch-cafe-menu.sql` (the real cafe menu) -> `client-data/*.sql` (`70c4`, Touch's own
+  data, opt-in via `pnpm db:client`). Every intake pack is committed verbatim in `client-data/`
+  as the contractual record of what the client actually said.
 - All operator writes go through IPC → SQLite queue → replay (single write path, online too).
 - Writes to business tables are RPC-only (`SECURITY DEFINER` in schema `app`); RLS is the backstop.
 - Bilingual content = paired `_en` / `_ar` columns (not jsonb). CSS logical properties only
@@ -414,7 +419,7 @@ and Sentry.
 ## Deliberately partial — grows later (scope ledger)
 | Area | What ships now | Intended full shape | Grows in |
 |---|---|---|---|
-| Business data | Fixture courts/menu/recipes/tables (reserved UUID prefix `f1f7`) | Client's real data via CSV import scripts | W5 (or when client delivers) |
+| Business data | Fixture courts/menu/recipes/tables (`f1f7`) remain the dev/test default. Touch's real venue config (hours, cancellation window, phone, currency, tax) is now in `seed.sql`; her two real courts are in `client-data/` (`70c4`), applied only by `pnpm db:client` | Client's real data throughout, once rate rules arrive -- until then the real courts price as `NO_RATE` and cannot be booked | Blocked on the client (rates, menu, recipes, staff) |
 | Fonts | Montserrat + IBM Plex Sans Arabic behind tokens | Licensed Next Art + Frutiger LT Arabic | When Touch supplies files/licenses |
 | Touch Cafe logo | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments) | The official supplied artwork | When Touch supplies it |
 | Telegram / PostHog / Groq | ✔ Live 2026-08-27 — accounts created, secrets set, functions deployed | Untested against a real order; allowlist points at seed staff | Roadmap 6 |
@@ -445,6 +450,26 @@ and Sentry.
   Without the edge runtime `analytics-posthog` 404s, the client reads that as a generic error
   rather than `NOT_CONFIGURED`, and the operator analytics case fails on a missing
   "sales-only" notice. `supabase start` does not serve functions. The CI e2e job starts it.
+- **HOURS ARE TWO WINDOWS PER DAY.** Touch trades **09:00 -> 02:00**, seven days a week.
+  `venue_settings.opening_hours` measures windows from each day's OWN local midnight, so an
+  overnight night is stored as a pair on ADJACENT calendar days:
+  `[["00:00","02:00"],["09:00","24:00"]]`. Three consequences, all load-bearing:
+  (a) `@touch/core parseHHMM` now accepts `'24:00'` -> 1440; it used to throw, and in
+  `apps/mobile` that throw sat inside a `useMemo` with no error boundary, i.e. a white screen.
+  (b) **Rate rules must be split at midnight** (0048 forbids a wrapping window) **and the
+  post-midnight half carries the FOLLOWING weekday** -- `app.price_slot` matches the weekday of
+  the SLOT START, and a slot starting 00:30 Monday is the tail of SUNDAY night. Get it wrong and
+  Friday night's 01:00 bills as a weekday. See `packages/db/fixtures/courts.sql`.
+  (c) A `closed_dates` entry for day D also kills the 00:00-02:00 tail of D-1's trading night,
+  because the guard is per calendar day. Pinned by a test in `tests/hardening.test.ts`.
+  Never hand-roll the conversion: `readOpeningHours` / `writeOpeningHours` / `displayWindows` /
+  `tradingSpan` in `packages/core/src/time/openingHours.ts` are the single implementation, shared
+  by the operator hours editor, the desk grid and the public footer.
+- **Midnight is a hard SLOT boundary, deliberately.** `buildSlotGrid` requires a slot to fit inside
+  one window, so with 60-min durations the starts run ...22:30, 23:00 | 00:00, 00:30, 01:00 --
+  23:30 is not offered. Exactly one start per court per night; accepted 2026-08-29 rather than
+  reworking the slot generator. `assert_bookable` is wider and DOES accept a midnight-crossing
+  booking, so the desk can still write one. That asymmetry is the decision, not a bug.
 - **PADEL BACKEND: an anonymous session can block any court** (audit 2026-08-27, reproduced).
   Anonymous users have no `profiles` row, so `hold_slot` writes `guest_id = NULL`; the holder then
   cannot confirm or cancel it, but the row still occupies the exclusion constraint. Unlimited
@@ -577,8 +602,16 @@ and Sentry.
 - **KDS item-level ready marks are local component state only** (whole-ticket status is real).
 - Charge-to-booking: `compute_tab_totals` still does **not** add the court price to the bill —
   the "one payment" SOW promise needs that in the till drop (W3).
-- **Client inputs: NONE received yet** (courts, rates, menu, recipes, domain, fonts, branding
-  assets beyond PDFs). Recipes are the SOW's own #1 risk.
+- **Client inputs: FIRST PACK RECEIVED 2026-08-29** (`packages/db/client-data/`, 8/21 answered,
+  `submittedAt: null`). Landed: hours, cancellation window, currency, tax, Kurdish, phone, the two
+  courts, the named approver. **Still missing and blocking: rate rules** (without one covering
+  every open hour every booking fails `NO_RATE`), menu rows, recipes/sub-recipes/ingredients, the
+  staff list, the four closed-day Gregorian dates, the branding assets said to be sent by WhatsApp,
+  the font licences, the printer, the floor layout and the PITR decision. Full chase list:
+  `docs/client/06-outstanding-2026-08-29.md`. Recipes are still the SOW's own #1 risk.
+- **The client's phone number is unverified.** The pack gives `00995419010203`, which reads as
+  **+995 (Georgia)**, not +964 (Iraq). It is seeded into `venue_settings.phone` and is the number
+  shown to guests in degraded mode and on the public footer. Confirm with Mustafa before go-live.
 - **Currency**: IQD-only per owner decision — get Mustafa's written confirmation at call #1.
 - **SOW promises PITR; Supabase PITR is a paid add-on** beyond the quoted "$25/mo".
 - Brand PDFs at repo root are 257MB/66MB — gitignored (`/*.pdf`), local-only. The rendered cafe

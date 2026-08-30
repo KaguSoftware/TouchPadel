@@ -10,11 +10,24 @@ describe('parseHHMM', () => {
     expect(parseHHMM('23:59')).toBe(1439);
   });
 
+  it("accepts '24:00' as end-of-day (the overnight window's exclusive close)", () => {
+    expect(parseHHMM('24:00')).toBe(1440);
+  });
+
   it('rejects malformed input', () => {
-    expect(() => parseHHMM('24:00')).toThrow();
+    expect(() => parseHHMM('24:01')).toThrow(); // 1440 is a boundary, not an hour
+    expect(() => parseHHMM('24:30')).toThrow();
+    expect(() => parseHHMM('25:00')).toThrow();
     expect(() => parseHHMM('9:00')).toThrow();
     expect(() => parseHHMM('09:60')).toThrow();
     expect(() => parseHHMM('0900')).toThrow();
+  });
+
+  it('24:00 maps to the next local midnight through wallTimeToUtc', () => {
+    // Saturday 24:00 Baghdad IS Sunday 00:00 Baghdad = Saturday 21:00 UTC.
+    expect(wallTimeToUtc('2026-09-05', parseHHMM('24:00'), TZ).toISOString()).toBe(
+      '2026-09-05T21:00:00.000Z',
+    );
   });
 });
 

@@ -6,14 +6,14 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { parseHHMM, wallTimeToUtc, type DayKey } from '@touch/core';
+import { tradingSpan, wallTimeToUtc, type DayKey } from '@touch/core';
 import { formatIQD, formatTime, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { idemKey, deviceId } from '../../lib/idem';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow } from '../../lib/queries';
 import { WeekGrid } from './WeekGrid';
-import { shiftIsoDate, startOfWeek, weekDates } from './weekLogic';
+import { startOfWeek, weekDates } from './weekLogic';
 import { useBroadcast } from '../../lib/realtime';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Modal, card, inputStyle } from '../../components/ui';
@@ -94,7 +94,53 @@ export function DeskCalendar() {
 
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
   const dayStart = useMemo(() => wallTimeToUtc(date, 0, tz), [date, tz]);
-  const dayEnd = useMemo(() => wallTimeToUtc(date, 24 * 60, tz), [date, tz]);
+
+  const dayIndex = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const dayKey = DAY_KEYS[dayIndex] as DayKey;
+  const windows = settingsQ.data?.opening_hours?.[dayKey] ?? [];
+  const closed = (settingsQ.data?.closed_dates ?? []).includes(date);
+
+  /**
+   * The grid renders one TRADING NIGHT, not one calendar day.
+   *
+   * Touch trades 09:00 → 02:00, stored as two windows on adjacent days, so
+   * min(open)/max(close) over the raw windows gives 00:00 → 24:00 — 48 rows
+   * with a dead 02:00–09:00 band down the middle. `tradingSpan` folds the
+   * NEXT day's inherited tail back in and returns 540 → 1560 instead, and the
+   * row labels below already wrap correctly because `wallTimeToUtc` accepts
+   * minutes past 1440.
+   */
+  const nextDayWindows =
+    settingsQ.data?.opening_hours?.[DAY_KEYS[(dayIndex + 1) % 7] as DayKey] ?? [];
+  const { startMin: openMin, endMin: closeMin } = tradingSpan(windows, nextDayWindows);
+  const rowCount = Math.max(0, Math.ceil((closeMin - openMin) / SLOT_MIN));
+
+  const rows = useMemo(
+    () => Array.from({ length: rowCount }, (_, i) => openMin + i * SLOT_MIN),
+    [rowCount, openMin],
+  );
+
+  // The week grid spans days with different hours, so it needs the widest
+  // trading night in the week rather than today's.
+  const weekSpans = DAY_KEYS.map((k, i) =>
+    tradingSpan(
+      settingsQ.data?.opening_hours?.[k] ?? [],
+      settingsQ.data?.opening_hours?.[DAY_KEYS[(i + 1) % 7] as DayKey] ?? [],
+    ),
+  ).filter((sp) => sp.endMin > sp.startMin);
+  const weekOpenMin = weekSpans.length ? Math.min(...weekSpans.map((sp) => sp.startMin)) : 0;
+  const weekCloseMin = weekSpans.length ? Math.max(...weekSpans.map((sp) => sp.endMin)) : 0;
+
+  /**
+   * Fetch the whole trading night, not the calendar day. Touch's 00:00-02:00 slots fall on
+   * the FOLLOWING date, so a plain 00:00-24:00 window would render those rows permanently
+   * empty -- the desk would read them as free and promise a court that was already taken.
+   * Never narrower than the calendar day, so nothing that used to be visible disappears.
+   */
+  const dayEnd = useMemo(
+    () => wallTimeToUtc(date, Math.max(24 * 60, closeMin), tz),
+    [date, tz, closeMin],
+  );
 
   // The week query is separate rather than a widened day query: the day grid
   // is on the critical path for the desk and must not start fetching seven
@@ -104,9 +150,12 @@ export function DeskCalendar() {
     const days = weekDates(date);
     return {
       from: wallTimeToUtc(days[0]!, 0, tz),
-      to: wallTimeToUtc(shiftIsoDate(days[6]!, 1), 0, tz),
+      // Saturday night runs into Sunday, and that Sunday is in the NEXT week.
+      // Widen by the trading span so the last night of the week is not cut off
+      // at midnight.
+      to: wallTimeToUtc(days[6]!, Math.max(24 * 60, weekCloseMin), tz),
     };
-  }, [date, tz]);
+  }, [date, tz, weekCloseMin]);
 
   const weekQ = useQuery({
     queryKey: ['reservationsWeek', weekStart],
@@ -155,27 +204,6 @@ export function DeskCalendar() {
     invalidateKeys: [['reservations'], ['reservationsWeek']],
   });
 
-  const dayKey = DAY_KEYS[new Date(`${date}T12:00:00Z`).getUTCDay()] as DayKey;
-  const windows = settingsQ.data?.opening_hours?.[dayKey] ?? [];
-  const closed = (settingsQ.data?.closed_dates ?? []).includes(date);
-  const openMin = windows.length ? Math.min(...windows.map(([o]) => parseHHMM(o))) : 0;
-  const closeMin = windows.length ? Math.max(...windows.map(([, c]) => parseHHMM(c))) : 0;
-  const rowCount = Math.max(0, Math.ceil((closeMin - openMin) / SLOT_MIN));
-
-  const rows = useMemo(
-    () => Array.from({ length: rowCount }, (_, i) => openMin + i * SLOT_MIN),
-    [rowCount, openMin],
-  );
-
-  // The week grid spans days with different hours, so it needs the widest
-  // window in the week rather than today's.
-  const allWindows = DAY_KEYS.flatMap((k) => settingsQ.data?.opening_hours?.[k] ?? []);
-  const weekOpenMin = allWindows.length
-    ? Math.min(...allWindows.map(([o]) => parseHHMM(o)))
-    : 0;
-  const weekCloseMin = allWindows.length
-    ? Math.max(...allWindows.map(([, c]) => parseHHMM(c)))
-    : 0;
 
   const courts = courtsQ.data ?? [];
   const reservations = reservationsQ.data ?? [];

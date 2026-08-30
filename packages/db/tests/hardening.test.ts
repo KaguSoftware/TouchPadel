@@ -10,8 +10,11 @@
  *      total below the net amount already paid; the refund -> void -> settle
  *      remainder unwind terminates.
  *
- * Venue assumptions (seed): timezone Asia/Baghdad (UTC+3), opening hours
- * 09:00-23:00 every day, closed_dates empty.
+ * Venue assumptions (seed): timezone Asia/Baghdad (UTC+3), closed_dates empty,
+ * and opening hours 09:00 -> 02:00 THE NEXT MORNING every day -- Touch's real
+ * trading pattern (client intake pack 2026-08-29), stored as two windows per
+ * day: [["00:00","02:00"],["09:00","24:00"]]. The venue is shut 02:00-09:00,
+ * which is where the OUTSIDE_HOURS cases below now sit.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -114,47 +117,104 @@ describe.skipIf(!up)('hardening fixes (0026)', () => {
 
   // ── 1b. OUTSIDE_HOURS ─────────────────────────────────────────────────────
 
-  it('OUTSIDE_HOURS: starts after close / ends past close refused; ending AT close allowed', async () => {
+  it('OUTSIDE_HOURS: the shut 02:00-09:00 band is refused; ending AT 02:00 is allowed', async () => {
     const d = isoDatePlus(41);
     const guest = await guestClient(svc, 'outside-hours');
 
-    // 20:30 UTC = 23:30 local — starts after closing.
+    // 23:30 UTC on d = 02:30 local on d+1 — inside the 02:00-09:00 shut band.
     const late = await appRpc(guest, 'hold_slot', {
       p_court_id: courtId,
-      p_start_at: `${d}T20:30:00Z`,
+      p_start_at: `${d}T23:30:00Z`,
       p_duration_min: 60,
     }).then(outcome);
     expect(late.ok).toBe(false);
     expect(late.errorMessage).toContain('OUTSIDE_HOURS');
 
-    // 19:30 UTC = 22:30 local, +60min ends 23:30 — spills past closing.
+    // 22:30 UTC on d = 01:30 local on d+1, +60min ends 02:30 — spills past close.
     const spill = await appRpc(guest, 'hold_slot', {
       p_court_id: courtId,
-      p_start_at: `${d}T19:30:00Z`,
+      p_start_at: `${d}T22:30:00Z`,
       p_duration_min: 60,
     }).then(outcome);
     expect(spill.ok).toBe(false);
     expect(spill.errorMessage).toContain('OUTSIDE_HOURS');
 
+    // 05:30 UTC = 08:30 local — before opening, the other edge of the band.
+    const early = await appRpc(guest, 'hold_slot', {
+      p_court_id: courtId,
+      p_start_at: `${d}T05:30:00Z`,
+      p_duration_min: 60,
+    }).then(outcome);
+    expect(early.ok).toBe(false);
+    expect(early.errorMessage).toContain('OUTSIDE_HOURS');
+
     // Desk booking gets the same guard.
     const deskSpill = await appRpc(desk, 'staff_create_reservation', {
       p_court_id: courtId,
       p_kind: 'booking',
-      p_start_at: `${d}T19:30:00Z`,
-      p_end_at: `${d}T20:30:00Z`,
+      p_start_at: `${d}T22:30:00Z`,
+      p_end_at: `${d}T23:30:00Z`,
       p_guest_name: 'After Hours',
     }).then(outcome);
     expect(deskSpill.ok).toBe(false);
     expect(deskSpill.errorMessage).toContain('OUTSIDE_HOURS');
 
-    // 19:00 UTC = 22:00 local, +60min ends exactly 23:00 — half-open window,
-    // ending AT closing time is allowed.
+    // 22:00 UTC on d = 01:00 local on d+1, +60min ends exactly 02:00 — half-open
+    // window, so ending AT closing time is allowed.
     const boundary = await appRpc(guest, 'hold_slot', {
       p_court_id: courtId,
-      p_start_at: `${d}T19:00:00Z`,
+      p_start_at: `${d}T22:00:00Z`,
       p_duration_min: 60,
     }).then(outcome);
     expect(boundary.ok, boundary.errorMessage).toBe(true);
+  });
+
+  /**
+   * The overnight shape itself. assert_bookable splits a booking that runs
+   * across midnight into one segment per calendar day and matches each against
+   * THAT day's windows — 23:30-24:00 against ["09:00","24:00"], then
+   * 00:00-00:30 against the next day's inherited ["00:00","02:00"].
+   *
+   * This is deliberately wider than what a guest is OFFERED: buildSlotGrid
+   * requires a slot to fit inside a single window, so 23:30 is not on the grid.
+   * The desk can still write it — that asymmetry is the decision, not a bug.
+   */
+  it('a booking that crosses midnight is accepted (both segments are inside hours)', async () => {
+    const d = isoDatePlus(43);
+    const crossing = await appRpc(desk, 'staff_create_reservation', {
+      p_court_id: courtId,
+      p_kind: 'booking',
+      p_start_at: `${d}T20:30:00Z`, // 23:30 local
+      p_end_at: `${d}T21:30:00Z`, // 00:30 local, the NEXT calendar day
+      p_guest_name: 'Midnight Crosser',
+    }).then(outcome);
+    expect(crossing.ok, crossing.errorMessage).toBe(true);
+  });
+
+  /**
+   * closed_dates is checked per CALENDAR day, and the 00:00-02:00 tail belongs
+   * to the next calendar date. So closing day D also closes the small hours at
+   * the end of D-1's trading night. Worth pinning: it is the part of the
+   * overnight model a reader is most likely to get wrong, and it decides what
+   * "closed on Ashura" actually means for the night before.
+   */
+  it("a closed date also refuses the previous night's post-midnight tail", async () => {
+    const d = isoDatePlus(45);
+    const nextDay = isoDatePlus(46);
+    await setClosedDates([nextDay]);
+    try {
+      const tail = await appRpc(desk, 'staff_create_reservation', {
+        p_court_id: courtId,
+        p_kind: 'booking',
+        p_start_at: `${d}T20:30:00Z`, // 23:30 local on d
+        p_end_at: `${d}T21:30:00Z`, // 00:30 local on d+1 — a closed date
+        p_guest_name: 'Tail On A Closed Day',
+      }).then(outcome);
+      expect(tail.ok).toBe(false);
+      expect(tail.errorMessage).toContain('CLOSED_DATE');
+    } finally {
+      await setClosedDates([]);
+    }
   });
 
   // ── 2. PIN rekey: rotating device ids no longer evades the lockout ────────

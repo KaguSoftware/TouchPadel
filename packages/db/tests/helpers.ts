@@ -138,8 +138,11 @@ let slotCounter = 0;
 /**
  * A unique future slot (each call gets its own day+hour so tests never collide).
  * Base hour 6 UTC = 09:00 venue-local (Asia/Baghdad): hours 6..17 UTC keep any
- * slot up to +120min inside the 09:00-23:00 opening window enforced by
- * app.assert_bookable (0026).
+ * slot up to +120min inside the venue's EVENING window, which the seed sets to
+ * 09:00-24:00 (Touch trades 09:00-02:00, stored as ["09:00","24:00"] plus an
+ * inherited ["00:00","02:00"] tail on the next day). Staying below 20:00 local
+ * keeps every slot clear of the midnight boundary, so no test here has to
+ * reason about which calendar day a segment lands on.
  */
 export function futureSlot(hoursFromMidnightUtc = 6): { start: Date; plus: (min: number) => Date } {
   const day = 7 + Math.floor(slotCounter / 12);

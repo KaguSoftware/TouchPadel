@@ -1180,6 +1180,11 @@ export const en = {
       closedDateAdd: 'Add closed day',
       closedDatesNone: 'No closed days coming up.',
       closedDatesPast: 'Past closed days ({count})',
+      // Touch trades 09:00-02:00, so a closing time before the opening time is
+      // the normal case here, not a mistake.
+      nextDay: 'next day',
+      splitNotice:
+        'This day has more than one opening period, which this screen cannot edit. Change it in the database, or it will be flattened.',
     },
     dayClose: {
       title: 'Business day',
@@ -1229,6 +1234,12 @@ export const en = {
       INVALID_TRANSITION: 'That status change is not allowed.',
       HOLD_EXPIRED: 'The hold has expired.',
       NO_RATE: 'No rate rule prices this slot.',
+      // The two guards migration 0026 exists to add. The desk showed the
+      // generic "something went wrong" for both until the client's real
+      // opening hours and closed days made them everyday errors.
+      CLOSED_DATE: 'The venue is closed on that date.',
+      OUTSIDE_HOURS: 'That time is outside opening hours.',
+      INVALID_TIME_RANGE: 'Start must be before end. Split a rule that runs past midnight into two.',
       GUEST_REQUIRED: 'A booking needs a guest name or a linked account.',
       INVALID_RANGE: 'The end time must be after the start time.',
       CANCELLATION_WINDOW: 'Inside the cancellation window.',

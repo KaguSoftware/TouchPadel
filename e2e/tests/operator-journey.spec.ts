@@ -7,7 +7,9 @@
  *  3. court_desk — week view (SOW L307) and the reason recorded on an override
  *     (SOW L313), which the desk used to leave as the 'staff_op' default.
  *  4. manager — closed days (SOW L319), which nothing could write until now.
- *  5. cashier — price override (L450-451), the guest bill (L456) and a refund
+ *  5. manager — an overnight close (09:00->02:00) surviving a save, the
+ *     regression test for the editor that used to delete the second window.
+ *  6. cashier — price override (L450-451), the guest bill (L456) and a refund
  *     that reverses stock (L453): three clauses whose RPCs existed and whose
  *     UI did not, so "every discount, void and refund traceable to a named
  *     actor" (L434-439) had no refund to trace.
@@ -301,6 +303,70 @@ test.describe('operator journeys', () => {
       }
     }
   });
+  test('manager: an overnight close (09:00 to 02:00) survives a save and reload', async ({
+    page,
+  }) => {
+    // The regression test for a real data-loss bug. Touch trades 09:00 -> 02:00,
+    // which venue_settings stores as TWO windows on adjacent calendar days:
+    // [["00:00","02:00"],["09:00","24:00"]]. This screen used to read windows[0]
+    // and write [[open, close]], so simply opening /admin/hours and pressing Save
+    // silently DELETED the inherited 00:00-02:00 tail on every day -- and with it
+    // the venue's ability to take a booking after midnight.
+    const { data: before } = await svc.from('venue_settings').select('opening_hours').single();
+    const original = (before as { opening_hours: unknown }).opening_hours;
+
+    try {
+      await signIn(page, SEED_STAFF.manager);
+      await page.goto(`${OPERATOR_URL}/admin/hours`);
+      await expect(page.getByRole('heading', { name: 'Opening hours' })).toBeVisible({
+        timeout: 30_000,
+      });
+
+      // The seed already ships Touch's real hours, so the round trip is what
+      // matters: read 09:00/02:00, save untouched, and still read 09:00/02:00.
+      const opens = page.getByLabel('Opens');
+      const closes = page.getByLabel('Closes');
+      await expect(opens.first()).toHaveValue('09:00');
+      await expect(closes.first()).toHaveValue('02:00');
+      // The close is on the following day, and the screen has to say so.
+      await expect(page.getByText('next day').first()).toBeVisible();
+
+      await page.getByRole('button', { name: /Save/ }).click();
+
+      // Both windows still present in the database, on every day.
+      await expect(async () => {
+        const { data } = await svc.from('venue_settings').select('opening_hours').single();
+        const hours = (data as { opening_hours: Record<string, [string, string][]> })
+          .opening_hours;
+        for (const day of ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']) {
+          expect(hours[day]).toEqual([
+            ['00:00', '02:00'],
+            ['09:00', '24:00'],
+          ]);
+        }
+      }).toPass({ timeout: 20_000 });
+
+      // And the screen reads them back as one human pair, not as two rows.
+      await page.reload();
+      await expect(opens.first()).toHaveValue('09:00');
+      await expect(closes.first()).toHaveValue('02:00');
+
+      // The desk grid draws one continuous trading night: it must reach past
+      // midnight rather than stopping at 24:00 with a dead 02:00-09:00 band.
+      await page.goto(`${OPERATOR_URL}/desk`);
+      await expect(page.getByText('23:00').first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText('01:00').first()).toBeVisible();
+      await expect(page.getByText('05:00')).toHaveCount(0);
+    } finally {
+      const manager = await signedInClient(SEED_STAFF.manager);
+      try {
+        await appRpc(manager, 'set_opening_hours', { p_opening_hours: original });
+      } finally {
+        await manager.auth.signOut();
+      }
+    }
+  });
+
   test('cashier: override a price, show the bill, refund with items', async ({ page }) => {
     // The RPCs behind all three have been granted and tested since the first
     // drops. Nothing called them.

@@ -373,9 +373,12 @@ describe.skipIf(!up)('0048 desk re-pricing and re-validation (H1, H2)', () => {
 
   it('H2: extending past closing time is refused', async () => {
     const id = await book(at(25, 16)); // 19:00 local
+    // The venue now trades to 02:00, so 01:00 is INSIDE hours -- the extend has
+    // to reach past 02:00 to be refused. 00:00 UTC on day 26 = 03:00 local,
+    // inside the shut 02:00-09:00 band.
     const ext = await appRpc(desk, 'extend_reservation', {
       p_reservation_id: id,
-      p_new_end_at: at(25, 22).toISOString(), // 01:00 next local day
+      p_new_end_at: at(26, 0).toISOString(), // 03:00 local, next day
     }).then(outcome);
     expect(ext.ok).toBe(false);
     expect(ext.errorMessage).toContain('OUTSIDE_HOURS');
