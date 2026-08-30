@@ -20,7 +20,8 @@
 -- ---------------------------------------------------------------------------
 --
 -- HOURS. Touch trades 09:00 -> 02:00 the NEXT morning, seven days a week (client intake pack
--- 2026-08-29, `touch-padel.hours.*`; the record is packages/db/client-data/).
+-- 2026-08-29, `touch-padel.hours.*`; the record is packages/db/client-data/). Re-confirmed
+-- unchanged by the 2026-08-30 pack (16/21 answered; every 08-29 answer identical).
 --
 -- opening_hours windows are measured from each day's OWN local midnight, and app.assert_bookable
 -- fits every per-calendar-day segment of a booking inside a single window of that day. An
@@ -35,17 +36,25 @@
 -- never hand-roll it.
 --
 -- CANCELLATION. "When somone books they can maximum cancel before 4 hours of their booked time"
--- (pack `touch-padel.policy.cancelNote`). Down from the 12 h default.
+-- (pack `touch-padel.policy.cancelNote`). Down from the 12 h default. The 2026-08-30 pack's
+-- notes.body restates the same rule ("cannot cancel reservation {hours before time of
+-- reservation}"), so the 4 h window is doubly confirmed.
 --
 -- PHONE. Named approver Mustafa Awad, Owner (pack `touch-padel.filler.contact`). Surfaced to
 -- guests through venue_settings_public -- it is the number shown in degraded mode.
--- !! UNVERIFIED: 00995419010203 parses as +995 (Georgia), not +964 (Iraq). Confirm with Mustafa
--- !! before go-live; see docs/client/06-outstanding-2026-08-29.md.
+-- !! UNVERIFIED: 00995419010203 parses as +995 (Georgia), not +964 (Iraq). The 2026-08-30 pack
+-- !! repeats the SAME number as `approver.contact`, so it is consistent but still unverified.
+-- !! Confirm with Mustafa before go-live; see docs/client/07-outstanding-2026-08-30.md.
 --
--- closed_dates is deliberately left EMPTY. The pack names four closures -- 9 and 10 Muharram,
--- Arbaeen, Wafat al-Rasool -- but gives no Gregorian dates, and they follow the Hijri calendar on
+-- closed_dates is deliberately left EMPTY. Both packs name four closures -- 9 and 10 Muharram,
+-- Arbaeen, Wafat al-Rasool -- but give no Gregorian dates, and they follow the Hijri calendar on
 -- local moon sighting. A guessed closure either turns away paying guests or takes a booking the
--- venue cannot honour, so the dates are chased, not computed.
+-- venue cannot honour, so the dates are chased, not computed. Proposed 2027 Gregorian dates were
+-- sent for one-word confirmation in docs/client/07-outstanding-2026-08-30.md; seed them only
+-- once Mustafa confirms (or staff enter them in /admin/hours).
+-- NOTE: this block is MIRRORED by migration 20260830000056_venue_config_client_packs.sql, which
+-- is how the same confirmed values reach the hosted project (seed.sql never re-runs there).
+-- Change them in BOTH places or the environments drift.
 update venue_settings
    set venue_name    = 'Touch Padel',
        currency      = 'IQD',                   -- confirmed by Mustafa (pack currency.mode)

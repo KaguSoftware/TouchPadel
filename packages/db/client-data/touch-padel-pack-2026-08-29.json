@@ -1,0 +1,710 @@
+{
+  "kaguOsExport": "intake-pack",
+  "version": 1,
+  "exportedAt": "2026-08-29T19:14:26.122Z",
+  "project": {
+    "id": "37024fb4-0852-4fe3-a9f8-3835f4ee4666",
+    "name": "Touch Padel"
+  },
+  "pack": {
+    "key": "touch-padel",
+    "name": "Touch Padel (padel club + café)",
+    "summary": "Courts, rates, a bilingual menu and kitchen recipes. English + Arabic throughout."
+  },
+  "progress": {
+    "done": 8,
+    "total": 21,
+    "pct": 38
+  },
+  "submittedAt": null,
+  "answers": {
+    "touch-padel.hours.wedOpen": "9:00 am",
+    "touch-padel.hours.wedClose": "2:00 am",
+    "touch-padel.policy.closedDays": "9th of muharrem , 10th of muharrem . Arbain day , wafat el rasool ",
+    "touch-padel.policy.cancelNote": "When somone books they can maximum cancel before 4 hours of their booked time",
+    "touch-padel.filler.name": "Mustafa awad ",
+    "touch-padel.filler.role": "Owner ",
+    "touch-padel.filler.contact": "00995419010203",
+    "touch-padel.currency.mode": "confirmed",
+    "touch-padel.tax.mode": "zero",
+    "touch-padel.kurdish.needed": "no",
+    "touch-padel.domain.status": "help",
+    "touch-padel.downpay.status": "sent",
+    "touch-padel.hosting.status": "done",
+    "touch-padel.hosting.region": "ok",
+    "touch-padel.hosting.email": "Mustafa.akeel.awad1@gmail.com",
+    "touch-padel.assets.logo": "via WhatsApp, sent already ",
+    "touch-padel.assets.colors": "via WhatsApp, sent already ",
+    "touch-padel.assets.photos": "via WhatsApp, sent already ",
+    "touch-padel.hours.sat": "open",
+    "touch-padel.hours.satClose": "2:00 am ",
+    "touch-padel.hours.sun": "open",
+    "touch-padel.hours.mon": "open",
+    "touch-padel.hours.tue": "open",
+    "touch-padel.hours.wed": "open",
+    "touch-padel.hours.thu": "open",
+    "touch-padel.hours.fri": "open",
+    "touch-padel.hours.thuOpen": "9:00 am",
+    "touch-padel.hours.thuClose": "2:00 am ",
+    "touch-padel.hours.friOpen": "9 am ",
+    "touch-padel.hours.friClose": "2 am ",
+    "touch-padel.hours.satOpen": "9:00 am ",
+    "touch-padel.hours.sunOpen": "9:00 am ",
+    "touch-padel.hours.sunClose": "2:00 ",
+    "touch-padel.hours.monOpen": "9:00 am ",
+    "touch-padel.hours.monClose": "2:00 am ",
+    "touch-padel.hours.tueOpen": "9:00 am ",
+    "touch-padel.hours.tueClose": "2:00 am"
+  },
+  "tables": [
+    {
+      "key": "touch-padel.list",
+      "cardKey": "list",
+      "title": "Courts",
+      "section": "Courts, hours & rates",
+      "columns": [
+        {
+          "key": "en",
+          "label": "Court name (EN)",
+          "labelAr": "اسم الملعب EN",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "ar",
+          "label": "Court name (AR)",
+          "labelAr": "اسم الملعب AR",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "io",
+          "label": "Type",
+          "labelAr": "النوع",
+          "kind": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "indoor",
+              "label": "indoor"
+            },
+            {
+              "value": "outdoor",
+              "label": "outdoor"
+            }
+          ]
+        },
+        {
+          "key": "dur",
+          "label": "Durations (min)",
+          "labelAr": "المدد",
+          "kind": "text",
+          "required": true
+        }
+      ],
+      "rows": [
+        {
+          "en": "Court 1",
+          "ar": "الملعب الاول",
+          "io": "indoor",
+          "dur": "60"
+        },
+        {
+          "en": "Court 2",
+          "ar": "الملعب الثاني",
+          "io": "indoor",
+          "dur": "60"
+        }
+      ]
+    },
+    {
+      "key": "touch-padel.rates",
+      "cardKey": "rates",
+      "title": "Rate rules — one row per price rule",
+      "section": "Courts, hours & rates",
+      "columns": [
+        {
+          "key": "court",
+          "label": "Court — name as above, or “All courts”",
+          "labelAr": "الملعب",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "days",
+          "label": "Days",
+          "labelAr": "الأيام",
+          "kind": "multi",
+          "required": true,
+          "options": [
+            {
+              "value": "all",
+              "label": "All days"
+            },
+            {
+              "value": "sat",
+              "label": "Sat"
+            },
+            {
+              "value": "sun",
+              "label": "Sun"
+            },
+            {
+              "value": "mon",
+              "label": "Mon"
+            },
+            {
+              "value": "tue",
+              "label": "Tue"
+            },
+            {
+              "value": "wed",
+              "label": "Wed"
+            },
+            {
+              "value": "thu",
+              "label": "Thu"
+            },
+            {
+              "value": "fri",
+              "label": "Fri"
+            }
+          ]
+        },
+        {
+          "key": "ws",
+          "label": "From (24h)",
+          "labelAr": "من",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "we",
+          "label": "To (24h)",
+          "labelAr": "إلى",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "dur",
+          "label": "Duration (min)",
+          "labelAr": "المدة",
+          "kind": "number",
+          "required": true
+        },
+        {
+          "key": "price",
+          "label": "Price (whole IQD)",
+          "labelAr": "السعر بالدينار",
+          "kind": "number",
+          "required": true
+        }
+      ],
+      "rows": []
+    },
+    {
+      "key": "touch-padel.items",
+      "cardKey": "items",
+      "title": "Menu rows",
+      "section": "Menu",
+      "columns": [
+        {
+          "key": "cat_en",
+          "label": "Category (EN)",
+          "labelAr": "القسم EN",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "cat_ar",
+          "label": "Category (AR)",
+          "labelAr": "القسم AR",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "item_en",
+          "label": "Item (EN)",
+          "labelAr": "المنتج EN",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "item_ar",
+          "label": "Item (AR)",
+          "labelAr": "المنتج AR",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "desc_en",
+          "label": "Description (EN, optional)",
+          "labelAr": "الوصف EN",
+          "kind": "text",
+          "required": false
+        },
+        {
+          "key": "desc_ar",
+          "label": "Description (AR)",
+          "labelAr": "الوصف AR",
+          "kind": "text",
+          "required": false
+        },
+        {
+          "key": "size_en",
+          "label": "Size (EN)",
+          "labelAr": "الحجم EN",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "size_ar",
+          "label": "Size (AR)",
+          "labelAr": "الحجم AR",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "price",
+          "label": "Price (IQD)",
+          "labelAr": "السعر",
+          "kind": "number",
+          "required": true
+        },
+        {
+          "key": "mg_en",
+          "label": "Modifier group (EN)",
+          "labelAr": "مجموعة الخيارات EN",
+          "kind": "text",
+          "required": false
+        },
+        {
+          "key": "mg_ar",
+          "label": "Modifier group (AR)",
+          "labelAr": "مجموعة الخيارات AR",
+          "kind": "text",
+          "required": false
+        },
+        {
+          "key": "mo_en",
+          "label": "Modifier option (EN)",
+          "labelAr": "الخيار EN",
+          "kind": "text",
+          "required": false
+        },
+        {
+          "key": "mo_ar",
+          "label": "Modifier option (AR)",
+          "labelAr": "الخيار AR",
+          "kind": "text",
+          "required": false
+        },
+        {
+          "key": "mdelta",
+          "label": "+ price (IQD, 0 = free)",
+          "labelAr": "السعر الإضافي",
+          "kind": "number",
+          "required": false
+        },
+        {
+          "key": "alg",
+          "label": "Allergens",
+          "labelAr": "مسببات الحساسية",
+          "kind": "multi",
+          "required": false,
+          "options": [
+            {
+              "value": "gluten",
+              "label": "gluten"
+            },
+            {
+              "value": "dairy",
+              "label": "dairy"
+            },
+            {
+              "value": "eggs",
+              "label": "eggs"
+            },
+            {
+              "value": "nuts",
+              "label": "nuts"
+            },
+            {
+              "value": "peanuts",
+              "label": "peanuts"
+            },
+            {
+              "value": "sesame",
+              "label": "sesame"
+            },
+            {
+              "value": "soy",
+              "label": "soy"
+            },
+            {
+              "value": "fish",
+              "label": "fish"
+            },
+            {
+              "value": "shellfish",
+              "label": "shellfish"
+            }
+          ]
+        }
+      ],
+      "rows": []
+    },
+    {
+      "key": "touch-padel.lines",
+      "cardKey": "lines",
+      "title": "Recipes — per product + size",
+      "section": "Recipes & ingredients",
+      "columns": [
+        {
+          "key": "item",
+          "label": "Item (EN) — as in Menu",
+          "labelAr": "المنتج كما في القائمة",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "item_ar",
+          "label": "Item (AR)",
+          "labelAr": "المنتج AR",
+          "kind": "text",
+          "required": false
+        },
+        {
+          "key": "size",
+          "label": "Size — as in Menu",
+          "labelAr": "الحجم",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "ing",
+          "label": "Ingredient or sub-recipe",
+          "labelAr": "المكون أو الوصفة الفرعية",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "qty",
+          "label": "Qty",
+          "labelAr": "الكمية",
+          "kind": "number",
+          "required": true
+        },
+        {
+          "key": "unit",
+          "label": "Unit",
+          "labelAr": "الوحدة",
+          "kind": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "g",
+              "label": "g"
+            },
+            {
+              "value": "ml",
+              "label": "ml"
+            },
+            {
+              "value": "pc",
+              "label": "pc"
+            }
+          ]
+        }
+      ],
+      "rows": []
+    },
+    {
+      "key": "touch-padel.subs",
+      "cardKey": "subs",
+      "title": "Sub-recipes — batch preparations",
+      "section": "Recipes & ingredients",
+      "columns": [
+        {
+          "key": "en",
+          "label": "Sub-recipe name (EN)",
+          "labelAr": "الاسم EN",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "ar",
+          "label": "Sub-recipe name (AR)",
+          "labelAr": "الاسم AR",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "yq",
+          "label": "Batch yield — qty",
+          "labelAr": "إنتاج الدفعة",
+          "kind": "number",
+          "required": true
+        },
+        {
+          "key": "yu",
+          "label": "Yield unit",
+          "labelAr": "وحدة الإنتاج",
+          "kind": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "g",
+              "label": "g"
+            },
+            {
+              "value": "ml",
+              "label": "ml"
+            },
+            {
+              "value": "pc",
+              "label": "pc"
+            }
+          ]
+        }
+      ],
+      "rows": []
+    },
+    {
+      "key": "touch-padel.subLines",
+      "cardKey": "subLines",
+      "title": "What goes into one batch",
+      "section": "Recipes & ingredients",
+      "columns": [
+        {
+          "key": "sub",
+          "label": "Sub-recipe (EN) — as above",
+          "labelAr": "الوصفة الفرعية",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "ing",
+          "label": "Ingredient",
+          "labelAr": "المكون",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "qty",
+          "label": "Qty",
+          "labelAr": "الكمية",
+          "kind": "number",
+          "required": true
+        },
+        {
+          "key": "unit",
+          "label": "Unit",
+          "labelAr": "الوحدة",
+          "kind": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "g",
+              "label": "g"
+            },
+            {
+              "value": "ml",
+              "label": "ml"
+            },
+            {
+              "value": "pc",
+              "label": "pc"
+            }
+          ]
+        }
+      ],
+      "rows": []
+    },
+    {
+      "key": "touch-padel.ings",
+      "cardKey": "ings",
+      "title": "Ingredients — everything you buy",
+      "section": "Recipes & ingredients",
+      "columns": [
+        {
+          "key": "en",
+          "label": "Ingredient (EN)",
+          "labelAr": "المكون EN",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "ar",
+          "label": "Ingredient (AR)",
+          "labelAr": "المكون AR",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "pack",
+          "label": "Pack size (with unit)",
+          "labelAr": "حجم العبوة",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "cost",
+          "label": "Pack cost (whole IQD)",
+          "labelAr": "تكلفة العبوة",
+          "kind": "number",
+          "required": true
+        },
+        {
+          "key": "supplier",
+          "label": "Supplier",
+          "labelAr": "المورد",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "shelf",
+          "label": "Shelf life (days)",
+          "labelAr": "الصلاحية بالأيام",
+          "kind": "number",
+          "required": true
+        }
+      ],
+      "rows": []
+    },
+    {
+      "key": "touch-padel.list",
+      "cardKey": "list",
+      "title": "Each staff member and their intended role",
+      "section": "Staff",
+      "columns": [
+        {
+          "key": "name",
+          "label": "Name",
+          "labelAr": "الاسم",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "key": "role",
+          "label": "Role",
+          "labelAr": "الدور",
+          "kind": "choice",
+          "required": true,
+          "options": [
+            {
+              "value": "till",
+              "label": "Till"
+            },
+            {
+              "value": "kitchen",
+              "label": "Kitchen"
+            },
+            {
+              "value": "manager",
+              "label": "Manager"
+            },
+            {
+              "value": "admin",
+              "label": "Admin"
+            }
+          ]
+        },
+        {
+          "key": "note",
+          "label": "Note (optional)",
+          "labelAr": "ملاحظة",
+          "kind": "text",
+          "required": false
+        }
+      ],
+      "rows": [
+        {},
+        {}
+      ]
+    }
+  ],
+  "outstanding": [
+    {
+      "card": "4 · Domain name",
+      "due": "week1",
+      "note": "needs Kagu's help",
+      "optional": false
+    },
+    {
+      "card": "5 · Database recovery (PITR) — a hosting cost, billed to Touch",
+      "due": "week1",
+      "note": "1 still to answer",
+      "optional": false
+    },
+    {
+      "card": "7 · Named approver, available weekly",
+      "due": "week1",
+      "note": "2 still to answer",
+      "optional": false
+    },
+    {
+      "card": "Brand font licences — Next Art (Latin) + Frutiger LT Arabic",
+      "due": "week1",
+      "note": "1 still to answer",
+      "optional": false
+    },
+    {
+      "card": "Receipt printer",
+      "due": "week2",
+      "note": "1 still to answer",
+      "optional": false
+    },
+    {
+      "card": "Power & network at the venue",
+      "due": "week2",
+      "note": "2 still to answer",
+      "optional": false
+    },
+    {
+      "card": "Staff availability for training — Week 5",
+      "due": "week3",
+      "note": "1 still to answer",
+      "optional": false
+    },
+    {
+      "card": "Closures & cancellation",
+      "due": "week1",
+      "note": "1 still to answer",
+      "optional": false
+    },
+    {
+      "card": "Rate rules — one row per price rule",
+      "due": "week1",
+      "optional": false
+    },
+    {
+      "card": "Menu rows",
+      "due": "week1",
+      "optional": false
+    },
+    {
+      "card": "Each staff member and their intended role",
+      "due": "week3",
+      "note": "2 lines are missing something",
+      "optional": false
+    },
+    {
+      "card": "The floor",
+      "due": "week2",
+      "note": "4 still to answer",
+      "optional": false
+    },
+    {
+      "card": "Where everything is",
+      "due": "week1",
+      "note": "1 still to answer",
+      "optional": false
+    },
+    {
+      "card": "Anything else we should know?",
+      "due": "week1",
+      "optional": true
+    }
+  ]
+}

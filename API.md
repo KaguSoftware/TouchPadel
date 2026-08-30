@@ -196,10 +196,14 @@ print a `vercel.app` or `localhost` URL onto physical cards that get glued to ta
 
 | Variable | Where | Example |
 |---|---|---|
-| `NEXT_PUBLIC_SITE_URL` | Vercel | `https://menu.touchpadel.iq` |
+| `NEXT_PUBLIC_SITE_URL` | Vercel | `https://touch-padel.com` |
 | `VITE_GUEST_SITE_URL` | Each operator station's `.env` | same value |
 
 Currently live at `touch-padel-web.vercel.app`, which is fine for testing and wrong for print.
+
+**The client chose `touch-padel.com`** (pack 2026-08-30). RDAP shows it already registered
+2025-08-03 via Hostinger with expired-parking nameservers — most likely Touch's own lapsed
+registration. Recovery/setup runbook: `docs/client/domain-setup-2026-08-30.md`.
 
 ---
 
@@ -213,6 +217,7 @@ client production data, which has to be resolved at handover.
 |---|---|---|
 | GitHub | org **KaguSoftware**, repo `TouchPadel` | admin `ParSaMnSS` (parsaxavier@gmail.com) |
 | Supabase | org **touch padel** (`knajulxwjmkypzvgybpb`) | project `lczijabnorujcgmbuqlw`, `eu-central-1` — **not** visible to parsamanes@yahoo.com |
+| Client hosting contact | Mustafa (owner) — `Mustafa.akeel.awad1@gmail.com` (pack 2026-08-30 `hosting.email`) | approver contact `00995419010203` — **unverified**, parses as +995 Georgia not +964 Iraq |
 | Vercel | team **BAU ENG's projects**, slug `bau-engs-projects` | project `touch-padel-web`; `bauseengineers-7480` is **not** a valid slug |
 | PostHog | bau.se.engineers@gmail.com | project `touch-padel` — region unverified, must be EU |
 
@@ -266,7 +271,11 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 - [ ] PostHog EU project created; project API key → Vercel; personal key + project id → Supabase
 - [ ] Groq key created (groq.com — **not** xAI)
 - [ ] `staging` environment given required reviewers, **then** the three GitHub secrets added
-- [ ] Domain registered and DNS pointed; `NEXT_PUBLIC_SITE_URL` + `VITE_GUEST_SITE_URL` set
+- [ ] Domain recovered/registered and DNS pointed (`touch-padel.com` — see
+      `docs/client/domain-setup-2026-08-30.md`); `NEXT_PUBLIC_SITE_URL` + `VITE_GUEST_SITE_URL` set
 - [ ] Edge functions deployed; Telegram webhook registered
 - [ ] Engagement floor set to the go-live date
 - [ ] Telegram test message received in the group
+- [ ] Backups: **daily Supabase backups only — PITR declined by owner 2026-08-30** (SOW L258
+      deviation; Mustafa's written acknowledgment requested in `docs/client/07-outstanding-2026-08-30.md`).
+      Verify daily backups are ON for `lczijabnorujcgmbuqlw`; restore rehearsal in Week 6

@@ -355,6 +355,46 @@ durable write path and replay (C2), the whole stock module (C3), the Windows ins
 thermal printing, KDS item-ready persistence, short-lived till sessions, court records admin,
 and Sentry.
 
+## Day 7 (2026-08-30) — client pack #2: a decisions pack, and both packs finally committed
+
+The second intake export arrived: **16/21 answered** (from 8/21), `submittedAt: null`, every
+pack-1 answer repeated **unchanged** (13 added, 0 changed). The data cards are STILL empty —
+rates, menu, recipes, staff — so `NO_RATE` still blocks real-court booking. What did land:
+
+- **Both pack JSONs are now committed in `client-data/`** — the Downloads originals turned out to
+  be clean UTF-8 (the mojibake lived only in a transcoded intermediary), so the "re-export from
+  Kagu OS" TODO is closed and `courts.sql`'s Arabic is verified. Court 1 now uses the pack's own
+  spelling `الملعب الاول` (plain alef).
+- **Backups decided: daily Supabase backups, NO PITR** (owner decision 2026-08-30, superseding
+  the pack's own "pitr" answer). This is a written deviation from SOW L258; Mustafa's one-word
+  acknowledgment is requested in doc 07. Delivery plan W4/W6 rows updated.
+- **Domain: `touch-padel.com`** — RDAP shows it ALREADY REGISTERED (2025-08-03, Hostinger,
+  `dns-expired.com` parking NS): almost certainly Touch's own lapsed registration, i.e. a ~$15
+  renewal, not a purchase. Runbook + report-only Chrome prompt:
+  `docs/client/domain-setup-2026-08-30.md`.
+- **Confirmed in writing**: currency IQD, tax zero, 4 h cancellation (restated in the notes too),
+  hours, Kurdish not needed, approver Mustafa (+ hosting email `Mustafa.akeel.awad1@gmail.com`,
+  recorded in `API.md` §8). Printer **arrived** (model unverified against the spec), UPS in hand,
+  training agreed, floor count 12 (zones/seats/numbering still owed).
+- **Chase doc 07** (`docs/client/07-outstanding-2026-08-30.md`): proposed 2027 Gregorian dates
+  for the four closures (≈06-14/06-15/07-24/08-01, sighting ±1 day — none fall before June 2027,
+  so nothing blocks go-live), the backup acknowledgment, the printer-model check, a plain-words
+  router explainer, and concrete either/or questions for the two ambiguous client notes
+  ("court times differ across courts"; stock sorted "per Hussain's request" — Hussain is a new
+  name, role unknown).
+- **Ready-to-paste prompts** for the sessions that land rates / menu+recipes / staff:
+  `docs/client/next-session-prompts-2026-08-30.md`.
+- Also merged before this session: **PR #1 from `sait`** (frontend: drawer fixes, menu icons,
+  logo alignment, email-confirmation bug) — the first non-Parsa commits in the repo.
+- **Hosted-DB truth corrected**: the linked ledger shows hosted at **0049** (0044–0049 were
+  pushed since the day-3 record of 0043). Pending on hosted: **0050–0056** — including 0052
+  (without it two settings screens cannot save on production) and the new
+  **0056_venue_config_client_packs**, written after verifying live production still served the
+  placeholder hours (09:00–23:00) and no phone: the client's confirmed venue config now travels
+  as a migration so it reaches production through the reviewed CI `DB Migrate` path. Apply =
+  approve that job on the next main push, or run `pnpm exec supabase db push --linked` in
+  `packages/db`. seed.sql and 0056 mirror each other — change both or drift.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -369,7 +409,12 @@ and Sentry.
   10 medium, every one with file:line evidence, plus what waves 0 and 1 closed.
 - `docs/design/design-data.md` · `design-arch.md` · `design-delivery.md` · `design-critique.md` ·
   `sow-gap-review-2026-08-24.md`.
-- `docs/client/` — client-facing pack (input checklist, CSV templates, printer spec) — SENT 2026-08-24.
+- `docs/client/` — client-facing pack (input checklist, CSV templates, printer spec — SENT
+  2026-08-24) + **`07-outstanding-2026-08-30.md`** (current chase list),
+  `domain-setup-2026-08-30.md` (touch-padel.com recovery runbook + Chrome prompt),
+  `next-session-prompts-2026-08-30.md` (paste-ready prompts for the rates/menu/staff sessions).
+- `packages/db/client-data/` — both intake pack JSONs (clean originals, committed 2026-08-30) +
+  `courts.sql` + the pack ledger in its README.
 - `packages/db/supabase/migrations/` — 0001–0026 (platform) + **0027–0035 (cafe rebuild)**.
 - `packages/db/supabase/functions/` — `replay`, `send-push`, `telegram-send`, `telegram-callback`,
   `analytics-posthog`, `analytics-insights`, `_shared/`, `SETUP-telegram.md`.
@@ -407,11 +452,13 @@ and Sentry.
    the Telegram allowlist currently points at `Dev Owner`. Create the venue's real staff, repoint
    the allowlist in the same session, and rotate the seeded dev PINs. Then place a live order and
    tap a Telegram button to prove the write-back path end to end.
-9. **Blocked on the client — domain.** `touchpadel.com` is taken (aftermarket, ~$65k);
-   `touchpadel.iq` is restricted; `touchpadel.com.iq` is available at ~$330/yr; a short `.com`
-   variant would be ~$15/yr. Brand decision, Mustafa's call. Until it exists, QR table cards
-   **cannot be printed** — the operator refuses rather than print a `vercel.app` URL onto physical
-   cards. Then set `NEXT_PUBLIC_SITE_URL` (Vercel) + `VITE_GUEST_SITE_URL` (each station).
+9. **Domain — chosen, recovery pending.** The client picked **`touch-padel.com`** (pack
+   2026-08-30). RDAP: already registered 2025-08-03 via Hostinger, parked on `dns-expired.com` —
+   very likely Touch's own lapsed registration (a renewal, not a purchase). Await Mustafa's
+   answer to the "did you register it?" question (doc 07), then follow
+   `docs/client/domain-setup-2026-08-30.md` (renew → Vercel attach → `NEXT_PUBLIC_SITE_URL` +
+   `VITE_GUEST_SITE_URL` → token-Vault parity → ONE test card before the batch). Until then QR
+   table cards **cannot be printed** — the operator refuses a `vercel.app` URL by design.
 10. Then back to the pre-cafe roadmap: stock UI, staff-admin RPC+UI, court records admin, week
    calendar view, split-by-item/refund/override UIs, audit-log viewer, Sentry, short-lived till
    sessions, Electron queue wiring + LAN KDS, printing pipeline. Store submission Wed 2026-09-16.
@@ -420,8 +467,9 @@ and Sentry.
 | Area | What ships now | Intended full shape | Grows in |
 |---|---|---|---|
 | Business data | Fixture courts/menu/recipes/tables (`f1f7`) remain the dev/test default. Touch's real venue config (hours, cancellation window, phone, currency, tax) is now in `seed.sql`; her two real courts are in `client-data/` (`70c4`), applied only by `pnpm db:client` | Client's real data throughout, once rate rules arrive -- until then the real courts price as `NO_RATE` and cannot be booked | Blocked on the client (rates, menu, recipes, staff) |
-| Fonts | Montserrat + IBM Plex Sans Arabic behind tokens | Licensed Next Art + Frutiger LT Arabic | When Touch supplies files/licenses |
-| Touch Cafe logo | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments) | The official supplied artwork | When Touch supplies it |
+| Fonts | Montserrat + IBM Plex Sans Arabic behind tokens | Licensed Next Art + Frutiger LT Arabic — client says files "in hand", sent via WhatsApp (pack 2026-08-30); need the actual files + licence proof routed to Parsa | Separate swap task once files land (`packages/ui/src/tokens/typography.ts`) |
+| Touch Cafe logo | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments) | The official supplied artwork — sent via WhatsApp per pack 2, not yet in the build; re-send requested | When the files reach the repo |
+| Backups | Daily Supabase backups (Pro built-in) | SOW L258 promised PITR — owner declined it 2026-08-30 (~$100/mo). Deviation recorded; Mustafa's written acknowledgment pending (doc 07 §4) | Restore rehearsal W6 |
 | Telegram / PostHog / Groq | ✔ Live 2026-08-27 — accounts created, secrets set, functions deployed | Untested against a real order; allowlist points at seed staff | Roadmap 6 |
 | Telegram allowlist | One row: Parsa → `Dev Owner`, `can_void` | Every real staff member mapped to a real `staff` row | When real staff exist (roadmap 6) |
 | Analytics | Vendor-added (SOW excludes it) — sales side from our till data, engagement via PostHog | Same; engagement floor still provisional | Go-live day |
@@ -602,18 +650,30 @@ and Sentry.
 - **KDS item-level ready marks are local component state only** (whole-ticket status is real).
 - Charge-to-booking: `compute_tab_totals` still does **not** add the court price to the bill —
   the "one payment" SOW promise needs that in the till drop (W3).
-- **Client inputs: FIRST PACK RECEIVED 2026-08-29** (`packages/db/client-data/`, 8/21 answered,
-  `submittedAt: null`). Landed: hours, cancellation window, currency, tax, Kurdish, phone, the two
-  courts, the named approver. **Still missing and blocking: rate rules** (without one covering
-  every open hour every booking fails `NO_RATE`), menu rows, recipes/sub-recipes/ingredients, the
-  staff list, the four closed-day Gregorian dates, the branding assets said to be sent by WhatsApp,
-  the font licences, the printer, the floor layout and the PITR decision. Full chase list:
-  `docs/client/06-outstanding-2026-08-29.md`. Recipes are still the SOW's own #1 risk.
-- **The client's phone number is unverified.** The pack gives `00995419010203`, which reads as
+- **Client inputs: SECOND PACK RECEIVED 2026-08-30** (16/21 answered, `submittedAt: null`; both
+  pack JSONs now committed clean in `packages/db/client-data/`). Pack 2 is a decisions pack —
+  every pack-1 answer unchanged, plus domain/backups/assets/printer/UPS/training/floor-count.
+  **Still missing and blocking: rate rules** (every real-court booking fails `NO_RATE`), menu
+  rows, recipes/sub-recipes/ingredients, the staff list, floor zones/seats/numbering, the
+  closed-day confirmations, the printer model check, and the physical brand-asset files. Full
+  chase list: `docs/client/07-outstanding-2026-08-30.md`; ready-to-paste session prompts for
+  when each dataset arrives: `docs/client/next-session-prompts-2026-08-30.md`. Recipes are still
+  the SOW's own #1 risk.
+- **Two client notes carry unresolved product requirements** (pack 2 `notes.body`): "court times
+  aren't always the exact same, different across courts" (durations vs prices vs hours — schema
+  supports all three; staggered start-times it does NOT) and stock "sorted in a certain way per
+  Hussain's request" (Hussain unidentified; requirement feeds the unbuilt stock module C3).
+  Both chased as either/or questions in doc 07 — don't build past them without the answers.
+- **The client's phone number is unverified.** Both packs give `00995419010203`, which reads as
   **+995 (Georgia)**, not +964 (Iraq). It is seeded into `venue_settings.phone` and is the number
-  shown to guests in degraded mode and on the public footer. Confirm with Mustafa before go-live.
-- **Currency**: IQD-only per owner decision — get Mustafa's written confirmation at call #1.
-- **SOW promises PITR; Supabase PITR is a paid add-on** beyond the quoted "$25/mo".
+  shown to guests in degraded mode and on the public footer. Asked a third time in doc 07 —
+  confirm with Mustafa before go-live.
+- **Currency: CONFIRMED.** IQD-only, in writing via both packs (`currency.mode = confirmed`).
+  Tax zero likewise. The old "get written confirmation at call #1" chase is closed.
+- **Backups: PITR DECLINED (owner, 2026-08-30) — daily Supabase backups only.** Supersedes the
+  pack's own `pitr.mode = "pitr"` answer. A written deviation from SOW L258; Mustafa's
+  acknowledgment requested in doc 07 §4. Worst case = up to one day of data since the last
+  backup. W4 "backup restore verification" + W6 restore rehearsal updated accordingly.
 - Brand PDFs at repo root are 257MB/66MB — gitignored (`/*.pdf`), local-only. The rendered cafe
   deck lives at `docs/brand/cafe/`. The two padel decks differ: **2026 governs**.
 - Table-token Vault secret must be set to the same value on Touch's project at W5 handover or every

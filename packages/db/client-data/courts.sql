@@ -1,5 +1,6 @@
 -- CLIENT DATA — Touch's own court list. Derived from the intake pack
 -- `touch-padel-pack-2026-08-29.json`, table `touch-padel.list` / section "Courts, hours & rates".
+-- Re-confirmed IDENTICALLY by `touch-padel-pack-2026-08-30.json` (same two rows, byte for byte).
 --
 -- Reserved client-data UUID prefix: '70c4' ("TOUCH"). Nothing outside packages/db/client-data/
 -- may reference a 70c4 UUID -- that is the swap point, exactly as 'f1f7' is for the fixtures.
@@ -15,17 +16,20 @@
 --   the fixtures and the courts.duration_options default assume. app.hold_slot raises
 --   INVALID_DURATION for anything not in this array, so a 90-minute booking is refused outright.
 --
--- !! ARABIC IS RECONSTRUCTED, NOT COPIED. The pack reached the build through a transcoded copy in
--- !! which every Arabic string was mojibake'd (UTF-8 read as Latin-1, lossily). The names below are
--- !! the obvious reading of that mojibake and follow docs/client/04-courts-template.md, but they
--- !! have NOT been verified against the original export. Check them before go-live: an Arabic court
--- !! name is what every Arabic-locale guest sees, and apps/operator's pickName has no fallback --
--- !! a wrong or empty name_ar renders blank on the Arabic desk.
+-- ARABIC VERIFIED 2026-08-30 against the clean original exports (now committed in this directory
+-- -- the mojibake existed only in the transcoded intermediary copy, not in the Kagu OS exports).
+-- The pack writes Court 1 as 'الملعب الاول' (plain alef, no hamza) -- the client's own typing.
+-- We follow the pack verbatim; normalising to 'الأول' is a one-character edit if Mustafa prefers.
 --
--- !! NO RATE RULES. The pack's `touch-padel.rates` table is EMPTY, so nothing prices these courts
--- !! and every slot fails with NO_RATE. This file is applied on purpose only; the f1f7 fixtures
--- !! stay the dev/test default until Touch sends rate rules.
--- !! See docs/client/06-outstanding-2026-08-29.md.
+-- !! NO RATE RULES. The rates table is EMPTY in BOTH packs (2026-08-29 and 2026-08-30), so nothing
+-- !! prices these courts and every slot fails with NO_RATE. This file is applied on purpose only;
+-- !! the f1f7 fixtures stay the dev/test default until Touch sends rate rules.
+-- !! See docs/client/07-outstanding-2026-08-30.md.
+--
+-- !! DURATIONS MAY NOT BE FINAL. The 2026-08-30 pack's free-text notes say "court times aren't
+-- !! always the exact same, different across courts" -- ambiguous between per-court durations,
+-- !! per-court prices, or per-court bookable hours. duration_options = '{60}' below is what the
+-- !! courts table said, but expect it to change once the note is clarified (chased in doc 07).
 
 begin;
 
@@ -54,7 +58,7 @@ end $guard$;
 -- Touch's courts
 -- ---------------------------------------------------------------------------
 insert into courts (id, name_en, name_ar, description_en, description_ar, indoor, duration_options, sort_order, is_active) values
-  ('70c40000-0000-4000-8000-00000000c001', 'Court 1', 'الملعب الأول',
+  ('70c40000-0000-4000-8000-00000000c001', 'Court 1', 'الملعب الاول',
    null, null, true, '{60}', 1, true),
   ('70c40000-0000-4000-8000-00000000c002', 'Court 2', 'الملعب الثاني',
    null, null, true, '{60}', 2, true)
