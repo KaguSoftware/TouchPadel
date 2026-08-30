@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, type JSX, type UIEvent } from 're
 import { formatIQD, makeT, type Locale } from '@touch/i18n';
 import { buildLine, violatedGroup } from '@/lib/cafe/basket';
 import { activeGroups, type MenuItem, type MenuModifierGroup } from '@/lib/menu';
+import { CloseIcon } from '../brand';
+import { sectionArtFor } from '../MenuStage/sectionArt';
 import { ImageLayers } from './ImageLayers';
 import { Lightbox } from './Lightbox';
 import { ModifierGroup } from './ModifierGroup';
@@ -37,6 +39,7 @@ function ItemSheetInner({
   item,
   settings,
   itemsById,
+  categoryNames,
   onClose,
   onAdd,
   onOpenSuggested,
@@ -50,6 +53,9 @@ function ItemSheetInner({
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const openedAt = useRef(Date.now());
   const settled = useRef(false);
+  /** SheetShell's deferred close — plays the exit before the sheet unmounts. */
+  const dismiss = useRef<(() => void) | null>(null);
+  const [dragClosed, setDragClosed] = useState(false);
 
   const defaultVariant = item.variants.find((v) => v.is_default) ?? item.variants[0];
   const [variantId, setVariantId] = useState(defaultVariant?.id ?? '');
@@ -61,6 +67,11 @@ function ItemSheetInner({
   const [atBottom, setAtBottom] = useState(false);
 
   const soldOut = item.sold_out || !item.orderable;
+  /** The item's section art — stands in for a photo the operator has not sent yet. */
+  const art = useMemo(() => {
+    const category = categoryNames.get(item.id);
+    return category ? sectionArtFor(category) : undefined;
+  }, [categoryNames, item.id]);
 
   useEffect(() => {
     onViewed?.(item);
@@ -74,16 +85,28 @@ function ItemSheetInner({
     return () => window.clearTimeout(id);
   }, [soldOut]);
 
-  /** Close once, reporting the dwell when nothing was added. */
-  const finish = (added: boolean) => {
-    if (!settled.current) {
-      settled.current = true;
-      if (!added) onAbandon?.(item, Date.now() - openedAt.current);
-    }
-    onClose();
+  /** Report the dwell exactly once, whatever closed the sheet. */
+  const settle = (added: boolean) => {
+    if (settled.current) return;
+    settled.current = true;
+    if (!added) onAbandon?.(item, Date.now() - openedAt.current);
   };
 
-  const drag = useSheetDrag(headerRef, () => finish(false));
+  /**
+   * Close from one of the sheet's own affordances (the X, the CTA, the drag).
+   * The unmount goes through SheetShell so the exit animation plays, falling
+   * back to a bare onClose if the shell has not mounted yet.
+   */
+  const finish = (added: boolean) => {
+    settle(added);
+    if (dismiss.current) dismiss.current();
+    else onClose();
+  };
+
+  const drag = useSheetDrag(headerRef, () => {
+    setDragClosed(true);
+    finish(false);
+  });
 
   const active = useMemo(() => activeGroups(item, selection), [item, selection]);
   const chosen = useMemo(() => chosenModifiers(selection), [selection]);
@@ -134,18 +157,30 @@ function ItemSheetInner({
     <>
       <SheetShell
         label={name}
-        onClose={() => finish(false)}
+        onClose={() => {
+          // backdrop / Escape land here once the exit has played
+          settle(false);
+          onClose();
+        }}
         className="tp-sheet tp-sheet--panel"
         style={drag.style}
         backdropStyle={drag.backdropStyle}
         sheetRef={sheetRef}
+        dragged={dragClosed}
+        closeRef={dismiss}
       >
-        <div className="tp-sheet__header tp-sheet__drag" ref={headerRef}>
+        <div
+          className="tp-sheet__header tp-sheet__drag"
+          data-placeholder={!item.photo_url && art ? 'true' : undefined}
+          data-tone={!item.photo_url && art ? art.tone : undefined}
+          ref={headerRef}
+        >
           <div className="tp-sheet__grip" aria-hidden="true" />
           <ImageLayers
             src={item.photo_url}
             blur={item.photo_blur}
             alt={name}
+            art={art}
             expandLabel={tr('cafe.expandPhoto')}
             loadingLabel={tr('common.loading')}
             onExpand={() => setLightbox(true)}
@@ -159,7 +194,7 @@ function ItemSheetInner({
           onClick={() => finish(false)}
           aria-label={tr('common.close')}
         >
-          ×
+          <CloseIcon />
         </button>
 
         <div className="tp-sheet__scroll" onScroll={onScroll}>
@@ -236,12 +271,30 @@ function ItemSheetInner({
         <div className="tp-sheet__foot">
           <div className="tp-sheet__row" style={{ paddingBlock: 0 }}>
             <div className="tp-qty" aria-label={tr('cafe.quantity')}>
-              <button type="button" onClick={() => setQty((q) => Math.max(QTY_MIN, q - 1))} aria-label="−">
-                −
+              <button
+                type="button"
+                className="tp-qty__step"
+                onClick={() => setQty((q) => Math.max(QTY_MIN, q - 1))}
+                disabled={qty <= QTY_MIN}
+                aria-label={tr('cafe.decreaseQty')}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                  <path d="M6 12h12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                </svg>
               </button>
-              <span aria-live="polite">{qty}</span>
-              <button type="button" onClick={() => setQty((q) => Math.min(QTY_MAX, q + 1))} aria-label="+">
-                +
+              <span className="tp-qty__value" aria-live="polite">
+                {qty}
+              </span>
+              <button
+                type="button"
+                className="tp-qty__step"
+                onClick={() => setQty((q) => Math.min(QTY_MAX, q + 1))}
+                disabled={qty >= QTY_MAX}
+                aria-label={tr('cafe.increaseQty')}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                  <path d="M12 6v12M6 12h12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                </svg>
               </button>
             </div>
             <div className="tp-itemsheet__prices">

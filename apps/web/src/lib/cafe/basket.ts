@@ -66,6 +66,16 @@ export function lineTotal(line: BasketLine): number {
   return mulIqd(addIqd(discountedUnit(line), modifierDeltas(line)), line.qty);
 }
 
+/**
+ * What ONE of this line costs, extras included — `lineTotal` before the qty
+ * multiply. The basket prints it beside the variant so a line of several still
+ * shows its per-item price; taking it from the same parts as `lineTotal` keeps
+ * the two from ever disagreeing.
+ */
+export function lineUnitTotal(line: BasketLine): number {
+  return addIqd(discountedUnit(line), modifierDeltas(line));
+}
+
 /** The same line at list price (no promo). */
 export function lineListTotal(line: BasketLine): number {
   return mulIqd(addIqd(line.list_unit_price_iqd, modifierDeltas(line)), line.qty);

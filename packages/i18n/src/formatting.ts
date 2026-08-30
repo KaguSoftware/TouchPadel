@@ -37,19 +37,33 @@ export function formatTime(date: Date, locale: Locale, timeZone: string = VENUE_
  * (bigint IQD in SQL, integer number in TS) — a non-integer input throws
  * rather than silently rounding, so float bugs surface immediately.
  *
- * e.g. formatIQD(15000, 'en') → "IQD 15,000" · ('ar') → "١٥٬٠٠٠ د.ع." style
+ * e.g. formatIQD(15000, 'en') → "15,000 IQD" · ('ar') → "١٥٬٠٠٠ د.ع." style
  * but with Latin digits forced: "15,000 د.ع.".
+ *
+ * House style puts the unit AFTER the amount in both languages. Arabic already
+ * formats that way under CLDR; English does not (it would read "IQD 15,000"),
+ * so the parts are reordered rather than the string patched — that keeps the
+ * grouping, the digit system and the locale's own spacing intact.
  */
 export function formatIQD(amount: number, locale: Locale): string {
   if (!Number.isInteger(amount)) {
     throw new TypeError(`formatIQD expects an integer IQD amount, got ${amount}`);
   }
-  return new Intl.NumberFormat(intlLocale(locale), {
+  const fmt = new Intl.NumberFormat(intlLocale(locale), {
     style: 'currency',
     currency: 'IQD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  });
+  if (locale === 'ar') return fmt.format(amount);
+
+  const parts = fmt.formatToParts(amount);
+  const currency = parts.filter((p) => p.type === 'currency').map((p) => p.value).join('');
+  const number = parts
+    .filter((p) => p.type !== 'currency' && p.type !== 'literal')
+    .map((p) => p.value)
+    .join('');
+  return currency ? `${number} ${currency}` : number;
 }
 
 /** Plain grouped number with Latin digits (counts, quantities). */
