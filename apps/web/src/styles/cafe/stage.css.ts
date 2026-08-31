@@ -18,12 +18,6 @@ export const stageCss = `
 .tp-menu-cat, .tp-stage { padding-block: 22px 6px; padding-inline: 24px; scroll-margin-block-start: 62px; }
 .tp-stage:last-of-type { padding-block-end: 14px; }
 
-/* The band names its own section, so the head row carries the badge alone and
-   is not rendered at all when a category has no serve temperature. */
-.tp-stage__head { display: flex; align-items: flex-end; justify-content: flex-end; gap: 10px; }
-/* Placement only — the chip's colour comes from .tp-temp--hot / --cold. */
-.tp-stage__badge { flex: none; margin-block-end: 4px; }
-
 .tp-stage__band { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between;
   gap: 14px; background: var(--tp-cafe-blue-tint); border-radius: 20px; padding-block: 20px; padding-inline: 18px;
   min-block-size: 96px; margin-block-start: 14px; }

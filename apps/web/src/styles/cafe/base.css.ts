@@ -51,11 +51,18 @@ input, textarea, select { font-size: max(16px, 1rem); font-family: inherit; }
 .tp-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
 .tp-btn--block { inline-size: 100%; }
 
-/* The design's serve-temperature chips: red "حار", blue "بارد". */
+/* The design's serve-temperature chips: red "حار", blue "بارد" — a serve-temp
+   chip carries an icon now, in the same capsule the word used to fill. */
 .tp-temp { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; line-height: 1.5;
   padding-block: 1px; padding-inline: 0.55rem; border-radius: var(--tp-radius-pill); white-space: nowrap; }
 .tp-temp--hot { background: var(--tp-cafe-hot-bg); color: var(--tp-cafe-hot-fg); }
 .tp-temp--cold { background: var(--tp-cafe-blue-tint-2); color: var(--tp-accent); }
+/* An icon chip keeps the design's wide capsule and centres the mark in it, so
+   the hot and cold pills read as one pair of blocks down the column. The icon
+   takes the chip's colour via currentColor, so --hot / --cold still decide
+   it. */
+.tp-temp--icon { justify-content: center; }
+.tp-temp__icon { inline-size: 1em; block-size: 1em; display: block; }
 
 /* cards / chips */
 .tp-card { background: var(--tp-surface); border: 1px solid var(--tp-border); border-radius: var(--tp-radius-md); padding: var(--tp-space-4); }

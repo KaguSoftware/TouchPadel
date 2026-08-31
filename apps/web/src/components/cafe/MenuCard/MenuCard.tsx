@@ -133,7 +133,11 @@ export function MenuCard({
           )}
         </div>
         {hook && <div className="tp-menu-item__hook">{hook}</div>}
-        {desc && <div className="tp-menu-item__desc">{desc}</div>}
+        {/* The description belongs to the item's own sheet, so the row stays a
+            name and a price however much prose an item carries. A row that
+            cannot open one (not orderable — see above) keeps it inline, or the
+            text would have nowhere left to appear. */}
+        {desc && !orderable && <div className="tp-menu-item__desc">{desc}</div>}
       </div>
 
       {/* The serve-temp chips ride in their own column just before the price,
