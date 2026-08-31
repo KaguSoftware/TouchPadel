@@ -73,7 +73,8 @@ describe('sheet drag wiring', () => {
           walk(full);
         } else if (/\.tsx?$/.test(entry.name) && !entry.name.endsWith('.test.ts')) {
           if (/export function useSheetDrag/.test(readFileSync(full, 'utf8'))) {
-            impls.push(path.relative(SRC, full));
+            // Normalize for Windows: path.relative emits backslashes there.
+            impls.push(path.relative(SRC, full).replaceAll('\\', '/'));
           }
         }
       }

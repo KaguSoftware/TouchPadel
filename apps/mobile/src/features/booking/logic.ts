@@ -76,3 +76,12 @@ export function canCancel(row: BookingRow, cancellationWindowHours: number, now:
   const cutoff = now.getTime() + cancellationWindowHours * 3_600_000;
   return new Date(row.start_at).getTime() >= cutoff;
 }
+
+/**
+ * Human-facing booking reference (design 2026-08-31 shows "REF TP-2411").
+ * `reservations` has no reference column; derive a short, stable one from the
+ * UUID. Presentational only — support/desk lookups still use the full id.
+ */
+export function displayRef(reservationId: string): string {
+  return `TP-${reservationId.replace(/-/g, '').slice(0, 4).toUpperCase()}`;
+}
