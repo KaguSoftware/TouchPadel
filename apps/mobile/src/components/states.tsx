@@ -1,10 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import { Button } from './ui';
-import { theme } from '../theme';
-
 /**
- * Loading / empty / error / offline states.
+ * Loading / empty / error / offline states, restyled to the design
+ * (2026-08-31) — behavior unchanged from the reliability pass.
  *
  * The bug these exist to kill: two of the three main screens checked only
  * `isLoading` and never `isError`, so a network failure fell through to the
@@ -15,6 +11,11 @@ import { theme } from '../theme';
  * An empty state and an error state are different things and must never share
  * a branch again.
  */
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, Text, View } from 'react-native';
+import { radius, space, useTheme } from '../theme';
+import { Button } from './ui';
+import { PadelBallIcon } from './icons';
 
 // ── Skeleton ────────────────────────────────────────────────────────────────
 // A content-shaped placeholder beats a centred spinner: the screen doesn't jump
@@ -23,7 +24,7 @@ import { theme } from '../theme';
 export function Skeleton({
   height = 16,
   width = '100%',
-  radius = 8,
+  radius: r = radius.cell,
   style,
 }: {
   height?: number;
@@ -31,6 +32,7 @@ export function Skeleton({
   radius?: number;
   style?: object;
 }) {
+  const { colors } = useTheme();
   const pulse = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
@@ -58,7 +60,10 @@ export function Skeleton({
     <Animated.View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[{ height, width, borderRadius: radius, backgroundColor: theme.muted, opacity: pulse }, style]}
+      style={[
+        { height, width, borderRadius: r, backgroundColor: colors.seg, opacity: pulse },
+        style,
+      ]}
     />
   );
 }
@@ -66,9 +71,9 @@ export function Skeleton({
 /** A stack of card-shaped skeletons, sized to the list it stands in for. */
 export function SkeletonList({ rows = 4, height = 84 }: { rows?: number; height?: number }) {
   return (
-    <View style={styles.skeletonList}>
+    <View style={{ paddingTop: space.xs }}>
       {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} height={height} radius={12} style={styles.skeletonRow} />
+        <Skeleton key={i} height={height} radius={radius.button} style={{ marginBottom: space.sm }} />
       ))}
     </View>
   );
@@ -88,14 +93,58 @@ export function ErrorState({
   onRetry?: () => void;
   busy?: boolean;
 }) {
+  const { colors, fonts } = useTheme();
   return (
-    <View style={styles.center} accessibilityRole="alert" accessibilityLiveRegion="polite">
-      <Text style={styles.glyph}>!</Text>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.body}>{message}</Text>
+    <View
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingStart: space.xxl,
+        paddingEnd: space.xxl,
+        gap: 6,
+      }}
+    >
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: radius.pill,
+          backgroundColor: colors.redtint,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: space.sm,
+        }}
+      >
+        <Text style={{ fontFamily: fonts.display800, fontSize: 22, color: colors.redtext }}>!</Text>
+      </View>
+      <Text
+        style={{
+          fontFamily: fonts.display900,
+          fontSize: 18,
+          textTransform: 'uppercase',
+          color: colors.mut2,
+          textAlign: 'center',
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          fontFamily: fonts.body400,
+          fontSize: 13,
+          color: colors.mut,
+          textAlign: 'center',
+          lineHeight: 20,
+        }}
+      >
+        {message}
+      </Text>
       {onRetry ? (
-        <View style={styles.action}>
-          <Button label={retryLabel} onPress={onRetry} busy={busy} />
+        <View style={{ alignSelf: 'stretch', marginTop: space.sm }}>
+          <Button label={retryLabel} onPress={onRetry} busy={busy} variant="cta" />
         </View>
       ) : null}
     </View>
@@ -114,13 +163,48 @@ export function EmptyState({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const { colors, fonts } = useTheme();
   return (
-    <View style={styles.center}>
-      <Text style={styles.title}>{title}</Text>
-      {message ? <Text style={styles.body}>{message}</Text> : null}
+    <View
+      style={{
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingStart: space.xl,
+        paddingEnd: space.xl,
+        paddingTop: 44,
+        paddingBottom: 44,
+        gap: 6,
+      }}
+    >
+      <PadelBallIcon size={58} opacity={0.85} />
+      <Text
+        style={{
+          fontFamily: fonts.display900,
+          fontSize: 18,
+          textTransform: 'uppercase',
+          color: colors.mut2,
+          textAlign: 'center',
+          marginTop: space.sm,
+        }}
+      >
+        {title}
+      </Text>
+      {message ? (
+        <Text
+          style={{
+            fontFamily: fonts.body400,
+            fontSize: 13,
+            color: colors.mut,
+            textAlign: 'center',
+            lineHeight: 19,
+          }}
+        >
+          {message}
+        </Text>
+      ) : null}
       {actionLabel && onAction ? (
-        <View style={styles.action}>
-          <Button label={actionLabel} onPress={onAction} variant="secondary" />
+        <View style={{ marginTop: space.l }}>
+          <Button label={actionLabel} onPress={onAction} variant="cta" />
         </View>
       ) : null}
     </View>
@@ -130,44 +214,24 @@ export function EmptyState({
 // ── Offline ─────────────────────────────────────────────────────────────────
 /** Persistent bar; the SOW is explicit that the app must fail loudly, not hide. */
 export function OfflineBanner({ message }: { message: string }) {
+  const { fonts } = useTheme();
   return (
-    <View style={styles.offline} accessibilityRole="alert" accessibilityLiveRegion="polite">
-      <Text style={styles.offlineText}>{message}</Text>
+    <View
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      style={{
+        backgroundColor: '#B42318',
+        paddingTop: 8,
+        paddingBottom: 8,
+        paddingStart: space.l,
+        paddingEnd: space.l,
+      }}
+    >
+      <Text
+        style={{ color: '#FFFFFF', fontFamily: fonts.body600, fontSize: 13, textAlign: 'center' }}
+      >
+        {message}
+      </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingStart: 24,
-    paddingEnd: 24,
-    gap: 6,
-  },
-  glyph: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: theme.danger,
-    marginBottom: 4,
-  },
-  title: { fontSize: 17, fontWeight: '700', color: theme.fg, textAlign: 'center' },
-  body: { fontSize: 14, color: theme.mutedFg, textAlign: 'center', lineHeight: 20 },
-  action: { alignSelf: 'stretch', marginTop: 4 },
-  skeletonList: { paddingTop: 4 },
-  skeletonRow: { marginBottom: 12 },
-  offline: {
-    backgroundColor: theme.danger,
-    paddingTop: 8,
-    paddingBottom: 8,
-    paddingStart: 16,
-    paddingEnd: 16,
-  },
-  offlineText: {
-    color: theme.dangerContrast,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-});

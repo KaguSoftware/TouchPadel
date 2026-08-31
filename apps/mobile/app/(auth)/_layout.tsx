@@ -1,20 +1,24 @@
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, useSegments } from 'expo-router';
 import { useAuth } from '../../src/features/auth/context';
-import { useLocale } from '../../src/i18n/LocaleProvider';
+import { getPendingSlot } from '../../src/features/booking/pendingSlot';
 import { Loading } from '../../src/components/ui';
 
-/** Public auth group. A signed-in user is bounced straight to the app. */
+/**
+ * Public auth group. A signed-in user is bounced to the tabs — EXCEPT:
+ *  - verify-email / verify-result, which legitimately render around the moment
+ *    the session lands (the emailed link signs the user in mid-screen), and
+ *  - any screen while a pending slot exists: the screen's own post-auth
+ *    continuation is about to place the hold and route to Review, and a layout
+ *    redirect racing it would win and strand the guest on the tabs.
+ */
 export default function AuthLayout() {
   const { session, initializing } = useAuth();
-  const { t } = useLocale();
+  const segments = useSegments();
+  const screen = segments[segments.length - 1];
+  const exempt =
+    screen === 'verify-email' || screen === 'verify-result' || getPendingSlot() !== null;
+
   if (initializing) return <Loading />;
-  if (session) return <Redirect href="/(app)" />;
-  return (
-    <Stack>
-      <Stack.Screen name="sign-in" options={{ title: t('auth.signIn') }} />
-      <Stack.Screen name="sign-up" options={{ title: t('auth.signUp') }} />
-      <Stack.Screen name="verify-email" options={{ title: t('auth.verifyEmailTitle') }} />
-      <Stack.Screen name="forgot-password" options={{ title: t('auth.resetPasswordTitle') }} />
-    </Stack>
-  );
+  if (session && !exempt) return <Redirect href="/(tabs)" />;
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
