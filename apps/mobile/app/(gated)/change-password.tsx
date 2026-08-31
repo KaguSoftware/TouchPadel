@@ -1,15 +1,12 @@
 import { useState } from 'react';
-import { ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { supabase } from '../../src/lib/supabase';
 import { signIn } from '../../src/features/auth/api';
 import { changePassword } from '../../src/features/profile/api';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import { space } from '../../src/theme';
-import { Button, ErrorText, Field, Screen, ScreenHeader } from '../../src/components/ui';
+import { Button, ErrorText, Field, FormScreen, Screen, ScreenHeader } from '../../src/components/ui';
 import { useToast } from '../../src/components/overlays';
 
 /**
@@ -20,7 +17,6 @@ import { useToast } from '../../src/components/overlays';
 export default function ChangePasswordScreen() {
   const { t } = useLocale();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const toast = useToast();
 
@@ -28,13 +24,19 @@ export default function ChangePasswordScreen() {
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [currentError, setCurrentError] = useState<string | null>(null);
+  const [nextError, setNextError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async () => {
     setError(null);
+    setCurrentError(null);
+    setNextError(null);
+    setConfirmError(null);
     if (!current || !next || !confirm) return setError(t('profile.fillAllFields'));
-    if (next.length < 8) return setError(t('auth.passwordTooShort'));
-    if (next !== confirm) return setError(t('auth.passwordMismatch'));
+    if (next.length < 8) return setNextError(t('auth.passwordTooShort'));
+    if (next !== confirm) return setConfirmError(t('auth.passwordMismatch'));
     const email = session?.user.email;
     if (!email) return setError(t('auth.sessionExpired'));
 
@@ -45,7 +47,7 @@ export default function ChangePasswordScreen() {
         await signIn(supabase, email, current);
       } catch {
         setBusy(false);
-        return setError(t('auth.invalidCredentials'));
+        return setCurrentError(t('auth.invalidCredentials'));
       }
       await changePassword(supabase, next);
       toast(t('auth.passwordUpdated'));
@@ -58,19 +60,18 @@ export default function ChangePasswordScreen() {
   };
 
   return (
-    <Screen style={{ paddingTop: insets.top }}>
+    <Screen>
       <ScreenHeader title={t('profile.changePassword')} />
-      <ScrollView
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      <FormScreen contentStyle={{ paddingTop: 4 }}>
         <Field
           placeholder={t('profile.currentPassword')}
           value={current}
           onChangeText={setCurrent}
           secureTextEntry
           autoComplete="current-password"
+          textContentType="password"
+          dense
+          error={currentError}
         />
         <Field
           placeholder={t('profile.newPasswordMin')}
@@ -78,6 +79,9 @@ export default function ChangePasswordScreen() {
           onChangeText={setNext}
           secureTextEntry
           autoComplete="new-password"
+          textContentType="newPassword"
+          dense
+          error={nextError}
         />
         <Field
           placeholder={t('profile.confirmNewPassword')}
@@ -85,6 +89,9 @@ export default function ChangePasswordScreen() {
           onChangeText={setConfirm}
           secureTextEntry
           autoComplete="new-password"
+          textContentType="newPassword"
+          dense
+          error={confirmError}
         />
         <ErrorText>{error}</ErrorText>
         <Button
@@ -92,9 +99,9 @@ export default function ChangePasswordScreen() {
           variant="cta"
           busy={busy}
           onPress={() => void onSubmit()}
-          style={{ marginTop: space.l }}
+          style={{ marginTop: 6 }}
         />
-      </ScrollView>
+      </FormScreen>
     </Screen>
   );
 }

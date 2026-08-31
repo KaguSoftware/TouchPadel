@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { iqd } from '@touch/core';
 import type { CourtSlots, Slot } from '@touch/core';
 import {
+  hasAnySlots,
   mergeAcrossCourts,
   openNowInfo,
   assembleDayGrid,
@@ -261,5 +262,43 @@ describe('openNowInfo', () => {
       new Date('2026-09-01T18:00:00.000Z'),
     );
     expect(closed?.open).toBe(false);
+  });
+});
+
+describe('mergeAcrossCourts with a clock', () => {
+  const grid: CourtSlots[] = [
+    { courtId: 'c1', slots: [slot(T10, 60, 'free', 30_000), slot(T11, 60, 'free', 30_000)] },
+    { courtId: 'c2', slots: [slot(T10, 60, 'booked', 25_000), slot(T11, 60, 'held', 25_000)] },
+  ];
+
+  it('marks free/held starts before now as past, keeps booked as booked', () => {
+    // The hook builds the grid without a clock so the expensive assembly runs
+    // only when data changes; this pass is the per-minute work.
+    const now = new Date('2026-09-01T07:30:00.000Z'); // 10:30 Baghdad
+    const cells = mergeAcrossCourts(grid, 60, null, now);
+    // 10:00: c1 free -> past, c2 booked -> stays booked => "booked" wins over past
+    expect(cells[0]?.state).toBe('booked');
+    // 11:00 is still ahead: free
+    expect(cells[1]).toMatchObject({ state: 'free', freeCount: 1, courtId: 'c1' });
+  });
+
+  it('all-past when every option has started', () => {
+    const now = new Date('2026-09-01T09:00:00.000Z'); // 12:00 Baghdad
+    const onlyFree: CourtSlots[] = [{ courtId: 'c1', slots: [slot(T10, 60, 'free', 30_000)] }];
+    expect(mergeAcrossCourts(onlyFree, 60, null, now)[0]?.state).toBe('past');
+  });
+
+  it('without a clock nothing is past (legacy behaviour)', () => {
+    expect(mergeAcrossCourts(grid, 60)[1]?.state).toBe('free');
+  });
+});
+
+describe('hasAnySlots', () => {
+  it('is about slots, not courts', () => {
+    // The closed-day check used to test grid.length (= number of courts), so a
+    // duration with no priced slots read as "Venue closed".
+    expect(hasAnySlots([{ courtId: 'c1', slots: [] }, { courtId: 'c2', slots: [] }])).toBe(false);
+    expect(hasAnySlots([{ courtId: 'c1', slots: [slot(T10, 60, 'free', 1)] }])).toBe(true);
+    expect(hasAnySlots([])).toBe(false);
   });
 });

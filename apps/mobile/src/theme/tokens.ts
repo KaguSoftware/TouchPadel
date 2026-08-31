@@ -58,6 +58,9 @@ export interface Palette {
   crtTurfLine: string;
   crtLine: string;
   crtShadow: string;
+  /** The floating court's two-layer cast shadow (design `.tpfloat` drop-shadows). */
+  crtCast: string;
+  crtCast2: string;
 }
 
 export const palettes: Record<'light' | 'dark', Palette> = {
@@ -98,6 +101,8 @@ export const palettes: Record<'light' | 'dark', Palette> = {
     crtTurfLine: '#3E6BB0',
     crtLine: '#FFFFFF',
     crtShadow: '#1B2A47',
+    crtCast: '#1B2A4759',
+    crtCast2: '#1B2A472E',
   },
   dark: {
     bg: '#0D1830',
@@ -136,6 +141,10 @@ export const palettes: Record<'light' | 'dark', Palette> = {
     crtTurfLine: '#8FB0E8',
     crtLine: '#FFFFFF',
     crtShadow: '#050C1A',
+    // The design's dark-mode `.tpfloat` override: the court GLOWS blue instead
+    // of casting a shadow.
+    crtCast: '#8FB0E859',
+    crtCast2: '#8FB0E82E',
   },
 };
 
@@ -159,6 +168,20 @@ export const brand = {
   danger: '#B42318',
   /** Countdown bar when nearly out of time. */
   dangerSoft: '#E88B7D',
+  /** Summary-grid icons on Review / Booking detail (design literal `#6FA33A`). */
+  leaf: '#6FA33A',
+  /** Success toast background (design literal). */
+  successToast: '#3E6318',
+  /** Ink on the white "Sign in" button of the Welcome screen. */
+  welcomeInk: '#132038',
+  /** Welcome screen gradient stops, 168deg (design `linear-gradient(168deg, …)`). */
+  welcomeGradient: ['#274B87', '#3360AB', '#2A529A'] as const,
+  /** Modal scrims: notice sheet (66) and confirmation dialog (80). */
+  scrim: '#10182866',
+  scrimStrong: '#10182880',
+  /** Court illustration: ball fill/glow and the green rackets' darker edge. */
+  ballFill: '#EAF7D2',
+  racketEdge: '#7FAE4C',
 } as const;
 
 /** Spacing scale (px). The design works on a 16px gutter with 8/12/14 steps. */
@@ -168,23 +191,43 @@ export const space = { xs: 4, s: 8, sm: 12, m: 14, l: 16, xl: 20, xxl: 26 } as c
 export const radius = { cell: 12, button: 14, card: 16, sheet: 20, pill: 99 } as const;
 
 /**
+ * Cross-platform shadows (RN 0.81 `boxShadow` renders on iOS AND Android under
+ * the new architecture; the legacy `shadow*` props were iOS-only and a stray
+ * `elevation` drew grey halos on Android). Values from the design.
+ */
+export const shadows = {
+  /** Segmented-control thumb: `0 1px 2px rgba(27,42,71,.12)`. */
+  thumb: '0 1 2 rgba(27,42,71,0.12)',
+  /** Confirmation dialog card: `0 12px 40px rgba(16,24,40,.25)`. */
+  dialog: '0 12 40 rgba(16,24,40,0.25)',
+  /** Toast pill: `0 6px 20px rgba(16,24,40,.25)`. */
+  toast: '0 6 20 rgba(16,24,40,0.25)',
+} as const;
+
+/**
  * Font families, resolved per locale. Archivo/Mulish carry no Arabic glyphs, so
  * Arabic renders everything in Cairo — same swap-point discipline as
  * `packages/ui/src/tokens/typography.ts` (Next Art / Frutiger LT Arabic land later,
  * as a change in this one place).
+ *
+ * Values are `string | undefined`: when the Google-font download fails (Expo Go
+ * on a slow link) every family resolves to `undefined` — the system face —
+ * instead of an unregistered family name, which on iOS red-boxes
+ * "Unrecognized font family" on every single <Text>.
  */
-export interface FontSet {
-  display600: string;
-  display700: string;
-  display800: string;
-  display900: string;
-  body400: string;
-  body600: string;
-  body700: string;
-  body800: string;
-}
+export type FontRole =
+  | 'display600'
+  | 'display700'
+  | 'display800'
+  | 'display900'
+  | 'body400'
+  | 'body600'
+  | 'body700'
+  | 'body800';
 
-export const fontSets: Record<'latin' | 'arabic', FontSet> = {
+export type FontSet = Record<FontRole, string | undefined>;
+
+export const fontSets: Record<'latin' | 'arabic' | 'system', FontSet> = {
   latin: {
     display600: 'Archivo_600SemiBold',
     display700: 'Archivo_700Bold',
@@ -205,6 +248,17 @@ export const fontSets: Record<'latin' | 'arabic', FontSet> = {
     body700: 'Cairo_700Bold',
     body800: 'Cairo_800ExtraBold',
   },
+  /** Platform default faces — the fallback when brand fonts are unavailable. */
+  system: {
+    display600: undefined,
+    display700: undefined,
+    display800: undefined,
+    display900: undefined,
+    body400: undefined,
+    body600: undefined,
+    body700: undefined,
+    body800: undefined,
+  },
 };
 
 /** Availability-cell styling per merged slot state (design has no legend — cells self-label). */
@@ -218,8 +272,13 @@ export interface SlotStateStyle {
   subText: string;
 }
 
+const slotStyleCache = new WeakMap<Palette, Record<SlotVisualState, SlotStateStyle>>();
+
+/** Memoised per palette: SlotCell used to rebuild this object on every render of every cell. */
 export function slotStateStyles(p: Palette): Record<SlotVisualState, SlotStateStyle> {
-  return {
+  const cached = slotStyleCache.get(p);
+  if (cached) return cached;
+  const styles: Record<SlotVisualState, SlotStateStyle> = {
     available: { bg: p.card, border: p.line2, borderStyle: 'solid', text: p.ink, subText: p.gstrong },
     past: { bg: 'transparent', border: 'transparent', borderStyle: 'solid', text: p.fnt3, subText: p.fnt3 },
     booked: { bg: p.sub, border: p.sub, borderStyle: 'solid', text: p.fnt2, subText: p.fnt2 },
@@ -227,4 +286,6 @@ export function slotStateStyles(p: Palette): Record<SlotVisualState, SlotStateSt
     blocked: { bg: p.amb, border: p.ambline, borderStyle: 'solid', text: p.ambstrong, subText: p.ambstrong },
     horizon: { bg: p.tint, border: p.line, borderStyle: 'solid', text: p.fnt, subText: p.fnt },
   };
+  slotStyleCache.set(p, styles);
+  return styles;
 }

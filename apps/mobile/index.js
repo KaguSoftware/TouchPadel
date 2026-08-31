@@ -15,6 +15,6 @@
 //
 // react-native-get-random-values installs global.crypto.getRandomValues, so it
 // must evaluate BEFORE anything that can reach @touch/core.
-// Guarded by src/lib/__tests__/entryOrder.test.ts.
+// Guarded by src/lib/__tests__/reliability.test.ts ("entry order").
 import 'react-native-get-random-values';
 import 'expo-router/entry';

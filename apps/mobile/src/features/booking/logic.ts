@@ -25,10 +25,17 @@ export function parseHoldResult(json: unknown): HoldResult {
   };
 }
 
-/** Whole seconds remaining until an ISO timestamp; never negative. */
-export function secondsUntil(iso: string | null, now: Date): number {
-  if (!iso) return 0;
+/**
+ * Whole seconds remaining until an ISO timestamp; never negative. `null` means
+ * "no deadline" — distinct from 0 ("deadline passed"). app.hold_slot returns
+ * hold_expires_at = null on its duplicate-replay path (re-tapping a slot you
+ * already hold), and conflating the two rendered that Review screen as
+ * "HOLD EXPIRED" the instant it opened.
+ */
+export function secondsUntil(iso: string | null, now: Date): number | null {
+  if (!iso) return null;
   const ms = new Date(iso).getTime() - now.getTime();
+  if (Number.isNaN(ms)) return null;
   return ms > 0 ? Math.ceil(ms / 1000) : 0;
 }
 

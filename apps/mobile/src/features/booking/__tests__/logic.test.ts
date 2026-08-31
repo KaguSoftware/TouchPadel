@@ -74,7 +74,15 @@ describe('secondsUntil', () => {
     const now = new Date('2026-09-01T10:00:00Z');
     expect(secondsUntil('2026-09-01T10:00:30Z', now)).toBe(30);
     expect(secondsUntil('2026-09-01T09:59:00Z', now)).toBe(0);
-    expect(secondsUntil(null, now)).toBe(0);
+  });
+
+  it('distinguishes "no deadline" (null) from "deadline passed" (0)', () => {
+    // app.hold_slot returns hold_expires_at = null on the duplicate-replay path;
+    // treating that as 0 rendered Review as HOLD EXPIRED the instant it opened.
+    const now = new Date('2026-09-01T10:00:00Z');
+    expect(secondsUntil(null, now)).toBeNull();
+    expect(secondsUntil('', now)).toBeNull();
+    expect(secondsUntil('not-a-date', now)).toBeNull();
   });
 });
 

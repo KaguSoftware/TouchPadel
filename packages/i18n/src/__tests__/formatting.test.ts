@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatIQD, formatNumber, formatTime } from '../formatting';
+import {
+  formatDate,
+  formatDateTime,
+  formatDayNumber,
+  formatIQD,
+  formatMonthShort,
+  formatNumber,
+  formatTime,
+  formatTimeRange,
+  formatWeekdayShort,
+} from '../formatting';
 
 describe('formatIQD', () => {
   it('formats integer IQD with grouping and no decimals (en)', () => {
@@ -58,5 +68,32 @@ describe('formatNumber', () => {
   it('groups and keeps Latin digits in both locales', () => {
     expect(formatNumber(1000000, 'en')).toContain('1');
     expect(formatNumber(1000000, 'ar')).not.toMatch(/[٠-٩]/);
+  });
+});
+
+describe('day-strip / badge / range formatters', () => {
+  // 2026-09-01T07:00:00Z = 10:00 Tuesday in Asia/Baghdad
+  const d = new Date('2026-09-01T07:00:00Z');
+  const e = new Date('2026-09-01T08:00:00Z');
+
+  it('pin the venue timezone and Latin digits in both locales', () => {
+    expect(formatWeekdayShort(d, 'en')).toMatch(/Tue/);
+    expect(formatDayNumber(d, 'en')).toBe('1');
+    expect(formatDayNumber(d, 'ar')).toBe('1');
+    expect(formatMonthShort(d, 'en')).toMatch(/Sep/);
+    expect(formatWeekdayShort(d, 'ar')).not.toMatch(/[٠-٩]/);
+  });
+
+  it('formatDateTime carries date and time together', () => {
+    const out = formatDateTime(d, 'en');
+    expect(out).toContain('2026');
+    expect(out).toMatch(/10:00/);
+  });
+
+  it('formatTimeRange isolates the Latin run for bidi', () => {
+    const out = formatTimeRange(d, e, 'ar');
+    expect(out.startsWith('⁨')).toBe(true);
+    expect(out.endsWith('⁩')).toBe(true);
+    expect(out).toContain('–');
   });
 });

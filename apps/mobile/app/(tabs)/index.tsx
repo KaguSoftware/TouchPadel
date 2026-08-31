@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
-import { openNowInfo, venuePhoneOf } from '../../src/features/availability/assemble';
+import {
+  openNowInfo,
+  venuePhoneOf,
+  type VenueSettingsPublic,
+} from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
 import { registerPushToken } from '../../src/features/profile/push';
 import { addBreadcrumb } from '../../src/lib/telemetry';
@@ -14,6 +18,41 @@ import { DegradedBanner } from '../../src/components/booking';
 import { ChevronIcon } from '../../src/components/icons';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 
+/** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
+const LOGO_H = 30;
+const LOGO_W = Math.round(LOGO_H * (900 / 332));
+
+/**
+ * The "Open now · 09:00–02:00" pill. Owns the minute clock so the rest of the
+ * screen — the animated court in particular — does not re-render every minute.
+ */
+function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }) {
+  const { t } = useLocale();
+  const { colors, fonts } = useTheme();
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const info = useMemo(() => openNowInfo(settings, now), [settings, now]);
+  if (!info) return null;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: radius.pill,
+          backgroundColor: info.open ? brand.green : colors.fnt2,
+        }}
+      />
+      <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: colors.mut }}>
+        {info.open ? t('courts.openNow', { hours: info.label }) : t('courts.closedNow')}
+      </Text>
+    </View>
+  );
+}
+
 /**
  * Book tab (design "Courts" screen): brand header with the open-now pill, the
  * animated court, and one big green CTA into the merged availability grid.
@@ -21,9 +60,10 @@ import { CourtIllustration } from '../../src/components/CourtIllustration';
  */
 export default function BookHomeScreen() {
   const { t } = useLocale();
-  const { colors, fonts, appearance } = useTheme();
+  const { colors, fonts, appearance, tracking } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { height: windowHeight } = useWindowDimensions();
   const { session } = useAuth();
   const settings = useVenueSettings();
   const degraded = useIsDegraded();
@@ -34,17 +74,10 @@ export default function BookHomeScreen() {
     void registerPushToken().then((state) => addBreadcrumb('push.register', { state }));
   }, [session]);
 
-  // Re-evaluate the pill every minute; openNowInfo itself is pure.
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-  const openInfo = useMemo(() => openNowInfo(settings.data, now), [settings.data, now]);
   const phone = venuePhoneOf(settings.data);
 
   return (
-    <Screen padded={false} style={{ backgroundColor: colors.page, paddingTop: insets.top }}>
+    <Screen padded={false} style={{ backgroundColor: colors.page }}>
       {/* Header: logo + open-now pill */}
       <View
         style={{
@@ -63,31 +96,20 @@ export default function BookHomeScreen() {
               ? require('../../assets/logo-white.png')
               : require('../../assets/logo.png')
           }
-          style={{ height: 30, width: 120, resizeMode: 'contain' }}
+          resizeMode="contain"
+          style={{ height: LOGO_H, width: LOGO_W }}
           accessibilityLabel={t('common.appName')}
         />
-        {openInfo ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <View
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: radius.pill,
-                backgroundColor: openInfo.open ? brand.green : colors.fnt2,
-              }}
-            />
-            <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: colors.mut }}>
-              {openInfo.open
-                ? t('courts.openNow', { hours: openInfo.label })
-                : t('courts.closedNow')}
-            </Text>
-          </View>
-        ) : null}
+        <OpenNowPill settings={settings.data} />
       </View>
 
       {degraded ? (
         <View style={{ marginTop: space.s, marginStart: space.l, marginEnd: space.l }}>
-          <DegradedBanner message={t('degraded.bannerCourts', { phone: phone ?? '' })} />
+          <DegradedBanner
+            lead={t('degraded.leadConnectionLost')}
+            message={t('degraded.bannerCourts', { phone: phone ?? '' })}
+            phone={phone}
+          />
         </View>
       ) : null}
 
@@ -99,13 +121,14 @@ export default function BookHomeScreen() {
         contentContainerStyle={{
           paddingStart: 18,
           paddingEnd: 18,
-          paddingTop: space.xs,
-          paddingBottom: 24,
-          gap: space.xl,
+          paddingTop: space.xl,
+          paddingBottom: tabBarHeight + 24,
+          gap: space.xxl,
         }}
         showsVerticalScrollIndicator={false}
       >
-        <CourtIllustration />
+        {/* Capped so "Check availability" stays above the fold on small phones. */}
+        <CourtIllustration maxHeight={Math.round(windowHeight * 0.46)} />
 
         <Pressable
           accessibilityRole="button"
@@ -116,8 +139,7 @@ export default function BookHomeScreen() {
             justifyContent: 'center',
             gap: 12,
             borderRadius: 18,
-            paddingTop: 24,
-            paddingBottom: 24,
+            padding: 26,
             backgroundColor: brand.green,
             opacity: pressed ? 0.85 : 1,
           })}
@@ -126,14 +148,14 @@ export default function BookHomeScreen() {
             style={{
               fontFamily: fonts.display800,
               fontSize: 19,
-              letterSpacing: 1.33,
+              letterSpacing: tracking(1.33),
               textTransform: 'uppercase',
               color: brand.greenInk,
             }}
           >
             {t('courts.viewAvailability')}
           </Text>
-          <ChevronIcon size={24} color={brand.greenInk} strokeWidth={2.6} />
+          <ChevronIcon size={26} color={brand.greenInk} strokeWidth={2.6} />
         </Pressable>
 
         <Text

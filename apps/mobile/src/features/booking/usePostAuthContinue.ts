@@ -3,6 +3,11 @@
  * after sign-in or email verification, a slot the guest tapped while signed
  * out is held immediately and the flow lands on Review; otherwise, the tabs.
  * If the slot got taken while they were authenticating, the grid explains it.
+ *
+ * The pending intent is PEEKED here and cleared only once the hold settles.
+ * Taking it up front emptied the store while the RPC was in flight, so
+ * (auth)/_layout saw `session && !pending`, redirected to the tabs, and the
+ * router.replace('/review') below fired from an unmounted screen.
  */
 import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
@@ -10,22 +15,23 @@ import { pickLocale } from '@touch/core';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useToast } from '../../components/overlays';
 import { useHoldSlot } from './hooks';
-import { takePendingSlot } from './pendingSlot';
+import { clearPendingSlot, getPendingSlot } from './pendingSlot';
 
 export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy: boolean } {
   const router = useRouter();
   const { t, locale } = useLocale();
   const toast = useToast();
   const hold = useHoldSlot();
+  const { mutate, isPending } = hold;
 
   const continueAfterAuth = useCallback(() => {
-    const pending = takePendingSlot();
+    const pending = getPendingSlot();
     if (!pending) {
       router.replace('/(tabs)');
       return;
     }
     const startAt = new Date(pending.startAt);
-    hold.mutate(
+    mutate(
       { courtId: pending.courtId, startAt, durationMin: pending.durationMin },
       {
         onSuccess: (result) => {
@@ -33,6 +39,7 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
             pathname: '/review',
             params: {
               holdId: result.reservationId,
+              // '' = no deadline (duplicate replay); Review shows no countdown.
               expiresAt: result.holdExpiresAt ?? '',
               priceIqd: String(result.priceIqd ?? pending.priceIqd ?? ''),
               courtName: pickLocale({ en: pending.courtNameEn, ar: pending.courtNameAr }, locale),
@@ -47,9 +54,11 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
           toast(t('booking.slotTakenBody'), 'error');
           router.replace('/availability');
         },
+        // After navigation, so the (auth) layout's exemption holds until we are gone.
+        onSettled: () => clearPendingSlot(),
       },
     );
-  }, [hold, router, t, locale, toast]);
+  }, [mutate, router, t, locale, toast]);
 
-  return { continueAfterAuth, holdBusy: hold.isPending };
+  return { continueAfterAuth, holdBusy: isPending };
 }

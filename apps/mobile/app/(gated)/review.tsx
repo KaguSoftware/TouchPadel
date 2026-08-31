@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Animated, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDate, formatIQD, formatTime } from '@touch/i18n';
+import { LinearGradient } from 'expo-linear-gradient';
+import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useConfirmBooking } from '../../src/features/booking/hooks';
 import { secondsUntil } from '../../src/features/booking/logic';
@@ -14,7 +15,7 @@ import {
 import { useVenueSettings } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { brand, radius, space, useTheme } from '../../src/theme';
-import { Button, Card, ErrorText, Screen, ScreenHeader } from '../../src/components/ui';
+import { Button, Card, DashedDivider, ErrorText, Screen, ScreenHeader } from '../../src/components/ui';
 import { PayAtDeskCard, SummaryGrid } from '../../src/components/booking';
 import { ConfirmationDialog } from '../../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/components/icons';
@@ -24,10 +25,14 @@ import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/compo
  * progress bar, summary grid, the pay-at-desk card (spec: never optional), the
  * cancellation policy line, and a ConfirmationDialog before the write (R7).
  * Distinct full-screen states for hold-expired and slot-taken.
+ *
+ * Back is a plain pop: there is no app.release_hold() yet (HANDOFF gotcha —
+ * cancel_reservation refuses a same-day hold), so the countdown is what
+ * returns an abandoned slot to the grid.
  */
 export default function ReviewScreen() {
   const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, tracking } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
@@ -39,6 +44,8 @@ export default function ReviewScreen() {
     durationMin?: string;
   }>();
   const holdId = typeof params.holdId === 'string' ? params.holdId : '';
+  // '' means "no deadline" — the duplicate-replay path of app.hold_slot, when
+  // the guest re-taps a slot they already hold. It used to count as expired.
   const expiresAt =
     typeof params.expiresAt === 'string' && params.expiresAt ? params.expiresAt : null;
   const price = params.priceIqd ? Number(params.priceIqd) : NaN;
@@ -49,30 +56,45 @@ export default function ReviewScreen() {
 
   const settings = useVenueSettings();
   const confirm = useConfirmBooking();
-  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntil(expiresAt, new Date()));
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(() =>
+    secondsUntil(expiresAt, new Date()),
+  );
   // Progress bar baseline: the remaining time when this screen mounted.
-  const initialSeconds = useRef(Math.max(secondsLeft, 1)).current;
+  const initialSeconds = useRef(Math.max(secondsLeft ?? 0, 1)).current;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [slotTaken, setSlotTaken] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const id = setInterval(() => setSecondsLeft(secondsUntil(expiresAt, new Date())), 1000);
-    return () => clearInterval(id);
-  }, [expiresAt]);
+  const [footerHeight, setFooterHeight] = useState(96);
 
   const confirmed = confirm.isSuccess;
-  const expired = !confirmed && !slotTaken && secondsLeft <= 0;
-  const pct = Math.max(0, Math.min(100, Math.round((secondsLeft / initialSeconds) * 100)));
-  const countdown = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`;
+  const expired = !confirmed && !slotTaken && secondsLeft === 0;
+
+  // Tick only while there is a live countdown.
+  useEffect(() => {
+    if (expiresAt === null || confirmed || expired) return;
+    const id = setInterval(() => setSecondsLeft(secondsUntil(expiresAt, new Date())), 1000);
+    return () => clearInterval(id);
+  }, [expiresAt, confirmed, expired]);
+
+  const pct =
+    secondsLeft === null
+      ? 100
+      : Math.max(0, Math.min(100, Math.round((secondsLeft / initialSeconds) * 100)));
+
+  // Design: `transition: width .3s linear` — animate between ticks.
+  const barWidth = useRef(new Animated.Value(pct)).current;
+  useEffect(() => {
+    Animated.timing(barWidth, { toValue: pct, duration: 300, useNativeDriver: false }).start();
+  }, [barWidth, pct]);
+
+  const countdown =
+    secondsLeft === null
+      ? ''
+      : `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`;
 
   const endAt =
     startAt && durationMin ? new Date(startAt.getTime() + durationMin * 60_000) : null;
-  const whenLine = startAt
-    ? `${formatDate(startAt, locale)}, ${formatTime(startAt, locale)}${
-        endAt ? `–${formatTime(endAt, locale)}` : ''
-      }`
-    : '';
+  const whenLine = startAt ? formatDateTime(startAt, locale) : '';
   const windowHours = settings.data?.cancellation_window_hours ?? null;
 
   const onConfirm = () => {
@@ -118,7 +140,7 @@ export default function ReviewScreen() {
   if (expired || slotTaken) {
     const taken = slotTaken;
     return (
-      <Screen style={{ paddingTop: insets.top }}>
+      <Screen edges={['top', 'bottom']}>
         <View
           style={{
             flex: 1,
@@ -172,11 +194,12 @@ export default function ReviewScreen() {
           >
             {taken ? t('booking.slotTakenBody') : t('booking.holdExpiredBody')}
           </Text>
+          {/* Design: inline-width green button (padding 14×26, 13 pt). */}
           <Button
             label={t('booking.backToAvailability')}
             onPress={backToAvailability}
             variant="cta"
-            style={{ marginTop: 22, alignSelf: 'stretch' }}
+            style={{ marginTop: 22, paddingTop: 14, paddingBottom: 14, paddingStart: 26, paddingEnd: 26 }}
           />
         </View>
       </Screen>
@@ -184,12 +207,13 @@ export default function ReviewScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: insets.top }}>
+    <Screen>
       <ScreenHeader title={t('booking.reviewTitle')} />
 
       {/* Navy hold card with countdown */}
       <View
         style={{
+          marginTop: 4,
           backgroundColor: brand.navy,
           borderRadius: radius.button,
           paddingStart: space.m,
@@ -207,7 +231,7 @@ export default function ReviewScreen() {
               style={{
                 fontFamily: fonts.body700,
                 fontSize: 11,
-                letterSpacing: 0.66,
+                letterSpacing: tracking(0.66),
                 textTransform: 'uppercase',
                 color: brand.green,
               }}
@@ -215,16 +239,18 @@ export default function ReviewScreen() {
               {t('booking.heldForYou')}
             </Text>
           </View>
-          <Text
-            style={{
-              fontFamily: fonts.display800,
-              fontSize: 18,
-              color: brand.white,
-              fontVariant: ['tabular-nums'],
-            }}
-          >
-            {countdown}
-          </Text>
+          {countdown ? (
+            <Text
+              style={{
+                fontFamily: fonts.display800,
+                fontSize: 18,
+                color: brand.white,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {countdown}
+            </Text>
+          ) : null}
         </View>
         <View
           style={{
@@ -235,10 +261,10 @@ export default function ReviewScreen() {
             overflow: 'hidden',
           }}
         >
-          <View
+          <Animated.View
             style={{
               height: '100%',
-              width: `${pct}%`,
+              width: barWidth.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
               borderRadius: radius.pill,
               backgroundColor: pct < 25 ? brand.dangerSoft : brand.green,
             }}
@@ -258,7 +284,7 @@ export default function ReviewScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingTop: space.m, paddingBottom: 130 }}
+        contentContainerStyle={{ paddingTop: space.m, paddingBottom: footerHeight + 12 }}
         showsVerticalScrollIndicator={false}
       >
         <Card>
@@ -272,15 +298,7 @@ export default function ReviewScreen() {
           >
             {courtName}
           </Text>
-          <View
-            style={{
-              borderTopWidth: 1,
-              borderStyle: 'dashed',
-              borderTopColor: colors.line,
-              marginTop: 13,
-              marginBottom: 13,
-            }}
-          />
+          <DashedDivider style={{ marginTop: 13, marginBottom: 13 }} />
           <SummaryGrid
             rows={[
               ...(startAt
@@ -289,7 +307,7 @@ export default function ReviewScreen() {
                     {
                       icon: ClockIcon,
                       label: t('booking.time'),
-                      value: `${formatTime(startAt, locale)}${endAt ? `–${formatTime(endAt, locale)}` : ''}`,
+                      value: endAt ? formatTimeRange(startAt, endAt, locale) : formatDateTime(startAt, locale),
                     },
                   ]
                 : []),
@@ -340,14 +358,30 @@ export default function ReviewScreen() {
         <ErrorText>{error}</ErrorText>
       </ScrollView>
 
-      <View style={{ position: 'absolute', bottom: 0, start: 0, end: 0, paddingStart: space.l, paddingEnd: space.l, paddingBottom: 20 + insets.bottom, paddingTop: space.sm, backgroundColor: colors.bg }}>
+      {/* Bottom bar: the design's transparent → bg gradient fade over the content. */}
+      <LinearGradient
+        colors={[`${colors.bg}00`, colors.bg]}
+        locations={[0, 0.4]}
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          start: 0,
+          end: 0,
+          paddingStart: space.l,
+          paddingEnd: space.l,
+          paddingTop: space.sm,
+          paddingBottom: 20 + insets.bottom,
+        }}
+      >
         <Button
           label={t('booking.reserveCta')}
           onPress={() => setDialogOpen(true)}
           variant="cta"
           disabled={!holdId}
+          style={{ paddingTop: 16, paddingBottom: 16 }}
         />
-      </View>
+      </LinearGradient>
 
       <ConfirmationDialog
         visible={dialogOpen}
@@ -358,6 +392,7 @@ export default function ReviewScreen() {
           price: Number.isInteger(price) ? formatIQD(price, locale) : '',
         })}
         confirmLabel={confirm.isPending ? t('booking.reserving') : t('booking.reserveCta')}
+        cancelLabel={t('common.notYet')}
         busy={confirm.isPending}
         onConfirm={onConfirm}
         onDismiss={() => setDialogOpen(false)}

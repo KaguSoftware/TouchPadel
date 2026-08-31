@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Linking, ScrollView, Text, View } from 'react-native';
 import * as Application from 'expo-application';
+import Constants from 'expo-constants';
+import { isRunningInExpoGo } from 'expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
@@ -11,8 +13,17 @@ import {
 } from '../src/features/profile/push';
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { venuePhoneOf } from '../src/features/availability/assemble';
+import { callPhone } from '../src/lib/phone';
 import { radius, space, useTheme, type Appearance } from '../src/theme';
-import { Button, Card, Hint, Screen, ScreenHeader, SegmentedControl } from '../src/components/ui';
+import {
+  Button,
+  Card,
+  Hint,
+  MicroLabel,
+  Screen,
+  ScreenHeader,
+  SegmentedControl,
+} from '../src/components/ui';
 import { BellIcon, GlobeIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
 
@@ -23,25 +34,30 @@ import { useToast } from '../src/components/overlays';
  * footer. Public route; reached from the signed-in Profile.
  */
 export default function SettingsScreen() {
-  const { t, locale, setLocale } = useLocale();
+  const { t, locale, setLocale, needsRestart } = useLocale();
   const { colors, fonts, appearance, setAppearance } = useTheme();
   const insets = useSafeAreaInsets();
   const settings = useVenueSettings();
   const toast = useToast();
 
-  const [showRestartNote, setShowRestartNote] = useState(false);
   const [pushState, setPushState] = useState<PushPermissionState>('undetermined');
   const [busyPush, setBusyPush] = useState(false);
 
   useEffect(() => {
-    void getPushPermissionState().then(setPushState);
+    let cancelled = false;
+    void getPushPermissionState().then((state) => {
+      if (!cancelled) setPushState(state);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const onPickLocale = async (next: Locale) => {
     if (next === locale) return;
+    // In development this reloads into the new direction; in a release build
+    // `needsRestart` turns on and the note below explains.
     await setLocale(next);
-    // I18nManager.forceRTL applies only after an app restart — tell the user.
-    setShowRestartNote(true);
   };
 
   const onEnablePush = async () => {
@@ -54,29 +70,32 @@ export default function SettingsScreen() {
   };
 
   const phone = venuePhoneOf(settings.data);
+  const onCall = () => {
+    if (!phone) {
+      toast(t('settings.phoneUnavailable'), 'info');
+      return;
+    }
+    void callPhone(phone).then((ok) => {
+      if (!ok) toast(t('errors.callFailed', { phone }), 'error');
+    });
+  };
+
+  // Expo Go reports ITS OWN native version; the app's comes from the config.
+  const appVersion = Constants.expoConfig?.version ?? Application.nativeApplicationVersion ?? '0.0.0';
+  const build = isRunningInExpoGo() ? 'dev' : (Application.nativeBuildVersion ?? '0');
 
   const groupLabel = (icon: React.ReactNode, label: string) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       {icon}
-      <Text
-        style={{
-          fontFamily: fonts.body700,
-          fontSize: 11,
-          letterSpacing: 0.66,
-          textTransform: 'uppercase',
-          color: colors.mut,
-        }}
-      >
-        {label}
-      </Text>
+      <MicroLabel>{label}</MicroLabel>
     </View>
   );
 
   return (
-    <Screen style={{ paddingTop: insets.top }}>
+    <Screen>
       <ScreenHeader title={t('settings.title')} />
       <ScrollView
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40, gap: space.sm }}
+        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         showsVerticalScrollIndicator={false}
       >
         {/* Appearance */}
@@ -118,7 +137,7 @@ export default function SettingsScreen() {
           >
             {t('settings.languageNote')}
           </Text>
-          {showRestartNote ? <Hint>{t('settings.rtlRestartNote')}</Hint> : null}
+          {needsRestart ? <Hint>{t('settings.rtlRestartNote')}</Hint> : null}
         </Card>
 
         {/* Notifications — three permission states, rendered differently */}
@@ -151,7 +170,8 @@ export default function SettingsScreen() {
               <Button
                 label={t('settings.openSystemSettings')}
                 variant="secondary"
-                onPress={() => void Linking.openSettings()}
+                size="compact"
+                onPress={() => void Linking.openSettings().catch(() => {})}
                 style={{ marginTop: 10 }}
               />
             </>
@@ -173,6 +193,7 @@ export default function SettingsScreen() {
               <Button
                 label={t('settings.enablePush')}
                 variant="cta"
+                size="compact"
                 busy={busyPush}
                 onPress={() => void onEnablePush()}
                 style={{ marginTop: 10 }}
@@ -190,14 +211,16 @@ export default function SettingsScreen() {
               justifyContent: 'space-between',
               alignItems: 'center',
               marginTop: 8,
+              gap: 10,
             }}
           >
-            <View>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={{ fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}>
                 {t('common.appName')}
               </Text>
               {phone ? (
                 <Text
+                  numberOfLines={1}
                   style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, marginTop: 2 }}
                 >
                   {phone}
@@ -207,10 +230,9 @@ export default function SettingsScreen() {
             <Button
               label={t('common.call')}
               variant="primary"
-              onPress={() => {
-                if (phone) void Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`);
-                else toast(t('errors.network'), 'info');
-              }}
+              size="compact"
+              disabled={settings.isLoading}
+              onPress={onCall}
               style={{
                 minHeight: 0,
                 paddingTop: 10,
@@ -232,11 +254,7 @@ export default function SettingsScreen() {
             marginTop: 6,
           }}
         >
-          {t('settings.versionLine', {
-            name: t('common.appName'),
-            version: Application.nativeApplicationVersion ?? '0.0.0',
-            build: Application.nativeBuildVersion ?? '0',
-          })}
+          {t('settings.versionLine', { name: t('common.appName'), version: appVersion, build })}
         </Text>
       </ScrollView>
     </Screen>
