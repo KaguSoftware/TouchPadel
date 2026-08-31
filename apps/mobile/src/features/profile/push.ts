@@ -43,3 +43,25 @@ export async function registerPushToken(): Promise<PushRegistrationResult> {
     return 'unavailable';
   }
 }
+
+export type PushPermissionState = 'undetermined' | 'granted' | 'denied' | 'unavailable';
+
+/**
+ * Passive permission probe for the Settings screen (design 2026-08-31 renders
+ * the three permission states differently). Never prompts — registerPushToken
+ * owns the request flow.
+ */
+export async function getPushPermissionState(): Promise<PushPermissionState> {
+  try {
+    const Device = await import('expo-device');
+    if (!Device.isDevice) return 'unavailable';
+    if (isRunningInExpoGo()) return 'unavailable';
+    const Notifications = await import('expo-notifications');
+    const { status, canAskAgain } = await Notifications.getPermissionsAsync();
+    if (status === 'granted') return 'granted';
+    if (status === 'denied' && !canAskAgain) return 'denied';
+    return 'undetermined';
+  } catch {
+    return 'unavailable';
+  }
+}

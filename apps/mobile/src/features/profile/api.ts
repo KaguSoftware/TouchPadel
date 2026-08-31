@@ -34,3 +34,19 @@ export async function updatePushToken(client: Client, uid: string, token: string
   const { error } = await client.from('profiles').update({ expo_push_token: token }).eq('id', uid);
   if (error) throw error;
 }
+
+/** Own contact details (design 2026-08-31: Edit profile). RLS: own row only. */
+export async function updateOwnProfile(
+  client: Client,
+  uid: string,
+  fields: { full_name?: string; phone?: string | null },
+) {
+  const { error } = await client.from('profiles').update(fields).eq('id', uid);
+  if (error) throw error;
+}
+
+/** Change password for the signed-in guest (design 2026-08-31). */
+export async function changePassword(client: Client, newPassword: string) {
+  const { error } = await client.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+}

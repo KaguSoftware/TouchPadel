@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Mulish:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E9EDF3;font-family:'Mulish',system-ui,sans-serif}a{color:var(--blue)}a:hover{color:#274B87}input::placeholder{color:var(--fnt2)}input:focus{outline:2px solid #A5D06F;outline-offset:0}button{cursor:pointer}.approot{--bg:#F3F5F9;--card:#fff;--sub:#EDF0F5;--tint:#EFF3FA;--seg:#E4E9F1;--line:#E2E8F2;--line2:#D6DEEA;--ink:#1B2A47;--mut:#5A6B8C;--mut2:#41527A;--fnt:#8494B2;--fnt2:#98A6BF;--fnt3:#C3CCDB;--blue:#3360AB;--gtint:#EDF6DF;--gline:#CBE3A4;--gtext:#3E6318;--gtext2:#41541F;--gstrong:#4C7F19;--gph:#647F45;--ph1:#E2EED0;--ph2:#ECF4DF;--amb:#FAF1DC;--ambline:#EAD9A8;--ambtext:#6B4E0A;--ambstrong:#8A6116;--redtint:#FBEAE8;--redline:#ECC7C2;--redtext:#B42318;--redtext2:#7A2E26;--tabbg:#ffffffF2;--page:#fff;--crtcast:#1B2A4759;--crtcast2:#1B2A472E;--crtbg:#DDE7F5;--crtturf:#7BA4DE;--crtturfline:#3E6BB0;--crtline:#fff;--crtscrim:#DDE7F5EE;--crtink:#12213C;--crtbadge:#12213C14;--crtbadgeline:#12213C2E;--crteyebrow:#3E6318;--crtshadow:#1B2A47}.approot.dark{--bg:#0D1830;--card:#16233F;--sub:#1E2D4D;--tint:#1C2C50;--seg:#0A1428;--line:#283A5E;--line2:#33466E;--ink:#EDF2FB;--mut:#9DAECB;--mut2:#B4C2DC;--fnt:#7E92B8;--fnt2:#6C80A6;--fnt3:#3D4F75;--blue:#8FB0E8;--gtint:#20331A;--gline:#3A5626;--gtext:#BCDF8F;--gtext2:#A8CD7F;--gstrong:#9CCB62;--gph:#7E9B55;--ph1:#1A2A14;--ph2:#203218;--amb:#33290F;--ambline:#4D3F17;--ambtext:#E7C877;--ambstrong:#D9B25C;--redtint:#3A1613;--redline:#5C2823;--redtext:#F09A8D;--redtext2:#E8AFA5;--tabbg:#0F1B36F2;--page:#0A1326;--crtcast:#00000080;--crtcast2:#00000059;--crtbg:#0E1D38;--crtturf:#2B5CA8;--crtturfline:#8FB0E8;--crtline:#fff;--crtscrim:#0E1D38CC;--crtink:#fff;--crtbadge:#ffffff1F;--crtbadgeline:#ffffff33;--crteyebrow:#A5D06F;--crtshadow:#050C1A}.hscroll,.vscroll{scrollbar-width:none}.hscroll::-webkit-scrollbar,.vscroll::-webkit-scrollbar{display:none}.vscroll>*{flex-shrink:0}
+@keyframes tpball{
+0%{transform:translate(102.4px,92px) scale(1);animation-timing-function:linear}
+9%{transform:translate(102.4px,208.6px) scale(1.3);animation-timing-function:linear}
+15%{transform:translate(102.4px,278.6px) scale(1.07);animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+21%{transform:translate(102.4px,304px) scale(1);animation-timing-function:linear}
+25%{transform:translate(102.4px,304px) scale(1);animation-timing-function:linear}
+25%{transform:translate(102.4px,304px) scale(1);animation-timing-function:linear}
+34%{transform:translate(165.8px,187.4px) scale(1.4);animation-timing-function:linear}
+40%{transform:translate(203.8px,117.4px) scale(1.07);animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+46%{transform:translate(217.6px,92px) scale(1);animation-timing-function:linear}
+50%{transform:translate(217.6px,92px) scale(1);animation-timing-function:linear}
+50%{transform:translate(217.6px,92px) scale(1);animation-timing-function:linear}
+59%{transform:translate(217.6px,208.6px) scale(1.3);animation-timing-function:linear}
+65%{transform:translate(217.6px,278.6px) scale(1.07);animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+71%{transform:translate(217.6px,304px) scale(1);animation-timing-function:linear}
+75%{transform:translate(217.6px,304px) scale(1);animation-timing-function:linear}
+75%{transform:translate(217.6px,304px) scale(1);animation-timing-function:linear}
+84%{transform:translate(154.2px,187.4px) scale(1.4);animation-timing-function:linear}
+90%{transform:translate(116.2px,117.4px) scale(1.07);animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+96%{transform:translate(102.4px,92px) scale(1);animation-timing-function:linear}
+100%{transform:translate(102.4px,92px) scale(1)}}
+@keyframes tpshade{
+0%{transform:translate(102.4px,99.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+9%{transform:translate(102.4px,215.7px) scale(0.58);opacity:0.12;animation-timing-function:linear}
+15%{transform:translate(102.4px,285.7px) scale(0.92);opacity:0.26;animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+21%{transform:translate(102.4px,311.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+25%{transform:translate(102.4px,311.1px) scale(1);opacity:.3;animation-timing-function:linear}
+25%{transform:translate(102.4px,311.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+34%{transform:translate(165.8px,194.5px) scale(0.58);opacity:0.12;animation-timing-function:linear}
+40%{transform:translate(203.8px,124.7px) scale(0.92);opacity:0.26;animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+46%{transform:translate(217.6px,99.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+50%{transform:translate(217.6px,99.1px) scale(1);opacity:.3;animation-timing-function:linear}
+50%{transform:translate(217.6px,99.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+59%{transform:translate(217.6px,215.7px) scale(0.58);opacity:0.12;animation-timing-function:linear}
+65%{transform:translate(217.6px,285.7px) scale(0.92);opacity:0.26;animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+71%{transform:translate(217.6px,311.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+75%{transform:translate(217.6px,311.1px) scale(1);opacity:.3;animation-timing-function:linear}
+75%{transform:translate(217.6px,311.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+84%{transform:translate(154.2px,194.5px) scale(0.58);opacity:0.12;animation-timing-function:linear}
+90%{transform:translate(116.2px,124.7px) scale(0.92);opacity:0.26;animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+96%{transform:translate(102.4px,99.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+100%{transform:translate(102.4px,99.1px) scale(1);opacity:.3}}
+@keyframes tpp1{0%{transform:translate(0,0)}8%{transform:translate(-3px,-2px)}46%{transform:translate(6px,10px)}75%{transform:translate(2px,4px)}92%{transform:translate(-4px,-1px)}100%{transform:translate(0,0)}}
+@keyframes tpp2{0%{transform:translate(2px,2px)}25%{transform:translate(6px,-4px)}46%{transform:translate(-2px,-1px)}62%{transform:translate(4px,-8px)}100%{transform:translate(2px,2px)}}
+@keyframes tpp3{0%{transform:translate(0,0)}21%{transform:translate(-6px,9px)}50%{transform:translate(-2px,3px)}71%{transform:translate(-4px,-2px)}100%{transform:translate(0,0)}}
+@keyframes tpp4{0%{transform:translate(-2px,0)}17%{transform:translate(-8px,-3px)}25%{transform:translate(-5px,-1px)}58%{transform:translate(3px,5px)}100%{transform:translate(-2px,0)}}
+@keyframes tpball2{
+0%{transform:translate(217.6px,92px) scale(1);animation-timing-function:linear}
+9%{transform:translate(154.2px,208.6px) scale(1.42);animation-timing-function:linear}
+15%{transform:translate(116.2px,278.6px) scale(1.07);animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+21%{transform:translate(102.4px,304px) scale(1);animation-timing-function:linear}
+25%{transform:translate(102.4px,304px) scale(1);animation-timing-function:linear}
+25%{transform:translate(102.4px,304px) scale(1);animation-timing-function:linear}
+34%{transform:translate(102.4px,187.4px) scale(1.28);animation-timing-function:linear}
+40%{transform:translate(102.4px,117.4px) scale(1.07);animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+46%{transform:translate(102.4px,92px) scale(1);animation-timing-function:linear}
+50%{transform:translate(102.4px,92px) scale(1);animation-timing-function:linear}
+50%{transform:translate(102.4px,92px) scale(1);animation-timing-function:linear}
+59%{transform:translate(165.8px,208.6px) scale(1.42);animation-timing-function:linear}
+65%{transform:translate(203.8px,278.6px) scale(1.07);animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+71%{transform:translate(217.6px,304px) scale(1);animation-timing-function:linear}
+75%{transform:translate(217.6px,304px) scale(1);animation-timing-function:linear}
+75%{transform:translate(217.6px,304px) scale(1);animation-timing-function:linear}
+84%{transform:translate(217.6px,187.4px) scale(1.28);animation-timing-function:linear}
+90%{transform:translate(217.6px,117.4px) scale(1.07);animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+96%{transform:translate(217.6px,92px) scale(1);animation-timing-function:linear}
+100%{transform:translate(217.6px,92px) scale(1)}}
+@keyframes tpshade2{
+0%{transform:translate(217.6px,99.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+9%{transform:translate(154.2px,215.7px) scale(0.58);opacity:0.12;animation-timing-function:linear}
+15%{transform:translate(116.2px,285.7px) scale(0.92);opacity:0.26;animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+21%{transform:translate(102.4px,311.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+25%{transform:translate(102.4px,311.1px) scale(1);opacity:.3;animation-timing-function:linear}
+25%{transform:translate(102.4px,311.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+34%{transform:translate(102.4px,194.5px) scale(0.58);opacity:0.12;animation-timing-function:linear}
+40%{transform:translate(102.4px,124.7px) scale(0.92);opacity:0.26;animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+46%{transform:translate(102.4px,99.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+50%{transform:translate(102.4px,99.1px) scale(1);opacity:.3;animation-timing-function:linear}
+50%{transform:translate(102.4px,99.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+59%{transform:translate(165.8px,215.7px) scale(0.58);opacity:0.12;animation-timing-function:linear}
+65%{transform:translate(203.8px,285.7px) scale(0.92);opacity:0.26;animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+71%{transform:translate(217.6px,311.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+75%{transform:translate(217.6px,311.1px) scale(1);opacity:.3;animation-timing-function:linear}
+75%{transform:translate(217.6px,311.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+84%{transform:translate(217.6px,194.5px) scale(0.58);opacity:0.12;animation-timing-function:linear}
+90%{transform:translate(217.6px,124.7px) scale(0.92);opacity:0.26;animation-timing-function:cubic-bezier(.25,.62,.12,1)}
+96%{transform:translate(217.6px,99.1px) scale(1);opacity:0.3;animation-timing-function:linear}
+100%{transform:translate(217.6px,99.1px) scale(1);opacity:.3}}
+@keyframes tpq1{0%{transform:translate(-2px,1px)}30%{transform:translate(4px,7px)}66%{transform:translate(-6px,-3px)}88%{transform:translate(1px,-6px)}100%{transform:translate(-2px,1px)}}
+@keyframes tpq2{0%{transform:translate(0,0)}19%{transform:translate(-7px,6px)}33%{transform:translate(-3px,2px)}72%{transform:translate(5px,-5px)}100%{transform:translate(0,0)}}
+@keyframes tpq3{0%{transform:translate(3px,-2px)}27%{transform:translate(-4px,8px)}55%{transform:translate(6px,3px)}80%{transform:translate(-2px,-4px)}100%{transform:translate(3px,-2px)}}
+@keyframes tpq4{0%{transform:translate(-1px,-1px)}24%{transform:translate(6px,4px)}60%{transform:translate(-5px,9px)}85%{transform:translate(2px,2px)}100%{transform:translate(-1px,-1px)}}
+.tpcourt .tpb,.tpcourt .tpbg{animation:tpball 6.6s linear infinite}
+.tpcourt .tpbg{animation-delay:-.07s}
+.tpfloat{filter:drop-shadow(0 14px 20px var(--crtcast)) drop-shadow(0 4px 7px var(--crtcast2))}
+.approot.dark .tpfloat{filter:drop-shadow(0 14px 20px #8FB0E859) drop-shadow(0 4px 7px #8FB0E82E)}
+.tpcourt .tpsh{animation:tpshade 6.6s linear infinite}
+.tpcourt .tpa1{animation:tpp1 6.6s ease-in-out infinite}
+.tpcourt .tpa2{animation:tpp2 6.6s ease-in-out infinite}
+.tpcourt .tpa3{animation:tpp3 6.6s ease-in-out infinite}
+.tpcourt .tpa4{animation:tpp4 6.6s ease-in-out infinite}
+.tpcourt:nth-of-type(even) .tpb,.tpcourt:nth-of-type(even) .tpbg{animation-name:tpball2;animation-duration:5.2s}
+.tpcourt:nth-of-type(even) .tpsh{animation-name:tpshade2;animation-duration:5.2s}
+.tpcourt:nth-of-type(even) .tpa1{animation-name:tpq1;animation-duration:5.2s}
+.tpcourt:nth-of-type(even) .tpa2{animation-name:tpq2;animation-duration:5.2s}
+.tpcourt:nth-of-type(even) .tpa3{animation-name:tpq3;animation-duration:5.2s}
+.tpcourt:nth-of-type(even) .tpa4{animation-name:tpq4;animation-duration:5.2s}
+@media (prefers-reduced-motion:reduce){.tpcourt .tpb,.tpcourt .tpbg,.tpcourt .tpsh,.tpcourt .tpa1,.tpcourt .tpa2,.tpcourt .tpa3,.tpcourt .tpa4{animation:none!important}}</style>
+</helmet>
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 0">
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ isDark }}" hint-size="440,900">
+<div class="approot {{ themeClass }}" style="position:relative;height:100%;width:100%;font-family:'Mulish',system-ui,sans-serif;background:var(--bg);overflow:hidden;color:var(--ink);--top:58px">
+
+<sc-if value="{{ sCourts }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Courts" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box;background:var(--page)">
+  <div style="padding:10px 16px 6px;display:flex;align-items:center;justify-content:space-between">
+    <img src="assets/logo.png" alt="Touch Padel" style="height:30px">
+    <div style="display:flex;align-items:center;gap:6px;font:700 11px 'Mulish';color:var(--mut)"><span style="width:7px;height:7px;border-radius:50%;background:#A5D06F"></span>Open now · 10:00–24:00</div>
+  </div>
+  <sc-if value="{{ degraded }}" hint-placeholder-val="{{ false }}">
+    <div style="margin:8px 16px 0;background:var(--amb);border:1px solid var(--ambline);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style="flex:none;color:var(--ambstrong)"><path d="M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0M12 19.3h.01M4 4l16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+      <div style="font-size:12px;line-height:1.45;color:var(--ambtext)"><b>Venue connection lost.</b> Booking for today &amp; tomorrow is desk-only for now. Call <b>{{ venuePhone }}</b>.</div>
+    </div>
+  </sc-if>
+  <div style="padding:12px 16px 2px"><div style="font:900 26px/1.05 'Archivo';letter-spacing:-.01em;text-transform:uppercase">Book a court</div><svg width="76" height="8" viewBox="0 0 76 8" fill="none" style="display:block;margin-top:4px"><path d="M2 6C22 1 50 1 74 4.5" stroke="#A5D06F" stroke-width="3.5" stroke-linecap="round"></path></svg></div>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:20px 18px 90px;display:flex;flex-direction:column;gap:26px">
+      <div class="tpcourt" style="display:flex;flex-direction:column;gap:14px">
+        <div style="position:relative;display:flex">
+        <svg viewBox="0 0 320 396" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;overflow:visible">
+          <g class="tpfloat">
+            <rect x="26" y="8" width="268" height="380" rx="5" style="fill:var(--crtturf)"></rect>
+            <rect x="26" y="8" width="268" height="380" rx="5" fill="none" stroke-width="1" opacity=".45" style="stroke:var(--crtturfline)"></rect>
+          </g>
+          <rect x="40" y="22" width="240" height="352" fill="none" stroke-width="1.6" opacity=".9" style="stroke:var(--crtline)"></rect>
+          <path d="M40 108h240M40 288h240" stroke-width="1.4" opacity=".7" style="stroke:var(--crtline)"></path>
+          <path d="M160 22v86M160 288v86" stroke-width="1.4" opacity=".7" style="stroke:var(--crtline)"></path>
+          <path d="M20 198h280" stroke="#A5D06F" stroke-width="2.6" opacity=".95"></path>
+          <path d="M20 198h280" stroke-width="1" stroke-dasharray="3 4" opacity=".8" style="stroke:var(--crtline)"></path>
+          <circle cx="20" cy="198" r="2.8" style="fill:var(--crtline)"></circle><circle cx="300" cy="198" r="2.8" style="fill:var(--crtline)"></circle>
+          <g class="tpa1" style="transform-box:fill-box;transform-origin:center">
+            <g transform="translate(100,88) rotate(-16) scale(1.5)">
+              <ellipse cx="0" cy="-3" rx="7.2" ry="8.4" fill="#fff" stroke="#A5D06F" stroke-width="1.6"></ellipse>
+              <circle cx="-2.7" cy="-5.4" r=".9" fill="#A5D06F" opacity=".45"></circle><circle cx="2.7" cy="-5.4" r=".9" fill="#A5D06F" opacity=".45"></circle>
+              <circle cx="0" cy="-2.4" r=".9" fill="#A5D06F" opacity=".45"></circle>
+              <circle cx="-2.7" cy=".6" r=".9" fill="#A5D06F" opacity=".45"></circle><circle cx="2.7" cy=".6" r=".9" fill="#A5D06F" opacity=".45"></circle>
+              <path d="M0 5.2V15" stroke="#A5D06F" stroke-width="3.2" stroke-linecap="round"></path>
+            </g>
+          </g>
+          <g class="tpa2" style="transform-box:fill-box;transform-origin:center">
+            <g transform="translate(220,88) rotate(15) scale(1.5)">
+              <ellipse cx="0" cy="-3" rx="7.2" ry="8.4" fill="#fff" stroke="#A5D06F" stroke-width="1.6"></ellipse>
+              <circle cx="-2.7" cy="-5.4" r=".9" fill="#A5D06F" opacity=".45"></circle><circle cx="2.7" cy="-5.4" r=".9" fill="#A5D06F" opacity=".45"></circle>
+              <circle cx="0" cy="-2.4" r=".9" fill="#A5D06F" opacity=".45"></circle>
+              <circle cx="-2.7" cy=".6" r=".9" fill="#A5D06F" opacity=".45"></circle><circle cx="2.7" cy=".6" r=".9" fill="#A5D06F" opacity=".45"></circle>
+              <path d="M0 5.2V15" stroke="#A5D06F" stroke-width="3.2" stroke-linecap="round"></path>
+            </g>
+          </g>
+          <g class="tpa3" style="transform-box:fill-box;transform-origin:center">
+            <g transform="translate(100,308) rotate(14) scale(1.5)">
+              <ellipse cx="0" cy="3" rx="7.2" ry="8.4" fill="#A5D06F" stroke="#7FAE4C" stroke-width="1.4"></ellipse>
+              <circle cx="-2.7" cy="5.4" r=".9" fill="#fff" opacity=".7"></circle><circle cx="2.7" cy="5.4" r=".9" fill="#fff" opacity=".7"></circle>
+              <circle cx="0" cy="2.4" r=".9" fill="#fff" opacity=".7"></circle>
+              <circle cx="-2.7" cy="-.6" r=".9" fill="#fff" opacity=".7"></circle><circle cx="2.7" cy="-.6" r=".9" fill="#fff" opacity=".7"></circle>
+              <path d="M0-5.2V-15" stroke="#A5D06F" stroke-width="3.2" stroke-linecap="round"></path>
+            </g>
+          </g>
+          <g class="tpa4" style="transform-box:fill-box;transform-origin:center">
+            <g transform="translate(220,308) rotate(-15) scale(1.5)">
+              <ellipse cx="0" cy="3" rx="7.2" ry="8.4" fill="#A5D06F" stroke="#7FAE4C" stroke-width="1.4"></ellipse>
+              <circle cx="-2.7" cy="5.4" r=".9" fill="#fff" opacity=".7"></circle><circle cx="2.7" cy="5.4" r=".9" fill="#fff" opacity=".7"></circle>
+              <circle cx="0" cy="2.4" r=".9" fill="#fff" opacity=".7"></circle>
+              <circle cx="-2.7" cy="-.6" r=".9" fill="#fff" opacity=".7"></circle><circle cx="2.7" cy="-.6" r=".9" fill="#fff" opacity=".7"></circle>
+              <path d="M0-5.2V-15" stroke="#A5D06F" stroke-width="3.2" stroke-linecap="round"></path>
+            </g>
+          </g>
+          <ellipse class="tpsh" rx="4.8" ry="2.3" style="fill:var(--crtshadow)"></ellipse>
+          <circle class="tpbg" r="5" fill="#EAF7D2" opacity=".28"></circle>
+          <circle class="tpb" r="5.2" fill="#EAF7D2" stroke="#A5D06F" stroke-width="1.4"></circle>
+        </svg>
+        </div>
+      </div>
+    <button onClick="{{ onCheckAvail }}" style="{{ ctaSt }}">
+      {{ ctaLabel }}
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+    </button>
+    <div style="padding:2px 16px 8px;text-align:center;font-size:11.5px;color:var(--fnt)">Reserve in the app · pay at the desk on arrival</div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sCourtDetail }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Court detail" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+    <button onClick="{{ goBack }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+    <div style="font:800 15px 'Archivo'">{{ dcName }}</div>
+  </div>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:0 16px 120px">
+    <div style="height:190px;border-radius:16px;position:relative;background:repeating-linear-gradient(135deg,var(--ph1) 0 14px,var(--ph2) 14px 28px);display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center">
+      <svg width="54" height="54" viewBox="0 0 48 48" fill="none" style="opacity:.55"><circle cx="24" cy="24" r="21" fill="#A5D06F"></circle><path d="M10 7.5c7.5 9 7.5 24 0 33M38 7.5c-7.5 9-7.5 24 0 33" stroke="#fff" stroke-width="2.4"></path></svg>
+      <div style="font:600 11px ui-monospace,Menlo,monospace;color:var(--gph)">[ court photo · {{ dcName }} ]</div>
+    </div>
+    <div style="display:flex;gap:8px;margin:14px 0 10px">
+      <div style="background:var(--sub);color:var(--mut);font:800 10px 'Archivo';letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:99px">60 · 90 min</div>
+    </div>
+    <div style="font:900 24px/1.1 'Archivo';text-transform:uppercase">{{ dcName }}</div>
+    <div style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;font-size:12.5px;color:var(--mut)">
+      <span style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:var(--gstrong)"><path d="M12 7.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1.1 1.1M17.3 17.3l1.1 1.1M18.4 5.6l-1.1 1.1M6.7 17.3l-1.1 1.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>Off-peak (before 17:00)</span><b style="color:var(--ink)">25,000 IQD / hr</b>
+    </div>
+    <div style="margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;font-size:12.5px;color:var(--mut)">
+      <span style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:var(--gstrong)"><path d="M20.5 14A8.7 8.7 0 1110 3.5a7.5 7.5 0 0010.5 10.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Peak (17:00 onwards)</span><b style="color:var(--ink)">35,000 IQD / hr</b>
+    </div>
+  </div>
+  <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px 20px;background:linear-gradient(transparent,var(--bg) 40%)">
+    <button onClick="{{ onSeeAvail }}" style="width:100%;background:#A5D06F;color:#1E3311;border:none;border-radius:14px;padding:16px;font:800 14px 'Archivo';letter-spacing:.05em;text-transform:uppercase" style-active="opacity:.85">See availability</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sAvail }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Availability" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:10px 16px 4px;display:flex;align-items:center;gap:10px">
+    <button onClick="{{ goBack }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+    <div style="font:800 15px 'Archivo'">Availability</div>
+  </div>
+  <sc-if value="{{ degraded }}" hint-placeholder-val="{{ false }}">
+    <div style="margin:6px 16px 0;background:var(--amb);border:1px solid var(--ambline);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.45;color:var(--ambtext);display:flex;gap:8px;align-items:flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex:none;color:var(--ambstrong);margin-top:1px"><path d="M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0M12 19.3h.01M4 4l16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg><div><b>Desk-only period.</b> Today &amp; tomorrow can only be booked at the desk · {{ venuePhone }}</div></div>
+  </sc-if>
+  <div class="hscroll" style="display:flex;gap:7px;overflow-x:auto;padding:10px 16px 2px;flex:none">
+    <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+      <button onClick="{{ d.onTap }}" style="{{ d.st }}">
+        <span style="font:700 10px 'Mulish';letter-spacing:.06em;text-transform:uppercase;opacity:.75">{{ d.dow }}</span>
+        <span style="font:800 16px 'Archivo'">{{ d.num }}</span>
+        <sc-if value="{{ d.closed }}" hint-placeholder-val="{{ false }}"><span style="font:700 8.5px 'Mulish';text-transform:uppercase;letter-spacing:.04em;opacity:.7">closed</span></sc-if>
+      </button>
+    </sc-for>
+  </div>
+  <div style="display:flex;gap:8px;padding:10px 16px 0;flex:none;align-items:center">
+    <div style="display:flex;background:var(--seg);border-radius:10px;padding:3px">
+      <sc-for list="{{ durs }}" as="du" hint-placeholder-count="2">
+        <button onClick="{{ du.onTap }}" style="{{ du.st }}">{{ du.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:20px 18px 90px;display:flex;flex-direction:column;gap:26px">
+    <sc-if value="{{ availClosed }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:30px 24px;text-align:center">
+        <div style="font:900 18px 'Archivo';text-transform:uppercase;color:var(--mut2)">Venue closed</div>
+        <div style="font-size:13px;color:var(--mut);margin-top:6px;line-height:1.5">The venue is closed on this day. Pick another day to see available slots.</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ availOpen }}" hint-placeholder-val="{{ true }}">
+      <sc-for list="{{ slotSections }}" as="sec" hint-placeholder-count="1">
+        <div style="margin:0 16px 18px">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+            <sc-for list="{{ sec.slots }}" as="sl" hint-placeholder-count="9">
+              <button onClick="{{ sl.onTap }}" disabled="{{ sl.disabled }}" style="{{ sl.st }}">
+                <span style="font:800 15px 'Archivo'">{{ sl.time }}</span>
+                <span style="{{ sl.subSt }}">{{ sl.sub }}</span>
+                <sc-if value="{{ sl.hasCap }}" hint-placeholder-val="{{ true }}"><span style="{{ sl.capSt }}">{{ sl.cap }}</span></sc-if>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+      <div style="margin:0 16px;font-size:11px;color:var(--fnt);text-align:center">Two courts per slot · your court is assigned at the desk<br>Peak rate applies from 17:00</div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sReview }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Booking review" style="position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);padding-top:58px;box-sizing:border-box">
+  <sc-if value="{{ reviewLive }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+      <button onClick="{{ onCancelHold }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+      <div style="font:800 15px 'Archivo'">Review &amp; confirm</div>
+    </div>
+    <div style="margin:4px 16px 0;background:#1B2A47;border-radius:14px;padding:12px 14px;color:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div style="display:flex;align-items:center;gap:6px;font:700 11px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:#A5D06F"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 9v4l2.5 2M12 5.5a7.5 7.5 0 107.5 7.5A7.5 7.5 0 0012 5.5zM10 2.5h4" stroke="#A5D06F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Slot held for you</div>
+        <div style="font:800 18px 'Archivo';font-variant-numeric:tabular-nums">{{ cdText }}</div>
+      </div>
+      <div style="height:5px;background:#324569;border-radius:99px;margin-top:9px;overflow:hidden"><div style="{{ cdBarSt }}"></div></div>
+      <div style="font-size:11px;color:#B9C6DE;margin-top:8px;line-height:1.4">Nobody else can take this slot while you check out. If the timer runs out, it goes back on the grid.</div>
+    </div>
+    <div class="vscroll" style="flex:1;overflow-y:auto;padding:14px 16px 130px">
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px">
+        <div style="font:900 20px 'Archivo';text-transform:uppercase">{{ rvCourt }}</div>
+        <div style="border-top:1px dashed var(--line);margin:13px 0"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 8px;font-size:13px">
+          <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:var(--fnt)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3.5 5.5h17v15h-17zM3.5 10h17M8 3v4M16 3v4" stroke="#6FA33A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Date</div><div style="font-weight:700;margin-top:3px">{{ rvDate }}</div></div>
+          <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:var(--fnt)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#6FA33A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Time</div><div style="font-weight:700;margin-top:3px">{{ rvTime }}</div></div>
+          <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:var(--fnt)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 9v4l2.5 2M12 5.5a7.5 7.5 0 107.5 7.5A7.5 7.5 0 0012 5.5zM10 2.5h4" stroke="#6FA33A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Duration</div><div style="font-weight:700;margin-top:3px">{{ rvDur }}</div></div>
+          <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:var(--fnt)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M13.2 3H5v8.2L12.8 19a2 2 0 002.8 0l5.4-5.4a2 2 0 000-2.8L13.2 3zM8.7 7.7h.01" stroke="#6FA33A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Price</div><div style="font-weight:800;margin-top:3px;color:var(--gtext)">{{ rvPrice }}</div></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;background:var(--gtint);border:1px solid var(--gline);border-radius:14px;padding:13px 14px">
+        <div style="display:flex;align-items:center;gap:6px;font:800 12px 'Archivo';letter-spacing:.05em;text-transform:uppercase;color:var(--gtext)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="6" width="19" height="12" rx="2" stroke="currentColor" stroke-width="2"></rect><circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="2"></circle><path d="M6 12h.01M18 12h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>Pay at the desk</div>
+        <div style="font-size:12.5px;line-height:1.55;color:var(--gtext2);margin-top:4px">Your court is reserved now. You pay at reception when you arrive — there is no online payment in this app.</div>
+      </div>
+      <div style="margin-top:12px;font-size:11.5px;line-height:1.55;color:var(--fnt);padding:0 4px">Free cancellation until 6 hours before your slot. Inside that window, changes are handled by the desk. Repeated no-shows may limit app booking.</div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px 20px;background:linear-gradient(transparent,var(--bg) 40%)">
+      <button onClick="{{ onConfirmTap }}" style="width:100%;background:#A5D06F;color:#1E3311;border:none;border-radius:14px;padding:16px;font:800 14px 'Archivo';letter-spacing:.05em;text-transform:uppercase" style-active="opacity:.85">Reserve court</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ holdExpired }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--sub);display:flex;align-items:center;justify-content:center;font:800 24px 'Archivo';color:var(--fnt)">0</div>
+      <div style="font:900 20px 'Archivo';text-transform:uppercase;margin-top:18px">Hold expired</div>
+      <div style="font-size:13px;line-height:1.6;color:var(--mut);margin-top:8px">Your time ran out and the slot went back on the grid. It may still be free — pick it again.</div>
+      <button onClick="{{ onBackAvail }}" style="margin-top:22px;background:#A5D06F;color:#1E3311;border:none;border-radius:14px;padding:14px 26px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Back to availability</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ slotTaken }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--redtint);display:flex;align-items:center;justify-content:center;font:800 22px 'Archivo';color:var(--redtext)">!</div>
+      <div style="font:900 20px 'Archivo';text-transform:uppercase;margin-top:18px">Slot just taken</div>
+      <div style="font-size:13px;line-height:1.6;color:var(--mut);margin-top:8px">Someone at the desk got there first. The grid has been refreshed — pick another slot.</div>
+      <button onClick="{{ onBackAvail }}" style="margin-top:22px;background:#A5D06F;color:#1E3311;border:none;border-radius:14px;padding:14px 26px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Back to availability</button>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ sSuccess }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Booking success" style="position:absolute;inset:0;display:flex;flex-direction:column;background:#1B2A47;color:#fff;padding-top:58px;box-sizing:border-box">
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:40px 24px 24px;display:flex;flex-direction:column;align-items:center;text-align:center">
+    <div style="width:72px;height:72px;border-radius:50%;background:#A5D06F;display:flex;align-items:center;justify-content:center">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M4.5 12.5l5 5 10-11" stroke="#1E3311" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+    </div>
+    <div style="font:900 26px 'Archivo';text-transform:uppercase;margin-top:20px;letter-spacing:.01em">Court reserved</div>
+    <div style="font:700 12px 'Mulish';color:#A5D06F;margin-top:6px;letter-spacing:.08em">REF {{ okRef }}</div>
+    <div style="width:100%;margin-top:22px;background:#243756;border-radius:16px;padding:16px;text-align:start">
+      <div style="font:800 16px 'Archivo';text-transform:uppercase">{{ okCourt }}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 8px;font-size:13px;margin-top:12px">
+        <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:#8FA3C7"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3.5 5.5h17v15h-17zM3.5 10h17M8 3v4M16 3v4" stroke="#A5D06F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Date</div><div style="font-weight:700;margin-top:3px">{{ okDate }}</div></div>
+        <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:#8FA3C7"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#A5D06F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Time</div><div style="font-weight:700;margin-top:3px">{{ okTime }}</div></div>
+        <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:#8FA3C7"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 9v4l2.5 2M12 5.5a7.5 7.5 0 107.5 7.5A7.5 7.5 0 0012 5.5zM10 2.5h4" stroke="#A5D06F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Duration</div><div style="font-weight:700;margin-top:3px">{{ okDur }}</div></div>
+        <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:#8FA3C7"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M13.2 3H5v8.2L12.8 19a2 2 0 002.8 0l5.4-5.4a2 2 0 000-2.8L13.2 3zM8.7 7.7h.01" stroke="#A5D06F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Price</div><div style="font-weight:800;margin-top:3px;color:#A5D06F">{{ okPrice }}</div></div>
+      </div>
+    </div>
+    <div style="width:100%;margin-top:12px;background:#243756;border-radius:14px;padding:12px 14px;text-align:start;font-size:12.5px;line-height:1.55;color:#B9C6DE"><b style="color:#fff">Pay at the desk.</b> Show up, check in at reception and pay there. We'll send a reminder before your slot.</div>
+  </div>
+  <div style="padding:12px 16px 22px;display:flex;flex-direction:column;gap:9px">
+    <button onClick="{{ onViewNewBooking }}" style="width:100%;background:#A5D06F;color:#1E3311;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">View booking</button>
+    <button onClick="{{ onDone }}" style="width:100%;background:transparent;color:#B9C6DE;border:1px solid #3A507A;border-radius:14px;padding:14px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Done</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sBookings }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="My bookings" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:16px 16px 10px"><div style="font:900 26px/1.05 'Archivo';letter-spacing:-.01em;text-transform:uppercase">My bookings</div><svg width="76" height="8" viewBox="0 0 76 8" fill="none" style="display:block;margin-top:4px"><path d="M2 6C22 1 50 1 74 4.5" stroke="#A5D06F" stroke-width="3.5" stroke-linecap="round"></path></svg></div>
+  <sc-if value="{{ degraded }}" hint-placeholder-val="{{ false }}">
+    <div style="margin:0 16px 8px;background:var(--amb);border:1px solid var(--ambline);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.45;color:var(--ambtext);display:flex;gap:8px;align-items:flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex:none;color:var(--ambstrong);margin-top:1px"><path d="M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0M12 19.3h.01M4 4l16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg><div><b>Venue connection lost.</b> Your bookings are shown as last known. Call {{ venuePhone }} for changes.</div></div>
+  </sc-if>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:0 16px 90px">
+    <sc-if value="{{ noBookings }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:44px 20px;text-align:center">
+        <svg width="58" height="58" viewBox="0 0 48 48" fill="none" style="opacity:.85"><circle cx="24" cy="24" r="21" fill="#A5D06F"></circle><path d="M10 7.5c7.5 9 7.5 24 0 33M38 7.5c-7.5 9-7.5 24 0 33" stroke="#fff" stroke-width="2.4"></path></svg>
+        <div style="font:900 18px 'Archivo';text-transform:uppercase;color:var(--mut2);margin-top:12px">No bookings yet</div>
+        <div style="font-size:13px;color:var(--mut);margin-top:6px;line-height:1.5">Your court reservations will show up here.</div>
+        <button onClick="{{ tabCourts }}" style="margin-top:16px;background:#A5D06F;color:#1E3311;border:none;border-radius:12px;padding:13px 22px;font:800 12px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Book a court</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ hasUpcoming }}" hint-placeholder-val="{{ true }}">
+      <div style="font:800 11px 'Archivo';letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:6px 0 8px">Upcoming</div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <sc-for list="{{ upcoming }}" as="b" hint-placeholder-count="2">
+          <div onClick="{{ b.onOpen }}" style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;gap:12px;align-items:center" style-active="opacity:.9">
+            <div style="flex:none;width:48px;text-align:center;background:var(--tint);border-radius:10px;padding:7px 0">
+              <div style="font:700 9.5px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:var(--mut)">{{ b.mon }}</div>
+              <div style="font:900 18px 'Archivo';color:var(--blue)">{{ b.dayNum }}</div>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font:800 14px 'Archivo'">{{ b.court }}</div>
+              <div style="font-size:12px;color:var(--mut);margin-top:2px">{{ b.timeLine }}</div>
+              <sc-if value="{{ b.series }}" hint-placeholder-val="{{ false }}"><div style="display:inline-block;margin-top:5px;background:var(--tint);color:var(--blue);font:700 10px 'Mulish';padding:3px 8px;border-radius:99px">↻ Weekly series</div></sc-if>
+            </div>
+            <div style="{{ b.pillSt }}">{{ b.statusLabel }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ emptyUpcoming }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:8px 0 0;background:#fff;border:1px dashed var(--line2);border-radius:14px;padding:18px;text-align:center;font-size:12.5px;color:var(--mut)">Nothing upcoming. <b>Book your next game →</b></div>
+    </sc-if>
+    <sc-if value="{{ hasPast }}" hint-placeholder-val="{{ true }}">
+      <div style="font:800 11px 'Archivo';letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:20px 0 8px">Past</div>
+      <div style="display:flex;flex-direction:column;gap:9px;opacity:.82">
+        <sc-for list="{{ past }}" as="b" hint-placeholder-count="3">
+          <div onClick="{{ b.onOpen }}" style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 14px;display:flex;gap:12px;align-items:center">
+            <div style="flex:1;min-width:0">
+              <div style="font:800 13px 'Archivo';color:var(--mut2)">{{ b.court }}</div>
+              <div style="font-size:11.5px;color:var(--fnt);margin-top:2px">{{ b.dateLine }}</div>
+            </div>
+            <div style="{{ b.pillSt }}">{{ b.statusLabel }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sBookingDetail }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Booking detail" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+    <button onClick="{{ goBack }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+    <div style="font:800 15px 'Archivo'">Booking {{ bdRef }}</div>
+  </div>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:4px 16px 40px">
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="font:900 20px 'Archivo';text-transform:uppercase">{{ bdCourt }}</div>
+        <div style="{{ bdPillSt }}">{{ bdStatus }}</div>
+      </div>
+      <div style="border-top:1px dashed var(--line);margin:13px 0"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px 8px;font-size:13px">
+        <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:var(--fnt)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3.5 5.5h17v15h-17zM3.5 10h17M8 3v4M16 3v4" stroke="#6FA33A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Date</div><div style="font-weight:700;margin-top:3px">{{ bdDate }}</div></div>
+        <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:var(--fnt)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#6FA33A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Time</div><div style="font-weight:700;margin-top:3px">{{ bdTime }}</div></div>
+        <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:var(--fnt)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 9v4l2.5 2M12 5.5a7.5 7.5 0 107.5 7.5A7.5 7.5 0 0012 5.5zM10 2.5h4" stroke="#6FA33A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Duration</div><div style="font-weight:700;margin-top:3px">{{ bdDur }}</div></div>
+        <div><div style="display:flex;align-items:center;gap:5px;font:700 10px 'Mulish';letter-spacing:.07em;text-transform:uppercase;color:var(--fnt)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M13.2 3H5v8.2L12.8 19a2 2 0 002.8 0l5.4-5.4a2 2 0 000-2.8L13.2 3zM8.7 7.7h.01" stroke="#6FA33A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Price · at desk</div><div style="font-weight:800;margin-top:3px;color:var(--gtext)">{{ bdPrice }}</div></div>
+      </div>
+    </div>
+    <sc-if value="{{ bdSeries }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:10px;background:var(--tint);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--mut2)"><b>↻ Part of a weekly series</b> created by the venue. You can cancel this occurrence only — the desk manages the series.</div>
+    </sc-if>
+    <sc-if value="{{ bdUpcomingActive }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ bdCanCancel }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px">
+          <div style="font-size:12.5px;line-height:1.5;color:var(--mut2)">Free cancellation until <b>{{ bdWindow }}</b>.</div>
+          <button onClick="{{ onCancelTap }}" style="margin-top:10px;width:100%;background:var(--card);color:var(--redtext);border:1.5px solid var(--redline);border-radius:12px;padding:13px;font:800 12px 'Archivo';letter-spacing:.05em;text-transform:uppercase" style-active="background:var(--redtint)">Cancel booking</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ bdCancelBlocked }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:10px;background:var(--redtint);border:1px solid var(--redline);border-radius:14px;padding:13px 14px">
+          <div style="font:800 12px 'Archivo';letter-spacing:.04em;text-transform:uppercase;color:var(--redtext)">Cancellation window closed</div>
+          <div style="font-size:12.5px;line-height:1.55;color:var(--redtext2);margin-top:4px">The free window ended at <b>{{ bdWindow }}</b>. The desk can still help with changes.</div>
+          <button onClick="{{ onCallVenue }}" style="margin-top:10px;width:100%;background:#B42318;color:#fff;border:none;border-radius:12px;padding:13px;font:800 12px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Call the venue</button>
+        </div>
+      </sc-if>
+    </sc-if>
+    <sc-if value="{{ bdCancelled }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:10px;background:var(--sub);border-radius:14px;padding:13px 14px;font-size:12.5px;color:var(--mut);line-height:1.5">This booking was cancelled. The slot has been released back to the grid.</div>
+    </sc-if>
+    <div style="margin-top:10px;background:var(--gtint);border:1px solid var(--gline);border-radius:14px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:var(--gtext2)"><b>Pay at the desk.</b> No online payment — settle at reception on arrival.</div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sProfile }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Profile" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:16px 16px 10px"><div style="font:900 26px/1.05 'Archivo';letter-spacing:-.01em;text-transform:uppercase">Profile</div><svg width="76" height="8" viewBox="0 0 76 8" fill="none" style="display:block;margin-top:4px"><path d="M2 6C22 1 50 1 74 4.5" stroke="#A5D06F" stroke-width="3.5" stroke-linecap="round"></path></svg></div>
+  <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ true }}">
+    <div class="vscroll" style="flex:1;overflow-y:auto;padding:0 16px 90px">
+      <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;gap:13px;align-items:center">
+        <div style="width:50px;height:50px;border-radius:50%;background:#3360AB;border:2.5px solid #A5D06F;color:#fff;display:flex;align-items:center;justify-content:center;font:800 17px 'Archivo';flex:none;box-sizing:border-box">{{ userInitials }}</div>
+        <div style="min-width:0">
+          <div style="font:800 16px 'Archivo'">{{ userName }}</div>
+          <div style="font-size:12px;color:var(--mut);margin-top:2px">{{ userEmail }}</div>
+          <div style="font-size:12px;color:var(--mut)">{{ userPhone }} · {{ userLang }}</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden">
+        <sc-for list="{{ profileRows }}" as="r" hint-placeholder-count="4">
+          <button onClick="{{ r.onTap }}" style="{{ r.st }}" style-active="background:var(--sub)"><span style="display:flex;align-items:center;gap:11px"><span style="width:30px;height:30px;border-radius:9px;background:var(--gtint);display:flex;align-items:center;justify-content:center;flex:none;color:var(--gstrong)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="{{ r.d }}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>{{ r.label }}</span><span style="color:var(--fnt2)">›</span></button>
+        </sc-for>
+      </div>
+      <button onClick="{{ onSignOutTap }}" style="margin-top:14px;width:100%;background:transparent;border:1.5px solid var(--line);border-radius:14px;padding:14px;font:800 12px 'Archivo';letter-spacing:.05em;text-transform:uppercase;color:var(--redtext)">Sign out</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px 90px;text-align:center">
+      <img src="assets/logo.png" alt="Touch Padel" style="height:40px">
+      <div style="font-size:13.5px;line-height:1.6;color:var(--mut);margin-top:14px">Sign in to book courts, manage your reservations and get reminders before your slot.</div>
+      <button onClick="{{ onGoSignIn }}" style="margin-top:20px;width:100%;background:#3360AB;color:#fff;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Sign in</button>
+      <button onClick="{{ onGoSignUp }}" style="margin-top:9px;width:100%;background:#A5D06F;color:#1E3311;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Create account</button>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ sEditProfile }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Edit profile" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+    <button onClick="{{ goBack }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+    <div style="font:800 15px 'Archivo'">Edit profile</div>
+  </div>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:8px 16px 40px;display:flex;flex-direction:column;gap:12px">
+    <label style="display:block"><span style="font:700 11px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:var(--mut)">Name</span>
+      <input defaultValue="{{ userName }}" onChange="{{ hEpName }}" style="margin-top:5px;width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:13px 14px;font:600 14px 'Mulish';color:var(--ink)"></label>
+    <label style="display:block"><span style="font:700 11px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:var(--mut)">Phone number</span>
+      <input defaultValue="{{ userPhone }}" onChange="{{ hEpPhone }}" type="tel" style="margin-top:5px;width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:13px 14px;font:600 14px 'Mulish';color:var(--ink)"></label>
+    <div><span style="font:700 11px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:var(--mut)">Preferred language</span>
+      <div style="display:flex;background:var(--seg);border-radius:12px;padding:3px;margin-top:5px">
+        <sc-for list="{{ langOpts }}" as="lo" hint-placeholder-count="2"><button onClick="{{ lo.onTap }}" style="{{ lo.st }}">{{ lo.label }}</button></sc-for>
+      </div>
+    </div>
+    <div style="background:var(--sub);border-radius:12px;padding:11px 13px;font-size:12px;color:var(--mut);line-height:1.5">Email <b>{{ userEmail }}</b> can't be changed here — it requires re-verification through support.</div>
+    <button onClick="{{ onSaveProfile }}" style="margin-top:6px;width:100%;background:#A5D06F;color:#1E3311;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Save changes</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sChangePassword }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Change password" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+    <button onClick="{{ goBack }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+    <div style="font:800 15px 'Archivo'">Change password</div>
+  </div>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:8px 16px 40px;display:flex;flex-direction:column;gap:12px">
+    <input placeholder="Current password" type="password" onChange="{{ hCpCur }}" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:13px 14px;font:600 14px 'Mulish';color:var(--ink)">
+    <input placeholder="New password (min 8 characters)" type="password" onChange="{{ hCpNew }}" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:13px 14px;font:600 14px 'Mulish';color:var(--ink)">
+    <input placeholder="Confirm new password" type="password" onChange="{{ hCpConf }}" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:13px 14px;font:600 14px 'Mulish';color:var(--ink)">
+    <sc-if value="{{ cpError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--redtext);font-weight:700">{{ cpErrorMsg }}</div></sc-if>
+    <button onClick="{{ onSavePassword }}" style="margin-top:6px;width:100%;background:#A5D06F;color:#1E3311;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Update password</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sSettings }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Settings" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+    <button onClick="{{ goBack }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+    <div style="font:800 15px 'Archivo'">Settings</div>
+  </div>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:8px 16px 40px;display:flex;flex-direction:column;gap:12px">
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px">
+      <div style="display:flex;align-items:center;gap:6px;font:700 11px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:var(--mut)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:var(--gstrong)"><path d="M20.5 14A8.7 8.7 0 1110 3.5a7.5 7.5 0 0010.5 10.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Appearance</div>
+      <div style="display:flex;background:var(--seg);border-radius:12px;padding:3px;margin-top:8px">
+        <sc-for list="{{ appOpts }}" as="ao" hint-placeholder-count="2"><button onClick="{{ ao.onTap }}" style="{{ ao.st }}">{{ ao.label }}</button></sc-for>
+      </div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px">
+      <div style="display:flex;align-items:center;gap:6px;font:700 11px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:var(--mut)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:var(--gstrong)"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle><path d="M3 12h18M12 3c3 3.5 3 14 0 18M12 3c-3 3.5-3 14 0 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>Language</div>
+      <div style="display:flex;background:var(--seg);border-radius:12px;padding:3px;margin-top:8px">
+        <sc-for list="{{ langOpts }}" as="lo" hint-placeholder-count="2"><button onClick="{{ lo.onTap }}" style="{{ lo.st }}">{{ lo.label }}</button></sc-for>
+      </div>
+      <div style="font-size:11.5px;color:var(--fnt);margin-top:8px;line-height:1.5">Switching to العربية flips the whole app right-to-left and restarts it.</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px">
+      <div style="display:flex;align-items:center;gap:6px;font:700 11px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:var(--mut)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:var(--gstrong)"><path d="M12 4a6 6 0 00-6 6c0 5-1.5 6-2 7h16c-.5-1-2-2-2-7a6 6 0 00-6-6zM10 20a2 2 0 004 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Notifications</div>
+      <sc-if value="{{ notifUndetermined }}" hint-placeholder-val="{{ true }}">
+        <div style="font-size:12.5px;color:var(--mut2);margin-top:7px;line-height:1.5">Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.</div>
+        <button onClick="{{ onNotifRequest }}" style="margin-top:10px;width:100%;background:#A5D06F;color:#1E3311;border:none;border-radius:12px;padding:13px;font:800 12px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Enable notifications</button>
+      </sc-if>
+      <sc-if value="{{ notifGranted }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12.5px;color:var(--gtext);margin-top:7px;font-weight:700">✓ Enabled — booking confirmations, reminders and cancellations.</div>
+      </sc-if>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px">
+      <div style="display:flex;align-items:center;gap:6px;font:700 11px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:var(--mut)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:var(--gstrong)"><path d="M8 3h8a1.5 1.5 0 011.5 1.5v15A1.5 1.5 0 0116 21H8a1.5 1.5 0 01-1.5-1.5v-15A1.5 1.5 0 018 3zM10.5 17.8h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Venue</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <div><div style="font:800 14px 'Archivo'">Touch Padel</div><div style="font-size:12px;color:var(--mut);margin-top:2px">{{ venuePhone }}</div></div>
+        <button onClick="{{ onCallVenue }}" style="background:#3360AB;color:#fff;border:none;border-radius:99px;padding:10px 18px;font:800 11px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Call</button>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--fnt2);margin-top:6px">Touch Padel · v1.0.0 (12)</div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sWelcome }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Welcome" style="position:absolute;inset:0;display:flex;flex-direction:column;background:linear-gradient(168deg,#274B87,#3360AB 55%,#2A529A);color:#fff">
+  <svg width="210" height="210" viewBox="0 0 48 48" fill="none" style="position:absolute;top:44px;inset-inline-end:-58px;opacity:.13"><circle cx="24" cy="24" r="21" fill="#fff"></circle><path d="M10 7.5c7.5 9 7.5 24 0 33M38 7.5c-7.5 9-7.5 24 0 33" stroke="#3360AB" stroke-width="2.2"></path></svg>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 26px">
+    <img src="assets/logo-white.png" alt="Touch Padel" style="height:44px;align-self:flex-start">
+    <div style="font:900 34px/1.04 'Archivo';text-transform:uppercase;margin-top:22px">Your court<br>is waiting.</div>
+    <svg width="110" height="10" viewBox="0 0 110 10" fill="none" style="display:block;margin-top:10px"><path d="M2 8C32 1.5 74 1.5 108 5.5" stroke="#A5D06F" stroke-width="4" stroke-linecap="round"></path></svg>
+    <sc-if value="{{ hasPendingSlot }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:14px;background:#ffffff22;border:1px solid #ffffff36;border-radius:12px;padding:10px 13px;font-size:12.5px;line-height:1.5">Sign in to finish booking <b>{{ pendingLabel }}</b> — we'll hold it while you check out.</div>
+    </sc-if>
+  </div>
+  <div style="padding:0 20px 26px;display:flex;flex-direction:column;gap:9px">
+    <button onClick="{{ onGoSignIn }}" style="width:100%;background:#fff;color:#132038;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Sign in</button>
+    <button onClick="{{ onGoSignUp }}" style="width:100%;background:#A5D06F;color:#1E3311;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Create account</button>
+    <button onClick="{{ onKeepBrowsing }}" style="width:100%;background:transparent;color:#B9C6DE;border:none;padding:8px;font:700 12.5px 'Mulish'">Keep browsing</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sSignIn }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Sign in" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+    <button onClick="{{ goBack }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+  </div>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:6px 20px 40px">
+    <div style="font:900 26px 'Archivo';text-transform:uppercase">Sign in</div>
+    <div style="display:flex;flex-direction:column;gap:11px;margin-top:18px">
+      <input placeholder="Email" type="email" onChange="{{ hSiEmail }}" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:14px;font:600 14px 'Mulish';color:var(--ink)">
+      <input placeholder="Password" type="password" onChange="{{ hSiPass }}" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:14px;font:600 14px 'Mulish';color:var(--ink)">
+      <sc-if value="{{ authError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--redtext);font-weight:700">{{ authErrorMsg }}</div></sc-if>
+      <button onClick="{{ onAuthSignIn }}" style="width:100%;background:#3360AB;color:#fff;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">{{ signInLabel }}</button>
+      <button onClick="{{ onGoForgot }}" style="background:none;border:none;color:var(--blue);font:700 12.5px 'Mulish';padding:4px">Forgot password?</button>
+    </div>
+    <div style="text-align:center;font-size:12.5px;color:var(--mut);margin-top:18px">New here? <b onClick="{{ onGoSignUp }}" style="color:var(--blue);cursor:pointer">Create an account</b></div>
+    <div style="margin-top:22px;background:var(--sub);border-radius:12px;padding:10px 13px;font-size:11.5px;color:var(--fnt);line-height:1.5">Demo: any email + password signs in · password "wrong" shows the failure state.</div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sSignUp }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Sign up" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+    <button onClick="{{ goBack }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+  </div>
+  <div class="vscroll" style="flex:1;overflow-y:auto;padding:6px 20px 40px">
+    <div style="font:900 26px 'Archivo';text-transform:uppercase">Create account</div>
+    <div class="vscroll" style="display:flex;flex-direction:column;gap:11px;margin-top:18px">
+      <input placeholder="Full name" onChange="{{ hSuName }}" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:14px;font:600 14px 'Mulish';color:var(--ink)">
+      <input placeholder="Email" type="email" onChange="{{ hSuEmail }}" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:14px;font:600 14px 'Mulish';color:var(--ink)">
+      <input placeholder="Password (min 8 characters)" type="password" onChange="{{ hSuPass }}" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:14px;font:600 14px 'Mulish';color:var(--ink)">
+      <input placeholder="Phone number" type="tel" onChange="{{ hSuPhone }}" style="width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:14px;font:600 14px 'Mulish';color:var(--ink)">
+      <div><span style="font:700 11px 'Mulish';letter-spacing:.06em;text-transform:uppercase;color:var(--mut)">Preferred language</span>
+        <div style="display:flex;background:var(--seg);border-radius:12px;padding:3px;margin-top:5px">
+          <sc-for list="{{ langOpts }}" as="lo" hint-placeholder-count="2"><button onClick="{{ lo.onTap }}" style="{{ lo.st }}">{{ lo.label }}</button></sc-for>
+        </div>
+      </div>
+      <sc-if value="{{ authError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--redtext);font-weight:700">{{ authErrorMsg }}</div></sc-if>
+      <button onClick="{{ onAuthSignUp }}" style="width:100%;background:#3360AB;color:#fff;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Create account</button>
+    </div>
+    <div style="text-align:center;font-size:12.5px;color:var(--mut);margin-top:16px">Already playing with us? <b onClick="{{ onGoSignIn }}" style="color:var(--blue);cursor:pointer">Sign in</b></div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ sVerifyPending }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Verify email" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px;text-align:center">
+  <div style="width:64px;height:64px;border-radius:50%;background:var(--tint);display:flex;align-items:center;justify-content:center">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style="color:var(--blue)"><rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" stroke-width="2"></rect><path d="M4 7l8 6 8-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+  </div>
+  <div style="font:900 21px 'Archivo';text-transform:uppercase;margin-top:18px">Check your email</div>
+  <div style="font-size:13px;line-height:1.6;color:var(--mut);margin-top:8px">We sent a verification link to<br><b style="color:var(--ink)">{{ verifyEmail }}</b>.<br>Open it to activate your account.</div>
+  <button onClick="{{ onResend }}" disabled="{{ resendDisabled }}" style="{{ resendSt }}">{{ resendLabel }}</button>
+  <button onClick="{{ onDemoVerified }}" style="margin-top:10px;width:100%;background:#3360AB;color:#fff;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">I've clicked the link (demo)</button>
+  <button onClick="{{ onAbandonVerify }}" style="margin-top:12px;background:none;border:none;color:var(--fnt);font:700 12.5px 'Mulish'">Use a different email</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ sVerifyResult }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Verified" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px;text-align:center">
+  <div style="width:72px;height:72px;border-radius:50%;background:#A5D06F;display:flex;align-items:center;justify-content:center">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M4.5 12.5l5 5 10-11" stroke="#1E3311" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+  </div>
+  <div style="font:900 22px 'Archivo';text-transform:uppercase;margin-top:18px">Email verified</div>
+  <div style="font-size:13px;line-height:1.6;color:var(--mut);margin-top:8px">You're all set, {{ userName }}.<sc-if value="{{ hasPendingSlot }}" hint-placeholder-val="{{ false }}"> Let's finish booking <b>{{ pendingLabel }}</b>.</sc-if></div>
+  <button onClick="{{ onVerifyContinue }}" style="margin-top:22px;width:100%;background:#3360AB;color:#fff;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Continue</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ sForgot }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Forgot password" style="position:absolute;inset:0;display:flex;flex-direction:column;padding-top:58px;box-sizing:border-box">
+  <div style="padding:10px 16px;display:flex;align-items:center;gap:10px">
+    <button onClick="{{ goBack }}" style="background:var(--card);border:1px solid var(--line);border-radius:99px;width:34px;height:34px;font:700 15px 'Mulish';color:var(--ink)">‹</button>
+  </div>
+  <div style="flex:1;padding:6px 20px 40px">
+    <div style="font:900 24px 'Archivo';text-transform:uppercase">Reset password</div>
+    <sc-if value="{{ fpForm }}" hint-placeholder-val="{{ true }}">
+      <div style="font-size:13px;color:var(--mut);margin-top:8px;line-height:1.55">Enter your account email and we'll send a reset link.</div>
+      <input placeholder="Email" type="email" onChange="{{ hFpEmail }}" style="margin-top:14px;width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:14px;font:600 14px 'Mulish';color:var(--ink)">
+      <button onClick="{{ onForgotSubmit }}" style="margin-top:12px;width:100%;background:#3360AB;color:#fff;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Send reset link</button>
+    </sc-if>
+    <sc-if value="{{ fpSubmitted }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:14px;background:var(--gtint);border:1px solid var(--gline);border-radius:14px;padding:14px;font-size:13px;line-height:1.6;color:var(--gtext2)">If an account exists for that email, a reset link is on its way. Check your inbox.</div>
+      <button onClick="{{ goBack }}" style="margin-top:12px;width:100%;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px;font:800 12px 'Archivo';letter-spacing:.05em;text-transform:uppercase;color:var(--ink)">Back to sign in</button>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ showTabs }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;bottom:0;left:0;right:0;height:62px;background:var(--tabbg);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex">
+  <button onClick="{{ tabCourts }}" style="{{ tabSt1 }}">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" stroke="{{ tabC1 }}" stroke-width="2"></rect><path d="M12 4.5v15M3.5 12h17" stroke="{{ tabC1 }}" stroke-width="2"></path></svg>
+    <span style="font:800 9.5px 'Archivo';letter-spacing:.06em;text-transform:uppercase">Book</span>
+    <span style="{{ tabD1 }}"></span>
+  </button>
+  <button onClick="{{ tabBookings }}" style="{{ tabSt2 }}">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5" stroke="{{ tabC2 }}" stroke-width="2"></rect><path d="M3.5 10h17M8 3v4M16 3v4" stroke="{{ tabC2 }}" stroke-width="2" stroke-linecap="round"></path></svg>
+    <span style="font:800 9.5px 'Archivo';letter-spacing:.06em;text-transform:uppercase">Bookings</span>
+    <span style="{{ tabD2 }}"></span>
+  </button>
+  <button onClick="{{ tabProfile }}" style="{{ tabSt3 }}">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.5" stroke="{{ tabC3 }}" stroke-width="2"></circle><path d="M5 19.5c1.5-3.2 4-4.5 7-4.5s5.5 1.3 7 4.5" stroke="{{ tabC3 }}" stroke-width="2" stroke-linecap="round"></path></svg>
+    <span style="font:800 9.5px 'Archivo';letter-spacing:.06em;text-transform:uppercase">Profile</span>
+    <span style="{{ tabD3 }}"></span>
+  </button>
+</div>
+</sc-if>
+
+<sc-if value="{{ noticeOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ onNoticeClose }}" style="position:absolute;inset:0;background:#10182866;display:flex;flex-direction:column;justify-content:flex-end">
+  <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px 26px">
+    <div style="width:38px;height:4px;border-radius:99px;background:var(--line2);margin:0 auto 16px"></div>
+    <div style="font:900 17px 'Archivo';text-transform:uppercase">{{ noticeTitle }}</div>
+    <div style="font-size:13px;line-height:1.6;color:var(--mut);margin-top:7px">{{ noticeBody }}</div>
+    <sc-if value="{{ noticeCall }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ onCallVenue }}" style="margin-top:16px;width:100%;background:#3360AB;color:#fff;border:none;border-radius:14px;padding:15px;font:800 13px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Call {{ venuePhone }}</button>
+    </sc-if>
+    <button onClick="{{ onNoticeClose }}" style="margin-top:9px;width:100%;background:var(--sub);color:var(--mut2);border:none;border-radius:14px;padding:14px;font:800 12px 'Archivo';letter-spacing:.05em;text-transform:uppercase">Close</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ dlgOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:#10182880;display:flex;align-items:center;justify-content:center;padding:28px">
+  <div style="background:var(--card);border-radius:18px;padding:20px;width:100%;box-shadow:0 12px 40px rgba(16,24,40,.25)">
+    <div style="font:900 17px 'Archivo';text-transform:uppercase">{{ dlgTitle }}</div>
+    <div style="font-size:13px;line-height:1.6;color:var(--mut2);margin-top:8px">{{ dlgBody }}</div>
+    <div style="display:flex;gap:9px;margin-top:18px">
+      <button onClick="{{ onDlgDismiss }}" disabled="{{ dlgBusy }}" style="flex:1;background:var(--sub);color:var(--mut2);border:none;border-radius:12px;padding:13px;font:800 12px 'Archivo';letter-spacing:.04em;text-transform:uppercase">Keep it</button>
+      <button onClick="{{ onDlgConfirm }}" disabled="{{ dlgBusy }}" style="{{ dlgConfirmSt }}">{{ dlgConfirmLabel }}</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:16px;right:16px;bottom:74px;display:flex;justify-content:center;pointer-events:none">
+  <div style="{{ toastSt }}">{{ toastMsg }}</div>
+</div>
+</sc-if>
+
+</div>
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:480,&quot;height&quot;:960},&quot;darkMode&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;degraded&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo scenario&quot;},&quot;holdSeconds&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:120,&quot;min&quot;:15,&quot;max&quot;:300,&quot;step&quot;:15,&quot;unit&quot;:&quot;s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Demo scenario&quot;},&quot;startSignedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo scenario&quot;}}">
+class Component extends DCLogic {
+  form = {};
+  state = {
+    screen: 'courts', stack: [],
+    signedIn: !!this.props.startSignedIn,
+    user: { name: 'Ali Kareem', email: 'ali.kareem@gmail.com', phone: '+964 770 123 4567', lang: 'English' },
+    dayIdx: 0, dur: 60, courtSel: 'all', detailCourtId: 0, courtTab: 0, selCourts: [0],
+    hold: null, holdExpired: false, slotTaken: false,
+    pendingSlot: null, lastBookingId: null,
+    verifyEmail: '', resendEnd: 0,
+    notifPerm: 'undetermined', dialog: null, dlgBusy: false, toast: null, notice: null, darkOverride: null,
+    bookings: [], detailBookingId: null, fpSubmitted: false, authError: null, cpError: null
+  };
+  COURTS = [
+    { name: 'Court 1', type: 'Indoor', desc: '' },
+    { name: 'Court 2', type: 'Outdoor', desc: '' }
+  ];
+  PHONE = '+964 770 555 0107';
+  STATUS = {
+    confirmed: ['Confirmed', 'var(--gtext)', 'var(--gtint)'], arrived: ['Arrived', 'var(--blue)', 'var(--tint)'],
+    completed: ['Completed', 'var(--mut)', 'var(--sub)'], cancelled: ['Cancelled', 'var(--redtext)', 'var(--redtint)'],
+    noShow: ['No-show', 'var(--ambstrong)', 'var(--amb)'], held: ['Held', 'var(--mut)', 'var(--sub)']
+  };
+  componentDidMount() {
+    this.setState({ bookings: this.seed() });
+    this.iv = setInterval(() => {
+      const s = this.state, now = Date.now();
+      if (s.toast && now > s.toast.until) this.setState({ toast: null });
+      if (s.screen === 'review' && s.hold && !s.holdExpired && !s.slotTaken) {
+        if (now > s.hold.expiresAt && !s.dlgBusy) this.setState({ holdExpired: true, dialog: null, dlgBusy: false });
+        else this.forceUpdate();
+      }
+      if (s.screen === 'verifyPending' && s.resendEnd > now) this.forceUpdate();
+    }, 400);
+  }
+  componentWillUnmount() { clearInterval(this.iv); }
+  D(days, h, m) { const x = new Date(); x.setHours(h, m || 0, 0, 0); x.setDate(x.getDate() + days); return x; }
+  seed() {
+    return [
+      { id: 'b1', ref: 'TP-2411', ci: 0, start: this.D(1, 18), dur: 90, price: 52500, status: 'confirmed', series: false },
+      { id: 'b2', ref: 'TP-2398', ci: 0, start: this.D(0, 21), dur: 60, price: 35000, status: new Date().getHours() >= 21 ? 'completed' : 'confirmed', series: false },
+      { id: 'b3', ref: 'TP-2377', ci: 0, start: this.D(4, 20), dur: 60, price: 35000, status: 'confirmed', series: true },
+      { id: 'b4', ref: 'TP-2299', ci: 0, start: this.D(-2, 19), dur: 90, price: 52500, status: 'completed', series: false },
+      { id: 'b5', ref: 'TP-2216', ci: 0, start: this.D(-7, 17), dur: 60, price: 35000, status: 'noShow', series: false },
+      { id: 'b6', ref: 'TP-2148', ci: 0, start: this.D(-12, 11), dur: 60, price: 25000, status: 'cancelled', series: false }
+    ];
+  }
+  court(i) { return this.COURTS[i] || this.COURTS[0]; }
+  money(n) { return n.toLocaleString('en-US') + ' IQD'; }
+  fmtDate(d) { return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()] + ' ' + d.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]; }
+  fmtTime(d) { return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  timeRange(start, dur) { const e = new Date(start.getTime() + dur * 60000); return this.fmtTime(start) + '–' + this.fmtTime(e); }
+  go(screen, extra) { this.setState(s => Object.assign({ screen, stack: [...s.stack, s.screen] }, extra || {})); }
+  back() { this.setState(s => { const st = [...s.stack]; return { screen: st.pop() || 'courts', stack: st, authError: null, cpError: null }; }); }
+  tab(screen) { this.setState({ screen, stack: [] }); }
+  showToast(msg, tone) { this.setState({ toast: { msg, tone: tone || 'success', until: Date.now() + 2600 } }); }
+  holdSec() { return this.props.holdSeconds ?? 120; }
+  isDegraded() { return !!this.props.degraded; }
+  startHold(slot) {
+    this.setState({ hold: { slot, total: this.holdSec() * 1000, expiresAt: Date.now() + this.holdSec() * 1000 }, holdExpired: false, slotTaken: false, pendingSlot: null, screen: 'review', stack: ['availability'] });
+  }
+  slotsFor(ci, dayIdx, dur) {
+    const out = [], nowH = new Date().getHours(), degraded = this.isDegraded();
+    for (let h = 10; h <= 23; h++) {
+      const peak = h >= 17, price = (peak ? 35000 : 25000) * (dur === 90 ? 1.5 : 1);
+      let state = 'available', reason = null;
+      if (dayIdx === 0 && h <= nowH) state = 'past';
+      else if (degraded && dayIdx < 2) { state = 'horizon'; reason = 'During the outage, near-term slots are desk-only.'; }
+      else if (h === 14) { state = 'blocked'; reason = 'Court maintenance — this slot can\u2019t be booked in the app right now.'; }
+      else if ((ci + dayIdx + h) % 6 === 2) state = 'booked';
+      else if ((ci * 3 + dayIdx + h) % 9 === 5) state = 'held';
+      out.push({ ci, h, dayIdx, dur, price, state, reason });
+    }
+    return out;
+  }
+  createBooking() {
+    const s = this.state, slot = s.hold.slot;
+    const start = this.D(slot.dayIdx, slot.h);
+    const id = 'n' + Date.now(), ref = 'TP-' + (2412 + s.bookings.length);
+    const bk = { id, ref, ci: slot.ci, start, dur: slot.dur, price: slot.price, status: 'confirmed', series: false };
+    this.setState({ bookings: [bk, ...s.bookings], hold: null, dialog: null, dlgBusy: false, lastBookingId: id, screen: 'success', stack: [] });
+  }
+  renderVals() {
+    const s = this.state, P = this.PHONE, degraded = this.isDegraded();
+    const dark = (s.darkOverride === null || s.darkOverride === undefined) ? !!this.props.darkMode : s.darkOverride;
+    const sel = (s.selCourts || []).filter(i => i < this.COURTS.length);
+    const sc = s.screen;
+    const scr = n => sc === n;
+    const today = new Date();
+    // days
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today); d.setDate(d.getDate() + i);
+      const closed = i === 3, sel = s.dayIdx === i;
+      days.push({
+        dow: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()], num: String(d.getDate()), closed,
+        onTap: () => this.setState({ dayIdx: i }),
+        st: 'flex:none;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:52px;padding:8px 6px;border-radius:12px;border:1.5px solid ' + (sel ? '#3360AB' : 'var(--line)') + ';background:' + (sel ? '#3360AB' : closed ? 'var(--sub)' : 'var(--card)') + ';color:' + (sel ? '#fff' : closed ? 'var(--fnt2)' : 'var(--ink)')
+      });
+    }
+    const durs = [60, 90].map(m => ({
+      label: m + ' min', onTap: () => this.setState({ dur: m }),
+      st: 'border:none;border-radius:8px;padding:8px 12px;font:800 11.5px Archivo;letter-spacing:.03em;background:' + (s.dur === m ? 'var(--card)' : 'transparent') + ';color:' + (s.dur === m ? 'var(--gstrong)' : 'var(--mut)') + (s.dur === m ? ';box-shadow:0 1px 2px rgba(27,42,71,.12)' : '')
+    }));
+    const chipDef = [{ id: 'all', label: 'Both courts' }].concat(this.COURTS.map((c, i) => ({ id: i, label: c.name })));
+    const courtChips = chipDef.map(c => ({
+      label: c.label, onTap: () => this.setState({ courtSel: c.id }),
+      st: 'flex:none;border-radius:99px;padding:8px 13px;font:700 11.5px Mulish;border:1.5px solid ' + (s.courtSel === c.id ? '#3360AB' : 'var(--line)') + ';background:' + (s.courtSel === c.id ? 'var(--tint)' : '#fff') + ';color:' + (s.courtSel === c.id ? 'var(--blue)' : 'var(--mut)')
+    }));
+    // slot sections
+    const availClosed = s.dayIdx === 3;
+    // both physical courts collapse into one timeline: each hour has capacity 2
+    const perCourt = this.COURTS.map((c, i) => this.slotsFor(i, s.dayIdx, s.dur));
+    const merged = availClosed ? [] : perCourt[0].map((_, hIdx) => {
+      const options = perCourt.map(list => list[hIdx]);
+      const free = options.filter(o => o.state === 'available');
+      const base = free[0] || options[0];
+      let state = base.state, reason = base.reason;
+      if (free.length) state = 'available';
+      else if (options.every(o => o.state === 'past')) state = 'past';
+      else if (options.some(o => o.state === 'horizon')) { state = 'horizon'; reason = options.find(o => o.state === 'horizon').reason; }
+      else if (options.some(o => o.state === 'blocked')) { state = 'blocked'; reason = options.find(o => o.state === 'blocked').reason; }
+      else state = 'booked';
+      return Object.assign({}, base, { state, reason, freeCount: free.length, capacity: this.COURTS.length });
+    });
+    const slotSections = availClosed ? [] : [{
+      title: '',
+      slots: merged.map(sl => {
+        const av = sl.state === 'available';
+        const tappable = av || sl.state === 'blocked' || sl.state === 'horizon';
+        let bg = 'var(--card)', bd = 'var(--line2)', col = 'var(--ink)', sub = this.money(sl.price), subCol = 'var(--gstrong)', dash = '';
+        if (sl.state === 'past') { bg = 'transparent'; bd = 'transparent'; col = 'var(--fnt3)'; sub = '—'; subCol = 'var(--fnt3)'; }
+        if (sl.state === 'booked') { bg = 'var(--sub)'; bd = 'var(--sub)'; col = 'var(--fnt2)'; sub = 'Booked'; subCol = 'var(--fnt2)'; }
+        if (sl.state === 'held') { bg = 'var(--sub)'; bd = 'var(--line2)'; col = 'var(--fnt2)'; sub = 'Held'; subCol = 'var(--fnt2)'; dash = 'dashed'; }
+        if (sl.state === 'blocked') { bg = 'var(--amb)'; bd = 'var(--ambline)'; col = 'var(--ambstrong)'; sub = 'Blocked'; subCol = 'var(--ambstrong)'; }
+        if (sl.state === 'horizon') { bg = 'var(--tint)'; bd = 'var(--line)'; col = 'var(--fnt)'; sub = 'Desk only'; subCol = 'var(--fnt)'; }
+        return {
+          time: String(sl.h).padStart(2, '0') + ':00', sub, disabled: !tappable,
+          cap: av ? (sl.freeCount > 1 ? sl.freeCount + ' courts free' : '1 court left') : '',
+          hasCap: av,
+          capSt: { font: '700 9.5px Mulish', letterSpacing: '.03em', color: sl.freeCount > 1 ? 'var(--fnt)' : 'var(--ambstrong)' },
+          st: 'display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;min-height:52px;border-radius:12px;background:' + bg + ';border:1.5px ' + (dash || 'solid') + ' ' + bd + ';color:' + col,
+          subSt: { font: '700 10.5px Mulish', color: subCol },
+          onTap: () => {
+            if (av) {
+              if (!s.signedIn) this.setState({ pendingSlot: sl, screen: 'welcome', stack: [...s.stack, 'availability'] });
+              else this.startHold(sl);
+            } else if (sl.state === 'blocked') this.setState({ notice: { title: 'Slot unavailable', body: sl.reason, call: true } });
+            else if (sl.state === 'horizon') this.setState({ notice: { title: 'Desk-only right now', body: 'The venue lost its connection, so bookings for today and tomorrow are taken at the desk only. Call to reserve this slot.', call: true } });
+          }
+        };
+      })
+    }];
+    // hold / review
+    const hold = s.hold, court = hold ? this.court(hold.slot.ci) : null;
+    let cdText = '0:00', cdPct = 0;
+    if (hold) { const rem = Math.max(0, hold.expiresAt - Date.now()); cdText = Math.floor(rem / 60000) + ':' + String(Math.floor(rem / 1000) % 60).padStart(2, '0'); cdPct = Math.round(rem / hold.total * 100); }
+    const holdStart = hold ? this.D(hold.slot.dayIdx, hold.slot.h) : null;
+    // bookings lists
+    const now = Date.now();
+    const enrich = b => {
+      const st = this.STATUS[b.status];
+      return {
+        onOpen: () => this.go('bookingDetail', { detailBookingId: b.id }),
+        court: this.court(b.ci).name, series: b.series,
+        mon: ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][b.start.getMonth()],
+        dayNum: String(b.start.getDate()),
+        timeLine: this.fmtDate(b.start) + ' · ' + this.timeRange(b.start, b.dur) + ' · ' + this.money(b.price),
+        dateLine: this.fmtDate(b.start) + ' · ' + this.fmtTime(b.start) + ' · ' + this.money(b.price),
+        statusLabel: st[0],
+        pillSt: 'flex:none;font:800 10px Archivo;letter-spacing:.05em;text-transform:uppercase;padding:5px 9px;border-radius:99px;color:' + st[1] + ';background:' + st[2]
+      };
+    };
+    const upcoming = s.bookings.filter(b => b.start.getTime() + b.dur * 60000 > now && b.status !== 'cancelled' && b.status !== 'completed' && b.status !== 'noShow').sort((a, b) => a.start - b.start).map(enrich);
+    const past = s.bookings.filter(b => b.start.getTime() + b.dur * 60000 <= now || ['cancelled','completed','noShow'].includes(b.status)).sort((a, b) => b.start - a.start).map(enrich);
+    // booking detail
+    const bd = s.bookings.find(b => b.id === s.detailBookingId);
+    const bdStatusRec = bd ? this.STATUS[bd.status] : ['', '', ''];
+    const bdWindowDate = bd ? new Date(bd.start.getTime() - 6 * 3600000) : null;
+    const bdUpcoming = bd ? bd.start.getTime() > now && bd.status === 'confirmed' : false;
+    const bdEligible = bd ? bdWindowDate.getTime() > now : false;
+    // profile
+    const u = s.user;
+    const profileRows = [
+      { label: 'Edit profile', d: 'M4 20l1.2-4.2L16.5 4.5a2.05 2.05 0 012.9 2.9L8.2 18.8 4 20z', onTap: () => this.go('editProfile') },
+      { label: 'Change password', d: 'M8 10.5V8a4 4 0 018 0v2.5M5.5 10.5h13V20h-13v-9.5z', onTap: () => this.go('changePassword') },
+      { label: 'Settings', d: 'M4 6.5h16M4 12h16M4 17.5h16M15.5 4.5v4M8.5 10v4M13 15.5v4', onTap: () => this.go('settings') },
+      { label: 'Call the venue', d: 'M8 3h8a1.5 1.5 0 011.5 1.5v15A1.5 1.5 0 0116 21H8a1.5 1.5 0 01-1.5-1.5v-15A1.5 1.5 0 018 3zM10.5 17.8h3', onTap: () => this.showToast('Calling ' + P + '\u2026 (demo)', 'info') }
+    ].map((r, i, a) => Object.assign(r, { st: 'width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;padding:15px 16px;font:700 13.5px Mulish;color:var(--ink);text-align:start' + (i < a.length - 1 ? ';border-bottom:1px solid var(--sub)' : '') }));
+    const langOpts = ['English', 'العربية'].map(l => ({
+      label: l,
+      onTap: () => { if (l === 'English') { this.setState({ user: Object.assign({}, u, { lang: 'English' }) }); } else this.showToast('Arabic flips the app RTL — not in this prototype yet', 'info'); this.form.lang = l; },
+      st: 'flex:1;border:none;border-radius:9px;padding:10px;font:800 12px Archivo;letter-spacing:.03em;background:' + (u.lang === l ? 'var(--card)' : 'transparent') + ';color:' + (u.lang === l ? 'var(--blue)' : 'var(--mut)') + (u.lang === l ? ';box-shadow:0 1px 2px rgba(27,42,71,.12)' : '')
+    }));
+    const appOpts = ['Light', 'Dark'].map(l => {
+      const on = (dark ? 'Dark' : 'Light') === l;
+      return { label: l, onTap: () => this.setState({ darkOverride: l === 'Dark' }),
+        st: 'flex:1;border:none;border-radius:9px;padding:10px;font:800 12px Archivo;letter-spacing:.03em;background:' + (on ? 'var(--card)' : 'transparent') + ';color:' + (on ? 'var(--blue)' : 'var(--mut)') + (on ? ';box-shadow:0 1px 2px rgba(27,42,71,.12)' : '') };
+    });
+    const F = k => e => { this.form[k] = e.target.value; };
+    const resendLeft = Math.max(0, Math.ceil((s.resendEnd - Date.now()) / 1000));
+    const dcCourt = this.court(s.detailCourtId);
+    const dlg = s.dialog;
+    const toastBg = s.toast ? (s.toast.tone === 'error' ? '#B42318' : s.toast.tone === 'info' ? '#1B2A47' : '#3E6318') : 'var(--ink)';
+    const okBk = s.bookings.find(b => b.id === s.lastBookingId);
+    const mainTabs = ['courts', 'bookings', 'profile'].includes(sc);
+    const actCol = dark ? '#8FB0E8' : '#3360AB', inactCol = dark ? '#6C80A6' : '#98A6BF';
+    const tabSt = on => 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:none;border:none;color:' + (on ? actCol : inactCol);
+    const tabDot = on => 'width:14px;height:3px;border-radius:99px;background:' + (on ? '#A5D06F' : 'transparent');
+    const ROOF = 'M4 11.5L12 4.5l8 7M6.5 9.8V19h11V9.8', SUN = 'M12 7.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9M12 3v1.5M12 19.5V21M3 12h1.5M19.5 12H21M5.6 5.6l1.1 1.1M17.3 17.3l1.1 1.1M18.4 5.6l-1.1 1.1M6.7 17.3l-1.1 1.1';
+    return {
+      sCourts: scr('courts'), sCourtDetail: scr('courtDetail'), sAvail: scr('availability'), sReview: scr('review'),
+      sSuccess: scr('success'), sBookings: scr('bookings'), sBookingDetail: scr('bookingDetail'), sProfile: scr('profile'),
+      sEditProfile: scr('editProfile'), sChangePassword: scr('changePassword'), sSettings: scr('settings'),
+      sWelcome: scr('welcome'), sSignIn: scr('signIn'), sSignUp: scr('signUp'), sVerifyPending: scr('verifyPending'),
+      sVerifyResult: scr('verifyResult'), sForgot: scr('forgot'),
+      showTabs: mainTabs, degraded, venuePhone: P,
+      goBack: () => this.back(),
+      tabCourts: () => this.tab('courts'), tabBookings: () => this.tab('bookings'), tabProfile: () => this.tab('profile'),
+      tabSt1: tabSt(sc === 'courts'), tabSt2: tabSt(sc === 'bookings'), tabSt3: tabSt(sc === 'profile'),
+      tabD1: tabDot(sc === 'courts'), tabD2: tabDot(sc === 'bookings'), tabD3: tabDot(sc === 'profile'),
+      tabC1: sc === 'courts' ? actCol : inactCol, tabC2: sc === 'bookings' ? actCol : inactCol, tabC3: sc === 'profile' ? actCol : inactCol,
+      isDark: dark, themeClass: dark ? 'dark' : '', appOpts,
+      courtRows: this.COURTS.map((c, i) => {
+        const picked = sel.includes(i);
+        return {
+          label: 'Court ' + (i + 1), name: c.name,
+          selected: picked, unselected: !picked,
+          cardSt: 'display:flex;flex-direction:column;gap:14px;transition:filter .28s ease,opacity .28s ease,transform .28s ease;' +
+            (picked ? 'filter:none;opacity:1;transform:scale(1)' : 'filter:grayscale(1);opacity:.5;transform:scale(.96)'),
+          onToggle: () => this.setState({ selCourts: picked ? sel.filter(x => x !== i) : [...sel, i].sort() })
+        };
+      }),
+      ctaLabel: 'Check availability',
+      ctaSt: 'width:100%;display:flex;align-items:center;justify-content:center;gap:12px;border:none;border-radius:18px;padding:26px;font:800 19px Archivo;letter-spacing:.07em;text-transform:uppercase;background:#A5D06F;color:#1E3311',
+      onCheckAvail: () => this.go('availability', { courtSel: 'all' }),
+      courts: this.COURTS.map((c, i) => ({
+        name: c.name, type: c.type, desc: c.desc, from: '25,000 IQD',
+        iconD: c.type === 'Indoor' ? ROOF : SUN,
+        chipBg: c.type === 'Indoor' ? '#1B2A47' : '#A5D06F', chipCol: c.type === 'Indoor' ? '#fff' : '#1E3311',
+        onOpen: () => this.go('courtDetail', { detailCourtId: i })
+      })),
+      dcName: dcCourt.name, dcType: dcCourt.type, dcDesc: dcCourt.desc, dcIconD: dcCourt.type === 'Indoor' ? ROOF : SUN,
+      dcChipBg: dcCourt.type === 'Indoor' ? '#1B2A47' : '#A5D06F', dcChipCol: dcCourt.type === 'Indoor' ? '#fff' : '#1E3311',
+      onSeeAvail: () => this.go('availability', { courtSel: s.detailCourtId }),
+      days, durs, courtChips, slotSections, availClosed, availOpen: !availClosed,
+      reviewLive: !s.holdExpired && !s.slotTaken, holdExpired: s.holdExpired, slotTaken: s.slotTaken,
+      cdText, cdBarSt: { height: '100%', width: cdPct + '%', background: cdPct < 25 ? '#E88B7D' : '#A5D06F', borderRadius: '99px', transition: 'width .3s linear' },
+      rvCourt: court ? court.name : '', rvType: court ? court.type : '',
+      rvDate: holdStart ? this.fmtDate(holdStart) : '', rvTime: holdStart ? this.timeRange(holdStart, hold.slot.dur) : '',
+      rvDur: hold ? hold.slot.dur + ' minutes' : '', rvPrice: hold ? this.money(hold.slot.price) : '',
+      onCancelHold: () => this.setState({ hold: null, screen: 'availability', stack: [] }),
+      onBackAvail: () => this.setState({ hold: null, holdExpired: false, slotTaken: false, screen: 'availability', stack: [] }),
+      onConfirmTap: () => this.setState({
+        dialog: {
+          title: 'Reserve this court?',
+          body: (court ? court.name : '') + ' · ' + (holdStart ? this.fmtDate(holdStart) + ', ' + this.timeRange(holdStart, hold.slot.dur) : '') + ' · ' + (hold ? this.money(hold.slot.price) : '') + '. You pay at the desk on arrival.',
+          confirm: 'Reserve court', action: 'book'
+        }
+      }),
+      okRef: okBk ? okBk.ref : '', okCourt: okBk ? this.court(okBk.ci).name : '',
+      okDate: okBk ? this.fmtDate(okBk.start) : '', okTime: okBk ? this.timeRange(okBk.start, okBk.dur) : '',
+      okDur: okBk ? okBk.dur + ' minutes' : '', okPrice: okBk ? this.money(okBk.price) : '',
+      onViewNewBooking: () => this.setState({ screen: 'bookingDetail', detailBookingId: s.lastBookingId, stack: ['bookings'] }),
+      onDone: () => this.tab('bookings'),
+      upcoming, past, hasUpcoming: upcoming.length > 0, hasPast: past.length > 0,
+      noBookings: upcoming.length === 0 && past.length === 0,
+      emptyUpcoming: upcoming.length === 0 && past.length > 0,
+      bdRef: bd ? bd.ref : '', bdCourt: bd ? this.court(bd.ci).name : '', bdStatus: bdStatusRec[0],
+      bdPillSt: 'flex:none;font:800 10.5px Archivo;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px;border-radius:99px;color:' + bdStatusRec[1] + ';background:' + bdStatusRec[2],
+      bdDate: bd ? this.fmtDate(bd.start) : '', bdTime: bd ? this.timeRange(bd.start, bd.dur) : '',
+      bdDur: bd ? bd.dur + ' minutes' : '', bdPrice: bd ? this.money(bd.price) : '',
+      bdSeries: bd ? bd.series : false, bdCancelled: bd ? bd.status === 'cancelled' : false,
+      bdUpcomingActive: bdUpcoming, bdCanCancel: bdUpcoming && bdEligible, bdCancelBlocked: bdUpcoming && !bdEligible,
+      bdWindow: bdWindowDate ? this.fmtDate(bdWindowDate) + ', ' + this.fmtTime(bdWindowDate) : '',
+      onCancelTap: () => this.setState({ dialog: { title: 'Cancel this booking?', body: 'Your slot on ' + this.fmtDate(bd.start) + ' at ' + this.fmtTime(bd.start) + ' goes back on the grid. This can\u2019t be undone in the app.', confirm: 'Cancel booking', action: 'cancel', danger: true } }),
+      onCallVenue: () => this.showToast('Calling ' + P + '\u2026 (demo)', 'info'),
+      signedIn: s.signedIn, signedOut: !s.signedIn,
+      userName: u.name, userEmail: u.email, userPhone: u.phone, userLang: u.lang,
+      userInitials: u.name.split(' ').map(w => w[0]).slice(0, 2).join(''),
+      profileRows, langOpts,
+      onSignOutTap: () => { this.setState({ signedIn: false }); this.tab('courts'); this.showToast('Signed out', 'info'); },
+      onGoSignIn: () => this.go('signIn', { authError: null }),
+      onGoSignUp: () => this.go('signUp', { authError: null }),
+      onGoForgot: () => this.go('forgot', { fpSubmitted: false }),
+      onKeepBrowsing: () => this.setState({ pendingSlot: null, screen: 'availability', stack: [] }),
+      hasPendingSlot: !!s.pendingSlot,
+      pendingLabel: s.pendingSlot ? this.court(s.pendingSlot.ci).name + ' · ' + String(s.pendingSlot.h).padStart(2, '0') + ':00' : '',
+      hEpName: F('epName'), hEpPhone: F('epPhone'),
+      onSaveProfile: () => {
+        this.setState({ user: Object.assign({}, u, { name: this.form.epName || u.name, phone: this.form.epPhone || u.phone }) });
+        this.back(); this.showToast('Profile updated');
+      },
+      hCpCur: F('cpCur'), hCpNew: F('cpNew'), hCpConf: F('cpConf'),
+      cpError: !!s.cpError, cpErrorMsg: s.cpError || '',
+      onSavePassword: () => {
+        const f = this.form;
+        if (!f.cpCur || !f.cpNew || !f.cpConf) return this.setState({ cpError: 'Fill in all three fields.' });
+        if (f.cpNew.length < 8) return this.setState({ cpError: 'New password must be at least 8 characters.' });
+        if (f.cpNew !== f.cpConf) return this.setState({ cpError: 'New passwords don\u2019t match.' });
+        this.setState({ cpError: null }); this.back(); this.showToast('Password updated');
+      },
+      notifUndetermined: s.notifPerm === 'undetermined', notifGranted: s.notifPerm === 'granted',
+      onNotifRequest: () => { this.setState({ notifPerm: 'granted' }); this.showToast('Notifications enabled'); },
+      hSiEmail: F('siEmail'), hSiPass: F('siPass'),
+      authError: !!s.authError, authErrorMsg: s.authError || '', signInLabel: 'Sign in',
+      onAuthSignIn: () => {
+        const f = this.form;
+        if (!f.siEmail || !f.siPass) return this.setState({ authError: 'Enter your email and password.' });
+        if (f.siPass === 'wrong') return this.setState({ authError: 'Invalid email or password. Check and try again.' });
+        const goReview = !!s.pendingSlot;
+        this.setState({ signedIn: true, authError: null, user: Object.assign({}, u, { email: f.siEmail }) });
+        this.showToast('Welcome back');
+        if (goReview) this.startHold(s.pendingSlot); else this.tab('courts');
+      },
+      hSuName: F('suName'), hSuEmail: F('suEmail'), hSuPass: F('suPass'), hSuPhone: F('suPhone'),
+      onAuthSignUp: () => {
+        const f = this.form;
+        if (!f.suName || !f.suEmail || !f.suPass || !f.suPhone) return this.setState({ authError: 'All fields are required.' });
+        if (f.suPass.length < 8) return this.setState({ authError: 'Password must be at least 8 characters.' });
+        this.setState({
+          authError: null, verifyEmail: f.suEmail, resendEnd: Date.now() + 30000,
+          user: { name: f.suName, email: f.suEmail, phone: f.suPhone, lang: this.form.lang || 'English' },
+          screen: 'verifyPending', stack: []
+        });
+      },
+      verifyEmail: s.verifyEmail || 'you@example.com',
+      resendDisabled: resendLeft > 0,
+      resendLabel: resendLeft > 0 ? 'Resend link in ' + resendLeft + 's' : 'Resend link',
+      resendSt: 'margin-top:22px;width:100%;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px;font:800 12px Archivo;letter-spacing:.05em;text-transform:uppercase;color:' + (resendLeft > 0 ? 'var(--fnt2)' : 'var(--blue)'),
+      onResend: () => { this.setState({ resendEnd: Date.now() + 30000 }); this.showToast('Verification link re-sent'); },
+      onDemoVerified: () => this.setState({ screen: 'verifyResult', stack: [] }),
+      onAbandonVerify: () => this.setState({ screen: 'signUp', stack: [] }),
+      onVerifyContinue: () => {
+        this.setState({ signedIn: true });
+        if (s.pendingSlot) this.startHold(s.pendingSlot); else this.tab('courts');
+        this.showToast('Welcome to Touch Padel');
+      },
+      hFpEmail: F('fpEmail'),
+      fpForm: !s.fpSubmitted, fpSubmitted: s.fpSubmitted,
+      onForgotSubmit: () => this.setState({ fpSubmitted: true }),
+      noticeOpen: !!s.notice, noticeTitle: s.notice ? s.notice.title : '', noticeBody: s.notice ? s.notice.body : '',
+      noticeCall: s.notice ? !!s.notice.call : false,
+      onNoticeClose: () => this.setState({ notice: null }),
+      dlgOpen: !!dlg, dlgTitle: dlg ? dlg.title : '', dlgBody: dlg ? dlg.body : '', dlgBusy: s.dlgBusy,
+      dlgConfirmLabel: s.dlgBusy ? (dlg && dlg.action === 'book' ? 'Reserving\u2026' : 'Cancelling\u2026') : (dlg ? dlg.confirm : ''),
+      dlgConfirmSt: 'flex:1.4;border:none;border-radius:12px;padding:13px;font:800 12px Archivo;letter-spacing:.04em;text-transform:uppercase;' + (dlg && dlg.danger ? 'color:#fff;background:#B42318' : 'color:#1E3311;background:#A5D06F') + (s.dlgBusy ? ';opacity:.6' : ''),
+      onDlgDismiss: () => { if (!s.dlgBusy) this.setState({ dialog: null }); },
+      onDlgConfirm: () => {
+        if (s.dlgBusy || !dlg) return;
+        this.setState({ dlgBusy: true });
+        setTimeout(() => {
+          if (dlg.action === 'book') {
+            if (this.state.hold && this.state.hold.slot.h === 19) this.setState({ slotTaken: true, dialog: null, dlgBusy: false, hold: null });
+            else if (this.state.hold) this.createBooking();
+            else this.setState({ dialog: null, dlgBusy: false });
+          } else if (dlg.action === 'cancel') {
+            this.setState({
+              bookings: this.state.bookings.map(b => b.id === this.state.detailBookingId ? Object.assign({}, b, { status: 'cancelled' }) : b),
+              dialog: null, dlgBusy: false
+            });
+            this.showToast('Booking cancelled — slot released');
+          }
+        }, 900);
+      },
+      toastOn: !!s.toast, toastMsg: s.toast ? s.toast.msg : '',
+      toastSt: 'pointer-events:auto;background:' + toastBg + ';color:#fff;font:700 12.5px Mulish;padding:11px 16px;border-radius:12px;box-shadow:0 6px 20px rgba(16,24,40,.25);max-width:100%'
+    };
+  }
+}
+</script>
+</body>
+</html>

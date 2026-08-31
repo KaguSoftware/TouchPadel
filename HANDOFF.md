@@ -396,11 +396,52 @@ rates, menu, recipes, staff — so `NO_RATE` still blocks real-court booking. Wh
   the phone number.** 0052's settings-save fix and the staff-admin/till/serve_temp/heartbeat
   migrations are now on production too.
 
+## Day 8 (2026-08-31) — the mobile UI rebuild shipped
+
+The client delivered the full visual design as a Claude Design pack (committed:
+`docs/design/mobile-ui/Touch Padel App.dc.html` + `touch-padel-mobile-ui-spec.md`), and the
+mobile app went from wireframe to the designed product in one pass. Commit `bd9fe29` (rebased
+`2f9be73`). Gate: workspace `turbo lint typecheck test` 18/18, mobile tests 29 -> 50,
+expo-doctor 18/18, iOS+Android bundles built.
+
+**Three owner decisions (2026-08-31), all implemented:**
+1. **Guest browsing** — courts/availability are public; auth is demanded at slot tap via the
+   Welcome pending-slot flow (in-memory intent -> sign-in/verify -> auto-hold -> Review). The DB
+   was ready: every browse surface + `app.is_degraded()` already granted to `anon`.
+2. **Dark mode** — the design's dual palette ships with a Settings ▸ Appearance toggle
+   (app-driven, persisted; no system option, per design). Status bar + root background follow.
+3. **Merged capacity grid** — one timeline across both courts ("2 courts free" / "1 court left",
+   court assigned at the desk); `mergeAcrossCourts` in assemble.ts, unit-tested; the app holds
+   the cheapest free court.
+
+What shipped: theme token layer (`src/theme/`, design palettes verbatim + Archivo/Mulish/Cairo
+via expo-google-fonts behind the same swap-point discipline as packages/ui); expo-router `Tabs`
+(Book/Bookings/Profile) + `(gated)` group for writes; 16 screens restyled/new including review
+(hold countdown + progress bar + ConfirmationDialog), navy success (derived `TP-XXXX` ref — no
+reference column exists), booking detail (cancel window open/closed/cancelled states, refusal
+shows the venue phone), profile/edit/change-password (change-password re-authenticates first),
+settings (3-state notification permissions), welcome/verify-result; animated SVG court on home
+(reduced-motion aware); proactive degraded banners (anon `is_degraded()` poll — refusal path
+stays the backstop); full EN+AR copy for everything new; policy/hours/phone always render from
+`venue_settings_public`, never the design's hardcoded strings (design said 6h/10:00-24:00 —
+reality is 4h/09:00-02:00).
+
+Notes: the design's Court-detail screen is orphaned (no inbound edge once the merged grid
+replaced the court list) — not built; keys for it exist in the catalogs if it returns. The
+weekly-series notice is built but dormant (no `series_id` column). New deps: expo-image,
+react-native-svg, expo-font + the three Google-font packages (SDK-54-pinned).
+
+Environment fixes en route: `better-sqlite3` ABI-137 binary swap (Node 24 shells; the .bak
+dance in `node_modules/better-sqlite3/build/Release/` — a rebuild under Node 22 undoes it),
+web `sheets.test.ts` path-separator normalization on Windows, local DB caught up 0054-0056
+(`supabase migration up`).
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
   PostHog `bau.se.engineers@gmail.com`). Check it before concluding an account "has no access".
 - `docs/client/chrome-agent-prompt.md` — the Claude-in-Chrome provisioning prompt template.
+- `docs/design/mobile-ui/` — the approved mobile design (dc.html artboards + UI build spec, 2026-08-31).
 - `docs/design/cafe-rebuild/` — **the cafe rebuild design pack**: `db-slice.md`, `web-slice.md`,
   `operator-slice.md`, `upperdeck-spec.md` (the reference project's full spec), `decisions.md`
   (owner decisions, binding), `context-existing-cafe.md`, `context-operator.md`.
@@ -446,9 +487,11 @@ rates, menu, recipes, staff — so `NO_RATE` still blocks real-court booking. Wh
    cash-drawer record, charge-to-booking totals, KDS item-ready persistence), then module 7
    (heartbeat first — it is cheap and it is a safety property — then the queue and replay),
    then module 5 (stock UI), then printing and the Windows installer.
-7. **the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). Day-zero unblocks
-   first (`eas init`, Play account type, Apple team id, real EAS env), then the crash fix + SDK 54,
-   then the native-UI rebuild and the four backend gaps. Store submission Wed 2026-09-16.
+7. **the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). ✔ crash fix + SDK 54 (day 5);
+   ✔ **UI rebuild to the approved design 2026-08-31** (day 8 — guest browse, dark mode, merged
+   grid, all screens). Still open: day-zero release unblocks (`eas init`, Play account type,
+   Apple team id, real EAS env, icon/splash), push end-to-end, account deletion + privacy pages
+   (store gate), Sentry in a build, the padel-backend audit fixes. Store submission Wed 2026-09-16.
 8. **Real data over fixtures.** The `staff` table still holds only `Dev` seed rows, so
    the Telegram allowlist currently points at `Dev Owner`. Create the venue's real staff, repoint
    the allowlist in the same session, and rotate the seeded dev PINs. Then place a live order and
@@ -479,7 +522,7 @@ rates, menu, recipes, staff — so `NO_RATE` still blocks real-court booking. Wh
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
 | Operator desktop | Audited 2026-08-28. Waves 0-2: real gate, every High fixed, heartbeat live, modules 1/2/4 complete (migrations 0050-0053, on hosted since 2026-08-30) | Durable write path + replay, stock module, ESC/POS printing, Windows installer, KDS persistence, till session lock, court admin, Sentry | Roadmap 6 |
-| Mobile app | SDK 54; crash fixed, error handling + caching + wiring done (day 5). Presentation still a wireframe; release plumbing still absent | Native UI on SDK 54, push, profile, account deletion, Sentry, store build | Roadmap 6 (by 2026-09-16) |
+| Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings). Release plumbing still absent | Push end-to-end, account deletion + privacy pages, icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
 - **OPERATOR: the heartbeat has never worked and fails silently** (audit 2026-08-28, C1).
