@@ -4,7 +4,6 @@ import { makeT, type Locale } from '@touch/i18n';
 import type { MenuCategory, MenuItem } from '@/lib/menu';
 import { MenuCard } from '../MenuCard/MenuCard';
 import { SectionIllustration, sectionArtFor } from './sectionArt';
-import { TempChips } from '../TempChips';
 
 /**
  * The menu itself: one section per category, drawn as the approved design does.
@@ -59,12 +58,6 @@ export function MenuStage({
         const len = ar ? lenFor(word) : (art?.len ?? 'medium');
         return (
           <section key={cat.id} id={sectionId(cat.id)} className="tp-menu-cat tp-stage">
-            {cat.serve_temp !== 'none' && (
-              <div className="tp-stage__head">
-                <TempChips temp={cat.serve_temp} locale={locale} className="tp-stage__badge" />
-              </div>
-            )}
-
             {/* data-cat-hero: the scroll spy's activation anchor — this band
                 reaching the top of the reading area is what flips the rail. */}
             <div className="tp-stage__band" data-cat-hero="" data-tone={art?.tone ?? 'blue'}>

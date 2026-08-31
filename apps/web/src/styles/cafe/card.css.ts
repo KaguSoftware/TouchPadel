@@ -63,10 +63,12 @@ export const cardCss = `
 
 /* Serve-temp chips get a fixed column of their own, immediately before the
    price cells, so every row's chips land in the same place no matter how long
-   its name runs. The column is a stack — an item served both ways prints حار
-   over بارد — and each chip fills its width so the two read as one block. */
-.tp-menu-item__temps { flex: none; inline-size: 54px; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
-.tp-menu-item .tp-menu-item__temps .tp-temp { font-size: 13px; padding-inline: 0.25rem; justify-content: center; }
+   its name runs. The column is a stack — an item served both ways prints its
+   hot mark over its cold one. The chips centre rather than stretch: a chip is
+   a capsule around its mark, so filling the column would draw a long lozenge
+   instead. The column keeps its width, so the stack still lines up. */
+.tp-menu-item__temps { flex: none; inline-size: 54px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tp-menu-item .tp-menu-item__temps .tp-temp { font-size: 13px; }
 
 .tp-price--struck { text-decoration: line-through; color: var(--tp-muted-fg); font-weight: 400; margin-inline-end: 0.4rem; }
 .tp-price--promo { color: var(--tp-accent); font-weight: 800; }
