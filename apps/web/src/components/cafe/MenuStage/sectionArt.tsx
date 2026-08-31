@@ -93,7 +93,7 @@ function CoffeeArt() {
       <path d="M 47.4 28.2 H 49.9 A 6.4 6.4 0 0 1 49.9 41 H 47.4" strokeWidth="3.8" />
       <path d="M 16.6 24.3 V 32 A 15.4 15.4 0 0 0 47.4 32 V 24.3 Z" fill="var(--tp-bg)" strokeWidth="3.8" />
       <ellipse cx="32" cy="24.3" rx="15.4" ry="5.1" fill="var(--tp-bg)" strokeWidth="3.8" />
-      <ellipse cx="32" cy="24.3" rx="10.9" ry="3.2" fill="var(--tp-cafe-blue-tint)" stroke="none" />
+      <ellipse cx="32" cy="24.3" rx="10.9" ry="3.2" fill="var(--tp-cafe-green-light)" stroke="none" />
     </>
   );
 }
@@ -202,7 +202,7 @@ export const SECTION_ART: Record<string, SectionArt> = {
     art: (
       <>
         <path d="M 22 28 L 26 56 L 38 56 L 42 28" fill="var(--tp-bg)" />
-        <path d="M 28 34 L 29.5 51 M 36 34 L 34.5 51" strokeWidth="1.3" opacity=".45" />
+        <path d="M 28 34 L 29.5 51 M 36 34 L 34.5 51" stroke="var(--tp-cafe-green-light)" strokeWidth="1.3" />
         <path d="M 20 28 L 44 28" />
         <path d="M 23 28 C 21 22 27 20 28.5 22.5 C 28 16 36 16 35.5 22 C 38.5 20 43 23 41 28 Z" fill="var(--tp-cafe-blue-tint)" />
         <path d="M 35.5 22 L 40 10 L 47 7" strokeWidth="3.2" />
@@ -265,8 +265,8 @@ export const SECTION_ART: Record<string, SectionArt> = {
         <path d="M 29.4 48.2 C 30.2 51.5 29.8 54 29.2 56.4" />
         <path d="M 34.6 48.2 C 33.8 51.5 34.2 54 34.8 56.4" />
         <ellipse cx="32" cy="57.4" rx="9" ry="2.4" fill="var(--tp-bg)" />
-        <path d="M 28.4 27 C 28.7 33.7 30.2 38.5 30.35 44" stroke="var(--tp-cafe-sky)" strokeWidth="1.8" />
-        <path d="M 35.6 27 C 35.3 33.7 33.8 38.5 33.65 44" stroke="var(--tp-cafe-sky)" strokeWidth="1.8" />
+        <path d="M 28.4 27 C 28.7 33.7 30.2 38.5 30.35 44" stroke="var(--tp-cafe-green-light)" strokeWidth="1.8" />
+        <path d="M 35.6 27 C 35.3 33.7 33.8 38.5 33.65 44" stroke="var(--tp-cafe-green-light)" strokeWidth="1.8" />
         <path d="M 36 16 L 43 5 L 49.5 3" />
         <path d="M 20 20 C 18 13 25 11 27 14 C 27 7 37 7 37 14 C 39 11 46 13 44 20 Z" fill="var(--tp-bg)" />
         <circle cx="32" cy="6" r="2.6" fill="var(--tp-cafe-green-light)" stroke="none" />
@@ -452,27 +452,26 @@ export const SECTION_ART: Record<string, SectionArt> = {
     illo: { size: 104, end: -12, bottom: -12, rot: -8 },
     art: (
       <>
-        <g transform="translate(3.4 -7.52) scale(0.52)">
-          {/* filter cone */}
-          <path d="M28 20 L72 20 L56 46 L44 46 Z" fill="var(--tp-cafe-green-tint)" stroke="none" />
-          <path d="M34 28 L66 28 M39 36 L61 36" stroke="var(--tp-cafe-green)" strokeWidth="3" opacity=".45" />
-          <path d="M28 20 L72 20 L56 46 L44 46 Z" strokeWidth="6" />
-          {/* cup */}
-          <g transform="translate(0, 48)">
-            <path d="M32 66C18 72 22 84 50 84C78 84 82 72 68 66" strokeWidth="4" />
-            <path d="M37 68C31 72 35 78 50 78C65 78 69 72 63 68" strokeWidth="3" opacity=".45" />
-            <path d="M74 44h4a10 10 0 0 1 0 20h-4" strokeWidth="6" />
-            <path d="M26 38v12a24 24 0 0 0 48 0V38Z" fill="var(--tp-cafe-blue-tint)" stroke="none" />
-            <path d="M26 38v12a24 24 0 0 0 48 0V38" strokeWidth="6" />
-            <ellipse cx="50" cy="38" rx="24" ry="8" fill="var(--tp-cafe-blue-tint)" strokeWidth="6" />
-            <ellipse cx="50" cy="38" rx="17" ry="5" fill="var(--tp-accent)" fillOpacity=".2" stroke="none" />
-          </g>
-          {/* drips */}
-          <g fill="var(--tp-cafe-green)" stroke="none">
-            <path d="M50 54 C45.5 59 46.5 64 50 64 C53.5 64 54.5 59 50 54 Z" />
-            <path d="M50 66 C46.5 69.5 47.2 73 50 73 C52.8 73 53.5 69.5 50 66 Z" />
-          </g>
-        </g>
+        {/* liquid */}
+        <path
+          d="M19 25 L22.4 45.6 L23.2 50.4 Q23.4 51.6 24.8 51.6 L39.2 51.6 Q40.6 51.6 40.8 50.4 L41.6 45.6 L45 25 Z"
+          fill="var(--tp-accent)"
+          fillOpacity=".72"
+          stroke="none"
+        />
+        {/* crema band */}
+        <path d="M19 25 L19.8 31.5 Q32 34.6 44.2 31.5 L45 25 Z" fill="var(--tp-cafe-green-tint)" stroke="none" />
+        {/* arched panels */}
+        <path d="M23.3 50.4 L23.4 43.8 Q23.5 42 24.9 42 Q26.3 42 26.4 43.8 L26.5 50.4" strokeWidth="1.6" opacity=".4" />
+        <path d="M28.7 50.4 L28.7 43.8 Q28.7 42 32 42 Q35.3 42 35.3 43.8 L35.3 50.4" strokeWidth="1.6" opacity=".4" />
+        <path d="M37.6 50.4 L37.7 43.8 Q37.8 42 39.2 42 Q40.6 42 40.7 43.8 L40.8 50.4" strokeWidth="1.6" opacity=".4" />
+        {/* glass */}
+        <path
+          d="M19 25 L22.4 45.6 L23.2 50.4 Q23.4 51.6 24.8 51.6 L39.2 51.6 Q40.6 51.6 40.8 50.4 L41.6 45.6 L45 25"
+          strokeWidth="2.6"
+        />
+        <ellipse cx="32" cy="25" rx="9.8" ry="3.15" fill="var(--tp-cafe-green-tint)" stroke="var(--tp-cafe-green)" strokeWidth="1.1" />
+        <ellipse cx="32" cy="25" rx="13" ry="4.2" strokeWidth="2.6" />
       </>
     ),
   },
