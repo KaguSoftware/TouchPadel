@@ -436,6 +436,72 @@ dance in `node_modules/better-sqlite3/build/Release/` — a rebuild under Node 2
 web `sheets.test.ts` path-separator normalization on Windows, local DB caught up 0054-0056
 (`supabase migration up`).
 
+## Day 9 (2026-08-31) — the phone said "no internet"; it was three things, and none was the phone
+
+The day-8 rebuild had been bundled but never RUN on a device. In Expo Go it was "insanely
+buggy" and "always gives a no internet error". Three read-only audits (no-internet trace,
+per-screen runtime bugs, design-vs-prototype parity) fed one fix pass. Commit on `main`.
+
+**The "no internet" was three separate surfaces:**
+1. **Hosted `app.is_degraded()` was `true`** — a dev till had heartbeated against production
+   once and gone stale, so every guest (mobile AND web) had been in degraded mode since:
+   amber crossed-out-Wi-Fi "Venue connection lost" banners, every today/tomorrow slot
+   "Desk only", holds refused. Verified with the anon key (`rpc/is_degraded` → `true`).
+   Owner decision: data fix. **Migration 0057** deletes till heartbeats stale > 1 h and
+   sweeps the open degraded period. Applied locally AND pushed to hosted (`db push --linked`,
+   ledger 0057 both sides; probe now `false`).
+2. **NetInfo's `isInternetReachable`** gated TanStack's `onlineManager` — it is a probe of
+   `clients3.google.com/generate_204` (iOS) / Android's Google-based validation, false forever
+   on filtered/slow/VPN networks while Supabase works fine → permanent red "You are offline"
+   bar. Now `isConnected` only, reachability probing disabled.
+3. **`errors.network` for non-network failures** — hardcoded on availability for any of 5
+   query errors, an unanchored `/network|fetch|timeout|abort/i` in `mapErrorToKey`, and the
+   "Call venue" row toasting it when the phone number was merely still loading. New
+   `src/lib/network.ts` `isTransportError` (anchored, tested) is the only path to that copy.
+
+**Crash/functional fixes (per-screen audit):** post-auth redirect race (pending slot cleared
+before the hold settled → guest dumped on the tabs; the slot is now a subscribable store,
+cleared on settle); duplicate-hold Review opening as "HOLD EXPIRED" (`secondsUntil(null)` now
+means no deadline); idempotency key minted inside the retrying mutation (now per intent via
+`idemKeyFor`); `void Linking.openURL` unhandled rejections (→ `src/lib/phone.ts`); closed-day
+heuristic keyed on the COURT count; `/booking/` with an empty id; `formatIQD` throwing in
+render (`src/lib/price.ts`); duplicate `/` route (`app/index.tsx` removed,
+`initialRouteName: '(tabs)'`); `router.back()` dead-ends after deep links (`useSafeBack`);
+sign-up "Sign in" returning to Profile; a 2 Hz interval that never stopped; bookings/detail
+`new Date()` frozen in memos; cancel eligibility judged before settings loaded; booking
+detail fetched by id instead of `find` in a 100-row list.
+
+**Phone-only layout/behaviour:** boot prefs (locale + appearance) resolved BEFORE first paint
+(`src/lib/bootPrefs.ts`) — no light→dark flash, no en→ar tofu frame; RTL flag reconciled
+before paint and the app reloads itself in dev (`DevSettings.reload`) when it changes;
+device locale = first preferred language only; brand fonts fall back to system faces on a
+failed download (was an iOS red-box per `<Text>`), only the active script blocks first paint;
+`Screen` owns safe-area edges; tab bar is the design's 62 pt translucent bar + inset (BlurView
+on iOS) with `useBottomTabBarHeight()` padding; `FormScreen` (KeyboardAvoidingView) on all six
+forms; court illustration capped to 46 % of the window height and memoised; `userInterfaceStyle:
+'automatic'` + `Appearance.setColorScheme` so keyboards/alerts follow the in-app theme; Arabic
+`letterSpacing` zeroed via `tracking()`; availability strip/badges through new `@touch/i18n`
+formatters (venue tz + Latin digits); grid built without a clock (past applied at merge, rate
+prices indexed once) so the minute tick is O(n).
+
+**Design parity:** `Button` sizes (regular/medium/compact) + `pressedBg`, `SegmentedControl fit`,
+`Title plain`, `Screen gutter`, `DashedDivider` (RN drew dashes solid), focus ring, tokens for
+every literal (`brand.leaf/successToast/welcomeInk/scrim*/welcomeGradient`, `crtCast*`),
+`boxShadow` shadows (dialog/toast/segment/court float), Welcome gradient, court ball at design
+size + glow, degraded banners with bold lead + bold phone, two-cell rows in the grid, copy
+per prototype (Arrived, Enable notifications, no-show sentence, "at the desk", →), sign-up
+without confirm-password, auth footers split lead/link, reset-password `invalidLink`,
+profile-edit dirty prompt, dialog `cancelLabel` ("Not yet" on reserve).
+
+**Gate:** mobile `tsc`/`eslint` clean, vitest **61/61** (was 50), i18n 22/22, core 253/253,
+DB **334/334**, iOS + Android bundles export, `expo-doctor` 18/18. New deps
+`expo-linear-gradient`, `expo-blur`, `@react-navigation/bottom-tabs`; `expo-image` removed.
+
+**Still to do on a device (not verifiable from this machine):** run the three Hermes `Intl`
+checks in the dev console (`DateTimeFormat.formatToParts` with `timeZone`,
+`NumberFormat('en-IQ-u-nu-latn', {currency:'IQD'}).formatToParts`, the `ar-IQ-u-nu-latn`
+format) — `formatIQD` now has a fallback, but the result should be recorded here.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -489,7 +555,10 @@ web `sheets.test.ts` path-separator normalization on Windows, local DB caught up
    then module 5 (stock UI), then printing and the Windows installer.
 7. **the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). ✔ crash fix + SDK 54 (day 5);
    ✔ **UI rebuild to the approved design 2026-08-31** (day 8 — guest browse, dark mode, merged
-   grid, all screens). Still open: day-zero release unblocks (`eas init`, Play account type,
+   grid, all screens); ✔ **day 9: the on-phone fix pass** ("no internet" root-caused — hosted
+   degraded state cleared by 0057, NetInfo gating removed, honest error mapping — plus the
+   crash/layout/parity list above; next: run it on a real iPhone + Android and record the
+   Hermes Intl check). Still open: day-zero release unblocks (`eas init`, Play account type,
    Apple team id, real EAS env, icon/splash), push end-to-end, account deletion + privacy pages
    (store gate), Sentry in a build, the padel-backend audit fixes. Store submission Wed 2026-09-16.
 8. **Real data over fixtures.** The `staff` table still holds only `Dev` seed rows, so
@@ -584,6 +653,19 @@ web `sheets.test.ts` path-separator normalization on Windows, local DB caught up
 - **`check:locks` cannot see advisory locks.** Its detector matches only `FOR UPDATE` and `app.x(`
   calls, so 0042's entire `pg_advisory_xact_lock` fix — including the cross-court
   `least()/greatest()` ordering — is unguarded by the guard CI runs to protect it.
+- **RUNNING THE OPERATOR AGAINST HOSTED PUTS PRODUCTION INTO DEGRADED MODE WHEN YOU CLOSE
+  IT.** `app.is_degraded()` = "a till row exists in `device_heartbeats` AND none is fresh
+  (45 s)". A dev session of the operator app heartbeats as a till; 45 s after it exits every
+  guest surface shows "Venue connection lost / desk-only" and holds are refused. That is
+  exactly what the phone was reporting as "no internet" on 2026-08-31. Until a real till is
+  installed: keep the operator open while testing guests against hosted, or re-run the delete
+  in migration 0057. Verify with the anon key: `POST /rest/v1/rpc/is_degraded`
+  (`Content-Profile: app`) → must be `false`.
+- **MOBILE: NetInfo's `isInternetReachable` is a Google probe, not connectivity.** It stays
+  `false` forever on networks where `clients3.google.com` is filtered or slow (and behind some
+  VPNs on Android) while Supabase works. The app now uses `isConnected` only
+  (`src/lib/queryClient.ts`) and never labels a non-transport failure as "no connection"
+  (`src/lib/network.ts`). Do not reintroduce reachability gating.
 - **MOBILE: `send-push` was never deployed and its cron was never scheduled.** Day 3 records "all
   four edge functions deployed" and names `telegram-send`, `telegram-callback`, `analytics-posthog`,
   `analytics-insights` — **`send-push` and `replay` are not among them**. The every-minute cron is a

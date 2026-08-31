@@ -1,27 +1,39 @@
 import { useState } from 'react';
-import { ScrollView, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../src/lib/supabase';
 import { signIn } from '../../src/features/auth/api';
 import { linkErrorParam } from '../../src/features/auth/deepLink';
 import { usePostAuthContinue } from '../../src/features/booking/usePostAuthContinue';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { useLocale } from '../../src/i18n/LocaleProvider';
-import { space, useTheme } from '../../src/theme';
-import { Button, ErrorText, Field, Screen, ScreenHeader, Title } from '../../src/components/ui';
+import { space } from '../../src/theme';
+import {
+  Button,
+  ErrorText,
+  Field,
+  FooterLink,
+  FormScreen,
+  LinkText,
+  Screen,
+  ScreenHeader,
+  Title,
+} from '../../src/components/ui';
 import { useToast } from '../../src/components/overlays';
 
+/**
+ * Sign in (design 2026-08-31). Errors are distinguished (spec 05.4): invalid
+ * credentials render on the password field, an unverified email forwards to
+ * the verification screen, and a transport failure renders as such below.
+ */
 export default function SignInScreen() {
   const { t } = useLocale();
-  const { colors, fonts } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const toast = useToast();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // useAuthDeepLink lands here when a verification link is dead, so the user is
   // told why instead of finding themselves back on sign-in for no visible reason.
@@ -30,6 +42,7 @@ export default function SignInScreen() {
   const onSubmit = async () => {
     setBusy(true);
     setError(null);
+    setPasswordError(null);
     try {
       await signIn(supabase, email, password);
       toast(t('auth.welcomeBack'), 'info');
@@ -38,7 +51,7 @@ export default function SignInScreen() {
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
       if (/invalid login credentials/i.test(message)) {
-        setError(t('auth.invalidCredentials'));
+        setPasswordError(t('auth.invalidCredentials'));
       } else if (/email not confirmed/i.test(message)) {
         router.push({ pathname: '/(auth)/verify-email', params: { email } });
       } else {
@@ -50,27 +63,28 @@ export default function SignInScreen() {
   };
 
   return (
-    <Screen style={{ paddingTop: insets.top }}>
+    <Screen gutter={20}>
       <ScreenHeader />
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingTop: 6, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Title squiggle={false}>{t('auth.signIn')}</Title>
+      <FormScreen>
+        <Title plain>{t('auth.signIn')}</Title>
         <Field
           placeholder={t('auth.emailLabel')}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoComplete="email"
+          textContentType="emailAddress"
+          style={{ marginTop: 6 }}
         />
         <Field
           placeholder={t('auth.passwordLabel')}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          autoComplete="password"
+          autoComplete="current-password"
+          textContentType="password"
+          error={passwordError}
+          onSubmitEditing={() => void onSubmit()}
         />
         <ErrorText>{error ?? (linkError ? t(linkError) : null)}</ErrorText>
         <Button
@@ -80,28 +94,18 @@ export default function SignInScreen() {
           variant="primary"
           style={{ marginTop: space.l }}
         />
-        <Button
+        <LinkText
           label={t('auth.forgotPassword')}
           onPress={() => router.push('/(auth)/forgot-password')}
-          variant="ghost"
+          style={{ marginTop: 12, paddingStart: 4 }}
         />
-        <Text
-          style={{
-            textAlign: 'center',
-            fontFamily: fonts.body400,
-            fontSize: 12.5,
-            color: colors.mut,
-            marginTop: space.l,
-          }}
-        >
-          <Text
-            onPress={() => router.push('/(auth)/sign-up')}
-            style={{ fontFamily: fonts.body800, color: colors.blue }}
-          >
-            {t('auth.noAccount')}
-          </Text>
-        </Text>
-      </ScrollView>
+        <FooterLink
+          lead={t('auth.newHereLead')}
+          label={t('auth.createAccountLink')}
+          onPress={() => router.push('/(auth)/sign-up')}
+          style={{ marginTop: 18 }}
+        />
+      </FormScreen>
     </Screen>
   );
 }

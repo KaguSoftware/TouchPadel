@@ -56,3 +56,14 @@ export async function fetchMyReservations(client: Client): Promise<BookingRow[]>
   if (error) throw error;
   return (data ?? []) as BookingRow[];
 }
+
+/** One own reservation by id (RLS: guest_id = auth.uid()). Null when not found / not ours. */
+export async function fetchReservationById(client: Client, id: string): Promise<BookingRow | null> {
+  const { data, error } = await client
+    .from('reservations')
+    .select('id, court_id, kind, status, start_at, end_at, price_iqd')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as BookingRow | null) ?? null;
+}

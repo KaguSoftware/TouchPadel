@@ -13,7 +13,8 @@
  */
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
-import { radius, space, useTheme } from '../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { brand, radius, space, useTheme } from '../theme';
 import { Button } from './ui';
 import { PadelBallIcon } from './icons';
 
@@ -33,7 +34,9 @@ export function Skeleton({
   style?: object;
 }) {
   const { colors } = useTheme();
-  const pulse = useRef(new Animated.Value(0.4)).current;
+  const pulseRef = useRef<Animated.Value | null>(null);
+  if (pulseRef.current === null) pulseRef.current = new Animated.Value(0.4);
+  const pulse = pulseRef.current;
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -157,16 +160,20 @@ export function EmptyState({
   message,
   actionLabel,
   onAction,
+  fill = false,
 }: {
   title: string;
   message?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Centre in the remaining space instead of sitting under the header. */
+  fill?: boolean;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <View
       style={{
+        flex: fill ? 1 : undefined,
         alignItems: 'center',
         justifyContent: 'center',
         paddingStart: space.xl,
@@ -203,32 +210,49 @@ export function EmptyState({
         </Text>
       ) : null}
       {actionLabel && onAction ? (
-        <View style={{ marginTop: space.l }}>
-          <Button label={actionLabel} onPress={onAction} variant="cta" />
-        </View>
+        // Design: inline-width compact green button (radius 12, 13×22, 12 pt).
+        <Button
+          label={actionLabel}
+          onPress={onAction}
+          variant="cta"
+          size="compact"
+          style={{ marginTop: space.l, paddingStart: 22, paddingEnd: 22 }}
+        />
       ) : null}
     </View>
   );
 }
 
 // ── Offline ─────────────────────────────────────────────────────────────────
-/** Persistent bar; the SOW is explicit that the app must fail loudly, not hide. */
+/**
+ * Persistent bar; the SOW is explicit that the app must fail loudly, not hide.
+ * Overlaid at the very top and padded past the status bar — as a sibling
+ * above the navigator it rendered UNDER the status bar and re-laid-out every
+ * screen when it appeared.
+ */
 export function OfflineBanner({ message }: { message: string }) {
   const { fonts } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <View
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
+      pointerEvents="none"
       style={{
-        backgroundColor: '#B42318',
-        paddingTop: 8,
+        position: 'absolute',
+        top: 0,
+        start: 0,
+        end: 0,
+        zIndex: 20,
+        backgroundColor: brand.danger,
+        paddingTop: insets.top + 6,
         paddingBottom: 8,
         paddingStart: space.l,
         paddingEnd: space.l,
       }}
     >
       <Text
-        style={{ color: '#FFFFFF', fontFamily: fonts.body600, fontSize: 13, textAlign: 'center' }}
+        style={{ color: brand.white, fontFamily: fonts.body600, fontSize: 13, textAlign: 'center' }}
       >
         {message}
       </Text>

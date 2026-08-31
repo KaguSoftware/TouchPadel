@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { QueryCache, QueryClient, MutationCache, focusManager, onlineManager } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { isTransportError } from './network';
 import { addBreadcrumb, captureException } from './telemetry';
 
 /**
@@ -18,9 +19,20 @@ import { addBreadcrumb, captureException } from './telemetry';
  */
 
 // ── online: pause, don't fail ────────────────────────────────────────────────
+//
+// "Online" is `isConnected` and NOTHING else. NetInfo's `isInternetReachable` is
+// a probe of https://clients3.google.com/generate_204 (iOS, from JS, retried
+// every 5 s) or Android's own captive-portal validation — also Google-based,
+// and forced false behind any VPN reporting zero downstream bandwidth. On a
+// network where Google is filtered or slow it stays false FOREVER while every
+// Supabase request succeeds, which pinned the red "You are offline" bar to an
+// app that was working. The Supabase host is the only reachability that
+// matters, and a failed request tells us about that directly.
+NetInfo.configure({ reachabilityShouldRun: () => false });
+
 onlineManager.setEventListener((setOnline) =>
   NetInfo.addEventListener((state) => {
-    const online = Boolean(state.isConnected && state.isInternetReachable !== false);
+    const online = state.isConnected !== false; // unknown (null) counts as online
     addBreadcrumb('net.change', { online, type: state.type });
     setOnline(online);
   }),
@@ -36,11 +48,11 @@ export function startFocusLifecycle(): () => void {
 /**
  * A Supabase RPC business error is a decision, not a blip — retrying it just
  * burns time before showing the user the same message. Retry transport
- * failures only.
+ * failures (lib/network.ts) and server faults only.
  */
 function isRetriable(error: unknown): boolean {
+  if (isTransportError(error)) return true;
   const message = error instanceof Error ? error.message : String(error ?? '');
-  if (/Network request failed|fetch failed|timeout|ECONN|socket hang up/i.test(message)) return true;
   // PostgREST/PostgREST-adjacent server faults are worth one more go.
   if (/\b(5\d\d)\b/.test(message)) return true;
   // Anything that reads like a raised app code (SLOT_TAKEN, FORBIDDEN, …) is final.
@@ -99,7 +111,9 @@ export const persistOptions = {
   maxAge: 24 * 60 * 60 * 1000,
   dehydrateOptions: {
     shouldDehydrateQuery: (query: { state: { status: string }; queryKey: readonly unknown[] }) =>
-      query.state.status === 'success' && query.queryKey[0] !== 'my-bookings',
+      query.state.status === 'success' &&
+      query.queryKey[0] !== 'my-bookings' &&
+      query.queryKey[0] !== 'reservation',
   },
 } as const;
 

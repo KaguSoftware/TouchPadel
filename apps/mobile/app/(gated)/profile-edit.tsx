@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
@@ -12,23 +11,28 @@ import {
   Button,
   ErrorText,
   Field,
+  FormScreen,
+  MicroLabel,
   Screen,
   ScreenHeader,
   SegmentedControl,
+  useSafeBack,
 } from '../../src/components/ui';
-import { useToast } from '../../src/components/overlays';
+import { ConfirmationDialog, useToast } from '../../src/components/overlays';
 import { SkeletonList } from '../../src/components/states';
 
 /**
  * Edit profile (design 2026-08-31): name, phone, preferred language. Email is
  * deliberately not editable here — it changes through re-verification (spec
- * 05.18). Language choice persists via the same setLocale path as Settings.
+ * 05.18). Language choice persists via the same setLocale path as Settings,
+ * WITHOUT flipping direction mid-navigation (the boot hook reconciles it).
+ * Unsaved edits prompt before leaving (spec `dirty` state).
  */
 export default function EditProfileScreen() {
   const { t, locale, setLocale } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const safeBack = useSafeBack();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const update = useUpdateProfile();
@@ -37,25 +41,38 @@ export default function EditProfileScreen() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [lang, setLang] = useState<Locale>(locale);
+  const [initial, setInitial] = useState<{ name: string; phone: string; lang: Locale } | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
 
   useEffect(() => {
-    if (profile.data && !hydrated) {
+    if (profile.data && !initial) {
+      const storedLang: Locale = profile.data.preferred_lang === 'ar' ? 'ar' : 'en';
       setName(profile.data.full_name ?? '');
       setPhone(profile.data.phone ?? '');
-      setHydrated(true);
+      setLang(storedLang);
+      setInitial({ name: profile.data.full_name ?? '', phone: profile.data.phone ?? '', lang: storedLang });
     }
-  }, [profile.data, hydrated]);
+  }, [profile.data, initial]);
+
+  const dirty =
+    initial !== null && (name !== initial.name || phone !== initial.phone || lang !== initial.lang);
+
+  const onBack = () => {
+    if (dirty && !update.isPending) setDiscardOpen(true);
+    else safeBack();
+  };
 
   const onSave = () => {
     setError(null);
-    if (!name.trim()) return setError(t('errors.validation'));
+    setNameError(null);
+    if (!name.trim()) return setNameError(t('auth.nameRequired'));
     update.mutate(
       { full_name: name.trim(), phone: phone.trim() || null },
       {
         onSuccess: async () => {
-          if (lang !== locale) await setLocale(lang);
+          if (lang !== locale) await setLocale(lang, { flip: false });
           toast(t('profile.updated'));
           router.back();
         },
@@ -65,21 +82,19 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <Screen style={{ paddingTop: insets.top }}>
-      <ScreenHeader title={t('profile.editProfile')} />
-      {profile.isLoading && !hydrated ? (
+    <Screen>
+      <ScreenHeader title={t('profile.editProfile')} onBack={onBack} />
+      {profile.isLoading && !initial ? (
         <SkeletonList rows={3} height={64} />
       ) : (
-        <ScrollView
-          contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <FormScreen contentStyle={{ paddingTop: 4 }}>
           <Field
             label={t('profile.name')}
             value={name}
             onChangeText={setName}
             autoCapitalize="words"
+            dense
+            error={nameError}
           />
           <Field
             label={t('auth.phoneLabel')}
@@ -87,20 +102,10 @@ export default function EditProfileScreen() {
             onChangeText={setPhone}
             keyboardType="phone-pad"
             autoComplete="tel"
+            dense
           />
           <View style={{ marginTop: space.sm }}>
-            <Text
-              style={{
-                fontFamily: fonts.body700,
-                fontSize: 11,
-                letterSpacing: 0.66,
-                textTransform: 'uppercase',
-                color: colors.mut,
-                marginBottom: 5,
-              }}
-            >
-              {t('auth.preferredLanguage')}
-            </Text>
+            <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>
             <SegmentedControl<Locale>
               options={[
                 { value: 'en', label: t('settings.english') },
@@ -135,10 +140,24 @@ export default function EditProfileScreen() {
             variant="cta"
             busy={update.isPending}
             onPress={onSave}
-            style={{ marginTop: space.l }}
+            style={{ marginTop: 6 }}
           />
-        </ScrollView>
+        </FormScreen>
       )}
+
+      <ConfirmationDialog
+        visible={discardOpen}
+        title={t('profile.discardTitle')}
+        body={t('profile.discardBody')}
+        confirmLabel={t('profile.discard')}
+        cancelLabel={t('profile.keepEditing')}
+        danger
+        onConfirm={() => {
+          setDiscardOpen(false);
+          safeBack();
+        }}
+        onDismiss={() => setDiscardOpen(false)}
+      />
     </Screen>
   );
 }

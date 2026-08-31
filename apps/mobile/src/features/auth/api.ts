@@ -95,15 +95,29 @@ export async function signOut(client: Client) {
 }
 
 /** Local sign-up form validation. Returns an i18n-mappable code or null when valid. */
+export type SignUpValidation =
+  | 'NAME_REQUIRED'
+  | 'EMAIL_INVALID'
+  | 'PASSWORD_TOO_SHORT'
+  | 'PASSWORD_MISMATCH'
+  | 'PHONE_REQUIRED'
+  | null;
+
 export function validateSignUp(args: {
   fullName: string;
   email: string;
   password: string;
-  confirmPassword: string;
-}): 'NAME_REQUIRED' | 'EMAIL_INVALID' | 'PASSWORD_TOO_SHORT' | 'PASSWORD_MISMATCH' | null {
+  /** The design's sign-up has no confirm field; only checked when supplied. */
+  confirmPassword?: string;
+  phone?: string;
+}): SignUpValidation {
   if (!args.fullName.trim()) return 'NAME_REQUIRED';
   if (!/^\S+@\S+\.\S+$/.test(args.email.trim())) return 'EMAIL_INVALID';
   if (args.password.length < 8) return 'PASSWORD_TOO_SHORT';
-  if (args.password !== args.confirmPassword) return 'PASSWORD_MISMATCH';
+  if (args.confirmPassword !== undefined && args.password !== args.confirmPassword) {
+    return 'PASSWORD_MISMATCH';
+  }
+  // Phone is required from day one (spec 05.3 — profile field, not identity).
+  if (args.phone !== undefined && !args.phone.trim()) return 'PHONE_REQUIRED';
   return null;
 }

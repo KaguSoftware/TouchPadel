@@ -26,6 +26,7 @@ export const en = {
     done: 'Done',
     call: 'Call',
     keepIt: 'Keep it',
+    notYet: 'Not yet',
   },
   auth: {
     signIn: 'Sign in',
@@ -48,6 +49,22 @@ export const en = {
     preferredLanguage: 'Preferred language',
     noAccount: 'New here? Create an account',
     haveAccount: 'Already have an account? Sign in',
+    // Design 2026-08-31: the lead reads muted, only the action is the link.
+    newHereLead: 'New here?',
+    createAccountLink: 'Create an account',
+    alreadyLead: 'Already playing with us?',
+    passwordMinPlaceholder: 'Password (min 8 characters)',
+    // Field-level validation (spec 05.3/05.4) — rendered on the field it concerns.
+    nameRequired: 'Enter your full name.',
+    emailInvalid: 'Enter a valid email address.',
+    phoneRequired: 'Enter your phone number.',
+    // Verification body is three lines with the address in bold (design).
+    checkEmailLead: 'We sent a verification link to',
+    checkEmailTail: 'Open it to activate your account.',
+    // Reset-password invalidLink state (spec 05.8).
+    invalidResetLinkTitle: "This reset link can't be used",
+    invalidResetLinkBody: 'It may have expired or already been used. Request a new one and open it on this phone.',
+    requestNewLink: 'Request a new link',
     verifyEmailTitle: 'Verify your email',
     resendEmail: 'Resend verification email',
     resendEmailDone: 'Verification email sent again.',
@@ -429,7 +446,7 @@ export const en = {
     stateBlocked: 'Unavailable',
     statusPending: 'Pending',
     statusConfirmed: 'Confirmed',
-    statusArrived: 'Checked in',
+    statusArrived: 'Arrived',
     statusCompleted: 'Completed',
     statusCancelled: 'Cancelled',
     statusNoShow: 'No-show',
@@ -455,7 +472,7 @@ export const en = {
     price: 'Price',
     payAtDeskTitle: 'Pay at the desk',
     payAtDeskBody: 'Your court is reserved now. You pay at reception when you arrive — there is no online payment in this app.',
-    policyLine: 'Free cancellation until {hours} hours before your slot. Inside that window, changes are handled by the desk.',
+    policyLine: 'Free cancellation until {hours} hours before your slot. Inside that window, changes are handled by the desk. Repeated no-shows may limit app booking.',
     reserveCta: 'Reserve court',
     reserveDialogTitle: 'Reserve this court?',
     reserveDialogBody: '{court} · {when} · {price}. You pay at the desk on arrival.',
@@ -465,7 +482,7 @@ export const en = {
     holdExpiredBody: 'Your time ran out and the slot went back on the grid. It may still be free — pick it again.',
     backToAvailability: 'Back to availability',
     slotTakenTitle: 'Slot just taken',
-    slotTakenBody: 'Someone got there first. The grid has been refreshed — pick another slot.',
+    slotTakenBody: 'Someone at the desk got there first. The grid has been refreshed — pick another slot.',
     successTitle: 'Court reserved',
     refLabel: 'REF {ref}',
     successPayBody: "Show up, check in at reception and pay there. We'll send a reminder before your slot.",
@@ -473,7 +490,7 @@ export const en = {
     noBookingsTitle: 'No bookings yet',
     noBookingsBody: 'Your court reservations will show up here.',
     emptyUpcoming: 'Nothing upcoming.',
-    bookNext: 'Book your next game',
+    bookNext: 'Book your next game →',
     weeklySeries: 'Weekly series',
     bookingRef: 'Booking {ref}',
     priceAtDesk: 'Price · at desk',
@@ -507,6 +524,11 @@ export const en = {
     confirmNewPassword: 'Confirm new password',
     updatePassword: 'Update password',
     fillAllFields: 'Fill in all three fields.',
+    // Unsaved-changes prompt on back (spec 05.18 `dirty`).
+    discardTitle: 'Discard changes?',
+    discardBody: "Your edits haven't been saved.",
+    discard: 'Discard',
+    keepEditing: 'Keep editing',
   },
   settings: {
     title: 'Settings',
@@ -515,20 +537,21 @@ export const en = {
     arabic: 'العربية',
     rtlRestartNote: 'The new layout direction is applied fully after you restart the app.',
     notifications: 'Notifications',
-    enablePush: 'Enable push notifications',
+    enablePush: 'Enable notifications',
     pushRegistered: 'Push notifications are enabled on this device.',
     pushUnavailable: 'Push notifications are not available on this device.',
     // Design 2026-08-31.
     appearance: 'Appearance',
     light: 'Light',
     dark: 'Dark',
-    languageNote: "Switching language changes the app's layout direction after a restart.",
+    languageNote: 'Switching to العربية flips the whole app right-to-left and restarts it.',
     notifBody: 'Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.',
     notifGranted: 'Enabled — booking confirmations, reminders and cancellations.',
     notifDenied: 'Notifications are turned off for this app. Enable them in system settings.',
     openSystemSettings: 'Open system settings',
     venue: 'Venue',
     versionLine: '{name} · v{version} ({build})',
+    phoneUnavailable: "The venue hasn't published a phone number yet.",
   },
   cafe: {
     menu: 'Menu',
@@ -688,6 +711,7 @@ export const en = {
     configBody: 'This build is missing its connection settings, so it cannot reach the venue.',
     loadFailedTitle: 'Could not load',
     validation: 'Please check the highlighted fields and try again.',
+    callFailed: "This device can't place calls. The number is {phone}.",
   },
   degraded: {
     // Contractual degraded-mode UX (SOW "Degraded mode" acceptance):
@@ -703,9 +727,12 @@ export const en = {
     tillBannerSynced: 'Back online — all queued items have synced.',
     dayCloseBlocked: 'The day cannot be closed while {count} items are still unsynced.',
     // Design 2026-08-31: proactive banners (refusal copy above remains the backstop).
-    bannerCourts: 'Venue connection lost. Booking for today & tomorrow is desk-only for now. Call {phone}.',
-    bannerAvailability: 'Desk-only period. Today & tomorrow can only be booked at the desk · {phone}',
-    bannerBookings: 'Venue connection lost. Your bookings are shown as last known. Call {phone} for changes.',
+    // The bold lead sentence renders separately (DegradedBanner `lead`).
+    leadConnectionLost: 'Venue connection lost.',
+    leadDeskOnly: 'Desk-only period.',
+    bannerCourts: 'Booking for today & tomorrow is desk-only for now. Call {phone}.',
+    bannerAvailability: 'Today & tomorrow can only be booked at the desk · {phone}',
+    bannerBookings: 'Your bookings are shown as last known. Call {phone} for changes.',
   },
   // Operator (staff) surfaces — apps/operator. Every staff-facing label lives here
   // so the same app doubles as the Arabic staff UI.

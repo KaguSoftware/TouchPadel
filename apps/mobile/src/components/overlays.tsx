@@ -2,7 +2,8 @@
  * Overlay primitives (design 2026-08-31): the bottom notice sheet (blocked /
  * desk-only slots), the confirmation dialog (spec R7 — no write without one),
  * and the transient toast. Every Modal carries onRequestClose so the Android
- * hardware back button is never trapped (the availability-modal lesson).
+ * hardware back button is never trapped (the availability-modal lesson), and
+ * statusBarTranslucent so the scrim covers the status bar under edge-to-edge.
  */
 import {
   createContext,
@@ -17,7 +18,7 @@ import {
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
-import { brand, radius, space, useTheme } from '../theme';
+import { brand, radius, shadows, space, useTheme } from '../theme';
 import { Button } from './ui';
 
 // ── Notice sheet ────────────────────────────────────────────────────────────
@@ -42,16 +43,24 @@ export function NoticeSheet({
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('common.close')}
         onPress={onClose}
-        style={{ flex: 1, backgroundColor: '#10182866', justifyContent: 'flex-end' }}
+        style={{ flex: 1, backgroundColor: brand.scrim, justifyContent: 'flex-end' }}
       >
-        <Pressable
-          // Swallow taps inside the sheet so only the backdrop dismisses.
-          onPress={() => {}}
+        {/* Swallow taps inside the sheet so only the backdrop dismisses — as a
+            View with a responder, not a Pressable, so screen readers do not
+            announce the whole sheet as a button. */}
+        <View
+          onStartShouldSetResponder={() => true}
           style={{
             backgroundColor: colors.card,
             borderTopStartRadius: radius.sheet,
@@ -100,9 +109,11 @@ export function NoticeSheet({
             label={t('common.close')}
             onPress={onClose}
             variant="secondary"
+            size="medium"
+            labelColor={colors.mut2}
             style={{ marginTop: 9, backgroundColor: colors.sub, borderWidth: 0 }}
           />
-        </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );
@@ -115,6 +126,7 @@ export function ConfirmationDialog({
   title,
   body,
   confirmLabel,
+  cancelLabel,
   busy,
   danger,
   onConfirm,
@@ -125,6 +137,8 @@ export function ConfirmationDialog({
   body: string;
   /** Caller swaps in the busy label ("Reserving…") while busy. */
   confirmLabel: string;
+  /** Dismiss label (spec: required prop). Defaults to "Keep it" — right for cancelling, wrong for reserving. */
+  cancelLabel?: string;
   busy?: boolean;
   danger?: boolean;
   onConfirm: () => void;
@@ -136,11 +150,17 @@ export function ConfirmationDialog({
     if (!busy) onDismiss();
   };
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismissUnlessBusy}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={dismissUnlessBusy}
+    >
       <View
         style={{
           flex: 1,
-          backgroundColor: '#10182880',
+          backgroundColor: brand.scrimStrong,
           alignItems: 'center',
           justifyContent: 'center',
           paddingStart: 28,
@@ -153,6 +173,7 @@ export function ConfirmationDialog({
             backgroundColor: colors.card,
             borderRadius: 18,
             padding: space.xl,
+            boxShadow: shadows.dialog,
           }}
         >
           <Text
@@ -178,10 +199,12 @@ export function ConfirmationDialog({
           </Text>
           <View style={{ flexDirection: 'row', gap: 9, marginTop: 18 }}>
             <Button
-              label={t('common.keepIt')}
+              label={cancelLabel ?? t('common.keepIt')}
               onPress={dismissUnlessBusy}
               disabled={busy}
               variant="secondary"
+              size="compact"
+              labelColor={colors.mut2}
               style={{ flex: 1, backgroundColor: colors.sub, borderWidth: 0 }}
             />
             <Button
@@ -189,6 +212,7 @@ export function ConfirmationDialog({
               onPress={onConfirm}
               busy={busy}
               variant={danger ? 'danger' : 'cta'}
+              size="compact"
               style={{ flex: 1.4 }}
             />
           </View>
@@ -244,7 +268,8 @@ function ToastHost({ toast }: { toast: ToastState | null }) {
   const { fonts } = useTheme();
   const insets = useSafeAreaInsets();
   if (!toast) return null;
-  const bg = toast.tone === 'error' ? brand.danger : toast.tone === 'info' ? brand.navy : '#3E6318';
+  const bg =
+    toast.tone === 'error' ? brand.danger : toast.tone === 'info' ? brand.navy : brand.successToast;
   return (
     <View
       pointerEvents="none"
@@ -266,6 +291,7 @@ function ToastHost({ toast }: { toast: ToastState | null }) {
           paddingTop: 11,
           paddingBottom: 11,
           maxWidth: '100%',
+          boxShadow: shadows.toast,
         }}
       >
         <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: brand.white }}>{toast.message}</Text>

@@ -7,6 +7,7 @@
 import {
   buildSlotGrid,
   displayWindows,
+  indexRatePrices,
   resolveRateRule,
   localParts,
   iqd,
@@ -139,6 +140,8 @@ export function assembleDayGrid(args: AssembleArgs): CourtSlots[] {
     durationMin: p.duration_min,
     priceIqd: iqd(p.price_iqd),
   }));
+  // Indexed ONCE per build; resolveRateRule used to rebuild the map per slot.
+  const priceIndex = indexRatePrices(prices);
 
   return buildSlotGrid({
     date: args.date,
@@ -149,8 +152,13 @@ export function assembleDayGrid(args: AssembleArgs): CourtSlots[] {
     now: args.now,
     tz,
     price: (courtId, startAt, durationMin) =>
-      resolveRateRule(rules, prices, courtId, startAt, durationMin, tz)?.priceIqd ?? null,
+      resolveRateRule(rules, priceIndex, courtId, startAt, durationMin, tz)?.priceIqd ?? null,
   });
+}
+
+/** True when at least one court produced a slot — i.e. the venue trades that day. */
+export function hasAnySlots(grid: readonly CourtSlots[]): boolean {
+  return grid.some((court) => court.slots.length > 0);
 }
 
 /** One tappable grid cell: a start time with its bookable duration options. */
@@ -227,13 +235,30 @@ export interface MergedCell {
  * `horizonEnd` is set (degraded mode), every not-yet-past cell starting before
  * it renders 'horizon' ("desk only") — the server refuses those holds anyway;
  * this just says so before the tap instead of after.
+ *
+ * When `now` is given, a free or held slot whose start has passed counts as
+ * 'past' here (booked/blocked keep their state — a running booking still shows
+ * as booked, mirroring buildSlotGrid's precedence). The hook builds the grid
+ * without a clock so this cheap pass is the only per-minute work.
  */
 export function mergeAcrossCourts(
   grid: readonly CourtSlots[],
   durationMin: number,
   horizonEnd?: Date | null,
+  now?: Date | null,
 ): MergedCell[] {
-  const byStart = new Map<number, { startAt: Date; options: { courtId: string; slot: Slot }[] }>();
+  const nowMs = now ? now.getTime() : null;
+  const effectiveState = (slot: Slot): Slot['state'] =>
+    nowMs !== null &&
+    (slot.state === 'free' || slot.state === 'held') &&
+    slot.startAt.getTime() < nowMs
+      ? 'past'
+      : slot.state;
+
+  const byStart = new Map<
+    number,
+    { startAt: Date; options: { courtId: string; slot: Slot; state: Slot['state'] }[] }
+  >();
   for (const court of grid) {
     for (const slot of court.slots) {
       if (slot.durationMin !== durationMin) continue;
@@ -243,21 +268,21 @@ export function mergeAcrossCourts(
         cell = { startAt: slot.startAt, options: [] };
         byStart.set(key, cell);
       }
-      cell.options.push({ courtId: court.courtId, slot });
+      cell.options.push({ courtId: court.courtId, slot, state: effectiveState(slot) });
     }
   }
 
   const cells: MergedCell[] = [];
   for (const { startAt, options } of byStart.values()) {
     const free = options
-      .filter((o) => o.slot.state === 'free')
+      .filter((o) => o.state === 'free')
       .sort((a, b) => (a.slot.priceIqd ?? Number.MAX_SAFE_INTEGER) - (b.slot.priceIqd ?? Number.MAX_SAFE_INTEGER));
     const cheapest = free[0] ?? null;
     let state: MergedState;
     if (cheapest) state = 'free';
-    else if (options.every((o) => o.slot.state === 'past')) state = 'past';
-    else if (options.some((o) => o.slot.state === 'blocked')) state = 'blocked';
-    else if (options.some((o) => o.slot.state === 'held')) state = 'held';
+    else if (options.every((o) => o.state === 'past')) state = 'past';
+    else if (options.some((o) => o.state === 'blocked')) state = 'blocked';
+    else if (options.some((o) => o.state === 'held')) state = 'held';
     else state = 'booked';
 
     if (horizonEnd && state !== 'past' && startAt.getTime() < horizonEnd.getTime()) {

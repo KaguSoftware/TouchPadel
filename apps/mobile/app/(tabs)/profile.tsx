@@ -1,6 +1,7 @@
-import { Image, Linking, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Image, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { supabase } from '../../src/lib/supabase';
@@ -9,13 +10,16 @@ import { useOwnProfile } from '../../src/features/profile/hooks';
 import { useVenueSettings } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { mapErrorToKey } from '../../src/features/booking/errors';
+import { callPhone } from '../../src/lib/phone';
 import { brand, radius, space, useTheme } from '../../src/theme';
-import { Button, Card, Screen, Title } from '../../src/components/ui';
+import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
 import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
-import { useState } from 'react';
+
+const LOGO_H = 40;
+const LOGO_W = Math.round(LOGO_H * (900 / 332));
 
 /**
  * Profile tab (design 2026-08-31): avatar card + menu rows when signed in;
@@ -25,7 +29,7 @@ export default function ProfileScreen() {
   const { t } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const settings = useVenueSettings();
@@ -33,8 +37,15 @@ export default function ProfileScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const phone = venuePhoneOf(settings.data);
-  const callVenue = () => {
-    if (phone) void Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`);
+  const onCallVenue = () => {
+    if (!phone) {
+      // Not a connectivity problem: the venue simply has no number published.
+      toast(t('settings.phoneUnavailable'), 'info');
+      return;
+    }
+    void callPhone(phone).then((ok) => {
+      if (!ok) toast(t('errors.callFailed', { phone }), 'error');
+    });
   };
 
   const onSignOut = async () => {
@@ -54,16 +65,16 @@ export default function ProfileScreen() {
 
   if (!session) {
     return (
-      <Screen style={{ paddingTop: insets.top }}>
+      <Screen>
         {header}
         <View
           style={{
             flex: 1,
             alignItems: 'center',
             justifyContent: 'center',
-            paddingStart: 12,
+            paddingStart: 12, // + the 16 gutter = the design's 28
             paddingEnd: 12,
-            paddingBottom: 90,
+            paddingBottom: tabBarHeight + 24,
           }}
         >
           <Image
@@ -72,7 +83,8 @@ export default function ProfileScreen() {
                 ? require('../../assets/logo-white.png')
                 : require('../../assets/logo.png')
             }
-            style={{ height: 40, width: 160, resizeMode: 'contain' }}
+            resizeMode="contain"
+            style={{ height: LOGO_H, width: LOGO_W }}
             accessibilityLabel={t('common.appName')}
           />
           <Text
@@ -105,16 +117,23 @@ export default function ProfileScreen() {
   }
 
   const name = profile.data?.full_name ?? '';
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  const email = session.user.email ?? '';
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() ||
+    email.slice(0, 1).toUpperCase() ||
+    '•';
+  const langLabel =
+    profile.data?.preferred_lang === 'ar' ? t('settings.arabic') : t('settings.english');
+  const detailLine = [profile.data?.phone, langLabel].filter(Boolean).join(' · ');
 
   return (
-    <Screen style={{ paddingTop: insets.top }}>
+    <Screen>
       {header}
       {profile.isLoading ? (
         <SkeletonList rows={2} height={90} />
@@ -128,7 +147,7 @@ export default function ProfileScreen() {
         />
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 90 }}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}
           showsVerticalScrollIndicator={false}
         >
           <Card style={{ flexDirection: 'row', gap: 13, alignItems: 'center' }}>
@@ -149,20 +168,25 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink }}>
+              <Text
+                numberOfLines={1}
+                style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink }}
+              >
                 {name}
               </Text>
               <Text
                 style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, marginTop: 2 }}
                 numberOfLines={1}
               >
-                {session.user.email ?? ''}
+                {email}
               </Text>
-              {profile.data?.phone ? (
-                <Text style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}>
-                  {profile.data.phone}
-                </Text>
-              ) : null}
+              {/* Design: "{phone} · {language}" on the third line. */}
+              <Text
+                numberOfLines={1}
+                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}
+              >
+                {detailLine}
+              </Text>
             </View>
           </Card>
 
@@ -194,25 +218,18 @@ export default function ProfileScreen() {
             <MenuRow
               icon={<PhoneIcon size={15} color={colors.gstrong} />}
               label={t('profile.callVenue')}
-              onPress={() => {
-                if (phone) callVenue();
-                else toast(t('errors.network'), 'info');
-              }}
+              onPress={onCallVenue}
+              disabled={settings.isLoading}
               last
             />
           </View>
 
-          {error ? (
-            <Text
-              style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.redtext, marginTop: 10 }}
-            >
-              {error}
-            </Text>
-          ) : null}
+          <ErrorText>{error}</ErrorText>
 
           <Button
             label={t('auth.signOut')}
             variant="secondary"
+            size="medium"
             onPress={() => void onSignOut()}
             labelColor={colors.redtext}
             style={{ marginTop: space.m, backgroundColor: 'transparent' }}

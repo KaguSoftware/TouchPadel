@@ -1,7 +1,8 @@
-import {useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { addBreadcrumb, captureMessage } from '../../lib/telemetry';
+import { useAuth } from '../auth/context';
 import {
   fetchCourts,
   fetchDayAvailability,
@@ -53,13 +54,24 @@ export function useRatePrices() {
 }
 
 export interface DayGrid {
+  /**
+   * Per-court slots for the day, TIME-AGNOSTIC: nothing here is marked `past`.
+   * `mergeAcrossCourts(grid, duration, horizon, now)` applies the clock, so the
+   * expensive assembly (hundreds of ICU calls) runs only when data changes and
+   * the minute tick is an O(n) pass.
+   */
   grid: CourtSlots[];
   settings: VenueSettingsPublic | undefined;
   isLoading: boolean;
   isError: boolean;
+  /** First failing query's error — screens map it, never assume "network". */
+  error: unknown;
   isRefetching: boolean;
   refetch: () => void;
 }
+
+/** Epoch: with this as `now` no slot is past and no hold is expired at build time. */
+const NO_CLOCK = new Date(0);
 
 /** Assembled, priced grid for one venue-local day. */
 export function useDayGrid(date: string): DayGrid {
@@ -77,16 +89,6 @@ export function useDayGrid(date: string): DayGrid {
     refetchInterval: 60_000, // holds expire server-side; keep the grid honest
   });
 
-  // `now` decides which slots render as `past`. It used to be `new Date()`
-  // inside this useMemo, whose deps contain no clock — so the boundary froze at
-  // the last data change and a slot starting in five minutes still showed as
-  // free half an hour later. Tick it on the same cadence as the grid refetch.
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
   const grid = useMemo<CourtSlots[]>(() => {
     if (!settings.data || !courts.data || !rules.data || !prices.data || !availability.data) {
       return [];
@@ -98,9 +100,9 @@ export function useDayGrid(date: string): DayGrid {
       availability: availability.data,
       rules: rules.data,
       prices: prices.data,
-      now,
+      now: NO_CLOCK,
     });
-  }, [date, settings.data, courts.data, rules.data, prices.data, availability.data, now]);
+  }, [date, settings.data, courts.data, rules.data, prices.data, availability.data]);
 
   const queries = [settings, courts, rules, prices, availability];
   return {
@@ -108,6 +110,7 @@ export function useDayGrid(date: string): DayGrid {
     settings: settings.data,
     isLoading: queries.some((q) => q.isLoading),
     isError: queries.some((q) => q.isError),
+    error: queries.find((q) => q.isError)?.error ?? null,
     isRefetching: queries.some((q) => q.isRefetching),
     // Retry every query that can set isError. This used to refetch ONLY
     // `availability` while isError was `some()` over all five — so if courts,
@@ -122,36 +125,36 @@ export function useDayGrid(date: string): DayGrid {
  * Live grid refresh: 'courts' broadcast-from-database topic (0022). Private
  * channel — realtime auth is set on sign-in (AuthProvider) and refreshed here
  * before subscribing. Payload is slot-taken/freed only; we just invalidate.
+ * Re-subscribes when the session appears or changes (it used to read the
+ * session once at mount, so signing in on the screen never subscribed).
  */
 export function useCourtsBroadcast(): void {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const token = session?.access_token ?? null;
   const invalidate = useRef(() => {
     void queryClient.invalidateQueries({ queryKey: ['availability'] });
     void queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+    void queryClient.invalidateQueries({ queryKey: ['reservation'] });
   });
 
   useEffect(() => {
-    let disposed = false;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (disposed || !data.session) return;
-      supabase.realtime.setAuth(data.session.access_token);
-      channel = supabase
-        .channel('courts', { config: { private: true } })
-        .on('broadcast', { event: 'slot_changed' }, () => invalidate.current())
-        .subscribe((status) => {
-          // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
-          // quietly stale with no signal to the user or to telemetry.
-          if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
-          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
-            captureMessage('realtime.courts.' + status, 'warning');
-        });
-    });
+    if (!token) return;
+    supabase.realtime.setAuth(token);
+    const channel = supabase
+      .channel('courts', { config: { private: true } })
+      .on('broadcast', { event: 'slot_changed' }, () => invalidate.current())
+      .subscribe((status) => {
+        // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
+        // quietly stale with no signal to the user or to telemetry.
+        if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
+          captureMessage('realtime.courts.' + status, 'warning');
+      });
     return () => {
-      disposed = true;
-      if (channel) void supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [token]);
 }
 
 /**
@@ -159,6 +162,10 @@ export function useCourtsBroadcast(): void {
  * availability / bookings). `app.is_degraded()` is granted to anon (0008), so
  * signed-out browsing gets the banner too. The refusal path in booking/errors
  * remains the authority — this only warns BEFORE the tap.
+ *
+ * NOTE: it reports the VENUE's till connectivity, never this phone's. A stale
+ * dev till heartbeat on the hosted project kept this true for every guest
+ * until migration 0057 — the banner was faithfully reporting it.
  */
 export function useIsDegraded(): boolean {
   const query = useQuery({
