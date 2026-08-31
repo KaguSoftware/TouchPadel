@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { iqd } from '@touch/core';
+import type { CourtSlots, Slot } from '@touch/core';
 import {
+  mergeAcrossCourts,
+  openNowInfo,
   assembleDayGrid,
   groupByStart,
   listBookableDates,
@@ -8,6 +12,8 @@ import {
   type RateRulePriceRow,
   type RateRuleRow,
 } from '../assemble';
+
+// ── mergeAcrossCourts (design 2026-08-31: one timeline, capacity per start) ──
 
 const TZ = 'Asia/Baghdad'; // UTC+3, no DST
 
@@ -163,5 +169,97 @@ describe('listBookableDates', () => {
     expect(dates).toHaveLength(15);
     expect(dates[0]).toBe('2026-09-02'); // venue-local "today"
     expect(dates[14]).toBe('2026-09-16');
+  });
+});
+
+function slot(startIso: string, durationMin: number, state: Slot['state'], priceIqd: number | null): Slot {
+  const startAt = new Date(startIso);
+  return {
+    startAt,
+    endAt: new Date(startAt.getTime() + durationMin * 60_000),
+    durationMin,
+    state,
+    priceIqd: priceIqd == null ? null : iqd(priceIqd),
+  };
+}
+
+const T10 = '2026-09-01T07:00:00.000Z'; // 10:00 Baghdad
+const T11 = '2026-09-01T08:00:00.000Z';
+
+describe('mergeAcrossCourts', () => {
+  const twoCourts: CourtSlots[] = [
+    { courtId: 'c1', slots: [slot(T10, 60, 'free', 30_000), slot(T11, 60, 'booked', 25_000)] },
+    { courtId: 'c2', slots: [slot(T10, 60, 'free', 25_000), slot(T11, 60, 'held', 25_000)] },
+  ];
+
+  it('counts free courts and targets the cheapest one', () => {
+    const cells = mergeAcrossCourts(twoCourts, 60);
+    expect(cells).toHaveLength(2);
+    expect(cells[0]).toMatchObject({ state: 'free', freeCount: 2, capacity: 2, courtId: 'c2', priceIqd: 25_000 });
+  });
+
+  it('resolves a fully-busy start to the most explanatory state', () => {
+    const cells = mergeAcrossCourts(twoCourts, 60);
+    // booked + held -> held wins over booked
+    expect(cells[1]).toMatchObject({ state: 'held', freeCount: 0, courtId: null, priceIqd: null });
+  });
+
+  it('any free court keeps the start bookable even when the other is blocked', () => {
+    const grid: CourtSlots[] = [
+      { courtId: 'c1', slots: [slot(T10, 60, 'blocked', null)] },
+      { courtId: 'c2', slots: [slot(T10, 60, 'free', 25_000)] },
+    ];
+    expect(mergeAcrossCourts(grid, 60)[0]).toMatchObject({ state: 'free', freeCount: 1, courtId: 'c2' });
+  });
+
+  it('filters to the selected duration only', () => {
+    const grid: CourtSlots[] = [
+      { courtId: 'c1', slots: [slot(T10, 60, 'free', 25_000), slot(T10, 90, 'free', 37_500)] },
+    ];
+    const cells = mergeAcrossCourts(grid, 90);
+    expect(cells).toHaveLength(1);
+    expect(cells[0]).toMatchObject({ priceIqd: 37_500, capacity: 1 });
+  });
+
+  it('degraded horizon overrides every non-past state, past stays past', () => {
+    const grid: CourtSlots[] = [
+      { courtId: 'c1', slots: [slot(T10, 60, 'past', null), slot(T11, 60, 'free', 25_000)] },
+    ];
+    const horizonEnd = new Date('2026-09-02T00:00:00Z');
+    const cells = mergeAcrossCourts(grid, 60, horizonEnd);
+    expect(cells[0]?.state).toBe('past');
+    expect(cells[1]?.state).toBe('horizon');
+  });
+});
+
+describe('openNowInfo', () => {
+  const overnight = {
+    timezone: TZ,
+    // Trades 09:00 -> 02:00: the tail lives on the NEXT calendar day.
+    opening_hours: {
+      tue: [['00:00', '02:00'], ['09:00', '24:00']],
+      wed: [['00:00', '02:00'], ['09:00', '24:00']],
+    },
+    closed_dates: [] as string[],
+  };
+
+  it('is open mid-evening with the folded label', () => {
+    const info = openNowInfo(overnight, new Date('2026-09-01T18:00:00.000Z')); // 21:00 Baghdad Tue
+    expect(info).toMatchObject({ open: true, label: '09:00–02:00' });
+  });
+
+  it('is open during the post-midnight tail', () => {
+    const info = openNowInfo(overnight, new Date('2026-09-01T22:30:00.000Z')); // 01:30 Baghdad Wed
+    expect(info?.open).toBe(true);
+  });
+
+  it('is closed in the dead band and on closed dates', () => {
+    const dead = openNowInfo(overnight, new Date('2026-09-01T03:00:00.000Z')); // 06:00 Baghdad Tue
+    expect(dead?.open).toBe(false);
+    const closed = openNowInfo(
+      { ...overnight, closed_dates: ['2026-09-01'] },
+      new Date('2026-09-01T18:00:00.000Z'),
+    );
+    expect(closed?.open).toBe(false);
   });
 });

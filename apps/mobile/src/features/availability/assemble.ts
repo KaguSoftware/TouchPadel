@@ -6,6 +6,7 @@
  */
 import {
   buildSlotGrid,
+  displayWindows,
   resolveRateRule,
   localParts,
   iqd,
@@ -196,4 +197,129 @@ export function groupByStart(slots: readonly Slot[]): GridCell[] {
 export function venuePhoneOf(settings: unknown): string | null {
   const p = (settings as { phone?: unknown } | null | undefined)?.phone;
   return typeof p === 'string' && p.trim().length > 0 ? p : null;
+}
+
+// ── Merged capacity grid (design 2026-08-31) ─────────────────────────────────
+// The venue has two interchangeable courts and the desk assigns the physical
+// one, so the app shows ONE timeline: each start time carries how many courts
+// are free and which court a hold should target. Pure — unit-tested.
+
+export type MergedState = Slot['state'] | 'horizon';
+
+export interface MergedCell {
+  startAt: Date;
+  state: MergedState;
+  /** Courts free at this start for the selected duration. */
+  freeCount: number;
+  /** Courts offering this duration at this start at all. */
+  capacity: number;
+  /** Price of the cheapest free court (null when none is free/priced). */
+  priceIqd: number | null;
+  /** The court a hold should target — cheapest free one. */
+  courtId: string | null;
+}
+
+/**
+ * Collapse per-court slots into per-start capacity cells for one duration.
+ *
+ * State resolution: any free court -> 'free'; otherwise the "most explanatory"
+ * blocked-ish state wins (blocked > held > booked); all-past -> 'past'. When
+ * `horizonEnd` is set (degraded mode), every not-yet-past cell starting before
+ * it renders 'horizon' ("desk only") — the server refuses those holds anyway;
+ * this just says so before the tap instead of after.
+ */
+export function mergeAcrossCourts(
+  grid: readonly CourtSlots[],
+  durationMin: number,
+  horizonEnd?: Date | null,
+): MergedCell[] {
+  const byStart = new Map<number, { startAt: Date; options: { courtId: string; slot: Slot }[] }>();
+  for (const court of grid) {
+    for (const slot of court.slots) {
+      if (slot.durationMin !== durationMin) continue;
+      const key = slot.startAt.getTime();
+      let cell = byStart.get(key);
+      if (!cell) {
+        cell = { startAt: slot.startAt, options: [] };
+        byStart.set(key, cell);
+      }
+      cell.options.push({ courtId: court.courtId, slot });
+    }
+  }
+
+  const cells: MergedCell[] = [];
+  for (const { startAt, options } of byStart.values()) {
+    const free = options
+      .filter((o) => o.slot.state === 'free')
+      .sort((a, b) => (a.slot.priceIqd ?? Number.MAX_SAFE_INTEGER) - (b.slot.priceIqd ?? Number.MAX_SAFE_INTEGER));
+    const cheapest = free[0] ?? null;
+    let state: MergedState;
+    if (cheapest) state = 'free';
+    else if (options.every((o) => o.slot.state === 'past')) state = 'past';
+    else if (options.some((o) => o.slot.state === 'blocked')) state = 'blocked';
+    else if (options.some((o) => o.slot.state === 'held')) state = 'held';
+    else state = 'booked';
+
+    if (horizonEnd && state !== 'past' && startAt.getTime() < horizonEnd.getTime()) {
+      state = 'horizon';
+    }
+
+    cells.push({
+      startAt,
+      state,
+      freeCount: free.length,
+      capacity: options.length,
+      priceIqd: cheapest?.slot.priceIqd ?? null,
+      courtId: cheapest?.courtId ?? null,
+    });
+  }
+  cells.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+  return cells;
+}
+
+// ── "Open now" pill (design 2026-08-31, courts home) ─────────────────────────
+
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+export interface OpenNowInfo {
+  open: boolean;
+  /** Today's display hours with the overnight tail folded ('09:00–02:00'). */
+  label: string;
+}
+
+/**
+ * Whether the venue is open at `now`, plus today's printable hours. Uses the
+ * raw per-day windows (the post-midnight tail lives on the calendar day it
+ * falls in, so a 00:30 check reads today's own '00:00–02:00' window), and
+ * @touch/core's displayWindows for the human label.
+ */
+export function openNowInfo(
+  settings: Pick<VenueSettingsPublic, 'timezone' | 'opening_hours' | 'closed_dates'> | undefined,
+  now: Date,
+): OpenNowInfo | null {
+  if (!settings?.opening_hours) return null;
+  const tz = settings.timezone ?? DEFAULT_TZ;
+  const hours = settings.opening_hours as OpeningHours;
+  const parts = localParts(now, tz);
+  const todayKey = DAY_KEYS[parts.dayOfWeek];
+  const nextKey = DAY_KEYS[(parts.dayOfWeek + 1) % 7];
+  if (!todayKey || !nextKey) return null;
+
+  const closedToday = (settings.closed_dates ?? []).includes(parts.date);
+
+  const nowMin = parts.minutesOfDay;
+  const inWindow = (w: readonly [string, string]) => {
+    const openMin = hhmmToMin(w[0]);
+    const closeMin = w[1] === '24:00' ? 1440 : hhmmToMin(w[1]);
+    return nowMin >= openMin && nowMin < closeMin;
+  };
+  const open = !closedToday && (hours[todayKey] ?? []).some(inWindow);
+
+  const shown = displayWindows(hours[todayKey], hours[nextKey]);
+  const label = shown.map((w) => `${w[0]}–${w[1] === '24:00' ? '00:00' : w[1]}`).join(' · ');
+  return { open, label };
+}
+
+function hhmmToMin(t: string): number {
+  return Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 }

@@ -153,3 +153,25 @@ export function useCourtsBroadcast(): void {
     };
   }, []);
 }
+
+/**
+ * Proactive degraded-mode signal for the design's amber banners (courts /
+ * availability / bookings). `app.is_degraded()` is granted to anon (0008), so
+ * signed-out browsing gets the banner too. The refusal path in booking/errors
+ * remains the authority — this only warns BEFORE the tap.
+ */
+export function useIsDegraded(): boolean {
+  const query = useQuery({
+    queryKey: ['is-degraded'],
+    queryFn: async () => {
+      const { data, error } = await supabase.schema('app').rpc('is_degraded');
+      if (error) throw error;
+      return data === true;
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    // A failed probe must never take the booking UI down with it.
+    retry: 1,
+  });
+  return query.data === true;
+}
