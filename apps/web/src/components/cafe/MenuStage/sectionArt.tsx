@@ -114,6 +114,9 @@ export const SECTION_ART: Record<string, SectionArt> = {
     art: (
       <>
         <g transform="scale(0.6667)" strokeWidth="4.5">
+          <path d="M49 36a11 11 0 0 1 22 0z" fill="var(--tp-cafe-green)" stroke="none" />
+          <path d="M60 34.5V27M53.5 32 60 34.5M66.5 32 60 34.5" stroke="var(--tp-bg)" strokeWidth="2.4" />
+          <path d="M38 35c-7.4 0-10.6-3.6-10.6-9.2 6.6-1.2 10.6 2.6 10.6 9.2z" fill="var(--tp-cafe-green)" stroke="none" />
           <path
             d="M30.4 54c4.4-3.6 8.8-3.6 13.2 0s8.8 3.6 13.2 0c2.9-1.2 5.9-1.4 8.8 0.2L63.1 84a5 5 0 0 1-5 4.6H38.4a5 5 0 0 1-5-4.6L30.4 54z"
             fill="var(--tp-cafe-green)"
@@ -121,16 +124,7 @@ export const SECTION_ART: Record<string, SectionArt> = {
             stroke="none"
           />
           <path d="M30.4 54c4.4-3.6 8.8-3.6 13.2 0s8.8 3.6 13.2 0c2.9-1.2 5.9-1.4 8.8 0.2" stroke="var(--tp-cafe-green)" />
-          <g transform="rotate(-45 48 75)" stroke="var(--tp-cafe-green)">
-            <path d="M46 65 A10 10 0 0 0 46 85 Z" fill="var(--tp-cafe-green-tint)" strokeWidth="2.6" />
-            <path d="M46 67.2 A7.8 7.8 0 0 0 46 82.8" strokeWidth="1.5" />
-            <path d="M46 75 H38.7 M46 75 L40.8 69.8 M46 75 L40.8 80.2" strokeWidth="1.5" />
-            <path d="M50 65 A10 10 0 0 1 50 85 Z" fill="var(--tp-cafe-green-tint)" strokeWidth="2.6" />
-            <path d="M50 67.2 A7.8 7.8 0 0 1 50 82.8" strokeWidth="1.5" />
-            <path d="M50 75 H57.3 M50 75 L55.2 69.8 M50 75 L55.2 80.2" strokeWidth="1.5" />
-          </g>
-          <path d="M22 36a26 19 0 0 1 52 0" fill="var(--tp-cafe-blue-tint)" />
-          <path d="M48 50V5" />
+          <path d="M47 50.2L40.6 21l8.4-7" />
           <path d="M22 36h52" />
           <path d="M26.5 36h43l-4.2 48.5a7 7 0 0 1-7 6.5H37.7a7 7 0 0 1-7-6.5z" />
         </g>
@@ -177,9 +171,6 @@ export const SECTION_ART: Record<string, SectionArt> = {
     art: (
       <>
         <g transform="scale(0.6667)" strokeWidth="4.5">
-          <path d="M49 36a11 11 0 0 1 22 0z" fill="var(--tp-cafe-green)" stroke="none" />
-          <path d="M60 34.5V27M53.5 32 60 34.5M66.5 32 60 34.5" stroke="var(--tp-bg)" strokeWidth="2.4" />
-          <path d="M38 35c-7.4 0-10.6-3.6-10.6-9.2 6.6-1.2 10.6 2.6 10.6 9.2z" fill="var(--tp-cafe-green)" stroke="none" />
           <path
             d="M30.4 54c4.4-3.6 8.8-3.6 13.2 0s8.8 3.6 13.2 0c2.9-1.2 5.9-1.4 8.8 0.2L63.1 84a5 5 0 0 1-5 4.6H38.4a5 5 0 0 1-5-4.6L30.4 54z"
             fill="var(--tp-cafe-green)"
@@ -187,7 +178,16 @@ export const SECTION_ART: Record<string, SectionArt> = {
             stroke="none"
           />
           <path d="M30.4 54c4.4-3.6 8.8-3.6 13.2 0s8.8 3.6 13.2 0c2.9-1.2 5.9-1.4 8.8 0.2" stroke="var(--tp-cafe-green)" />
-          <path d="M47 50.2L40.6 21l8.4-7" />
+          <g transform="rotate(-45 48 75)" stroke="var(--tp-cafe-green)">
+            <path d="M46 65 A10 10 0 0 0 46 85 Z" fill="var(--tp-cafe-green-tint)" strokeWidth="2.6" />
+            <path d="M46 67.2 A7.8 7.8 0 0 0 46 82.8" strokeWidth="1.5" />
+            <path d="M46 75 H38.7 M46 75 L40.8 69.8 M46 75 L40.8 80.2" strokeWidth="1.5" />
+            <path d="M50 65 A10 10 0 0 1 50 85 Z" fill="var(--tp-cafe-green-tint)" strokeWidth="2.6" />
+            <path d="M50 67.2 A7.8 7.8 0 0 1 50 82.8" strokeWidth="1.5" />
+            <path d="M50 75 H57.3 M50 75 L55.2 69.8 M50 75 L55.2 80.2" strokeWidth="1.5" />
+          </g>
+          <path d="M22 36a26 19 0 0 1 52 0" fill="var(--tp-cafe-blue-tint)" />
+          <path d="M48 50V5" />
           <path d="M22 36h52" />
           <path d="M26.5 36h43l-4.2 48.5a7 7 0 0 1-7 6.5H37.7a7 7 0 0 1-7-6.5z" />
         </g>
@@ -334,43 +334,25 @@ export const SECTION_ART: Record<string, SectionArt> = {
     word: 'SIGNATURE',
     tone: 'green',
     len: 'long',
-    illo: { size: 104, end: -12, bottom: -12, rot: -8 },
+    illo: { size: 124, end: -12, bottom: -12, rot: -8 },
     art: (
       <>
-        {/* pot handle */}
-        <path d="M 44 43.4 C 49.2 44.2 51.2 47.8 50.2 51.2 C 49.4 54 47.4 55.6 44.9 55.2" strokeWidth="2" />
-        <path d="M 20.6 41 L 18.9 53.5 C 18.9 58 21.5 61 25.5 61 L 38.5 61 C 42.5 61 45.1 58 45.1 53.5 L 43.4 41 Z" fill="var(--tp-bg)" />
+        <path d="M 32 15 L 32 7 L 37.5 1.5" />
+        <path d="M 20.5 18.3 L 24.5 57 L 39.5 57 L 43.5 18.3" fill="var(--tp-bg)" />
+        <rect x="18.5" y="13.5" width="27" height="4.8" rx="1.6" fill="var(--tp-cafe-blue-tint)" />
         <path
-          d="M 19.7 49.3 C 23.7 46.7 28 46.7 32 49.3 C 36 51.9 40.3 51.9 44.3 49.3 L 45.1 53.5 C 45.1 58 42.5 61 38.5 61 L 25.5 61 C 21.5 61 18.9 58 18.9 53.5 Z"
+          d="M 22.9 28 L 25.1 50 L 38.9 50 L 41.1 28 Z"
           fill="var(--tp-cafe-green-tint)"
-          stroke="none"
-        />
-        <path
-          d="M 19.7 49.3 C 23.7 46.7 28 46.7 32 49.3 C 36 51.9 40.3 51.9 44.3 49.3"
           stroke="var(--tp-cafe-green)"
           strokeWidth="1.8"
         />
-        <path d="M 20.6 41 L 18.9 53.5 C 18.9 58 21.5 61 25.5 61 L 38.5 61 C 42.5 61 45.1 58 45.1 53.5 L 43.4 41" />
-        <path d="M 18.2 41 L 45.8 41" />
-        {/* dripper handle */}
-        <path d="M 43.8 20.7 C 50.9 25.3 42.9 38 35.8 33.4" strokeWidth="2" />
-        <path d="M 17 13.2 L 47 13.2 L 45.5 18 L 18.5 18 Z" fill="var(--tp-bg)" />
-        <path d="M 18.5 18 L 45.5 18 L 33 37 L 31 37 Z" fill="var(--tp-cafe-blue-tint)" />
-        <path d="M 21.5 19 L 30.8 35.5 M 26 19 L 31.4 35.5 M 32 19 L 32 35.5 M 38 19 L 32.6 35.5 M 42.5 19 L 33.2 35.5" strokeWidth="1.1" />
-        <path d="M 18.5 18 L 45.5 18 L 33 37 L 31 37 Z" />
-        <path d="M 20.4 15.6 L 43.6 15.6" stroke="var(--tp-cafe-green)" strokeWidth="1.8" />
-        <path d="M 31 37 L 31 40 L 33 40 L 33 37" fill="var(--tp-bg)" />
-        {/* falling drops */}
-        <path
-          d="M 32 42.6 C 32.65 43.4 32.8 43.75 32.8 44 A 0.8 0.8 0 0 1 31.2 44 C 31.2 43.75 31.35 43.4 32 42.6 Z"
-          fill="var(--tp-cafe-green)"
-          stroke="none"
-        />
-        <path
-          d="M 32 45.45 C 32.65 46.25 32.8 46.6 32.8 46.85 A 0.8 0.8 0 0 1 31.2 46.85 C 31.2 46.6 31.35 46.25 32 45.45 Z"
-          fill="var(--tp-cafe-green)"
-          stroke="none"
-        />
+        {/* The house mark. Sized so the artwork itself — which sits inside a
+            larger square viewBox — clears the badge on every side, including
+            the taper that narrows its lower half. The artwork is ~18KB of
+            traced paths, too much to inline in this module, so it is
+            referenced from /public and the browser caches it once however many
+            rows draw one. */}
+        <image href="/brand/cafe/padel-mark.svg" x="24.86" y="32.03" width="14.4" height="14.4" />
       </>
     ),
   },
