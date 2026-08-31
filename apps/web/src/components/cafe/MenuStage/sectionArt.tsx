@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 /**
@@ -32,27 +33,78 @@ export interface SectionArt {
   art: ReactNode;
 }
 
+/**
+ * Coffee is the one illustration that needs `url(#...)` references — a mask
+ * cutting the iced glass to the hot cup's silhouette, and a clip holding the
+ * liquid inside the glass. The same `art` node renders twice on a page (the
+ * band illustration and the row thumbnail), so hardcoded ids would collide and
+ * every reference would resolve to whichever copy came first. Hence a
+ * component: `useId` gives each instance its own pair.
+ */
+function CoffeeArt() {
+  const uid = useId();
+  const cupCut = `tp-coffee-cut-${uid}`;
+  const glassIn = `tp-coffee-glass-${uid}`;
+  return (
+    <>
+      <defs>
+        <mask id={cupCut} maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+          <rect x="0" y="0" width="64" height="64" fill="#FFFFFF" />
+          <g stroke="#000000" fill="none" strokeLinejoin="round" strokeLinecap="round">
+            <path d="M 20.5 42.2 C 11.5 46 14.1 53.8 32 53.8 C 49.9 53.8 52.5 46 43.5 42.2" strokeWidth="5" />
+            <path d="M 16.6 24.3 V 32 A 15.4 15.4 0 0 0 47.4 32 V 24.3 Z" fill="#000000" strokeWidth="6.2" />
+            <ellipse cx="32" cy="24.3" rx="15.4" ry="5.1" fill="#000000" strokeWidth="6.2" />
+          </g>
+        </mask>
+        <clipPath id={glassIn}>
+          <path d="M 4.4 13.4 H 18.8 L 16.2 48.6 H 7 Z" />
+        </clipPath>
+      </defs>
+
+      {/* iced coffee, behind — masked to the hot cup's silhouette */}
+      <g stroke="var(--tp-accent)" strokeLinejoin="round" mask={`url(#${cupCut})`}>
+        <path d="M 15.6 12 L 11.6 2.6" strokeWidth="2.8" strokeLinecap="round" />
+        <path d="M 3 12 H 20.2 L 17.3 50 H 5.9 Z" fill="var(--tp-bg)" strokeWidth="2.8" />
+        <g clipPath={`url(#${glassIn})`}>
+          <path
+            d="M 3.65 20.5 c 2.65 -2.2 5.3 -2.2 7.95 0 s 5.3 2.2 7.95 0 L 17.3 50 H 5.9 Z"
+            fill="var(--tp-cafe-green)"
+            fillOpacity=".22"
+            stroke="none"
+          />
+          <path
+            d="M 3.65 20.5 c 2.65 -2.2 5.3 -2.2 7.95 0 s 5.3 2.2 7.95 0"
+            stroke="var(--tp-cafe-green)"
+            strokeWidth="2.2"
+          />
+        </g>
+        <rect x="7.4" y="24.2" width="6.6" height="6.6" rx="1.3" strokeWidth="1.6" opacity=".55" />
+        <rect x="8.6" y="36.2" width="7" height="7" rx="1.4" strokeWidth="1.6" opacity=".55" />
+      </g>
+
+      {/* hot coffee */}
+      <g stroke="var(--tp-cafe-green)" strokeLinecap="round">
+        <path d="M 25 14.7 C 22.4 11.5 27.5 10.2 25.6 7" strokeWidth="2.9" />
+        <path d="M 32 14 C 29.4 10.2 35.2 9 32.6 5.1" strokeWidth="3.2" />
+        <path d="M 39 14.7 C 36.4 11.5 41.5 10.2 39.6 7" strokeWidth="2.9" />
+      </g>
+      <path d="M 20.5 42.2 C 11.5 46 14.1 53.8 32 53.8 C 49.9 53.8 52.5 46 43.5 42.2" strokeWidth="2.6" />
+      <path d="M 23.7 43.5 C 19.8 46 22.4 49.9 32 49.9 C 41.6 49.9 44.2 46 40.3 43.5" strokeWidth="1.9" opacity=".45" />
+      <path d="M 47.4 28.2 H 49.9 A 6.4 6.4 0 0 1 49.9 41 H 47.4" strokeWidth="3.8" />
+      <path d="M 16.6 24.3 V 32 A 15.4 15.4 0 0 0 47.4 32 V 24.3 Z" fill="var(--tp-bg)" strokeWidth="3.8" />
+      <ellipse cx="32" cy="24.3" rx="15.4" ry="5.1" fill="var(--tp-bg)" strokeWidth="3.8" />
+      <ellipse cx="32" cy="24.3" rx="10.9" ry="3.2" fill="var(--tp-cafe-blue-tint)" stroke="none" />
+    </>
+  );
+}
+
 export const SECTION_ART: Record<string, SectionArt> = {
   "Coffee": {
     word: 'COFFEE',
     tone: 'blue',
     len: 'short',
     illo: { size: 108, end: -14, bottom: -14, rot: -10 },
-    art: (
-      <>
-        <g stroke="var(--tp-cafe-green)" strokeLinecap="round">
-          <path d="M 25 14.7 C 22.4 11.5 27.5 10.2 25.6 7" strokeWidth="2.9" />
-          <path d="M 32 14 C 29.4 10.2 35.2 9 32.6 5.1" strokeWidth="3.2" />
-          <path d="M 39 14.7 C 36.4 11.5 41.5 10.2 39.6 7" strokeWidth="2.9" />
-        </g>
-        <path d="M 20.5 42.2 C 11.5 46 14.1 53.8 32 53.8 C 49.9 53.8 52.5 46 43.5 42.2" strokeWidth="2.6" />
-        <path d="M 23.7 43.5 C 19.8 46 22.4 49.9 32 49.9 C 41.6 49.9 44.2 46 40.3 43.5" strokeWidth="1.9" opacity=".45" />
-        <path d="M 47.4 28.2 H 49.9 A 6.4 6.4 0 0 1 49.9 41 H 47.4" strokeWidth="3.8" />
-        <path d="M 16.6 24.3 V 32 A 15.4 15.4 0 0 0 47.4 32 V 24.3 Z" fill="var(--tp-bg)" strokeWidth="3.8" />
-        <ellipse cx="32" cy="24.3" rx="15.4" ry="5.1" fill="var(--tp-bg)" strokeWidth="3.8" />
-        <ellipse cx="32" cy="24.3" rx="10.9" ry="3.2" fill="var(--tp-cafe-blue-tint)" stroke="none" />
-      </>
-    ),
+    art: <CoffeeArt />,
   },
   "Smoothie": {
     word: 'SMOOTHIE',
@@ -285,17 +337,40 @@ export const SECTION_ART: Record<string, SectionArt> = {
     illo: { size: 104, end: -12, bottom: -12, rot: -8 },
     art: (
       <>
-        <path d="M 29 7 L 38 10.5 L 38 15" />
-        <path d="M 21 15 L 43 15 L 41.5 21 L 22.5 21 Z" fill="var(--tp-cafe-blue-tint)" />
-        <path d="M 22.5 21 L 26 56 L 38 56 L 41.5 21" fill="var(--tp-bg)" />
+        {/* pot handle */}
+        <path d="M 44 43.4 C 49.2 44.2 51.2 47.8 50.2 51.2 C 49.4 54 47.4 55.6 44.9 55.2" strokeWidth="2" />
+        <path d="M 20.6 41 L 18.9 53.5 C 18.9 58 21.5 61 25.5 61 L 38.5 61 C 42.5 61 45.1 58 45.1 53.5 L 43.4 41 Z" fill="var(--tp-bg)" />
         <path
-          d="M 24.2 31 L 25.2 41 L 38.8 41 L 39.8 31 Z"
+          d="M 19.7 49.3 C 23.7 46.7 28 46.7 32 49.3 C 36 51.9 40.3 51.9 44.3 49.3 L 45.1 53.5 C 45.1 58 42.5 61 38.5 61 L 25.5 61 C 21.5 61 18.9 58 18.9 53.5 Z"
           fill="var(--tp-cafe-green-tint)"
+          stroke="none"
+        />
+        <path
+          d="M 19.7 49.3 C 23.7 46.7 28 46.7 32 49.3 C 36 51.9 40.3 51.9 44.3 49.3"
           stroke="var(--tp-cafe-green)"
           strokeWidth="1.8"
         />
-        <path d="M 32 33.2 L 32 38.8 M 29.6 34.6 L 34.4 37.4 M 29.6 37.4 L 34.4 34.6" strokeWidth="1.3" />
-        <path d="M 22.5 21 L 26 56 L 38 56 L 41.5 21" />
+        <path d="M 20.6 41 L 18.9 53.5 C 18.9 58 21.5 61 25.5 61 L 38.5 61 C 42.5 61 45.1 58 45.1 53.5 L 43.4 41" />
+        <path d="M 18.2 41 L 45.8 41" />
+        {/* dripper handle */}
+        <path d="M 43.8 20.7 C 50.9 25.3 42.9 38 35.8 33.4" strokeWidth="2" />
+        <path d="M 17 13.2 L 47 13.2 L 45.5 18 L 18.5 18 Z" fill="var(--tp-bg)" />
+        <path d="M 18.5 18 L 45.5 18 L 33 37 L 31 37 Z" fill="var(--tp-cafe-blue-tint)" />
+        <path d="M 21.5 19 L 30.8 35.5 M 26 19 L 31.4 35.5 M 32 19 L 32 35.5 M 38 19 L 32.6 35.5 M 42.5 19 L 33.2 35.5" strokeWidth="1.1" />
+        <path d="M 18.5 18 L 45.5 18 L 33 37 L 31 37 Z" />
+        <path d="M 20.4 15.6 L 43.6 15.6" stroke="var(--tp-cafe-green)" strokeWidth="1.8" />
+        <path d="M 31 37 L 31 40 L 33 40 L 33 37" fill="var(--tp-bg)" />
+        {/* falling drops */}
+        <path
+          d="M 32 42.6 C 32.65 43.4 32.8 43.75 32.8 44 A 0.8 0.8 0 0 1 31.2 44 C 31.2 43.75 31.35 43.4 32 42.6 Z"
+          fill="var(--tp-cafe-green)"
+          stroke="none"
+        />
+        <path
+          d="M 32 45.45 C 32.65 46.25 32.8 46.6 32.8 46.85 A 0.8 0.8 0 0 1 31.2 46.85 C 31.2 46.6 31.35 46.25 32 45.45 Z"
+          fill="var(--tp-cafe-green)"
+          stroke="none"
+        />
       </>
     ),
   },
