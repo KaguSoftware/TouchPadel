@@ -43,6 +43,7 @@ export default function EditProfileScreen() {
   const [lang, setLang] = useState<Locale>(locale);
   const [initial, setInitial] = useState<{ name: string; phone: string; lang: Locale } | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [discardOpen, setDiscardOpen] = useState(false);
 
@@ -67,9 +68,13 @@ export default function EditProfileScreen() {
   const onSave = () => {
     setError(null);
     setNameError(null);
+    setPhoneError(null);
     if (!name.trim()) return setNameError(t('auth.nameRequired'));
+    // Required from day one (spec 05.3): the desk calls it about bookings, and
+    // the booking path refuses without it — so it cannot be cleared here.
+    if (!phone.trim()) return setPhoneError(t('auth.phoneRequired'));
     update.mutate(
-      { full_name: name.trim(), phone: phone.trim() || null },
+      { full_name: name.trim(), phone: phone.trim() },
       {
         onSuccess: async () => {
           if (lang !== locale) await setLocale(lang, { flip: false });
@@ -103,6 +108,7 @@ export default function EditProfileScreen() {
             keyboardType="phone-pad"
             autoComplete="tel"
             dense
+            error={phoneError}
           />
           <View style={{ marginTop: space.sm }}>
             <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>

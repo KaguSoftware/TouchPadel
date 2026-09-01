@@ -39,7 +39,7 @@ export async function updatePushToken(client: Client, uid: string, token: string
 export async function updateOwnProfile(
   client: Client,
   uid: string,
-  fields: { full_name?: string; phone?: string | null },
+  fields: { full_name?: string; phone?: string | null; preferred_lang?: Locale },
 ) {
   const { error } = await client.from('profiles').update(fields).eq('id', uid);
   if (error) throw error;

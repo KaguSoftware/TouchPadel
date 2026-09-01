@@ -72,10 +72,38 @@ export async function guestClient(svc: SupabaseClient, tag: string) {
     email,
     password: DEV_PASSWORD,
     email_confirm: true,
-    user_metadata: { full_name: `Test Guest ${tag}` },
+    user_metadata: { full_name: `Test Guest ${tag}`, phone: '+9647700000000' }, // phone: required to confirm since 0059
   });
   if (error) throw new Error(`createUser failed: ${error.message}`);
   return signedInClient(email);
+}
+
+let shapedCounter = 0;
+/**
+ * A guest created the way GoTrue would from an OAuth id token: arbitrary
+ * metadata, no phone. `user_metadata` is stored verbatim, so a test can hand
+ * the signup trigger exactly the Google / Apple shape (0058) without any
+ * network call to either provider.
+ */
+export async function shapedGuest(
+  svc: SupabaseClient,
+  tag: string,
+  shape: {
+    email?: string;
+    user_metadata: Record<string, unknown>;
+    app_metadata?: Record<string, unknown>;
+  },
+): Promise<{ id: string; email: string; client: SupabaseClient }> {
+  const email = shape.email ?? `shaped-${tag}-${shapedCounter++}-${Date.now()}@test.touch.local`;
+  const { data, error } = await svc.auth.admin.createUser({
+    email,
+    password: DEV_PASSWORD,
+    email_confirm: true,
+    user_metadata: shape.user_metadata,
+    app_metadata: shape.app_metadata,
+  });
+  if (error || !data.user) throw new Error(`shapedGuest createUser failed: ${error?.message}`);
+  return { id: data.user.id, email, client: await signedInClient(email) };
 }
 
 /** Call an app-schema RPC. */

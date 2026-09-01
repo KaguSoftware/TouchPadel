@@ -502,6 +502,186 @@ checks in the dev console (`DateTimeFormat.formatToParts` with `timeZone`,
 `NumberFormat('en-IQ-u-nu-latn', {currency:'IQD'}).formatToParts`, the `ar-IQ-u-nu-latn`
 format) — `formatIQD` now has a fallback, but the result should be recorded here.
 
+## Day 10 (2026-09-01) — the date strip showed the wrong night; TypeScript 6 deprecation
+
+A phone screenshot of Availability at 10:04 on Tue 2026-09-01 read **12:00 AM · 12:30 AM ·
+1:00 AM · 9:00 AM · 9:30 AM …** under the TUE chip. Not a sort bug: the grid was built per
+CALENDAR day, and Touch's hours are stored as `[["00:00","02:00"],["09:00","24:00"]]` on every
+day (gotcha "hours are two windows per day"), so TUE opened with the tail of MONDAY night and
+Tuesday's own 00:00–01:00 starts sat at the top of WED. `@touch/core` already folds this for
+labels (`displayWindows`) and the desk grid (`tradingSpan`); the mobile grid never got the fold.
+
+**Fix (commit on `main`):** `assembleTradingNight` in `src/features/availability/assemble.ts`
+builds a chip as one TRADING NIGHT — the date's own windows + the next date's overnight tail,
+both through `buildSlotGrid` unchanged (a closed following date still kills the tail; tail
+slots still price by their own weekday). `useDayGrid` uses it; the 36 h availability fetch
+already covered the tail. `listBookableDates(now, tz, days, settings)` leads the strip with
+**yesterday while its night is still trading** (00:00–02:00) — otherwise the 00:30/01:00
+starts would be unreachable — and the first chip stays selected until the guest taps one
+(cold and warm starts used to disagree). The degraded horizon now counts from the calendar
+day, not the strip. Tests 61 → 69 (fold order, tail booking/pricing, closed next date,
+same-day hours unchanged, strip lead/drop/closed cases, `addDays`). **Not yet re-run on the
+phone** — the screenshot was the only device evidence this session.
+
+**TypeScript 6:** VS Code's bundled TS (6.0.x) errors on `apps/operator-shell/tsconfig.json` —
+`moduleResolution: "Node"` is `node10`, deprecated in 6.0 and removed in 7.0. Now `module:
+"node18"` + `moduleResolution: "node16"`: still CJS emit (no `"type": "module"`), verified
+`require()`-only output; shell typecheck/lint/vitest 62/62 green under 5.9.3 AND 6.0.3
+(scratch install). The workspace's 5.9.3 does not even accept `ignoreDeprecations: "6.0"`, so
+silencing was never an option. Every other project config is clean under 6.0.3.
+
+## Day 11 (2026-09-01) — Sign in with Apple + Google (vendor addition)
+
+The owner asked for **Continue with Apple** and **Continue with Google** on the sign-in and
+sign-up screens. Both sit **outside the signed SOW** — `docs/scope/touch-padel-phase1-scope-of-work.txt`
+L259-260 lists "Social or Apple / Google sign-in" under NOT INCLUDED and the mobile spec §10 says
+do-not-build — so they ship as a **vendor addition**, exactly like analytics: email/password stays
+the contractual path and acceptance never hinges on this. Offering Google on iOS makes Apple
+mandatory (App Store guideline 4.8), which is why both land together. Approved plan:
+`~/.claude/plans/on-the-mobile-app-zippy-hennessy.md`. Code and migrations are on the working
+tree, **uncommitted** at the time of writing.
+
+**Three owner decisions (2026-09-01), all implemented:**
+1. **D1 — Google = native SDK** → `supabase.auth.signInWithIdToken({ provider: 'google' })`.
+   Needs an **EAS development build**; the button is hidden in Expo Go and whenever the
+   `EXPO_PUBLIC_GOOGLE_*` env is unset. Google Cloud needs Web + iOS OAuth clients plus one
+   Android client **per signing SHA-1**.
+2. **D2 — Apple = iOS only, native** (`expo-apple-authentication` →
+   `signInWithIdToken({ provider: 'apple' })`). No Services ID, no six-monthly secret; works in
+   Expo Go on an iPhone once Supabase lists `host.exp.Exponent`. Android shows Google + email only.
+3. **D3 — complete-profile step** whenever `profiles.phone` is blank (Apple and Google carry no
+   phone; spec 05.3 makes it required — the desk calls it). Data-driven, not "first social
+   sign-in": the guest may leave and keep browsing, the gate re-catches at the next booking, and
+   the write path refuses too (0059). Email/password users (phone required at sign-up) never see it.
+
+**Library decision.** Google = `react-native-nitro-google-signin` **2.1.0** (MIT; Android
+**Credential Manager** + the Google Sign-In SDK for iOS; peer `react-native-nitro-modules ^0.37.1`;
+config-plugin option `iosUrlScheme`, derived in `app.config.ts` from
+`EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` — no third env var). Chosen over
+`@react-native-google-signin/google-signin` 16.1.4, whose free tier sits on Google's **deprecated
+legacy Android Sign-In SDK** (Credential Manager is paid there). Nitro is three months old, so it
+is isolated behind **one file** — `src/features/auth/providers/google.ts` (lazy `import()`, never
+at module scope) — and `src/lib/__tests__/reliability.test.ts` asserts that file is the only
+importer; its header documents the one-file swap to the mature library's "Original" API (that
+library has no nonce support → Supabase "Skip nonce check" ON, a SEC decision). Apple =
+`expo-apple-authentication` (SDK 54), the native `AppleAuthenticationButton`, split
+`.ios.ts`/`.ios.tsx` vs plain stubs so **Android never bundles it**. Nonce = `expo-crypto`
+(`providers/nonce.ts`): raw → Supabase, SHA-256 hex → provider; "Skip nonce check" stays **OFF**
+on both providers.
+
+**What shipped:**
+- Pure module `src/features/auth/social.ts` + `__tests__/social.test.ts` (10 `describe`s, 28 cases):
+  `SocialAuthError` with library-agnostic codes, `makeNonce`, `appleDisplayName`, `mapSocialError`
+  (cancel is silent; `DEVELOPER_ERROR` and GoTrue audience/nonce/provider refusals are **reported**
+  — they are configuration faults and must never read as "no internet"), `needsProfileCompletion` /
+  `profileGateState` (fail open on unknown), `prefillDisplayName` (hides the trigger's local-part
+  fallback), `buildProfilePatch` (Apple's first-authorization name, written only over a blank or
+  fallback name — a linked existing guest keeps the name she chose), `nextGoogleStep` +
+  `firstGoogleAttempt` (the Credential Manager cascade sign-in → create-account → explicit picker;
+  iOS starts at create-account — see the cached-token gotcha), `isGoogleClientId` (a `REPLACE_*`
+  placeholder counts as unset).
+- Adapters `src/features/auth/providers/{nonce,apple,apple.ios,google}.ts`; orchestration
+  `src/features/auth/useSocialSignIn.ts` (fresh nonce → provider sheet → `signInWithIdToken` →
+  ONE `fetchQuery` on `profileKeys.own`, the same cache entry the `(auth)` layout observes →
+  Apple name patch via `updateOwnProfile` + `setUserMetadata`, best-effort and only over a
+  blank/fallback name → either `/(auth)/complete-profile?returnTo=continue` or the SAME
+  `continueAfterAuth()` the email path uses; breadcrumbs carry provider + outcome/step only). `api.ts` gained `signInWithIdToken` (raw nonce)
+  and `setUserMetadata`; `profile/api.ts` `updateOwnProfile` widened to `full_name`/`phone`/
+  `preferred_lang`.
+- UI: `src/components/social.tsx` (`SocialSignInBlock`, `GoogleButton` — height 50 = `Button`
+  regular, radius 14, Apple first, `null` when neither provider is available so Android-in-Expo-Go
+  looks exactly as before), `AppleButton.tsx` / `AppleButton.ios.tsx` (CONTINUE type; BLACK in
+  light, WHITE in dark; same-geometry busy placeholder because the native control cannot spin),
+  `LabeledDivider` in `ui.tsx`, `GoogleGMark` in `icons.tsx` (official four-colour G, never
+  recoloured or mirrored), `vendor` tokens in `theme/tokens.ts`. The Google label is the platform
+  system font 17/600 on purpose (Google Sans cannot ship; the system face optically matches the
+  native Apple label). `app/(auth)/sign-in.tsx` + `sign-up.tsx` render the block and the
+  "or continue with email" divider; a social sign-up never goes to verify-email.
+- **Gate design (D3):** `app/(auth)/_layout.tsx` decides where a signed-in user goes from
+  **derived state** — it waits on `useOwnProfile`, sends a blank phone to `complete-profile`, else to
+  the tabs — so a screen's own navigation can never race a `<Redirect>`; a query error fails open.
+  New `app/(auth)/complete-profile.tsx` (`returnTo=continue|back`; name prefilled, phone required,
+  language; save → `updateOwnProfile` → `setLocale(lang, { flip: false })` → `continueAfterAuth()` or
+  back; back-out in `continue` mode = `clearPendingSlot()` + `router.replace('/(tabs)')`, never
+  `router.back()` inside the auth group). `app/availability.tsx` sends an incomplete profile through
+  the pending-slot flow; `app/(gated)/review.tsx` disables Reserve, shows the amber notice + "Add
+  phone number", and routes `PHONE_REQUIRED` there too; `app/(gated)/profile-edit.tsx` now
+  **requires** a phone; `app/(tabs)/profile.tsx` shows a nudge card. `AuthProvider`
+  (`features/auth/context.tsx`) calls `googleSignOut()` on `SIGNED_OUT` next to `clearAllCaches()`.
+- Config: `app.config.ts` (`ios.usesAppleSignIn`, the `expo-apple-authentication` plugin always, the
+  nitro plugin only when the iOS client id is set, and a **config-time throw under `EAS_BUILD=true`
+  without it**); `eas.json` (both Google vars on all three profiles; `development` now points at the
+  **hosted** Supabase URL + anon key because a phone cannot reach `127.0.0.1`); `.env.example`. New
+  deps: `expo-apple-authentication ~8.0.8`, `expo-crypto ~15.0.9`, `expo-dev-client ~6.0.21`,
+  `react-native-nitro-google-signin 2.1.0`, `react-native-nitro-modules ^0.37.1`. CI unchanged — the
+  mobile job's `expo export` runs with the Google env unset, which proves the plugin is optional.
+- i18n: 12 new `auth.*` keys + `profile.completeProfileNudge` in `en.ts`/`ar.ts` (brand names stay
+  Latin in Arabic); `booking/errors.ts` maps `PHONE_REQUIRED` → `auth.profileIncompleteNotice`.
+- **DB: migrations 0058 + 0059** — applied locally, **NOT yet pushed to hosted**. 0058
+  `oauth_profile_bootstrap` re-issues `app.handle_new_user()` with the same signature (the 0004
+  revoke and trigger binding survive): Google `name` and `given_name`+`family_name` honoured, an
+  Apple relay address yields `full_name ''` instead of `k3x9q2`, phone trimmed to NULL, the
+  `is_anonymous` early return kept (0048/C1). 0059 `confirm_booking_phone_required` re-issues the
+  0021 `confirm_booking` body verbatim plus one `PHONE_REQUIRED` guard after `HOLD_EXPIRED`/
+  `DEGRADED` and before `GUEST_REQUIRED` (staff exempt; holds untouched) — a **behaviour change on
+  a contractual RPC**, in its own file so SEC can review it alone. `packages/db/tests/
+  oauth-profiles.test.ts` (8 cases) + `helpers.ts` `shapedGuest` (and `guestClient` now carries a
+  phone); `config.toml` gained `[auth.external.apple]` / `[auth.external.google]` (local GoTrue
+  accepted them); `packages/db/README.md` documents both. **DB suite 342/342 green** incl. the 8
+  new cases; `check:locks` / `check:authz` / `check:safeupdate` green; **0058 proven necessary** —
+  cases 2–3 fail against the 0004 body.
+
+**Gate (2026-09-01, after the review fixes):** DB as above. Mobile: `tsc --noEmit` clean · `eslint .`
+clean · vitest **7 files / 99 tests** · `@touch/i18n` parity 22/22 · `expo export` iOS (1582 modules)
++ Android (1574) with the Google env UNSET (CI parity) · expo-doctor 18/18 · `expo config --type
+introspect` with a well-formed iOS client id shows the `com.googleusercontent.apps.…` URL scheme and
+the `applesignin` entitlement; `EAS_BUILD=true` throws both when the id is unset and with the
+committed `REPLACE_*` placeholder. Run vitest from PowerShell — under Git Bash the 8.3 `TEMP` path
+gives vitest `EBUSY`; and use `pnpm --filter @touch/mobile run doctor` (bare `doctor` is pnpm's own
+command). **Nothing has run on a device yet.** Nothing external exists either: no Expo/EAS project, no Apple Developer enrolment verified,
+no Google Cloud project, hosted Supabase providers not configured, 0058/0059 not on hosted — **all three moved the same evening**: Google Cloud project + clients exist, providers are ON, and **0058/0059 were pushed to hosted on 2026-09-01** (see the gotchas below).
+
+**Adversarial review (2026-09-01, three lenses — auth/security, RN runtime, RTL/a11y/design — each
+finding verified by an independent agent against the installed library sources): 14 confirmed, 0
+refuted, all fixed the same day.** The one **high**: the nitro library’s iOS `signIn()` returns
+GIDSignIn’s CACHED user, i.e. an id token minted with an EARLIER nonce, so one failed exchange would
+have bricked Google sign-in on that iPhone for ever — iOS now starts the cascade at `createAccount()`
+(`firstGoogleAttempt`). Two **medium**: the Apple name patch overwrote a LINKED existing guest’s chosen
+name (now read-first, blank/fallback-only); `complete-profile` re-fired `continueAfterAuth()` after
+its own save (now disarmed before the mutation). Eleven **low**: `REPLACE_*` placeholders satisfied the
+EAS guard (shape check both sides); Android misconfiguration hid inside `cancelled` (every Android
+cancel now recorded with its step); layout + hook both navigated to complete-profile on a first Apple
+sign-in without a pending slot (hook now defers to the layout); Google label vs Dynamic Type (capped
+1.2×); divider caption contrast 2.8:1 (now `MicroLabel`) and no `flexShrink`; Apple busy/disabled
+states invisible to VoiceOver; Apple button pop-in (`appleSignInExpected`); ‘COMPLETE YOUR PROFILE’
+wrapping (EN copy shortened). Verdicts: `~/.claude/projects/…/subagents/workflows/wf_eff5e0f3-ba4/journal.jsonl`.
+
+**External work owed, in order** (runbook + the Claude-in-Chrome prompts A–D as canonical copies — A's and D's Task 2 amended, and a resume
+prompt A′ added, on 2026-09-01 after A's first run:
+`docs/client/social-auth-setup-2026-09-01.md`; identity-linking analysis + SEC checklist:
+`docs/design/social-signin-2026-09-01.md`): owner inputs (Apple enrolment type — Individual under a
+Kagu-controlled Apple ID is the only route that makes 09-16; the Google account that owns Cloud and
+later Play; the Expo org slug) → `eas login`, `owner` in `app.config.ts`, `eas init`,
+`eas credentials --platform android` for the keystore SHA-1 → Prompt A (Google Cloud project,
+consent screen in **Testing** + test users, Web + iOS + Android clients — **ran 2026-09-01, interrupted; finish
+with Prompt A′**, see the Google Cloud gotcha) → Prompt C (Supabase: Apple Client
+IDs `com.kagu.touchpadel,host.exp.Exponent`, Google Client IDs = Web + iOS, skip-nonce OFF; rest
+report-only) → push 0058/0059 (**done 2026-09-01**, pre-push counts recorded in the 0059 gotcha) → real values into
+`eas.json`/`.env` → Android dev build (first Google test) → Apple membership active → iOS dev build
+(EAS registers the App ID and syncs the Sign in with Apple capability) → Prompt B (Apple Developer,
+report-only) → device matrix → Prompt D before the first Play upload (Play App Signing SHA-1 →
+second Android client) → release week: remove `host.exp.Exponent`. Apple is testable in Expo Go on
+the iPhone right after Prompt C; Google only from the first EAS build.
+
+**Identity linking (analysed, accepted):** a provider sign-in whose verified email matches an
+existing user links to that user — same uid, same `profiles` row, phone and bookings intact; an
+unconfirmed email/password identity is removed on link. Apple **Hide My Email** relay addresses
+never match → a second account (complete-profile asks for the phone again). Staff: nothing new —
+linking needs mailbox control, which already grants password reset. Store gates: 4.8 is satisfied
+on iOS by Apple; **5.1.1(v) account deletion is still open and FK-blocked**, and now also needs
+**Apple token revocation** when it is built (a Sign in with Apple `.p8` key in an edge function —
+the only Apple secret this feature ever introduces, server-side only).
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -517,17 +697,26 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
   10 medium, every one with file:line evidence, plus what waves 0 and 1 closed.
 - `docs/design/design-data.md` · `design-arch.md` · `design-delivery.md` · `design-critique.md` ·
   `sow-gap-review-2026-08-24.md`.
+- `docs/design/social-signin-2026-09-01.md` — the social sign-in vendor addition for the reviewer:
+  identity-linking scenarios (a–d) + the SEC checklist (audiences, nonce, rate limits, PII, the
+  Apple-revocation dependency of account deletion). Pairs with the plan and the client runbook.
 - `docs/client/` — client-facing pack (input checklist, CSV templates, printer spec — SENT
   2026-08-24) + **`07-outstanding-2026-08-30.md`** (current chase list),
   `domain-setup-2026-08-30.md` (touch-padel.com recovery runbook + Chrome prompt),
-  `next-session-prompts-2026-08-30.md` (paste-ready prompts for the rates/menu/staff sessions).
+  `next-session-prompts-2026-08-30.md` (paste-ready prompts for the rates/menu/staff sessions),
+  **`social-auth-setup-2026-09-01.md`** (social sign-in runbook: owner inputs, the ordered
+  day-zero external sequence, Claude-in-Chrome prompts A–D verbatim — Google Cloud, Apple
+  Developer, Supabase providers, Play SHA-1 — device matrix, store notes, gotchas).
 - `packages/db/client-data/` — both intake pack JSONs (clean originals, committed 2026-08-30) +
   `courts.sql` + the pack ledger in its README.
-- `packages/db/supabase/migrations/` — 0001–0026 (platform) + **0027–0035 (cafe rebuild)**.
+- `packages/db/supabase/migrations/` — 0001–0026 (platform) + **0027–0035 (cafe rebuild)** + …
+  + **0058–0059 (2026-09-01: OAuth profile bootstrap + phone-to-confirm rule; local only until
+  pushed)**.
 - `packages/db/supabase/functions/` — `replay`, `send-push`, `telegram-send`, `telegram-callback`,
   `analytics-posthog`, `analytics-insights`, `_shared/`, `SETUP-telegram.md`.
 - `packages/db/tests/` — contractual suites (concurrency, rls-matrix, cafe-flow, degraded,
-  hardening, cafe-menu-ext, telegram, analytics, + two pure suites).
+  hardening, cafe-menu-ext, telegram, analytics, **oauth-profiles** (0058/0059, 8 cases),
+  + two pure suites).
 - `packages/core/src/analytics/` — pure analytics modules shared by the operator and the edge fn.
 - `apps/web/src/{components/cafe,hooks/cafe,styles/cafe,lib}` — the guest cafe app.
 - `apps/operator/src/features/{admin,analytics,kds,till}` — operator surfaces.
@@ -557,10 +746,23 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
    ✔ **UI rebuild to the approved design 2026-08-31** (day 8 — guest browse, dark mode, merged
    grid, all screens); ✔ **day 9: the on-phone fix pass** ("no internet" root-caused — hosted
    degraded state cleared by 0057, NetInfo gating removed, honest error mapping — plus the
-   crash/layout/parity list above; next: run it on a real iPhone + Android and record the
-   Hermes Intl check). Still open: day-zero release unblocks (`eas init`, Play account type,
-   Apple team id, real EAS env, icon/splash), push end-to-end, account deletion + privacy pages
-   (store gate), Sentry in a build, the padel-backend audit fixes. Store submission Wed 2026-09-16.
+   crash/layout/parity list above); ✔ **day 10 (2026-09-01): a day chip is a trading night**
+   (the phone showed Monday night's 00:00–01:00 under TUE — `assembleTradingNight`) and the
+   shell's TS 6 `node10` deprecation cleared; ✔ **day 11 (2026-09-01): Sign in with Apple +
+   Google implemented as a vendor addition** (code + 0058/0059 + local GoTrue config; nothing
+   external exists yet, nothing run on a device yet). **Next = the day-zero external sequence**,
+   which social sign-in now shares with release plumbing
+   (`docs/client/social-auth-setup-2026-09-01.md`): owner inputs (Apple enrolment type, the
+   Google account, the Expo org slug) → `eas login` + `owner` in `app.config.ts` + `eas init` +
+   `eas credentials --platform android` (keystore SHA-1) → Prompt A (Google Cloud) → Prompt C
+   (Supabase providers) → push 0058/0059 to hosted after the NULL-phone count (✔ 2026-09-01) → real
+   `eas.json`/`.env` values → Android dev build → Apple membership → iOS dev build (EAS creates
+   the App ID) → Prompt B (Apple Developer, report-only) → device matrix (the Hermes Intl check,
+   the 00:30 strip, and every social case) → Prompt D before the first Play upload → remove
+   `host.exp.Exponent` in release week. Still open: icon/splash, push end-to-end, account
+   deletion + privacy/deletion pages (store gate — now also Apple token revocation, and the Google consent
+   screen cannot leave Testing without a privacy + home-page URL on an authorized domain), Sentry in a
+   build, the padel-backend audit fixes. Store submission Wed 2026-09-16.
 8. **Real data over fixtures.** The `staff` table still holds only `Dev` seed rows, so
    the Telegram allowlist currently points at `Dev Owner`. Create the venue's real staff, repoint
    the allowlist in the same session, and rotate the seeded dev PINs. Then place a live order and
@@ -586,12 +788,13 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
 | Telegram / PostHog / Groq | ✔ Live 2026-08-27 — accounts created, secrets set, functions deployed | Untested against a real order; allowlist points at seed staff | Roadmap 6 |
 | Telegram allowlist | One row: Parsa → `Dev Owner`, `can_void` | Every real staff member mapped to a real `staff` row | When real staff exist (roadmap 6) |
 | Analytics | Vendor-added (SOW excludes it) — sales side from our till data, engagement via PostHog | Same; engagement floor still provisional | Go-live day |
+| Social sign-in | **Vendor addition 2026-09-01** — SOW L259-260 excludes it, spec §10 says do-not-build. Sign in with Apple (iOS only, native `expo-apple-authentication`) + Google (native SDK, `react-native-nitro-google-signin`) on sign-in/sign-up; complete-profile step when the phone is blank; migrations 0058/0059. Email/password stays the contractual path; acceptance never hinges on this. Code only — no console account, no device run | Live: Google Cloud clients + Supabase provider lists set, dev builds verified on both platforms, `host.exp.Exponent` removed for the store build, the Android **Play App Signing** OAuth client added before the first Play upload | Roadmap 7 (day-zero sequence, `docs/client/social-auth-setup-2026-09-01.md`) |
 | Payments | Desk only (cash/card recorded; terminal separate) | Online payment | Later phase (SOW) |
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
 | Operator desktop | Audited 2026-08-28. Waves 0-2: real gate, every High fixed, heartbeat live, modules 1/2/4 complete (migrations 0050-0053, on hosted since 2026-08-30) | Durable write path + replay, stock module, ESC/POS printing, Windows installer, KDS persistence, till session lock, court admin, Sentry | Roadmap 6 |
-| Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings). Release plumbing still absent | Push end-to-end, account deletion + privacy pages, icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
+| Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
 - **OPERATOR: the heartbeat has never worked and fails silently** (audit 2026-08-28, C1).
@@ -623,9 +826,15 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
   Friday night's 01:00 bills as a weekday. See `packages/db/fixtures/courts.sql`.
   (c) A `closed_dates` entry for day D also kills the 00:00-02:00 tail of D-1's trading night,
   because the guard is per calendar day. Pinned by a test in `tests/hardening.test.ts`.
+  (d) **The mobile grid is a TRADING NIGHT, not a calendar day** (2026-09-01). A day chip shows
+  the date's own windows plus the NEXT date's tail — `assembleTradingNight` +
+  `listBookableDates(…, settings)` in `apps/mobile/src/features/availability/assemble.ts`. Never
+  feed a guest-facing grid from `assembleDayGrid` alone: per calendar day it opens with LAST
+  night's 00:00–01:00 (the day-10 screenshot).
   Never hand-roll the conversion: `readOpeningHours` / `writeOpeningHours` / `displayWindows` /
   `tradingSpan` in `packages/core/src/time/openingHours.ts` are the single implementation, shared
-  by the operator hours editor, the desk grid and the public footer.
+  by the operator hours editor, the desk grid, the public footer and (via `isOvernightTail`) the
+  mobile grid.
 - **Midnight is a hard SLOT boundary, deliberately.** `buildSlotGrid` requires a slot to fit inside
   one window, so with 60-min durations the starts run ...22:30, 23:00 | 00:00, 00:30, 01:00 --
   23:30 is not offered. Exactly one start per court per night; accepted 2026-08-29 rather than
@@ -704,6 +913,136 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
   development build — budget device time, do not discover this in week 4.
 - **`apps/mobile/.env` points at the HOSTED project, not `127.0.0.1:54321`**, contradicting its own
   `.env.example` header. `pnpm --filter @touch/mobile dev` writes to the client's database.
+- **MOBILE / SOCIAL SIGN-IN (vendor addition 2026-09-01) — the list to carry:**
+  - **GOOGLE CLOUD — verified by the Chrome agent 2026-09-01 (Prompt A, interrupted mid-run).** Project
+    **Touch Padel**, id `touch-padel`, number `699390054618`, no organization, under
+    `parsaxavier@gmail.com` — Parsa's PERSONAL Google account, not the dedicated Kagu account the plan asked
+    for (same handover concern as the other Kagu-held accounts, `API.md` §8). Consent screen: External, no
+    scopes, no logo, app-domain URLs empty, User Data Policy accepted, publishing status **Testing**.
+    **Publish app was disabled** — banner: "Your app's OAuth configuration is incomplete. You must enter the
+    missing information to proceed. Please visit the Branding page to finish configuring your app." Google's
+    Branding help confirms a home-page URL, privacy-policy URL (+ terms) and an authorized domain are
+    "required for all external production apps" — verification is NOT required for our basic scopes, the
+    links are. **The plan's "click Publish app" step was wrong and is withdrawn.** Decision: stay in
+    **Testing** (≤100 listed test users; the 7-day authorization expiry is irrelevant to the id-token flow)
+    until the privacy + home pages exist, then publish in release week (Prompt D Task 2). Consequence: a
+    Google account that is not a test user gets "Access blocked" — add every device-test Gmail (Prompt A′
+    Task 1). Web + iOS clients **created 2026-09-01** (Prompt A′): Web `699390054618-egm0m36515stvli0dah67htvge6j88nh.apps.googleusercontent.com` (secret present, console only, never used), iOS `699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com` → URL scheme `com.googleusercontent.apps.699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq` (equals what `app.config.ts` derives). Test users: `parsaxavier@gmail.com` only (1/100) — add every device-test Gmail. Filled into `eas.json` (all three profiles), `apps/mobile/.env` and `config.toml` the same day; `expo config` introspection reproduces the scheme. Android client waits for the EAS SHA-1. Supabase was read and changed the same evening (next bullet). **Expo: `eas init` ran 2026-09-01** → project @parsa-mansouri/touchpadel, id `d9597f8e-79bb-4bc2-882e-c44c3a013045`, on Parsa's PERSONAL Expo account (the org prompt came before `owner` was set — the mobile-audit §2.2 trap; transfer to a Kagu org at handover, then update `owner`). `eas init` cannot write a `.ts` config, so its final "command failed" is cosmetic; `owner` + `extra.eas.projectId` were added by hand and committed. Apple still untouched.
+  - **SUPABASE AUTH — verified and changed by the Chrome agent 2026-09-01 (Prompt C).** Providers: Apple
+    ON, Client IDs `com.kagu.touchpadel,host.exp.Exponent`, secret empty (Apple's form has NO "Skip nonce
+    checks" toggle — GoTrue always checks Apple's nonce); Google ON, Client IDs = the Web then iOS ids above, secret
+    empty, **Skip nonce checks OFF**; callback `https://lczijabnorujcgmbuqlw.supabase.co/auth/v1/callback`;
+    both lists equal `packages/db/supabase/config.toml:109/115`. **Both forms were already populated** —
+    Client IDs `Mustafa.akeel.awad1@gmail.com` (the client owner's address, in the wrong field) plus a
+    stored secret that was not a JWT — while the providers were disabled: someone with dashboard access
+    poked at them at an unknown date. Cleared on save (the old Apple secret was refused: "Secret key should
+    be a JWT"). Nothing could have worked from that state and there is no sign of misuse, but it is an
+    access-hygiene signal for SEC-40 (who holds dashboard access, MFA). Report-only readings: sign-ups ON,
+    anonymous ON, confirm-email ON, captcha OFF, leaked-password protection OFF (the MAU-inflation
+    combination Supabase warns about — SEC-05, post-launch); **Site URL still `http://localhost:3000`**
+    (SEC-18, known); redirect list = `https://localhost:3000`, `touchpadel://verify-email`,
+    `touchpadel://reset-password`, `exp://192.168.1.108:8081/--/*` — the wildcard Expo Go LAN entry violates
+    SEC-05 and, with the localhost entry, is removed in release week by Prompt D Task 4 (kept until the dev
+    build replaces Expo Go for email-link tests). Rate limits (recorded, not raised — the venue shares one
+    WAN IP): token verifications 30 / 5 min, sign-ups + sign-ins **30 / 5 min per IP**, anonymous users
+    300 / h, token refreshes 150 / 5 min — the sign-in cap is the one to remember on a launch night. Prompt
+    C Task 6 (proof of a new identity) not run yet — it needs a real test sign-in first.
+  - **`host.exp.Exponent` must leave the Supabase Apple Client IDs before the store build.** It is
+    listed only so Expo Go on an iPhone can exercise Apple (an Expo Go token can only sign in as
+    its holder's own Apple identity, i.e. create a guest account — no privilege, but not a
+    production audience). Prompt D Task 4 in `docs/client/social-auth-setup-2026-09-01.md` does
+    the removal; it is release-week step 11 there.
+  - **One Android OAuth client per signing key** (EAS keystore, Play App Signing, local debug) or
+    Google returns `DEVELOPER_ERROR` / an instantly-closing picker. Android id tokens carry the
+    **Web** client id as `aud`, so Android client ids are entered nowhere — not in the app, not in
+    Supabase — they only have to exist in the Cloud project. `mapSocialError` reports
+    `DEVELOPER_ERROR` to telemetry on purpose: it is a missing client, not a user error. The same
+    fault can also arrive as a plain **cancel right after the account picker** (Credential Manager
+    reports `RESULT_CANCELED` for dismissal AND misconfiguration; the library only logs the latter to
+    logcat), so `providers/google.ts` records EVERY Android cancel as
+    `captureMessage('auth.google.cancelled', 'warning', { attempt })` — even the "silent" `signIn()`
+    shows a sheet when an authorized account exists — and a spike on one build means a missing SHA-1
+    client, not shy guests.
+  - **Apple delivers the name ONCE**, on the first authorization, never inside the id token.
+    `useSocialSignIn` patches `profiles.full_name` + user metadata immediately, best-effort; if that
+    fails the row keeps `''` (relay) or the email local part — `prefillDisplayName` hides it and the
+    complete-profile name field is editable. It never overwrites a name the guest already chose:
+    GoTrue links a provider identity to an EXISTING account with the same verified email and Apple
+    still sends the name on that app's first authorization — `buildProfilePatch` writes only over a
+    blank or trigger-fallback name, and the profile is read BEFORE the patch for that reason. To
+    make Apple resend the name on a test device: Settings → Apple ID → Sign-In & Security → revoke
+    the app.
+  - **Apple `sub` and relay emails are per Apple team.** An Expo Go sign-in (`host.exp.Exponent`,
+    Expo's team) and a real-build sign-in are DIFFERENT Supabase users. Hide My Email relay
+    addresses never match an existing email guest → a second account (accepted, documented in
+    `docs/design/social-signin-2026-09-01.md`).
+  - **"Skip nonce check" is OFF on both providers by design** — the app mints a nonce per attempt
+    (`providers/nonce.ts`: raw → GoTrue, SHA-256 hex → provider). Turning it ON for Google is the
+    documented fallback ONLY if the iOS SDK is proven to ignore our nonce, or after the one-file
+    swap to `@react-native-google-signin` (no nonce support) — and needs SEC sign-off, a HANDOFF
+    entry, and the client omitting `nonce` in `signInWithIdToken`.
+  - **The `(auth)` layout now waits on the own-profile query before redirecting a signed-in user**
+    (one extra round trip and a `Loading` frame the email path never shows; a query error fails
+    open to the tabs and the booking gates re-check). Do not add a `<Redirect>` inside an auth
+    screen — the layout owns that decision from derived state. `useSocialSignIn` navigates to
+    complete-profile itself ONLY while a pending slot exists (the exempt case); otherwise it returns
+    and the layout routes — a second replace would re-key and remount the form (review finding,
+    2026-09-01). `complete-profile` keeps prefilling the name from the row until the guest types,
+    because the Apple name patch can land after the layout's first read.
+  - **`profile-edit` now requires a phone** (spec 05.3) — clearing it there was the only way an
+    email/password user could reach the complete-profile gate. `complete-profile` in `continue`
+    mode backs out with `clearPendingSlot()` + `router.replace('/(tabs)')`, never `router.back()`:
+    the layout would bounce an incomplete profile straight back in.
+  - **0059 is a behaviour change on a contractual RPC.** Hosted guests whose `profiles.phone` is
+    NULL/blank are refused at `confirm_booking` with `PHONE_REQUIRED` (staff exempt; holds
+    unaffected) until they add one. **Pre-push check on hosted:** `select count(*) from profiles
+    where nullif(btrim(phone),'') is null;` — **run 2026-09-01 before the push: 15 profiles, **12 phone-less = 6 staff (exempt from 0059) + 6 test guests, 0 of whom hold a reservation**; 130 anonymous cafe users; 15 `email` identities, no apple/google yet.** The "expect ~0" estimate was wrong about staff/test rows (staff minted by `staff-admin` have no phone; early test guests neither) but right about impact: no existing booking is affected, and the 6 testers meet the complete-profile gate next time they book. **Pushed 2026-09-01 from `packages/db` with `npx supabase db push --linked --yes`** after an independent two-agent read-only verification (0059 = 0021 body + exactly one guard hunk; 0058 same signature/revoke/`is_anonymous` return); hosted is at **0059**, and `pg_get_functiondef` on hosted shows both new bodies. Diff the copied 0021 body line by line if it is ever re-issued.
+  - **Supabase CLI: run it from `packages/db`, never the repo root.** From the root the CLI sees an EMPTY `supabase/migrations` and reports "Remote migration versions not found in local migrations directory", offering `supabase migration repair --status reverted <all 57 versions>` — do NOT run that: it would mark every applied migration as reverted in the hosted history. Verified 2026-09-01: from `packages/db`, `supabase migration list --linked` agreed 0001–0057 both sides with only 0058/0059 pending. Non-interactive pushes need `--yes`; `supabase db query --linked "<sql>"` (Management API) is the way to run read-only counts on hosted without psql or the service-role key — one statement per call (multi-statement input returns only the last result).
+  - **`eas.json development` points at the client's PRODUCTION Supabase** (a phone cannot reach
+    `127.0.0.1:54321`; a deliberate departure from the `REPLACE_*` convention). Every dev social
+    sign-in is a real `auth.users` row — throwaway accounts only, delete them afterwards (users
+    who booked cannot be deleted: the FK gotcha above).
+  - **An EAS build fails at config time if `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` is unset OR still a
+    `REPLACE_*` placeholder** — by design (`app.config.ts`: a binary without the URL scheme has a
+    Google button that never returns to the app; a placeholder is non-empty but not a client id, so
+    only `<project-number>-<hash>.apps.googleusercontent.com` counts — `isGoogleClientId` in
+    `social.ts`, the same regex repeated in `app.config.ts`; the committed `eas.json` values fail
+    on purpose). The Google button is hidden in Expo Go and whenever `EXPO_PUBLIC_GOOGLE_*` is unset
+    or a placeholder — a missing button on a dev build is a config symptom, not a UI bug. CI's `expo
+    export` runs with the env unset on purpose.
+  - **Local GoTrue verifies id tokens against Apple's/Google's JWKS online** — `supabase start`
+    needs internet for those two flows — and `config.toml` `[auth.external.*]` edits need
+    `supabase stop && supabase start` (a `db reset` does not reload GoTrue). The local Google
+    `client_id` carries the real Web + iOS ids since 2026-09-01 (restart the stack to load them).
+  - **`providers/google.ts` is the only file that knows the nitro library's API.** A build or
+    runtime failure of `react-native-nitro-google-signin` ⇒ the one-file swap documented in its
+    header (+ the Skip-nonce decision above); nothing else in `app/` or `src/` imports it, and
+    `reliability.test.ts` fails if that changes.
+  - **iOS: the Google cascade starts at the interactive step** (`firstGoogleAttempt`; found in the
+    2026-09-01 adversarial review, verified in the library's Swift source). The nitro `signIn()` on
+    iOS returns `GIDSignIn.currentUser` / a keychain restore — an id token minted by an EARLIER
+    authorization, whose nonce claim can never equal this attempt's hash — so after one failed
+    exchange (offline, incomplete Client IDs) every later tap would have been refused by GoTrue for
+    ever (`googleSignOut()` runs only on `SIGNED_OUT`, which a user without a session never
+    reaches). Only `createAccount()` / `presentExplicitSignIn()` mint a fresh token with the
+    configured nonce. Android's Credential Manager mints per request, so the silent step stays there.
+  - **`complete-profile` marks `skipped` before saving.** `useUpdateProfile` invalidates the
+    own-profile query and the refetch resolves while the screen is still mounted; without the flag
+    the auto-continue effect would call `continueAfterAuth()` a SECOND time (a duplicate
+    `hold_slot`, or a replace to the tabs that pulls the guest off Review).
+  - **Brand buttons and Dynamic Type / VoiceOver.** The native Apple control ignores text scaling, so
+    the Google label caps at `maxFontSizeMultiplier 1.2` (a fixed 50pt row; an ellipsised label
+    breaks Google's rules) and the divider caption is a `MicroLabel` (`colors.mut` — AA in both
+    themes; `colors.fnt` was 2.8:1 on the light bg) with `flexShrink`. The Apple wrapper is the
+    accessibility element while busy or disabled (VoiceOver otherwise announced an enabled button
+    that swallowed the tap). Apple availability is seeded from the platform-split adapter
+    (`appleSignInExpected`) so iOS renders the button on the first frame instead of popping it in.
+- **The RTL lint guard is partially inert.** `packages/config/src/eslint.js:44` builds its
+  selector with `JSON.stringify(physicalPropPattern)`, so `Property[key.name="…"]` is an EXACT
+  string comparison against the regex SOURCE, never a regex match — only the separate `textAlign`
+  rule actually fires. Logical props on the new social components were enforced by review, not by
+  lint. The one-line fix (`/…/` regex-literal syntax in the selector) will surface existing
+  violations across three apps — a separate task, out of scope on 2026-09-01.
 - **Analytics + PostHog are OUT of the signed SOW** (scope lines 148–150, 410). They are shipped as
   a vendor addition on the owner's instruction — never let acceptance hinge on them.
 - **Local test flakiness is a connection-pool symptom, not a code bug.** If DB suites fail with
@@ -809,6 +1148,12 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
   pack's own `pitr.mode = "pitr"` answer. A written deviation from SOW L258; Mustafa's
   acknowledgment requested in doc 07 §4. Worst case = up to one day of data since the last
   backup. W4 "backup restore verification" + W6 restore rehearsal updated accordingly.
+- **TypeScript 6 in the editor vs 5.9.3 in the workspace** (2026-09-01). VS Code ships TS 6.0.x
+  and reports 6.0 deprecations the CLI gate cannot see; 5.9.3 rejects `ignoreDeprecations:
+  "6.0"`, so migrate, don't silence. The shell moved off `node10` (`module: node18` +
+  `moduleResolution: node16`, still CJS). Re-check with a scratch `typescript@6` install: every
+  project tsconfig is clean; only the ROOT `tsconfig.json` (expo base, no `include`) errors,
+  because it sweeps the Deno edge functions — pre-existing, and only when compiled directly.
 - Brand PDFs at repo root are 257MB/66MB — gitignored (`/*.pdf`), local-only. The rendered cafe
   deck lives at `docs/brand/cafe/`. The two padel decks differ: **2026 governs**.
 - Table-token Vault secret must be set to the same value on Touch's project at W5 handover or every

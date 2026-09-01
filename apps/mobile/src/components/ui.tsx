@@ -626,3 +626,23 @@ export function Loading() {
     </View>
   );
 }
+
+// ── Dividers with a caption ─────────────────────────────────────────────────
+
+/**
+ * "── or continue with email ──": two hairlines around a MicroLabel caption
+ * (colors.mut — AA contrast in both themes; colors.fnt is 2.8:1 on the light
+ * bg). The row mirrors under RTL by itself; the hairlines carry no text.
+ */
+export function LabeledDivider({ label, style }: { label: string; style?: StyleProp<ViewStyle> }) {
+  const { colors } = useTheme();
+  return (
+    <View accessibilityRole="text" style={[{ flexDirection: 'row', alignItems: 'center', gap: 10 }, style]}>
+      <View style={{ flex: 1, height: 1, backgroundColor: colors.line2 }} />
+      {/* flexShrink: RN Text defaults to 0, which would collapse the hairlines and
+          push the caption off-screen at large accessibility text sizes. */}
+      <MicroLabel style={{ flexShrink: 1, textAlign: 'center' }}>{label}</MicroLabel>
+      <View style={{ flex: 1, height: 1, backgroundColor: colors.line2 }} />
+    </View>
+  );
+}
