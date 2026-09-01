@@ -74,12 +74,29 @@ const ARABIC_FONTS = {
 };
 
 /**
+ * Reveal a screen that renders INSTEAD of AppRoot.
+ *
+ * `SplashScreen.hideAsync()` is only reached from AppRoot's font effect, so every
+ * path that returns before AppRoot mounts — a config failure, a render crash —
+ * left the splash (`backgroundColor: '#FFFFFF'`, app.config.ts) covering its own
+ * error message forever. That is precisely the "hard white screen with no
+ * message" the configError note in src/lib/supabase.ts exists to prevent, put
+ * back by the boot gate. Guarded by src/lib/__tests__/reliability.test.ts.
+ */
+function useRevealSplash() {
+  useEffect(() => {
+    void SplashScreen.hideAsync().catch(() => {});
+  }, []);
+}
+
+/**
  * expo-router renders this INSTEAD of the layout when a render throws anywhere
  * beneath it. It renders OUTSIDE the providers, so it builds its own translator
  * and a fonts-aware theme (an unregistered family here would red-box on iOS).
  */
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const t = makeT(I18nManager.isRTL ? 'ar' : 'en');
+  useRevealSplash();
   useEffect(() => {
     captureException(error, { scope: 'render', fatal: true });
   }, [error]);
@@ -101,6 +118,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 /** Missing build-time env: a configuration failure, rendered rather than crashed. */
 function ConfigErrorScreen() {
   const t = makeT(I18nManager.isRTL ? 'ar' : 'en');
+  useRevealSplash();
   return (
     <ThemeProvider fontsReady={false}>
       <View style={styles.fill}>
