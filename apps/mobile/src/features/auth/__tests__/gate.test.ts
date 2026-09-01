@@ -77,3 +77,66 @@ describe('noSessionGate — signed-out only screens', () => {
     }
   });
 });
+
+describe('noSessionGate — where a bounced user actually lands', () => {
+  /**
+   * Carried over from the deleted `(auth)` layout (2026-09-01). A first social
+   * sign-in has no phone (the trigger writes NULL for OAuth users), so it owes
+   * the complete-profile step (D3) before the tabs. Losing this in the flatten
+   * would silently skip a REQUIRED field for every Apple/Google sign-up.
+   */
+  it('sends an incomplete profile to complete-profile, not the tabs', () => {
+    expect(
+      noSessionGate({
+        initializing: false,
+        hasSession: true,
+        hasPendingSlot: false,
+        profile: 'incomplete',
+      }),
+    ).toBe('redirect-complete-profile');
+  });
+
+  it('sends a complete profile to the tabs', () => {
+    expect(
+      noSessionGate({
+        initializing: false,
+        hasSession: true,
+        hasPendingSlot: false,
+        profile: 'complete',
+      }),
+    ).toBe('redirect');
+  });
+
+  it('holds while the profile row is still loading', () => {
+    // Deciding on an unloaded row would flash the tabs at a user who is about
+    // to be sent to complete-profile.
+    expect(
+      noSessionGate({
+        initializing: false,
+        hasSession: true,
+        hasPendingSlot: false,
+        profile: 'pending',
+      }),
+    ).toBe('loading');
+  });
+
+  it('defaults to the tabs when no profile state is supplied', () => {
+    // An errored query maps to 'complete' at the call site: fail open, the
+    // booking path re-checks the phone anyway.
+    expect(
+      noSessionGate({ initializing: false, hasSession: true, hasPendingSlot: false }),
+    ).toBe('redirect');
+  });
+
+  it('still exempts a pending slot before consulting the profile', () => {
+    // The booking continuation must win; useSocialSignIn routes this case.
+    expect(
+      noSessionGate({
+        initializing: false,
+        hasSession: true,
+        hasPendingSlot: true,
+        profile: 'incomplete',
+      }),
+    ).toBe('allow');
+  });
+});

@@ -184,6 +184,21 @@ export const brand = {
   racketEdge: '#7FAE4C',
 } as const;
 
+/**
+ * Third-party sign-in button colours — Google's official light/dark button
+ * themes (developers.google.com/identity/branding-guidelines) and Apple's HIG.
+ * Theme-invariant like `brand`; the Google mark is never recoloured.
+ */
+export const vendor = {
+  google: {
+    light: { bg: '#FFFFFF', stroke: '#747775', text: '#1F1F1F', pressed: '#E6E6E6' },
+    dark: { bg: '#131314', stroke: '#8E918F', text: '#E3E3E3', pressed: '#2C2C2D' },
+    mark: { blue: '#4285F4', green: '#34A853', yellow: '#FBBC05', red: '#EA4335' },
+  },
+  /** Surfaces for the busy placeholder that stands in for the native Apple button. */
+  apple: { black: '#000000', white: '#FFFFFF' },
+} as const;
+
 /** Spacing scale (px). The design works on a 16px gutter with 8/12/14 steps. */
 export const space = { xs: 4, s: 8, sm: 12, m: 14, l: 16, xl: 20, xxl: 26 } as const;
 

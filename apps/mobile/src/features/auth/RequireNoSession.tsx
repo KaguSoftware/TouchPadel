@@ -16,24 +16,42 @@
  * verify-email / verify-result do NOT use this: they legitimately render around
  * the moment the session lands (the emailed link signs the user in mid-screen),
  * which is why the old layout exempted them by name.
+ *
+ * A redirected user is routed from DERIVED state: a first social sign-in has no
+ * phone, so it owes the complete-profile step (D3) rather than the tabs. The
+ * own-profile query shares its cache entry with useSocialSignIn's fetch, so
+ * this adds no second request.
  */
 import type { ReactNode } from 'react';
 import { Redirect } from 'expo-router';
 import { useAuth } from './context';
 import { noSessionGate } from './gate';
+import { profileGateState } from './social';
+import { useOwnProfile } from '../profile/hooks';
 import { usePendingSlot } from '../booking/pendingSlot';
 import { Loading } from '../../components/ui';
 
 export function RequireNoSession({ children }: { children: ReactNode }) {
   const { session, initializing } = useAuth();
   const pending = usePendingSlot();
+  const profile = useOwnProfile(session !== null);
+  const gate = profileGateState(profile);
   switch (
-    noSessionGate({ initializing, hasSession: session !== null, hasPendingSlot: pending !== null })
+    noSessionGate({
+      initializing,
+      hasSession: session !== null,
+      hasPendingSlot: pending !== null,
+      // 'unknown' covers pending AND error; only a pending query should hold
+      // the screen, an errored one fails open to the tabs.
+      profile: gate === 'unknown' ? (profile.status === 'pending' ? 'pending' : 'complete') : gate,
+    })
   ) {
     case 'loading':
       return <Loading />;
     case 'redirect':
       return <Redirect href="/(tabs)" />;
+    case 'redirect-complete-profile':
+      return <Redirect href="/complete-profile" />;
     default:
       return <>{children}</>;
   }

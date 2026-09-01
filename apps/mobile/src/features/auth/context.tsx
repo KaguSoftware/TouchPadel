@@ -10,6 +10,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { clearAllCaches } from '../../lib/queryClient';
 import { addBreadcrumb, captureException } from '../../lib/telemetry';
+import { googleSignOut } from './providers/google';
 
 export interface AuthContextValue {
   session: Session | null;
@@ -59,7 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // expired — and the disk persister made it survive a restart. Handled
       // HERE rather than in the settings screen so every sign-out path is
       // covered, including a refresh-token failure we did not initiate.
-      if (event === 'SIGNED_OUT') void clearAllCaches();
+      if (event === 'SIGNED_OUT') {
+        void clearAllCaches();
+        // Also forget the Google SDK's remembered account, so the next Continue
+        // with Google shows the picker instead of auto-selecting. Here for the
+        // same reason as the cache wipe: every sign-out path, including a
+        // refresh-token failure we did not initiate. No-op in Expo Go.
+        void googleSignOut();
+      }
     });
     return () => {
       cancelled = true;

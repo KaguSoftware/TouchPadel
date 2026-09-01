@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { CHUNK_SIZE, buildManifest, parseManifest, splitChunks } from '../chunk';
@@ -92,5 +92,38 @@ describe('RPC error mapping', () => {
   it('still falls back sensibly', () => {
     expect(mapErrorToKey('Network request failed')).toBe('errors.network');
     expect(mapErrorToKey('something unrecognised')).toBe('errors.generic');
+  });
+});
+
+describe('social sign-in library boundary', () => {
+  // The Google SDK is young and isolated behind ONE adapter so the mature
+  // library is a one-file swap; expo-apple-authentication lives only in the
+  // iOS-suffixed files so Android never bundles it (owner decision D2).
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      if (entry.name === '__tests__' || entry.name === 'node_modules') return [];
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) return walk(path);
+      return /\.tsx?$/.test(entry.name) ? [path] : [];
+    });
+  const root = join(here, '../../..');
+  const files = [...walk(join(root, 'app')), ...walk(join(root, 'src'))];
+  const importers = (needle: string) =>
+    files
+      .filter((f) => readFileSync(f, 'utf8').includes(needle))
+      .map((f) => relative(root, f).split(sep).join('/'))
+      .sort();
+
+  it('imports react-native-nitro-google-signin from the adapter only', () => {
+    expect(importers("'react-native-nitro-google-signin'")).toEqual([
+      'src/features/auth/providers/google.ts',
+    ]);
+  });
+
+  it('imports expo-apple-authentication from the iOS-only files only', () => {
+    expect(importers("'expo-apple-authentication'")).toEqual([
+      'src/components/AppleButton.ios.tsx',
+      'src/features/auth/providers/apple.ios.ts',
+    ]);
   });
 });

@@ -10,7 +10,7 @@ import {
   fetchRateRules,
   fetchVenueSettings,
 } from './api';
-import { assembleDayGrid, DEFAULT_TZ, type VenueSettingsPublic } from './assemble';
+import { assembleTradingNight, DEFAULT_TZ, type VenueSettingsPublic } from './assemble';
 import type { CourtSlots } from '@touch/core';
 
 export const availabilityKeys = {
@@ -55,7 +55,9 @@ export function useRatePrices() {
 
 export interface DayGrid {
   /**
-   * Per-court slots for the day, TIME-AGNOSTIC: nothing here is marked `past`.
+   * Per-court slots for the TRADING NIGHT the date names — its own hours plus
+   * the post-midnight tail stored on the next calendar date (09:00 → 02:00 on
+   * Touch; assembleTradingNight) — TIME-AGNOSTIC: nothing here is marked `past`.
    * `mergeAcrossCourts(grid, duration, horizon, now)` applies the clock, so the
    * expensive assembly (hundreds of ICU calls) runs only when data changes and
    * the minute tick is an O(n) pass.
@@ -73,7 +75,7 @@ export interface DayGrid {
 /** Epoch: with this as `now` no slot is past and no hold is expired at build time. */
 const NO_CLOCK = new Date(0);
 
-/** Assembled, priced grid for one venue-local day. */
+/** Assembled, priced grid for one venue-local trading night. */
 export function useDayGrid(date: string): DayGrid {
   const settings = useVenueSettings();
   const courts = useCourts();
@@ -93,7 +95,7 @@ export function useDayGrid(date: string): DayGrid {
     if (!settings.data || !courts.data || !rules.data || !prices.data || !availability.data) {
       return [];
     }
-    return assembleDayGrid({
+    return assembleTradingNight({
       date,
       settings: settings.data,
       courts: courts.data,
