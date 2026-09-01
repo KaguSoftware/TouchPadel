@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { isTransportError } from '../../lib/network';
 import { clearIdemKey, idemKeyFor } from '../../lib/idempotency';
 import { useAuth } from '../auth/context';
 import {
@@ -8,6 +9,7 @@ import {
   fetchMyReservations,
   fetchReservationById,
   holdSlot,
+  releaseHold,
 } from './api';
 import type { HoldResult } from './logic';
 
@@ -66,6 +68,29 @@ export function useConfirmBooking() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (holdId: string) => confirmBooking(supabase, holdId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['availability'] });
+      void queryClient.invalidateQueries({ queryKey: bookingKeys.mine });
+      void queryClient.invalidateQueries({ queryKey: ['reservation'] });
+    },
+  });
+}
+
+/**
+ * app.release_hold (0058) — give an unconfirmed hold back.
+ *
+ * Fired when Review is left without confirming, and from the held-slot card on
+ * Bookings. The retry budget is deliberately larger than the shared one: this
+ * usually runs from an UNMOUNTING screen, so there is no UI left to retry from,
+ * and a release lost to a flaky connection blocks the slot for the rest of the
+ * TTL and burns one of the guest's three holds. Transport failures only — a
+ * raised code (FORBIDDEN, NOT_A_HOLD) is a decision, not a blip.
+ */
+export function useReleaseHold() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (holdId: string) => releaseHold(supabase, holdId),
+    retry: (failureCount, error) => failureCount < 3 && isTransportError(error),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['availability'] });
       void queryClient.invalidateQueries({ queryKey: bookingKeys.mine });

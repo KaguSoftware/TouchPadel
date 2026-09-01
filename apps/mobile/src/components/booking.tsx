@@ -11,6 +11,7 @@ import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, slotStateStyles, space, useTheme, type Palette } from '../theme';
 import type { MergedCell } from '../features/availability/assemble';
 import { CardIcon, ChevronIcon, WifiOffIcon, type IconProps } from './icons';
+import { Button } from './ui';
 
 // ── Status pill (7 statuses, all handled — spec BookingStatusIndicator) ─────
 
@@ -222,6 +223,118 @@ export function PayAtDeskCard({
         {lead ? <Text style={{ fontFamily: fonts.body800 }}>{lead} </Text> : null}
         {body}
       </Text>
+    </View>
+  );
+}
+
+// ── Held-slot card (bookings — checkout still in progress) ──────────────────
+
+/**
+ * A slot the guest is holding but has not confirmed (0058).
+ *
+ * Holds were invisible in the app: `splitBookings` dropped them, so a guest who
+ * backed out of Review could not see that three slots and three of their hold
+ * allowances were still spent in their name — the fourth tap just failed with
+ * HOLD_QUOTA_EXCEEDED. This card is where a hold is visible and answerable:
+ * finish it, or hand it straight back.
+ *
+ * The countdown is the guest's own deadline, so it is the loudest thing here,
+ * and it turns red in the last quarter — the same signal the Review card uses.
+ */
+export function HeldSlotCard({
+  courtName,
+  when,
+  price,
+  countdown,
+  urgent,
+  busy,
+  onResume,
+  onRelease,
+}: {
+  courtName: string;
+  when: string;
+  price: string | null;
+  countdown: string;
+  urgent: boolean;
+  busy: boolean;
+  onResume: () => void;
+  onRelease: () => void;
+}) {
+  const { colors, fonts, tracking } = useTheme();
+  const { t } = useLocale();
+  return (
+    <View
+      style={{
+        marginTop: 9,
+        backgroundColor: colors.card,
+        borderWidth: 1.5,
+        borderColor: urgent ? colors.redline : colors.gline,
+        borderRadius: radius.button,
+        paddingStart: space.m,
+        paddingEnd: space.m,
+        paddingTop: space.sm,
+        paddingBottom: space.sm,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            numberOfLines={1}
+            style={{ fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
+          >
+            {courtName}
+          </Text>
+          <Text
+            numberOfLines={2}
+            style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, marginTop: 2 }}
+          >
+            {when}
+            {price ? ` · ${price}` : ''}
+          </Text>
+        </View>
+        {/* The deadline, in tabular figures so the digits do not jitter. */}
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text
+            style={{
+              fontFamily: fonts.body700,
+              fontSize: 9.5,
+              letterSpacing: tracking(0.6),
+              textTransform: 'uppercase',
+              color: colors.mut2,
+            }}
+          >
+            {t('booking.holdEndsIn')}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.display800,
+              fontSize: 17,
+              color: urgent ? colors.redtext : colors.gtext,
+              fontVariant: ['tabular-nums'],
+            }}
+          >
+            {countdown}
+          </Text>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 11 }}>
+        <Button
+          label={t('booking.finishBooking')}
+          onPress={onResume}
+          variant="cta"
+          size="compact"
+          disabled={busy}
+          style={{ flex: 1 }}
+        />
+        <Button
+          label={t('booking.releaseHold')}
+          onPress={onRelease}
+          variant="secondary"
+          size="compact"
+          busy={busy}
+          style={{ flex: 1 }}
+        />
+      </View>
     </View>
   );
 }
