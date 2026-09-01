@@ -504,6 +504,19 @@ export const en = {
     cancelDialogBody: "Your slot on {when} goes back on the grid. This can't be undone in the app.",
     cancelledToast: 'Booking cancelled — slot released',
     notFound: 'This booking could not be found.',
+    // Held slots (0058): a hold the guest has not confirmed yet.
+    heldSection: 'Held for you',
+    heldSectionBody:
+      'A held slot is yours for a few minutes only. Release one you no longer want — it goes straight back on the grid, and frees you to hold another time.',
+    holdEndsIn: 'Ends in',
+    finishBooking: 'Finish booking',
+    releaseHold: 'Release',
+    holdReleasedToast: 'Hold released — slot back on the grid',
+    holdQuota:
+      'You are already holding as many slots as we allow at once. Finish or release one under Bookings, then try again.',
+    notAHold: 'That slot is already booked. Cancel it from the booking itself.',
+    beyondHorizon: 'That date is further ahead than the venue takes bookings.',
+    accountRequired: 'Booking a court needs a signed-in account.',
   },
   tabs: {
     book: 'Book',

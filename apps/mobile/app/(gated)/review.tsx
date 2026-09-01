@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useConfirmBooking } from '../../src/features/booking/hooks';
+import { useConfirmBooking, useReleaseHold } from '../../src/features/booking/hooks';
 import { secondsUntil } from '../../src/features/booking/logic';
 import {
   isDegradedRefusal,
@@ -26,9 +26,13 @@ import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/compo
  * cancellation policy line, and a ConfirmationDialog before the write (R7).
  * Distinct full-screen states for hold-expired and slot-taken.
  *
- * Back is a plain pop: there is no app.release_hold() yet (HANDOFF gotcha —
- * cancel_reservation refuses a same-day hold), so the countdown is what
- * returns an abandoned slot to the grid.
+ * Leaving without confirming RELEASES the hold (app.release_hold, 0058).
+ * Before that existed, back was a plain pop and the countdown was the only
+ * thing that returned an abandoned slot to the grid — so tapping three times
+ * and backing out each time left three live holds, and the fourth tap was
+ * refused with HOLD_QUOTA_EXCEEDED (0048/C1 cap) for the rest of the TTL.
+ * The release covers every exit: the header arrow, Android back, and the
+ * iOS back-swipe all land on the same unmount.
  */
 export default function ReviewScreen() {
   const { t, locale } = useLocale();
@@ -54,8 +58,10 @@ export default function ReviewScreen() {
   const durationMin = params.durationMin ? Number(params.durationMin) : null;
   const courtName = typeof params.courtName === 'string' ? params.courtName : '';
 
+  const navigation = useNavigation();
   const settings = useVenueSettings();
   const confirm = useConfirmBooking();
+  const release = useReleaseHold();
   const [secondsLeft, setSecondsLeft] = useState<number | null>(() =>
     secondsUntil(expiresAt, new Date()),
   );
@@ -75,6 +81,46 @@ export default function ReviewScreen() {
     const id = setInterval(() => setSecondsLeft(secondsUntil(expiresAt, new Date())), 1000);
     return () => clearInterval(id);
   }, [expiresAt, confirmed, expired]);
+
+  /**
+   * Give the slot back on the way out.
+   *
+   * The trigger is navigation's `beforeRemove` — the screen being POPPED off
+   * the stack (header arrow, Android back, back-swipe, or a replace) — and
+   * deliberately NOT a plain unmount effect. An unmount says nothing about the
+   * guest's intent: it also fires on Fast Refresh, and whenever (gated)/_layout
+   * swaps `<Stack>` for `<Loading>`/`<Redirect>` on a session change, which is
+   * a token refresh away at any moment. Releasing on those meant the guest
+   * could lose the hold while still sitting on this screen, mid-checkout.
+   *
+   * Missing an exit is the safe direction of failure — the hold then lasts its
+   * TTL, as it always did, and Bookings shows it with a Release button.
+   * Releasing a hold the guest is still using is not.
+   *
+   * `release.mutate` outliving this screen is fine: the mutation lives in the
+   * MutationCache, not in the tree. An already-expired hold is a no-op the RPC
+   * answers idempotently.
+   *
+   * `keepHold` is latched in onConfirm's onSuccess rather than derived from
+   * confirm.isSuccess: that handler navigates synchronously, so the removal can
+   * beat the re-render that would have set the flag, and we would be firing a
+   * release at a row that is now a confirmed BOOKING. (The RPC refuses that
+   * with NOT_A_HOLD, so the booking was never in danger — but it is not
+   * something to aim doomed writes at.) The render-time line only latches ON.
+   */
+  const releaseRef = useRef(release.mutate);
+  releaseRef.current = release.mutate;
+  const keepHoldRef = useRef(false);
+  if (confirmed) keepHoldRef.current = true;
+  const holdIdRef = useRef(holdId);
+  holdIdRef.current = holdId;
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', () => {
+        if (holdIdRef.current && !keepHoldRef.current) releaseRef.current(holdIdRef.current);
+      }),
+    [navigation],
+  );
 
   const pct =
     secondsLeft === null
@@ -101,6 +147,7 @@ export default function ReviewScreen() {
     setError(null);
     confirm.mutate(holdId, {
       onSuccess: (result) => {
+        keepHoldRef.current = true; // this hold is a booking now — never release it
         setDialogOpen(false);
         const id = result.reservation_id ?? holdId;
         router.replace({

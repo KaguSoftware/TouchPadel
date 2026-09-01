@@ -682,10 +682,19 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
   column cannot simply be nulled — the RPC must snapshot `full_name`/`phone` into
   `guest_name`/`guest_phone` first. **A migration is mandatory.** Apple 5.1.1(v) is an automatic
   rejection without this.
-- **MOBILE: `cancel_reservation` cannot release a hold.** Non-staff callers hit the
-  `cancellation_window_hours` guard (0008:600-605, default 12 h), so releasing a hold for tonight
-  raises `CANCELLATION_WINDOW`. Abandoning the confirm screen therefore blocks the slot for the full
-  `hold_ttl_seconds` for every other guest. Needs a new `app.release_hold()`.
+- **MOBILE: `cancel_reservation` cannot release a hold — FIXED by 0058 `app.release_hold()`.**
+  Non-staff callers hit the `cancellation_window_hours` guard (0008:600-605, default 12 h), so
+  releasing a hold for tonight raised `CANCELLATION_WINDOW`. Abandoning the confirm screen therefore
+  blocked the slot for the full `hold_ttl_seconds`, and three abandoned holds hit the 0048/C1 cap
+  (`max_live_holds_per_guest`) — the guest could then book NOTHING until the TTL ran out, which is
+  what the phone reported on 2026-09-01 as `HOLD_QUOTA_EXCEEDED`. Now: Review releases on unmount
+  (every exit — header arrow, Android back, back-swipe), and Bookings shows a **Held for you**
+  section with a live countdown, *Finish booking* and *Release*. `release_hold` is holds-only,
+  own-holds-only, idempotent, and writes `status = 'expired'` + audit `reservation.release`;
+  confirmed bookings still go through `cancel_reservation` and its window. **Deploy note: the app
+  fix is inert until 0058 is applied to the hosted project** — until then the client's release call
+  returns "Could not find the function app.release_hold in the schema cache" (not a transport error,
+  so it is not retried) and holds again sit for the whole TTL.
 - **Google Play: the 12-testers/14-days rule applies ONLY to *personal* accounts created after
   2023-11-13; organization accounts are exempt** — but org accounts need a D-U-N-S number, which
   averages 4–8 weeks. Whether Kagu already holds a D-U-N-S decides whether Android can make

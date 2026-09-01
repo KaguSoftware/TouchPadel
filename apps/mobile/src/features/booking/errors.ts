@@ -19,6 +19,15 @@ const CODE_TO_KEY = {
   OUTSIDE_HOURS: 'booking.outsideHours',
   HOLD_EXPIRED: 'booking.holdExpired',
   HOLD_NOT_FOUND: 'errors.notFound',
+  // 0048/C1 + 0058. These three were raised by app.hold_slot from the day it
+  // was hardened and mapped by nobody, so the phone showed "Something went
+  // wrong" for three refusals the guest can actually act on — the hold cap in
+  // particular, which is what a guest hits after backing out of Review a few
+  // times. NOT_A_HOLD comes from app.release_hold.
+  HOLD_QUOTA_EXCEEDED: 'booking.holdQuota',
+  BEYOND_HORIZON: 'booking.beyondHorizon',
+  ACCOUNT_REQUIRED: 'booking.accountRequired',
+  NOT_A_HOLD: 'booking.notAHold',
   RESERVATION_NOT_FOUND: 'errors.notFound',
   COURT_NOT_FOUND: 'errors.notFound',
   DEGRADED_LOCKOUT: 'degraded.bookingRefusedShort',
