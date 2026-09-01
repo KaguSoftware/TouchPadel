@@ -32,6 +32,9 @@ export const en = {
     signIn: 'Sign in',
     signUp: 'Create account',
     signOut: 'Sign out',
+    // Signing out is a deliberate act: a native alert confirms before dropping the
+    // session, matching PetApp's Cancel / destructive-Sign-out shape.
+    signOutConfirm: "You'll need to log back in to see your bookings.",
     // SOW: email + password with verification — phone/OTP login is out of scope for Phase 1.
     emailLabel: 'Email',
     passwordLabel: 'Password',
