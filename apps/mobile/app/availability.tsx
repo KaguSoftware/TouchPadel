@@ -214,11 +214,21 @@ export default function AvailabilityScreen() {
         </View>
       ) : null}
 
-      {/* Day strip — venue timezone + Latin digits via the shared formatters */}
+      {/*
+        Day strip — venue timezone + Latin digits via the shared formatters.
+
+        `flexShrink: 0` is load-bearing. RN's ScrollView base style is
+        `{ flexGrow: 1, flexShrink: 1 }`, so overriding flexGrow alone left this
+        strip as the ONLY shrinkable child of the screen column: every time the
+        content below overflowed, Yoga took the height out of the chips. Result:
+        tapping a day made the strip snap to full height (skeleton — nothing
+        overflows) and squash again a second later when the grid landed. The day
+        chips are a fixed-height control; they never give up height.
+      */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
+        style={{ flexGrow: 0, flexShrink: 0 }}
         contentContainerStyle={{
           gap: 7,
           paddingStart: GUTTER,
@@ -262,7 +272,9 @@ export default function AvailabilityScreen() {
       </View>
 
       {day.isLoading ? (
-        <View style={{ marginTop: space.l, paddingStart: GRID_INSET, paddingEnd: GRID_INSET }}>
+        <View
+          style={{ flex: 1, marginTop: space.l, paddingStart: GRID_INSET, paddingEnd: GRID_INSET }}
+        >
           <SkeletonList rows={4} height={52} />
         </View>
       ) : day.isError ? (
@@ -274,7 +286,9 @@ export default function AvailabilityScreen() {
           busy={day.isRefetching}
         />
       ) : closedDay ? (
-        <View style={{ marginTop: 30, alignItems: 'center', paddingStart: 24, paddingEnd: 24 }}>
+        <View
+          style={{ flex: 1, marginTop: 30, alignItems: 'center', paddingStart: 24, paddingEnd: 24 }}
+        >
           <Text
             style={{
               fontFamily: fonts.display900,
@@ -300,6 +314,7 @@ export default function AvailabilityScreen() {
         </View>
       ) : (
         <ScrollView
+          style={{ flex: 1 }}
           refreshControl={
             <RefreshControl
               refreshing={day.isRefetching}
