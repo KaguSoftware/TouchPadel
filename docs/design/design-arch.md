@@ -305,7 +305,17 @@ Pipeline lives entirely in the Electron **main** process:
 | operator | `station.json` + build-time `import.meta.env` | staging release channel | prod release channel |
 | db/functions | `supabase/functions/.env` | dashboard secrets | dashboard secrets |
 
-Only `EXPO_PUBLIC_`/`NEXT_PUBLIC_`/`VITE_` anon keys ship to clients; service-role key exists solely in edge function secrets and CI (`db-migrate.yml`). An `env.ts` zod-validated loader in each app fails fast on missing vars.
+Only `EXPO_PUBLIC_`/`NEXT_PUBLIC_`/`VITE_` anon keys and public OAuth client identifiers ship to clients; service-role key exists solely in edge function secrets and CI (`db-migrate.yml`). An `env.ts` zod-validated loader in each app fails fast on missing vars.
+
+**Mobile public env, per profile** (`apps/mobile/.env.example` documents the local shape; `eas.json` carries the staging/production values):
+
+| Var | What it is | Unset ⇒ |
+|---|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase project URL + anon key — public by design, RLS is the protection | `src/lib/supabase.ts` surfaces a config error (never a module-scope throw) |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google **Web** OAuth client id (social sign-in, vendor addition 2026-09-01). Passed to the native SDK and also the `aud` of Android id tokens; listed first in Supabase → Auth → Providers → Google → Client IDs | Google button hidden |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | Google **iOS** OAuth client id; its reversal is the iOS URL scheme the config plugin needs (derived in `app.config.ts`, no third var); listed second in Supabase | Google button hidden; `expo start` / `expo export` warn and skip the plugin; an **EAS build fails at config time** |
+
+Both Google values are **public identifiers, not secrets** (the Web client *secret* stays in the Google Cloud console and is unused by the native id-token flow — `API.md` §9). Apple needs no env: the bundle id is its client id, and the button is hidden in Expo Go on Android because Apple is iOS-only by decision.
 
 ---
 
