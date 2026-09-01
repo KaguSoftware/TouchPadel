@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../src/lib/supabase';
 import { sendPasswordReset } from '../../src/features/auth/api';
 import { resetRedirect } from '../../src/features/auth/redirects';
@@ -9,7 +8,15 @@ import { linkErrorParam } from '../../src/features/auth/deepLink';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../../src/theme';
-import { Button, ErrorText, Field, Screen, ScreenHeader, Title } from '../../src/components/ui';
+import {
+  Button,
+  ErrorText,
+  Field,
+  FormScreen,
+  Screen,
+  ScreenHeader,
+  Title,
+} from '../../src/components/ui';
 
 /**
  * Forgot password (design 2026-08-31). The submitted state deliberately does
@@ -19,7 +26,6 @@ export default function ForgotPasswordScreen() {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -41,14 +47,12 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <Screen style={{ paddingTop: insets.top }}>
+    <Screen gutter={20}>
       <ScreenHeader />
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingTop: 6, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Title squiggle={false}>{t('auth.resetPasswordTitle')}</Title>
+      <FormScreen>
+        <Title plain size={24}>
+          {t('auth.resetPasswordTitle')}
+        </Title>
         {sent ? (
           <>
             <View
@@ -75,7 +79,9 @@ export default function ForgotPasswordScreen() {
             <Button
               label={t('auth.backToSignIn')}
               variant="secondary"
-              onPress={() => router.back()}
+              size="medium"
+              // A dead recovery link lands here with no history beneath it.
+              onPress={() => router.replace('/(auth)/sign-in')}
               style={{ marginTop: space.sm }}
             />
           </>
@@ -87,7 +93,7 @@ export default function ForgotPasswordScreen() {
                 fontSize: 13,
                 lineHeight: 20,
                 color: colors.mut,
-                marginTop: 4,
+                marginTop: 8,
               }}
             >
               {t('auth.forgotIntro')}
@@ -98,6 +104,9 @@ export default function ForgotPasswordScreen() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoComplete="email"
+              textContentType="emailAddress"
+              style={{ marginTop: 2 }}
+              onSubmitEditing={() => void onSubmit()}
             />
             <ErrorText>{error ?? (linkError ? t(linkError) : null)}</ErrorText>
             <Button
@@ -109,7 +118,7 @@ export default function ForgotPasswordScreen() {
             />
           </>
         )}
-      </ScrollView>
+      </FormScreen>
     </Screen>
   );
 }

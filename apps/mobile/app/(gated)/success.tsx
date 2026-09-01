@@ -1,7 +1,8 @@
 import { ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDate, formatIQD, formatTime } from '@touch/i18n';
+import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button } from '../../src/components/ui';
@@ -15,7 +16,7 @@ import { displayRef } from '../../src/features/booking/logic';
  */
 export default function SuccessScreen() {
   const { t, locale } = useLocale();
-  const { fonts } = useTheme();
+  const { fonts, tracking } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
@@ -34,10 +35,10 @@ export default function SuccessScreen() {
   const price = params.priceIqd ? Number(params.priceIqd) : NaN;
   const endAt = startAt && durationMin ? new Date(startAt.getTime() + durationMin * 60_000) : null;
 
-  const navyLabel = '#8FA3C7';
-
   return (
     <View style={{ flex: 1, backgroundColor: brand.navy, paddingTop: insets.top }}>
+      {/* Navy screen in both themes: light status-bar glyphs regardless of theme. */}
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={{
           paddingTop: 40,
@@ -64,6 +65,7 @@ export default function SuccessScreen() {
           style={{
             fontFamily: fonts.display900,
             fontSize: 26,
+            letterSpacing: tracking(0.26),
             textTransform: 'uppercase',
             color: brand.white,
             marginTop: 20,
@@ -77,7 +79,7 @@ export default function SuccessScreen() {
             style={{
               fontFamily: fonts.body700,
               fontSize: 12,
-              letterSpacing: 0.96,
+              letterSpacing: tracking(0.96),
               color: brand.green,
               marginTop: 6,
             }}
@@ -108,7 +110,7 @@ export default function SuccessScreen() {
           </Text>
           <SummaryGrid
             iconColor={brand.green}
-            labelColor={navyLabel}
+            labelColor={brand.navyMuted}
             valueColor={brand.white}
             rows={[
               ...(startAt
@@ -117,7 +119,7 @@ export default function SuccessScreen() {
                     {
                       icon: ClockIcon,
                       label: t('booking.time'),
-                      value: `${formatTime(startAt, locale)}${endAt ? `–${formatTime(endAt, locale)}` : ''}`,
+                      value: endAt ? formatTimeRange(startAt, endAt, locale) : formatDateTime(startAt, locale),
                     },
                   ]
                 : []),
@@ -181,18 +183,22 @@ export default function SuccessScreen() {
           gap: 9,
         }}
       >
-        <Button
-          label={t('booking.viewBooking')}
-          variant="cta"
-          onPress={() =>
-            router.replace({ pathname: '/booking/[id]', params: { id: reservationId } })
-          }
-        />
+        {/* Never route to /booking/ with an empty id. */}
+        {reservationId ? (
+          <Button
+            label={t('booking.viewBooking')}
+            variant="cta"
+            onPress={() =>
+              router.replace({ pathname: '/booking/[id]', params: { id: reservationId } })
+            }
+          />
+        ) : null}
         <Button
           label={t('common.done')}
           variant="secondary"
+          size="medium"
           onPress={() => router.replace('/(tabs)/bookings')}
-          style={{ backgroundColor: 'transparent', borderColor: brand.navyLine }}
+          style={{ backgroundColor: 'transparent', borderColor: brand.navyLine, borderWidth: 1 }}
           labelColor={brand.navyText}
         />
       </View>

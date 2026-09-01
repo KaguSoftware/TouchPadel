@@ -6,7 +6,7 @@
  */
 import type { ComponentType, ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import type { MessageKey } from '@touch/i18n';
+import { formatDayNumber, formatMonthShort, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, slotStateStyles, space, useTheme, type Palette } from '../theme';
 import type { MergedCell } from '../features/availability/assemble';
@@ -39,17 +39,18 @@ function statusColors(status: string, c: Palette): { fg: string; bg: string } {
   }
 }
 
-export function StatusPill({ status }: { status: string }) {
-  const { colors, fonts } = useTheme();
+export function StatusPill({ status, size = 'list' }: { status: string; size?: 'list' | 'detail' }) {
+  const { colors, fonts, tracking } = useTheme();
   const { t } = useLocale();
   const { fg, bg } = statusColors(status, colors);
+  const detail = size === 'detail';
   return (
     <View
       style={{
-        paddingStart: 9,
-        paddingEnd: 9,
-        paddingTop: 5,
-        paddingBottom: 5,
+        paddingStart: detail ? 10 : 9,
+        paddingEnd: detail ? 10 : 9,
+        paddingTop: detail ? 6 : 5,
+        paddingBottom: detail ? 6 : 5,
         borderRadius: radius.pill,
         backgroundColor: bg,
       }}
@@ -57,8 +58,8 @@ export function StatusPill({ status }: { status: string }) {
       <Text
         style={{
           fontFamily: fonts.display800,
-          fontSize: 10,
-          letterSpacing: 0.5,
+          fontSize: detail ? 10.5 : 10,
+          letterSpacing: tracking(0.5),
           textTransform: 'uppercase',
           color: fg,
         }}
@@ -72,10 +73,13 @@ export function StatusPill({ status }: { status: string }) {
 // ── Date badge (upcoming booking cards) ─────────────────────────────────────
 
 export function DateBadge({ date }: { date: Date }) {
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, tracking } = useTheme();
   const { locale } = useLocale();
-  const mon = new Intl.DateTimeFormat(locale === 'ar' ? 'ar' : 'en-US', { month: 'short' }).format(date);
-  const day = new Intl.NumberFormat(locale === 'ar' ? 'ar' : 'en-US').format(date.getDate());
+  // Through the shared formatters: venue timezone + Latin digits, like every
+  // other date on the row (this badge used to use the DEVICE zone and, in
+  // Arabic, Eastern-Arabic digits).
+  const mon = formatMonthShort(date, locale);
+  const day = formatDayNumber(date, locale);
   return (
     <View
       style={{
@@ -91,7 +95,7 @@ export function DateBadge({ date }: { date: Date }) {
         style={{
           fontFamily: fonts.body700,
           fontSize: 9.5,
-          letterSpacing: 0.57,
+          letterSpacing: tracking(0.57),
           textTransform: 'uppercase',
           color: colors.mut,
         }}
@@ -120,27 +124,32 @@ export function SummaryGrid({
   iconColor,
   labelColor,
   valueColor,
+  rowGap = 10,
 }: {
   rows: SummaryRow[];
   /** Overrides for the navy success screen. */
   iconColor?: string;
   labelColor?: string;
   valueColor?: string;
+  /** Design: 10 on Review, 11 on Booking detail. */
+  rowGap?: number;
 }) {
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, tracking } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 11 }}>
-      {rows.map((row) => {
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap }}>
+      {rows.map((row, i) => {
         const Icon = row.icon;
         return (
-          <View key={row.label} style={{ width: '50%', paddingEnd: space.s }}>
+          <View key={i} style={{ width: '50%', paddingEnd: space.s }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <Icon size={12} color={iconColor ?? colors.gstrong} />
+              {/* Design literal #6FA33A in both palettes (brand.leaf), not the palette green. */}
+              <Icon size={12} color={iconColor ?? brand.leaf} />
               <Text
+                numberOfLines={1}
                 style={{
                   fontFamily: fonts.body700,
                   fontSize: 10,
-                  letterSpacing: 0.7,
+                  letterSpacing: tracking(0.7),
                   textTransform: 'uppercase',
                   color: labelColor ?? colors.fnt,
                 }}
@@ -149,6 +158,7 @@ export function SummaryGrid({
               </Text>
             </View>
             <Text
+              numberOfLines={2}
               style={{
                 marginTop: 3,
                 fontFamily: row.emphasis ? fonts.body800 : fonts.body700,
@@ -167,8 +177,18 @@ export function SummaryGrid({
 
 // ── Pay at the desk (review, success, detail — spec: never optional) ────────
 
-export function PayAtDeskCard({ title, body }: { title?: string; body: string }) {
-  const { colors, fonts } = useTheme();
+export function PayAtDeskCard({
+  title,
+  lead,
+  body,
+}: {
+  /** Icon + uppercase heading row (Review). */
+  title?: string;
+  /** Bold inline lead sentence (Booking detail: "Pay at the desk."). */
+  lead?: string;
+  body: string;
+}) {
+  const { colors, fonts, tracking } = useTheme();
   return (
     <View
       style={{
@@ -178,8 +198,8 @@ export function PayAtDeskCard({ title, body }: { title?: string; body: string })
         borderRadius: radius.button,
         paddingStart: space.m,
         paddingEnd: space.m,
-        paddingTop: 13,
-        paddingBottom: 13,
+        paddingTop: title ? 13 : 12,
+        paddingBottom: title ? 13 : 12,
       }}
     >
       {title ? (
@@ -189,7 +209,7 @@ export function PayAtDeskCard({ title, body }: { title?: string; body: string })
             style={{
               fontFamily: fonts.display800,
               fontSize: 12,
-              letterSpacing: 0.6,
+              letterSpacing: tracking(0.6),
               textTransform: 'uppercase',
               color: colors.gtext,
             }}
@@ -199,6 +219,7 @@ export function PayAtDeskCard({ title, body }: { title?: string; body: string })
         </View>
       ) : null}
       <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.gtext2 }}>
+        {lead ? <Text style={{ fontFamily: fonts.body800 }}>{lead} </Text> : null}
         {body}
       </Text>
     </View>
@@ -207,8 +228,32 @@ export function PayAtDeskCard({ title, body }: { title?: string; body: string })
 
 // ── Degraded banner (courts / availability / bookings) ──────────────────────
 
-export function DegradedBanner({ message }: { message: string }) {
+/**
+ * Amber venue notice. `lead` renders bold ("Venue connection lost."), and the
+ * venue phone is bolded inside `message` when present — the design's whole
+ * hierarchy for this banner, which a single flat string had lost.
+ */
+export function DegradedBanner({
+  lead,
+  message,
+  phone,
+  tight = false,
+}: {
+  lead?: string;
+  message: string;
+  phone?: string | null;
+  /** Availability / bookings variant: 9×12 padding, 16 pt icon, top-aligned. */
+  tight?: boolean;
+}) {
   const { colors, fonts } = useTheme();
+  const bold = { fontFamily: fonts.body800 };
+  const parts: ReactNode[] = [];
+  if (phone && message.includes(phone)) {
+    const [before, ...rest] = message.split(phone);
+    parts.push(before, <Text key="phone" style={bold}>{phone}</Text>, rest.join(phone));
+  } else {
+    parts.push(message);
+  }
   return (
     <View
       accessibilityRole="alert"
@@ -219,18 +264,21 @@ export function DegradedBanner({ message }: { message: string }) {
         borderRadius: radius.cell,
         paddingStart: space.sm,
         paddingEnd: space.sm,
-        paddingTop: 10,
-        paddingBottom: 10,
+        paddingTop: tight ? 9 : 10,
+        paddingBottom: tight ? 9 : 10,
         flexDirection: 'row',
-        gap: 10,
-        alignItems: 'center',
+        gap: tight ? 8 : 10,
+        alignItems: tight ? 'flex-start' : 'center',
       }}
     >
-      <WifiOffIcon size={17} color={colors.ambstrong} />
+      <View style={tight ? { marginTop: 1 } : undefined}>
+        <WifiOffIcon size={tight ? 16 : 17} color={colors.ambstrong} />
+      </View>
       <Text
         style={{ flex: 1, fontFamily: fonts.body600, fontSize: 12, lineHeight: 17, color: colors.ambtext }}
       >
-        {message}
+        {lead ? <Text style={bold}>{lead} </Text> : null}
+        {parts}
       </Text>
     </View>
   );
@@ -253,7 +301,7 @@ export function DayChip({
   closedLabel: string;
   onPress: () => void;
 }) {
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, tracking } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -277,7 +325,7 @@ export function DayChip({
         style={{
           fontFamily: fonts.body700,
           fontSize: 10,
-          letterSpacing: 0.6,
+          letterSpacing: tracking(0.6),
           textTransform: 'uppercase',
           opacity: 0.75,
           color: selected ? brand.white : closed ? colors.fnt2 : colors.ink,
@@ -300,7 +348,7 @@ export function DayChip({
             fontFamily: fonts.body700,
             fontSize: 8.5,
             textTransform: 'uppercase',
-            letterSpacing: 0.34,
+            letterSpacing: tracking(0.34),
             opacity: 0.7,
             color: selected ? brand.white : colors.fnt2,
           }}
@@ -314,6 +362,11 @@ export function DayChip({
 
 // ── Merged slot cell (availability grid) ────────────────────────────────────
 
+/**
+ * One cell of the two-column grid. The PARENT lays cells out in rows of two
+ * (each `flex: 1`); a wrapping row with `flexGrow` stretched an odd last cell
+ * to the full width, which the design's `repeat(2, 1fr)` never does.
+ */
 export function SlotCell({
   cell,
   time,
@@ -330,7 +383,7 @@ export function SlotCell({
   capacityLine: string;
   onPress?: () => void;
 }) {
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, tracking } = useTheme();
   const visual = slotStateStyles(colors)[cell.state === 'free' ? 'available' : cell.state];
   const tappable = cell.state === 'free' || cell.state === 'blocked' || cell.state === 'horizon';
   return (
@@ -340,15 +393,14 @@ export function SlotCell({
       disabled={!tappable}
       onPress={onPress}
       style={({ pressed }) => ({
-        flexBasis: '48%',
-        flexGrow: 1,
+        flex: 1,
         alignItems: 'center',
         gap: 2,
         paddingTop: 10,
         paddingBottom: 10,
         paddingStart: 4,
         paddingEnd: 4,
-        minHeight: 56,
+        minHeight: 52,
         borderRadius: radius.cell,
         backgroundColor: visual.bg,
         borderWidth: 1.5,
@@ -358,13 +410,16 @@ export function SlotCell({
       })}
     >
       <Text style={{ fontFamily: fonts.display800, fontSize: 15, color: visual.text }}>{time}</Text>
-      <Text style={{ fontFamily: fonts.body700, fontSize: 10.5, color: visual.subText }}>{sub}</Text>
+      <Text numberOfLines={1} style={{ fontFamily: fonts.body700, fontSize: 10.5, color: visual.subText }}>
+        {sub}
+      </Text>
       {capacityLine ? (
         <Text
+          numberOfLines={1}
           style={{
             fontFamily: fonts.body700,
             fontSize: 9.5,
-            letterSpacing: 0.3,
+            letterSpacing: tracking(0.3),
             color: cell.freeCount > 1 ? colors.fnt : colors.ambstrong,
           }}
         >
@@ -382,16 +437,20 @@ export function MenuRow({
   label,
   onPress,
   last,
+  disabled,
 }: {
   icon: ReactNode;
   label: string;
   onPress: () => void;
   last?: boolean;
+  disabled?: boolean;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({
         flexDirection: 'row',
@@ -404,9 +463,10 @@ export function MenuRow({
         backgroundColor: pressed ? colors.sub : 'transparent',
         borderBottomWidth: last ? 0 : 1,
         borderBottomColor: colors.sub,
+        opacity: disabled ? 0.5 : 1,
       })}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 11, flex: 1 }}>
         <View
           style={{
             width: 30,
@@ -419,7 +479,9 @@ export function MenuRow({
         >
           {icon}
         </View>
-        <Text style={{ fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>{label}</Text>
+        <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
+          {label}
+        </Text>
       </View>
       <ChevronIcon size={16} color={colors.fnt2} />
     </Pressable>

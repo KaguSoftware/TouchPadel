@@ -69,6 +69,10 @@ export function useAuthDeepLink(): void {
         if (error) throw error;
         // AuthProvider's onAuthStateChange listener takes it from here.
         addBreadcrumb('auth.deepLink.session', { recovery: isRecoveryLink(link) });
+        // A recovery link must land on the reset form. Under Expo Go the URL is
+        // exp://…/--/reset-password and this hook has already consumed the
+        // cold-start URL, so expo-router's own linking may never route it.
+        if (isRecoveryLink(link) && !cancelled) router.replace('/reset-password');
       } catch (error) {
         // The common non-expiry failure is a PKCE verifier mismatch: the link
         // was opened on a different device from the one that signed up, so the

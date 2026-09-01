@@ -7,6 +7,7 @@
  * 0008 (reservations), 0021 (degraded re-issue of confirm_booking).
  */
 import type { MessageKey } from '@touch/i18n';
+import { errorMessageOf, isTransportError } from '../../lib/network';
 
 const CODE_TO_KEY = {
   SLOT_TAKEN: 'booking.slotTaken',
@@ -68,18 +69,12 @@ export function isDegradedRefusal(message: string | null | undefined): boolean {
  * with {phone} instead.
  */
 export function mapErrorToKey(err: unknown): MessageKey {
-  const message =
-    typeof err === 'string' ? err : err instanceof Error ? err.message : messageOf(err);
-  const code = rpcErrorCode(message);
+  const code = rpcErrorCode(errorMessageOf(err));
   if (code) return CODE_TO_KEY[code];
-  if (message && /network|fetch|timeout|abort/i.test(message)) return 'errors.network';
+  // errors.network is reserved for genuine transport failures (lib/network.ts).
+  // The old test, /network|fetch|timeout|abort/i over the whole message, also
+  // matched a statement timeout or a PostgREST hint that mentioned fetch — so
+  // real backend errors on the phone read as "no internet".
+  if (isTransportError(err)) return 'errors.network';
   return 'errors.generic';
-}
-
-function messageOf(err: unknown): string | null {
-  if (err && typeof err === 'object' && 'message' in err) {
-    const m = (err as { message: unknown }).message;
-    return typeof m === 'string' ? m : null;
-  }
-  return null;
 }

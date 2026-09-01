@@ -1,19 +1,33 @@
-import { useMemo, useState } from 'react';
-import { Linking, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDate, formatIQD, formatTime } from '@touch/i18n';
+import { formatDate, formatDateTime, formatTimeRange } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../../src/i18n/LocaleProvider';
-import { useCancelReservation, useMyBookings } from '../../../src/features/booking/hooks';
+import { useCancelReservation, useReservation } from '../../../src/features/booking/hooks';
 import { canCancel, displayRef } from '../../../src/features/booking/logic';
 import { mapErrorToKey } from '../../../src/features/booking/errors';
-import { useCourts, useVenueSettings } from '../../../src/features/availability/hooks';
+import {
+  useCourts,
+  useIsDegraded,
+  useVenueSettings,
+} from '../../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../../src/features/availability/assemble';
+import { callPhone } from '../../../src/lib/phone';
+import { formatPrice } from '../../../src/lib/price';
 import { radius, space, useTheme } from '../../../src/theme';
-import { Button, Card, ErrorText, Screen, ScreenHeader } from '../../../src/components/ui';
-import { PayAtDeskCard, StatusPill, SummaryGrid } from '../../../src/components/booking';
-import { ConfirmationDialog , useToast } from '../../../src/components/overlays';
+import {
+  Button,
+  Card,
+  DashedDivider,
+  ErrorText,
+  Screen,
+  ScreenHeader,
+  useSafeBack,
+} from '../../../src/components/ui';
+import { DegradedBanner, PayAtDeskCard, StatusPill, SummaryGrid } from '../../../src/components/booking';
+import { ConfirmationDialog, useToast } from '../../../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../../src/components/states';
 
@@ -25,32 +39,37 @@ import { ErrorState, SkeletonList } from '../../../src/components/states';
  */
 export default function BookingDetailScreen() {
   const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
-  const router = useRouter();
+  const { colors, fonts, tracking } = useTheme();
   const insets = useSafeAreaInsets();
+  const safeBack = useSafeBack();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const bookings = useMyBookings();
+  // Fetched by id (RLS-scoped) — finding it in the 100-row list made any older
+  // booking opened from a push tap render "not found".
+  const reservation = useReservation(typeof id === 'string' ? id : undefined);
   const courts = useCourts();
   const settings = useVenueSettings();
+  const degraded = useIsDegraded();
   const cancel = useCancelReservation();
   const toast = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const booking = useMemo(
-    () => (bookings.data ?? []).find((b) => b.id === id) ?? null,
-    [bookings.data, id],
-  );
+  // Eligibility follows the clock: the window can close while the guest looks.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const tick = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(tick);
+  }, []);
+
+  const booking = reservation.data ?? null;
   const court = booking ? courts.data?.find((c) => c.id === booking.court_id) : null;
   const phone = venuePhoneOf(settings.data);
 
-  /**
-   * When the policy is unknown, offer the action anyway: app.cancel_reservation
-   * enforces the window server-side and its refusal maps to a real message. A
-   * refusal the guest can read beats a control that quietly is not there.
-   */
+  // The policy is only judged once it is KNOWN. Defaulting the window to 0
+  // while settings loaded offered "free cancellation" and then flipped to the
+  // red refusal card a second later.
+  const policyKnown = settings.isSuccess;
   const windowHours = settings.data?.cancellation_window_hours ?? 0;
-  const now = new Date();
   const start = booking ? new Date(booking.start_at) : null;
   const end = booking ? new Date(booking.end_at) : null;
   const upcomingActive =
@@ -58,7 +77,7 @@ export default function BookingDetailScreen() {
     start != null &&
     start.getTime() > now.getTime() &&
     (booking.status === 'confirmed' || booking.status === 'pending');
-  const eligible = booking != null && canCancel(booking, windowHours, now);
+  const eligible = booking != null && policyKnown && canCancel(booking, windowHours, now);
   const windowEnd =
     start && windowHours > 0 ? new Date(start.getTime() - windowHours * 3_600_000) : null;
 
@@ -78,36 +97,54 @@ export default function BookingDetailScreen() {
   };
 
   const callVenue = () => {
-    if (phone) void Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`);
+    if (!phone) return;
+    void callPhone(phone).then((ok) => {
+      if (!ok) toast(t('errors.callFailed', { phone }), 'error');
+    });
   };
 
+  const price = booking ? formatPrice(booking.price_iqd, locale) : null;
+  const cardPad = { paddingTop: 13, paddingBottom: 13, paddingStart: space.m, paddingEnd: space.m };
+
   return (
-    <Screen style={{ paddingTop: insets.top }}>
+    <Screen>
       <ScreenHeader
         title={booking ? t('booking.bookingRef', { ref: displayRef(booking.id) }) : ''}
       />
-      {bookings.isLoading ? (
+      {reservation.isLoading ? (
         <SkeletonList rows={2} height={140} />
-      ) : bookings.isError ? (
+      ) : reservation.isError ? (
         <ErrorState
           title={t('errors.loadFailedTitle')}
-          message={t(mapErrorToKey(bookings.error))}
+          message={t(mapErrorToKey(reservation.error))}
           retryLabel={t('common.retry')}
-          onRetry={() => void bookings.refetch()}
-          busy={bookings.isRefetching}
+          onRetry={() => void reservation.refetch()}
+          busy={reservation.isRefetching}
         />
       ) : !booking ? (
         <ErrorState
           title={t('errors.notFound')}
           message={t('booking.notFound')}
           retryLabel={t('common.back')}
-          onRetry={() => router.back()}
+          onRetry={safeBack}
         />
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
+          contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom }}
           showsVerticalScrollIndicator={false}
         >
+          {/* Spec 05.16: the venue contact whenever the venue is degraded. */}
+          {degraded ? (
+            <View style={{ marginBottom: 10 }}>
+              <DegradedBanner
+                tight
+                lead={t('degraded.leadConnectionLost')}
+                message={t('degraded.bannerBookings', { phone: phone ?? '' })}
+                phone={phone}
+              />
+            </View>
+          ) : null}
+
           <Card>
             <View
               style={{
@@ -128,18 +165,11 @@ export default function BookingDetailScreen() {
               >
                 {court ? pickLocale({ en: court.name_en, ar: court.name_ar }, locale) : ''}
               </Text>
-              <StatusPill status={booking.status} />
+              <StatusPill status={booking.status} size="detail" />
             </View>
-            <View
-              style={{
-                borderTopWidth: 1,
-                borderStyle: 'dashed',
-                borderTopColor: colors.line,
-                marginTop: 13,
-                marginBottom: 13,
-              }}
-            />
+            <DashedDivider style={{ marginTop: 13, marginBottom: 13 }} />
             <SummaryGrid
+              rowGap={11}
               rows={[
                 ...(start
                   ? [
@@ -147,7 +177,7 @@ export default function BookingDetailScreen() {
                       {
                         icon: ClockIcon,
                         label: t('booking.time'),
-                        value: `${formatTime(start, locale)}${end ? `–${formatTime(end, locale)}` : ''}`,
+                        value: end ? formatTimeRange(start, end, locale) : formatDateTime(start, locale),
                       },
                     ]
                   : []),
@@ -162,12 +192,12 @@ export default function BookingDetailScreen() {
                       },
                     ]
                   : []),
-                ...(booking.price_iqd != null
+                ...(price
                   ? [
                       {
                         icon: TagIcon,
                         label: t('booking.priceAtDesk'),
-                        value: formatIQD(booking.price_iqd, locale),
+                        value: price,
                         valueColor: colors.gtext,
                         emphasis: true,
                       },
@@ -188,19 +218,19 @@ export default function BookingDetailScreen() {
                 borderWidth: 1,
                 borderColor: colors.line,
                 borderRadius: radius.button,
-                padding: space.m,
+                ...cardPad,
               }}
             >
               <Text
                 style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut2 }}
               >
-                <Text style={{ fontFamily: fonts.body800 }}>{t('booking.weeklySeries')}. </Text>
+                <Text style={{ fontFamily: fonts.body800 }}>↻ {t('booking.weeklySeries')}. </Text>
                 {t('booking.seriesNotice')}
               </Text>
             </View>
           ) : null}
 
-          {upcomingActive && eligible ? (
+          {upcomingActive && policyKnown && eligible ? (
             <View
               style={{
                 marginTop: 10,
@@ -208,7 +238,7 @@ export default function BookingDetailScreen() {
                 borderWidth: 1,
                 borderColor: colors.line,
                 borderRadius: radius.button,
-                padding: space.m,
+                ...cardPad,
               }}
             >
               {windowEnd ? (
@@ -221,19 +251,21 @@ export default function BookingDetailScreen() {
                     marginBottom: 10,
                   }}
                 >
-                  {t('booking.freeCancelUntil', { when: formatDate(windowEnd, locale) + ", " + formatTime(windowEnd, locale) })}
+                  {t('booking.freeCancelUntil', { when: formatDateTime(windowEnd, locale) })}
                 </Text>
               ) : null}
               <Button
                 label={t('booking.cancelBooking')}
                 variant="dangerOutline"
+                size="compact"
+                pressedBg={colors.redtint}
                 busy={cancel.isPending}
                 onPress={() => setDialogOpen(true)}
               />
             </View>
           ) : null}
 
-          {upcomingActive && !eligible ? (
+          {upcomingActive && policyKnown && !eligible ? (
             <View
               style={{
                 marginTop: 10,
@@ -241,14 +273,14 @@ export default function BookingDetailScreen() {
                 borderWidth: 1,
                 borderColor: colors.redline,
                 borderRadius: radius.button,
-                padding: space.m,
+                ...cardPad,
               }}
             >
               <Text
                 style={{
                   fontFamily: fonts.display800,
                   fontSize: 12,
-                  letterSpacing: 0.48,
+                  letterSpacing: tracking(0.48),
                   textTransform: 'uppercase',
                   color: colors.redtext,
                 }}
@@ -266,10 +298,16 @@ export default function BookingDetailScreen() {
                 }}
               >
                 {t('booking.windowClosedBody', {
-                  when: windowEnd ? formatDate(windowEnd, locale) + ", " + formatTime(windowEnd, locale) : '',
+                  when: windowEnd ? formatDateTime(windowEnd, locale) : '',
                 })}
               </Text>
-              <Button label={t('booking.callVenue')} variant="danger" onPress={callVenue} />
+              <Button
+                label={t('booking.callVenue')}
+                variant="danger"
+                size="compact"
+                disabled={!phone}
+                onPress={callVenue}
+              />
             </View>
           ) : null}
 
@@ -279,7 +317,7 @@ export default function BookingDetailScreen() {
                 marginTop: 10,
                 backgroundColor: colors.sub,
                 borderRadius: radius.button,
-                padding: space.m,
+                ...cardPad,
               }}
             >
               <Text
@@ -291,7 +329,7 @@ export default function BookingDetailScreen() {
           ) : null}
 
           <View style={{ marginTop: 10 }}>
-            <PayAtDeskCard body={t('booking.payAtDeskShort')} />
+            <PayAtDeskCard lead={`${t('booking.payAtDeskTitle')}.`} body={t('booking.payAtDeskShort')} />
           </View>
 
           <ErrorText>{error}</ErrorText>
@@ -302,7 +340,7 @@ export default function BookingDetailScreen() {
         visible={dialogOpen}
         title={t('booking.cancelDialogTitle')}
         body={t('booking.cancelDialogBody', {
-          when: start ? formatDate(start, locale) + ", " + formatTime(start, locale) : '',
+          when: start ? formatDateTime(start, locale) : '',
         })}
         confirmLabel={cancel.isPending ? t('booking.cancelling') : t('booking.cancelBooking')}
         busy={cancel.isPending}

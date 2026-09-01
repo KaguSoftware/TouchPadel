@@ -36,6 +36,29 @@ export interface ResolvedRate {
   priceIqd: IQD;
 }
 
+/** ruleId -> durationMin -> price. Build once per price set with indexRatePrices(). */
+export type RatePriceIndex = ReadonlyMap<string, ReadonlyMap<number, IQD>>;
+
+/**
+ * Index rate_rule_prices for repeated lookups. resolveRateRule used to rebuild
+ * this map on EVERY call — once per slot per grid build, i.e. ~120 times per
+ * availability day on the phone — the single largest cost in grid assembly.
+ * Callers that price many slots pass the index; a plain array still works for
+ * one-off calls.
+ */
+export function indexRatePrices(prices: readonly RateRulePrice[]): RatePriceIndex {
+  const priceByRule = new Map<string, Map<number, IQD>>();
+  for (const p of prices) {
+    let byDuration = priceByRule.get(p.ruleId);
+    if (!byDuration) {
+      byDuration = new Map();
+      priceByRule.set(p.ruleId, byDuration);
+    }
+    byDuration.set(p.durationMin, p.priceIqd);
+  }
+  return priceByRule;
+}
+
 /**
  * Resolve the winning rate for a slot. Precedence (matching app.price_slot):
  *   1. court-specific rules beat null-court (all-courts) rules;
@@ -51,7 +74,7 @@ export interface ResolvedRate {
  */
 export function resolveRateRule(
   rules: readonly RateRule[],
-  prices: readonly RateRulePrice[],
+  prices: readonly RateRulePrice[] | RatePriceIndex,
   courtId: string,
   startAt: Date,
   durationMin: number,
@@ -60,15 +83,9 @@ export function resolveRateRule(
   const local = localParts(startAt, venueTz);
   const slotMin = local.minutesOfDay;
 
-  const priceByRule = new Map<string, Map<number, IQD>>();
-  for (const p of prices) {
-    let byDuration = priceByRule.get(p.ruleId);
-    if (!byDuration) {
-      byDuration = new Map();
-      priceByRule.set(p.ruleId, byDuration);
-    }
-    byDuration.set(p.durationMin, p.priceIqd);
-  }
+  const priceByRule: RatePriceIndex = Array.isArray(prices)
+    ? indexRatePrices(prices as readonly RateRulePrice[])
+    : (prices as RatePriceIndex);
 
   const candidates = rules.filter((r) => {
     if (!r.isActive) return false;
