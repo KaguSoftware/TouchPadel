@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { pickLocale, wallTimeToUtc } from '@touch/core';
+import { localParts, pickLocale, wallTimeToUtc } from '@touch/core';
 import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import {
@@ -13,6 +13,7 @@ import {
   useVenueSettings,
 } from '../src/features/availability/hooks';
 import {
+  addDays,
   DEFAULT_TZ,
   hasAnySlots,
   listBookableDates,
@@ -39,8 +40,10 @@ const GRID_INSET = 18 + space.l;
 
 /**
  * Merged availability (design 2026-08-31): ONE timeline across both courts —
- * each hour shows capacity; the desk assigns the physical court. Public screen;
- * a signed-out tap routes through Welcome with the slot kept as pending intent.
+ * each hour shows capacity; the desk assigns the physical court. A day chip is
+ * a TRADING NIGHT (09:00 through the small hours of the next date), not a
+ * calendar day — see assembleTradingNight. Public screen; a signed-out tap
+ * routes through Welcome with the slot kept as pending intent.
  */
 export default function AvailabilityScreen() {
   const { t, locale } = useLocale();
@@ -63,11 +66,22 @@ export default function AvailabilityScreen() {
 
   const tz = venueSettings.data?.timezone ?? DEFAULT_TZ;
   // Venue-local today + 6 days, re-derived every minute so an app left open
-  // past midnight does not keep offering yesterday as "today".
-  const tzDates = useMemo(() => listBookableDates(now, tz, 6), [now, tz]);
+  // past midnight does not keep offering yesterday as "today" — except while
+  // yesterday's night is still trading (until 02:00), when it leads the strip.
+  const tzDates = useMemo(
+    () => listBookableDates(now, tz, 6, venueSettings.data),
+    [now, tz, venueSettings.data],
+  );
   const [date, setDate] = useState<string>(() => tzDates[0] ?? '');
+  // Until the guest picks a chip, the strip's first entry is the selection —
+  // so the still-running night takes over once venue hours arrive (a cold
+  // start used to land on today and a warm one, from the persisted cache, on
+  // last night), and a date that drops off the strip falls back the same way.
+  const picked = useRef(false);
   useEffect(() => {
-    if (tzDates.length > 0 && !tzDates.includes(date)) setDate(tzDates[0]!);
+    const first = tzDates[0];
+    if (first === undefined) return;
+    if (!tzDates.includes(date) || (!picked.current && date !== first)) setDate(first);
   }, [tzDates, date]);
 
   const [durationMin, setDurationMin] = useState(60);
@@ -97,9 +111,10 @@ export default function AvailabilityScreen() {
   // day-after-tomorrow's venue-local midnight renders desk-only.
   const horizonEnd = useMemo(() => {
     if (!degraded) return null;
-    const dayAfterTomorrow = tzDates[2];
-    return dayAfterTomorrow ? wallTimeToUtc(dayAfterTomorrow, 0, tz) : null;
-  }, [degraded, tzDates, tz]);
+    // Counted from the venue-local calendar day, not the strip: the strip can
+    // open on yesterday's still-running night.
+    return wallTimeToUtc(addDays(localParts(now, tz).date, 2), 0, tz);
+  }, [degraded, now, tz]);
 
   const cells = useMemo(
     () => mergeAcrossCourts(day.grid, durationMin, horizonEnd, now),
@@ -214,7 +229,7 @@ export default function AvailabilityScreen() {
         </View>
       ) : null}
 
-      {/* Day strip — venue timezone + Latin digits via the shared formatters */}
+      {/* Day strip (one chip = one trading night) — venue timezone + Latin digits via the shared formatters */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -237,7 +252,10 @@ export default function AvailabilityScreen() {
               selected={d === date}
               closed={isClosedDate(d)}
               closedLabel={t('booking.closedChip')}
-              onPress={() => setDate(d)}
+              onPress={() => {
+                picked.current = true;
+                setDate(d);
+              }}
             />
           );
         })}

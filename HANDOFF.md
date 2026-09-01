@@ -502,6 +502,34 @@ checks in the dev console (`DateTimeFormat.formatToParts` with `timeZone`,
 `NumberFormat('en-IQ-u-nu-latn', {currency:'IQD'}).formatToParts`, the `ar-IQ-u-nu-latn`
 format) — `formatIQD` now has a fallback, but the result should be recorded here.
 
+## Day 10 (2026-09-01) — the date strip showed the wrong night; TypeScript 6 deprecation
+
+A phone screenshot of Availability at 10:04 on Tue 2026-09-01 read **12:00 AM · 12:30 AM ·
+1:00 AM · 9:00 AM · 9:30 AM …** under the TUE chip. Not a sort bug: the grid was built per
+CALENDAR day, and Touch's hours are stored as `[["00:00","02:00"],["09:00","24:00"]]` on every
+day (gotcha "hours are two windows per day"), so TUE opened with the tail of MONDAY night and
+Tuesday's own 00:00–01:00 starts sat at the top of WED. `@touch/core` already folds this for
+labels (`displayWindows`) and the desk grid (`tradingSpan`); the mobile grid never got the fold.
+
+**Fix (commit on `main`):** `assembleTradingNight` in `src/features/availability/assemble.ts`
+builds a chip as one TRADING NIGHT — the date's own windows + the next date's overnight tail,
+both through `buildSlotGrid` unchanged (a closed following date still kills the tail; tail
+slots still price by their own weekday). `useDayGrid` uses it; the 36 h availability fetch
+already covered the tail. `listBookableDates(now, tz, days, settings)` leads the strip with
+**yesterday while its night is still trading** (00:00–02:00) — otherwise the 00:30/01:00
+starts would be unreachable — and the first chip stays selected until the guest taps one
+(cold and warm starts used to disagree). The degraded horizon now counts from the calendar
+day, not the strip. Tests 61 → 69 (fold order, tail booking/pricing, closed next date,
+same-day hours unchanged, strip lead/drop/closed cases, `addDays`). **Not yet re-run on the
+phone** — the screenshot was the only device evidence this session.
+
+**TypeScript 6:** VS Code's bundled TS (6.0.x) errors on `apps/operator-shell/tsconfig.json` —
+`moduleResolution: "Node"` is `node10`, deprecated in 6.0 and removed in 7.0. Now `module:
+"node18"` + `moduleResolution: "node16"`: still CJS emit (no `"type": "module"`), verified
+`require()`-only output; shell typecheck/lint/vitest 62/62 green under 5.9.3 AND 6.0.3
+(scratch install). The workspace's 5.9.3 does not even accept `ignoreDeprecations: "6.0"`, so
+silencing was never an option. Every other project config is clean under 6.0.3.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -557,8 +585,11 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
    ✔ **UI rebuild to the approved design 2026-08-31** (day 8 — guest browse, dark mode, merged
    grid, all screens); ✔ **day 9: the on-phone fix pass** ("no internet" root-caused — hosted
    degraded state cleared by 0057, NetInfo gating removed, honest error mapping — plus the
-   crash/layout/parity list above; next: run it on a real iPhone + Android and record the
-   Hermes Intl check). Still open: day-zero release unblocks (`eas init`, Play account type,
+   crash/layout/parity list above); ✔ **day 10 (2026-09-01): a day chip is a trading night**
+   (the phone showed Monday night's 00:00–01:00 under TUE — `assembleTradingNight`) and the
+   shell's TS 6 `node10` deprecation cleared; next: run it on a real iPhone + Android and record
+   the Hermes Intl check, plus the strip at 00:30 (last night leads). Still open: day-zero
+   release unblocks (`eas init`, Play account type,
    Apple team id, real EAS env, icon/splash), push end-to-end, account deletion + privacy pages
    (store gate), Sentry in a build, the padel-backend audit fixes. Store submission Wed 2026-09-16.
 8. **Real data over fixtures.** The `staff` table still holds only `Dev` seed rows, so
@@ -591,7 +622,7 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
 | Operator desktop | Audited 2026-08-28. Waves 0-2: real gate, every High fixed, heartbeat live, modules 1/2/4 complete (migrations 0050-0053, on hosted since 2026-08-30) | Durable write path + replay, stock module, ESC/POS printing, Windows installer, KDS persistence, till session lock, court admin, Sentry | Roadmap 6 |
-| Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings). Release plumbing still absent | Push end-to-end, account deletion + privacy pages, icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
+| Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid). Release plumbing still absent | Push end-to-end, account deletion + privacy pages, icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
 - **OPERATOR: the heartbeat has never worked and fails silently** (audit 2026-08-28, C1).
@@ -623,9 +654,15 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
   Friday night's 01:00 bills as a weekday. See `packages/db/fixtures/courts.sql`.
   (c) A `closed_dates` entry for day D also kills the 00:00-02:00 tail of D-1's trading night,
   because the guard is per calendar day. Pinned by a test in `tests/hardening.test.ts`.
+  (d) **The mobile grid is a TRADING NIGHT, not a calendar day** (2026-09-01). A day chip shows
+  the date's own windows plus the NEXT date's tail — `assembleTradingNight` +
+  `listBookableDates(…, settings)` in `apps/mobile/src/features/availability/assemble.ts`. Never
+  feed a guest-facing grid from `assembleDayGrid` alone: per calendar day it opens with LAST
+  night's 00:00–01:00 (the day-10 screenshot).
   Never hand-roll the conversion: `readOpeningHours` / `writeOpeningHours` / `displayWindows` /
   `tradingSpan` in `packages/core/src/time/openingHours.ts` are the single implementation, shared
-  by the operator hours editor, the desk grid and the public footer.
+  by the operator hours editor, the desk grid, the public footer and (via `isOvernightTail`) the
+  mobile grid.
 - **Midnight is a hard SLOT boundary, deliberately.** `buildSlotGrid` requires a slot to fit inside
   one window, so with 60-min durations the starts run ...22:30, 23:00 | 00:00, 00:30, 01:00 --
   23:30 is not offered. Exactly one start per court per night; accepted 2026-08-29 rather than
@@ -800,6 +837,12 @@ format) — `formatIQD` now has a fallback, but the result should be recorded he
   pack's own `pitr.mode = "pitr"` answer. A written deviation from SOW L258; Mustafa's
   acknowledgment requested in doc 07 §4. Worst case = up to one day of data since the last
   backup. W4 "backup restore verification" + W6 restore rehearsal updated accordingly.
+- **TypeScript 6 in the editor vs 5.9.3 in the workspace** (2026-09-01). VS Code ships TS 6.0.x
+  and reports 6.0 deprecations the CLI gate cannot see; 5.9.3 rejects `ignoreDeprecations:
+  "6.0"`, so migrate, don't silence. The shell moved off `node10` (`module: node18` +
+  `moduleResolution: node16`, still CJS). Re-check with a scratch `typescript@6` install: every
+  project tsconfig is clean; only the ROOT `tsconfig.json` (expo base, no `include`) errors,
+  because it sweeps the Deno edge functions — pre-existing, and only when compiled directly.
 - Brand PDFs at repo root are 257MB/66MB — gitignored (`/*.pdf`), local-only. The rendered cafe
   deck lives at `docs/brand/cafe/`. The two padel decks differ: **2026 governs**.
 - Table-token Vault secret must be set to the same value on Touch's project at W5 handover or every

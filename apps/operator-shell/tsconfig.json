@@ -2,9 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     // Electron main + preload compile to CommonJS for require() loading — the
-    // monorepo's one sanctioned CJS exception (HANDOFF conventions).
-    "module": "CommonJS",
-    "moduleResolution": "Node",
+    // monorepo's one sanctioned CJS exception (HANDOFF conventions). `node18`
+    // still emits CJS here (package.json has no "type": "module") and models
+    // what Electron 33's Node 20 can actually load; the old `CommonJS` +
+    // `moduleResolution: Node` pair was `node10` resolution, deprecated in
+    // TypeScript 6 and removed in 7.
+    "module": "node18",
+    "moduleResolution": "node16",
     "verbatimModuleSyntax": false, // incompatible with CJS emit; base turns it on
     "noEmit": false,
     "outDir": "dist",
