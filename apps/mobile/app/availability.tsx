@@ -25,6 +25,8 @@ import { useHoldSlot } from '../src/features/booking/hooks';
 import { setPendingSlot } from '../src/features/booking/pendingSlot';
 import { isDegradedRefusal, mapErrorToKey } from '../src/features/booking/errors';
 import { useAuth } from '../src/features/auth/context';
+import { profileGateState } from '../src/features/auth/social';
+import { useOwnProfile } from '../src/features/profile/hooks';
 import { callPhone } from '../src/lib/phone';
 import { chunkArray } from '../src/lib/chunk';
 import { formatPrice } from '../src/lib/price';
@@ -52,6 +54,10 @@ export default function AvailabilityScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { session } = useAuth();
+  // D3: a profile without a phone cannot book; the gate reuses the guest flow
+  // (pending slot -> complete-profile -> hold). 'unknown' proceeds — Review re-checks.
+  const profile = useOwnProfile(!!session);
+  const profileGate = profileGateState(profile);
   const courts = useCourts();
   const venueSettings = useVenueSettings();
   const degraded = useIsDegraded();
@@ -152,6 +158,18 @@ export default function AvailabilityScreen() {
         courtNameAr: court?.name_ar ?? '',
       });
       router.push('/(auth)/welcome');
+      return;
+    }
+    if (profileGate === 'incomplete') {
+      setPendingSlot({
+        courtId: cell.courtId,
+        startAt: cell.startAt.toISOString(),
+        durationMin,
+        priceIqd: cell.priceIqd,
+        courtNameEn: court?.name_en ?? '',
+        courtNameAr: court?.name_ar ?? '',
+      });
+      router.push({ pathname: '/(auth)/complete-profile', params: { returnTo: 'continue' } });
       return;
     }
 
