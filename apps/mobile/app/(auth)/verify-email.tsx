@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
-import { resendVerification } from '../../src/features/auth/api';
+import { resendVerification, signOut } from '../../src/features/auth/api';
 import { verifyRedirect } from '../../src/features/auth/redirects';
 import { useAuth } from '../../src/features/auth/context';
 import { mapErrorToKey } from '../../src/features/booking/errors';
@@ -23,8 +22,6 @@ const RESEND_COOLDOWN_S = 30;
 export default function VerifyEmailScreen() {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const params = useLocalSearchParams<{ email?: string }>();
   const email = typeof params.email === 'string' ? params.email : '';
@@ -37,13 +34,18 @@ export default function VerifyEmailScreen() {
   // The emailed link signed us in -> show the verified state.
   useEffect(() => {
     if (session) router.replace('/(auth)/verify-result');
-  }, [session, router]);
+  }, [session]);
 
+  // Tick only while a cooldown is actually running (it used to poll at 2 Hz forever).
   useEffect(() => {
-    const id = setInterval(
-      () => setSecondsLeft(Math.max(0, Math.ceil((cooldownEnd - Date.now()) / 1000))),
-      500,
-    );
+    if (cooldownEnd === 0) return;
+    const update = () => {
+      const left = Math.max(0, Math.ceil((cooldownEnd - Date.now()) / 1000));
+      setSecondsLeft(left);
+      if (left === 0) setCooldownEnd(0);
+    };
+    update();
+    const id = setInterval(update, 500);
     return () => clearInterval(id);
   }, [cooldownEnd]);
 
@@ -63,10 +65,20 @@ export default function VerifyEmailScreen() {
     }
   };
 
+  // Spec 05.5 onSignOut: an escape from an unverified account.
+  const onSignOut = async () => {
+    try {
+      await signOut(supabase);
+    } catch {
+      // Nothing to lose here; leave regardless.
+    }
+    router.replace('/(tabs)');
+  };
+
   const coolingDown = secondsLeft > 0;
 
   return (
-    <Screen>
+    <Screen padded={false} edges={['top', 'bottom']}>
       <View
         style={{
           flex: 1,
@@ -74,8 +86,7 @@ export default function VerifyEmailScreen() {
           justifyContent: 'center',
           paddingStart: 28,
           paddingEnd: 28,
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom + 20,
+          paddingBottom: 20,
         }}
       >
         <View
@@ -102,6 +113,7 @@ export default function VerifyEmailScreen() {
         >
           {t('auth.checkEmailTitle')}
         </Text>
+        {/* Design: three lines, the address in bold ink. */}
         <Text
           style={{
             fontFamily: fonts.body400,
@@ -112,9 +124,13 @@ export default function VerifyEmailScreen() {
             textAlign: 'center',
           }}
         >
-          {t('auth.checkEmailBody', { email })}
+          {t('auth.checkEmailLead')}
+          {'\n'}
+          <Text style={{ fontFamily: fonts.body800, color: colors.ink }}>{email}</Text>
+          {'\n'}
+          {t('auth.checkEmailTail')}
         </Text>
-        {notice ? <Hint>{notice}</Hint> : null}
+        {notice ? <Hint style={{ textAlign: 'center' }}>{notice}</Hint> : null}
         <ErrorText>{error}</ErrorText>
         <Button
           label={
@@ -124,6 +140,7 @@ export default function VerifyEmailScreen() {
           busy={busy}
           disabled={!email || coolingDown}
           variant="secondary"
+          size="medium"
           labelColor={coolingDown ? colors.fnt2 : colors.blue}
           style={{ marginTop: 22, alignSelf: 'stretch' }}
         />
@@ -131,7 +148,14 @@ export default function VerifyEmailScreen() {
           label={t('auth.useDifferentEmail')}
           onPress={() => router.replace('/(auth)/sign-up')}
           variant="ghost"
+          labelColor={colors.fnt}
           style={{ marginTop: space.sm }}
+        />
+        <Button
+          label={t('auth.signOut')}
+          onPress={() => void onSignOut()}
+          variant="ghost"
+          labelColor={colors.fnt2}
         />
       </View>
     </Screen>

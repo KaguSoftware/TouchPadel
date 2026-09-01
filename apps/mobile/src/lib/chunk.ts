@@ -28,3 +28,11 @@ export function parseManifest(raw: string | null): number | null {
 export function buildManifest(count: number): string {
   return `${MANIFEST}${count}`;
 }
+
+/** Split an array into consecutive groups of `size` (the last may be shorter). */
+export function chunkArray<T>(items: readonly T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) throw new RangeError('chunk size must be positive');
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}

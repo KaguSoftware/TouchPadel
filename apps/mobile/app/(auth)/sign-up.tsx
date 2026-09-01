@@ -1,51 +1,63 @@
 import { useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Locale } from '@touch/i18n';
 import { supabase } from '../../src/lib/supabase';
 import { signUp, validateSignUp } from '../../src/features/auth/api';
 import { verifyRedirect } from '../../src/features/auth/redirects';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { useLocale } from '../../src/i18n/LocaleProvider';
-import { space, useTheme } from '../../src/theme';
+import { space } from '../../src/theme';
 import {
   Button,
   ErrorText,
   Field,
+  FooterLink,
+  FormScreen,
+  MicroLabel,
   Screen,
   ScreenHeader,
   SegmentedControl,
   Title,
 } from '../../src/components/ui';
 
+/**
+ * Create account (design 2026-08-31): name · email · password · phone ·
+ * preferred language — four fields in the design's order, no confirm-password
+ * (spec 05.3). Validation renders on the field it concerns.
+ */
 export default function SignUpScreen() {
-  const { t, setLocale } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { t, locale, setLocale } = useLocale();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [preferredLang, setPreferredLang] = useState<Locale>('en');
+  const [phone, setPhone] = useState('');
+  const [preferredLang, setPreferredLang] = useState<Locale>(locale);
   const [busy, setBusy] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+    phone?: string;
+  }>({});
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async () => {
     setError(null);
-    const invalid = validateSignUp({ fullName, email, password, confirmPassword });
-    if (invalid === 'PASSWORD_MISMATCH') return setError(t('auth.passwordMismatch'));
-    if (invalid === 'PASSWORD_TOO_SHORT') return setError(t('auth.passwordTooShort'));
+    setFieldErrors({});
+    const invalid = validateSignUp({ fullName, email, password, phone });
+    if (invalid === 'NAME_REQUIRED') return setFieldErrors({ name: t('auth.nameRequired') });
+    if (invalid === 'EMAIL_INVALID') return setFieldErrors({ email: t('auth.emailInvalid') });
+    if (invalid === 'PASSWORD_TOO_SHORT') return setFieldErrors({ password: t('auth.passwordTooShort') });
+    if (invalid === 'PHONE_REQUIRED') return setFieldErrors({ phone: t('auth.phoneRequired') });
     if (invalid) return setError(t('errors.validation'));
-    // Phone is required from day one (spec 05.3 — profile field, not identity).
-    if (!phone.trim()) return setError(t('errors.validation'));
     setBusy(true);
     try {
       await signUp(supabase, { fullName, email, phone, password, preferredLang }, verifyRedirect());
-      // The chosen language becomes the app language right away.
-      await setLocale(preferredLang);
+      // The chosen language becomes the app language; direction is reconciled
+      // on the next launch rather than flipped under the verify screen.
+      await setLocale(preferredLang, { flip: false });
       router.replace({ pathname: '/(auth)/verify-email', params: { email } });
     } catch (err) {
       setError(t(mapErrorToKey(err)));
@@ -55,19 +67,19 @@ export default function SignUpScreen() {
   };
 
   return (
-    <Screen style={{ paddingTop: insets.top }}>
+    <Screen gutter={20}>
       <ScreenHeader />
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingTop: 6, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Title squiggle={false}>{t('auth.signUp')}</Title>
+      <FormScreen>
+        <Title plain>{t('auth.signUp')}</Title>
         <Field
           placeholder={t('auth.fullNameLabel')}
           value={fullName}
           onChangeText={setFullName}
           autoCapitalize="words"
+          autoComplete="name"
+          textContentType="name"
+          error={fieldErrors.name}
+          style={{ marginTop: 6 }}
         />
         <Field
           placeholder={t('auth.emailLabel')}
@@ -75,20 +87,17 @@ export default function SignUpScreen() {
           onChangeText={setEmail}
           keyboardType="email-address"
           autoComplete="email"
+          textContentType="emailAddress"
+          error={fieldErrors.email}
         />
         <Field
-          placeholder={t('auth.passwordLabel')}
+          placeholder={t('auth.passwordMinPlaceholder')}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
           autoComplete="new-password"
-        />
-        <Field
-          placeholder={t('auth.confirmPasswordLabel')}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          autoComplete="new-password"
+          textContentType="newPassword"
+          error={fieldErrors.password}
         />
         <Field
           placeholder={t('auth.phoneLabel')}
@@ -96,20 +105,11 @@ export default function SignUpScreen() {
           onChangeText={setPhone}
           keyboardType="phone-pad"
           autoComplete="tel"
+          textContentType="telephoneNumber"
+          error={fieldErrors.phone}
         />
         <View style={{ marginTop: space.sm }}>
-          <Text
-            style={{
-              fontFamily: fonts.body700,
-              fontSize: 11,
-              letterSpacing: 0.66,
-              textTransform: 'uppercase',
-              color: colors.mut,
-              marginBottom: 5,
-            }}
-          >
-            {t('auth.preferredLanguage')}
-          </Text>
+          <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>
           <SegmentedControl<Locale>
             options={[
               { value: 'en', label: t('settings.english') },
@@ -127,23 +127,14 @@ export default function SignUpScreen() {
           variant="primary"
           style={{ marginTop: space.l }}
         />
-        <Text
-          style={{
-            textAlign: 'center',
-            fontFamily: fonts.body400,
-            fontSize: 12.5,
-            color: colors.mut,
-            marginTop: space.l,
-          }}
-        >
-          <Text
-            onPress={() => router.back()}
-            style={{ fontFamily: fonts.body800, color: colors.blue }}
-          >
-            {t('auth.haveAccount')}
-          </Text>
-        </Text>
-      </ScrollView>
+        <FooterLink
+          lead={t('auth.alreadyLead')}
+          label={t('auth.signIn')}
+          // Reached from Profile as well as Welcome — always land on sign-in.
+          onPress={() => router.replace('/(auth)/sign-in')}
+          style={{ marginTop: 18 }}
+        />
+      </FormScreen>
     </Screen>
   );
 }

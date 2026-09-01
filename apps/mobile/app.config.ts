@@ -12,7 +12,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // react-native-web, and so nothing accidentally ships a browser bundle.
   platforms: ['ios', 'android'],
   orientation: 'portrait',
-  userInterfaceStyle: 'light',
+  // The app has its own Light/Dark toggle (design). 'automatic' lets the
+  // theme drive the native scheme (Appearance.setColorScheme in ThemeProvider)
+  // so keyboards, alerts and share sheets follow it instead of staying light.
+  userInterfaceStyle: 'automatic',
   newArchEnabled: true,
   backgroundColor: '#FFFFFF',
   ios: {

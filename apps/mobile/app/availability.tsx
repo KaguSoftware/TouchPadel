@@ -1,18 +1,20 @@
-import { useMemo, useState } from 'react';
-import { Linking, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pickLocale, wallTimeToUtc } from '@touch/core';
-import { formatIQD, formatTime } from '@touch/i18n';
+import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import {
   useCourts,
   useCourtsBroadcast,
   useDayGrid,
   useIsDegraded,
+  useVenueSettings,
 } from '../src/features/availability/hooks';
 import {
   DEFAULT_TZ,
+  hasAnySlots,
   listBookableDates,
   mergeAcrossCourts,
   venuePhoneOf,
@@ -22,11 +24,18 @@ import { useHoldSlot } from '../src/features/booking/hooks';
 import { setPendingSlot } from '../src/features/booking/pendingSlot';
 import { isDegradedRefusal, mapErrorToKey } from '../src/features/booking/errors';
 import { useAuth } from '../src/features/auth/context';
+import { callPhone } from '../src/lib/phone';
+import { chunkArray } from '../src/lib/chunk';
+import { formatPrice } from '../src/lib/price';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { space, useTheme } from '../src/theme';
 import { ErrorText, Hint, Screen, ScreenHeader, SegmentedControl } from '../src/components/ui';
 import { DayChip, DegradedBanner, SlotCell } from '../src/components/booking';
-import { NoticeSheet } from '../src/components/overlays';
+import { NoticeSheet, useToast } from '../src/components/overlays';
+
+const GUTTER = space.l;
+/** Design: the grid sits 18 px inside a section that is itself 16 px in. */
+const GRID_INSET = 18 + space.l;
 
 /**
  * Merged availability (design 2026-08-31): ONE timeline across both courts —
@@ -38,12 +47,29 @@ export default function AvailabilityScreen() {
   const { colors, fonts } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const toast = useToast();
   const { session } = useAuth();
   const courts = useCourts();
+  const venueSettings = useVenueSettings();
   const degraded = useIsDegraded();
 
-  const tzDates = useMemo(() => listBookableDates(new Date(), DEFAULT_TZ, 6), []);
-  const [date, setDate] = useState<string>(tzDates[0] ?? '');
+  // One minute tick drives "past" cells and the day strip. The heavy grid
+  // build (useDayGrid) is data-driven only; applying the clock is O(cells).
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const tz = venueSettings.data?.timezone ?? DEFAULT_TZ;
+  // Venue-local today + 6 days, re-derived every minute so an app left open
+  // past midnight does not keep offering yesterday as "today".
+  const tzDates = useMemo(() => listBookableDates(now, tz, 6), [now, tz]);
+  const [date, setDate] = useState<string>(() => tzDates[0] ?? '');
+  useEffect(() => {
+    if (tzDates.length > 0 && !tzDates.includes(date)) setDate(tzDates[0]!);
+  }, [tzDates, date]);
+
   const [durationMin, setDurationMin] = useState(60);
   const day = useDayGrid(date);
   useCourtsBroadcast(); // live slot_changed -> availability invalidation
@@ -52,8 +78,13 @@ export default function AvailabilityScreen() {
   const [error, setError] = useState<string | null>(null);
   const hold = useHoldSlot();
 
+  // Transient state belongs to the day/duration it happened on.
+  useEffect(() => {
+    setError(null);
+    setNotice(null);
+  }, [date, durationMin]);
+
   const phone = venuePhoneOf(day.settings);
-  const tz = day.settings?.timezone ?? DEFAULT_TZ;
 
   const durations = useMemo(() => {
     const set = new Set<number>();
@@ -71,13 +102,18 @@ export default function AvailabilityScreen() {
   }, [degraded, tzDates, tz]);
 
   const cells = useMemo(
-    () => mergeAcrossCourts(day.grid, durationMin, horizonEnd),
-    [day.grid, durationMin, horizonEnd],
+    () => mergeAcrossCourts(day.grid, durationMin, horizonEnd, now),
+    [day.grid, durationMin, horizonEnd, now],
   );
+  // Rows of two: an odd trailing cell stays half width (design `repeat(2, 1fr)`).
+  const rows = useMemo(() => chunkArray(cells, 2), [cells]);
 
+  // "Closed" means the venue does not trade that day. A duration that simply
+  // has no priced slots is "no times", not "closed" — the old check compared
+  // the COURT count, so picking 90 min on a 60-only tariff said VENUE CLOSED.
   const closedDay =
     (day.settings?.closed_dates ?? []).includes(date) ||
-    (!day.isLoading && !day.isError && cells.length === 0 && day.grid.length > 0);
+    (!day.isLoading && !day.isError && day.grid.length > 0 && !hasAnySlots(day.grid));
 
   const isClosedDate = (d: string) => (day.settings?.closed_dates ?? []).includes(d);
 
@@ -112,6 +148,7 @@ export default function AvailabilityScreen() {
             pathname: '/review',
             params: {
               holdId: result.reservationId,
+              // '' = no deadline (duplicate replay of a hold we already have).
               expiresAt: result.holdExpiresAt ?? '',
               priceIqd: String(result.priceIqd ?? cell.priceIqd ?? ''),
               courtName: court ? pickLocale({ en: court.name_en, ar: court.name_ar }, locale) : '',
@@ -137,7 +174,7 @@ export default function AvailabilityScreen() {
   const subFor = (cell: MergedCell): string => {
     switch (cell.state) {
       case 'free':
-        return cell.priceIqd != null ? formatIQD(cell.priceIqd, locale) : t('booking.noRate');
+        return formatPrice(cell.priceIqd, locale) ?? t('booking.noRate');
       case 'booked':
         return t('booking.stateBooked');
       case 'held':
@@ -151,33 +188,52 @@ export default function AvailabilityScreen() {
     }
   };
 
-  const dowFmt = new Intl.DateTimeFormat(locale === 'ar' ? 'ar' : 'en-US', { weekday: 'short' });
-  const numFmt = new Intl.NumberFormat(locale === 'ar' ? 'ar' : 'en-US');
+  const onCall = () => {
+    if (!phone) return;
+    void callPhone(phone).then((ok) => {
+      if (!ok) toast(t('errors.callFailed', { phone }), 'error');
+    });
+  };
 
   return (
-    <Screen style={{ paddingTop: insets.top }}>
-      <ScreenHeader title={t('booking.availabilityTitle')} />
+    // Unpadded so the day strip can scroll out under the screen edge; every
+    // other block carries its own gutter.
+    <Screen padded={false}>
+      <View style={{ paddingStart: GUTTER, paddingEnd: GUTTER }}>
+        <ScreenHeader title={t('booking.availabilityTitle')} />
+      </View>
 
       {degraded ? (
-        <View style={{ marginBottom: 6 }}>
-          <DegradedBanner message={t('degraded.bannerAvailability', { phone: phone ?? '' })} />
+        <View style={{ marginTop: 6, marginStart: GUTTER, marginEnd: GUTTER }}>
+          <DegradedBanner
+            tight
+            lead={t('degraded.leadDeskOnly')}
+            message={t('degraded.bannerAvailability', { phone: phone ?? '' })}
+            phone={phone}
+          />
         </View>
       ) : null}
 
-      {/* Day strip */}
+      {/* Day strip — venue timezone + Latin digits via the shared formatters */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, marginTop: 4 }}
-        contentContainerStyle={{ gap: 7, paddingBottom: 2 }}
+        style={{ flexGrow: 0 }}
+        contentContainerStyle={{
+          gap: 7,
+          paddingStart: GUTTER,
+          paddingEnd: GUTTER,
+          paddingTop: 10,
+          paddingBottom: 2,
+        }}
       >
         {tzDates.map((d) => {
-          const dateObj = new Date(`${d}T12:00:00Z`);
+          const noon = wallTimeToUtc(d, 12 * 60, tz);
           return (
             <DayChip
               key={d}
-              dow={dowFmt.format(dateObj)}
-              dayNum={numFmt.format(dateObj.getUTCDate())}
+              dow={formatWeekdayShort(noon, locale, tz)}
+              dayNum={formatDayNumber(noon, locale, tz)}
               selected={d === date}
               closed={isClosedDate(d)}
               closedLabel={t('booking.closedChip')}
@@ -187,9 +243,10 @@ export default function AvailabilityScreen() {
         })}
       </ScrollView>
 
-      {/* Duration segmented control */}
-      <View style={{ marginTop: 10, alignSelf: 'flex-start', minWidth: 170 }}>
+      {/* Duration segmented control (intrinsic width, per the design) */}
+      <View style={{ marginTop: 10, paddingStart: GUTTER, paddingEnd: GUTTER }}>
         <SegmentedControl
+          fit
           options={durations.map((m) => ({
             value: m,
             label: t('booking.durationMinutes', { minutes: m }),
@@ -200,22 +257,24 @@ export default function AvailabilityScreen() {
         />
       </View>
 
-      <ErrorText>{error}</ErrorText>
+      <View style={{ paddingStart: GUTTER, paddingEnd: GUTTER }}>
+        <ErrorText>{error}</ErrorText>
+      </View>
 
       {day.isLoading ? (
-        <View style={{ marginTop: space.l }}>
-          <SkeletonList rows={4} height={56} />
+        <View style={{ marginTop: space.l, paddingStart: GRID_INSET, paddingEnd: GRID_INSET }}>
+          <SkeletonList rows={4} height={52} />
         </View>
       ) : day.isError ? (
         <ErrorState
           title={t('errors.loadFailedTitle')}
-          message={t('errors.network')}
+          message={t(mapErrorToKey(day.error))}
           retryLabel={t('common.retry')}
           onRetry={day.refetch}
           busy={day.isRefetching}
         />
       ) : closedDay ? (
-        <View style={{ marginTop: 60, alignItems: 'center', paddingStart: 24, paddingEnd: 24 }}>
+        <View style={{ marginTop: 30, alignItems: 'center', paddingStart: 24, paddingEnd: 24 }}>
           <Text
             style={{
               fontFamily: fonts.display900,
@@ -248,34 +307,45 @@ export default function AvailabilityScreen() {
               tintColor={colors.blue}
             />
           }
-          contentContainerStyle={{ paddingTop: space.l, paddingBottom: 24 }}
+          contentContainerStyle={{
+            paddingTop: space.xl,
+            paddingBottom: 24 + insets.bottom,
+            paddingStart: GRID_INSET,
+            paddingEnd: GRID_INSET,
+          }}
           showsVerticalScrollIndicator={false}
         >
           {cells.length === 0 ? (
             <Hint>{t('booking.noSlots')}</Hint>
           ) : (
             <>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {cells.map((cell) => (
-                  <SlotCell
-                    key={cell.startAt.toISOString()}
-                    cell={cell}
-                    time={formatTime(cell.startAt, locale)}
-                    sub={subFor(cell)}
-                    capacityLine={
-                      cell.state === 'free'
-                        ? cell.freeCount > 1
-                          ? t('booking.capacityFree', { count: cell.freeCount })
-                          : t('booking.capacityOne')
-                        : ''
-                    }
-                    onPress={() => onTapCell(cell)}
-                  />
-                ))}
-              </View>
+              {rows.map((row, i) => (
+                <View
+                  key={row[0]?.startAt.toISOString() ?? i}
+                  style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}
+                >
+                  {row.map((cell) => (
+                    <SlotCell
+                      key={cell.startAt.toISOString()}
+                      cell={cell}
+                      time={formatTime(cell.startAt, locale, tz)}
+                      sub={subFor(cell)}
+                      capacityLine={
+                        cell.state === 'free'
+                          ? cell.freeCount > 1
+                            ? t('booking.capacityFree', { count: cell.freeCount })
+                            : t('booking.capacityOne')
+                          : ''
+                      }
+                      onPress={() => onTapCell(cell)}
+                    />
+                  ))}
+                  {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
+                </View>
+              ))}
               <Text
                 style={{
-                  marginTop: space.l,
+                  marginTop: 10,
                   textAlign: 'center',
                   fontFamily: fonts.body400,
                   fontSize: 11,
@@ -295,9 +365,7 @@ export default function AvailabilityScreen() {
         title={notice === 'horizon' ? t('booking.deskOnlyTitle') : t('booking.slotUnavailableTitle')}
         body={notice === 'horizon' ? t('booking.deskOnlyBody') : t('booking.blockedBody')}
         callLabel={phone ? t('booking.callPhone', { phone }) : null}
-        onCall={() => {
-          if (phone) void Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`);
-        }}
+        onCall={onCall}
         onClose={() => setNotice(null)}
       />
     </Screen>

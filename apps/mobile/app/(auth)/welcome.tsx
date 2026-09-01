@@ -1,63 +1,75 @@
-import { Image, Text, View , I18nManager } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { formatTime, type Locale } from '@touch/i18n';
+import { formatTime, isolate } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
-import { clearPendingSlot, getPendingSlot } from '../../src/features/booking/pendingSlot';
+import { clearPendingSlot, usePendingSlot } from '../../src/features/booking/pendingSlot';
 import { brand, radius, useTheme } from '../../src/theme';
-import { Button } from '../../src/components/ui';
+import { Button, useSafeBack } from '../../src/components/ui';
 import { PadelBallIcon } from '../../src/components/icons';
+
+const LOGO_H = 44;
+const LOGO_W = Math.round(LOGO_H * (900 / 332));
 
 /**
  * Welcome (design 2026-08-31): blue gradient brand moment. Reached when a
  * signed-out guest needs an account — usually having tapped a free slot, which
  * shows the held-for-you banner. "Keep browsing" clears the intent and returns.
- *
- * The gradient is approximated with the mid blue: expo-linear-gradient is not
- * in the dependency set and the 3-stop 168deg ramp reads as one blue on device.
  */
 export default function WelcomeScreen() {
-  const { t, locale } = useLocale();
+  const { t, locale, dir } = useLocale();
   const router = useRouter();
+  const safeBack = useSafeBack();
   const insets = useSafeAreaInsets();
   const { fonts } = useTheme();
-  const pending = getPendingSlot();
+  const pending = usePendingSlot();
 
   const pendingLabel = pending
-    ? `${pickLocale({ en: pending.courtNameEn, ar: pending.courtNameAr }, locale as Locale)} · ${formatTime(
+    ? `${pickLocale({ en: pending.courtNameEn, ar: pending.courtNameAr }, locale)} · ${formatTime(
         new Date(pending.startAt),
         locale,
       )}`
     : '';
 
   return (
-    <View style={{ flex: 1, backgroundColor: brand.blue }}>
+    // The design's 168deg three-stop ramp; art bleeds under the status bar.
+    <LinearGradient
+      colors={[...brand.welcomeGradient]}
+      locations={[0, 0.55, 1]}
+      start={{ x: 0.4, y: 0 }}
+      end={{ x: 0.6, y: 1 }}
+      style={{ flex: 1 }}
+    >
+      <StatusBar style="light" />
       {/* Oversized brand ball, bleeding off the trailing edge */}
       <View
         style={{
           position: 'absolute',
-          top: 44 + insets.top,
+          top: 44,
           end: -58,
           opacity: 0.13,
-          transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }],
+          transform: [{ scaleX: dir === 'rtl' ? -1 : 1 }],
         }}
       >
-        <PadelBallIcon size={210} fill="#FFFFFF" stroke={brand.blue} />
+        <PadelBallIcon size={210} fill={brand.white} stroke={brand.blue} strokeWidth={2.2} />
       </View>
 
       <View style={{ flex: 1, justifyContent: 'center', paddingStart: 26, paddingEnd: 26 }}>
         <Image
           source={require('../../assets/logo-white.png')}
-          style={{ height: 44, width: 170, resizeMode: 'contain', alignSelf: 'flex-start' }}
+          resizeMode="contain"
+          style={{ height: LOGO_H, width: LOGO_W, alignSelf: 'flex-start' }}
           accessibilityLabel={t('common.appName')}
         />
         <Text
           style={{
             fontFamily: fonts.display900,
             fontSize: 34,
-            lineHeight: 36,
+            lineHeight: 35,
             textTransform: 'uppercase',
             color: brand.white,
             marginTop: 22,
@@ -70,7 +82,7 @@ export default function WelcomeScreen() {
           height={10}
           viewBox="0 0 110 10"
           fill="none"
-          style={{ marginTop: 10, transform: [{ scaleX: I18nManager.isRTL ? -1 : 1 }] }}
+          style={{ marginTop: 10, transform: [{ scaleX: dir === 'rtl' ? -1 : 1 }] }}
         >
           <Path d="M2 8C32 1.5 74 1.5 108 5.5" stroke={brand.green} strokeWidth={4} strokeLinecap="round" />
         </Svg>
@@ -79,9 +91,9 @@ export default function WelcomeScreen() {
           <View
             style={{
               marginTop: 14,
-              backgroundColor: '#FFFFFF22',
+              backgroundColor: `${brand.white}22`,
               borderWidth: 1,
-              borderColor: '#FFFFFF36',
+              borderColor: `${brand.white}36`,
               borderRadius: radius.cell,
               paddingStart: 13,
               paddingEnd: 13,
@@ -92,7 +104,7 @@ export default function WelcomeScreen() {
             <Text
               style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: brand.white }}
             >
-              {t('auth.pendingSlotBanner', { label: pendingLabel })}
+              {t('auth.pendingSlotBanner', { label: isolate(pendingLabel) })}
             </Text>
           </View>
         ) : null}
@@ -104,19 +116,20 @@ export default function WelcomeScreen() {
           onPress={() => router.push('/(auth)/sign-in')}
           variant="secondary"
           style={{ backgroundColor: brand.white, borderWidth: 0 }}
-          labelColor="#132038"
+          labelColor={brand.welcomeInk}
         />
         <Button label={t('auth.signUp')} onPress={() => router.push('/(auth)/sign-up')} variant="cta" />
         <Button
           label={t('auth.keepBrowsing')}
           onPress={() => {
             clearPendingSlot();
-            router.back();
+            // Reached by redirect from a gated deep link too — no history there.
+            safeBack();
           }}
           variant="ghost"
-          labelColor="#B9C6DE"
+          labelColor={brand.navyText}
         />
       </View>
-    </View>
+    </LinearGradient>
   );
 }

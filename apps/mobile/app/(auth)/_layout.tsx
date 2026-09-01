@@ -1,6 +1,6 @@
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { useAuth } from '../../src/features/auth/context';
-import { getPendingSlot } from '../../src/features/booking/pendingSlot';
+import { usePendingSlot } from '../../src/features/booking/pendingSlot';
 import { Loading } from '../../src/components/ui';
 
 /**
@@ -10,13 +10,16 @@ import { Loading } from '../../src/components/ui';
  *  - any screen while a pending slot exists: the screen's own post-auth
  *    continuation is about to place the hold and route to Review, and a layout
  *    redirect racing it would win and strand the guest on the tabs.
+ *
+ * The pending slot is a SUBSCRIPTION (usePendingSlot), so this guard actually
+ * re-evaluates when it changes, and it stays set until the hold has settled.
  */
 export default function AuthLayout() {
   const { session, initializing } = useAuth();
   const segments = useSegments();
+  const pending = usePendingSlot();
   const screen = segments[segments.length - 1];
-  const exempt =
-    screen === 'verify-email' || screen === 'verify-result' || getPendingSlot() !== null;
+  const exempt = screen === 'verify-email' || screen === 'verify-result' || pending !== null;
 
   if (initializing) return <Loading />;
   if (session && !exempt) return <Redirect href="/(tabs)" />;
