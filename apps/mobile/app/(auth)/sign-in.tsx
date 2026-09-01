@@ -4,6 +4,8 @@ import { supabase } from '../../src/lib/supabase';
 import { signIn } from '../../src/features/auth/api';
 import { linkErrorParam } from '../../src/features/auth/deepLink';
 import { usePostAuthContinue } from '../../src/features/booking/usePostAuthContinue';
+import { hasSocial, useSocialSignIn } from '../../src/features/auth/useSocialSignIn';
+import { SocialSignInBlock } from '../../src/components/social';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { space } from '../../src/theme';
@@ -13,6 +15,7 @@ import {
   Field,
   FooterLink,
   FormScreen,
+  LabeledDivider,
   LinkText,
   Screen,
   ScreenHeader,
@@ -24,6 +27,10 @@ import { useToast } from '../../src/components/overlays';
  * Sign in (design 2026-08-31). Errors are distinguished (spec 05.4): invalid
  * credentials render on the password field, an unverified email forwards to
  * the verification screen, and a transport failure renders as such below.
+ *
+ * Continue with Apple / Google sit above the form (vendor addition 2026-09-01;
+ * SOW L259-260 lists social sign-in as not included — email/password remains
+ * the contractual path). Hidden where unavailable (Google in Expo Go).
  */
 export default function SignInScreen() {
   const { t } = useLocale();
@@ -38,11 +45,22 @@ export default function SignInScreen() {
   // useAuthDeepLink lands here when a verification link is dead, so the user is
   // told why instead of finding themselves back on sign-in for no visible reason.
   const linkError = linkErrorParam(useLocalSearchParams<{ authError?: string }>().authError);
+  // Same landing as the email path: welcome-back toast, then the pending slot
+  // (hold + Review) or the tabs. A phone-less first social sign-in is routed to
+  // complete-profile by the hook instead.
+  const social = useSocialSignIn({
+    onComplete: () => {
+      toast(t('auth.welcomeBack'), 'info');
+      continueAfterAuth();
+    },
+    disabled: busy || holdBusy,
+  });
 
   const onSubmit = async () => {
     setBusy(true);
     setError(null);
     setPasswordError(null);
+    social.clearError();
     try {
       await signIn(supabase, email, password);
       toast(t('auth.welcomeBack'), 'info');
@@ -67,6 +85,16 @@ export default function SignInScreen() {
       <ScreenHeader />
       <FormScreen>
         <Title plain>{t('auth.signIn')}</Title>
+        <SocialSignInBlock
+          available={social.available}
+          busyProvider={social.busyProvider}
+          disabled={busy || holdBusy}
+          onPress={(provider) => void social.signInWith(provider)}
+          style={{ marginTop: 14 }}
+        />
+        {hasSocial(social.available) ? (
+          <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
+        ) : null}
         <Field
           placeholder={t('auth.emailLabel')}
           value={email}
@@ -86,11 +114,12 @@ export default function SignInScreen() {
           error={passwordError}
           onSubmitEditing={() => void onSubmit()}
         />
-        <ErrorText>{error ?? (linkError ? t(linkError) : null)}</ErrorText>
+        <ErrorText>{error ?? social.errorText ?? (linkError ? t(linkError) : null)}</ErrorText>
         <Button
           label={t('auth.signIn')}
           onPress={() => void onSubmit()}
           busy={busy || holdBusy}
+          disabled={social.busyProvider !== null}
           variant="primary"
           style={{ marginTop: space.l }}
         />

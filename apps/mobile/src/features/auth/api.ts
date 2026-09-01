@@ -121,3 +121,33 @@ export function validateSignUp(args: {
   if (args.phone !== undefined && !args.phone.trim()) return 'PHONE_REQUIRED';
   return null;
 }
+
+// ── Social sign-in (vendor addition 2026-09-01) ─────────────────────────────
+
+export type IdTokenProvider = 'apple' | 'google';
+
+/**
+ * Native id-token grant. `nonce` is the RAW nonce: GoTrue hashes it and compares
+ * with the token's `nonce` claim (the provider SDK was given the SHA-256). A
+ * provider that is not enabled on the project, a client id missing from the
+ * dashboard's Client IDs list ("Unacceptable audience") or a nonce mismatch all
+ * surface here as an AuthApiError — mapped by features/auth/social.ts.
+ */
+export async function signInWithIdToken(
+  client: Client,
+  args: { provider: IdTokenProvider; token: string; nonce: string },
+) {
+  const { data, error } = await client.auth.signInWithIdToken({
+    provider: args.provider,
+    token: args.token,
+    nonce: args.nonce,
+  });
+  if (error) throw error;
+  return data;
+}
+
+/** Mirror a provider-supplied name into user metadata as well as profiles (Apple sends it once). */
+export async function setUserMetadata(client: Client, data: { full_name: string }) {
+  const { error } = await client.auth.updateUser({ data });
+  if (error) throw error;
+}

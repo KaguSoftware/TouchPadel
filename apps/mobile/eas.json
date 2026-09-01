@@ -8,8 +8,10 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "http://127.0.0.1:54321",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_WITH_LOCAL_ANON_KEY"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://lczijabnorujcgmbuqlw.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjemlqYWJub3J1amNnbWJ1cWx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NjMzNTIsImV4cCI6MjEwMzEzOTM1Mn0.rDF6GbRLqXuvG63ZV_pFgF1gDPjx_AVxXlQlb_ZQ-gM",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "699390054618-egm0m36515stvli0dah67htvge6j88nh.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com"
       }
     },
     "staging": {
@@ -17,15 +19,19 @@
       "channel": "staging",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://REPLACE-KAGU-STAGING-REF.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_WITH_STAGING_ANON_KEY"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_WITH_STAGING_ANON_KEY",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "699390054618-egm0m36515stvli0dah67htvge6j88nh.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com"
       }
     },
     "production": {
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://REPLACE-TOUCH-PROD-REF.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_WITH_PROD_ANON_KEY"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://lczijabnorujcgmbuqlw.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjemlqYWJub3J1amNnbWJ1cWx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NjMzNTIsImV4cCI6MjEwMzEzOTM1Mn0.rDF6GbRLqXuvG63ZV_pFgF1gDPjx_AVxXlQlb_ZQ-gM",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "699390054618-egm0m36515stvli0dah67htvge6j88nh.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com"
       }
     }
   },
