@@ -14,8 +14,19 @@ import {
 } from '../../src/features/booking/errors';
 import { useVenueSettings } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
+import { useAuth } from '../../src/features/auth/context';
+import { profileGateState } from '../../src/features/auth/social';
+import { useOwnProfile } from '../../src/features/profile/hooks';
 import { brand, radius, space, useTheme } from '../../src/theme';
-import { Button, Card, DashedDivider, ErrorText, Screen, ScreenHeader } from '../../src/components/ui';
+import {
+  Button,
+  Card,
+  DashedDivider,
+  ErrorText,
+  LinkText,
+  Screen,
+  ScreenHeader,
+} from '../../src/components/ui';
 import { PayAtDeskCard, SummaryGrid } from '../../src/components/booking';
 import { ConfirmationDialog } from '../../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/components/icons';
@@ -62,6 +73,13 @@ export default function ReviewScreen() {
   const settings = useVenueSettings();
   const confirm = useConfirmBooking();
   const release = useReleaseHold();
+  // D3: no phone, no booking. The hold keeps ticking while the guest adds one;
+  // useUpdateProfile's invalidation re-enables Reserve on return.
+  const { session } = useAuth();
+  const profile = useOwnProfile(!!session);
+  const profileGate = profileGateState(profile);
+  const addPhone = () =>
+    router.push({ pathname: '/(auth)/complete-profile', params: { returnTo: 'back' } });
   const [secondsLeft, setSecondsLeft] = useState<number | null>(() =>
     secondsUntil(expiresAt, new Date()),
   );
@@ -174,6 +192,9 @@ export default function ReviewScreen() {
           setSecondsLeft(0);
         } else if (code === 'SLOT_TAKEN') {
           setSlotTaken(true);
+        } else if (code === 'PHONE_REQUIRED') {
+          // 0059's backstop fired (the gate above was 'unknown'): collect it now.
+          addPhone();
         } else {
           setError(t(mapErrorToKey(err)));
         }
@@ -402,6 +423,27 @@ export default function ReviewScreen() {
           </Text>
         ) : null}
 
+        {profileGate === 'incomplete' ? (
+          <View
+            style={{
+              marginTop: space.sm,
+              backgroundColor: colors.amb,
+              borderWidth: 1,
+              borderColor: colors.ambline,
+              borderRadius: radius.cell,
+              paddingStart: 13,
+              paddingEnd: 13,
+              paddingTop: 10,
+              paddingBottom: 10,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: colors.ambtext }}>
+              {t('auth.profileIncompleteNotice')}
+            </Text>
+            <LinkText label={t('auth.addPhoneLink')} color={colors.ambstrong} onPress={addPhone} style={{ marginTop: 6 }} />
+          </View>
+        ) : null}
+
         <ErrorText>{error}</ErrorText>
       </ScrollView>
 
@@ -425,7 +467,7 @@ export default function ReviewScreen() {
           label={t('booking.reserveCta')}
           onPress={() => setDialogOpen(true)}
           variant="cta"
-          disabled={!holdId}
+          disabled={!holdId || profileGate === 'incomplete'}
           style={{ paddingTop: 16, paddingBottom: 16 }}
         />
       </LinearGradient>

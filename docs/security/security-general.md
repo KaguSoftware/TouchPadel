@@ -205,7 +205,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 *(Full detail and ordering in `security-layer-1.md`. Summary here.)*
 
-- [ ] ★ Enable MFA org-wide: GitHub, Supabase, Vercel, PostHog, Expo, Apple, Google. Recovery codes sealed to the client's owner, not a Kagu inbox. (SEC-40 · CLIENT+SEC)
+- [ ] ★ Enable MFA org-wide: GitHub, Supabase, Vercel, PostHog, Expo, Apple, Google. Recovery codes sealed to the client's owner, not a Kagu inbox. **2026-09-01:** the Expo/EAS, Apple Developer and Google Cloud accounts that social sign-in and the store release need do not exist yet (`API.md` §8 placeholders); each falls under this item the day it is created, Google Play included. (SEC-40 · CLIENT+SEC)
 - [ ] Add `.github/CODEOWNERS` routing `packages/db/supabase/migrations/` and `.github/workflows/db-migrate.yml` to the technical lead; enable "Require review from Code Owners" on `main`. **Confirmed missing.** (SEC-01 · SEC)
 - [ ] Add required reviewers to the `staging` GitHub Environment **before** the deploy secrets go in — without them the gate in `db-migrate.yml` is a no-op. (SEC-02 · DEV)
 - [ ] ★ `[CI]` Run `gitleaks detect --source . -v --log-opts="--all"` over full history. **Confirmed absent from the repo.** (SEC-24 · DEV)
@@ -218,8 +218,8 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       is the one production call site and every table session boots through it. Do **not** disable anonymous
       sign-in; add the CAPTCHA token to that call. 0048's `ACCOUNT_REQUIRED` is scoped to `app.hold_slot`
       alone, so court booking needs a real account while table sessions do not. (SEC-05 · DEV)
-- [ ] ★ Replace the auth redirect allowlist with exact production URLs — no wildcards, no `localhost`, no `exp://*` in the hosted project. (SEC-05 · DEV)
-- [ ] ★ Leaked-password protection on; JWT expiry 30 minutes with refresh rotation and reuse detection. (SEC-05, SEC-35 · DEV)
+- [ ] ★ Replace the auth redirect allowlist with exact production URLs — no wildcards, no `localhost`, no `exp://*` in the hosted project. (SEC-05 · DEV) **Verified still open 2026-09-01 (Prompt C, report-only):** hosted list = `https://localhost:3000`, `touchpadel://verify-email`, `touchpadel://reset-password`, `exp://192.168.1.108:8081/--/*` — the last is a wildcard LAN entry for Expo Go email-link tests; removal + Site URL fix are scheduled for release week (`docs/client/social-auth-setup-2026-09-01.md`, Prompt D Task 4).
+- [ ] ★ Leaked-password protection on; JWT expiry 30 minutes with refresh rotation and reuse detection. (SEC-05, SEC-35 · DEV) **Verified 2026-09-01: leaked-password protection OFF and CAPTCHA OFF while anonymous sign-ins are ON** — the MAU-inflation combination Supabase's own inline warning names.
 - [ ] Set Supabase member roles: SEC and DEV Owner/Admin; FE1 and FE2 Developer with **no SQL Editor access**. With one project, access control *is* environment separation. (SEC-37 · SEC)
 - [ ] Ask the client for the domain today and delegate DNS. Blocks the privacy URL, the deletion URL, auth redirects, HSTS and QR cards. (SEC-06 · CLIENT)
 - [ ] Ask the client for the PC policy in writing: BitLocker, OS auto-updates, 5-minute screen lock, no shared Windows admin account, **guest wifi on a separate VLAN from the POS**. (SEC-41 · CLIENT)
@@ -322,6 +322,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 - [ ] ★ Unblock the FK chain so a guest can be deleted: anonymise the profile row rather than cascading, so booking rows survive for statistics. A data-model decision, not a button. (SEC-15 · DEV)
 - [ ] ★ Write `app.delete_my_account()` as `SECURITY DEFINER` with a pinned `search_path`: anonymise the name, null the phone and email, clear the push token, write an audit row, then delete the auth user and revoke sessions globally. **Confirmed absent from the repo.** (SEC-15 · DEV)
+- [ ] **Added 2026-09-01 (social sign-in, vendor addition):** Apple requires token revocation (`POST https://appleid.apple.com/auth/revoke`) when an account that used Sign in with Apple is deleted. `auth.admin.deleteUser` does not do it, and the id-token grant yields no refresh token — so the deletion flow must re-authenticate with Apple for a fresh `authorizationCode`, then exchange + revoke it from an edge function holding a Sign in with Apple `.p8` key: the ONLY Apple secret the feature introduces, server-side only, never in a client. Design note: `docs/design/social-signin-2026-09-01.md`. (SEC-15 · DEV)
 - [ ] Test it: no phone/email/name left, reservations still count in statistics, audit row exists, auth user gone, old refresh token no longer mints a JWT. (SEC-15 · DEV)
 - [ ] ★ `[FREEZE]` Build the in-app deletion screen with a typed confirmation; on success clear every chunk of the secure-store adapter, delete the push token locally and server-side, route to signed-out. No email, no support ticket. (SEC-16 · FE1)
 - [ ] `[FREEZE]` Verify on a physical device of each platform: delete, force-quit, reopen, still signed out, old token refused. (SEC-16 · FE1)
@@ -333,8 +334,12 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       `ios.associatedDomains` and `android.intentFilters` to `app.config.ts`; serve
       `apple-app-site-association` and `/.well-known/assetlinks.json` from `apps/web`; add `exp://*` to the
       **dev** project only; and fix `site_url = "http://localhost:3000"` (`config.toml:53`) on the hosted
-      project. (SEC-18 · FE1)
+      project — **still `http://localhost:3000` on 2026-09-01** (Prompt C reading; Prompt D Task 4 sets it). (SEC-18 · FE1)
 - [ ] `[FREEZE]` Verify the full reset flow on one iOS and one Android device from a cold install; record the build number. (SEC-18 · FE1)
+- [ ] ★ `[FREEZE]` **Social sign-in audiences (added 2026-09-01):** Supabase → Auth → Providers — the Client-ID lists must be **exact and minimal**. Apple: `com.kagu.touchpadel` (+ `host.exp.Exponent` during development only). Google: the Web client id + the iOS client id, nothing else — Android tokens carry the Web id as `aud`, so no Android id is ever listed. GoTrue's audience check is the only thing that stops an id token minted for another app from signing in here. Read the two fields via the report-only Chrome prompts C/D in `docs/client/social-auth-setup-2026-09-01.md`; `packages/db/supabase/config.toml` `[auth.external.*]` mirrors the intended lists locally. (SEC-05 · SEC)
+- [ ] ★ `[FREEZE]` **Remove `host.exp.Exponent` from the Apple Client IDs before the store build** (Prompt D Task 4). It is Expo Go's bundle id: while listed, a token minted inside Expo Go by anyone signs in as its holder's own Apple identity — a guest account with no privilege, but not a production audience. (SEC-05 · SEC)
+- [ ] **"Skip nonce check" stays OFF on both providers, by design.** The app mints a nonce per attempt (`apps/mobile/src/features/auth/providers/nonce.ts`: raw → GoTrue, SHA-256 hex → provider), so a replayed id token is refused. Turning it ON for Google is the documented fallback ONLY after the one-file library swap to `@react-native-google-signin` (no nonce support) or a proven SDK nonce defect — and only with SEC sign-off, a HANDOFF entry, and the client omitting `nonce`. `config.toml` pins `skip_nonce_check = false` locally; the hosted toggle has to be looked at (Prompt C reports it). (SEC-05 · SEC)
+- [ ] MFA on the three new accounts — Expo/EAS, Apple Developer, Google Cloud (and Google Play when created) — the day each is created. They are already named in the SEC-40 line in §04; nothing new to decide, just do not skip them because they arrived late. (SEC-40 · CLIENT+SEC)
 - [ ] Make push work end to end, sending only from an Edge Function that resolves recipients server-side — never from a client-supplied token list. (SEC-21 · FE1)
 - [ ] Finish treating the push token as personal data. **Already done:** guest-only read (`0004:163`), cleared
       on an Expo `DeviceNotRegistered` ticket (`send-push:182`), never logged. **Still open:** clear it on
@@ -475,7 +480,7 @@ Re-scored against the repository on 2026-08-30. **Seven of v1.0's twenty-one are
 | 12 | Account deletion works end to end (SEC-15/16) | **OPEN** | Delete your own test account on a real phone, then try to sign in. **Store blocker.** |
 | 13 | Privacy notice and web deletion page live (SEC-17) | **OPEN** | Open both URLs in Arabic and English. **Store blocker.** |
 | 14 | Password reset works on a real device (SEC-18) | **OPEN** | Do it yourself from a cold install. **Store blocker.** |
-| 15 | Auth hardening on (SEC-05) | **OPEN** | Dashboard toggles — look at them. |
+| 15 | Auth hardening on (SEC-05) | **OPEN** — read 2026-09-01: captcha OFF, leaked-password protection OFF, `localhost` + `exp://` still in the redirect list | Dashboard toggles — look at them. |
 | 16 | Production headers and CSP live (SEC-25) | **OPEN** | `curl -I https://<domain>` and read the headers. Today there are none. |
 | 17 | Table token is not a bearer credential in a URL (SEC-25) | **OPEN** | Scan a QR and look at the address bar. **New gate.** |
 | 18 | Table-token secret rotatable without reprinting (SEC-26) | **OPEN** | Ask for the test where a token signed with the previous secret still verifies. |
@@ -485,8 +490,9 @@ Re-scored against the repository on 2026-08-30. **Seven of v1.0's twenty-one are
 | 22 | Queue survives a power cut, or an honest decision not to ship it (SEC-32) | **OPEN** | The power-cut drill passes twice — or degraded writing is switched off and the venue is told. A till that promises to trade offline and does not is worse than one that never claimed to. |
 | 23 | Disabling a staff account ends their sessions (SEC-35) | **PARTIAL** | DB half done (`0003:50`). Disable a test account and watch a live session die. |
 | 24 | The SOW deviations are settled in writing (D1–D7) | **OPEN** | Read the signed variation. **New gate.** |
+| 25 | Social provider audiences exact, `host.exp.Exponent` gone, "Skip nonce check" OFF (SEC-05) | **PARTIAL** — 2026-09-01: audiences exact and the Google toggle OFF (Prompt C); `host.exp.Exponent` still listed on purpose until release week | Open Supabase → Auth → Providers and read the two Client-ID fields and the Google toggle. **New gate 2026-09-01** — social sign-in is a vendor addition; this gate protects the whole auth surface, not just the feature. |
 
-**Sixteen of these you can verify entirely by yourself, with no code reading:** 1, 2, 3, 5, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17, 19, 20, 24. That is the point of the third column — pick the evidence that does not need your expertise.
+**Eighteen of these you can verify entirely by yourself, with no code reading:** 1, 2, 3, 5, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17, 19, 20, 24, 25. That is the point of the third column — pick the evidence that does not need your expertise.
 
 ---
 

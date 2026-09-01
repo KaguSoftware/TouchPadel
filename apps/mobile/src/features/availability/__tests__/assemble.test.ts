@@ -5,7 +5,9 @@ import {
   hasAnySlots,
   mergeAcrossCourts,
   openNowInfo,
+  addDays,
   assembleDayGrid,
+  assembleTradingNight,
   groupByStart,
   listBookableDates,
   type AvailabilityRow,
@@ -300,5 +302,90 @@ describe('hasAnySlots', () => {
     expect(hasAnySlots([{ courtId: 'c1', slots: [] }, { courtId: 'c2', slots: [] }])).toBe(false);
     expect(hasAnySlots([{ courtId: 'c1', slots: [slot(T10, 60, 'free', 1)] }])).toBe(true);
     expect(hasAnySlots([])).toBe(false);
+  });
+});
+
+// ── Trading-night fold: a day chip is a night (09:00 → 02:00), not a calendar day ──
+
+const OVERNIGHT = {
+  timezone: TZ,
+  // Trades 09:00 -> 02:00, stored as two windows on adjacent days (HANDOFF).
+  opening_hours: {
+    mon: [['00:00', '02:00'], ['09:00', '24:00']],
+    tue: [['00:00', '02:00'], ['09:00', '24:00']],
+    wed: [['00:00', '02:00'], ['09:00', '24:00']],
+  },
+  closed_dates: [] as string[],
+};
+const wedBaghdad = (hhmm: string) => new Date(`2026-09-02T${hhmm}:00+03:00`);
+
+describe('assembleTradingNight', () => {
+  const build = (settings = OVERNIGHT, availability: AvailabilityRow[] = []) =>
+    assembleTradingNight({ date: DATE, settings, courts: [court], availability, rules, prices, now: NOW });
+  const starts60 = (grid: CourtSlots[]) =>
+    grid[0]!.slots.filter((s) => s.durationMin === 60).map((s) => s.startAt.toISOString());
+
+  it("runs from 09:00 to the NEXT date's 01:00 and never shows the inherited 00:00 tail", () => {
+    // Per calendar day this grid opened with Monday night's 00:00/00:30/01:00
+    // and hid Tuesday night's at the top of Wednesday — the bug on the phone.
+    const starts = starts60(build());
+    expect(starts[0]).toBe(baghdad('09:00').toISOString());
+    expect(starts[starts.length - 1]).toBe(wedBaghdad('01:00').toISOString());
+    expect(starts).not.toContain(baghdad('00:00').toISOString());
+    // In order: Tuesday 23:00 is followed by Wednesday 00:00.
+    const at23 = starts.indexOf(baghdad('23:00').toISOString());
+    expect(at23).toBeGreaterThan(0);
+    expect(starts[at23 + 1]).toBe(wedBaghdad('00:00').toISOString());
+  });
+
+  it('prices and marks tail slots like any other (rows on the next date apply)', () => {
+    const grid = build(OVERNIGHT, [
+      { court_id: 'court-1', start_at: wedBaghdad('00:00').toISOString(), end_at: wedBaghdad('01:00').toISOString(), kind: 'booking' },
+    ]);
+    const at = (d: Date, dur: number) =>
+      grid[0]!.slots.find((s) => s.durationMin === dur && s.startAt.getTime() === d.getTime());
+    expect(at(wedBaghdad('00:00'), 60)?.state).toBe('booked');
+    expect(at(wedBaghdad('01:00'), 60)).toMatchObject({ state: 'free', priceIqd: 40_000 });
+  });
+
+  it('drops the tail when the following date is closed (server guard is per calendar day)', () => {
+    const starts = starts60(build({ ...OVERNIGHT, closed_dates: ['2026-09-02'] }));
+    expect(starts[starts.length - 1]).toBe(baghdad('23:00').toISOString());
+  });
+
+  it('is exactly the day grid for same-day hours', () => {
+    const args = { date: DATE, settings, courts: [court], availability: [], rules, prices, now: NOW };
+    expect(assembleTradingNight(args)).toEqual(assembleDayGrid(args));
+  });
+});
+
+describe('listBookableDates while last night is still trading', () => {
+  const at0030Wed = new Date('2026-09-01T21:30:00Z'); // 00:30 Wed Baghdad
+
+  it('leads with yesterday inside the tail and drops it after close', () => {
+    const during = listBookableDates(at0030Wed, TZ, 6, OVERNIGHT);
+    expect(during.slice(0, 2)).toEqual(['2026-09-01', '2026-09-02']);
+    expect(during).toHaveLength(8);
+    const after = listBookableDates(new Date('2026-09-02T00:00:00Z'), TZ, 6, OVERNIGHT); // 03:00 Wed
+    expect(after[0]).toBe('2026-09-02');
+    expect(after).toHaveLength(7);
+  });
+
+  it('does not lead with a closed yesterday, nor when today is closed', () => {
+    expect(listBookableDates(at0030Wed, TZ, 6, { ...OVERNIGHT, closed_dates: ['2026-09-01'] })[0]).toBe('2026-09-02');
+    expect(listBookableDates(at0030Wed, TZ, 6, { ...OVERNIGHT, closed_dates: ['2026-09-02'] })[0]).toBe('2026-09-02');
+  });
+
+  it('is unchanged without venue settings', () => {
+    expect(listBookableDates(at0030Wed, TZ, 6)[0]).toBe('2026-09-02');
+  });
+});
+
+describe('addDays', () => {
+  it('crosses month and year ends in both directions', () => {
+    expect(addDays('2026-08-31', 1)).toBe('2026-09-01');
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDays('2026-09-01', -1)).toBe('2026-08-31');
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
   });
 });

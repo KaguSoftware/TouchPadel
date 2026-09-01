@@ -36,6 +36,9 @@ const CODE_TO_KEY = {
   INVALID_DURATION: 'errors.validation',
   INVALID_RANGE: 'errors.validation',
   GUEST_REQUIRED: 'errors.validation',
+  // 0059: confirm_booking refuses a guest whose profile has no phone (spec 05.3).
+  // Review routes this code to the complete-profile screen; the text is the backstop.
+  PHONE_REQUIRED: 'auth.profileIncompleteNotice',
   SLOT_IN_PAST: 'booking.slotInPast',
   NO_RATE: 'booking.noRate',
   AUTH_REQUIRED: 'auth.sessionExpired',

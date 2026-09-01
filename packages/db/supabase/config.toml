@@ -78,6 +78,44 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = true
 
+# Social sign-in -- VENDOR ADDITION 2026-09-01 (SOW L259-260 excludes it; the
+# owner chose to add it; email/password stays the contractual path). The mobile
+# app signs in NATIVELY (Sign in with Apple on iOS, Google Sign-In on iOS and
+# Android) and hands the id token to supabase.auth.signInWithIdToken. GoTrue
+# then verifies the token's signature against Apple's / Google's JWKS and
+# requires its `aud` to be one of the client ids listed below. Hence:
+#   * `supabase start` needs INTERNET for these two flows (the JWKS fetch);
+#     everything else stays offline.
+#   * client_id values are PUBLIC identifiers -- they ship inside the app
+#     bundle -- so commit the real ones: replace the REPLACE_* placeholders as
+#     soon as the Google Cloud OAuth clients exist.
+#   * `secret` is used only by the browser OAuth code exchange, which no Touch
+#     client uses; the CLI rejects an empty value for an enabled provider, so
+#     a documented dummy satisfies it. Never paste the real Apple key or the
+#     Google client secret here.
+#   * host.exp.Exponent is Expo Go's bundle id -- DEV ONLY, so Sign in with
+#     Apple works inside Expo Go. It must be REMOVED from the HOSTED list
+#     before store release.
+#   * Android has no entry on purpose: Google id tokens minted on Android carry
+#     the WEB client id as `aud`, so the web id covers it.
+#   * skip_nonce_check stays false. It is a fallback ONLY if Google's iOS SDK
+#     turns out to ignore the nonce the app passes, and flipping it needs
+#     security sign-off -- the nonce is what stops a captured token replaying.
+# The HOSTED project needs the same client-id lists under Auth -> Providers;
+# this file only governs `supabase start`. Config changes here need
+# `supabase stop && supabase start` (a `db reset` alone does not reload GoTrue).
+[auth.external.apple]
+enabled = true
+client_id = "com.kagu.touchpadel,host.exp.Exponent"
+secret = "local-dev-unused"
+skip_nonce_check = false
+
+[auth.external.google]
+enabled = true
+client_id = "699390054618-egm0m36515stvli0dah67htvge6j88nh.apps.googleusercontent.com,699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com"
+secret = "local-dev-unused"
+skip_nonce_check = false
+
 [analytics]
 enabled = false
 

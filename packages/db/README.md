@@ -8,7 +8,8 @@ migrations 0001–0008).
 ## Layout
 
 ```
-supabase/config.toml         local stack config (anonymous sign-ins ON; pg_cron required)
+supabase/config.toml         local stack config (anonymous sign-ins ON; pg_cron required;
+                             Apple/Google id-token providers for social sign-in)
 supabase/migrations/         20260824000001..08 — extensions, enums/domains, app schema,
                              profiles/staff/PINs, audit_log, settings/tax, courts/rates,
                              reservations (exclusion constraint + booking RPCs)
@@ -20,6 +21,7 @@ src/types.gen.ts             generated types (placeholder until Docker runs)
 tests/concurrency.test.ts    CONTRACTUAL booking concurrency suite (§6.1 cases 1–7)
 tests/rls-matrix.ts          declarative role matrix (the written role-test deliverable)
 tests/rls-matrix.test.ts     matrix runner over 8 real principals
+tests/oauth-profiles.test.ts 0058/0059 OAuth-shaped sign-ups -> profiles bootstrap + phone rule
 ```
 
 ## Commands
@@ -45,6 +47,22 @@ Studio's SQL editor (local only) or run it through any Postgres client.
 Seeded by `seed.sql` — password `touch-dev-password` for all:
 `owner@dev.touch.local` (PIN 111111), `manager@dev.touch.local` (PIN 222222),
 `cashier@dev.touch.local`, `prep@dev.touch.local`, `desk@dev.touch.local` (court_desk).
+
+### Local auth providers (social sign-in)
+
+`config.toml` enables `[auth.external.apple]` and `[auth.external.google]` for the
+mobile app's native Sign in with Apple / Google (`signInWithIdToken`; vendor addition
+2026-09-01, outside SOW L259-260). Read the comment block above those sections before
+touching them. Two facts bite locally: GoTrue verifies id tokens against Apple's /
+Google's JWKS over the network, so **`supabase start` needs internet for those two
+flows** (everything else stays offline); and the Apple list carries
+`host.exp.Exponent` (Expo Go's bundle id) **for development only** -- it must not be in
+the hosted project's list at store release. The client ids are public (they ship in the
+app bundle); the `secret` values are dummies because no Touch client uses the browser
+code exchange. Config edits need `supabase stop && supabase start`, and the hosted
+project needs the same lists under Auth -> Providers -- this file only governs the local
+stack. The signup trigger's handling of Apple/Google metadata (0058) and the
+phone-to-confirm rule (0059) are pinned by `tests/oauth-profiles.test.ts`.
 
 ## Fixture swap procedure (client data lands → week 5 or earlier)
 
@@ -167,6 +185,12 @@ pnpm --filter @touch/db qr:artwork      # writes packages/db/artwork/table-*.svg
 - `tests/rls-matrix.ts` — declarative `{surface} × {operation} × {principal}` matrix
   covering the Drop-1 surface for 8 principals; later drops **append** entries (tagged
   `drop: 2|3`) without restructuring. Exportable to markdown for client sign-off.
+- `tests/oauth-profiles.test.ts` -- 0058/0059: Google- and Apple-shaped sign-ups
+  (minted via the admin API with the metadata GoTrue writes from an id token; no
+  network) bootstrap the right `profiles` row (Google `name` claim honoured; an Apple
+  relay address is NOT a name), a guest can complete only their own profile, an
+  anonymous session still has no profile, and a phone-less account can hold but gets
+  `PHONE_REQUIRED` from `confirm_booking` until it adds one.
 
 Both suites read `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`
 (defaulting to `supabase start` local values) and skip cleanly when no stack is up.
