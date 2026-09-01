@@ -101,6 +101,21 @@ export const en = {
     resetSubmitted: 'If an account exists for that email, a reset link is on its way. Check your inbox.',
     welcomeBack: 'Welcome back',
     welcomeToApp: 'Welcome to Touch Padel',
+    // Social sign-in (vendor addition 2026-09-01; SOW L259-260 lists it as not
+    // included — email/password remains the contractual path). The native Apple
+    // button self-localises; continueWithApple is its busy-placeholder a11y label.
+    continueWithGoogle: 'Continue with Google',
+    continueWithApple: 'Continue with Apple',
+    orContinueWithEmail: 'or continue with email',
+    completeProfileTitle: 'Complete profile',
+    completeProfileBody: 'One last step before you book. We need a phone number the desk can reach you on.',
+    phoneRationale: 'The desk calls this number about your booking.',
+    completeProfileCta: 'Save and continue',
+    profileIncompleteNotice: 'Add your phone number to reserve — the desk needs it to confirm your booking.',
+    addPhoneLink: 'Add phone number',
+    googlePlayServices: 'Google Play services are not available on this device. Sign in with your email instead.',
+    socialFailed: "Couldn't sign you in with {provider}. Try again or use your email.",
+    appleUnavailable: 'Sign in with Apple is not available on this device.',
   },
   courts: {
     title: 'Courts',
@@ -522,6 +537,7 @@ export const en = {
     emailLocked: "Email {email} can't be changed here — it requires re-verification through support.",
     saveChanges: 'Save changes',
     updated: 'Profile updated',
+    completeProfileNudge: 'Add your phone number so the desk can reach you about your bookings.',
     currentPassword: 'Current password',
     newPasswordMin: 'New password (min 8 characters)',
     confirmNewPassword: 'Confirm new password',

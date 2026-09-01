@@ -20,6 +20,12 @@ feature (printing QR table cards). And the `staff` table on the hosted project s
 `Dev` seed rows, so the Telegram allowlist points at `Dev Owner` and must be repointed once real
 staff exist. Sections 1–6 below are kept as the reference for re-doing any of this on a new project.
 
+**2026-09-01 — social sign-in (a vendor addition, outside the SOW)** adds three **public** Google
+identifiers (#8–10) and up to four new accounts (§8: Apple Developer, Google Cloud, Expo/EAS, Google
+Play). **None of them exists yet.** They are created in the order given in
+`docs/client/social-auth-setup-2026-09-01.md`, which also holds the paste-ready Claude-in-Chrome
+prompts; identifiers reported by those prompts are copied into this file, secrets never are.
+
 ---
 
 ## The short list
@@ -33,6 +39,15 @@ staff exist. Sections 1–6 below are kept as the reference for re-doing any of 
 | 5 | **Groq API key** | console.groq.com (free tier) | Blocks AI insights only | Supabase secret |
 | 6 | **Supabase access token + db password** | Supabase account settings | Blocks CI auto-migrate | GitHub secrets |
 | 7 | **The real domain** | Your registrar | Blocks printing QR cards | Vercel + operator env |
+| 8 | **Google Web OAuth client id** (also the `aud` of Android id tokens) | Google Cloud console, project `Touch Padel` (Prompt A) | Blocks Google sign-in only (vendor addition) | `apps/mobile/eas.json` (all three profiles) + `apps/mobile/.env` as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`; Supabase dashboard → Auth → Providers → Google → Client IDs (listed first) |
+| 9 | **Google iOS OAuth client id** (its reversal is the iOS URL scheme, derived in `app.config.ts`) | Same project, client type iOS, bundle `com.kagu.touchpadel` (Prompt A) | Blocks Google sign-in on iOS; an EAS build fails at config time without it | `eas.json` + `.env` as `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`; Supabase Google Client IDs (listed second) |
+| 10 | **Google Android OAuth client(s)** — one per signing SHA-1: EAS keystore now, Play App Signing key later | Same project, client type Android, package `com.kagu.touchpadel` + the SHA-1 (Prompt A, then Prompt D) | Blocks Google sign-in on Android (`DEVELOPER_ERROR` without it) | **Nowhere.** It only has to exist in the Cloud project — not in the app, not in Supabase |
+
+> All three Google values are **public identifiers, not secrets** — they ship inside the app
+> bundle by design. Apple needs no identifier beyond the bundle id: Supabase → Auth → Providers →
+> Apple → Client IDs = `com.kagu.touchpadel,host.exp.Exponent` (the second is Expo Go, development
+> only — **remove before the store build**, Prompt D Task 4). The native flow needs no Apple
+> Services ID, key or secret.
 
 > ⚠️ **#5 is Groq, not Grok.** [console.groq.com](https://console.groq.com) — the inference company.
 > Not xAI's "Grok" chatbot. They are different companies with near-identical names, and signing up to
@@ -211,7 +226,10 @@ registration. Recovery/setup runbook: `docs/client/domain-setup-2026-08-30.md`.
 
 Verified 2026-08-26. The project spans four separate identities — check this table before
 concluding an account "has no access", and note that three of these are **Kagu** accounts holding
-client production data, which has to be resolved at handover.
+client production data, which has to be resolved at handover. **Four more are pending as of
+2026-09-01** (social sign-in + store release) — placeholder rows below, identity only; fill them
+from the Chrome reports (`docs/client/social-auth-setup-2026-09-01.md`, Prompts A/B) and the
+`eas init` output.
 
 | Service | Account / owner | Identifier |
 |---|---|---|
@@ -220,6 +238,10 @@ client production data, which has to be resolved at handover.
 | Client hosting contact | Mustafa (owner) — `Mustafa.akeel.awad1@gmail.com` (pack 2026-08-30 `hosting.email`) | approver contact `00995419010203` — **unverified**, parses as +995 Georgia not +964 Iraq |
 | Vercel | team **BAU ENG's projects**, slug `bau-engs-projects` | project `touch-padel-web`; `bauseengineers-7480` is **not** a valid slug |
 | PostHog | bau.se.engineers@gmail.com | project `touch-padel` — region unverified, must be EU |
+| Apple Developer | **TBD** — enrolment type undecided: Individual under a Kagu-controlled Apple ID (≈24–48 h) vs Organization (needs Kagu's D-U-N-S, weeks). Owner said 2026-08-27 "Apple account exists" — unverified | Team ID **TBD** (10 chars); App ID `com.kagu.touchpadel` (EAS creates it on the first iOS build); membership expiry TBD |
+| Google Cloud | **`parsaxavier@gmail.com`** (Prompt A, 2026-09-01) — Parsa's personal Google account, NOT the dedicated Kagu account the plan asked for: same handover concern as the Kagu accounts above; no billing enabled | project **`Touch Padel`**, id `touch-padel`, number `699390054618`, no organization; consent screen External / **Testing** (publishing needs the privacy + home pages); Web client `699390054618-egm0m36515stvli0dah67htvge6j88nh.apps.googleusercontent.com` + iOS client `699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com` created 2026-09-01 (public identifiers; live in `eas.json` / `.env` / `config.toml`); Android client pending the EAS SHA-1 |
+| Expo / EAS | **`parsa-mansouri`** — Parsa's personal Expo account (`eas init` 2026-09-01; the org question was answered before `owner` was set). Handover item: transfer to a Kagu org, then update `owner` in `app.config.ts` | project **@parsa-mansouri/touchpadel**, id `d9597f8e-79bb-4bc2-882e-c44c3a013045`, https://expo.dev/accounts/parsa-mansouri/projects/touchpadel; `eas.json` profiles development / staging / production |
+| Google Play | **not yet created** — personal vs organization account decides the 12-testers/14-days rule (HANDOFF gotcha) | Play App Signing SHA-1 → a second Android OAuth client (Prompt D) |
 
 The Supabase CLI on the dev machine is already authenticated against the project
 (`pnpm exec supabase projects list` shows it linked), and `packages/db/.env.remote` holds the
@@ -238,6 +260,8 @@ Nothing needed from you here; recorded so nobody re-creates them by accident.
 | **Service-role key** | Supabase Vault + edge functions only | **Never** in any client app or the repo — it bypasses all RLS |
 | `table_token_secret` | Supabase Vault | HMAC secret for QR table tokens. **Rotating it kills every printed card in the venue** — it must be carried over unchanged if the project ever moves |
 | `functions_base_url` | Supabase Vault | Lets the database call its own edge functions |
+| **Google Web OAuth client secret** | Google Cloud console **only** | Created automatically alongside the Web client; **unused by the native id-token flow** — never in `eas.json`, `.env.example`, Supabase or the repo. The Chrome prompt reports it as `present (console only)` and nothing more |
+| Google Web / iOS client ids | `eas.json` + `apps/mobile/.env` + Supabase Google provider | Public identifiers (short list #8–9), not secrets |
 
 ---
 
@@ -273,6 +297,16 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 - [ ] `staging` environment given required reviewers, **then** the three GitHub secrets added
 - [ ] Domain recovered/registered and DNS pointed (`touch-padel.com` — see
       `docs/client/domain-setup-2026-08-30.md`); `NEXT_PUBLIC_SITE_URL` + `VITE_GUEST_SITE_URL` set
+- [x] Google Cloud project `Touch Padel` created (2026-09-01, `touch-padel`) — consent screen in **Testing**
+- [ ] Test users added; Web + iOS clients created (Prompt A′); one Android client per SHA-1 (Prompt A′ / D)
+- [ ] Consent screen published to **production** once the privacy + home pages exist on an authorized
+      domain (Prompt D Task 2) — until then only listed test users can use Google sign-in
+- [x] Supabase Apple + Google providers enabled with the exact Client-ID lists, "Skip nonce check" OFF
+      (Prompt C, 2026-09-01)
+- [ ] `host.exp.Exponent` removed from the Apple list, Site URL set, `localhost` + `exp://` redirect entries
+      removed — release week (Prompt D Task 4)
+- [ ] `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` + `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` filled on all three
+      `eas.json` profiles; §8 placeholder rows filled from the Chrome reports
 - [ ] Edge functions deployed; Telegram webhook registered
 - [ ] Engagement floor set to the go-live date
 - [ ] Telegram test message received in the group

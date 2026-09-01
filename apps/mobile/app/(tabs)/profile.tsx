@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
+import { profileGateState } from '../../src/features/auth/social';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
@@ -204,6 +205,23 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </Card>
+
+          {profileGateState(profile) === 'incomplete' ? (
+            // D3: a social sign-in that left before completing its profile.
+            <Card style={{ marginTop: space.m, backgroundColor: colors.amb, borderColor: colors.ambline }}>
+              <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: colors.ambtext }}>
+                {t('profile.completeProfileNudge')}
+              </Text>
+              <Button
+                label={t('auth.addPhoneLink')}
+                variant="secondary"
+                size="compact"
+                onPress={() => router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } })}
+                labelColor={colors.ambstrong}
+                style={{ marginTop: 10, alignSelf: 'flex-start', backgroundColor: 'transparent', borderColor: colors.ambstrong }}
+              />
+            </Card>
+          ) : null}
 
           <View
             style={{

@@ -38,13 +38,32 @@ export function sessionGate(input: { initializing: boolean; hasSession: boolean 
  *
  * verify-email / verify-result deliberately use no gate at all — they render
  * around the moment the session arrives.
+ *
+ * WHERE a redirected user goes is decided from DERIVED state (the own-profile
+ * row), carried over from the `(auth)` layout on 2026-09-01: a first social
+ * sign-in has no phone (the trigger writes NULL for OAuth users), so it owes
+ * the complete-profile step (owner decision D3) before the tabs. Deciding it
+ * here rather than in useSocialSignIn is what lets that hook navigate ONLY
+ * while a pending slot exists — a second replace would re-key the route and
+ * remount the form, discarding anything typed.
+ *
+ * `profile: 'pending'` holds on `loading` so the tabs never flash before the
+ * row arrives; an errored query reports 'complete' and fails open to the tabs,
+ * because the booking path re-checks the phone anyway.
  */
+export type ProfileCompletion = 'pending' | 'incomplete' | 'complete';
+
 export function noSessionGate(input: {
   initializing: boolean;
   hasSession: boolean;
   hasPendingSlot: boolean;
-}): GateDecision {
+  profile?: ProfileCompletion;
+}): GateDecision | 'redirect-complete-profile' {
   if (input.initializing) return 'loading';
-  if (input.hasSession && !input.hasPendingSlot) return 'redirect';
+  if (input.hasSession && !input.hasPendingSlot) {
+    if (input.profile === 'pending') return 'loading';
+    if (input.profile === 'incomplete') return 'redirect-complete-profile';
+    return 'redirect';
+  }
   return 'allow';
 }

@@ -6,6 +6,8 @@ import type { Locale } from '@touch/i18n';
 import { supabase } from '../src/lib/supabase';
 import { signUp, validateSignUp } from '../src/features/auth/api';
 import { verifyRedirect } from '../src/features/auth/redirects';
+import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
+import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space } from '../src/theme';
@@ -15,16 +17,24 @@ import {
   Field,
   FooterLink,
   FormScreen,
+  LabeledDivider,
   MicroLabel,
   Screen,
   SegmentedControl,
   Title,
 } from '../src/components/ui';
+import { SocialSignInBlock } from '../src/components/social';
+import { useToast } from '../src/components/overlays';
 
 /**
  * Create account (design 2026-08-31): name · email · password · phone ·
  * preferred language — four fields in the design's order, no confirm-password
  * (spec 05.3). Validation renders on the field it concerns.
+ *
+ * Continue with Apple / Google sit above the form (vendor addition 2026-09-01;
+ * SOW L259-260 lists social sign-in as not included). A social sign-up needs no
+ * email verification — provider emails are verified — so it never lands on
+ * verify-email; a missing phone is collected on complete-profile instead.
  */
 function SignUpScreen() {
   const { t, locale, setLocale } = useLocale();
@@ -42,10 +52,20 @@ function SignUpScreen() {
     phone?: string;
   }>({});
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const { continueAfterAuth, holdBusy } = usePostAuthContinue();
+  const social = useSocialSignIn({
+    onComplete: () => {
+      toast(t('auth.welcomeBack'), 'info');
+      continueAfterAuth();
+    },
+    disabled: busy,
+  });
 
   const onSubmit = async () => {
     setError(null);
     setFieldErrors({});
+    social.clearError();
     const invalid = validateSignUp({ fullName, email, password, phone });
     if (invalid === 'NAME_REQUIRED') return setFieldErrors({ name: t('auth.nameRequired') });
     if (invalid === 'EMAIL_INVALID') return setFieldErrors({ email: t('auth.emailInvalid') });
@@ -70,6 +90,16 @@ function SignUpScreen() {
     <Screen gutter={20} edges={[]}>
       <FormScreen>
         <Title plain>{t('auth.signUp')}</Title>
+        <SocialSignInBlock
+          available={social.available}
+          busyProvider={social.busyProvider}
+          disabled={busy || holdBusy}
+          onPress={(provider) => void social.signInWith(provider)}
+          style={{ marginTop: 14 }}
+        />
+        {hasSocial(social.available) ? (
+          <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
+        ) : null}
         <Field
           placeholder={t('auth.fullNameLabel')}
           value={fullName}
@@ -122,11 +152,12 @@ function SignUpScreen() {
             onChange={setPreferredLang}
           />
         </View>
-        <ErrorText>{error}</ErrorText>
+        <ErrorText>{error ?? social.errorText}</ErrorText>
         <Button
           label={t('auth.signUp')}
           onPress={() => void onSubmit()}
-          busy={busy}
+          busy={busy || holdBusy}
+          disabled={social.busyProvider !== null}
           variant="primary"
           style={{ marginTop: space.l }}
         />
