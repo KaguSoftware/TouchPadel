@@ -117,13 +117,13 @@ export default function ProfileScreen() {
           <Button
             label={t('auth.signIn')}
             variant="primary"
-            onPress={() => router.push('/(auth)/sign-in')}
+            onPress={() => router.push('/sign-in')}
             style={{ alignSelf: 'stretch', marginTop: space.xl }}
           />
           <Button
             label={t('auth.signUp')}
             variant="cta"
-            onPress={() => router.push('/(auth)/sign-up')}
+            onPress={() => router.push('/sign-up')}
             style={{ alignSelf: 'stretch', marginTop: 9 }}
           />
         </View>

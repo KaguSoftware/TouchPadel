@@ -3,6 +3,7 @@ import { Linking, ScrollView, Text, View } from 'react-native';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
+import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
@@ -21,7 +22,6 @@ import {
   Hint,
   MicroLabel,
   Screen,
-  ScreenHeader,
   SegmentedControl,
 } from '../src/components/ui';
 import { BellIcon, GlobeIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
@@ -92,8 +92,8 @@ export default function SettingsScreen() {
   );
 
   return (
-    <Screen>
-      <ScreenHeader title={t('settings.title')} />
+    <Screen edges={[]}>
+      <Stack.Screen options={{ title: t('settings.title') }} />
       <ScrollView
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         showsVerticalScrollIndicator={false}

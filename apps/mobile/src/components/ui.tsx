@@ -26,7 +26,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, shadows, space, useTheme } from '../theme';
-import { BackChevronIcon, TitleSquiggle } from './icons';
+import { TitleSquiggle } from './icons';
 
 export { TitleSquiggle };
 
@@ -53,6 +53,10 @@ export type ScreenEdge = 'top' | 'bottom';
  * Screen root. Owns the safe-area insets so no screen has to remember them:
  * `edges` defaults to the top only — scrolling screens pad their own content
  * bottom (tab bar / home indicator), static screens ask for `['top','bottom']`.
+ *
+ * A screen UNDER A NATIVE HEADER must pass `edges={[]}` (or omit 'top'): the
+ * bar already consumes the status-bar inset, so keeping the top padding here
+ * applies it twice and pushes the page down by ~50pt.
  */
 export function Screen({
   children,
@@ -152,49 +156,6 @@ export function Title({
         {children}
       </Text>
       {squiggle && !plain ? <TitleSquiggle /> : null}
-    </View>
-  );
-}
-
-/** In-screen header row: round back button + compact display title. */
-export function ScreenHeader({ title, onBack }: { title?: string; onBack?: () => void }) {
-  const { colors, fonts } = useTheme();
-  const safeBack = useSafeBack();
-  return (
-    <View
-      style={{
-        paddingTop: space.s + 2,
-        paddingBottom: space.s + 2,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-      }}
-    >
-      <Pressable
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={onBack ?? safeBack}
-        style={({ pressed }) => ({
-          width: 34,
-          height: 34,
-          borderRadius: radius.pill,
-          backgroundColor: pressed ? colors.sub : colors.card,
-          borderWidth: 1,
-          borderColor: colors.line,
-          alignItems: 'center',
-          justifyContent: 'center',
-        })}
-      >
-        <BackChevronIcon size={17} color={colors.ink} strokeWidth={2.4} />
-      </Pressable>
-      {title ? (
-        <Text
-          numberOfLines={1}
-          style={{ flex: 1, fontFamily: fonts.display800, fontSize: 15, color: colors.ink }}
-        >
-          {title}
-        </Text>
-      ) : null}
     </View>
   );
 }

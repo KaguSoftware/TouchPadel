@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pickLocale, wallTimeToUtc } from '@touch/core';
 import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
@@ -29,7 +29,7 @@ import { chunkArray } from '../src/lib/chunk';
 import { formatPrice } from '../src/lib/price';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { space, useTheme } from '../src/theme';
-import { ErrorText, Hint, Screen, ScreenHeader, SegmentedControl } from '../src/components/ui';
+import { ErrorText, Hint, Screen, SegmentedControl } from '../src/components/ui';
 import { DayChip, DegradedBanner, SlotCell } from '../src/components/booking';
 import { NoticeSheet, useToast } from '../src/components/overlays';
 
@@ -136,7 +136,7 @@ export default function AvailabilityScreen() {
         courtNameEn: court?.name_en ?? '',
         courtNameAr: court?.name_ar ?? '',
       });
-      router.push('/(auth)/welcome');
+      router.push('/welcome');
       return;
     }
 
@@ -198,10 +198,8 @@ export default function AvailabilityScreen() {
   return (
     // Unpadded so the day strip can scroll out under the screen edge; every
     // other block carries its own gutter.
-    <Screen padded={false}>
-      <View style={{ paddingStart: GUTTER, paddingEnd: GUTTER }}>
-        <ScreenHeader title={t('booking.availabilityTitle')} />
-      </View>
+    <Screen padded={false} edges={[]}>
+      <Stack.Screen options={{ title: t('booking.availabilityTitle') }} />
 
       {degraded ? (
         <View style={{ marginTop: 6, marginStart: GUTTER, marginEnd: GUTTER }}>

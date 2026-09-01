@@ -99,7 +99,7 @@ export default function BookingsScreen() {
             title={t('booking.noBookingsTitle')}
             message={t('auth.signedOutPitch')}
             actionLabel={t('auth.signIn')}
-            onAction={() => router.push('/(auth)/welcome')}
+            onAction={() => router.push('/welcome')}
           />
         </View>
       </Screen>
