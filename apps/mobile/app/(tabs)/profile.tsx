@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Image, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { supabase } from '../../src/lib/supabase';
@@ -29,7 +29,7 @@ export default function ProfileScreen() {
   const { t } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const settings = useVenueSettings();

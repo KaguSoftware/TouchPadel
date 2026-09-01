@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
 import {
@@ -62,7 +62,7 @@ export default function BookHomeScreen() {
   const { t } = useLocale();
   const { colors, fonts, appearance, tracking } = useTheme();
   const router = useRouter();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useTabBarHeight();
   const { height: windowHeight } = useWindowDimensions();
   const { session } = useAuth();
   const settings = useVenueSettings();

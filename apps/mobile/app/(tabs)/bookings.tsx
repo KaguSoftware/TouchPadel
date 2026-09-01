@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { formatDate, formatTime, formatTimeRange } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -31,7 +31,7 @@ export default function BookingsScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const bookings = useMyBookings();
   const courts = useCourts();

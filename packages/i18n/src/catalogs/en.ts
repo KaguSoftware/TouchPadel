@@ -507,7 +507,7 @@ export const en = {
   },
   tabs: {
     book: 'Book',
-    bookings: 'Bookings',
+    bookings: 'My Bookings',
     profile: 'Profile',
   },
   profile: {

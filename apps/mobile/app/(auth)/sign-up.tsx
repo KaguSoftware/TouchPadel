@@ -88,6 +88,10 @@ export default function SignUpScreen() {
           keyboardType="email-address"
           autoComplete="email"
           textContentType="emailAddress"
+          importantForAutofill="yes"
+          autoCorrect={false}
+          spellCheck={false}
+          secureTextEntry={false}
           error={fieldErrors.email}
         />
         <Field
