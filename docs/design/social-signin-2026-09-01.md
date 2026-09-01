@@ -320,7 +320,7 @@ deletion cascades `auth.identities`):
   tokens, Credential Manager behaviour, dark / Arabic rendering, the write-path gates, the linking
   scenarios, the regressions — is **unverified**. The Apple adapter's module-scope import has not been
   exercised on a device either.
-- **Almost no console exists.** No Expo/EAS project (`owner` / `projectId` TODO), no Apple Developer team;
+- **Consoles, as of the evening of 2026-09-01:** EAS project @parsa-mansouri/touchpadel exists (`owner` + `projectId` set; personal account, handover item); no Apple Developer team;
   the Google Cloud project exists since 2026-09-01 (`touch-padel`, consent screen in **Testing** — Google
   requires privacy + home-page URLs on an authorized domain to publish, so production publishing waits for
   the privacy page; Web/iOS clients not yet created — HANDOFF gotcha); the hosted Supabase providers are **ON since 2026-09-01** (Prompt C; both Client-ID lists equal
