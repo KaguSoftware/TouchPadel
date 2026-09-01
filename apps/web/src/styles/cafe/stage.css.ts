@@ -32,8 +32,18 @@ export const stageCss = `
 .tp-stage__word[data-len='long'] { font-size: 22px; }
 .tp-stage__word[data-len='medium'] { font-size: 24px; }
 /* Size, offsets and tilt come from the design per section (sectionArt.tsx sets
-   them inline, including --tp-illo-rot); only the mirror lives here. */
+   them inline, including --tp-illo-rot); only the mirror lives here.
+   The inset-inline-end placement already carries the illustration to the
+   trailing corner in both directions, so the band's furniture needs no help;
+   what flips is the drawing itself: a cup whose handle or straw leans into the
+   text in English should lean the same way relative to Arabic, which is the
+   same reason the tilt is negated for LTR below. */
 .tp-stage__illo { position: absolute; rotate: var(--tp-illo-rot, -8deg); pointer-events: none; }
+[dir='rtl'] .tp-stage__illo { scale: -1 1; }
+/* ...except the house mark inside the Signature cup, which is a logo: mirrored
+   it reads as a backwards racquet. Flip it back so it sits the right way round
+   in a band that is itself mirrored. */
+[dir='rtl'] .tp-stage__illo image { transform-box: fill-box; transform-origin: center; transform: scale(-1, 1); }
 [dir='ltr'] .tp-stage__illo { rotate: calc(-1 * var(--tp-illo-rot, -8deg)); }
 
 /* No size headers: every item is sold in one size, so each row carries a
