@@ -6,12 +6,16 @@
  */
 import {
   buildSlotGrid,
+  dayOfWeekOfDate,
   displayWindows,
   indexRatePrices,
+  isOvernightTail,
   resolveRateRule,
   localParts,
+  parseHHMM,
   iqd,
   type CourtSlots,
+  type LocalParts,
   type OpeningHours,
   type RateRule,
   type RateRulePrice,
@@ -71,17 +75,52 @@ export interface VenueSettingsPublic {
 
 export const DEFAULT_TZ = 'Asia/Baghdad';
 
-/** 'YYYY-MM-DD' for today (venue-local) plus the next `extraDays` days. */
-export function listBookableDates(now: Date, tz: string, extraDays = 14): string[] {
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** 'YYYY-MM-DD' shifted by `n` calendar days. Pure date arithmetic: no timezone can drift it. */
+export function addDays(date: string, n: number): string {
+  const m = DATE_RE.exec(date);
+  if (!m) throw new RangeError(`expected 'YYYY-MM-DD', got '${date}'`);
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) + n * 86_400_000);
+  const pad = (v: number) => String(v).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
+/**
+ * 'YYYY-MM-DD' for today (venue-local) plus the next `extraDays` days.
+ *
+ * With `settings`, the previous day is offered FIRST while its trading night
+ * is still running: at 00:30 on a venue that closes at 02:00, "tonight" is
+ * still yesterday's night, and its 00:30/01:00 starts hang on yesterday's
+ * chip (assembleTradingNight). Without that entry they would be unreachable
+ * for the two hours a night that are the busiest in the app. Not offered when
+ * either day is a closed date — the server refuses the tail in both cases.
+ */
+export function listBookableDates(
+  now: Date,
+  tz: string,
+  extraDays = 14,
+  settings?: Pick<VenueSettingsPublic, 'opening_hours' | 'closed_dates'>,
+): string[] {
   const today = localParts(now, tz);
-  const base = Date.UTC(today.year, today.month - 1, today.day);
   const dates: string[] = [];
-  for (let i = 0; i <= extraDays; i++) {
-    const d = new Date(base + i * 86_400_000);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    dates.push(`${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`);
+  if (settings && inOvernightTail(settings.opening_hours, today)) {
+    const yesterday = addDays(today.date, -1);
+    const closed = settings.closed_dates ?? [];
+    if (!closed.includes(yesterday) && !closed.includes(today.date)) dates.push(yesterday);
   }
+  for (let i = 0; i <= extraDays; i++) dates.push(addDays(today.date, i));
   return dates;
+}
+
+/** True while `at` sits inside the day's inherited post-midnight window. */
+function inOvernightTail(hours: unknown, at: LocalParts): boolean {
+  const key = DAY_KEYS[at.dayOfWeek];
+  if (!key) return false;
+  const tail = ((hours as OpeningHours | null | undefined)?.[key] ?? []).find(isOvernightTail);
+  return tail !== undefined && at.minutesOfDay < parseHHMM(tail[1]);
 }
 
 /** HH:MM:SS -> HH:MM (rate_rules times come back with seconds). */
@@ -154,6 +193,50 @@ export function assembleDayGrid(args: AssembleArgs): CourtSlots[] {
     price: (courtId, startAt, durationMin) =>
       resolveRateRule(rules, priceIndex, courtId, startAt, durationMin, tz)?.priceIqd ?? null,
   });
+}
+
+/**
+ * The priced grid for one TRADING NIGHT — the date's own windows plus the
+ * post-midnight tail stored on the NEXT calendar date — in assembleDayGrid's
+ * shape, with the tail following the evening.
+ *
+ * Touch trades 09:00 → 02:00, stored as `[["00:00","02:00"],["09:00","24:00"]]`
+ * on every day (HANDOFF "hours are two windows per day"). Built per calendar
+ * day, the TUE chip opened with 12:00 AM, 12:30 AM, 1:00 AM — the tail of
+ * MONDAY night — while Tuesday's own late starts sat at the top of WED. This
+ * is @touch/core's `displayWindows` fold applied to slots: TUE now runs
+ * Tuesday 09:00 through Wednesday 01:00, in order.
+ *
+ * Both halves go through buildSlotGrid untouched, so a closed date on the
+ * following day still kills the tail (the server guard is per calendar day,
+ * HANDOFF (c)) and tail slots keep pricing by the weekday of the slot start.
+ */
+export function assembleTradingNight(args: AssembleArgs): CourtSlots[] {
+  const hours = (args.settings.opening_hours ?? {}) as OpeningHours;
+  const dayKey = DAY_KEYS[dayOfWeekOfDate(args.date)];
+  const next = addDays(args.date, 1);
+  const nextKey = DAY_KEYS[dayOfWeekOfDate(next)];
+  if (!dayKey || !nextKey) return assembleDayGrid(args); // unreachable; keeps the index typed
+
+  const own = (hours[dayKey] ?? []).filter((w) => !isOvernightTail(w));
+  const tail = (hours[nextKey] ?? []).filter(isOvernightTail);
+
+  const evening = assembleDayGrid({
+    ...args,
+    settings: { ...args.settings, opening_hours: { [dayKey]: own } },
+  });
+  if (tail.length === 0) return evening;
+
+  const smallHours = assembleDayGrid({
+    ...args,
+    date: next,
+    settings: { ...args.settings, opening_hours: { [nextKey]: tail } },
+  });
+  const tailByCourt = new Map(smallHours.map((c) => [c.courtId, c.slots]));
+  return evening.map((c) => ({
+    courtId: c.courtId,
+    slots: [...c.slots, ...(tailByCourt.get(c.courtId) ?? [])],
+  }));
 }
 
 /** True when at least one court produced a slot — i.e. the venue trades that day. */
@@ -303,8 +386,6 @@ export function mergeAcrossCourts(
 }
 
 // ── "Open now" pill (design 2026-08-31, courts home) ─────────────────────────
-
-const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 export interface OpenNowInfo {
   open: boolean;
