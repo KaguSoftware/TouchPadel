@@ -293,6 +293,7 @@ export function DayChip({
   closed,
   closedLabel,
   onPress,
+  compact = false,
 }: {
   dow: string;
   dayNum: string;
@@ -300,6 +301,11 @@ export function DayChip({
   closed: boolean;
   closedLabel: string;
   onPress: () => void;
+  /**
+   * The booking sheet's pill (court → booking transition, 2026-09-01): 40 wide,
+   * radius 10, 6×4 padding, 9 pt weekday + 14 pt day — six fit in the card.
+   */
+  compact?: boolean;
 }) {
   const { colors, fonts, tracking } = useTheme();
   return (
@@ -308,14 +314,14 @@ export function DayChip({
       accessibilityState={{ selected }}
       onPress={onPress}
       style={{
-        minWidth: 52,
+        minWidth: compact ? 40 : 52,
         alignItems: 'center',
-        gap: 1,
-        paddingTop: 8,
-        paddingBottom: 8,
-        paddingStart: 6,
-        paddingEnd: 6,
-        borderRadius: radius.cell,
+        gap: compact ? 0 : 1,
+        paddingTop: compact ? 6 : 8,
+        paddingBottom: compact ? 6 : 8,
+        paddingStart: compact ? 4 : 6,
+        paddingEnd: compact ? 4 : 6,
+        borderRadius: compact ? 10 : radius.cell,
         borderWidth: 1.5,
         borderColor: selected ? brand.blue : colors.line,
         backgroundColor: selected ? brand.blue : closed ? colors.sub : colors.card,
@@ -324,8 +330,8 @@ export function DayChip({
       <Text
         style={{
           fontFamily: fonts.body700,
-          fontSize: 10,
-          letterSpacing: tracking(0.6),
+          fontSize: compact ? 9 : 10,
+          letterSpacing: tracking(compact ? 0.45 : 0.6),
           textTransform: 'uppercase',
           opacity: 0.75,
           color: selected ? brand.white : closed ? colors.fnt2 : colors.ink,
@@ -336,7 +342,7 @@ export function DayChip({
       <Text
         style={{
           fontFamily: fonts.display800,
-          fontSize: 16,
+          fontSize: compact ? 14 : 16,
           color: selected ? brand.white : closed ? colors.fnt2 : colors.ink,
         }}
       >
@@ -346,7 +352,7 @@ export function DayChip({
         <Text
           style={{
             fontFamily: fonts.body700,
-            fontSize: 8.5,
+            fontSize: compact ? 7.5 : 8.5,
             textTransform: 'uppercase',
             letterSpacing: tracking(0.34),
             opacity: 0.7,
@@ -373,6 +379,7 @@ export function SlotCell({
   sub,
   capacityLine,
   onPress,
+  compact = false,
 }: {
   cell: MergedCell;
   /** Locale-formatted start time. */
@@ -382,6 +389,12 @@ export function SlotCell({
   /** "2 courts free" / "1 court left" — empty when not free. */
   capacityLine: string;
   onPress?: () => void;
+  /**
+   * The booking sheet's cell (court → booking transition, 2026-09-01): min
+   * height 40, radius 10, 7×4 padding, 13 / 9.5 / 8.5 pt — four rows show in
+   * the card's 200 pt grid; the sheet presses with a scale, not a dim.
+   */
+  compact?: boolean;
 }) {
   const { colors, fonts, tracking } = useTheme();
   const visual = slotStateStyles(colors)[cell.state === 'free' ? 'available' : cell.state];
@@ -395,22 +408,28 @@ export function SlotCell({
       style={({ pressed }) => ({
         flex: 1,
         alignItems: 'center',
-        gap: 2,
-        paddingTop: 10,
-        paddingBottom: 10,
+        gap: compact ? 1 : 2,
+        paddingTop: compact ? 7 : 10,
+        paddingBottom: compact ? 7 : 10,
         paddingStart: 4,
         paddingEnd: 4,
-        minHeight: 52,
-        borderRadius: radius.cell,
+        minHeight: compact ? 40 : 52,
+        borderRadius: compact ? 10 : radius.cell,
         backgroundColor: visual.bg,
         borderWidth: 1.5,
         borderColor: visual.border,
         borderStyle: visual.borderStyle,
-        opacity: pressed ? 0.85 : 1,
+        opacity: pressed && !compact ? 0.85 : 1,
+        transform: [{ scale: pressed && compact ? 0.96 : 1 }],
       })}
     >
-      <Text style={{ fontFamily: fonts.display800, fontSize: 15, color: visual.text }}>{time}</Text>
-      <Text numberOfLines={1} style={{ fontFamily: fonts.body700, fontSize: 10.5, color: visual.subText }}>
+      <Text style={{ fontFamily: fonts.display800, fontSize: compact ? 13 : 15, color: visual.text }}>
+        {time}
+      </Text>
+      <Text
+        numberOfLines={1}
+        style={{ fontFamily: fonts.body700, fontSize: compact ? 9.5 : 10.5, color: visual.subText }}
+      >
         {sub}
       </Text>
       {capacityLine ? (
@@ -418,7 +437,7 @@ export function SlotCell({
           numberOfLines={1}
           style={{
             fontFamily: fonts.body700,
-            fontSize: 9.5,
+            fontSize: compact ? 8.5 : 9.5,
             letterSpacing: tracking(0.3),
             color: cell.freeCount > 1 ? colors.fnt : colors.ambstrong,
           }}

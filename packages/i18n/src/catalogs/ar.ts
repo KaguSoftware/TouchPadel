@@ -476,6 +476,9 @@ export const ar: Messages = {
     capacityOne: 'بقي ملعب واحد',
     deskOnly: 'عبر الاستقبال فقط',
     availFooter: '{count} ملاعب لكل وقت · يُحدَّد ملعبك عند الاستقبال',
+    // Court → booking transition (design 2026-09-01): the in-place sheet on the Book tab.
+    pickTime: 'اختر وقتًا',
+    backToCourt: 'العودة إلى الملعب',
     slotUnavailableTitle: 'الوقت غير متاح',
     blockedBody: 'لا يمكن حجز هذا الوقت من التطبيق حاليًا. يمكن للاستقبال المساعدة.',
     deskOnlyTitle: 'الحجز عبر الاستقبال حاليًا',
