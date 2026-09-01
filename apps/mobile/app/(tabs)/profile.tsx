@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { useLocale } from '../../src/i18n/LocaleProvider';
@@ -35,6 +35,7 @@ export default function ProfileScreen() {
   const settings = useVenueSettings();
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   const phone = venuePhoneOf(settings.data);
   const onCallVenue = () => {
@@ -49,12 +50,26 @@ export default function ProfileScreen() {
   };
 
   const onSignOut = async () => {
+    setError(null);
+    setSigningOut(true);
     try {
       await signOut(supabase);
       router.replace('/(tabs)');
     } catch (err) {
       setError(t(mapErrorToKey(err)));
+    } finally {
+      setSigningOut(false);
     }
+  };
+
+  // Native confirm, same shape as PetApp's account settings: Cancel, then the
+  // destructive Sign out.
+  const confirmSignOut = () => {
+    if (signingOut) return;
+    Alert.alert(t('auth.signOut'), t('auth.signOutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('auth.signOut'), style: 'destructive', onPress: () => void onSignOut() },
+    ]);
   };
 
   const header = (
@@ -230,7 +245,7 @@ export default function ProfileScreen() {
             label={t('auth.signOut')}
             variant="secondary"
             size="medium"
-            onPress={() => void onSignOut()}
+            onPress={confirmSignOut}
             labelColor={colors.redtext}
             style={{ marginTop: space.m, backgroundColor: 'transparent' }}
           />
