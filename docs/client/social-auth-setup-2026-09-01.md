@@ -61,8 +61,9 @@ together.
   an independent read-only verification of both files). Pre-push counts: 15 profiles, **12 phone-less = 6 staff (exempt from 0059) + 6 test guests, 0 of whom hold a reservation**; 130 anonymous cafe users; 15 `email` identities, no apple/google yet. Hosted is at 0059; both
   function bodies verified on hosted via `pg_get_functiondef`.
 - **Nothing has been tested on a device.** No Expo/EAS project or Apple Developer team exists yet.
-  `apps/mobile/app.config.ts` still carries the
-  `owner` / `extra.eas.projectId` TODOs and `apps/mobile/eas.json` carries the real Google
+  **EAS project created 2026-09-01** (`eas init`): @parsa-mansouri/touchpadel, id `d9597f8e-79bb-4bc2-882e-c44c3a013045`, on Parsa's personal
+  Expo account (handover item — transferable to a Kagu org); `owner` + `extra.eas.projectId` are set in
+  `apps/mobile/app.config.ts`. `apps/mobile/eas.json` carries the real Google
   client ids since 2026-09-01 (Supabase staging values are still `REPLACE_*`).
 
 ## Owner inputs (needed before step 1; record the answers in `API.md` §8 — identifiers only)
@@ -615,8 +616,11 @@ Record the outcome of each row in HANDOFF (Day 11 or later) with the date; nothi
   setting; Web + iOS clients created on the second run (Prompt A′, same day; the dropped form had submitted
   nothing). Android waits for the EAS SHA-1. The plan's assumption that basic scopes let you publish with empty
   app-domain fields was wrong and is withdrawn.
-- **Set `owner` in `app.config.ts` BEFORE `eas init`.** Otherwise the EAS project binds to whoever runs
-  the command (mobile audit §2.2). The `owner` and `extra.eas.projectId` lines are still TODOs.
+- **The EAS project is on Parsa's personal account** (`parsa-mansouri`, created 2026-09-01 — the `owner`
+  line was set afterwards, exactly the trap mobile audit §2.2 warned about). Not blocking; transfer the
+  project to a Kagu org in expo.dev at handover and update `owner`. `eas init` cannot write into a `.ts`
+  config — the "project:init command failed" it prints after creating the project is cosmetic; paste the
+  id into `extra.eas.projectId` by hand (done).
 - **One Android OAuth client per signing key.** EAS keystore, Play App Signing key and any local debug
   keystore each need their own Android client in Google Cloud; `DEVELOPER_ERROR` almost always means a
   missing one (or the consent screen in Testing) — and so does a **cancel right after the account

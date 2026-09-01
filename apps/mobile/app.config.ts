@@ -59,8 +59,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'touchpadel',
   scheme: 'touchpadel',
   version: '0.1.0',
-  // TODO(eas init): `owner: '<kagu expo org slug>'` BEFORE the first `eas init`,
-  // or the project binds to whoever runs it (mobile audit §2.2).
+  // EAS project @parsa-mansouri/touchpadel, created by `eas init` on 2026-09-01 on
+  // Parsa's PERSONAL Expo account (the org question came before this line was set).
+  // Handover item: transfer the project to a Kagu org in expo.dev, then change this.
+  owner: 'parsa-mansouri',
   // Native only — no web target. Declared so 'expo export' does not demand
   // react-native-web, and so nothing accidentally ships a browser bundle.
   platforms: ['ios', 'android'],
@@ -97,6 +99,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // Social sign-in reads EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID / _IOS_CLIENT_ID the
     // same way; Apple needs no env at all.
     //
-    // TODO: eas.projectId once the EAS project is created (design-delivery.md W1).
+    // From `eas init` (2026-09-01): https://expo.dev/accounts/parsa-mansouri/projects/touchpadel
+    eas: { projectId: 'd9597f8e-79bb-4bc2-882e-c44c3a013045' },
   },
 });
