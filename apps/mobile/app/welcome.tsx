@@ -1,16 +1,17 @@
 import { Image, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { formatTime, isolate } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { clearPendingSlot, usePendingSlot } from '../../src/features/booking/pendingSlot';
-import { brand, radius, useTheme } from '../../src/theme';
-import { Button, useSafeBack } from '../../src/components/ui';
-import { PadelBallIcon } from '../../src/components/icons';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { clearPendingSlot, usePendingSlot } from '../src/features/booking/pendingSlot';
+import { brand, radius, useTheme } from '../src/theme';
+import { Button, useSafeBack } from '../src/components/ui';
+import { PadelBallIcon } from '../src/components/icons';
 
 const LOGO_H = 44;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
@@ -20,7 +21,7 @@ const LOGO_W = Math.round(LOGO_H * (900 / 332));
  * signed-out guest needs an account — usually having tapped a free slot, which
  * shows the held-for-you banner. "Keep browsing" clears the intent and returns.
  */
-export default function WelcomeScreen() {
+function WelcomeScreen() {
   const { t, locale, dir } = useLocale();
   const router = useRouter();
   const safeBack = useSafeBack();
@@ -60,7 +61,7 @@ export default function WelcomeScreen() {
 
       <View style={{ flex: 1, justifyContent: 'center', paddingStart: 26, paddingEnd: 26 }}>
         <Image
-          source={require('../../assets/logo-white.png')}
+          source={require('../assets/logo-white.png')}
           resizeMode="contain"
           style={{ height: LOGO_H, width: LOGO_W, alignSelf: 'flex-start' }}
           accessibilityLabel={t('common.appName')}
@@ -113,12 +114,12 @@ export default function WelcomeScreen() {
       <View style={{ paddingStart: 20, paddingEnd: 20, paddingBottom: 26 + insets.bottom, gap: 9 }}>
         <Button
           label={t('auth.signIn')}
-          onPress={() => router.push('/(auth)/sign-in')}
+          onPress={() => router.push('/sign-in')}
           variant="secondary"
           style={{ backgroundColor: brand.white, borderWidth: 0 }}
           labelColor={brand.welcomeInk}
         />
-        <Button label={t('auth.signUp')} onPress={() => router.push('/(auth)/sign-up')} variant="cta" />
+        <Button label={t('auth.signUp')} onPress={() => router.push('/sign-up')} variant="cta" />
         <Button
           label={t('auth.keepBrowsing')}
           onPress={() => {
@@ -131,5 +132,19 @@ export default function WelcomeScreen() {
         />
       </View>
     </LinearGradient>
+  );
+}
+
+/**
+ * Signed-out only, on the ROOT stack. The `(auth)` group carried this rule in
+ * its layout; flattening it is what lets UIKit draw its own back item here
+ * instead of a JS stand-in. See RequireNoSession for the pending-slot
+ * exemption that keeps the post-auth booking continuation working.
+ */
+export default function GuardedWelcomeScreen() {
+  return (
+    <RequireNoSession>
+      <WelcomeScreen />
+    </RequireNoSession>
   );
 }

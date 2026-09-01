@@ -35,6 +35,7 @@ import { configError, startAuthRefreshLifecycle } from '../src/lib/supabase';
 import { loadBootPrefs, reconcileRtl, reloadForRtl, type BootPrefs } from '../src/lib/bootPrefs';
 import { addBreadcrumb, captureException } from '../src/lib/telemetry';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
+import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { AuthProvider } from '../src/features/auth/context';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { ErrorState, OfflineBanner } from '../src/components/states';
@@ -44,7 +45,7 @@ import { palettes, ThemeProvider, useTheme } from '../src/theme';
 /**
  * `/` is owned by (tabs)/index.tsx. A separate app/index.tsx used to redirect
  * there, which made `/` ambiguous and cost a mount → redirect → mount flash on
- * every cold start. Deep links into (auth)/(gated) get the tabs beneath them.
+ * every cold start. Deep links into the pushed screens get the tabs beneath them.
  */
 export const unstable_settings = { initialRouteName: '(tabs)' };
 
@@ -115,13 +116,33 @@ function RootStack() {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
+  // Real native bars on every pushed screen. The tabs draw the native tab bar
+  // instead, and (auth) is a nested stack that configures its own.
+  const header = useNativeHeaderOptions();
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(gated)" />
+    <Stack screenOptions={header}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* Formerly the (auth) group. Flattened for the same reason as (gated):
+          a screen pushed from the tabs was the first entry of a nested stack,
+          so UIKit drew no back item and a JS stand-in had to fill in. Each
+          screen carries `RequireNoSession` in place of the layout's redirect. */}
+      <Stack.Screen name="welcome" options={{ headerShown: false }} />
+      <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+      <Stack.Screen name="verify-result" options={{ headerShown: false }} />
+      <Stack.Screen name="sign-in" />
+      <Stack.Screen name="sign-up" />
+      <Stack.Screen name="forgot-password" />
       <Stack.Screen name="availability" />
       <Stack.Screen name="settings" />
+      <Stack.Screen name="profile-edit" />
+      <Stack.Screen name="change-password" />
+      {/* Formerly the (gated) group, flattened onto the root stack so that
+          every push leaves real history behind it and UIKit draws its OWN back
+          item — the same one, animated, on every screen. Each carries its own
+          `RequireSession` in place of the group layout's guard. */}
+      <Stack.Screen name="review" />
+      <Stack.Screen name="booking/[id]" />
+      <Stack.Screen name="success" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" />
     </Stack>
   );

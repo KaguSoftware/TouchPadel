@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { supabase } from '../../src/lib/supabase';
-import { signIn } from '../../src/features/auth/api';
-import { linkErrorParam } from '../../src/features/auth/deepLink';
-import { usePostAuthContinue } from '../../src/features/booking/usePostAuthContinue';
-import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { space } from '../../src/theme';
+import { RequireNoSession } from '../src/features/auth/RequireNoSession';
+import { supabase } from '../src/lib/supabase';
+import { signIn } from '../src/features/auth/api';
+import { linkErrorParam } from '../src/features/auth/deepLink';
+import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
+import { mapErrorToKey } from '../src/features/booking/errors';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { space } from '../src/theme';
 import {
   Button,
   ErrorText,
@@ -15,17 +16,16 @@ import {
   FormScreen,
   LinkText,
   Screen,
-  ScreenHeader,
   Title,
-} from '../../src/components/ui';
-import { useToast } from '../../src/components/overlays';
+} from '../src/components/ui';
+import { useToast } from '../src/components/overlays';
 
 /**
  * Sign in (design 2026-08-31). Errors are distinguished (spec 05.4): invalid
  * credentials render on the password field, an unverified email forwards to
  * the verification screen, and a transport failure renders as such below.
  */
-export default function SignInScreen() {
+function SignInScreen() {
   const { t } = useLocale();
   const router = useRouter();
   const toast = useToast();
@@ -53,7 +53,7 @@ export default function SignInScreen() {
       if (/invalid login credentials/i.test(message)) {
         setPasswordError(t('auth.invalidCredentials'));
       } else if (/email not confirmed/i.test(message)) {
-        router.push({ pathname: '/(auth)/verify-email', params: { email } });
+        router.push({ pathname: '/verify-email', params: { email } });
       } else {
         setError(t(mapErrorToKey(err)));
       }
@@ -63,8 +63,7 @@ export default function SignInScreen() {
   };
 
   return (
-    <Screen gutter={20}>
-      <ScreenHeader />
+    <Screen gutter={20} edges={[]}>
       <FormScreen>
         <Title plain>{t('auth.signIn')}</Title>
         <Field
@@ -96,16 +95,30 @@ export default function SignInScreen() {
         />
         <LinkText
           label={t('auth.forgotPassword')}
-          onPress={() => router.push('/(auth)/forgot-password')}
+          onPress={() => router.push('/forgot-password')}
           style={{ marginTop: 12, paddingStart: 4 }}
         />
         <FooterLink
           lead={t('auth.newHereLead')}
           label={t('auth.createAccountLink')}
-          onPress={() => router.push('/(auth)/sign-up')}
+          onPress={() => router.push('/sign-up')}
           style={{ marginTop: 18 }}
         />
       </FormScreen>
     </Screen>
+  );
+}
+
+/**
+ * Signed-out only, on the ROOT stack. The `(auth)` group carried this rule in
+ * its layout; flattening it is what lets UIKit draw its own back item here
+ * instead of a JS stand-in. See RequireNoSession for the pending-slot
+ * exemption that keeps the post-auth booking continuation working.
+ */
+export default function GuardedSignInScreen() {
+  return (
+    <RequireNoSession>
+      <SignInScreen />
+    </RequireNoSession>
   );
 }
