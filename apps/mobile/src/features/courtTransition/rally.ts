@@ -86,6 +86,8 @@ export const PLAYERS: readonly Player[] = [
 /** One leg of the rally, seconds; four legs A(0) → D(3) → B(1) → C(2) → A … */
 export const LEG_SECONDS = 1.3;
 export const RALLY_ORDER = [0, 3, 1, 2] as const;
+/** One full loop of the rally: the four legs, back to A. */
+export const LOOP_SECONDS = LEG_SECONDS * RALLY_ORDER.length;
 /** Racket height: flat on the court in the top view, upright at chest height in the front view. */
 export const RACKET_Y = { flat: 0.75, standing: 1.55 } as const;
 export const BALL_RADIUS = 0.22;

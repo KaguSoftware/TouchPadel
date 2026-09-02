@@ -35,6 +35,7 @@ export const ar: Messages = {
     signIn: 'تسجيل الدخول',
     signUp: 'إنشاء حساب',
     signOut: 'تسجيل الخروج',
+    signOutConfirm: 'ستحتاج إلى تسجيل الدخول مرة أخرى لرؤية حجوزاتك.',
     // العقد: تسجيل الدخول بالبريد الإلكتروني وكلمة المرور — الدخول بالهاتف خارج نطاق المرحلة الأولى.
     emailLabel: 'البريد الإلكتروني',
     passwordLabel: 'كلمة المرور',
@@ -585,6 +586,10 @@ export const ar: Messages = {
     venue: 'المكان',
     versionLine: '{name} · الإصدار {version} ({build})',
     phoneUnavailable: 'لم ينشر المكان رقم هاتف بعد.',
+    // Shown full-screen while the app applies a new language and flips
+    // direction; the user is returned to this screen straight afterwards.
+    switchingTitle: 'جارٍ تغيير اللغة…',
+    switchingBody: 'لحظة واحدة — سنعيدك إلى حيث كنت تمامًا.',
   },
   cafe: {
     menu: 'قائمة الطعام',

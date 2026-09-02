@@ -136,7 +136,7 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
           // complete-profile from derived state — a second replace here would
           // re-key the route and remount the form, discarding anything typed.
           if (getPendingSlot() !== null) {
-            router.replace({ pathname: '/(auth)/complete-profile', params: { returnTo: 'continue' } });
+            router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
           }
           return;
         }

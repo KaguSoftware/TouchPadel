@@ -32,6 +32,9 @@ export const en = {
     signIn: 'Sign in',
     signUp: 'Create account',
     signOut: 'Sign out',
+    // Signing out is a deliberate act: a native alert confirms before dropping the
+    // session, matching PetApp's Cancel / destructive-Sign-out shape.
+    signOutConfirm: "You'll need to log back in to see your bookings.",
     // SOW: email + password with verification — phone/OTP login is out of scope for Phase 1.
     emailLabel: 'Email',
     passwordLabel: 'Password',
@@ -540,7 +543,7 @@ export const en = {
   },
   tabs: {
     book: 'Book',
-    bookings: 'Bookings',
+    bookings: 'My Bookings',
     profile: 'Profile',
   },
   profile: {
@@ -586,6 +589,10 @@ export const en = {
     venue: 'Venue',
     versionLine: '{name} · v{version} ({build})',
     phoneUnavailable: "The venue hasn't published a phone number yet.",
+    // Shown full-screen while the app applies a new language and flips
+    // direction; the user is returned to this screen straight afterwards.
+    switchingTitle: 'Changing language…',
+    switchingBody: 'One moment — we’ll bring you right back to where you were.',
   },
   cafe: {
     menu: 'Menu',

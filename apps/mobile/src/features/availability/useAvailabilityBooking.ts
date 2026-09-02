@@ -200,7 +200,7 @@ export function useAvailabilityBooking(
         courtNameAr: court?.name_ar ?? '',
         origin,
       });
-      router.push('/(auth)/welcome');
+      router.push('/welcome');
       return;
     }
     if (profileGate === 'incomplete') {
@@ -213,7 +213,7 @@ export function useAvailabilityBooking(
         courtNameAr: court?.name_ar ?? '',
         origin,
       });
-      router.push({ pathname: '/(auth)/complete-profile', params: { returnTo: 'continue' } });
+      router.push({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
       return;
     }
 
