@@ -1,32 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { Animated, ScrollView, View } from 'react-native';
+import { Text } from '../src/i18n/text';
+import { useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i18n';
+import { formatDate, formatDateTime, formatIQD, formatTimeRange, isolate } from '@touch/i18n';
+import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { useConfirmBooking } from '../src/features/booking/hooks';
+import { useConfirmBooking, useReleaseHold } from '../src/features/booking/hooks';
 import { secondsUntil } from '../src/features/booking/logic';
-import {
-  isDegradedRefusal,
-  mapErrorToKey,
-  rpcErrorCode,
-} from '../src/features/booking/errors';
+import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { venuePhoneOf } from '../src/features/availability/assemble';
 import { useAuth } from '../src/features/auth/context';
 import { profileGateState } from '../src/features/auth/social';
 import { useOwnProfile } from '../src/features/profile/hooks';
 import { brand, radius, space, useTheme } from '../src/theme';
-import {
-  Button,
-  Card,
-  DashedDivider,
-  ErrorText,
-  LinkText,
-  Screen,
-} from '../src/components/ui';
+import { Button, Card, DashedDivider, ErrorText, LinkText, Screen } from '../src/components/ui';
 import { PayAtDeskCard, SummaryGrid } from '../src/components/booking';
 import { ConfirmationDialog } from '../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../src/components/icons';
@@ -50,7 +41,8 @@ function ReviewScreen() {
     holdId?: string;
     expiresAt?: string;
     priceIqd?: string;
-    courtName?: string;
+    courtNameEn?: string;
+    courtNameAr?: string;
     startAt?: string;
     durationMin?: string;
     /** 'sheet' when the hold came from the Book tab's booking sheet (still mounted beneath). */
@@ -65,10 +57,16 @@ function ReviewScreen() {
   const startAt =
     typeof params.startAt === 'string' && params.startAt ? new Date(params.startAt) : null;
   const durationMin = params.durationMin ? Number(params.durationMin) : null;
-  const courtName = typeof params.courtName === 'string' ? params.courtName : '';
+  // Picked at render, so a language switch mid-checkout renames the court too.
+  // A blank name counts as missing, so the bilingual fallback still applies.
+  const courtNameEn = typeof params.courtNameEn === 'string' ? params.courtNameEn : '';
+  const courtNameAr = typeof params.courtNameAr === 'string' ? params.courtNameAr : '';
+  const courtName = pickLocale({ en: courtNameEn || undefined, ar: courtNameAr || undefined }, locale);
 
+  const navigation = useNavigation();
   const settings = useVenueSettings();
   const confirm = useConfirmBooking();
+  const release = useReleaseHold();
   // D3: no phone, no booking. The hold keeps ticking while the guest adds one;
   // useUpdateProfile's invalidation re-enables Reserve on return.
   const { session } = useAuth();
@@ -96,6 +94,46 @@ function ReviewScreen() {
     return () => clearInterval(id);
   }, [expiresAt, confirmed, expired]);
 
+  /**
+   * Give the slot back on the way out.
+   *
+   * The trigger is navigation's `beforeRemove` — the screen being POPPED off
+   * the stack (header arrow, Android back, back-swipe, or a replace) — and
+   * deliberately NOT a plain unmount effect. An unmount says nothing about the
+   * guest's intent: it also fires on Fast Refresh, and whenever (gated)/_layout
+   * swaps `<Stack>` for `<Loading>`/`<Redirect>` on a session change, which is
+   * a token refresh away at any moment. Releasing on those meant the guest
+   * could lose the hold while still sitting on this screen, mid-checkout.
+   *
+   * Missing an exit is the safe direction of failure — the hold then lasts its
+   * TTL, as it always did, and Bookings shows it with a Release button.
+   * Releasing a hold the guest is still using is not.
+   *
+   * `release.mutate` outliving this screen is fine: the mutation lives in the
+   * MutationCache, not in the tree. An already-expired hold is a no-op the RPC
+   * answers idempotently.
+   *
+   * `keepHold` is latched in onConfirm's onSuccess rather than derived from
+   * confirm.isSuccess: that handler navigates synchronously, so the removal can
+   * beat the re-render that would have set the flag, and we would be firing a
+   * release at a row that is now a confirmed BOOKING. (The RPC refuses that
+   * with NOT_A_HOLD, so the booking was never in danger — but it is not
+   * something to aim doomed writes at.) The render-time line only latches ON.
+   */
+  const releaseRef = useRef(release.mutate);
+  releaseRef.current = release.mutate;
+  const keepHoldRef = useRef(false);
+  if (confirmed) keepHoldRef.current = true;
+  const holdIdRef = useRef(holdId);
+  holdIdRef.current = holdId;
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', () => {
+        if (holdIdRef.current && !keepHoldRef.current) releaseRef.current(holdIdRef.current);
+      }),
+    [navigation],
+  );
+
   const pct =
     secondsLeft === null
       ? 100
@@ -120,13 +158,15 @@ function ReviewScreen() {
     setError(null);
     confirm.mutate(holdId, {
       onSuccess: (result) => {
+        keepHoldRef.current = true; // this hold is a booking now — never release it
         setDialogOpen(false);
         const id = result.reservation_id ?? holdId;
         router.replace({
           pathname: '/success',
           params: {
             reservationId: id,
-            courtName,
+            courtNameEn,
+            courtNameAr,
             startAt: params.startAt ?? '',
             durationMin: params.durationMin ?? '',
             priceIqd: String(result.price_iqd ?? price ?? ''),
@@ -140,7 +180,10 @@ function ReviewScreen() {
         if (isDegradedRefusal(message)) {
           const phone = venuePhoneOf(settings.data);
           setError(
-            phone ? t('degraded.bookingRefused', { phone }) : t('degraded.bookingRefusedShort'),
+            // Isolated: an RTL paragraph would otherwise reorder the number groups.
+            phone
+              ? t('degraded.bookingRefused', { phone: isolate(phone) })
+              : t('degraded.bookingRefusedShort'),
           );
         } else if (code === 'HOLD_EXPIRED') {
           setSecondsLeft(0);
@@ -323,7 +366,11 @@ function ReviewScreen() {
       >
         <Card>
           <Text
+            // Shrink-wrapped to the leading edge (logical, English unchanged): a
+            // court with no Arabic name is Latin-only in Arabic, which iOS's
+            // natural alignment would paint on the LEFT of the card.
             style={{
+              alignSelf: 'flex-start',
               fontFamily: fonts.display900,
               fontSize: 20,
               textTransform: 'uppercase',
@@ -337,39 +384,39 @@ function ReviewScreen() {
             rows={[
               ...(startAt
                 ? [
-                    {
-                      icon: CalendarIcon,
-                      label: t('booking.date'),
-                      value: formatDate(startAt, locale),
-                    },
-                    {
-                      icon: ClockIcon,
-                      label: t('booking.time'),
-                      value: endAt
-                        ? formatTimeRange(startAt, endAt, locale)
-                        : formatDateTime(startAt, locale),
-                    },
-                  ]
+                  {
+                    icon: CalendarIcon,
+                    label: t('booking.date'),
+                    value: formatDate(startAt, locale),
+                  },
+                  {
+                    icon: ClockIcon,
+                    label: t('booking.time'),
+                    value: endAt
+                      ? formatTimeRange(startAt, endAt, locale)
+                      : formatDateTime(startAt, locale),
+                  },
+                ]
                 : []),
               ...(durationMin
                 ? [
-                    {
-                      icon: StopwatchIcon,
-                      label: t('booking.duration'),
-                      value: t('booking.durationMinutes', { minutes: durationMin }),
-                    },
-                  ]
+                  {
+                    icon: StopwatchIcon,
+                    label: t('booking.duration'),
+                    value: t('booking.durationMinutes', { minutes: durationMin }),
+                  },
+                ]
                 : []),
               ...(Number.isInteger(price)
                 ? [
-                    {
-                      icon: TagIcon,
-                      label: t('booking.price'),
-                      value: formatIQD(price, locale),
-                      valueColor: colors.gtext,
-                      emphasis: true,
-                    },
-                  ]
+                  {
+                    icon: TagIcon,
+                    label: t('booking.price'),
+                    value: formatIQD(price, locale),
+                    valueColor: colors.gtext,
+                    emphasis: true,
+                  },
+                ]
                 : []),
             ]}
           />
@@ -460,7 +507,10 @@ function ReviewScreen() {
         visible={dialogOpen}
         title={t('booking.reserveDialogTitle')}
         body={t('booking.reserveDialogBody', {
-          court: courtName,
+          // Isolated: the court is the first token, and a Latin name (a court
+          // with no Arabic name) would otherwise turn the Arabic sentence into an
+          // LTR paragraph. The date and price carry the direction.
+          court: isolate(courtName),
           when: whenLine,
           price: Number.isInteger(price) ? formatIQD(price, locale) : '',
         })}

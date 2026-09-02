@@ -11,7 +11,6 @@
  */
 import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { pickLocale } from '@touch/core';
 import { useLocale } from '../../i18n/LocaleProvider';
 import { useToast } from '../../components/overlays';
 import { useHoldSlot } from './hooks';
@@ -19,7 +18,7 @@ import { clearPendingSlot, getPendingSlot } from './pendingSlot';
 
 export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy: boolean } {
   const router = useRouter();
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const toast = useToast();
   const hold = useHoldSlot();
   const { mutate, isPending } = hold;
@@ -42,7 +41,9 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
               // '' = no deadline (duplicate replay); Review shows no countdown.
               expiresAt: result.holdExpiresAt ?? '',
               priceIqd: String(result.priceIqd ?? pending.priceIqd ?? ''),
-              courtName: pickLocale({ en: pending.courtNameEn, ar: pending.courtNameAr }, locale),
+              // Both names: Review picks at render (a switch mid-checkout renames it).
+              courtNameEn: pending.courtNameEn,
+              courtNameAr: pending.courtNameAr,
               startAt: pending.startAt,
               durationMin: String(pending.durationMin),
             },
@@ -60,7 +61,7 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
         onSettled: () => clearPendingSlot(),
       },
     );
-  }, [mutate, router, t, locale, toast]);
+  }, [mutate, router, t, toast]);
 
   return { continueAfterAuth, holdBusy: isPending };
 }

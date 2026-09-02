@@ -12,7 +12,8 @@
  * a branch again.
  */
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Text, View } from 'react-native';
+import { Animated, Easing, View } from 'react-native';
+import { Text } from '../i18n/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brand, radius, space, useTheme } from '../theme';
 import { Button } from './ui';

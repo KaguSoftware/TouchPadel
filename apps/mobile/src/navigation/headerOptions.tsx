@@ -15,7 +15,6 @@
  * Call it inside a Stack's parent — it is theme- and locale-aware.
  */
 import { useMemo } from 'react';
-import { I18nManager, Platform } from 'react-native';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useTheme } from '../theme';
 
@@ -43,24 +42,6 @@ export function useNativeHeaderOptions() {
   // top and bottom. Give it a touch less size and an explicit line box.
   const arabic = dir === 'rtl';
 
-  // TEMP DIAGNOSTIC (remove once the Arabic chevron is confirmed): prints the
-  // values that actually decide whether UIKit draws its back item.
-  if (__DEV__) {
-    // eslint-disable-next-line no-console
-    console.log('[backprobe]', JSON.stringify({
-      dir,
-      backLabel,
-      tint,
-      iosVersion: String(Platform.Version),
-      nativeIsRTL: I18nManager.isRTL,
-      nativeConstIsRTL: I18nManager.getConstants().isRTL,
-      titleFont: fonts.display800,
-      // The glyph is drawn only when UIKit owns the back item. These are the
-      // props that decide that, per useHeaderConfigProps.
-      backDisplayMode: 'default',
-      backTitleSet: true,
-    }));
-  }
   return useMemo(
     () => ({
       // Blank unless a screen sets its own, so a screen whose title has not

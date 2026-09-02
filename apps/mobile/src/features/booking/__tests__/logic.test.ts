@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../errors';
-import { canCancel, parseHoldResult, secondsUntil, splitBookings, type BookingRow } from '../logic';
+import {
+  canCancel,
+  isLiveHold,
+  parseHoldResult,
+  secondsUntil,
+  splitBookings,
+  type BookingRow,
+} from '../logic';
 
 describe('error mapping', () => {
   it('maps RPC codes to i18n keys', () => {
@@ -12,6 +19,11 @@ describe('error mapping', () => {
     expect(mapErrorToKey(new Error('NO_RATE'))).toBe('booking.noRate');
     expect(mapErrorToKey(new Error('SLOT_IN_PAST'))).toBe('booking.slotInPast');
     expect(mapErrorToKey(new Error('PIN_INVALID'))).toBe('auth.pinInvalid');
+    // 0048/C1 + 0058 — all four used to fall through to 'errors.generic'.
+    expect(mapErrorToKey(new Error('HOLD_QUOTA_EXCEEDED'))).toBe('booking.holdQuota');
+    expect(mapErrorToKey(new Error('BEYOND_HORIZON'))).toBe('booking.beyondHorizon');
+    expect(mapErrorToKey(new Error('ACCOUNT_REQUIRED'))).toBe('booking.accountRequired');
+    expect(mapErrorToKey(new Error('NOT_A_HOLD'))).toBe('booking.notAHold');
   });
 
   it('finds codes embedded in longer messages', () => {
@@ -100,7 +112,7 @@ const row = (over: Partial<BookingRow>): BookingRow => ({
 describe('splitBookings', () => {
   const now = new Date('2026-09-01T12:00:00Z');
 
-  it('splits live-future into upcoming, terminal/ended into past, hides holds', () => {
+  it('splits live-future into upcoming, terminal/ended into past, holds into their own list', () => {
     const rows = [
       row({ id: 'up', status: 'confirmed' }),
       row({ id: 'cancelled', status: 'cancelled' }),
@@ -110,11 +122,39 @@ describe('splitBookings', () => {
         start_at: '2026-08-30T10:00:00Z',
         end_at: '2026-08-30T11:00:00Z',
       }),
-      row({ id: 'hold', kind: 'hold', status: 'pending' }),
+      row({
+        id: 'hold',
+        kind: 'hold',
+        status: 'pending',
+        hold_expires_at: '2026-09-01T12:04:00Z',
+      }),
     ];
-    const { upcoming, past } = splitBookings(rows, now);
+    const { holds, upcoming, past } = splitBookings(rows, now);
+    expect(holds.map((r) => r.id)).toEqual(['hold']);
     expect(upcoming.map((r) => r.id)).toEqual(['up']);
     expect(past.map((r) => r.id)).toEqual(['cancelled', 'ended']);
+  });
+
+  /**
+   * The bug this section exists for: a guest with three abandoned holds saw an
+   * empty Bookings tab and an unexplained HOLD_QUOTA_EXCEEDED on the fourth tap.
+   */
+  it('surfaces every live hold, soonest first, and nothing that is spent', () => {
+    const hold = (id: string, over: Partial<BookingRow>) =>
+      row({ id, kind: 'hold', status: 'pending', hold_expires_at: '2026-09-01T12:05:00Z', ...over });
+    const rows = [
+      hold('h2', { start_at: '2026-09-02T14:00:00Z', end_at: '2026-09-02T15:00:00Z' }),
+      hold('h1', { start_at: '2026-09-02T10:00:00Z', end_at: '2026-09-02T11:00:00Z' }),
+      hold('swept', { status: 'expired' }),
+      hold('released', { status: 'cancelled' }),
+      hold('past-ttl', { hold_expires_at: '2026-09-01T11:59:00Z' }),
+      hold('no-ttl', { hold_expires_at: null }),
+    ];
+    const { holds, upcoming, past } = splitBookings(rows, now);
+    expect(holds.map((r) => r.id)).toEqual(['h1', 'h2']);
+    // A hold is never a booking to look back on, live or spent.
+    expect(upcoming).toEqual([]);
+    expect(past).toEqual([]);
   });
 
   it('orders upcoming soonest-first and past most-recent-first', () => {
@@ -127,6 +167,22 @@ describe('splitBookings', () => {
     const { upcoming, past } = splitBookings(rows, now);
     expect(upcoming.map((r) => r.id)).toEqual(['a', 'b']);
     expect(past.map((r) => r.id)).toEqual(['old2', 'old1']);
+  });
+});
+
+describe('isLiveHold', () => {
+  const now = new Date('2026-09-01T12:00:00Z');
+  const hold = (over: Partial<BookingRow>) =>
+    row({ kind: 'hold', status: 'pending', hold_expires_at: '2026-09-01T12:05:00Z', ...over });
+
+  it('is true only for an unconfirmed hold whose TTL is still running', () => {
+    expect(isLiveHold(hold({}), now)).toBe(true);
+    // Still 'pending' in the table until the sweep runs — but gone for the guest.
+    expect(isLiveHold(hold({ hold_expires_at: '2026-09-01T11:59:59Z' }), now)).toBe(false);
+    expect(isLiveHold(hold({ status: 'expired' }), now)).toBe(false);
+    expect(isLiveHold(hold({ hold_expires_at: null }), now)).toBe(false);
+    expect(isLiveHold(hold({ hold_expires_at: 'not-a-date' }), now)).toBe(false);
+    expect(isLiveHold(row({ status: 'confirmed' }), now)).toBe(false);
   });
 });
 
