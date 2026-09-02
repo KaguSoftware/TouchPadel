@@ -148,10 +148,7 @@ export function Title({
   const lineHeight = Math.round(size * (dir === 'rtl' ? 1.45 : 1.05));
   const rtl = dir === 'rtl';
   return (
-    // `alignItems` carries the SQUIGGLE, which is a fixed-width child and would
-    // otherwise sit against the physical left under Arabic — the title text
-    // above it moving right while its underline stayed behind.
-    <View style={{ marginBottom: plain ? 0 : space.s, alignItems: rtl ? 'flex-end' : 'flex-start' }}>
+    <View style={{ marginBottom: plain ? 0 : space.s }}>
       <Text
         style={{
           fontFamily: fonts.display900,
@@ -167,14 +164,18 @@ export function Title({
           // physical left and every Arabic page header read LTR. A title that
           // wraps must also align its second line to the right.
           textAlign: rtl ? 'right' : 'left',
-          // Stretch to the parent so `textAlign` has a box to align within —
-          // `alignItems: flex-end` alone shrink-wraps the Text to its content.
-          alignSelf: 'stretch',
         }}
       >
         {children}
       </Text>
-      {squiggle && !plain ? <TitleSquiggle /> : null}
+      {/* A fixed-width SVG. `textAlign` aligns GLYPHS inside a text box and
+          does not reach a sibling view, so the squiggle needs its own
+          full-width row to be carried to the heading's edge. */}
+      {squiggle && !plain ? (
+        <View style={{ alignItems: rtl ? 'flex-end' : 'flex-start' }}>
+          <TitleSquiggle />
+        </View>
+      ) : null}
     </View>
   );
 }
