@@ -32,7 +32,9 @@
  *     (onSurfaceTextureDestroyed → a NEW context), independently of the other,
  *     so attaching a context is idempotent per surface; the scene is shared.
  *   · No context / a build failure → `onUnavailable` and the caller shows the
- *     flat SVG court instead. Telemetry records it.
+ *     flat SVG court instead. Telemetry records it. A binary without the
+ *     expo-gl native module (a dev client built before expo-gl was added) →
+ *     the same fallback, decided at import time below.
  *   · Low-end phones (quality.ts, decided once from expo-device) get the
  *     `lite` scene: no shadow pass, no ball trail, 2× MSAA instead of 4×.
  *     The `quality` prop overrides the detection.
@@ -72,7 +74,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
+import { requireOptionalNativeModule } from 'expo';
+import type { ExpoWebGLRenderingContext, GLView as GLViewComponent } from 'expo-gl';
 import { useFocusEffect } from 'expo-router';
 import * as THREE from 'three';
 import { detectCourtQuality } from '../features/courtTransition/deviceQuality';
@@ -82,6 +85,23 @@ import { LOOP_SECONDS, nextLegStart } from '../features/courtTransition/rally';
 import { pitchEase, type Dir } from '../features/courtTransition/spec';
 import { addBreadcrumb, captureException } from '../lib/telemetry';
 import { useTheme } from '../theme';
+
+/**
+ * expo-gl resolves its native module at import time (GLView.js top level), so a
+ * bare `import { GLView }` crashes this whole route module on any binary built
+ * before expo-gl was added (a stale dev client) — expo-router then reports the
+ * route as "missing the required default export" and the Book tab is dead.
+ * Probe the native module first: when it is missing, GLView stays null, the
+ * mount effect below fires `onUnavailable` and the caller shows the flat SVG
+ * court. Metro still bundles expo-gl either way; the require just never runs
+ * where it cannot evaluate.
+ */
+const GLView: typeof GLViewComponent | null = requireOptionalNativeModule(
+  'ExponentGLObjectManager',
+)
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require('expo-gl') as { GLView: typeof GLViewComponent }).GLView
+  : null;
 
 export interface Court3DHandle {
   /** Activity elsewhere (a touch in the sheet): restart the idle clock and play on if held. */
@@ -357,6 +377,14 @@ export function Court3D({
     return () => sub.remove();
   }, []);
 
+  // Stale binary (no ExponentGLObjectManager): tell the caller once, on mount —
+  // the same path an attach() failure takes — and render nothing meanwhile.
+  useEffect(() => {
+    if (GLView) return;
+    captureException(new Error('expo-gl native module missing'), { label: 'court3d.unavailable' });
+    unavailableCb.current?.();
+  }, []);
+
   // Run the loop only while visible (coming back counts as activity, so a held
   // rally plays on); reduced motion draws on demand instead and never holds.
   const live = ready && focused && active;
@@ -402,6 +430,8 @@ export function Court3D({
     },
     [stopLoop, teardown],
   );
+
+  if (!GLView) return null;
 
   // The surfaces are pictures: no touches (the button between them takes its
   // own, and the lifted ball surface must never swallow the back button's taps)

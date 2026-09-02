@@ -150,3 +150,16 @@ describe('social sign-in library boundary', () => {
     ]);
   });
 });
+
+describe('expo-gl import boundary (the stale-binary crash)', () => {
+  // expo-gl resolves its native module at import time, so a bare value import
+  // kills the whole (tabs)/index route module on any binary built before
+  // expo-gl existed — seen 2026-09-02 as "Cannot find native module
+  // 'ExponentGLObjectManager'" plus a bogus "missing the required default
+  // export". Court3D must probe the native module and require optionally.
+  it('Court3D never value-imports expo-gl; the component is resolved optionally', () => {
+    const src = readFileSync(join(here, '../../components/Court3D.tsx'), 'utf8');
+    expect(src).not.toMatch(/^import\s+\{[^}]*\bGLView\b[^}]*\}\s+from 'expo-gl'/m);
+    expect(src).toMatch(/requireOptionalNativeModule\(\s*'ExponentGLObjectManager',?\s*\)/);
+  });
+});
