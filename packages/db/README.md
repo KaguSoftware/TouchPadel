@@ -15,7 +15,7 @@ supabase/migrations/         20260824000001..08 — extensions, enums/domains, a
                              reservations (exclusion constraint + booking RPCs)
 supabase/seed.sql            environment-invariant reference data (settings, tax groups,
                              allergens, one dev staff account per role)
-fixtures/courts.sql          REPLACEABLE fixture business data (4 courts + rate rules)
+fixtures/courts.sql          REPLACEABLE fixture business data (2 courts + rate rules)
 src/index.ts                 package entry; idempotency-key/client-ref helpers
 src/types.gen.ts             generated types (placeholder until Docker runs)
 tests/concurrency.test.ts    CONTRACTUAL booking concurrency suite (§6.1 cases 1–7)

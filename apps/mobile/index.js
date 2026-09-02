@@ -17,4 +17,11 @@
 // must evaluate BEFORE anything that can reach @touch/core.
 // Guarded by src/lib/__tests__/reliability.test.ts ("entry order").
 import 'react-native-get-random-values';
+import { pinNativeRootLtr } from './src/i18n/nativeDirection';
 import 'expo-router/entry';
+
+// The native RTL flag is held LTR for the app's whole life: layout direction is
+// app state (src/i18n/direction.tsx), applied live, and the flag would only add
+// a second, boot-time direction the bundle cannot observe. Runs before anything
+// renders (native starts the app only once the bundle has evaluated).
+pinNativeRootLtr();

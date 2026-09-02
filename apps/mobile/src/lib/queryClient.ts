@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { QueryCache, QueryClient, MutationCache, focusManager, onlineManager } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import { isTransportError } from './network';
-import { addBreadcrumb, captureException } from './telemetry';
+import { errorMessageOf, isTransportError } from './network';
+import { addBreadcrumb, captureException, captureMessage } from './telemetry';
 
 /**
  * The whole query layer used to be four lines: `{ staleTime: 30_000, retry: 1 }`.
@@ -46,17 +46,51 @@ export function startFocusLifecycle(): () => void {
 }
 
 /**
+ * A raised app.* code (SLOT_TAKEN, DEGRADED_LOCKOUT, FORBIDDEN, …). PostgREST
+ * surfaces `raise exception 'CODE'` as the error MESSAGE.
+ *
+ * Read through errorMessageOf: supabase-js rejects with a plain PostgrestError
+ * OBJECT, not an Error, so the old `error instanceof Error ? … : String(error)`
+ * saw '[object Object]' for every RPC refusal — no code ever matched, and each
+ * one was retried once before the screen could show a decision the server had
+ * already made.
+ */
+function isAppRefusal(error: unknown): boolean {
+  const message = errorMessageOf(error);
+  return message !== null && /^[A-Z][A-Z0-9_]{3,}$/m.test(message.trim());
+}
+
+/**
  * A Supabase RPC business error is a decision, not a blip — retrying it just
  * burns time before showing the user the same message. Retry transport
  * failures (lib/network.ts) and server faults only.
  */
 function isRetriable(error: unknown): boolean {
   if (isTransportError(error)) return true;
-  const message = error instanceof Error ? error.message : String(error ?? '');
+  const message = errorMessageOf(error) ?? '';
   // PostgREST/PostgREST-adjacent server faults are worth one more go.
   if (/\b(5\d\d)\b/.test(message)) return true;
   // Anything that reads like a raised app code (SLOT_TAKEN, FORBIDDEN, …) is final.
-  return !/^[A-Z][A-Z0-9_]{3,}$/m.test(message);
+  return !isAppRefusal(error);
+}
+
+/**
+ * Central failure logging — previously nothing anywhere logged a failed query.
+ *
+ * A raised app code is a DECISION the screen already renders to the guest
+ * (booking/errors.ts maps every one of them), not a fault: reporting it as an
+ * exception buries real crashes in the reporter, and in DEV threw the red
+ * LogBox "Console Error" dialog over a booking screen that was calmly showing
+ * the reason — which is how a desk-only slot refused with DEGRADED_LOCKOUT
+ * looked like a crash. Still recorded, as a warning, so the breadcrumb trail
+ * keeps it.
+ */
+function reportFailure(error: unknown, context: Record<string, unknown>): void {
+  if (isAppRefusal(error)) {
+    captureMessage(errorMessageOf(error) ?? 'rpc refusal', 'warning', context);
+    return;
+  }
+  captureException(error, context);
 }
 
 export const queryClient = new QueryClient({
@@ -79,14 +113,12 @@ export const queryClient = new QueryClient({
       networkMode: 'offlineFirst',
     },
   },
-  // Central failure logging — previously nothing anywhere logged a failed query.
   queryCache: new QueryCache({
-    onError: (error, query) =>
-      captureException(error, { scope: 'query', queryKey: query.queryKey }),
+    onError: (error, query) => reportFailure(error, { scope: 'query', queryKey: query.queryKey }),
   }),
   mutationCache: new MutationCache({
     onError: (error, _vars, _ctx, mutation) =>
-      captureException(error, { scope: 'mutation', mutationKey: mutation.options.mutationKey }),
+      reportFailure(error, { scope: 'mutation', mutationKey: mutation.options.mutationKey }),
   }),
 });
 

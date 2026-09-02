@@ -526,6 +526,10 @@ export type Database = {
         Args: { p_reason?: string; p_text: string }
         Returns: string
       }
+      release_hold: {
+        Args: { p_reservation_id: string }
+        Returns: Json
+      }
       rename_staff: {
         Args: { p_display_name: string; p_staff_id: string }
         Returns: Json

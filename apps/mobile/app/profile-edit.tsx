@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '../src/i18n/text';
 import { Stack, useNavigation } from 'expo-router';
 import type { NavigationAction } from '@react-navigation/routers';
 import { isolate } from '@touch/i18n';
@@ -9,14 +10,7 @@ import { RequireSession } from '../src/features/auth/RequireSession';
 import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { radius, space, useTheme } from '../src/theme';
-import {
-  Button,
-  ErrorText,
-  Field,
-  FormScreen,
-  Screen,
-  useSafeBack,
-} from '../src/components/ui';
+import { Button, ErrorText, Field, FormScreen, Screen, useSafeBack } from '../src/components/ui';
 import { ConfirmationDialog, useToast } from '../src/components/overlays';
 import { SkeletonList } from '../src/components/states';
 

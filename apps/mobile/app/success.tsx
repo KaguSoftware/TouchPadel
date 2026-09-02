@@ -1,14 +1,22 @@
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { Text } from '../src/i18n/text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i18n';
+import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { brand, radius, space, useTheme } from '../src/theme';
 import { Button } from '../src/components/ui';
 import { SummaryGrid } from '../src/components/booking';
-import { CalendarIcon, CheckIcon, ClockIcon, StopwatchIcon, TagIcon } from '../src/components/icons';
+import {
+  CalendarIcon,
+  CheckIcon,
+  ClockIcon,
+  StopwatchIcon,
+  TagIcon,
+} from '../src/components/icons';
 import { displayRef } from '../src/features/booking/logic';
 
 /**
@@ -22,14 +30,23 @@ function SuccessScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     reservationId?: string;
-    courtName?: string;
+    courtNameEn?: string;
+    courtNameAr?: string;
     startAt?: string;
     durationMin?: string;
     priceIqd?: string;
   }>();
 
   const reservationId = typeof params.reservationId === 'string' ? params.reservationId : '';
-  const courtName = typeof params.courtName === 'string' ? params.courtName : '';
+  // Picked at render, so a language switch on this screen renames the court too.
+  // A blank name counts as missing, so the bilingual fallback still applies.
+  const courtName = pickLocale(
+    {
+      en: (typeof params.courtNameEn === 'string' && params.courtNameEn) || undefined,
+      ar: (typeof params.courtNameAr === 'string' && params.courtNameAr) || undefined,
+    },
+    locale,
+  );
   const startAt =
     typeof params.startAt === 'string' && params.startAt ? new Date(params.startAt) : null;
   const durationMin = params.durationMin ? Number(params.durationMin) : null;
@@ -99,7 +116,11 @@ function SuccessScreen() {
           }}
         >
           <Text
+            // Shrink-wrapped to the leading edge (logical, English unchanged): a
+            // court with no Arabic name is Latin, which iOS's natural alignment
+            // would otherwise put on the trailing edge under RTL.
             style={{
+              alignSelf: 'flex-start',
               fontFamily: fonts.display800,
               fontSize: 16,
               textTransform: 'uppercase',

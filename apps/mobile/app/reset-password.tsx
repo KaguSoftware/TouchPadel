@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { updatePassword } from '../src/features/auth/api';
@@ -7,15 +8,7 @@ import { useAuth } from '../src/features/auth/context';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../src/theme';
-import {
-  Button,
-  ErrorText,
-  Field,
-  FormScreen,
-  Hint,
-  Screen,
-  Title,
-} from '../src/components/ui';
+import { Button, ErrorText, Field, FormScreen, Hint, Screen, Title } from '../src/components/ui';
 
 /** How long we give the recovery link's session exchange before calling the link dead. */
 const LINK_GRACE_MS = 4000;
