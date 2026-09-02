@@ -15,9 +15,16 @@
  *   scroll edges: 14 / 22 px fades on the pills, 12 / 28 px on the grid; the
  *   leading fade only once scrolled.
  * Frosted: iOS blurs the court behind (expo-blur) under a 35 % tint; Android
- * draws the tint flat at 94 % — the tab bar's own convention.
+ * draws the tint flat at 94 % — the tab bar's own convention. The blur view
+ * itself never sits under an animated opacity (a UIVisualEffectView beneath
+ * an alpha < 1 ancestor does not render its blur until alpha hits 1, which
+ * would pop it in at p = 0.45): the card's transform lives on the outer view
+ * and only the tint, border and content fade in inside it.
+ *
+ * On a short phone the card caps itself to the stage and the grid shrinks
+ * (min 120 pt) instead of the card overflowing under the title or tab bar.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Animated,
   Platform,
@@ -44,7 +51,7 @@ import {
   type Dir,
   type Range,
 } from '../features/courtTransition/spec';
-import { brand, space, useTheme } from '../theme';
+import { brand, shadows, space, useTheme } from '../theme';
 import { Button, ErrorText, SegmentedControl } from './ui';
 import { DayChip, SlotCell } from './booking';
 import { SkeletonList } from './states';
@@ -73,7 +80,12 @@ interface Entrance {
 }
 
 /** Linear fade + rise (+ scale) over one slice of p. */
-function entrance(progress: Animated.Value, range: Range, rise: number, scaleFrom: number): Entrance {
+function entrance(
+  progress: Animated.Value,
+  range: Range,
+  rise: number,
+  scaleFrom: number,
+): Entrance {
   const table = (out: Range) =>
     progress.interpolate({ ...sampleEased(range, out, undefined, 1), extrapolate: 'clamp' });
   return { opacity: table([0, 1]), translateY: table([rise, 0]), scale: table([scaleFrom, 1]) };
@@ -127,16 +139,30 @@ export interface BookingSheetProps {
   direction: Dir;
   /** Space to leave for the floating tab bar, so the card centres in what is visible. */
   bottomInset: number;
+  /** The target state: the card takes touches only while the sheet is meant to be open. */
+  isOpen: boolean;
+  /** A hold call is in flight — the caller keeps the sheet mounted and the back button idle. */
+  onBusyChange?: (busy: boolean) => void;
 }
 
-export function BookingSheet({ progress, direction, bottomInset }: BookingSheetProps) {
+export function BookingSheet({
+  progress,
+  direction,
+  bottomInset,
+  isOpen,
+  onBusyChange,
+}: BookingSheetProps) {
   const { t, locale, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const rtl = dir === 'rtl';
   const dark = appearance === 'dark';
-  const a = useAvailabilityBooking();
-  const [containerW, setContainerW] = useState(0);
-  const cardW = Math.min(CARD_MAX_W, Math.max(0, containerW - 40));
+  const a = useAvailabilityBooking({ origin: 'sheet' });
+  const [container, setContainer] = useState({ width: 0, height: 0 });
+  const cardW = Math.min(CARD_MAX_W, Math.max(0, container.width - 40));
+  const cardMaxH = Math.max(0, container.height - 24);
+  useEffect(() => {
+    onBusyChange?.(a.holdPending);
+  }, [a.holdPending, onBusyChange]);
   const [pillsAtStart, setPillsAtStart] = useState(true);
   const [gridAtTop, setGridAtTop] = useState(true);
 
@@ -155,7 +181,10 @@ export function BookingSheet({ progress, direction, bottomInset }: BookingSheetP
   // Staggers are linear, so they depend only on how many pills there are.
   const pillCount = a.tzDates.length;
   const pills = useMemo(
-    () => Array.from({ length: pillCount + 1 }, (_, i) => entrance(progress, pillSlice(i), SPEC.pills.y, 1)),
+    () =>
+      Array.from({ length: pillCount + 1 }, (_, i) =>
+        entrance(progress, pillSlice(i), SPEC.pills.y, 1),
+      ),
     [progress, pillCount],
   );
   const rows = useMemo(
@@ -167,13 +196,24 @@ export function BookingSheet({ progress, direction, bottomInset }: BookingSheetP
   );
 
   // Frosted glass: blur + tint on iOS, a near-opaque tint on Android.
-  const glass = Platform.OS === 'ios' ? withAlpha(colors.bg, dark ? 0.45 : 0.35) : withAlpha(colors.bg, 0.94);
-  const fade = Platform.OS === 'ios' ? withAlpha(colors.bg, dark ? 0.9 : 0.85) : withAlpha(colors.bg, 0.97);
+  const glass =
+    Platform.OS === 'ios' ? withAlpha(colors.bg, dark ? 0.45 : 0.35) : withAlpha(colors.bg, 0.94);
+  const fade =
+    Platform.OS === 'ios' ? withAlpha(colors.bg, dark ? 0.9 : 0.85) : withAlpha(colors.bg, 0.97);
   const glassLine = withAlpha(brand.white, dark ? 0.14 : 0.55);
-  const shadow = dark ? '0 20 50 rgba(0,0,0,0.45)' : '0 20 50 rgba(27,42,71,0.2)';
+  const shadow = dark ? shadows.sheetDark : shadows.sheet;
 
-  const onPillsScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) =>
-    setPillsAtStart(Math.abs(e.nativeEvent.contentOffset.x) < 2);
+  const onPillsScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    // iOS reports a logical offset under RTL; Android reports the physical
+    // scrollX (offsets from the right edge), so the logical start reads as the
+    // maximum there.
+    const x =
+      rtl && Platform.OS === 'android'
+        ? contentSize.width - layoutMeasurement.width - contentOffset.x
+        : contentOffset.x;
+    setPillsAtStart(Math.abs(x) < 2);
+  };
   const onGridScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) =>
     setGridAtTop(e.nativeEvent.contentOffset.y < 2);
 
@@ -188,7 +228,13 @@ export function BookingSheet({ progress, direction, bottomInset }: BookingSheetP
     grid = (
       <View
         accessibilityRole="alert"
-        style={{ alignItems: 'center', gap: space.s, paddingStart: PAD, paddingEnd: PAD, paddingTop: space.sm }}
+        style={{
+          alignItems: 'center',
+          gap: space.s,
+          paddingStart: PAD,
+          paddingEnd: PAD,
+          paddingTop: space.sm,
+        }}
       >
         <Text
           style={{
@@ -213,7 +259,14 @@ export function BookingSheet({ progress, direction, bottomInset }: BookingSheetP
     );
   } else if (a.closedDay) {
     grid = (
-      <View style={{ alignItems: 'center', paddingStart: PAD + 6, paddingEnd: PAD + 6, paddingTop: space.l }}>
+      <View
+        style={{
+          alignItems: 'center',
+          paddingStart: PAD + 6,
+          paddingEnd: PAD + 6,
+          paddingTop: space.l,
+        }}
+      >
         <Text
           style={{
             fontFamily: fonts.display900,
@@ -298,7 +351,12 @@ export function BookingSheet({ progress, direction, bottomInset }: BookingSheetP
   return (
     <View
       pointerEvents="box-none"
-      onLayout={(e) => setContainerW(e.nativeEvent.layout.width)}
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        setContainer((prev) =>
+          prev.width === width && prev.height === height ? prev : { width, height },
+        );
+      }}
       style={{
         position: 'absolute',
         top: 0,
@@ -311,135 +369,168 @@ export function BookingSheet({ progress, direction, bottomInset }: BookingSheetP
     >
       {cardW > 0 ? (
         <Animated.View
+          pointerEvents={isOpen ? 'auto' : 'none'}
           style={{
             width: cardW,
+            maxHeight: cardMaxH,
             borderRadius: CARD_RADIUS,
             boxShadow: shadow,
-            opacity: sheet.opacity,
             transform: [{ translateY: sheet.translateY }, { scale: sheet.scale }],
           }}
         >
-          <View
-            style={{
-              borderRadius: CARD_RADIUS,
-              overflow: 'hidden',
-              borderWidth: 1,
-              borderColor: glassLine,
-              paddingTop: 2,
-              paddingBottom: 4,
-            }}
-          >
+          <View style={{ flexShrink: 1, borderRadius: CARD_RADIUS, overflow: 'hidden' }}>
             {Platform.OS === 'ios' ? (
-              <BlurView intensity={50} tint={dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-            ) : null}
-            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: glass }]} />
-
-            <Text
-              accessibilityRole="header"
-              style={{
-                paddingStart: 14,
-                paddingEnd: 14,
-                paddingTop: 14,
-                paddingBottom: 2,
-                fontFamily: fonts.display900,
-                fontSize: 17,
-                lineHeight: 18,
-                textTransform: 'uppercase',
-                color: colors.ink,
-              }}
-            >
-              {t('booking.pickTime')}
-            </Text>
-
-            {/* Day pills (one = one trading night), ~6 visible, the rest scroll */}
-            <View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                onScroll={onPillsScroll}
-                scrollEventThrottle={32}
-                contentContainerStyle={{ gap: 4, paddingStart: PAD, paddingEnd: PAD, paddingTop: 6 }}
-              >
-                {a.tzDates.map((d, i) => {
-                  const noon = wallTimeToUtc(d, 12 * 60, a.tz);
-                  const e = pills[i]!;
-                  return (
-                    <Animated.View
-                      key={d}
-                      style={{ opacity: e.opacity, transform: [{ translateY: e.translateY }] }}
-                    >
-                      <DayChip
-                        compact
-                        dow={formatWeekdayShort(noon, locale, a.tz)}
-                        dayNum={formatDayNumber(noon, locale, a.tz)}
-                        selected={d === a.date}
-                        closed={a.isClosedDate(d)}
-                        closedLabel={t('booking.closedChip')}
-                        onPress={() => a.selectDate(d)}
-                      />
-                    </Animated.View>
-                  );
-                })}
-              </ScrollView>
-              <EdgeFade axis="x" edge="start" size={FADES.pillsStart} color={fade} rtl={rtl} visible={!pillsAtStart} />
-              <EdgeFade axis="x" edge="end" size={FADES.pillsEnd} color={fade} rtl={rtl} />
-            </View>
-
-            {/* Duration picker enters with the last pill */}
-            <Animated.View
-              style={{
-                marginTop: 8,
-                paddingStart: PAD,
-                paddingEnd: PAD,
-                opacity: pills[pillCount]!.opacity,
-                transform: [{ translateY: pills[pillCount]!.translateY }],
-              }}
-            >
-              <SegmentedControl
-                fit
-                options={a.durations.map((m) => ({
-                  value: m,
-                  label: t('booking.durationMinutes', { minutes: m }),
-                }))}
-                value={a.durationMin}
-                onChange={a.setDurationMin}
-                activeColor={colors.gstrong}
+              <BlurView
+                intensity={50}
+                tint={dark ? 'dark' : 'light'}
+                style={StyleSheet.absoluteFill}
               />
-            </Animated.View>
-
-            <View style={{ paddingStart: PAD, paddingEnd: PAD }}>
-              <ErrorText>{a.error}</ErrorText>
-            </View>
-
-            {/* Time grid: four rows visible, vertical scroll with edge fades */}
-            <View style={{ height: GRID_H, marginTop: 10 }}>
-              {grid}
-              <EdgeFade axis="y" edge="start" size={FADES.gridStart} color={fade} rtl={rtl} visible={!gridAtTop} />
-              <EdgeFade axis="y" edge="end" size={FADES.gridEnd} color={fade} rtl={rtl} />
-            </View>
-
-            <Text
-              style={{
-                paddingStart: 14,
-                paddingEnd: 14,
-                paddingTop: 10,
-                paddingBottom: 12,
-                fontFamily: fonts.body400,
-                fontSize: 10,
-                lineHeight: 15,
-                color: colors.fnt,
-                textAlign: 'center',
-              }}
+            ) : null}
+            <Animated.View
+              accessibilityViewIsModal={isOpen}
+              style={{ flexShrink: 1, opacity: sheet.opacity, paddingTop: 2, paddingBottom: 4 }}
             >
-              {t('booking.availFooter', { count: a.courtCount })}
-            </Text>
+              <View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: glass,
+                    borderRadius: CARD_RADIUS,
+                    borderWidth: 1,
+                    borderColor: glassLine,
+                  },
+                ]}
+              />
+
+              <Text
+                accessibilityRole="header"
+                style={{
+                  paddingStart: 14,
+                  paddingEnd: 14,
+                  paddingTop: 14,
+                  paddingBottom: 2,
+                  fontFamily: fonts.display900,
+                  fontSize: 17,
+                  lineHeight: 18,
+                  textTransform: 'uppercase',
+                  color: colors.ink,
+                }}
+              >
+                {t('booking.pickTime')}
+              </Text>
+
+              {/* Day pills (one = one trading night), ~6 visible, the rest scroll */}
+              <View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={onPillsScroll}
+                  scrollEventThrottle={32}
+                  contentContainerStyle={{
+                    gap: 4,
+                    paddingStart: PAD,
+                    paddingEnd: PAD,
+                    paddingTop: 6,
+                  }}
+                >
+                  {a.tzDates.map((d, i) => {
+                    const noon = wallTimeToUtc(d, 12 * 60, a.tz);
+                    const e = pills[i]!;
+                    return (
+                      <Animated.View
+                        key={d}
+                        style={{ opacity: e.opacity, transform: [{ translateY: e.translateY }] }}
+                      >
+                        <DayChip
+                          compact
+                          dow={formatWeekdayShort(noon, locale, a.tz)}
+                          dayNum={formatDayNumber(noon, locale, a.tz)}
+                          selected={d === a.date}
+                          closed={a.isClosedDate(d)}
+                          closedLabel={t('booking.closedChip')}
+                          onPress={() => a.selectDate(d)}
+                        />
+                      </Animated.View>
+                    );
+                  })}
+                </ScrollView>
+                <EdgeFade
+                  axis="x"
+                  edge="start"
+                  size={FADES.pillsStart}
+                  color={fade}
+                  rtl={rtl}
+                  visible={!pillsAtStart}
+                />
+                <EdgeFade axis="x" edge="end" size={FADES.pillsEnd} color={fade} rtl={rtl} />
+              </View>
+
+              {/* Duration picker enters with the last pill */}
+              <Animated.View
+                style={{
+                  marginTop: 8,
+                  paddingStart: PAD,
+                  paddingEnd: PAD,
+                  opacity: pills[pillCount]!.opacity,
+                  transform: [{ translateY: pills[pillCount]!.translateY }],
+                }}
+              >
+                <SegmentedControl
+                  fit
+                  options={a.durations.map((m) => ({
+                    value: m,
+                    label: t('booking.durationMinutes', { minutes: m }),
+                  }))}
+                  value={a.durationMin}
+                  onChange={a.setDurationMin}
+                  activeColor={colors.gstrong}
+                />
+              </Animated.View>
+
+              <View style={{ paddingStart: PAD, paddingEnd: PAD }}>
+                <ErrorText>{a.error}</ErrorText>
+              </View>
+
+              {/* Time grid: four rows visible, vertical scroll with edge fades; the one block that gives way on a short stage */}
+              <View style={{ height: GRID_H, minHeight: 120, flexShrink: 1, marginTop: 10 }}>
+                {grid}
+                <EdgeFade
+                  axis="y"
+                  edge="start"
+                  size={FADES.gridStart}
+                  color={fade}
+                  rtl={rtl}
+                  visible={!gridAtTop}
+                />
+                <EdgeFade axis="y" edge="end" size={FADES.gridEnd} color={fade} rtl={rtl} />
+              </View>
+
+              <Text
+                style={{
+                  paddingStart: 14,
+                  paddingEnd: 14,
+                  paddingTop: 10,
+                  paddingBottom: 12,
+                  fontFamily: fonts.body400,
+                  fontSize: 10,
+                  lineHeight: 15,
+                  color: colors.fnt,
+                  textAlign: 'center',
+                }}
+              >
+                {t('booking.availFooter', { count: a.courtCount })}
+              </Text>
+            </Animated.View>
           </View>
         </Animated.View>
       ) : null}
 
       <NoticeSheet
         visible={a.notice !== null}
-        title={a.notice === 'horizon' ? t('booking.deskOnlyTitle') : t('booking.slotUnavailableTitle')}
+        title={
+          a.notice === 'horizon' ? t('booking.deskOnlyTitle') : t('booking.slotUnavailableTitle')
+        }
         body={a.notice === 'horizon' ? t('booking.deskOnlyBody') : t('booking.blockedBody')}
         callLabel={a.phone ? t('booking.callPhone', { phone: a.phone }) : null}
         onCall={a.onCall}

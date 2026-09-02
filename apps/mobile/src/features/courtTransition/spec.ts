@@ -5,21 +5,16 @@
  * 0 = court view, 1 = booking view.
  *
  * PURE — no React Native imports — so the numbers are unit-tested and the
- * component files only wire tables into Animated nodes. Two things the
- * prototype does at runtime are precomputed here instead:
+ * component files only wire tables into Animated nodes. One thing the
+ * prototype does at runtime is precomputed here instead:
  *
  * 1. Eased slices. The prototype passes an easing to every `useTransform`;
  *    RN's native animation driver accepts only inputRange/outputRange
  *    (`easing` is dropped, see NativeAnimatedAllowlist), so `sampleEased`
  *    turns "slice [a, b] with ease E" into a dense piecewise-linear table the
  *    native driver can play.
- * 2. The camera. The prototype orbits a three.js camera (elevation 89.5° → 40°,
- *    azimuth 0° → 28°, distance 60 m → 46 m). The app's court is a flat native
- *    view, so the same orbit is expressed as the view transform
- *    [perspective, translateY, rotateX(tilt), rotateZ(azimuth), scale] —
- *    `pitchAt` — and `projectPlanePoint` replays Fabric's matrix pipeline so
- *    elements that must STAND on the court (the rackets) can be positioned in
- *    screen space without nested 3D transforms, which RN flattens per view.
+ * 2. The camera orbit and the rally are pure functions of (p, t) in rally.ts;
+ *    scene.ts applies them to the three.js meshes every frame.
  */
 
 export type Dir = 1 | -1;
@@ -54,7 +49,13 @@ export const SPEC = {
     opacity: [1, 0.55] as Range,
   },
   lines: { range: [0.3, 0.7] as Range, opacity: [1, 0.4] as Range },
-  /** Near-side cage in the prototype; here the rackets' ground shadow plays that "get out of the way" role. */
+  /** Near-side half of the cage fades with the pitch so it does not block the view: mesh, glass, frame, window panes. */
+  nearCage: {
+    fence: [0.42, 0.1] as Range,
+    glass: [0.55, 0.12] as Range,
+    frame: [1, 0.25] as Range,
+    pane: [0.75, 0.1] as Range,
+  },
   button: {
     fade: [0, 0.25] as Range,
     move: [0, 0.3] as Range,
@@ -87,7 +88,8 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (t:
   const A = (a1: number, a2: number) => 1 - 3 * a2 + 3 * a1;
   const B = (a1: number, a2: number) => 3 * a2 - 6 * a1;
   const C = (a1: number) => 3 * a1;
-  const bezier = (t: number, a1: number, a2: number) => ((A(a1, a2) * t + B(a1, a2)) * t + C(a1)) * t;
+  const bezier = (t: number, a1: number, a2: number) =>
+    ((A(a1, a2) * t + B(a1, a2)) * t + C(a1)) * t;
   const derivative = (t: number, a1: number, a2: number) =>
     3 * A(a1, a2) * t * t + 2 * B(a1, a2) * t + C(a1);
   const solveX = (x: number): number => {
@@ -197,109 +199,4 @@ export function sampleCurve(f: (p: number) => number, samples = 24): Keyframes {
     outputRange.push(f(p));
   }
   return { inputRange, outputRange };
-}
-
-// ── Camera → view transform ─────────────────────────────────────────────────
-
-const DEG = Math.PI / 180;
-
-/** Court geometry shared with CourtIllustration (viewBox units). */
-export const COURT = {
-  vbw: 320,
-  vbh: 396,
-  /** Turf rect x26 y8 w268 h380 stands for the prototype's 11.4 × 21.4 m base. */
-  unitsPerMetre: 380 / 21.4,
-  /** Net tape `M20 198h280`: the on-net button spans post to post. */
-  net: { x: 20, width: 280, y: 198 },
-} as const;
-
-/**
- * Perspective distance as a multiple of the court's rendered height. The
- * prototype's fov 24° over an 844 px viewport is a focal length of
- * (844/2)/tan 12° ≈ 1985 px ≈ 5 × its ~400 px court — a telephoto look.
- */
-export const PERSPECTIVE_PER_HEIGHT = 5;
-
-export interface CameraState {
-  elevation: number;
-  azimuth: number;
-  distance: number;
-  lookZ: number;
-}
-
-/** Orbit at eased pitch progress k ∈ [0, 1]. */
-export function cameraAt(k: number): CameraState {
-  const c = SPEC.camera;
-  return {
-    elevation: lerp(c.elevation[0], c.elevation[1], k),
-    azimuth: lerp(c.azimuth[0], c.azimuth[1], k),
-    distance: lerp(c.distance[0], c.distance[1], k),
-    lookZ: lerp(c.lookZ[0], c.lookZ[1], k),
-  };
-}
-
-export interface Pitch {
-  /** rotateX, degrees: 90° − elevation (top-down 0.5° → pitched 50°). */
-  tiltDeg: number;
-  /** rotateZ, degrees: the azimuth — the far end swings to the right. */
-  azimuthDeg: number;
-  /** distance 60 m → 46 m reads as the court growing. */
-  scale: number;
-  /** Screen-space lift, px: the prototype's −60 px layer shift plus the look-at re-centring. */
-  translateY: number;
-}
-
-/**
- * The court view's transform at eased progress k, for a court rendered at
- * `pxPerUnit` px per viewBox unit. Array order for RN (first = outermost):
- * [{perspective}, {translateY}, {rotateX}, {rotateZ}, {scale}].
- */
-export function pitchAt(k: number, pxPerUnit: number): Pitch {
-  const cam = cameraAt(k);
-  const lookShift = (cam.lookZ - SPEC.camera.lookZ[0]) * COURT.unitsPerMetre * pxPerUnit;
-  return {
-    tiltDeg: 90 - cam.elevation,
-    azimuthDeg: cam.azimuth,
-    scale: SPEC.camera.distance[0] / cam.distance,
-    translateY: lerp(SPEC.court.y[0], SPEC.court.y[1], k) - lookShift,
-  };
-}
-
-export interface Projected {
-  /** px from the court's centre, screen space. */
-  x: number;
-  y: number;
-  /** Apparent scale of a small billboard at that point. */
-  s: number;
-}
-
-/**
- * Where a point of the court plane lands on screen under `pitchAt(k)` —
- * Fabric's own pipeline (Transform.cpp: column vectors, m[11] = −1/perspective,
- * rotateX m[5]=cos m[6]=sin m[9]=−sin m[10]=cos, transforms about the centre):
- * scale → rotateZ → rotateX → translateY → perspective divide.
- * (u, v) are px from the court's centre in the flat view.
- */
-export function projectPlanePoint(u: number, v: number, k: number, pxPerUnit: number, perspective: number): Projected {
-  const pitch = pitchAt(k, pxPerUnit);
-  const x0 = u * pitch.scale;
-  const y0 = v * pitch.scale;
-  const az = pitch.azimuthDeg * DEG;
-  const x1 = x0 * Math.cos(az) - y0 * Math.sin(az);
-  const y1 = x0 * Math.sin(az) + y0 * Math.cos(az);
-  const tilt = pitch.tiltDeg * DEG;
-  const y2 = y1 * Math.cos(tilt);
-  const z2 = y1 * Math.sin(tilt);
-  const y3 = y2 + pitch.translateY;
-  const w = 1 - z2 / perspective;
-  return { x: x1 / w, y: y3 / w, s: pitch.scale / w };
-}
-
-/** The on-net button's frame in px for a court rendered at `pxPerUnit`. */
-export function netFrame(pxPerUnit: number): { left: number; width: number; centerY: number } {
-  return {
-    left: COURT.net.x * pxPerUnit,
-    width: COURT.net.width * pxPerUnit,
-    centerY: COURT.net.y * pxPerUnit,
-  };
 }

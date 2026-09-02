@@ -18,7 +18,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { localParts, pickLocale, wallTimeToUtc } from '@touch/core';
 import { useLocale } from '../../i18n/LocaleProvider';
-import { useCourts, useCourtsBroadcast, useDayGrid, useIsDegraded, useVenueSettings, type DayGrid } from './hooks';
+import {
+  useCourts,
+  useCourtsBroadcast,
+  useDayGrid,
+  useIsDegraded,
+  useVenueSettings,
+  type DayGrid,
+} from './hooks';
 import {
   addDays,
   DEFAULT_TZ,
@@ -29,7 +36,7 @@ import {
   type MergedCell,
 } from './assemble';
 import { useHoldSlot } from '../booking/hooks';
-import { setPendingSlot } from '../booking/pendingSlot';
+import { setPendingSlot, type SlotOrigin } from '../booking/pendingSlot';
 import { isDegradedRefusal, mapErrorToKey } from '../booking/errors';
 import { useAuth } from '../auth/context';
 import { profileGateState } from '../auth/social';
@@ -77,7 +84,14 @@ export interface AvailabilityBooking {
   onCall: () => void;
 }
 
-export function useAvailabilityBooking(): AvailabilityBooking {
+export interface AvailabilityBookingOptions {
+  /** Which surface mounts the hook — carried into Review and the pending slot so the flow returns here. */
+  origin: SlotOrigin;
+}
+
+export function useAvailabilityBooking(
+  { origin }: AvailabilityBookingOptions = { origin: 'screen' },
+): AvailabilityBooking {
   const { t, locale } = useLocale();
   const router = useRouter();
   const toast = useToast();
@@ -184,6 +198,7 @@ export function useAvailabilityBooking(): AvailabilityBooking {
         priceIqd: cell.priceIqd,
         courtNameEn: court?.name_en ?? '',
         courtNameAr: court?.name_ar ?? '',
+        origin,
       });
       router.push('/welcome');
       return;
@@ -196,6 +211,7 @@ export function useAvailabilityBooking(): AvailabilityBooking {
         priceIqd: cell.priceIqd,
         courtNameEn: court?.name_en ?? '',
         courtNameAr: court?.name_ar ?? '',
+        origin,
       });
       router.push({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
       return;
@@ -215,6 +231,7 @@ export function useAvailabilityBooking(): AvailabilityBooking {
               courtName: court ? pickLocale({ en: court.name_en, ar: court.name_ar }, locale) : '',
               startAt: cell.startAt.toISOString(),
               durationMin: String(durationMin),
+              origin,
             },
           });
         },
