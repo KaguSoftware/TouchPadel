@@ -17,6 +17,8 @@ import { addBreadcrumb, captureException } from './telemetry';
 
 export const APPEARANCE_KEY = 'tp.appearance';
 export const LOCALE_KEY = 'tp.locale';
+/** Set right before a dev reload for RTL; still set on the next boot = the reload did not stick. */
+export const RTL_RELOAD_KEY = 'tp.rtlReloadPending';
 
 export type BootAppearance = 'light' | 'dark';
 
@@ -25,6 +27,8 @@ export interface BootPrefs {
   locale: Locale;
   /** True when a stored preference was found (false = first run, device default). */
   localeFromStore: boolean;
+  /** The native layout direction could not be made to match the locale this run. */
+  needsRestart: boolean;
 }
 
 function asLocale(value: unknown): Locale | null {
@@ -77,7 +81,7 @@ export async function loadBootPrefs(): Promise<BootPrefs> {
   const localeFromStore = locale !== null;
   const resolved = locale ?? deviceLocale();
   addBreadcrumb('boot.prefs', { appearance, locale: resolved, localeFromStore });
-  return { appearance, locale: resolved, localeFromStore };
+  return { appearance, locale: resolved, localeFromStore, needsRestart: false };
 }
 
 /**
@@ -103,14 +107,37 @@ export function reconcileRtl(locale: Locale): boolean {
  * (Expo Go / dev client) — the loop this app is tested in. Production builds
  * surface `settings.rtlRestartNote` instead (expo-updates' reloadAsync is the
  * release-build equivalent; it arrives with the EAS setup).
+ *
+ * ONE attempt only. Expo Go resets the native RTL flag on every load (a dev
+ * client / store build keeps it), so there the reload never "takes": boot saw
+ * the mismatch, reloaded, saw it again, reloaded… — Metro rebundling forever
+ * and the app never painting. A marker is set right before reloading; a boot
+ * that finds it still set knows the previous reload did not stick and paints
+ * anyway (Arabic strings in an LTR native layout, `needsRestart` on) instead
+ * of trying again.
  */
-export function reloadForRtl(): boolean {
+export async function reloadForRtl(): Promise<boolean> {
   if (!__DEV__) return false;
   try {
+    if ((await AsyncStorage.getItem(RTL_RELOAD_KEY)) === '1') {
+      await AsyncStorage.removeItem(RTL_RELOAD_KEY);
+      addBreadcrumb('locale.reloadDidNotStick');
+      return false;
+    }
+    await AsyncStorage.setItem(RTL_RELOAD_KEY, '1');
     DevSettings.reload();
     return true;
   } catch (error) {
     captureException(error, { label: 'locale.reload' });
     return false;
+  }
+}
+
+/** A boot whose direction already matches: the last reload (if any) stuck. */
+export async function clearRtlReloadMarker(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(RTL_RELOAD_KEY);
+  } catch (error) {
+    captureException(error, { label: 'locale.reloadMarker' });
   }
 }
