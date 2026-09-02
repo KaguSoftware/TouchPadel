@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Stack, useNavigation } from 'expo-router';
-import { usePreventRemove } from '@react-navigation/native';
 import type { NavigationAction } from '@react-navigation/routers';
-import type { Locale } from '@touch/i18n';
+import { isolate } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
 import { RequireSession } from '../src/features/auth/RequireSession';
@@ -15,23 +14,22 @@ import {
   ErrorText,
   Field,
   FormScreen,
-  MicroLabel,
   Screen,
-  SegmentedControl,
   useSafeBack,
 } from '../src/components/ui';
 import { ConfirmationDialog, useToast } from '../src/components/overlays';
 import { SkeletonList } from '../src/components/states';
 
 /**
- * Edit profile (design 2026-08-31): name, phone, preferred language. Email is
- * deliberately not editable here — it changes through re-verification (spec
- * 05.18). Language choice persists via the same setLocale path as Settings,
- * WITHOUT flipping direction mid-navigation (the boot hook reconciles it).
+ * Edit profile (design 2026-08-31): name and phone. Email is deliberately not
+ * editable here — it changes through re-verification (spec 05.18). Language is
+ * NOT offered here either: it lives in Settings alone, where the switch owns
+ * the whole screen (overlay + reload) instead of hiding inside a form whose
+ * Save would flip the app's direction as a side effect.
  * Unsaved edits prompt before leaving (spec `dirty` state).
  */
 function EditProfileScreen() {
-  const { t, locale, setLocale } = useLocale();
+  const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const navigation = useNavigation();
   const safeBack = useSafeBack();
@@ -42,8 +40,7 @@ function EditProfileScreen() {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [lang, setLang] = useState<Locale>(locale);
-  const [initial, setInitial] = useState<{ name: string; phone: string; lang: Locale } | null>(null);
+  const [initial, setInitial] = useState<{ name: string; phone: string } | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,26 +59,44 @@ function EditProfileScreen() {
 
   useEffect(() => {
     if (profile.data && !initial) {
-      const storedLang: Locale = profile.data.preferred_lang === 'ar' ? 'ar' : 'en';
       setName(profile.data.full_name ?? '');
       setPhone(profile.data.phone ?? '');
-      setLang(storedLang);
-      setInitial({ name: profile.data.full_name ?? '', phone: profile.data.phone ?? '', lang: storedLang });
+      setInitial({
+        name: profile.data.full_name ?? '',
+        phone: profile.data.phone ?? '',
+      });
     }
   }, [profile.data, initial]);
 
-  const dirty =
-    initial !== null && (name !== initial.name || phone !== initial.phone || lang !== initial.lang);
+  const dirty = initial !== null && (name !== initial.name || phone !== initial.phone);
 
-  // Intercepts the pop itself rather than replacing the back BUTTON, so the
-  // screen keeps UIKit's own back item (the one that animates) and the prompt
-  // also covers the edge-swipe gesture, which a custom headerLeft never did.
-  // `pendingPop` holds the blocked navigation so Discard can replay it.
   const blockPop = dirty && !update.isPending && !leaving;
-  usePreventRemove(blockPop, ({ data }) => {
-    setPendingPop(data.action);
-    setDiscardOpen(true);
-  });
+
+  /**
+   * Intercepts the pop itself — the native back item AND the edge-swipe — so
+   * the prompt appears without replacing the button.
+   *
+   * NOT `usePreventRemove`, deliberately. That hook registers the route as
+   * prevented, and NativeStackView then forces
+   * `headerBackButtonMenuEnabled: !isRemovePrevented` (false) regardless of
+   * what the screen passes. react-native-screens reads that as
+   * `disableBackButtonMenu` and swaps UIKit's back item for a plain
+   * UIBarButtonItem carrying only the title — a bordered capsule with NO
+   * CHEVRON, in the default tint. That is exactly what the Arabic screenshot
+   * showed, and it appeared only while the form was dirty.
+   *
+   * Listening to `beforeRemove` directly gives the same interception (it is
+   * the very event that hook wraps) without ever marking the route prevented,
+   * so the back item stays native: chevron, our tint, the push/pop animation.
+   */
+  useEffect(() => {
+    if (!blockPop) return;
+    return navigation.addListener('beforeRemove', (e) => {
+      e.preventDefault();
+      setPendingPop(e.data.action);
+      setDiscardOpen(true);
+    });
+  }, [navigation, blockPop]);
 
   // Navigates only AFTER the guard has actually been released: `setLeaving` is
   // async, so dispatching inside the dialog handler would still be intercepted
@@ -111,8 +126,7 @@ function EditProfileScreen() {
     update.mutate(
       { full_name: name.trim(), phone: phone.trim() },
       {
-        onSuccess: async () => {
-          if (lang !== locale) await setLocale(lang, { flip: false });
+        onSuccess: () => {
           toast(t('profile.updated'));
           // Release the guard first: the form is still "dirty" against the
           // captured `initial`, so the pop would otherwise be intercepted and
@@ -148,18 +162,6 @@ function EditProfileScreen() {
             dense
             error={phoneError}
           />
-          <View style={{ marginTop: space.sm }}>
-            <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>
-            <SegmentedControl<Locale>
-              options={[
-                { value: 'en', label: t('settings.english') },
-                { value: 'ar', label: t('settings.arabic') },
-              ]}
-              value={lang}
-              onChange={setLang}
-            />
-          </View>
-
           <View
             style={{
               marginTop: space.sm,
@@ -172,9 +174,15 @@ function EditProfileScreen() {
             }}
           >
             <Text
-              style={{ fontFamily: fonts.body400, fontSize: 12, lineHeight: 18, color: colors.mut }}
+              style={{
+                fontFamily: fonts.body400,
+                fontSize: 12,
+                lineHeight: 18,
+                color: colors.mut,
+                textAlign: 'auto',
+              }}
             >
-              {t('profile.emailLocked', { email: session?.user.email ?? '' })}
+              {t('profile.emailLocked', { email: isolate(session?.user.email ?? '') })}
             </Text>
           </View>
 

@@ -15,6 +15,7 @@
  * Call it inside a Stack's parent — it is theme- and locale-aware.
  */
 import { useMemo } from 'react';
+import { I18nManager, Platform } from 'react-native';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useTheme } from '../theme';
 
@@ -35,8 +36,31 @@ function useBackTint(): string {
 export function useNativeHeaderOptions() {
   const { colors, fonts } = useTheme();
   const tint = useBackTint();
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
   const backLabel = t('common.back');
+  // Cairo carries taller ascenders and below-baseline dots than Archivo, so at
+  // a shared 17 pt the Arabic title overflows the fixed native bar and clips
+  // top and bottom. Give it a touch less size and an explicit line box.
+  const arabic = dir === 'rtl';
+
+  // TEMP DIAGNOSTIC (remove once the Arabic chevron is confirmed): prints the
+  // values that actually decide whether UIKit draws its back item.
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[backprobe]', JSON.stringify({
+      dir,
+      backLabel,
+      tint,
+      iosVersion: String(Platform.Version),
+      nativeIsRTL: I18nManager.isRTL,
+      nativeConstIsRTL: I18nManager.getConstants().isRTL,
+      titleFont: fonts.display800,
+      // The glyph is drawn only when UIKit owns the back item. These are the
+      // props that decide that, per useHeaderConfigProps.
+      backDisplayMode: 'default',
+      backTitleSet: true,
+    }));
+  }
   return useMemo(
     () => ({
       // Blank unless a screen sets its own, so a screen whose title has not
@@ -45,7 +69,12 @@ export function useNativeHeaderOptions() {
       headerShadowVisible: false,
       // Tints the system back item — its chevron and label.
       headerTintColor: tint,
-      headerTitleStyle: { fontFamily: fonts.display800, fontSize: 17, color: colors.ink },
+      headerTitleStyle: {
+        fontFamily: fonts.display800,
+        fontSize: arabic ? 16 : 17,
+        lineHeight: arabic ? 24 : undefined,
+        color: colors.ink,
+      },
       headerStyle: { backgroundColor: colors.bg },
       contentStyle: { backgroundColor: colors.bg },
       // The system back item labels itself with the PREVIOUS screen's title
@@ -54,6 +83,6 @@ export function useNativeHeaderOptions() {
       headerBackButtonDisplayMode: 'default' as const,
       headerBackTitle: backLabel,
     }),
-    [colors, fonts, tint, backLabel],
+    [colors, fonts, tint, backLabel, arabic],
   );
 }

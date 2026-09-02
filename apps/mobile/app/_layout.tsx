@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { I18nManager, StyleSheet, Text, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router, usePathname } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -26,20 +26,27 @@ import {
   Cairo_800ExtraBold,
   Cairo_900Black,
 } from '@expo-google-fonts/cairo';
+import { LocaleDirContext } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { makeT } from '@touch/i18n';
 import { queryClient, persistOptions, startFocusLifecycle } from '../src/lib/queryClient';
 import { configError, startAuthRefreshLifecycle } from '../src/lib/supabase';
-import { loadBootPrefs, reconcileRtl, reloadForRtl, type BootPrefs } from '../src/lib/bootPrefs';
+import {
+  consumeResumeRoute,
+  loadBootPrefs,
+  reconcileRtl,
+  reloadForRtl,
+  type BootPrefs,
+} from '../src/lib/bootPrefs';
 import { addBreadcrumb, captureException } from '../src/lib/telemetry';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { AuthProvider } from '../src/features/auth/context';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { ErrorState, OfflineBanner } from '../src/components/states';
-import { ToastProvider } from '../src/components/overlays';
+import { LocaleSwitchOverlay, ToastProvider } from '../src/components/overlays';
 import { palettes, ThemeProvider, useTheme } from '../src/theme';
 
 /**
@@ -85,7 +92,9 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
     captureException(error, { scope: 'render', fatal: true });
   }, [error]);
   return (
-    <ThemeProvider fontsReady={Font.isLoaded('Archivo_900Black') || Font.isLoaded('Cairo_900Black')}>
+    <ThemeProvider
+      fontsReady={Font.isLoaded('Archivo_900Black') || Font.isLoaded('Cairo_900Black')}
+    >
       <View style={styles.fill}>
         <ErrorState
           title={t('errors.crashTitle')}
@@ -105,7 +114,11 @@ function ConfigErrorScreen() {
   return (
     <ThemeProvider fontsReady={false}>
       <View style={styles.fill}>
-        <ErrorState title={t('errors.configTitle')} message={t('errors.configBody')} retryLabel="" />
+        <ErrorState
+          title={t('errors.configTitle')}
+          message={t('errors.configBody')}
+          retryLabel=""
+        />
         {__DEV__ ? <Text style={styles.devDetail}>{configError}</Text> : null}
       </View>
     </ThemeProvider>
@@ -116,36 +129,82 @@ function RootStack() {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
+  const { dir } = useLocale();
   // Real native bars on every pushed screen. The tabs draw the native tab bar
   // instead, and (auth) is a nested stack that configures its own.
   const header = useNativeHeaderOptions();
   return (
-    <Stack screenOptions={header}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      {/* Formerly the (auth) group. Flattened for the same reason as (gated):
+    /**
+     * THE ARABIC BACK CHEVRON.
+     *
+     * react-navigation reads the bar's direction from `LocaleDirContext`, which
+     * `NavigationContainer` fills from `I18nManager.getConstants().isRTL`.
+     * expo-router does not expose that container's `direction` prop, and the
+     * native flag is a BOOT-TIME constant: it only flips on the JS load after
+     * `forceRTL` (see `reconcileRtl`). So the container samples it while the
+     * container is still mounting, the bar is told `ltr`, and UIKit lays the
+     * back item out against the wrong edge — the chevron ends up off-frame
+     * while the label, which is centred in the item, still shows.
+     *
+     * Driving it from OUR locale removes the boot-order dependency entirely:
+     * `dir` comes from the chosen language, not from a native flag that lags a
+     * launch behind it.
+     */
+    <LocaleDirContext.Provider value={dir}>
+      <ResumeAfterLocaleSwitch />
+      <Stack screenOptions={header}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* Formerly the (auth) group. Flattened for the same reason as (gated):
           a screen pushed from the tabs was the first entry of a nested stack,
           so UIKit drew no back item and a JS stand-in had to fill in. Each
           screen carries `RequireNoSession` in place of the layout's redirect. */}
-      <Stack.Screen name="welcome" options={{ headerShown: false }} />
-      <Stack.Screen name="verify-email" options={{ headerShown: false }} />
-      <Stack.Screen name="verify-result" options={{ headerShown: false }} />
-      <Stack.Screen name="sign-in" />
-      <Stack.Screen name="sign-up" />
-      <Stack.Screen name="forgot-password" />
-      <Stack.Screen name="availability" />
-      <Stack.Screen name="settings" />
-      <Stack.Screen name="profile-edit" />
-      <Stack.Screen name="change-password" />
-      {/* Formerly the (gated) group, flattened onto the root stack so that
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+        <Stack.Screen name="verify-result" options={{ headerShown: false }} />
+        <Stack.Screen name="sign-in" />
+        <Stack.Screen name="sign-up" />
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="availability" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="profile-edit" />
+        <Stack.Screen name="change-password" />
+        {/* Formerly the (gated) group, flattened onto the root stack so that
           every push leaves real history behind it and UIKit draws its OWN back
           item — the same one, animated, on every screen. Each carries its own
           `RequireSession` in place of the group layout's guard. */}
-      <Stack.Screen name="review" />
-      <Stack.Screen name="booking/[id]" />
-      <Stack.Screen name="success" options={{ headerShown: false }} />
-      <Stack.Screen name="reset-password" />
-    </Stack>
+        <Stack.Screen name="review" />
+        <Stack.Screen name="booking/[id]" />
+        <Stack.Screen name="success" options={{ headerShown: false }} />
+        <Stack.Screen name="reset-password" />
+      </Stack>
+    </LocaleDirContext.Provider>
   );
+}
+
+/**
+ * Puts the user back where they were before a language switch reloaded the
+ * bundle. Runs once, inside the navigator (so `router` has a root to push
+ * onto), and only for a route parked in the last minute — see
+ * `consumeResumeRoute`. `push`, not `replace`: the tabs stay underneath, so the
+ * native back item still works on the restored screen.
+ */
+function ResumeAfterLocaleSwitch() {
+  const pathname = usePathname();
+  const done = useRef(false);
+  useEffect(() => {
+    if (done.current) return;
+    done.current = true;
+    void consumeResumeRoute().then((path) => {
+      // Already there (the switch happened on the initial route): nothing to do.
+      if (!path || path === pathname) return;
+      addBreadcrumb('locale.resume', { path });
+      router.push(path as Parameters<typeof router.push>[0]);
+    });
+    // Deliberately once-only: `pathname` is read for the comparison above, not
+    // depended on — re-running after the push would be a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
 }
 
 /** Offline bar, driven by the same onlineManager the query layer uses. */
@@ -225,7 +284,9 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
 
   useEffect(() => {
     if (!fontsLoaded) return;
-    Font.loadAsync(secondary).catch((error) => captureException(error, { scope: 'fonts.secondary' }));
+    Font.loadAsync(secondary).catch((error) =>
+      captureException(error, { scope: 'fonts.secondary' }),
+    );
   }, [fontsLoaded, secondary]);
 
   if (!fontsLoaded && !fontsError) return null; // splash is still covering us
@@ -237,12 +298,18 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <SafeAreaProvider>
         <LocaleProvider initialLocale={prefs.locale}>
-          <ThemeProvider initialAppearance={prefs.appearance} fontsReady={fontsLoaded && !fontsError}>
+          <ThemeProvider
+            initialAppearance={prefs.appearance}
+            fontsReady={fontsLoaded && !fontsError}
+          >
             <AuthProvider>
               <ToastProvider>
                 <ThemedChrome />
                 <RootStack />
                 <ConnectivityBanner />
+                {/* Last child: it must paint over everything, including the
+                    offline banner, while the switch applies. */}
+                <LocaleSwitchOverlay />
               </ToastProvider>
             </AuthProvider>
           </ThemeProvider>

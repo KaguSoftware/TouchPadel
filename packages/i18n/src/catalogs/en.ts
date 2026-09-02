@@ -571,6 +571,10 @@ export const en = {
     venue: 'Venue',
     versionLine: '{name} · v{version} ({build})',
     phoneUnavailable: "The venue hasn't published a phone number yet.",
+    // Shown full-screen while the app applies a new language and flips
+    // direction; the user is returned to this screen straight afterwards.
+    switchingTitle: 'Changing language…',
+    switchingBody: 'One moment — we’ll bring you right back to where you were.',
   },
   cafe: {
     menu: 'Menu',

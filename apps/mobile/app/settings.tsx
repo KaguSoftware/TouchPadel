@@ -3,7 +3,7 @@ import { Linking, ScrollView, Text, View } from 'react-native';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
@@ -37,6 +37,7 @@ export default function SettingsScreen() {
   const { t, locale, setLocale, needsRestart } = useLocale();
   const { colors, fonts, appearance, setAppearance } = useTheme();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const settings = useVenueSettings();
   const toast = useToast();
 
@@ -55,9 +56,11 @@ export default function SettingsScreen() {
 
   const onPickLocale = async (next: Locale) => {
     if (next === locale) return;
-    // In development this reloads into the new direction; in a release build
-    // `needsRestart` turns on and the note below explains.
-    await setLocale(next);
+    // The overlay goes up for the whole switch (LocaleSwitchOverlay). In
+    // development this then reloads into the new direction and comes back here
+    // via `resumePath`; in a release build `needsRestart` turns on and the note
+    // below explains.
+    await setLocale(next, { resumePath: pathname });
   };
 
   const onEnablePush = async () => {

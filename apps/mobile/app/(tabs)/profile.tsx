@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, Image, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
+import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
@@ -146,7 +147,12 @@ export default function ProfileScreen() {
     '•';
   const langLabel =
     profile.data?.preferred_lang === 'ar' ? t('settings.arabic') : t('settings.english');
-  const detailLine = [profile.data?.phone, langLabel].filter(Boolean).join(' · ');
+  // The phone is Latin digits sitting next to an Arabic label around a '·'
+  // separator: without an isolate the bidi algorithm reorders the number
+  // against the separator in RTL. Same reason the email is isolated below.
+  const detailLine = [profile.data?.phone ? isolate(profile.data.phone) : null, langLabel]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Screen>
@@ -186,20 +192,26 @@ export default function ProfileScreen() {
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text
                 numberOfLines={1}
-                style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink }}
+                style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink, textAlign: 'auto' }}
               >
-                {name}
+                {isolate(name)}
               </Text>
               <Text
-                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, marginTop: 2 }}
+                style={{
+                  fontFamily: fonts.body400,
+                  fontSize: 12,
+                  color: colors.mut,
+                  marginTop: 2,
+                  textAlign: 'auto',
+                }}
                 numberOfLines={1}
               >
-                {email}
+                {isolate(email)}
               </Text>
               {/* Design: "{phone} · {language}" on the third line. */}
               <Text
                 numberOfLines={1}
-                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}
+                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, textAlign: 'auto' }}
               >
                 {detailLine}
               </Text>

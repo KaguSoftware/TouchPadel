@@ -569,6 +569,10 @@ export const ar: Messages = {
     venue: 'المكان',
     versionLine: '{name} · الإصدار {version} ({build})',
     phoneUnavailable: 'لم ينشر المكان رقم هاتف بعد.',
+    // Shown full-screen while the app applies a new language and flips
+    // direction; the user is returned to this screen straight afterwards.
+    switchingTitle: 'جارٍ تغيير اللغة…',
+    switchingBody: 'لحظة واحدة — سنعيدك إلى حيث كنت تمامًا.',
   },
   cafe: {
     menu: 'قائمة الطعام',
