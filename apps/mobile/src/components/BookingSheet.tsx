@@ -143,6 +143,8 @@ export interface BookingSheetProps {
   isOpen: boolean;
   /** A hold call is in flight — the caller keeps the sheet mounted and the back button idle. */
   onBusyChange?: (busy: boolean) => void;
+  /** Any touch inside the card (tap, scroll, drag) — the court behind keeps its rally going. */
+  onInteraction?: () => void;
 }
 
 export function BookingSheet({
@@ -151,6 +153,7 @@ export function BookingSheet({
   bottomInset,
   isOpen,
   onBusyChange,
+  onInteraction,
 }: BookingSheetProps) {
   const { t, locale, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
@@ -370,6 +373,7 @@ export function BookingSheet({
       {cardW > 0 ? (
         <Animated.View
           pointerEvents={isOpen ? 'auto' : 'none'}
+          onTouchStart={onInteraction}
           style={{
             width: cardW,
             maxHeight: cardMaxH,
