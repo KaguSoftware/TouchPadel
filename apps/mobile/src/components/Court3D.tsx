@@ -20,13 +20,14 @@
  *     is focused and the app is active (expo-router keeps tab screens mounted).
  *   · Reduced motion: the rally freezes on a rest frame and the scene renders
  *     only when `p` changes.
- *   · Idle: once `p` has rested for IDLE_AFTER_MS with no touch, the rally
+ *   · Idle: once `p` has rested for IDLE_AFTER_MS (three rallies) with no touch, the rally
  *     holds at the next leg start — ball in a player's hand, nobody mid-swing
  *     (rally.nextLegStart) — and the loop stops (battery: the Book tab is
  *     where people sit longest). At the court view the caller's `pausedNote`
  *     fades in and a touch anywhere on the stage plays on from that frame;
- *     behind the sheet it just holds, and the close tap moves `p`, which
- *     wakes it. Returning to the tab / foreground wakes it too.
+ *     behind the sheet it holds until the caller reports activity through
+ *     the `ref` handle (`wake`: any touch inside the sheet) or the close tap
+ *     moves `p`. Returning to the tab / foreground wakes it too.
  *   · Each GL surface is recreated by Android after backgrounding
  *     (onSurfaceTextureDestroyed → a NEW context), independently of the other,
  *     so attaching a context is idempotent per surface; the scene is shared.
@@ -52,7 +53,16 @@
  * is also why the caller keeps the header above this view (index.tsx) once the
  * transition lifts it 60 px.
  */
-import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import {
   Animated,
   AppState,
@@ -68,12 +78,18 @@ import * as THREE from 'three';
 import { detectCourtQuality } from '../features/courtTransition/deviceQuality';
 import type { CourtQuality } from '../features/courtTransition/quality';
 import { buildCourtScene, type CourtScene } from '../features/courtTransition/scene';
-import { nextLegStart } from '../features/courtTransition/rally';
+import { LOOP_SECONDS, nextLegStart } from '../features/courtTransition/rally';
 import { pitchEase, type Dir } from '../features/courtTransition/spec';
 import { addBreadcrumb, captureException } from '../lib/telemetry';
 import { useTheme } from '../theme';
 
+export interface Court3DHandle {
+  /** Activity elsewhere (a touch in the sheet): restart the idle clock and play on if held. */
+  wake: () => void;
+}
+
 export interface Court3DProps {
+  ref?: Ref<Court3DHandle>;
   progress: Animated.Value;
   direction: Dir;
   reduceMotion: boolean;
@@ -93,8 +109,8 @@ export interface Court3DProps {
 
 /** Reduced motion holds the rally here: ball on the hitter's racket, nobody mid-swing, no trail. */
 const REST_T = 0;
-/** No touch and `p` at rest for this long → hold the rally at the next leg start. */
-const IDLE_AFTER_MS = 5000;
+/** No touch and `p` at rest for three full rallies (≈ 15.6 s) → hold at the next leg start. */
+const IDLE_AFTER_MS = 3 * LOOP_SECONDS * 1000;
 const NOTE_FADE_MS = 220;
 
 const hexToInt = (hex: string): number => parseInt(hex.slice(1, 7), 16);
@@ -109,6 +125,7 @@ interface Surface {
 type Kind = 'court' | 'ball';
 
 export function Court3D({
+  ref,
   progress,
   direction,
   reduceMotion,
@@ -249,6 +266,7 @@ export function Court3D({
     }
     if (running.current && !reduce.current) startLoop();
   }, [startLoop]);
+  useImperativeHandle(ref, () => ({ wake }), [wake]);
 
   const detach = useCallback((kind: Kind) => {
     const s = surfaces.current[kind];
