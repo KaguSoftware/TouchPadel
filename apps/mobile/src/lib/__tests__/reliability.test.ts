@@ -164,4 +164,23 @@ describe('expo-gl import boundary (the stale-binary crash)', () => {
     expect(src).not.toMatch(/^import\s+\{[^}]*\bGLView\b[^}]*\}\s+from 'expo-gl'/m);
     expect(src).toMatch(/try\s*\{[^}]*?\breturn\s*\(require\('expo-gl'\)/);
   });
+
+  // onContextCreate is async: navigating away mid-create (or Android recreating
+  // the surface) delivers a context whose native side is already gone, and three
+  // throws "Cannot read property 'precision' of undefined" building the renderer
+  // — seen 2026-09-02 leaving the home tab for availability. A single such
+  // failure must NOT retire the 3D court for the whole session: attach() remounts
+  // the GLViews for a fresh context and only reports onUnavailable once the
+  // attempts run out. The caller unmounts Court3D on that call, so nothing inside
+  // can undo it — the retry has to happen here.
+  it('Court3D retries a failed GL init before reporting the court unavailable', () => {
+    const src = readFileSync(join(here, '../../components/Court3D.tsx'), 'utf8');
+    expect(src).toMatch(/const MAX_INIT_ATTEMPTS = [1-9]/);
+    // The give-up call is guarded by the attempt count, not reached directly.
+    expect(src).toMatch(/attempt < MAX_INIT_ATTEMPTS[\s\S]*?unavailableCb\.current\?\.\(\)/);
+    // Remounting is what asks for a new context, so both surfaces must be keyed.
+    expect(src.match(/key=\{glGeneration\}/g)).toHaveLength(2);
+    // A surface that comes up clears the count, so failures must be consecutive.
+    expect(src).toMatch(/initFailures\.current = 0/);
+  });
 });

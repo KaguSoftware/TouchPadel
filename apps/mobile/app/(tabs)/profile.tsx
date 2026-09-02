@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, Image, ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, View } from 'react-native';
+import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { isolate } from '@touch/i18n';
@@ -18,7 +19,7 @@ import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui'
 import { MenuRow } from '../../src/components/booking';
 import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
-import { useToast } from '../../src/components/overlays';
+import { ConfirmationDialog, useToast } from '../../src/components/overlays';
 
 const LOGO_H = 40;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
@@ -47,7 +48,7 @@ export default function ProfileScreen() {
       return;
     }
     void callPhone(phone).then((ok) => {
-      if (!ok) toast(t('errors.callFailed', { phone }), 'error');
+      if (!ok) toast(t('errors.callFailed', { phone: isolate(phone) }), 'error');
     });
   };
 
@@ -56,22 +57,24 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await signOut(supabase);
+      setSignOutOpen(false);
       router.replace('/(tabs)');
     } catch (err) {
+      setSignOutOpen(false);
       setError(t(mapErrorToKey(err)));
     } finally {
       setSigningOut(false);
     }
   };
 
-  // Native confirm, same shape as PetApp's account settings: Cancel, then the
-  // destructive Sign out.
+  // The app's own dialog (spec R7 shape: Cancel, then the destructive Sign
+  // out), not Alert.alert: a native alert follows the SYSTEM language's
+  // direction, so an Arabic app on an English phone got an LTR alert with
+  // English button order.
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const confirmSignOut = () => {
     if (signingOut) return;
-    Alert.alert(t('auth.signOut'), t('auth.signOutConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('auth.signOut'), style: 'destructive', onPress: () => void onSignOut() },
-    ]);
+    setSignOutOpen(true);
   };
 
   const header = (
@@ -189,7 +192,11 @@ export default function ProfileScreen() {
                 {initials}
               </Text>
             </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
+            {/* alignItems shrink-wraps each line to the LEADING edge. Natural text
+                alignment on iOS follows the first strong character, so the email
+                (Latin) and a Latin-script name would otherwise sit on the trailing
+                edge in Arabic; Android already puts them at the start edge. */}
+            <View style={{ flex: 1, minWidth: 0, alignItems: 'flex-start' }}>
               <Text
                 numberOfLines={1}
                 style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink, textAlign: 'auto' }}
@@ -281,6 +288,17 @@ export default function ProfileScreen() {
           />
         </ScrollView>
       )}
+      <ConfirmationDialog
+        visible={signOutOpen}
+        title={t('auth.signOut')}
+        body={t('auth.signOutConfirm')}
+        confirmLabel={t('auth.signOut')}
+        cancelLabel={t('common.cancel')}
+        busy={signingOut}
+        danger
+        onConfirm={() => void onSignOut()}
+        onDismiss={() => setSignOutOpen(false)}
+      />
     </Screen>
   );
 }

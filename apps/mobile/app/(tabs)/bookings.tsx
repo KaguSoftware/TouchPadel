@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, SectionList, View } from 'react-native';
+import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { formatDate, formatTime, formatTimeRange } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useMyBookings } from '../../src/features/booking/hooks';
-import { splitBookings, type BookingRow } from '../../src/features/booking/logic';
+import { useMyBookings, useReleaseHold } from '../../src/features/booking/hooks';
+import { secondsUntil, splitBookings, type BookingRow } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import {
   useCourts,
@@ -16,16 +17,24 @@ import {
 } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
+import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
 import { Screen, SectionLabel, Title } from '../../src/components/ui';
-import { DateBadge, DegradedBanner, StatusPill } from '../../src/components/booking';
+import { DateBadge, DegradedBanner, HeldSlotCard, StatusPill } from '../../src/components/booking';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
+import { useToast } from '../../src/components/overlays';
 
 /**
  * My bookings tab (design 2026-08-31): Upcoming as date-badge cards, Past as a
  * muted list, both routing into booking detail — cancellation lives THERE now.
  * Signed-out shows the empty state with a sign-in path (browsing is public).
+ *
+ * Above them sits HELD: slots the guest has taken but not confirmed (0058).
+ * Nothing in the app used to show a hold, so a guest who left Review had no way
+ * to check what was still held in their name — the only symptom was the fourth
+ * slot tap failing with HOLD_QUOTA_EXCEEDED. Each hold can be finished or
+ * handed straight back from here.
  */
 export default function BookingsScreen() {
   const { t, locale } = useLocale();
@@ -37,6 +46,8 @@ export default function BookingsScreen() {
   const courts = useCourts();
   const settings = useVenueSettings();
   const degraded = useIsDegraded();
+  const release = useReleaseHold();
+  const toast = useToast();
   useCourtsBroadcast(); // desk moves/cancels reflect live
 
   // The upcoming/past boundary follows the clock, not the last data change —
@@ -47,10 +58,41 @@ export default function BookingsScreen() {
     return () => clearInterval(id);
   }, []);
 
-  const { upcoming, past } = useMemo(
+  // "Book your next game →": the Book tab owns the day picker now, so hand it
+  // the intent and switch tabs — it plays the court → booking transition on
+  // focus instead of stack-pushing the standalone grid over this screen.
+  const bookNext = useCallback(() => {
+    requestBookingSheet();
+    router.navigate('/(tabs)');
+  }, [router]);
+
+  const { holds, upcoming, past } = useMemo(
     () => splitBookings(bookings.data ?? [], now),
     [bookings.data, now],
   );
+
+  // A hold's countdown has to move every second, but re-splitting the whole
+  // list that often is waste — so the seconds tick is its own state and runs
+  // ONLY while a hold is on screen. It stops on its own when the last one goes.
+  const [holdNow, setHoldNow] = useState(() => new Date());
+  const hasHolds = holds.length > 0;
+  useEffect(() => {
+    if (!hasHolds) return;
+    setHoldNow(new Date());
+    const id = setInterval(() => setHoldNow(new Date()), 1_000);
+    return () => clearInterval(id);
+  }, [hasHolds]);
+
+  // An expiring countdown must not just freeze at 0:00: the row is gone
+  // server-side, so re-split (and refetch, which also frees the grid view).
+  useEffect(() => {
+    if (holds.some((h) => secondsUntil(h.hold_expires_at ?? null, holdNow) === 0)) {
+      setNow(new Date());
+      void bookings.refetch();
+    }
+    // `bookings` is a stable query object; the tick is what drives this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdNow, holds]);
 
   // O(1) lookup instead of a per-row find.
   const courtNames = useMemo(() => {
@@ -69,6 +111,65 @@ export default function BookingsScreen() {
     [t, upcoming, past],
   );
 
+  // Pick the hold back up where Review left it. Everything the screen needs is
+  // on the row, so this never depends on the tap that created the hold.
+  const resumeHold = (row: BookingRow) =>
+    router.push({
+      pathname: '/review',
+      params: {
+        holdId: row.id,
+        expiresAt: row.hold_expires_at ?? '',
+        priceIqd: row.price_iqd == null ? '' : String(row.price_iqd),
+        courtName: courtNames.get(row.court_id) ?? '',
+        startAt: row.start_at,
+        durationMin: String(
+          Math.round(
+            (new Date(row.end_at).getTime() - new Date(row.start_at).getTime()) / 60_000,
+          ),
+        ),
+      },
+    });
+
+  const releaseHold = (row: BookingRow) =>
+    release.mutate(row.id, {
+      onSuccess: () => toast(t('booking.holdReleasedToast'), 'info'),
+      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
+    });
+
+  const heldSection = holds.length > 0 && (
+    <View>
+      <SectionLabel style={{ marginTop: 6 }}>{t('booking.heldSection')}</SectionLabel>
+      {holds.map((row) => {
+        const left = secondsUntil(row.hold_expires_at ?? null, holdNow) ?? 0;
+        const start = new Date(row.start_at);
+        return (
+          <HeldSlotCard
+            key={row.id}
+            courtName={courtNames.get(row.court_id) ?? ''}
+            when={`${formatDate(start, locale)} · ${formatTimeRange(start, new Date(row.end_at), locale)}`}
+            price={formatPrice(row.price_iqd, locale)}
+            countdown={`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`}
+            urgent={left <= 60}
+            busy={release.isPending && release.variables === row.id}
+            onResume={() => resumeHold(row)}
+            onRelease={() => releaseHold(row)}
+          />
+        );
+      })}
+      <Text
+        style={{
+          marginTop: 8,
+          fontFamily: fonts.body400,
+          fontSize: 11.5,
+          lineHeight: 17,
+          color: colors.fnt,
+        }}
+      >
+        {t('booking.heldSectionBody')}
+      </Text>
+    </View>
+  );
+
   const phone = venuePhoneOf(settings.data);
   const header = (
     <View style={{ paddingTop: space.l }}>
@@ -83,6 +184,7 @@ export default function BookingsScreen() {
           />
         </View>
       ) : null}
+      {heldSection}
     </View>
   );
 
@@ -133,7 +235,9 @@ export default function BookingsScreen() {
     );
   }
 
-  const noBookings = upcoming.length === 0 && past.length === 0;
+  // A held slot counts: showing "No bookings yet" over a live hold is exactly
+  // the blind spot this section exists to close.
+  const noBookings = holds.length === 0 && upcoming.length === 0 && past.length === 0;
 
   const priceSuffix = (row: BookingRow) => {
     const price = formatPrice(row.price_iqd, locale);
@@ -162,7 +266,13 @@ export default function BookingsScreen() {
     >
       <DateBadge date={new Date(item.start_at)} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}>
+        <Text
+          numberOfLines={1}
+          // Shrink-wrapped to the leading edge, like HeldSlotCard: pickLocale can
+          // hand back the Latin name, which a stretched Text left-aligns on iOS
+          // under RTL.
+          style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
+        >
           {courtNames.get(item.court_id) ?? ''}
         </Text>
         <Text
@@ -200,7 +310,11 @@ export default function BookingsScreen() {
       })}
     >
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: fonts.display800, fontSize: 13, color: colors.mut2 }}>
+        <Text
+          numberOfLines={1}
+          // Same as the upcoming card.
+          style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 13, color: colors.mut2 }}
+        >
           {courtNames.get(item.court_id) ?? ''}
         </Text>
         <Text
@@ -258,7 +372,7 @@ export default function BookingsScreen() {
             section.data.length === 0 && section.key === 'upcoming' ? (
               <Pressable
                 accessibilityRole="link"
-                onPress={() => router.push('/availability')}
+                onPress={bookNext}
                 style={({ pressed }) => ({
                   marginTop: 8,
                   backgroundColor: colors.card,

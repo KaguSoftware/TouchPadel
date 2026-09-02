@@ -13,7 +13,8 @@
  * Deliberately NOT the app's `Button`: that one uppercases its label (Archivo)
  * and has no icon slot — these are third-party brand buttons, not app CTAs.
  */
-import { ActivityIndicator, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Text } from '../i18n/text';
 import { useLocale } from '../i18n/LocaleProvider';
 import { radius, space, useTheme, vendor } from '../theme';
 import type { SocialProvider } from '../features/auth/social';
