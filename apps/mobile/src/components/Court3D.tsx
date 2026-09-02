@@ -20,13 +20,14 @@
  *     is focused and the app is active (expo-router keeps tab screens mounted).
  *   · Reduced motion: the rally freezes on a rest frame and the scene renders
  *     only when `p` changes.
- *   · Idle: once `p` has rested for IDLE_AFTER_MS with no touch, the rally
+ *   · Idle: once `p` has rested for IDLE_AFTER_MS (three rallies) with no touch, the rally
  *     holds at the next leg start — ball in a player's hand, nobody mid-swing
  *     (rally.nextLegStart) — and the loop stops (battery: the Book tab is
  *     where people sit longest). At the court view the caller's `pausedNote`
  *     fades in and a touch anywhere on the stage plays on from that frame;
- *     behind the sheet it just holds, and the close tap moves `p`, which
- *     wakes it. Returning to the tab / foreground wakes it too.
+ *     behind the sheet it holds until the caller reports activity through
+ *     the `ref` handle (`wake`: any touch inside the sheet) or the close tap
+ *     moves `p`. Returning to the tab / foreground wakes it too.
  *   · Each GL surface is recreated by Android after backgrounding
  *     (onSurfaceTextureDestroyed → a NEW context), independently of the other,
  *     so attaching a context is idempotent per surface; the scene is shared.
@@ -54,7 +55,16 @@
  * is also why the caller keeps the header above this view (index.tsx) once the
  * transition lifts it 60 px.
  */
-import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import {
   Animated,
   AppState,
@@ -64,14 +74,13 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { requireOptionalNativeModule } from 'expo';
 import type { ExpoWebGLRenderingContext, GLView as GLViewComponent } from 'expo-gl';
 import { useFocusEffect } from 'expo-router';
 import * as THREE from 'three';
 import { detectCourtQuality } from '../features/courtTransition/deviceQuality';
 import type { CourtQuality } from '../features/courtTransition/quality';
 import { buildCourtScene, type CourtScene } from '../features/courtTransition/scene';
-import { nextLegStart } from '../features/courtTransition/rally';
+import { LOOP_SECONDS, nextLegStart } from '../features/courtTransition/rally';
 import { pitchEase, type Dir } from '../features/courtTransition/spec';
 import { addBreadcrumb, captureException } from '../lib/telemetry';
 import { useTheme } from '../theme';
@@ -81,19 +90,28 @@ import { useTheme } from '../theme';
  * bare `import { GLView }` crashes this whole route module on any binary built
  * before expo-gl was added (a stale dev client) — expo-router then reports the
  * route as "missing the required default export" and the Book tab is dead.
- * Probe the native module first: when it is missing, GLView stays null, the
- * mount effect below fires `onUnavailable` and the caller shows the flat SVG
- * court. Metro still bundles expo-gl either way; the require just never runs
- * where it cannot evaluate.
+ * Require it in a try/catch instead: a stale binary throws right here and
+ * GLView stays null — the mount effect below fires `onUnavailable` and the
+ * caller shows the flat SVG court. On web there is no native module at all
+ * (GLView.web.js is plain WebGL), so a name probe would wrongly reject it;
+ * the require itself is the only test that is right on every platform.
  */
-const GLView: typeof GLViewComponent | null = requireOptionalNativeModule(
-  'ExponentGLObjectManager',
-)
-  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
-    (require('expo-gl') as { GLView: typeof GLViewComponent }).GLView
-  : null;
+const GLView: typeof GLViewComponent | null = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require('expo-gl') as { GLView: typeof GLViewComponent }).GLView;
+  } catch {
+    return null;
+  }
+})();
+
+export interface Court3DHandle {
+  /** Activity elsewhere (a touch in the sheet): restart the idle clock and play on if held. */
+  wake: () => void;
+}
 
 export interface Court3DProps {
+  ref?: Ref<Court3DHandle>;
   progress: Animated.Value;
   direction: Dir;
   reduceMotion: boolean;
@@ -113,8 +131,8 @@ export interface Court3DProps {
 
 /** Reduced motion holds the rally here: ball on the hitter's racket, nobody mid-swing, no trail. */
 const REST_T = 0;
-/** No touch and `p` at rest for this long → hold the rally at the next leg start. */
-const IDLE_AFTER_MS = 5000;
+/** No touch and `p` at rest for three full rallies (≈ 15.6 s) → hold at the next leg start. */
+const IDLE_AFTER_MS = 3 * LOOP_SECONDS * 1000;
 const NOTE_FADE_MS = 220;
 
 const hexToInt = (hex: string): number => parseInt(hex.slice(1, 7), 16);
@@ -129,6 +147,7 @@ interface Surface {
 type Kind = 'court' | 'ball';
 
 export function Court3D({
+  ref,
   progress,
   direction,
   reduceMotion,
@@ -269,6 +288,7 @@ export function Court3D({
     }
     if (running.current && !reduce.current) startLoop();
   }, [startLoop]);
+  useImperativeHandle(ref, () => ({ wake }), [wake]);
 
   const detach = useCallback((kind: Kind) => {
     const s = surfaces.current[kind];
