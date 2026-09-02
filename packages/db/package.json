@@ -19,6 +19,7 @@
     "db:menu": "node scripts/db-menu.mjs",
     "db:client": "node scripts/db-client.mjs",
     "db:placeholders": "node scripts/make-placeholders.mjs",
+    "db:clear-dev-till": "node scripts/clear-dev-till.mjs",
     "qr:artwork": "node scripts/qr-artwork.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

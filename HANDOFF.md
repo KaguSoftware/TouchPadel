@@ -1036,10 +1036,13 @@ role** — the handover transfer is easier than documented, but not during deadl
   IT.** `app.is_degraded()` = "a till row exists in `device_heartbeats` AND none is fresh
   (45 s)". A dev session of the operator app heartbeats as a till; 45 s after it exits every
   guest surface shows "Venue connection lost / desk-only" and holds are refused. That is
-  exactly what the phone was reporting as "no internet" on 2026-08-31. Until a real till is
-  installed: keep the operator open while testing guests against hosted, or re-run the delete
-  in migration 0057. Verify with the anon key: `POST /rest/v1/rpc/is_degraded`
-  (`Content-Profile: app`) → must be `false`.
+  exactly what the phone was reporting as "no internet" on 2026-08-31 — and AGAIN on
+  2026-09-02 (a `DEV1` session from 2026-09-01 evening left hosted degraded ~17 h). The fix
+  is now one command from `packages/db`: **`pnpm db:clear-dev-till`**
+  (`scripts/clear-dev-till.mjs`, the 0057 delete + sweep + verify; never touches a till
+  fresh < 1 h). Until a real till is installed: keep the operator open while testing guests
+  against hosted, or run that after closing it. Verify with the anon key:
+  `POST /rest/v1/rpc/is_degraded` (`Content-Profile: app`) → must be `false`.
 - **MOBILE: NetInfo's `isInternetReachable` is a Google probe, not connectivity.** It stays
   `false` forever on networks where `clients3.google.com` is filtered or slow (and behind some
   VPNs on Android) while Supabase works. The app now uses `isConnected` only

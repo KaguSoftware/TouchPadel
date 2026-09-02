@@ -43,8 +43,14 @@ const TRANSPORT_MESSAGES: readonly RegExp[] = [
   /^Request timed out/i,
 ];
 
-/** Error names that mean the request was cut off client-side. */
-const TRANSPORT_NAMES = new Set(['AbortError', 'TimeoutError', 'AuthRetryableFetchError']);
+/**
+ * Error names that mean the request was cut off client-side. NOT 'AbortError':
+ * TanStack Query aborts its signal on unmount / superseded refetch, so an
+ * abort means "nobody is waiting for this response any more", not "no
+ * connection" — it must never render the offline message. Nothing in this app
+ * aborts fetches as a timeout; a runtime timeout throws 'TimeoutError'.
+ */
+const TRANSPORT_NAMES = new Set(['TimeoutError', 'AuthRetryableFetchError']);
 
 /** Best-effort message extraction for Error instances, PostgREST error objects and strings. */
 export function errorMessageOf(err: unknown): string | null {
@@ -56,14 +62,15 @@ export function errorMessageOf(err: unknown): string | null {
   return null;
 }
 
-/** True when the failure is a transport failure (offline, DNS, reset, timeout, abort). */
+/** True when the failure is a transport failure (offline, DNS, reset, timeout). */
 export function isTransportError(err: unknown): boolean {
   if (!err) return false;
   if (typeof err === 'object') {
     const { name, status } = err as { name?: unknown; status?: unknown };
     if (typeof name === 'string' && TRANSPORT_NAMES.has(name)) return true;
-    // gotrue-js reports a failed fetch as an AuthError with status 0.
-    if (status === 0) return true;
+    // gotrue-js reports a failed fetch as an Auth*Error carrying status 0. Any
+    // other object with a zero status says nothing about connectivity.
+    if (status === 0 && typeof name === 'string' && name.startsWith('Auth')) return true;
   }
   const raw = errorMessageOf(err);
   if (!raw) return false;
