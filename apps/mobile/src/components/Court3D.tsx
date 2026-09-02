@@ -74,7 +74,6 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { requireOptionalNativeModule } from 'expo';
 import type { ExpoWebGLRenderingContext, GLView as GLViewComponent } from 'expo-gl';
 import { useFocusEffect } from 'expo-router';
 import * as THREE from 'three';
@@ -91,17 +90,20 @@ import { useTheme } from '../theme';
  * bare `import { GLView }` crashes this whole route module on any binary built
  * before expo-gl was added (a stale dev client) — expo-router then reports the
  * route as "missing the required default export" and the Book tab is dead.
- * Probe the native module first: when it is missing, GLView stays null, the
- * mount effect below fires `onUnavailable` and the caller shows the flat SVG
- * court. Metro still bundles expo-gl either way; the require just never runs
- * where it cannot evaluate.
+ * Require it in a try/catch instead: a stale binary throws right here and
+ * GLView stays null — the mount effect below fires `onUnavailable` and the
+ * caller shows the flat SVG court. On web there is no native module at all
+ * (GLView.web.js is plain WebGL), so a name probe would wrongly reject it;
+ * the require itself is the only test that is right on every platform.
  */
-const GLView: typeof GLViewComponent | null = requireOptionalNativeModule(
-  'ExponentGLObjectManager',
-)
-  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
-    (require('expo-gl') as { GLView: typeof GLViewComponent }).GLView
-  : null;
+const GLView: typeof GLViewComponent | null = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require('expo-gl') as { GLView: typeof GLViewComponent }).GLView;
+  } catch {
+    return null;
+  }
+})();
 
 export interface Court3DHandle {
   /** Activity elsewhere (a touch in the sheet): restart the idle clock and play on if held. */
