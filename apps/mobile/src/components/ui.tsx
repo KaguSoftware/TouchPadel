@@ -141,15 +141,22 @@ export function Title({
   size?: number;
 }) {
   const { colors, fonts, tracking } = useTheme();
+  const { dir } = useLocale();
+  // 1.05 is an all-caps Archivo ratio: Latin caps sit on the baseline with
+  // almost nothing below it. Cairo drops ج/ح/ي well under the baseline, so the
+  // same ratio clips their tails — Arabic needs a taller line box.
+  const lineHeight = Math.round(size * (dir === 'rtl' ? 1.45 : 1.05));
   return (
     <View style={{ marginBottom: plain ? 0 : space.s }}>
       <Text
         style={{
           fontFamily: fonts.display900,
           fontSize: size,
-          lineHeight: Math.round(size * 1.05),
-          letterSpacing: plain ? 0 : tracking(-0.26),
-          textTransform: 'uppercase',
+          lineHeight,
+          // Arabic has no letter case, and negative tracking crowds its joined
+          // letterforms — both are Latin-only treatments.
+          letterSpacing: plain || dir === 'rtl' ? 0 : tracking(-0.26),
+          textTransform: dir === 'rtl' ? 'none' : 'uppercase',
           color: colors.ink,
         }}
       >
@@ -205,15 +212,20 @@ export function DashedDivider({ color, style }: { color?: string; style?: StyleP
 /** Uppercase micro-label above sections/lists ("UPCOMING", "PAST"). */
 export function SectionLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   const { colors, fonts, tracking } = useTheme();
+  const { dir } = useLocale();
   return (
     <Text
       style={[
         {
           fontFamily: fonts.display800,
           fontSize: 11,
-          letterSpacing: tracking(1.1),
-          textTransform: 'uppercase',
+          // Uppercasing and wide tracking are Latin-only treatments: Arabic has
+          // no letter case, and tracking pulls its joined letterforms apart.
+          letterSpacing: dir === 'rtl' ? 0 : tracking(1.1),
+          textTransform: dir === 'rtl' ? 'none' : 'uppercase',
           color: colors.mut,
+          // Same as MicroLabel: keyed off the locale so English stays left.
+          textAlign: dir === 'rtl' ? 'right' : 'left',
         },
         style,
       ]}
@@ -226,15 +238,22 @@ export function SectionLabel({ children, style }: { children: ReactNode; style?:
 /** Small uppercase field/group label (design `font:700 11px Mulish`, `ls .06em`). */
 export function MicroLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   const { colors, fonts, tracking } = useTheme();
+  const { dir } = useLocale();
   return (
     <Text
       style={[
         {
           fontFamily: fonts.body700,
           fontSize: 11,
-          letterSpacing: tracking(0.66),
-          textTransform: 'uppercase',
+          // Uppercase + tracking are Latin-only; Arabic has no case and its
+          // joined letterforms break apart when tracked.
+          letterSpacing: dir === 'rtl' ? 0 : tracking(0.66),
+          textTransform: dir === 'rtl' ? 'none' : 'uppercase',
           color: colors.mut,
+          // Explicitly keyed off the locale, NOT left to RN's isRTL swap: that
+          // native flag lags the chosen language, so relying on it aligned
+          // English and Arabic the same way. English stays hard left.
+          textAlign: dir === 'rtl' ? 'right' : 'left',
         },
         style,
       ]}
@@ -357,7 +376,16 @@ export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...i
       inputProps.keyboardType === 'email-address' ||
       inputProps.keyboardType === 'phone-pad' ||
       inputProps.keyboardType === 'numeric');
-  const forceLtr = isLatin && dir === 'rtl';
+  const value = String(inputProps.value ?? '');
+  // An EMPTY field shows its Arabic placeholder, and textAlign governs the
+  // placeholder too — so it must follow the UI direction. Once there is
+  // content, Latin letters/digits read LTR (spec §06 Forms): either because
+  // the field is declared Latin-only (password / email / phone) or because
+  // what was actually typed is Latin. Arabic input keeps the RTL direction.
+  const hasLatin = /[A-Za-z0-9]/.test(value);
+  const hasArabic = /[\u0600-\u06FF]/.test(value);
+  const forceLtr =
+    dir === 'rtl' && value.length > 0 && (isLatin || (hasLatin && !hasArabic));
   return (
     <View style={{ marginTop: space.sm }}>
       {label ? <MicroLabel style={{ marginBottom: 5 }}>{label}</MicroLabel> : null}
@@ -375,6 +403,10 @@ export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...i
             fontFamily: fonts.body600,
             fontSize: 14,
             color: colors.ink,
+            // Explicit, not left to the default: the native RTL flag lags the
+            // locale, so an unset textAlign resolves to physical left and the
+            // Arabic placeholder sits against the wrong edge.
+            textAlign: dir === 'rtl' ? 'right' : 'left',
           },
           // The design's 2 px focus ring, drawn outside the border so the
           // field does not jump when it gains focus.

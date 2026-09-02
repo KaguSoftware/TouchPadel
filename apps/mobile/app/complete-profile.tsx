@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { usePreventRemove } from '@react-navigation/native';
+import { Redirect, Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
@@ -45,6 +44,7 @@ type ReturnTo = 'continue' | 'back';
 export default function CompleteProfileScreen() {
   const { t, locale, setLocale } = useLocale();
   const router = useRouter();
+  const navigation = useNavigation();
   const safeBack = useSafeBack();
   const toast = useToast();
   const { session, initializing } = useAuth();
@@ -110,10 +110,27 @@ export default function CompleteProfileScreen() {
   // the pop rather than own a button — same approach as profile-edit. Released
   // once the slot is cleared, then `onBack` performs the replace itself.
   const [leaving, setLeaving] = useState(false);
-  usePreventRemove(returnTo === 'continue' && !leaving, () => {
-    setLeaving(true);
-    onBack();
-  });
+  const blockPop = returnTo === 'continue' && !leaving;
+
+  // NOT `usePreventRemove`: registering the route as prevented makes
+  // NativeStackView force `headerBackButtonMenuEnabled: false`, which
+  // react-native-screens turns into a plain UIBarButtonItem — a bordered
+  // capsule with no chevron, in the default tint. Listening to `beforeRemove`
+  // gives the same interception (it is the event that hook wraps) while the
+  // back item stays UIKit's own. See profile-edit for the full note.
+  // `onBack` is rebuilt every render, so the listener reads it through a ref —
+  // subscribing on it directly would tear down and re-add the listener on each
+  // render, and could drop the event mid-gesture.
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+  useEffect(() => {
+    if (!blockPop) return;
+    return navigation.addListener('beforeRemove', (e) => {
+      e.preventDefault();
+      setLeaving(true);
+      onBackRef.current();
+    });
+  }, [navigation, blockPop]);
 
   if (!initializing && !session) return <Redirect href="/welcome" />;
 

@@ -17,6 +17,53 @@ import { addBreadcrumb, captureException } from './telemetry';
 
 export const APPEARANCE_KEY = 'tp.appearance';
 export const LOCALE_KEY = 'tp.locale';
+/**
+ * Where the user was standing when they switched language. A locale switch
+ * reloads the JS bundle (the only way a changed RTL flag reaches native views),
+ * which drops them on the initial route — so the route is parked here first and
+ * replayed once the new direction is up.
+ */
+export const RESUME_KEY = 'tp.resumeRoute';
+
+/**
+ * Written just before the reload. Stale entries are possible (the reload can
+ * fail, or the app can be killed mid-switch), so it carries a timestamp and is
+ * consumed exactly once — see `consumeResumeRoute`.
+ */
+export async function saveResumeRoute(path: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(RESUME_KEY, JSON.stringify({ path, at: Date.now() }));
+  } catch (error) {
+    // Non-fatal: the switch still happens, the user just lands on the tabs.
+    captureException(error, { label: 'resume.save', path });
+  }
+}
+
+/** A parked route older than this is treated as debris, not an intention. */
+const RESUME_TTL_MS = 60_000;
+
+/**
+ * Read AND clear the parked route. Clearing unconditionally matters: a route
+ * left behind would replay on some later, unrelated launch.
+ */
+export async function consumeResumeRoute(): Promise<string | null> {
+  try {
+    const raw = await AsyncStorage.getItem(RESUME_KEY);
+    if (!raw) return null;
+    await AsyncStorage.removeItem(RESUME_KEY);
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const { path, at } = parsed as { path?: unknown; at?: unknown };
+    if (typeof path !== 'string' || typeof at !== 'number') return null;
+    if (Date.now() - at > RESUME_TTL_MS) return null;
+    // Only in-app paths, never a URL that could point off somewhere else.
+    if (!path.startsWith('/') || path.startsWith('//')) return null;
+    return path;
+  } catch (error) {
+    captureException(error, { label: 'resume.read' });
+    return null;
+  }
+}
 
 export type BootAppearance = 'light' | 'dark';
 
