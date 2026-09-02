@@ -7,11 +7,7 @@ import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useConfirmBooking } from '../../src/features/booking/hooks';
 import { secondsUntil } from '../../src/features/booking/logic';
-import {
-  isDegradedRefusal,
-  mapErrorToKey,
-  rpcErrorCode,
-} from '../../src/features/booking/errors';
+import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../../src/features/booking/errors';
 import { useVenueSettings } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
@@ -53,6 +49,8 @@ export default function ReviewScreen() {
     courtName?: string;
     startAt?: string;
     durationMin?: string;
+    /** 'sheet' when the hold came from the Book tab's booking sheet (still mounted beneath). */
+    origin?: string;
   }>();
   const holdId = typeof params.holdId === 'string' ? params.holdId : '';
   // '' means "no deadline" — the duplicate-replay path of app.hold_slot, when
@@ -110,8 +108,7 @@ export default function ReviewScreen() {
       ? ''
       : `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`;
 
-  const endAt =
-    startAt && durationMin ? new Date(startAt.getTime() + durationMin * 60_000) : null;
+  const endAt = startAt && durationMin ? new Date(startAt.getTime() + durationMin * 60_000) : null;
   const whenLine = startAt ? formatDateTime(startAt, locale) : '';
   const windowHours = settings.data?.cancellation_window_hours ?? null;
 
@@ -155,7 +152,13 @@ export default function ReviewScreen() {
     });
   };
 
-  const backToAvailability = () => router.replace('/availability');
+  // From the sheet, the grid the guest left is still open underneath — pop back
+  // to it (the settled hold invalidated availability, so it is fresh); from the
+  // standalone screen, land on the standalone screen.
+  const backToAvailability = () => {
+    if (params.origin === 'sheet' && router.canGoBack()) router.back();
+    else router.replace('/availability');
+  };
 
   // ── Terminal states ────────────────────────────────────────────────────────
   if (expired || slotTaken) {
@@ -220,7 +223,13 @@ export default function ReviewScreen() {
             label={t('booking.backToAvailability')}
             onPress={backToAvailability}
             variant="cta"
-            style={{ marginTop: 22, paddingTop: 14, paddingBottom: 14, paddingStart: 26, paddingEnd: 26 }}
+            style={{
+              marginTop: 22,
+              paddingTop: 14,
+              paddingBottom: 14,
+              paddingStart: 26,
+              paddingEnd: 26,
+            }}
           />
         </View>
       </Screen>
@@ -324,11 +333,17 @@ export default function ReviewScreen() {
             rows={[
               ...(startAt
                 ? [
-                    { icon: CalendarIcon, label: t('booking.date'), value: formatDate(startAt, locale) },
+                    {
+                      icon: CalendarIcon,
+                      label: t('booking.date'),
+                      value: formatDate(startAt, locale),
+                    },
                     {
                       icon: ClockIcon,
                       label: t('booking.time'),
-                      value: endAt ? formatTimeRange(startAt, endAt, locale) : formatDateTime(startAt, locale),
+                      value: endAt
+                        ? formatTimeRange(startAt, endAt, locale)
+                        : formatDateTime(startAt, locale),
                     },
                   ]
                 : []),
@@ -390,10 +405,22 @@ export default function ReviewScreen() {
               paddingBottom: 10,
             }}
           >
-            <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: colors.ambtext }}>
+            <Text
+              style={{
+                fontFamily: fonts.body600,
+                fontSize: 12.5,
+                lineHeight: 19,
+                color: colors.ambtext,
+              }}
+            >
               {t('auth.profileIncompleteNotice')}
             </Text>
-            <LinkText label={t('auth.addPhoneLink')} color={colors.ambstrong} onPress={addPhone} style={{ marginTop: 6 }} />
+            <LinkText
+              label={t('auth.addPhoneLink')}
+              color={colors.ambstrong}
+              onPress={addPhone}
+              style={{ marginTop: 6 }}
+            />
           </View>
         ) : null}
 

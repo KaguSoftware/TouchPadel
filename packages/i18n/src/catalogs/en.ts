@@ -125,6 +125,8 @@ export const en = {
     openNow: 'Open now · {hours}',
     closedNow: 'Closed right now',
     reserveFooter: 'Reserve in the app · pay at the desk on arrival',
+    // The 3D rally holds with the ball in a player's hand after a while idle (battery).
+    rallyPaused: 'No audience, so the rally is paused. Tap to play on.',
     courtPhoto: 'Court photo',
     fromPrice: 'From {price}',
     perHour: '{price} / hr',

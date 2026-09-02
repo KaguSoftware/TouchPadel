@@ -120,6 +120,7 @@ export const ar: Messages = {
     openNow: 'مفتوح الآن · {hours}',
     closedNow: 'مغلق حاليًا',
     reserveFooter: 'احجز من التطبيق · وادفع عند الاستقبال لدى وصولك',
+    rallyPaused: 'لا يوجد جمهور، فتوقّفت المباراة. المس الشاشة للمتابعة.',
     courtPhoto: 'صورة الملعب',
     fromPrice: 'ابتداءً من {price}',
     perHour: '{price} / ساعة',

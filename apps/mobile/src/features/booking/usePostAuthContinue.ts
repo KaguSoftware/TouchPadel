@@ -50,9 +50,11 @@ export function usePostAuthContinue(): { continueAfterAuth: () => void; holdBusy
         },
         onError: () => {
           // Whatever the refusal (taken, degraded, expired rate), the freshest
-          // grid is the honest answer — land there with a short explanation.
+          // grid is the honest answer — land there with a short explanation:
+          // the Book tab, where the sheet the guest tapped on is still open,
+          // or the standalone screen.
           toast(t('booking.slotTakenBody'), 'error');
-          router.replace('/availability');
+          router.replace(pending.origin === 'sheet' ? '/(tabs)' : '/availability');
         },
         // After navigation, so the (auth) layout's exemption holds until we are gone.
         onSettled: () => clearPendingSlot(),
