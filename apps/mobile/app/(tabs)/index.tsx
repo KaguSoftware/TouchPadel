@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
 import {
@@ -178,7 +178,7 @@ function NetCta({
 export default function BookHomeScreen() {
   const { t, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const settings = useVenueSettings();
   const degraded = useIsDegraded();
