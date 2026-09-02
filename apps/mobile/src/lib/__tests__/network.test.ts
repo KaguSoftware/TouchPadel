@@ -18,7 +18,6 @@ describe('isTransportError — what "no connection" is allowed to mean', () => {
     expect(isTransportError({ message: 'TypeError: Network request failed', code: '' })).toBe(true);
     // gotrue-js: AuthRetryableFetchError with status 0
     expect(isTransportError({ name: 'AuthRetryableFetchError', message: 'x', status: 0 })).toBe(true);
-    expect(isTransportError({ name: 'AbortError', message: 'Aborted' })).toBe(true);
   });
 
   it('does NOT label server-side failures as connectivity', () => {
@@ -35,6 +34,10 @@ describe('isTransportError — what "no connection" is allowed to mean', () => {
     ).toBe(false);
     expect(isTransportError(null)).toBe(false);
     expect(isTransportError('')).toBe(false);
+    // TanStack Query aborts its signal on unmount/refetch — a cancellation, not connectivity.
+    expect(isTransportError({ name: 'AbortError', message: 'Aborted' })).toBe(false);
+    // status 0 alone proves nothing; only gotrue's Auth errors use it for a dead fetch.
+    expect(isTransportError({ status: 0, message: 'weird payload' })).toBe(false);
   });
 
   it('feeds mapErrorToKey: RPC codes first, transport second, generic last', () => {
@@ -42,6 +45,7 @@ describe('isTransportError — what "no connection" is allowed to mean', () => {
     expect(mapErrorToKey({ message: 'TypeError: Network request failed' })).toBe('errors.network');
     expect(mapErrorToKey({ message: 'permission denied for table reservations' })).toBe('errors.generic');
     expect(mapErrorToKey(new Error('statement timeout'))).toBe('errors.generic');
+    expect(mapErrorToKey({ name: 'AbortError', message: 'Aborted' })).toBe('errors.generic');
     expect(mapErrorToKey(new Error('SLOT_TAKEN'))).toBe('booking.slotTaken');
   });
 
