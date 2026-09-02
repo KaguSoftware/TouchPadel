@@ -82,7 +82,7 @@ import type { CourtQuality } from '../features/courtTransition/quality';
 import { buildCourtScene, type CourtScene } from '../features/courtTransition/scene';
 import { LOOP_SECONDS, nextLegStart } from '../features/courtTransition/rally';
 import { pitchEase, type Dir } from '../features/courtTransition/spec';
-import { addBreadcrumb, captureException } from '../lib/telemetry';
+import { addBreadcrumb, captureException, captureMessage, describeError } from '../lib/telemetry';
 import { useTheme } from '../theme';
 
 /**
@@ -134,6 +134,15 @@ const REST_T = 0;
 /** No touch and `p` at rest for three full rallies (≈ 15.6 s) → hold at the next leg start. */
 const IDLE_AFTER_MS = 3 * LOOP_SECONDS * 1000;
 const NOTE_FADE_MS = 220;
+/**
+ * A context can arrive already dead: `onContextCreate` is async, so navigating
+ * away mid-create (or Android recreating the surface) hands attach() a handle
+ * whose native side is gone. three then throws reading capabilities off it
+ * (`getShaderPrecisionFormat(...)` returns undefined). That is transient — a
+ * fresh surface gives a live context — so remount the GLViews and try again.
+ * Only a device that fails this many times running is really without GL.
+ */
+const MAX_INIT_ATTEMPTS = 3;
 
 const hexToInt = (hex: string): number => parseInt(hex.slice(1, 7), 16);
 
@@ -188,6 +197,12 @@ export function Court3D({
   const unavailableCb = useRef(onUnavailable);
   const [ready, setReady] = useState(false);
   const [focused, setFocused] = useState(true);
+  /** Read inside attach()'s catch, which must not re-create on every focus change. */
+  const focusedRef = useRef(true);
+  /** Consecutive attach() failures; reset by the first surface that comes up. */
+  const initFailures = useRef(0);
+  /** Bumped to remount both GLViews and ask the platform for fresh contexts. */
+  const [glGeneration, setGlGeneration] = useState(0);
   const [active, setActive] = useState(AppState.currentState === 'active');
 
   sizeCb.current = onSize;
@@ -298,6 +313,7 @@ export function Court3D({
   }, []);
 
   const teardown = useCallback(() => {
+    setReady(false); // no surfaces left to draw on: stop the loop with them
     detach('court');
     detach('ball');
     court.current?.dispose();
@@ -342,12 +358,23 @@ export function Court3D({
           start.current = performance.now();
           lastActive.current = start.current;
         }
+        initFailures.current = 0; // a live surface: any earlier failure was transient
         addBreadcrumb('court3d.ready', { surface: kind, quality, width: w, height: h });
         if (kind === 'court') setReady(true);
         else if (running.current) requestOnce();
       } catch (error) {
-        captureException(error, { label: 'court3d.init' });
+        initFailures.current += 1;
+        const attempt = initFailures.current;
+        // `surface` and `focused` say which GLView failed and whether the screen
+        // had already been navigated away from — the signature of a dead context.
+        const context = { label: 'court3d.init', surface: kind, attempt, focused: focusedRef.current };
         teardown();
+        if (attempt < MAX_INIT_ATTEMPTS) {
+          captureMessage('court3d.init retry', 'warning', { ...context, error: describeError(error) });
+          setGlGeneration((n) => n + 1);
+          return;
+        }
+        captureException(error, context);
         unavailableCb.current?.();
       }
     },
@@ -370,8 +397,12 @@ export function Court3D({
 
   useFocusEffect(
     useCallback(() => {
+      focusedRef.current = true;
       setFocused(true);
-      return () => setFocused(false);
+      return () => {
+        focusedRef.current = false;
+        setFocused(false);
+      };
     }, []),
   );
   useEffect(() => {
@@ -471,11 +502,21 @@ export function Court3D({
         />
       ) : null}
       <Animated.View {...surface}>
-        <GLView style={StyleSheet.absoluteFill} msaaSamples={msaa} onContextCreate={onCourtContext} />
+        <GLView
+          key={glGeneration}
+          style={StyleSheet.absoluteFill}
+          msaaSamples={msaa}
+          onContextCreate={onCourtContext}
+        />
       </Animated.View>
       {children}
       <Animated.View {...surface}>
-        <GLView style={StyleSheet.absoluteFill} msaaSamples={msaa} onContextCreate={onBallContext} />
+        <GLView
+          key={glGeneration}
+          style={StyleSheet.absoluteFill}
+          msaaSamples={msaa}
+          onContextCreate={onBallContext}
+        />
       </Animated.View>
       {pausedNote ? (
         <Animated.View

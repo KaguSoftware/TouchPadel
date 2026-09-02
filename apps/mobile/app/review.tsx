@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { useConfirmBooking } from '../src/features/booking/hooks';
+import { useConfirmBooking, useReleaseHold } from '../src/features/booking/hooks';
 import { secondsUntil } from '../src/features/booking/logic';
 import {
   isDegradedRefusal,
