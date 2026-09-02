@@ -132,6 +132,28 @@ export default function CompleteProfileScreen() {
     });
   }, [navigation, blockPop]);
 
+  // What follows a save — the toast, and continueAfterAuth — must speak the
+  // language just chosen. setLocale resolves once that language has
+  // committed, but onSuccess's closure still holds the `t`, `toast` and
+  // `continueAfterAuth` of the render BEFORE the switch; so the step is
+  // carried over in state and run from the first render in which `locale`
+  // matches, where this effect reads the fresh ones from context.
+  // The target is the language the save SENT, not the picker's live value: the
+  // picker stays usable while the request is in flight, and a toggle then
+  // would otherwise leave this waiting for a locale that never arrives.
+  const [continuation, setContinuation] = useState<{ to: ReturnTo; lang: Locale } | null>(null);
+  useEffect(() => {
+    if (!continuation || locale !== continuation.lang) return;
+    setContinuation(null);
+    if (continuation.to === 'back') {
+      toast(t('profile.updated'));
+      safeBack();
+    } else {
+      toast(t('auth.welcomeToApp'));
+      continueAfterAuth();
+    }
+  }, [continuation, locale, t, toast, safeBack, continueAfterAuth]);
+
   if (!initializing && !session) return <Redirect href="/welcome" />;
 
   const onSave = () => {
@@ -151,15 +173,11 @@ export default function CompleteProfileScreen() {
         onSuccess: async () => {
           // ALWAYS, even when unchanged: a new OAuth row has preferred_lang 'en'
           // by trigger default even while the app runs in Arabic. setLocale
-          // writes profiles.preferred_lang; direction reconciles on next launch.
-          await setLocale(lang, { flip: false });
-          if (returnTo === 'back') {
-            toast(t('profile.updated'));
-            safeBack();
-          } else {
-            toast(t('auth.welcomeToApp'));
-            continueAfterAuth();
-          }
+          // writes profiles.preferred_lang and, when the choice differs from the
+          // running language, switches the app in place. The step after it
+          // runs from the effect above, in that language.
+          await setLocale(lang);
+          setContinuation({ to: returnTo, lang });
         },
         onError: (err) => setError(t(mapErrorToKey(err))),
       },

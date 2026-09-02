@@ -1,4 +1,5 @@
-import { Image, Text, View } from 'react-native';
+import { Image, View } from 'react-native';
+import { Text } from '../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +9,7 @@ import Svg, { Path } from 'react-native-svg';
 import { formatTime, isolate } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
+import { mirror } from '../src/i18n/direction';
 import { clearPendingSlot, usePendingSlot } from '../src/features/booking/pendingSlot';
 import { brand, radius, useTheme } from '../src/theme';
 import { Button, useSafeBack } from '../src/components/ui';
@@ -38,11 +40,12 @@ function WelcomeScreen() {
 
   return (
     // The design's 168deg three-stop ramp; art bleeds under the status bar.
+    // Gradient stops are physical fractions, so its slight tilt is mirrored here.
     <LinearGradient
       colors={[...brand.welcomeGradient]}
       locations={[0, 0.55, 1]}
-      start={{ x: 0.4, y: 0 }}
-      end={{ x: 0.6, y: 1 }}
+      start={{ x: dir === 'rtl' ? 0.6 : 0.4, y: 0 }}
+      end={{ x: dir === 'rtl' ? 0.4 : 0.6, y: 1 }}
       style={{ flex: 1 }}
     >
       <StatusBar style="light" />
@@ -53,9 +56,9 @@ function WelcomeScreen() {
           top: 44,
           end: -58,
           opacity: 0.13,
-          transform: [{ scaleX: dir === 'rtl' ? -1 : 1 }],
         }}
       >
+        {/* Symmetric about its axis, and a brand mark: never mirrored. */}
         <PadelBallIcon size={210} fill={brand.white} stroke={brand.blue} strokeWidth={2.2} />
       </View>
 
@@ -70,7 +73,9 @@ function WelcomeScreen() {
           style={{
             fontFamily: fonts.display900,
             fontSize: 34,
-            lineHeight: 35,
+            // Cairo drops its tails well under the baseline; the Latin-caps
+            // line box clips them (same 1.45 ratio as Title in ui.tsx).
+            lineHeight: dir === 'rtl' ? 49 : 35,
             textTransform: 'uppercase',
             color: brand.white,
             marginTop: 22,
@@ -83,7 +88,7 @@ function WelcomeScreen() {
           height={10}
           viewBox="0 0 110 10"
           fill="none"
-          style={{ marginTop: 10, transform: [{ scaleX: dir === 'rtl' ? -1 : 1 }] }}
+          style={[{ marginTop: 10 }, mirror(dir)]}
         >
           <Path d="M2 8C32 1.5 74 1.5 108 5.5" stroke={brand.green} strokeWidth={4} strokeLinecap="round" />
         </Svg>

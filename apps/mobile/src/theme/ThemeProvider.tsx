@@ -23,12 +23,14 @@ import { captureException } from '../lib/telemetry';
 import { APPEARANCE_KEY } from '../lib/bootPrefs';
 import { useLocale } from '../i18n/LocaleProvider';
 import { palettes, fontSets, type Palette, type FontSet } from './tokens';
+import { fontsLoaded, subscribeFontsRegistered } from './fonts';
+import { rememberAppearance } from './lastAppearance';
 
 export type Appearance = 'light' | 'dark';
 
 export interface ThemeContextValue {
   appearance: Appearance;
-  /** Persisted; applies immediately (no restart, unlike the locale flip). */
+  /** Persisted; applies immediately. */
   setAppearance: (next: Appearance) => void;
   /** The active palette — the only color source components should touch. */
   colors: Palette;
@@ -57,15 +59,19 @@ export function useTheme(): ThemeContextValue {
 export function ThemeProvider({
   children,
   initialAppearance = 'light',
-  fontsReady = true,
 }: {
   children: ReactNode;
   initialAppearance?: Appearance;
-  /** False while the brand fonts failed to load: every family falls back to the system face. */
-  fontsReady?: boolean;
 }) {
   const { locale } = useLocale();
   const [appearance, setAppearanceState] = useState<Appearance>(initialAppearance);
+  // Faces that register after mount (a switch's late download) re-render us.
+  const [, bump] = useState(0);
+  useEffect(() => subscribeFontsRegistered(() => bump((n) => n + 1)), []);
+  // A script whose faces are not registered (a failed or still-running
+  // download) renders in the system face rather than in a family the OS does
+  // not know — per script, so one failed download never costs the other.
+  const facesReady = fontsLoaded(locale);
 
   // Tell the OS so keyboards, alerts, share sheets and scroll indicators follow
   // the in-app choice (app.config.ts declares userInterfaceStyle 'automatic').
@@ -79,6 +85,7 @@ export function ThemeProvider({
 
   const setAppearance = useCallback((next: Appearance) => {
     setAppearanceState(next);
+    rememberAppearance(next);
     // Non-fatal on failure: the choice still applies for this run.
     AsyncStorage.setItem(APPEARANCE_KEY, next).catch((error) =>
       captureException(error, { label: 'theme.persist', next }),
@@ -90,10 +97,10 @@ export function ThemeProvider({
       appearance,
       setAppearance,
       colors: palettes[appearance],
-      fonts: !fontsReady ? fontSets.system : locale === 'ar' ? fontSets.arabic : fontSets.latin,
+      fonts: !facesReady ? fontSets.system : locale === 'ar' ? fontSets.arabic : fontSets.latin,
       tracking: locale === 'ar' ? () => 0 : (px) => px,
     }),
-    [appearance, setAppearance, locale, fontsReady],
+    [appearance, setAppearance, locale, facesReady],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

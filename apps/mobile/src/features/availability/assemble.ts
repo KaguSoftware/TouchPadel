@@ -68,6 +68,9 @@ export interface VenueSettingsPublic {
   opening_hours: unknown;
   closed_dates: string[] | null;
   cancellation_window_hours: number | null;
+  /** Degraded-mode desk-only window, in hours from now. Optional: a stack whose
+   *  view predates the column returns nothing — treat as the 48 h server default. */
+  protected_horizon_hours?: number | null;
   /** Venue contact number for the degraded-mode message. Optional: the column
    *  lands with a later migration — treat null/absent identically. */
   phone?: string | null;
@@ -324,6 +327,36 @@ export interface MergedCell {
  * as booked, mirroring buildSlotGrid's precedence). The hook builds the grid
  * without a clock so this cheap pass is the only per-minute work.
  */
+/** Server default for `venue_settings.protected_horizon_hours` (migration 0006/0008). */
+export const DEFAULT_PROTECTED_HORIZON_HOURS = 48;
+
+/**
+ * End of the degraded-mode desk-only window: the first start the server will
+ * still accept while the venue trades offline.
+ *
+ * MUST mirror app.assert_not_degraded_for (0008), which refuses every
+ * `start_at < now() + protected_horizon_hours`. This was previously derived
+ * from the SOW's prose ("today & tomorrow") as the midnight AFTER tomorrow —
+ * a shorter window than 48 h at every hour of the day except midnight itself.
+ * The gap between the two is real UI: on the third day chip, every slot from
+ * 00:00 up to the current wall-clock time rendered `free`, and the tap came
+ * back DEGRADED_LOCKOUT from a server that had refused it on a rule the client
+ * was not applying. One rule, read from the same column.
+ */
+export function protectedHorizonEnd(
+  now: Date,
+  settings?: Pick<VenueSettingsPublic, 'protected_horizon_hours'> | null,
+): Date {
+  const hours = settings?.protected_horizon_hours;
+  // 0 is a legitimate setting ("no protected window") — only a missing/invalid
+  // value falls back to the server default.
+  const effective =
+    typeof hours === 'number' && Number.isFinite(hours) && hours >= 0
+      ? hours
+      : DEFAULT_PROTECTED_HORIZON_HOURS;
+  return new Date(now.getTime() + effective * 3_600_000);
+}
+
 export function mergeAcrossCourts(
   grid: readonly CourtSlots[],
   durationMin: number,
@@ -383,6 +416,22 @@ export function mergeAcrossCourts(
   }
   cells.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
   return cells;
+}
+
+/**
+ * Index of the first cell still ahead of the clock — everything before it has
+ * already started. A trading night runs 09:00 into the small hours, so by 21:00
+ * two thirds of the list is dead; the grid opens here instead of at 09:00 so
+ * nobody scrolls a whole day to reach tonight.
+ *
+ * Nothing upcoming (or no cells at all) reads as 0 — the grid opens where it
+ * always did. `past` is the only state this skips: a booked or blocked hour
+ * ahead of the clock still belongs on screen, since it explains why the free
+ * hour after it is where it is.
+ */
+export function firstUpcomingIndex(cells: readonly MergedCell[]): number {
+  const i = cells.findIndex((c) => c.state !== 'past');
+  return i < 0 ? 0 : i;
 }
 
 // ── "Open now" pill (design 2026-08-31, courts home) ─────────────────────────

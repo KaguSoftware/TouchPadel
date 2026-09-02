@@ -525,6 +525,19 @@ export const ar: Messages = {
     cancelDialogBody: 'يعود موعدك في {when} متاحًا للجميع. لا يمكن التراجع عن هذا من التطبيق.',
     cancelledToast: 'أُلغي الحجز — أصبح الوقت متاحًا',
     notFound: 'تعذّر العثور على هذا الحجز.',
+    // الأوقات المحجوزة مؤقتًا (0058)
+    heldSection: 'محجوز لك مؤقتًا',
+    heldSectionBody:
+      'الوقت المحجوز مؤقتًا يبقى لك بضع دقائق فقط. حرِّر ما لم تعد تريده ليعود فورًا إلى الشبكة، ولتتمكّن من حجز وقت آخر.',
+    holdEndsIn: 'ينتهي خلال',
+    finishBooking: 'إكمال الحجز',
+    releaseHold: 'تحرير',
+    holdReleasedToast: 'تم التحرير — عاد الوقت إلى الشبكة',
+    holdQuota:
+      'لديك بالفعل أقصى عدد مسموح به من الأوقات المحجوزة مؤقتًا. أكمل أحدها أو حرّره من «حجوزاتي» ثم أعد المحاولة.',
+    notAHold: 'هذا الوقت محجوز فعليًا. يمكنك إلغاؤه من صفحة الحجز نفسها.',
+    beyondHorizon: 'هذا التاريخ أبعد من المدة التي يقبل فيها المكان الحجوزات.',
+    accountRequired: 'حجز الملعب يتطلب تسجيل الدخول إلى حساب.',
   },
   tabs: {
     book: 'احجز',
@@ -556,7 +569,6 @@ export const ar: Messages = {
     language: 'اللغة',
     english: 'English',
     arabic: 'العربية',
-    rtlRestartNote: 'يُطبَّق اتجاه الواجهة الجديد بالكامل بعد إعادة تشغيل التطبيق.',
     notifications: 'الإشعارات',
     enablePush: 'تفعيل الإشعارات',
     pushRegistered: 'الإشعارات مفعّلة على هذا الجهاز.',
@@ -565,7 +577,7 @@ export const ar: Messages = {
     appearance: 'المظهر',
     light: 'فاتح',
     dark: 'داكن',
-    languageNote: 'التبديل إلى English يقلب اتجاه التطبيق كاملًا من اليسار إلى اليمين ويعيد تشغيله.',
+    languageNote: 'التبديل إلى English يقلب اتجاه التطبيق كاملًا من اليسار إلى اليمين فورًا.',
     notifBody: 'يصلك تأكيد عند الحجز، وتذكير قبل موعدك، وتنبيه إذا أُلغي أي شيء.',
     notifGranted: 'مفعّلة — تأكيدات الحجز والتذكيرات والإلغاءات.',
     notifDenied: 'الإشعارات موقوفة لهذا التطبيق. فعّلها من إعدادات النظام.',
@@ -573,10 +585,6 @@ export const ar: Messages = {
     venue: 'المكان',
     versionLine: '{name} · الإصدار {version} ({build})',
     phoneUnavailable: 'لم ينشر المكان رقم هاتف بعد.',
-    // Shown full-screen while the app applies a new language and flips
-    // direction; the user is returned to this screen straight afterwards.
-    switchingTitle: 'جارٍ تغيير اللغة…',
-    switchingBody: 'لحظة واحدة — سنعيدك إلى حيث كنت تمامًا.',
   },
   cafe: {
     menu: 'قائمة الطعام',

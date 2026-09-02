@@ -2,18 +2,18 @@
  * Shared primitives, restyled to the approved design
  * (`docs/design/mobile-ui/Touch Padel App.dc.html`, 2026-08-31).
  *
- * All styles use LOGICAL properties only (paddingStart/End, marginStart/End) so
- * every screen mirrors correctly in RTL — unchanged rule from the functional
- * pass, now lint-enforced. Colors/fonts come exclusively from useTheme().
+ * All styles use LOGICAL properties only (paddingStart/End, marginStart/End),
+ * and text leaves `textAlign` unset unless centred: the layout direction on
+ * the root (src/i18n/direction.tsx) mirrors every one of them, live. The one
+ * exception is `Field` — see there. Colors/fonts come exclusively from useTheme().
  */
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
-  Text,
   TextInput,
   View,
   type ScrollViewProps,
@@ -22,6 +22,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { Text } from '../i18n/text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
@@ -39,10 +40,11 @@ export { TitleSquiggle };
  */
 export function useSafeBack(): () => void {
   const router = useRouter();
-  return () => {
+  // Stable: it sits in effect dependency lists (complete-profile).
+  return useCallback(() => {
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)');
-  };
+  }, [router]);
 }
 
 // ── Layout ──────────────────────────────────────────────────────────────────
@@ -159,20 +161,14 @@ export function Title({
           letterSpacing: plain || rtl ? 0 : tracking(-0.26),
           textTransform: rtl ? 'none' : 'uppercase',
           color: colors.ink,
-          // Explicit, for the same reason as MicroLabel: the native RTL flag
-          // lags the chosen language, so an unset textAlign resolves to
-          // physical left and every Arabic page header read LTR. A title that
-          // wraps must also align its second line to the right.
-          textAlign: rtl ? 'right' : 'left',
         }}
       >
         {children}
       </Text>
-      {/* A fixed-width SVG. `textAlign` aligns GLYPHS inside a text box and
-          does not reach a sibling view, so the squiggle needs its own
-          full-width row to be carried to the heading's edge. */}
+      {/* A fixed-width SVG on its own full-width row, on the leading edge —
+          `flex-start` is logical, so it follows the heading's edge. */}
       {squiggle && !plain ? (
-        <View style={{ alignItems: rtl ? 'flex-end' : 'flex-start' }}>
+        <View style={{ alignItems: 'flex-start' }}>
           <TitleSquiggle />
         </View>
       ) : null}
@@ -237,8 +233,6 @@ export function SectionLabel({ children, style }: { children: ReactNode; style?:
           letterSpacing: dir === 'rtl' ? 0 : tracking(1.1),
           textTransform: dir === 'rtl' ? 'none' : 'uppercase',
           color: colors.mut,
-          // Same as MicroLabel: keyed off the locale so English stays left.
-          textAlign: dir === 'rtl' ? 'right' : 'left',
         },
         style,
       ]}
@@ -263,10 +257,6 @@ export function MicroLabel({ children, style }: { children: ReactNode; style?: S
           letterSpacing: dir === 'rtl' ? 0 : tracking(0.66),
           textTransform: dir === 'rtl' ? 'none' : 'uppercase',
           color: colors.mut,
-          // Explicitly keyed off the locale, NOT left to RN's isRTL swap: that
-          // native flag lags the chosen language, so relying on it aligned
-          // English and Arabic the same way. English stays hard left.
-          textAlign: dir === 'rtl' ? 'right' : 'left',
         },
         style,
       ]}
@@ -277,6 +267,10 @@ export function MicroLabel({ children, style }: { children: ReactNode; style?: S
 }
 
 // ── Text ────────────────────────────────────────────────────────────────────
+
+// A hit-slop is a physical inset by API contract; this one is symmetric.
+// eslint-disable-next-line no-restricted-syntax
+const LINK_HIT_SLOP = { top: 10, bottom: 10, left: 6, right: 6 };
 
 export function Hint({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   const { colors, fonts } = useTheme();
@@ -326,7 +320,7 @@ export function LinkText({
     <Pressable
       accessibilityRole="link"
       onPress={onPress}
-      hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+      hitSlop={LINK_HIT_SLOP}
       style={({ pressed }) => [{ alignSelf: 'flex-start', opacity: pressed ? 0.7 : 1 }, style]}
     >
       <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: color ?? colors.blue }}>{label}</Text>
@@ -416,10 +410,14 @@ export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...i
             fontFamily: fonts.body600,
             fontSize: 14,
             color: colors.ink,
-            // Explicit, not left to the default: the native RTL flag lags the
-            // locale, so an unset textAlign resolves to physical left and the
-            // Arabic placeholder sits against the wrong edge.
+            // THE exception to the logical-alignment rule: TextInput is the one
+            // element whose textAlign stays PHYSICAL on both platforms (Fabric
+            // never feeds an input its layout direction), so it is keyed off
+            // the locale here. Placeholder and typed text share the paragraph
+            // direction through writingDirection (iOS).
+            // eslint-disable-next-line no-restricted-syntax
             textAlign: dir === 'rtl' ? 'right' : 'left',
+            writingDirection: dir,
           },
           // The design's 2 px focus ring, drawn outside the border so the
           // field does not jump when it gains focus.

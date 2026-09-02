@@ -1,9 +1,16 @@
 /**
  * Overlay primitives (design 2026-08-31): the bottom notice sheet (blocked /
  * desk-only slots), the confirmation dialog (spec R7 — no write without one),
- * the language-switch cover, and the transient toast. Every Modal carries onRequestClose so the Android
+ * and the transient toast. Every Modal carries onRequestClose so the Android
  * hardware back button is never trapped (the availability-modal lesson), and
  * statusBarTranslucent so the scrim covers the status bar under edge-to-edge.
+ *
+ * A Modal's content is hosted in a window of its own (Android) or a presented
+ * controller (iOS), outside the root view's hierarchy, so each modal root
+ * restates the layout direction rather than trusting it to inherit, and
+ * blocks its own input while a language switch is applying (the cover in
+ * DirectionRoot never reaches a Modal — defensive: no screen offers a
+ * language control while one is open; close the Modal before switching).
  */
 import {
   createContext,
@@ -15,72 +22,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
+import { Text } from '../i18n/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocale } from '../i18n/LocaleProvider';
+import { useLocale, useLocaleSwitch } from '../i18n/LocaleProvider';
 import { brand, radius, shadows, space, useTheme } from '../theme';
 import { Button } from './ui';
-
-// ── Language switch cover ───────────────────────────────────────────────────
-
-/**
- * Covers the whole app while a language switch is applying.
- *
- * A switch to the other direction calls `forceRTL` and then reloads the JS
- * bundle: for the window in between, JS-side `isRTL` has already flipped while
- * the mounted native views have not, so the screen underneath is a mix of both
- * directions with the new strings in it. Rather than let the user watch that,
- * the app goes opaque, says what is happening, and comes back on the screen
- * they left (see `saveResumeRoute`).
- *
- * Opaque, not a scrim — the point is that nothing behind it is visible. Not
- * dismissible either: `onRequestClose` is a no-op so Android's back button
- * cannot strand the user on a half-flipped screen.
- */
-export function LocaleSwitchOverlay() {
-  const { t, switching } = useLocale();
-  const { colors, fonts } = useTheme();
-  return (
-    <Modal visible={switching} animationType="fade" statusBarTranslucent onRequestClose={() => {}}>
-      <View
-        accessibilityRole="progressbar"
-        accessibilityLabel={t('settings.switchingTitle')}
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.bg,
-          paddingStart: space.xl,
-          paddingEnd: space.xl,
-          gap: 14,
-        }}
-      >
-        <ActivityIndicator color={colors.blue} size="large" />
-        <Text
-          style={{
-            fontFamily: fonts.display800,
-            fontSize: 16,
-            color: colors.ink,
-            textAlign: 'center',
-          }}
-        >
-          {t('settings.switchingTitle')}
-        </Text>
-        <Text
-          style={{
-            fontFamily: fonts.body400,
-            fontSize: 12.5,
-            lineHeight: 19,
-            color: colors.mut,
-            textAlign: 'center',
-          }}
-        >
-          {t('settings.switchingBody')}
-        </Text>
-      </View>
-    </Modal>
-  );
-}
 
 // ── Notice sheet ────────────────────────────────────────────────────────────
 
@@ -101,7 +48,8 @@ export function NoticeSheet({
   onClose: () => void;
 }) {
   const { colors, fonts } = useTheme();
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
+  const { switching } = useLocaleSwitch();
   const insets = useSafeAreaInsets();
   return (
     <Modal
@@ -115,7 +63,13 @@ export function NoticeSheet({
         accessibilityRole="button"
         accessibilityLabel={t('common.close')}
         onPress={onClose}
-        style={{ flex: 1, backgroundColor: brand.scrim, justifyContent: 'flex-end' }}
+        style={{
+          flex: 1,
+          direction: dir,
+          pointerEvents: switching ? 'none' : 'auto',
+          backgroundColor: brand.scrim,
+          justifyContent: 'flex-end',
+        }}
       >
         {/* Swallow taps inside the sheet so only the backdrop dismisses — as a
             View with a responder, not a Pressable, so screen readers do not
@@ -206,7 +160,8 @@ export function ConfirmationDialog({
   onDismiss: () => void;
 }) {
   const { colors, fonts } = useTheme();
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
+  const { switching } = useLocaleSwitch();
   const dismissUnlessBusy = () => {
     if (!busy) onDismiss();
   };
@@ -221,6 +176,8 @@ export function ConfirmationDialog({
       <View
         style={{
           flex: 1,
+          direction: dir,
+          pointerEvents: switching ? 'none' : 'auto',
           backgroundColor: brand.scrimStrong,
           alignItems: 'center',
           justifyContent: 'center',

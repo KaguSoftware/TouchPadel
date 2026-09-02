@@ -20,13 +20,14 @@
  *     is focused and the app is active (expo-router keeps tab screens mounted).
  *   · Reduced motion: the rally freezes on a rest frame and the scene renders
  *     only when `p` changes.
- *   · Idle: once `p` has rested for IDLE_AFTER_MS with no touch, the rally
+ *   · Idle: once `p` has rested for IDLE_AFTER_MS (three rallies) with no touch, the rally
  *     holds at the next leg start — ball in a player's hand, nobody mid-swing
  *     (rally.nextLegStart) — and the loop stops (battery: the Book tab is
  *     where people sit longest). At the court view the caller's `pausedNote`
  *     fades in and a touch anywhere on the stage plays on from that frame;
- *     behind the sheet it just holds, and the close tap moves `p`, which
- *     wakes it. Returning to the tab / foreground wakes it too.
+ *     behind the sheet it holds until the caller reports activity through
+ *     the `ref` handle (`wake`: any touch inside the sheet) or the close tap
+ *     moves `p`. Returning to the tab / foreground wakes it too.
  *   · Each GL surface is recreated by Android after backgrounding
  *     (onSurfaceTextureDestroyed → a NEW context), independently of the other,
  *     so attaching a context is idempotent per surface; the scene is shared.
@@ -54,7 +55,16 @@
  * is also why the caller keeps the header above this view (index.tsx) once the
  * transition lifts it 60 px.
  */
-import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import {
   Animated,
   AppState,
@@ -64,16 +74,15 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { requireOptionalNativeModule } from 'expo';
 import type { ExpoWebGLRenderingContext, GLView as GLViewComponent } from 'expo-gl';
 import { useFocusEffect } from 'expo-router';
 import * as THREE from 'three';
 import { detectCourtQuality } from '../features/courtTransition/deviceQuality';
 import type { CourtQuality } from '../features/courtTransition/quality';
 import { buildCourtScene, type CourtScene } from '../features/courtTransition/scene';
-import { nextLegStart } from '../features/courtTransition/rally';
+import { LOOP_SECONDS, nextLegStart } from '../features/courtTransition/rally';
 import { pitchEase, type Dir } from '../features/courtTransition/spec';
-import { addBreadcrumb, captureException } from '../lib/telemetry';
+import { addBreadcrumb, captureException, captureMessage, describeError } from '../lib/telemetry';
 import { useTheme } from '../theme';
 
 /**
@@ -81,19 +90,28 @@ import { useTheme } from '../theme';
  * bare `import { GLView }` crashes this whole route module on any binary built
  * before expo-gl was added (a stale dev client) — expo-router then reports the
  * route as "missing the required default export" and the Book tab is dead.
- * Probe the native module first: when it is missing, GLView stays null, the
- * mount effect below fires `onUnavailable` and the caller shows the flat SVG
- * court. Metro still bundles expo-gl either way; the require just never runs
- * where it cannot evaluate.
+ * Require it in a try/catch instead: a stale binary throws right here and
+ * GLView stays null — the mount effect below fires `onUnavailable` and the
+ * caller shows the flat SVG court. On web there is no native module at all
+ * (GLView.web.js is plain WebGL), so a name probe would wrongly reject it;
+ * the require itself is the only test that is right on every platform.
  */
-const GLView: typeof GLViewComponent | null = requireOptionalNativeModule(
-  'ExponentGLObjectManager',
-)
-  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
-    (require('expo-gl') as { GLView: typeof GLViewComponent }).GLView
-  : null;
+const GLView: typeof GLViewComponent | null = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require('expo-gl') as { GLView: typeof GLViewComponent }).GLView;
+  } catch {
+    return null;
+  }
+})();
+
+export interface Court3DHandle {
+  /** Activity elsewhere (a touch in the sheet): restart the idle clock and play on if held. */
+  wake: () => void;
+}
 
 export interface Court3DProps {
+  ref?: Ref<Court3DHandle>;
   progress: Animated.Value;
   direction: Dir;
   reduceMotion: boolean;
@@ -113,9 +131,18 @@ export interface Court3DProps {
 
 /** Reduced motion holds the rally here: ball on the hitter's racket, nobody mid-swing, no trail. */
 const REST_T = 0;
-/** No touch and `p` at rest for this long → hold the rally at the next leg start. */
-const IDLE_AFTER_MS = 5000;
+/** No touch and `p` at rest for three full rallies (≈ 15.6 s) → hold at the next leg start. */
+const IDLE_AFTER_MS = 3 * LOOP_SECONDS * 1000;
 const NOTE_FADE_MS = 220;
+/**
+ * A context can arrive already dead: `onContextCreate` is async, so navigating
+ * away mid-create (or Android recreating the surface) hands attach() a handle
+ * whose native side is gone. three then throws reading capabilities off it
+ * (`getShaderPrecisionFormat(...)` returns undefined). That is transient — a
+ * fresh surface gives a live context — so remount the GLViews and try again.
+ * Only a device that fails this many times running is really without GL.
+ */
+const MAX_INIT_ATTEMPTS = 3;
 
 const hexToInt = (hex: string): number => parseInt(hex.slice(1, 7), 16);
 
@@ -129,6 +156,7 @@ interface Surface {
 type Kind = 'court' | 'ball';
 
 export function Court3D({
+  ref,
   progress,
   direction,
   reduceMotion,
@@ -169,6 +197,12 @@ export function Court3D({
   const unavailableCb = useRef(onUnavailable);
   const [ready, setReady] = useState(false);
   const [focused, setFocused] = useState(true);
+  /** Read inside attach()'s catch, which must not re-create on every focus change. */
+  const focusedRef = useRef(true);
+  /** Consecutive attach() failures; reset by the first surface that comes up. */
+  const initFailures = useRef(0);
+  /** Bumped to remount both GLViews and ask the platform for fresh contexts. */
+  const [glGeneration, setGlGeneration] = useState(0);
   const [active, setActive] = useState(AppState.currentState === 'active');
 
   sizeCb.current = onSize;
@@ -269,6 +303,7 @@ export function Court3D({
     }
     if (running.current && !reduce.current) startLoop();
   }, [startLoop]);
+  useImperativeHandle(ref, () => ({ wake }), [wake]);
 
   const detach = useCallback((kind: Kind) => {
     const s = surfaces.current[kind];
@@ -278,6 +313,7 @@ export function Court3D({
   }, []);
 
   const teardown = useCallback(() => {
+    setReady(false); // no surfaces left to draw on: stop the loop with them
     detach('court');
     detach('ball');
     court.current?.dispose();
@@ -322,12 +358,23 @@ export function Court3D({
           start.current = performance.now();
           lastActive.current = start.current;
         }
+        initFailures.current = 0; // a live surface: any earlier failure was transient
         addBreadcrumb('court3d.ready', { surface: kind, quality, width: w, height: h });
         if (kind === 'court') setReady(true);
         else if (running.current) requestOnce();
       } catch (error) {
-        captureException(error, { label: 'court3d.init' });
+        initFailures.current += 1;
+        const attempt = initFailures.current;
+        // `surface` and `focused` say which GLView failed and whether the screen
+        // had already been navigated away from — the signature of a dead context.
+        const context = { label: 'court3d.init', surface: kind, attempt, focused: focusedRef.current };
         teardown();
+        if (attempt < MAX_INIT_ATTEMPTS) {
+          captureMessage('court3d.init retry', 'warning', { ...context, error: describeError(error) });
+          setGlGeneration((n) => n + 1);
+          return;
+        }
+        captureException(error, context);
         unavailableCb.current?.();
       }
     },
@@ -350,8 +397,12 @@ export function Court3D({
 
   useFocusEffect(
     useCallback(() => {
+      focusedRef.current = true;
       setFocused(true);
-      return () => setFocused(false);
+      return () => {
+        focusedRef.current = false;
+        setFocused(false);
+      };
     }, []),
   );
   useEffect(() => {
@@ -451,11 +502,21 @@ export function Court3D({
         />
       ) : null}
       <Animated.View {...surface}>
-        <GLView style={StyleSheet.absoluteFill} msaaSamples={msaa} onContextCreate={onCourtContext} />
+        <GLView
+          key={glGeneration}
+          style={StyleSheet.absoluteFill}
+          msaaSamples={msaa}
+          onContextCreate={onCourtContext}
+        />
       </Animated.View>
       {children}
       <Animated.View {...surface}>
-        <GLView style={StyleSheet.absoluteFill} msaaSamples={msaa} onContextCreate={onBallContext} />
+        <GLView
+          key={glGeneration}
+          style={StyleSheet.absoluteFill}
+          msaaSamples={msaa}
+          onContextCreate={onBallContext}
+        />
       </Animated.View>
       {pausedNote ? (
         <Animated.View

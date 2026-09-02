@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '../src/i18n/text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { supabase } from '../src/lib/supabase';
@@ -9,14 +10,7 @@ import { linkErrorParam } from '../src/features/auth/deepLink';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../src/theme';
-import {
-  Button,
-  ErrorText,
-  Field,
-  FormScreen,
-  Screen,
-  Title,
-} from '../src/components/ui';
+import { Button, ErrorText, Field, FormScreen, Screen, Title } from '../src/components/ui';
 
 /**
  * Forgot password (design 2026-08-31). The submitted state deliberately does
