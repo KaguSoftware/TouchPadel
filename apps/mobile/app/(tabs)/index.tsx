@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -40,7 +40,7 @@ import { brand, radius, space, useTheme } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';
 import { DegradedBanner } from '../../src/components/booking';
 import { BackChevronIcon } from '../../src/components/icons';
-import { Court3D } from '../../src/components/Court3D';
+import { Court3D, type Court3DHandle } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
 
@@ -189,6 +189,9 @@ export default function BookHomeScreen() {
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
   const [glUnavailable, setGlUnavailable] = useState(false);
+  // Touches in the sheet count as watching: the rally behind it plays on / restarts its idle clock.
+  const courtRef = useRef<Court3DHandle>(null);
+  const wakeCourt = useCallback(() => courtRef.current?.wake(), []);
   const [sheetBusy, setSheetBusy] = useState(false);
   const onUnavailable = useCallback(() => setGlUnavailable(true), []);
   const onCourtSize = useCallback((size: { width: number; height: number }) => {
@@ -399,6 +402,7 @@ export default function BookHomeScreen() {
           </Animated.View>
         ) : (
           <Court3D
+            ref={courtRef}
             style={[stageBounds, { top: courtTop, bottom: tabBarHeight }]}
             layerStyle={courtLayer}
             progress={progress}
@@ -497,6 +501,7 @@ export default function BookHomeScreen() {
             bottomInset={tabBarHeight}
             isOpen={isOpen}
             onBusyChange={setSheetBusy}
+            onInteraction={wakeCourt}
           />
         ) : null}
 

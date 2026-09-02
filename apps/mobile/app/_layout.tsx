@@ -35,6 +35,7 @@ import { queryClient, persistOptions, startFocusLifecycle } from '../src/lib/que
 import { configError, startAuthRefreshLifecycle } from '../src/lib/supabase';
 import {
   clearResumeRoute,
+  clearRtlReloadMarker,
   loadBootPrefs,
   readResumeRoute,
   reconcileRtl,
@@ -326,7 +327,8 @@ function ThemedChrome() {
 /**
  * Boot gate: resolve the stored language + appearance BEFORE the first frame,
  * and make sure the native layout direction matches the language (reloading
- * once in development if it does not). Nothing paints until this is known.
+ * ONCE in development if it does not — see reloadForRtl for why only once).
+ * Nothing paints until this is known.
  */
 export default function RootLayout() {
   const [prefs, setPrefs] = useState<BootPrefs | null>(null);
@@ -346,15 +348,24 @@ export default function RootLayout() {
     // clearing here meant the second mount — the one the user actually lands
     // on — found nothing. The entry is cleared once the push has landed.
     Promise.all([loadBootPrefs(), readResumeRoute()])
-      .then(([p, entry]) => {
+      .then(async ([p, entry]) => {
         if (cancelled) return;
-        if (reconcileRtl(p.locale) && reloadForRtl()) return; // reloading into the right direction
+        let needsRestart = false;
+        if (reconcileRtl(p.locale)) {
+          if (await reloadForRtl()) return; // reloading into the right direction
+          needsRestart = true; // the reload did not stick (Expo Go) or is unavailable (release)
+        } else {
+          await clearRtlReloadMarker();
+        }
+        if (cancelled) return;
         setResume(entry);
-        setPrefs(p);
+        setPrefs({ ...p, needsRestart });
       })
       .catch((error) => {
         captureException(error, { scope: 'boot.prefs' });
-        if (!cancelled) setPrefs({ appearance: 'light', locale: 'en', localeFromStore: false });
+        if (!cancelled) {
+          setPrefs({ appearance: 'light', locale: 'en', localeFromStore: false, needsRestart: false });
+        }
       });
     return () => {
       cancelled = true;
@@ -408,7 +419,7 @@ function AppRoot({ prefs, resume }: { prefs: BootPrefs; resume: ResumeRoute | nu
     // network at all.
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <SafeAreaProvider>
-        <LocaleProvider initialLocale={prefs.locale}>
+        <LocaleProvider initialLocale={prefs.locale} initialNeedsRestart={prefs.needsRestart}>
           <ThemeProvider
             initialAppearance={prefs.appearance}
             fontsReady={fontsLoaded && !fontsError}

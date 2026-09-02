@@ -66,8 +66,11 @@ describe('survives a session where the native RTL flag is stale', () => {
    * `reloadForRtl` performs that reload in development but returns false in a
    * RELEASE build (and on any failure), and the boot gate then proceeds anyway:
    *
-   *     if (reconcileRtl(p.locale) && reloadForRtl()) return;
-   *     setPrefs(p);
+   *     if (reconcileRtl(p.locale)) {
+   *       if (await reloadForRtl()) return;
+   *       needsRestart = true;
+   *     }
+   *     setPrefs({ ...p, needsRestart });
    *
    * So a production session can run Arabic with `I18nManager.isRTL` still
    * false. Anything deriving the bar's direction from that flag is wrong for
@@ -79,8 +82,8 @@ describe('survives a session where the native RTL flag is stale', () => {
 
   it('still renders when the reload does not happen', () => {
     // The gate deliberately falls through to setPrefs rather than blocking.
-    expect(BOOT).toMatch(/if \(reconcileRtl\([^)]*\) && reloadForRtl\(\)\) return;/);
-    expect(BOOT).toContain('setPrefs(p);');
+    expect(BOOT).toMatch(/if \(reconcileRtl\([^)]*\)\) \{\s*if \(await reloadForRtl\(\)\) return;/);
+    expect(BOOT).toContain('setPrefs({ ...p, needsRestart });');
   });
 
   it('never derives the bar direction from I18nManager', () => {

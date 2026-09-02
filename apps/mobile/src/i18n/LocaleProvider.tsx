@@ -73,13 +73,16 @@ export function useLocale(): LocaleContextValue {
 export function LocaleProvider({
   children,
   initialLocale,
+  initialNeedsRestart,
 }: {
   children: ReactNode;
   /** Resolved by src/lib/bootPrefs.ts BEFORE first paint. */
   initialLocale: Locale;
+  /** Boot could not align the native direction with the locale (app/_layout.tsx). */
+  initialNeedsRestart?: boolean;
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
-  const [needsRestart, setNeedsRestart] = useState(false);
+  const [needsRestart, setNeedsRestart] = useState(initialNeedsRestart ?? false);
   const [switching, setSwitching] = useState(false);
 
   const setLocale = useCallback(async (next: Locale, options?: SetLocaleOptions) => {
@@ -114,7 +117,7 @@ export function LocaleProvider({
       if (options?.resumePath) {
         await saveResumeRoute(options.resumePath, options.resumeTab ?? undefined);
       }
-      if (reloadForRtl()) return; // the overlay stays up until the bundle dies
+      if (await reloadForRtl()) return; // the overlay stays up until the bundle dies
       setNeedsRestart(true);
     }
     // Same direction, or a release build that cannot reload: nothing is going
