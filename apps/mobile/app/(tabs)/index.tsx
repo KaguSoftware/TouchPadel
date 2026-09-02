@@ -167,6 +167,15 @@ function NetCta({
 }
 
 /**
+ * TEMPORARY (2026-09-02, on request): the "PICK A TIME" sheet is not rendered
+ * while the court's rally animation is being worked on. The camera transition
+ * still runs — tapping Check availability pitches to the court view as usual,
+ * just with nothing covering it, and the back chevron returns. Flip back to
+ * `false` to restore booking; nothing was removed, the sheet is untouched.
+ */
+const HIDE_BOOKING_SHEET = true;
+
+/**
  * Book tab: brand header with the open-now pill, then the prototype's court —
  * a three.js scene on expo-gl (Court3D) with "Check availability" on its net
  * and the rally's ball flying over the button — and, in place, the booking
@@ -490,7 +499,7 @@ export default function BookHomeScreen() {
           </Text>
         </Animated.View>
 
-        {sheetMounted ? (
+        {sheetMounted && !HIDE_BOOKING_SHEET ? (
           <BookingSheet
             progress={progress}
             direction={direction}

@@ -53,22 +53,33 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
   const camera = makeCamera(390 / 844);
 
   // the overlay is lit like the court, minus the shadow pass
-  overlay.add(new THREE.HemisphereLight(0xffffff, 0xb9c8e0, 0.95));
-  const sun2 = new THREE.DirectionalLight(0xffffff, 1.4);
-  sun2.position.set(6, 30, 10);
+  // Lit exactly like the court, minus the shadow pass — the ball and the
+  // rackets must agree about where the sun is.
+  overlay.add(new THREE.HemisphereLight(0xffffff, 0xb9c8e0, 0.7));
+  const sun2 = new THREE.DirectionalLight(0xffffff, 1.7);
+  sun2.position.set(14, 13, 9);
   overlay.add(sun2);
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xb9c8e0, 0.95));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
-  sun.position.set(6, 30, 10);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xb9c8e0, 0.7));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.7);
+  // Low and to one side, not overhead. At (6, 30, 10) the sun was nearly
+  // straight up: every shadow fell directly UNDER its racket, where from a
+  // top-down camera it hides behind the object casting it — so nothing
+  // separated racket from turf and they read as painted on. Dropping the
+  // elevation throws each shadow well clear, which is what tells the eye the
+  // racket is floating above the court. The stronger key against a dimmer
+  // ambient also deepens the modelling on the frame.
+  sun.position.set(14, 13, 9);
   sun.castShadow = shadows;
   if (shadows) {
     // 2048 in the prototype; 1024 keeps the shadow pass cheap on a phone.
     sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.bias = -0.0002;
     sun.shadow.normalBias = 0.05;
-    sun.shadow.radius = 4;
-    Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 12, bottom: -12, near: 5, far: 60 });
+    // Crisper than the prototype's 4: a tight shadow reads as a small object
+    // held above a surface, a woolly one as a stain on it.
+    sun.shadow.radius = 2;
+    Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 16, bottom: -16, near: 1, far: 70 });
   }
   scene.add(sun);
 
@@ -116,15 +127,26 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     const m = add(new THREE.PlaneGeometry(w, d), lineMat, x, 0.02, z);
     m.rotation.x = -Math.PI / 2;
   };
+  // A padel court, 10 × 20 m with the net on z = 0 (walls at z ±10, x ±5):
+  //  · the perimeter, tight inside the glass;
+  //  · the service lines, 3 m in from each back wall (z = ±7);
+  //  · the centre service line, splitting each pair of service boxes — it runs
+  //    from the service line TO THE NET, not from the service line to the back
+  //    wall, which is where the prototype drew it (a 3 m stub at z ±8.5, i.e.
+  //    dividing the back strip that is a single area in play).
   const LW = 0.1;
+  const SERVICE_Z = 7; // service line, 3 m from the back wall
+  // Perimeter.
   line(10, LW, 0, -10 + LW / 2);
   line(10, LW, 0, 10 - LW / 2);
   line(LW, 20, -5 + LW / 2, 0);
   line(LW, 20, 5 - LW / 2, 0);
-  line(10, LW, 0, -7);
-  line(10, LW, 0, 7);
-  line(LW, 3, 0, -8.5);
-  line(LW, 3, 0, 8.5);
+  // Service lines.
+  line(10, LW, 0, -SERVICE_Z);
+  line(10, LW, 0, SERVICE_Z);
+  // Centre service line: service line → net, on both halves.
+  line(LW, SERVICE_Z, 0, -SERVICE_Z / 2);
+  line(LW, SERVICE_Z, 0, SERVICE_Z / 2);
 
   // net
   const netMat = new THREE.MeshBasicMaterial({
@@ -245,34 +267,135 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     }
   }
 
-  // racket (brand sticker): blue frame + blue face, white holes, lime grip, dark cap
+  /**
+   * Where the racket turns, along its own handle axis (local +z: head centre
+   * 0, throat 0.5, grip wraps 0.72–1.14, cap 1.22).
+   *
+   * The BUTT of the handle — the hand. Everything ahead of it, head and grip
+   * together, then swings as ONE piece: tilt the pitch and the whole racket
+   * drops nose-first, which is what a downward strike looks like. Pivoting at
+   * the throat (0.5) instead made the racket see-saw about its own middle —
+   * the head rising as the handle fell — so a 60° "tip down" actually lifted
+   * the head 22 cm rather than dropping it.
+   */
+  const GRIP = 1.15;
+  /**
+   * How far the top view lifts the rackets off the turf, purely for looks.
+   * Applied here rather than in rally.ts because the ball flies between the
+   * racket POSITIONS: raising those would move the rally itself.
+   */
+  const LIFT = 1.1;
+
+  // racket (brand sticker): teardrop navy frame with a cyan highlight arc, a
+  // blue bed of white studs, a V-strut throat, lime grip, dark cap.
   const frameMat = Mat(NAVY, { roughness: 0.45 });
   const rimMat = Mat(0x6ec3f0, { roughness: 0.4 });
   const faceMat = Mat(BLUE, { roughness: 0.6 });
   const holeMat = Mat(0xffffff, { roughness: 0.6 });
-  const throatMat = Mat(BLUE, { roughness: 0.45 });
+  const throatMat = Mat(NAVY, { roughness: 0.45 });
   const gripMat = Mat(LIME, { roughness: 0.6 });
   const wrapMat = Mat(NAVY);
+  /**
+   * The head's outline: a teardrop, not a circle. Radius at angle `a`, where
+   * a = 0 points at the TIP (local −z, away from the hand) and a = π at the
+   * throat. The sticker's head is broad and round across the top and pinches
+   * in as it meets the struts, so the radius eases from 0.46 at the tip to
+   * 0.33 at the throat — a plain torus read as a lollipop from overhead.
+   */
+  const headR = (a: number) => 0.395 + 0.065 * Math.cos(a) - 0.012 * Math.cos(2 * a);
+  /** Outline point in the head's own plane (x across, z along the handle). */
+  const headPt = (a: number, scale = 1) => {
+    const r = headR(a) * scale;
+    return new THREE.Vector2(Math.sin(a) * r, -Math.cos(a) * r);
+  };
+  const SEG = 64;
+  /**
+   * The frame: a fat tube swept along that teardrop, standing PROUD of the
+   * string bed on both sides so from any angle there is a lit near edge, a
+   * shaded far one and a visible step down onto the strings. Built flush the
+   * head was one flat plate and read as a decal painted on the court.
+   */
+  const headCurve = (scale: number) => {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < SEG; i++) {
+      const p = headPt((i / SEG) * Math.PI * 2, scale);
+      pts.push(new THREE.Vector3(p.x, 0, p.y));
+    }
+    return new THREE.CatmullRomCurve3(pts, true);
+  };
+  /** The bed: the same outline filled, so the strings reach the frame's wall. */
+  const headShape = () => {
+    const shape = new THREE.Shape();
+    for (let i = 0; i <= SEG; i++) {
+      const p = headPt((i / SEG) * Math.PI * 2, 0.98);
+      if (i === 0) shape.moveTo(p.x, p.y);
+      else shape.lineTo(p.x, p.y);
+    }
+    return shape;
+  };
   const makeRacket = () => {
     const g = new THREE.Group();
-    const frame = new THREE.Mesh(geo(new THREE.TorusGeometry(0.42, 0.06, 14, 48)), frameMat);
-    frame.rotation.x = Math.PI / 2;
-    const rim = new THREE.Mesh(geo(new THREE.TorusGeometry(0.4, 0.045, 14, 48)), rimMat);
-    rim.rotation.x = Math.PI / 2;
-    rim.position.y = 0.02;
-    const face = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.4, 0.4, 0.05, 48)), faceMat);
+    const frame = new THREE.Mesh(
+      geo(new THREE.TubeGeometry(headCurve(1), SEG, 0.105, 12, true)),
+      frameMat,
+    );
+    // The cyan gloss the sticker paints along the frame's upper-left shoulder:
+    // a thinner tube on the same path, riding slightly above the frame and cut
+    // to a quarter turn, so it reads as a lit edge rather than a second rim.
+    const rim = new THREE.Mesh(
+      geo(new THREE.TubeGeometry(headCurve(0.985), SEG, 0.055, 10, true)),
+      rimMat,
+    );
+    rim.position.y = 0.062;
+    const face = new THREE.Mesh(
+      geo(
+        new THREE.ExtrudeGeometry(headShape(), {
+          depth: 0.07,
+          bevelEnabled: false,
+          curveSegments: SEG,
+        }),
+      ),
+      faceMat,
+    );
+    // Extrude builds in the xy plane growing along +z; stand it into the
+    // head's plane so its face is the string bed, then drop it BELOW the
+    // frame's crown so the frame rings it like a wall.
+    face.rotation.x = -Math.PI / 2;
+    face.position.y = 0.015;
     g.add(frame, rim, face);
-    for (let r = 0; r < 3; r++) {
-      for (let i = 0; i < (r === 0 ? 1 : r * 6); i++) {
-        const a = (i / (r * 6 || 1)) * Math.PI * 2;
-        const rad = r * 0.11;
-        const h = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 10)), holeMat);
-        h.position.set(Math.cos(a) * rad, 0, Math.sin(a) * rad);
+    // Holes: a staggered grid across the whole bed rather than three tight
+    // rings, which left the face bare out near the frame. Punched THROUGH the
+    // bed and standing a little above it, so they read as raised studs
+    // catching the sun rather than flat dots.
+    const holeGeo = geo(new THREE.CylinderGeometry(0.034, 0.034, 0.12, 10));
+    const PITCH = 0.1;
+    for (let row = -4; row <= 4; row++) {
+      const z = row * PITCH;
+      for (let col = -4; col <= 4; col++) {
+        const x = (col + (row % 2 === 0 ? 0 : 0.5)) * PITCH;
+        // Keep the pattern inside the bed: the teardrop is narrower at the
+        // throat end, so the test has to use the outline, not one radius.
+        const a = Math.atan2(x, -z);
+        if (Math.hypot(x, z) > headR(a) - 0.1) continue;
+        const h = new THREE.Mesh(holeGeo, holeMat);
+        h.position.set(x, 0.045, z);
         g.add(h);
       }
     }
-    const throat = new THREE.Mesh(geo(new THREE.BoxGeometry(0.16, 0.08, 0.2)), throatMat);
-    throat.position.z = 0.5;
+    // The throat is a V of two struts with an open triangle between them —
+    // the single solid box that stood here read as a stubby neck and lost the
+    // sticker's most recognisable line.
+    const throatZ = headR(Math.PI);
+    for (const sx of [-1, 1] as const) {
+      const strut = new THREE.Mesh(geo(new THREE.BoxGeometry(0.075, 0.085, 0.42)), throatMat);
+      strut.position.set(sx * 0.115, 0, throatZ + 0.16);
+      strut.rotation.y = sx * 0.42; // splay outwards to meet the frame's sides
+      g.add(strut);
+    }
+    // The collar where the two struts converge onto the handle.
+    const collar = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.085, 0.075, 0.14, 12)), throatMat);
+    collar.rotation.x = Math.PI / 2;
+    collar.position.z = 0.63;
     const handle = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.075, 0.075, 0.6, 14)), gripMat);
     handle.rotation.x = Math.PI / 2;
     handle.position.z = 0.9;
@@ -284,20 +407,33 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     const cap = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 14)), wrapMat);
     cap.rotation.x = Math.PI / 2;
     cap.position.z = 1.22;
-    g.add(throat, handle, cap);
+    g.add(collar, handle, cap);
     g.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) o.castShadow = shadows;
     });
     return g;
   };
+  // Each racket hangs inside a pivot group placed at the player's HAND.
+  //
+  // The mesh's own origin is the centre of the string bed, so rotating it
+  // directly see-sawed the racket about its middle — the face dipping as the
+  // handle rose, like a pan on a pivot. Offsetting the mesh by −GRIP along its
+  // handle axis puts the grip on the pivot's origin instead, so the hand holds
+  // station and the head sweeps an arc around it, the way a person swings one.
   const rackets = PLAYERS.map((pl) => {
+    const pivot = new THREE.Group();
     const g = makeRacket();
-    g.scale.setScalar(1.15);
-    g.position.set(pl.x, 0.75, pl.z);
-    g.rotation.order = 'YXZ';
-    g.rotation.y = playerYaw(pl);
-    scene.add(g);
-    return g;
+    // Scale on the PIVOT, not the mesh: a child's position is scaled by its
+    // parent, so with the scale on `g` the offset below stayed 0.95 instead of
+    // the 1.09 the placement maths assumes.
+    g.position.z = -GRIP; // grip to the origin; the head reaches out ahead of it
+    pivot.scale.setScalar(1.15);
+    pivot.add(g);
+    pivot.position.set(pl.x, 0.75, pl.z);
+    pivot.rotation.order = 'YXZ';
+    pivot.rotation.y = playerYaw(pl);
+    scene.add(pivot);
+    return pivot;
   });
 
   // ball (brand sticker): lime with a white + blue wavy seam — in the overlay, over the button
@@ -375,8 +511,26 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
       const state = rallyAt(t, camK);
       state.rackets.forEach((r, i) => {
         const g = rackets[i]!;
-        g.position.set(r.position.x, r.position.y, r.position.z);
-        g.rotation.set(r.rotation.x, r.rotation.y, r.rotation.z);
+        // `r.position` is the HAND — the pivot the swing turns about, and the
+        // one point that should hold station while the head sweeps. The ball
+        // is aimed at the head instead (rally.ts stringBed), so nothing here
+        // needs to compensate: the pivot goes straight to r.position.
+        //
+        // Pinning the HEAD here instead put the ball on the strings but made
+        // the hand sweep 1.8 m while the head barely moved — the swing running
+        // backwards, since r.position hardly travels during a stroke.
+        // Lifted clear of the turf in the TOP view only, and only visually:
+        // the rally's own numbers (and so the ball's flight, which is pinned
+        // by a checksum test) are untouched. Down at 0.75 m the racket and
+        // the shadow it casts nearly overlap from a top-down camera, welding
+        // it to the court; another metre of air puts real daylight between
+        // the two and the racket reads as held above the floor. Fades out as
+        // the camera pitches, where the height already reads correctly.
+        g.position.set(r.position.x, r.position.y + LIFT * (1 - camK), r.position.z);
+        // 'YXZ' explicitly: Euler.set() resets the order to 'XYZ' when it is
+        // omitted, silently discarding the group's rotation.order set at build
+        // time — which yawed the racket about the world axis instead of its own.
+        g.rotation.set(r.rotation.x, r.rotation.y, r.rotation.z, 'YXZ');
       });
       ball.position.set(state.ball.x, state.ball.y, state.ball.z);
       caster?.position.copy(ball.position);
