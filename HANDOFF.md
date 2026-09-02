@@ -682,12 +682,85 @@ on iOS by Apple; **5.1.1(v) account deletion is still open and FK-blocked**, and
 **Apple token revocation** when it is built (a Sign in with Apple `.p8` key in an edge function —
 the only Apple secret this feature ever introduces, server-side only).
 
+## Day 12 (2026-09-01) — the court → booking transition on the Book tab
+
+The owner brought a second Claude Design file, **`docs/design/mobile-ui/Court Transition
+Prototype.html`** (committed verbatim next to the day-8 pack), and asked for it on the Book tab's
+court. The prototype is a three.js court whose camera pitches from top-down to a 40° diagonal while
+a frosted booking card floats up over it, all driven by ONE progress value `p ∈ [0, 1]`; its header
+comment is a per-element timing table ("handoff notes") and that table is the spec. Code is on the
+working tree, **uncommitted** at the time of writing.
+
+**Decisions taken in the port:**
+- **No three.js / expo-gl.** The app's court stays the native SVG illustration; the camera orbit
+  (elevation 89.5° → 40°, azimuth 0° → 28°, distance 60 → 46 m) is expressed as ONE native
+  perspective transform on the court layer — `[translateY, perspective, rotateX 0.5° → 50°,
+  rotateZ 0° → 28°, scale 1 → 1.3]`, native driver, `spec.pitchAt`. Two weeks before store
+  submission, a WebGL scene in a tab screen (dev-client rebuild, JS-thread render loop, Android
+  shadows) was the wrong risk. The prototype's own notes offer this route.
+- **The sheet carries the REAL flow.** The prototype's card has mock slots; ours runs the
+  availability + hold flow — day chips (trading nights), the duration picker, the merged
+  two-column grid, desk-only/blocked notices, hold errors, guest → Welcome with the pending slot.
+  That flow was extracted from `app/availability.tsx` into
+  **`src/features/availability/useAvailabilityBooking.ts`** without behaviour change; the
+  standalone `/availability` route (My bookings' empty states, Review's "back to availability",
+  the post-auth fallback) is now layout-only on the same hook.
+- **The rackets stand up in their own layer.** RN has no `preserve-3d`: every view's 3D transform
+  is flattened on its own, so a nested counter-rotation would squash a racket twice. Instead the
+  rackets live in an untransformed screen-space layer and follow a precomputed track of where
+  their spot on the court lands under the pitch (`spec.projectPlanePoint` replays Fabric's own
+  matrix pipeline — `Transform.cpp`: column vectors, `m[11] = −1/perspective`). The near pair's
+  handle crossfades so a standing racket is not upside down. The ball keeps the court's transform
+  in a second layer stacked ABOVE the on-net button, so the rally flies over it as in the prototype.
+- **Eased slices are sampled tables.** The native driver ignores `interpolate({ easing })` (it
+  only sends inputRange/outputRange — `NativeAnimatedAllowlist`), so `spec.sampleEased` turns each
+  "slice [a, b] with ease E" into a 24-point piecewise-linear table. The PITCH ease is
+  direction-aware exactly as the prototype: ease-in-out on play, the old ease-out remapped inside
+  the slice on reverse; the tables are rebuilt when the direction flips.
+- **The spring is on `p`** (`stiffness 60, damping 18, mass 1.2`, ζ ≈ 1.06, ≈ 1.6 s), never a
+  duration. Reverse mid-flight restarts from the current position (the native driver drops the
+  velocity — a momentum blip, not a bounce). Reduced motion = one 220 ms linear fade.
+- **Frosted card:** iOS blurs the court behind (`expo-blur`, intensity 50) under a 35 % `bg`
+  tint; Android draws the tint flat at 94 % — the tab bar's own convention. Scroll-edge fades are
+  gradient overlays (no masked-view dependency).
+- The last grid rows' slice (0.76 + 0.28 = 1.04 in the prototype's code) is clamped at 1.00 as the
+  table says — otherwise the bottom rows settle 14 % short of fully in.
+
+**Where it lives:** `src/features/courtTransition/spec.ts` (pure, 18 unit tests: bezier, the
+direction-aware ease, staggers, tables, camera endpoints, projection sanity) ·
+`useCourtTransition.ts` (the driver: `p`, direction, sheet mount/unmount, reduce motion) ·
+`src/components/CourtIllustration.tsx` (`progress` / `direction` / `netOverlay` props; identical
+at `p = 0`) · `src/components/BookingSheet.tsx` · `app/(tabs)/index.tsx` (title row with the fading
+back button, the stage, the on-net CTA, Android hardware back reverses the transition while the
+tab is focused) · `src/lib/useReduceMotion.ts` · `compact` variants of `DayChip`/`SlotCell` ·
+`booking.pickTime` / `booking.backToCourt` in both catalogs.
+
+**Unverified on a device — this Mac has no Xcode, simulators, CocoaPods or eas-cli, and the app
+needs a dev build (custom native modules).** The gate that did run: `tsc`, `eslint --max-warnings 0`,
+vitest (120 mobile + 22 i18n). On the first EAS dev build check, in this order: (1) the pitch
+direction on iOS AND Android (far end swings RIGHT, near end grows) — Android composes rotations
+through its own Euler decomposition and the sign was derived from Fabric's matrices, not seen;
+(2) the standing rackets track their court spots through the whole spring; (3) the iOS blur while
+the card fades in (Apple warns that a `UIVisualEffectView` under `alpha < 1` may look off — if it
+does, fade only the card's content, not the blur); (4) reverse mid-flight from the back button;
+(5) Arabic: the back button at the start edge, the title sliding the other way, the pill row's
+leading fade; (6) an iPhone SE: the card (≈ 330 pt) must clear the tab bar.
+
+**Lint finding (pre-existing, NOT fixed here — shared preset, touches every app):** the RTL guard's
+identifier-key selector in `packages/config/src/eslint.js:44` is inert — `JSON.stringify` quotes the
+pattern, and esquery treats a quoted attribute value as a literal string, so `marginLeft`,
+`paddingRight`, `left`, `right`… are NOT flagged anywhere; only `textAlign: 'left'|'right'` and
+quoted string keys are. Fix = `Property[key.name=/${physicalPropPattern}/]` (unquoted regex), then
+expect 7 errors in `apps/mobile` alone (`CourtIllustration.tsx`'s deliberate physical `left`s,
+`ui.tsx`'s `hitSlop`) and re-lint web/operator/ui before committing that.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
   PostHog `bau.se.engineers@gmail.com`). Check it before concluding an account "has no access".
 - `docs/client/chrome-agent-prompt.md` — the Claude-in-Chrome provisioning prompt template.
-- `docs/design/mobile-ui/` — the approved mobile design (dc.html artboards + UI build spec, 2026-08-31).
+- `docs/design/mobile-ui/` — the approved mobile design (dc.html artboards + UI build spec, 2026-08-31)
+  + **`Court Transition Prototype.html`** (2026-09-01: the court → booking transition; its header table is the motion spec).
 - `docs/design/cafe-rebuild/` — **the cafe rebuild design pack**: `db-slice.md`, `web-slice.md`,
   `operator-slice.md`, `upperdeck-spec.md` (the reference project's full spec), `decisions.md`
   (owner decisions, binding), `context-existing-cafe.md`, `context-operator.md`.
@@ -720,6 +793,10 @@ the only Apple secret this feature ever introduces, server-side only).
 - `packages/core/src/analytics/` — pure analytics modules shared by the operator and the edge fn.
 - `apps/web/src/{components/cafe,hooks/cafe,styles/cafe,lib}` — the guest cafe app.
 - `apps/operator/src/features/{admin,analytics,kds,till}` — operator surfaces.
+- `apps/mobile/src/features/courtTransition/` — the court → booking transition: `spec.ts` (pure motion
+  spec + tests), `useCourtTransition.ts` (the spring driver); rendered by `components/CourtIllustration.tsx`,
+  `components/BookingSheet.tsx` and `app/(tabs)/index.tsx`; the shared flow is
+  `features/availability/useAvailabilityBooking.ts`.
 - `e2e/` — Playwright config + specs (EN + AR).
 
 ## Roadmap / next steps
