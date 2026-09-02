@@ -32,7 +32,7 @@ export default function AvailabilityScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
-  const a = useAvailabilityBooking();
+  const a = useAvailabilityBooking({ origin: 'screen' });
 
   return (
     // Unpadded so the day strip can scroll out under the screen edge; every
@@ -193,7 +193,9 @@ export default function AvailabilityScreen() {
 
       <NoticeSheet
         visible={a.notice !== null}
-        title={a.notice === 'horizon' ? t('booking.deskOnlyTitle') : t('booking.slotUnavailableTitle')}
+        title={
+          a.notice === 'horizon' ? t('booking.deskOnlyTitle') : t('booking.slotUnavailableTitle')
+        }
         body={a.notice === 'horizon' ? t('booking.deskOnlyBody') : t('booking.blockedBody')}
         callLabel={a.phone ? t('booking.callPhone', { phone: a.phone }) : null}
         onCall={a.onCall}
