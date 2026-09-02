@@ -1,4 +1,5 @@
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { wallTimeToUtc } from '@touch/core';
 import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
@@ -7,7 +8,7 @@ import { useAvailabilityBooking } from '../src/features/availability/useAvailabi
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { space, useTheme } from '../src/theme';
-import { ErrorText, Hint, Screen, ScreenHeader, SegmentedControl } from '../src/components/ui';
+import { ErrorText, Hint, Screen, SegmentedControl } from '../src/components/ui';
 import { DayChip, DegradedBanner, SlotCell } from '../src/components/booking';
 import { NoticeSheet } from '../src/components/overlays';
 
@@ -36,10 +37,8 @@ export default function AvailabilityScreen() {
   return (
     // Unpadded so the day strip can scroll out under the screen edge; every
     // other block carries its own gutter.
-    <Screen padded={false}>
-      <View style={{ paddingStart: GUTTER, paddingEnd: GUTTER }}>
-        <ScreenHeader title={t('booking.availabilityTitle')} />
-      </View>
+    <Screen padded={false} edges={[]}>
+      <Stack.Screen options={{ title: t('booking.availabilityTitle') }} />
 
       {a.degraded ? (
         <View style={{ marginTop: 6, marginStart: GUTTER, marginEnd: GUTTER }}>

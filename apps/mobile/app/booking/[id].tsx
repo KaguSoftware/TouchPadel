@@ -1,35 +1,35 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, Stack } from 'expo-router';
+import { RequireSession } from '../../src/features/auth/RequireSession';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatDateTime, formatTimeRange } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
-import { useLocale } from '../../../src/i18n/LocaleProvider';
-import { useCancelReservation, useReservation } from '../../../src/features/booking/hooks';
-import { canCancel, displayRef } from '../../../src/features/booking/logic';
-import { mapErrorToKey } from '../../../src/features/booking/errors';
+import { useLocale } from '../../src/i18n/LocaleProvider';
+import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
+import { canCancel, displayRef } from '../../src/features/booking/logic';
+import { mapErrorToKey } from '../../src/features/booking/errors';
 import {
   useCourts,
   useIsDegraded,
   useVenueSettings,
-} from '../../../src/features/availability/hooks';
-import { venuePhoneOf } from '../../../src/features/availability/assemble';
-import { callPhone } from '../../../src/lib/phone';
-import { formatPrice } from '../../../src/lib/price';
-import { radius, space, useTheme } from '../../../src/theme';
+} from '../../src/features/availability/hooks';
+import { venuePhoneOf } from '../../src/features/availability/assemble';
+import { callPhone } from '../../src/lib/phone';
+import { formatPrice } from '../../src/lib/price';
+import { radius, space, useTheme } from '../../src/theme';
 import {
   Button,
   Card,
   DashedDivider,
   ErrorText,
   Screen,
-  ScreenHeader,
   useSafeBack,
-} from '../../../src/components/ui';
-import { DegradedBanner, PayAtDeskCard, StatusPill, SummaryGrid } from '../../../src/components/booking';
-import { ConfirmationDialog, useToast } from '../../../src/components/overlays';
-import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../../src/components/icons';
-import { ErrorState, SkeletonList } from '../../../src/components/states';
+} from '../../src/components/ui';
+import { DegradedBanner, PayAtDeskCard, StatusPill, SummaryGrid } from '../../src/components/booking';
+import { ConfirmationDialog, useToast } from '../../src/components/overlays';
+import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/components/icons';
+import { ErrorState, SkeletonList } from '../../src/components/states';
 
 /**
  * Booking detail (design 2026-08-31) — the ONLY place a guest cancels.
@@ -37,7 +37,7 @@ import { ErrorState, SkeletonList } from '../../../src/components/states';
  * stated reason when the window is closed (spec R8 — visible, never hidden);
  * refusal offers the venue phone. Cancelled bookings state it plainly.
  */
-export default function BookingDetailScreen() {
+function BookingDetailScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts, tracking } = useTheme();
   const insets = useSafeAreaInsets();
@@ -107,9 +107,9 @@ export default function BookingDetailScreen() {
   const cardPad = { paddingTop: 13, paddingBottom: 13, paddingStart: space.m, paddingEnd: space.m };
 
   return (
-    <Screen>
-      <ScreenHeader
-        title={booking ? t('booking.bookingRef', { ref: displayRef(booking.id) }) : ''}
+    <Screen edges={[]}>
+      <Stack.Screen
+        options={{ title: booking ? t('booking.bookingRef', { ref: displayRef(booking.id) }) : '' }}
       />
       {reservation.isLoading ? (
         <SkeletonList rows={2} height={140} />
@@ -349,5 +349,22 @@ export default function BookingDetailScreen() {
         onDismiss={() => setDialogOpen(false)}
       />
     </Screen>
+  );
+}
+
+/**
+ * On the ROOT stack rather than in `(gated)`: entered from another navigator,
+ * a screen inside a nested stack has no history of its own, so UIKit draws no
+ * back item and the screen shipped a JS replica instead. Here the push leaves
+ * real history, so every screen gets the SAME system back item.
+ *
+ * The group layout's guard does not reach this file, so the session
+ * requirement is declared explicitly — same states, same redirect.
+ */
+export default function GuardedBookingDetailScreen() {
+  return (
+    <RequireSession>
+      <BookingDetailScreen />
+    </RequireSession>
   );
 }

@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { supabase } from '../../src/lib/supabase';
-import { resendVerification, signOut } from '../../src/features/auth/api';
-import { verifyRedirect } from '../../src/features/auth/redirects';
-import { useAuth } from '../../src/features/auth/context';
-import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { radius, space, useTheme } from '../../src/theme';
-import { Button, ErrorText, Hint, Screen } from '../../src/components/ui';
-import { EnvelopeIcon } from '../../src/components/icons';
+import { supabase } from '../src/lib/supabase';
+import { resendVerification, signOut } from '../src/features/auth/api';
+import { verifyRedirect } from '../src/features/auth/redirects';
+import { useAuth } from '../src/features/auth/context';
+import { mapErrorToKey } from '../src/features/booking/errors';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { radius, space, useTheme } from '../src/theme';
+import { Button, ErrorText, Hint, Screen } from '../src/components/ui';
+import { EnvelopeIcon } from '../src/components/icons';
 
 const RESEND_COOLDOWN_S = 30;
 
@@ -33,7 +33,7 @@ export default function VerifyEmailScreen() {
 
   // The emailed link signed us in -> show the verified state.
   useEffect(() => {
-    if (session) router.replace('/(auth)/verify-result');
+    if (session) router.replace('/verify-result');
   }, [session]);
 
   // Tick only while a cooldown is actually running (it used to poll at 2 Hz forever).
@@ -146,7 +146,7 @@ export default function VerifyEmailScreen() {
         />
         <Button
           label={t('auth.useDifferentEmail')}
-          onPress={() => router.replace('/(auth)/sign-up')}
+          onPress={() => router.replace('/sign-up')}
           variant="ghost"
           labelColor={colors.fnt}
           style={{ marginTop: space.sm }}

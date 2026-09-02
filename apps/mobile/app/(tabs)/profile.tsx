@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Image, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
+import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
@@ -30,12 +31,13 @@ export default function ProfileScreen() {
   const { t } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const settings = useVenueSettings();
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   const phone = venuePhoneOf(settings.data);
   const onCallVenue = () => {
@@ -50,12 +52,26 @@ export default function ProfileScreen() {
   };
 
   const onSignOut = async () => {
+    setError(null);
+    setSigningOut(true);
     try {
       await signOut(supabase);
       router.replace('/(tabs)');
     } catch (err) {
       setError(t(mapErrorToKey(err)));
+    } finally {
+      setSigningOut(false);
     }
+  };
+
+  // Native confirm, same shape as PetApp's account settings: Cancel, then the
+  // destructive Sign out.
+  const confirmSignOut = () => {
+    if (signingOut) return;
+    Alert.alert(t('auth.signOut'), t('auth.signOutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('auth.signOut'), style: 'destructive', onPress: () => void onSignOut() },
+    ]);
   };
 
   const header = (
@@ -103,13 +119,13 @@ export default function ProfileScreen() {
           <Button
             label={t('auth.signIn')}
             variant="primary"
-            onPress={() => router.push('/(auth)/sign-in')}
+            onPress={() => router.push('/sign-in')}
             style={{ alignSelf: 'stretch', marginTop: space.xl }}
           />
           <Button
             label={t('auth.signUp')}
             variant="cta"
-            onPress={() => router.push('/(auth)/sign-up')}
+            onPress={() => router.push('/sign-up')}
             style={{ alignSelf: 'stretch', marginTop: 9 }}
           />
         </View>
@@ -131,7 +147,12 @@ export default function ProfileScreen() {
     '•';
   const langLabel =
     profile.data?.preferred_lang === 'ar' ? t('settings.arabic') : t('settings.english');
-  const detailLine = [profile.data?.phone, langLabel].filter(Boolean).join(' · ');
+  // The phone is Latin digits sitting next to an Arabic label around a '·'
+  // separator: without an isolate the bidi algorithm reorders the number
+  // against the separator in RTL. Same reason the email is isolated below.
+  const detailLine = [profile.data?.phone ? isolate(profile.data.phone) : null, langLabel]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Screen>
@@ -171,20 +192,26 @@ export default function ProfileScreen() {
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text
                 numberOfLines={1}
-                style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink }}
+                style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink, textAlign: 'auto' }}
               >
-                {name}
+                {isolate(name)}
               </Text>
               <Text
-                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, marginTop: 2 }}
+                style={{
+                  fontFamily: fonts.body400,
+                  fontSize: 12,
+                  color: colors.mut,
+                  marginTop: 2,
+                  textAlign: 'auto',
+                }}
                 numberOfLines={1}
               >
-                {email}
+                {isolate(email)}
               </Text>
               {/* Design: "{phone} · {language}" on the third line. */}
               <Text
                 numberOfLines={1}
-                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}
+                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, textAlign: 'auto' }}
               >
                 {detailLine}
               </Text>
@@ -201,7 +228,7 @@ export default function ProfileScreen() {
                 label={t('auth.addPhoneLink')}
                 variant="secondary"
                 size="compact"
-                onPress={() => router.push({ pathname: '/(auth)/complete-profile', params: { returnTo: 'back' } })}
+                onPress={() => router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } })}
                 labelColor={colors.ambstrong}
                 style={{ marginTop: 10, alignSelf: 'flex-start', backgroundColor: 'transparent', borderColor: colors.ambstrong }}
               />
@@ -248,7 +275,7 @@ export default function ProfileScreen() {
             label={t('auth.signOut')}
             variant="secondary"
             size="medium"
-            onPress={() => void onSignOut()}
+            onPress={confirmSignOut}
             labelColor={colors.redtext}
             style={{ marginTop: space.m, backgroundColor: 'transparent' }}
           />

@@ -3,9 +3,11 @@ import { Linking, ScrollView, Text, View } from 'react-native';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
+import { Stack, usePathname, useRootNavigationState } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
+import { activeTabHref } from '../src/navigation/activeTab';
 import {
   getPushPermissionState,
   registerPushToken,
@@ -21,7 +23,6 @@ import {
   Hint,
   MicroLabel,
   Screen,
-  ScreenHeader,
   SegmentedControl,
 } from '../src/components/ui';
 import { BellIcon, GlobeIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
@@ -34,9 +35,13 @@ import { useToast } from '../src/components/overlays';
  * footer. Public route; reached from the signed-in Profile.
  */
 export default function SettingsScreen() {
-  const { t, locale, setLocale, needsRestart } = useLocale();
+  const { t, dir, locale, setLocale, needsRestart } = useLocale();
   const { colors, fonts, appearance, setAppearance } = useTheme();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  // The tab sitting under this screen (Profile, normally). Parked with the
+  // switch so back from the restored Settings returns there, not to Book.
+  const rootState = useRootNavigationState();
   const settings = useVenueSettings();
   const toast = useToast();
 
@@ -55,9 +60,11 @@ export default function SettingsScreen() {
 
   const onPickLocale = async (next: Locale) => {
     if (next === locale) return;
-    // In development this reloads into the new direction; in a release build
-    // `needsRestart` turns on and the note below explains.
-    await setLocale(next);
+    // The overlay goes up for the whole switch (LocaleSwitchOverlay). In
+    // development this then reloads into the new direction and comes back here
+    // via `resumePath`; in a release build `needsRestart` turns on and the note
+    // below explains.
+    await setLocale(next, { resumePath: pathname, resumeTab: activeTabHref(rootState) });
   };
 
   const onEnablePush = async () => {
@@ -84,16 +91,26 @@ export default function SettingsScreen() {
   const appVersion = Constants.expoConfig?.version ?? Application.nativeApplicationVersion ?? '0.0.0';
   const build = isRunningInExpoGo() ? 'dev' : (Application.nativeBuildVersion ?? '0');
 
+  // `row-reverse` under Arabic: MicroLabel already aligns its text to the
+  // right, so a plain `row` left the icon on the physical left with the label
+  // pulled away from it. Not left to RN's isRTL swap — that native flag lags
+  // the chosen language.
   const groupLabel = (icon: React.ReactNode, label: string) => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+    <View
+      style={{
+        flexDirection: dir === 'rtl' ? 'row-reverse' : 'row',
+        alignItems: 'center',
+        gap: 6,
+      }}
+    >
       {icon}
       <MicroLabel>{label}</MicroLabel>
     </View>
   );
 
   return (
-    <Screen>
-      <ScreenHeader title={t('settings.title')} />
+    <Screen edges={[]}>
+      <Stack.Screen options={{ title: t('settings.title') }} />
       <ScrollView
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         showsVerticalScrollIndicator={false}
