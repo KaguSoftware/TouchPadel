@@ -10,6 +10,7 @@ import {
   assembleTradingNight,
   groupByStart,
   listBookableDates,
+  protectedHorizonEnd,
   type AvailabilityRow,
   type CourtRow,
   type RateRulePriceRow,
@@ -232,6 +233,44 @@ describe('mergeAcrossCourts', () => {
     const cells = mergeAcrossCourts(grid, 60, horizonEnd);
     expect(cells[0]?.state).toBe('past');
     expect(cells[1]?.state).toBe('horizon');
+  });
+});
+
+// ── protectedHorizonEnd: the client copy of app.assert_not_degraded_for ──────
+
+describe('protectedHorizonEnd', () => {
+  const now = new Date('2026-09-02T15:50:00Z');
+
+  it('is now + protected_horizon_hours', () => {
+    expect(protectedHorizonEnd(now, { protected_horizon_hours: 48 }).toISOString()).toBe(
+      '2026-09-04T15:50:00.000Z',
+    );
+    expect(protectedHorizonEnd(now, { protected_horizon_hours: 12 }).toISOString()).toBe(
+      '2026-09-03T03:50:00.000Z',
+    );
+  });
+
+  it('falls back to the 48 h server default when the column is missing or invalid', () => {
+    expect(protectedHorizonEnd(now).toISOString()).toBe('2026-09-04T15:50:00.000Z');
+    expect(protectedHorizonEnd(now, null).toISOString()).toBe('2026-09-04T15:50:00.000Z');
+    expect(protectedHorizonEnd(now, { protected_horizon_hours: null }).toISOString()).toBe(
+      '2026-09-04T15:50:00.000Z',
+    );
+  });
+
+  it('honours 0 as "no protected window" rather than defaulting', () => {
+    expect(protectedHorizonEnd(now, { protected_horizon_hours: 0 }).getTime()).toBe(now.getTime());
+  });
+
+  it('covers the window the old "midnight after tomorrow" rule left uncovered', () => {
+    // The regression: a slot on the third day chip, before the current
+    // wall-clock time. Free under the old rule, refused by the server.
+    const slotStart = new Date('2026-09-04T10:00:00Z');
+    const oldRule = new Date('2026-09-04T00:00:00Z'); // midnight after tomorrow
+    expect(slotStart.getTime() < oldRule.getTime()).toBe(false);
+    expect(slotStart.getTime() < protectedHorizonEnd(now, { protected_horizon_hours: 48 }).getTime()).toBe(
+      true,
+    );
   });
 });
 

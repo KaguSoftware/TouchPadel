@@ -16,7 +16,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { localParts, pickLocale, wallTimeToUtc } from '@touch/core';
+import { pickLocale } from '@touch/core';
 import { useLocale } from '../../i18n/LocaleProvider';
 import {
   useCourts,
@@ -27,11 +27,11 @@ import {
   type DayGrid,
 } from './hooks';
 import {
-  addDays,
   DEFAULT_TZ,
   hasAnySlots,
   listBookableDates,
   mergeAcrossCourts,
+  protectedHorizonEnd,
   venuePhoneOf,
   type MergedCell,
 } from './assemble';
@@ -155,14 +155,14 @@ export function useAvailabilityBooking(
     return out.length > 0 ? out : [60, 90];
   }, [courts.data]);
 
-  // Degraded protects "today & tomorrow" (SOW horizon): everything before the
-  // day-after-tomorrow's venue-local midnight renders desk-only.
-  const horizonEnd = useMemo(() => {
-    if (!degraded) return null;
-    // Counted from the venue-local calendar day, not the strip: the strip can
-    // open on yesterday's still-running night.
-    return wallTimeToUtc(addDays(localParts(now, tz).date, 2), 0, tz);
-  }, [degraded, now, tz]);
+  // Degraded desk-only window. Read from venue_settings.protected_horizon_hours,
+  // because that is the exact column app.assert_not_degraded_for (0008) refuses
+  // on: a client window narrower than the server's shows slots as free that the
+  // server then refuses with DEGRADED_LOCKOUT the moment they are tapped.
+  const horizonEnd = useMemo(
+    () => (degraded ? protectedHorizonEnd(now, venueSettings.data) : null),
+    [degraded, now, venueSettings.data],
+  );
 
   const cells = useMemo(
     () => mergeAcrossCourts(day.grid, durationMin, horizonEnd, now),
