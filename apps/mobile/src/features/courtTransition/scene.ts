@@ -286,23 +286,38 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
    */
   const LIFT = 1.1;
 
-  // racket (brand sticker): teardrop navy frame with a cyan highlight arc, a
-  // blue bed of white studs, a V-strut throat, lime grip, dark cap.
-  const frameMat = Mat(NAVY, { roughness: 0.45 });
-  const rimMat = Mat(0x6ec3f0, { roughness: 0.4 });
-  const faceMat = Mat(BLUE, { roughness: 0.6 });
-  const holeMat = Mat(0xffffff, { roughness: 0.6 });
-  const throatMat = Mat(NAVY, { roughness: 0.45 });
-  const gripMat = Mat(LIME, { roughness: 0.6 });
-  const wrapMat = Mat(NAVY);
+  // racket (brand sticker, traced 2026-09-03): royal-blue frame band with a
+  // black ink outline, a darker string bed of 32 white dots, two cyan gloss
+  // arcs, a short V-strut throat, a green wrap grip and a blue butt cap.
+  const INK = 0x0d0e12;
+  /** Flat, unlit fills — the drawing's own (see the header). */
+  const flat = (color: number) => {
+    const m = new THREE.MeshBasicMaterial({ color });
+    disposables.push(m);
+    return m;
+  };
+  /** Ink is drawn BackSide: the fatter twin's far wall IS the brush line. */
+  const inkMat = new THREE.MeshBasicMaterial({ color: INK, side: THREE.BackSide });
+  disposables.push(inkMat);
+  const inkFlat = flat(INK);
+  const glossMat = flat(0x74cbdf);
+  const frameMat = flat(0x4164a5);
+  const bedMat = flat(0x224d89);
+  const studMat = flat(0xffffff);
+  const gripMat = flat(0x9bca64);
+  const buttCapMat = flat(0x2b4a8e);
+
   /**
-   * The head's outline: a teardrop, not a circle. Radius at angle `a`, where
+   * The head's outline, traced (see the header): radius at angle `a`, where
    * a = 0 points at the TIP (local −z, away from the hand) and a = π at the
-   * throat. The sticker's head is broad and round across the top and pinches
-   * in as it meets the struts, so the radius eases from 0.46 at the tip to
-   * 0.33 at the throat — a plain torus read as a lollipop from overhead.
+   * throat. A near-circle, marginally longer along the handle.
    */
-  const headR = (a: number) => 0.395 + 0.065 * Math.cos(a) - 0.012 * Math.cos(2 * a);
+  const headR = (a: number) =>
+    0.50361 +
+    0.01304 * Math.cos(a) +
+    0.00767 * Math.cos(2 * a) -
+    0.00189 * Math.cos(3 * a) -
+    0.00745 * Math.cos(4 * a);
   /** Outline point in the head's own plane (x across, z along the handle). */
   const headPt = (a: number, scale = 1) => {
     const r = headR(a) * scale;
@@ -310,24 +325,23 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
   };
   const SEG = 64;
   /**
-   * The frame: a fat tube swept along that teardrop, standing PROUD of the
-   * string bed on both sides so from any angle there is a lit near edge, a
-   * shaded far one and a visible step down onto the strings. Built flush the
-   * head was one flat plate and read as a decal painted on the court.
+   * The outline as a curve — the whole ring by default, or the arc [from, to]
+   * for the gloss highlights (open, so the tube has two ends).
    */
-  const headCurve = (scale: number) => {
+  const headCurve = (scale: number, from = 0, to = Math.PI * 2, closed = true) => {
     const pts: THREE.Vector3[] = [];
-    for (let i = 0; i < SEG; i++) {
-      const p = headPt((i / SEG) * Math.PI * 2, scale);
+    const n = Math.max(4, Math.round((SEG * (to - from)) / (Math.PI * 2)));
+    for (let i = 0; i < n + (closed ? 0 : 1); i++) {
+      const p = headPt(from + ((to - from) * i) / n, scale);
       pts.push(new THREE.Vector3(p.x, 0, p.y));
     }
-    return new THREE.CatmullRomCurve3(pts, true);
+    return new THREE.CatmullRomCurve3(pts, closed);
   };
-  /** The bed: the same outline filled, so the strings reach the frame's wall. */
-  const headShape = () => {
+  /** The bed: the same outline filled, in to 0.80 of it where the band ends. */
+  const headShape = (scale: number) => {
     const shape = new THREE.Shape();
     for (let i = 0; i <= SEG; i++) {
-      const p = headPt((i / SEG) * Math.PI * 2, 0.98);
+      const p = headPt((i / SEG) * Math.PI * 2, scale);
       if (i === 0) shape.moveTo(p.x, p.y);
       else shape.lineTo(p.x, p.y);
     }
@@ -335,79 +349,126 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
   };
   const makeRacket = () => {
     const g = new THREE.Group();
+    // Frame band. Measured: the band runs from the outline in to 0.79 of it, so
+    // a tube of radius 0.052 centred on the 0.897 curve puts its outer wall ON
+    // the traced outline and its inner wall where the bed starts.
     const frame = new THREE.Mesh(
-      geo(new THREE.TubeGeometry(headCurve(1), SEG, 0.105, 12, true)),
+      geo(new THREE.TubeGeometry(headCurve(0.897), SEG, 0.052, 14, true)),
       frameMat,
     );
-    // The cyan gloss the sticker paints along the frame's upper-left shoulder:
-    // a thinner tube on the same path, riding slightly above the frame and cut
-    // to a quarter turn, so it reads as a lit edge rather than a second rim.
-    const rim = new THREE.Mesh(
-      geo(new THREE.TubeGeometry(headCurve(0.985), SEG, 0.055, 10, true)),
-      rimMat,
+    const frameInk = new THREE.Mesh(
+      geo(new THREE.TubeGeometry(headCurve(0.897), SEG, 0.067, 14, true)),
+      inkMat,
     );
-    rim.position.y = 0.062;
-    const face = new THREE.Mesh(
+    // The bed: darker than the band, as drawn, reaching 0.80 of the outline.
+    const bed = new THREE.Mesh(
       geo(
-        new THREE.ExtrudeGeometry(headShape(), {
-          depth: 0.07,
+        new THREE.ExtrudeGeometry(headShape(0.8), {
+          depth: 0.06,
           bevelEnabled: false,
           curveSegments: SEG,
         }),
       ),
-      faceMat,
+      bedMat,
     );
-    // Extrude builds in the xy plane growing along +z; stand it into the
-    // head's plane so its face is the string bed, then drop it BELOW the
-    // frame's crown so the frame rings it like a wall.
-    face.rotation.x = -Math.PI / 2;
-    face.position.y = 0.015;
-    g.add(frame, rim, face);
-    // Holes: a staggered grid across the whole bed rather than three tight
-    // rings, which left the face bare out near the frame. Punched THROUGH the
-    // bed and standing a little above it, so they read as raised studs
-    // catching the sun rather than flat dots.
-    const holeGeo = geo(new THREE.CylinderGeometry(0.034, 0.034, 0.12, 10));
-    const PITCH = 0.1;
-    for (let row = -4; row <= 4; row++) {
-      const z = row * PITCH;
-      for (let col = -4; col <= 4; col++) {
+    // Extrude builds in the xy plane growing along +z; stand it into the head's
+    // plane so its face is the string bed.
+    bed.rotation.x = -Math.PI / 2;
+    bed.position.y = -0.01;
+    // The ink line the drawing paints where the bed meets the band, and the
+    // second one that splits the band into rim and frame — the drawing's
+    // double-line head.
+    const bedLine = new THREE.Mesh(
+      geo(new THREE.TubeGeometry(headCurve(0.8), SEG, 0.014, 8, true)),
+      inkFlat,
+    );
+    bedLine.position.y = 0.05;
+    const rimLine = new THREE.Mesh(
+      geo(new THREE.TubeGeometry(headCurve(0.9), SEG, 0.011, 8, true)),
+      inkFlat,
+    );
+    rimLine.position.y = 0.05;
+    // Gloss: the long upper-left shoulder arc and the short one under the
+    // throat on the same side — not a full ring, which read as a second rim.
+    const gloss = new THREE.Mesh(
+      geo(new THREE.TubeGeometry(headCurve(0.9, -1.55, -0.2, false), 26, 0.026, 8, false)),
+      glossMat,
+    );
+    gloss.position.y = 0.04;
+    const gloss2 = new THREE.Mesh(
+      geo(new THREE.TubeGeometry(headCurve(0.9, -3.1, -2.45, false), 14, 0.022, 8, false)),
+      glossMat,
+    );
+    gloss2.position.y = 0.04;
+    g.add(frameInk, frame, bed, bedLine, rimLine, gloss, gloss2);
+    // The dot field, measured: 32 dots on a staggered grid of pitch 0.0942, each
+    // 0.0257 across, the whole diamond pushed 0.047 toward the TIP and cut off
+    // 0.309 from its own centre.
+    const studGeo = geo(new THREE.CylinderGeometry(0.0257, 0.0257, 0.05, 10));
+    const PITCH = 0.0942;
+    const CZ = -0.047;
+    for (let row = -3; row <= 3; row++) {
+      const z = CZ + row * PITCH;
+      for (let col = -3; col <= 3; col++) {
         const x = (col + (row % 2 === 0 ? 0 : 0.5)) * PITCH;
-        // Keep the pattern inside the bed: the teardrop is narrower at the
-        // throat end, so the test has to use the outline, not one radius.
-        const a = Math.atan2(x, -z);
-        if (Math.hypot(x, z) > headR(a) - 0.1) continue;
-        const h = new THREE.Mesh(holeGeo, holeMat);
-        h.position.set(x, 0.045, z);
+        if (Math.hypot(x, z - CZ) > 0.309) continue;
+        const h = new THREE.Mesh(studGeo, studMat);
+        h.position.set(x, 0.06, z);
         g.add(h);
       }
     }
-    // The throat is a V of two struts with an open triangle between them —
-    // the single solid box that stood here read as a stubby neck and lost the
-    // sticker's most recognisable line.
-    const throatZ = headR(Math.PI);
+    // Throat: the frame ITSELF comes down to the handle, as the drawing has it —
+    // two legs leaving the band tangentially at about 4 and 8 o'clock and
+    // converging on the collar, so the outer silhouette is one continuous line:
+    // circle into V. Each leg starts ON the band's centreline at the tangent
+    // point, so its open end is the band's own cross-section there and vanishes
+    // inside it (the ink shell likewise; at the apex the collar's ink covers
+    // them). The tangent from the apex (±0.03, 0.68) to the 0.897 curve lands at
+    // a = ±2.24 rad. The open triangle between the legs and the bed's bottom
+    // edge is the drawing's white gap. Thinner than the band, as drawn.
     for (const sx of [-1, 1] as const) {
-      const strut = new THREE.Mesh(geo(new THREE.BoxGeometry(0.075, 0.085, 0.42)), throatMat);
-      strut.position.set(sx * 0.115, 0, throatZ + 0.16);
-      strut.rotation.y = sx * 0.42; // splay outwards to meet the frame's sides
-      g.add(strut);
+      const T = headPt(sx * 2.24, 0.897);
+      const legCurve = new THREE.LineCurve3(
+        new THREE.Vector3(T.x, 0, T.y),
+        new THREE.Vector3(sx * 0.03, 0, 0.68),
+      );
+      const leg = new THREE.Mesh(geo(new THREE.TubeGeometry(legCurve, 1, 0.036, 12, false)), frameMat);
+      const legInk = new THREE.Mesh(geo(new THREE.TubeGeometry(legCurve, 1, 0.05, 12, false)), inkMat);
+      g.add(legInk, leg);
     }
-    // The collar where the two struts converge onto the handle.
-    const collar = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.085, 0.075, 0.14, 12)), throatMat);
+    // The collar where the two legs converge onto the handle.
+    const collar = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.082, 0.078, 0.1, 12)), frameMat);
     collar.rotation.x = Math.PI / 2;
-    collar.position.z = 0.63;
-    const handle = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.075, 0.075, 0.6, 14)), gripMat);
+    collar.position.z = 0.7;
+    const collarInk = new THREE.Mesh(
+      geo(new THREE.CylinderGeometry(0.106, 0.102, 0.16, 12)),
+      inkMat,
+    );
+    collarInk.rotation.x = Math.PI / 2;
+    collarInk.position.z = 0.7;
+    // Grip: the green wrap measured off the drawing — z 0.682 → 1.062, radius
+    // 0.078 — with ink wrap seams, then the blue butt cap on the end of it.
+    const handle = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.078, 0.078, 0.38, 16)), gripMat);
     handle.rotation.x = Math.PI / 2;
-    handle.position.z = 0.9;
-    for (const z of [0.72, 0.86, 1.0, 1.14]) {
-      const w = new THREE.Mesh(geo(new THREE.TorusGeometry(0.076, 0.012, 8, 24)), wrapMat);
+    handle.position.z = 0.872;
+    const handleInk = new THREE.Mesh(
+      geo(new THREE.CylinderGeometry(0.099, 0.099, 0.39, 16)),
+      inkMat,
+    );
+    handleInk.rotation.x = Math.PI / 2;
+    handleInk.position.z = 0.872;
+    for (const z of [0.75, 0.84, 0.93, 1.02]) {
+      const w = new THREE.Mesh(geo(new THREE.TorusGeometry(0.079, 0.008, 8, 26)), inkFlat);
       w.position.z = z;
       g.add(w);
     }
-    const cap = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 14)), wrapMat);
+    const cap = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.082, 0.082, 0.088, 16)), buttCapMat);
     cap.rotation.x = Math.PI / 2;
-    cap.position.z = 1.22;
-    g.add(collar, handle, cap);
+    cap.position.z = 1.106;
+    const capInk = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.104, 0.104, 0.11, 16)), inkMat);
+    capInk.rotation.x = Math.PI / 2;
+    capInk.position.z = 1.106;
+    g.add(collarInk, collar, handleInk, handle, capInk, cap);
     g.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) o.castShadow = shadows;
     });

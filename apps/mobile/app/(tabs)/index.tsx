@@ -11,6 +11,7 @@ import {
 import { Text } from '../../src/i18n/text';
 import { useFocusEffect } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
+import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { logicalSign } from '../../src/i18n/direction';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
@@ -45,7 +46,6 @@ import { BackChevronIcon } from '../../src/components/icons';
 import { Court3D, type Court3DHandle } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
-import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 
 /** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
 const LOGO_H = 30;
@@ -172,15 +172,6 @@ function NetCta({
 }
 
 /**
- * TEMPORARY (2026-09-02, on request): the "PICK A TIME" sheet is not rendered
- * while the court's rally animation is being worked on. The camera transition
- * still runs — tapping Check availability pitches to the court view as usual,
- * just with nothing covering it, and the back chevron returns. Flip back to
- * `false` to restore booking; nothing was removed, the sheet is untouched.
- */
-const HIDE_BOOKING_SHEET = true;
-
-/**
  * Book tab: brand header with the open-now pill, then the prototype's court —
  * a three.js scene on expo-gl (Court3D) with "Check availability" on its net
  * and the rally's ball flying over the button — and, in place, the booking
@@ -192,7 +183,6 @@ const HIDE_BOOKING_SHEET = true;
 export default function BookHomeScreen() {
   const { t, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
-  const tabBarHeight = useTabBarHeight();
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const settings = useVenueSettings();
@@ -529,7 +519,7 @@ export default function BookHomeScreen() {
           </Text>
         </Animated.View>
 
-        {sheetMounted && !HIDE_BOOKING_SHEET ? (
+        {sheetMounted ? (
           <BookingSheet
             progress={progress}
             direction={direction}
