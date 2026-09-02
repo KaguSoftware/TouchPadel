@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { addBreadcrumb, captureMessage } from '../../lib/telemetry';
 import { useAuth } from '../auth/context';
@@ -123,12 +124,35 @@ export function useDayGrid(date: string): DayGrid {
   };
 }
 
+/** The one live 'courts' channel, shared by every mounted consumer (see useCourtsBroadcast). */
+interface SharedChannel {
+  token: string;
+  channel: RealtimeChannel;
+  consumers: number;
+  removed: boolean;
+}
+let sharedCourts: SharedChannel | null = null;
+
+function dropSharedCourts(s: SharedChannel): void {
+  if (s.removed) return;
+  s.removed = true;
+  void supabase.removeChannel(s.channel);
+  if (sharedCourts === s) sharedCourts = null;
+}
+
 /**
  * Live grid refresh: 'courts' broadcast-from-database topic (0022). Private
  * channel — realtime auth is set on sign-in (AuthProvider) and refreshed here
  * before subscribing. Payload is slot-taken/freed only; we just invalidate.
  * Re-subscribes when the session appears or changes (it used to read the
  * session once at mount, so signing in on the screen never subscribed).
+ *
+ * REFERENCE-COUNTED, one channel per token: supabase-js hands back the SAME
+ * channel object for a topic that already exists and `removeChannel` leaves
+ * it for everyone, so two mounted consumers (the Book tab's booking sheet
+ * under a pushed Availability or Review screen, the Bookings tab under either)
+ * used to share one subscription that whichever unmounted first silently
+ * killed for the survivor — which then only saw the 60 s poll.
  */
 export function useCourtsBroadcast(): void {
   const queryClient = useQueryClient();
@@ -142,19 +166,28 @@ export function useCourtsBroadcast(): void {
 
   useEffect(() => {
     if (!token) return;
-    supabase.realtime.setAuth(token);
-    const channel = supabase
-      .channel('courts', { config: { private: true } })
-      .on('broadcast', { event: 'slot_changed' }, () => invalidate.current())
-      .subscribe((status) => {
-        // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
-        // quietly stale with no signal to the user or to telemetry.
-        if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
-          captureMessage('realtime.courts.' + status, 'warning');
-      });
+    // A rotated token retires the old channel NOW, so `channel('courts')`
+    // below creates a fresh one instead of returning the stale instance.
+    if (sharedCourts && sharedCourts.token !== token) dropSharedCourts(sharedCourts);
+    if (!sharedCourts) {
+      supabase.realtime.setAuth(token);
+      const channel = supabase
+        .channel('courts', { config: { private: true } })
+        .on('broadcast', { event: 'slot_changed' }, () => invalidate.current())
+        .subscribe((status) => {
+          // A CHANNEL_ERROR/TIMED_OUT used to vanish silently, leaving the grid
+          // quietly stale with no signal to the user or to telemetry.
+          if (status === 'SUBSCRIBED') addBreadcrumb('realtime.courts.subscribed');
+          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')
+            captureMessage('realtime.courts.' + status, 'warning');
+        });
+      sharedCourts = { token, channel, consumers: 0, removed: false };
+    }
+    const mine = sharedCourts;
+    mine.consumers += 1;
     return () => {
-      void supabase.removeChannel(channel);
+      mine.consumers -= 1;
+      if (mine.consumers === 0) dropSharedCourts(mine);
     };
   }, [token]);
 }

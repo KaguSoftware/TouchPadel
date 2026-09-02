@@ -535,9 +535,9 @@ https://supabase.com/dashboard/project/lczijabnorujcgmbuqlw/auth/providers → G
 ## Task 4 — release hygiene (ONLY if the line below says yes)
 1. Same page → Apple → Client IDs: change `com.kagu.touchpadel,host.exp.Exponent` to exactly `com.kagu.touchpadel`.
 2. Authentication → URL Configuration: set **Site URL** to `<SITE_URL>` (it read `http://localhost:3000` on
-   2026-09-01); in **Redirect URLs** remove `https://localhost:3000` and `exp://192.168.1.108:8081/--/*` (an
-   Expo Go LAN entry — dev builds no longer need it); keep `touchpadel://verify-email` and
-   `touchpadel://reset-password`; add nothing else.
+   2026-09-01); in **Redirect URLs** remove `https://localhost:3000` and **every `exp://…` entry** (Expo Go
+   LAN entries — the dev-machine IP changes, so more than one may have accumulated; dev builds no longer
+   need them); keep `touchpadel://verify-email` and `touchpadel://reset-password`; add nothing else.
 Report every field before → after.
 RELEASE WEEK: `no`
 SITE_URL: `<https://… the public site, or 'skip'>`
@@ -546,6 +546,55 @@ SITE_URL: `<https://… the public site, or 'skip'>`
 COLLECTED expected: GOOGLE_ANDROID_CLIENTS_EXISTING, GOOGLE_ANDROID_CLIENT_ID_* (new), CONSENT_PUBLISHING_STATUS
 (+ the three Branding URLs if Task 2 changed them), SUPABASE_GOOGLE_CLIENT_IDS, SUPABASE_GOOGLE_SKIP_NONCE, and
 Task 4 before → after if run.
+
+---
+
+## Prompt E — Supabase redirect URLs for Expo Go email testing (added 2026-09-02)
+
+Needed **only** to test email verification / password reset **in Expo Go**: there the app builds
+`emailRedirectTo` as `exp://<dev-machine-ip>:8081/--/…` (`src/features/auth/redirects.ts`), and GoTrue
+falls back to the Site URL (`localhost:3000` — a dead end on the phone) when that URL is not
+allow-listed. Dev builds use `touchpadel://…`, already allow-listed, and never need this. Run
+`npx expo start --go` in `apps\mobile` first and read the `exp://…` URL Metro prints — that URL is
+authoritative (it is exactly what the app will send); `ipconfig` guesses are not. Any `exp://` entry
+added here is removed at release week by Prompt D Task 4 ("every `exp://…` entry").
+
+Copy everything below the line into Claude in Chrome.
+
+---
+
+You are updating the email-redirect allow-list on the Supabase project of **Touch Padel**. Project ref
+`lczijabnorujcgmbuqlw`, region eu-central-1, https://supabase.com/dashboard/project/lczijabnorujcgmbuqlw.
+**This is the client's PRODUCTION project**: the ONLY thing you change is the **Redirect URLs** list in
+Task 2 — the Site URL and everything else is report-only.
+
+Current Expo dev-server URL(s), from the Metro output (one per line; each becomes `exp://<host:port>/--/*`):
+- `<EXPO_LAN_URLS — e.g. exp://192.168.175.73:8081, one per line>`
+
+## Ground rules
+- **Never invent a value.** If a field or button is not there, say so.
+- If the dashboard asks for a login or 2FA — stop and wait for me.
+- For every field you change, report the value BEFORE and AFTER, quoted verbatim.
+- Secrets (anon key, service-role key, JWT secret): presence only — never paste them.
+- Final report: ## COLLECTED / ## BLOCKED / ## DONE IN-BROWSER (exact settings changed, before → after).
+
+## Task 1 — current state (REPORT ONLY)
+Authentication → URL Configuration. Record `SUPABASE_SITE_URL` and every **Redirect URL** verbatim as
+`SUPABASE_REDIRECT_URLS_BEFORE`.
+
+## Task 2 — Redirect URLs (CHANGE — this list only)
+1. Remove every entry starting `exp://` whose host is NOT in the pasted list above (on 2026-09-01 the
+   list held one stale entry, `exp://192.168.1.108:8081/--/*` — an old dev-machine LAN IP).
+2. For each pasted URL not already present, add `exp://<host:port>/--/*` (append `/--/*` exactly).
+3. Keep `https://localhost:3000`, `touchpadel://verify-email` and `touchpadel://reset-password`
+   untouched. Do NOT touch the **Site URL**. Add nothing else. Save.
+
+## Task 3 — proof (REPORT ONLY)
+Re-read the page after saving. Record every Redirect URL verbatim as `SUPABASE_REDIRECT_URLS_AFTER`.
+
+## Final report
+COLLECTED expected: SUPABASE_SITE_URL, SUPABASE_REDIRECT_URLS_BEFORE, SUPABASE_REDIRECT_URLS_AFTER, plus
+one `REMOVED = …` / `ADDED = …` line per change. Then BLOCKED and DONE IN-BROWSER.
 
 ---
 
