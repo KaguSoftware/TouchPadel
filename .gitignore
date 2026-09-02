@@ -46,3 +46,9 @@ test-results/
 
 # Expo export output
 apps/mobile/dist/
+
+# Guard: never run `eas`/`expo` from the repo root — a stray root app.json/eas.json
+# (wrong android package, no env) came from that on 2026-09-01. The real ones live
+# in apps/mobile/. Root-anchored: does not affect apps/mobile/eas.json.
+/app.json
+/eas.json
