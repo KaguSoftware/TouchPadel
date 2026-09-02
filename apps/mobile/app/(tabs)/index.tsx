@@ -10,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
 import {
@@ -43,6 +42,7 @@ import { BackChevronIcon } from '../../src/components/icons';
 import { Court3D, type Court3DHandle } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 
 /** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
 const LOGO_H = 30;
@@ -178,7 +178,7 @@ function NetCta({
 export default function BookHomeScreen() {
   const { t, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const settings = useVenueSettings();
   const degraded = useIsDegraded();
