@@ -52,13 +52,16 @@ export function useLocale(): LocaleContextValue {
 export function LocaleProvider({
   children,
   initialLocale,
+  initialNeedsRestart,
 }: {
   children: ReactNode;
   /** Resolved by src/lib/bootPrefs.ts BEFORE first paint. */
   initialLocale: Locale;
+  /** Boot could not align the native direction with the locale (app/_layout.tsx). */
+  initialNeedsRestart?: boolean;
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
-  const [needsRestart, setNeedsRestart] = useState(false);
+  const [needsRestart, setNeedsRestart] = useState(initialNeedsRestart ?? false);
 
   const setLocale = useCallback(async (next: Locale, options?: SetLocaleOptions) => {
     setLocaleState(next);
@@ -84,7 +87,7 @@ export function LocaleProvider({
     if (options?.flip === false) return;
     if (reconcileRtl(next)) {
       addBreadcrumb('locale.switch', { next });
-      if (!reloadForRtl()) setNeedsRestart(true);
+      if (!(await reloadForRtl())) setNeedsRestart(true);
     }
   }, []);
 
