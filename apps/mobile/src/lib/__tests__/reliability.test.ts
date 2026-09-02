@@ -162,6 +162,6 @@ describe('expo-gl import boundary (the stale-binary crash)', () => {
   it('Court3D never value-imports expo-gl; the component is resolved optionally', () => {
     const src = readFileSync(join(here, '../../components/Court3D.tsx'), 'utf8');
     expect(src).not.toMatch(/^import\s+\{[^}]*\bGLView\b[^}]*\}\s+from 'expo-gl'/m);
-    expect(src).toMatch(/try\s*\{\s*return\s*\(require\('expo-gl'\)/);
+    expect(src).toMatch(/try\s*\{[^}]*?\breturn\s*\(require\('expo-gl'\)/);
   });
 });
