@@ -808,6 +808,38 @@ quoted string keys are. Fix = `Property[key.name=/${physicalPropPattern}/]` (unq
 expect errors in `apps/mobile` (`CourtIllustration.tsx`'s deliberate physical `left`s, `ui.tsx`'s
 `hitSlop`) and re-lint web/operator/ui before committing that.
 
+## Day 13 (2026-09-02) — auth: hygiene fixed, the critical path reshaped to iOS-first
+
+"Auth still isn't working" turned out to mean **it had never been device-tested** — the code and DB
+were re-audited today (three parallel deep passes) and are sound. What was actually wrong, now fixed:
+
+- **Stray root `app.json` + `eas.json`** (from running `eas init`/`eas build` at the repo root
+  ~2026-09-01 17:00): wrong Android package `com.parsamansouri.touchpadel`, no env — any build made
+  from the root was a dead app. Both removed, the intent-to-add index entry reset, and root-anchored
+  `/app.json` + `/eas.json` guards added to `.gitignore`. **Run `eas`/`expo` only from `apps/mobile`**
+  (same trap as the standing "supabase never from root" gotcha).
+- **`expo-updates` (eba8353) had no config**: `app.config.ts` now carries
+  `updates.url = https://u.expo.dev/<projectId>` + `runtimeVersion: { policy: 'appVersion' }`, so the
+  `channel` values in eas.json staging/production are no longer inert and the build no longer trips
+  on the mismatch.
+- **Prompt E added to the runbook** (Supabase redirect URLs for Expo Go email testing — the hosted
+  allow-list held only the stale `exp://192.168.1.108:8081/--/*`; this machine is now
+  `.168.129`/`.175.73`). Prompt D Task 4 reworded to strip **every** `exp://` entry at release week.
+
+**Owner facts that reshaped the sequence** (2026-09-02): the Apple Developer membership is **already
+active** on the same account that owns Google Cloud (parsaxavier@gmail.com), the only test device is
+an iPhone 13, and the test Gmail is parsaxavier@gmail.com (already the consent-screen test user). So
+the runbook's Android-first order is inverted: **iOS dev build now** (`eas device:create` →
+`eas build --profile development --platform ios` from `apps\mobile`; EAS syncs the Sign in with Apple
+capability) → device matrix rows 1-2 (Apple real bundle id, Google iOS) + email verify/reset via
+`touchpadel://` → Prompt B for the Team ID/PLA report. Apple-in-Expo-Go remains the free smoke test
+(throwaway user — Expo Go's Apple `sub` is per-team). Android (keystore SHA-1 → Prompt A′ Task 4 →
+dev build) is deferred until an Android device exists; it gates Play, not the App Store. EAS CLI
+verified logged in as `parsa-mansouri`; note **an Expo org `kagu-software` already exists with Owner
+role** — the handover transfer is easier than documented, but not during deadline week.
+
+**Device matrix: still nothing run as of this entry** — update this line with results.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -930,6 +962,11 @@ expect errors in `apps/mobile` (`CourtIllustration.tsx`'s deliberate physical `l
 | Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
+- **NEVER run `eas`/`expo` from the repo root** (same rule as supabase). Done once on 2026-09-01:
+  `eas init` scaffolded a root `app.json`/`eas.json` with android package
+  `com.parsamansouri.touchpadel` (wrong) and no env — a build from the root is a dead app that
+  presents as "auth doesn't work". Removed on 2026-09-02; `.gitignore` now blocks `/app.json` and
+  `/eas.json` at the root. The real configs are `apps/mobile/app.config.ts` + `apps/mobile/eas.json`.
 - **OPERATOR: the heartbeat has never worked and fails silently** (audit 2026-08-28, C1).
   `apps/operator-shell/src/main/heartbeat.ts:25` POSTs to a `/functions/v1/heartbeat` edge
   function **that does not exist**, with no auth header, no `p_is_till`, an unset
