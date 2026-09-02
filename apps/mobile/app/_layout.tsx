@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { I18nManager, StyleSheet, Text, View } from 'react-native';
-import { Stack, router, usePathname } from 'expo-router';
+import { Stack, router, useRootNavigationState } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -34,11 +34,13 @@ import { makeT } from '@touch/i18n';
 import { queryClient, persistOptions, startFocusLifecycle } from '../src/lib/queryClient';
 import { configError, startAuthRefreshLifecycle } from '../src/lib/supabase';
 import {
-  consumeResumeRoute,
+  clearResumeRoute,
   loadBootPrefs,
+  readResumeRoute,
   reconcileRtl,
   reloadForRtl,
   type BootPrefs,
+  type ResumeRoute,
 } from '../src/lib/bootPrefs';
 import { addBreadcrumb, captureException } from '../src/lib/telemetry';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
@@ -143,10 +145,15 @@ function ConfigErrorScreen() {
   );
 }
 
-function RootStack() {
+function RootStack({ resume }: { resume: ResumeRoute | null }) {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
+  // True only for the frames between mount and the restored screen landing.
+  const [restoring, setRestoring] = useState(resume !== null);
+  // Stable identity: it sits in the resume effect's deps, and a fresh arrow
+  // each render would re-run that effect on every re-render.
+  const endRestore = useCallback(() => setRestoring(false), []);
   const { dir } = useLocale();
   // Real native bars on every pushed screen. The tabs draw the native tab bar
   // instead, and (auth) is a nested stack that configures its own.
@@ -169,8 +176,12 @@ function RootStack() {
      * launch behind it.
      */
     <LocaleDirContext.Provider value={dir}>
-      <ResumeAfterLocaleSwitch />
-      <Stack screenOptions={header}>
+      <ResumeAfterLocaleSwitch resume={resume} onDone={endRestore} />
+      {/* A restored screen must not slide in: it is where the user already was,
+          not somewhere they just navigated. Suppressed for the restore itself
+          and re-enabled the moment it lands, so the user's own navigation on
+          this launch still animates. */}
+      <Stack screenOptions={restoring ? { ...header, animation: 'none' } : header}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         {/* Formerly the (auth) group. Flattened for the same reason as (gated):
           a screen pushed from the tabs was the first entry of a nested stack,
@@ -201,27 +212,96 @@ function RootStack() {
 
 /**
  * Puts the user back where they were before a language switch reloaded the
- * bundle. Runs once, inside the navigator (so `router` has a root to push
- * onto), and only for a route parked in the last minute — see
- * `consumeResumeRoute`. `push`, not `replace`: the tabs stay underneath, so the
- * native back item still works on the restored screen.
+ * bundle, with no visible detour through the tabs.
+ *
+ * `path` is already resolved (read during boot, before the first frame), so the
+ * only job here is to dispatch it the instant the router can accept it.
+ *
+ * That instant is NOT mount. `router.push` from a layout effect during the
+ * navigator's own mount commit dispatches into a root navigation state that
+ * does not exist yet, and the app hangs on a splash that never lifts. So we
+ * wait for `useRootNavigationState().key`, which is undefined until the root
+ * navigator is mounted AND ready — the same guard expo-router's own docs use
+ * for redirect-on-boot. It resolves on the very next commit, still behind the
+ * splash (AppRoot's font effect lifts that afterwards), so the restored screen
+ * is up before anything is visible.
+ *
+ * `navigate`, not `push`. A push appends to whatever stack happens to exist,
+ * and the double mount above leaves a second, EMPTY root — the push landed
+ * there and produced a stack of exactly one screen, with no tabs beneath it
+ * and a back chevron that had nothing to pop to. `navigate` resolves the href
+ * against the route tree instead, so the restored screen arrives with its
+ * proper hierarchy underneath and back behaves as it did before the switch.
+ *
+ * The TAB is restored first, and separately, because `navigate` rebuilds the
+ * tabs at their default (Book): restoring only the destination left the user
+ * backing out of Settings into a tab they had never been on.
+ *
+ * It takes TWO COMMITS, which is why this is a small state machine rather than
+ * two calls in a row. Measured on device: firing `navigate(tab)` and
+ * `push(path)` back to back leaves the tab at Book, because at restore time the
+ * tabs navigator is not mounted yet and the selection has nothing to apply to.
+ * So step one selects the tab and step two waits for that to actually land —
+ * `useRootNavigationState` re-renders us when it does — before pushing the
+ * destination on top.
+ *
+ * `push`, not a second `navigate`: navigating to the destination href would
+ * re-resolve it against the route tree and rebuild the tabs underneath at their
+ * default, throwing the selection away again.
  */
-function ResumeAfterLocaleSwitch() {
-  const pathname = usePathname();
-  const done = useRef(false);
+/**
+ * Module scope, deliberately: a component ref resets when Expo Go remounts the
+ * root after a reload, and both mounts would then push the same screen — the
+ * user landing on Settings stacked on Settings. This lives as long as the JS
+ * context, which is exactly the lifetime of one restore.
+ */
+let resumeDispatched = false;
+
+function ResumeAfterLocaleSwitch({
+  resume,
+  onDone,
+}: {
+  resume: ResumeRoute | null;
+  onDone: () => void;
+}) {
+  const rootState = useRootNavigationState();
+  const ready = rootState?.key != null;
+  // Set once the tab selection has been dispatched, so the effect below can
+  // tell "not started" from "waiting for the tab to land".
+  const [tabSelected, setTabSelected] = useState(false);
+  // Step two must run on a LATER commit than step one. `ready` stays true
+  // throughout, so it cannot drive that on its own; the state's identity
+  // changes with every navigation, which is exactly the tick we need.
+  const stateTick = rootState;
+
   useEffect(() => {
-    if (done.current) return;
-    done.current = true;
-    void consumeResumeRoute().then((path) => {
-      // Already there (the switch happened on the initial route): nothing to do.
-      if (!path || path === pathname) return;
-      addBreadcrumb('locale.resume', { path });
+    if (resumeDispatched || !resume || !ready) return;
+    const { path, tab } = resume;
+    const needsTab = !!tab && tab !== path;
+
+    // Step one: select the parked tab and wait for the next state commit.
+    if (needsTab && !tabSelected) {
+      addBreadcrumb('locale.resume', { path, tab });
+      router.navigate(tab as Parameters<typeof router.navigate>[0]);
+      setTabSelected(true);
+      return;
+    }
+
+    // Step two: the tabs are mounted and on the right tab, so the destination
+    // can go on top of them. Without a tab to restore we land here at once.
+    resumeDispatched = true;
+    if (needsTab) {
       router.push(path as Parameters<typeof router.push>[0]);
-    });
-    // Deliberately once-only: `pathname` is read for the comparison above, not
-    // depended on — re-running after the push would be a loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    } else {
+      addBreadcrumb('locale.resume', { path, tab });
+      router.navigate(path as Parameters<typeof router.navigate>[0]);
+    }
+    // Only now is the entry spent: the screen is on the stack, so a remount
+    // that re-reads it would be restoring something already restored.
+    void clearResumeRoute();
+    // Hands animation back for whatever the user does next on this launch.
+    onDone();
+  }, [resume, ready, tabSelected, stateTick, onDone]);
   return null;
 }
 
@@ -250,13 +330,26 @@ function ThemedChrome() {
  */
 export default function RootLayout() {
   const [prefs, setPrefs] = useState<BootPrefs | null>(null);
+  /**
+   * Where a language switch left the user, read HERE rather than in an effect
+   * inside the navigator. Reading it after mount meant the tabs painted first
+   * and the restored screen then slid in on top — the user watched the app
+   * bounce through Book on its way back to Settings. Resolved before the first
+   * frame, it is on the initial stack instead: the app comes back up already
+   * on the screen they left.
+   */
+  const [resume, setResume] = useState<ResumeRoute | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    loadBootPrefs()
-      .then((p) => {
+    // READ, not consume: Expo Go can mount the root twice after a reload, and
+    // clearing here meant the second mount — the one the user actually lands
+    // on — found nothing. The entry is cleared once the push has landed.
+    Promise.all([loadBootPrefs(), readResumeRoute()])
+      .then(([p, entry]) => {
         if (cancelled) return;
         if (reconcileRtl(p.locale) && reloadForRtl()) return; // reloading into the right direction
+        setResume(entry);
         setPrefs(p);
       })
       .catch((error) => {
@@ -270,10 +363,10 @@ export default function RootLayout() {
 
   if (configError) return <ConfigErrorScreen />;
   if (!prefs) return null; // splash is still covering us
-  return <AppRoot prefs={prefs} />;
+  return <AppRoot prefs={prefs} resume={resume} />;
 }
 
-function AppRoot({ prefs }: { prefs: BootPrefs }) {
+function AppRoot({ prefs, resume }: { prefs: BootPrefs; resume: ResumeRoute | null }) {
   // Only the active script blocks first paint (8 Latin faces or 5 Cairo); the
   // other loads in the background so a language switch has its faces ready.
   const primary = prefs.locale === 'ar' ? ARABIC_FONTS : LATIN_FONTS;
@@ -323,7 +416,7 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
             <AuthProvider>
               <ToastProvider>
                 <ThemedChrome />
-                <RootStack />
+                <RootStack resume={resume} />
                 <ConnectivityBanner />
                 {/* Last child: it must paint over everything, including the
                     offline banner, while the switch applies. */}

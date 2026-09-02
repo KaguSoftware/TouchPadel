@@ -18,6 +18,11 @@ export interface SetLocaleOptions {
    * reloads the bundle, which would otherwise land the user on the tabs.
    */
   resumePath?: string;
+  /**
+   * The tab selected beneath `resumePath`, restored under it so back leads
+   * where it did before the switch.
+   */
+  resumeTab?: string | null;
 
   /**
    * Apply the native RTL flag now (default). Pass false from flows that are
@@ -106,7 +111,9 @@ export function LocaleProvider({
     if (reconcileRtl(next)) {
       addBreadcrumb('locale.switch', { next });
       // Park the route BEFORE reloading — DevSettings.reload() does not return.
-      if (options?.resumePath) await saveResumeRoute(options.resumePath);
+      if (options?.resumePath) {
+        await saveResumeRoute(options.resumePath, options.resumeTab ?? undefined);
+      }
       if (reloadForRtl()) return; // the overlay stays up until the bundle dies
       setNeedsRestart(true);
     }

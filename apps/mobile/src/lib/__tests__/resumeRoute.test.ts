@@ -29,7 +29,8 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
 vi.mock('expo-secure-store', () => ({ getItemAsync: async () => null }));
 vi.mock('expo-localization', () => ({ getLocales: () => [{ languageCode: 'en' }] }));
 
-const { RESUME_KEY, consumeResumeRoute, saveResumeRoute } = await import('../bootPrefs');
+const { RESUME_KEY, clearResumeRoute, consumeResumeRoute, readResumeRoute, saveResumeRoute } =
+  await import('../bootPrefs');
 
 describe('the route parked across a locale switch', () => {
   beforeEach(() => {
@@ -37,11 +38,43 @@ describe('the route parked across a locale switch', () => {
     vi.useRealTimers();
   });
 
+  it('survives being read twice — the double boot Expo Go does after a reload', async () => {
+    // The failure this guards: read-and-clear in one step meant the first mount
+    // consumed the route and the second, which is the one the user lands on,
+    // found nothing and left them on the tabs.
+    await saveResumeRoute('/settings', '/profile');
+    expect(await readResumeRoute()).toEqual({ path: '/settings', tab: '/profile' });
+    expect(await readResumeRoute()).toEqual({ path: '/settings', tab: '/profile' });
+    // Spent only once the push has actually landed.
+    await clearResumeRoute();
+    expect(await readResumeRoute()).toBeNull();
+  });
+
   it('comes back exactly once — a second read is empty', async () => {
-    await saveResumeRoute('/settings');
-    expect(await consumeResumeRoute()).toBe('/settings');
+    await saveResumeRoute('/settings', '/profile');
+    expect(await consumeResumeRoute()).toEqual({ path: '/settings', tab: '/profile' });
     // Without this, the route would replay on some later, unrelated launch.
     expect(await consumeResumeRoute()).toBeNull();
+  });
+
+  it('carries the tab that was under the screen, so back leads there', async () => {
+    // Settings is reached from Profile; without the tab the restore rebuilt the
+    // tabs at their default and back dropped the user on Book.
+    await saveResumeRoute('/settings', '/profile');
+    expect(await consumeResumeRoute()).toEqual({ path: '/settings', tab: '/profile' });
+  });
+
+  it('keeps the destination when no tab was recorded', async () => {
+    await saveResumeRoute('/settings');
+    expect(await consumeResumeRoute()).toEqual({ path: '/settings', tab: undefined });
+  });
+
+  it('drops a bad tab rather than losing the destination with it', async () => {
+    store.set(
+      RESUME_KEY,
+      JSON.stringify({ path: '/settings', tab: 'https://evil.example', at: Date.now() }),
+    );
+    expect(await consumeResumeRoute()).toEqual({ path: '/settings', tab: undefined });
   });
 
   it('is nothing at all when no switch happened', async () => {
@@ -49,7 +82,7 @@ describe('the route parked across a locale switch', () => {
   });
 
   it('expires: debris from an abandoned switch is not an intention', async () => {
-    await saveResumeRoute('/booking/42');
+    await saveResumeRoute('/booking/42', '/bookings');
     vi.useFakeTimers();
     vi.setSystemTime(Date.now() + 61_000);
     expect(await consumeResumeRoute()).toBeNull();
