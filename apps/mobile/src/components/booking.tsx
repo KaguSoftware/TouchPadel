@@ -611,7 +611,13 @@ export function MenuRow({
         >
           {icon}
         </View>
-        <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
+        <Text
+          numberOfLines={1}
+          // flexShrink (not flex:1): the label takes only the width it needs so
+          // it sits against the icon, and still truncates when a long label
+          // would otherwise push into the chevron.
+          style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}
+        >
           {label}
         </Text>
       </View>

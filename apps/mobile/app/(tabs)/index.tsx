@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -40,7 +40,7 @@ import { brand, radius, space, useTheme } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';
 import { DegradedBanner } from '../../src/components/booking';
 import { BackChevronIcon } from '../../src/components/icons';
-import { Court3D } from '../../src/components/Court3D';
+import { Court3D, type Court3DHandle } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
 
@@ -69,7 +69,7 @@ const COURT_GAP = 8;
  * screen — the GL court in particular — does not re-render every minute.
  */
 function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }) {
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
   const { colors, fonts } = useTheme();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -79,7 +79,7 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
   const info = useMemo(() => openNowInfo(settings, now), [settings, now]);
   if (!info) return null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+    <View style={{ flexDirection: dir === 'rtl' ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
       <View
         style={{
           width: 7,
@@ -189,6 +189,9 @@ export default function BookHomeScreen() {
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
   const [glUnavailable, setGlUnavailable] = useState(false);
+  // Touches in the sheet count as watching: the rally behind it plays on / restarts its idle clock.
+  const courtRef = useRef<Court3DHandle>(null);
+  const wakeCourt = useCallback(() => courtRef.current?.wake(), []);
   const [sheetBusy, setSheetBusy] = useState(false);
   const onUnavailable = useCallback(() => setGlUnavailable(true), []);
   const onCourtSize = useCallback((size: { width: number; height: number }) => {
@@ -308,7 +311,7 @@ export default function BookHomeScreen() {
           paddingEnd: space.l,
           paddingTop: 10,
           paddingBottom: 6,
-          flexDirection: 'row',
+          flexDirection: dir === 'rtl' ? 'row-reverse' : 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}
@@ -399,6 +402,7 @@ export default function BookHomeScreen() {
           </Animated.View>
         ) : (
           <Court3D
+            ref={courtRef}
             style={[stageBounds, { top: courtTop, bottom: tabBarHeight }]}
             layerStyle={courtLayer}
             progress={progress}
@@ -497,6 +501,7 @@ export default function BookHomeScreen() {
             bottomInset={tabBarHeight}
             isOpen={isOpen}
             onBusyChange={setSheetBusy}
+            onInteraction={wakeCourt}
           />
         ) : null}
 

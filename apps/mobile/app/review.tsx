@@ -1,19 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, Text, View } from 'react-native';
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { RequireSession } from '../src/features/auth/RequireSession';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i18n';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useConfirmBooking, useReleaseHold } from '../../src/features/booking/hooks';
-import { secondsUntil } from '../../src/features/booking/logic';
-import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../../src/features/booking/errors';
-import { useVenueSettings } from '../../src/features/availability/hooks';
-import { venuePhoneOf } from '../../src/features/availability/assemble';
-import { useAuth } from '../../src/features/auth/context';
-import { profileGateState } from '../../src/features/auth/social';
-import { useOwnProfile } from '../../src/features/profile/hooks';
-import { brand, radius, space, useTheme } from '../../src/theme';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { useConfirmBooking } from '../src/features/booking/hooks';
+import { secondsUntil } from '../src/features/booking/logic';
+import {
+  isDegradedRefusal,
+  mapErrorToKey,
+  rpcErrorCode,
+} from '../src/features/booking/errors';
+import { useVenueSettings } from '../src/features/availability/hooks';
+import { venuePhoneOf } from '../src/features/availability/assemble';
+import { useAuth } from '../src/features/auth/context';
+import { profileGateState } from '../src/features/auth/social';
+import { useOwnProfile } from '../src/features/profile/hooks';
+import { brand, radius, space, useTheme } from '../src/theme';
 import {
   Button,
   Card,
@@ -21,11 +26,10 @@ import {
   ErrorText,
   LinkText,
   Screen,
-  ScreenHeader,
-} from '../../src/components/ui';
-import { PayAtDeskCard, SummaryGrid } from '../../src/components/booking';
-import { ConfirmationDialog } from '../../src/components/overlays';
-import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/components/icons';
+} from '../src/components/ui';
+import { PayAtDeskCard, SummaryGrid } from '../src/components/booking';
+import { ConfirmationDialog } from '../src/components/overlays';
+import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../src/components/icons';
 
 /**
  * Review & confirm (design 2026-08-31): navy hold card with live countdown and
@@ -33,15 +37,11 @@ import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/compo
  * cancellation policy line, and a ConfirmationDialog before the write (R7).
  * Distinct full-screen states for hold-expired and slot-taken.
  *
- * Leaving without confirming RELEASES the hold (app.release_hold, 0058).
- * Before that existed, back was a plain pop and the countdown was the only
- * thing that returned an abandoned slot to the grid — so tapping three times
- * and backing out each time left three live holds, and the fourth tap was
- * refused with HOLD_QUOTA_EXCEEDED (0048/C1 cap) for the rest of the TTL.
- * The release covers every exit: the header arrow, Android back, and the
- * iOS back-swipe all land on the same unmount.
+ * Back is a plain pop: there is no app.release_hold() yet (HANDOFF gotcha —
+ * cancel_reservation refuses a same-day hold), so the countdown is what
+ * returns an abandoned slot to the grid.
  */
-export default function ReviewScreen() {
+function ReviewScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts, tracking } = useTheme();
   const router = useRouter();
@@ -77,7 +77,7 @@ export default function ReviewScreen() {
   const profile = useOwnProfile(!!session);
   const profileGate = profileGateState(profile);
   const addPhone = () =>
-    router.push({ pathname: '/(auth)/complete-profile', params: { returnTo: 'back' } });
+    router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } });
   const [secondsLeft, setSecondsLeft] = useState<number | null>(() =>
     secondsUntil(expiresAt, new Date()),
   );
@@ -211,7 +211,7 @@ export default function ReviewScreen() {
   if (expired || slotTaken) {
     const taken = slotTaken;
     return (
-      <Screen edges={['top', 'bottom']}>
+      <Screen edges={['bottom']}>
         <View
           style={{
             flex: 1,
@@ -284,8 +284,8 @@ export default function ReviewScreen() {
   }
 
   return (
-    <Screen>
-      <ScreenHeader title={t('booking.reviewTitle')} />
+    <Screen edges={[]}>
+      <Stack.Screen options={{ title: t('booking.reviewTitle') }} />
 
       {/* Navy hold card with countdown */}
       <View
@@ -380,39 +380,39 @@ export default function ReviewScreen() {
             rows={[
               ...(startAt
                 ? [
-                    {
-                      icon: CalendarIcon,
-                      label: t('booking.date'),
-                      value: formatDate(startAt, locale),
-                    },
-                    {
-                      icon: ClockIcon,
-                      label: t('booking.time'),
-                      value: endAt
-                        ? formatTimeRange(startAt, endAt, locale)
-                        : formatDateTime(startAt, locale),
-                    },
-                  ]
+                  {
+                    icon: CalendarIcon,
+                    label: t('booking.date'),
+                    value: formatDate(startAt, locale),
+                  },
+                  {
+                    icon: ClockIcon,
+                    label: t('booking.time'),
+                    value: endAt
+                      ? formatTimeRange(startAt, endAt, locale)
+                      : formatDateTime(startAt, locale),
+                  },
+                ]
                 : []),
               ...(durationMin
                 ? [
-                    {
-                      icon: StopwatchIcon,
-                      label: t('booking.duration'),
-                      value: t('booking.durationMinutes', { minutes: durationMin }),
-                    },
-                  ]
+                  {
+                    icon: StopwatchIcon,
+                    label: t('booking.duration'),
+                    value: t('booking.durationMinutes', { minutes: durationMin }),
+                  },
+                ]
                 : []),
               ...(Number.isInteger(price)
                 ? [
-                    {
-                      icon: TagIcon,
-                      label: t('booking.price'),
-                      value: formatIQD(price, locale),
-                      valueColor: colors.gtext,
-                      emphasis: true,
-                    },
-                  ]
+                  {
+                    icon: TagIcon,
+                    label: t('booking.price'),
+                    value: formatIQD(price, locale),
+                    valueColor: colors.gtext,
+                    emphasis: true,
+                  },
+                ]
                 : []),
             ]}
           />
@@ -514,5 +514,22 @@ export default function ReviewScreen() {
         onDismiss={() => setDialogOpen(false)}
       />
     </Screen>
+  );
+}
+
+/**
+ * On the ROOT stack rather than in `(gated)`: entered from another navigator,
+ * a screen inside a nested stack has no history of its own, so UIKit draws no
+ * back item and the screen shipped a JS replica instead. Here the push leaves
+ * real history, so every screen gets the SAME system back item.
+ *
+ * The group layout's guard does not reach this file, so the session
+ * requirement is declared explicitly — same states, same redirect.
+ */
+export default function GuardedReviewScreen() {
+  return (
+    <RequireSession>
+      <ReviewScreen />
+    </RequireSession>
   );
 }

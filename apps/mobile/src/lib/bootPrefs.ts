@@ -17,6 +17,99 @@ import { addBreadcrumb, captureException } from './telemetry';
 
 export const APPEARANCE_KEY = 'tp.appearance';
 export const LOCALE_KEY = 'tp.locale';
+/** Set right before a dev reload for RTL; still set on the next boot = the reload did not stick. */
+export const RTL_RELOAD_KEY = 'tp.rtlReloadPending';
+
+/**
+ * Where the user was standing when they switched language. A locale switch
+ * reloads the JS bundle (the only way a changed RTL flag reaches native views),
+ * which drops them on the initial route — so the route is parked here first and
+ * replayed once the new direction is up.
+ */
+export const RESUME_KEY = 'tp.resumeRoute';
+
+/** What a switch parks: where the user was, and what sits beneath it. */
+export interface ResumeRoute {
+  /** The screen the user was on, e.g. '/settings'. */
+  path: string;
+  /**
+   * The tab that was selected UNDER that screen, e.g. '/profile'.
+   *
+   * Restoring only `path` rebuilt the tabs at their default (Book), so backing
+   * out of the restored screen dropped the user somewhere they had never been.
+   * Settings is reached from Profile, and back has to lead there.
+   */
+  tab?: string;
+}
+
+/**
+ * Written just before the reload. Stale entries are possible (the reload can
+ * fail, or the app can be killed mid-switch), so it carries a timestamp and is
+ * consumed exactly once — see `consumeResumeRoute`.
+ */
+export async function saveResumeRoute(path: string, tab?: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(RESUME_KEY, JSON.stringify({ path, tab, at: Date.now() }));
+  } catch (error) {
+    // Non-fatal: the switch still happens, the user just lands on the tabs.
+    captureException(error, { label: 'resume.save', path });
+  }
+}
+
+/** A parked route older than this is treated as debris, not an intention. */
+const RESUME_TTL_MS = 60_000;
+
+/** Forget the parked route. Called once the restore has actually landed. */
+export async function clearResumeRoute(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(RESUME_KEY);
+  } catch (error) {
+    captureException(error, { label: 'resume.clear' });
+  }
+}
+
+/**
+ * Read the parked route WITHOUT clearing it.
+ *
+ * Reading and clearing used to be one step, which lost the route on a double
+ * boot: Expo Go remounts the root component after a reload, the first mount
+ * consumed the entry, and the second — the one whose navigator the user
+ * actually ends up on — found nothing and left them on the tabs. The entry is
+ * now cleared by `clearResumeRoute` only after a push has really happened, so
+ * whichever mount survives still finds it.
+ */
+export async function readResumeRoute(): Promise<ResumeRoute | null> {
+  try {
+    const raw = await AsyncStorage.getItem(RESUME_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const { path, tab, at } = parsed as { path?: unknown; tab?: unknown; at?: unknown };
+    if (typeof path !== 'string' || typeof at !== 'number') return null;
+    if (Date.now() - at > RESUME_TTL_MS) return null;
+    if (!isInAppPath(path)) return null;
+    // A bad tab must not cost the user the destination: drop it, keep the path.
+    return { path, tab: typeof tab === 'string' && isInAppPath(tab) ? tab : undefined };
+  } catch (error) {
+    captureException(error, { label: 'resume.read' });
+    return null;
+  }
+}
+
+/** In-app paths only, never a URL that could point off somewhere else. */
+function isInAppPath(path: string): boolean {
+  return path.startsWith('/') && !path.startsWith('//');
+}
+
+/**
+ * Read and clear in one step. Kept for the paths that genuinely want the entry
+ * gone whether or not anything is done with it.
+ */
+export async function consumeResumeRoute(): Promise<ResumeRoute | null> {
+  const entry = await readResumeRoute();
+  await clearResumeRoute();
+  return entry;
+}
 
 export type BootAppearance = 'light' | 'dark';
 
@@ -25,6 +118,8 @@ export interface BootPrefs {
   locale: Locale;
   /** True when a stored preference was found (false = first run, device default). */
   localeFromStore: boolean;
+  /** The native layout direction could not be made to match the locale this run. */
+  needsRestart: boolean;
 }
 
 function asLocale(value: unknown): Locale | null {
@@ -77,7 +172,7 @@ export async function loadBootPrefs(): Promise<BootPrefs> {
   const localeFromStore = locale !== null;
   const resolved = locale ?? deviceLocale();
   addBreadcrumb('boot.prefs', { appearance, locale: resolved, localeFromStore });
-  return { appearance, locale: resolved, localeFromStore };
+  return { appearance, locale: resolved, localeFromStore, needsRestart: false };
 }
 
 /**
@@ -103,14 +198,37 @@ export function reconcileRtl(locale: Locale): boolean {
  * (Expo Go / dev client) — the loop this app is tested in. Production builds
  * surface `settings.rtlRestartNote` instead (expo-updates' reloadAsync is the
  * release-build equivalent; it arrives with the EAS setup).
+ *
+ * ONE attempt only. Expo Go resets the native RTL flag on every load (a dev
+ * client / store build keeps it), so there the reload never "takes": boot saw
+ * the mismatch, reloaded, saw it again, reloaded… — Metro rebundling forever
+ * and the app never painting. A marker is set right before reloading; a boot
+ * that finds it still set knows the previous reload did not stick and paints
+ * anyway (Arabic strings in an LTR native layout, `needsRestart` on) instead
+ * of trying again.
  */
-export function reloadForRtl(): boolean {
+export async function reloadForRtl(): Promise<boolean> {
   if (!__DEV__) return false;
   try {
+    if ((await AsyncStorage.getItem(RTL_RELOAD_KEY)) === '1') {
+      await AsyncStorage.removeItem(RTL_RELOAD_KEY);
+      addBreadcrumb('locale.reloadDidNotStick');
+      return false;
+    }
+    await AsyncStorage.setItem(RTL_RELOAD_KEY, '1');
     DevSettings.reload();
     return true;
   } catch (error) {
     captureException(error, { label: 'locale.reload' });
     return false;
+  }
+}
+
+/** A boot whose direction already matches: the last reload (if any) stuck. */
+export async function clearRtlReloadMarker(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(RTL_RELOAD_KEY);
+  } catch (error) {
+    captureException(error, { label: 'locale.reloadMarker' });
   }
 }

@@ -26,7 +26,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, shadows, space, useTheme } from '../theme';
-import { BackChevronIcon, TitleSquiggle } from './icons';
+import { TitleSquiggle } from './icons';
 
 export { TitleSquiggle };
 
@@ -53,6 +53,10 @@ export type ScreenEdge = 'top' | 'bottom';
  * Screen root. Owns the safe-area insets so no screen has to remember them:
  * `edges` defaults to the top only — scrolling screens pad their own content
  * bottom (tab bar / home indicator), static screens ask for `['top','bottom']`.
+ *
+ * A screen UNDER A NATIVE HEADER must pass `edges={[]}` (or omit 'top'): the
+ * bar already consumes the status-bar inset, so keeping the top padding here
+ * applies it twice and pushes the page down by ~50pt.
  */
 export function Screen({
   children,
@@ -137,63 +141,40 @@ export function Title({
   size?: number;
 }) {
   const { colors, fonts, tracking } = useTheme();
+  const { dir } = useLocale();
+  // 1.05 is an all-caps Archivo ratio: Latin caps sit on the baseline with
+  // almost nothing below it. Cairo drops ج/ح/ي well under the baseline, so the
+  // same ratio clips their tails — Arabic needs a taller line box.
+  const lineHeight = Math.round(size * (dir === 'rtl' ? 1.45 : 1.05));
+  const rtl = dir === 'rtl';
   return (
     <View style={{ marginBottom: plain ? 0 : space.s }}>
       <Text
         style={{
           fontFamily: fonts.display900,
           fontSize: size,
-          lineHeight: Math.round(size * 1.05),
-          letterSpacing: plain ? 0 : tracking(-0.26),
-          textTransform: 'uppercase',
+          lineHeight,
+          // Arabic has no letter case, and negative tracking crowds its joined
+          // letterforms — both are Latin-only treatments.
+          letterSpacing: plain || rtl ? 0 : tracking(-0.26),
+          textTransform: rtl ? 'none' : 'uppercase',
           color: colors.ink,
+          // Explicit, for the same reason as MicroLabel: the native RTL flag
+          // lags the chosen language, so an unset textAlign resolves to
+          // physical left and every Arabic page header read LTR. A title that
+          // wraps must also align its second line to the right.
+          textAlign: rtl ? 'right' : 'left',
         }}
       >
         {children}
       </Text>
-      {squiggle && !plain ? <TitleSquiggle /> : null}
-    </View>
-  );
-}
-
-/** In-screen header row: round back button + compact display title. */
-export function ScreenHeader({ title, onBack }: { title?: string; onBack?: () => void }) {
-  const { colors, fonts } = useTheme();
-  const safeBack = useSafeBack();
-  return (
-    <View
-      style={{
-        paddingTop: space.s + 2,
-        paddingBottom: space.s + 2,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-      }}
-    >
-      <Pressable
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={onBack ?? safeBack}
-        style={({ pressed }) => ({
-          width: 34,
-          height: 34,
-          borderRadius: radius.pill,
-          backgroundColor: pressed ? colors.sub : colors.card,
-          borderWidth: 1,
-          borderColor: colors.line,
-          alignItems: 'center',
-          justifyContent: 'center',
-        })}
-      >
-        <BackChevronIcon size={17} color={colors.ink} strokeWidth={2.4} />
-      </Pressable>
-      {title ? (
-        <Text
-          numberOfLines={1}
-          style={{ flex: 1, fontFamily: fonts.display800, fontSize: 15, color: colors.ink }}
-        >
-          {title}
-        </Text>
+      {/* A fixed-width SVG. `textAlign` aligns GLYPHS inside a text box and
+          does not reach a sibling view, so the squiggle needs its own
+          full-width row to be carried to the heading's edge. */}
+      {squiggle && !plain ? (
+        <View style={{ alignItems: rtl ? 'flex-end' : 'flex-start' }}>
+          <TitleSquiggle />
+        </View>
       ) : null}
     </View>
   );
@@ -244,15 +225,20 @@ export function DashedDivider({ color, style }: { color?: string; style?: StyleP
 /** Uppercase micro-label above sections/lists ("UPCOMING", "PAST"). */
 export function SectionLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   const { colors, fonts, tracking } = useTheme();
+  const { dir } = useLocale();
   return (
     <Text
       style={[
         {
           fontFamily: fonts.display800,
           fontSize: 11,
-          letterSpacing: tracking(1.1),
-          textTransform: 'uppercase',
+          // Uppercasing and wide tracking are Latin-only treatments: Arabic has
+          // no letter case, and tracking pulls its joined letterforms apart.
+          letterSpacing: dir === 'rtl' ? 0 : tracking(1.1),
+          textTransform: dir === 'rtl' ? 'none' : 'uppercase',
           color: colors.mut,
+          // Same as MicroLabel: keyed off the locale so English stays left.
+          textAlign: dir === 'rtl' ? 'right' : 'left',
         },
         style,
       ]}
@@ -265,15 +251,22 @@ export function SectionLabel({ children, style }: { children: ReactNode; style?:
 /** Small uppercase field/group label (design `font:700 11px Mulish`, `ls .06em`). */
 export function MicroLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   const { colors, fonts, tracking } = useTheme();
+  const { dir } = useLocale();
   return (
     <Text
       style={[
         {
           fontFamily: fonts.body700,
           fontSize: 11,
-          letterSpacing: tracking(0.66),
-          textTransform: 'uppercase',
+          // Uppercase + tracking are Latin-only; Arabic has no case and its
+          // joined letterforms break apart when tracked.
+          letterSpacing: dir === 'rtl' ? 0 : tracking(0.66),
+          textTransform: dir === 'rtl' ? 'none' : 'uppercase',
           color: colors.mut,
+          // Explicitly keyed off the locale, NOT left to RN's isRTL swap: that
+          // native flag lags the chosen language, so relying on it aligned
+          // English and Arabic the same way. English stays hard left.
+          textAlign: dir === 'rtl' ? 'right' : 'left',
         },
         style,
       ]}
@@ -396,7 +389,16 @@ export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...i
       inputProps.keyboardType === 'email-address' ||
       inputProps.keyboardType === 'phone-pad' ||
       inputProps.keyboardType === 'numeric');
-  const forceLtr = isLatin && dir === 'rtl';
+  const value = String(inputProps.value ?? '');
+  // An EMPTY field shows its Arabic placeholder, and textAlign governs the
+  // placeholder too — so it must follow the UI direction. Once there is
+  // content, Latin letters/digits read LTR (spec §06 Forms): either because
+  // the field is declared Latin-only (password / email / phone) or because
+  // what was actually typed is Latin. Arabic input keeps the RTL direction.
+  const hasLatin = /[A-Za-z0-9]/.test(value);
+  const hasArabic = /[\u0600-\u06FF]/.test(value);
+  const forceLtr =
+    dir === 'rtl' && value.length > 0 && (isLatin || (hasLatin && !hasArabic));
   return (
     <View style={{ marginTop: space.sm }}>
       {label ? <MicroLabel style={{ marginBottom: 5 }}>{label}</MicroLabel> : null}
@@ -414,6 +416,10 @@ export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...i
             fontFamily: fonts.body600,
             fontSize: 14,
             color: colors.ink,
+            // Explicit, not left to the default: the native RTL flag lags the
+            // locale, so an unset textAlign resolves to physical left and the
+            // Arabic placeholder sits against the wrong edge.
+            textAlign: dir === 'rtl' ? 'right' : 'left',
           },
           // The design's 2 px focus ring, drawn outside the border so the
           // field does not jump when it gains focus.
