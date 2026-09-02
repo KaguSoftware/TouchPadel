@@ -26,6 +26,29 @@ describe('entry order (the ulid CSPRNG crash)', () => {
   });
 });
 
+describe('splash reveal (the white screen with no message)', () => {
+  // AppRoot's font effect owns the only other hideAsync call, so a path that
+  // returns BEFORE AppRoot mounts used to leave the white splash covering its
+  // own error message — the exact failure src/lib/supabase.ts stopped throwing
+  // for. Both such paths must reveal the splash themselves.
+  const layout = readFileSync(join(here, '../../../app/_layout.tsx'), 'utf8');
+
+  it.each([['function ConfigErrorScreen()'], ['export function ErrorBoundary(']])(
+    '%s calls useRevealSplash before it renders',
+    (signature) => {
+      const start = layout.indexOf(signature);
+      expect(start).toBeGreaterThan(-1);
+      const body = layout.slice(start);
+      expect(body.slice(0, body.indexOf('return ('))).toContain('useRevealSplash()');
+    },
+  );
+
+  it('keeps hideAsync out of reach of the pre-AppRoot returns', () => {
+    // If someone deletes the hook, this catches the regression at its source.
+    expect(layout).toContain('function useRevealSplash()');
+  });
+});
+
 describe('idempotency', () => {
   it('mints the documented {station}:{mutation_type}:{ulid} shape', () => {
     expect(reservationIdemKey()).toMatch(/^MOBILE:reservation\.create:[0-9A-HJKMNP-TV-Z]{26}$/);
