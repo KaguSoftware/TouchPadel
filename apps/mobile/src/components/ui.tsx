@@ -417,7 +417,7 @@ export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...i
           },
           // The design's 2 px focus ring, drawn outside the border so the
           // field does not jump when it gains focus.
-          focused && { boxShadow: `0 0 0 1 ${brand.green}` },
+          focused && { boxShadow: `0 0 0 1px ${brand.green}` },
           // Latin content (email / phone / password) anchors to the physical
           // left even inside the RTL layout — spec §06 Forms. Deliberate
           // exception to the logical-properties rule.

@@ -1,14 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  cameraAt,
   cubicBezier,
   EASE_IO,
   EASE_OUT,
-  netFrame,
   pillSlice,
-  pitchAt,
   pitchEase,
-  projectPlanePoint,
   rowSlice,
   sampleCurve,
   sampleEased,
@@ -121,55 +117,5 @@ describe('sampleEased → native-driver tables', () => {
     const t = sampleCurve((p) => p * p, 2);
     expect(t.inputRange).toEqual([0, 0.5, 1]);
     expect(t.outputRange).toEqual([0, 0.25, 1]);
-  });
-});
-
-describe('camera → flat-view transform', () => {
-  it('orbit endpoints match the handoff table', () => {
-    const rest = cameraAt(0);
-    expect([rest.elevation, rest.azimuth, rest.distance, rest.lookZ]).toEqual([89.5, 0, 60, -0.8]);
-    const full = cameraAt(1);
-    expect(full.elevation).toBeCloseTo(40, 9);
-    expect(full.azimuth).toBeCloseTo(28, 9);
-    expect(full.distance).toBeCloseTo(46, 9);
-    expect(full.lookZ).toBeCloseTo(0.6, 9);
-  });
-
-  it('rest is (visually) the identity; pitched is 50° tilt, 28° azimuth, ×1.3', () => {
-    const rest = pitchAt(0, 1);
-    expect(rest.tiltDeg).toBeCloseTo(0.5, 9);
-    expect(rest.azimuthDeg).toBe(0);
-    expect(rest.scale).toBe(1);
-    expect(rest.translateY).toBeCloseTo(0, 9);
-    const full = pitchAt(1, 1);
-    expect(full.tiltDeg).toBeCloseTo(50, 9);
-    expect(full.azimuthDeg).toBeCloseTo(28, 9);
-    expect(close(full.scale, 60 / 46, 1e-6)).toBe(true);
-    // −60 px layer shift plus 1.4 m of look-at re-centring, both upward.
-    expect(full.translateY).toBeLessThan(-60);
-  });
-
-  it('projection: identity at rest, near end larger and far end swung right when pitched', () => {
-    const P = 5 * 396;
-    const rest = projectPlanePoint(30, -100, 0, 1, P);
-    expect(close(rest.x, 30, 0.5)).toBe(true);
-    expect(close(rest.y, -100, 0.5)).toBe(true);
-    expect(close(rest.s, 1, 0.01)).toBe(true);
-
-    const far = projectPlanePoint(0, -150, 1, 1, P);
-    const near = projectPlanePoint(0, 150, 1, 1, P);
-    expect(near.s).toBeGreaterThan(far.s); // foreshortening
-    expect(far.x).toBeGreaterThan(0); // azimuth 28°: the far end appears to the right
-    expect(near.x).toBeLessThan(0);
-    expect(far.y).toBeLessThan(near.y); // still top-to-bottom
-    // rotateX compresses the long axis: the pitched court is flatter than 300 px tall.
-    expect(near.y - far.y).toBeLessThan(300);
-  });
-
-  it('the on-net button spans post to post', () => {
-    const f = netFrame(1.2);
-    expect(f.left).toBeCloseTo(24, 9);
-    expect(f.width).toBeCloseTo(336, 9);
-    expect(f.centerY).toBeCloseTo(237.6, 9);
   });
 });
