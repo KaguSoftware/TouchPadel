@@ -572,7 +572,6 @@ export const en = {
     language: 'Language',
     english: 'English',
     arabic: 'العربية',
-    rtlRestartNote: 'The new layout direction is applied fully after you restart the app.',
     notifications: 'Notifications',
     enablePush: 'Enable notifications',
     pushRegistered: 'Push notifications are enabled on this device.',
@@ -581,7 +580,7 @@ export const en = {
     appearance: 'Appearance',
     light: 'Light',
     dark: 'Dark',
-    languageNote: 'Switching to العربية flips the whole app right-to-left and restarts it.',
+    languageNote: 'Switching to العربية flips the whole app right-to-left, instantly.',
     notifBody: 'Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.',
     notifGranted: 'Enabled — booking confirmations, reminders and cancellations.',
     notifDenied: 'Notifications are turned off for this app. Enable them in system settings.',
@@ -589,10 +588,6 @@ export const en = {
     venue: 'Venue',
     versionLine: '{name} · v{version} ({build})',
     phoneUnavailable: "The venue hasn't published a phone number yet.",
-    // Shown full-screen while the app applies a new language and flips
-    // direction; the user is returned to this screen straight afterwards.
-    switchingTitle: 'Changing language…',
-    switchingBody: 'One moment — we’ll bring you right back to where you were.',
   },
   cafe: {
     menu: 'Menu',

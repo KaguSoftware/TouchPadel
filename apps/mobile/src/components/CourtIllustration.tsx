@@ -14,6 +14,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
 import { brand, useTheme } from '../theme';
+import { LtrIsland } from '../i18n/direction';
 
 const VBW = 320;
 const VBH = 396;
@@ -145,9 +146,11 @@ function CourtIllustrationImpl({ maxHeight }: { maxHeight?: number }) {
 
   // Overlay positions are PHYSICAL (`left`), like the translate transforms that
   // move them: a picture of a symmetric court has nothing to mirror, and a
-  // logical `start` under RTL would launch the ball off the far edge.
+  // logical `start` under RTL would launch the ball off the far edge. The root
+  // is an LtrIsland so they stay physical whatever the language (the only
+  // file where physical props pass lint — eslint.config.mjs).
   return (
-    <View
+    <LtrIsland
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
@@ -280,7 +283,7 @@ function CourtIllustrationImpl({ maxHeight }: { maxHeight?: number }) {
           />
         </>
       ) : null}
-    </View>
+    </LtrIsland>
   );
 }
 

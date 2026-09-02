@@ -8,10 +8,17 @@
 --
 -- Apply: pnpm --filter @touch/db db:fixtures   (psql against the local stack)
 --
--- Content: 4 courts (2 indoor / 2 outdoor), rate rules for weekday off-peak /
+-- Content: 2 courts (both indoor), rate rules for weekday off-peak /
 -- weekday peak (17:00-23:00) / weekend (Iraq weekend = Fri+Sat; days_of_week
 -- 0=Sun..6=Sat), per-duration absolute prices in round IQD, plus the late-night
 -- pair that covers trading past midnight.
+--
+-- COURT COUNT. This shipped four invented courts (2 indoor / 2 outdoor) until
+-- 2026-09-03. The venue has TWO -- both intake packs say so identically, and
+-- client-data/courts.sql carries them -- so the merged grid was offering capacity
+-- that does not exist and the app's footer read "4 courts per slot". The NAMES stay
+-- ours (f1f7 is invented data; Touch's own 'Court 1' / 'Court 2' live under 70c4);
+-- only the count now mirrors reality.
 --
 -- OVERNIGHT. The venue trades 09:00-02:00 (seed.sql), so every hour from 23:00
 -- to 02:00 needs a rule or the slot fails with NO_RATE. Migration 0048 forbids a
@@ -36,12 +43,17 @@ insert into courts (id, name_en, name_ar, description_en, description_ar, indoor
   ('f1f70000-0000-4000-8000-00000000c001', 'Indoor Court 1',  'الملعب الداخلي ١',
    'Air-conditioned panoramic court', 'ملعب بانورامي مكيّف', true,  '{60,90,120}', 1, true),
   ('f1f70000-0000-4000-8000-00000000c002', 'Indoor Court 2',  'الملعب الداخلي ٢',
-   'Air-conditioned panoramic court', 'ملعب بانورامي مكيّف', true,  '{60,90,120}', 2, true),
-  ('f1f70000-0000-4000-8000-00000000c003', 'Outdoor Court 1', 'الملعب الخارجي ١',
-   'Open-air court with night lighting', 'ملعب مكشوف مع إضاءة ليلية', false, '{60,90,120}', 3, true),
-  ('f1f70000-0000-4000-8000-00000000c004', 'Outdoor Court 2', 'الملعب الخارجي ٢',
-   'Open-air court with night lighting', 'ملعب مكشوف مع إضاءة ليلية', false, '{60,90,120}', 4, true)
+   'Air-conditioned panoramic court', 'ملعب بانورامي مكيّف', true,  '{60,90,120}', 2, true)
 on conflict (id) do nothing;
+
+-- A stack seeded before the cut still holds the two outdoor courts, and this file's
+-- inserts are ON CONFLICT DO NOTHING, so it cannot take them back by itself. Retire
+-- them instead of deleting: a past reservation may still point at one, and every read
+-- path filters is_active (api.ts fetchCourts, the courts RLS policy, the desk calendar).
+-- Idempotent -- a fresh stack updates nothing.
+update courts set is_active = false
+ where id in ('f1f70000-0000-4000-8000-00000000c003',
+              'f1f70000-0000-4000-8000-00000000c004');
 
 -- ---------------------------------------------------------------------------
 -- Rate rules (court_id NULL = all courts). Priority: court-specific beats

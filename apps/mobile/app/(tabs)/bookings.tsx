@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, SectionList, View } from 'react-native';
+import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { formatDate, formatTime, formatTimeRange } from '@touch/i18n';
@@ -16,6 +17,7 @@ import {
 } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
+import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
 import { Screen, SectionLabel, Title } from '../../src/components/ui';
@@ -55,6 +57,14 @@ export default function BookingsScreen() {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // "Book your next game →": the Book tab owns the day picker now, so hand it
+  // the intent and switch tabs — it plays the court → booking transition on
+  // focus instead of stack-pushing the standalone grid over this screen.
+  const bookNext = useCallback(() => {
+    requestBookingSheet();
+    router.navigate('/(tabs)');
+  }, [router]);
 
   const { holds, upcoming, past } = useMemo(
     () => splitBookings(bookings.data ?? [], now),
@@ -256,7 +266,13 @@ export default function BookingsScreen() {
     >
       <DateBadge date={new Date(item.start_at)} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}>
+        <Text
+          numberOfLines={1}
+          // Shrink-wrapped to the leading edge, like HeldSlotCard: pickLocale can
+          // hand back the Latin name, which a stretched Text left-aligns on iOS
+          // under RTL.
+          style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
+        >
           {courtNames.get(item.court_id) ?? ''}
         </Text>
         <Text
@@ -294,7 +310,11 @@ export default function BookingsScreen() {
       })}
     >
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text numberOfLines={1} style={{ fontFamily: fonts.display800, fontSize: 13, color: colors.mut2 }}>
+        <Text
+          numberOfLines={1}
+          // Same as the upcoming card.
+          style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 13, color: colors.mut2 }}
+        >
           {courtNames.get(item.court_id) ?? ''}
         </Text>
         <Text
@@ -352,7 +372,7 @@ export default function BookingsScreen() {
             section.data.length === 0 && section.key === 'upcoming' ? (
               <Pressable
                 accessibilityRole="link"
-                onPress={() => router.push('/availability')}
+                onPress={bookNext}
                 style={({ pressed }) => ({
                   marginTop: 8,
                   backgroundColor: colors.card,

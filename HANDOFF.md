@@ -840,6 +840,86 @@ role** — the handover transfer is easier than documented, but not during deadl
 
 **Device matrix: still nothing run as of this entry** — update this line with results.
 
+## Day 13 (2026-09-02) — RTL: live direction, no reload
+
+**A language switch is ONE React commit now.** Direction is app state: `useLocale().dir` →
+`DirectionRoot` (`src/i18n/direction.tsx`) puts a Yoga `direction` style on the root view and
+Fabric mirrors the whole tree live — row order, start/end insets, absolute start/end, text
+alignment, per-view native direction (`semanticContentAttribute` / `View.layoutDirection`),
+horizontal scroll views. `LocaleDirContext` (provided from `dir`, unchanged) drives the native
+bar, back chevron, push/pop edge and back-swipe edge through react-native-screens. The switch
+crossfades (120 ms out → commit → 180 ms in; instant under Reduce Motion), waits for the target
+script's faces (`src/theme/fonts.ts`) and ignores touches meanwhile. The user stays on the
+screen they were on — no reload, no restart, in Expo Go, dev client and store build alike.
+
+**Gone:** `reconcileRtl` / `reloadForRtl` / the reload marker, the parked resume route and
+`ResumeAfterLocaleSwitch`, `activeTab.ts`, `needsRestart` + `settings.rtlRestartNote`, the
+`LocaleSwitchOverlay` + `switchingTitle/Body`, `setLocale`'s `flip/resumePath/resumeTab`
+options, and every hand-mirror (`row-reverse` ternaries, `textAlign: rtl ? 'right' : 'left'`,
+`alignItems: rtl ? 'flex-end' : 'flex-start'`). Those DOUBLE-FLIP under a real layout direction:
+Fabric swaps an explicit textAlign left/right inside an RTL paragraph, Yoga flips row-reverse.
+Retired AsyncStorage keys are removed once at boot (`RETIRED_KEYS`).
+
+**The native flag is pinned LTR for good.** `['expo-localization', { supportsRTL: false }]`
+writes allowRTL=false before React loads on every launch — plus forceRTL=false on iOS (NEVER pass
+`forcesRTL`: its iOS branch sets allowRTL=true and derives forceRTL from the DEVICE language);
+`index.js` calls `pinNativeRootLtr()` for Expo Go, which carries no Info.plist keys. Why not keep
+`forceRTL` "for the next launch": nothing outside RN reads it (system alerts follow the app
+localisation; screens follow LocaleDirContext), and when RTL it makes Fabric rewrite every
+physical left/right into start/end for the surface — with the swap flag forced TRUE per process
+on iOS before JS can turn it off. Two render models for one language. `I18nManager` may be
+imported by `src/i18n/nativeDirection.ts` only (lint + `headerDirection.test.ts`).
+
+**Exceptions, on purpose:** `Field`'s TextInput keeps a physical `textAlign` (Fabric never feeds
+an input its layout direction, on either platform) plus `writingDirection: dir`;
+`CourtIllustration` roots in `LtrIsland` (`direction: 'ltr'`) so its physical art is invariant;
+three.js camera bounds in `courtTransition/` are geometry. SVG paths never mirror by themselves —
+`mirror(dir)` (chevrons, title squiggle, welcome art). No horizontal FlatList: virtualized-lists
+keys its RTL math on the pinned native flag (`direction.test.ts` forbids it).
+
+**The lint guard is real now.** `packages/config/src/eslint.js`: the identifier selector was a
+JSON-stringified string (an exact match — it never fired). It is a /regex/, the `textAlign` rule
+matches descendants (ternaries included), and a direction-conditional `row-reverse` is banned.
+`src/lib/__tests__/rtlGuard.test.ts` runs the rules on fixtures so they cannot go quiet again.
+Operator's recharts margins are excluded by a file override (chart geometry, not CSS).
+
+**Facts the crawl pinned (RN 0.81.5 source, both platforms):** a horizontal ScrollView under
+per-node RTL reports a PHYSICAL `contentOffset.x` from the content's left edge on BOTH platforms
+(iOS mirrors its scroll view but converts the offset back before emitting), so the logical start
+reads as the maximum — BookingSheet's pill-fade math now undoes that on both; and neither platform
+re-homes an already-mounted strip on a direction change, so the two horizontal strips remount on
+`key={dir}`. Unset `textAlign` = natural: Android aligns to the layout's start edge whatever the
+script, iOS follows the text's first strong character (a Latin/digit-only string sits LEFT in an
+RTL box) — so single-line data strings in stretched columns (court names, the venue phone, the
+profile card) are shrink-wrapped to the leading edge with a logical `alignSelf: 'flex-start'`, and
+every Latin/digit value interpolated into an Arabic sentence (phones, hours) goes through
+`isolate()` so its groups keep their order. Review/Success now carry both court names and pick at
+render, so a mid-checkout switch renames the court too. The sign-out confirmation is the app's
+ConfirmationDialog, not `Alert.alert` (a native alert follows the SYSTEM language's direction).
+The switch crossfade is an opaque COVER over the tree, not the tree's own opacity: the tree hosts
+UIKit material (native bar, tab-bar blur, BlurView) that breaks under an ancestor alpha < 1.
+
+**Android, old installs only:** `supportsRTL: false` writes `allowRTL=false` there but not
+`forceRTL=false` (that key needs the `forcesRTL` option, which must never be passed — see
+app.config.ts). A dev/TestFlight install that persisted `forceRTL(true)` under the retired code may
+sample an RTL root ONCE after updating, until the JS pin's preference is re-read (next root
+measure / launch). Harmless by construction: the root view carries its own direction, physical
+props exist only inside the LtrIsland, and nothing reads the flag.
+
+**Verify on device (no simulator on the dev Mac):** switch in Settings → same screen, mirrored,
+no reload; the bar's back item moves to the leading edge — check its chevron direction and label
+order too: react-native-screens re-applies the bar's direction live, but the existing back-button
+VIEW gets its direction through UIAppearance, which UIKit applies only to views added to a window,
+so it may keep LTR internals until a pop/push (if so, the smallest JS lever is a
+`headerBackTitleStyle` in useNativeHeaderOptions, which makes screens allocate a fresh back item
+per config update, at the cost of the SF Pro back label); pop to Profile keeps the tab; iOS native tab bar order
+(UIKit inherits the host view's forced semantic direction — if the bar does not re-order live,
+`key={dir}` on `NativeTabs` is the fallback); availability day strip and BookingSheet pills start
+at the leading edge; sign-up with Arabic preferred flips before verify-email; a crash screen in
+Arabic renders in Cairo, mirrored, in the stored palette. Known and accepted: the Book tab paints
+`colors.page` while the switch cover is `colors.bg`, so a switch that lands on Book (complete-profile
+→ continue) shows a faint grey wash for the 180 ms fade-in.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -1210,12 +1290,9 @@ role** — the handover transfer is easier than documented, but not during deadl
     accessibility element while busy or disabled (VoiceOver otherwise announced an enabled button
     that swallowed the tap). Apple availability is seeded from the platform-split adapter
     (`appleSignInExpected`) so iOS renders the button on the first frame instead of popping it in.
-- **The RTL lint guard is partially inert.** `packages/config/src/eslint.js:44` builds its
-  selector with `JSON.stringify(physicalPropPattern)`, so `Property[key.name="…"]` is an EXACT
-  string comparison against the regex SOURCE, never a regex match — only the separate `textAlign`
-  rule actually fires. Logical props on the new social components were enforced by review, not by
-  lint. The one-line fix (`/…/` regex-literal syntax in the selector) will surface existing
-  violations across three apps — a separate task, out of scope on 2026-09-01.
+- **The RTL lint guard was inert until 2026-09-02** (`Property[key.name="…"]` compared the regex
+  SOURCE as a string). Fixed in the shared preset — see Day 13 "RTL: live direction" — and
+  self-tested in `apps/mobile/src/lib/__tests__/rtlGuard.test.ts`.
 - **Analytics + PostHog are OUT of the signed SOW** (scope lines 148–150, 410). They are shipped as
   a vendor addition on the owner's instruction — never let acceptance hinge on them.
 - **Local test flakiness is a connection-pool symptom, not a code bug.** If DB suites fail with

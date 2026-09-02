@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { Text } from '../../src/i18n/text';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { RequireSession } from '../../src/features/auth/RequireSession';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDate, formatDateTime, formatTimeRange } from '@touch/i18n';
+import { formatDate, formatDateTime, formatTimeRange, isolate } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
 import { canCancel, displayRef } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import {
-  useCourts,
-  useIsDegraded,
-  useVenueSettings,
-} from '../../src/features/availability/hooks';
+import { useCourts, useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { callPhone } from '../../src/lib/phone';
 import { formatPrice } from '../../src/lib/price';
@@ -26,7 +23,12 @@ import {
   Screen,
   useSafeBack,
 } from '../../src/components/ui';
-import { DegradedBanner, PayAtDeskCard, StatusPill, SummaryGrid } from '../../src/components/booking';
+import {
+  DegradedBanner,
+  PayAtDeskCard,
+  StatusPill,
+  SummaryGrid,
+} from '../../src/components/booking';
 import { ConfirmationDialog, useToast } from '../../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
@@ -99,7 +101,9 @@ function BookingDetailScreen() {
   const callVenue = () => {
     if (!phone) return;
     void callPhone(phone).then((ok) => {
-      if (!ok) toast(t('errors.callFailed', { phone }), 'error');
+      // Isolated like the availability flow's toast: a space-grouped Latin
+      // number inside the Arabic sentence otherwise has its groups reordered.
+      if (!ok) toast(t('errors.callFailed', { phone: isolate(phone) }), 'error');
     });
   };
 
@@ -155,8 +159,12 @@ function BookingDetailScreen() {
               }}
             >
               <Text
+                // flexShrink, not flex: 1 — the box hugs the name, so the row
+                // keeps it on the leading edge even when pickLocale hands back
+                // the Latin name (a stretched box left-aligns it on iOS under
+                // RTL). It still wraps against the pill.
                 style={{
-                  flex: 1,
+                  flexShrink: 1,
                   fontFamily: fonts.display900,
                   fontSize: 20,
                   textTransform: 'uppercase',

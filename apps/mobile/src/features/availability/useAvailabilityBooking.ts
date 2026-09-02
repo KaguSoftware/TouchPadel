@@ -16,7 +16,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { pickLocale } from '@touch/core';
+import { isolate } from '@touch/i18n';
 import { useLocale } from '../../i18n/LocaleProvider';
 import {
   useCourts,
@@ -28,6 +28,7 @@ import {
 } from './hooks';
 import {
   DEFAULT_TZ,
+  firstUpcomingIndex,
   hasAnySlots,
   listBookableDates,
   mergeAcrossCourts,
@@ -64,6 +65,12 @@ export interface AvailabilityBooking {
   cells: MergedCell[];
   /** Rows of two: an odd trailing cell stays half width (design `repeat(2, 1fr)`). */
   rows: MergedCell[][];
+  /**
+   * The row the grid should open on — the first one holding a time that has not
+   * started yet. 0 on a future day (nothing is past) and whenever the whole
+   * night has run out.
+   */
+  openRow: number;
   /** The venue does not trade that day (closed date, or a grid with no slots at all). */
   closedDay: boolean;
   isClosedDate: (date: string) => boolean;
@@ -170,6 +177,10 @@ export function useAvailabilityBooking(
   );
   // Rows of two: an odd trailing cell stays half width (design `repeat(2, 1fr)`).
   const rows = useMemo(() => chunkArray(cells, 2), [cells]);
+  // Two cells to a row, so the cell index halves into a row index. The minute
+  // tick can move this by a row; the surfaces only ever act on it when the day
+  // or the duration changes, so the list is never yanked under a reading guest.
+  const openRow = useMemo(() => Math.floor(firstUpcomingIndex(cells) / 2), [cells]);
 
   // "Closed" means the venue does not trade that day. A duration that simply
   // has no priced slots is "no times", not "closed" — the old check compared
@@ -228,7 +239,10 @@ export function useAvailabilityBooking(
               // '' = no deadline (duplicate replay of a hold we already have).
               expiresAt: result.holdExpiresAt ?? '',
               priceIqd: String(result.priceIqd ?? cell.priceIqd ?? ''),
-              courtName: court ? pickLocale({ en: court.name_en, ar: court.name_ar }, locale) : '',
+              // Both names: Review / Success pick at render, so a language
+              // switch mid-checkout renames the court with the rest of the screen.
+              courtNameEn: court?.name_en ?? '',
+              courtNameAr: court?.name_ar ?? '',
               startAt: cell.startAt.toISOString(),
               durationMin: String(durationMin),
               origin,
@@ -237,8 +251,12 @@ export function useAvailabilityBooking(
         },
         onError: (err) => {
           if (isDegradedRefusal(err.message)) {
+            // Latin digits inside an Arabic sentence: isolated, or the bidi
+            // algorithm reorders the number's groups (here and in onCall).
             setError(
-              phone ? t('degraded.bookingRefused', { phone }) : t('degraded.bookingRefusedShort'),
+              phone
+                ? t('degraded.bookingRefused', { phone: isolate(phone) })
+                : t('degraded.bookingRefusedShort'),
             );
           } else {
             setError(t(mapErrorToKey(err)));
@@ -276,7 +294,7 @@ export function useAvailabilityBooking(
   const onCall = () => {
     if (!phone) return;
     void callPhone(phone).then((ok) => {
-      if (!ok) toast(t('errors.callFailed', { phone }), 'error');
+      if (!ok) toast(t('errors.callFailed', { phone: isolate(phone) }), 'error');
     });
   };
 
@@ -294,6 +312,7 @@ export function useAvailabilityBooking(
     day,
     cells,
     rows,
+    openRow,
     closedDay,
     isClosedDate,
     phone,
