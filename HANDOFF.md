@@ -682,12 +682,171 @@ on iOS by Apple; **5.1.1(v) account deletion is still open and FK-blocked**, and
 **Apple token revocation** when it is built (a Sign in with Apple `.p8` key in an edge function —
 the only Apple secret this feature ever introduces, server-side only).
 
+## Day 12 (2026-09-01) — the court → booking transition on the Book tab
+
+The owner brought a second Claude Design file, **`docs/design/mobile-ui/Court Transition
+Prototype.html`** (committed verbatim next to the day-8 pack), and asked for it on the Book tab —
+**exact transition, exact looks**: the three.js court (lime glass + mesh cage with the white window
+stickers, real net, 3D rackets that swing, a ball with a seam, its ghost trail and cast shadow), the
+camera pitching from top-down to a 40° diagonal, "Check availability" sitting on the net, a frosted
+booking card floating up over the dimmed court with staggered day pills and time rows. Everything
+derives from ONE progress value `p ∈ [0, 1]`; the header comment of the file is a per-element timing
+table and that table is the spec. A first pass kept the flat SVG court and faked the pitch with a
+perspective transform — the owner rejected that (commit `95e0286` holds it); this is the real port.
+Code after that commit is on the working tree, **uncommitted** at the time of writing.
+
+**How it is built:**
+- **`expo-gl ~16.0.10` + `three 0.160.0`** (the prototype's own three version) — new native module ⇒
+  the next EAS development build is required before anyone sees it. `Court3D`
+  (`src/components/Court3D.tsx`) renders the scene into TWO `GLView`s as the prototype uses two
+  canvases (2026-09-02): the court, then the caller's on-net button, then a transparent surface
+  with only the ball, its trail and its ground disc — so the rally flies over the button while an
+  invisible caster keeps the ball's real shadow on the turf beneath it; the camera reads the same
+  native-driven `p` through an `Animated.Value` listener every frame, exactly as the prototype's
+  canvas reads its `p`. The frame loop runs only while the tab is focused and the app is active
+  (expo-router keeps tab screens mounted); under OS reduced motion the rally freezes on a rest
+  frame and the scene redraws only when `p` changes. Android recreates the GL surface after
+  backgrounding (a NEW context), so init is idempotent. No GL context ⇒ the flat SVG court
+  (`CourtIllustration`, unchanged) with the button underneath, and telemetry records it.
+- **`scene.ts`** is `buildCourt` from the prototype ported 1:1 (geometry, materials, colours,
+  lights, shadow camera); **`rally.ts`** is `updateCamera` / `updateRally` as PURE functions —
+  the orbit (elevation 89.5° → 40°, azimuth 0° → 28°, distance 60 → 46 m, up-vector blend,
+  look-at −0.8 → 0.6), the near-cage fades, the four-leg rally (1.3 s a leg, two-arc flight
+  62 %/38 %, heights 1.9 / 0.6 m), the idle drift and swing pulses, the standing-up of the rackets
+  with the pitch, the ground disc — 12 unit tests pin them to the table.
+- **The native layers** stay as the prototype has them: the court layer lifts 60 px and dims to
+  55 % (PITCH ease, direction-aware); the on-net button spans post to post at the tape's projected
+  position (published by `Court3D` on every resize at rest), lime on a flat 8 px navy shadow,
+  fading out over 0 → 0.25; the frosted sheet (`BookingSheet.tsx`) enters 0.25 → 1 with the
+  pill/row staggers of the table; the back button fades in 0.2 → 0.5 and the title slides over.
+  The driver is a spring ON `p` (`useCourtTransition.ts`: stiffness 60, damping 18, mass 1.2,
+  ζ ≈ 1.06, ≈ 1.6 s), never a duration; reverse mid-flight restarts from the current position.
+- **Eased slices are sampled tables** (`spec.sampleEased`): the native driver ignores
+  `interpolate({ easing })` (`NativeAnimatedAllowlist`), so each "slice [a, b] with ease E" is a
+  24-point piecewise-linear table; the PITCH ease is direction-aware exactly as the prototype and
+  the tables are rebuilt when the direction flips.
+- **The sheet carries the REAL flow**, not the prototype's mock slots: the availability + hold
+  flow was extracted from `app/availability.tsx` into
+  `src/features/availability/useAvailabilityBooking.ts` without behaviour change; the standalone
+  `/availability` route (My bookings' empty states, Review's "back to availability", the post-auth
+  fallback) is layout-only on the same hook. `compact` variants of `DayChip` / `SlotCell` match
+  the prototype's pill and cell sizes; the card is 296 wide (280 in the prototype) to fit the
+  duration picker the real flow needs.
+
+**Deliberate deviations from the prototype (owner informed 2026-09-01):** shadow map 1024 instead
+of 2048; the frosted card blurs on
+iOS (`expo-blur`, intensity 50, 35 % `bg` tint) and is a flat 94 % tint on Android — the tab bar's
+convention; the header keeps the app's logo / open-now pill / "Book a court" title (the prototype
+mocks "Court 1"; the app books across both courts); the last grid rows' slice is clamped at 1.00
+(the prototype's 0.76 + 0.28 overruns p, leaving them 14 % short); dark mode keeps the scene's
+colours and only swaps the page colour behind the court and the card tint — the prototype is
+light-only.
+
+**Seen on device 2026-09-02 (Parsa, iOS, dark mode, Metro) and fixed:** (1) the button sat ~30 pt
+below the tape and ~8 % narrower than post to post whenever the layout changed after the GL context
+was created (the degraded banner appearing shrinks the stage): expo-gl writes
+`gl.drawingBufferWidth/Height` ONCE at creation and never updates them, and three re-applies its own
+viewport every frame, so the picture stayed at the first size while the button was projected for the
+new one — `Court3D` now sizes the renderers from its `onLayout` box × `PixelRatio.get()`. (2) NO
+`boxShadow` rendered anywhere (button drop, dialog, toast, sheet, segment thumb, flat court float,
+focus ring): RN's `processBoxShadow.parseLength` accepts a bare number only when it is `0` and one
+rejected length drops the whole shadow silently — every length now carries `px` (`theme/tokens.ts`).
+
+**Framing.** The camera's 24° fov is vertical, so the court fills the GL view's HEIGHT the way it
+fills the prototype's 844 px canvas; the view spans to the top of the tab bar, so on a phone the
+court is a little narrower relative to the screen than in the full-bleed prototype. The camera looks
+0.8 m past the net, leaving a blank band of ≈ 11 % of the box above the far wall (≈ 5 % below the
+near one): Parsa read it as padding under the title (device, 2026-09-02), so the GL box now starts
+that far ABOVE the stage (`courtTopFraction()` in camera.ts, `courtTop` in index.tsx — the stage
+measures itself) and the far wall sits 8 pt under the title's underline; the box is under the header
+(z 1), whose rows have no background, so the lifted court passes beneath the title as in the
+prototype. Full-bleed behind the whole header is the same one-line change if wanted.
+
+**Unverified on a device — this Mac has no Xcode, simulators, CocoaPods or eas-cli, and the app
+needs a dev build (custom native modules).** The gate that did run: `tsc`, `eslint --max-warnings 0`,
+vitest (130 mobile + 22 i18n). First EAS dev build, check in this order: (1) the court renders at
+all on iOS AND Android (three on expo-gl takes the WebGL 1 path — shadows fall back to RGBA depth
+packing; if the turf is black the clear colour / shadow map is the first suspect), and the ball's
+surface is see-through (a black rectangle over the court = the second `GLView`'s alpha; its clear
+colour is `0x000000, 0`); (2) frame rate
+with the cage + 4 rackets + 36 trail ghosts + PCFSoft shadows on a mid-range Android — drop to
+`PCFShadowMap` / 512 map / 18 ghosts in that order; (3) the button lands on the tape (the frame is
+projected from the camera at rest); (4) the sheet's iOS blur while it fades in (Apple warns a
+`UIVisualEffectView` under `alpha < 1` may look off — if it does, fade the card's content, not the
+blur), and whether the blur actually samples the GL layer beneath; (5) returning from background on
+Android recreates the context cleanly; (6) Arabic: back button at the start edge, title sliding the
+other way, the pill row's leading fade; (7) an iPhone SE: the card (≈ 330 pt) must clear the tab bar.
+
+**Review fixes folded in (2026-09-02, from two adversarial review passes; most verifier agents
+were cut off by the session limit, so these were judged by hand):** `useCourtsBroadcast` is now
+REFERENCE-COUNTED — supabase-js returns the same channel object for an existing topic and
+`removeChannel` leaves it for everyone, so the sheet under a pushed Review/Availability (or the
+Bookings tab) used to lose its live `slot_changed` feed to whichever consumer unmounted first.
+Flows that start in the sheet return to it: `origin: 'sheet' | 'screen'` rides on the Review
+params and the pending slot, Review's "back to availability" pops back to the tab (sheet still
+open, grid invalidated by the settled hold) and the post-auth refusal replaces to `/(tabs)`.
+`direction` (the PITCH ease table) changes only when a transition starts from rest — the play and
+reverse curves agree only at 0 and 1, so a mid-flight flip made the court and sheet jump; a
+reversal now keeps its curve and stays continuous. Closing is refused while a hold call is in
+flight (the sheet owns the callbacks that push Review); the back button dims. Reduced motion no
+longer plays the pitch at 220 ms: the stage dips through the page colour while `p` jumps. The
+on-net button follows the tape through the whole orbit (rest frame + a native-driver track from
+`camera.ts`, the same three.js camera as the scene) instead of sitting at the rest position while
+the net slides up during a close. The iOS blur no longer sits under an animated opacity (it would
+not render until alpha hit 1): the card's transform is on the outer view and only the tint,
+border and content fade. The day strip's "at start" fade is normalised for Arabic on Android
+(physical scrollX). Screen readers: invisible buttons/footer are hidden while invisible, the sheet
+announces "Pick a time" on open and is modal while open, the invisible card takes no touches
+during a close. The card caps itself to the stage (grid shrinks to 120 pt min) and the flat
+fallback keeps a measured height budget.
+
+**Lint finding (pre-existing, NOT fixed here — shared preset, touches every app):** the RTL guard's
+identifier-key selector in `packages/config/src/eslint.js:44` is inert — `JSON.stringify` quotes the
+pattern, and esquery treats a quoted attribute value as a literal string, so `marginLeft`,
+`paddingRight`, `left`, `right`… are NOT flagged anywhere; only `textAlign: 'left'|'right'` and
+quoted string keys are. Fix = `Property[key.name=/${physicalPropPattern}/]` (unquoted regex), then
+expect errors in `apps/mobile` (`CourtIllustration.tsx`'s deliberate physical `left`s, `ui.tsx`'s
+`hitSlop`) and re-lint web/operator/ui before committing that.
+
+## Day 13 (2026-09-02) — auth: hygiene fixed, the critical path reshaped to iOS-first
+
+"Auth still isn't working" turned out to mean **it had never been device-tested** — the code and DB
+were re-audited today (three parallel deep passes) and are sound. What was actually wrong, now fixed:
+
+- **Stray root `app.json` + `eas.json`** (from running `eas init`/`eas build` at the repo root
+  ~2026-09-01 17:00): wrong Android package `com.parsamansouri.touchpadel`, no env — any build made
+  from the root was a dead app. Both removed, the intent-to-add index entry reset, and root-anchored
+  `/app.json` + `/eas.json` guards added to `.gitignore`. **Run `eas`/`expo` only from `apps/mobile`**
+  (same trap as the standing "supabase never from root" gotcha).
+- **`expo-updates` (eba8353) had no config**: `app.config.ts` now carries
+  `updates.url = https://u.expo.dev/<projectId>` + `runtimeVersion: { policy: 'appVersion' }`, so the
+  `channel` values in eas.json staging/production are no longer inert and the build no longer trips
+  on the mismatch.
+- **Prompt E added to the runbook** (Supabase redirect URLs for Expo Go email testing — the hosted
+  allow-list held only the stale `exp://192.168.1.108:8081/--/*`; this machine is now
+  `.168.129`/`.175.73`). Prompt D Task 4 reworded to strip **every** `exp://` entry at release week.
+
+**Owner facts that reshaped the sequence** (2026-09-02): the Apple Developer membership is **already
+active** on the same account that owns Google Cloud (parsaxavier@gmail.com), the only test device is
+an iPhone 13, and the test Gmail is parsaxavier@gmail.com (already the consent-screen test user). So
+the runbook's Android-first order is inverted: **iOS dev build now** (`eas device:create` →
+`eas build --profile development --platform ios` from `apps\mobile`; EAS syncs the Sign in with Apple
+capability) → device matrix rows 1-2 (Apple real bundle id, Google iOS) + email verify/reset via
+`touchpadel://` → Prompt B for the Team ID/PLA report. Apple-in-Expo-Go remains the free smoke test
+(throwaway user — Expo Go's Apple `sub` is per-team). Android (keystore SHA-1 → Prompt A′ Task 4 →
+dev build) is deferred until an Android device exists; it gates Play, not the App Store. EAS CLI
+verified logged in as `parsa-mansouri`; note **an Expo org `kagu-software` already exists with Owner
+role** — the handover transfer is easier than documented, but not during deadline week.
+
+**Device matrix: still nothing run as of this entry** — update this line with results.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
   PostHog `bau.se.engineers@gmail.com`). Check it before concluding an account "has no access".
 - `docs/client/chrome-agent-prompt.md` — the Claude-in-Chrome provisioning prompt template.
-- `docs/design/mobile-ui/` — the approved mobile design (dc.html artboards + UI build spec, 2026-08-31).
+- `docs/design/mobile-ui/` — the approved mobile design (dc.html artboards + UI build spec, 2026-08-31)
+  + **`Court Transition Prototype.html`** (2026-09-01: the court → booking transition; its header table is the motion spec).
 - `docs/design/cafe-rebuild/` — **the cafe rebuild design pack**: `db-slice.md`, `web-slice.md`,
   `operator-slice.md`, `upperdeck-spec.md` (the reference project's full spec), `decisions.md`
   (owner decisions, binding), `context-existing-cafe.md`, `context-operator.md`.
@@ -720,6 +879,12 @@ the only Apple secret this feature ever introduces, server-side only).
 - `packages/core/src/analytics/` — pure analytics modules shared by the operator and the edge fn.
 - `apps/web/src/{components/cafe,hooks/cafe,styles/cafe,lib}` — the guest cafe app.
 - `apps/operator/src/features/{admin,analytics,kds,till}` — operator surfaces.
+- `apps/mobile/src/features/courtTransition/` — the court → booking transition: `spec.ts` (pure motion
+  spec + tests), `rally.ts` (camera orbit + rally maths, pure, tested), `scene.ts` (the three.js
+  scene, 1:1 from the prototype), `useCourtTransition.ts` (the spring driver); rendered by
+  `components/Court3D.tsx` (expo-gl), `components/BookingSheet.tsx` and `app/(tabs)/index.tsx`;
+  `components/CourtIllustration.tsx` is the flat fallback; the shared flow is
+  `features/availability/useAvailabilityBooking.ts`.
 - `e2e/` — Playwright config + specs (EN + AR).
 
 ## Roadmap / next steps
@@ -797,6 +962,11 @@ the only Apple secret this feature ever introduces, server-side only).
 | Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
+- **NEVER run `eas`/`expo` from the repo root** (same rule as supabase). Done once on 2026-09-01:
+  `eas init` scaffolded a root `app.json`/`eas.json` with android package
+  `com.parsamansouri.touchpadel` (wrong) and no env — a build from the root is a dead app that
+  presents as "auth doesn't work". Removed on 2026-09-02; `.gitignore` now blocks `/app.json` and
+  `/eas.json` at the root. The real configs are `apps/mobile/app.config.ts` + `apps/mobile/eas.json`.
 - **OPERATOR: the heartbeat has never worked and fails silently** (audit 2026-08-28, C1).
   `apps/operator-shell/src/main/heartbeat.ts:25` POSTs to a `/functions/v1/heartbeat` edge
   function **that does not exist**, with no auth header, no `p_is_till`, an unset

@@ -16,6 +16,15 @@
  */
 import { useSyncExternalStore } from 'react';
 
+/**
+ * Which surface the slot was tapped on: the booking sheet over the court on
+ * the Book tab, or the standalone Availability screen. Downstream screens use
+ * it to send the guest BACK to the surface they came from (a hold that fails
+ * after sign-in, Review's "back to availability") instead of always to the
+ * standalone route over a still-open sheet.
+ */
+export type SlotOrigin = 'sheet' | 'screen';
+
 export interface PendingSlot {
   courtId: string;
   /** ISO instant. */
@@ -24,6 +33,7 @@ export interface PendingSlot {
   priceIqd: number | null;
   courtNameEn: string;
   courtNameAr: string;
+  origin?: SlotOrigin;
 }
 
 let pending: PendingSlot | null = null;

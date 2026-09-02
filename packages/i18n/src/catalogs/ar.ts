@@ -120,6 +120,7 @@ export const ar: Messages = {
     openNow: 'مفتوح الآن · {hours}',
     closedNow: 'مغلق حاليًا',
     reserveFooter: 'احجز من التطبيق · وادفع عند الاستقبال لدى وصولك',
+    rallyPaused: 'لا يوجد جمهور، فتوقّفت المباراة. المس الشاشة للمتابعة.',
     courtPhoto: 'صورة الملعب',
     fromPrice: 'ابتداءً من {price}',
     perHour: '{price} / ساعة',
@@ -476,6 +477,9 @@ export const ar: Messages = {
     capacityOne: 'بقي ملعب واحد',
     deskOnly: 'عبر الاستقبال فقط',
     availFooter: '{count} ملاعب لكل وقت · يُحدَّد ملعبك عند الاستقبال',
+    // Court → booking transition (design 2026-09-01): the in-place sheet on the Book tab.
+    pickTime: 'اختر وقتًا',
+    backToCourt: 'العودة إلى الملعب',
     slotUnavailableTitle: 'الوقت غير متاح',
     blockedBody: 'لا يمكن حجز هذا الوقت من التطبيق حاليًا. يمكن للاستقبال المساعدة.',
     deskOnlyTitle: 'الحجز عبر الاستقبال حاليًا',

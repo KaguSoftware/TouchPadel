@@ -72,6 +72,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // so keyboards, alerts and share sheets follow it instead of staying light.
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
+  // EAS Update (expo-updates, added eba8353 for the eas.json channels): store
+  // binaries poll this URL on their profile's channel. 'appVersion' pins each
+  // store version (0.1.0) to its own update runtime, so an OTA can never land
+  // on incompatible natives. The development profile has no channel — the dev
+  // client ignores this block.
+  updates: { url: 'https://u.expo.dev/d9597f8e-79bb-4bc2-882e-c44c3a013045' },
+  runtimeVersion: { policy: 'appVersion' },
   backgroundColor: '#FFFFFF',
   ios: {
     supportsTablet: false,

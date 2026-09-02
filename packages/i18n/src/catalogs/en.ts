@@ -125,6 +125,8 @@ export const en = {
     openNow: 'Open now · {hours}',
     closedNow: 'Closed right now',
     reserveFooter: 'Reserve in the app · pay at the desk on arrival',
+    // The 3D rally holds with the ball in a player's hand after a while idle (battery).
+    rallyPaused: 'No audience, so the rally is paused. Tap to play on.',
     courtPhoto: 'Court photo',
     fromPrice: 'From {price}',
     perHour: '{price} / hr',
@@ -475,6 +477,9 @@ export const en = {
     capacityOne: '1 court left',
     deskOnly: 'Desk only',
     availFooter: '{count} courts per slot · your court is assigned at the desk',
+    // Court → booking transition (design 2026-09-01): the in-place sheet on the Book tab.
+    pickTime: 'Pick a time',
+    backToCourt: 'Back to the court',
     slotUnavailableTitle: 'Slot unavailable',
     blockedBody: "This slot can't be booked in the app right now. The desk can help.",
     deskOnlyTitle: 'Desk-only right now',

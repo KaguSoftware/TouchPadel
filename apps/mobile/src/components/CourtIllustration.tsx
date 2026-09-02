@@ -174,7 +174,7 @@ function CourtIllustrationImpl({ maxHeight }: { maxHeight?: number }) {
               backgroundColor: colors.crtTurf,
               borderWidth: 1,
               borderColor: colors.crtTurfLine,
-              boxShadow: `0 ${14 * k} ${20 * k} ${colors.crtCast}, 0 ${4 * k} ${7 * k} ${colors.crtCast2}`,
+              boxShadow: `0 ${14 * k}px ${20 * k}px ${colors.crtCast}, 0 ${4 * k}px ${7 * k}px ${colors.crtCast2}`,
             }}
           />
           <Svg width={width} height={height} viewBox={`0 0 ${VBW} ${VBH}`}>

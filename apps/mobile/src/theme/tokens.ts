@@ -209,14 +209,21 @@ export const radius = { cell: 12, button: 14, card: 16, sheet: 20, pill: 99 } as
  * Cross-platform shadows (RN 0.81 `boxShadow` renders on iOS AND Android under
  * the new architecture; the legacy `shadow*` props were iOS-only and a stray
  * `elevation` drew grey halos on Android). Values from the design.
+ *
+ * Lengths MUST carry `px`: RN's parser (`processBoxShadow.parseLength`) accepts
+ * a bare number only when it is `0`, and one rejected length drops the WHOLE
+ * shadow silently (seen on device 2026-09-02 — no shadow anywhere).
  */
 export const shadows = {
   /** Segmented-control thumb: `0 1px 2px rgba(27,42,71,.12)`. */
-  thumb: '0 1 2 rgba(27,42,71,0.12)',
+  thumb: '0 1px 2px rgba(27,42,71,0.12)',
   /** Confirmation dialog card: `0 12px 40px rgba(16,24,40,.25)`. */
-  dialog: '0 12 40 rgba(16,24,40,0.25)',
+  dialog: '0 12px 40px rgba(16,24,40,0.25)',
   /** Toast pill: `0 6px 20px rgba(16,24,40,.25)`. */
-  toast: '0 6 20 rgba(16,24,40,0.25)',
+  toast: '0 6px 20px rgba(16,24,40,0.25)',
+  /** The booking sheet over the court (transition prototype): `0 20px 50px rgba(27,42,71,.2)`; a deeper black in dark mode. */
+  sheet: '0 20px 50px rgba(27,42,71,0.2)',
+  sheetDark: '0 20px 50px rgba(0,0,0,0.45)',
 } as const;
 
 /**

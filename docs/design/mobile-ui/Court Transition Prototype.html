@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<!--
+  TOUCH PADEL · Court view → Booking view transition
+  Standalone prototype. Motion (motion.dev / framer-motion API) drives everything
+  from ONE progress motion value, p ∈ [0, 1].  0 = court view, 1 = booking view.
+  The court is a three.js scene (real net, glass + mesh cage, 3D rackets and a
+  bouncing ball). The three.js camera reads the same `p` every frame.
+
+  Handoff notes
+  ─────────────
+  · One shared value `p`. Every 2D element derives its props from `p` with
+    interpolate(p, [a, b], [from, to], clamp), with an easing on the normalised
+    slice where noted (Easing.bezier(...)).
+  · The court canvas is ONE flat 2D layer (translateY + opacity only). All the 3D is
+    inside WebGL: camera orbit = f(p). No CSS 3D, no preserve-3d.
+    RN: render the same scene with expo-gl + expo-three, or replace with a
+    pre-rendered video/Lottie scrubbed by `p`. Camera maths below port 1:1.
+  · Sheet, pills, slots are normal 2D siblings transforming independently.
+
+  Per-element timing (slice of p)   what changes                                    ease
+  ───────────────────────────────── ─────────────────────────────────────────────── ─────────────
+  COURT CAMERA     0.00 → 0.80      elevation   89.5° → 40°   (top-down → pitched)  PITCH (below)
+   (three.js)                       azimuth      0°   → 28°   (diagonal)             PITCH
+                                    distance    60m   → 46m                          PITCH
+                                    up-vector   (0,0,-1) → (0,1,0), normalised lerp  PITCH
+                                    look-at     (0,0,-0.8) → (0,0,0.6)                PITCH
+                                    fov 24°, constant
+  NEAR CAGE        0.00 → 0.80      opacity: mesh .42→.10, glass .55→.12, panes .75→.10, frame 1→.25  PITCH
+                                    (near-side half of the cage fades so it doesn't block the view)
+  COURT LAYER      0.00 → 0.80      translateY  0px → -60px (canvas container)       PITCH
+   (2D container)  0.35 → 0.85      opacity     1.00 → 0.55  (dim)                   linear
+  COURT LINES      0.30 → 0.70      opacity     1.00 → 0.40  (white line material)   linear
+  RACKETS + BALL   independent of p; looping rally, 4 legs × 1.3 s = 5.2 s
+                                    ball: two-arc leg (flight 62 %, bounce 38 %), heights 1.9 m / 0.6 m
+                                    rackets: idle drift (sin, ±0.25 m) + swing pulse on hit (0.25 s)
+                   0.00 → 0.80      racket pose follows the eased pitch k: top view flat (face up,
+                                    y 0.75 m, swing tilt rotX −0.6·hit) → front view upright (rotX 90°,
+                                    y 1.55 m, face to the net, forehand swing rotY ±0.9·hit)   PITCH
+  CHECK-AVAIL BTN  sits ON the net: top = projected screen-y of the net tape (0, 0.9, 0); left/width = projected
+                                    net ends (±5.15, 0.9, 0) so it spans post to post, recomputed per frame
+                                    flat shadow 0 8px 0 #1B2A47 (press: y +8, shadow 0)
+                   0.00 → 0.25      opacity     1 → 0                                linear
+                   0.00 → 0.30      translateY  0 → 24px,  scale 1 → 0.96            linear
+  BALL LAYER       the ball renders in a 2nd transparent WebGL canvas (same camera) stacked ABOVE the
+                                    button (z 3) and below the sheet (z 4), so the rally flies over the button.
+                                    Follows the court layer's translateY / opacity exactly.
+  BOOKING SHEET    0.25 → 0.80      translateY  360px → 0   (280px card, centred; frosted rgba bg .35 + blur 18px)  PITCH
+                   0.25 → 0.45      opacity     0 → 1                                linear
+                   0.25 → 0.80      scale       0.92 → 1                             PITCH
+  DAY PILLS (10, 38px wide, horizontal scroll, ~6 visible)
+                   stagger 0.035    pill i: start = 0.45 + i·0.035, length 0.22      linear (fade + rise)
+                                    opacity 0 → 1, translateY 14px → 0
+                                    pill 0: 0.450→0.670 … pill 9: 0.765→0.985
+  TIME GRID (8 rows, vertical scroll, 196px tall, ~4 visible; rows ≥ 4 share row 3's slice)
+                   stagger 0.06     row r: start = 0.58 + r·0.06, length 0.28        linear (fade + rise + scale)
+                                    opacity 0 → 1, translateY 18px → 0, scale 0.96 → 1
+                                    row 0: 0.58→0.86 … row 3+: 0.76→1.00
+  SCROLL EDGE FADES  static          CSS mask-image: days 14px in / 22px out (horizontal),
+                                    times 12px top / 28px bottom (vertical). Leading fade is 0px while
+                                    scrollTop / scrollLeft < 2 (no fade at rest). RN: MaskedView + LinearGradient.
+
+  PITCH ease (camera, court layer, sheet): direction-aware.
+    reverse: cubic-bezier(0.22, 1.00, 0.36, 1.00) over the element's old 0→0.8 slice (remapped inside the 0→1 slice)
+    play:    cubic-bezier(0.45, 0.00, 0.55, 1.00) over the full slice, so every element settles with the spring
+    Applied to each element's normalised slice (0..1 within its own [a, b]).
+
+  Play / reverse driver: a spring on `p` itself, not a duration —
+    type: spring, stiffness: 60, damping: 18, mass: 1.2   (ζ ≈ 1.06, no overshoot, ≈ 1.6 s to settle)
+    RN: withSpring(target, { stiffness: 60, damping: 18, mass: 1.2 })
+  Scrubber writes `p` directly (linear).
+
+  Static states use Motion variants: day pill `idle | selected`, slot `whileTap`.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Touch Padel · Court → Booking transition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=Mulish:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/framer-motion@11.11.17/dist/framer-motion.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.2/babel.min.js" crossorigin></script>
+<script type="module">
+  import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+  window.THREE = THREE; window.dispatchEvent(new Event('three-ready'));
+</script>
+<style>
+  body{margin:0;background:#E9EDF3;font-family:'Mulish',system-ui,sans-serif;color:#1B2A47;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 0}
+  button{cursor:pointer;font-family:inherit}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:99px;background:#D6DEEA;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#3360AB;border:3px solid #fff;box-shadow:0 1px 3px rgba(27,42,71,.3);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#3360AB;border:3px solid #fff;box-shadow:0 1px 3px rgba(27,42,71,.3);cursor:pointer}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect } = React;
+const { motion, useMotionValue, useTransform, useMotionValueEvent, animate, cubicBezier } = window.Motion;
+
+// ── Tokens (light theme of the Touch Padel app) ────────────────────────────
+const T = {
+  bg:'#F3F5F9', card:'#FFFFFF', sub:'#EDF0F5', line:'#E2E8F2', line2:'#D6DEEA',
+  ink:'#1B2A47', mut:'#5A6B8C', fnt:'#8494B2', fnt2:'#98A6BF',
+  blue:'#3360AB', lime:'#A5D06F', limeInk:'#1E3311', gstrong:'#4C7F19',
+  amb:'#FAF1DC', ambLine:'#EAD9A8', ambStrong:'#8A6116',
+};
+
+// ── Motion spec (keep in sync with the header comment) ─────────────────────
+// pitch ease. Reverse keeps its original feel exactly (ease-out over the old 0–0.8 slice, remapped);
+// play uses a symmetric ease-in-out over the full slice so it settles together with the spring, no early stop.
+let DIR = 1;
+const EASE_OUT = cubicBezier(0.22, 1, 0.36, 1), EASE_IO = cubicBezier(0.45, 0, 0.55, 1);
+const pitch = a => t => DIR > 0 ? EASE_IO(t) : EASE_OUT(Math.min(1, t * (1 - a) / (0.8 - a)));
+const PITCH = pitch(0), PITCH_SHEET = pitch(0.25);
+const SPRING = { type:'spring', stiffness:60, damping:18, mass:1.2, restDelta:0.0005, restSpeed:0.002 };
+const SPEC = {
+  camera: { slice:[0.00,1.00], elevation:[89.5,40], azimuth:[0,28], distance:[60,46], lookZ:[-0.8,0.6], fov:24 },
+  nearCage: { fence:[.42,.10], glass:[.55,.12], frame:[1,.25] },
+  court:  { slice:[0.00,1.00], y:[0,-60], dim:[0.35,0.85], opacity:[1,0.55] },
+  lines:  { range:[0.30,0.70], opacity:[1,0.40] },
+  button: { fade:[0.00,0.25], move:[0.00,0.30], y:[0,24], scale:[1,0.96] },
+  sheet:  { move:[0.25,1.00], y:[360,0], scale:[0.92,1], fade:[0.25,0.45] },
+  pills:  { start:0.45, stagger:0.035, length:0.22, y:14 },
+  grid:   { start:0.58, stagger:0.06,  length:0.28, y:18, scale:0.96 },
+};
+const seg = (p, range, out, ease) => useTransform(p, range, out, { clamp:true, ease });
+const clamp01 = v => Math.min(1, Math.max(0, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const slice = (v, [a, b]) => clamp01((v - a) / (b - a));
+
+// ── Data ───────────────────────────────────────────────────────────────────
+const DAYS  = [['Mon',7],['Tue',8],['Wed',9],['Thu',10],['Fri',11],['Sat',12],['Sun',13],['Mon',14],['Tue',15],['Wed',16]];
+const SLOTS = [
+  { t:'08:00', state:'free',    cap:'2 courts free' }, { t:'09:00', state:'booked' },
+  { t:'10:00', state:'free',    cap:'2 courts free' }, { t:'11:00', state:'free',    cap:'1 court left' },
+  { t:'12:00', state:'booked' },                       { t:'13:00', state:'free',    cap:'2 courts free' },
+  { t:'14:00', state:'booked' },                       { t:'15:00', state:'blocked' },
+  { t:'16:00', state:'free',    cap:'2 courts free' }, { t:'17:00', state:'free',    cap:'1 court left' },
+  { t:'18:00', state:'free',    cap:'2 courts free' }, { t:'19:00', state:'booked' },
+  { t:'20:00', state:'free',    cap:'1 court left' },  { t:'21:00', state:'free',    cap:'2 courts free' },
+  { t:'22:00', state:'blocked' },                      { t:'23:00', state:'free',    cap:'2 courts free' },
+];
+
+// ── three.js court scene ───────────────────────────────────────────────────
+// Court: 10 × 20 m, net on z = 0, back walls at z = ±10, side walls at x = ±5.
+// Glass 3 m high (+1 m mesh above) on the back walls and the 4 m corner returns;
+// 3 m mesh fence along the side middles. Rackets and ball are stylised ~2× real size.
+function buildCourt(el, ballEl, p, netY) {
+  const THREE = window.THREE, W = 390, H = 844, DEG = Math.PI / 180;
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.setSize(W, H);
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  el.appendChild(renderer.domElement);
+  // overlay renderer: ball only, stacked above the DOM button
+  const renderer2 = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer2.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer2.setSize(W, H);
+  ballEl.appendChild(renderer2.domElement);
+  const scene = new THREE.Scene(); window.__scene = scene;
+  const ballScene = new THREE.Scene();
+  ballScene.add(new THREE.HemisphereLight(0xffffff, 0xB9C8E0, 0.95));
+  const sun2 = new THREE.DirectionalLight(0xffffff, 1.4); sun2.position.set(6, 30, 10); ballScene.add(sun2);
+  const cam = new THREE.PerspectiveCamera(SPEC.camera.fov, W / H, 5, 200);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xB9C8E0, 0.95));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(6, 30, 10); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0002; sun.shadow.normalBias = 0.05; sun.shadow.radius = 4;
+  Object.assign(sun.shadow.camera, { left:-8, right:8, top:12, bottom:-12, near:5, far:60 }); scene.add(sun);
+
+  const Mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color:c, roughness:.85, metalness:0, ...o });
+  const add = (geo, mat, x, y, z, shadow) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = !!shadow; scene.add(m); return m; };
+
+  // ground + turf (base top sits 6 cm below the turf; lines use polygonOffset — no z-fighting)
+  const base = add(new THREE.BoxGeometry(11.4, 0.3, 21.4), Mat(0x1B2A47), 0, -0.21, 0);
+  const turf = add(new THREE.PlaneGeometry(10, 20), Mat(0x3A63B8), 0, 0, 0); turf.rotation.x = -Math.PI / 2; turf.receiveShadow = true;
+
+  // lines (opacity driven by p)
+  const lineMat = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:1, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 });
+  const line = (w, d, x, z) => { const m = add(new THREE.PlaneGeometry(w, d), lineMat, x, 0.02, z); m.rotation.x = -Math.PI / 2; };
+  const LW = 0.1;
+  line(10, LW, 0, -10 + LW / 2); line(10, LW, 0, 10 - LW / 2); line(LW, 20, -5 + LW / 2, 0); line(LW, 20, 5 - LW / 2, 0);
+  line(10, LW, 0, -7); line(10, LW, 0, 7); line(LW, 3, 0, -8.5); line(LW, 3, 0, 8.5);
+
+  // net
+  const netMat = new THREE.MeshBasicMaterial({ color:0x1B2A47, wireframe:true, transparent:true, opacity:.55 });
+  add(new THREE.PlaneGeometry(10.3, 0.86, 62, 6), netMat, 0, 0.45, 0);
+  add(new THREE.BoxGeometry(10.3, 0.07, 0.035), Mat(0xffffff, { roughness:.5 }), 0, 0.9, 0);
+  add(new THREE.BoxGeometry(0.06, 0.9, 0.04), Mat(0xffffff), 0, 0.45, 0);
+  [-5.3, 5.3].forEach(x => add(new THREE.CylinderGeometry(0.07, 0.07, 1.05, 14), Mat(0x1B2A47, { roughness:.4 }), x, 0.52, 0));
+
+  // cage: glass + mesh
+  // cage: lime glass panels with white "window" squares (brand sticker) + dark mesh fence
+  const glassMat0 = new THREE.MeshStandardMaterial({ color:0xA5D06F, transparent:true, opacity:.55, roughness:.6, side:THREE.DoubleSide, depthWrite:false }), glassMat = glassMat0;
+  const paneMat0 = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.75, side:THREE.DoubleSide, depthWrite:false });
+  // only rackets + ball cast shadows
+  const fenceMat0 = new THREE.MeshBasicMaterial({ color:0x1B2A47, wireframe:true, transparent:true, opacity:.42 }), fenceMat = fenceMat0;
+  const frameMat = Mat(0x1B2A47, { roughness:.4, transparent:true });
+  // near-side (z > 0) cage gets its own materials so it can fade as the camera pitches
+  const glassNear = glassMat.clone(), fenceNear = fenceMat.clone(), frameNear = frameMat.clone(), paneNear = paneMat0.clone();
+  const panel = (w, h, x, y, z, ry, mat, mesh) => { const m = add(new THREE.PlaneGeometry(w, h, mesh ? Math.round(w * 4) : 1, mesh ? Math.round(h * 4) : 1), mat, x, y, z); m.rotation.y = ry; return m; };
+  // white window squares inset in each 2 m glass bay
+  const windows = (w, h, x, y, z, ry, mat) => { const n = Math.round(w / 2), dx = Math.cos(ry), dz = -Math.sin(ry); for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * 2; panel(1.4, h - 0.8, x + dx * o, y, z + dz * o, ry, mat); } };
+  let frameMat_ = frameMat;
+  const capMat = Mat(0x9FE0C8, { roughness:.5 });
+  const post = (x, z, h) => { add(new THREE.BoxGeometry(0.1, h, 0.1), frameMat_, x, h / 2, z); add(new THREE.BoxGeometry(0.18, 0.08, 0.18), capMat, x, h + 0.04, z); };
+  const rail = (len, x, y, z, ry) => { const m = add(new THREE.BoxGeometry(len, 0.08, 0.08), frameMat_, x, y, z); m.rotation.y = ry; };
+  [-1, 1].forEach(s => {
+    const glassMat = s > 0 ? glassNear : glassMat0, fenceMat = s > 0 ? fenceNear : fenceMat0, paneMat = s > 0 ? paneNear : paneMat0; frameMat_ = s > 0 ? frameNear : frameMat;
+    panel(10, 3, 0, 1.5, s * 10, 0, glassMat); windows(10, 3, 0, 1.5, s * 10 - s * 0.01, 0, paneMat);
+    panel(10, 1, 0, 3.5, s * 10, 0, fenceMat, true);
+    rail(10.1, 0, 4, s * 10, 0); rail(10.1, 0, 3, s * 10, 0);
+    [-2.5, 0, 2.5].forEach(x => post(x, s * 10, 4));
+    [-1, 1].forEach(sx => {
+      const x = sx * 5;
+      panel(4, 3, x, 1.5, s * 8, Math.PI / 2, glassMat); windows(4, 3, x - sx * 0.01, 1.5, s * 8, Math.PI / 2, paneMat);
+      panel(4, 1, x, 3.5, s * 8, Math.PI / 2, fenceMat, true);
+      panel(6, 3, x, 1.5, s * 3, Math.PI / 2, fenceMat, true);
+      rail(4.1, x, 4, s * 8, Math.PI / 2); rail(4.1, x, 3, s * 8, Math.PI / 2); rail(6.1, x, 3, s * 3, Math.PI / 2);
+      post(x, s * 10, 4); post(x, s * 6, 4); post(x, s * 2, 3);
+    });
+  });
+
+  // racket (brand sticker): blue frame + blue face, white holes, lime grip, dark cap
+  const makeRacket = () => {
+    const g = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 14, 48), Mat(0x1B2A47, { roughness:.45 })); frame.rotation.x = Math.PI / 2;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.40, 0.045, 14, 48), Mat(0x6EC3F0, { roughness:.4 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.02;
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.05, 48), Mat(0x3360AB, { roughness:.6 }));
+    g.add(frame, rim, face);
+    const holeMat = Mat(0xffffff, { roughness:.6 });
+    for (let r = 0; r < 3; r++) for (let i = 0; i < (r === 0 ? 1 : r * 6); i++) {
+      const a = i / (r * 6 || 1) * Math.PI * 2, rad = r * 0.11;
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 10), holeMat); h.position.set(Math.cos(a) * rad, 0, Math.sin(a) * rad); g.add(h);
+    }
+    const throat = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.2), Mat(0x3360AB, { roughness:.45 })); throat.position.z = 0.5;
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.6, 14), Mat(0xA5D06F, { roughness:.6 })); handle.rotation.x = Math.PI / 2; handle.position.z = 0.9;
+    [0.72, 0.86, 1.0, 1.14].forEach(z => { const w = new THREE.Mesh(new THREE.TorusGeometry(0.076, 0.012, 8, 24), Mat(0x1B2A47)); w.position.z = z; g.add(w); });
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 14), Mat(0x1B2A47)); cap.rotation.x = Math.PI / 2; cap.position.z = 1.22;
+    g.add(throat, handle, cap);
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
+    return g;
+  };
+  // players: far pair (z<0) handles point to -z, near pair to +z
+  const PLAYERS = [
+    { x:-2.3, z:-6.3, face:-1, seed:0.0 }, { x:2.3, z:-6.3, face:-1, seed:1.7 },
+    { x:-2.3, z: 6.3, face: 1, seed:3.1 }, { x:2.3, z: 6.3, face: 1, seed:4.4 },
+  ].map(pl => {
+    const g = makeRacket(); g.scale.setScalar(1.15); g.position.set(pl.x, 0.75, pl.z); g.rotation.order = 'YXZ';
+    const yaw = (pl.face < 0 ? 0 : Math.PI) + (pl.x < 0 ? -0.3 * pl.face : 0.3 * pl.face); g.rotation.y = yaw;
+    scene.add(g); return { ...pl, g, yaw, baseY:0.75 };
+  });
+
+  // ball (brand sticker): lime with a white + blue wavy seam
+  const ball = new THREE.Group();
+  ball.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 24), Mat(0xA5D06F, { roughness:.55 })));
+  const seamW = new THREE.Mesh(new THREE.TorusGeometry(0.215, 0.022, 8, 64), Mat(0xF3F5F9, { roughness:.6 })); seamW.rotation.set(0.9, 0.4, 0);
+  const seamB = new THREE.Mesh(new THREE.TorusGeometry(0.212, 0.014, 8, 64), Mat(0x3360AB, { roughness:.6 })); seamB.rotation.set(0.9, 0.4, 0); seamB.position.set(0.012, -0.012, 0.01);
+  ball.add(seamW, seamB);
+  ballScene.add(ball);
+  // trail: 8 fading ghosts of recent ball positions
+  const TRAIL_N = 36, trail = [], hist = [];
+  for (let i = 0; i < TRAIL_N; i++) { const k = 1 - i / TRAIL_N; const m = new THREE.Mesh(new THREE.SphereGeometry(0.22 * (0.25 + 0.7 * k), 12, 10), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.10 * k, depthWrite:false })); m.visible = false; ballScene.add(m); trail.push(m); }
+  // invisible caster in the main scene so the ball still throws a real shadow on the turf
+  const caster = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), new THREE.MeshBasicMaterial({ colorWrite:false, depthWrite:false }));
+  caster.castShadow = true; scene.add(caster);
+  const shade = new THREE.Mesh(new THREE.CircleGeometry(0.24, 24), new THREE.MeshBasicMaterial({ color:0x1B2A47, transparent:true, opacity:.28 })); shade.rotation.x = -Math.PI / 2; ballScene.add(shade);
+
+  // rally: A(0) → D(3) → B(1) → C(2) → A …
+  const LEG = 1.3, ORDER = [0, 3, 1, 2];
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const clock = new THREE.Clock();
+  const tmpUp = new THREE.Vector3(), netTmp = new THREE.Vector3(), netL = new THREE.Vector3();
+  let camK = 0; // eased pitch progress, shared with the rally so rackets stand up in the front view
+
+  const updateCamera = () => {
+    const k = PITCH(slice(p.get(), SPEC.camera.slice)), c = SPEC.camera; camK = k;
+    const el = lerp(c.elevation[0], c.elevation[1], k) * DEG, az = lerp(c.azimuth[0], c.azimuth[1], k) * DEG, d = lerp(c.distance[0], c.distance[1], k);
+    cam.position.set(d * Math.cos(el) * Math.sin(az), d * Math.sin(el), d * Math.cos(el) * Math.cos(az));
+    tmpUp.set(0, k, -(1 - k)).normalize(); cam.up.copy(tmpUp);
+    cam.lookAt(0, 0, lerp(c.lookZ[0], c.lookZ[1], k));
+    cam.updateMatrixWorld(); netTmp.set(0, 0.9, 0).project(cam); netY.y.set((1 - netTmp.y) / 2 * H);
+    netL.set(-5.15, 0.9, 0).project(cam); netTmp.set(5.15, 0.9, 0).project(cam);
+    netY.x.set((netL.x + 1) / 2 * W); netY.w.set((netTmp.x - netL.x) / 2 * W);
+    lineMat.opacity = lerp(SPEC.lines.opacity[0], SPEC.lines.opacity[1], slice(p.get(), SPEC.lines.range));
+    const n = SPEC.nearCage;
+    fenceNear.opacity = lerp(n.fence[0], n.fence[1], k); glassNear.opacity = lerp(n.glass[0], n.glass[1], k); frameNear.opacity = lerp(n.frame[0], n.frame[1], k); paneNear.opacity = lerp(.75, .1, k);
+  };
+  const updateRally = t => {
+    const legIdx = Math.floor(t / LEG) % 4, u = (t % LEG) / LEG;
+    const from = PLAYERS[ORDER[legIdx]], to = PLAYERS[ORDER[(legIdx + 1) % 4]];
+    const A = V(from.x, from.g.position.y, from.z), B = V(to.x, to.g.position.y, to.z);
+    const bounce = A.clone().lerp(B, 0.8); bounce.y = 0.22;
+    let pos;
+    if (u < 0.62) { const w = u / 0.62; pos = A.clone().lerp(bounce, w); pos.y = lerp(A.y, bounce.y, w) + 1.9 * Math.sin(Math.PI * w); }
+    else { const w = (u - 0.62) / 0.38; pos = bounce.clone().lerp(B, w); pos.y = lerp(bounce.y, B.y, w) + 0.6 * Math.sin(Math.PI * w); }
+    ball.position.copy(pos); caster.position.copy(pos);
+    if (u < 0.02) hist.length = 0; // new leg: reset trail
+    hist.unshift(pos.clone()); if (hist.length > 24) hist.pop();
+    // 36 ghosts spread over the last 22 frames: interpolate between samples for a dense, smooth streak
+    trail.forEach((m, i) => { const f = (i + 1) * 22 / TRAIL_N, j = Math.floor(f), a = hist[j], b = hist[j + 1]; m.visible = !!(a && b); if (a && b) m.position.lerpVectors(a, b, f - j); });
+    ball.rotation.x += 0.12; ball.rotation.z += 0.07;
+    // disc lands where the sun (6,30,10) would cast it: offset opposite the light, growing with height
+    const hs = 1 - Math.min(1, pos.y / 3); shade.position.set(pos.x - pos.y * 0.2, 0.012, pos.z - pos.y * 0.33); shade.scale.setScalar(0.8 + 0.3 * hs); shade.material.opacity = 0.16 + 0.14 * hs;
+    PLAYERS.forEach((pl, i) => {
+      pl.g.position.x = pl.x + Math.sin(t * 0.9 + pl.seed) * 0.25;
+      pl.g.position.z = pl.z + Math.cos(t * 0.7 + pl.seed) * 0.2;
+      pl.g.position.y = lerp(pl.baseY, 1.55, camK) + Math.sin(t * 1.6 + pl.seed) * 0.06;
+      const hit = (i === ORDER[legIdx] && u < 0.19) ? Math.sin(u / 0.19 * Math.PI) : (i === ORDER[(legIdx + 1) % 4] && u > 0.86) ? Math.sin((u - 0.86) / 0.14 * Math.PI) * 0.6 : 0;
+      // top view: flat, face up, small swing tilt. front view (camK→1): upright, face to the net, forehand swing about Y
+      pl.g.rotation.x = camK * Math.PI / 2 + lerp(-0.6, 0.35, camK) * hit;
+      pl.g.rotation.y = pl.yaw + camK * 0.9 * hit * (pl.x < 0 ? 1 : -1);
+      pl.g.rotation.z = (1 - camK) * 0.12 * Math.sin(t * 1.1 + pl.seed);
+    });
+  };
+  let raf;
+  const tick = () => { updateCamera(); updateRally(clock.getElapsedTime()); renderer.render(scene, cam); renderer2.render(ballScene, cam); raf = requestAnimationFrame(tick); };
+  tick();
+  return () => { cancelAnimationFrame(raf); renderer.dispose(); renderer2.dispose(); el.removeChild(renderer.domElement); ballEl.removeChild(renderer2.domElement); };
+}
+
+function Court({ p, netY }) {
+  const ref = useRef(null), ballRef = useRef(null);
+  const y       = seg(p, SPEC.court.slice, SPEC.court.y, PITCH);
+  const opacity = seg(p, SPEC.court.dim,   SPEC.court.opacity);
+  useEffect(() => {
+    let dispose = null, alive = true;
+    const start = () => { if (alive && ref.current && ballRef.current) dispose = buildCourt(ref.current, ballRef.current, p, netY); };
+    if (window.THREE) start(); else window.addEventListener('three-ready', start, { once:true });
+    return () => { alive = false; if (dispose) dispose(); };
+  }, []);
+  return <>
+    <motion.div ref={ref} style={{ position:'absolute', inset:0, y, opacity }}/>
+    <motion.div ref={ballRef} style={{ position:'absolute', inset:0, y, opacity, zIndex:3, pointerEvents:'none' }}/>
+  </>;
+}
+
+// ── Day pill (variants for the static selected state) ──────────────────────
+const pillVariants = {
+  idle:     { backgroundColor:T.card, borderColor:T.line, color:T.ink },
+  selected: { backgroundColor:T.blue, borderColor:T.blue, color:'#FFFFFF' },
+};
+function DayPill({ p, i, dow, num, selected, onTap }) {
+  const a = SPEC.pills.start + i * SPEC.pills.stagger, b = a + SPEC.pills.length;
+  const opacity = seg(p, [a,b], [0,1]);
+  const y       = seg(p, [a,b], [SPEC.pills.y,0]);
+  return (
+    <motion.button onClick={onTap} variants={pillVariants} initial={false} animate={selected ? 'selected' : 'idle'}
+      transition={{ duration:0.18 }} whileTap={{ scale:0.94 }}
+      style={{ opacity, y, flex:'none', width:38, display:'flex', flexDirection:'column', alignItems:'center', gap:0,
+               padding:'6px 0', borderRadius:10, border:'1.5px solid', background:T.card }}>
+      <span style={{ font:"700 9px 'Mulish'", letterSpacing:'.05em', textTransform:'uppercase', opacity:.75 }}>{dow}</span>
+      <span style={{ font:"800 14px 'Archivo'" }}>{num}</span>
+    </motion.button>
+  );
+}
+
+// ── Time slot ──────────────────────────────────────────────────────────────
+function Slot({ s }) {
+  const free = s.state === 'free', booked = s.state === 'booked';
+  const bg  = free ? T.card : booked ? T.sub : T.amb;
+  const bd  = free ? T.line2 : booked ? T.sub : T.ambLine;
+  const col = free ? T.ink : booked ? T.fnt2 : T.ambStrong;
+  const sub = free ? '25,000 IQD' : booked ? 'Booked' : 'Blocked';
+  const subCol = free ? T.gstrong : col;
+  return (
+    <motion.button disabled={!free} whileTap={free ? { scale:0.96 } : undefined}
+      style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:1, padding:'7px 4px', minHeight:40,
+               borderRadius:10, background:bg, border:`1.5px solid ${bd}`, color:col, cursor:free?'pointer':'default' }}>
+      <span style={{ font:"800 13px 'Archivo'" }}>{s.t}</span>
+      <span style={{ font:"700 9.5px 'Mulish'", color:subCol }}>{sub}</span>
+      {free && <span style={{ font:"700 8.5px 'Mulish'", letterSpacing:'.03em', color: s.cap.startsWith('1') ? T.ambStrong : T.fnt }}>{s.cap}</span>}
+    </motion.button>
+  );
+}
+function SlotRow({ p, r, slots }) {
+  const a = SPEC.grid.start + r * SPEC.grid.stagger, b = a + SPEC.grid.length;
+  const opacity = seg(p, [a,b], [0,1]);
+  const y       = seg(p, [a,b], [SPEC.grid.y,0]);
+  const scale   = seg(p, [a,b], [SPEC.grid.scale,1]);
+  return (
+    <motion.div style={{ opacity, y, scale, display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+      {slots.map(s => <Slot key={s.t} s={s}/>)}
+    </motion.div>
+  );
+}
+
+// ── Screen ─────────────────────────────────────────────────────────────────
+function Screen({ p, onForward, onBack }) {
+  const [day, setDay] = useState(0);
+  const netY = { y:useMotionValue(501), x:useMotionValue(25), w:useMotionValue(340) };
+  const b = SPEC.button, sh = SPEC.sheet;
+  const btnOpacity = seg(p, b.fade, [1,0]);
+  const btnY       = seg(p, b.move, b.y);
+  const btnScale   = seg(p, b.move, b.scale);
+  const sheetY     = seg(p, sh.move, sh.y, PITCH_SHEET);
+  const sheetScale = seg(p, sh.move, sh.scale, PITCH_SHEET);
+  const sheetOp    = seg(p, sh.fade, [0,1]);
+  const backOp     = seg(p, [0.2,0.5], [0,1]);
+  const [gridTop, setGridTop] = useState(true);
+  const [daysStart, setDaysStart] = useState(true);
+  const rows = Array.from({ length: SLOTS.length / 2 }, (_, r) => SLOTS.slice(r*2, r*2+2));
+  // edge fades: mask the scrollers so content dissolves at the scroll ends; the leading fade only appears once scrolled
+  const mask = v => ({ maskImage:v, WebkitMaskImage:v });
+  const maskX = mask(`linear-gradient(90deg, transparent 0, #000 ${daysStart ? 0 : 14}px, #000 calc(100% - 22px), transparent 100%)`);
+  const maskY = mask(`linear-gradient(180deg, transparent 0, #000 ${gridTop ? 0 : 12}px, #000 calc(100% - 28px), transparent 100%)`);
+  return (
+    <div style={{ position:'relative', width:390, height:844, background:T.bg, borderRadius:44, overflow:'hidden',
+                  boxShadow:'0 0 0 1px #D6DEEA, 0 24px 60px rgba(27,42,71,.18)' }}>
+      <Court p={p} netY={netY}/>
+
+      {/* header */}
+      <div style={{ position:'absolute', top:58, left:0, right:0, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, zIndex:3 }}>
+        <motion.button onClick={onBack} style={{ opacity:backOp, background:T.card, border:`1px solid ${T.line}`, borderRadius:99, width:34, height:34, font:"700 15px 'Mulish'", color:T.ink }}>‹</motion.button>
+        <div style={{ font:"800 15px 'Archivo'", color:T.ink }}>Court 1</div>
+      </div>
+
+      {/* primary button — court view, sits on the net (top follows the projected net tape) */}
+      <motion.div style={{ opacity:btnOpacity, y:btnY, scale:btnScale, top:netY.y, left:netY.x, width:netY.w, position:'absolute', marginTop:-24, zIndex:2 }}>
+        <motion.button onClick={onForward} whileTap={{ y:8, boxShadow:'0 0px 0 #1B2A47' }} transition={{ duration:0.08 }}
+          style={{ width:'100%', display:'block', background:T.lime, color:T.limeInk, border:'none', borderRadius:14, padding:'16px 16px',
+                   font:"800 14px/16px 'Archivo'", letterSpacing:'.05em', textTransform:'uppercase', boxShadow:'0 8px 0 #1B2A47' }}>Check availability</motion.button>
+      </motion.div>
+
+      {/* booking card — booking view, floats mid-screen over the court */}
+      <motion.div style={{ y:sheetY, scale:sheetScale, opacity:sheetOp, position:'absolute', left:55, top:'50%', marginTop:-150, width:280, zIndex:4,
+                           background:'rgba(243,245,249,.35)', backdropFilter:'blur(18px)', WebkitBackdropFilter:'blur(18px)', border:'1px solid rgba(255,255,255,.55)', borderRadius:24,
+                           boxShadow:'0 20px 50px rgba(27,42,71,.20)', display:'flex', flexDirection:'column', padding:'2px 0 4px' }}>
+        <div style={{ padding:'14px 14px 2px', font:"900 17px/1.05 'Archivo'", textTransform:'uppercase', color:T.ink }}>Pick a time</div>
+        <div onScroll={e => setDaysStart(e.currentTarget.scrollLeft < 2)} style={{ display:'flex', gap:4, padding:'6px 10px 0', overflowX:'auto', scrollbarWidth:'none', WebkitOverflowScrolling:'touch', ...maskX }}>
+          {DAYS.map(([dow,num], i) => <DayPill key={dow+num} p={p} i={i} dow={dow} num={num} selected={day===i} onTap={() => setDay(i)}/>)}
+        </div>
+        <div onScroll={e => setGridTop(e.currentTarget.scrollTop < 2)} style={{ margin:'10px 0 0', padding:'0 10px', height:196, overflowY:'auto', scrollbarWidth:'none', WebkitOverflowScrolling:'touch', display:'flex', flexDirection:'column', gap:6, ...maskY }}>
+          {rows.map((slots, r) => <SlotRow key={r} p={p} r={Math.min(r, 3)} slots={slots}/>)}
+          <div style={{ flex:'none', height:14 }}></div>
+        </div>
+        <div style={{ padding:'10px 14px 12px', fontSize:10, color:T.fnt, textAlign:'center', lineHeight:1.5 }}>Two courts per slot · your court is assigned at the desk</div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── App: progress value + inspection controls ──────────────────────────────
+function App() {
+  const p = useMotionValue(0);
+  const [val, setVal] = useState(0);
+  useMotionValueEvent(p, 'change', v => setVal(v));
+  const ctrl = useRef(null);
+  const stop = () => { if (ctrl.current) ctrl.current.stop(); };
+  const to = target => { stop(); DIR = target > p.get() ? 1 : -1; ctrl.current = animate(p, target, SPRING); };
+  const scrub = e => { stop(); p.set(parseFloat(e.target.value)); };
+  const btn = { background:T.card, border:`1px solid ${T.line2}`, borderRadius:10, padding:'8px 14px', font:"800 11.5px 'Archivo'", letterSpacing:'.04em', textTransform:'uppercase', color:T.ink };
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:22 }}>
+      <Screen p={p} onForward={() => to(1)} onBack={() => to(0)}/>
+      <div style={{ width:390, display:'flex', flexDirection:'column', gap:12 }}>
+        <input type="range" min="0" max="1" step="0.001" value={val} onChange={scrub}/>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <button style={btn} onClick={() => to(1)}>▶ Play</button>
+          <button style={btn} onClick={() => to(0)}>◀ Reverse</button>
+          <button style={{ ...btn, color:T.mut }} onClick={() => { stop(); p.set(0); }}>Reset</button>
+          <div style={{ marginLeft:'auto', font:"600 12px ui-monospace,Menlo,monospace", color:T.mut }}>p = {val.toFixed(3)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
