@@ -1,8 +1,10 @@
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useRef } from 'react';
+import { RefreshControl, ScrollView, View, type LayoutChangeEvent } from 'react-native';
+import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
+import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../src/features/availability/useAvailabilityBooking';
 import { mapErrorToKey } from '../src/features/booking/errors';
@@ -29,10 +31,26 @@ const GRID_INSET = 18 + space.l;
  * All state and handlers live in useAvailabilityBooking — this file is layout.
  */
 export default function AvailabilityScreen() {
-  const { t, locale } = useLocale();
+  const { t, dir, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
   const a = useAvailabilityBooking({ origin: 'screen' });
+
+  // Open on the first time that has not started yet, the same as the booking
+  // sheet: a trading night runs 09:00 into the small hours, so an evening guest
+  // would otherwise scroll past a dead day to reach tonight. Rows vary in height
+  // (a capacity line makes one taller), so the target row reports its own y.
+  // `key` remounts the list per day/duration, which is what makes the homing run
+  // exactly once per list instead of fighting a scroll already in progress.
+  const gridRef = useRef<ScrollView>(null);
+  const gridKey = `${a.date}|${a.durationMin}`;
+  const homedFor = useRef<string | null>(null);
+  const homeGrid = (r: number) => (e: LayoutChangeEvent) => {
+    if (r !== a.openRow || homedFor.current === gridKey) return;
+    homedFor.current = gridKey;
+    const { y } = e.nativeEvent.layout;
+    if (y > 0) gridRef.current?.scrollTo({ y, animated: false });
+  };
 
   return (
     // Unpadded so the day strip can scroll out under the screen edge; every
@@ -63,6 +81,12 @@ export default function AvailabilityScreen() {
         chips are a fixed-height control; they never give up height.
       */}
       <ScrollView
+        // A fresh mount starts at the leading edge on both platforms; a strip
+        // already on screen keeps its scroll offset across a language switch
+        // (this screen sits under Welcome/Sign-up while a guest flips to
+        // Arabic), and on Android that offset is physical — the strip would
+        // then show its logical END. Remount on the direction instead.
+        key={dir}
         horizontal
         showsHorizontalScrollIndicator={false}
         style={{ flexGrow: 0, flexShrink: 0 }}
@@ -151,6 +175,8 @@ export default function AvailabilityScreen() {
         </View>
       ) : (
         <ScrollView
+          key={gridKey}
+          ref={gridRef}
           style={{ flex: 1 }}
           refreshControl={
             <RefreshControl
@@ -174,6 +200,7 @@ export default function AvailabilityScreen() {
               {a.rows.map((row, i) => (
                 <View
                   key={row[0]?.startAt.toISOString() ?? i}
+                  onLayout={homeGrid(i)}
                   style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}
                 >
                   {row.map((cell) => (
@@ -212,7 +239,7 @@ export default function AvailabilityScreen() {
           a.notice === 'horizon' ? t('booking.deskOnlyTitle') : t('booking.slotUnavailableTitle')
         }
         body={a.notice === 'horizon' ? t('booking.deskOnlyBody') : t('booking.blockedBody')}
-        callLabel={a.phone ? t('booking.callPhone', { phone: a.phone }) : null}
+        callLabel={a.phone ? t('booking.callPhone', { phone: isolate(a.phone) }) : null}
         onCall={a.onCall}
         onClose={a.dismissNotice}
       />

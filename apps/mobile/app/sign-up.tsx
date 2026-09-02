@@ -75,9 +75,10 @@ function SignUpScreen() {
     setBusy(true);
     try {
       await signUp(supabase, { fullName, email, phone, password, preferredLang }, verifyRedirect());
-      // The chosen language becomes the app language; direction is reconciled
-      // on the next launch rather than flipped under the verify screen.
-      await setLocale(preferredLang, { flip: false });
+      // The chosen language becomes the app language — strings, faces and
+      // layout direction switch in one commit, under a short crossfade, before
+      // the verify screen comes up.
+      await setLocale(preferredLang);
       router.replace({ pathname: '/verify-email', params: { email } });
     } catch (err) {
       setError(t(mapErrorToKey(err)));

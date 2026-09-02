@@ -569,7 +569,6 @@ export const ar: Messages = {
     language: 'اللغة',
     english: 'English',
     arabic: 'العربية',
-    rtlRestartNote: 'يُطبَّق اتجاه الواجهة الجديد بالكامل بعد إعادة تشغيل التطبيق.',
     notifications: 'الإشعارات',
     enablePush: 'تفعيل الإشعارات',
     pushRegistered: 'الإشعارات مفعّلة على هذا الجهاز.',
@@ -578,7 +577,7 @@ export const ar: Messages = {
     appearance: 'المظهر',
     light: 'فاتح',
     dark: 'داكن',
-    languageNote: 'التبديل إلى English يقلب اتجاه التطبيق كاملًا من اليسار إلى اليمين ويعيد تشغيله.',
+    languageNote: 'التبديل إلى English يقلب اتجاه التطبيق كاملًا من اليسار إلى اليمين فورًا.',
     notifBody: 'يصلك تأكيد عند الحجز، وتذكير قبل موعدك، وتنبيه إذا أُلغي أي شيء.',
     notifGranted: 'مفعّلة — تأكيدات الحجز والتذكيرات والإلغاءات.',
     notifDenied: 'الإشعارات موقوفة لهذا التطبيق. فعّلها من إعدادات النظام.',
@@ -586,10 +585,6 @@ export const ar: Messages = {
     venue: 'المكان',
     versionLine: '{name} · الإصدار {version} ({build})',
     phoneUnavailable: 'لم ينشر المكان رقم هاتف بعد.',
-    // Shown full-screen while the app applies a new language and flips
-    // direction; the user is returned to this screen straight afterwards.
-    switchingTitle: 'جارٍ تغيير اللغة…',
-    switchingBody: 'لحظة واحدة — سنعيدك إلى حيث كنت تمامًا.',
   },
   cafe: {
     menu: 'قائمة الطعام',

@@ -776,7 +776,7 @@ Rule: migrations only ever roll forward; local iteration uses `supabase db reset
 
 - `packages/db/supabase/seed.sql` — **environment-invariant reference data only**: venue_settings singleton (placeholder name), tax_groups (`Standard 0%`, `Restaurant 10%` inactive), allergen list, one owner + one staff account per role (dev password/PIN documented in the file header), device rows.
 - `packages/db/fixtures/` — **clearly-marked replaceable business data**, applied only in dev/staging by `pnpm --filter @touchpadel/db run db:fixtures`:
-  - `fixtures/courts.sql` — 4 courts (2 indoor / 2 outdoor), EN/AR names, rate rules: weekday off-peak / weekday peak (17:00–23:00) / weekend, prices in round IQD (e.g. 40 000 / 50 000 / 60 000 per hour).
+  - `fixtures/courts.sql` — 2 courts (both indoor, matching the venue’s real two), EN/AR names, rate rules: weekday off-peak / weekday peak (17:00–23:00) / weekend, prices in round IQD (e.g. 40 000 / 50 000 / 60 000 per hour).
   - `fixtures/menu.sql` — ~30 items across 6 categories (hot drinks, cold drinks, breakfast, mains, desserts, snacks), sizes on drinks, milk/shot/sides modifier groups, addon suggestions, real Arabic strings (not lorem — RTL bugs hide behind fake text).
   - `fixtures/stock.sql` — ~40 ingredients with plausible pack sizes/costs, measured-looking recipes for every fixture menu item, 2 sub-recipes (syrup, sauce), opening deliveries creating batches with staggered expiries.
   - `fixtures/tables.sql` — 12 cafe tables.

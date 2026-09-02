@@ -1,100 +1,73 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * ARABIC PAGE HEADERS.
+ * NOTHING MIRRORS BY HAND.
  *
- * Every screen's own header is `<Title>` (Book, My Bookings, Profile, and the
- * auth screens' `plain` variant). It set case, tracking and line-height from
- * the locale but never `textAlign`, so the Arabic heading rendered against the
- * physical LEFT edge while the body beneath it read right-to-left.
+ * Every screen's header is `<Title>`, and for a while it — with MicroLabel,
+ * SectionLabel, the Book tab's header row and Settings' group labels — mirrored
+ * itself: `textAlign: rtl ? 'right' : 'left'`, `alignItems: rtl ? 'flex-end' :
+ * 'flex-start'`, `flexDirection: dir === 'rtl' ? 'row-reverse' : 'row'`. That
+ * compensated for a native RTL flag that lagged the chosen language by a JS
+ * load.
  *
- * An unset `textAlign` cannot be relied on to fix that: RN resolves it through
- * `I18nManager.isRTL`, a boot-time flag that lags the CHOSEN language by one JS
- * load (see reconcileRtl in src/lib/bootPrefs.ts, and the release build where
- * `reloadForRtl` returns false and the session runs Arabic with the flag still
- * false). The same reasoning already governs MicroLabel, SectionLabel and Input
- * — this pins Title to it, plus the two header ROWS whose children would
- * otherwise keep their physical order.
+ * The layout direction now lives on the root view (src/i18n/direction.tsx),
+ * and under a real direction those compensations DOUBLE-FLIP: Fabric swaps an
+ * explicit textAlign left/right inside an RTL paragraph, and Yoga resolves
+ * `row-reverse` against the direction. So they must not come back — the layout
+ * mirrors on its own, and a Text leaves `textAlign` unset unless centred.
  *
- * Alignment is a native layout property, invisible to typecheck and lint, so
- * these read the source the way headerDirection.test.ts does.
+ * Alignment is a native layout property, invisible to typecheck; lint bans the
+ * literal forms (packages/config/src/eslint.js), and these read the source for
+ * the shapes lint cannot express.
  */
+
+const ROOT = join(__dirname, '..', '..', '..');
 const UI = readFileSync(join(__dirname, '..', 'ui.tsx'), 'utf8');
 const TITLE = UI.slice(UI.indexOf('export function Title('), UI.indexOf('export function Card('));
-const HOME = readFileSync(join(__dirname, '..', '..', '..', 'app', '(tabs)', 'index.tsx'), 'utf8');
-const SETTINGS = readFileSync(join(__dirname, '..', '..', '..', 'app', 'settings.tsx'), 'utf8');
+const FIELD = UI.slice(UI.indexOf('export function Field('), UI.indexOf('export function SegmentedControl'));
+
+function walk(d: string, out: string[] = []): string[] {
+  for (const name of readdirSync(d)) {
+    if (name === '__tests__' || name === 'node_modules') continue;
+    const p = join(d, name);
+    if (statSync(p).isDirectory()) walk(p, out);
+    else if (/\.tsx?$/.test(name)) out.push(p);
+  }
+  return out;
+}
+const SOURCES = [...walk(join(ROOT, 'app')), ...walk(join(ROOT, 'src'))];
+const rel = (f: string) => relative(ROOT, f).split(sep).join('/');
 
 describe('Title (every page header)', () => {
-  it('aligns its text from the locale, not the native RTL flag', () => {
-    expect(TITLE).toMatch(/textAlign: rtl \? 'right' : 'left'/);
+  it('leaves alignment to the layout direction', () => {
+    expect(TITLE).not.toMatch(/textAlign/);
     expect(TITLE).not.toContain('I18nManager');
   });
 
-  it('leaves the heading box full-width, so textAlign has room to work', () => {
-    // A first pass added `alignItems: 'flex-end'` to the wrapper and
-    // `alignSelf: 'stretch'` to the Text. Checked against a real Yoga layout
-    // pass, neither is needed: the wrapper is a column child of a full-width
-    // Screen, so the Text box already measures the full content width and
-    // `textAlign` alone places the glyphs. `alignItems: flex-end` would in fact
-    // shrink-wrap the box to its text. Keep both off the heading.
+  it('leaves the heading box full-width, so the direction has room to work', () => {
+    // Checked against a real Yoga layout pass: the wrapper is a column child of
+    // a full-width Screen, so the Text box already measures the full content
+    // width. `alignItems` on the wrapper would shrink-wrap it to its text.
     const wrapper = TITLE.slice(TITLE.indexOf('<View style='), TITLE.indexOf('<Text'));
     expect(wrapper).not.toContain('alignItems');
     const text = TITLE.slice(TITLE.indexOf('<Text'), TITLE.indexOf('{children}'));
     expect(text).not.toContain('alignSelf');
   });
 
-  it('carries the squiggle to the same edge as the heading', () => {
-    // TitleSquiggle is a fixed-width SVG. `textAlign` does not reach it, so it
-    // gets its own full-width row that aligns it on the cross axis.
+  it('carries the squiggle to the leading edge with a logical alignment', () => {
+    // TitleSquiggle is a fixed-width SVG on its own row; `flex-start` is
+    // logical in Yoga, so it lands on the heading's edge in both languages.
     const tail = TITLE.slice(TITLE.indexOf('{squiggle'));
-    expect(tail).toMatch(/alignItems: rtl \? 'flex-end' : 'flex-start'/);
-  });
-
-  it('derives rtl from the locale context', () => {
-    expect(TITLE).toContain("const rtl = dir === 'rtl';");
-    expect(TITLE).toContain('const { dir } = useLocale();');
-  });
-});
-
-describe('header rows mirror their children', () => {
-  /**
-   * A `flexDirection: 'row'` is NOT swapped for us, for the same boot-order
-   * reason: these two rows are headers whose children must lead from the right
-   * in Arabic — the Book tab's logo + open-now pill, and Settings' icon +
-   * group label above each card.
-   */
-  it('the Book tab header row reverses under Arabic', () => {
-    expect(HOME).toMatch(/flexDirection: dir === 'rtl' \? 'row-reverse' : 'row'/);
-    expect(HOME).toContain('const { t, dir } = useLocale();');
-  });
-
-  it("Settings' group labels put the icon beside the right-aligned text", () => {
-    const group = SETTINGS.slice(SETTINGS.indexOf('const groupLabel'));
-    expect(group).toMatch(/flexDirection: dir === 'rtl' \? 'row-reverse' : 'row'/);
-  });
-});
-
-describe('English is untouched by the RTL fix', () => {
-  /**
-   * The point of keying every one of these off `dir` rather than letting RN's
-   * `isRTL` swap them: the LTR branch must be exactly what it was before. A
-   * logical property (`textAlign: 'start'`, `paddingStart`) would have been the
-   * usual way to write this, but RN resolves those through the same lagging
-   * native flag — so these are hard 'left'/'right' ternaries, and the risk is
-   * getting a branch backwards. That is invisible to typecheck: both branches
-   * are the same type. So assert the LTR side by name.
-   */
-  it('leaves the English heading and squiggle on the left', () => {
-    expect(TITLE).toMatch(/textAlign: rtl \? 'right' : 'left'/);
-    const tail = TITLE.slice(TITLE.indexOf('{squiggle'));
-    expect(tail).toMatch(/alignItems: rtl \? 'flex-end' : 'flex-start'/);
+    expect(tail).toMatch(/alignItems: 'flex-start'/);
+    expect(tail).not.toContain('flex-end');
   });
 
   it('keeps uppercase and negative tracking on the Latin branch only', () => {
     // Cairo has no letter case and breaks apart when tracked; Archivo needs
-    // both. Predates this change — pinned so the rtl rename cannot invert it.
+    // both. Pinned so the rtl rename cannot invert it.
+    expect(TITLE).toContain("const rtl = dir === 'rtl';");
     expect(TITLE).toMatch(/textTransform: rtl \? 'none' : 'uppercase'/);
     expect(TITLE).toMatch(/letterSpacing: plain \|\| rtl \? 0 : tracking\(-0\.26\)/);
   });
@@ -102,12 +75,31 @@ describe('English is untouched by the RTL fix', () => {
   it('keeps the tighter all-caps line box on the Latin branch', () => {
     expect(TITLE).toMatch(/dir === 'rtl' \? 1\.45 : 1\.05/);
   });
+});
 
-  it('leaves the English header rows in source order', () => {
-    // `row`, not `row-reverse`, is the LTR branch of both header rows.
-    for (const src of [HOME, SETTINGS]) {
-      expect(src).toMatch(/flexDirection: dir === 'rtl' \? 'row-reverse' : 'row'/);
-      expect(src).not.toMatch(/flexDirection: dir === 'rtl' \? 'row' : 'row-reverse'/);
+describe('nothing mirrors by hand', () => {
+  it('has no row-reverse anywhere — a plain row already mirrors', () => {
+    for (const f of SOURCES) {
+      expect(readFileSync(f, 'utf8'), rel(f)).not.toContain('row-reverse');
+    }
+  });
+
+  it("has no physical textAlign on a Text — Field's TextInput is the one exception", () => {
+    // TextInput is the one element whose textAlign stays physical on both
+    // platforms (Fabric never feeds an input its layout direction), so Field
+    // keys it off the locale: one ternary, plus the Latin-content override.
+    const physical = /textAlign:[^,\n]*'(left|right)'/g;
+    for (const f of SOURCES) {
+      const hits = readFileSync(f, 'utf8').match(physical) ?? [];
+      expect(hits.length, rel(f)).toBe(rel(f) === 'src/components/ui.tsx' ? 2 : 0);
+    }
+    expect(FIELD.match(physical)).toHaveLength(2);
+    expect(FIELD).toContain('writingDirection: dir');
+  });
+
+  it('has no direction-keyed cross-axis alignment', () => {
+    for (const f of SOURCES) {
+      expect(readFileSync(f, 'utf8'), rel(f)).not.toMatch(/\?\s*'flex-(end|start)'\s*:\s*'flex-(start|end)'/);
     }
   });
 });

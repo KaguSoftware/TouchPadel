@@ -3,12 +3,12 @@
  * (`docs/design/mobile-ui/Touch Padel App.dc.html`). Stroke-based, 24-viewBox,
  * colored by the caller. Directional icons mirror under RTL.
  *
- * Direction comes from the locale context, NOT `I18nManager.isRTL`: the native
- * flag lags the chosen language until the next JS load, so reading it at render
- * mirrored some icons and not others on the same screen after a language switch.
+ * Yoga mirrors LAYOUT, never path data, so a directional glyph flips itself
+ * with `mirror(dir)` — from the locale context, the app's one direction.
  */
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { useLocale } from '../i18n/LocaleProvider';
+import { mirror } from '../i18n/direction';
 import { brand, vendor } from '../theme/tokens';
 
 export interface IconProps {
@@ -32,7 +32,7 @@ function StrokeIcon({
       viewBox="0 0 24 24"
       fill="none"
       accessible={false}
-      style={flip && dir === 'rtl' ? { transform: [{ scaleX: -1 }] } : undefined}
+      style={flip ? mirror(dir) : undefined}
     >
       {d.map((p, i) => (
         <Path
@@ -174,7 +174,7 @@ export function TitleSquiggle({ width = 76 }: { width?: number }) {
       viewBox="0 0 76 8"
       fill="none"
       accessible={false}
-      style={{ marginTop: 4, transform: [{ scaleX: dir === 'rtl' ? -1 : 1 }] }}
+      style={[{ marginTop: 4 }, mirror(dir)]}
     >
       <Path d="M2 6C22 1 50 1 74 4.5" stroke={brand.green} strokeWidth={3.5} strokeLinecap="round" />
     </Svg>

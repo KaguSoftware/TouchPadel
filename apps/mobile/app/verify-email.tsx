@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '../src/i18n/text';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { resendVerification, signOut } from '../src/features/auth/api';

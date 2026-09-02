@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { iqd } from '@touch/core';
 import type { CourtSlots, Slot } from '@touch/core';
 import {
+  firstUpcomingIndex,
   hasAnySlots,
   mergeAcrossCourts,
   openNowInfo,
@@ -12,6 +13,7 @@ import {
   listBookableDates,
   protectedHorizonEnd,
   type AvailabilityRow,
+  type MergedCell,
   type CourtRow,
   type RateRulePriceRow,
   type RateRuleRow,
@@ -331,6 +333,35 @@ describe('mergeAcrossCourts with a clock', () => {
 
   it('without a clock nothing is past (legacy behaviour)', () => {
     expect(mergeAcrossCourts(grid, 60)[1]?.state).toBe('free');
+  });
+});
+
+describe('firstUpcomingIndex', () => {
+  const cell = (state: MergedCell['state']): MergedCell => ({
+    startAt: new Date(T10),
+    state,
+    freeCount: 0,
+    capacity: 2,
+    priceIqd: null,
+    courtId: null,
+  });
+
+  it('skips the run of started times so the grid can open on tonight', () => {
+    expect(firstUpcomingIndex([cell('past'), cell('past'), cell('free')])).toBe(2);
+  });
+
+  it('stops at a booked or blocked hour — those still explain the night', () => {
+    expect(firstUpcomingIndex([cell('past'), cell('booked'), cell('free')])).toBe(1);
+    expect(firstUpcomingIndex([cell('past'), cell('horizon')])).toBe(1);
+  });
+
+  it('is 0 on a day with nothing past (a future chip opens at the top)', () => {
+    expect(firstUpcomingIndex([cell('free'), cell('free')])).toBe(0);
+  });
+
+  it('is 0 when the whole night has run out, and when there are no cells', () => {
+    expect(firstUpcomingIndex([cell('past'), cell('past')])).toBe(0);
+    expect(firstUpcomingIndex([])).toBe(0);
   });
 });
 
