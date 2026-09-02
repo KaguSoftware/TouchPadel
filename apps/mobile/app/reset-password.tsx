@@ -14,7 +14,6 @@ import {
   FormScreen,
   Hint,
   Screen,
-  ScreenHeader,
   Title,
 } from '../src/components/ui';
 
@@ -68,8 +67,7 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <Screen gutter={20}>
-      <ScreenHeader />
+    <Screen gutter={20} edges={[]}>
       <FormScreen>
         <Title plain size={24}>
           {t('auth.resetPasswordTitle')}
@@ -121,7 +119,7 @@ export default function ResetPasswordScreen() {
             <Button
               label={t('auth.requestNewLink')}
               variant="primary"
-              onPress={() => router.replace('/(auth)/forgot-password')}
+              onPress={() => router.replace('/forgot-password')}
               style={{ marginTop: space.sm }}
             />
           </>

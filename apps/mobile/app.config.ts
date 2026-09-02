@@ -14,7 +14,9 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 const GOOGLE_CLIENT_ID_RE = /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/;
 const rawGoogleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 const googleIosClientId =
-  rawGoogleIosClientId && GOOGLE_CLIENT_ID_RE.test(rawGoogleIosClientId) ? rawGoogleIosClientId : undefined;
+  rawGoogleIosClientId && GOOGLE_CLIENT_ID_RE.test(rawGoogleIosClientId)
+    ? rawGoogleIosClientId
+    : undefined;
 const googleIosUrlScheme = googleIosClientId
   ? 'com.googleusercontent.apps.' + googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, '')
   : undefined;
@@ -39,11 +41,28 @@ if (!googleIosUrlScheme) {
 const plugins: NonNullable<ExpoConfig['plugins']> = [
   'expo-router',
   'expo-secure-store',
-  // THE RTL FIX. `extra.supportsRTL` (which this file used to set) has not
-  // been read from `extra` since ~SDK 44 — it was inert, so the natively
-  // configured half of the app's central bilingual requirement was simply
-  // absent. This is where it actually lives.
-  ['expo-localization', { supportsRTL: true }],
+  // NO RTL OPTIONS HERE, DELIBERATELY — the app owns the flag from JS.
+  //
+  // NOTE: this only bites in a STANDALONE build. Expo Go's Bundle.main is the
+  // Expo Go binary, which carries no ExpoLocalization_* keys, so OnCreate is
+  // already a no-op there — which is why the missing chevron reproduced in
+  // Expo Go even before this line changed. The direction context in
+  // app/_layout.tsx is the fix that applies to both.
+  //
+  // `supportsRTL` / `forcesRTL` write ExpoLocalization_* into Info.plist, and
+  // the native module's OnCreate (LocalizationModule.swift) then writes
+  // RCTI18nUtil_allowRTL / RCTI18nUtil_forceRTL into UserDefaults BEFORE React
+  // loads, on every launch. With only `supportsRTL`, forceRTL is derived from
+  // `isRTLPreferredForCurrentLocale()` — the DEVICE language. So an Arabic
+  // in-app choice on an English phone was overwritten back to LTR at every
+  // start, undoing `reconcileRtl`'s forceRTL and leaving Arabic rendered in an
+  // LTR layout (the missing back chevron). `forcesRTL` is no good either: it is
+  // a build-time constant and this app is bilingual at runtime.
+  //
+  // OnCreate is a no-op when NEITHER key is present, which hands the flag to
+  // `I18nManager.allowRTL(true)` in app/_layout.tsx plus `reconcileRtl`, both
+  // of which follow the chosen language rather than the device's.
+  'expo-localization',
   ['expo-splash-screen', { backgroundColor: '#FFFFFF', resizeMode: 'contain' }],
   // Sign in with Apple entitlement (com.apple.developer.applesignin). EAS Build
   // syncs the capability to the App ID on every build (EXPO_NO_CAPABILITY_SYNC opts out).

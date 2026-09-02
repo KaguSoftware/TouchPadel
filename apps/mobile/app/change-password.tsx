@@ -1,20 +1,21 @@
 import { useState } from 'react';
-import { useRouter } from 'expo-router';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useAuth } from '../../src/features/auth/context';
-import { supabase } from '../../src/lib/supabase';
-import { signIn } from '../../src/features/auth/api';
-import { changePassword } from '../../src/features/profile/api';
-import { mapErrorToKey } from '../../src/features/booking/errors';
-import { Button, ErrorText, Field, FormScreen, Screen, ScreenHeader } from '../../src/components/ui';
-import { useToast } from '../../src/components/overlays';
+import { useRouter, Stack } from 'expo-router';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { useAuth } from '../src/features/auth/context';
+import { RequireSession } from '../src/features/auth/RequireSession';
+import { supabase } from '../src/lib/supabase';
+import { signIn } from '../src/features/auth/api';
+import { changePassword } from '../src/features/profile/api';
+import { mapErrorToKey } from '../src/features/booking/errors';
+import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/ui';
+import { useToast } from '../src/components/overlays';
 
 /**
  * Change password (design 2026-08-31). The current password is verified by
  * re-authenticating before the update — supabase.auth.updateUser alone would
  * let anyone holding an unlocked phone rotate the password unchallenged.
  */
-export default function ChangePasswordScreen() {
+function ChangePasswordScreen() {
   const { t } = useLocale();
   const router = useRouter();
   const { session } = useAuth();
@@ -60,8 +61,8 @@ export default function ChangePasswordScreen() {
   };
 
   return (
-    <Screen>
-      <ScreenHeader title={t('profile.changePassword')} />
+    <Screen edges={[]}>
+      <Stack.Screen options={{ title: t('profile.changePassword') }} />
       <FormScreen contentStyle={{ paddingTop: 4 }}>
         <Field
           placeholder={t('profile.currentPassword')}
@@ -103,5 +104,20 @@ export default function ChangePasswordScreen() {
         />
       </FormScreen>
     </Screen>
+  );
+}
+
+/**
+ * This screen lives on the ROOT stack rather than in the `(gated)` group, so
+ * that a push from the Profile tab leaves real history beneath it and UIKit
+ * draws its own (animated) back item. The group's layout guard does not apply
+ * here, so the session requirement is declared explicitly — same three states,
+ * same redirect.
+ */
+export default function GuardedChangePasswordScreen() {
+  return (
+    <RequireSession>
+      <ChangePasswordScreen />
+    </RequireSession>
   );
 }

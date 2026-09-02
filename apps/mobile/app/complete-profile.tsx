@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import type { Locale } from '@touch/i18n';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { useAuth } from '../../src/features/auth/context';
-import { needsProfileCompletion, prefillDisplayName } from '../../src/features/auth/social';
-import { useOwnProfile, useUpdateProfile } from '../../src/features/profile/hooks';
-import { usePostAuthContinue } from '../../src/features/booking/usePostAuthContinue';
-import { clearPendingSlot } from '../../src/features/booking/pendingSlot';
-import { mapErrorToKey } from '../../src/features/booking/errors';
-import { space } from '../../src/theme';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { useAuth } from '../src/features/auth/context';
+import { needsProfileCompletion, prefillDisplayName } from '../src/features/auth/social';
+import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
+import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
+import { clearPendingSlot } from '../src/features/booking/pendingSlot';
+import { mapErrorToKey } from '../src/features/booking/errors';
+import { space } from '../src/theme';
 import {
   Button,
   ErrorText,
@@ -18,13 +18,12 @@ import {
   Hint,
   MicroLabel,
   Screen,
-  ScreenHeader,
   SegmentedControl,
   Title,
   useSafeBack,
-} from '../../src/components/ui';
-import { useToast } from '../../src/components/overlays';
-import { ErrorState, SkeletonList } from '../../src/components/states';
+} from '../src/components/ui';
+import { useToast } from '../src/components/overlays';
+import { ErrorState, SkeletonList } from '../src/components/states';
 
 type ReturnTo = 'continue' | 'back';
 
@@ -45,6 +44,7 @@ type ReturnTo = 'continue' | 'back';
 export default function CompleteProfileScreen() {
   const { t, locale, setLocale } = useLocale();
   const router = useRouter();
+  const navigation = useNavigation();
   const safeBack = useSafeBack();
   const toast = useToast();
   const { session, initializing } = useAuth();
@@ -93,19 +93,46 @@ export default function CompleteProfileScreen() {
     }
   }, [returnTo, profile.data, continueAfterAuth]);
 
-  if (!initializing && !session) return <Redirect href="/(auth)/welcome" />;
-
   const onBack = () => {
     if (returnTo === 'back') {
       safeBack();
       return;
     }
-    // NEVER router.back() in 'continue' mode: the (auth) layout would send an
+    // NEVER a plain pop in 'continue' mode: RequireNoSession would send an
     // incomplete profile straight back here — a trap. Browsing stays open; the
     // gate reappears at the next booking attempt (availability / Review).
     clearPendingSlot();
     router.replace('/(tabs)');
   };
+
+  // The header's back item and the edge-swipe are the SYSTEM's now (the screen
+  // sits on the root stack), so the 'continue'-mode escape hatch has to block
+  // the pop rather than own a button — same approach as profile-edit. Released
+  // once the slot is cleared, then `onBack` performs the replace itself.
+  const [leaving, setLeaving] = useState(false);
+  const blockPop = returnTo === 'continue' && !leaving;
+
+  // NOT `usePreventRemove`: registering the route as prevented makes
+  // NativeStackView force `headerBackButtonMenuEnabled: false`, which
+  // react-native-screens turns into a plain UIBarButtonItem — a bordered
+  // capsule with no chevron, in the default tint. Listening to `beforeRemove`
+  // gives the same interception (it is the event that hook wraps) while the
+  // back item stays UIKit's own. See profile-edit for the full note.
+  // `onBack` is rebuilt every render, so the listener reads it through a ref —
+  // subscribing on it directly would tear down and re-add the listener on each
+  // render, and could drop the event mid-gesture.
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+  useEffect(() => {
+    if (!blockPop) return;
+    return navigation.addListener('beforeRemove', (e) => {
+      e.preventDefault();
+      setLeaving(true);
+      onBackRef.current();
+    });
+  }, [navigation, blockPop]);
+
+  if (!initializing && !session) return <Redirect href="/welcome" />;
 
   const onSave = () => {
     setError(null);
@@ -141,7 +168,7 @@ export default function CompleteProfileScreen() {
 
   return (
     <Screen gutter={20}>
-      <ScreenHeader onBack={onBack} />
+      <Stack.Screen options={{ title: t('auth.completeProfileTitle') }} />
       {profile.isPending && !initialised ? (
         <SkeletonList rows={3} height={64} />
       ) : profile.isError && !initialised ? (

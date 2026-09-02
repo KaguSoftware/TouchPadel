@@ -69,7 +69,7 @@ const COURT_GAP = 8;
  * screen — the GL court in particular — does not re-render every minute.
  */
 function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }) {
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
   const { colors, fonts } = useTheme();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -79,7 +79,7 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
   const info = useMemo(() => openNowInfo(settings, now), [settings, now]);
   if (!info) return null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+    <View style={{ flexDirection: dir === 'rtl' ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
       <View
         style={{
           width: 7,
@@ -311,7 +311,7 @@ export default function BookHomeScreen() {
           paddingEnd: space.l,
           paddingTop: 10,
           paddingBottom: 6,
-          flexDirection: 'row',
+          flexDirection: dir === 'rtl' ? 'row-reverse' : 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}

@@ -43,8 +43,8 @@ export function useAuthDeepLink(): void {
       // forwards an unconfirmed account to verify-email and its resend button.
       router.replace(
         isRecoveryLink(link)
-          ? { pathname: '/(auth)/forgot-password', params: { authError } }
-          : { pathname: '/(auth)/sign-in', params: { authError } },
+          ? { pathname: '/forgot-password', params: { authError } }
+          : { pathname: '/sign-in', params: { authError } },
       );
     };
 

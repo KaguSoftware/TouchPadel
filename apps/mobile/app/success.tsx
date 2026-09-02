@@ -1,20 +1,21 @@
 import { ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { RequireSession } from '../src/features/auth/RequireSession';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDate, formatDateTime, formatIQD, formatTimeRange } from '@touch/i18n';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { brand, radius, space, useTheme } from '../../src/theme';
-import { Button } from '../../src/components/ui';
-import { SummaryGrid } from '../../src/components/booking';
-import { CalendarIcon, CheckIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/components/icons';
-import { displayRef } from '../../src/features/booking/logic';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { brand, radius, space, useTheme } from '../src/theme';
+import { Button } from '../src/components/ui';
+import { SummaryGrid } from '../src/components/booking';
+import { CalendarIcon, CheckIcon, ClockIcon, StopwatchIcon, TagIcon } from '../src/components/icons';
+import { displayRef } from '../src/features/booking/logic';
 
 /**
  * Booking success (design 2026-08-31): full navy screen, green check, derived
  * REF, summary card, and the pay-at-desk statement (spec: must render here).
  */
-export default function SuccessScreen() {
+function SuccessScreen() {
   const { t, locale } = useLocale();
   const { fonts, tracking } = useTheme();
   const router = useRouter();
@@ -203,5 +204,14 @@ export default function SuccessScreen() {
         />
       </View>
     </View>
+  );
+}
+
+/** Gated like the rest of the booking flow; see RequireSession. */
+export default function GuardedSuccessScreen() {
+  return (
+    <RequireSession>
+      <SuccessScreen />
+    </RequireSession>
   );
 }
