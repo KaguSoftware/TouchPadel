@@ -1,29 +1,49 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { dir } from '@touch/i18n';
 
 /**
- * The Arabic back chevron.
+ * THE NATIVE BAR'S DIRECTION, and the native flag it must never depend on.
  *
- * react-navigation reads the navigation bar's direction from
- * `LocaleDirContext`. `NavigationContainer` fills that from
- * `I18nManager.getConstants().isRTL` — a BOOT-TIME native constant that only
- * flips on the JS load AFTER `forceRTL` (see `reconcileRtl` in bootPrefs). And
- * expo-router does not expose the container's `direction` prop, so there is no
- * supported way to correct it from the outside.
+ * react-navigation reads the navigation bar's direction from `LocaleDirContext`
+ * and hands it to react-native-screens, which sets the navigation controller's
+ * semantic direction on iOS (bar, back item + chevron, push/pop edge, back-swipe
+ * edge) and the toolbar's layout direction on Android. expo-router's container
+ * fills that context from `I18nManager.getConstants().isRTL` — a boot-time
+ * constant, and one this app pins LTR — so the root layout provides it from the
+ * app's own direction. That is the only supported way to correct it, since
+ * expo-router does not expose the container's `direction` prop.
  *
- * The consequence was Arabic-specific and easy to miss: the bar was told `ltr`,
- * UIKit laid the back item against the wrong edge, and the chevron fell outside
- * the frame while the label — centred within the item — still rendered. Hence
- * "the text is ok but the chevron is not showing".
+ * The native flag itself is pinned left-to-right on every launch: layout
+ * direction is app state (src/i18n/direction.tsx), applied live, and the flag
+ * would only add a second, boot-time direction the bundle cannot observe — and,
+ * when RTL, make Fabric rewrite every physical left/right for the surface.
  *
- * The root layout therefore provides `LocaleDirContext` itself, from the app's
- * own locale. These tests pin that wiring, because nothing else in the suite
- * can see it: it is a native layout property, invisible to typecheck and lint.
+ * These are native layout properties, invisible to typecheck and lint, so the
+ * tests read the source.
  */
 
-const LAYOUT = readFileSync(join(__dirname, '..', '..', '..', 'app', '_layout.tsx'), 'utf8');
+const ROOT = join(__dirname, '..', '..', '..');
+const LAYOUT = readFileSync(join(ROOT, 'app', '_layout.tsx'), 'utf8');
+const CONFIG = readFileSync(join(ROOT, 'app.config.ts'), 'utf8');
+const ENTRY = readFileSync(join(ROOT, 'index.js'), 'utf8');
+const PIN = readFileSync(join(ROOT, 'src', 'i18n', 'nativeDirection.ts'), 'utf8');
+
+function walk(d: string, out: string[] = []): string[] {
+  for (const name of readdirSync(d)) {
+    if (name === '__tests__' || name === 'node_modules') continue;
+    const p = join(d, name);
+    if (statSync(p).isDirectory()) walk(p, out);
+    else if (/\.(tsx?|js)$/.test(name)) out.push(p);
+  }
+  return out;
+}
+const SOURCES = [...walk(join(ROOT, 'app')), ...walk(join(ROOT, 'src')), join(ROOT, 'index.js')];
+const rel = (f: string) => relative(ROOT, f).split(sep).join('/');
+/** Code only: the design is explained in comments that name the very tokens the tests forbid. */
+const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = (f: string) => stripComments(readFileSync(f, 'utf8'));
 
 describe('navigation bar direction', () => {
   it('provides LocaleDirContext around the stack', () => {
@@ -34,8 +54,6 @@ describe('navigation bar direction', () => {
   });
 
   it('drives the direction from the app locale, not the native RTL flag', () => {
-    // `dir` comes from LocaleProvider (the chosen language). Reading
-    // I18nManager here instead would reintroduce the boot-order lag.
     expect(LAYOUT).toMatch(/<LocaleDirContext\.Provider value=\{dir\}>/);
     expect(LAYOUT).toMatch(/const \{ dir \} = useLocale\(\);/);
   });
@@ -60,62 +78,56 @@ describe('locale → direction values', () => {
   });
 });
 
-describe('survives a session where the native RTL flag is stale', () => {
-  /**
-   * `reconcileRtl` calls `forceRTL`, which only takes effect after a JS reload.
-   * `reloadForRtl` performs that reload in development but returns false in a
-   * RELEASE build (and on any failure), and the boot gate then proceeds anyway:
-   *
-   *     if (reconcileRtl(p.locale) && reloadForRtl()) return;
-   *     setPrefs(p);
-   *
-   * So a production session can run Arabic with `I18nManager.isRTL` still
-   * false. Anything deriving the bar's direction from that flag is wrong for
-   * the whole session — which is precisely how the chevron went missing.
-   * Reading the LOCALE instead is immune, so this pins the boot gate's shape
-   * together with the provider's source.
-   */
-  const BOOT = readFileSync(join(__dirname, '..', '..', '..', 'app', '_layout.tsx'), 'utf8');
-
-  it('still renders when the reload does not happen', () => {
-    // The gate deliberately falls through to setPrefs rather than blocking.
-    expect(BOOT).toMatch(/if \(reconcileRtl\([^)]*\) && reloadForRtl\(\)\) return;/);
-    expect(BOOT).toContain('setPrefs(p);');
+describe('the native RTL flag is pinned LTR, never forced', () => {
+  it('is touched by exactly one module', () => {
+    const readers = SOURCES.filter((f) => /\bI18nManager\b/.test(code(f))).map(rel);
+    expect(readers).toEqual(['src/i18n/nativeDirection.ts']);
   });
 
-  it('never derives the bar direction from I18nManager', () => {
-    const provider = BOOT.slice(BOOT.indexOf('<LocaleDirContext.Provider'));
-    expect(provider).not.toContain('I18nManager');
-    expect(provider).not.toContain('isRTL');
+  it('turns the left/right swap off before pinning, and pins LTR', () => {
+    // Order matters on Android, which reads the swap preference at the next
+    // root sample: the swap must already be off when the direction is written.
+    const pin = stripComments(PIN);
+    const swap = pin.indexOf('swapLeftAndRightInRTL(false)');
+    const allow = pin.indexOf('allowRTL(false)');
+    const force = pin.indexOf('forceRTL(false)');
+    expect(swap).toBeGreaterThan(-1);
+    expect(allow).toBeGreaterThan(swap);
+    expect(force).toBeGreaterThan(allow);
+    expect(pin).not.toMatch(/forceRTL\(true\)|allowRTL\(true\)/);
+  });
+
+  it('is pinned from the entry file, before anything renders', () => {
+    expect(ENTRY).toContain("from './src/i18n/nativeDirection'");
+    expect(ENTRY).toContain('pinNativeRootLtr();');
+  });
+
+  it('never reloads the bundle for a language switch', () => {
+    for (const f of SOURCES) {
+      expect(code(f), rel(f)).not.toMatch(/DevSettings\.reload|reloadAsync\(/);
+    }
   });
 });
 
-describe('expo-localization must not own the RTL flag', () => {
+describe('expo-localization pins the root LTR before React loads', () => {
   /**
-   * `LocalizationModule.swift` runs `setRTLPreferences` in OnCreate — BEFORE
-   * React loads, on every launch — writing RN's own `RCTI18nUtil_allowRTL` /
-   * `RCTI18nUtil_forceRTL` UserDefaults keys. With `supportsRTL: true` and no
-   * `forcesRTL`, it derives forceRTL from `isRTLPreferredForCurrentLocale()`,
-   * i.e. the DEVICE language.
-   *
-   * So an Arabic choice made inside the app on an English phone was reset to
-   * LTR at every start, silently undoing `reconcileRtl`'s forceRTL. Arabic then
-   * rendered in an LTR layout — which is how the back chevron went missing.
-   *
-   * OnCreate is a no-op when NEITHER Info.plist key is present, so the config
-   * must pass no RTL options and let JS (`I18nManager.allowRTL` in the root
-   * layout + `reconcileRtl`) follow the CHOSEN language instead.
+   * `LocalizationModule.swift` / `.kt` run in OnCreate — BEFORE React, on every
+   * launch — and write RN's own RCTI18nUtil_allowRTL / RCTI18nUtil_forceRTL
+   * preferences from the plugin's options. `supportsRTL: false` writes
+   * allowRTL=false on both platforms, and forceRTL=false on iOS (Android
+   * writes forceRTL only from `forcesRTL`; index.js's pin retires it there).
+   * `forcesRTL` must never appear: its iOS branch sets allowRTL=true and
+   * derives forceRTL from the DEVICE language — the overwrite that once left
+   * Arabic rendered in an LTR layout.
    */
-  const CONFIG = readFileSync(join(__dirname, '..', '..', '..', 'app.config.ts'), 'utf8');
-
-  it('passes no RTL options to the expo-localization plugin', () => {
-    expect(CONFIG).not.toMatch(/supportsRTL\s*:/);
+  it('passes supportsRTL: false and never forcesRTL', () => {
+    expect(CONFIG).toMatch(/\['expo-localization',\s*\{\s*supportsRTL:\s*false\s*\}\]/);
     expect(CONFIG).not.toMatch(/forcesRTL\s*:/);
-    expect(CONFIG).toContain("'expo-localization'");
   });
 
-  it('still allows RTL from JS, which is what the plugin used to do natively', () => {
-    const LAYOUT_SRC = readFileSync(join(__dirname, '..', '..', '..', 'app', '_layout.tsx'), 'utf8');
-    expect(LAYOUT_SRC).toContain('I18nManager.allowRTL(true)');
+  it('keeps the RTL keys out of `extra`, which the plugin also reads', () => {
+    // withExpoLocalization merges `{ ...config.extra, ...options }`.
+    const extra = CONFIG.slice(CONFIG.indexOf('  extra: {'));
+    expect(extra).not.toMatch(/supportsRTL|forcesRTL/);
   });
 });

@@ -48,30 +48,61 @@ export interface BookingRow {
   start_at: string;
   end_at: string;
   price_iqd: number | null;
+  /** kind='hold' only; the TTL deadline (0008). Absent on bookings. */
+  hold_expires_at?: string | null;
 }
 
 const LIVE_STATUSES = new Set(['pending', 'confirmed', 'arrived']);
 
 /**
- * Split own reservations into upcoming (still live and not ended) and past
- * (ended or terminal), both usefully ordered: upcoming soonest-first, past
- * most-recent-first. Pending HOLD rows are internal plumbing — hidden.
+ * A hold that is still running: unconfirmed, not swept, deadline in the future.
+ *
+ * A hold whose TTL has passed is live to the DATABASE until the sweep runs
+ * (the constraint predicate cannot reference now(), 0008), so status alone is
+ * not enough — a stale-but-pending row would otherwise show the guest a slot
+ * they no longer have. A hold with no deadline cannot be reasoned about and is
+ * treated as gone.
+ */
+export function isLiveHold(row: BookingRow, now: Date): boolean {
+  if (row.kind !== 'hold' || row.status !== 'pending') return false;
+  if (!row.hold_expires_at) return false;
+  const ms = new Date(row.hold_expires_at).getTime();
+  return Number.isFinite(ms) && ms > now.getTime();
+}
+
+/**
+ * Split own reservations into holds (checkout in progress), upcoming (still
+ * live and not ended) and past (ended or terminal), each usefully ordered:
+ * holds and upcoming soonest-first, past most-recent-first.
+ *
+ * Holds used to be dropped here as "internal plumbing". They are not: a hold
+ * occupies a real slot and one of the guest's three hold allowances, so a
+ * guest who backed out of Review had no way to see — let alone release — what
+ * was still held in their name, and hit HOLD_QUOTA_EXCEEDED with no
+ * explanation. Only LIVE holds surface; spent ones (expired, released,
+ * confirmed away) stay out of both lists, since a hold is never itself a
+ * booking to look back on.
  */
 export function splitBookings(
   rows: readonly BookingRow[],
   now: Date,
-): { upcoming: BookingRow[]; past: BookingRow[] } {
+): { holds: BookingRow[]; upcoming: BookingRow[]; past: BookingRow[] } {
+  const holds: BookingRow[] = [];
   const upcoming: BookingRow[] = [];
   const past: BookingRow[] = [];
   for (const r of rows) {
-    if (r.kind === 'hold') continue;
+    if (r.kind === 'hold') {
+      if (isLiveHold(r, now)) holds.push(r);
+      continue;
+    }
     const ended = new Date(r.end_at).getTime() <= now.getTime();
     if (!ended && LIVE_STATUSES.has(r.status)) upcoming.push(r);
     else past.push(r);
   }
+  holds.sort((a, b) => a.start_at.localeCompare(b.start_at));
   upcoming.sort((a, b) => a.start_at.localeCompare(b.start_at));
   past.sort((a, b) => b.start_at.localeCompare(a.start_at));
-  return { upcoming, past };
+  return { holds, upcoming, past };
 }
 
 /**

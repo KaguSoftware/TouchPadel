@@ -20,6 +20,11 @@ import reactHooks from 'eslint-plugin-react-hooks';
  * appear as object property keys (inline `style={{ … }}`, StyleSheet.create,
  * vanilla-extract / CSS-in-JS objects) or as `textAlign: 'left' | 'right'` literals.
  *
+ * HISTORY: until 2026-09-02 the identifier-key selector below was built with
+ * JSON.stringify, which esquery reads as an EXACT string — it matched nothing,
+ * and the rule the whole repo claimed to enforce was inert. It is a /regex/
+ * now; apps/mobile pins that with a self-test (src/lib/__tests__/rtlGuard.test.ts).
+ *
  * KNOWN LIMITATIONS (documented, accepted):
  *  - Only sees JS/TS ASTs. Plain `.css` / `.scss` files need stylelint
  *    (stylelint-use-logical) — not wired up here.
@@ -41,14 +46,26 @@ export const rtlGuardRules = {
   'no-restricted-syntax': [
     'error',
     {
-      selector: `Property[key.name=${JSON.stringify(physicalPropPattern)}][computed=false]`,
+      selector: `Property[key.name=/${physicalPropPattern}/][computed=false]`,
       message:
         'Physical CSS property — use logical properties instead (marginInlineStart, ' +
         'paddingInlineEnd, insetInlineStart, borderStartStartRadius, …). Full RTL is contractual.',
     },
     {
-      selector: `Property[key.name='textAlign'] > :matches(Literal[value='left'], Literal[value='right'])`,
-      message: "textAlign: 'left'|'right' — use 'start' | 'end' instead. Full RTL is contractual.",
+      // Descendant, not child: `textAlign: cond ? 'right' : 'left'` is the same
+      // physical alignment with extra steps.
+      selector: `Property[key.name='textAlign'] Literal[value=/^(left|right)$/]`,
+      message:
+        "textAlign: 'left'|'right' is physical — on the web use 'start' | 'end'; in React Native leave it " +
+        "unset ('auto' follows the layout direction) or use 'center'. Full RTL is contractual.",
+    },
+    {
+      // `flexDirection: dir === 'rtl' ? 'row-reverse' : 'row'` mirrored rows by
+      // hand while the native flag lagged the language. Under a real layout
+      // direction a plain 'row' already mirrors, so this shape double-flips.
+      selector: `Property[key.name='flexDirection'] ConditionalExpression Literal[value='row-reverse']`,
+      message:
+        "A direction-conditional 'row-reverse' double-flips: a plain 'row' mirrors under the layout direction.",
     },
     {
       // string-key variant: { 'margin-left': … } / { 'padding-right': … } / { 'text-align': 'left' }
