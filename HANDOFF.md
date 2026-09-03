@@ -920,6 +920,79 @@ Arabic renders in Cairo, mirrored, in the stored palette. Known and accepted: th
 `colors.page` while the switch cover is `colors.bg`, so a switch that lands on Book (complete-profile
 → continue) shows a faint grey wash for the 180 ms fade-in.
 
+## Day 14 (2026-09-03) — the desktop app campaign: the single write path went in
+
+The owner asked for the desktop app to be audited against scope and made "top notch" (speed,
+optimistic actions, caching, completeness). Three read-only audits confirmed day 6's open list
+verbatim (zero operator commits since 2026-08-28) and fed a two-track plan, approved and running:
+**`~/.claude/plans/ok-the-desktop-app-enchanted-yao.md`** — Track A = offline spine + shell
+(A1–A8), Track B = SPA completeness + speed (stock, courts admin, KDS persistence, idle lock,
+persistence/optimistic/till-ergonomics). Commits `7b124f6`, `9549ad9`, `86a02aa`, `57a2312`,
+`67c97b5`.
+
+**A1 — envelope unification + queue schema v1 + real ULIDs.** The two envelope mirrors and the
+SQLite table aligned to `@touch/core` (staffId/deviceId — replay 400s without them);
+`PRAGMA user_version` 0→1 migration; drill-critical payload schemas tightened (order.add_items,
+ticket.status, tab.open, tab.settle, adjustment.apply); worker state machine helpers
+(peekNext/markInflight/releaseToPending/markConflict/markFailed/listBlockingRows); `lib/idem.ts`
+mints real Crockford ULIDs (audit M9 closed). ipc-validate now enforces key-station === deviceId
+(localId's station may differ — the till enqueues on the KDS's behalf).
+
+**A2 — the sync worker exists.** `main/sync-worker.ts` drains strictly by seq, one row at a time,
+to POST `/functions/v1/replay` AS the staff session the renderer pushes over `touch:auth-state`
+on every auth change (memory-only in main; main needs no VITE_* env — the renderer forwards
+supabaseUrl/anonKey too). Outcome map: 200→ack (duplicate = ack), 409→conflict (replay of later
+rows continues), deterministic 4xx→failed (terminal, visible, blocks day close, never wedges
+later sales — the one deliberate deviation from strict order), 429/5xx/network→pending with
+1s→30s backoff, 401/no-token→paused until the next TOKEN_REFRESHED push. An inflight row found
+on boot (power cut mid-POST) re-sends first. `queueStatus().degraded` is REAL now: renderer
+conn-state (pushed after every heartbeat) OR ≥2 consecutive worker transport failures — both
+KNOWN GAP tests flipped to real assertions. Status gains failed+blocking counts; the heartbeat
+reports blocking (conflict/failed hold `close_day` shut).
+
+**A3 — the single write path is real.** `apps/operator/src/lib/mutate.ts`: the 11 registered
+mutation types ALWAYS go through the durable queue in Electron — online too (design-arch §2.1);
+in browser mode the same payload dispatches to the app.* RPC through `DIRECT_RPC`, a mapping
+table that mirrors the replay function's arg mappers and is drift-guarded by golden-args tests.
+Online either transport: server echo inline (open_tab's tab_id, settle's change_iqd),
+AppRpcError on refusal, sub-second invalidation. Offline: `{queued:true}` after 8 s — the write
+is already fsynced. `lib/queueResults.ts` fans results into per-type TanStack invalidations +
+`awaitResult()` waiters + failed/conflict listeners. Call sites migrated: till send / open-tab /
+settle / discount, price override, KDS status, desk create + mark/extend/move/cancel, waiter
+calls (refund/merge/void stay direct — replay doesn't register them; admin editors untouched by
+design). The replay mapper now passes `p_reason` on ALL four reservation.update actions (the
+RPCs took it since 0048; a queued desk override must keep its reason). The banner shows a
+did-not-sync attention count; Day close pre-checks the queue and lists blocking rows.
+
+**Side finds, all fixed en route:**
+- **`0058_release_hold` could never apply anywhere.** The kemal-merge migration shared version
+  `20260901000058` with oauth_profile_bootstrap; the ledger PK is the version, so `migration up`
+  AND `db push` both die on duplicate key — hosted included. Renamed to
+  `20260903000060_release_hold.sql`, applied locally. **Track B migrations therefore start at 0061.**
+- The db suite's `liveItemIds` had no ORDER BY while tests index positionally — a 2-in-4
+  split_by_item flake. Three consecutive green runs after the fix (349/349).
+- **e2e had been rotting since day 9**: the shared formatter change (suffix "8,000 IQD",
+  12-hour clock) silently broke 3 operator journeys — nobody had run `pnpm e2e` since. Also:
+  `db:reset` does NOT load fixtures (`pnpm --filter @touch/db db:fixtures` is a separate step —
+  the reset left menu_items/cafe_tables EMPTY and every test failed ITEM_NOT_FOUND); Next 16 dev's
+  image-quality warning (55 unregistered) plus its dev-tools indicator render a `<nextjs-portal>`
+  that eats the bell FAB's clicks (`qualities: [40,55,75]` + `devIndicators: false`); orphaned
+  dev servers on 3000/5174 make the webServer probe hang.
+- The kemal PR's routes.test used platform separators (green on posix only) and the expo-gl
+  reliability test predated the 63278c9 guarded-require gate — both fixed in the merge commit.
+
+**Gate at day end:** turbo 18/18 · DB 349/349 (×3 consecutive) · operator 250 unit ·
+operator-shell 90 · e2e **35/35 effective** (34 in the recorded run + the hero-settings
+broadcast-timing flake green 3/3 in isolation).
+
+**Still ahead on the desktop app** (the plan's remaining milestones): A4 offline reads
+(ref_cache + cachedQuery) + offline PIN + the client-ref chain (migration 0061: `tabs.client_ref`,
+`open_tab p_client_ref`, replay resolving `tabClientRef` — without it a NEW tab cannot be opened
+offline); A5 LAN KDS frames; A6 installer/kiosk/Sentry/Windows CI; A7 ESC/POS printing (printer
+is on site per client pack — blocked on code, not hardware); A8 the disconnection drill; Track B:
+stock module (B5–B9, THE Module-5 acceptance), courts admin, KDS item-ready persistence + perf,
+idle lock, cache persistence + optimistic till/desk + quick-add/keymap (B1–B3).
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -980,13 +1053,15 @@ Arabic renders in Cairo, mirrored, in the stored palette. Known and accepted: th
 5. ✔ DONE — **Hosted rollout**: 0027–0035 pushed 2026-08-25; **0036–0043 pushed 2026-08-27**;
    secrets set, all four functions deployed, Vault + `pg_net`/`pg_cron` confirmed, Telegram webhook
    registered, Vercel env set and redeployed without build cache.
-6. **← ACTIVE — the operator desktop app** (`docs/design/operator-audit-2026-08-28.md`).
-   Waves 0 (real gate) and 1 (bulletproofing) landed 2026-08-28. Next, in the SOW’s own
-   priority order (L893-931): modules 1/2/4 completeness (staff admin, audit viewer, week
-   calendar, court records, closed dates, refund / price override / merge / split-by-item /
-   cash-drawer record, charge-to-booking totals, KDS item-ready persistence), then module 7
-   (heartbeat first — it is cheap and it is a safety property — then the queue and replay),
-   then module 5 (stock UI), then printing and the Windows installer.
+6. **← ACTIVE — the operator desktop app close-out**
+   (`~/.claude/plans/ok-the-desktop-app-enchanted-yao.md`; audits in
+   `docs/design/operator-audit-2026-08-28.md`). Waves 0–2 landed 2026-08-28 (gate, Highs,
+   heartbeat, modules 1/2/4). **Day 14 (2026-09-03): A1–A3 shipped — envelope unification,
+   the sync worker, and the single write path (mutate() seam, all till/KDS/desk sites).**
+   Next in order: A4 offline reads + offline PIN + client-ref chain (migration 0061), A5 LAN
+   KDS frames, A6 installer/kiosk/Sentry, A7 ESC/POS printing, A8 disconnection drill; Track B
+   in parallel: stock UI (Module-5 acceptance), courts admin, KDS item-ready persistence,
+   idle lock, speed (persistQueryClient + optimistic till + quick-add/keymap).
 7. **the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). ✔ crash fix + SDK 54 (day 5);
    ✔ **UI rebuild to the approved design 2026-08-31** (day 8 — guest browse, dark mode, merged
    grid, all screens); ✔ **day 9: the on-phone fix pass** ("no internet" root-caused — hosted
@@ -1038,7 +1113,7 @@ Arabic renders in Cairo, mirrored, in the stored palette. Known and accepted: th
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
-| Operator desktop | Audited 2026-08-28. Waves 0-2: real gate, every High fixed, heartbeat live, modules 1/2/4 complete (migrations 0050-0053, on hosted since 2026-08-30) | Durable write path + replay, stock module, ESC/POS printing, Windows installer, KDS persistence, till session lock, court admin, Sentry | Roadmap 6 |
+| Operator desktop | Waves 0-2 (2026-08-28) + **day 14 (2026-09-03): the single write path is REAL** — envelope w/ staff+device, sync worker (strict-seq replay, conflict/failed surfacing, honest degraded), mutate() seam on every till/KDS/desk write, day-close queue pre-check | Offline reads (ref_cache) + offline PIN + client-ref chain, LAN KDS frames, stock module, ESC/POS printing, Windows installer, KDS item-ready persistence, idle lock, court admin, Sentry, speed pass | Roadmap 6 |
 | Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
@@ -1047,20 +1122,20 @@ Arabic renders in Cairo, mirrored, in the stored palette. Known and accepted: th
   `com.parsamansouri.touchpadel` (wrong) and no env — a build from the root is a dead app that
   presents as "auth doesn't work". Removed on 2026-09-02; `.gitignore` now blocks `/app.json` and
   `/eas.json` at the root. The real configs are `apps/mobile/app.config.ts` + `apps/mobile/eas.json`.
-- **OPERATOR: the heartbeat has never worked and fails silently** (audit 2026-08-28, C1).
-  `apps/operator-shell/src/main/heartbeat.ts:25` POSTs to a `/functions/v1/heartbeat` edge
-  function **that does not exist**, with no auth header, no `p_is_till`, an unset
-  `SUPABASE_URL`, and a `catch {}`. Nothing in production writes `device_heartbeats`, so
-  `app.is_degraded()` is permanently false and every degraded guard is inert. Fix by calling
-  `app.heartbeat` over PostgREST with a staff JWT — no new edge function needed.
-- **OPERATOR: no operator write goes through the IPC queue** (audit C2). `touch.enqueue` has
-  zero call sites; the shell has no dequeue and no replay worker. The till cannot trade
-  through an outage, and `close_day`’s queue-depth guard is inert for the same reason as C1.
+- ~~OPERATOR C1 heartbeat~~ FIXED wave 2 (renderer sender). ~~C2 no write goes through the
+  queue~~ **FIXED day 14 (2026-09-03)**: mutate() seam + sync worker; every till/KDS/desk write
+  rides the durable queue in Electron, online too. Still open from that list: C3 stock UI.
+- **HOSTED IS BEHIND (2026-09-03): needs `supabase db push` (0060 release_hold) AND a redeploy
+  of the `replay` edge function** (the reservation.update mapper now passes p_reason on all four
+  actions). Neither is user-visible until the queue trades offline, but the drill needs both.
 - **OPERATOR: `/stock` is a live sidebar link to a bare `<h1>`** for every manager and owner
   (audit C3). Module 5 has no UI; all of its RPCs and views exist and are called by nothing.
 - **`pnpm e2e` needs a FRESH database as well as `supabase functions serve`.** Run
-  `supabase db reset && pnpm db:fixtures` first: the DB suites leave menu rows and cafe-settings
-  state that make two cafe cases fail, which is why CI resets before the e2e job. And:
+  `supabase db reset && pnpm --filter @touch/db db:fixtures` first — **db:reset alone leaves
+  menu_items and cafe_tables EMPTY** (fixtures are a separate script, discovered the hard way
+  2026-09-03: every guest test failed ITEM_NOT_FOUND). Kill orphaned dev servers on :3000/:5174
+  first or the webServer probe hangs for 300 s. The DB suites also leave menu rows and
+  cafe-settings state that make two cafe cases fail, which is why CI resets before e2e. And:
   Without the edge runtime `analytics-posthog` 404s, the client reads that as a generic error
   rather than `NOT_CONFIGURED`, and the operator analytics case fails on a missing
   "sales-only" notice. `supabase start` does not serve functions. The CI e2e job starts it.
