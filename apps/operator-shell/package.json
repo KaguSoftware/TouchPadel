@@ -5,12 +5,13 @@
   "description": "Electron shell for the Touch Padel operator app: SQLite durable queue, LAN KDS server, heartbeat, printing, kiosk.",
   "main": "dist/main/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json && electron .",
+    "build": "node esbuild.config.mjs",
+    "dev": "node esbuild.config.mjs && electron .",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "dist": "echo TODO: electron-builder --win nsis --config electron-builder.yml (operator-release.yml, design-arch.md 8)"
+    "dist": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --win nsis --config electron-builder.yml",
+    "dist:dir": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --dir --config electron-builder.yml"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
@@ -23,6 +24,8 @@
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.13",
     "electron": "^33.2.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
     "eslint": "^9.15.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

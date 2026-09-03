@@ -1,0 +1,53 @@
+# Operator desktop installer (design-arch.md §8, plan A6).
+#
+# Trigger: push a tag like `operator-v0.1.0`. Builds the renderer with the
+# HOSTED Supabase env baked in (VITE_* are build-time inlined), bundles
+# main/preload, runs electron-builder NSIS on Windows, and attaches the
+# installer to a GitHub release. No code signing (owner decision pending):
+# the install runbook documents the SmartScreen "More info → Run anyway" step.
+name: operator-release
+
+on:
+  push:
+    tags:
+      - 'operator-v*'
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    permissions:
+      contents: write # create the release + upload the asset
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build renderer (hosted env baked in)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.OPERATOR_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.OPERATOR_SUPABASE_ANON_KEY }}
+          VITE_GUEST_SITE_URL: ${{ secrets.OPERATOR_GUEST_SITE_URL }}
+          VITE_APP_VERSION: ${{ github.ref_name }}
+        run: pnpm --filter @touch/operator build
+
+      - name: Bundle main + preload
+        run: pnpm --filter @touch/operator-shell build
+
+      - name: Build NSIS installer
+        working-directory: apps/operator-shell
+        run: pnpm exec electron-builder --win nsis --config electron-builder.yml --publish never
+
+      - name: Attach installer to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apps/operator-shell/release/*.exe
+          generate_release_notes: true

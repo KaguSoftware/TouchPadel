@@ -36,6 +36,9 @@ const touch = {
   sendLanStatus: (update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void =>
     ipcRenderer.send(IPC.lanStatus, update),
 
+  quitApp: (pin: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.quitApp, pin),
+
   getCachedRef: (key: string): Promise<unknown> => ipcRenderer.invoke(IPC.getCachedRef, key),
 
   // Fire-and-forget pushes: the renderer is the auth + connectivity authority.

@@ -25,6 +25,8 @@ export const IPC = {
   pinObserved: 'touch:pin-observed',
   /** Renderer → main (send, KDS stations): a bump to carry over the LAN to the till. */
   lanStatus: 'touch:lan-status',
+  /** Invoke: manager-PIN quit — the only way a production window closes. */
+  quitApp: 'touch:quit-app',
 } as const;
 
 /**

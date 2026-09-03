@@ -29,6 +29,31 @@ jobs:
       - name: Lint, typecheck, test, build
         run: pnpm turbo lint typecheck test build
 
+  operator-shell-windows:
+    # The venue machines are Windows and better-sqlite3 is a native module —
+    # ubuntu green says nothing about the Electron ABI actually compiling and
+    # packaging there. `--dir` skips NSIS but exercises the full rebuild.
+    name: operator shell (windows ABI + package smoke)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck + test on Windows
+        run: pnpm --filter @touch/operator-shell typecheck && pnpm --filter @touch/operator-shell test
+
+      - name: Package smoke (unpacked dir, real ABI rebuild)
+        run: pnpm --filter @touch/operator-shell dist:dir
+
   mobile:
     name: mobile (doctor + bundle)
     runs-on: ubuntu-latest

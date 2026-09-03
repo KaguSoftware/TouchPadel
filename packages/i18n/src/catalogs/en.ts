@@ -819,6 +819,7 @@ export const en = {
       apply: 'Apply',
       minutesShort: '{minutes} min',
       pin: 'Manager PIN',
+      quitApp: 'Quit to desktop',
       reason: 'Reason',
       notes: 'Notes',
       optional: 'optional',
