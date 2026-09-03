@@ -1,4 +1,4 @@
-import type { MutationEnvelope, PrintJob } from '../ipc-channels';
+import type { AuthState, MutationEnvelope, PrintJob } from '../ipc-channels';
 
 /**
  * Runtime validation for everything crossing the IPC boundary.
@@ -166,6 +166,29 @@ export function validatePrintJob(value: unknown): PrintJob {
   const kind = requireString(raw.kind, 'kind', 16);
   if (!(PRINT_KINDS as readonly string[]).includes(kind)) fail(`unknown print kind '${kind}'`);
   return { kind: kind as PrintJob['kind'], data: raw.data ?? null };
+}
+
+/**
+ * Auth state pushed by the renderer for the sync worker. `null` clears it
+ * (sign-out). The token is opaque here — the server verifies it; this only
+ * refuses junk shapes, and like the PIN the token must never reach a log line.
+ */
+export function validateAuthState(value: unknown): AuthState | null {
+  if (value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) fail('authState must be an object or null');
+  const raw = value as Record<string, unknown>;
+  const accessToken = requireString(raw.accessToken, 'accessToken', 8192);
+  const staffId = requireString(raw.staffId, 'staffId', 64);
+  if (!uuidRegex.test(staffId)) fail('staffId must be a uuid');
+  const supabaseUrl = requireString(raw.supabaseUrl, 'supabaseUrl', 512);
+  if (!/^https?:\/\//.test(supabaseUrl)) fail('supabaseUrl must be http(s)');
+  const anonKey = requireString(raw.anonKey, 'anonKey', 8192);
+  return { accessToken, staffId, supabaseUrl: supabaseUrl.replace(/\/+$/, ''), anonKey };
+}
+
+export function validateConnState(value: unknown): boolean {
+  if (typeof value !== 'boolean') fail('connState must be a boolean');
+  return value;
 }
 
 /**

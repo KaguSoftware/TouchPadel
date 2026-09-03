@@ -213,19 +213,43 @@ export function listBlockingRows(): QueueRow[] {
   return rows.map(toRow);
 }
 
+/**
+ * Degraded inputs — two independent witnesses, either one flips the flag:
+ * the renderer's heartbeat verdict (pushed over touch:conn-state after every
+ * beat) and the sync worker's own transport failures. The renderer's BANNER
+ * still prefers the server's res.degraded when a beat succeeds; this local
+ * flag is what remains truthful when the server cannot be reached at all.
+ */
+let rendererOnline = true;
+let workerUnreachable = false;
+
+export function setConnOnline(online: boolean): void {
+  rendererOnline = online;
+}
+
+export function setWorkerUnreachable(unreachable: boolean): void {
+  workerUnreachable = unreachable;
+}
+
 export function queueStatus(): QueueStatus {
   const row = openQueue()
     .prepare(
       `SELECT
          SUM(CASE WHEN state IN ('pending','inflight') THEN 1 ELSE 0 END) AS depth,
-         SUM(CASE WHEN state = 'conflict' THEN 1 ELSE 0 END) AS conflicts
+         SUM(CASE WHEN state = 'conflict' THEN 1 ELSE 0 END) AS conflicts,
+         SUM(CASE WHEN state = 'failed' THEN 1 ELSE 0 END) AS failed
        FROM mutation_queue`,
     )
-    .get() as { depth: number | null; conflicts: number | null };
+    .get() as { depth: number | null; conflicts: number | null; failed: number | null };
+  const depth = row.depth ?? 0;
+  const conflicts = row.conflicts ?? 0;
+  const failed = row.failed ?? 0;
   return {
-    depth: row.depth ?? 0,
-    conflicts: row.conflicts ?? 0,
-    degraded: false, // TODO(A2): reflect renderer conn-state + worker reachability (design-arch.md §3)
+    depth,
+    conflicts,
+    failed,
+    blocking: depth + conflicts + failed,
+    degraded: !rendererOnline || workerUnreachable,
   };
 }
 

@@ -18,6 +18,8 @@ import {
   listBlockingRows,
   getMeta,
   setMeta,
+  setConnOnline,
+  setWorkerUnreachable,
 } from './queue';
 import type { MutationEnvelope } from '../ipc-channels';
 
@@ -263,31 +265,46 @@ describe('worker state machine', () => {
 
 describe('queueStatus', () => {
   it('reports zero on an empty queue', () => {
-    expect(queueStatus()).toEqual({ depth: 0, conflicts: 0, degraded: false });
+    expect(queueStatus()).toEqual({
+      depth: 0,
+      conflicts: 0,
+      failed: 0,
+      blocking: 0,
+      degraded: false,
+    });
   });
 
-  it('counts pending and inflight as depth, and conflicts separately', () => {
+  it('counts pending+inflight as depth, conflicts and failed separately, all as blocking', () => {
     const pending = unique();
     const inflight = unique();
     const conflict = unique();
+    const failed = unique();
     const acked = unique();
-    [pending, inflight, conflict, acked].forEach(enqueue);
+    [pending, inflight, conflict, failed, acked].forEach(enqueue);
     markInflight(inflight.idempotencyKey);
     markConflict(conflict.idempotencyKey, {});
+    markFailed(failed.idempotencyKey, 'boom');
     ack(acked.idempotencyKey, {});
 
     const s = queueStatus();
     expect(s.depth).toBe(2);
     expect(s.conflicts).toBe(1);
+    expect(s.failed).toBe(1);
+    expect(s.blocking).toBe(4);
   });
 
-  it('KNOWN GAP: degraded is hard-coded false, not derived from the heartbeat', () => {
-    // queue.ts — `degraded: false, // TODO(A2)`. The banner the contract
-    // requires ("A banner states the mode and the queued count", SOW L688)
-    // therefore cannot be driven from this value yet. Locked in a test so the
-    // A2 fix has something to flip.
-    const m = unique();
-    enqueue(m);
+  it('derives degraded from the renderer conn-state and the worker reachability', () => {
+    // The A2 fix for the old KNOWN GAP (degraded was hard-coded false): either
+    // witness flips it — the heartbeat's verdict pushed over touch:conn-state,
+    // or the sync worker's own consecutive transport failures.
+    expect(queueStatus().degraded).toBe(false);
+    setConnOnline(false);
+    expect(queueStatus().degraded).toBe(true);
+    setConnOnline(true);
+    expect(queueStatus().degraded).toBe(false);
+    setWorkerUnreachable(true);
+    expect(queueStatus().degraded).toBe(true);
+    setWorkerUnreachable(false);
     expect(queueStatus().degraded).toBe(false);
   });
 });
