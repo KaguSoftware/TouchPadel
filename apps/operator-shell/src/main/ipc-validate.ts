@@ -183,6 +183,8 @@ export function validateRefKey(value: unknown): RefKey {
 }
 
 const PRINT_KINDS = ['receipt', 'kitchen', 'reprint'] as const;
+/** A receipt's HTML — generous, but bounded (a runaway DOM string is a bug). */
+export const MAX_PRINT_HTML_BYTES = 512 * 1024;
 
 export function validatePrintJob(value: unknown): PrintJob {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -191,6 +193,12 @@ export function validatePrintJob(value: unknown): PrintJob {
   const raw = value as Record<string, unknown>;
   const kind = requireString(raw.kind, 'kind', 16);
   if (!(PRINT_KINDS as readonly string[]).includes(kind)) fail(`unknown print kind '${kind}'`);
+  // receipt/reprint carry { html } for the rendered-image pipeline.
+  const data = raw.data as Record<string, unknown> | null | undefined;
+  if (data && typeof data === 'object' && 'html' in data) {
+    const html = requireString(data.html, 'data.html', MAX_PRINT_HTML_BYTES);
+    return { kind: kind as PrintJob['kind'], data: { html } };
+  }
   return { kind: kind as PrintJob['kind'], data: raw.data ?? null };
 }
 

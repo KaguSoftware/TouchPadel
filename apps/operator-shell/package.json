@@ -32,7 +32,7 @@
   },
   "x-notes": [
     "CommonJS on purpose (no \"type\": \"module\"): Electron main/preload compile to CJS — the monorepo-wide ESM rule's one exception.",
-    "sharp ^0.33 is NOT installed yet — added in W3 for the ESC/POS 1-bit raster print pipeline (design-arch.md 6.1).",
+    "sharp is deliberately NOT installed: the print pipeline thresholds Chromium BGRA captures in plain JS (src/main/print/raster.ts).",
     "electron-builder + electron-updater are added when operator-release.yml lands (design-arch.md 8); config already drafted in electron-builder.yml.",
     "Auto-update scheduling machinery is CUT from phase 1 (plan cut #7) — plain electron-updater only, no update windows."
   ]
