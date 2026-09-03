@@ -303,6 +303,7 @@ export const REASON_CODES = [
   'duplicate',
   'comp',
   'weather',
+  'expired',
   'other',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];

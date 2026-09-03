@@ -156,6 +156,17 @@ export const SUB_ROUTES = {
     '/admin/staff',
     '/admin/audit',
   ],
+  '/stock': [
+    '/stock/ingredients',
+    '/stock/receive',
+    '/stock/waste',
+    '/stock/recipes',
+    '/stock/counts',
+    '/stock/variance',
+    '/stock/margins',
+    '/stock/alerts',
+    '/stock/expiry',
+  ],
 } as const satisfies Record<string, readonly string[]>;
 export type SubRoutePrefix = keyof typeof SUB_ROUTES;
 
