@@ -251,6 +251,21 @@ describe('order.add_items payload', () => {
     });
     expect(parsed.items[0]?.modifiers[0]?.qty).toBe(1);
   });
+
+  it('takes exactly one of tabId / tabIdemKey — the offline tab reference', () => {
+    const idemKey = makeIdempotencyKey(STATION, 'tab.open');
+    const { tabId: _drop, ...rest } = valid();
+    expect(orderAddItemsPayloadSchema.safeParse({ ...rest, tabIdemKey: idemKey }).success).toBe(
+      true,
+    );
+    expect(orderAddItemsPayloadSchema.safeParse(rest).success).toBe(false);
+    expect(
+      orderAddItemsPayloadSchema.safeParse({ ...valid(), tabIdemKey: idemKey }).success,
+    ).toBe(false);
+    expect(
+      tabSettlePayloadSchema.safeParse({ tabIdemKey: idemKey, method: 'card' }).success,
+    ).toBe(true);
+  });
 });
 
 describe('ticket.status payload', () => {

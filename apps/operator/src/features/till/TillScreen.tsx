@@ -3,7 +3,7 @@
  * settle (cash/card/split), PIN-gated discount and void-after-send.
  * Every write is an app.* RPC (0015); prices always come back from the server.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { splitEvenly } from '@touch/core';
 import { formatIQD, formatTime } from '@touch/i18n';
@@ -11,6 +11,17 @@ import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
+import { cachedQuery } from '../../lib/refCache';
+import { touch } from '../../ipc/bridge';
+import {
+  LOCAL_TAB_PREFIX,
+  addOfflineTab,
+  appendOfflineLines,
+  getOfflineTab,
+  listOfflineTabs,
+  markOfflineSettled,
+  subscribeOfflineTabs,
+} from '../../lib/offlineTabs';
 import { computeTabTotals } from './tabTotals';
 import { BillView } from './BillView';
 import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerActions';
@@ -140,6 +151,17 @@ export function TillScreen() {
   const [sending, setSending] = useState(false);
   const [showNewTab, setShowNewTab] = useState(false);
   const filterRef = useRef<HTMLInputElement>(null);
+  // Tabs opened while disconnected — durable in the queue, listed here so the
+  // cashier can keep adding to them and settle them (SOW L671-675).
+  const offlineTabs = useSyncExternalStore(subscribeOfflineTabs, listOfflineTabs);
+
+  // When a selected offline tab's open replays (acked) its entry retires and
+  // the server tab takes its place in the rail — drop the dangling selection.
+  useEffect(() => {
+    if (!selectedTabId?.startsWith(LOCAL_TAB_PREFIX)) return;
+    const key = selectedTabId.slice(LOCAL_TAB_PREFIX.length);
+    if (!offlineTabs.some((t) => t.idemKey === key)) setSelectedTabId(null);
+  }, [offlineTabs, selectedTabId]);
 
   // ---- data -----------------------------------------------------------------
   const dayQ = useQuery({ queryKey: QK.day, queryFn: fetchOpenDay });
@@ -147,33 +169,39 @@ export function TillScreen() {
   const menuQ = useQuery({
     queryKey: ['menu'],
     queryFn: async () => {
-      const [cats, items, groups, mods, avail] = await Promise.all([
-        supabase
-          .from('menu_categories')
-          .select('id, name_en, name_ar, sort_order, is_active, tax_group:tax_groups(rate_bp)')
-          .order('sort_order'),
-        supabase
-          .from('menu_items')
-          .select(
-            'id, category_id, name_en, name_ar, is_active, sort_order, menu_item_variants(*), menu_item_modifier_groups(group_id, sort_order)',
-          )
-          .order('sort_order'),
-        supabase.from('modifier_groups').select('*'),
-        supabase.from('modifiers').select('*').order('sort_order'),
-        supabase.from('menu_item_availability').select('item_id, orderable'),
-      ]);
-      for (const r of [cats, items, groups, mods, avail]) if (r.error) throw r.error;
+      // cachedQuery wraps only the serialisable half (SOW L671: the till keeps
+      // trading from the cached menu + prices); the Map is rebuilt after.
+      const raw = await cachedQuery('menu', async () => {
+        const [cats, items, groups, mods, avail] = await Promise.all([
+          supabase
+            .from('menu_categories')
+            .select('id, name_en, name_ar, sort_order, is_active, tax_group:tax_groups(rate_bp)')
+            .order('sort_order'),
+          supabase
+            .from('menu_items')
+            .select(
+              'id, category_id, name_en, name_ar, is_active, sort_order, menu_item_variants(*), menu_item_modifier_groups(group_id, sort_order)',
+            )
+            .order('sort_order'),
+          supabase.from('modifier_groups').select('*'),
+          supabase.from('modifiers').select('*').order('sort_order'),
+          supabase.from('menu_item_availability').select('item_id, orderable'),
+        ]);
+        for (const r of [cats, items, groups, mods, avail]) if (r.error) throw r.error;
+        return {
+          categories: (cats.data ?? []) as unknown as CategoryRow[],
+          items: (items.data ?? []) as unknown as ItemRow[],
+          groups: (groups.data ?? []) as unknown as ModifierGroupRow[],
+          modifiers: (mods.data ?? []) as unknown as ModifierRow[],
+          availabilityRows: (avail.data ?? []) as { item_id: string; orderable: boolean }[],
+        };
+      });
       return {
-        categories: (cats.data ?? []) as unknown as CategoryRow[],
-        items: (items.data ?? []) as unknown as ItemRow[],
-        groups: (groups.data ?? []) as unknown as ModifierGroupRow[],
-        modifiers: (mods.data ?? []) as unknown as ModifierRow[],
-        availability: new Map(
-          ((avail.data ?? []) as { item_id: string; orderable: boolean }[]).map((a) => [
-            a.item_id,
-            a.orderable,
-          ]),
-        ),
+        categories: raw.categories,
+        items: raw.items,
+        groups: raw.groups,
+        modifiers: raw.modifiers,
+        availability: new Map(raw.availabilityRows.map((a) => [a.item_id, a.orderable])),
       };
     },
   });
@@ -187,18 +215,19 @@ export function TillScreen() {
 
   const tabsQ = useQuery({
     queryKey: ['tabs'],
-    queryFn: async (): Promise<TabListRow[]> => {
-      const { data, error } = await supabase
-        .from('tabs')
-        .select(
-          'id, status, label, opened_at, table:cafe_tables(table_number), reservation:reservations(guest_name)',
-        )
-        .in('status', ['open', 'awaiting_payment'])
-        .is('merged_into_tab_id', null)
-        .order('opened_at');
-      if (error) throw error;
-      return data as unknown as TabListRow[];
-    },
+    queryFn: (): Promise<TabListRow[]> =>
+      cachedQuery('open_tabs', async () => {
+        const { data, error } = await supabase
+          .from('tabs')
+          .select(
+            'id, status, label, opened_at, table:cafe_tables(table_number), reservation:reservations(guest_name)',
+          )
+          .in('status', ['open', 'awaiting_payment'])
+          .is('merged_into_tab_id', null)
+          .order('opened_at');
+        if (error) throw error;
+        return data as unknown as TabListRow[];
+      }),
     // Safety net under the 'floor' broadcast, matching KDS tickets. A missed
     // realtime frame used to leave the open-tabs rail stale until someone
     // navigated away and back — on the screen that takes the money.
@@ -262,18 +291,32 @@ export function TillScreen() {
     setSending(true);
     setSendError(null);
     try {
+      const items = basket.map((l) => ({
+        variantId: l.variantId,
+        qty: l.qty,
+        ...(l.notes ? { notes: l.notes } : {}),
+        modifiers: l.modifiers.map((m) => ({ modifierId: m.modifierId, qty: m.qty })),
+      }));
       // Single write path: queued durably in Electron (fsync before this
       // resolves), direct RPC in browser mode. Offline the outcome is
       // `queued` — the basket is safe, the ticket lands on replay.
-      await mutate('order.add_items', {
-        tabId: selectedTabId,
-        items: basket.map((l) => ({
-          variantId: l.variantId,
-          qty: l.qty,
-          ...(l.notes ? { notes: l.notes } : {}),
-          modifiers: l.modifiers.map((m) => ({ modifierId: m.modifierId, qty: m.qty })),
-        })),
-      });
+      if (selectedTabId.startsWith(LOCAL_TAB_PREFIX)) {
+        // A tab opened offline has no server id yet — reference its tab.open
+        // key; replay resolves it (strictly after the open, same queue).
+        const idemKey = selectedTabId.slice(LOCAL_TAB_PREFIX.length);
+        await mutate('order.add_items', { tabIdemKey: idemKey, items });
+        appendOfflineLines(
+          idemKey,
+          basket.map((l) => ({
+            name: `${l.itemName} (${l.variantName})`,
+            qty: l.qty,
+            priceIqd:
+              l.unitPriceIqd + l.modifiers.reduce((s, m) => s + m.priceDeltaIqd * m.qty, 0),
+          })),
+        );
+      } else {
+        await mutate('order.add_items', { tabId: selectedTabId, items });
+      }
       setBasket([]);
       void queryClient.invalidateQueries({ queryKey: ['tab', selectedTabId] });
       void queryClient.invalidateQueries({ queryKey: ['tabs'] });
@@ -334,6 +377,22 @@ export function TillScreen() {
             {tb.status === 'awaiting_payment' && ' ⏳'}
           </Button>
         ))}
+        {offlineTabs.map((ot) => {
+          const localId = `${LOCAL_TAB_PREFIX}${ot.idemKey}`;
+          return (
+            <Button
+              key={ot.idemKey}
+              kind={localId === selectedTabId ? 'primary' : 'default'}
+              style={{ display: 'block', inlineSize: '100%', marginBlockStart: '0.4rem', textAlign: 'start' }}
+              onClick={() => {
+                setSelectedTabId(localId);
+                setBasket([]);
+              }}
+            >
+              {ot.tableNumber ? `${tr('op.till.table')} ${ot.tableNumber}` : (ot.label ?? '—')} ⟳
+            </Button>
+          );
+        })}
       </div>
 
       {/* Menu grid */}
@@ -443,13 +502,19 @@ export function TillScreen() {
       </div>
 
       {/* Tab detail */}
-      {selectedTabId && (
+      {selectedTabId && !selectedTabId.startsWith(LOCAL_TAB_PREFIX) && (
         <TabDetailPanel
           tabId={selectedTabId}
           onClosedTab={() => {
             setSelectedTabId(null);
             void queryClient.invalidateQueries({ queryKey: ['tabs'] });
           }}
+        />
+      )}
+      {selectedTabId?.startsWith(LOCAL_TAB_PREFIX) && (
+        <OfflineTabPanel
+          idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)}
+          onSettled={() => setSelectedTabId(null)}
         />
       )}
 
@@ -474,6 +539,105 @@ export function TillScreen() {
             void queryClient.invalidateQueries({ queryKey: ['tabs'] });
           }}
         />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Offline tab detail — a tab that exists only in the durable queue. Lines and
+// totals are estimates from the cached menu (the same prices the server will
+// snapshot at replay); settling queues a tab.settle against the tab.open key.
+// ---------------------------------------------------------------------------
+function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSettled: () => void }) {
+  const { tr, locale } = useLocale();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [cashOpen, setCashOpen] = useState(false);
+  const [tendered, setTendered] = useState(0);
+  const tab = getOfflineTab(idemKey);
+  if (!tab) return null;
+
+  const total = tab.lines.reduce((sum, l) => sum + l.priceIqd * l.qty, 0);
+  const change = computeChange(total, tendered);
+
+  async function settleOffline(method: 'cash' | 'card', tenderedIqd: number | null) {
+    setBusy(true);
+    setError(null);
+    try {
+      await mutate('tab.settle', {
+        tabIdemKey: idemKey,
+        method,
+        ...(total > 0 ? { amountIqd: total } : {}),
+        ...(tenderedIqd != null ? { tenderedIqd } : {}),
+      });
+      markOfflineSettled(idemKey);
+      onSettled();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ inlineSize: '21rem', flexShrink: 0 }}>
+      <h2 style={{ marginBlockStart: 0, fontSize: '1.05rem' }}>
+        {tab.tableNumber ? `${tr('op.till.table')} ${tab.tableNumber}` : (tab.label ?? '—')}
+      </h2>
+      <p style={{ color: 'var(--tp-muted-fg)', fontSize: '0.85rem', marginBlockStart: 0 }}>
+        {tr('op.till.offlineTab')}
+      </p>
+      {tab.lines.map((l, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+          <span>
+            {l.qty}× {l.name}
+          </span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {formatIQD(l.priceIqd * l.qty, locale)}
+          </span>
+        </div>
+      ))}
+      <hr style={{ border: 'none', borderBlockStart: '1px solid var(--tp-border)' }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+        <span>{tr('op.till.estimatedTotal')}</span>
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatIQD(total, locale)}</span>
+      </div>
+      <ErrorText error={error} />
+      {tab.lines.length > 0 && !cashOpen && (
+        <div style={{ display: 'flex', gap: '0.5rem', marginBlockStart: '0.6rem' }}>
+          <Button kind="primary" disabled={busy} onClick={() => setCashOpen(true)}>
+            {tr('op.till.payCash')}
+          </Button>
+          <Button disabled={busy} onClick={() => void settleOffline('card', null)}>
+            {tr('op.till.payCard')}
+          </Button>
+        </div>
+      )}
+      {cashOpen && (
+        <div style={{ marginBlockStart: '0.6rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBlockEnd: '0.5rem' }}>
+            <AmountPad value={tendered} onChange={setTendered} />
+          </div>
+          {change.sufficient && (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>{tr('op.till.change')}</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
+                {formatIQD(change.changeIqd, locale)}
+              </span>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <Button onClick={() => setCashOpen(false)}>{tr('common.back')}</Button>
+            <Button
+              kind="primary"
+              disabled={busy || tendered < total}
+              onClick={() => void settleOffline('cash', tendered)}
+            >
+              {tr('op.till.recordPayment')}
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -673,11 +837,18 @@ function NewTabDialog({
       if (outcome.result) {
         onOpened(outcome.result.tab_id);
       } else {
-        // Queued offline: the tab exists on disk and will open on replay. The
-        // rail can't select it yet (no server id) — close and let the queued
-        // count in the banner carry the story. (A4 gives offline tabs a local
-        // identity via client refs.)
-        onClose();
+        // Queued offline: durably on disk, replays on reconnect. Its tab.open
+        // key is its local identity — the rail lists it and order.add_items /
+        // tab.settle reference it as tabIdemKey until the server id exists.
+        addOfflineTab({
+          idemKey: outcome.idempotencyKey,
+          localId: outcome.localId,
+          label: label || null,
+          tableNumber: tableId
+            ? ((tablesQ.data ?? []).find((t) => t.id === tableId)?.table_number ?? null)
+            : null,
+        });
+        onOpened(`${LOCAL_TAB_PREFIX}${outcome.idempotencyKey}`);
       }
     } catch (e) {
       setError(e);
@@ -887,13 +1058,14 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
     try {
       // The PIN rides in the payload and is re-verified server-side at replay —
       // queueing is never a way around the manager authorisation.
-      await mutate('adjustment.apply', {
+      const outcome = await mutate('adjustment.apply', {
         kind: discountKind,
         tabId,
         value: discountKind === 'discount_percent' ? discountValue * 100 : discountValue,
         pin,
         reasonCode,
       });
+      if (!outcome.queued) touch.pinObserved(pin); // server-verified — cache for offline unlock
       setDiscountOpen(false);
       refresh();
     } catch (e) {
@@ -914,6 +1086,7 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
         p_reason_code: reasonCode,
         p_device_id: deviceId(),
       });
+      touch.pinObserved(pin); // server just verified it — cache for offline unlock
       setVoidItemId(null);
       refresh();
     } catch (e) {

@@ -967,6 +967,8 @@ export const en = {
       recordPayment: 'Record payment',
       remaining: 'Remaining {amount}',
       paidInFull: 'Tab settled.',
+      offlineTab: 'Offline — syncs when the connection returns.',
+      estimatedTotal: 'Estimated total',
       splitEvenly: 'Split evenly',
       splitCount: 'Number of people',
       share: 'Share {index}: {amount}',

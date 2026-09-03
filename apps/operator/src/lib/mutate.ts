@@ -27,6 +27,8 @@ export interface MutateOutcome<T = unknown> {
   /** true = durably queued with no server echo yet (offline / slow link). */
   queued: boolean;
   localId: string;
+  /** The envelope's key — a queued tab.open's key IS the offline tab identity. */
+  idempotencyKey: string;
   result: T | null;
 }
 
@@ -262,9 +264,15 @@ export async function mutate<T = unknown>(
   const key = makeIdempotencyKey(device, type);
 
   if (!isElectron()) {
+    // tabIdemKey only exists for tabs opened OFFLINE — impossible in browser
+    // mode, which has no queue. Refuse loudly rather than send p_tab_id: null.
+    const p = payload as { tabIdemKey?: unknown } | null;
+    if (p && typeof p === 'object' && p.tabIdemKey != null) {
+      throw new AppRpcError('UNKNOWN', 'tabIdemKey is a queue-only reference');
+    }
     const { fn, args } = DIRECT_RPC[type](payload, key, device);
     const result = await appRpc<T>(fn as AppFunctionName, args);
-    return { queued: false, localId: '', result };
+    return { queued: false, localId: '', idempotencyKey: key, result };
   }
 
   const staffId = currentStaffId;
@@ -297,9 +305,16 @@ export async function mutate<T = unknown>(
   }
 
   const settled = await awaitResult(envelope.localId, AWAIT_MS);
-  if (!settled) return { queued: true, localId: envelope.localId, result: null };
+  if (!settled) {
+    return { queued: true, localId: envelope.localId, idempotencyKey: key, result: null };
+  }
   if (settled.state === 'acked') {
-    return { queued: false, localId: envelope.localId, result: extractEcho(settled.serverResult) as T };
+    return {
+      queued: false,
+      localId: envelope.localId,
+      idempotencyKey: key,
+      result: extractEcho(settled.serverResult) as T,
+    };
   }
   throw toError(settled.state, settled.serverResult, settled.error);
 }

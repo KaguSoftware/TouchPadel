@@ -25,6 +25,7 @@
 import type { QueryKey } from '@tanstack/react-query';
 import type { OpeningHours } from '@touch/core';
 import { supabase } from './supabase';
+import { cachedQuery } from './refCache';
 
 // ---------------------------------------------------------------------------
 // Key registry — every shared key in one place, so a collision is visible.
@@ -89,26 +90,33 @@ export async function fetchVenueSettings(): Promise<VenueSettingsRow> {
 }
 
 export async function fetchActiveCourts(): Promise<CourtRow[]> {
-  const { data, error } = await supabase
-    .from('courts')
-    .select('id, name_en, name_ar, duration_options, sort_order')
-    .eq('is_active', true)
-    .order('sort_order');
-  if (error) throw error;
-  return data as unknown as CourtRow[];
+  // cachedQuery: the desk keeps its court list through an outage (SOW L671).
+  return cachedQuery('courts', async () => {
+    const { data, error } = await supabase
+      .from('courts')
+      .select('id, name_en, name_ar, duration_options, sort_order')
+      .eq('is_active', true)
+      .order('sort_order');
+    if (error) throw error;
+    return data as unknown as CourtRow[];
+  });
 }
 
-/** The day session the till and day-close screen both work against. */
+/** The day session the till and day-close screen both work against.
+ *  cachedQuery: "no business day is open" must mean the day is closed, never
+ *  that the network died — the till keeps trading against the cached day. */
 export async function fetchOpenDay(): Promise<DaySessionRow | null> {
-  const { data, error } = await supabase
-    .from('day_sessions')
-    .select('id, status, business_date, opened_at, opening_float_iqd')
-    .in('status', ['open', 'closing'])
-    .order('opened_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return data as DaySessionRow | null;
+  return cachedQuery('day', async () => {
+    const { data, error } = await supabase
+      .from('day_sessions')
+      .select('id, status, business_date, opened_at, opening_float_iqd')
+      .in('status', ['open', 'closing'])
+      .order('opened_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data as DaySessionRow | null;
+  });
 }
 
 export interface ActiveTableRow {
@@ -118,11 +126,13 @@ export interface ActiveTableRow {
 
 /** Tables a guest could actually be seated at — the till's picker. */
 export async function fetchActiveCafeTables(): Promise<ActiveTableRow[]> {
-  const { data, error } = await supabase
-    .from('cafe_tables')
-    .select('id, table_number')
-    .eq('is_active', true)
-    .order('table_number');
-  if (error) throw error;
-  return data as ActiveTableRow[];
+  return cachedQuery('tables', async () => {
+    const { data, error } = await supabase
+      .from('cafe_tables')
+      .select('id, table_number')
+      .eq('is_active', true)
+      .order('table_number');
+    if (error) throw error;
+    return data as ActiveTableRow[];
+  });
 }

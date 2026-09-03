@@ -19,6 +19,10 @@ export const IPC = {
   mutationResult: 'touch:mutation-result',
   /** Invoke: every non-acked row — the day-close pre-check and conflicts panel. */
   queueRows: 'touch:queue-rows',
+  /** Renderer → main (send): a fresh reference-data payload for the offline cache. */
+  cachePut: 'touch:cache-put',
+  /** Renderer → main (send): a PIN that just succeeded server-side — cache its hash. */
+  pinObserved: 'touch:pin-observed',
 } as const;
 
 /**
@@ -113,8 +117,21 @@ export interface StationInfo {
   tillHost?: string;
 }
 
+/** A cached ref-data row: the payload plus when it was fetched (banner shows the age). */
+export interface CachedRef {
+  payload: unknown;
+  fetchedAt: string;
+}
+
+/**
+ * Offline PIN unlock is an AUTHORISATION TOKEN check, not an identity check:
+ * the cache stores scrypt hashes of pins that succeeded server-side recently
+ * (the server never exposes who owns a pin), and every queued PIN-gated
+ * mutation is re-verified server-side at replay — the cache gates UX, the
+ * server remains the wall. staffId is therefore absent offline.
+ */
 export interface PinUnlockResult {
-  staffId: string;
+  staffId?: string;
   role: Role;
   grantToken: string;
 }

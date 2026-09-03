@@ -10,6 +10,7 @@ import {
   ack,
   queueStatus,
   getCachedRef,
+  putCachedRef,
   peekNext,
   markInflight,
   markConflict,
@@ -21,6 +22,7 @@ import {
   setConnOnline,
   setWorkerUnreachable,
 } from './queue';
+import { observePin, unlockPinOffline } from './pin-cache';
 import type { MutationEnvelope } from '../ipc-channels';
 
 // The SQLite queue is where the contract's hardest promise lives: "Every write
@@ -109,12 +111,12 @@ describe('schema v1 migration', () => {
     return file;
   }
 
-  it('adds staff_id/device_id + meta and stamps user_version 1', () => {
+  it('adds staff_id/device_id + meta and stamps the current user_version', () => {
     const d = openQueueAt(legacyDbFile());
     const cols = (d.pragma('table_info(mutation_queue)') as { name: string }[]).map((c) => c.name);
     expect(cols).toContain('staff_id');
     expect(cols).toContain('device_id');
-    expect(d.pragma('user_version', { simple: true })).toBe(1);
+    expect(d.pragma('user_version', { simple: true })).toBe(2);
     expect(() => d.exec("INSERT INTO meta (key, value) VALUES ('k','v')")).not.toThrow();
     d.close();
   });
@@ -133,7 +135,7 @@ describe('schema v1 migration', () => {
     const file = legacyDbFile();
     openQueueAt(file).close();
     const d = openQueueAt(file);
-    expect(d.pragma('user_version', { simple: true })).toBe(1);
+    expect(d.pragma('user_version', { simple: true })).toBe(2);
     d.close();
   });
 });
@@ -331,19 +333,57 @@ describe('ack', () => {
   });
 });
 
-describe('getCachedRef', () => {
-  it('KNOWN GAP: always misses, because nothing populates ref_cache', () => {
-    // SOW L671-672 requires the till to keep trading "from cached reference
-    // data: menu, prices, recipes, courts, tables and today's reservations".
-    // The table exists; the writer lands in A4 (touch:cache-put).
+describe('ref_cache', () => {
+  it('misses cleanly on an empty cache', () => {
     expect(getCachedRef('menu')).toBeUndefined();
   });
 
-  it('round-trips a row once one exists', () => {
+  it('putCachedRef round-trips and stamps fetched_at (the banner shows the age)', () => {
+    // SOW L671-672: the till keeps trading "from cached reference data: menu,
+    // prices, recipes, courts, tables and today's reservations". The A2-era
+    // KNOWN GAP (no writer anywhere) closed in A4 — touch:cache-put feeds this.
+    const before = Date.now();
+    putCachedRef('menu', [{ id: 'i1' }]);
+    const hit = getCachedRef('menu');
+    expect(hit?.payload).toEqual([{ id: 'i1' }]);
+    expect(new Date(hit!.fetchedAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
+  });
+
+  it('upserts — the newest payload and stamp win', () => {
+    putCachedRef('day', { id: 'd1' });
+    putCachedRef('day', { id: 'd2' });
+    expect(getCachedRef('day')?.payload).toEqual({ id: 'd2' });
+  });
+});
+
+describe('pin_cache (authorisation-token model)', () => {
+  it('observePin caches a hash and unlockPinOffline matches it in constant time', () => {
+    expect(unlockPinOffline('4321')).toBeNull();
+    observePin('4321');
+    const unlocked = unlockPinOffline('4321');
+    expect(unlocked?.role).toBe('manager');
+    expect(unlocked?.grantToken).toMatch(/^[0-9a-f]{32}$/);
+    expect(unlockPinOffline('9999')).toBeNull();
+  });
+
+  it('refuses a hash older than the 14-day TTL', () => {
+    observePin('5678');
     openQueue()
-      .prepare('INSERT INTO ref_cache (key, payload, fetched_at) VALUES (?, ?, ?)')
-      .run('menu', JSON.stringify([{ id: 'i1' }]), '2026-08-28T09:00:00.000Z');
-    expect(getCachedRef('menu')).toEqual([{ id: 'i1' }]);
+      .prepare('UPDATE pin_cache SET updated_at = ?')
+      .run(new Date(Date.now() - 15 * 86_400_000).toISOString());
+    expect(unlockPinOffline('5678')).toBeNull();
+  });
+
+  it('never stores the pin itself — only a scrypt hash under a station salt', () => {
+    observePin('2468');
+    const rows = openQueue().prepare('SELECT pin_hash FROM pin_cache').all() as {
+      pin_hash: string;
+    }[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.pin_hash).not.toContain('2468');
+      expect(row.pin_hash).toMatch(/^[0-9a-f]{64}$/);
+    }
   });
 });
 

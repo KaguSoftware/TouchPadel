@@ -25,6 +25,7 @@ import { formatIQD } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
+import { touch } from '../../ipc/bridge';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import {
@@ -96,6 +97,7 @@ export function RefundDialog({
         p_items: chosen.length > 0 ? chosen : null,
         p_device_id: deviceId(),
       });
+      touch.pinObserved(pin); // server just verified it — cache for offline unlock
       setPinOpen(false);
       onDone();
     } catch (e) {
@@ -222,13 +224,16 @@ export function OverridePriceDialog({
     setBusy(true);
     setError(null);
     try {
-      await mutate('adjustment.apply', {
+      const outcome = await mutate('adjustment.apply', {
         kind: 'price_override',
         orderItemId,
         newUnitPriceIqd: price,
         pin,
         reasonCode,
       });
+      // Only a server-verified pin feeds the offline cache — a queued one
+      // hasn't been checked yet.
+      if (!outcome.queued) touch.pinObserved(pin);
       setPinOpen(false);
       onDone();
     } catch (e) {
