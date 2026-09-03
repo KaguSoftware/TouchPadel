@@ -607,6 +607,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_recipe: {
+        Args: { p_lines?: Json; p_target: string; p_target_id: string }
+        Returns: number
+      }
       set_staff_active: {
         Args: { p_active: boolean; p_reason_code?: string; p_staff_id: string }
         Returns: Json
@@ -760,6 +764,25 @@ export type Database = {
           p_name_en: string
           p_photo_path?: string
           p_sort_order?: number
+        }
+        Returns: string
+      }
+      upsert_ingredient: {
+        Args: {
+          p_id?: string
+          p_is_active?: boolean
+          p_kind?: Database["public"]["Enums"]["ingredient_kind"]
+          p_low_stock_threshold?: number
+          p_name_ar: string
+          p_name_en: string
+          p_pack_cost_iqd?: number
+          p_pack_size?: number
+          p_par_level?: number
+          p_shelf_life_days?: number
+          p_supplier_name?: string
+          p_unit: Database["public"]["Enums"]["stock_unit"]
+          p_waste_allowance_percent?: number
+          p_yield_percent?: number
         }
         Returns: string
       }

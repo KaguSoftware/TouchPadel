@@ -11,6 +11,7 @@ import { tillRoute } from './routes/till';
 import { deskRoute } from './routes/desk';
 import { kdsRoute } from './routes/kds';
 import { stockRoute } from './routes/stock';
+import { stockChildren } from './routes/stock/_children';
 import { adminRoute } from './routes/admin';
 import { adminChildren } from './routes/admin/_children';
 import { analyticsRoute } from './routes/analytics';
@@ -28,7 +29,7 @@ const routeTree = rootRoute.addChildren([
   tillRoute,
   deskRoute,
   kdsRoute,
-  stockRoute,
+  stockRoute.addChildren([...stockChildren]),
   adminRoute.addChildren([...adminChildren]),
   analyticsRoute,
 ]);
