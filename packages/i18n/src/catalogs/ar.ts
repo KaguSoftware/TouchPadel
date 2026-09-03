@@ -1,4 +1,5 @@
 import type { Messages } from './en';
+import { wsAr } from './ws';
 
 /**
  * Arabic (Iraq) message catalog. Mirrors `en.ts` key-for-key — the `Messages`
@@ -8,6 +9,7 @@ import type { Messages } from './en';
  * Wrap interpolated Latin/digit values with `isolate()` (bidi.ts) at call sites.
  */
 export const ar: Messages = {
+  ws: wsAr,
   common: {
     appName: 'تتش بادل',
     cafeName: 'تتش كافيه',
@@ -1059,6 +1061,7 @@ export const ar: Messages = {
       qr: 'رموز QR للطاولات',
       courts: 'الملاعب',
       rates: 'الأسعار',
+      promotions: 'العروض',
       hours: 'ساعات العمل',
       dayClose: 'إغلاق اليوم',
       telegram: 'تيليغرام',

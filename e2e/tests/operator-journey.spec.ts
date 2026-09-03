@@ -67,6 +67,8 @@ test.describe('operator journeys', () => {
     page,
   }) => {
     await signIn(page, SEED_STAFF.court_desk);
+    // Spec §04: the desk lands on Today's board; the calendar is one click away.
+    await page.goto(`${OPERATOR_URL}/desk`);
     await expect(page.getByRole('heading', { name: 'Desk calendar' })).toBeVisible({
       timeout: 30_000,
     });
@@ -187,6 +189,7 @@ test.describe('operator journeys', () => {
 
     try {
       await signIn(page, SEED_STAFF.court_desk);
+      await page.goto(`${OPERATOR_URL}/desk`);
       await expect(page.getByRole('heading', { name: 'Desk calendar' })).toBeVisible({
         timeout: 30_000,
       });
@@ -434,7 +437,9 @@ test.describe('operator journeys', () => {
     const bill = page.getByRole('dialog', { name: 'Bill' });
     await expect(bill).toContainText('Turkish Coffee');
     await expect(bill).toContainText('2,500 IQD');
-    await bill.getByRole('button', { name: 'Close' }).click();
+    // The dialog chrome has its own icon button named "Close" (shell Modal);
+    // the footer button is the last one.
+    await bill.getByRole('button', { name: 'Close' }).last().click();
 
     // ---- settle, then refund with the item going back to stock (L453) ----
     await page.getByRole('button', { name: 'Cash', exact: true }).click();

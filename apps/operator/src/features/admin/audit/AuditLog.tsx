@@ -1,72 +1,148 @@
 /**
- * `/admin/audit` — the audit-log viewer.
+ * `/admin/audit` — the audit-log viewer (spec 06.38). Read-only in every
+ * case: the log cannot be edited or deleted from this screen or any other.
  *
- * SOW L241-243 promises "an append-only audit log recording actor, action,
- * before and after values, and a reason code on discounts, voids, price
- * overrides, stock adjustments and reservation overrides", and L434-439 makes
- * "every discount, void and refund traceable to a named actor" an acceptance
- * test for the whole cashier module. The log itself has been correct since day
- * 1 — `audit_log` grants `select` to management (0005:63-65) — and until now
- * nothing in any of the three apps read it, so the promise was demonstrable
- * only by typing SQL.
+ * Source of rows: `app.audit_log_page` (0068 family) when the server has it,
+ * feature-detected by catching the RPC's "function not found" error once and
+ * falling back to the direct `audit_log` select (RLS already restricts the
+ * table to manager + owner and it is INSERT-only for everyone). The screen
+ * says which path served the page.
  *
- * No new RPC: RLS already restricts the table to manager and owner, and it is
- * INSERT-only for everyone, so a plain select is both sufficient and safe.
+ * Filters: person, action family, free text, period. Export is a client-side
+ * CSV of the filtered rows. Arriving with `?q=<action>` (the overview's
+ * exception tiles) pre-fills the search.
  */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatTime } from '@touch/i18n';
+import { useSearch } from '@tanstack/react-router';
+import { formatDate, formatTime } from '@touch/i18n';
 import { supabase } from '../../../lib/supabase';
+import { appRpc, AppRpcError } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
-import { Button, ErrorText, Field, Select, Skeleton, card, inputStyle } from '../../../components/ui';
+import { Button, ErrorText, Field, Select } from '../../../components/ui';
+import {
+  AsyncStateWrapper,
+  DateRangeControl,
+  EmptyState,
+  ExportButton,
+  PageHeader,
+  SearchField,
+  StatusBadge,
+  Toolbar,
+  asyncStatus,
+  presetPeriod,
+  type Period,
+} from '../../../components/kit';
+import { Icon } from '../../../components/icons';
+import { downloadCsv, toCsv } from '../../analytics/csv';
 import {
   EMPTY_FILTER,
   actionFamilies,
   actorLabel,
+  auditCsv,
   diffFields,
+  inPeriod,
   matchesAudit,
   missingReason,
+  periodBounds,
   type AuditFilter,
   type AuditRow,
 } from './auditLogic';
 
 /** One page. Deep history is a report, not a screen — this is for "what just happened". */
 const PAGE_SIZE = 200;
-
-const cell: React.CSSProperties = {
-  paddingBlock: '0.4rem',
-  paddingInline: '0.5rem',
-  borderBlockEnd: '1px solid var(--tp-border)',
-  textAlign: 'start',
-  verticalAlign: 'top',
-};
-
+const AUDIT_COLUMNS = 'id, at, actor_id, actor_role, authorizer_id, action, entity, entity_id, before, after, reason_code, device_id';
 const NO_ROWS: AuditRow[] = [];
 
-const mono: React.CSSProperties = {
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-  fontSize: '0.78rem',
-};
+type Source = 'server' | 'fallback';
+
+// Feature detection is remembered for the session: once the RPC is known to
+// be missing there is no point asking on every filter change.
+let auditPageUnavailable = false;
+
+function isFunctionMissing(e: unknown): boolean {
+  if (!(e instanceof AppRpcError)) return false;
+  if (e.code !== 'UNKNOWN') return false;
+  const text = `${e.message} ${e.hint ?? ''} ${e.details ?? ''}`.toLowerCase();
+  return text.includes('could not find') || text.includes('does not exist') || text.includes('schema cache') || text.includes('404');
+}
+
+/**
+ * 0068's `audit_log_page` returns camelCase keys (`actorId`, `reasonCode`, …)
+ * while the direct table select returns the column names. Both are folded to
+ * the column shape here — reading only snake_case silently rendered every
+ * actor as "system", because `actor_id` was undefined on an RPC row.
+ */
+function normalizeRow(raw: Record<string, unknown>): AuditRow {
+  const pick = <T,>(snake: string, camel: string): T =>
+    (raw[snake] !== undefined ? raw[snake] : raw[camel]) as T;
+  return {
+    id: pick<number>('id', 'id'),
+    at: pick<string>('at', 'at'),
+    actor_id: pick<string | null>('actor_id', 'actorId') ?? null,
+    actor_role: pick<string | null>('actor_role', 'actorRole') ?? null,
+    authorizer_id: pick<string | null>('authorizer_id', 'authorizerId') ?? null,
+    action: pick<string>('action', 'action'),
+    entity: pick<string>('entity', 'entity'),
+    entity_id: pick<string | null>('entity_id', 'entityId') ?? null,
+    before: pick<unknown>('before', 'before') ?? null,
+    after: pick<unknown>('after', 'after') ?? null,
+    reason_code: pick<string | null>('reason_code', 'reasonCode') ?? null,
+    device_id: pick<string | null>('device_id', 'deviceId') ?? null,
+  } as AuditRow;
+}
+
+function unwrapRows(payload: unknown): AuditRow[] {
+  const list = Array.isArray(payload)
+    ? payload
+    : payload && typeof payload === 'object'
+      ? ((payload as { rows?: unknown; entries?: unknown }).rows ??
+        (payload as { entries?: unknown }).entries)
+      : null;
+  if (!Array.isArray(list)) return [];
+  return list.map((r) => normalizeRow(r as Record<string, unknown>));
+}
+
+async function fetchAuditPage(period: Period): Promise<{ rows: AuditRow[]; source: Source }> {
+  const bounds = periodBounds(period);
+  if (!auditPageUnavailable) {
+    try {
+      const payload = await appRpc<unknown>('audit_log_page', {
+        p_from: bounds.fromIso,
+        p_to: bounds.toExclusiveIso,
+        p_limit: PAGE_SIZE,
+      });
+      return { rows: unwrapRows(payload), source: 'server' };
+    } catch (e) {
+      if (!isFunctionMissing(e)) throw e;
+      auditPageUnavailable = true;
+    }
+  }
+  const { data, error } = await supabase
+    .from('audit_log')
+    .select(AUDIT_COLUMNS)
+    .gte('at', bounds.fromIso)
+    .lt('at', bounds.toExclusiveIso)
+    .order('at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(PAGE_SIZE);
+  if (error) throw error;
+  return { rows: ((data ?? []) as unknown as AuditRow[]).filter((r) => inPeriod(r, bounds)), source: 'fallback' };
+}
 
 export function AuditLog() {
   const { tr, locale } = useLocale();
-  const [filter, setFilter] = useState<AuditFilter>(EMPTY_FILTER);
+  const search = useSearch({ strict: false }) as Record<string, unknown>;
+  const initialQuery = typeof search.q === 'string' ? search.q : '';
+  // `?actor=<staff id>` — the staff-activity report's "audit view filtered to one person".
+  const initialActor = typeof search.actor === 'string' ? search.actor : '';
+  const [filter, setFilter] = useState<AuditFilter>({ ...EMPTY_FILTER, query: initialQuery, actorId: initialActor });
+  const [period, setPeriod] = useState<Period>(() => presetPeriod('last30'));
   const [expanded, setExpanded] = useState<number | null>(null);
 
   const logQ = useQuery({
-    queryKey: ['auditLog'],
-    queryFn: async (): Promise<AuditRow[]> => {
-      const { data, error } = await supabase
-        .from('audit_log')
-        .select(
-          'id, at, actor_id, actor_role, authorizer_id, action, entity, entity_id, before, after, reason_code, device_id',
-        )
-        .order('at', { ascending: false })
-        .order('id', { ascending: false })
-        .limit(PAGE_SIZE);
-      if (error) throw error;
-      return (data ?? []) as unknown as AuditRow[];
-    },
+    queryKey: ['auditLog', period.from, period.to],
+    queryFn: () => fetchAuditPage(period),
     // A manager reading this is investigating something that already happened;
     // silently swapping rows under them mid-read would be worse than stale.
     refetchOnWindowFocus: false,
@@ -85,14 +161,11 @@ export function AuditLog() {
     staleTime: 5 * 60_000,
   });
 
-  const names = useMemo(
-    () => new Map((staffQ.data ?? []).map((s) => [s.id, s.display_name])),
-    [staffQ.data],
-  );
+  const names = useMemo(() => new Map((staffQ.data ?? []).map((s) => [s.id, s.display_name])), [staffQ.data]);
 
-  // Stable identity: `logQ.data ?? []` builds a fresh array every render, which
-  // silently defeats all four memos below.
-  const rows = logQ.data ?? NO_ROWS;
+  // Stable identity: `logQ.data?.rows ?? []` builds a fresh array every render,
+  // which silently defeats all the memos below.
+  const rows = logQ.data?.rows ?? NO_ROWS;
   const families = useMemo(() => actionFamilies(rows), [rows]);
   const visible = useMemo(() => rows.filter((r) => matchesAudit(r, filter)), [rows, filter]);
   const missingCount = useMemo(() => rows.filter(missingReason).length, [rows]);
@@ -100,54 +173,71 @@ export function AuditLog() {
   const actorOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const r of rows) {
-      if (r.actor_id && !seen.has(r.actor_id)) {
-        seen.set(r.actor_id, actorLabel(r.actor_id, r.actor_role, names));
-      }
+      if (r.actor_id && !seen.has(r.actor_id)) seen.set(r.actor_id, actorLabel(r.actor_id, r.actor_role, names));
     }
-    return [...seen.entries()]
-      .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+    return [...seen.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   }, [rows, names]);
+
+  function exportCsv() {
+    const { headers, rows: out } = auditCsv(
+      {
+        when: tr('ws.manager.audit.csv.when'),
+        actor: tr('ws.manager.audit.csv.actor'),
+        role: tr('ws.manager.audit.csv.role'),
+        authoriser: tr('ws.manager.audit.csv.authoriser'),
+        action: tr('ws.manager.audit.csv.action'),
+        entity: tr('ws.manager.audit.csv.entity'),
+        entityId: tr('ws.manager.audit.csv.entityId'),
+        reason: tr('ws.manager.audit.csv.reason'),
+        device: tr('ws.manager.audit.csv.device'),
+        changes: tr('ws.manager.audit.csv.changes'),
+      },
+      visible,
+      names,
+    );
+    downloadCsv(`audit-log-${period.from}-${period.to}.csv`, toCsv(headers, out));
+  }
+
+  const status = asyncStatus(logQ, (d) => d.rows.length === 0);
 
   return (
     <div>
-      <h2 style={{ marginBlockStart: 0 }}>{tr('op.audit.title')}</h2>
-      <p style={{ fontSize: '0.85rem', color: 'var(--tp-muted-fg)', marginBlockStart: 0 }}>
-        {tr('op.audit.hint', { count: PAGE_SIZE })}
-      </p>
+      <PageHeader
+        title={tr('op.audit.title')}
+        subtitle={tr('ws.manager.audit.lead')}
+        actions={
+          <>
+            <StatusBadge tone="neutral" icon="lock" label={tr('ws.manager.audit.readOnly')} />
+            <ExportButton onExport={exportCsv} disabled={visible.length === 0} />
+            <Button kind="ghost" icon="refresh" busy={logQ.isFetching && logQ.data !== undefined} onClick={() => void logQ.refetch()}>
+              {tr('op.common.refresh')}
+            </Button>
+          </>
+        }
+      />
 
-      <ErrorText error={logQ.error} />
-
-      <div
-        style={{
-          ...card,
-          display: 'flex',
-          gap: '0.6rem',
-          flexWrap: 'wrap',
-          alignItems: 'flex-end',
-        }}
-      >
-        <Field label={tr('op.common.search')}>
-          <input
-            style={{ ...inputStyle, minInlineSize: '14rem' }}
+      <Toolbar>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('ws.manager.audit.period')}</span>
+        <DateRangeControl period={period} onChange={setPeriod} presets={['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'last30']} />
+      </Toolbar>
+      <Toolbar>
+        <span style={{ inlineSize: '16rem' }}>
+          <SearchField
             value={filter.query}
-            onChange={(e) => setFilter((f) => ({ ...f, query: e.target.value }))}
+            onChange={(query) => setFilter((f) => ({ ...f, query }))}
             placeholder={tr('op.audit.searchHint')}
+            aria-label={tr('op.common.search')}
           />
-        </Field>
-        <Field label={tr('op.audit.family')}>
+        </span>
+        <Field label={tr('op.audit.family')} style={{ marginBlockEnd: 0 }}>
           <Select
             value={filter.family}
             onChange={(v) => setFilter((f) => ({ ...f, family: v }))}
-            placeholder={tr('op.audit.allFamilies')}
-            options={[
-              { value: '', label: tr('op.audit.allFamilies') },
-              ...families.map((v) => ({ value: v, label: v })),
-            ]}
+            options={[{ value: '', label: tr('op.audit.allFamilies') }, ...families.map((v) => ({ value: v, label: v }))]}
             style={{ minInlineSize: '10rem' }}
           />
         </Field>
-        <Field label={tr('op.audit.actor')}>
+        <Field label={tr('op.audit.actor')} style={{ marginBlockEnd: 0 }}>
           <Select
             value={filter.actorId}
             onChange={(v) => setFilter((f) => ({ ...f, actorId: v }))}
@@ -156,8 +246,9 @@ export function AuditLog() {
           />
         </Field>
         <Button
-          kind={filter.onlyMissingReason ? 'primary' : undefined}
+          kind={filter.onlyMissingReason ? 'primary' : 'default'}
           aria-pressed={filter.onlyMissingReason}
+          icon="alert"
           onClick={() => setFilter((f) => ({ ...f, onlyMissingReason: !f.onlyMissingReason }))}
         >
           {tr('op.audit.missingReason', { count: missingCount })}
@@ -165,64 +256,80 @@ export function AuditLog() {
         <Button kind="ghost" onClick={() => setFilter(EMPTY_FILTER)}>
           {tr('op.audit.clear')}
         </Button>
-        <span style={{ flex: 1 }} />
-        <Button kind="ghost" onClick={() => void logQ.refetch()} disabled={logQ.isFetching}>
-          {tr('op.common.refresh')}
-        </Button>
-      </div>
+      </Toolbar>
 
-      {logQ.isPending && <Skeleton lines={8} />}
-
-      {logQ.isSuccess && (
-        <>
-          <p style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>
-            {tr('op.audit.showing', { shown: visible.length, total: rows.length })}
-          </p>
-          {visible.length === 0 ? (
-            <p style={card}>{tr('op.audit.empty')}</p>
-          ) : (
-            <div style={{ ...card, paddingBlock: 0, paddingInline: 0, overflowX: 'auto' }}>
-              <table style={{ inlineSize: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ fontSize: '0.72rem', color: 'var(--tp-muted-fg)' }}>
-                    <th style={cell}>{tr('op.audit.when')}</th>
-                    <th style={cell}>{tr('op.audit.actor')}</th>
-                    <th style={cell}>{tr('op.audit.action')}</th>
-                    <th style={cell}>{tr('op.audit.entity')}</th>
-                    <th style={cell}>{tr('op.audit.reason')}</th>
-                    <th style={cell}>{tr('op.audit.device')}</th>
-                    <th style={cell} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((r) => {
-                    const changes = diffFields(r.before, r.after);
-                    const open = expanded === r.id;
-                    return (
-                      <RowPair
-                        key={r.id}
-                        row={r}
-                        open={open}
-                        changes={changes}
-                        label={actorLabel(r.actor_id, r.actor_role, names)}
-                        authorizer={
-                          r.authorizer_id ? actorLabel(r.authorizer_id, null, names) : null
-                        }
-                        when={formatTime(new Date(r.at), locale)}
-                        date={new Date(r.at).toLocaleDateString(locale === 'ar' ? 'ar-IQ' : 'en-GB')}
-                        onToggle={() => setExpanded(open ? null : r.id)}
-                      />
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
+      {initialQuery && filter.query === initialQuery && (
+        <p style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem' }}>
+          <Icon name="info" size={14} />
+          <bdi>{tr('ws.manager.audit.filteredFrom', { query: initialQuery })}</bdi>
+          <Button size="sm" kind="ghost" onClick={() => setFilter((f) => ({ ...f, query: '' }))}>
+            {tr('ws.manager.audit.clearFilter')}
+          </Button>
+        </p>
       )}
+
+      <ErrorText error={staffQ.error} />
+
+      <AsyncStateWrapper
+        status={status}
+        error={logQ.error}
+        onRetry={() => void logQ.refetch()}
+        emptyContent={<EmptyState icon="fileText" title={tr('op.audit.empty')} />}
+      >
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.5rem' }}>
+          {tr('op.audit.showing', { shown: visible.length, total: rows.length })}{' '}
+          {logQ.data?.source === 'server' ? tr('ws.manager.audit.source.server') : tr('ws.manager.audit.source.fallback', { count: PAGE_SIZE })}
+        </p>
+        {visible.length === 0 ? (
+          <EmptyState compact icon="fileText" title={tr('op.audit.empty')} />
+        ) : (
+          <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'auto', background: 'var(--tp-surface)' }}>
+            <table className="tp-table" data-dense="true" aria-label={tr('op.audit.title')}>
+              <thead>
+                <tr>
+                  <th>{tr('op.audit.when')}</th>
+                  <th>{tr('op.audit.actor')}</th>
+                  <th>{tr('op.audit.action')}</th>
+                  <th>{tr('op.audit.entity')}</th>
+                  <th>{tr('op.audit.reason')}</th>
+                  <th>{tr('op.audit.device')}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((r) => {
+                  const changes = diffFields(r.before, r.after);
+                  const open = expanded === r.id;
+                  return (
+                    <RowPair
+                      key={r.id}
+                      row={r}
+                      open={open}
+                      changes={changes}
+                      label={actorLabel(r.actor_id, r.actor_role, names)}
+                      authorizer={r.authorizer_id ? actorLabel(r.authorizer_id, null, names) : null}
+                      when={formatTime(new Date(r.at), locale)}
+                      date={formatDate(new Date(r.at), locale)}
+                      onToggle={() => setExpanded(open ? null : r.id)}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AsyncStateWrapper>
     </div>
   );
 }
+
+/** Route alias for the spec name. */
+export const AuditLogScreen = AuditLog;
+
+const mono: React.CSSProperties = {
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  fontSize: 'var(--tp-fs-xs)',
+};
 
 function RowPair({
   row,
@@ -247,65 +354,63 @@ function RowPair({
   const flagged = missingReason(row);
   return (
     <>
-      <tr>
-        <td style={{ ...cell, whiteSpace: 'nowrap' }}>
+      <tr data-selected={open ? 'true' : undefined}>
+        <td style={{ whiteSpace: 'nowrap' }}>
           <div>{when}</div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--tp-muted-fg)' }}>{date}</div>
+          <div style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{date}</div>
         </td>
-        <td style={cell}>
-          <div>{label}</div>
+        <td>
+          <div>
+            <bdi>{label}</bdi>
+          </div>
           {/* Who entered the PIN, when the action was escalated — L468-469 asks
               for the authoriser by name, not just the actor. */}
           {authorizer && (
-            <div style={{ fontSize: '0.7rem', color: 'var(--tp-muted-fg)' }}>
-              {tr('op.audit.authorisedBy', { name: authorizer })}
+            <div style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+              <bdi>{tr('op.audit.authorisedBy', { name: authorizer })}</bdi>
             </div>
           )}
         </td>
         {/* data-audit-action: the nested before/after table repeats the column
             positions, so tests need a handle on the OUTER row, not nth-child. */}
-        <td style={{ ...cell, ...mono }} data-audit-action={row.action}>
+        <td style={mono} data-audit-action={row.action}>
           {row.action}
         </td>
-        <td style={{ ...cell, ...mono }}>
+        <td style={mono}>
           <div>{row.entity}</div>
           <div style={{ color: 'var(--tp-muted-fg)' }}>{row.entity_id}</div>
         </td>
-        <td style={cell}>
+        <td>
           {row.reason_code ?? (
-            <span style={{ color: flagged ? 'var(--tp-danger)' : 'var(--tp-muted-fg)' }}>
-              {flagged ? tr('op.audit.reasonMissing') : '—'}
-            </span>
+            flagged ? <StatusBadge size="sm" tone="danger" label={tr('op.audit.reasonMissing')} /> : <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>
           )}
         </td>
-        <td style={{ ...cell, ...mono }}>{row.device_id ?? '—'}</td>
-        <td style={cell}>
+        <td style={mono}>{row.device_id ?? '—'}</td>
+        <td data-align="end">
           {changes.length > 0 && (
-            <Button kind="ghost" onClick={onToggle} aria-expanded={open}>
-              {open
-                ? tr('op.audit.hideChanges')
-                : tr('op.audit.showChanges', { count: changes.length })}
+            <Button kind="ghost" size="sm" onClick={onToggle} aria-expanded={open} iconEnd={open ? 'chevronDown' : undefined}>
+              {open ? tr('op.audit.hideChanges') : tr('op.audit.showChanges', { count: changes.length })}
             </Button>
           )}
         </td>
       </tr>
       {open && (
         <tr>
-          <td style={{ ...cell, background: 'var(--tp-muted)' }} colSpan={7}>
-            <table style={{ inlineSize: '100%', borderCollapse: 'collapse', ...mono }}>
+          <td colSpan={7} style={{ background: 'var(--tp-surface-2)' }}>
+            <table className="tp-table" data-dense="true" style={{ ...mono }}>
               <thead>
-                <tr style={{ fontSize: '0.7rem', color: 'var(--tp-muted-fg)' }}>
-                  <th style={cell}>{tr('op.audit.field')}</th>
-                  <th style={cell}>{tr('op.audit.before')}</th>
-                  <th style={cell}>{tr('op.audit.after')}</th>
+                <tr>
+                  <th>{tr('op.audit.field')}</th>
+                  <th>{tr('op.audit.before')}</th>
+                  <th>{tr('op.audit.after')}</th>
                 </tr>
               </thead>
               <tbody>
                 {changes.map((c) => (
                   <tr key={c.field}>
-                    <td style={cell}>{c.field}</td>
-                    <td style={{ ...cell, color: 'var(--tp-muted-fg)' }}>{c.before}</td>
-                    <td style={cell}>{c.after}</td>
+                    <td>{c.field}</td>
+                    <td style={{ color: 'var(--tp-muted-fg)' }}>{c.before}</td>
+                    <td>{c.after}</td>
                   </tr>
                 ))}
               </tbody>

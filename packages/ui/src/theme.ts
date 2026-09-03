@@ -15,6 +15,7 @@
 import { palettes, type ThemeName } from './tokens/palette';
 import { fontVars } from './tokens/typography';
 import { cafeBrandVars, dirVars, statusVars } from './tokens/cafeBrand';
+import { operatorVars } from './tokens/operator';
 
 function varsBlock(vars: Readonly<Record<string, string>>, indent = '  '): string {
   return Object.entries(vars)
@@ -31,6 +32,7 @@ function themeBlock(name: ThemeName): string {
     ...palettes[name],
     ...statusVars,
     ...(name === 'cafe' ? cafeBrandVars : {}),
+    ...(name === 'operator' ? operatorVars : {}),
   };
   return `:root[data-theme='${name}'],\n[data-theme='${name}'] {\n${varsBlock(vars)}\n}`;
 }
@@ -43,6 +45,7 @@ export const themeCss: string = [
   `:root {\n${varsBlock({ ...fontVars, ...dirVars })}\n}`,
   themeBlock('padel'),
   themeBlock('cafe'),
+  themeBlock('operator'),
   // Base ground: paint from tokens so an unthemed flash never shows raw UA colors.
   `body {\n  background: var(--tp-bg, #ffffff);\n  color: var(--tp-fg, #000000);\n  font-family: var(--tp-font-body);\n}`,
   // Arabic rendering: same tokens; the arabic-capable body stack already leads.

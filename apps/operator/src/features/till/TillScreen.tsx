@@ -1,222 +1,56 @@
 /**
- * Till v1 — keyboard-first category/item grid, open tabs, size+modifier sheet,
- * settle (cash/card/split), PIN-gated discount and void-after-send.
- * Every write is an app.* RPC (0015); prices always come back from the server.
+ * TillScreen (spec 06.11) — the cashier's landing screen and the fastest
+ * surface in the app. Three regions:
+ *
+ *   inline-start  waiter calls (persistent, chimes) + the open-tabs rail
+ *   centre        filter, category strip (1–9), item grid, basket
+ *   inline-end    the active tab: lines, totals, promotion, payment, actions
+ *
+ * Every write is an app.* RPC through mutate(); prices always come back from
+ * the server. Offline: tabs opened while disconnected live in the durable
+ * queue (lib/offlineTabs) and show in the rail until their open replays.
+ *
+ * States: loading (menu skeleton) · ready · noActiveTab (grid visible, tiles
+ * inert, prompt in the end region) · error (menu unreachable, retry) · busy
+ * (sending — the basket's button carries it).
+ *
+ * Keymap: keymap.ts (one table feeds the handler and the help popover).
  */
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { splitEvenly } from '@touch/core';
-import { formatIQD, formatTime } from '@touch/i18n';
-import { supabase } from '../../lib/supabase';
-import { appRpc } from '../../lib/appRpc';
-import { deviceId } from '../../lib/idem';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { mutate } from '../../lib/mutate';
-import { cachedQuery } from '../../lib/refCache';
-import { touch } from '../../ipc/bridge';
-import {
-  LOCAL_TAB_PREFIX,
-  addOfflineTab,
-  appendOfflineLines,
-  getOfflineTab,
-  listOfflineTabs,
-  markOfflineSettled,
-  subscribeOfflineTabs,
-} from '../../lib/offlineTabs';
-import { computeTabTotals } from './tabTotals';
-import { mergeQuickLine, quickVariant } from './quickAdd';
-import { useConfirm } from '../../components/ConfirmDialog';
-import { BillView } from './BillView';
-import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerActions';
-import { SplitByItemDialog } from './SplitByItemDialog';
-import { QK, fetchOpenDay, fetchActiveCafeTables } from '../../lib/queries';
+import { LOCAL_TAB_PREFIX, appendOfflineLines, listOfflineTabs, subscribeOfflineTabs } from '../../lib/offlineTabs';
+import { QK, fetchOpenDay } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
+import { useConfirm } from '../../components/ConfirmDialog';
 import { useLocale, pickName } from '../../lib/i18n';
-import {
-  AmountPad,
-  Button,
-  ErrorText,
-  Field,
-  Modal,
-  PinReasonModal,
-  card,
-  inputStyle,
-} from '../../components/ui';
-import { computeChange } from './change';
+import { Button, Skeleton, inputStyle } from '../../components/ui';
+import { AsyncStateWrapper, EmptyState, Kbd, MessagePresenter } from '../../components/kit';
 import { WaiterCallsPanel } from './WaiterCallsPanel';
-
-// ---------------------------------------------------------------------------
-// row shapes (manual mirrors of the nested selects)
-// ---------------------------------------------------------------------------
-interface CategoryRow {
-  id: string;
-  name_en: string;
-  name_ar: string;
-  sort_order: number;
-  is_active: boolean;
-  tax_group: { rate_bp: number } | null;
-}
-interface VariantRow {
-  id: string;
-  item_id: string;
-  name_en: string;
-  name_ar: string;
-  price_iqd: number;
-  is_default: boolean;
-  sort_order: number;
-}
-interface ModifierRow {
-  id: string;
-  group_id: string;
-  name_en: string;
-  name_ar: string;
-  price_delta_iqd: number;
-  is_active: boolean;
-}
-interface ModifierGroupRow {
-  id: string;
-  name_en: string;
-  name_ar: string;
-  min_select: number;
-  max_select: number;
-}
-interface ItemRow {
-  id: string;
-  category_id: string;
-  name_en: string;
-  name_ar: string;
-  is_active: boolean;
-  sort_order: number;
-  menu_item_variants: VariantRow[];
-  menu_item_modifier_groups: { group_id: string; sort_order: number }[];
-}
-interface TabListRow {
-  id: string;
-  status: string;
-  label: string | null;
-  opened_at: string;
-  table: { table_number: string } | null;
-  reservation: { guest_name: string | null } | null;
-}
-interface TabDetail {
-  id: string;
-  status: string;
-  label: string | null;
-  subtotal_iqd: number | null;
-  total_iqd: number | null;
-  table: { table_number: string } | null;
-  reservation: { guest_name: string | null } | null;
-  orders: {
-    id: string;
-    status: string;
-    placed_at: string;
-    order_items: {
-      id: string;
-      qty: number;
-      unit_price_iqd: number;
-      line_total_iqd: number;
-      voided: boolean;
-      notes: string | null;
-      menu_item: { name_en: string; name_ar: string; category_id: string } | null;
-      variant: { name_en: string; name_ar: string } | null;
-      order_item_modifiers: {
-        qty: number;
-        price_delta_iqd: number;
-        modifier: { name_en: string; name_ar: string } | null;
-      }[];
-    }[];
-  }[];
-  payments: { id: string; method: string; amount_iqd: number }[];
-  tab_adjustments: { id: string; kind: string; amount_iqd: number }[];
-}
-
-interface BasketLine {
-  key: string;
-  variantId: string;
-  itemName: string;
-  variantName: string;
-  qty: number;
-  notes: string;
-  unitPriceIqd: number; // display estimate only — server re-snapshots at send
-  modifiers: { modifierId: string; name: string; qty: number; priceDeltaIqd: number }[];
-}
-
-/**
- * The till menu — five selects, one key, shared by the grid AND the tax
- * computation (rate_bp rides on categories). staleTime 5 min with the `menu`
- * broadcast as the primary invalidation: the old per-focus refetch re-downloaded
- * the entire menu every time the cashier clicked back into the window.
- */
-const TILL_MENU_QUERY = {
-  queryKey: ['menu'] as const,
-  staleTime: 300_000,
-  refetchOnWindowFocus: false,
-  queryFn: async () => {
-    // cachedQuery wraps only the serialisable half (SOW L671: the till keeps
-    // trading from the cached menu + prices); the Map is rebuilt after.
-    const raw = await cachedQuery('menu', async () => {
-      const [cats, items, groups, mods, avail] = await Promise.all([
-        supabase
-          .from('menu_categories')
-          .select('id, name_en, name_ar, sort_order, is_active, tax_group:tax_groups(rate_bp)')
-          .order('sort_order'),
-        supabase
-          .from('menu_items')
-          .select(
-            'id, category_id, name_en, name_ar, is_active, sort_order, menu_item_variants(*), menu_item_modifier_groups(group_id, sort_order)',
-          )
-          .order('sort_order'),
-        supabase.from('modifier_groups').select('*'),
-        supabase.from('modifiers').select('*').order('sort_order'),
-        supabase.from('menu_item_availability').select('item_id, orderable'),
-      ]);
-      for (const r of [cats, items, groups, mods, avail]) if (r.error) throw r.error;
-      return {
-        categories: (cats.data ?? []) as unknown as CategoryRow[],
-        items: (items.data ?? []) as unknown as ItemRow[],
-        groups: (groups.data ?? []) as unknown as ModifierGroupRow[],
-        modifiers: (mods.data ?? []) as unknown as ModifierRow[],
-        availabilityRows: (avail.data ?? []) as { item_id: string; orderable: boolean }[],
-      };
-    });
-    return {
-      categories: raw.categories,
-      items: raw.items,
-      groups: raw.groups,
-      modifiers: raw.modifiers,
-      availability: new Map(raw.availabilityRows.map((a) => [a.item_id, a.orderable])),
-    };
-  },
-};
-
-async function fetchTabDetail(tabId: string): Promise<TabDetail> {
-  const { data, error } = await supabase
-    .from('tabs')
-    .select(
-      `id, status, label, subtotal_iqd, total_iqd,
-       table:cafe_tables(table_number), reservation:reservations(guest_name),
-       orders (
-         id, status, placed_at,
-         order_items (
-           id, qty, unit_price_iqd, line_total_iqd, voided, notes,
-           menu_item:menu_items(name_en, name_ar, category_id),
-           variant:menu_item_variants(name_en, name_ar),
-           order_item_modifiers(qty, price_delta_iqd, modifier:modifiers(name_en, name_ar))
-         )
-       ),
-       payments(id, method, amount_iqd),
-       tab_adjustments(id, kind, amount_iqd)`,
-    )
-    .eq('id', tabId)
-    .single();
-  if (error) throw error;
-  return data as unknown as TabDetail;
-}
+import { TabRail } from './TabRail';
+import { CategoryStrip, MenuItemGrid, TileLegend } from './TillGrid';
+import { Basket } from './Basket';
+import { ItemSheet } from './ItemSheet';
+import { NewTabDialog } from './NewTabDialog';
+import { TabDetailPanel } from './TabDetailPanel';
+import { OfflineTabPanel } from './OfflineTabPanel';
+import { KeymapHelp } from './KeymapHelp';
+import { mergeQuickLine, quickVariant } from './quickAdd';
+import { resolveTillKey } from './keymap';
+import { localIsoDate, deriveTileState, tileInteractive } from './tileState';
+import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, type BasketLine, type ItemRow } from './tillData';
+import type { TillSearch } from './tillSearch';
+import { muted } from './tillStyles';
 
 export function TillScreen() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
+  const navigate = useNavigate();
+  const search = useSearch({ strict: false }) as TillSearch;
+
   const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
@@ -224,10 +58,12 @@ export function TillScreen() {
   const [basket, setBasket] = useState<BasketLine[]>([]);
   const [sendError, setSendError] = useState<unknown>(null);
   const [sending, setSending] = useState(false);
-  const [showNewTab, setShowNewTab] = useState(false);
+  const [newTab, setNewTab] = useState<{ reservationId?: string } | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const filterRef = useRef<HTMLInputElement>(null);
-  // Tabs opened while disconnected — durable in the queue, listed here so the
-  // cashier can keep adding to them and settle them (SOW L671-675).
+  const today = useMemo(() => localIsoDate(), []);
+
+  // Tabs opened while disconnected — durable in the queue, listed in the rail.
   const offlineTabs = useSyncExternalStore(subscribeOfflineTabs, listOfflineTabs);
 
   // When a selected offline tab's open replays (acked) its entry retires and
@@ -240,37 +76,10 @@ export function TillScreen() {
 
   // ---- data -----------------------------------------------------------------
   const dayQ = useQuery({ queryKey: QK.day, queryFn: fetchOpenDay });
-
   const menuQ = useQuery({ ...TILL_MENU_QUERY });
+  const tabsQ = useQuery({ ...OPEN_TABS_QUERY });
 
-  useBroadcast({
-    topic: 'menu',
-    isPrivate: false,
-    events: ['menu_changed'],
-    invalidateKeys: [['menu']],
-  });
-
-  const tabsQ = useQuery({
-    queryKey: ['tabs'],
-    queryFn: (): Promise<TabListRow[]> =>
-      cachedQuery('open_tabs', async () => {
-        const { data, error } = await supabase
-          .from('tabs')
-          .select(
-            'id, status, label, opened_at, table:cafe_tables(table_number), reservation:reservations(guest_name)',
-          )
-          .in('status', ['open', 'awaiting_payment'])
-          .is('merged_into_tab_id', null)
-          .order('opened_at');
-        if (error) throw error;
-        return data as unknown as TabListRow[];
-      }),
-    // Safety net under the 'floor' broadcast, matching KDS tickets. A missed
-    // realtime frame used to leave the open-tabs rail stale until someone
-    // navigated away and back — on the screen that takes the money.
-    refetchInterval: 30_000,
-  });
-
+  useBroadcast({ topic: 'menu', isPrivate: false, events: ['menu_changed'], invalidateKeys: [['menu']] });
   const { status: floorStatus } = useBroadcast({
     topic: 'floor',
     isPrivate: true,
@@ -280,84 +89,50 @@ export function TillScreen() {
     onEvent: (_e, p) => (p as { status?: string } | null)?.status === 'raised' && chime('call'),
   });
 
-  const categories = useMemo(
-    () => (menuQ.data?.categories ?? []).filter((c) => c.is_active),
-    [menuQ.data],
-  );
+  const categories = useMemo(() => (menuQ.data?.categories ?? []).filter((c) => c.is_active), [menuQ.data]);
   const activeCategory = categoryId ?? categories[0]?.id ?? null;
 
   const visibleItems = useMemo(() => {
     const items = (menuQ.data?.items ?? []).filter((i) => i.is_active);
     const q = filter.trim().toLowerCase();
-    if (q) {
-      return items.filter(
-        (i) => i.name_en.toLowerCase().includes(q) || i.name_ar.includes(filter.trim()),
-      );
-    }
+    if (q) return items.filter((i) => i.name_en.toLowerCase().includes(q) || i.name_ar.includes(filter.trim()));
     return items.filter((i) => i.category_id === activeCategory);
   }, [menuQ.data, filter, activeCategory]);
 
-  // Latest values for the window-level key handler (registered once).
-  const visibleRef = useRef<ItemRow[]>([]);
-  visibleRef.current = visibleItems;
-  const sendRef = useRef<() => Promise<void>>(async () => {});
-  const addOrOpenRef = useRef<(item: ItemRow) => void>(() => {});
+  const prefetchTab = useCallback(
+    (id: string) => {
+      void queryClient.prefetchQuery({ queryKey: ['tab', id], queryFn: () => fetchTabDetail(id), staleTime: 10_000 });
+    },
+    [queryClient],
+  );
 
-  // ---- keyboard-first: number keys pick categories, typing filters ----------
+  // ---- deep links: /till?tab=<id> · /till?reservation=<id> ------------------
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement | null;
-      const inField =
-        target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT');
-      // Function keys work everywhere on the till — "keyboard-first" (L440).
-      if (e.key === 'F2') {
-        e.preventDefault();
-        void sendRef.current();
-        return;
-      }
-      if (e.key === 'F4' || e.key === 'F5') {
-        // Opens the settle pane only — money is never CONFIRMED by keyboard.
-        e.preventDefault();
-        window.dispatchEvent(
-          new CustomEvent('till-settle-hotkey', { detail: e.key === 'F4' ? 'cash' : 'card' }),
-        );
-        return;
-      }
-      if (inField && target !== filterRef.current) return;
-      if (target === filterRef.current && e.key === 'Enter') {
-        // Enter in the filter quick-adds when exactly one visible item needs
-        // no choices — type "wat", Enter, done.
-        const visible = visibleRef.current;
-        if (visible.length === 1 && quickVariant(visible[0]!)) {
-          e.preventDefault();
-          addOrOpenRef.current(visible[0]!);
-          setFilter('');
-        }
-        return;
-      }
-      if (!inField && /^[1-9]$/.test(e.key)) {
-        const cat = categories[Number(e.key) - 1];
-        if (cat) {
-          setCategoryId(cat.id);
-          setFilter('');
-          e.preventDefault();
-        }
-        return;
-      }
-      if (!inField && e.key.length === 1 && /[\p{L}\p{N}]/u.test(e.key)) {
-        filterRef.current?.focus();
-      }
+    if (!search.tab && !search.reservation) return;
+    if (search.tab) {
+      setSelectedTabId(search.tab);
+      setBasket([]);
+      prefetchTab(search.tab);
     }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [categories]);
+    if (search.reservation) setNewTab({ reservationId: search.reservation });
+    // Consume the params so a reload or Back does not re-apply them.
+    void navigate({ to: '/till', search: {}, replace: true });
+  }, [search.tab, search.reservation, navigate, prefetchTab]);
 
   // ---- quick add / tab switching -------------------------------------------
-  /** Plain click on a nothing-to-choose item goes straight to the basket. */
+  const hasActiveTab = selectedTabId !== null;
+
   function addOrOpen(item: ItemRow) {
+    const state = deriveTileState({
+      orderable: menuQ.data?.availability[item.id],
+      soldOut: item.sold_out,
+      unavailableOn: item.unavailable_on,
+      hasActiveTab,
+      today,
+    });
+    if (!tileInteractive(state)) return;
     const v = quickVariant(item);
-    if (!v || !selectedTabId) {
+    if (!v) {
       setSheetItem(item);
       return;
     }
@@ -375,7 +150,7 @@ export function TillScreen() {
     );
   }
 
-  /** Switching tabs discards the unsent basket — never silently (audit B2). */
+  /** Switching tabs discards the unsent basket — never silently. */
   async function selectTab(id: string | null) {
     if (basket.length > 0 && id !== selectedTabId) {
       const ok = await confirm({
@@ -387,20 +162,16 @@ export function TillScreen() {
     }
     setSelectedTabId(id);
     setBasket([]);
+    setSendError(null);
   }
 
   function bumpBasketQty(key: string, delta: number) {
-    setBasket((b) =>
-      b
-        .map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l))
-        .filter((l) => l.qty > 0),
-    );
+    setBasket((b) => b.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0));
   }
-  addOrOpenRef.current = addOrOpen;
 
   // ---- send basket ----------------------------------------------------------
   async function sendBasket() {
-    if (!selectedTabId || basket.length === 0) return;
+    if (!selectedTabId || basket.length === 0 || sending) return;
     setSending(true);
     setSendError(null);
     try {
@@ -410,22 +181,13 @@ export function TillScreen() {
         ...(l.notes ? { notes: l.notes } : {}),
         modifiers: l.modifiers.map((m) => ({ modifierId: m.modifierId, qty: m.qty })),
       }));
-      // Single write path: queued durably in Electron (fsync before this
-      // resolves), direct RPC in browser mode. Offline the outcome is
-      // `queued` — the basket is safe, the ticket lands on replay.
+      // Single write path: queued durably in Electron, direct RPC in browser mode.
       if (selectedTabId.startsWith(LOCAL_TAB_PREFIX)) {
-        // A tab opened offline has no server id yet — reference its tab.open
-        // key; replay resolves it (strictly after the open, same queue).
         const idemKey = selectedTabId.slice(LOCAL_TAB_PREFIX.length);
         await mutate('order.add_items', { tabIdemKey: idemKey, items });
         appendOfflineLines(
           idemKey,
-          basket.map((l) => ({
-            name: `${l.itemName} (${l.variantName})`,
-            qty: l.qty,
-            priceIqd:
-              l.unitPriceIqd + l.modifiers.reduce((s, m) => s + m.priceDeltaIqd * m.qty, 0),
-          })),
+          basket.map((l) => ({ name: `${l.itemName} (${l.variantName})`, qty: l.qty, priceIqd: basketLineEstimate(l) / l.qty })),
         );
       } else {
         await mutate('order.add_items', { tabId: selectedTabId, items });
@@ -439,221 +201,223 @@ export function TillScreen() {
       setSending(false);
     }
   }
-  sendRef.current = sendBasket;
 
-  function tabTitle(tb: TabListRow): string {
-    if (tb.table) return `${tr('op.till.table')} ${tb.table.table_number}`;
-    if (tb.reservation) return tb.reservation.guest_name ?? tr('op.till.forReservation');
-    return tb.label ?? '—';
-  }
+  // ---- keyboard (spec R11) ----------------------------------------------------
+  const latest = useRef({ visibleItems, categories, sendBasket, addOrOpen });
+  latest.current = { visibleItems, categories, sendBasket, addOrOpen };
 
-  const basketTotal = basket.reduce(
-    (sum, l) =>
-      sum + (l.unitPriceIqd + l.modifiers.reduce((s, m) => s + m.priceDeltaIqd * m.qty, 0)) * l.qty,
-    0,
-  );
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const inField = Boolean(target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT'));
+      const action = resolveTillKey({
+        key: e.key,
+        inField,
+        inFilter: target === filterRef.current,
+        overlayOpen: Boolean(document.querySelector('[role="dialog"][aria-modal="true"]')),
+        modifier: e.ctrlKey || e.metaKey || e.altKey,
+      });
+      if (action === null) return;
+      const { visibleItems: visible, categories: cats, sendBasket: send, addOrOpen: add } = latest.current;
+      if (typeof action === 'object') {
+        const cat = cats[action.index];
+        if (cat) {
+          e.preventDefault();
+          setCategoryId(cat.id);
+          setFilter('');
+        }
+        return;
+      }
+      switch (action) {
+        case 'send':
+          e.preventDefault();
+          void send();
+          return;
+        case 'cash':
+        case 'card':
+          // Opens the settle pane only — money is never CONFIRMED by keyboard.
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('till-settle-hotkey', { detail: action }));
+          return;
+        case 'newTab':
+          e.preventDefault();
+          setNewTab({});
+          return;
+        case 'focusFilter':
+          e.preventDefault();
+          filterRef.current?.focus();
+          filterRef.current?.select();
+          return;
+        case 'help':
+          e.preventDefault();
+          setHelpOpen(true);
+          return;
+        case 'quickAddFromFilter':
+          // Type "wat", Enter, done — when exactly one visible item needs no choices.
+          if (visible.length === 1 && quickVariant(visible[0]!)) {
+            e.preventDefault();
+            add(visible[0]!);
+            setFilter('');
+          }
+          return;
+        case 'typeToFilter':
+          filterRef.current?.focus();
+          return;
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
+  // ---- render ---------------------------------------------------------------
   if (dayQ.isSuccess && !dayQ.data) {
     return (
-      <div>
-        <h1 style={{ marginBlockStart: 0, fontSize: '1.3rem' }}>{tr('till.title')}</h1>
-        <p style={card}>{tr('op.till.noOpenDay')}</p>
+      <div style={{ maxInlineSize: '40rem' }}>
+        <h1 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: '0.75rem' }}>{tr('till.title')}</h1>
+        <EmptyState icon="sun" title={tr('op.till.noOpenDay')} />
       </div>
     );
   }
 
+  const menuStatus = menuQ.isError && !menuQ.data ? 'error' : menuQ.data ? 'ready' : 'loading';
+  const filtering = filter.trim().length > 0;
+  const selectedIsOffline = selectedTabId?.startsWith(LOCAL_TAB_PREFIX) ?? false;
+
   return (
-    <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
-      {/* Floor + open tabs rail */}
-      <div style={{ inlineSize: '13rem', flexShrink: 0 }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(13rem, 15rem) minmax(0, 1fr) minmax(20rem, 23rem)',
+        gap: '1rem',
+        blockSize: '100%',
+        minBlockSize: 0,
+        alignItems: 'stretch',
+      }}
+    >
+      {/* ---- inline-start: waiter calls + rail ---- */}
+      <aside style={{ minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'grid', gap: '0.75rem', alignContent: 'start', paddingInlineEnd: '0.25rem' }}>
         <StartShiftBanner />
         <WaiterCallsPanel status={floorStatus} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '1rem' }}>{tr('op.till.openTabs')}</h2>
-          <Button kind="primary" onClick={() => setShowNewTab(true)}>
-            +
-          </Button>
-        </div>
-        {(tabsQ.data ?? []).length === 0 && (
-          <p style={{ color: 'var(--tp-muted-fg)', fontSize: '0.85rem' }}>{tr('op.till.noTabs')}</p>
-        )}
-        {(tabsQ.data ?? []).map((tb) => (
-          <Button
-            key={tb.id}
-            kind={tb.id === selectedTabId ? 'primary' : 'default'}
-            style={{ display: 'block', inlineSize: '100%', marginBlockStart: '0.4rem', textAlign: 'start' }}
-            // Prefetch on hover/focus: the six-level tab-detail join is in
-            // flight before the click, so switching tabs paints instantly.
-            onMouseEnter={() =>
-              void queryClient.prefetchQuery({
-                queryKey: ['tab', tb.id],
-                queryFn: () => fetchTabDetail(tb.id),
-                staleTime: 10_000,
-              })
-            }
-            onFocus={() =>
-              void queryClient.prefetchQuery({
-                queryKey: ['tab', tb.id],
-                queryFn: () => fetchTabDetail(tb.id),
-                staleTime: 10_000,
-              })
-            }
-            onClick={() => void selectTab(tb.id)}
-          >
-            {tabTitle(tb)}
-            {tb.status === 'awaiting_payment' && ' ⏳'}
-          </Button>
-        ))}
-        {offlineTabs.map((ot) => {
-          const localId = `${LOCAL_TAB_PREFIX}${ot.idemKey}`;
-          return (
-            <Button
-              key={ot.idemKey}
-              kind={localId === selectedTabId ? 'primary' : 'default'}
-              style={{ display: 'block', inlineSize: '100%', marginBlockStart: '0.4rem', textAlign: 'start' }}
-              onClick={() => void selectTab(localId)}
-            >
-              {ot.tableNumber ? `${tr('op.till.table')} ${ot.tableNumber}` : (ot.label ?? '—')} ⟳
-            </Button>
-          );
-        })}
-      </div>
-
-      {/* Menu grid */}
-      <div style={{ flex: 1, minInlineSize: 0 }}>
-        <input
-          ref={filterRef}
-          style={{ ...inputStyle, marginBlockEnd: '0.5rem' }}
-          placeholder={tr('op.till.filterPlaceholder')}
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+        <TabRail
+          tabs={tabsQ.data ?? []}
+          offlineTabs={offlineTabs}
+          selectedId={selectedTabId}
+          loading={tabsQ.isPending}
+          onSelect={(id) => void selectTab(id)}
+          onNew={() => setNewTab({})}
+          onPrefetch={prefetchTab}
         />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBlockEnd: '0.5rem' }}>
-          {categories.map((c, i) => (
-            <Button
-              key={c.id}
-              kind={c.id === activeCategory && !filter ? 'primary' : 'default'}
-              onClick={() => {
-                setCategoryId(c.id);
+      </aside>
+
+      {/* ---- centre: filter, categories, grid, basket ---- */}
+      <section aria-label={tr('ws.cashier.till.regionMenu')} style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <input
+            ref={filterRef}
+            style={{ ...inputStyle, flex: 1, minBlockSize: 'var(--tp-touch)' }}
+            aria-label={tr('ws.cashier.till.filterLabel')}
+            placeholder={tr('ws.cashier.till.filterPlaceholder')}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && filter) {
+                e.stopPropagation();
                 setFilter('');
-              }}
-            >
-              {i < 9 ? `${i + 1}. ` : ''}
-              {pickName(locale, c)}
-            </Button>
-          ))}
+              }
+            }}
+          />
+          <Button icon="keyboard" onClick={() => setHelpOpen(true)} aria-label={tr('ws.cashier.till.help.open')} title={tr('ws.cashier.till.help.open')} style={{ minBlockSize: 'var(--tp-touch)' }}>
+            <Kbd>?</Kbd>
+          </Button>
         </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(9.5rem, 1fr))',
-            gap: '0.4rem',
-          }}
+
+        <AsyncStateWrapper
+          status={menuStatus}
+          onRetry={() => void menuQ.refetch()}
+          error={menuQ.error}
+          skeleton={
+            <div style={{ display: 'grid', gap: '0.6rem' }} aria-busy="true">
+              <p style={muted}>{tr('ws.cashier.till.loadingMenu')}</p>
+              <Skeleton lines={1} blockSize="2.75rem" />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: '0.45rem' }}>
+                {Array.from({ length: 8 }, (_, i) => (
+                  <Skeleton key={i} lines={1} blockSize="4.75rem" />
+                ))}
+              </div>
+            </div>
+          }
         >
-          {visibleItems.map((item) => {
-            const orderable = menuQ.data?.availability.get(item.id) ?? true;
-            const defVariant =
-              item.menu_item_variants.find((v) => v.is_default) ?? item.menu_item_variants[0];
-            return (
-              <button
-                key={item.id}
-                type="button"
-                disabled={!orderable || !selectedTabId}
-                onClick={() => addOrOpen(item)}
-                // Right-click (or long-press on a touch till) still opens the
-                // sheet for notes/qty on a quick-addable item.
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setSheetItem(item);
-                }}
-                style={{
-                  ...card,
-                  cursor: orderable && selectedTabId ? 'pointer' : 'not-allowed',
-                  opacity: orderable ? (selectedTabId ? 1 : 0.6) : 0.35,
-                  textAlign: 'start',
-                  minBlockSize: '4.5rem',
-                }}
-              >
-                <strong style={{ display: 'block' }}>{pickName(locale, item)}</strong>
-                {defVariant && (
-                  <span style={{ color: 'var(--tp-muted-fg)', fontSize: '0.85rem' }}>
-                    {formatIQD(defVariant.price_iqd, locale)}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+          <CategoryStrip
+            categories={categories}
+            activeId={activeCategory}
+            filtering={filtering}
+            onSelect={(id) => {
+              setCategoryId(id);
+              setFilter('');
+            }}
+          />
+          <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto' }}>
+            <MenuItemGrid
+              items={visibleItems}
+              availability={menuQ.data?.availability ?? {}}
+              hasActiveTab={hasActiveTab}
+              today={today}
+              onPick={addOrOpen}
+              onOpenSheet={setSheetItem}
+              emptyText={filtering ? tr('ws.cashier.till.noMatches', { query: filter.trim() }) : tr('ws.cashier.till.noItems')}
+            />
+            <TileLegend />
+          </div>
+        </AsyncStateWrapper>
 
-        {/* basket */}
-        <div style={{ ...card, marginBlockStart: '0.8rem' }}>
-          <h3 style={{ marginBlockStart: 0, fontSize: '0.95rem' }}>{tr('op.till.basket')}</h3>
-          {basket.length === 0 && (
-            <p style={{ margin: 0, color: 'var(--tp-muted-fg)', fontSize: '0.85rem' }}>
-              {tr('op.till.emptyBasket')}
-            </p>
-          )}
-          {basket.map((l) => (
-            <div
-              key={l.key}
-              style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', marginBlockEnd: '0.25rem' }}
-            >
-              <span>
-                {l.qty}× {l.itemName} ({l.variantName})
-                {l.modifiers.length > 0 && (
-                  <span style={{ color: 'var(--tp-muted-fg)' }}>
-                    {' — '}
-                    {l.modifiers.map((m) => m.name).join(', ')}
-                  </span>
-                )}
-              </span>
-              <span style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
-                {formatIQD(
-                  (l.unitPriceIqd + l.modifiers.reduce((s, m) => s + m.priceDeltaIqd * m.qty, 0)) *
-                    l.qty,
-                  locale,
-                )}
-                <Button kind="ghost" aria-label="−1" onClick={() => bumpBasketQty(l.key, -1)}>
-                  −
-                </Button>
-                <Button kind="ghost" aria-label="+1" onClick={() => bumpBasketQty(l.key, 1)}>
-                  +
-                </Button>
-                <Button kind="ghost" onClick={() => setBasket((b) => b.filter((x) => x.key !== l.key))}>
-                  ✕
-                </Button>
-              </span>
-            </div>
-          ))}
-          <ErrorText error={sendError} />
-          {basket.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong>{formatIQD(basketTotal, locale)}</strong>
-              <Button kind="primary" disabled={sending || !selectedTabId} title="F2" aria-label={tr('op.till.sendOrder')} onClick={() => void sendBasket()}>
-                {tr('op.till.sendOrder')} <span aria-hidden>· F2</span>
+        <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: '0.6rem' }}>
+          <Basket
+            lines={basket}
+            sending={sending}
+            error={sendError}
+            canSend={hasActiveTab && basket.length > 0}
+            onBump={bumpBasketQty}
+            onRemove={(key) => setBasket((b) => b.filter((x) => x.key !== key))}
+            onClear={() => setBasket([])}
+            onSend={() => void sendBasket()}
+          />
+        </div>
+      </section>
+
+      {/* ---- inline-end: the active tab ---- */}
+      <aside style={{ minBlockSize: 0, overflowY: 'auto', paddingInlineStart: '0.25rem', borderInlineStart: '1px solid var(--tp-border)', paddingInline: '0.75rem' }}>
+        {!selectedTabId && (
+          <EmptyState
+            icon="receipt"
+            title={tr('ws.cashier.till.noActiveTab')}
+            body={tr('ws.cashier.till.noActiveTabBody')}
+            action={
+              <Button kind="primary" icon="plus" onClick={() => setNewTab({})}>
+                {tr('ws.cashier.till.rail.newTab')} <Kbd>F6</Kbd>
               </Button>
-            </div>
-          )}
-        </div>
-      </div>
+            }
+          />
+        )}
+        {selectedTabId && !selectedIsOffline && (
+          <TabDetailPanel
+            tabId={selectedTabId}
+            onClosedTab={() => {
+              setSelectedTabId(null);
+              void queryClient.invalidateQueries({ queryKey: ['tabs'] });
+            }}
+            onSwitchTab={(id) => {
+              setSelectedTabId(id);
+              setBasket([]);
+            }}
+          />
+        )}
+        {selectedTabId && selectedIsOffline && (
+          <OfflineTabPanel idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)} onSettled={() => setSelectedTabId(null)} />
+        )}
+        {sending && <MessagePresenter tone="info" message={tr('ws.cashier.till.basket.sending')} style={{ marginBlockStart: '0.75rem' }} />}
+      </aside>
 
-      {/* Tab detail */}
-      {selectedTabId && !selectedTabId.startsWith(LOCAL_TAB_PREFIX) && (
-        <TabDetailPanel
-          tabId={selectedTabId}
-          onClosedTab={() => {
-            setSelectedTabId(null);
-            void queryClient.invalidateQueries({ queryKey: ['tabs'] });
-          }}
-        />
-      )}
-      {selectedTabId?.startsWith(LOCAL_TAB_PREFIX) && (
-        <OfflineTabPanel
-          idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)}
-          onSettled={() => setSelectedTabId(null)}
-        />
-      )}
-
+      {/* ---- overlays ---- */}
       {sheetItem && menuQ.data && (
         <ItemSheet
           item={sheetItem}
@@ -666,931 +430,20 @@ export function TillScreen() {
           }}
         />
       )}
-      {showNewTab && (
+      {newTab && (
         <NewTabDialog
-          onClose={() => setShowNewTab(false)}
+          initialReservationId={newTab.reservationId}
+          onClose={() => setNewTab(null)}
           onOpened={(tabId) => {
-            setShowNewTab(false);
+            setNewTab(null);
             setSelectedTabId(tabId);
+            setBasket([]);
             void queryClient.invalidateQueries({ queryKey: ['tabs'] });
+            void queryClient.invalidateQueries({ queryKey: ['openTabReservations'] });
           }}
         />
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Offline tab detail — a tab that exists only in the durable queue. Lines and
-// totals are estimates from the cached menu (the same prices the server will
-// snapshot at replay); settling queues a tab.settle against the tab.open key.
-// ---------------------------------------------------------------------------
-function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSettled: () => void }) {
-  const { tr, locale } = useLocale();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const [cashOpen, setCashOpen] = useState(false);
-  const [tendered, setTendered] = useState(0);
-  const tab = getOfflineTab(idemKey);
-  if (!tab) return null;
-
-  const total = tab.lines.reduce((sum, l) => sum + l.priceIqd * l.qty, 0);
-  const change = computeChange(total, tendered);
-
-  async function settleOffline(method: 'cash' | 'card', tenderedIqd: number | null) {
-    setBusy(true);
-    setError(null);
-    try {
-      await mutate('tab.settle', {
-        tabIdemKey: idemKey,
-        method,
-        ...(total > 0 ? { amountIqd: total } : {}),
-        ...(tenderedIqd != null ? { tenderedIqd } : {}),
-      });
-      markOfflineSettled(idemKey);
-      onSettled();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div style={{ inlineSize: '21rem', flexShrink: 0 }}>
-      <h2 style={{ marginBlockStart: 0, fontSize: '1.05rem' }}>
-        {tab.tableNumber ? `${tr('op.till.table')} ${tab.tableNumber}` : (tab.label ?? '—')}
-      </h2>
-      <p style={{ color: 'var(--tp-muted-fg)', fontSize: '0.85rem', marginBlockStart: 0 }}>
-        {tr('op.till.offlineTab')}
-      </p>
-      {tab.lines.map((l, i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-          <span>
-            {l.qty}× {l.name}
-          </span>
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-            {formatIQD(l.priceIqd * l.qty, locale)}
-          </span>
-        </div>
-      ))}
-      <hr style={{ border: 'none', borderBlockStart: '1px solid var(--tp-border)' }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-        <span>{tr('op.till.estimatedTotal')}</span>
-        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatIQD(total, locale)}</span>
-      </div>
-      <ErrorText error={error} />
-      {tab.lines.length > 0 && !cashOpen && (
-        <div style={{ display: 'flex', gap: '0.5rem', marginBlockStart: '0.6rem' }}>
-          <Button kind="primary" disabled={busy} onClick={() => setCashOpen(true)}>
-            {tr('op.till.payCash')}
-          </Button>
-          <Button disabled={busy} onClick={() => void settleOffline('card', null)}>
-            {tr('op.till.payCard')}
-          </Button>
-        </div>
-      )}
-      {cashOpen && (
-        <div style={{ marginBlockStart: '0.6rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBlockEnd: '0.5rem' }}>
-            <AmountPad value={tendered} onChange={setTendered} />
-          </div>
-          {change.sufficient && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>{tr('op.till.change')}</span>
-              <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>
-                {formatIQD(change.changeIqd, locale)}
-              </span>
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <Button onClick={() => setCashOpen(false)}>{tr('common.back')}</Button>
-            <Button
-              kind="primary"
-              disabled={busy || tendered < total}
-              onClick={() => void settleOffline('cash', tendered)}
-            >
-              {tr('op.till.recordPayment')}
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Item sheet: size + modifiers + qty + notes
-// ---------------------------------------------------------------------------
-function ItemSheet({
-  item,
-  groups,
-  modifiers,
-  onClose,
-  onAdd,
-}: {
-  item: ItemRow;
-  groups: ModifierGroupRow[];
-  modifiers: ModifierRow[];
-  onClose: () => void;
-  onAdd: (line: BasketLine) => void;
-}) {
-  const { tr, locale } = useLocale();
-  const variants = [...item.menu_item_variants].sort((a, b) => a.sort_order - b.sort_order);
-  const [variantId, setVariantId] = useState<string>(
-    (variants.find((v) => v.is_default) ?? variants[0])?.id ?? '',
-  );
-  const [qty, setQty] = useState(1);
-  const [notes, setNotes] = useState('');
-  const [chosen, setChosen] = useState<Map<string, number>>(new Map()); // modifier id -> qty
-
-  const linkedGroups = item.menu_item_modifier_groups
-    .map((l) => groups.find((g) => g.id === l.group_id))
-    .filter((g): g is ModifierGroupRow => Boolean(g));
-
-  const variant = variants.find((v) => v.id === variantId);
-
-  const selectionValid = linkedGroups.every((g) => {
-    const count = modifiers.filter((m) => m.group_id === g.id && chosen.has(m.id)).length;
-    return count >= g.min_select && count <= g.max_select;
-  });
-
-  function toggle(m: ModifierRow, group: ModifierGroupRow) {
-    setChosen((prev) => {
-      const next = new Map(prev);
-      if (next.has(m.id)) next.delete(m.id);
-      else {
-        const inGroup = modifiers.filter((x) => x.group_id === group.id && next.has(x.id));
-        if (inGroup.length >= group.max_select && group.max_select === 1) {
-          for (const x of inGroup) next.delete(x.id);
-        }
-        if (modifiers.filter((x) => x.group_id === group.id && next.has(x.id)).length < group.max_select)
-          next.set(m.id, 1);
-      }
-      return next;
-    });
-  }
-
-  return (
-    <Modal title={pickName(locale, item)} onClose={onClose}>
-      <Field label={tr('op.till.size')}>
-        <select style={inputStyle} value={variantId} onChange={(e) => setVariantId(e.target.value)}>
-          {variants.map((v) => (
-            <option key={v.id} value={v.id}>
-              {pickName(locale, v)} — {formatIQD(v.price_iqd, locale)}
-            </option>
-          ))}
-        </select>
-      </Field>
-      {linkedGroups.map((g) => (
-        <div key={g.id} style={{ marginBlockEnd: '0.5rem' }}>
-          <p style={{ marginBlock: '0.2rem', fontSize: '0.85rem', color: 'var(--tp-muted-fg)' }}>
-            {pickName(locale, g)} ({g.min_select}–{g.max_select})
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-            {modifiers
-              .filter((m) => m.group_id === g.id && m.is_active)
-              .map((m) => (
-                <Button
-                  key={m.id}
-                  kind={chosen.has(m.id) ? 'primary' : 'default'}
-                  onClick={() => toggle(m, g)}
-                >
-                  {pickName(locale, m)}
-                  {m.price_delta_iqd > 0 && ` +${formatIQD(m.price_delta_iqd, locale)}`}
-                </Button>
-              ))}
-          </div>
-        </div>
-      ))}
-      <Field label={tr('op.till.qty')}>
-        <input
-          style={inputStyle}
-          type="number"
-          min={1}
-          max={99}
-          value={qty}
-          onChange={(e) => setQty(Math.max(1, Math.min(99, Number(e.target.value) || 1)))}
-        />
-      </Field>
-      <Field label={tr('op.till.itemNotes')}>
-        <input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </Field>
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-        <Button onClick={onClose}>{tr('common.cancel')}</Button>
-        <Button
-          kind="primary"
-          disabled={!variant || !selectionValid}
-          onClick={() => {
-            if (!variant) return;
-            onAdd({
-              key: crypto.randomUUID(),
-              variantId: variant.id,
-              itemName: pickName(locale, item),
-              variantName: pickName(locale, variant),
-              qty,
-              notes,
-              unitPriceIqd: variant.price_iqd,
-              modifiers: [...chosen.entries()].map(([id, mQty]) => {
-                const m = modifiers.find((x) => x.id === id);
-                return {
-                  modifierId: id,
-                  qty: mQty,
-                  name: m ? pickName(locale, m) : '',
-                  priceDeltaIqd: m?.price_delta_iqd ?? 0,
-                };
-              }),
-            });
-          }}
-        >
-          {tr('op.till.addToBasket')}
-        </Button>
-      </div>
-    </Modal>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// New tab dialog — table / by-name / reservation anchor (app.open_tab)
-// ---------------------------------------------------------------------------
-function NewTabDialog({
-  onClose,
-  onOpened,
-}: {
-  onClose: () => void;
-  onOpened: (tabId: string) => void;
-}) {
-  const { tr, locale } = useLocale();
-  const [tableId, setTableId] = useState('');
-  const [label, setLabel] = useState('');
-  const [reservationId, setReservationId] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-
-  // ACTIVE tables only. This shared the bare ['cafeTables'] key with the QR
-  // admin's all-rows query, so opening QR admin first offered the cashier
-  // tables that are switched off.
-  const tablesQ = useQuery({ queryKey: QK.activeCafeTables, queryFn: fetchActiveCafeTables });
-
-  // Charge-to-booking: today's confirmed/arrived reservations that have no tab
-  // yet (the embedded tabs list is empty). RLS: cashiers may see none — the
-  // picker simply stays empty for them.
-  const reservationsQ = useQuery({
-    queryKey: ['openTabReservations'],
-    queryFn: async () => {
-      const dayStart = new Date();
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart.getTime() + 86_400_000);
-      const { data, error: err } = await supabase
-        .from('reservations')
-        .select('id, start_at, end_at, guest_name, court:courts(name_en, name_ar), tabs(id)')
-        .in('status', ['confirmed', 'arrived'])
-        .gte('start_at', dayStart.toISOString())
-        .lt('start_at', dayEnd.toISOString())
-        .order('start_at');
-      if (err) throw err;
-      return (
-        data as unknown as {
-          id: string;
-          start_at: string;
-          guest_name: string | null;
-          court: { name_en: string; name_ar: string } | null;
-          tabs: { id: string }[];
-        }[]
-      ).filter((r) => (r.tabs ?? []).length === 0);
-    },
-  });
-
-  async function submit() {
-    setBusy(true);
-    setError(null);
-    try {
-      const outcome = await mutate<{ tab_id: string }>('tab.open', {
-        ...(tableId ? { tableId } : {}),
-        ...(label ? { label } : {}),
-        ...(reservationId ? { reservationId } : {}),
-      });
-      if (outcome.result) {
-        onOpened(outcome.result.tab_id);
-      } else {
-        // Queued offline: durably on disk, replays on reconnect. Its tab.open
-        // key is its local identity — the rail lists it and order.add_items /
-        // tab.settle reference it as tabIdemKey until the server id exists.
-        addOfflineTab({
-          idemKey: outcome.idempotencyKey,
-          localId: outcome.localId,
-          label: label || null,
-          tableNumber: tableId
-            ? ((tablesQ.data ?? []).find((t) => t.id === tableId)?.table_number ?? null)
-            : null,
-        });
-        onOpened(`${LOCAL_TAB_PREFIX}${outcome.idempotencyKey}`);
-      }
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal title={tr('op.till.newTab')} onClose={onClose}>
-      <Field label={tr('op.till.table')}>
-        <select style={inputStyle} value={tableId} onChange={(e) => setTableId(e.target.value)}>
-          <option value="">{tr('op.till.chooseTable')}</option>
-          {(tablesQ.data ?? []).map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.table_number}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label={tr('op.till.byName')}>
-        <input style={inputStyle} value={label} onChange={(e) => setLabel(e.target.value)} />
-      </Field>
-      <Field label={tr('op.till.reservationLabel')}>
-        <select
-          style={inputStyle}
-          value={reservationId}
-          onChange={(e) => setReservationId(e.target.value)}
-        >
-          <option value="">{tr('op.till.noReservation')}</option>
-          {(reservationsQ.data ?? []).map((r) => (
-            <option key={r.id} value={r.id}>
-              {tr('op.till.reservationOption', {
-                time: formatTime(new Date(r.start_at), locale),
-                court: pickName(locale, r.court),
-                guest: r.guest_name ?? '—',
-              })}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-        <Button onClick={onClose}>{tr('common.cancel')}</Button>
-        <Button
-          kind="primary"
-          disabled={busy || (!tableId && !label && !reservationId)}
-          onClick={() => void submit()}
-        >
-          {tr('op.till.openTabBtn')}
-        </Button>
-      </div>
-    </Modal>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tab detail: lines, running totals, settle / split / discount / void
-// ---------------------------------------------------------------------------
-function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: () => void }) {
-  const { tr, locale } = useLocale();
-  const queryClient = useQueryClient();
-  const [settleMode, setSettleMode] = useState<'cash' | 'card' | 'split' | null>(null);
-  const [tendered, setTendered] = useState(0);
-  const [splitN, setSplitN] = useState(2);
-  const [shares, setShares] = useState<number[] | null>(null);
-  const [discountOpen, setDiscountOpen] = useState(false);
-  const [discountKind, setDiscountKind] = useState<'discount_percent' | 'discount_amount'>(
-    'discount_percent',
-  );
-  const [discountValue, setDiscountValue] = useState(10);
-  const [voidItemId, setVoidItemId] = useState<string | null>(null);
-  // The four cashier surfaces the contract names and the till could not do.
-  const [billOpen, setBillOpen] = useState(false);
-  const [refundOpen, setRefundOpen] = useState(false);
-  const [mergeOpen, setMergeOpen] = useState(false);
-  const [overrideItemId, setOverrideItemId] = useState<string | null>(null);
-  const [splitItemOpen, setSplitItemOpen] = useState(false);
-  const [drawerNoted, setDrawerNoted] = useState(false);
-  const [actionError, setActionError] = useState<unknown>(null);
-  const [pinError, setPinError] = useState<unknown>(null);
-  const [busy, setBusy] = useState(false);
-  const [lastChange, setLastChange] = useState<number | null>(null);
-
-  const tabQ = useQuery({ queryKey: ['tab', tabId], queryFn: () => fetchTabDetail(tabId) });
-
-  // Tax rates come off the SAME ['menu'] cache the grid already holds — the
-  // old ['taxContext'] key re-downloaded every menu category just for rate_bp.
-  // Only tax_inclusive (one venue_settings column) is its own tiny query.
-  const menuForTaxQ = useQuery({ ...TILL_MENU_QUERY });
-  const taxInclusiveQ = useQuery({
-    queryKey: ['taxInclusive'],
-    staleTime: 300_000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('venue_settings')
-        .select('tax_inclusive')
-        .single();
-      if (error) throw error;
-      return Boolean((data as { tax_inclusive: boolean }).tax_inclusive);
-    },
-  });
-  const taxCtx = useMemo(() => {
-    if (!menuForTaxQ.data || taxInclusiveQ.data === undefined) return null;
-    return {
-      rateByCategory: new Map(
-        menuForTaxQ.data.categories.map((c) => [c.id, c.tax_group?.rate_bp ?? 0]),
-      ),
-      taxInclusive: taxInclusiveQ.data,
-    };
-  }, [menuForTaxQ.data, taxInclusiveQ.data]);
-
-  const tab = tabQ.data;
-
-  // Extracted to features/till/tabTotals.ts so the money arithmetic on the
-  // till has tests, and so the guest bill renders from the SAME computation
-  // the settle buttons use rather than a second one that can drift.
-  const totals = useMemo(() => computeTabTotals(tab ?? null, taxCtx), [tab, taxCtx]);
-
-  // F4/F5 from anywhere on the till OPEN the settle pane (TillScreen's key
-  // handler dispatches; money is confirmed by click only). Registered before
-  // the loading early-return — hooks must run unconditionally.
-  const hotkeyGate = useRef({ settled: true, due: 0 });
-  hotkeyGate.current = { settled: tab?.status === 'settled', due: totals.due };
-  useEffect(() => {
-    function onHotkey(e: Event) {
-      if (hotkeyGate.current.settled || hotkeyGate.current.due <= 0) return;
-      const method = (e as CustomEvent<'cash' | 'card'>).detail;
-      setSettleMode(method);
-      setLastChange(null);
-      if (method === 'cash') setTendered(0);
-    }
-    window.addEventListener('till-settle-hotkey', onHotkey);
-    return () => window.removeEventListener('till-settle-hotkey', onHotkey);
-  }, []);
-  const due = totals.due;
-
-  function refresh() {
-    void queryClient.invalidateQueries({ queryKey: ['tab', tabId] });
-    void queryClient.invalidateQueries({ queryKey: ['tabs'] });
-  }
-
-  async function settle(method: 'cash' | 'card', amountIqd: number | null, tenderedIqd: number | null) {
-    setBusy(true);
-    setActionError(null);
-    try {
-      const outcome = await mutate<{ status: string; change_iqd: number | null }>('tab.settle', {
-        tabId,
-        method,
-        ...(amountIqd != null ? { amountIqd } : {}),
-        ...(tenderedIqd != null ? { tenderedIqd } : {}),
-      });
-      if (outcome.result) {
-        setLastChange(outcome.result.change_iqd ?? null);
-        refresh();
-        if (outcome.result.status === 'settled') {
-          setSettleMode(null);
-          setShares(null);
-        }
-      } else {
-        // Queued offline: the payment is durably recorded and replays on
-        // reconnect. Change due was already computed client-side; close the
-        // pane and let the tab reconcile when the ack invalidates it.
-        setLastChange(tenderedIqd != null && amountIqd != null ? tenderedIqd - amountIqd : null);
-        setSettleMode(null);
-        setShares(null);
-        refresh();
-      }
-    } catch (e) {
-      setActionError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function openDrawer() {
-    setActionError(null);
-    try {
-      await appRpc('record_drawer_open', {
-        p_reason_code: 'other',
-        p_device_id: deviceId(),
-        p_tab_id: tabId,
-      });
-      setDrawerNoted(true);
-    } catch (e) {
-      setActionError(e);
-    }
-  }
-
-  async function loadShares() {
-    setActionError(null);
-    try {
-      const res = await appRpc<number[]>('split_evenly', { p_tab_id: tabId, p_n: splitN });
-      setShares(res);
-      // sanity: server split mirrors @touch/core splitEvenly exactly
-      if (totals.total > 0 && res.length === splitN) void splitEvenly(totals.total, splitN);
-    } catch (e) {
-      setActionError(e);
-    }
-  }
-
-  async function applyDiscount(pin: string, reasonCode: string) {
-    setBusy(true);
-    setPinError(null);
-    try {
-      // The PIN rides in the payload and is re-verified server-side at replay —
-      // queueing is never a way around the manager authorisation.
-      const outcome = await mutate('adjustment.apply', {
-        kind: discountKind,
-        tabId,
-        value: discountKind === 'discount_percent' ? discountValue * 100 : discountValue,
-        pin,
-        reasonCode,
-      });
-      if (!outcome.queued) touch.pinObserved(pin); // server-verified — cache for offline unlock
-      setDiscountOpen(false);
-      refresh();
-    } catch (e) {
-      setPinError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function voidItem(pin: string, reasonCode: string) {
-    if (!voidItemId) return;
-    setBusy(true);
-    setPinError(null);
-    try {
-      await appRpc('void_after_send', {
-        p_order_item_id: voidItemId,
-        p_pin: pin,
-        p_reason_code: reasonCode,
-        p_device_id: deviceId(),
-      });
-      touch.pinObserved(pin); // server just verified it — cache for offline unlock
-      setVoidItemId(null);
-      refresh();
-    } catch (e) {
-      setPinError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!tab) return <div style={{ inlineSize: '20rem' }}>{tr('common.loading')}</div>;
-
-  const settled = tab.status === 'settled';
-  const change = computeChange(due, tendered);
-
-  return (
-    <div style={{ inlineSize: '21rem', flexShrink: 0 }}>
-      <div style={card}>
-        <h2 style={{ marginBlockStart: 0, fontSize: '1.05rem' }}>
-          {tab.table
-            ? `${tr('op.till.table')} ${tab.table.table_number}`
-            : (tab.reservation?.guest_name ?? tab.label ?? '—')}
-        </h2>
-
-        {tab.orders
-          .filter((o) => o.status !== 'voided')
-          .map((o) => (
-            <div key={o.id} style={{ marginBlockEnd: '0.4rem' }}>
-              {o.order_items.map((i) => (
-                <div
-                  key={i.id}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: '0.4rem',
-                    textDecoration: i.voided ? 'line-through' : 'none',
-                    color: i.voided ? 'var(--tp-muted-fg)' : 'inherit',
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  <span>
-                    {i.qty}× {pickName(locale, i.menu_item)}
-                    {i.variant && ` (${pickName(locale, i.variant)})`}
-                  </span>
-                  <span style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
-                    {formatIQD(i.line_total_iqd, locale)}
-                    {!i.voided && !settled && (
-                      <>
-                        {/* SOW L450-451 pairs price overrides with discounts
-                            behind the same authorised PIN. Discounts were
-                            wired; overrides never were. */}
-                        <Button kind="ghost" onClick={() => setOverrideItemId(i.id)}>
-                          {tr('op.till.override')}
-                        </Button>
-                        <Button kind="ghost" onClick={() => setVoidItemId(i.id)}>
-                          {tr('op.till.voidItem')}
-                        </Button>
-                      </>
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))}
-
-        <hr style={{ border: 'none', borderBlockStart: '1px solid var(--tp-border)' }} />
-        <Row label={tr('common.subtotal')} value={formatIQD(totals.subtotal, locale)} />
-        {totals.discount > 0 && (
-          <Row label={tr('common.discount')} value={`−${formatIQD(totals.discount, locale)}`} />
-        )}
-        {totals.tax > 0 && <Row label={tr('op.till.tax')} value={formatIQD(totals.tax, locale)} />}
-        <Row label={tr('common.total')} value={formatIQD(totals.total, locale)} strong />
-        {totals.paid > 0 && (
-          <Row label={tr('op.till.remaining', { amount: formatIQD(due, locale) })} value="" />
-        )}
-        {lastChange != null && lastChange > 0 && (
-          <Row label={tr('op.till.change')} value={formatIQD(lastChange, locale)} strong />
-        )}
-        <ErrorText error={actionError} />
-
-        {settled ? (
-          <p style={{ color: 'var(--tp-accent)', fontWeight: 700 }}>{tr('op.till.paidInFull')}</p>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBlockStart: '0.5rem' }}>
-            <Button kind="primary" disabled={due <= 0} title="F4" aria-label={tr('op.till.payCash')} onClick={() => { setSettleMode('cash'); setTendered(0); setLastChange(null); }}>
-              {tr('op.till.payCash')} <span aria-hidden>· F4</span>
-            </Button>
-            <Button disabled={due <= 0} title="F5" aria-label={tr('op.till.payCard')} onClick={() => { setSettleMode('card'); setLastChange(null); }}>
-              {tr('op.till.payCard')} <span aria-hidden>· F5</span>
-            </Button>
-            <Button disabled={due <= 0} onClick={() => { setSettleMode('split'); setShares(null); }}>
-              {tr('op.till.splitEvenly')}
-            </Button>
-            {/* SOW L444 asks for BOTH: "split a bill by item or evenly". Only
-                the even split existed, and by-item is the one a group of
-                friends actually asks for. */}
-            <Button disabled={due <= 0} onClick={() => setSplitItemOpen(true)}>
-              {tr('op.till.splitByItem')}
-            </Button>
-            <Button onClick={() => setDiscountOpen(true)}>{tr('op.till.discount')}</Button>
-            {/* SOW L444, "Merge tables". app.merge_tabs has always existed and
-                the tab list already filters on merged_into_tab_id — a column
-                nothing in the product could set. */}
-            <Button onClick={() => setMergeOpen(true)}>{tr('op.till.merge')}</Button>
-          </div>
-        )}
-        {/* SOW L456: "Printed or on-screen bill for the guest" — there was
-            neither, so a questioned total had nothing to point at. Available
-            after settling too, which is when it is usually asked for. */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBlockStart: '0.4rem' }}>
-          <Button onClick={() => setBillOpen(true)}>{tr('op.till.bill')}</Button>
-          {/* SOW L449: "Change calculation and a cash drawer opening record."
-              Hardware control is excluded (L474-475) — the drawer is opened by
-              hand. What the contract asks for is the RECORD, because an
-              unexplained opening between sales is what day close exists to
-              surface. */}
-          <Button onClick={() => void openDrawer()}>{tr('op.till.openDrawer')}</Button>
-          {/* SOW L453: refunds are a manager action that also reverses the
-              stock movement, which is why the dialog asks which items. */}
-          {tab.payments.length > 0 && (
-            <Button kind="danger" onClick={() => setRefundOpen(true)}>
-              {tr('op.till.refund')}
-            </Button>
-          )}
-        </div>
-        {settled && (
-          <Button style={{ marginBlockStart: '0.4rem' }} onClick={onClosedTab}>
-            {tr('common.close')}
-          </Button>
-        )}
-      </div>
-
-      {drawerNoted && (
-        <p style={{ fontSize: '0.8rem', color: 'var(--tp-accent)' }}>
-          {tr('op.till.drawerNoted')}
-        </p>
-      )}
-
-      {splitItemOpen && (
-        <SplitByItemDialog
-          tabId={tabId}
-          lines={tab.orders
-            .filter((o) => o.status !== 'voided')
-            .flatMap((o) => o.order_items)}
-          due={due}
-          busy={busy}
-          onSettleShare={(amount) => void settle('cash', amount, amount)}
-          onClose={() => setSplitItemOpen(false)}
-        />
-      )}
-
-      {billOpen && (
-        <BillView
-          venueName={tr('common.appName')}
-          heading={
-            tab.table
-              ? `${tr('op.till.table')} ${tab.table.table_number}`
-              : (tab.reservation?.guest_name ?? tab.label ?? '—')
-          }
-          orders={tab.orders}
-          totals={totals}
-          payments={tab.payments}
-          taxInclusive={Boolean(taxCtx?.taxInclusive)}
-          onClose={() => setBillOpen(false)}
-        />
-      )}
-
-      {refundOpen && (
-        <RefundDialog
-          payments={tab.payments}
-          lines={tab.orders
-            .filter((o) => o.status !== 'voided')
-            .flatMap((o) => o.order_items)}
-          onDone={() => {
-            setRefundOpen(false);
-            refresh();
-          }}
-          onClose={() => setRefundOpen(false)}
-        />
-      )}
-
-      {mergeOpen && (
-        <MergeTabsDialog
-          survivorTabId={tabId}
-          survivorLabel={
-            tab.table
-              ? `${tr('op.till.table')} ${tab.table.table_number}`
-              : (tab.reservation?.guest_name ?? tab.label ?? '—')
-          }
-          onDone={() => {
-            setMergeOpen(false);
-            refresh();
-          }}
-          onClose={() => setMergeOpen(false)}
-        />
-      )}
-
-      {overrideItemId &&
-        (() => {
-          const item = tab.orders
-            .flatMap((o) => o.order_items)
-            .find((i) => i.id === overrideItemId);
-          if (!item) return null;
-          return (
-            <OverridePriceDialog
-              orderItemId={item.id}
-              label={`${item.qty}× ${pickName(locale, item.menu_item)}`}
-              currentUnitPriceIqd={item.unit_price_iqd}
-              onDone={() => {
-                setOverrideItemId(null);
-                refresh();
-              }}
-              onClose={() => setOverrideItemId(null)}
-            />
-          );
-        })()}
-
-      {/* cash settle */}
-      {settleMode === 'cash' && (
-        <Modal title={tr('op.till.payCash')} onClose={() => setSettleMode(null)}>
-          <Row label={tr('common.total')} value={formatIQD(due, locale)} strong />
-          <Field label={tr('op.till.tendered')}>
-            <input
-              style={{ ...inputStyle, fontSize: '1.3rem', textAlign: 'end' }}
-              dir="ltr"
-              inputMode="numeric"
-              value={tendered}
-              onChange={(e) => setTendered(Number(e.target.value.replace(/\D/g, '')) || 0)}
-            />
-          </Field>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBlockEnd: '0.6rem' }}>
-            <AmountPad value={tendered} onChange={setTendered} />
-          </div>
-          <Row
-            label={tr('op.till.change')}
-            value={change.sufficient ? formatIQD(change.changeIqd, locale) : `−${formatIQD(change.shortByIqd, locale)}`}
-            strong
-          />
-          <ErrorText error={actionError} />
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <Button onClick={() => setSettleMode(null)}>{tr('common.cancel')}</Button>
-            <Button
-              kind="primary"
-              disabled={busy || !change.sufficient || due <= 0}
-              onClick={() => void settle('cash', null, tendered)}
-            >
-              {tr('op.till.recordPayment')}
-            </Button>
-          </div>
-        </Modal>
-      )}
-
-      {/* card settle */}
-      {settleMode === 'card' && (
-        <Modal title={tr('op.till.payCard')} onClose={() => setSettleMode(null)}>
-          <Row label={tr('common.total')} value={formatIQD(due, locale)} strong />
-          <ErrorText error={actionError} />
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <Button onClick={() => setSettleMode(null)}>{tr('common.cancel')}</Button>
-            <Button kind="primary" disabled={busy || due <= 0} onClick={() => void settle('card', null, null)}>
-              {tr('op.till.recordPayment')}
-            </Button>
-          </div>
-        </Modal>
-      )}
-
-      {/* split evenly */}
-      {settleMode === 'split' && (
-        <Modal title={tr('op.till.splitEvenly')} onClose={() => setSettleMode(null)}>
-          <Field label={tr('op.till.splitCount')}>
-            <input
-              style={inputStyle}
-              type="number"
-              min={2}
-              max={50}
-              value={splitN}
-              onChange={(e) => setSplitN(Math.max(2, Math.min(50, Number(e.target.value) || 2)))}
-            />
-          </Field>
-          <Button kind="primary" onClick={() => void loadShares()}>
-            {tr('op.common.apply')}
-          </Button>
-          {shares && (
-            <div style={{ marginBlockStart: '0.6rem' }}>
-              {shares.map((s, i) => (
-                <div
-                  key={i}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBlockEnd: '0.3rem' }}
-                >
-                  <span>{tr('op.till.share', { index: i + 1, amount: formatIQD(Number(s), locale) })}</span>
-                  <Button
-                    disabled={busy || due <= 0 || Number(s) > due}
-                    onClick={() => void settle('cash', Number(s), Number(s))}
-                  >
-                    {tr('op.till.settleShare')}
-                  </Button>
-                </div>
-              ))}
-              <Row label={tr('op.till.remaining', { amount: formatIQD(due, locale) })} value="" />
-            </div>
-          )}
-          <ErrorText error={actionError} />
-        </Modal>
-      )}
-
-      {/* discount */}
-      {discountOpen && (
-        <PinReasonModal
-          title={tr('op.till.discount')}
-          busy={busy}
-          error={pinError}
-          onClose={() => {
-            setDiscountOpen(false);
-            setPinError(null);
-          }}
-          onSubmit={(pin, reason) => void applyDiscount(pin, reason)}
-        >
-          <Field label={tr('op.till.discount')}>
-            <select
-              style={inputStyle}
-              value={discountKind}
-              onChange={(e) => setDiscountKind(e.target.value as typeof discountKind)}
-            >
-              <option value="discount_percent">{tr('op.till.discountPercent')}</option>
-              <option value="discount_amount">{tr('op.till.discountAmount')}</option>
-            </select>
-          </Field>
-          <Field label={tr('op.till.discountValue')}>
-            <input
-              style={inputStyle}
-              type="number"
-              min={1}
-              max={discountKind === 'discount_percent' ? 100 : undefined}
-              value={discountValue}
-              onChange={(e) => setDiscountValue(Math.max(1, Number(e.target.value) || 1))}
-            />
-          </Field>
-        </PinReasonModal>
-      )}
-
-      {/* void after send */}
-      {voidItemId && (
-        <PinReasonModal
-          title={tr('op.till.voidTitle')}
-          busy={busy}
-          error={pinError}
-          reasons={['wrong_item', 'changed_mind', 'quality', 'spill', 'staff_error', 'other']}
-          onClose={() => {
-            setVoidItemId(null);
-            setPinError(null);
-          }}
-          onSubmit={(pin, reason) => void voidItem(pin, reason)}
-        />
-      )}
-    </div>
-  );
-}
-
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        fontWeight: strong ? 700 : 400,
-        marginBlockEnd: '0.15rem',
-      }}
-    >
-      <span>{label}</span>
-      <span style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      {helpOpen && <KeymapHelp onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

@@ -168,3 +168,68 @@ export function actorLabel(
   // against another table, which a bare "unknown" would not be.
   return `${role ?? 'unknown'} ${actorId.slice(0, 8)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Period + export (spec 06.38: filter by period, export CSV client-side)
+// ---------------------------------------------------------------------------
+
+export interface PeriodBounds {
+  /** ISO instant at the start of `from` on the station clock. */
+  fromIso: string;
+  /** ISO instant at the start of the day AFTER `to` (exclusive upper bound). */
+  toExclusiveIso: string;
+}
+
+/**
+ * Inclusive YYYY-MM-DD range → half-open instant range for `at`. Built on the
+ * station's calendar day; the server's audit page function re-anchors to the
+ * venue day when it is available.
+ */
+export function periodBounds(period: { from: string; to: string }): PeriodBounds {
+  const from = new Date(`${period.from}T00:00:00`);
+  const to = new Date(`${period.to}T00:00:00`);
+  to.setDate(to.getDate() + 1);
+  return { fromIso: from.toISOString(), toExclusiveIso: to.toISOString() };
+}
+
+/** True when `row.at` falls inside the period (used by the direct-select fallback re-check). */
+export function inPeriod(row: Pick<AuditRow, 'at'>, bounds: PeriodBounds): boolean {
+  return row.at >= bounds.fromIso && row.at < bounds.toExclusiveIso;
+}
+
+export interface AuditCsvLabels {
+  when: string;
+  actor: string;
+  role: string;
+  authoriser: string;
+  action: string;
+  entity: string;
+  entityId: string;
+  reason: string;
+  device: string;
+  changes: string;
+}
+
+/** Headers + one row per entry; changes are flattened to `field: before → after; …`. */
+export function auditCsv(
+  labels: AuditCsvLabels,
+  rows: readonly AuditRow[],
+  names: ReadonlyMap<string, string>,
+): { headers: string[]; rows: (string | number | null)[][] } {
+  const headers = [labels.when, labels.actor, labels.role, labels.authoriser, labels.action, labels.entity, labels.entityId, labels.reason, labels.device, labels.changes];
+  const out = rows.map((r) => [
+    r.at,
+    actorLabel(r.actor_id, r.actor_role, names),
+    r.actor_role,
+    r.authorizer_id ? actorLabel(r.authorizer_id, null, names) : null,
+    r.action,
+    r.entity,
+    r.entity_id,
+    r.reason_code,
+    r.device_id,
+    diffFields(r.before, r.after)
+      .map((c) => `${c.field}: ${c.before} → ${c.after}`)
+      .join('; '),
+  ]);
+  return { headers, rows: out };
+}

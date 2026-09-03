@@ -151,12 +151,14 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
               marginBlockStart: '0.5rem',
               fontSize: '0.9rem',
               paddingInlineStart: '0.45rem',
-              borderInlineStart: `4px solid ${tone.color}`,
+              border: `1px solid ${tone.color}`,
               animation: escalated ? 'tpPulse 1.2s infinite' : undefined,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem' }}>
-              <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+            {/* The till mounts this in a 13rem rail: a long table number must wrap,
+                never widen the column or clip its age. */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', minInlineSize: 0, overflowWrap: 'anywhere' }}>
                 {tr('op.floor.table', { table: isolate(c.table?.table_number ?? '—') })}
                 <span
                   style={{
@@ -166,6 +168,7 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
                     paddingInline: '0.4rem',
                     fontSize: '0.68rem',
                     fontWeight: 700,
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {tr('op.floor.sourceGuest')}
@@ -176,6 +179,7 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
                   color: tone.color,
                   fontWeight: minutes >= WARN_MIN ? 700 : 400,
                   fontVariantNumeric: 'tabular-nums',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {ageLabel(minutes)}

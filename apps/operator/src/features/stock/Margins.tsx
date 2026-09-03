@@ -2,12 +2,13 @@
  * COGS + gross margin per menu item (SOW L538-540) — v_item_margin, costed
  * from the latest batch (pack cost fallback). Low/negative margins surface
  * first; a menu that quietly loses money per sale is what this page catches.
+ * Every figure is the view's own.
  */
 import { useQuery } from '@tanstack/react-query';
-import { formatIQD } from '@touch/i18n';
+import { formatNumber } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
-import { card } from '../../components/ui';
+import { AsyncStateWrapper, DataTable, EmptyState, Money, PageHeader, StatusBadge, asyncStatus, type Column } from '../../components/kit';
 import { SK } from './stockKeys';
 
 interface MarginRow {
@@ -28,73 +29,57 @@ export function Margins() {
   const marginsQ = useQuery({
     queryKey: SK.margins,
     queryFn: async (): Promise<MarginRow[]> => {
-      const { data, error } = await supabase
-        .from('v_item_margin')
-        .select('*')
-        .order('margin_percent', { ascending: true, nullsFirst: false });
+      const { data, error } = await supabase.from('v_item_margin').select('*').order('margin_percent', { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data as MarginRow[];
     },
   });
-  const rows = marginsQ.data ?? [];
+
+  const columns: Column<MarginRow>[] = [
+    {
+      key: 'item',
+      header: tr('op.stock.item'),
+      render: (r) => (
+        <span>
+          <bdi>{pickName(locale, { name_en: r.item_name_en, name_ar: r.item_name_ar })}</bdi>{' '}
+          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
+            (<bdi>{pickName(locale, { name_en: r.variant_name_en, name_ar: r.variant_name_ar })}</bdi>)
+          </span>
+        </span>
+      ),
+    },
+    { key: 'price', header: tr('op.stock.price'), numeric: true, render: (r) => <Money amount={r.price_iqd} /> },
+    { key: 'cogs', header: tr('op.stock.cogs'), numeric: true, render: (r) => <Money amount={r.cogs_iqd} /> },
+    {
+      key: 'margin',
+      header: tr('op.stock.margin'),
+      numeric: true,
+      render: (r) => {
+        const bad = r.margin_iqd < 0;
+        const thin = !bad && (r.margin_percent ?? 100) < 30;
+        return (
+          <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+            {bad && <StatusBadge size="sm" tone="danger" label={tr('ws.manager.stock.margins.negative')} />}
+            {thin && <StatusBadge size="sm" tone="warn" label={tr('ws.manager.stock.margins.thin')} />}
+            <Money amount={r.margin_iqd} strong />
+          </span>
+        );
+      },
+    },
+    { key: 'pct', header: '%', numeric: true, render: (r) => (r.margin_percent === null ? '—' : <span dir="ltr">{formatNumber(r.margin_percent, locale)}%</span>) },
+  ];
 
   return (
-    <div style={{ maxInlineSize: '46rem' }}>
-      <h2 style={{ marginBlock: '0.4rem' }}>{tr('op.stock.marginsTitle')}</h2>
-      <p style={{ marginBlockStart: 0, color: 'var(--tp-muted-fg)', fontSize: '0.9rem' }}>
-        {tr('op.stock.marginsHint')}
-      </p>
-      <div style={card}>
-        <table style={{ inlineSize: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-          <thead>
-            <tr style={{ color: 'var(--tp-muted-fg)' }}>
-              <th style={{ textAlign: 'start' }}>{tr('op.stock.item')}</th>
-              <th style={{ textAlign: 'end' }}>{tr('op.stock.price')}</th>
-              <th style={{ textAlign: 'end' }}>{tr('op.stock.cogs')}</th>
-              <th style={{ textAlign: 'end' }}>{tr('op.stock.margin')}</th>
-              <th style={{ textAlign: 'end' }}>%</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const bad = r.margin_iqd < 0;
-              const thin = !bad && (r.margin_percent ?? 100) < 30;
-              return (
-                <tr key={r.variant_id} style={{ borderBlockStart: '1px solid var(--tp-border)' }}>
-                  <td style={{ paddingBlock: '0.3rem' }}>
-                    {pickName(locale, { name_en: r.item_name_en, name_ar: r.item_name_ar })}{' '}
-                    <span style={{ color: 'var(--tp-muted-fg)', fontSize: '0.8rem' }}>
-                      ({pickName(locale, { name_en: r.variant_name_en, name_ar: r.variant_name_ar })})
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'end', fontVariantNumeric: 'tabular-nums' }}>
-                    {formatIQD(r.price_iqd, locale)}
-                  </td>
-                  <td style={{ textAlign: 'end', fontVariantNumeric: 'tabular-nums' }}>
-                    {formatIQD(r.cogs_iqd, locale)}
-                  </td>
-                  <td
-                    style={{
-                      textAlign: 'end',
-                      fontVariantNumeric: 'tabular-nums',
-                      fontWeight: 700,
-                      color: bad ? 'var(--tp-danger)' : thin ? 'var(--tp-accent-2)' : 'inherit',
-                    }}
-                  >
-                    {formatIQD(r.margin_iqd, locale)}
-                  </td>
-                  <td style={{ textAlign: 'end', fontVariantNumeric: 'tabular-nums' }}>
-                    {r.margin_percent ?? '—'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {marginsQ.isSuccess && rows.length === 0 && (
-          <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.stock.noRecipes')}</p>
-        )}
-      </div>
+    <div>
+      <PageHeader title={tr('op.stock.marginsTitle')} subtitle={tr('ws.manager.stock.margins.lead')} />
+      <AsyncStateWrapper
+        status={asyncStatus(marginsQ, (d) => d.length === 0)}
+        error={marginsQ.error}
+        onRetry={() => void marginsQ.refetch()}
+        emptyContent={<EmptyState icon="chart" title={tr('op.stock.noRecipes')} />}
+      >
+        <DataTable dense columns={columns} rows={marginsQ.data ?? []} rowKey={(r) => r.variant_id} aria-label={tr('op.stock.marginsTitle')} />
+      </AsyncStateWrapper>
     </div>
   );
 }

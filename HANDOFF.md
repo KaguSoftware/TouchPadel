@@ -920,6 +920,92 @@ Arabic renders in Cairo, mirrored, in the stored palette. Known and accepted: th
 `colors.page` while the switch cover is `colors.bg`, so a switch that lands on Book (complete-profile
 → continue) shows a faint grey wash for the 180 ms fade-in.
 
+## Day 15 (2026-09-03) — the operator UI spec: five workspaces on one build
+
+The owner handed over **`docs/design/operator-ui/touch-padel-desktop-ui-spec.md`** (Kagu's UI build
+specification for the operator desktop app — 49 screens, ~70 presentational components, five
+role workspaces) and asked for it implemented against the brand. It landed as a restructure of
+`apps/operator` rather than a parallel app: every existing feature (till, calendar, KDS, stock,
+admin, analytics) kept its RPC wiring and e2e selectors and was re-shelled and re-skinned;
+the gaps were built. Nine parallel lanes (four DB, five UI) worked against one contract:
+**`docs/design/operator-ui/build-plan-2026-09-03.md`** (routes, `can.*`, RPC names/shapes, file
+ownership) with **`lane-brief.md`** as the rulebook. Design context now lives in
+**`docs/PRODUCT.md` + `docs/DESIGN.md`** (product register; light paper surfaces with a navy
+court-line rail; the kitchen board is the one dark surface).
+
+**Shell (spec §05).** `data-theme="operator"` — a third palette in `packages/ui/src/tokens/operator.ts`
+(OKLCH, blue-tinted neutrals, rail + KDS families, focus ring, type/space/motion scales;
+`padel`/`cafe` untouched so mobile/web are unaffected). `lib/workspaces.ts` maps a role to the
+workspaces it may enter (manager/owner switch at `/workspaces`; first sign-in on a station shows
+the switcher); the rail is chosen by the ACTIVE workspace, never by filtering one shared menu;
+**prep renders no navigation at all**. `lib/auth.tsx` gained `permissionsFor()` / `usePermissions()`
+(the spec's `can.*` map) and the new route prefixes (default-deny). `components/kit.tsx` is the
+spec's shared component set (AsyncStateWrapper, DataTable, status indicators, HeadlineFigure,
+ComparisonDelta, DateRangeControl, DrillThroughPanel, PinPromptOverlay, ReasonCodePrompt,
+PermissionRefusedNotice, ConflictNotice, BilingualFieldPair, …); `components/icons.tsx` is the
+SVG icon set; `GlobalStyles` carries the real hover/focus/busy/disabled states. Landing per
+role: desk → `/desk/today`, cashier → `/till`, prep → `/kds`, manager → `/ops`, owner → `/panel`.
+Strings for the new surfaces live under `ws.*` in `packages/i18n/src/catalogs/ws/` — one file
+pair per lane, Arabic parity type-enforced.
+
+**Screens.** Court desk: Today's board, calendar (drag-to-move; resize stays explicit
+shorten/extend because it re-prices), booking detail, recurring series create/detail, court
+block, customer search/record/create. Cashier: till split into modules (rail / grid / basket /
+tab detail / payment / split / charge-to-booking / offline), open tabs, cash drawer; two
+distinct disabled tile states (staff-marked vs out-of-stock), F2/F4/F5/F6 `/` `?` keymap.
+Prep: dark full-bleed board, keyboard-complete (1–9, arrows, S/R/C, Space), LAN fallback kept.
+Manager: operations overview, day close (blocked states), promotions list/editor, menu editor
+with read-only `blockedByStock`, rates with overlap warning, audit log with server paging, all
+eleven stock screens restyled. Owner: management panel with drill-through, five reports
+(revenue owner-only), venue settings (hours, closed days, trading read-only, cafe, contact),
+staff admin + account editor, courts, tables/QR.
+
+**Backend (migrations 0065–0068, all applied locally, `types.gen.ts` regenerated).**
+0065 `customer_notes` / `customer_flags` + `customer_search` / `customer_record` / notes / flags
+RPCs and the **`desk-customer-create` edge function** (creates a real guest account; duplicate
+phone refused on a canonical number). 0066 `reservation_series` + `reservations.series_id`,
+`preview_series` / `create_series` / `series_detail` / `cancel_series` — occurrences are inserted
+ONLY through `staff_create_reservation`; played occurrences are never touched. 0067
+`promotions` / `promotion_redemptions` / `tab_adjustments.promotion_id`, eligibility + single-best
+application as an audited `tab_adjustments` row (`reason_code = 'promotion'`), one per tab,
+`merge_tabs` re-created to drop the donor's promotion. 0068 read-only `ops_overview`,
+`panel_headline`, `report_*`, `report_drill`, `audit_log_page`.
+
+**Owed line review (HANDOFF rule):** 0066 (exclusion-constraint path, lock choreography —
+`create_series` pre-locks courts in id order; `cancel_series` added to the lock script's
+status-only set) and 0067 (money in SQL: `promotion_amount_iqd` reuses `apply_pct_discount`;
+the delete-and-replace of a prior promotion adjustment; `authorized_by = promotions.created_by`;
+a `limits.total` cap can be over-redeemed by one under two concurrent tills). Line numbers are
+in the lane reports inside the build plan's status section.
+
+**Gate at close:** `pnpm turbo lint typecheck test` **18/18** · DB **467** (incl. customers 13,
+series 7, promotions 24, reports 14) · operator **464** unit · `check:locks` / `check:authz` /
+`check:safeupdate` clean (`check-rpc-authz.mjs` now skips trigger functions, which PostgREST
+404s and the sweep misread as unguarded) · **`pnpm e2e` 42/42 in EN and AR**.
+Visual pass in EN and AR over every workspace via a Playwright harness against the local stack.
+
+**Bugs found and fixed en route:** the till crashed on every cold start — the `['menu']` query is
+persisted to localStorage (B1) and its `availability` was a `Map`, which JSON restores as `{}`
+(`availability.get is not a function`); it is a plain record now. The revenue report rendered
+raw column keys in Arabic (0068 emits `labelEn/labelAr`, the UI read `label_en`). Two side-stripe
+accents (waiter calls, analytics patterns) replaced with full borders per DESIGN.md.
+Four e2e failures, all real regressions from the re-skin, all fixed: the till's category strip
+grew unbounded with many categories and swallowed clicks on the item grid (capped at three rows,
+scrolls); the audit viewer showed every actor as "system" because `audit_log_page` returns
+camelCase and the row reader only knew snake_case; `Field`'s hint and required asterisk had
+become part of every control's accessible name ("Qty g", "Qty*") — hint/error are siblings of the
+`<label>` now and the asterisk is a `::after`; and `SearchField`'s clear button was named "Clear
+search", which made `getByLabel('Search')` ambiguous.
+
+**Not done / decisions to make:** attach-an-existing-customer to a booking or tab needs a
+`set_reservation_guest`-style RPC (the desk hands the id back in the URL meanwhile); booking notes
+are read-only after creation (no RPC edits them); venue settings beyond hours/closed days/cafe
+have no write path (`tax_groups.rate_bp`, cancellation window, hold TTL, horizons, contact) and
+render read-only with a note; `SplitBill` even/by-item and `ChargeToBooking` (open + merge)
+compose existing RPCs; CSV export is client-side from the server's aggregated rows (spec §01
+deviation, documented). The stock overview's "stock value" shows "—" (no server figure).
+Nothing is committed — the whole day is on the working tree for Parsa's review.
+
 ## Day 14 (2026-09-03) — the desktop app campaign: the single write path went in
 
 The owner asked for the desktop app to be audited against scope and made "top notch" (speed,

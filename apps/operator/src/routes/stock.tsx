@@ -3,6 +3,7 @@ import { rootRoute, RequireRole } from './__root';
 import { useAuth, allowedSubRoutes } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { SubNav, type SubNavGroup } from '../components/SubNav';
+import type { IconName } from '../components/icons';
 
 // Module 5 — stock & recipes (SOW L515-547). The layout mirrors /admin: a
 // grouped sub-nav over lazy children. Acceptance is the counts → variance
@@ -27,31 +28,31 @@ type StockNavKey =
 
 const STOCK_GROUPS: readonly {
   label: 'groupDaily' | 'groupSetup' | 'groupReview';
-  items: readonly { to: string; key: StockNavKey }[];
+  items: readonly { to: string; key: StockNavKey; icon: IconName; exact?: boolean }[];
 }[] = [
   {
     label: 'groupDaily',
     items: [
-      { to: '/stock', key: 'onHand' },
-      { to: '/stock/receive', key: 'receive' },
-      { to: '/stock/waste', key: 'waste' },
-      { to: '/stock/expiry', key: 'expiry' },
+      { to: '/stock', key: 'onHand', icon: 'package', exact: true },
+      { to: '/stock/receive', key: 'receive', icon: 'box' },
+      { to: '/stock/waste', key: 'waste', icon: 'ban' },
+      { to: '/stock/expiry', key: 'expiry', icon: 'hourglass' },
     ],
   },
   {
     label: 'groupSetup',
     items: [
-      { to: '/stock/ingredients', key: 'ingredients' },
-      { to: '/stock/recipes', key: 'recipes' },
+      { to: '/stock/ingredients', key: 'ingredients', icon: 'layers' },
+      { to: '/stock/recipes', key: 'recipes', icon: 'fileText' },
     ],
   },
   {
     label: 'groupReview',
     items: [
-      { to: '/stock/counts', key: 'counts' },
-      { to: '/stock/variance', key: 'variance' },
-      { to: '/stock/margins', key: 'margins' },
-      { to: '/stock/alerts', key: 'alerts' },
+      { to: '/stock/counts', key: 'counts', icon: 'check' },
+      { to: '/stock/variance', key: 'variance', icon: 'scale' },
+      { to: '/stock/margins', key: 'margins', icon: 'trendUp' },
+      { to: '/stock/alerts', key: 'alerts', icon: 'alert' },
     ],
   },
 ];
@@ -73,11 +74,11 @@ function StockShell() {
     label: tr(`op.stockNav.${group.label}` as const),
     items: group.items
       .filter((item) => visible.has(item.to))
-      .map((item) => ({ to: item.to, label: tr(`op.stockNav.${item.key}` as const) })),
+      .map((item) => ({ to: item.to, label: tr(`op.stockNav.${item.key}` as const), icon: item.icon, exact: item.exact })),
   }));
 
   return (
-    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+    <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
       <SubNav title={tr('stock.title')} groups={groups} />
       <div style={{ flex: 1, minInlineSize: 0 }}>
         <Outlet />
