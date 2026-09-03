@@ -65,14 +65,28 @@ export interface QueueRowInfo {
   createdAt: string;
 }
 
+/** A LAN-delivered kitchen ticket — identified by the order envelope's key. */
 export interface KitchenTicket {
-  clientRef: string;
-  status: string;
-  payload: unknown;
+  ref: string;
+  tabLabel: string | null;
+  items: {
+    variantId: string;
+    qty: number;
+    notes?: string;
+    modifiers: { modifierId: string; qty: number }[];
+  }[];
+  createdAt: string;
+  status: 'queued' | 'preparing' | 'ready' | 'completed';
 }
 
+export type LanFrame =
+  | { type: 'ticket.new'; data: KitchenTicket }
+  | { type: 'ticket.snapshot'; data: KitchenTicket[] }
+  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } };
+
 // Cached reference data keys (design-arch.md §2.3). Payload types tighten when
-// @touch/db types.gen.ts exists.
+// @touch/db types.gen.ts exists. 'day' joined on day 14 — the till's
+// "no business day is open" gate must not fire just because the network died.
 export interface RefData {
   menu: unknown;
   prices: unknown;
@@ -83,8 +97,15 @@ export interface RefData {
   staff_pins: unknown;
   reservations: unknown;
   open_tabs: unknown;
+  day: unknown;
 }
 export type RefKey = keyof RefData;
+
+/** A cached row: payload + when it was fetched (the degraded banner shows the age). */
+export interface CachedRef {
+  payload: unknown;
+  fetchedAt: string;
+}
 
 export interface PrintJob {
   kind: 'receipt' | 'kitchen' | 'reprint';
@@ -107,17 +128,27 @@ export interface StationInfo {
 export interface TouchBridge {
   enqueue(m: MutationEnvelope): Promise<{ localId: string; state: 'queued' }>;
   onQueueUpdate(cb: (s: QueueStatus) => void): Unsub;
-  onLanTicket(cb: (t: KitchenTicket) => void): Unsub;
-  getCachedRef<K extends RefKey>(key: K): Promise<RefData[K]>;
+  onLanTicket(cb: (frame: LanFrame) => void): Unsub;
+  /** KDS stations only: carry a bump to the till over the LAN when the cloud is down. */
+  sendLanStatus(update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void;
+  getCachedRef(key: RefKey): Promise<CachedRef | undefined>;
   print(job: PrintJob): Promise<PrintResult>;
-  unlockPin(pin: string): Promise<{ staffId: string; role: Role; grantToken: string } | null>;
+  /** OFFLINE pin check only (authorisation-token cache, 14-day TTL) — online
+   *  verification lives inside the PIN-gated RPCs as always. */
+  unlockPin(pin: string): Promise<{ staffId?: string; role: Role; grantToken: string } | null>;
   getStation(): StationInfo;
   /** Push the staff session (or null on sign-out) for the main-process sync worker. */
   pushAuthState(s: AuthState | null): void;
   /** Push the heartbeat's server-reachability verdict after every beat. */
   pushConnState(online: boolean): void;
+  /** Store a fresh reference-data payload for offline trading (fetched_at stamped in main). */
+  cachePut(key: RefKey, payload: unknown): void;
+  /** A PIN just succeeded server-side — cache its hash for offline unlock. */
+  pinObserved(pin: string): void;
   onMutationResult(cb: (r: MutationResult) => void): Unsub;
   getQueueRows(): Promise<QueueRowInfo[]>;
+  /** Manager-PIN quit — the only way a production kiosk window closes. */
+  quitApp(pin: string): Promise<{ ok: boolean; error?: string }>;
 }
 
 declare global {
@@ -141,6 +172,9 @@ const mock: TouchBridge = {
   onLanTicket() {
     return () => {};
   },
+  sendLanStatus() {
+    // Browser mode has no LAN peer.
+  },
   pushAuthState() {
     // Browser mode has no main process; writes go straight to the network.
   },
@@ -151,10 +185,17 @@ const mock: TouchBridge = {
   async getQueueRows() {
     return [];
   },
+  async quitApp() {
+    return { ok: false, error: 'not-in-electron' };
+  },
   async getCachedRef(key) {
     console.warn('[touch:mock] getCachedRef miss:', key);
     return undefined;
   },
+  cachePut() {
+    // Browser mode has no durable cache; reads simply stay online.
+  },
+  pinObserved() {},
   async print(job) {
     console.warn('[touch:mock] print skipped:', job.kind);
     return { ok: false, error: 'not-in-electron' };

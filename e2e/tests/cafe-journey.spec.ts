@@ -15,6 +15,7 @@ import {
   clearWaiterCalls,
   ensureOpenDay,
   ensureTillFresh,
+  ensureFixtureStock,
   fixtureTableId,
   latestOrderForTable,
   mintTableToken,
@@ -36,6 +37,7 @@ test.describe('guest cafe journey (EN)', () => {
   test.beforeAll(async () => {
     svc = serviceClient();
     await ensureTillFresh(svc);
+    await ensureFixtureStock(svc);
     await ensureOpenDay(svc);
     await clearWaiterCalls(svc, EN_TABLE);
     await voidOpenTabsForTable(svc, EN_TABLE);
@@ -178,6 +180,7 @@ test.describe('guest cafe journey (AR) @ar', () => {
   test.beforeAll(async () => {
     svc = serviceClient();
     await ensureTillFresh(svc);
+    await ensureFixtureStock(svc);
     await ensureOpenDay(svc);
     await clearWaiterCalls(svc, AR_TABLE);
     await voidOpenTabsForTable(svc, AR_TABLE);

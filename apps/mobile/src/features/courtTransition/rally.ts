@@ -3,19 +3,30 @@
  * prototype (`Court Transition Prototype.html`: `updateCamera` / `updateRally`)
  * so it is unit-tested here and merely applied to meshes in scene.ts.
  *
+ * The rackets' stroke is the second design (`padel-racket.html`): its `swing`
+ * clip lives in swing.ts and this file schedules it — every player winds up,
+ * strikes and follows through around the moment the ball is on their face.
+ *
  * Units are the prototype's: metres, seconds, radians. Court 10 × 20 m, net on
  * z = 0, back walls at z = ±10, side walls at x = ±5; +z is the near end.
  */
 import { lerp, SPEC } from './spec';
+import {
+  addV,
+  applyEulerYXZ,
+  faceOffset,
+  scaleV,
+  subV,
+  SWING_CONTACT,
+  SWING_TRAVEL,
+  swingAt,
+  v3,
+  type Vec3,
+} from './swing';
 
-export interface Vec3 {
-  x: number;
-  y: number;
-  z: number;
-}
+export type { Vec3 } from './swing';
 
 const DEG = Math.PI / 180;
-const v3 = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
 const lerp3 = (a: Vec3, b: Vec3, t: number): Vec3 =>
   v3(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t));
 
@@ -73,14 +84,8 @@ export interface Player {
   /** −1 = far pair (handles point to −z), +1 = near pair. */
   face: -1 | 1;
   seed: number;
-  /**
-   * Per-racket tweak to the resting yaw, radians. Positive turns the racket
-   * anticlockwise ON SCREEN in the top view — the camera's up vector is −z
-   * there, which flips the usual sense, so this is worth checking rather than
-   * assuming. Purely cosmetic: it moves where the racket idles, not where it
-   * must be to meet the ball.
-   */
-  trim?: number;
+  /** Which side of the body the forehand comes off: the swing clip is mirrored for −1. */
+  hand: 1 | -1;
 }
 
 /**
@@ -89,11 +94,10 @@ export interface Player {
  * TOP-LEFT racket, [1] top-right, [2] bottom-left, [3] bottom-right.
  */
 export const PLAYERS: readonly Player[] = [
-  // Top-left sits 15° further round to the left than the mirror pose gives it.
-  { x: -2.3, z: -6.3, face: -1, seed: 0.0, trim: (15 * Math.PI) / 180 },
-  { x: 2.3, z: -6.3, face: -1, seed: 1.7 },
-  { x: -2.3, z: 6.3, face: 1, seed: 3.1 },
-  { x: 2.3, z: 6.3, face: 1, seed: 4.4 },
+  { x: -2.3, z: -6.3, face: -1, seed: 0.0, hand: 1 },
+  { x: 2.3, z: -6.3, face: -1, seed: 1.7, hand: -1 },
+  { x: -2.3, z: 6.3, face: 1, seed: 3.1, hand: 1 },
+  { x: 2.3, z: 6.3, face: 1, seed: 4.4, hand: -1 },
 ];
 
 /** One leg of the rally, seconds; four legs A(0) → D(3) → B(1) → C(2) → A … */
@@ -101,44 +105,37 @@ export const LEG_SECONDS = 1.3;
 export const RALLY_ORDER = [0, 3, 1, 2] as const;
 /** One full loop of the rally: the four legs, back to A. */
 export const LOOP_SECONDS = LEG_SECONDS * RALLY_ORDER.length;
-/** Racket height: flat on the court in the top view, upright at chest height in the front view. */
+/**
+ * The SWEET SPOT's height: the racket lies flat on the court in the top view
+ * and stands at chest height in the front view. The grip hangs below it, out
+ * to the player's side — the hold is a forehand, not a racket on a stick.
+ */
 export const RACKET_Y = { flat: 0.75, standing: 1.55 } as const;
 export const BALL_RADIUS = 0.22;
 
-/**
- * Pivot to the centre of the strings, in world units — scene.ts's GRIP (1.15,
- * the BUTT of the handle, where the hand is) times the racket's 1.15 scale.
- * `RacketPose.position` is that pivot point.
- *
- * MUST match scene.ts's own REACH: the placement maths here puts the pivot so
- * that the strings — this far out along the racket's axis — land on the ball,
- * and scene.ts hangs the mesh off the same offset. If the two drift apart the
- * ball misses the strings by the difference.
- */
-export const REACH = 1.15 * 1.15;
+/** Which leg of the loop each player strikes on (their slot in RALLY_ORDER). */
+const SLOT = PLAYERS.map((_, i) => RALLY_ORDER.indexOf(i as 0 | 1 | 2 | 3));
+
+/** Positive remainder, exact for a v already inside [0, m) — the strike lands on SWING_CONTACT to the bit. */
+const mod = (v: number, m: number): number => {
+  const r = v % m;
+  return r < 0 ? r + m : r;
+};
 
 /**
- * Where a pose's string bed sits in the world: the head reaches REACH out of
- * the hand along the racket's local −z, carried through the pose's yaw and
- * pitch in the same 'YXZ' order scene.ts applies to the mesh.
+ * The top-view cheat, as the angle on the rig's `lay` group: −90° lays the
+ * racket flat on the turf (face up) for the top-down view, 0° stands it up
+ * facing the net for the front view. It is nested INSIDE the swing pivot so
+ * the stroke sweeps across the court plane in both views (see swing.ts).
  */
-export function stringBed(pose: {
-  position: Vec3;
-  rotation: Vec3;
-}): Vec3 {
-  const { x: rx, y: ry } = pose.rotation;
-  const h = -Math.cos(rx);
-  return {
-    x: pose.position.x + REACH * h * Math.sin(ry),
-    y: pose.position.y + REACH * Math.sin(rx),
-    z: pose.position.z + REACH * h * Math.cos(ry),
-  };
+export function layAngle(camK: number): number {
+  return ((camK - 1) * Math.PI) / 2;
 }
 
 /**
- * The first leg start at or after t: the ball sits on the hitter's racket
- * (u = 0 → the ball is AT the from-racket, the swing pulse is 0, the trail
- * has just reset), so a rally held here reads as a player holding the ball.
+ * The first leg start at or after t. There the ball is ON the striker's face at
+ * the instant of contact and everyone else is somewhere in their own wind-up —
+ * the freeze frame the idle hold and reduced motion both rest on.
  */
 export function nextLegStart(t: number): number {
   return Math.ceil(t / LEG_SECONDS - 1e-9) * LEG_SECONDS;
@@ -394,10 +391,22 @@ export function ballHeading(A: Vec3, B: Vec3, u: number): number {
 }
 
 export interface RacketPose {
+  /**
+   * The rig's MOUNT, world metres: the stance's origin. The hand itself is
+   * this plus `swing.position` turned by `rotation`; the sweet spot is
+   * `contact`, one rigid arm (HEAD_ARM · RACKET_SCALE) further out.
+   */
   position: Vec3;
-  /** Euler XYZ in the prototype's 'YXZ' order. */
+  /**
+   * The stance, Euler YXZ: yaw to the net plus the top-view roll. `x` is
+   * always 0 — the lay angle belongs to a group nested inside the swing.
+   */
   rotation: Vec3;
-  /** 0..1 swing pulse at the moment the racket hits or receives. */
+  /** The swing pivot inside the stance: the clip's travel (court metres) and turn. */
+  swing: { position: Vec3; rotation: Vec3 };
+  /** The SWEET SPOT, world metres — where the ball meets the face. */
+  contact: Vec3;
+  /** 0 at rest, 1 at the moment of contact. */
   hit: number;
 }
 
@@ -416,12 +425,48 @@ export interface RallyState {
 }
 
 /**
+ * One racket at time t and eased pitch progress camK. The player idle-drifts
+ * (sin, ±0.25 m) around their spot; on top of that runs the swing clip, phased
+ * so its contact lands on the leg where they strike — 0.86 s of wind-up while
+ * the ball is still flying at them, then 1.34 s of follow-through. Between
+ * strokes the clip is outside its window and the racket holds its rest stance.
+ *
+ * `position` is the hand and `contact` the sweet spot; the offset between them
+ * is the whole rig (swing → lay → hold → arm) resolved at this frame, chosen
+ * so the sweet spot sits exactly on the player's spot when they are at rest.
+ * The stroke then whips the head around the hand — which is why the ball is
+ * launched from `contact` and not from the group's origin.
+ */
+function racketAt(i: number, t: number, camK: number): RacketPose {
+  const pl = PLAYERS[i]!;
+  const lay = layAngle(camK);
+  const pose = swingAt(mod(t - SLOT[i]! * LEG_SECONDS + SWING_CONTACT, LOOP_SECONDS), pl.hand);
+  const rest = swingAt(-1, pl.hand);
+  const base = v3(
+    pl.x + Math.sin(t * 0.9 + pl.seed) * 0.25,
+    lerp(RACKET_Y.flat, RACKET_Y.standing, camK) + Math.sin(t * 1.6 + pl.seed) * 0.06,
+    pl.z + Math.cos(t * 0.7 + pl.seed) * 0.2,
+  );
+  const rotation = v3(0, playerYaw(pl), (1 - camK) * 0.12 * Math.sin(t * 1.1 + pl.seed));
+  const restFace = faceOffset(rest, lay, pl.hand);
+  const face = faceOffset(pose, lay, pl.hand);
+  return {
+    position: subV(base, applyEulerYXZ(restFace, rotation)),
+    rotation,
+    swing: { position: scaleV(pose.position, SWING_TRAVEL), rotation: pose.rotation },
+    contact: addV(base, applyEulerYXZ(subV(face, restFace), rotation)),
+    hit: pose.hit,
+  };
+}
+
+/**
  * The whole rally at time t (seconds since start) and eased pitch progress
- * camK. Rackets idle-drift (sin, ±0.25 m) and swing on the hit; the ball flies
- * a two-arc leg (flight 62 %, bounce 38 %; heights 1.9 m / 0.6 m) between the
- * CURRENT racket positions. Independent of p except through camK, which
- * stands the rackets up: top view flat (face up, y 0.75) → front view upright
- * (rotX 90°, y 1.55, face to the net, forehand swing about Y).
+ * camK. The ball flies a two-arc leg (flight 62 %, bounce 38 %; heights 1.9 m
+ * / 0.6 m) from the face that struck it, at the instant of the strike, to the
+ * face that will receive it, at the instant it arrives — both ends read off
+ * the swing, so the ball leaves and lands ON a racket rather than near one.
+ * Independent of p except through camK, which stands the rackets up: top view
+ * flat on the turf (y 0.75) → front view upright at chest height (y 1.55).
  */
 export function rallyAt(t: number, camK: number): RallyState {
   // Snap a t that is a leg start within float noise (nextLegStart's n × LEG_SECONDS)
@@ -467,246 +512,26 @@ export function rallyAt(t: number, camK: number): RallyState {
     return v3(p.x - run * Math.sin(yaw), p.y + rise, p.z - run * Math.cos(yaw));
   });
 
-  const rackets = PLAYERS.map((pl, i) => {
-    // The strike pulse: 1 at the ball, falling away through the follow-through
-    // and the wind-up. It marks HOW CLOSE to contact we are, for anything that
-    // wants to flash on the hit.
-    const hit =
-      i === from && u < FOLLOW_U
-        ? Math.cos((Math.PI / 2) * (u / FOLLOW_U))
-        : i === to && u > 1 - WINDUP_U
-          ? Math.cos((Math.PI / 2) * ((1 - u) / WINDUP_U))
-          : 0;
-    const position = positions[i]!;
-    const rest = playerYaw(pl);
+  const rackets = PLAYERS.map((_, i) => racketAt(i, t, camK));
 
-    // The stroke, and where it is aimed. It is ONE motion straddling the leg
-    // boundary: the racket cocks back over the tail of the leg the ball is
-    // arriving on, strikes AT the boundary (the instant the ball leaves), and
-    // follows through over the head of the next leg. `w` is where we are in
-    // that window, −1 (fully cocked) → 0 (contact) → +1 (fully through).
-    let w = 0;
-    let swinging = false;
-    let aim = rest;
-    // Where the ball is at THIS racket's moment of contact — the point the
-    // face has to be standing at, and the point the top view steps it to
-    // early so the ball arrives at a waiting racket.
-    let intercept: Vec3 | null = null;
-    if (i === from && u < FOLLOW_U) {
-      // Follow-through half: this racket struck at u = 0 and is carrying on.
-      // Aimed along the ball's OUTGOING heading — the direction the ball is
-      // genuinely travelling as it leaves the strings, read off the path it
-      // actually flies (atan2 over a step of the real trajectory), not the
-      // straight line to the receiver's box. The two differ because both
-      // rackets drift while the ball is in the air.
-      w = u / FOLLOW_U;
-      swinging = true;
-      aim = ballHeading(ballEnds[from]!, ballEnds[to]!, 0);
-      // It struck at u = 0, where the ball was leaving: the launch point.
-      intercept = ballAt(ballEnds[from]!, ballEnds[to]!, 0);
-    } else if (i === to && u > 1 - WINDUP_U) {
-      // Wind-up half: the ball is on its way and this racket is pulling back,
-      // reaching full cock at the START of the window and unwinding into the
-      // ball as the leg ends — where it becomes `from` and the branch above
-      // carries the same motion on without a step.
-      w = (u - 1) / WINDUP_U; // −1 at the window's start → 0 at the boundary
-      swinging = true;
-      // Aimed along the ball's OUTGOING heading — the bearing it will leave on
-      // when this racket strikes it at the end of the leg, taken from the path
-      // the ball actually flies next.
-      //
-      // Not the incoming bearing, though the racket is facing an oncoming
-      // ball: the two are ~160° apart (the ball arrives, is struck, and goes
-      // back the other way), and a face cannot be perpendicular to both. It is
-      // the OUTGOING line that a racket face is square to in real play —
-      // that is the line the face projects the ball along. Aiming at the
-      // incoming bearing instead flipped the racket ~154° between the last
-      // frame of the wind-up and the first of the follow-through.
-      //
-      // This is the same line the follow-through branch above uses one frame
-      // later, which is what makes the stroke continuous across the strike.
-      const nextTo = RALLY_ORDER[(legIdx + 2) % 4]!;
-      aim = ballHeading(ballEnds[to]!, ballEnds[nextTo]!, 0);
-      // It will strike at the end of this leg, where the ball arrives.
-      intercept = ballAt(ballEnds[from]!, ballEnds[to]!, 1);
-    }
+  // The strike and the reception, each sampled at ITS OWN moment: the hitter's
+  // face where it was when the ball left, the receiver's where it will be when
+  // the ball arrives. (Reading the live positions instead would drag the whole
+  // arc along with the follow-through.)
+  const legStart = leg * LEG_SECONDS;
+  const A = racketAt(from, legStart, camK).contact;
+  const B = racketAt(to, legStart + LEG_SECONDS, camK).contact;
+  const bounce = { ...lerp3(A, B, 0.8), y: BALL_RADIUS };
+  let ball: Vec3;
+  if (u < 0.62) {
+    const w = u / 0.62;
+    ball = { ...lerp3(A, bounce, w), y: lerp(A.y, bounce.y, w) + 1.9 * Math.sin(Math.PI * w) };
+  } else {
+    const w = (u - 0.62) / 0.38;
+    ball = { ...lerp3(bounce, B, w), y: lerp(bounce.y, B.y, w) + 0.6 * Math.sin(Math.PI * w) };
+  }
 
-    // The stroke's angle about the contact facing: negative behind the ball
-    // (pulled back), 0 exactly ON it, positive past it (followed through).
-    // Asymmetric, as a real stroke is — a short cock back, a long finish.
-    const s = swingPhase(w);
-    const rawPhase = s * (s < 0 ? BACKSWING : FOLLOW_THROUGH);
-
-    // Turn onto the shot's line by the shortest way round, so a ball played
-    // across the body never spins the racket the long way.
-    //
-    // `onLine` is 1 AT CONTACT — the racket exactly square to the shot, which
-    // is the one instant that must be right — and eases to 0 with ZERO SLOPE
-    // at both ends of the window, where the racket is back at its resting
-    // angle. Squaring the cosine is what buys the zero slope: the plain
-    // cosine arrived at the window edge still turning, so the swing angle and
-    // this blend were both moving at the seam and the racket snapped ~86°
-    // between two frames. It cannot be `hit` either: hit is 0 exactly at the
-    // leg boundary, which is where contact is, so the aim was blended out at
-    // the very instant it mattered.
-    const onLine = swinging ? Math.cos((Math.PI / 2) * w) ** 2 : 0;
-    // `rawPhase` is NOT faded by `onLine`: it already arrives at ±1 with zero
-    // slope, and multiplying the two crushed the follow-through to a twelfth
-    // of its arc — the racket stopping at the ball instead of swinging past.
-    const phase = swinging ? rawPhase : 0;
-    const sweep = pl.x < 0 ? 1 : -1;
-    // The contact yaw: the head points ALONG the outgoing shot, so the string
-    // bed faces down the line the ball leaves on and the face pushes it away.
-    //
-    // The head is the racket's local −z and the face normal its local +y, so
-    // a yaw of `aim` puts the head on +shot. Opening the yaw out by 90°
-    // instead — which is what "perpendicular" wrongly meant here — laid the
-    // racket ACROSS the ball's path, presenting its RIM to the ball: the head
-    // swept past sideways and the ball skimmed the edge instead of the
-    // strings. Perpendicular is a property of the FACE NORMAL, not the
-    // racket's long axis; the normal is square to the face by construction,
-    // so pointing the head down the shot is what squares the face to it.
-    const square = aim;
-    // NOT gated on camK. Yaw is the sweep across the court — the one rotation
-    // a top-down camera can actually see — and the Book tab opens top-down.
-    // Scaling it by camK switched the entire stroke off in that view, leaving
-    // four rackets sitting at their mount angles while the ball flew past.
-    const facing = rest + angleDelta(rest, square) * onLine;
-    // The racket does NOT translate through the stroke: the swing is rotation
-    // in place (plus the idle drift every racket always has). A step toward
-    // the ball mid-stroke read as the racket lunging about the court. Instead
-    // the flat view PLACES the racket a constant REACH beside its ball point
-    // (FLAT_OFFSET, fading out as the court pitches), so the ball meets the
-    // strings at contact rather than the handle.
-    const off = FLAT_OFFSET[i]!;
-    // The resting flat placement: beside this racket's own ball point.
-    const restX = position.x + off.x * (1 - camK);
-    const restZ = position.z + off.z * (1 - camK);
-
-    // Top view only: step to the interception point and WAIT there. The hand
-    // goes REACH back from the ball along the contact perpendicular, so it is
-    // the STRINGS that stand on the point the ball is flying to. `plantEase`
-    // holds this at full extension from mid wind-up through contact, which is
-    // what makes the ball fly into a planted face instead of meeting a racket
-    // that is still closing on it.
-    let px = restX;
-    let py = position.y;
-    let pz = restZ;
-    // The receiver's approach runs on its OWN clock, starting at APPROACH_U
-    // and reaching the interception point by the time the wind-up begins —
-    // the racket walks to the ball over most of the leg instead of covering
-    // 2 m inside the 27-frame stroke window (a 0.17 m/frame lurch).
-    const approaching = i === to && u > APPROACH_U && camK < 1;
-    if ((intercept || approaching) && camK < 1) {
-      const target = intercept ?? ballAt(ballEnds[from]!, ballEnds[to]!, 1);
-      // Plant the HAND, not the strings: the hand goes REACH back from the
-      // interception point along the CONTACT yaw, so at the moment of contact
-      // — and only then, since that is when the racket's yaw equals the
-      // contact yaw — the head swings onto the ball exactly.
-      //
-      // Pinning the strings there instead held the head still on the ball
-      // through the whole stroke: the position cancelled the rotation, so the
-      // racket stopped sweeping and simply rotated about its own head. The
-      // hand is the pivot; it is what stands and waits while the head swings.
-      // `square` IS that contact yaw: the angle the racket passes through as
-      // it strikes, before `onLine` blends it back toward rest and before the
-      // stroke's own rotation is added. Both of those are zero at contact.
-      // Lying flat, the head's full reach separates hand from strings.
-      const yaw = intercept ? square : ballHeading(ballEnds[to]!, ballEnds[RALLY_ORDER[(legIdx + 2) % 4]!]!, 0);
-      // At contact the head is tipped fully down, so it is CONTACT_PITCH —
-      // not the resting cant — that sets how much of the reach is horizontal.
-      const flat = REACH * Math.cos(CONTACT_PITCH);
-      const handX = target.x + flat * Math.sin(yaw);
-      const handZ = target.z + flat * Math.cos(yaw);
-      // Before the stroke window opens, `w` is undefined for this racket —
-      // ease in on the approach's own progress instead, arriving at 1 exactly
-      // as the wind-up (and with it plantEase) takes over.
-      const e =
-        (intercept
-          ? plantEase(w)
-          : smooth(Math.min(1, (u - APPROACH_U) / (1 - WINDUP_U - APPROACH_U)))) *
-        (1 - camK);
-      px = restX + (handX - restX) * e;
-      pz = restZ + (handZ - restZ) * e;
-      // …and the same for HEIGHT. The plant used to set x and z only, so the
-      // head was steered onto the ball horizontally while still hanging
-      // REACH·sin(CONTACT_PITCH) below it — the ball passing over a racket
-      // that was in the right place on the floor plan but the wrong place in
-      // the air. At contact the racket is tipped nose-down, so the head sits
-      // BELOW the hand and the hand must ride correspondingly higher.
-      const handY = target.y - REACH * Math.sin(CONTACT_PITCH);
-      py = position.y + (handY - position.y) * e;
-    }
-
-    return {
-      position: v3(px, py, pz),
-      rotation: v3(
-        // Pitch: canted at rest, TIPPING DOWN through the strike.
-        //
-        // At rest the top view keeps the face turned toward the camera — you
-        // look DOWN ON the racket, which is the point of the view — but not
-        // dead flat. At exactly 0 the racket lies parallel to the court, the
-        // camera sees a pure silhouette with no depth anywhere on it, and
-        // four solid objects read as four 2D cut-outs pasted on the turf.
-        // TOP_CANT tips them off that plane just far enough for the frame,
-        // the rim and the grip to catch the light down one side and throw
-        // their own shadow.
-        //
-        // Then the stroke drives the head DOWN onto the ball: STRIKE_TIP more
-        // pitch at the moment of contact, easing back to the resting cant
-        // either side of it. It rides `hit` — the strike-proximity pulse,
-        // which is 1 exactly at the ball — not `phase`, which is 0 there and
-        // would have put the deepest tip at the two ends of the stroke, the
-        // racket dipping where it should be level and level where it should
-        // be chopping through the ball.
-        // SUBTRACTED, not added: in this Euler convention a larger rotation.x
-        // lifts the head (the racket rocking back), so adding the tip raised
-        // the head 55 cm instead of dropping it. Subtracting swings the whole
-        // racket — head and grip together about the butt — nose DOWN onto the
-        // ball, which is the strike.
-        //
-        // Gated on (1 − camK): this is a TOP-VIEW effect. The front view
-        // already meets the ball square by standing the racket up and aiming
-        // its face normal down the shot — a verified 3° — and letting the tip
-        // through there swung it to 133° and destroyed that.
-        //
-        // On top of the chop, the WRIST: the head cocks UP through the
-        // wind-up (max(0, −phase), the backswing half), carries LOW a beat
-        // into the follow-through (max(0, phase)), and breathes a few degrees
-        // while idle — each zero at contact, so the strings still land
-        // exactly on the ball.
-        lerp(TOP_CANT, STANDING_PITCH, camK) -
-          STRIKE_TIP * hit * hit * (1 - camK) +
-          (1 - camK) *
-            (COCK_UP * Math.max(0, -phase) -
-              CARRY_LOW * Math.max(0, phase) +
-              IDLE_BREATH * Math.sin(t * 1.35 + pl.seed * 2.1) * (1 - hit)) -
-          camK * HEAD_TILT * Math.abs(phase),
-        // The stroke itself: `facing` is square to the shot AT the ball, and
-        // `phase` carries the head back behind it, forward through it, and on
-        // round into the follow-through — one continuous rotation, fastest at
-        // the moment of contact. The idle wander is the hand making small
-        // aimless adjustments between strokes; it fades with the aim blend
-        // (× (1 − onLine)) so the contact yaw is untouched.
-        facing +
-          phase * sweep +
-          (1 - camK) * IDLE_WANDER * Math.sin(t * 0.7 + pl.seed * 1.7) * (1 - onLine),
-        // Flat view: lazy roll while idle plus the wrist ROLLING through the
-        // stroke — the forearm turning over as the head whips through, which
-        // costs nothing in accuracy (roll spins the racket about its own
-        // handle axis, so the string bed stays put). Standing, the head lags
-        // then leads as before.
-        (1 - camK) * (0.12 * Math.sin(t * 1.1 + pl.seed) + 0.3 * phase) + camK * 0.4 * phase,
-      ),
-      hit,
-    };
-  });
-
-  const ball = ballAt(ballEnds[from]!, ballEnds[to]!, u);
-
-  // The disc lands where the sun (14, 13, 9) would cast it — the ratios are
-  // that sun's x/y and z/y, so the ball's disc slides out from under it by
-  // the same amount the rackets' real shadows do.
+  // The disc lands where the sun (6, 30, 10) would cast it.
   const hs = 1 - Math.min(1, ball.y / 3);
   return {
     from,

@@ -171,12 +171,13 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
 
     // Deterministic 4xx — replaying the same bytes cannot succeed.
     noteTransportOk();
+    const b = (body ?? {}) as Record<string, unknown>;
     const detail =
-      body && typeof body === 'object' && 'error' in body
-        ? String((body as { error: unknown }).error)
-        : `HTTP ${res.status}`;
+      typeof b.code === 'string' ? b.code : typeof b.error === 'string' ? b.error : `HTTP ${res.status}`;
     markFailed(row.idempotencyKey, `${res.status}: ${detail}`);
-    emit(row, 'failed', { error: `${res.status}: ${detail}` });
+    // serverResult rides along so the renderer can surface the machine code
+    // (PIN_INVALID, FORBIDDEN, ...) through its normal error mapping.
+    emit(row, 'failed', { error: `${res.status}: ${detail}`, serverResult: body });
     return true;
   }
 
