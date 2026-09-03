@@ -148,14 +148,10 @@ export default function ProfileScreen() {
       .toUpperCase() ||
     email.slice(0, 1).toUpperCase() ||
     '•';
-  const langLabel =
-    profile.data?.preferred_lang === 'ar' ? t('settings.arabic') : t('settings.english');
-  // The phone is Latin digits sitting next to an Arabic label around a '·'
-  // separator: without an isolate the bidi algorithm reorders the number
-  // against the separator in RTL. Same reason the email is isolated below.
-  const detailLine = [profile.data?.phone ? isolate(profile.data.phone) : null, langLabel]
-    .filter(Boolean)
-    .join(' · ');
+  // The phone is Latin digits sitting next to Arabic UI text: without an
+  // isolate the bidi algorithm reorders it. Same reason the email is
+  // isolated below.
+  const detailLine = profile.data?.phone ? isolate(profile.data.phone) : '';
 
   return (
     <Screen>
@@ -215,13 +211,15 @@ export default function ProfileScreen() {
               >
                 {isolate(email)}
               </Text>
-              {/* Design: "{phone} · {language}" on the third line. */}
-              <Text
-                numberOfLines={1}
-                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, textAlign: 'auto' }}
-              >
-                {detailLine}
-              </Text>
+              {/* Design: "{phone}" on the third line, dropped when unset. */}
+              {detailLine ? (
+                <Text
+                  numberOfLines={1}
+                  style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, textAlign: 'auto' }}
+                >
+                  {detailLine}
+                </Text>
+              ) : null}
             </View>
           </Card>
 
