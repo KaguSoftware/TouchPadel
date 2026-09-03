@@ -1,17 +1,31 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BrowserWindow, app, ipcMain, shell } from 'electron';
 import { IPC, type PrintResult } from '../ipc-channels';
-import { enqueue, getCachedRef, listBlockingRows, openQueue, queueStatus, setConnOnline } from './queue';
+import {
+  enqueue,
+  getCachedRef,
+  listBlockingRows,
+  openQueue,
+  putCachedRef,
+  queueStatus,
+  setConnOnline,
+} from './queue';
 import { loadStation } from './station';
-import { startLanKdsServer } from './lan-kds-server';
+import { startLanKdsServer, type LanKdsServer } from './lan-kds-server';
+import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
 import { startHeartbeat } from './heartbeat';
 import { setAuthState } from './auth-state';
+import { observePin, unlockPinOffline } from './pin-cache';
+import { printReceiptHtml } from './print/print-receipt';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
 import { mayNavigateTo, mayOpenExternally, type NavigationPolicy } from './window-security';
 import {
   IpcValidationError,
   validateAuthState,
+  validateCachePut,
   validateConnState,
+  validateLanStatus,
   validateMutationEnvelope,
   validatePin,
   validatePrintJob,
@@ -34,6 +48,34 @@ if (!gotTheLock) {
 }
 
 let worker: SyncWorker | null = null;
+let lanServer: LanKdsServer | null = null;
+let lanClient: LanKdsClient | null = null;
+
+/**
+ * First-run station bootstrap: `--station-id=TILL-01 --station-mode=till
+ * [--till-host=… --lan-psk=… --lan-bind=…]` writes station.json into userData
+ * when none exists — so the three-machine install runbook is scriptable
+ * (a shortcut per station) instead of hand-editing JSON in %APPDATA%.
+ */
+function bootstrapStationFromArgv(): void {
+  const file = path.join(app.getPath('userData'), 'station.json');
+  if (fs.existsSync(file)) return;
+  const flag = (name: string): string | undefined =>
+    process.argv.find((a) => a.startsWith(`--${name}=`))?.split('=')[1];
+  const stationId = flag('station-id');
+  const mode = flag('station-mode');
+  if (!stationId && !mode) return;
+  const config = {
+    station_id: stationId ?? 'TILL1',
+    mode: mode ?? 'till',
+    ...(flag('till-host') ? { till_host: flag('till-host') } : {}),
+    ...(flag('lan-psk') ? { lan_psk: flag('lan-psk') } : {}),
+    ...(flag('lan-bind') ? { lan_bind: flag('lan-bind') } : {}),
+  };
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(config, null, 2));
+  console.log('[station] wrote', file, 'from CLI flags');
+}
 
 /** Wrap an IPC handler so a malformed argument is refused, not stored. */
 function guardIpc<T>(name: string, fn: () => T): T | { error: string } {
@@ -57,16 +99,17 @@ function createWindow(): BrowserWindow {
     kiosk: !isDev && (station.mode === 'till' || station.mode === 'kds'),
     autoHideMenuBar: true,
     frame: isDev,
-    // TODO(W4): closable:false in production except via manager-PIN "Quit to desktop";
-    // launch-on-boot + Task Scheduler watchdog per §2.5 runbook.
-    closable: true,
+    // Production: the window closes only through the manager-PIN quit
+    // (touch:quit-app below) — a till someone can casually X out of is a till
+    // that silently stops heartbeating and degrades the whole venue.
+    closable: isDev,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // TODO(W3): bundle the preload to a single file (esbuild) and set sandbox: true —
-      // sandboxed preloads cannot require sibling compiled modules.
-      sandbox: false,
+      // The preload is a single esbuild bundle (esbuild.config.mjs), so the
+      // sandbox can finally be on — it no longer require()s sibling modules.
+      sandbox: true,
       // KDS / floor chimes (WebAudio) must play without a click on a station;
       // browser dev keeps the "Start shift" arming gesture (operator-slice.md §4.5).
       autoplayPolicy: 'no-user-gesture-required',
@@ -108,10 +151,12 @@ function createWindow(): BrowserWindow {
 
   if (devServerUrl) {
     void win.loadURL(devServerUrl);
+  } else if (app.isPackaged) {
+    // The SPA rides as extraResources/renderer (electron-builder.yml) — loaded
+    // from disk, never a URL: the UI boots with zero network (design-arch §2).
+    void win.loadFile(path.join(process.resourcesPath, 'renderer', 'index.html'));
   } else {
-    // TODO(W2): load the bundled apps/operator Vite build (base './') from
-    // resources/renderer once electron-builder extraResources is wired
-    // (electron-builder.yml). Path below works for a monorepo-local `pnpm build`.
+    // Monorepo-local `pnpm build` of apps/operator, for `electron .` smoke runs.
     void win.loadFile(path.join(__dirname, '../../../operator/dist/index.html'));
   }
 
@@ -124,18 +169,38 @@ function createWindow(): BrowserWindow {
 
 if (gotTheLock) {
   app.whenReady().then(() => {
+    bootstrapStationFromArgv();
     const station = loadStation();
     openQueue();
 
+    // Launch on boot (design-arch §2.5): registered on every packaged start so
+    // an install moved between accounts heals itself; the NSIS runAfterFinish
+    // covers only the very first session.
+    if (app.isPackaged) {
+      app.setLoginItemSettings({ openAtLogin: true });
+    }
+
     ipcMain.handle(IPC.enqueue, (_e, m: unknown) =>
       guardIpc('enqueue', () => {
-        const result = enqueue(validateMutationEnvelope(m));
+        const envelope = validateMutationEnvelope(m);
+        const result = enqueue(envelope);
         // The insert is fsynced; replay immediately — online, the round trip
         // lands sub-second and the "one write path" costs nothing perceptible.
         worker?.kick();
+        // Kitchen-bound rows also go out over the LAN so a KDS keeps receiving
+        // tickets while the cloud path is down (design-arch §2.4).
+        lanServer?.onEnqueued(envelope);
         return result;
       }),
     );
+
+    ipcMain.on(IPC.lanStatus, (_e, v: unknown) => {
+      guardIpc('lanStatus', () => {
+        const update = validateLanStatus(v);
+        lanClient?.sendStatus({ ...update, kdsStation: station.stationId });
+        return null;
+      });
+    });
 
     ipcMain.on(IPC.authState, (_e, s: unknown) => {
       guardIpc('authState', () => {
@@ -168,23 +233,75 @@ if (gotTheLock) {
     ipcMain.handle(IPC.getCachedRef, (_e, key: unknown) =>
       guardIpc('getCachedRef', () => getCachedRef(validateRefKey(key))),
     );
-    ipcMain.handle(IPC.print, (_e, job: unknown): PrintResult | { error: string } =>
-      guardIpc('print', (): PrintResult => {
-        validatePrintJob(job);
-        // TODO(W3): ESC/POS raster pipeline — hidden offscreen BrowserWindow renders
-        // receipt.html (Arabic shaping by Chromium) → capturePage → sharp 1-bit dither →
-        // GS v 0 raster; jobs persisted in a SQLite print_queue (design-arch.md §6.1).
-        // NO cash-drawer kick — cut from phase 1 (plan cut #7).
-        return { ok: false, error: 'printing-not-implemented' };
-      }),
-    );
+    ipcMain.handle(IPC.print, async (_e, job: unknown): Promise<PrintResult | { error: string }> => {
+      // async handler: guardIpc is sync, so validate inside a try of our own.
+      let validated;
+      try {
+        validated = validatePrintJob(job);
+      } catch (error) {
+        if (error instanceof IpcValidationError) {
+          console.error('[ipc:print]', error.message);
+          return { error: error.message };
+        }
+        throw error;
+      }
+      const html = (validated.data as { html?: string } | null)?.html;
+      if (!html) return { ok: false, error: 'no-html' };
+      if (!station.printer) {
+        // No printer configured — the renderer falls back to window.print();
+        // the on-screen bill satisfies SOW L456 meanwhile.
+        return { ok: false, error: 'no-printer' };
+      }
+      try {
+        await printReceiptHtml(html, station.printer);
+        return { ok: true };
+      } catch (error) {
+        // One retry: thermal printers drop the first connection after idling.
+        try {
+          await printReceiptHtml(html, station.printer);
+          return { ok: true };
+        } catch {
+          console.error('[print]', error);
+          return { ok: false, error: String(error) };
+        }
+      }
+      // NO cash-drawer kick — cut from phase 1 (plan cut #7).
+    });
     ipcMain.handle(IPC.unlockPin, (_e, pin: unknown) =>
       guardIpc('unlockPin', () => {
-        validatePin(pin);
-        // PIN check is online server-side crypt() per design-data.md (plan override #6) —
-        // NO per-staff HMAC pin_proof machinery. TODO(W3): call the unlock RPC; pin_cache
-        // (argon2 hashes, refreshed online) covers unlock during outages.
+        // Purely the OFFLINE check (pin-cache.ts): scrypt of pins that
+        // succeeded server-side recently, constant-time compare, 14-day TTL.
+        // Online verification stays where it always was — inside the PIN-gated
+        // RPCs themselves. The renderer decides which path applies.
+        return unlockPinOffline(validatePin(pin));
+      }),
+    );
+
+    ipcMain.on(IPC.cachePut, (_e, v: unknown) => {
+      guardIpc('cachePut', () => {
+        const { key, payload } = validateCachePut(v);
+        putCachedRef(key, payload);
         return null;
+      });
+    });
+
+    ipcMain.on(IPC.pinObserved, (_e, pin: unknown) => {
+      guardIpc('pinObserved', () => {
+        observePin(validatePin(pin));
+        return null;
+      });
+    });
+
+    // Manager-PIN quit (design-arch §2.5): the ONLY way a production window
+    // closes. The renderer verifies the pin server-side first when online
+    // (verify_manager_pin) and pushes it to the offline cache; this handler
+    // re-checks against that cache so a random keypress can never kill a till.
+    ipcMain.handle(IPC.quitApp, (_e, pin: unknown) =>
+      guardIpc('quitApp', () => {
+        const unlocked = unlockPinOffline(validatePin(pin));
+        if (!unlocked) return { ok: false as const, error: 'pin not recognised' };
+        setTimeout(() => app.exit(0), 50); // let the reply reach the renderer
+        return { ok: true as const };
       }),
     );
     ipcMain.on(IPC.getStation, (e) => {
@@ -224,7 +341,19 @@ if (gotTheLock) {
       worker?.stop();
     });
 
-    startLanKdsServer(station);
+    lanServer = startLanKdsServer(station, {
+      onQueueChanged: () => {
+        pushStatus();
+        worker?.kick(); // a KDS bump entered the till's queue — replay it
+      },
+    });
+    lanClient = startLanKdsClient(station, (frame) => {
+      if (!win.isDestroyed()) win.webContents.send(IPC.lanTicket, frame);
+    });
+    win.on('closed', () => {
+      lanServer?.close();
+      lanClient?.close();
+    });
     startHeartbeat(station);
   });
 }

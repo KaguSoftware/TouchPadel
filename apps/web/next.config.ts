@@ -12,6 +12,11 @@ const isLocalSupabase = /^https?:\/\/(127\.0\.0\.1|localhost)([:/]|$)/.test(
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // The dev-tools indicator renders a full-viewport <nextjs-portal> that
+  // intercepts pointer events over the bell FAB and times e2e clicks out
+  // (guest cafe journey / bell-gate specs). Dev-only chrome; nothing in
+  // production is affected.
+  devIndicators: false,
   // Internal packages export raw .ts with no build step (HANDOFF conventions) —
   // Next must transpile them itself.
   transpilePackages: ['@touch/core', '@touch/db', '@touch/i18n', '@touch/ui'],
@@ -25,7 +30,10 @@ const nextConfig: NextConfig = {
     ],
     // Next 16 requires every non-default quality to be listed: 40 = blurred
     // warm-up layers, 75 = full-res.
-    qualities: [40, 75],
+    // 55 = MenuCard thumbnails (66px). Missing from this list, Next 16 dev
+    // logs a warning per image AND raises the dev-overlay issues badge, whose
+    // <nextjs-portal> sits over the bell FAB and eats its clicks in e2e.
+    qualities: [40, 55, 75],
     imageSizes: [16, 32, 64, 96, 128, 160, 224, 320],
     // Storage paths are versioned (items/{id}/{version}.jpg) → cache 30 days.
     minimumCacheTTL: 2592000,

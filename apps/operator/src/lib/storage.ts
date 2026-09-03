@@ -11,7 +11,7 @@ export const MEDIA_BUCKET = 'menu-media';
 /** One month — objects are immutable (new name per upload). */
 export const MEDIA_CACHE_CONTROL = '2592000';
 
-export type MediaFolder = 'items' | 'categories' | 'hero';
+export type MediaFolder = 'items' | 'categories' | 'hero' | 'courts';
 export type MediaExt = 'webp' | 'jpg' | 'png' | 'mp4' | 'webm';
 
 const CONTENT_TYPES: Record<MediaExt, string> = {

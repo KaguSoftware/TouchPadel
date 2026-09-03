@@ -14,26 +14,42 @@
  * Nothing showed any of this. The word "degraded" appeared in the operator only
  * in analytics copy about a missing AI key.
  */
+import { useEffect, useState } from 'react';
 import { useLocale } from '../lib/i18n';
 import type { HeartbeatState } from '../lib/heartbeat';
+import { touch } from '../ipc/bridge';
+
+/** conflict+failed rows — writes a person must look at (day close lists them). */
+function useAttentionCount(): number {
+  const [count, setCount] = useState(0);
+  useEffect(
+    () => touch.onQueueUpdate((s) => setCount((s.conflicts ?? 0) + (s.failed ?? 0))),
+    [],
+  );
+  return count;
+}
 
 export function VenueStatusBanner({ state }: { state: HeartbeatState | null }) {
   const { tr } = useLocale();
+  const attention = useAttentionCount();
   if (!state) return null;
 
   const unreachable = state.error !== null;
   const queued = state.queueDepth > 0;
-  if (!unreachable && !state.degraded && !queued) return null;
+  if (!unreachable && !state.degraded && !queued && attention === 0) return null;
 
   // Unreachable is the more actionable of the two: a station that cannot reach
   // the server is why the venue is degraded, and it is the one the person
   // standing at this screen can do something about.
-  const tone = unreachable || state.degraded ? 'var(--tp-danger)' : 'var(--tp-accent-2)';
+  const tone =
+    unreachable || state.degraded || attention > 0 ? 'var(--tp-danger)' : 'var(--tp-accent-2)';
   const message = unreachable
     ? tr('op.status.offline')
     : state.degraded
       ? tr('op.status.degraded')
-      : tr('op.status.queued', { count: state.queueDepth });
+      : attention > 0
+        ? tr('op.status.attention', { count: attention })
+        : tr('op.status.queued', { count: state.queueDepth });
 
   return (
     <div
@@ -53,8 +69,11 @@ export function VenueStatusBanner({ state }: { state: HeartbeatState | null }) {
       }}
     >
       <span>{message}</span>
-      {queued && !unreachable && !state.degraded ? null : (
-        queued && <span>{tr('op.status.queued', { count: state.queueDepth })}</span>
+      {queued && (unreachable || state.degraded || attention > 0) && (
+        <span>{tr('op.status.queued', { count: state.queueDepth })}</span>
+      )}
+      {attention > 0 && (unreachable || state.degraded) && (
+        <span>{tr('op.status.attention', { count: attention })}</span>
       )}
     </div>
   );

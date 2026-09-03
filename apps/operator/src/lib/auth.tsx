@@ -15,6 +15,7 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 import { touch } from '../ipc/bridge';
+import { setMutateStaffId } from './mutate';
 
 export type StaffRole = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
 
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           : null,
       );
+      setMutateStaffId(next?.user.id ?? null);
       if (next) {
         // Private realtime channels (kds/floor/courts) need realtime auth.
         supabase.realtime.setAuth(next.access_token);
@@ -145,6 +147,7 @@ export const SUB_ROUTES = {
     '/admin/suggested',
     '/admin/hero',
     '/admin/qr',
+    '/admin/courts',
     '/admin/rates',
     '/admin/hours',
     '/admin/day-close',
@@ -152,6 +155,17 @@ export const SUB_ROUTES = {
     '/admin/settings',
     '/admin/staff',
     '/admin/audit',
+  ],
+  '/stock': [
+    '/stock/ingredients',
+    '/stock/receive',
+    '/stock/waste',
+    '/stock/recipes',
+    '/stock/counts',
+    '/stock/variance',
+    '/stock/margins',
+    '/stock/alerts',
+    '/stock/expiry',
   ],
 } as const satisfies Record<string, readonly string[]>;
 export type SubRoutePrefix = keyof typeof SUB_ROUTES;

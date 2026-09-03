@@ -3,7 +3,7 @@
  * batch), blocked states (DAY_OPEN_TABS with the blocking tabs listed,
  * DAY_UNSYNCED) via app.open_day (0015) / app.close_day (0020).
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatIQD, formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
@@ -11,6 +11,7 @@ import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { QK, fetchOpenDay } from '../../lib/queries';
 import { useLocale } from '../../lib/i18n';
+import { touch, type QueueRowInfo } from '../../ipc/bridge';
 import { AmountPad, Button, ErrorText, Field, card, inputStyle } from '../../components/ui';
 
 interface CloseSummary {
@@ -113,6 +114,29 @@ export function DayClose() {
 
   const blockedByTabs =
     error instanceof AppRpcError && error.code === 'DAY_OPEN_TABS' ? openTabsQ.data ?? [] : [];
+
+  // Client-side pre-check of the durable queue: the server refuses close_day
+  // while the heartbeat reports unsynced writes (DAY_UNSYNCED, 0020) — this
+  // shows WHICH rows are blocking instead of a bare error code. Browser mode
+  // has no queue and returns [].
+  const [queueRows, setQueueRows] = useState<QueueRowInfo[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      touch
+        .getQueueRows()
+        .then((rows) => {
+          if (!cancelled) setQueueRows(rows);
+        })
+        .catch(() => {});
+    };
+    load();
+    const unsubscribe = touch.onQueueUpdate(load);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   // Day-close audit summary (v_day_close_summary, 0020): discounts / voids /
   // refunds / waste with authorizer names — rendered after a successful close.
@@ -220,6 +244,23 @@ export function DayClose() {
         })}
       </div>
 
+      {queueRows.length > 0 && (
+        <div style={{ ...card, marginBlockEnd: '0.7rem' }} data-queue-rows>
+          <strong>{tr('op.dayClose.unsyncedTitle')}</strong>
+          <p style={{ marginBlock: '0.3rem', fontSize: '0.85rem', color: 'var(--tp-muted-fg)' }}>
+            {tr('op.dayClose.unsyncedHint')}
+          </p>
+          <ul style={{ marginBlock: '0.3rem', paddingInlineStart: '1.2rem' }}>
+            {queueRows.map((row) => (
+              <li key={row.seq} style={{ fontSize: '0.85rem' }}>
+                <code>{row.mutationType}</code> · {tr(`op.queue.state.${row.state}`)}
+                {row.lastError ? ` — ${row.lastError}` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {(openTabsQ.data ?? []).length > 0 && (
         <div style={{ ...card, marginBlockEnd: '0.7rem' }}>
           <strong>{tr('op.dayClose.blockedTabs')}</strong>
@@ -268,7 +309,7 @@ export function DayClose() {
             {tr('op.errors.DAY_OPEN_TABS')}
           </p>
         )}
-        <Button kind="danger" disabled={busy} onClick={() => void closeDay()}>
+        <Button kind="danger" disabled={busy || queueRows.length > 0} onClick={() => void closeDay()}>
           {tr('op.dayClose.closeBtn')}
         </Button>
       </div>

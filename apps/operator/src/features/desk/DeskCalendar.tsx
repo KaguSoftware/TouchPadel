@@ -9,8 +9,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { tradingSpan, wallTimeToUtc, type DayKey } from '@touch/core';
 import { formatIQD, formatTime, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
-import { appRpc } from '../../lib/appRpc';
-import { idemKey, deviceId } from '../../lib/idem';
+import { clientRef } from '../../lib/idem';
+import { mutate } from '../../lib/mutate';
+import { cachedQuery } from '../../lib/refCache';
+import { useToast } from '../../components/toast';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow } from '../../lib/queries';
 import { WeekGrid } from './WeekGrid';
 import { startOfWeek, weekDates } from './weekLogic';
@@ -178,16 +180,23 @@ export function DeskCalendar() {
   const reservationsQ = useQuery({
     queryKey: ['reservations', date],
     queryFn: async (): Promise<ReservationRow[]> => {
-      const { data, error } = await supabase
-        .from('reservations')
-        .select(
-          'id, court_id, kind, status, start_at, end_at, guest_id, guest_name, guest_phone, price_iqd, hold_expires_at, notes',
-        )
-        .gte('start_at', dayStart.toISOString())
-        .lt('start_at', dayEnd.toISOString())
-        .order('start_at');
-      if (error) throw error;
-      return data as unknown as ReservationRow[];
+      // The ref_cache slot holds ONE day's rows tagged with its date; offline,
+      // a cached different day must not be presented as this one — the fetch
+      // error is more honest than the wrong grid.
+      const cached = await cachedQuery('reservations', async () => {
+        const { data, error } = await supabase
+          .from('reservations')
+          .select(
+            'id, court_id, kind, status, start_at, end_at, guest_id, guest_name, guest_phone, price_iqd, hold_expires_at, notes',
+          )
+          .gte('start_at', dayStart.toISOString())
+          .lt('start_at', dayEnd.toISOString())
+          .order('start_at');
+        if (error) throw error;
+        return { date, rows: data as unknown as ReservationRow[] };
+      });
+      if (cached.date !== date) throw new Error(`cached reservations are for ${cached.date}`);
+      return cached.rows;
     },
     enabled: settingsQ.isSuccess,
     // Safety net under the 'courts' broadcast. Without it a missed realtime
@@ -507,17 +516,16 @@ function CreateReservationDialog({
     setBusy(true);
     setError(null);
     try {
-      await appRpc('staff_create_reservation', {
-        p_court_id: courtId,
-        p_kind: kind,
-        p_start_at: startAt.toISOString(),
-        p_end_at: new Date(startAt.getTime() + duration * 60000).toISOString(),
-        p_guest_name: guestName || null,
-        p_guest_phone: guestPhone || null,
-        p_guest_id: guestId,
-        p_notes: notes || null,
-        p_idempotency_key: idemKey('reservation.create'),
-        p_device_id: deviceId(),
+      await mutate('reservation.create', {
+        clientRef: clientRef(),
+        courtId,
+        kind,
+        startAt: startAt.toISOString(),
+        endAt: new Date(startAt.getTime() + duration * 60000).toISOString(),
+        ...(guestName ? { guestName } : {}),
+        ...(guestPhone ? { guestPhone } : {}),
+        ...(guestId ? { guestId } : {}),
+        ...(notes ? { notes } : {}),
       });
       onCreated();
     } catch (e) {
@@ -648,6 +656,8 @@ function ReservationActionsDialog({
   onChanged: () => void;
 }) {
   const { tr, locale } = useLocale();
+  const queryClient = useQueryClient();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [showMove, setShowMove] = useState(false);
@@ -668,6 +678,28 @@ function ReservationActionsDialog({
     } finally {
       setBusy(false);
     }
+  }
+
+  /**
+   * Optimistic status mark (arrived / completed / no-show): the row flips and
+   * the dialog closes IMMEDIATELY — single-row transition, idempotent
+   * server-side, and the courts broadcast reconciles anyway. A refusal rolls
+   * back via invalidation and lands as a toast, since the dialog is gone.
+   */
+  function runMark(status: 'arrived' | 'completed' | 'no_show') {
+    queryClient.setQueryData(['reservations', date], (rows?: ReservationRow[]) =>
+      rows?.map((row) => (row.id === r.id ? { ...row, status } : row)),
+    );
+    onChanged();
+    void mutate('reservation.update', {
+      action: 'mark',
+      reservationId: r.id,
+      status,
+      reason,
+    }).catch((e: unknown) => {
+      toast.err(e);
+      void queryClient.invalidateQueries({ queryKey: ['reservations'] });
+    });
   }
 
   const durationMs = new Date(r.end_at).getTime() - new Date(r.start_at).getTime();
@@ -707,15 +739,7 @@ function ReservationActionsDialog({
           {r.status === 'confirmed' && (
             <Button
               disabled={busy}
-              onClick={() =>
-                void run(() =>
-                  appRpc('mark_reservation', {
-                    p_reservation_id: r.id,
-                    p_status: 'arrived',
-                    p_reason: reason,
-                  }),
-                )
-              }
+              onClick={() => runMark('arrived')}
             >
               {tr('op.desk.arrived')}
             </Button>
@@ -723,15 +747,7 @@ function ReservationActionsDialog({
           {['confirmed', 'arrived'].includes(r.status) && (
             <Button
               disabled={busy}
-              onClick={() =>
-                void run(() =>
-                  appRpc('mark_reservation', {
-                    p_reservation_id: r.id,
-                    p_status: 'completed',
-                    p_reason: reason,
-                  }),
-                )
-              }
+              onClick={() => runMark('completed')}
             >
               {tr('op.desk.completed')}
             </Button>
@@ -739,15 +755,7 @@ function ReservationActionsDialog({
           {r.status === 'confirmed' && (
             <Button
               disabled={busy}
-              onClick={() =>
-                void run(() =>
-                  appRpc('mark_reservation', {
-                    p_reservation_id: r.id,
-                    p_status: 'no_show',
-                    p_reason: reason,
-                  }),
-                )
-              }
+              onClick={() => runMark('no_show')}
             >
               {tr('op.desk.noShow')}
             </Button>
@@ -760,12 +768,11 @@ function ReservationActionsDialog({
             disabled={busy || durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000}
             onClick={() =>
               void run(() =>
-                appRpc('extend_reservation', {
-                  p_reservation_id: r.id,
-                  p_new_end_at: new Date(
-                    new Date(r.end_at).getTime() - STEP_MIN * 60_000,
-                  ).toISOString(),
-                  p_reason: reason,
+                mutate('reservation.update', {
+                  action: 'extend',
+                  reservationId: r.id,
+                  newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(),
+                  reason,
                 }),
               )
             }
@@ -776,12 +783,11 @@ function ReservationActionsDialog({
             disabled={busy}
             onClick={() =>
               void run(() =>
-                appRpc('extend_reservation', {
-                  p_reservation_id: r.id,
-                  p_new_end_at: new Date(
-                    new Date(r.end_at).getTime() + STEP_MIN * 60_000,
-                  ).toISOString(),
-                  p_reason: reason,
+                mutate('reservation.update', {
+                  action: 'extend',
+                  reservationId: r.id,
+                  newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(),
+                  reason,
                 }),
               )
             }
@@ -832,12 +838,13 @@ function ReservationActionsDialog({
                 const start =
                   moveStartMin === '' ? new Date(r.start_at) : wallTimeToUtc(date, moveStartMin, tz);
                 void run(() =>
-                  appRpc('move_reservation', {
-                    p_reservation_id: r.id,
-                    p_court_id: moveCourt,
-                    p_start_at: start.toISOString(),
-                    p_end_at: new Date(start.getTime() + durationMs).toISOString(),
-                    p_reason: reason,
+                  mutate('reservation.update', {
+                    action: 'move',
+                    reservationId: r.id,
+                    courtId: moveCourt,
+                    startAt: start.toISOString(),
+                    endAt: new Date(start.getTime() + durationMs).toISOString(),
+                    reason,
                   }),
                 );
               }}
@@ -870,7 +877,11 @@ function ReservationActionsDialog({
               disabled={busy}
               onClick={() =>
                 void run(() =>
-                  appRpc('cancel_reservation', { p_reservation_id: r.id, p_reason: cancelReason }),
+                  mutate('reservation.update', {
+                    action: 'cancel',
+                    reservationId: r.id,
+                    reason: cancelReason,
+                  }),
                 )
               }
             >

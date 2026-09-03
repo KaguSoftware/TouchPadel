@@ -310,6 +310,82 @@ test.describe('operator cafe admin', () => {
     await voidOpenTabsForTable(svc, KDS_TABLE);
   });
 
+  test('(i) an item-ready mark survives a reload — server state since 0061', async ({ page }) => {
+    await voidOpenTabsForTable(svc, KDS_TABLE);
+    const guest = await openGuestSession(KDS_TABLE);
+    const order = await appRpc<{ ticket_id: string }>(guest.client, 'create_guest_order', {
+      p_items: [
+        { variant_id: 'f1f70000-0000-4000-8000-0000f0010001', qty: 1 },
+        { variant_id: 'f1f70000-0000-4000-8000-0000f0050001', qty: 1 },
+      ],
+      p_idempotency_key: `e2e-kds-ready-${Date.now()}`,
+    });
+    const ticketId = order.ticket_id;
+    await guest.client.auth.signOut();
+
+    await signIn(page, SEED_STAFF.prep);
+    // The checkbox's accessible name is its line ("1× Espresso (Regular)") —
+    // target by name so leftovers from other cases can't shift the indexes.
+    const espresso = page.getByRole('checkbox', { name: /Espresso/ }).first();
+    const karak = page.getByRole('checkbox', { name: /Karak/ }).first();
+    await expect(espresso).toBeVisible({ timeout: 30_000 });
+
+    // Tick one item; the mark is optimistic, then persisted server-side.
+    await espresso.check();
+    await expect(espresso).toBeChecked();
+
+    // The audit's M1 repro: a reload used to lose every mark.
+    await page.reload();
+    await expect(page.getByRole('checkbox', { name: /Espresso/ }).first()).toBeChecked({
+      timeout: 30_000,
+    });
+    await expect(karak).not.toBeChecked();
+
+    // Clean up: run the ticket out so other cases see an empty board.
+    const prep = await signedInClient(SEED_STAFF.prep);
+    try {
+      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'ready' });
+      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'completed' });
+    } finally {
+      await prep.auth.signOut();
+    }
+    await voidOpenTabsForTable(svc, KDS_TABLE);
+  });
+
+  test('(j) courts admin: create a court, see it on the desk, deactivate it', async ({ page }) => {
+    const name = `E2E Court ${Date.now() % 100000}`;
+    await signIn(page, SEED_STAFF.manager);
+    await page.goto(`${OPERATOR_URL}/admin/courts`);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByLabel('Name (English)').fill(name);
+    await page.getByLabel('Name (Arabic)').fill(`ملعب ${name}`);
+    // Duration chips: add 45, drop 120 → 45/60/90.
+    await page.getByRole('button', { name: '45 min', exact: true }).click();
+    await page.getByRole('button', { name: '120 min', exact: true }).click();
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(page.getByText(name).first()).toBeVisible();
+    await expect(page.getByText('45 min / 60 min / 90 min').first()).toBeVisible();
+
+    // The desk calendar picks it up without a redeploy (courts broadcast).
+    await page.goto(`${OPERATOR_URL}/desk`);
+    await expect(page.getByText(name).first()).toBeVisible({ timeout: 20_000 });
+
+    // Deactivate (no bookings yet, so the 0062 guard allows it) and clean up.
+    await page.goto(`${OPERATOR_URL}/admin/courts`);
+    await page
+      .locator('div')
+      .filter({ hasText: name })
+      .getByRole('button', { name: 'Edit', exact: true })
+      .last()
+      .click();
+    await page.getByRole('switch', { name: 'Active' }).click();
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(page.getByText('Inactive').first()).toBeVisible();
+
+    const { error } = await svc.from('courts').delete().eq('name_en', name);
+    expect(error).toBeNull();
+  });
+
   test.afterAll(async () => {
     stopHeartbeat?.();
     // Undo the Telegram setup case (d) performed.

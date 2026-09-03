@@ -18,7 +18,26 @@
 import { formatIQD, formatTime } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Modal } from '../../components/ui';
+import { touch } from '../../ipc/bridge';
+import { isElectron } from '../../lib/mutate';
+import { captureException } from '../../lib/telemetry';
 import type { TabTotals } from './tabTotals';
+
+/**
+ * Wrap the on-screen bill markup as a self-contained document for the thermal
+ * pipeline (main renders it at 576px in an offscreen window). The CSS vars the
+ * screen styles lean on don't exist there — define the two that matter, on
+ * paper-white with ink-black text. dir carries the Arabic layout.
+ */
+export function buildReceiptDoc(billHtml: string, dir: 'ltr' | 'rtl'): string {
+  return `<!doctype html><html dir="${dir}"><head><meta charset="utf-8"><style>
+    :root { --tp-muted-fg: #444; --tp-border: #000; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+    body { font-family: system-ui, 'Segoe UI', Tahoma, sans-serif; font-size: 26px;
+           padding: 12px 16px; }
+    table { inline-size: 100%; }
+  </style></head><body>${billHtml}</body></html>`;
+}
 
 export interface BillLine {
   id: string;
@@ -58,10 +77,30 @@ export function BillView({
   taxInclusive: boolean;
   onClose(): void;
 }) {
-  const { tr, locale } = useLocale();
+  const { tr, locale, dir } = useLocale();
   const lines = orders
     .filter((o) => o.status !== 'voided')
     .flatMap((o) => o.order_items.filter((i) => !i.voided));
+
+  // Thermal first (SOW L425-433: Arabic as a rendered image), browser print as
+  // the standing fallback — no printer configured, print failure, or dev.
+  async function printBill() {
+    if (isElectron()) {
+      const node = document.querySelector('[data-bill]');
+      if (node) {
+        try {
+          const res = await touch.print({
+            kind: 'receipt',
+            data: { html: buildReceiptDoc(node.outerHTML, dir) },
+          });
+          if (res.ok) return;
+        } catch (error) {
+          captureException(error, { label: 'print.receipt' });
+        }
+      }
+    }
+    window.print();
+  }
 
   return (
     <Modal title={tr('op.till.bill')} onClose={onClose}>
@@ -139,7 +178,7 @@ export function BillView({
 
       <div data-no-print style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
         <Button onClick={onClose}>{tr('common.close')}</Button>
-        <Button kind="primary" onClick={() => window.print()}>
+        <Button kind="primary" onClick={() => void printBill()}>
           {tr('op.till.printBill')}
         </Button>
       </div>

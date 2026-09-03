@@ -136,7 +136,10 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
   };
 }
 
-/** Cache keys are a closed set (design-arch.md §2.3), not free-form strings. */
+/** Cache keys are a closed set (design-arch.md §2.3), not free-form strings.
+ *  'day' joined the set on day 14: the till's "no business day is open" gate
+ *  must not fire just because the network died. 'staff_pins' is vestigial —
+ *  superseded by the pin_cache authorisation-token model (pin-cache.ts). */
 export const REF_KEYS = [
   'menu',
   'prices',
@@ -147,8 +150,31 @@ export const REF_KEYS = [
   'staff_pins',
   'reservations',
   'open_tabs',
+  'day',
 ] as const;
 export type RefKey = (typeof REF_KEYS)[number];
+
+/** Ref payloads are whole menus/reservation days — far above MAX_PAYLOAD_BYTES. */
+export const MAX_REF_PAYLOAD_BYTES = 2 * 1024 * 1024;
+
+export function validateCachePut(value: unknown): { key: RefKey; payload: unknown } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('cachePut must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const key = validateRefKey(raw.key);
+  let serialized: string | undefined;
+  try {
+    serialized = JSON.stringify(raw.payload ?? null);
+  } catch {
+    fail('cachePut payload is not JSON-serialisable');
+  }
+  if (serialized === undefined) fail('cachePut payload is not JSON-serialisable');
+  if (Buffer.byteLength(serialized, 'utf8') > MAX_REF_PAYLOAD_BYTES) {
+    fail('cachePut payload is too large');
+  }
+  return { key, payload: raw.payload ?? null };
+}
 
 export function validateRefKey(value: unknown): RefKey {
   const key = requireString(value, 'refKey', 32);
@@ -157,6 +183,8 @@ export function validateRefKey(value: unknown): RefKey {
 }
 
 const PRINT_KINDS = ['receipt', 'kitchen', 'reprint'] as const;
+/** A receipt's HTML — generous, but bounded (a runaway DOM string is a bug). */
+export const MAX_PRINT_HTML_BYTES = 512 * 1024;
 
 export function validatePrintJob(value: unknown): PrintJob {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -165,6 +193,12 @@ export function validatePrintJob(value: unknown): PrintJob {
   const raw = value as Record<string, unknown>;
   const kind = requireString(raw.kind, 'kind', 16);
   if (!(PRINT_KINDS as readonly string[]).includes(kind)) fail(`unknown print kind '${kind}'`);
+  // receipt/reprint carry { html } for the rendered-image pipeline.
+  const data = raw.data as Record<string, unknown> | null | undefined;
+  if (data && typeof data === 'object' && 'html' in data) {
+    const html = requireString(data.html, 'data.html', MAX_PRINT_HTML_BYTES);
+    return { kind: kind as PrintJob['kind'], data: { html } };
+  }
   return { kind: kind as PrintJob['kind'], data: raw.data ?? null };
 }
 
@@ -189,6 +223,21 @@ export function validateAuthState(value: unknown): AuthState | null {
 export function validateConnState(value: unknown): boolean {
   if (typeof value !== 'boolean') fail('connState must be a boolean');
   return value;
+}
+
+/** A KDS renderer's bump, bound for the till over the LAN. kdsStation is
+ *  stamped by main from station.json — never trusted from the renderer. */
+export function validateLanStatus(value: unknown): { ref: string; status: 'preparing' | 'ready' | 'completed' } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('lanStatus must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const ref = requireString(raw.ref, 'ref', 128);
+  const status = requireString(raw.status, 'status', 16);
+  if (status !== 'preparing' && status !== 'ready' && status !== 'completed') {
+    fail(`unknown lan status '${status}'`);
+  }
+  return { ref, status };
 }
 
 /**
