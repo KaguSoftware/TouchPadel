@@ -963,6 +963,8 @@ export const ar: Messages = {
       paidInFull: 'تمت تسوية الحساب.',
       offlineTab: 'دون اتصال — سيُزامن عند عودة الاتصال.',
       estimatedTotal: 'الإجمالي التقديري',
+      discardBasketTitle: 'تجاهل العناصر غير المرسلة؟',
+      discardBasketBody: 'تحتوي السلة على {count} من الأسطر غير المرسلة. تبديل الحساب سيتجاهلها.',
       splitEvenly: 'تقسيم بالتساوي',
       splitCount: 'عدد الأشخاص',
       share: 'الحصة {index}: {amount}',
