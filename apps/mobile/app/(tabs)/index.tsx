@@ -153,15 +153,19 @@ function NetCta({
           transform: [{ translateY: pressed ? 8 : 0 }],
         })}
       >
+        {/* No lineHeight: a 16 pt box on a 14 pt face cropped the label's
+            bottom (Arabic descenders — ض, ح — lost their tails) and rode the
+            text high in the button. Natural leading plus a 1 pt nudge down
+            optically centres the display face's tall caps. */}
         <Text
           numberOfLines={1}
           style={{
             fontFamily: fonts.display800,
             fontSize: 14,
-            lineHeight: 16,
             letterSpacing: tracking(0.7),
             textTransform: 'uppercase',
             color: brand.greenInk,
+            transform: [{ translateY: 1 }],
           }}
         >
           {t('courts.viewAvailability')}
