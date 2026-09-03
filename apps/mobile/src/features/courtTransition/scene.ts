@@ -2,7 +2,9 @@
  * The three.js court from `Court Transition Prototype.html` (`buildCourt`),
  * ported 1:1 for expo-gl: real net, lime glass + mesh cage with the brand's
  * white window stickers, four 3D rackets, a ball with a seam, a 36-ghost
- * trail, a ground disc AND a real cast shadow on the turf. As in the
+ * trail, a ground disc AND a real cast shadow on the turf. The rackets are the
+ * SECOND design, `padel-racket.html` — its mesh in racket.ts, its swing clip in
+ * swing.ts, scheduled onto the rally by rally.ts. As in the
  * prototype the ball, its trail and its disc live in a SECOND scene
  * (`overlay`) drawn on a transparent surface stacked above the native button,
  * so the rally flies over the button; an invisible caster in the main scene
@@ -12,13 +14,14 @@
  * All motion numbers come from rally.ts (unit-tested); this file only builds
  * meshes and applies those numbers each frame. The `lite` tier (quality.ts,
  * low-end phones) builds the same court with no shadow pass — no caster, no
- * receiver, no invisible ball caster — and no trail; the ball's ground disc
- * stands in for its shadow. Colours are the prototype's own
+ * receiver, no invisible ball caster — no trail, and a plainer racket
+ * (racket.ts); the ball's ground disc stands in for its shadow. Colours are the prototype's own
  * (its brand stickers); the page colour behind the court is the renderer's
  * clear colour, set by the component per theme.
  */
 import * as THREE from 'three';
-import { nearCageOpacity, PLAYERS, playerYaw, rallyAt, BALL_RADIUS } from './rally';
+import { nearCageOpacity, PLAYERS, playerYaw, rallyAt, BALL_RADIUS, layAngle, RACKET_Y } from './rally';
+import { buildRacketKit } from './racket';
 import { makeCamera, poseCamera } from './camera';
 import { lerp, slice, SPEC } from './spec';
 import type { CourtQuality } from './quality';
@@ -245,59 +248,19 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     }
   }
 
-  // racket (brand sticker): blue frame + blue face, white holes, lime grip, dark cap
-  const frameMat = Mat(NAVY, { roughness: 0.45 });
-  const rimMat = Mat(0x6ec3f0, { roughness: 0.4 });
-  const faceMat = Mat(BLUE, { roughness: 0.6 });
-  const holeMat = Mat(0xffffff, { roughness: 0.6 });
-  const throatMat = Mat(BLUE, { roughness: 0.45 });
-  const gripMat = Mat(LIME, { roughness: 0.6 });
-  const wrapMat = Mat(NAVY);
-  const makeRacket = () => {
-    const g = new THREE.Group();
-    const frame = new THREE.Mesh(geo(new THREE.TorusGeometry(0.42, 0.06, 14, 48)), frameMat);
-    frame.rotation.x = Math.PI / 2;
-    const rim = new THREE.Mesh(geo(new THREE.TorusGeometry(0.4, 0.045, 14, 48)), rimMat);
-    rim.rotation.x = Math.PI / 2;
-    rim.position.y = 0.02;
-    const face = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.4, 0.4, 0.05, 48)), faceMat);
-    g.add(frame, rim, face);
-    for (let r = 0; r < 3; r++) {
-      for (let i = 0; i < (r === 0 ? 1 : r * 6); i++) {
-        const a = (i / (r * 6 || 1)) * Math.PI * 2;
-        const rad = r * 0.11;
-        const h = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 10)), holeMat);
-        h.position.set(Math.cos(a) * rad, 0, Math.sin(a) * rad);
-        g.add(h);
-      }
-    }
-    const throat = new THREE.Mesh(geo(new THREE.BoxGeometry(0.16, 0.08, 0.2)), throatMat);
-    throat.position.z = 0.5;
-    const handle = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.075, 0.075, 0.6, 14)), gripMat);
-    handle.rotation.x = Math.PI / 2;
-    handle.position.z = 0.9;
-    for (const z of [0.72, 0.86, 1.0, 1.14]) {
-      const w = new THREE.Mesh(geo(new THREE.TorusGeometry(0.076, 0.012, 8, 24)), wrapMat);
-      w.position.z = z;
-      g.add(w);
-    }
-    const cap = new THREE.Mesh(geo(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 14)), wrapMat);
-    cap.rotation.x = Math.PI / 2;
-    cap.position.z = 1.22;
-    g.add(throat, handle, cap);
-    g.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh) o.castShadow = shadows;
-    });
-    return g;
-  };
+  // racket (brand sticker): the design's teardrop frame, perforated face plate,
+  // rim highlights, lofted collar and wrapped lime grip (racket.ts). One shared
+  // build; each player gets the rig — mount (stance) → pivot (hand) → lay (the
+  // top-view cheat) → the racket — and the rally drives all three per frame.
+  const kit = buildRacketKit(quality);
+  disposables.push(...kit.disposables);
   const rackets = PLAYERS.map((pl) => {
-    const g = makeRacket();
-    g.scale.setScalar(1.15);
-    g.position.set(pl.x, 0.75, pl.z);
-    g.rotation.order = 'YXZ';
-    g.rotation.y = playerYaw(pl);
-    scene.add(g);
-    return g;
+    const rig = kit.create(pl.hand);
+    rig.mount.position.set(pl.x, RACKET_Y.flat, pl.z);
+    rig.mount.rotation.y = playerYaw(pl);
+    rig.lay.rotation.x = layAngle(0);
+    scene.add(rig.mount);
+    return rig;
   });
 
   // ball (brand sticker): lime with a white + blue wavy seam — in the overlay, over the button
@@ -373,10 +336,14 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
       paneNear.opacity = cage.pane;
 
       const state = rallyAt(t, camK);
+      const lay = layAngle(camK);
       state.rackets.forEach((r, i) => {
-        const g = rackets[i]!;
-        g.position.set(r.position.x, r.position.y, r.position.z);
-        g.rotation.set(r.rotation.x, r.rotation.y, r.rotation.z);
+        const rig = rackets[i]!;
+        rig.mount.position.set(r.position.x, r.position.y, r.position.z);
+        rig.mount.rotation.set(r.rotation.x, r.rotation.y, r.rotation.z);
+        rig.pivot.position.set(r.swing.position.x, r.swing.position.y, r.swing.position.z);
+        rig.pivot.rotation.set(r.swing.rotation.x, r.swing.rotation.y, r.swing.rotation.z);
+        rig.lay.rotation.x = lay;
       });
       ball.position.set(state.ball.x, state.ball.y, state.ball.z);
       caster?.position.copy(ball.position);
