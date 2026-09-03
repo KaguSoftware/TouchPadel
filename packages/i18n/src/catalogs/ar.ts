@@ -791,6 +791,14 @@ export const ar: Messages = {
       queued: '{count} بانتظار المزامنة',
       attention: '{count} لم تتم مزامنتها — راجع شاشة إغلاق اليوم',
     },
+    lock: {
+      title: 'المحطة مقفلة',
+      hint: 'مسجّل الدخول باسم {name}. افتح القفل للمتابعة.',
+      pin: 'رمزك السري',
+      unlock: 'فتح القفل',
+      usePassword: 'استخدام كلمة المرور',
+      switchUser: 'تبديل المستخدم',
+    },
     queue: {
       state: {
         pending: 'بانتظار الإرسال',

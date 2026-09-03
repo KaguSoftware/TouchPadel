@@ -177,7 +177,7 @@ test.describe('operator stock (module 5)', () => {
   test('(d) waste demands a reason and lands in the ledger', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/waste`);
-    await page.getByLabel('Ingredient').selectOption({ label: `${ING} (g)` });
+    await page.getByLabel(/^Ingredient/).first().selectOption({ label: `${ING} (g)` });
     await page.getByLabel('Qty', { exact: true }).fill('30');
     await page.getByLabel('Reason').fill('dropped the bag');
     await page.getByRole('button', { name: 'Record waste' }).click();

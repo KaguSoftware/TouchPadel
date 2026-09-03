@@ -138,6 +138,50 @@ export async function ensureTillFresh(svc: SupabaseClient): Promise<void> {
   if (insErr) throw new Error(`ensureTillFresh seed failed: ${insErr.message}`);
 }
 
+/**
+ * Top up FIXTURE ingredients that reruns have eaten. The stock fixtures give
+ * finite quantities and every guest-journey order deducts through the 0018
+ * trigger — after enough reruns without a db reset an ingredient (Geymar was
+ * the first) hits 0, the SOW L370-371 auto-greying correctly marks its items
+ * unavailable, and the journey dies on a sold-out card. Restock through the
+ * real RPC so batches and ledger stay coherent.
+ */
+export async function ensureFixtureStock(svc: SupabaseClient, min = 100): Promise<void> {
+  const { data, error } = await svc
+    .from('v_ingredient_on_hand')
+    .select('ingredient_id, on_hand, kind')
+    .eq('is_active', true);
+  if (error) throw new Error(`ensureFixtureStock probe failed: ${error.message}`);
+  const low = (data as { ingredient_id: string; on_hand: number; kind: string }[]).filter(
+    // uuid columns refuse `like` — filter the fixture prefix client-side.
+    (r) =>
+      r.ingredient_id.startsWith('f1f7') && r.kind === 'purchased' && Number(r.on_hand) < min,
+  );
+  if (low.length === 0) return;
+
+  const manager = await signedInClient(SEED_STAFF.manager);
+  try {
+    await appRpc(manager, 'receive_delivery', {
+      p_lines: low.map((r) => ({
+        ingredient_id: r.ingredient_id,
+        qty_received: 1000,
+        unit_cost_iqd: 10,
+      })),
+      p_supplier_name: 'e2e-restock',
+    });
+  } finally {
+    await manager.auth.signOut();
+  }
+
+  // The guest SSR menu is unstable_cache'd for 60 s (menu.server.ts) and a
+  // restock changes availability SILENTLY (a view over batches — no
+  // menu_changed broadcast). A page served inside that window still stamps the
+  // item sold out. This waits the window out — and only runs on the rare pass
+  // where something was actually restocked; steady-state runs skip it.
+  console.log(`[e2e] restocked ${low.length} fixture ingredient(s); waiting out the 60s menu cache`);
+  await new Promise((resolve) => setTimeout(resolve, 61_000));
+}
+
 // ---------------------------------------------------------------------------
 // Per-table cleanup so reruns are deterministic
 // ---------------------------------------------------------------------------
