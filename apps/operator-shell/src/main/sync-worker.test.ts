@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { MutationEnvelope, MutationResult } from '../ipc-channels';
 import { setAuthState } from './auth-state';
 import {
-  ack,
   enqueue,
   listBlockingRows,
   markInflight,
