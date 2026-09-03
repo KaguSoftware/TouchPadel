@@ -4,7 +4,11 @@
  *
  * Interpolation placeholders use single braces: {name}, {phone}, {count}.
  */
+import { wsEn } from './ws';
+
 export const en = {
+  // Operator workspace strings (spec §05–§07), one file pair per lane: catalogs/ws/*.
+  ws: wsEn,
   common: {
     appName: 'Touch Padel',
     cafeName: 'Touch Cafe',
@@ -1069,6 +1073,7 @@ export const en = {
       qr: 'Table QR codes',
       courts: 'Courts',
       rates: 'Rates',
+      promotions: 'Promotions',
       hours: 'Opening hours',
       dayClose: 'Day close',
       telegram: 'Telegram',

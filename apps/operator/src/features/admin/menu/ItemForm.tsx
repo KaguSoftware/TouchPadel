@@ -1,6 +1,9 @@
 /**
- * One menu item: name / description / hook (EN+AR), photo, highlight,
- * sold-out, 86, cost + margin, sort order, active. Form fields save through
+ * One menu item (spec 06.24): name / description / flavour line (bilingual
+ * pairs), photo, highlight, cost + margin, sort order, active; then the three
+ * availability states — sold out (a switch, stays until switched back), off
+ * for today (temporary, restores next day), blocked by stock (READ-ONLY, the
+ * server's decision, names the ingredient). Form fields save through
  * `upsert_menu_item`; photo / sold-out / cost have dedicated setters that fire
  * immediately for saved items (deferred to the first save for a new one).
  * Unsaved edits block navigation (TanStack `useBlocker`).
@@ -8,37 +11,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useBlocker } from '@tanstack/react-router';
-import { formatDate, formatIQD } from '@touch/i18n';
+import { formatDate } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { removeMedia } from '../../../lib/storage';
 import { useLocale, pickName } from '../../../lib/i18n';
-import { Button, ErrorText, Field, card, inputStyle } from '../../../components/ui';
-import { BilingualFields, MoneyInput } from '../../../components/inputs';
+import { usePermissions } from '../../../lib/auth';
+import { Button, ErrorText, Field, inputStyle } from '../../../components/ui';
+import { BilingualFieldPair, MessagePresenter, Money, Panel, StatusBadge } from '../../../components/kit';
+import { MoneyInput } from '../../../components/inputs';
 import { ImageField } from '../../../components/ImageField';
 import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
-import { Chip, HIGHLIGHT_COLOR, MarginChip } from './chips';
-import {
-  DESCRIPTION_MAX,
-  HOOK_MAX,
-  NAME_MAX,
-  defaultPrice,
-  hookError,
-  nextDayIso,
-} from './menuLogic';
+import { HIGHLIGHT_COLOR, MarginChip } from './chips';
+import { DESCRIPTION_MAX, HOOK_MAX, NAME_MAX, defaultPrice, hookError, nextDayIso } from './menuLogic';
 import { savePhoto } from './photo';
 import { VariantsEditor } from './VariantsEditor';
 import { ItemModifierGroups } from './ItemModifierGroups';
-import {
-  useAdminMenu,
-  type GroupRow,
-  type Highlight,
-  type ItemRow,
-  type ModifierRow,
-} from './useAdminMenu';
+import type { StockBlock } from './availability';
+import { useAdminMenu, type GroupRow, type Highlight, type ItemRow, type ModifierRow } from './useAdminMenu';
 
 const HIGHLIGHTS: readonly Highlight[] = ['none', 'blue', 'brown'];
+const NO_BLOCK: StockBlock = { blocked: false, ingredients: [] };
 
 export function ItemForm({
   item,
@@ -46,6 +40,7 @@ export function ItemForm({
   groups,
   modifiers,
   cost,
+  stockBlock = NO_BLOCK,
   onSaved,
   onDirtyChange,
 }: {
@@ -55,20 +50,21 @@ export function ItemForm({
   modifiers: ModifierRow[];
   /** Known cost from `menu_item_costs`, or null. */
   cost: number | null;
+  /** The server's stock decision for this item (read-only state). */
+  stockBlock?: StockBlock;
   onSaved: (id: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const confirm = useConfirm();
+  const can = usePermissions();
   const { refresh } = useAdminMenu();
+  const readOnly = !can.editMenu;
 
-  const [nameEn, setNameEn] = useState(item?.name_en ?? '');
-  const [nameAr, setNameAr] = useState(item?.name_ar ?? '');
-  const [descEn, setDescEn] = useState(item?.description_en ?? '');
-  const [descAr, setDescAr] = useState(item?.description_ar ?? '');
-  const [hookEn, setHookEn] = useState(item?.hook_en ?? '');
-  const [hookAr, setHookAr] = useState(item?.hook_ar ?? '');
+  const [name, setName] = useState({ en: item?.name_en ?? '', ar: item?.name_ar ?? '' });
+  const [desc, setDesc] = useState({ en: item?.description_en ?? '', ar: item?.description_ar ?? '' });
+  const [hook, setHook] = useState({ en: item?.hook_en ?? '', ar: item?.hook_ar ?? '' });
   const [highlight, setHighlight] = useState<Highlight>(item?.highlight ?? 'none');
   const [sortOrder, setSortOrder] = useState(item?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(item?.is_active ?? true);
@@ -87,12 +83,12 @@ export function ItemForm({
   }, [cost]);
 
   const formDirty =
-    nameEn !== (item?.name_en ?? '') ||
-    nameAr !== (item?.name_ar ?? '') ||
-    descEn !== (item?.description_en ?? '') ||
-    descAr !== (item?.description_ar ?? '') ||
-    hookEn !== (item?.hook_en ?? '') ||
-    hookAr !== (item?.hook_ar ?? '') ||
+    name.en !== (item?.name_en ?? '') ||
+    name.ar !== (item?.name_ar ?? '') ||
+    desc.en !== (item?.description_en ?? '') ||
+    desc.ar !== (item?.description_ar ?? '') ||
+    hook.en !== (item?.hook_en ?? '') ||
+    hook.ar !== (item?.hook_ar ?? '') ||
     highlight !== (item?.highlight ?? 'none') ||
     sortOrder !== (item?.sort_order ?? 0) ||
     isActive !== (item?.is_active ?? true) ||
@@ -113,14 +109,24 @@ export function ItemForm({
     enableBeforeUnload: dirty,
   });
 
-  const hookErr = hookError(hookEn, hookAr);
-  const valid = nameEn.trim() !== '' && nameAr.trim() !== '' && hookErr === null;
+  const hookErr = hookError(hook.en, hook.ar);
+  const valid = name.en.trim() !== '' && name.ar.trim() !== '' && hookErr === null;
+
+  function discard() {
+    setName({ en: item?.name_en ?? '', ar: item?.name_ar ?? '' });
+    setDesc({ en: item?.description_en ?? '', ar: item?.description_ar ?? '' });
+    setHook({ en: item?.hook_en ?? '', ar: item?.hook_ar ?? '' });
+    setHighlight(item?.highlight ?? 'none');
+    setSortOrder(item?.sort_order ?? 0);
+    setIsActive(item?.is_active ?? true);
+    setCostDraft(cost);
+    setError(null);
+  }
 
   /* ---------- immediate setters (saved items only) ---------- */
 
   const photoMutation = useMutation({
-    mutationFn: ({ next, previous }: { next: string | null; previous: string | null }) =>
-      savePhoto('item', item!.id, next, previous),
+    mutationFn: ({ next, previous }: { next: string | null; previous: string | null }) => savePhoto('item', item!.id, next, previous),
     onSuccess: async () => {
       toast.ok(tr('op.toast.saved'));
       await refresh();
@@ -137,15 +143,13 @@ export function ItemForm({
     if (item) {
       photoMutation.mutate({ next, previous });
     } else {
-      if (pendingPhoto.current && pendingPhoto.current !== next)
-        void removeMedia(pendingPhoto.current);
+      if (pendingPhoto.current && pendingPhoto.current !== next) void removeMedia(pendingPhoto.current);
       pendingPhoto.current = next;
     }
   }
 
   const costMutation = useMutation({
-    mutationFn: (next: number | null) =>
-      appRpc('set_item_cost', { p_item_id: item!.id, p_cost_iqd: next }),
+    mutationFn: (next: number | null) => appRpc('set_item_cost', { p_item_id: item!.id, p_cost_iqd: next }),
     onSuccess: async () => {
       toast.ok(tr('op.toast.saved'));
       await refresh();
@@ -161,8 +165,7 @@ export function ItemForm({
   }
 
   const availability = useMutation({
-    mutationFn: (available: boolean) =>
-      appRpc('set_item_availability', { p_item_id: item!.id, p_available: available }),
+    mutationFn: (available: boolean) => appRpc('set_item_availability', { p_item_id: item!.id, p_available: available }),
     onSuccess: async () => {
       toast.ok(tr('op.toast.saved'));
       await refresh();
@@ -182,14 +185,14 @@ export function ItemForm({
       const id = await appRpc<string>('upsert_menu_item', {
         p_id: item?.id ?? null,
         p_category_id: item?.category_id ?? categoryId,
-        p_name_en: nameEn.trim(),
-        p_name_ar: nameAr.trim(),
-        p_description_en: descEn.trim() || null,
-        p_description_ar: descAr.trim() || null,
+        p_name_en: name.en.trim(),
+        p_name_ar: name.ar.trim(),
+        p_description_en: desc.en.trim() || null,
+        p_description_ar: desc.ar.trim() || null,
         p_sort_order: sortOrder,
         p_is_active: isActive,
-        p_hook_en: hookEn.trim(),
-        p_hook_ar: hookAr.trim(),
+        p_hook_en: hook.en.trim(),
+        p_hook_ar: hook.ar.trim(),
         p_highlight: highlight,
       });
       if (!item) {
@@ -197,8 +200,7 @@ export function ItemForm({
           await savePhoto('item', id, pendingPhoto.current, null);
           pendingPhoto.current = null;
         }
-        if (costDraft !== null)
-          await appRpc('set_item_cost', { p_item_id: id, p_cost_iqd: costDraft });
+        if (costDraft !== null) await appRpc('set_item_cost', { p_item_id: id, p_cost_iqd: costDraft });
       } else if (costDraft !== cost) {
         await appRpc('set_item_cost', { p_item_id: id, p_cost_iqd: costDraft });
       }
@@ -225,84 +227,58 @@ export function ItemForm({
   );
 
   const price = item ? defaultPrice(item.menu_item_variants) : null;
-  const offUntil = item?.unavailable_on
-    ? formatDate(new Date(`${nextDayIso(item.unavailable_on)}T00:00:00`), locale)
-    : null;
+  const offUntil = item?.unavailable_on ? formatDate(new Date(`${nextDayIso(item.unavailable_on)}T00:00:00`), locale) : null;
+  const busy = save.isPending;
 
   return (
-    <div style={{ minInlineSize: 0 }}>
-      <div style={card}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '0.5rem',
-            flexWrap: 'wrap',
-            marginBlockEnd: '0.6rem',
-          }}
-        >
-          <h3 style={{ margin: 0 }}>{item ? pickName(locale, item) : tr('op.menu.newItem')}</h3>
-          {item && (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span dir="ltr" style={{ fontSize: '0.85rem', color: 'var(--tp-muted-fg)' }}>
-                {price !== null && `${tr('op.menu.defaultPrice')}: ${formatIQD(price, locale)}`}
-              </span>
-              <MarginChip price={price} cost={cost} />
-            </div>
-          )}
-        </div>
-
+    <div style={{ minInlineSize: 0, display: 'grid', gap: '0.75rem' }}>
+      {/* Title + save bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
         <div style={{ minInlineSize: 0 }}>
-          <BilingualFields
-            labelEn={tr('op.menu.nameEn')}
-            labelAr={tr('op.menu.nameAr')}
-            en={nameEn}
-            ar={nameAr}
-            onEn={setNameEn}
-            onAr={setNameAr}
-            maxLength={NAME_MAX}
-          />
-          <BilingualFields
-            labelEn={tr('op.menu.descriptionEn')}
-            labelAr={tr('op.menu.descriptionAr')}
-            en={descEn}
-            ar={descAr}
-            onEn={setDescEn}
-            onAr={setDescAr}
-            multiline
-            maxLength={DESCRIPTION_MAX}
-          />
-          <BilingualFields
-            labelEn={tr('op.menu.hookEn')}
-            labelAr={tr('op.menu.hookAr')}
-            en={hookEn}
-            ar={hookAr}
-            onEn={setHookEn}
-            onAr={setHookAr}
-            maxLength={HOOK_MAX}
-            placeholderEn={tr('op.menu.hookPlaceholder')}
-            placeholderAr={tr('op.menu.hookPlaceholder')}
-          />
-          {hookErr === 'pair' && (
-            <p
-              role="alert"
-              style={{ color: 'var(--tp-danger)', fontSize: '0.85rem', marginBlock: '0 0.6rem' }}
-            >
-              {tr('op.errors.HOOK_PAIR_MISMATCH')}
-            </p>
+          <h2 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700 }}>
+            <bdi>{item ? pickName(locale, item) : tr('ws.manager.menu.newItem')}</bdi>
+          </h2>
+          {item && (
+            <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+              {price !== null && (
+                <span>
+                  {tr('op.menu.defaultPrice')}: <Money amount={price} />
+                </span>
+              )}
+              <MarginChip price={price} cost={cost} />
+            </span>
           )}
         </div>
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {dirty && <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} />}
+          <Button kind="ghost" size="sm" disabled={!dirty || busy} onClick={discard}>
+            {tr('ws.kit.actions.discard')}
+          </Button>
+          <Button kind="primary" icon="check" busy={busy} disabled={readOnly || !valid || !dirty} onClick={() => save.mutate()}>
+            {tr('ws.kit.actions.save')}
+          </Button>
+        </div>
+      </div>
+      <ErrorText error={error} style={{ marginBlock: 0 }} />
 
-        {/* photo beside highlight / cost / sort / active */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto minmax(0, 1fr)',
-            gap: '1rem',
-            alignItems: 'start',
-          }}
-        >
+      {/* Details */}
+      <Panel title={tr('ws.manager.menu.form.details')}>
+        <BilingualFieldPair label={tr('ws.manager.menu.form.name')} value={name} onChange={setName} required maxLength={NAME_MAX} disabled={readOnly} />
+        <BilingualFieldPair label={tr('ws.manager.menu.form.description')} value={desc} onChange={setDesc} multiline maxLength={DESCRIPTION_MAX} disabled={readOnly} />
+        <BilingualFieldPair
+          label={tr('ws.manager.menu.form.hook')}
+          value={hook}
+          onChange={setHook}
+          maxLength={HOOK_MAX}
+          disabled={readOnly}
+          error={hookErr === 'pair' ? tr('op.errors.HOOK_PAIR_MISMATCH') : undefined}
+        />
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.hookHint', { max: HOOK_MAX })}</p>
+      </Panel>
+
+      {/* Photo + highlight + cost / sort / active */}
+      <Panel title={tr('ws.manager.menu.form.presentation')}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: '1rem', alignItems: 'start' }}>
           <div style={{ inlineSize: '11rem' }}>
             <ImageField
               label={tr('op.menu.photo')}
@@ -311,33 +287,17 @@ export function ItemForm({
               folder="items"
               ownerId={item?.id ?? draftId.current}
               aspect="1:1"
-              disabled={photoMutation.isPending}
+              disabled={readOnly || photoMutation.isPending}
             />
-            <p style={{ fontSize: '0.75rem', color: 'var(--tp-muted-fg)', margin: 0 }}>
-              {tr('op.menu.photoHint')}
-            </p>
+            <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('op.menu.photoHint')}</p>
           </div>
           <div style={{ minInlineSize: 0 }}>
-            {/* highlight */}
-            <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: '0.6rem' }}>
-              <legend
-                style={{
-                  fontSize: '0.8rem',
-                  color: 'var(--tp-muted-fg)',
-                  marginBlockEnd: '0.2rem',
-                }}
-              >
-                {tr('op.menu.highlight')}
-              </legend>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: '0.85rem' }}>
+              <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}>{tr('op.menu.highlight')}</legend>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                 {HIGHLIGHTS.map((h) => {
                   const selected = highlight === h;
-                  const label =
-                    h === 'none'
-                      ? tr('op.menu.highlightNone')
-                      : h === 'blue'
-                        ? tr('op.menu.highlightBlue')
-                        : tr('op.menu.highlightBrown');
+                  const label = h === 'none' ? tr('op.menu.highlightNone') : h === 'blue' ? tr('op.menu.highlightBlue') : tr('op.menu.highlightBrown');
                   return (
                     <label
                       key={h}
@@ -348,9 +308,10 @@ export function ItemForm({
                         paddingBlock: '0.3rem',
                         paddingInline: '0.6rem',
                         border: `2px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-                        borderRadius: '999px',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem',
+                        borderRadius: 'var(--tp-radius-pill)',
+                        cursor: readOnly ? 'not-allowed' : 'pointer',
+                        fontSize: 'var(--tp-fs-sm)',
+                        background: selected ? 'var(--tp-accent-soft)' : undefined,
                       }}
                     >
                       <input
@@ -358,6 +319,7 @@ export function ItemForm({
                         name="highlight"
                         value={h}
                         checked={selected}
+                        disabled={readOnly}
                         onChange={() => setHighlight(h)}
                         style={{ position: 'absolute', opacity: 0, inlineSize: 0, blockSize: 0 }}
                       />
@@ -378,22 +340,10 @@ export function ItemForm({
               </div>
             </fieldset>
 
-            {/* cost / sort / active */}
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <Field label={tr('op.menu.cost')} style={{ marginBlockEnd: 0 }}>
+              <Field label={tr('op.menu.cost')} hint={tr('op.menu.costHint')} style={{ marginBlockEnd: 0 }}>
                 <span onBlur={commitCost} style={{ display: 'inline-block' }}>
-                  <MoneyInput
-                    value={costDraft}
-                    onChange={setCostDraft}
-                    allowEmpty
-                    disabled={costMutation.isPending}
-                    style={{ inlineSize: '13rem' }}
-                  />
-                </span>
-                <span
-                  style={{ display: 'block', fontSize: '0.75rem', color: 'var(--tp-muted-fg)' }}
-                >
-                  {tr('op.menu.costHint')}
+                  <MoneyInput value={costDraft} onChange={setCostDraft} allowEmpty disabled={readOnly || costMutation.isPending} style={{ inlineSize: '13rem' }} />
                 </span>
               </Field>
               <Field label={tr('op.menu.sortOrder')} style={{ marginBlockEnd: 0 }}>
@@ -402,73 +352,75 @@ export function ItemForm({
                   dir="ltr"
                   type="number"
                   value={sortOrder}
+                  disabled={readOnly}
                   onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
                 />
               </Field>
-              <label
-                style={{
-                  display: 'flex',
-                  gap: '0.4rem',
-                  alignItems: 'center',
-                  paddingBlockEnd: '0.5rem',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                />
-                {tr('op.menu.isActive')}
-              </label>
+              <div style={{ paddingBlockEnd: '0.35rem' }}>
+                <Switch checked={isActive} disabled={readOnly} onChange={setIsActive} label={tr('op.menu.isActive')} />
+              </div>
             </div>
           </div>
         </div>
+      </Panel>
 
-        {/* availability */}
-        {item && (
-          <div
-            style={{
-              display: 'flex',
-              gap: '1rem',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              marginBlockStart: '0.8rem',
-              paddingBlockStart: '0.6rem',
-              borderBlockStart: '1px solid var(--tp-border)',
-            }}
-          >
-            <Switch
-              checked={item.sold_out}
-              onChange={setSoldOut}
-              label={tr('op.menu.soldOut')}
-              tone="danger"
-            />
-            {offUntil ? (
-              <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
-                <Chip tone="ok">{tr('op.menu.offToday', { date: offUntil })}</Chip>
-                <Button disabled={availability.isPending} onClick={() => availability.mutate(true)}>
-                  {tr('op.menu.markAvailable')}
+      {/* Availability — three distinct states */}
+      <Panel title={tr('ws.manager.menu.form.availability')}>
+        {item ? (
+          <div style={{ display: 'grid', gap: '0.85rem' }}>
+            <div>
+              <Switch checked={item.sold_out} disabled={readOnly} onChange={setSoldOut} label={tr('op.menu.soldOut')} tone="danger" />
+              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.3rem' }}>{tr('ws.manager.menu.form.soldOutHint')}</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <StatusBadge tone={offUntil ? 'warn' : 'neutral'} icon="clock" label={`${tr('ws.manager.menu.form.offTodayTitle')} · ${tr('ws.kit.common.temporary')}`} />
+              {offUntil ? (
+                <>
+                  <span style={{ fontSize: 'var(--tp-fs-sm)' }}>
+                    <bdi>{tr('ws.manager.menu.form.offTodayUntil', { date: offUntil })}</bdi>
+                  </span>
+                  <Button size="sm" busy={availability.isPending} disabled={readOnly} onClick={() => availability.mutate(true)}>
+                    {tr('ws.manager.menu.form.restore')}
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" busy={availability.isPending} disabled={readOnly} onClick={() => availability.mutate(false)}>
+                  {tr('ws.manager.menu.form.markOff')}
                 </Button>
-              </span>
-            ) : (
-              <Button disabled={availability.isPending} onClick={() => availability.mutate(false)}>
-                {tr('op.menu.markUnavailable')}
-              </Button>
+              )}
+              <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', flexBasis: '100%' }}>{tr('ws.manager.menu.form.offTodayHint')}</span>
+            </div>
+
+            {stockBlock.blocked && (
+              <div role="status" aria-label={tr('ws.manager.menu.form.blockedTitle')}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBlockEnd: '0.4rem' }}>
+                  <StatusBadge tone="warn" icon="box" label={tr('ws.manager.menu.form.blockedTitle')} />
+                  <StatusBadge tone="neutral" icon="lock" label={tr('ws.kit.common.readOnlyStock')} size="sm" />
+                </div>
+                <MessagePresenter
+                  tone="refused"
+                  icon="box"
+                  message={
+                    <>
+                      {tr('ws.manager.menu.form.blockedBody')}{' '}
+                      <strong>
+                        {stockBlock.ingredients.length > 0
+                          ? tr('ws.manager.menu.form.blockedIngredients', {
+                              names: stockBlock.ingredients.map((i) => pickName(locale, i)).join(locale === 'ar' ? '، ' : ', '),
+                            })
+                          : tr('ws.manager.menu.form.blockedUnknown')}
+                      </strong>
+                    </>
+                  }
+                />
+              </div>
             )}
           </div>
+        ) : (
+          <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.manager.menu.form.saveFirst')}</p>
         )}
-
-        <ErrorText error={error} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBlockStart: '0.8rem' }}>
-          <Button
-            kind="primary"
-            disabled={save.isPending || !valid || !dirty}
-            onClick={() => save.mutate()}
-          >
-            {tr('common.save')}
-          </Button>
-        </div>
-      </div>
+      </Panel>
 
       {item && (
         <>

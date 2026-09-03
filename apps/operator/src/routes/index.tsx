@@ -1,9 +1,12 @@
 import { createRoute, Navigate } from '@tanstack/react-router';
 import { rootRoute } from './__root';
 import { useAuth, homeRoute } from '../lib/auth';
-import { useLocale } from '../lib/i18n';
+import { hasStoredWorkspace, workspacesForRole } from '../lib/workspaces';
+import { Spinner } from '../components/ui';
 
-// Landing: redirect to the signed-in role's home module.
+// Landing: a single-role account goes straight to its workspace home; an
+// account holding more than one role is presented with the switcher the first
+// time on this station (spec §05 WorkspaceSwitcherScreen), then remembered.
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
@@ -12,7 +15,14 @@ export const indexRoute = createRoute({
 
 function IndexRedirect() {
   const { staff } = useAuth();
-  const { tr } = useLocale();
-  if (!staff) return <p>{tr('common.loading')}</p>;
-  return <Navigate to={homeRoute(staff.role)} />;
+  if (!staff) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', minBlockSize: '40vh' }}>
+        <Spinner size="md" />
+      </div>
+    );
+  }
+  const multi = workspacesForRole(staff.role).length > 1;
+  if (multi && !hasStoredWorkspace()) return <Navigate to="/workspaces" replace />;
+  return <Navigate to={homeRoute(staff.role)} replace />;
 }

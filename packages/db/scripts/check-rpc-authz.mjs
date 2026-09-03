@@ -77,6 +77,9 @@ const fns = JSON.parse(
                  or p.proargmodes[a.ord] in ('i','b')), '[]'::json))), '[]')
           from pg_proc p join pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'app' and p.prosecdef
+           -- Trigger functions (rt_* broadcast hooks) are not callable through
+           -- PostgREST at all; probing them 404s and reads as unguarded.
+           and p.prorettype <> 'trigger'::regtype
            and (has_function_privilege('anon', p.oid, 'EXECUTE')
              or has_function_privilege('authenticated', p.oid, 'EXECUTE'));`).trim(),
 );

@@ -3,6 +3,8 @@
  *
  * Two identities (per the 2026 brand deck — `touch full brand2.pdf` governs):
  *  - "padel"  — Padel 2026: green #A5D06F / blue #3360AB — app, site, operator.
+ *  - "operator" — the desktop app (tokens/operator.ts): blue-tinted paper, navy rail,
+ *               dark kitchen board. Product register, see docs/DESIGN.md.
  *  - "cafe"   — Touch Cafe: blue #2456B4 / green #7FB05A — QR-menu / ordering
  *               pages, per the approved menu design (brand/Touch Cafe Menu Final).
  *
@@ -10,7 +12,9 @@
  * so components never reference a brand color directly — only semantic vars.
  */
 
-export type ThemeName = 'padel' | 'cafe';
+import { operatorPalette } from './operator';
+
+export type ThemeName = 'padel' | 'cafe' | 'operator';
 
 /** A palette is a flat map of CSS custom property name → value. */
 export type PaletteVars = Readonly<Record<`--tp-${string}`, string>>;
@@ -65,4 +69,5 @@ export const cafePalette = {
 export const palettes: Record<ThemeName, PaletteVars> = {
   padel: padelPalette,
   cafe: cafePalette,
+  operator: operatorPalette,
 };

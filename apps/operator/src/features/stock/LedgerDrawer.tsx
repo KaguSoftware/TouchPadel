@@ -5,10 +5,11 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { formatTime } from '@touch/i18n';
+import { formatDateTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Modal } from '../../components/ui';
+import { AsyncStateWrapper, DataTable, EmptyState, Money, asyncStatus, type Column } from '../../components/kit';
 import { LEDGER_PAGE, SK, fetchLedger, type MovementRow } from './stockKeys';
 
 function refLabel(m: MovementRow): string {
@@ -40,9 +41,7 @@ export function LedgerDrawer({
         // of history they live on.
         const { data, error } = await supabase
           .from('stock_movements')
-          .select(
-            'id, at, movement_type, qty_delta, unit_cost_iqd, reason_code, order_item_id, delivery_line_id, count_id',
-          )
+          .select('id, at, movement_type, qty_delta, unit_cost_iqd, reason_code, order_item_id, delivery_line_id, count_id')
           .in('id', movementIds)
           .order('at', { ascending: false });
         if (error) throw error;
@@ -53,57 +52,55 @@ export function LedgerDrawer({
   });
   const rows = ledgerQ.data ?? [];
 
+  const columns: Column<MovementRow>[] = [
+    { key: 'when', header: tr('op.stock.when'), render: (m) => <bdi>{formatDateTime(new Date(m.at), locale)}</bdi> },
+    { key: 'type', header: tr('op.stock.movement'), render: (m) => <code style={{ fontSize: 'var(--tp-fs-xs)' }}>{m.movement_type}</code> },
+    {
+      key: 'qty',
+      header: tr('op.stock.qty'),
+      numeric: true,
+      render: (m) => (
+        <span style={{ color: m.qty_delta < 0 ? 'var(--tp-danger-fg)' : 'var(--tp-success-fg)', fontWeight: 600 }} dir="ltr">
+          {m.qty_delta > 0 ? '+' : ''}
+          {m.qty_delta} {ingredient.unit}
+        </span>
+      ),
+    },
+    { key: 'cost', header: tr('ws.manager.stock.expiry.unitCost'), numeric: true, render: (m) => <Money amount={m.unit_cost_iqd} /> },
+    { key: 'ref', header: tr('op.stock.ref'), render: (m) => <span style={{ color: 'var(--tp-muted-fg)' }} dir="ltr">{refLabel(m)}</span> },
+    { key: 'reason', header: tr('op.common.reason'), render: (m) => <span style={{ color: 'var(--tp-muted-fg)' }}>{m.reason_code ?? '—'}</span> },
+  ];
+
   return (
-    <Modal title={`${tr('op.stock.ledger')} — ${pickName(locale, ingredient)}`} onClose={onClose}>
-      <table style={{ inlineSize: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-        <thead>
-          <tr style={{ color: 'var(--tp-muted-fg)' }}>
-            <th style={{ textAlign: 'start' }}>{tr('op.stock.when')}</th>
-            <th style={{ textAlign: 'start' }}>{tr('op.stock.movement')}</th>
-            <th style={{ textAlign: 'end' }}>{tr('op.stock.qty')}</th>
-            <th style={{ textAlign: 'start' }}>{tr('op.stock.ref')}</th>
-            <th style={{ textAlign: 'start' }}>{tr('op.common.reason')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((m) => (
-            <tr key={m.id} style={{ borderBlockStart: '1px solid var(--tp-border)' }}>
-              <td style={{ whiteSpace: 'nowrap', paddingBlock: '0.25rem' }}>
-                {formatTime(new Date(m.at), locale)}
-              </td>
-              <td>{m.movement_type}</td>
-              <td
-                style={{
-                  textAlign: 'end',
-                  fontVariantNumeric: 'tabular-nums',
-                  color: m.qty_delta < 0 ? 'var(--tp-danger)' : 'var(--tp-accent)',
-                }}
-              >
-                {m.qty_delta > 0 ? '+' : ''}
-                {m.qty_delta} {ingredient.unit}
-              </td>
-              <td style={{ color: 'var(--tp-muted-fg)' }}>{refLabel(m)}</td>
-              <td style={{ color: 'var(--tp-muted-fg)' }}>{m.reason_code ?? '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {ledgerQ.isSuccess && rows.length === 0 && (
-        <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.stock.noMovements')}</p>
-      )}
-      {!movementIds && (
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginBlockStart: '0.5rem' }}>
-          <Button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-            ‹
-          </Button>
-          <Button
-            disabled={(ledgerQ.data?.length ?? 0) < LEDGER_PAGE}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            ›
-          </Button>
-        </div>
-      )}
+    <Modal
+      title={`${tr('op.stock.ledger')} — ${pickName(locale, ingredient)}`}
+      subtitle={tr('ws.manager.stock.ledger.lead')}
+      onClose={onClose}
+      size="lg"
+      footer={
+        !movementIds ? (
+          <>
+            <Button size="sm" icon="chevronStart" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              {tr('ws.manager.stock.ledger.newerPage')}
+            </Button>
+            <Button size="sm" iconEnd="chevronEnd" disabled={(ledgerQ.data?.length ?? 0) < LEDGER_PAGE} onClick={() => setPage((p) => p + 1)}>
+              {tr('ws.manager.stock.ledger.olderPage')}
+            </Button>
+          </>
+        ) : (
+          <Button onClick={onClose}>{tr('common.close')}</Button>
+        )
+      }
+    >
+      <AsyncStateWrapper
+        compact
+        status={asyncStatus(ledgerQ, (d) => d.length === 0)}
+        error={ledgerQ.error}
+        onRetry={() => void ledgerQ.refetch()}
+        emptyContent={<EmptyState compact icon="fileText" title={tr('op.stock.noMovements')} />}
+      >
+        <DataTable dense columns={columns} rows={rows} rowKey={(m) => String(m.id)} maxBlockSize="60vh" aria-label={tr('op.stock.ledger')} />
+      </AsyncStateWrapper>
     </Modal>
   );
 }
