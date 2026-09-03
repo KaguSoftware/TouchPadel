@@ -111,14 +111,19 @@ export function useHeartbeat({
 
     // Depth comes from the main process when the app is running inside
     // Electron; in browser mode there is no durable queue and it stays 0.
+    // BLOCKING, not depth: conflict/failed rows also hold day close shut
+    // (SOW L688-689), and the server-side close_day guard reads this number.
     const unsubscribe = touch.onQueueUpdate((s) => {
-      queueDepth = s.depth;
+      queueDepth = s.blocking ?? s.depth;
     });
 
     async function beat() {
       try {
         const res = await sendHeartbeat(station.stationId, isTill, queueDepth, appVersion);
         if (cancelled) return;
+        // The beat succeeded: the server is reachable. The main process feeds
+        // this into its local degraded flag (the truth when no beat lands).
+        touch.pushConnState(true);
         onStateRef.current({
           degraded: res.degraded,
           queueDepth,
@@ -130,6 +135,7 @@ export function useHeartbeat({
         // NOT swallowed. A silent catch here is precisely how this went
         // unnoticed for a week; the station shows it and telemetry records it.
         captureException(error, { label: 'heartbeat' });
+        touch.pushConnState(false);
         onStateRef.current({ degraded: false, queueDepth, error, lastOkAt: null });
       }
     }

@@ -62,10 +62,15 @@ describe.skipIf(!up)('0053 till completeness', () => {
   }
 
   async function liveItemIds(tabId: string): Promise<string[]> {
+    // Tests index into this positionally (ids[0] = the first addItem call), so
+    // the rows must come back in insertion order — without the ORDER BY the
+    // planner is free to return the orders either way round, and did (a 2-in-4
+    // flake on parts[0]=6000 vs 4000).
     const { data } = await svc
       .from('orders')
-      .select('status, order_items(id, voided)')
-      .eq('tab_id', tabId);
+      .select('status, placed_at, order_items(id, voided)')
+      .eq('tab_id', tabId)
+      .order('placed_at', { ascending: true });
     return (data as { status: string; order_items: { id: string; voided: boolean }[] }[])
       .filter((o) => o.status !== 'voided')
       .flatMap((o) => o.order_items.filter((i) => !i.voided).map((i) => i.id));
