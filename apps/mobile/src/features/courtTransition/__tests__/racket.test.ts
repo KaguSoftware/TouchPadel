@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { buildRacketKit } from '../racket';
+import { buildRacketKit, HOLE_CENTRES } from '../racket';
 import { HEAD_ARM, PIVOT_Y, RACKET_SCALE } from '../swing';
 
 const triangles = (root: THREE.Object3D): number => {
@@ -88,7 +88,53 @@ describe('the racket mesh (padel-racket.html)', () => {
     expect(left.lay.children[0]!.position.x).toBeCloseTo(-right.lay.children[0]!.position.x, 12);
   });
 
-  it('lite drops the perforations, highlights and collar loft for a third of the triangles', () => {
+  it('the perforations are WHITE, and on every tier', () => {
+    for (const tier of ['full', 'lite'] as const) {
+      const rig = buildRacketKit(tier).create(1);
+      const body = rig.lay.children[0]!.children[0]!;
+      const meshes = body.children as THREE.Mesh[];
+      const white = meshes.filter(
+        (m) => (m.material as THREE.MeshStandardMaterial).color.getHexString() === 'ffffff',
+      );
+      // ONE mesh for the lot: a mesh per hole would be 30-odd extra draw calls
+      // per racket, four times over, every frame.
+      expect(white).toHaveLength(1);
+      const plugs = white[0]!.geometry;
+      const face = meshes.find(
+        (m) => (m.material as THREE.MeshStandardMaterial).color.getHexString() === '3360ab',
+      )!.geometry;
+      plugs.computeBoundingBox();
+      face.computeBoundingBox();
+      // Proud of the plate on BOTH sides, or the white z-fights the blue.
+      expect(plugs.boundingBox!.min.z).toBeLessThan(face.boundingBox!.min.z);
+      expect(plugs.boundingBox!.max.z).toBeGreaterThan(face.boundingBox!.max.z);
+      // …and inside its outline, not spilling over the rim.
+      expect(plugs.boundingBox!.min.x).toBeGreaterThan(face.boundingBox!.min.x);
+      expect(plugs.boundingBox!.max.x).toBeLessThan(face.boundingBox!.max.x);
+      expect(plugs.boundingBox!.min.y).toBeGreaterThan(face.boundingBox!.min.y);
+      expect(plugs.boundingBox!.max.y).toBeLessThan(face.boundingBox!.max.y);
+      // Each hole is a closed plug: a wall ring plus two caps.
+      expect(plugs.index!.count / 3).toBe(HOLE_CENTRES.length * 4 * (tier === 'full' ? 8 : 6));
+    }
+  });
+
+  it('the rows widen to the sweet spot and back, evenly on both sides', () => {
+    // The design tapers the lower half twice as fast as the outline does, which
+    // leaves rows 2-4 up from the throat visibly bare and makes the counts
+    // zig-zag 3, 4, 3, 4. Both halves read the outline now.
+    const rows = new Map<number, number>();
+    for (const [, y] of HOLE_CENTRES) rows.set(+y.toFixed(6), (rows.get(+y.toFixed(6)) ?? 0) + 1);
+    const counts = [...rows.entries()].sort((a, b) => a[0] - b[0]).map(([, n]) => n);
+    expect(counts).toEqual([4, 5, 6, 7, 6, 5, 4]);
+    // Every row centred on the face's own centre line.
+    for (const [y, n] of rows) {
+      const xs = HOLE_CENTRES.filter(([, hy]) => +hy.toFixed(6) === y).map(([x]) => x);
+      expect(xs).toHaveLength(n);
+      expect(xs.reduce((a, b) => a + b, 0) / n).toBeCloseTo(0, 9);
+    }
+  });
+
+  it('lite drops the highlights and the collar loft for a third of the triangles', () => {
     const full = triangles(buildRacketKit('full').create(1).mount);
     const lite = triangles(buildRacketKit('lite').create(1).mount);
     expect(lite).toBeLessThan(full / 2);
