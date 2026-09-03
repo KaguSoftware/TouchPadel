@@ -2,14 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { ulid } from 'ulid';
 import {
   MUTATION_TYPES,
+  adjustmentApplyPayloadSchema,
   clientRefRegex,
   idempotencyKeyRegex,
   makeClientRef,
   makeIdempotencyKey,
   mutationEnvelopeSchema,
+  orderAddItemsPayloadSchema,
   orderCreatePayloadSchema,
   paymentRecordPayloadSchema,
   reservationCreatePayloadSchema,
+  tabOpenPayloadSchema,
+  tabSettlePayloadSchema,
+  ticketStatusPayloadSchema,
   type MutationEnvelope,
 } from './mutations';
 
@@ -104,14 +109,27 @@ describe('mutationEnvelopeSchema', () => {
   it('still-TODO types accept any payload for now', () => {
     const result = mutationEnvelopeSchema.safeParse({
       localId: makeClientRef(STATION),
-      idempotencyKey: makeIdempotencyKey(STATION, 'ticket.status'),
-      mutationType: 'ticket.status',
+      idempotencyKey: makeIdempotencyKey(STATION, 'reservation.update'),
+      mutationType: 'reservation.update',
       payload: { anything: 'goes — TODO schema' },
       createdAt: new Date().toISOString(),
       staffId: UUID_STAFF,
       deviceId: STATION,
     });
     expect(result.success).toBe(true);
+  });
+
+  it('drill-critical types now refuse junk payloads', () => {
+    const result = mutationEnvelopeSchema.safeParse({
+      localId: makeClientRef(STATION),
+      idempotencyKey: makeIdempotencyKey(STATION, 'ticket.status'),
+      mutationType: 'ticket.status',
+      payload: { anything: 'goes' },
+      createdAt: new Date().toISOString(),
+      staffId: UUID_STAFF,
+      deviceId: STATION,
+    });
+    expect(result.success).toBe(false);
   });
 
   it('requires ISO createdAt and uuid staffId', () => {
@@ -203,6 +221,131 @@ describe('payment.record payload', () => {
   it('changeIqd without tenderedIqd is rejected', () => {
     const { tenderedIqd: _t, ...noTender } = cash();
     expect(paymentRecordPayloadSchema.safeParse(noTender).success).toBe(false);
+  });
+});
+
+describe('order.add_items payload', () => {
+  const valid = () => ({
+    tabId: UUID_A,
+    items: [{ variantId: UUID_B, qty: 1 }],
+  });
+
+  it('accepts the lean till shape (no menuItemId/clientRef needed)', () => {
+    expect(orderAddItemsPayloadSchema.safeParse(valid()).success).toBe(true);
+  });
+
+  it('requires at least one item and refuses price fields', () => {
+    expect(orderAddItemsPayloadSchema.safeParse({ ...valid(), items: [] }).success).toBe(false);
+    expect(
+      orderAddItemsPayloadSchema.safeParse({
+        ...valid(),
+        items: [{ variantId: UUID_B, qty: 1, unitPriceIqd: 1 }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('modifier qty defaults to 1', () => {
+    const parsed = orderAddItemsPayloadSchema.parse({
+      ...valid(),
+      items: [{ variantId: UUID_B, qty: 1, modifiers: [{ modifierId: UUID_A }] }],
+    });
+    expect(parsed.items[0]?.modifiers[0]?.qty).toBe(1);
+  });
+});
+
+describe('ticket.status payload', () => {
+  it('accepts the five ticket_status enum values only', () => {
+    for (const status of ['queued', 'preparing', 'ready', 'completed', 'voided'] as const) {
+      expect(ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, status }).success).toBe(true);
+    }
+    expect(
+      ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, status: 'burnt' }).success,
+    ).toBe(false);
+  });
+});
+
+describe('tab.open payload', () => {
+  it('needs at least a table, a label or a reservation', () => {
+    expect(tabOpenPayloadSchema.safeParse({ tableId: UUID_A }).success).toBe(true);
+    expect(tabOpenPayloadSchema.safeParse({ label: 'Walk-in' }).success).toBe(true);
+    expect(tabOpenPayloadSchema.safeParse({ reservationId: UUID_B }).success).toBe(true);
+    expect(tabOpenPayloadSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('tab.settle payload', () => {
+  it('card settles cannot carry a cash tender', () => {
+    expect(
+      tabSettlePayloadSchema.safeParse({ tabId: UUID_A, method: 'card' }).success,
+    ).toBe(true);
+    expect(
+      tabSettlePayloadSchema.safeParse({ tabId: UUID_A, method: 'card', tenderedIqd: 1000 })
+        .success,
+    ).toBe(false);
+  });
+
+  it('cash tender must cover the amount when both are present', () => {
+    expect(
+      tabSettlePayloadSchema.safeParse({
+        tabId: UUID_A,
+        method: 'cash',
+        amountIqd: 26000,
+        tenderedIqd: 30000,
+      }).success,
+    ).toBe(true);
+    expect(
+      tabSettlePayloadSchema.safeParse({
+        tabId: UUID_A,
+        method: 'cash',
+        amountIqd: 26000,
+        tenderedIqd: 20000,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('adjustment.apply payload', () => {
+  const discount = () => ({
+    kind: 'discount_percent' as const,
+    tabId: UUID_A,
+    value: 2500,
+    pin: '1234',
+    reasonCode: 'staff_meal',
+  });
+
+  it('accepts a discount and a price override, each in its own shape', () => {
+    expect(adjustmentApplyPayloadSchema.safeParse(discount()).success).toBe(true);
+    expect(
+      adjustmentApplyPayloadSchema.safeParse({
+        kind: 'price_override',
+        orderItemId: UUID_B,
+        newUnitPriceIqd: 5000,
+        pin: '1234',
+        reasonCode: 'damaged_item',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('caps discount_percent at 10000 basis points and requires a digits-only pin', () => {
+    expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), value: 10_001 }).success).toBe(
+      false,
+    );
+    expect(adjustmentApplyPayloadSchema.safeParse({ ...discount(), pin: '12a4' }).success).toBe(
+      false,
+    );
+  });
+
+  it('a price override must not carry a tabId — the item names the tab', () => {
+    expect(
+      adjustmentApplyPayloadSchema.safeParse({
+        kind: 'price_override',
+        orderItemId: UUID_B,
+        newUnitPriceIqd: 5000,
+        pin: '1234',
+        reasonCode: 'damaged_item',
+        tabId: UUID_A,
+      }).success,
+    ).toBe(false);
   });
 });
 

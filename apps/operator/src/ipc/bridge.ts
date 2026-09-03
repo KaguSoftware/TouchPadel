@@ -11,7 +11,7 @@ export type Unsub = () => void;
 export interface MutationEnvelope {
   /** Client entity ref: '{station}-{ulid}', e.g. 'TILL1-01J5X...' (plan override #2). */
   localId: string;
-  /** '{station}:{mutation_type}:{ulid}' (plan override #2). */
+  /** '{station}:{mutation_type}:{ulid}' — station segment MUST equal deviceId. */
   idempotencyKey: string;
   /** 'order.create' | 'order.add_items' | 'ticket.status' | 'payment.record' | 'reservation.create' | ... */
   mutationType: string;
@@ -19,6 +19,10 @@ export interface MutationEnvelope {
   payload: unknown;
   /** Station clock, informational. */
   createdAt: string;
+  /** The staff member the write is attributed to — replay 400s without it. */
+  staffId: string;
+  /** The station that owns the durable queue, e.g. 'TILL-01'. */
+  deviceId: string;
 }
 
 export interface QueueStatus {
