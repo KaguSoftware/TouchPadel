@@ -1,40 +1,26 @@
 import { useEffect, useState } from 'react';
-import { I18nManager, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Font from 'expo-font';
 import { useFonts } from 'expo-font';
-import {
-  Archivo_600SemiBold,
-  Archivo_700Bold,
-  Archivo_800ExtraBold,
-  Archivo_900Black,
-} from '@expo-google-fonts/archivo';
-import {
-  Mulish_400Regular,
-  Mulish_600SemiBold,
-  Mulish_700Bold,
-  Mulish_800ExtraBold,
-} from '@expo-google-fonts/mulish';
-import {
-  Cairo_400Regular,
-  Cairo_600SemiBold,
-  Cairo_700Bold,
-  Cairo_800ExtraBold,
-  Cairo_900Black,
-} from '@expo-google-fonts/cairo';
+import { LocaleDirContext } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { makeT } from '@touch/i18n';
 import { queryClient, persistOptions, startFocusLifecycle } from '../src/lib/queryClient';
 import { configError, startAuthRefreshLifecycle } from '../src/lib/supabase';
-import { loadBootPrefs, reconcileRtl, reloadForRtl, type BootPrefs } from '../src/lib/bootPrefs';
+import { loadBootPrefs, type BootPrefs } from '../src/lib/bootPrefs';
 import { addBreadcrumb, captureException } from '../src/lib/telemetry';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
+import { DirectionRoot } from '../src/i18n/direction';
+import { lastKnownLocale } from '../src/i18n/lastLocale';
+import { ensureFontsLoaded, fontsFor } from '../src/theme/fonts';
+import { lastKnownAppearance } from '../src/theme/lastAppearance';
+import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { AuthProvider } from '../src/features/auth/context';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { ErrorState, OfflineBanner } from '../src/components/states';
@@ -44,34 +30,13 @@ import { palettes, ThemeProvider, useTheme } from '../src/theme';
 /**
  * `/` is owned by (tabs)/index.tsx. A separate app/index.tsx used to redirect
  * there, which made `/` ambiguous and cost a mount → redirect → mount flash on
- * every cold start. Deep links into (auth)/(gated) get the tabs beneath them.
+ * every cold start. Deep links into the pushed screens get the tabs beneath them.
  */
 export const unstable_settings = { initialRouteName: '(tabs)' };
 
-// Arabic is a first-class locale (bilingual EN/AR, full RTL). The direction
-// itself is reconciled with the stored language in src/lib/bootPrefs.ts.
-I18nManager.allowRTL(true);
 // Splash stays up until boot prefs + the brand fonts are in (no flash of
 // fallback type, no light→dark flash, no en→ar flash).
 void SplashScreen.preventAutoHideAsync().catch(() => {});
-
-const LATIN_FONTS = {
-  Archivo_600SemiBold,
-  Archivo_700Bold,
-  Archivo_800ExtraBold,
-  Archivo_900Black,
-  Mulish_400Regular,
-  Mulish_600SemiBold,
-  Mulish_700Bold,
-  Mulish_800ExtraBold,
-};
-const ARABIC_FONTS = {
-  Cairo_400Regular,
-  Cairo_600SemiBold,
-  Cairo_700Bold,
-  Cairo_800ExtraBold,
-  Cairo_900Black,
-};
 
 /**
  * Reveal a screen that renders INSTEAD of AppRoot.
@@ -90,42 +55,73 @@ function useRevealSplash() {
 }
 
 /**
+ * The two screens below render OUTSIDE AppRoot's providers. They still speak
+ * the user's language (the boot hook and every switch record it in
+ * lastKnownLocale) and mirror with it, through the same provider + root the
+ * app uses — a throwaway LocaleProvider costs nothing.
+ */
+function FallbackShell({ children }: { children: React.ReactNode }) {
+  // Keyed: the config screen renders before boot prefs resolve, and the
+  // provider seeds its state once — the key remounts it in the language the
+  // boot hook then records.
+  const locale = lastKnownLocale();
+  return (
+    <LocaleProvider key={locale} initialLocale={locale}>
+      <ThemeProvider initialAppearance={lastKnownAppearance()}>
+        <DirectionRoot>{children}</DirectionRoot>
+      </ThemeProvider>
+    </LocaleProvider>
+  );
+}
+
+/**
  * expo-router renders this INSTEAD of the layout when a render throws anywhere
- * beneath it. It renders OUTSIDE the providers, so it builds its own translator
- * and a fonts-aware theme (an unregistered family here would red-box on iOS).
+ * beneath it. Nothing above survives, hence the shell of its own.
  */
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
-  const t = makeT(I18nManager.isRTL ? 'ar' : 'en');
   useRevealSplash();
   useEffect(() => {
     captureException(error, { scope: 'render', fatal: true });
   }, [error]);
   return (
-    <ThemeProvider fontsReady={Font.isLoaded('Archivo_900Black') || Font.isLoaded('Cairo_900Black')}>
-      <View style={styles.fill}>
-        <ErrorState
-          title={t('errors.crashTitle')}
-          message={t('errors.crashBody')}
-          retryLabel={t('common.retry')}
-          onRetry={() => void retry()}
-        />
-        {__DEV__ ? <Text style={styles.devDetail}>{String(error?.message ?? error)}</Text> : null}
-      </View>
-    </ThemeProvider>
+    <FallbackShell>
+      <CrashScreen error={error} retry={retry} />
+    </FallbackShell>
+  );
+}
+
+function CrashScreen({ error, retry }: ErrorBoundaryProps) {
+  const { t } = useLocale();
+  return (
+    <View style={styles.fill}>
+      <ErrorState
+        title={t('errors.crashTitle')}
+        message={t('errors.crashBody')}
+        retryLabel={t('common.retry')}
+        onRetry={() => void retry()}
+      />
+      {__DEV__ ? <Text style={styles.devDetail}>{String(error?.message ?? error)}</Text> : null}
+    </View>
   );
 }
 
 /** Missing build-time env: a configuration failure, rendered rather than crashed. */
 function ConfigErrorScreen() {
-  const t = makeT(I18nManager.isRTL ? 'ar' : 'en');
   useRevealSplash();
   return (
-    <ThemeProvider fontsReady={false}>
-      <View style={styles.fill}>
-        <ErrorState title={t('errors.configTitle')} message={t('errors.configBody')} retryLabel="" />
-        {__DEV__ ? <Text style={styles.devDetail}>{configError}</Text> : null}
-      </View>
-    </ThemeProvider>
+    <FallbackShell>
+      <ConfigErrorBody />
+    </FallbackShell>
+  );
+}
+
+function ConfigErrorBody() {
+  const { t } = useLocale();
+  return (
+    <View style={styles.fill}>
+      <ErrorState title={t('errors.configTitle')} message={t('errors.configBody')} retryLabel="" />
+      {__DEV__ ? <Text style={styles.devDetail}>{configError}</Text> : null}
+    </View>
   );
 }
 
@@ -133,15 +129,50 @@ function RootStack() {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
+  const { dir } = useLocale();
+  // Real native bars on every pushed screen. The tabs draw the native tab bar
+  // instead, and (auth) is a nested stack that configures its own.
+  const header = useNativeHeaderOptions();
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(gated)" />
-      <Stack.Screen name="availability" />
-      <Stack.Screen name="settings" />
-      <Stack.Screen name="reset-password" />
-    </Stack>
+    /**
+     * THE NATIVE BAR'S DIRECTION.
+     *
+     * react-navigation reads the bar's direction from `LocaleDirContext` and
+     * hands it to react-native-screens as the header config's `direction`,
+     * which sets the navigation controller's semantic direction on iOS (bar,
+     * back item + chevron, push/pop edge, back-swipe edge) and the toolbar's
+     * layout direction on Android. expo-router's container fills that context
+     * from the native RTL flag — a boot-time constant, and one this app pins
+     * LTR — so it is provided here from the app's own direction instead. It
+     * updates live with the language, like everything under DirectionRoot.
+     */
+    <LocaleDirContext.Provider value={dir}>
+      <Stack screenOptions={header}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* Formerly the (auth) group. Flattened for the same reason as (gated):
+          a screen pushed from the tabs was the first entry of a nested stack,
+          so UIKit drew no back item and a JS stand-in had to fill in. Each
+          screen carries `RequireNoSession` in place of the layout's redirect. */}
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+        <Stack.Screen name="verify-result" options={{ headerShown: false }} />
+        <Stack.Screen name="sign-in" />
+        <Stack.Screen name="sign-up" />
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="availability" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="profile-edit" />
+        <Stack.Screen name="change-password" />
+        {/* Formerly the (gated) group, flattened onto the root stack so that
+          every push leaves real history behind it and UIKit draws its OWN back
+          item — the same one, animated, on every screen. Each carries its own
+          `RequireSession` in place of the group layout's guard. */}
+        <Stack.Screen name="review" />
+        <Stack.Screen name="booking/[id]" />
+        <Stack.Screen name="success" options={{ headerShown: false }} />
+        <Stack.Screen name="reset-password" />
+      </Stack>
+    </LocaleDirContext.Provider>
   );
 }
 
@@ -164,9 +195,8 @@ function ThemedChrome() {
 }
 
 /**
- * Boot gate: resolve the stored language + appearance BEFORE the first frame,
- * and make sure the native layout direction matches the language (reloading
- * once in development if it does not). Nothing paints until this is known.
+ * Boot gate: resolve the stored language + appearance BEFORE the first frame.
+ * Nothing paints until this is known.
  */
 export default function RootLayout() {
   const [prefs, setPrefs] = useState<BootPrefs | null>(null);
@@ -175,9 +205,7 @@ export default function RootLayout() {
     let cancelled = false;
     loadBootPrefs()
       .then((p) => {
-        if (cancelled) return;
-        if (reconcileRtl(p.locale) && reloadForRtl()) return; // reloading into the right direction
-        setPrefs(p);
+        if (!cancelled) setPrefs(p);
       })
       .catch((error) => {
         captureException(error, { scope: 'boot.prefs' });
@@ -196,9 +224,7 @@ export default function RootLayout() {
 function AppRoot({ prefs }: { prefs: BootPrefs }) {
   // Only the active script blocks first paint (8 Latin faces or 5 Cairo); the
   // other loads in the background so a language switch has its faces ready.
-  const primary = prefs.locale === 'ar' ? ARABIC_FONTS : LATIN_FONTS;
-  const secondary = prefs.locale === 'ar' ? LATIN_FONTS : ARABIC_FONTS;
-  const [fontsLoaded, fontsError] = useFonts(primary);
+  const [fontsLoaded, fontsError] = useFonts(fontsFor(prefs.locale));
 
   // Token refresh follows the foreground lifecycle; query focus follows it too.
   useEffect(() => {
@@ -222,8 +248,8 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
 
   useEffect(() => {
     if (!fontsLoaded) return;
-    Font.loadAsync(secondary).catch((error) => captureException(error, { scope: 'fonts.secondary' }));
-  }, [fontsLoaded, secondary]);
+    void ensureFontsLoaded(prefs.locale === 'ar' ? 'en' : 'ar');
+  }, [fontsLoaded, prefs.locale]);
 
   if (!fontsLoaded && !fontsError) return null; // splash is still covering us
 
@@ -234,14 +260,18 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <SafeAreaProvider>
         <LocaleProvider initialLocale={prefs.locale}>
-          <ThemeProvider initialAppearance={prefs.appearance} fontsReady={fontsLoaded && !fontsError}>
-            <AuthProvider>
-              <ToastProvider>
-                <ThemedChrome />
-                <RootStack />
-                <ConnectivityBanner />
-              </ToastProvider>
-            </AuthProvider>
+          <ThemeProvider initialAppearance={prefs.appearance}>
+            {/* Everything that paints sits under DirectionRoot: the navigator,
+                the offline banner, the toast host ToastProvider appends. */}
+            <DirectionRoot>
+              <AuthProvider>
+                <ToastProvider>
+                  <ThemedChrome />
+                  <RootStack />
+                  <ConnectivityBanner />
+                </ToastProvider>
+              </AuthProvider>
+            </DirectionRoot>
           </ThemeProvider>
         </LocaleProvider>
       </SafeAreaProvider>

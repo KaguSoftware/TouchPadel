@@ -6,12 +6,13 @@ import {
   Image,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '../../src/i18n/text';
 import { useFocusEffect } from 'expo-router';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
+import { logicalSign } from '../../src/i18n/direction';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
 import {
   openNowInfo,
@@ -21,6 +22,7 @@ import {
 import { useAuth } from '../../src/features/auth/context';
 import { registerPushToken } from '../../src/features/profile/push';
 import { useCourtTransition } from '../../src/features/courtTransition/useCourtTransition';
+import { takeBookingSheetRequest } from '../../src/features/courtTransition/openIntent';
 import {
   lerp,
   pitchEase,
@@ -43,6 +45,7 @@ import { BackChevronIcon } from '../../src/components/icons';
 import { Court3D, type Court3DHandle } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 
 /** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
 const LOGO_H = 30;
@@ -89,7 +92,9 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
         }}
       />
       <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: colors.mut }}>
-        {info.open ? t('courts.openNow', { hours: info.label }) : t('courts.closedNow')}
+        {/* Latin-digit times in an Arabic sentence: isolated so the bidi algorithm
+            keeps "09:00–02:00" in order (formatTimeRange does the same). */}
+        {info.open ? t('courts.openNow', { hours: isolate(info.label) }) : t('courts.closedNow')}
       </Text>
     </View>
   );
@@ -178,7 +183,7 @@ function NetCta({
 export default function BookHomeScreen() {
   const { t, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const settings = useVenueSettings();
   const degraded = useIsDegraded();
@@ -231,6 +236,17 @@ export default function BookHomeScreen() {
     }, [isOpen, close]),
   );
 
+  // Another screen asked for the sheet (My bookings' "Book your next game"):
+  // take the one-shot intent as the tab comes up and play the transition from
+  // the court, exactly as a tap on the net button would. Taking it clears it,
+  // so a later visit to the tab lands on the court; an already-open sheet is
+  // the same destination, so there is nothing to animate.
+  useFocusEffect(
+    useCallback(() => {
+      if (takeBookingSheetRequest() && !isOpen) open();
+    }, [isOpen, open]),
+  );
+
   // The court layer: lifted 60 px and dimmed to 55 % (PITCH ease, direction-aware).
   // Both GL surfaces (court, ball) carry it; the button between them does not.
   const courtLayer = useMemo(() => {
@@ -280,12 +296,20 @@ export default function BookHomeScreen() {
 
   // Header: the back button fades in (0.2 → 0.5) and the title slides over;
   // the footer line leaves with the button.
+  //
+  // The slide is a `translateX`, which is the one horizontal quantity Yoga
+  // never mirrors (BaseViewProps::resolveTransform ignores the layout
+  // direction), so it is the one that has to name the direction itself. The
+  // button is placed logically (`start`), so it sits on the RIGHT in Arabic
+  // and the title has to move the other way to clear it: `logicalSign` is
+  // exactly that mapping, and using it keeps this from drifting out of step
+  // with the rest of the app the way a hand-rolled ternary can.
   const header = useMemo(() => {
     const table = (range: Range, out: Range) =>
       progress.interpolate({ ...sampleEased(range, out, undefined, 1), extrapolate: 'clamp' });
     return {
       fade: table(SPEC.back.fade, [0, 1]),
-      shift: table(SPEC.back.fade, [0, dir === 'rtl' ? -BACK_SHIFT : BACK_SHIFT]),
+      shift: table(SPEC.back.fade, [0, logicalSign(dir) * BACK_SHIFT]),
       footer: table(SPEC.button.fade, [1, 0]),
     };
   }, [progress, dir]);
@@ -333,7 +357,8 @@ export default function BookHomeScreen() {
         <View style={{ zIndex: 1, marginTop: space.s, marginStart: space.l, marginEnd: space.l }}>
           <DegradedBanner
             lead={t('degraded.leadConnectionLost')}
-            message={t('degraded.bannerCourts', { phone: phone ?? '' })}
+            // Isolated: an RTL paragraph would otherwise reorder the number groups.
+            message={t('degraded.bannerCourts', { phone: phone ? isolate(phone) : '' })}
             phone={phone}
           />
         </View>

@@ -7,16 +7,28 @@
  * every cold start of an Arabic or dark-mode install a wrong first frame: a
  * white flash, Arabic strings in Latin faces (tofu), and a layout direction
  * that disagreed with the text until the next launch.
+ *
+ * Layout direction needs nothing from here beyond the locale itself: it is
+ * derived from the locale in the React tree (src/i18n/direction.tsx), so there
+ * is no native flag to reconcile and no reload to schedule.
  */
-import { DevSettings, I18nManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as Localization from 'expo-localization';
-import { isRtl, type Locale } from '@touch/i18n';
+import type { Locale } from '@touch/i18n';
+import { rememberLocale } from '../i18n/lastLocale';
+import { rememberAppearance } from '../theme/lastAppearance';
 import { addBreadcrumb, captureException } from './telemetry';
 
 export const APPEARANCE_KEY = 'tp.appearance';
 export const LOCALE_KEY = 'tp.locale';
+
+/**
+ * Keys the reload-based language switch (retired 2026-09-02) left on devices:
+ * the parked route it replayed after reloading, and its reload-loop marker.
+ * Removed once, best-effort, so old installs carry no debris.
+ */
+export const RETIRED_KEYS = ['tp.resumeRoute', 'tp.rtlReloadPending'] as const;
 
 export type BootAppearance = 'light' | 'dark';
 
@@ -76,41 +88,11 @@ export async function loadBootPrefs(): Promise<BootPrefs> {
   if (!locale) locale = await readLegacyLocale();
   const localeFromStore = locale !== null;
   const resolved = locale ?? deviceLocale();
+  rememberLocale(resolved);
+  rememberAppearance(appearance);
+  AsyncStorage.multiRemove([...RETIRED_KEYS]).catch((error) =>
+    captureException(error, { label: 'bootPrefs.retire' }),
+  );
   addBreadcrumb('boot.prefs', { appearance, locale: resolved, localeFromStore });
   return { appearance, locale: resolved, localeFromStore };
-}
-
-/**
- * Keep the native layout-direction flag in step with the active locale.
- *
- * `I18nManager.forceRTL` only takes effect for views created after the next
- * JS load, while JS-side reads of `isRTL` flip immediately — so a session that
- * flips it mid-flight renders Arabic text in an LTR layout with some icons
- * mirrored and some not. Returns true when the flag was changed, i.e. when the
- * caller must reload before painting anything.
- */
-export function reconcileRtl(locale: Locale): boolean {
-  const wantRtl = isRtl(locale);
-  if (I18nManager.isRTL === wantRtl) return false;
-  I18nManager.allowRTL(true);
-  I18nManager.forceRTL(wantRtl);
-  addBreadcrumb('locale.forceRTL', { wantRtl });
-  return true;
-}
-
-/**
- * Reload the JS bundle so a changed RTL flag applies. Available in development
- * (Expo Go / dev client) — the loop this app is tested in. Production builds
- * surface `settings.rtlRestartNote` instead (expo-updates' reloadAsync is the
- * release-build equivalent; it arrives with the EAS setup).
- */
-export function reloadForRtl(): boolean {
-  if (!__DEV__) return false;
-  try {
-    DevSettings.reload();
-    return true;
-  } catch (error) {
-    captureException(error, { label: 'locale.reload' });
-    return false;
-  }
 }

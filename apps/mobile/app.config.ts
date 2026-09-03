@@ -14,7 +14,9 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 const GOOGLE_CLIENT_ID_RE = /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/;
 const rawGoogleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 const googleIosClientId =
-  rawGoogleIosClientId && GOOGLE_CLIENT_ID_RE.test(rawGoogleIosClientId) ? rawGoogleIosClientId : undefined;
+  rawGoogleIosClientId && GOOGLE_CLIENT_ID_RE.test(rawGoogleIosClientId)
+    ? rawGoogleIosClientId
+    : undefined;
 const googleIosUrlScheme = googleIosClientId
   ? 'com.googleusercontent.apps.' + googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, '')
   : undefined;
@@ -39,11 +41,32 @@ if (!googleIosUrlScheme) {
 const plugins: NonNullable<ExpoConfig['plugins']> = [
   'expo-router',
   'expo-secure-store',
-  // THE RTL FIX. `extra.supportsRTL` (which this file used to set) has not
-  // been read from `extra` since ~SDK 44 — it was inert, so the natively
-  // configured half of the app's central bilingual requirement was simply
-  // absent. This is where it actually lives.
-  ['expo-localization', { supportsRTL: true }],
+  // THE NATIVE RTL FLAG IS PINNED LEFT-TO-RIGHT, ON EVERY LAUNCH, BEFORE REACT.
+  //
+  // Layout direction in this app is application state: src/i18n/direction.tsx
+  // puts the chosen language's direction on the root view and Fabric mirrors
+  // the whole tree live, no reload. React Native's own flag (RCTI18nUtil /
+  // I18nUtil) is a boot-time constant the running bundle cannot observe, and
+  // when RTL it makes Fabric rewrite every physical `left`/`right` into
+  // start/end for the whole surface — a second render model for the same
+  // language. So it stays LTR:
+  //
+  // `supportsRTL: false` makes expo-localization's OnCreate write
+  // RCTI18nUtil_allowRTL=false before React loads, on every launch — and on
+  // iOS RCTI18nUtil_forceRTL=false as well (LocalizationModule.swift), which
+  // retires the forceRTL(true) older builds persisted. Android's module
+  // (LocalizationModule.kt) writes forceRTL only from a `forcesRTL` option,
+  // which must NEVER be passed: on iOS that branch sets allowRTL=true and
+  // derives forceRTL from the DEVICE language. So on Android the retired
+  // forceRTL(true) of an old install is cleared by index.js's JS pin instead,
+  // and that install's first launch after the update may sample an RTL root
+  // once — harmless: the root view carries its own direction, the only
+  // physical props live in an LtrIsland, and the flag is never read in JS.
+  // Expo Go carries no Info.plist keys, so there the JS pin does all of it.
+  //
+  // With only `supportsRTL: true`, forceRTL would follow the device language
+  // and overwrite the in-app choice at every start — the original bug.
+  ['expo-localization', { supportsRTL: false }],
   ['expo-splash-screen', { backgroundColor: '#FFFFFF', resizeMode: 'contain' }],
   // Sign in with Apple entitlement (com.apple.developer.applesignin). EAS Build
   // syncs the capability to the App ID on every build (EXPO_NO_CAPABILITY_SYNC opts out).

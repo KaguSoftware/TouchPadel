@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Image, ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, View } from 'react-native';
+import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
+import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
@@ -17,7 +19,7 @@ import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui'
 import { MenuRow } from '../../src/components/booking';
 import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
-import { useToast } from '../../src/components/overlays';
+import { ConfirmationDialog, useToast } from '../../src/components/overlays';
 
 const LOGO_H = 40;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
@@ -30,12 +32,13 @@ export default function ProfileScreen() {
   const { t } = useLocale();
   const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const settings = useVenueSettings();
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   const phone = venuePhoneOf(settings.data);
   const onCallVenue = () => {
@@ -45,17 +48,33 @@ export default function ProfileScreen() {
       return;
     }
     void callPhone(phone).then((ok) => {
-      if (!ok) toast(t('errors.callFailed', { phone }), 'error');
+      if (!ok) toast(t('errors.callFailed', { phone: isolate(phone) }), 'error');
     });
   };
 
   const onSignOut = async () => {
+    setError(null);
+    setSigningOut(true);
     try {
       await signOut(supabase);
+      setSignOutOpen(false);
       router.replace('/(tabs)');
     } catch (err) {
+      setSignOutOpen(false);
       setError(t(mapErrorToKey(err)));
+    } finally {
+      setSigningOut(false);
     }
+  };
+
+  // The app's own dialog (spec R7 shape: Cancel, then the destructive Sign
+  // out), not Alert.alert: a native alert follows the SYSTEM language's
+  // direction, so an Arabic app on an English phone got an LTR alert with
+  // English button order.
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const confirmSignOut = () => {
+    if (signingOut) return;
+    setSignOutOpen(true);
   };
 
   const header = (
@@ -103,13 +122,13 @@ export default function ProfileScreen() {
           <Button
             label={t('auth.signIn')}
             variant="primary"
-            onPress={() => router.push('/(auth)/sign-in')}
+            onPress={() => router.push('/sign-in')}
             style={{ alignSelf: 'stretch', marginTop: space.xl }}
           />
           <Button
             label={t('auth.signUp')}
             variant="cta"
-            onPress={() => router.push('/(auth)/sign-up')}
+            onPress={() => router.push('/sign-up')}
             style={{ alignSelf: 'stretch', marginTop: 9 }}
           />
         </View>
@@ -131,7 +150,12 @@ export default function ProfileScreen() {
     '•';
   const langLabel =
     profile.data?.preferred_lang === 'ar' ? t('settings.arabic') : t('settings.english');
-  const detailLine = [profile.data?.phone, langLabel].filter(Boolean).join(' · ');
+  // The phone is Latin digits sitting next to an Arabic label around a '·'
+  // separator: without an isolate the bidi algorithm reorders the number
+  // against the separator in RTL. Same reason the email is isolated below.
+  const detailLine = [profile.data?.phone ? isolate(profile.data.phone) : null, langLabel]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Screen>
@@ -168,23 +192,33 @@ export default function ProfileScreen() {
                 {initials}
               </Text>
             </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
+            {/* alignItems shrink-wraps each line to the LEADING edge. Natural text
+                alignment on iOS follows the first strong character, so the email
+                (Latin) and a Latin-script name would otherwise sit on the trailing
+                edge in Arabic; Android already puts them at the start edge. */}
+            <View style={{ flex: 1, minWidth: 0, alignItems: 'flex-start' }}>
               <Text
                 numberOfLines={1}
-                style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink }}
+                style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink, textAlign: 'auto' }}
               >
-                {name}
+                {isolate(name)}
               </Text>
               <Text
-                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, marginTop: 2 }}
+                style={{
+                  fontFamily: fonts.body400,
+                  fontSize: 12,
+                  color: colors.mut,
+                  marginTop: 2,
+                  textAlign: 'auto',
+                }}
                 numberOfLines={1}
               >
-                {email}
+                {isolate(email)}
               </Text>
               {/* Design: "{phone} · {language}" on the third line. */}
               <Text
                 numberOfLines={1}
-                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut }}
+                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, textAlign: 'auto' }}
               >
                 {detailLine}
               </Text>
@@ -201,7 +235,7 @@ export default function ProfileScreen() {
                 label={t('auth.addPhoneLink')}
                 variant="secondary"
                 size="compact"
-                onPress={() => router.push({ pathname: '/(auth)/complete-profile', params: { returnTo: 'back' } })}
+                onPress={() => router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } })}
                 labelColor={colors.ambstrong}
                 style={{ marginTop: 10, alignSelf: 'flex-start', backgroundColor: 'transparent', borderColor: colors.ambstrong }}
               />
@@ -248,12 +282,23 @@ export default function ProfileScreen() {
             label={t('auth.signOut')}
             variant="secondary"
             size="medium"
-            onPress={() => void onSignOut()}
+            onPress={confirmSignOut}
             labelColor={colors.redtext}
             style={{ marginTop: space.m, backgroundColor: 'transparent' }}
           />
         </ScrollView>
       )}
+      <ConfirmationDialog
+        visible={signOutOpen}
+        title={t('auth.signOut')}
+        body={t('auth.signOutConfirm')}
+        confirmLabel={t('auth.signOut')}
+        cancelLabel={t('common.cancel')}
+        busy={signingOut}
+        danger
+        onConfirm={() => void onSignOut()}
+        onDismiss={() => setSignOutOpen(false)}
+      />
     </Screen>
   );
 }

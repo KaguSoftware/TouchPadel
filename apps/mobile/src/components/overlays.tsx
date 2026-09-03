@@ -4,6 +4,13 @@
  * and the transient toast. Every Modal carries onRequestClose so the Android
  * hardware back button is never trapped (the availability-modal lesson), and
  * statusBarTranslucent so the scrim covers the status bar under edge-to-edge.
+ *
+ * A Modal's content is hosted in a window of its own (Android) or a presented
+ * controller (iOS), outside the root view's hierarchy, so each modal root
+ * restates the layout direction rather than trusting it to inherit, and
+ * blocks its own input while a language switch is applying (the cover in
+ * DirectionRoot never reaches a Modal — defensive: no screen offers a
+ * language control while one is open; close the Modal before switching).
  */
 import {
   createContext,
@@ -15,9 +22,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
+import { Text } from '../i18n/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocale } from '../i18n/LocaleProvider';
+import { useLocale, useLocaleSwitch } from '../i18n/LocaleProvider';
 import { brand, radius, shadows, space, useTheme } from '../theme';
 import { Button } from './ui';
 
@@ -40,7 +48,8 @@ export function NoticeSheet({
   onClose: () => void;
 }) {
   const { colors, fonts } = useTheme();
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
+  const { switching } = useLocaleSwitch();
   const insets = useSafeAreaInsets();
   return (
     <Modal
@@ -54,7 +63,13 @@ export function NoticeSheet({
         accessibilityRole="button"
         accessibilityLabel={t('common.close')}
         onPress={onClose}
-        style={{ flex: 1, backgroundColor: brand.scrim, justifyContent: 'flex-end' }}
+        style={{
+          flex: 1,
+          direction: dir,
+          pointerEvents: switching ? 'none' : 'auto',
+          backgroundColor: brand.scrim,
+          justifyContent: 'flex-end',
+        }}
       >
         {/* Swallow taps inside the sheet so only the backdrop dismisses — as a
             View with a responder, not a Pressable, so screen readers do not
@@ -145,7 +160,8 @@ export function ConfirmationDialog({
   onDismiss: () => void;
 }) {
   const { colors, fonts } = useTheme();
-  const { t } = useLocale();
+  const { t, dir } = useLocale();
+  const { switching } = useLocaleSwitch();
   const dismissUnlessBusy = () => {
     if (!busy) onDismiss();
   };
@@ -160,6 +176,8 @@ export function ConfirmationDialog({
       <View
         style={{
           flex: 1,
+          direction: dir,
+          pointerEvents: switching ? 'none' : 'auto',
           backgroundColor: brand.scrimStrong,
           alignItems: 'center',
           justifyContent: 'center',

@@ -5,12 +5,14 @@
  * Stateless — all data arrives as props (spec §06).
  */
 import type { ComponentType, ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { formatDayNumber, formatMonthShort, type MessageKey } from '@touch/i18n';
+import { Pressable, View } from 'react-native';
+import { Text } from '../i18n/text';
+import { formatDayNumber, formatMonthShort, isolate, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, slotStateStyles, space, useTheme, type Palette } from '../theme';
 import type { MergedCell } from '../features/availability/assemble';
 import { CardIcon, ChevronIcon, WifiOffIcon, type IconProps } from './icons';
+import { Button } from './ui';
 
 // ── Status pill (7 statuses, all handled — spec BookingStatusIndicator) ─────
 
@@ -159,7 +161,12 @@ export function SummaryGrid({
             </View>
             <Text
               numberOfLines={2}
+              // Shrink-wrapped to the leading edge (logical, English unchanged):
+              // a value with no strong character outside its isolate — the time
+              // range — would otherwise take iOS's default paragraph direction
+              // and sit on the trailing edge under RTL.
               style={{
+                alignSelf: 'flex-start',
                 marginTop: 3,
                 fontFamily: row.emphasis ? fonts.body800 : fonts.body700,
                 fontSize: 13,
@@ -226,6 +233,120 @@ export function PayAtDeskCard({
   );
 }
 
+// ── Held-slot card (bookings — checkout still in progress) ──────────────────
+
+/**
+ * A slot the guest is holding but has not confirmed (0058).
+ *
+ * Holds were invisible in the app: `splitBookings` dropped them, so a guest who
+ * backed out of Review could not see that three slots and three of their hold
+ * allowances were still spent in their name — the fourth tap just failed with
+ * HOLD_QUOTA_EXCEEDED. This card is where a hold is visible and answerable:
+ * finish it, or hand it straight back.
+ *
+ * The countdown is the guest's own deadline, so it is the loudest thing here,
+ * and it turns red in the last quarter — the same signal the Review card uses.
+ */
+export function HeldSlotCard({
+  courtName,
+  when,
+  price,
+  countdown,
+  urgent,
+  busy,
+  onResume,
+  onRelease,
+}: {
+  courtName: string;
+  when: string;
+  price: string | null;
+  countdown: string;
+  urgent: boolean;
+  busy: boolean;
+  onResume: () => void;
+  onRelease: () => void;
+}) {
+  const { colors, fonts, tracking } = useTheme();
+  const { t } = useLocale();
+  return (
+    <View
+      style={{
+        marginTop: 9,
+        backgroundColor: colors.card,
+        borderWidth: 1.5,
+        borderColor: urgent ? colors.redline : colors.gline,
+        borderRadius: radius.button,
+        paddingStart: space.m,
+        paddingEnd: space.m,
+        paddingTop: space.sm,
+        paddingBottom: space.sm,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            numberOfLines={1}
+            // pickLocale falls back to the English name; a Latin-only name in a
+            // stretched Text would sit on the trailing edge under RTL on iOS.
+            style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
+          >
+            {courtName}
+          </Text>
+          <Text
+            numberOfLines={2}
+            style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, marginTop: 2 }}
+          >
+            {when}
+            {price ? ` · ${price}` : ''}
+          </Text>
+        </View>
+        {/* The deadline, in tabular figures so the digits do not jitter. */}
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text
+            style={{
+              fontFamily: fonts.body700,
+              fontSize: 9.5,
+              letterSpacing: tracking(0.6),
+              textTransform: 'uppercase',
+              color: colors.mut2,
+            }}
+          >
+            {t('booking.holdEndsIn')}
+          </Text>
+          <Text
+            style={{
+              fontFamily: fonts.display800,
+              fontSize: 17,
+              color: urgent ? colors.redtext : colors.gtext,
+              fontVariant: ['tabular-nums'],
+            }}
+          >
+            {countdown}
+          </Text>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 11 }}>
+        <Button
+          label={t('booking.finishBooking')}
+          onPress={onResume}
+          variant="cta"
+          size="compact"
+          disabled={busy}
+          style={{ flex: 1 }}
+        />
+        <Button
+          label={t('booking.releaseHold')}
+          onPress={onRelease}
+          variant="secondary"
+          size="compact"
+          busy={busy}
+          style={{ flex: 1 }}
+        />
+      </View>
+    </View>
+  );
+}
+
 // ── Degraded banner (courts / availability / bookings) ──────────────────────
 
 /**
@@ -249,8 +370,14 @@ export function DegradedBanner({
   const bold = { fontFamily: fonts.body800 };
   const parts: ReactNode[] = [];
   if (phone && message.includes(phone)) {
-    const [before, ...rest] = message.split(phone);
-    parts.push(before, <Text key="phone" style={bold}>{phone}</Text>, rest.join(phone));
+    // Latin digits inside an Arabic sentence: isolated, or the bidi algorithm
+    // reorders the phone's space-separated groups against the RTL paragraph.
+    // A caller may have isolated the placeholder already (courts tab): split
+    // on that form so the isolate is not nested.
+    const wrapped = isolate(phone);
+    const marker = message.includes(wrapped) ? wrapped : phone;
+    const [before, ...rest] = message.split(marker);
+    parts.push(before, <Text key="phone" style={bold}>{wrapped}</Text>, rest.join(marker));
   } else {
     parts.push(message);
   }
@@ -303,7 +430,7 @@ export function DayChip({
   onPress: () => void;
   /**
    * The booking sheet's pill (court → booking transition, 2026-09-01): 40 wide,
-   * radius 10, 6×4 padding, 9 pt weekday + 14 pt day — six fit in the card.
+   * radius 10, 5×4 padding, 9 pt weekday + 14 pt day — six fit in the card.
    */
   compact?: boolean;
 }) {
@@ -317,8 +444,8 @@ export function DayChip({
         minWidth: compact ? 40 : 52,
         alignItems: 'center',
         gap: compact ? 0 : 1,
-        paddingTop: compact ? 6 : 8,
-        paddingBottom: compact ? 6 : 8,
+        paddingTop: compact ? 5 : 8,
+        paddingBottom: compact ? 5 : 8,
         paddingStart: compact ? 4 : 6,
         paddingEnd: compact ? 4 : 6,
         borderRadius: compact ? 10 : radius.cell,
@@ -498,7 +625,13 @@ export function MenuRow({
         >
           {icon}
         </View>
-        <Text numberOfLines={1} style={{ flex: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}>
+        <Text
+          numberOfLines={1}
+          // flexShrink (not flex:1): the label takes only the width it needs so
+          // it sits against the icon, and still truncates when a long label
+          // would otherwise push into the chevron.
+          style={{ flexShrink: 1, fontFamily: fonts.body700, fontSize: 13.5, color: colors.ink }}
+        >
           {label}
         </Text>
       </View>
