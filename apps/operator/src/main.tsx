@@ -16,6 +16,7 @@ import { LocaleProvider, useLocale } from './lib/i18n';
 import { AuthProvider, useAuth, homeRoute } from './lib/auth';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
 import { captureException, installGlobalHandlers } from './lib/telemetry';
+import { initQueueResults } from './lib/queueResults';
 
 // Code-based route tree for the shell phase. TODO(FE2): switch to file-based codegen
 // (@tanstack/router-plugin generating routeTree.gen.ts) once typed search params land.
@@ -66,11 +67,13 @@ declare module '@tanstack/react-router' {
   }
 }
 
-// Browser mode: TanStack Query reads + app.* RPC writes. TODO(Electron): durable
-// writes move to the IPC bridge -> SQLite queue (design-arch.md §2.1).
+// Browser mode: TanStack Query reads + app.* RPC writes. In Electron the
+// registered mutation types flow renderer -> IPC -> SQLite queue -> replay
+// (lib/mutate.ts), and their results land here through initQueueResults.
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, retry: 1 } },
 });
+initQueueResults(queryClient);
 
 /**
  * Boundary fallback for everything ABOVE the router — providers, the sidebar

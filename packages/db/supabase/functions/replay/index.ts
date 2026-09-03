@@ -57,6 +57,9 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
     }),
   }),
   // payload.action discriminates the desk edit; all four RPCs are live (0008).
+  // p_reason on every action (the RPCs take it since 0048): a desk override
+  // replayed through the queue must land with its reason (SOW L313), not as
+  // the bare default the audit row would otherwise show.
   'reservation.update': (p) => {
     const routes: Record<string, Route> = {
       move: {
@@ -67,12 +70,17 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
           p_court_id: p.courtId ?? null,
           p_start_at: p.startAt ?? null,
           p_end_at: p.endAt ?? null,
+          p_reason: p.reason ?? null,
         }),
       },
       extend: {
         rpc: 'extend_reservation',
         entity: 'reservation',
-        args: () => ({ p_reservation_id: p.reservationId, p_new_end_at: p.newEndAt }),
+        args: () => ({
+          p_reservation_id: p.reservationId,
+          p_new_end_at: p.newEndAt,
+          p_reason: p.reason ?? null,
+        }),
       },
       cancel: {
         rpc: 'cancel_reservation',
@@ -82,7 +90,11 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       mark: {
         rpc: 'mark_reservation',
         entity: 'reservation',
-        args: () => ({ p_reservation_id: p.reservationId, p_status: p.status }),
+        args: () => ({
+          p_reservation_id: p.reservationId,
+          p_status: p.status,
+          p_reason: p.reason ?? null,
+        }),
       },
     };
     const route = routes[p?.action];

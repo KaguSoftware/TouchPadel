@@ -798,6 +798,15 @@ export const en = {
       degraded: 'Offline mode — the app and website cannot take near-term bookings or orders. The desk is the only channel selling.',
       offline: 'This station cannot reach the server. Keep serving; the venue will switch to desk-only until it reconnects.',
       queued: '{count} waiting to sync',
+      attention: '{count} did not sync — see the Day close screen',
+    },
+    queue: {
+      state: {
+        pending: 'Waiting to send',
+        inflight: 'Sending',
+        conflict: 'Conflict — resolve at the desk',
+        failed: 'Failed — will not retry',
+      },
     },
     common: {
       forbidden: 'Your role does not have access to this screen.',
@@ -1388,6 +1397,8 @@ export const en = {
       cardBatch: 'Card terminal batch (IQD)',
       closeBtn: 'Close day',
       blockedTabs: 'These tabs must be settled or voided first:',
+      unsyncedTitle: 'Waiting to sync',
+      unsyncedHint: 'The day cannot close while these writes are unsynced. Conflicts and failures need a manager to resolve them.',
       cashExpected: 'Cash expected',
       cashCounted: 'Cash counted',
       variance: 'Variance',

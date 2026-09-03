@@ -9,8 +9,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { tradingSpan, wallTimeToUtc, type DayKey } from '@touch/core';
 import { formatIQD, formatTime, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
-import { appRpc } from '../../lib/appRpc';
-import { idemKey, deviceId } from '../../lib/idem';
+import { clientRef } from '../../lib/idem';
+import { mutate } from '../../lib/mutate';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow } from '../../lib/queries';
 import { WeekGrid } from './WeekGrid';
 import { startOfWeek, weekDates } from './weekLogic';
@@ -507,17 +507,16 @@ function CreateReservationDialog({
     setBusy(true);
     setError(null);
     try {
-      await appRpc('staff_create_reservation', {
-        p_court_id: courtId,
-        p_kind: kind,
-        p_start_at: startAt.toISOString(),
-        p_end_at: new Date(startAt.getTime() + duration * 60000).toISOString(),
-        p_guest_name: guestName || null,
-        p_guest_phone: guestPhone || null,
-        p_guest_id: guestId,
-        p_notes: notes || null,
-        p_idempotency_key: idemKey('reservation.create'),
-        p_device_id: deviceId(),
+      await mutate('reservation.create', {
+        clientRef: clientRef(),
+        courtId,
+        kind,
+        startAt: startAt.toISOString(),
+        endAt: new Date(startAt.getTime() + duration * 60000).toISOString(),
+        ...(guestName ? { guestName } : {}),
+        ...(guestPhone ? { guestPhone } : {}),
+        ...(guestId ? { guestId } : {}),
+        ...(notes ? { notes } : {}),
       });
       onCreated();
     } catch (e) {
@@ -709,10 +708,11 @@ function ReservationActionsDialog({
               disabled={busy}
               onClick={() =>
                 void run(() =>
-                  appRpc('mark_reservation', {
-                    p_reservation_id: r.id,
-                    p_status: 'arrived',
-                    p_reason: reason,
+                  mutate('reservation.update', {
+                    action: 'mark',
+                    reservationId: r.id,
+                    status: 'arrived',
+                    reason,
                   }),
                 )
               }
@@ -725,10 +725,11 @@ function ReservationActionsDialog({
               disabled={busy}
               onClick={() =>
                 void run(() =>
-                  appRpc('mark_reservation', {
-                    p_reservation_id: r.id,
-                    p_status: 'completed',
-                    p_reason: reason,
+                  mutate('reservation.update', {
+                    action: 'mark',
+                    reservationId: r.id,
+                    status: 'completed',
+                    reason,
                   }),
                 )
               }
@@ -741,10 +742,11 @@ function ReservationActionsDialog({
               disabled={busy}
               onClick={() =>
                 void run(() =>
-                  appRpc('mark_reservation', {
-                    p_reservation_id: r.id,
-                    p_status: 'no_show',
-                    p_reason: reason,
+                  mutate('reservation.update', {
+                    action: 'mark',
+                    reservationId: r.id,
+                    status: 'no_show',
+                    reason,
                   }),
                 )
               }
@@ -760,12 +762,11 @@ function ReservationActionsDialog({
             disabled={busy || durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000}
             onClick={() =>
               void run(() =>
-                appRpc('extend_reservation', {
-                  p_reservation_id: r.id,
-                  p_new_end_at: new Date(
-                    new Date(r.end_at).getTime() - STEP_MIN * 60_000,
-                  ).toISOString(),
-                  p_reason: reason,
+                mutate('reservation.update', {
+                  action: 'extend',
+                  reservationId: r.id,
+                  newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(),
+                  reason,
                 }),
               )
             }
@@ -776,12 +777,11 @@ function ReservationActionsDialog({
             disabled={busy}
             onClick={() =>
               void run(() =>
-                appRpc('extend_reservation', {
-                  p_reservation_id: r.id,
-                  p_new_end_at: new Date(
-                    new Date(r.end_at).getTime() + STEP_MIN * 60_000,
-                  ).toISOString(),
-                  p_reason: reason,
+                mutate('reservation.update', {
+                  action: 'extend',
+                  reservationId: r.id,
+                  newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(),
+                  reason,
                 }),
               )
             }
@@ -832,12 +832,13 @@ function ReservationActionsDialog({
                 const start =
                   moveStartMin === '' ? new Date(r.start_at) : wallTimeToUtc(date, moveStartMin, tz);
                 void run(() =>
-                  appRpc('move_reservation', {
-                    p_reservation_id: r.id,
-                    p_court_id: moveCourt,
-                    p_start_at: start.toISOString(),
-                    p_end_at: new Date(start.getTime() + durationMs).toISOString(),
-                    p_reason: reason,
+                  mutate('reservation.update', {
+                    action: 'move',
+                    reservationId: r.id,
+                    courtId: moveCourt,
+                    startAt: start.toISOString(),
+                    endAt: new Date(start.getTime() + durationMs).toISOString(),
+                    reason,
                   }),
                 );
               }}
@@ -870,7 +871,11 @@ function ReservationActionsDialog({
               disabled={busy}
               onClick={() =>
                 void run(() =>
-                  appRpc('cancel_reservation', { p_reservation_id: r.id, p_reason: cancelReason }),
+                  mutate('reservation.update', {
+                    action: 'cancel',
+                    reservationId: r.id,
+                    reason: cancelReason,
+                  }),
                 )
               }
             >

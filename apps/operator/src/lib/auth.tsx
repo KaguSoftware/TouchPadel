@@ -15,6 +15,7 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 import { touch } from '../ipc/bridge';
+import { setMutateStaffId } from './mutate';
 
 export type StaffRole = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
 
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           : null,
       );
+      setMutateStaffId(next?.user.id ?? null);
       if (next) {
         // Private realtime channels (kds/floor/courts) need realtime auth.
         supabase.realtime.setAuth(next.access_token);

@@ -9,7 +9,8 @@ import { splitEvenly } from '@touch/core';
 import { formatIQD, formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
-import { idemKey, deviceId } from '../../lib/idem';
+import { deviceId } from '../../lib/idem';
+import { mutate } from '../../lib/mutate';
 import { computeTabTotals } from './tabTotals';
 import { BillView } from './BillView';
 import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerActions';
@@ -261,16 +262,17 @@ export function TillScreen() {
     setSending(true);
     setSendError(null);
     try {
-      await appRpc('till_add_items', {
-        p_tab_id: selectedTabId,
-        p_items: basket.map((l) => ({
-          variant_id: l.variantId,
+      // Single write path: queued durably in Electron (fsync before this
+      // resolves), direct RPC in browser mode. Offline the outcome is
+      // `queued` — the basket is safe, the ticket lands on replay.
+      await mutate('order.add_items', {
+        tabId: selectedTabId,
+        items: basket.map((l) => ({
+          variantId: l.variantId,
           qty: l.qty,
-          notes: l.notes || undefined,
-          modifiers: l.modifiers.map((m) => ({ modifier_id: m.modifierId, qty: m.qty })),
+          ...(l.notes ? { notes: l.notes } : {}),
+          modifiers: l.modifiers.map((m) => ({ modifierId: m.modifierId, qty: m.qty })),
         })),
-        p_idempotency_key: idemKey('order.create'),
-        p_device_id: deviceId(),
       });
       setBasket([]);
       void queryClient.invalidateQueries({ queryKey: ['tab', selectedTabId] });
@@ -663,14 +665,20 @@ function NewTabDialog({
     setBusy(true);
     setError(null);
     try {
-      const res = await appRpc<{ tab_id: string }>('open_tab', {
-        p_table_id: tableId || null,
-        p_label: label || null,
-        p_reservation_id: reservationId || null,
-        p_idempotency_key: idemKey('tab.open'),
-        p_device_id: deviceId(),
+      const outcome = await mutate<{ tab_id: string }>('tab.open', {
+        ...(tableId ? { tableId } : {}),
+        ...(label ? { label } : {}),
+        ...(reservationId ? { reservationId } : {}),
       });
-      onOpened(res.tab_id);
+      if (outcome.result) {
+        onOpened(outcome.result.tab_id);
+      } else {
+        // Queued offline: the tab exists on disk and will open on replay. The
+        // rail can't select it yet (no server id) — close and let the queued
+        // count in the banner carry the story. (A4 gives offline tabs a local
+        // identity via client refs.)
+        onClose();
+      }
     } catch (e) {
       setError(e);
     } finally {
@@ -818,19 +826,27 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
     setBusy(true);
     setActionError(null);
     try {
-      const res = await appRpc<{ status: string; change_iqd: number | null }>('settle_tab', {
-        p_tab_id: tabId,
-        p_method: method,
-        p_tendered_iqd: tenderedIqd,
-        p_amount_iqd: amountIqd,
-        p_idempotency_key: idemKey('payment.record'),
-        p_device_id: deviceId(),
+      const outcome = await mutate<{ status: string; change_iqd: number | null }>('tab.settle', {
+        tabId,
+        method,
+        ...(amountIqd != null ? { amountIqd } : {}),
+        ...(tenderedIqd != null ? { tenderedIqd } : {}),
       });
-      setLastChange(res.change_iqd ?? null);
-      refresh();
-      if (res.status === 'settled') {
+      if (outcome.result) {
+        setLastChange(outcome.result.change_iqd ?? null);
+        refresh();
+        if (outcome.result.status === 'settled') {
+          setSettleMode(null);
+          setShares(null);
+        }
+      } else {
+        // Queued offline: the payment is durably recorded and replays on
+        // reconnect. Change due was already computed client-side; close the
+        // pane and let the tab reconcile when the ack invalidates it.
+        setLastChange(tenderedIqd != null && amountIqd != null ? tenderedIqd - amountIqd : null);
         setSettleMode(null);
         setShares(null);
+        refresh();
       }
     } catch (e) {
       setActionError(e);
@@ -869,13 +885,14 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
     setBusy(true);
     setPinError(null);
     try {
-      await appRpc('apply_discount', {
-        p_tab_id: tabId,
-        p_kind: discountKind,
-        p_value: discountKind === 'discount_percent' ? discountValue * 100 : discountValue,
-        p_pin: pin,
-        p_reason_code: reasonCode,
-        p_device_id: deviceId(),
+      // The PIN rides in the payload and is re-verified server-side at replay —
+      // queueing is never a way around the manager authorisation.
+      await mutate('adjustment.apply', {
+        kind: discountKind,
+        tabId,
+        value: discountKind === 'discount_percent' ? discountValue * 100 : discountValue,
+        pin,
+        reasonCode,
       });
       setDiscountOpen(false);
       refresh();
