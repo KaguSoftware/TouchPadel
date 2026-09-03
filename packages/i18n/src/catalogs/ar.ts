@@ -1048,6 +1048,7 @@ export const ar: Messages = {
       suggested: 'الأصناف المقترحة',
       hero: 'واجهة البداية',
       qr: 'رموز QR للطاولات',
+      courts: 'الملاعب',
       rates: 'الأسعار',
       hours: 'ساعات العمل',
       dayClose: 'إغلاق اليوم',
@@ -1058,6 +1059,23 @@ export const ar: Messages = {
     },
     // The audit log has been written correctly since day 1 and read by nothing.
     // SOW L241-243 promises it; L434-439 makes it an acceptance test.
+    courts: {
+      title: 'الملاعب',
+      hint: 'الأسماء والصور وخيارات المدة تغذّي تطبيق الضيوف وتقويم المكتب مباشرة.',
+      empty: 'لا توجد ملاعب بعد.',
+      inactive: 'غير مفعّل',
+      indoor: 'داخلي',
+      outdoor: 'خارجي',
+      active: 'مفعّل',
+      durations: 'خيارات المدة',
+      photo: 'الصورة',
+      nameEn: 'الاسم (بالإنجليزية)',
+      nameAr: 'الاسم (بالعربية)',
+      descEn: 'الوصف (بالإنجليزية)',
+      descAr: 'الوصف (بالعربية)',
+      newTitle: 'ملعب جديد',
+      editTitle: 'تعديل الملعب',
+    },
     audit: {
       title: 'سجل التدقيق',
       hint: 'كل خصم وإلغاء واسترجاع وتعديل سعر وتغيير حجز، الأحدث أولاً. يعرض آخر {count}.',
@@ -1422,6 +1440,10 @@ export const ar: Messages = {
       DAY_OPEN_TABS: 'ما زالت هناك حسابات مفتوحة — قم بتسويتها أو إلغائها قبل إغلاق اليوم.',
       DAY_UNSYNCED:
         'ما زال أحد أجهزة الكاشير يحتوي على عمليات غير متزامنة — انتظر اكتمال المزامنة.',
+      INVALID_DURATIONS: 'خيارات المدة يجب أن تكون بين 30 و300 دقيقة وبخطوات 15 دقيقة.',
+      COURT_HAS_FUTURE_RESERVATIONS:
+        'لا يزال لهذا الملعب حجوزات قادمة — انقلها أو ألغِها من المكتب أولًا.',
+      NAME_REQUIRED: 'الاسمان بالإنجليزية والعربية مطلوبان.',
       TAB_NOT_OPEN: 'هذا الحساب غير مفتوح.',
       TAB_NOT_FOUND: 'الحساب غير موجود.',
       TAB_MERGED: 'تم دمج هذا الحساب في حساب آخر.',

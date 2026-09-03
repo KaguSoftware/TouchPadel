@@ -147,6 +147,7 @@ export const SUB_ROUTES = {
     '/admin/suggested',
     '/admin/hero',
     '/admin/qr',
+    '/admin/courts',
     '/admin/rates',
     '/admin/hours',
     '/admin/day-close',

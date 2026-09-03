@@ -27,6 +27,7 @@ type AdminNavKey =
   | 'suggested'
   | 'hero'
   | 'qr'
+  | 'courts'
   | 'rates'
   | 'hours'
   | 'dayClose'
@@ -61,6 +62,7 @@ const ADMIN_GROUPS: readonly {
   {
     label: 'groupOps',
     items: [
+      { to: '/admin/courts', key: 'courts' },
       { to: '/admin/rates', key: 'rates' },
       { to: '/admin/hours', key: 'hours' },
       { to: '/admin/day-close', key: 'dayClose' },
