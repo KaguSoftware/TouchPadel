@@ -1,17 +1,34 @@
 /**
  * Idempotency keys per resolved override #2: "{station}:{mutation_type}:{ulid}".
- * Mirrors packages/db/tests/helpers.ts testIdemKey (uppercase hex slice is a
- * valid Crockford-base32 subset). TODO(Electron): real ULIDs from @touch/core
- * mutation envelopes once writes flow through the IPC queue.
+ * Real Crockford ULIDs via @touch/core (audit M9 closed) — the queue validator and
+ * the replay function both refuse the old hex pseudo-ULIDs. The station segment is
+ * sanitised once so a dev station id can never produce a key the server rejects.
  */
+import {
+  makeClientRef,
+  makeIdempotencyKey,
+  stationRegex,
+  type MutationType,
+} from '@touch/core/schemas/mutations';
 import { touch } from '../ipc/bridge';
 
-export function idemKey(mutationType: string): string {
-  const pseudoUlid = crypto.randomUUID().replaceAll('-', '').toUpperCase().slice(0, 26);
-  const station = touch.getStation().stationId.toUpperCase().replace(/[^A-Z0-9-]/g, '');
-  return `${station || 'OP1'}:${mutationType}:${pseudoUlid}`;
+export function station(): string {
+  const raw = touch
+    .getStation()
+    .stationId.toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '');
+  return stationRegex.test(raw) ? raw : 'OP1';
+}
+
+export function idemKey(mutationType: MutationType): string {
+  return makeIdempotencyKey(station(), mutationType);
+}
+
+/** Client entity ref "{station}-{ulid}" (stored server-side as client_ref). */
+export function clientRef(): string {
+  return makeClientRef(station());
 }
 
 export function deviceId(): string {
-  return touch.getStation().stationId;
+  return station();
 }

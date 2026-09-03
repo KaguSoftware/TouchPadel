@@ -13,7 +13,8 @@ import {
   type ReactNode,
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
+import { touch } from '../ipc/bridge';
 
 export type StaffRole = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
 
@@ -57,6 +58,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function applySession(next: Session | null) {
       if (cancelled) return;
       setSession(next);
+      // The main-process sync worker replays the durable queue AS this staff
+      // session (design-arch §2.2). Every auth change flows through here —
+      // SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT — so the pushed token is always
+      // the freshest one. No-op in browser mode.
+      touch.pushAuthState(
+        next
+          ? {
+              accessToken: next.access_token,
+              staffId: next.user.id,
+              supabaseUrl,
+              anonKey: supabaseAnonKey,
+            }
+          : null,
+      );
       if (next) {
         // Private realtime channels (kds/floor/courts) need realtime auth.
         supabase.realtime.setAuth(next.access_token);

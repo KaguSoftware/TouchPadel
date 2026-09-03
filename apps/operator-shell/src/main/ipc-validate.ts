@@ -1,4 +1,4 @@
-import type { MutationEnvelope, PrintJob } from '../ipc-channels';
+import type { AuthState, MutationEnvelope, PrintJob } from '../ipc-channels';
 
 /**
  * Runtime validation for everything crossing the IPC boundary.
@@ -65,10 +65,13 @@ export const MUTATION_TYPES = [
 
 const MUTATION_TYPE_ALT = MUTATION_TYPES.map((t) => t.replace(/\./g, '\\.')).join('|');
 
+export const stationRegex = new RegExp(`^${STATION_SRC}$`);
 export const clientRefRegex = new RegExp(`^${STATION_SRC}-${ULID_SRC}$`);
 export const idempotencyKeyRegex = new RegExp(
   `^${STATION_SRC}:(?:${MUTATION_TYPE_ALT}):${ULID_SRC}$`,
 );
+/** RFC 4122 textual form, either case — matches zod's uuid() acceptance closely enough. */
+const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 /** Comfortably above any real ticket; far below anything that could wedge SQLite. */
 export const MAX_PAYLOAD_BYTES = 256 * 1024;
@@ -98,10 +101,16 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
   const [keyStation, keyType] = idempotencyKey.split(':');
   if (keyType !== mutationType) fail('idempotencyKey does not match mutationType');
 
-  // localId is "{station}-{ulid}" and the station itself may contain hyphens,
-  // so compare by suffix rather than by splitting on the first '-'.
-  if (!localId.startsWith(`${keyStation}-`)) {
-    fail('localId and idempotencyKey disagree on the station');
+  const staffId = requireString(raw.staffId, 'staffId', 64);
+  if (!uuidRegex.test(staffId)) fail('staffId must be a uuid');
+
+  // The queue OWNER mints the key: its station segment must equal deviceId, and the
+  // replay function 400s on the same mismatch. localId's station may legitimately
+  // differ — the till enqueues status updates on the KDS's behalf (single writer).
+  const deviceId = requireString(raw.deviceId, 'deviceId', 32);
+  if (!stationRegex.test(deviceId)) fail('deviceId must be a station id like TILL-01');
+  if (keyStation !== deviceId) {
+    fail('idempotencyKey and deviceId disagree on the station');
   }
 
   const createdAt = requireString(raw.createdAt, 'createdAt', 64);
@@ -116,7 +125,15 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
   if (serialized === undefined) fail('payload is not JSON-serialisable');
   if (Buffer.byteLength(serialized, 'utf8') > MAX_PAYLOAD_BYTES) fail('payload is too large');
 
-  return { localId, idempotencyKey, mutationType, payload: raw.payload ?? null, createdAt };
+  return {
+    localId,
+    idempotencyKey,
+    mutationType,
+    payload: raw.payload ?? null,
+    createdAt,
+    staffId,
+    deviceId,
+  };
 }
 
 /** Cache keys are a closed set (design-arch.md §2.3), not free-form strings. */
@@ -149,6 +166,29 @@ export function validatePrintJob(value: unknown): PrintJob {
   const kind = requireString(raw.kind, 'kind', 16);
   if (!(PRINT_KINDS as readonly string[]).includes(kind)) fail(`unknown print kind '${kind}'`);
   return { kind: kind as PrintJob['kind'], data: raw.data ?? null };
+}
+
+/**
+ * Auth state pushed by the renderer for the sync worker. `null` clears it
+ * (sign-out). The token is opaque here — the server verifies it; this only
+ * refuses junk shapes, and like the PIN the token must never reach a log line.
+ */
+export function validateAuthState(value: unknown): AuthState | null {
+  if (value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) fail('authState must be an object or null');
+  const raw = value as Record<string, unknown>;
+  const accessToken = requireString(raw.accessToken, 'accessToken', 8192);
+  const staffId = requireString(raw.staffId, 'staffId', 64);
+  if (!uuidRegex.test(staffId)) fail('staffId must be a uuid');
+  const supabaseUrl = requireString(raw.supabaseUrl, 'supabaseUrl', 512);
+  if (!/^https?:\/\//.test(supabaseUrl)) fail('supabaseUrl must be http(s)');
+  const anonKey = requireString(raw.anonKey, 'anonKey', 8192);
+  return { accessToken, staffId, supabaseUrl: supabaseUrl.replace(/\/+$/, ''), anonKey };
+}
+
+export function validateConnState(value: unknown): boolean {
+  if (typeof value !== 'boolean') fail('connState must be a boolean');
+  return value;
 }
 
 /**

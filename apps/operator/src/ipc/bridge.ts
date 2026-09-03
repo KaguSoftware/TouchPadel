@@ -11,7 +11,7 @@ export type Unsub = () => void;
 export interface MutationEnvelope {
   /** Client entity ref: '{station}-{ulid}', e.g. 'TILL1-01J5X...' (plan override #2). */
   localId: string;
-  /** '{station}:{mutation_type}:{ulid}' (plan override #2). */
+  /** '{station}:{mutation_type}:{ulid}' — station segment MUST equal deviceId. */
   idempotencyKey: string;
   /** 'order.create' | 'order.add_items' | 'ticket.status' | 'payment.record' | 'reservation.create' | ... */
   mutationType: string;
@@ -19,12 +19,50 @@ export interface MutationEnvelope {
   payload: unknown;
   /** Station clock, informational. */
   createdAt: string;
+  /** The staff member the write is attributed to — replay 400s without it. */
+  staffId: string;
+  /** The station that owns the durable queue, e.g. 'TILL-01'. */
+  deviceId: string;
 }
 
 export interface QueueStatus {
+  /** pending + inflight — what is still travelling. */
   depth: number;
   degraded: boolean;
   conflicts: number;
+  failed: number;
+  /** Everything non-acked — what day close refuses on and the heartbeat reports. */
+  blocking: number;
+}
+
+/** The staff session + backend config the main-process sync worker replays with. */
+export interface AuthState {
+  accessToken: string;
+  staffId: string;
+  supabaseUrl: string;
+  anonKey: string;
+}
+
+/** A queued mutation's terminal outcome, pushed as it lands. */
+export interface MutationResult {
+  localId: string;
+  idempotencyKey: string;
+  mutationType: string;
+  state: 'acked' | 'conflict' | 'failed';
+  serverResult?: unknown;
+  error?: string;
+}
+
+/** A non-acked queue row (payload deliberately omitted — PINs ride in payloads). */
+export interface QueueRowInfo {
+  seq: number;
+  localId: string;
+  idempotencyKey: string;
+  mutationType: string;
+  state: 'pending' | 'inflight' | 'conflict' | 'failed';
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
 }
 
 export interface KitchenTicket {
@@ -74,6 +112,12 @@ export interface TouchBridge {
   print(job: PrintJob): Promise<PrintResult>;
   unlockPin(pin: string): Promise<{ staffId: string; role: Role; grantToken: string } | null>;
   getStation(): StationInfo;
+  /** Push the staff session (or null on sign-out) for the main-process sync worker. */
+  pushAuthState(s: AuthState | null): void;
+  /** Push the heartbeat's server-reachability verdict after every beat. */
+  pushConnState(online: boolean): void;
+  onMutationResult(cb: (r: MutationResult) => void): Unsub;
+  getQueueRows(): Promise<QueueRowInfo[]>;
 }
 
 declare global {
@@ -91,11 +135,21 @@ const mock: TouchBridge = {
     return { localId: m.localId, state: 'queued' };
   },
   onQueueUpdate(cb) {
-    cb({ depth: 0, degraded: false, conflicts: 0 });
+    cb({ depth: 0, degraded: false, conflicts: 0, failed: 0, blocking: 0 });
     return () => {};
   },
   onLanTicket() {
     return () => {};
+  },
+  pushAuthState() {
+    // Browser mode has no main process; writes go straight to the network.
+  },
+  pushConnState() {},
+  onMutationResult() {
+    return () => {};
+  },
+  async getQueueRows() {
+    return [];
   },
   async getCachedRef(key) {
     console.warn('[touch:mock] getCachedRef miss:', key);
