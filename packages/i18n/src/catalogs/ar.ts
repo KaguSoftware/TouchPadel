@@ -546,7 +546,7 @@ export const ar: Messages = {
   },
   profile: {
     title: 'حسابي',
-    editProfile: 'تعديل الملف',
+    editProfile: 'تعديل الملف الشخصي',
     changePassword: 'تغيير كلمة المرور',
     callVenue: 'الاتصال بالمكان',
     name: 'الاسم',

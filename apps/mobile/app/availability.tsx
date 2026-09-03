@@ -1,5 +1,4 @@
-import { useRef } from 'react';
-import { RefreshControl, ScrollView, View, type LayoutChangeEvent } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,21 +35,10 @@ export default function AvailabilityScreen() {
   const insets = useSafeAreaInsets();
   const a = useAvailabilityBooking({ origin: 'screen' });
 
-  // Open on the first time that has not started yet, the same as the booking
-  // sheet: a trading night runs 09:00 into the small hours, so an evening guest
-  // would otherwise scroll past a dead day to reach tonight. Rows vary in height
-  // (a capacity line makes one taller), so the target row reports its own y.
-  // `key` remounts the list per day/duration, which is what makes the homing run
-  // exactly once per list instead of fighting a scroll already in progress.
-  const gridRef = useRef<ScrollView>(null);
+  // The list starts at tonight's first bookable time — the hook drops every hour
+  // that has already started — so a fresh ScrollView per day/duration opens
+  // where it should with no homing scroll. `key` does the remount.
   const gridKey = `${a.date}|${a.durationMin}`;
-  const homedFor = useRef<string | null>(null);
-  const homeGrid = (r: number) => (e: LayoutChangeEvent) => {
-    if (r !== a.openRow || homedFor.current === gridKey) return;
-    homedFor.current = gridKey;
-    const { y } = e.nativeEvent.layout;
-    if (y > 0) gridRef.current?.scrollTo({ y, animated: false });
-  };
 
   return (
     // Unpadded so the day strip can scroll out under the screen edge; every
@@ -176,7 +164,6 @@ export default function AvailabilityScreen() {
       ) : (
         <ScrollView
           key={gridKey}
-          ref={gridRef}
           style={{ flex: 1 }}
           refreshControl={
             <RefreshControl
@@ -200,7 +187,6 @@ export default function AvailabilityScreen() {
               {a.rows.map((row, i) => (
                 <View
                   key={row[0]?.startAt.toISOString() ?? i}
-                  onLayout={homeGrid(i)}
                   style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}
                 >
                   {row.map((cell) => (
