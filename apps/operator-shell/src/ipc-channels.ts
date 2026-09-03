@@ -11,7 +11,54 @@ export const IPC = {
   print: 'touch:print',
   unlockPin: 'touch:unlock-pin',
   getStation: 'touch:get-station',
+  /** Renderer → main (send): the staff session the sync worker replays with. */
+  authState: 'touch:auth-state',
+  /** Renderer → main (send): the heartbeat's verdict on server reachability. */
+  connState: 'touch:conn-state',
+  /** Main → renderer (push): a queued mutation reached a terminal state. */
+  mutationResult: 'touch:mutation-result',
+  /** Invoke: every non-acked row — the day-close pre-check and conflicts panel. */
+  queueRows: 'touch:queue-rows',
 } as const;
+
+/**
+ * Pushed by the renderer on every auth change (sign-in, TOKEN_REFRESHED,
+ * sign-out → null). Held in main-process MEMORY only — a stale token on disk
+ * is a liability, and the renderer re-pushes within seconds of boot. Also the
+ * main process's only source of the backend URL: the renderer is the config
+ * authority (resolveSupabaseEnv fails loud there).
+ */
+export interface AuthState {
+  accessToken: string;
+  /** auth.uid() === staff.id — what replay attributes the writes to. */
+  staffId: string;
+  supabaseUrl: string;
+  anonKey: string;
+}
+
+/** A queued mutation's terminal outcome, pushed to the renderer as it lands. */
+export interface MutationResult {
+  localId: string;
+  idempotencyKey: string;
+  mutationType: string;
+  state: 'acked' | 'conflict' | 'failed';
+  /** Replay echo on ack (server ids/timestamps) or conflict detail. */
+  serverResult?: unknown;
+  error?: string;
+}
+
+/** A non-acked queue row as the UI sees it — payload deliberately omitted
+ *  (adjustment payloads carry the typed PIN; the row list needs none of it). */
+export interface QueueRowInfo {
+  seq: number;
+  localId: string;
+  idempotencyKey: string;
+  mutationType: string;
+  state: 'pending' | 'inflight' | 'conflict' | 'failed';
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+}
 
 export interface MutationEnvelope {
   /** Client entity ref: '{station}-{ulid}' (plan override #2). The station segment may
@@ -32,9 +79,14 @@ export interface MutationEnvelope {
 }
 
 export interface QueueStatus {
+  /** pending + inflight — what is still travelling. */
   depth: number;
   degraded: boolean;
   conflicts: number;
+  failed: number;
+  /** Everything non-acked (depth + conflicts + failed) — what day close refuses on
+   *  and what the heartbeat reports as p_queue_depth. */
+  blocking: number;
 }
 
 export interface KitchenTicket {

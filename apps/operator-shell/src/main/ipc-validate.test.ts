@@ -3,6 +3,8 @@ import {
   MUTATION_TYPES as SHELL_MUTATION_TYPES,
   clientRefRegex as shellClientRefRegex,
   idempotencyKeyRegex as shellIdempotencyKeyRegex,
+  validateAuthState,
+  validateConnState,
   validateMutationEnvelope,
   validatePin,
   validatePrintJob,
@@ -206,6 +208,51 @@ describe('validatePrintJob', () => {
   it('drops unknown fields', () => {
     const job = validatePrintJob({ kind: 'receipt', data: { total: 1 }, copies: 99 });
     expect(Object.keys(job).sort()).toEqual(['data', 'kind']);
+  });
+});
+
+describe('validateAuthState', () => {
+  const valid = () => ({
+    accessToken: 'jwt-abc',
+    staffId: STAFF,
+    supabaseUrl: 'https://project.supabase.co',
+    anonKey: 'anon-key',
+  });
+
+  it('accepts a full push and null (sign-out)', () => {
+    expect(validateAuthState(valid())).toEqual(valid());
+    expect(validateAuthState(null)).toBeNull();
+  });
+
+  it('strips a trailing slash from the url so path joins stay canonical', () => {
+    expect(
+      validateAuthState({ ...valid(), supabaseUrl: 'https://project.supabase.co/' })?.supabaseUrl,
+    ).toBe('https://project.supabase.co');
+  });
+
+  it('refuses junk shapes', () => {
+    expect(() => validateAuthState('token')).toThrow(IpcValidationError);
+    expect(() => validateAuthState({ ...valid(), staffId: 'me' })).toThrow(/staffId/);
+    expect(() => validateAuthState({ ...valid(), supabaseUrl: 'ftp://x' })).toThrow(/supabaseUrl/);
+    expect(() => validateAuthState({ ...valid(), accessToken: '' })).toThrow(/accessToken/);
+  });
+
+  it('never echoes the token in an error message', () => {
+    try {
+      validateAuthState({ ...valid(), accessToken: 'secret-token', supabaseUrl: 'nope' });
+      throw new Error('expected a throw');
+    } catch (error) {
+      expect((error as Error).message).not.toContain('secret-token');
+    }
+  });
+});
+
+describe('validateConnState', () => {
+  it('accepts booleans only', () => {
+    expect(validateConnState(true)).toBe(true);
+    expect(validateConnState(false)).toBe(false);
+    expect(() => validateConnState('up')).toThrow(IpcValidationError);
+    expect(() => validateConnState(1)).toThrow(IpcValidationError);
   });
 });
 

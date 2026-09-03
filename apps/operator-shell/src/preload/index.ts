@@ -1,11 +1,14 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import {
   IPC,
+  type AuthState,
   type KitchenTicket,
   type MutationEnvelope,
+  type MutationResult,
   type PinUnlockResult,
   type PrintJob,
   type PrintResult,
+  type QueueRowInfo,
   type QueueStatus,
   type StationInfo,
 } from '../ipc-channels';
@@ -31,6 +34,18 @@ const touch = {
   },
 
   getCachedRef: (key: string): Promise<unknown> => ipcRenderer.invoke(IPC.getCachedRef, key),
+
+  // Fire-and-forget pushes: the renderer is the auth + connectivity authority.
+  pushAuthState: (s: AuthState | null): void => ipcRenderer.send(IPC.authState, s),
+  pushConnState: (online: boolean): void => ipcRenderer.send(IPC.connState, online),
+
+  onMutationResult: (cb: (r: MutationResult) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, r: MutationResult) => cb(r);
+    ipcRenderer.on(IPC.mutationResult, listener);
+    return () => ipcRenderer.removeListener(IPC.mutationResult, listener);
+  },
+
+  getQueueRows: (): Promise<QueueRowInfo[]> => ipcRenderer.invoke(IPC.queueRows),
 
   print: (job: PrintJob): Promise<PrintResult> => ipcRenderer.invoke(IPC.print, job),
 
