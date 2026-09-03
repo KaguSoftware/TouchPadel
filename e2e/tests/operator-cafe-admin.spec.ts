@@ -352,6 +352,40 @@ test.describe('operator cafe admin', () => {
     await voidOpenTabsForTable(svc, KDS_TABLE);
   });
 
+  test('(j) courts admin: create a court, see it on the desk, deactivate it', async ({ page }) => {
+    const name = `E2E Court ${Date.now() % 100000}`;
+    await signIn(page, SEED_STAFF.manager);
+    await page.goto(`${OPERATOR_URL}/admin/courts`);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.getByLabel('Name (English)').fill(name);
+    await page.getByLabel('Name (Arabic)').fill(`ملعب ${name}`);
+    // Duration chips: add 45, drop 120 → 45/60/90.
+    await page.getByRole('button', { name: '45 min', exact: true }).click();
+    await page.getByRole('button', { name: '120 min', exact: true }).click();
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(page.getByText(name).first()).toBeVisible();
+    await expect(page.getByText('45 min / 60 min / 90 min').first()).toBeVisible();
+
+    // The desk calendar picks it up without a redeploy (courts broadcast).
+    await page.goto(`${OPERATOR_URL}/desk`);
+    await expect(page.getByText(name).first()).toBeVisible({ timeout: 20_000 });
+
+    // Deactivate (no bookings yet, so the 0062 guard allows it) and clean up.
+    await page.goto(`${OPERATOR_URL}/admin/courts`);
+    await page
+      .locator('div')
+      .filter({ hasText: name })
+      .getByRole('button', { name: 'Edit', exact: true })
+      .last()
+      .click();
+    await page.getByRole('switch', { name: 'Active' }).click();
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(page.getByText('Inactive').first()).toBeVisible();
+
+    const { error } = await svc.from('courts').delete().eq('name_en', name);
+    expect(error).toBeNull();
+  });
+
   test.afterAll(async () => {
     stopHeartbeat?.();
     // Undo the Telegram setup case (d) performed.

@@ -531,6 +531,7 @@ export type Database = {
         Args: { p_display_name: string; p_staff_id: string }
         Returns: Json
       }
+      reorder_courts: { Args: { p_ids: string[] }; Returns: number }
       reorder_menu_categories: { Args: { p_ids: string[] }; Returns: number }
       reorder_menu_items: { Args: { p_ids: string[] }; Returns: number }
       reorder_modifiers: { Args: { p_ids: string[] }; Returns: number }
@@ -744,6 +745,21 @@ export type Database = {
           p_is_active?: boolean
           p_table_number: string
           p_zone?: string
+        }
+        Returns: string
+      }
+      upsert_court: {
+        Args: {
+          p_description_ar?: string
+          p_description_en?: string
+          p_duration_options?: number[]
+          p_id?: string
+          p_indoor: boolean
+          p_is_active?: boolean
+          p_name_ar: string
+          p_name_en: string
+          p_photo_path?: string
+          p_sort_order?: number
         }
         Returns: string
       }

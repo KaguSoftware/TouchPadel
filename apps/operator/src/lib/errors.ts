@@ -96,6 +96,10 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'VOID_REQUIRES_REFUND',
   'INVALID_ARGUMENT',
   'REJECTION_NOT_FOUND',
+  // Courts admin (0062).
+  'INVALID_DURATIONS',
+  'COURT_HAS_FUTURE_RESERVATIONS',
+  'NAME_REQUIRED',
   // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
   'EDGE_NOT_CONFIGURED',
   'EDGE_FORBIDDEN',
