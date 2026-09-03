@@ -1,7 +1,9 @@
 import { StrictMode, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider, createRouter, useNavigate } from '@tanstack/react-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { PERSIST_BUSTER, makePersister, shouldPersistQuery } from './lib/persist';
 import { ThemeProvider } from '@touch/ui';
 import { rootRoute } from './routes/__root';
 import { indexRoute } from './routes/index';
@@ -9,6 +11,7 @@ import { tillRoute } from './routes/till';
 import { deskRoute } from './routes/desk';
 import { kdsRoute } from './routes/kds';
 import { stockRoute } from './routes/stock';
+import { stockChildren } from './routes/stock/_children';
 import { adminRoute } from './routes/admin';
 import { adminChildren } from './routes/admin/_children';
 import { analyticsRoute } from './routes/analytics';
@@ -16,6 +19,8 @@ import { LocaleProvider, useLocale } from './lib/i18n';
 import { AuthProvider, useAuth, homeRoute } from './lib/auth';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
 import { captureException, installGlobalHandlers } from './lib/telemetry';
+import { initQueueResults } from './lib/queueResults';
+import { initOfflineTabRetirement } from './lib/offlineTabs';
 
 // Code-based route tree for the shell phase. TODO(FE2): switch to file-based codegen
 // (@tanstack/router-plugin generating routeTree.gen.ts) once typed search params land.
@@ -24,7 +29,7 @@ const routeTree = rootRoute.addChildren([
   tillRoute,
   deskRoute,
   kdsRoute,
-  stockRoute,
+  stockRoute.addChildren([...stockChildren]),
   adminRoute.addChildren([...adminChildren]),
   analyticsRoute,
 ]);
@@ -66,11 +71,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
-// Browser mode: TanStack Query reads + app.* RPC writes. TODO(Electron): durable
-// writes move to the IPC bridge -> SQLite queue (design-arch.md §2.1).
+// Browser mode: TanStack Query reads + app.* RPC writes. In Electron the
+// registered mutation types flow renderer -> IPC -> SQLite queue -> replay
+// (lib/mutate.ts), and their results land here through initQueueResults.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 10_000, retry: 1 } },
+  // gcTime must outlive the persister's maxAge or restored queries are
+  // garbage-collected before they can paint.
+  defaultOptions: { queries: { staleTime: 10_000, retry: 1, gcTime: 24 * 60 * 60 * 1000 } },
 });
+initQueueResults(queryClient);
+initOfflineTabRetirement();
+const persister = makePersister();
 
 /**
  * Boundary fallback for everything ABOVE the router — providers, the sidebar
@@ -91,9 +102,17 @@ function ThemedApp() {
     <ThemeProvider theme="padel" dir={dir}>
       <AppErrorBoundary fallback={(error, reset) => <ShellCrash error={error} reset={reset} />}>
         <AuthProvider>
-          <QueryClientProvider client={queryClient}>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{
+              persister,
+              buster: PERSIST_BUSTER,
+              maxAge: 24 * 60 * 60 * 1000,
+              dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+            }}
+          >
             <RouterProvider router={router} />
-          </QueryClientProvider>
+          </PersistQueryClientProvider>
         </AuthProvider>
       </AppErrorBoundary>
     </ThemeProvider>

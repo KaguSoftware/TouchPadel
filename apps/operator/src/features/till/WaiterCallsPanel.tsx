@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { isolate } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
-import { appRpc } from '../../lib/appRpc';
+import { mutate } from '../../lib/mutate';
 import { useLocale } from '../../lib/i18n';
 import type { BroadcastStatus } from '../../lib/realtime';
 import { Button, ErrorText, card } from '../../components/ui';
@@ -95,9 +95,7 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
     setBusyId(callId);
     setError(null);
     try {
-      await appRpc(action === 'ack' ? 'ack_waiter_call' : 'resolve_waiter_call', {
-        p_call_id: callId,
-      });
+      await mutate('waiter_call.action', { callId, action });
       void queryClient.invalidateQueries({ queryKey: ['waiterCalls'] });
     } catch (e) {
       setError(e);

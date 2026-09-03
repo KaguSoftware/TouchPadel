@@ -2,7 +2,8 @@
  * The prototype's three.js court, on a phone (design 2026-09-01,
  * `docs/design/mobile-ui/Court Transition Prototype.html`): expo-gl surfaces
  * running the scene from features/courtTransition/scene.ts — glass + mesh cage,
- * real net, 3D rackets, the ball with its trail and cast shadow — with the
+ * real net, the `padel-racket.html` rackets swinging (racket.ts + swing.ts),
+ * the ball with its trail and cast shadow — with the
  * camera orbit reading the SAME progress value `p` as every native layer
  * (the on-net button, the frosted sheet), exactly as the prototype's canvas
  * reads its `p` every frame.
@@ -21,8 +22,8 @@
  *   · Reduced motion: the rally freezes on a rest frame and the scene renders
  *     only when `p` changes.
  *   · Idle: once `p` has rested for IDLE_AFTER_MS (three rallies) with no touch, the rally
- *     holds at the next leg start — ball in a player's hand, nobody mid-swing
- *     (rally.nextLegStart) — and the loop stops (battery: the Book tab is
+ *     holds at the next leg start — the instant of contact, ball ON the
+ *     striking face (rally.nextLegStart) — and the loop stops (battery: the Book tab is
  *     where people sit longest). At the court view the caller's `pausedNote`
  *     fades in and a touch anywhere on the stage plays on from that frame;
  *     behind the sheet it holds until the caller reports activity through
@@ -129,7 +130,7 @@ export interface Court3DProps {
   pausedNote?: ReactNode;
 }
 
-/** Reduced motion holds the rally here: ball on the hitter's racket, nobody mid-swing, no trail. */
+/** Reduced motion holds the rally here: the first strike, ball on the face, no trail. */
 const REST_T = 0;
 /** No touch and `p` at rest for three full rallies (≈ 15.6 s) → hold at the next leg start. */
 const IDLE_AFTER_MS = 3 * LOOP_SECONDS * 1000;

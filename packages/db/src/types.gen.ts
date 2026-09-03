@@ -526,14 +526,12 @@ export type Database = {
         Args: { p_reason?: string; p_text: string }
         Returns: string
       }
-      release_hold: {
-        Args: { p_reservation_id: string }
-        Returns: Json
-      }
+      release_hold: { Args: { p_reservation_id: string }; Returns: Json }
       rename_staff: {
         Args: { p_display_name: string; p_staff_id: string }
         Returns: Json
       }
+      reorder_courts: { Args: { p_ids: string[] }; Returns: number }
       reorder_menu_categories: { Args: { p_ids: string[] }; Returns: number }
       reorder_menu_items: { Args: { p_ids: string[] }; Returns: number }
       reorder_modifiers: { Args: { p_ids: string[] }; Returns: number }
@@ -600,6 +598,18 @@ export type Database = {
       set_opening_hours: {
         Args: { p_closed_dates?: string[]; p_opening_hours?: Json }
         Returns: undefined
+      }
+      set_order_item_ready: {
+        Args: {
+          p_device_id?: string
+          p_order_item_id: string
+          p_ready: boolean
+        }
+        Returns: Json
+      }
+      set_recipe: {
+        Args: { p_lines?: Json; p_target: string; p_target_id: string }
+        Returns: number
       }
       set_staff_active: {
         Args: { p_active: boolean; p_reason_code?: string; p_staff_id: string }
@@ -742,6 +752,40 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_court: {
+        Args: {
+          p_description_ar?: string
+          p_description_en?: string
+          p_duration_options?: number[]
+          p_id?: string
+          p_indoor: boolean
+          p_is_active?: boolean
+          p_name_ar: string
+          p_name_en: string
+          p_photo_path?: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      upsert_ingredient: {
+        Args: {
+          p_id?: string
+          p_is_active?: boolean
+          p_kind?: Database["public"]["Enums"]["ingredient_kind"]
+          p_low_stock_threshold?: number
+          p_name_ar: string
+          p_name_en: string
+          p_pack_cost_iqd?: number
+          p_pack_size?: number
+          p_par_level?: number
+          p_shelf_life_days?: number
+          p_supplier_name?: string
+          p_unit: Database["public"]["Enums"]["stock_unit"]
+          p_waste_allowance_percent?: number
+          p_yield_percent?: number
+        }
+        Returns: string
+      }
       upsert_menu_category: {
         Args: {
           p_id?: string
@@ -829,6 +873,10 @@ export type Database = {
       verify_manager_pin: {
         Args: { p_device_id?: string; p_pin: string }
         Returns: string
+      }
+      verify_own_pin: {
+        Args: { p_device_id?: string; p_pin: string }
+        Returns: boolean
       }
       verify_table_token: { Args: { p_token: string }; Returns: string }
       void_after_send: {

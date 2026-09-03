@@ -10,6 +10,7 @@ import { adminAddonsRoute } from './addons';
 import { adminSuggestedRoute } from './suggested';
 import { adminHeroRoute } from './hero';
 import { adminQrRoute } from './qr';
+import { adminCourtsRoute } from './courts';
 import { adminRatesRoute } from './rates';
 import { adminHoursRoute } from './hours';
 import { adminDayCloseRoute } from './day-close';
@@ -26,6 +27,7 @@ export const adminChildren = [
   adminSuggestedRoute,
   adminHeroRoute,
   adminQrRoute,
+  adminCourtsRoute,
   adminRatesRoute,
   adminHoursRoute,
   adminDayCloseRoute,
