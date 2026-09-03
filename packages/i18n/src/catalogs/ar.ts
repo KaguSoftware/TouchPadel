@@ -810,6 +810,7 @@ export const ar: Messages = {
       apply: 'تطبيق',
       minutesShort: '{minutes} دقيقة',
       pin: 'الرمز السري للمدير',
+      quitApp: 'الخروج إلى سطح المكتب',
       reason: 'السبب',
       notes: 'ملاحظات',
       optional: 'اختياري',

@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BrowserWindow, app, ipcMain, shell } from 'electron';
 import { IPC, type PrintResult } from '../ipc-channels';
@@ -49,6 +50,32 @@ let worker: SyncWorker | null = null;
 let lanServer: LanKdsServer | null = null;
 let lanClient: LanKdsClient | null = null;
 
+/**
+ * First-run station bootstrap: `--station-id=TILL-01 --station-mode=till
+ * [--till-host=… --lan-psk=… --lan-bind=…]` writes station.json into userData
+ * when none exists — so the three-machine install runbook is scriptable
+ * (a shortcut per station) instead of hand-editing JSON in %APPDATA%.
+ */
+function bootstrapStationFromArgv(): void {
+  const file = path.join(app.getPath('userData'), 'station.json');
+  if (fs.existsSync(file)) return;
+  const flag = (name: string): string | undefined =>
+    process.argv.find((a) => a.startsWith(`--${name}=`))?.split('=')[1];
+  const stationId = flag('station-id');
+  const mode = flag('station-mode');
+  if (!stationId && !mode) return;
+  const config = {
+    station_id: stationId ?? 'TILL1',
+    mode: mode ?? 'till',
+    ...(flag('till-host') ? { till_host: flag('till-host') } : {}),
+    ...(flag('lan-psk') ? { lan_psk: flag('lan-psk') } : {}),
+    ...(flag('lan-bind') ? { lan_bind: flag('lan-bind') } : {}),
+  };
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(config, null, 2));
+  console.log('[station] wrote', file, 'from CLI flags');
+}
+
 /** Wrap an IPC handler so a malformed argument is refused, not stored. */
 function guardIpc<T>(name: string, fn: () => T): T | { error: string } {
   try {
@@ -71,16 +98,17 @@ function createWindow(): BrowserWindow {
     kiosk: !isDev && (station.mode === 'till' || station.mode === 'kds'),
     autoHideMenuBar: true,
     frame: isDev,
-    // TODO(W4): closable:false in production except via manager-PIN "Quit to desktop";
-    // launch-on-boot + Task Scheduler watchdog per §2.5 runbook.
-    closable: true,
+    // Production: the window closes only through the manager-PIN quit
+    // (touch:quit-app below) — a till someone can casually X out of is a till
+    // that silently stops heartbeating and degrades the whole venue.
+    closable: isDev,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // TODO(W3): bundle the preload to a single file (esbuild) and set sandbox: true —
-      // sandboxed preloads cannot require sibling compiled modules.
-      sandbox: false,
+      // The preload is a single esbuild bundle (esbuild.config.mjs), so the
+      // sandbox can finally be on — it no longer require()s sibling modules.
+      sandbox: true,
       // KDS / floor chimes (WebAudio) must play without a click on a station;
       // browser dev keeps the "Start shift" arming gesture (operator-slice.md §4.5).
       autoplayPolicy: 'no-user-gesture-required',
@@ -122,10 +150,12 @@ function createWindow(): BrowserWindow {
 
   if (devServerUrl) {
     void win.loadURL(devServerUrl);
+  } else if (app.isPackaged) {
+    // The SPA rides as extraResources/renderer (electron-builder.yml) — loaded
+    // from disk, never a URL: the UI boots with zero network (design-arch §2).
+    void win.loadFile(path.join(process.resourcesPath, 'renderer', 'index.html'));
   } else {
-    // TODO(W2): load the bundled apps/operator Vite build (base './') from
-    // resources/renderer once electron-builder extraResources is wired
-    // (electron-builder.yml). Path below works for a monorepo-local `pnpm build`.
+    // Monorepo-local `pnpm build` of apps/operator, for `electron .` smoke runs.
     void win.loadFile(path.join(__dirname, '../../../operator/dist/index.html'));
   }
 
@@ -138,8 +168,16 @@ function createWindow(): BrowserWindow {
 
 if (gotTheLock) {
   app.whenReady().then(() => {
+    bootstrapStationFromArgv();
     const station = loadStation();
     openQueue();
+
+    // Launch on boot (design-arch §2.5): registered on every packaged start so
+    // an install moved between accounts heals itself; the NSIS runAfterFinish
+    // covers only the very first session.
+    if (app.isPackaged) {
+      app.setLoginItemSettings({ openAtLogin: true });
+    }
 
     ipcMain.handle(IPC.enqueue, (_e, m: unknown) =>
       guardIpc('enqueue', () => {
@@ -228,6 +266,19 @@ if (gotTheLock) {
         return null;
       });
     });
+
+    // Manager-PIN quit (design-arch §2.5): the ONLY way a production window
+    // closes. The renderer verifies the pin server-side first when online
+    // (verify_manager_pin) and pushes it to the offline cache; this handler
+    // re-checks against that cache so a random keypress can never kill a till.
+    ipcMain.handle(IPC.quitApp, (_e, pin: unknown) =>
+      guardIpc('quitApp', () => {
+        const unlocked = unlockPinOffline(validatePin(pin));
+        if (!unlocked) return { ok: false as const, error: 'pin not recognised' };
+        setTimeout(() => app.exit(0), 50); // let the reply reach the renderer
+        return { ok: true as const };
+      }),
+    );
     ipcMain.on(IPC.getStation, (e) => {
       e.returnValue = {
         stationId: station.stationId,

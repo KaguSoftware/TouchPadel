@@ -1,24 +1,42 @@
-# electron-builder config (design-arch.md §2.5, §8). Not wired into scripts yet —
-# operator-release.yml (tag operator-v*) will run: electron-builder --win nsis --publish always.
+# electron-builder config (design-arch.md §2.5, §8). Wired via `pnpm dist`
+# (local) and .github/workflows/operator-release.yml (tag operator-v*).
 appId: com.kagu.touchpadel.operator
 productName: Touch Padel Operator
+# electron-builder needs an exact version (it downloads that release's
+# binaries); package.json keeps the caret range for pnpm. Bump together.
+electronVersion: 33.4.11
 directories:
   output: release
 files:
   - dist/**
-  # TODO(W2): bundle the built apps/operator SPA as the renderer payload, e.g.:
-  # extraResources:
-  #   - { from: ../operator/dist, to: renderer }
+  - package.json
+# The built apps/operator SPA rides as the renderer payload — loaded from
+# process.resourcesPath/renderer (main/index.ts), never from a URL. This is
+# what makes Module 7 possible: the UI boots with zero network.
+extraResources:
+  - from: ../operator/dist
+    to: renderer
+# station.json.example ships beside the app so the install runbook can copy it.
+  - from: station.json.example
+    to: station.json.example
+# better-sqlite3's .node binary cannot load from inside the asar.
+asarUnpack:
+  - '**/*.node'
 win:
   target:
     - nsis
+  # No code-signing certificate in hand (owner decision pending) — SmartScreen
+  # shows "More info → Run anyway" on first launch; documented in
+  # docs/install-runbook.md. Revisit if the client sources a cert.
+  # icon: build/icon.ico — pending the brand asset drop (Next Art faces too);
+  # electron-builder falls back to the stock Electron icon meanwhile.
 nsis:
   oneClick: true
-  # Launch-on-boot: runAfterFinish + HKCU Run key written by a first-run step,
-  # app.setLoginItemSettings as belt-and-braces (design-arch.md §2.5).
+  # Launch-on-boot: runAfterFinish for the first session; app.setLoginItemSettings
+  # (main/index.ts) keeps it registered on every packaged boot.
   runAfterFinish: true
-# publish: commented until GitHub Releases channel is set up (design-arch.md §8;
-# code-signing decision due 2026-08-29 — self-signed + SmartScreen runbook if no cert).
+# publish: commented until the GitHub Releases channel decision (design-arch.md §8).
+# The release workflow uploads the installer as a release asset directly.
 # publish:
 #   provider: github
 #   owner: KaguSoftware

@@ -147,6 +147,8 @@ export interface TouchBridge {
   pinObserved(pin: string): void;
   onMutationResult(cb: (r: MutationResult) => void): Unsub;
   getQueueRows(): Promise<QueueRowInfo[]>;
+  /** Manager-PIN quit — the only way a production kiosk window closes. */
+  quitApp(pin: string): Promise<{ ok: boolean; error?: string }>;
 }
 
 declare global {
@@ -182,6 +184,9 @@ const mock: TouchBridge = {
   },
   async getQueueRows() {
     return [];
+  },
+  async quitApp() {
+    return { ok: false, error: 'not-in-electron' };
   },
   async getCachedRef(key) {
     console.warn('[touch:mock] getCachedRef miss:', key);

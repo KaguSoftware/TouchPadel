@@ -2,7 +2,8 @@ import { Link, Outlet, createRootRoute } from '@tanstack/react-router';
 import { useCallback, useState, type FormEvent, type ReactNode } from 'react';
 import { useAuth, canAccess, allowedRoutes, homeRoute, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
-import { Button, Field, card, inputStyle } from '../components/ui';
+import { Button, ErrorText, Field, card, inputStyle } from '../components/ui';
+import { appRpc, AppRpcError } from '../lib/appRpc';
 import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
 import { ConfirmProvider } from '../components/ConfirmDialog';
@@ -111,12 +112,78 @@ function RootShell() {
         <Button kind="ghost" onClick={() => void signOut()}>
           {tr('auth.signOut')}
         </Button>
+        <QuitToDesktop />
       </nav>
         <main style={{ flex: 1, paddingBlock: '1rem', paddingInline: '1rem', minInlineSize: 0 }}>
           <Outlet />
         </main>
       </div>
     </div>
+  );
+}
+
+/**
+ * Manager-PIN "Quit to desktop" (design-arch §2.5) — production kiosk windows
+ * are not closable any other way. Online, the pin is verified server-side
+ * (verify_manager_pin) and pushed to the offline cache; the main process then
+ * re-checks that cache before it exits, so the button also works mid-outage
+ * once any manager pin has been seen. Hidden entirely in browser mode.
+ */
+function QuitToDesktop() {
+  const { tr } = useLocale();
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  if (typeof window === 'undefined' || !window.touch) return null;
+
+  async function quit() {
+    setBusy(true);
+    setError(null);
+    try {
+      try {
+        await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
+        touch.pinObserved(pin);
+      } catch (e) {
+        // Offline: fall through to the cache check in main. A server REFUSAL
+        // (PIN_INVALID / PIN_LOCKED) still surfaces — do not quit around it.
+        if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
+      }
+      const res = await touch.quitApp(pin);
+      if (!res.ok) throw new Error(res.error ?? 'refused');
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Button kind="ghost" onClick={() => setOpen(true)}>
+        {tr('op.common.quitApp')}
+      </Button>
+      {open && (
+        <div style={{ ...card, position: 'fixed', insetBlockEnd: '1rem', insetInlineStart: '1rem', zIndex: 40 }}>
+          <Field label={tr('op.common.pin')}>
+            <input
+              style={inputStyle}
+              type="password"
+              inputMode="numeric"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+            />
+          </Field>
+          <ErrorText error={error} />
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <Button onClick={() => setOpen(false)}>{tr('common.back')}</Button>
+            <Button kind="danger" disabled={busy || pin.length < 4} onClick={() => void quit()}>
+              {tr('op.common.quitApp')}
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
