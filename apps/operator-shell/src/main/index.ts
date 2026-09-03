@@ -17,6 +17,7 @@ import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
 import { startHeartbeat } from './heartbeat';
 import { setAuthState } from './auth-state';
 import { observePin, unlockPinOffline } from './pin-cache';
+import { printReceiptHtml } from './print/print-receipt';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
 import { mayNavigateTo, mayOpenExternally, type NavigationPolicy } from './window-security';
 import {
@@ -232,16 +233,40 @@ if (gotTheLock) {
     ipcMain.handle(IPC.getCachedRef, (_e, key: unknown) =>
       guardIpc('getCachedRef', () => getCachedRef(validateRefKey(key))),
     );
-    ipcMain.handle(IPC.print, (_e, job: unknown): PrintResult | { error: string } =>
-      guardIpc('print', (): PrintResult => {
-        validatePrintJob(job);
-        // TODO(W3): ESC/POS raster pipeline — hidden offscreen BrowserWindow renders
-        // receipt.html (Arabic shaping by Chromium) → capturePage → sharp 1-bit dither →
-        // GS v 0 raster; jobs persisted in a SQLite print_queue (design-arch.md §6.1).
-        // NO cash-drawer kick — cut from phase 1 (plan cut #7).
-        return { ok: false, error: 'printing-not-implemented' };
-      }),
-    );
+    ipcMain.handle(IPC.print, async (_e, job: unknown): Promise<PrintResult | { error: string }> => {
+      // async handler: guardIpc is sync, so validate inside a try of our own.
+      let validated;
+      try {
+        validated = validatePrintJob(job);
+      } catch (error) {
+        if (error instanceof IpcValidationError) {
+          console.error('[ipc:print]', error.message);
+          return { error: error.message };
+        }
+        throw error;
+      }
+      const html = (validated.data as { html?: string } | null)?.html;
+      if (!html) return { ok: false, error: 'no-html' };
+      if (!station.printer) {
+        // No printer configured — the renderer falls back to window.print();
+        // the on-screen bill satisfies SOW L456 meanwhile.
+        return { ok: false, error: 'no-printer' };
+      }
+      try {
+        await printReceiptHtml(html, station.printer);
+        return { ok: true };
+      } catch (error) {
+        // One retry: thermal printers drop the first connection after idling.
+        try {
+          await printReceiptHtml(html, station.printer);
+          return { ok: true };
+        } catch {
+          console.error('[print]', error);
+          return { ok: false, error: String(error) };
+        }
+      }
+      // NO cash-drawer kick — cut from phase 1 (plan cut #7).
+    });
     ipcMain.handle(IPC.unlockPin, (_e, pin: unknown) =>
       guardIpc('unlockPin', () => {
         // Purely the OFFLINE check (pin-cache.ts): scrypt of pins that
