@@ -7,9 +7,11 @@
  * the root (src/i18n/direction.tsx) mirrors every one of them, live. The one
  * exception is `Field` — see there. Colors/fonts come exclusively from useTheme().
  */
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -22,12 +24,14 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { Text } from '../i18n/text';
+import { AnimatedText, Text } from '../i18n/text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
+import { useReduceMotion } from '../lib/useReduceMotion';
 import { brand, radius, shadows, space, useTheme } from '../theme';
 import { TitleSquiggle } from './icons';
+import { insetStart, isFrame, type Frame } from './segmentedThumb';
 
 export { TitleSquiggle };
 
@@ -371,9 +375,20 @@ export interface FieldProps extends TextInputProps {
   latin?: boolean;
   /** 13 pt vertical padding (edit-profile / change-password); default 14 (auth). */
   dense?: boolean;
+  /**
+   * Rendered on the field's LEADING edge, inside the border — the phone
+   * input's country-code chip (components/phone.tsx).
+   *
+   * It is a real row child rather than an absolute overlay, so the input
+   * simply takes the remaining width: no measuring, no first-render frame in
+   * which the text sits under the adornment, and the focus ring and error
+   * color still wrap the pair as ONE control. `lead` supplies its own leading
+   * padding, so the input drops its own on that side.
+   */
+  lead?: ReactNode;
 }
 
-export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...inputProps }: FieldProps) {
+export function Field({ label, error, latin, dense, style, lead, onFocus, onBlur, ...inputProps }: FieldProps) {
   const { colors, fonts } = useTheme();
   const { dir } = useLocale();
   const [focused, setFocused] = useState(false);
@@ -393,18 +408,37 @@ export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...i
   const hasArabic = /[\u0600-\u06FF]/.test(value);
   const forceLtr =
     dir === 'rtl' && value.length > 0 && (isLatin || (hasLatin && !hasArabic));
+  // With a `lead` adornment the BORDER belongs to the row that wraps both, not
+  // to the input — otherwise the chip would sit outside a box drawn around the
+  // text alone. The input keeps the chrome when there is no adornment.
+  const chrome = {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: focused ? brand.green : error ? colors.redline : colors.line2,
+    borderRadius: radius.cell,
+  } as const;
+  const ring = focused && { boxShadow: `0 0 0 1px ${brand.green}` };
+
   return (
     <View style={{ marginTop: space.sm }}>
       {label ? <MicroLabel style={{ marginBottom: 5 }}>{label}</MicroLabel> : null}
+      <View
+        style={
+          lead
+            ? [chrome, ring, { flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }]
+            : undefined
+        }
+      >
+        {lead}
       <TextInput
         style={[
           {
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: focused ? brand.green : error ? colors.redline : colors.line2,
-            borderRadius: radius.cell,
-            paddingStart: space.m,
+            ...(lead ? null : chrome),
+            // The adornment supplies the leading inset; a second one here
+            // would double the gap between the chip and the first character.
+            paddingStart: lead ? 0 : space.m,
             paddingEnd: space.m,
+            ...(lead ? { flex: 1 } : null),
             paddingTop: dense ? 13 : 14,
             paddingBottom: dense ? 13 : 14,
             fontFamily: fonts.body600,
@@ -420,8 +454,9 @@ export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...i
             writingDirection: dir,
           },
           // The design's 2 px focus ring, drawn outside the border so the
-          // field does not jump when it gains focus.
-          focused && { boxShadow: `0 0 0 1px ${brand.green}` },
+          // field does not jump when it gains focus. With an adornment the
+          // ring is on the wrapping row instead — see `chrome` above.
+          !lead && ring,
           // Latin content (email / phone / password) anchors to the physical
           // left even inside the RTL layout — spec §06 Forms. Deliberate
           // exception to the logical-properties rule.
@@ -441,18 +476,36 @@ export function Field({ label, error, latin, dense, style, onFocus, onBlur, ...i
         }}
         {...inputProps}
       />
+      </View>
       <ErrorText>{error}</ErrorText>
     </View>
   );
 }
 
-/** Design's segmented control (duration, language, appearance pickers). */
+/**
+ * Design's segmented control (duration, language, appearance pickers).
+ *
+ * The selected background is ONE thumb that slides between segments rather
+ * than a per-segment `backgroundColor` that pops on and off: it is absolutely
+ * positioned inside the track's padding and animated to the measured frame of
+ * the active segment. Labels crossfade their color over the same curve, so the
+ * incoming label lights up as the thumb arrives under it.
+ *
+ * Direction: Yoga mirrors the segment ORDER for free, but `onLayout` reports
+ * a PHYSICAL x while the thumb is anchored to the logical `start` (physical
+ * properties are lint-banned here, and rightly), so each measured x is folded
+ * into a start-relative offset against the track's own width. Before the first
+ * layout (and under Reduce Motion) the thumb jumps rather than slides.
+ *
+ * `pinOrder` opts one control out of that mirroring — see the prop.
+ */
 export function SegmentedControl<T extends string | number>({
   options,
   value,
   onChange,
   activeColor,
   fit = false,
+  pinOrder = false,
 }: {
   options: readonly { value: T; label: string }[];
   value: T;
@@ -464,20 +517,119 @@ export function SegmentedControl<T extends string | number>({
    * to their labels, track radius 10 / thumb 8, 8×12 padding, 11.5 pt.
    */
   fit?: boolean;
+  /**
+   * Hold the segments in the order given, whatever the language — for the
+   * LANGUAGE PICKER, whose options are not a mirrorable list but a fixed pair
+   * of destinations. Mirroring it means the control a guest just tapped swaps
+   * under their finger as the app flips, so English/العربية becomes
+   * العربية/English and the option they chose jumps to the other side. Every
+   * other control (appearance, duration) is ordinary UI and must keep
+   * mirroring; this is a deliberate exception, not the default.
+   */
+  pinOrder?: boolean;
 }) {
   const { colors, fonts, tracking } = useTheme();
+  const { dir } = useLocale();
+  const reduceMotion = useReduceMotion();
+  // A pinned track lays out LTR whatever the app does, so its measured frames
+  // read left-to-right and the thumb must not fold them back.
+  const rtl = dir === 'rtl' && !pinOrder;
+
+  const activeIndex = Math.max(
+    0,
+    options.findIndex((o) => o.value === value),
+  );
+
+  /**
+   * Each segment's measured frame, physical-left within the track. Kept DENSE
+   * and sized to `options`: a sparse array would slip past the length check —
+   * array iteration skips holes — and hand an interpolation an undefined
+   * frame, so every entry is rebuilt on each measurement.
+   */
+  const [frames, setFrames] = useState<(Frame | null)[]>(() => options.map(() => null));
+  const [trackWidth, setTrackWidth] = useState(0);
+  // A shorter option list leaves stale frames behind; `laid` only trusts the
+  // array when its length still matches, and onLayout rebuilds it at the new
+  // size on the very next pass.
+  const laid = frames.length === options.length ? frames.filter(isFrame) : [];
+  const measured = laid.length === options.length && trackWidth > 0;
+
+  const start = useCallback((f: Frame) => insetStart(f, trackWidth, rtl), [rtl, trackWidth]);
+
+  const progress = useRef(new Animated.Value(activeIndex)).current;
+  const settled = useRef(false);
+
+  useEffect(() => {
+    // The first landing (and every one under Reduce Motion) is a jump: there is
+    // no previous position to travel from, and animating out of index 0 would
+    // read as the thumb flying in from the first segment.
+    if (!measured || !settled.current || reduceMotion) {
+      progress.setValue(activeIndex);
+      if (measured) settled.current = true;
+      return;
+    }
+    const anim = Animated.timing(progress, {
+      toValue: activeIndex,
+      duration: 220,
+      easing: Easing.bezier(0.32, 0.72, 0, 1),
+      useNativeDriver: false, // width and label colors are not native props
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [activeIndex, measured, progress, reduceMotion]);
+
+  /**
+   * Interpolations need at least two distinct inputs; a single-segment control
+   * (and the frames-less first render) falls back to a static frame.
+   */
+  const thumb = useMemo(() => {
+    if (!measured) return null;
+    const only = laid[0];
+    if (laid.length === 1 && only) return { x: start(only), width: only.width };
+    const range = laid.map((_, i) => i);
+    return {
+      x: progress.interpolate({ inputRange: range, outputRange: laid.map(start) }),
+      width: progress.interpolate({ inputRange: range, outputRange: laid.map((f) => f.width) }),
+    };
+    // `laid` is derived from `frames` each render; that is the real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frames, measured, progress, start]);
+
   return (
     <View
       accessibilityRole="tablist"
+      onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
       style={{
         flexDirection: 'row',
+        // `direction` on the track itself, not a wrapper: it is what stops Yoga
+        // reversing the row, and it cascades to the segments' own paddings.
+        ...(pinOrder ? { direction: 'ltr' as const } : null),
         alignSelf: fit ? 'flex-start' : 'stretch',
         backgroundColor: colors.seg,
         borderRadius: fit ? 10 : radius.cell,
         padding: 3,
       }}
     >
-      {options.map((o) => {
+      {thumb ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 3,
+            bottom: 3,
+            start: 0,
+            width: thumb.width,
+            // A start-relative offset turned back into a physical translate:
+            // `translateX` has no logical form, so under RTL it walks the
+            // other way.
+            transform: [{ translateX: rtl ? Animated.multiply(thumb.x, -1) : thumb.x }],
+            borderRadius: fit ? 8 : 9,
+            backgroundColor: colors.card,
+            boxShadow: shadows.thumb,
+          }}
+        />
+      ) : null}
+      {options.map((o, i) => {
         const active = o.value === value;
         return (
           <Pressable
@@ -486,35 +638,89 @@ export function SegmentedControl<T extends string | number>({
             accessibilityState={{ selected: active }}
             onPress={() => onChange(o.value)}
             hitSlop={{ top: 6, bottom: 6 }}
-            style={[
-              {
-                flex: fit ? 0 : 1,
-                borderRadius: fit ? 8 : 9,
-                paddingTop: fit ? 8 : 10,
-                paddingBottom: fit ? 8 : 10,
-                paddingStart: fit ? 12 : 4,
-                paddingEnd: fit ? 12 : 4,
-                alignItems: 'center',
-                backgroundColor: active ? colors.card : 'transparent',
-              },
-              active && { boxShadow: shadows.thumb },
-            ]}
+            onLayout={(e) => {
+              const { x, width } = e.nativeEvent.layout;
+              setFrames((prev) => {
+                const at = prev[i];
+                if (at && at.x === x && at.width === width) return prev;
+                const next = options.map((_, j) => (j === i ? { x, width } : (prev[j] ?? null)));
+                return next;
+              });
+            }}
+            style={{
+              flex: fit ? 0 : 1,
+              borderRadius: fit ? 8 : 9,
+              paddingTop: fit ? 8 : 10,
+              paddingBottom: fit ? 8 : 10,
+              paddingStart: fit ? 12 : 4,
+              paddingEnd: fit ? 12 : 4,
+              alignItems: 'center',
+            }}
           >
-            <Text
+            <SegmentLabel
+              label={o.label}
+              index={i}
+              progress={progress}
+              animate={measured && options.length > 1}
+              active={active}
+              activeColor={activeColor ?? colors.blue}
+              idleColor={colors.mut}
               style={{
                 fontFamily: fonts.display800,
                 fontSize: fit ? 11.5 : 12,
                 letterSpacing: tracking(0.36),
-                color: active ? (activeColor ?? colors.blue) : colors.mut,
               }}
-            >
-              {o.label}
-            </Text>
+            />
           </Pressable>
         );
       })}
     </View>
   );
+}
+
+/**
+ * One segment's label. Its color rides the same `progress` as the thumb, so a
+ * two-step jump (English → Arabic past the middle option) sweeps the colors in
+ * order instead of snapping the ends. Falls back to a plain color before the
+ * first measurement.
+ *
+ * Renders through `AnimatedText`, NOT the plain `Text`: only an animated
+ * component subscribes to an interpolation, and a plain one paints the
+ * unresolved node black.
+ */
+function SegmentLabel({
+  label,
+  index,
+  progress,
+  animate,
+  active,
+  activeColor,
+  idleColor,
+  style,
+}: {
+  label: string;
+  index: number;
+  progress: Animated.Value;
+  animate: boolean;
+  active: boolean;
+  activeColor: string;
+  idleColor: string;
+  style: TextStyle;
+}) {
+  const color = useMemo(
+    () =>
+      animate
+        ? progress.interpolate({
+            inputRange: [index - 1, index, index + 1],
+            outputRange: [idleColor, activeColor, idleColor],
+            extrapolate: 'clamp',
+          })
+        : active
+          ? activeColor
+          : idleColor,
+    [active, activeColor, animate, idleColor, index, progress],
+  );
+  return <AnimatedText style={[style, { color }]}>{label}</AnimatedText>;
 }
 
 // ── Buttons ─────────────────────────────────────────────────────────────────

@@ -11,6 +11,8 @@ import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { radius, space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, FormScreen, Screen, useSafeBack } from '../src/components/ui';
+import { PhoneField } from '../src/components/phone';
+import { composePhone, DEFAULT_ISO, parsePhone, validatePhone } from '../src/features/profile/phone';
 import { ConfirmationDialog, useToast } from '../src/components/overlays';
 import { SkeletonList } from '../src/components/states';
 
@@ -33,7 +35,11 @@ function EditProfileScreen() {
   const toast = useToast();
 
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  // The phone is EDITED as country + national digits and STORED as E.164; the
+  // dirty check compares the composed value, so merely opening the picker and
+  // re-choosing the same country does not arm the unsaved-changes guard.
+  const [iso, setIso] = useState(DEFAULT_ISO);
+  const [national, setNational] = useState('');
   const [initial, setInitial] = useState<{ name: string; phone: string } | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -54,21 +60,31 @@ function EditProfileScreen() {
   useEffect(() => {
     if (profile.data && !initial) {
       setName(profile.data.full_name ?? '');
-      setPhone(profile.data.phone ?? '');
+      const parsed = parsePhone(profile.data.phone);
+      setIso(parsed.iso);
+      setNational(parsed.national);
       setInitial({
         name: profile.data.full_name ?? '',
-        phone: profile.data.phone ?? '',
+        // The COMPOSED baseline, not the raw column. A number stored in an
+        // older shape (`00964…`, or with spaces) round-trips through the
+        // picker as normalized E.164 — comparing against the raw string would
+        // mark the form dirty the instant it loaded, and every back press
+        // would offer to discard edits the guest never made.
+        phone: composePhone(parsed.iso, parsed.national),
       });
     }
   }, [profile.data, initial]);
 
+  const phone = composePhone(iso, national);
   const dirty = initial !== null && (name !== initial.name || phone !== initial.phone);
 
   const blockPop = dirty && !update.isPending && !leaving;
 
   /**
-   * Intercepts the pop itself — the native back item AND the edge-swipe — so
-   * the prompt appears without replacing the button.
+   * Intercepts the pop itself — so the prompt appears without replacing the
+   * back button. The edge-swipe is NOT caught here (UIKit commits it before
+   * this fires); it is disabled outright while the guard is armed, see the
+   * `gestureEnabled` note on `Stack.Screen` below.
    *
    * NOT `usePreventRemove`, deliberately. That hook registers the route as
    * prevented, and NativeStackView then forces
@@ -83,9 +99,18 @@ function EditProfileScreen() {
    * the very event that hook wraps) without ever marking the route prevented,
    * so the back item stays native: chevron, our tint, the push/pop animation.
    */
+  /**
+   * Read synchronously by the listener below. `leaving` alone is not enough:
+   * it is state, so the listener still sees the PREVIOUS value during the same
+   * tick in which the dialog releases the guard, and the replayed pop is
+   * intercepted a second time — the screen refuses to leave at all.
+   */
+  const releasedRef = useRef(false);
+
   useEffect(() => {
     if (!blockPop) return;
     return navigation.addListener('beforeRemove', (e) => {
+      if (releasedRef.current) return; // a departure the user already approved
       e.preventDefault();
       setPendingPop(e.data.action);
       setDiscardOpen(true);
@@ -116,15 +141,18 @@ function EditProfileScreen() {
     if (!name.trim()) return setNameError(t('auth.nameRequired'));
     // Required from day one (spec 05.3): the desk calls it about bookings, and
     // the booking path refuses without it — so it cannot be cleared here.
-    if (!phone.trim()) return setPhoneError(t('auth.phoneRequired'));
+    const badPhone = validatePhone(iso, national);
+    if (badPhone === 'PHONE_REQUIRED') return setPhoneError(t('auth.phoneRequired'));
+    if (badPhone) return setPhoneError(t('auth.phoneInvalid'));
     update.mutate(
-      { full_name: name.trim(), phone: phone.trim() },
+      { full_name: name.trim(), phone },
       {
         onSuccess: () => {
           toast(t('profile.updated'));
           // Release the guard first: the form is still "dirty" against the
           // captured `initial`, so the pop would otherwise be intercepted and
           // offer to discard changes that were just saved.
+          releasedRef.current = true;
           setLeaving(true);
         },
         onError: (err) => setError(t(mapErrorToKey(err))),
@@ -134,7 +162,23 @@ function EditProfileScreen() {
 
   return (
     <Screen edges={[]}>
-      <Stack.Screen options={{ title: t('profile.editProfile') }} />
+      {/*
+       * `gestureEnabled: false` while the guard is armed, and ONLY then.
+       *
+       * The iOS interactive pop gesture is driven by UIKit inside
+       * react-native-screens, not by JS. By the time `beforeRemove` runs for an
+       * edge-swipe, UIKit has already committed the transition: the screen is
+       * detached, so `e.preventDefault()` cannot put it back. The dialog then
+       * rendered over the PREVIOUS screen and confirming replayed a pop that
+       * had already happened — the form was gone either way, discarding the
+       * edits without ever really asking.
+       *
+       * Turning the gesture off leaves the native back item as the only way
+       * out, and THAT is a JS-side dispatch the listener can genuinely cancel.
+       * It is re-enabled the moment the form is clean (or is saving/leaving),
+       * so the swipe still works on a screen with nothing to lose.
+       */}
+      <Stack.Screen options={{ title: t('profile.editProfile'), gestureEnabled: !blockPop }} />
       {profile.isLoading && !initial ? (
         <SkeletonList rows={3} height={64} />
       ) : (
@@ -147,12 +191,12 @@ function EditProfileScreen() {
             dense
             error={nameError}
           />
-          <Field
+          <PhoneField
             label={t('auth.phoneLabel')}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            autoComplete="tel"
+            iso={iso}
+            onChangeIso={setIso}
+            national={national}
+            onChangeNational={setNational}
             dense
             error={phoneError}
           />
@@ -200,6 +244,8 @@ function EditProfileScreen() {
         danger
         onConfirm={() => {
           setDiscardOpen(false);
+          // Synchronously, BEFORE the replay effect runs.
+          releasedRef.current = true;
           setLeaving(true);
         }}
         onDismiss={() => {

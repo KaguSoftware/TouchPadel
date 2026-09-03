@@ -16,20 +16,21 @@ import {
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { venuePhoneOf } from '../src/features/availability/assemble';
 import { callPhone } from '../src/lib/phone';
-import { radius, space, useTheme, type Appearance } from '../src/theme';
+import { radius, space, useTheme, type AppearancePreference } from '../src/theme';
 import { Button, Card, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
 import { BellIcon, GlobeIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
 
 /**
- * Settings (design 2026-08-31): Appearance (Light/Dark — app-driven theme),
+ * Settings (design 2026-08-31): Appearance (Auto/Light/Dark — app-driven theme,
+ * Auto following the device),
  * Language (segmented; the switch applies in place), Notifications (the three
  * permission states render differently), the venue call card, and the version
  * footer. Public route; reached from the signed-in Profile.
  */
 export default function SettingsScreen() {
   const { t, locale, setLocale } = useLocale();
-  const { colors, fonts, appearance, setAppearance } = useTheme();
+  const { colors, fonts, preference, setAppearance } = useTheme();
   const insets = useSafeAreaInsets();
   const settings = useVenueSettings();
   const toast = useToast();
@@ -94,19 +95,37 @@ export default function SettingsScreen() {
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Appearance */}
+        {/* Appearance. Bound to the PREFERENCE, not the resolved scheme: under
+            Auto on a dark device the control has to read Auto, not Dark. */}
         <Card style={{ padding: space.m }}>
           {groupLabel(<MoonIcon size={13} color={colors.gstrong} />, t('settings.appearance'))}
           <View style={{ marginTop: 8 }}>
-            <SegmentedControl<Appearance>
+            <SegmentedControl<AppearancePreference>
               options={[
+                { value: 'automatic', label: t('settings.automatic') },
                 { value: 'light', label: t('settings.light') },
                 { value: 'dark', label: t('settings.dark') },
               ]}
-              value={appearance}
+              value={preference}
               onChange={setAppearance}
             />
           </View>
+          {/* Only under Auto: what it follows is not obvious, and a permanent
+              line of explanation under a control the user already understands
+              is noise. Matches the language card's note. */}
+          {preference === 'automatic' ? (
+            <Text
+              style={{
+                fontFamily: fonts.body400,
+                fontSize: 11.5,
+                lineHeight: 17,
+                color: colors.fnt,
+                marginTop: 8,
+              }}
+            >
+              {t('settings.automaticNote')}
+            </Text>
+          ) : null}
         </Card>
 
         {/* Language */}
@@ -120,6 +139,7 @@ export default function SettingsScreen() {
               ]}
               value={locale}
               onChange={(next) => void onPickLocale(next)}
+              pinOrder
             />
           </View>
           <Text
