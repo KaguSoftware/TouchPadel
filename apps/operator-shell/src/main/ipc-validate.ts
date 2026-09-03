@@ -217,6 +217,21 @@ export function validateConnState(value: unknown): boolean {
   return value;
 }
 
+/** A KDS renderer's bump, bound for the till over the LAN. kdsStation is
+ *  stamped by main from station.json — never trusted from the renderer. */
+export function validateLanStatus(value: unknown): { ref: string; status: 'preparing' | 'ready' | 'completed' } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('lanStatus must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const ref = requireString(raw.ref, 'ref', 128);
+  const status = requireString(raw.status, 'status', 16);
+  if (status !== 'preparing' && status !== 'ready' && status !== 'completed') {
+    fail(`unknown lan status '${status}'`);
+  }
+  return { ref, status };
+}
+
 /**
  * PIN: digits only, length-bounded. Verification is server-side against
  * `crypt()` (design-data.md), so this only refuses junk — but a PIN is also the

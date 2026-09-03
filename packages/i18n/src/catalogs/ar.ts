@@ -915,6 +915,8 @@ export const ar: Messages = {
       start: 'ابدأ',
       ready: 'جاهز',
       complete: 'إنهاء',
+      lanMode: 'دون اتصال — تصل التذاكر من الكاشير عبر الشبكة المحلية.',
+      lanEmpty: 'دون اتصال — بانتظار التذاكر من الكاشير عبر الشبكة المحلية.',
       voided: 'ملغى',
       statusQueued: 'في الانتظار',
       statusPreparing: 'قيد التحضير',

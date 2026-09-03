@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import {
   IPC,
   type AuthState,
-  type KitchenTicket,
+  type LanFrameForRenderer,
   type MutationEnvelope,
   type MutationResult,
   type PinUnlockResult,
@@ -27,11 +27,14 @@ const touch = {
     return () => ipcRenderer.removeListener(IPC.queueUpdate, listener);
   },
 
-  onLanTicket: (cb: (t: KitchenTicket) => void): (() => void) => {
-    const listener = (_e: IpcRendererEvent, t: KitchenTicket) => cb(t);
+  onLanTicket: (cb: (frame: LanFrameForRenderer) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, frame: LanFrameForRenderer) => cb(frame);
     ipcRenderer.on(IPC.lanTicket, listener);
     return () => ipcRenderer.removeListener(IPC.lanTicket, listener);
   },
+
+  sendLanStatus: (update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void =>
+    ipcRenderer.send(IPC.lanStatus, update),
 
   getCachedRef: (key: string): Promise<unknown> => ipcRenderer.invoke(IPC.getCachedRef, key),
 

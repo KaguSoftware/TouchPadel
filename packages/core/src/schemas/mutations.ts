@@ -244,13 +244,23 @@ export const orderAddItemsPayloadSchema = z
 
 export type OrderAddItemsPayload = z.infer<typeof orderAddItemsPayloadSchema>;
 
-/** ticket.status — app.set_ticket_status; transition-idempotent server-side. */
+/**
+ * ticket.status — app.set_ticket_status; transition-idempotent server-side.
+ * ticketIdemKey references a ticket whose order was itself queued offline (the
+ * order envelope's key) — replay resolves it via orders.idempotency_key →
+ * tickets.order_id, strictly after the order row lands.
+ */
 export const ticketStatusPayloadSchema = z
   .object({
-    ticketId: uuid,
+    ticketId: uuid.optional(),
+    ticketIdemKey: idempotencyKeySchema.optional(),
     status: z.enum(['queued', 'preparing', 'ready', 'completed', 'voided']),
   })
-  .strict();
+  .strict()
+  .refine((p) => (p.ticketId !== undefined) !== (p.ticketIdemKey !== undefined), {
+    message: 'exactly one of ticketId or ticketIdemKey is required',
+    path: ['ticketId'],
+  });
 
 export type TicketStatusPayload = z.infer<typeof ticketStatusPayloadSchema>;
 

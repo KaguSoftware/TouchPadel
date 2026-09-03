@@ -925,6 +925,8 @@ export const en = {
       ready: 'Ready',
       complete: 'Complete',
       voided: 'Voided',
+      lanMode: 'Offline — tickets arriving from the till over the local network.',
+      lanEmpty: 'Offline — waiting for tickets from the till over the local network.',
       statusQueued: 'Queued',
       statusPreparing: 'Preparing',
       statusReady: 'Ready',

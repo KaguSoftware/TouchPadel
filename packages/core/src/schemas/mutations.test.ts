@@ -277,6 +277,18 @@ describe('ticket.status payload', () => {
       ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, status: 'burnt' }).success,
     ).toBe(false);
   });
+
+  it('takes exactly one of ticketId / ticketIdemKey — the LAN bump reference', () => {
+    const orderKey = makeIdempotencyKey(STATION, 'order.add_items');
+    expect(
+      ticketStatusPayloadSchema.safeParse({ ticketIdemKey: orderKey, status: 'ready' }).success,
+    ).toBe(true);
+    expect(ticketStatusPayloadSchema.safeParse({ status: 'ready' }).success).toBe(false);
+    expect(
+      ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, ticketIdemKey: orderKey, status: 'ready' })
+        .success,
+    ).toBe(false);
+  });
 });
 
 describe('tab.open payload', () => {

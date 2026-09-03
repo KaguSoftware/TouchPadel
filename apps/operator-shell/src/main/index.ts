@@ -11,7 +11,8 @@ import {
   setConnOnline,
 } from './queue';
 import { loadStation } from './station';
-import { startLanKdsServer } from './lan-kds-server';
+import { startLanKdsServer, type LanKdsServer } from './lan-kds-server';
+import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
 import { startHeartbeat } from './heartbeat';
 import { setAuthState } from './auth-state';
 import { observePin, unlockPinOffline } from './pin-cache';
@@ -22,6 +23,7 @@ import {
   validateAuthState,
   validateCachePut,
   validateConnState,
+  validateLanStatus,
   validateMutationEnvelope,
   validatePin,
   validatePrintJob,
@@ -44,6 +46,8 @@ if (!gotTheLock) {
 }
 
 let worker: SyncWorker | null = null;
+let lanServer: LanKdsServer | null = null;
+let lanClient: LanKdsClient | null = null;
 
 /** Wrap an IPC handler so a malformed argument is refused, not stored. */
 function guardIpc<T>(name: string, fn: () => T): T | { error: string } {
@@ -139,13 +143,25 @@ if (gotTheLock) {
 
     ipcMain.handle(IPC.enqueue, (_e, m: unknown) =>
       guardIpc('enqueue', () => {
-        const result = enqueue(validateMutationEnvelope(m));
+        const envelope = validateMutationEnvelope(m);
+        const result = enqueue(envelope);
         // The insert is fsynced; replay immediately — online, the round trip
         // lands sub-second and the "one write path" costs nothing perceptible.
         worker?.kick();
+        // Kitchen-bound rows also go out over the LAN so a KDS keeps receiving
+        // tickets while the cloud path is down (design-arch §2.4).
+        lanServer?.onEnqueued(envelope);
         return result;
       }),
     );
+
+    ipcMain.on(IPC.lanStatus, (_e, v: unknown) => {
+      guardIpc('lanStatus', () => {
+        const update = validateLanStatus(v);
+        lanClient?.sendStatus({ ...update, kdsStation: station.stationId });
+        return null;
+      });
+    });
 
     ipcMain.on(IPC.authState, (_e, s: unknown) => {
       guardIpc('authState', () => {
@@ -249,7 +265,19 @@ if (gotTheLock) {
       worker?.stop();
     });
 
-    startLanKdsServer(station);
+    lanServer = startLanKdsServer(station, {
+      onQueueChanged: () => {
+        pushStatus();
+        worker?.kick(); // a KDS bump entered the till's queue — replay it
+      },
+    });
+    lanClient = startLanKdsClient(station, (frame) => {
+      if (!win.isDestroyed()) win.webContents.send(IPC.lanTicket, frame);
+    });
+    win.on('closed', () => {
+      lanServer?.close();
+      lanClient?.close();
+    });
     startHeartbeat(station);
   });
 }
