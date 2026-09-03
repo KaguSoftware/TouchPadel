@@ -526,10 +526,7 @@ export type Database = {
         Args: { p_reason?: string; p_text: string }
         Returns: string
       }
-      release_hold: {
-        Args: { p_reservation_id: string }
-        Returns: Json
-      }
+      release_hold: { Args: { p_reservation_id: string }; Returns: Json }
       rename_staff: {
         Args: { p_display_name: string; p_staff_id: string }
         Returns: Json
@@ -600,6 +597,14 @@ export type Database = {
       set_opening_hours: {
         Args: { p_closed_dates?: string[]; p_opening_hours?: Json }
         Returns: undefined
+      }
+      set_order_item_ready: {
+        Args: {
+          p_device_id?: string
+          p_order_item_id: string
+          p_ready: boolean
+        }
+        Returns: Json
       }
       set_staff_active: {
         Args: { p_active: boolean; p_reason_code?: string; p_staff_id: string }

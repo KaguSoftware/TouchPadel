@@ -310,6 +310,48 @@ test.describe('operator cafe admin', () => {
     await voidOpenTabsForTable(svc, KDS_TABLE);
   });
 
+  test('(i) an item-ready mark survives a reload — server state since 0061', async ({ page }) => {
+    await voidOpenTabsForTable(svc, KDS_TABLE);
+    const guest = await openGuestSession(KDS_TABLE);
+    const order = await appRpc<{ ticket_id: string }>(guest.client, 'create_guest_order', {
+      p_items: [
+        { variant_id: 'f1f70000-0000-4000-8000-0000f0010001', qty: 1 },
+        { variant_id: 'f1f70000-0000-4000-8000-0000f0050001', qty: 1 },
+      ],
+      p_idempotency_key: `e2e-kds-ready-${Date.now()}`,
+    });
+    const ticketId = order.ticket_id;
+    await guest.client.auth.signOut();
+
+    await signIn(page, SEED_STAFF.prep);
+    // The checkbox's accessible name is its line ("1× Espresso (Regular)") —
+    // target by name so leftovers from other cases can't shift the indexes.
+    const espresso = page.getByRole('checkbox', { name: /Espresso/ }).first();
+    const karak = page.getByRole('checkbox', { name: /Karak/ }).first();
+    await expect(espresso).toBeVisible({ timeout: 30_000 });
+
+    // Tick one item; the mark is optimistic, then persisted server-side.
+    await espresso.check();
+    await expect(espresso).toBeChecked();
+
+    // The audit's M1 repro: a reload used to lose every mark.
+    await page.reload();
+    await expect(page.getByRole('checkbox', { name: /Espresso/ }).first()).toBeChecked({
+      timeout: 30_000,
+    });
+    await expect(karak).not.toBeChecked();
+
+    // Clean up: run the ticket out so other cases see an empty board.
+    const prep = await signedInClient(SEED_STAFF.prep);
+    try {
+      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'ready' });
+      await appRpc(prep, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'completed' });
+    } finally {
+      await prep.auth.signOut();
+    }
+    await voidOpenTabsForTable(svc, KDS_TABLE);
+  });
+
   test.afterAll(async () => {
     stopHeartbeat?.();
     // Undo the Telegram setup case (d) performed.
