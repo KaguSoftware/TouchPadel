@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Padel Racket — 3D</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+    "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+    "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+  },
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+    "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
+  }
+}
+</script>
+<style>
+  html,body{margin:0;height:100%;background:#f4f1ea}
+  three-d-stage:not(:defined){visibility:hidden}
+  three-d-stage{display:block;width:100vw;height:100vh}
+</style>
+</head>
+<body>
+<three-d-stage name="padel-racket" background="#f4f1ea"></three-d-stage>
+<script src="./three-d-stage.js"></script>
+<script type="module">
+const stage = document.querySelector('three-d-stage');
+const { THREE } = await stage.ready;
+
+const mat = (name, color, roughness, metalness = 0.05) => {
+  const m = new THREE.MeshStandardMaterial({ color, roughness, metalness });
+  m.name = name; return m;
+};
+const frameBlue = mat('frame_blue', 0x2b4f94, 0.5);
+const faceBlue  = mat('face_blue',  0x3e63ad, 0.6);
+const skyBlue   = mat('sky_blue',   0x6ec6ea, 0.45);
+const gripGreen = mat('grip_green', 0x8fc65b, 0.85, 0);
+const navy      = mat('navy',       0x1f3a70, 0.5);
+
+const rad = d => d * Math.PI / 180;
+const HEAD = { x: 0, y: 0.32, r: 0.13 };     // head centre / outer radius (m)
+const T = 0.038;                             // frame thickness
+const model = new THREE.Group(); model.name = 'body';
+
+// ---- Frame: outer teardrop outline with face opening + throat window ----
+const outer = new THREE.Shape();
+// teardrop: round crown, sides run tangentially down into the neck
+const A = 20; // degrees below horizontal where the crown meets the straight sides
+const px = HEAD.r * Math.cos(rad(A)), py = HEAD.y - HEAD.r * Math.sin(rad(A));
+outer.absarc(HEAD.x, HEAD.y, HEAD.r, rad(-A), rad(180 + A), false);
+const NW = 0.018; // half-width of the neck/handle core (≈ frame half-thickness → near-round section)
+outer.bezierCurveTo(-0.098, 0.205, -NW, 0.165, -NW, 0.125);
+outer.lineTo(-NW, 0.108);
+outer.lineTo(NW, 0.108);
+outer.lineTo(NW, 0.125);
+outer.bezierCurveTo(NW, 0.165, 0.098, 0.205, px, py);
+outer.closePath();
+
+// face opening: matching teardrop, closed above the throat window
+function teardrop(r, a, bottomY, neckW) {
+  const p = new THREE.Path();
+  const lx = -r * Math.cos(rad(a)), ly = HEAD.y - r * Math.sin(rad(a));
+  p.absarc(HEAD.x, HEAD.y, r, rad(-a), rad(180 + a), false);
+  p.bezierCurveTo(lx + 0.02, ly - 0.045, -neckW, bottomY, 0, bottomY);
+  p.bezierCurveTo(neckW, bottomY, -lx - 0.02, ly - 0.045, -lx, ly);
+  p.closePath();
+  return p;
+}
+const faceOpening = teardrop(0.116, 25, 0.204, 0.05);
+outer.holes.push(faceOpening);
+
+const throat = new THREE.Path();
+throat.moveTo(-0.046, 0.188);
+throat.lineTo(0.046, 0.188);
+throat.quadraticCurveTo(0.016, 0.168, 0, 0.156);
+throat.quadraticCurveTo(-0.016, 0.168, -0.046, 0.188);
+throat.closePath();
+outer.holes.push(throat);
+
+const frameGeo = new THREE.ExtrudeGeometry(outer, {
+  depth: T - 0.008, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelOffset: -0.004, bevelSegments: 4, curveSegments: 48
+});
+frameGeo.translate(0, 0, -(T - 0.008) / 2);
+const frame = new THREE.Mesh(frameGeo, frameBlue); frame.name = 'frame';
+model.add(frame);
+
+// ---- Face plate with perforations ----
+const face = new THREE.Shape();
+const fp = teardrop(0.1195, 25, 0.200, 0.05);
+face.curves = fp.curves; face.autoClose = true;
+const HOLE_R = 0.0065;
+for (let k = -4; k <= 3; k++) {
+  const y = k * 0.026;
+  for (let j = -4; j <= 4; j++) {
+    const x = j * 0.03 + (k % 2 ? 0.015 : 0);
+    const inside = y >= 0 ? Math.hypot(x, y) <= 0.09 : Math.abs(x) <= 0.088 - Math.abs(y) * 0.55;
+    if (!inside) continue;
+    const h = new THREE.Path();
+    h.absarc(HEAD.x + x, HEAD.y + y, HOLE_R, 0, Math.PI * 2, true);
+    face.holes.push(h);
+  }
+}
+const FT = T - 0.006;
+const faceGeo = new THREE.ExtrudeGeometry(face, {
+  depth: FT - 0.002, bevelEnabled: true, bevelThickness: 0.001, bevelSize: 0.001, bevelOffset: -0.001, bevelSegments: 2, curveSegments: 24
+});
+faceGeo.translate(0, 0, -(FT - 0.002) / 2);
+const facePlate = new THREE.Mesh(faceGeo, faceBlue); facePlate.name = 'face';
+model.add(facePlate);
+
+// ---- Cartoon highlight bands on the rim (front + back) ----
+function arcBand(name, a0, a1, rIn, rOut, z) {
+  const s = new THREE.Shape();
+  s.absarc(HEAD.x, HEAD.y, rOut, rad(a0), rad(a1), false);
+  s.absarc(HEAD.x, HEAD.y, rIn, rad(a1), rad(a0), true);
+  s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.0012, bevelEnabled: false, curveSegments: 40 });
+  g.translate(0, 0, z);
+  const m = new THREE.Mesh(g, skyBlue); m.name = name; return m;
+}
+const zFront = T / 2 + 0.0003, zBack = -T / 2 - 0.0015;
+model.add(arcBand('highlight_front', 100, 160, 0.1205, 0.1255, zFront));
+model.add(arcBand('highlight_back', 20, 80, 0.1205, 0.1255, zBack));
+
+// ---- Handle: lofted collar morphs the slab section into a circle, then a round grip ----
+const R = 0.0195; // grip radius
+function loft(name, material, yTop, yBot, top, bot, around = 64, along = 24) {
+  const pos = [], idx = [];
+  const smooth = t => t * t * (3 - 2 * t);
+  for (let i = 0; i <= along; i++) {
+    const t = smooth(i / along), y = yTop + (yBot - yTop) * (i / along);
+    const a = top.a + (bot.a - top.a) * t, b = top.b + (bot.b - top.b) * t, n = top.n + (bot.n - top.n) * t;
+    for (let j = 0; j <= around; j++) {
+      const th = j / around * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
+      pos.push(a * Math.sign(c) * Math.pow(Math.abs(c), 2 / n), y, b * Math.sign(s) * Math.pow(Math.abs(s), 2 / n));
+    }
+  }
+  for (let i = 0; i < along; i++) for (let j = 0; j < around; j++) {
+    const p = i * (around + 1) + j, q = p + around + 1;
+    idx.push(p, q, p + 1, q, q + 1, p + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, material); m.name = name; return m;
+}
+// top section hugs the beveled slab (18 × 19 mm half-sizes), bottom is a true circle
+model.add(loft('collar', navy, 0.13, 0.10, { a: NW + 0.0005, b: T / 2 + 0.0005, n: 10 }, { a: R, b: R, n: 2 }));
+const grip = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.09, 48), gripGreen);
+grip.name = 'grip'; grip.position.y = 0.012 + 0.045; model.add(grip);
+for (let i = 0; i < 4; i++) {
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.0015, 0.0034, 14, 48), gripGreen);
+  ring.name = 'grip_wrap_' + (i + 1);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.028 + i * 0.022;
+  model.add(ring);
+}
+const cap = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.0015, R + 0.0005, 0.012, 48), navy);
+cap.name = 'butt_cap'; cap.position.y = 0.007; model.add(cap);
+const capEnd = new THREE.Mesh(new THREE.SphereGeometry(R + 0.0015, 48, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), navy);
+capEnd.name = 'butt_cap_end'; capEnd.scale.y = 0.3; capEnd.position.y = 0.0064; model.add(capEnd);
+
+// ---- Hierarchy: root > swing_pivot (animated, origin at the grip) > body ----
+const PIVOT_Y = 0.05;
+model.position.y = -PIVOT_Y;
+// one-handed forehand hold: handle points to the player's side (+X), head out to -X,
+// slightly above horizontal, face leaning a touch forward
+const hold = new THREE.Group(); hold.name = 'hand_hold';
+hold.rotation.set(-0.08, 0, 0.75, 'YXZ');
+hold.add(model);
+const pivot = new THREE.Group(); pivot.name = 'swing_pivot'; pivot.add(hold);
+const root = new THREE.Group(); root.name = 'padel_racket'; root.position.y = PIVOT_Y + 0.15; root.add(pivot);
+
+// ---- Swing clip: rest → backswing → contact → follow-through → rest (loops) ----
+// keys: [time, tiltX, turnY, liftZ, posX, posY, posZ]
+// The hand travels on a forehand arc around the player (behind-right → forward-left),
+// -Z is forward. turnY sweeps the head around the body; liftZ goes low-to-high through contact.
+const keys = [
+  [0.00,  0.03, -0.35, -0.06,  0.10, 0.00,  0.16],
+  [0.45,  0.05, -0.55, -0.14,  0.14, 0.02,  0.26],
+  [0.62,  0.05, -0.52, -0.14,  0.13, 0.01,  0.26],
+  [0.78,  0.02, -0.25, -0.06,  0.06, 0.00,  0.08],
+  [0.90,  0.00,  0.05,  0.04, -0.02, 0.02, -0.10],
+  [1.10, -0.04,  0.35,  0.16, -0.10, 0.08, -0.26],
+  [1.35, -0.04,  0.40,  0.20, -0.12, 0.11, -0.30],
+  [1.80,  0.00,  0.05,  0.08, -0.03, 0.05, -0.10],
+  [2.20,  0.03, -0.35, -0.06,  0.10, 0.00,  0.16],
+];
+const times = [], quats = [], pos = [], q = new THREE.Quaternion(), e = new THREE.Euler();
+for (const [t, x, y0, z, px0, py_, pz_] of keys) {
+  const y = -y0, px_ = -px0; // mirrored: path sweeps to the right
+  times.push(t); q.setFromEuler(e.set(x, y, z, 'YXZ')); quats.push(q.x, q.y, q.z, q.w); pos.push(px_, py_, pz_);
+}
+const rotTrack = new THREE.QuaternionKeyframeTrack('swing_pivot.quaternion', times, quats);
+const posTrack = new THREE.VectorKeyframeTrack('swing_pivot.position', times, pos, THREE.InterpolateSmooth);
+const swing = new THREE.AnimationClip('swing', 2.2, [rotTrack, posTrack]);
+root.animations = [swing];
+
+// ---- Preview the clip in the stage ----
+const mixer = new THREE.AnimationMixer(root);
+mixer.clipAction(swing).play();
+const timer = new THREE.Timer();
+const baseLoop = stage._loop;
+stage._loop = () => { timer.update(); mixer.update(timer.getDelta()); baseLoop(); };
+stage._renderer.setAnimationLoop(stage._loop);
+
+stage.setObject(root);
+// widen the framing so the travelling swing stays in view
+stage._camera.position.sub(stage._controls.target).multiplyScalar(1.6).add(stage._controls.target);
+stage._controls.update();
+</script>
+</body>
+</html>
