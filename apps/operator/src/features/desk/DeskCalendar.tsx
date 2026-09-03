@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase';
 import { clientRef } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
 import { cachedQuery } from '../../lib/refCache';
+import { useToast } from '../../components/toast';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow } from '../../lib/queries';
 import { WeekGrid } from './WeekGrid';
 import { startOfWeek, weekDates } from './weekLogic';
@@ -655,6 +656,8 @@ function ReservationActionsDialog({
   onChanged: () => void;
 }) {
   const { tr, locale } = useLocale();
+  const queryClient = useQueryClient();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [showMove, setShowMove] = useState(false);
@@ -675,6 +678,28 @@ function ReservationActionsDialog({
     } finally {
       setBusy(false);
     }
+  }
+
+  /**
+   * Optimistic status mark (arrived / completed / no-show): the row flips and
+   * the dialog closes IMMEDIATELY — single-row transition, idempotent
+   * server-side, and the courts broadcast reconciles anyway. A refusal rolls
+   * back via invalidation and lands as a toast, since the dialog is gone.
+   */
+  function runMark(status: 'arrived' | 'completed' | 'no_show') {
+    queryClient.setQueryData(['reservations', date], (rows?: ReservationRow[]) =>
+      rows?.map((row) => (row.id === r.id ? { ...row, status } : row)),
+    );
+    onChanged();
+    void mutate('reservation.update', {
+      action: 'mark',
+      reservationId: r.id,
+      status,
+      reason,
+    }).catch((e: unknown) => {
+      toast.err(e);
+      void queryClient.invalidateQueries({ queryKey: ['reservations'] });
+    });
   }
 
   const durationMs = new Date(r.end_at).getTime() - new Date(r.start_at).getTime();
@@ -714,16 +739,7 @@ function ReservationActionsDialog({
           {r.status === 'confirmed' && (
             <Button
               disabled={busy}
-              onClick={() =>
-                void run(() =>
-                  mutate('reservation.update', {
-                    action: 'mark',
-                    reservationId: r.id,
-                    status: 'arrived',
-                    reason,
-                  }),
-                )
-              }
+              onClick={() => runMark('arrived')}
             >
               {tr('op.desk.arrived')}
             </Button>
@@ -731,16 +747,7 @@ function ReservationActionsDialog({
           {['confirmed', 'arrived'].includes(r.status) && (
             <Button
               disabled={busy}
-              onClick={() =>
-                void run(() =>
-                  mutate('reservation.update', {
-                    action: 'mark',
-                    reservationId: r.id,
-                    status: 'completed',
-                    reason,
-                  }),
-                )
-              }
+              onClick={() => runMark('completed')}
             >
               {tr('op.desk.completed')}
             </Button>
@@ -748,16 +755,7 @@ function ReservationActionsDialog({
           {r.status === 'confirmed' && (
             <Button
               disabled={busy}
-              onClick={() =>
-                void run(() =>
-                  mutate('reservation.update', {
-                    action: 'mark',
-                    reservationId: r.id,
-                    status: 'no_show',
-                    reason,
-                  }),
-                )
-              }
+              onClick={() => runMark('no_show')}
             >
               {tr('op.desk.noShow')}
             </Button>

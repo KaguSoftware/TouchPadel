@@ -1,7 +1,9 @@
 import { StrictMode, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider, createRouter, useNavigate } from '@tanstack/react-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { PERSIST_BUSTER, makePersister, shouldPersistQuery } from './lib/persist';
 import { ThemeProvider } from '@touch/ui';
 import { rootRoute } from './routes/__root';
 import { indexRoute } from './routes/index';
@@ -72,10 +74,13 @@ declare module '@tanstack/react-router' {
 // registered mutation types flow renderer -> IPC -> SQLite queue -> replay
 // (lib/mutate.ts), and their results land here through initQueueResults.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 10_000, retry: 1 } },
+  // gcTime must outlive the persister's maxAge or restored queries are
+  // garbage-collected before they can paint.
+  defaultOptions: { queries: { staleTime: 10_000, retry: 1, gcTime: 24 * 60 * 60 * 1000 } },
 });
 initQueueResults(queryClient);
 initOfflineTabRetirement();
+const persister = makePersister();
 
 /**
  * Boundary fallback for everything ABOVE the router — providers, the sidebar
@@ -96,9 +101,17 @@ function ThemedApp() {
     <ThemeProvider theme="padel" dir={dir}>
       <AppErrorBoundary fallback={(error, reset) => <ShellCrash error={error} reset={reset} />}>
         <AuthProvider>
-          <QueryClientProvider client={queryClient}>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{
+              persister,
+              buster: PERSIST_BUSTER,
+              maxAge: 24 * 60 * 60 * 1000,
+              dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+            }}
+          >
             <RouterProvider router={router} />
-          </QueryClientProvider>
+          </PersistQueryClientProvider>
         </AuthProvider>
       </AppErrorBoundary>
     </ThemeProvider>

@@ -23,6 +23,8 @@ import {
   subscribeOfflineTabs,
 } from '../../lib/offlineTabs';
 import { computeTabTotals } from './tabTotals';
+import { mergeQuickLine, quickVariant } from './quickAdd';
+import { useConfirm } from '../../components/ConfirmDialog';
 import { BillView } from './BillView';
 import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerActions';
 import { SplitByItemDialog } from './SplitByItemDialog';
@@ -139,9 +141,82 @@ interface BasketLine {
   modifiers: { modifierId: string; name: string; qty: number; priceDeltaIqd: number }[];
 }
 
+/**
+ * The till menu — five selects, one key, shared by the grid AND the tax
+ * computation (rate_bp rides on categories). staleTime 5 min with the `menu`
+ * broadcast as the primary invalidation: the old per-focus refetch re-downloaded
+ * the entire menu every time the cashier clicked back into the window.
+ */
+const TILL_MENU_QUERY = {
+  queryKey: ['menu'] as const,
+  staleTime: 300_000,
+  refetchOnWindowFocus: false,
+  queryFn: async () => {
+    // cachedQuery wraps only the serialisable half (SOW L671: the till keeps
+    // trading from the cached menu + prices); the Map is rebuilt after.
+    const raw = await cachedQuery('menu', async () => {
+      const [cats, items, groups, mods, avail] = await Promise.all([
+        supabase
+          .from('menu_categories')
+          .select('id, name_en, name_ar, sort_order, is_active, tax_group:tax_groups(rate_bp)')
+          .order('sort_order'),
+        supabase
+          .from('menu_items')
+          .select(
+            'id, category_id, name_en, name_ar, is_active, sort_order, menu_item_variants(*), menu_item_modifier_groups(group_id, sort_order)',
+          )
+          .order('sort_order'),
+        supabase.from('modifier_groups').select('*'),
+        supabase.from('modifiers').select('*').order('sort_order'),
+        supabase.from('menu_item_availability').select('item_id, orderable'),
+      ]);
+      for (const r of [cats, items, groups, mods, avail]) if (r.error) throw r.error;
+      return {
+        categories: (cats.data ?? []) as unknown as CategoryRow[],
+        items: (items.data ?? []) as unknown as ItemRow[],
+        groups: (groups.data ?? []) as unknown as ModifierGroupRow[],
+        modifiers: (mods.data ?? []) as unknown as ModifierRow[],
+        availabilityRows: (avail.data ?? []) as { item_id: string; orderable: boolean }[],
+      };
+    });
+    return {
+      categories: raw.categories,
+      items: raw.items,
+      groups: raw.groups,
+      modifiers: raw.modifiers,
+      availability: new Map(raw.availabilityRows.map((a) => [a.item_id, a.orderable])),
+    };
+  },
+};
+
+async function fetchTabDetail(tabId: string): Promise<TabDetail> {
+  const { data, error } = await supabase
+    .from('tabs')
+    .select(
+      `id, status, label, subtotal_iqd, total_iqd,
+       table:cafe_tables(table_number), reservation:reservations(guest_name),
+       orders (
+         id, status, placed_at,
+         order_items (
+           id, qty, unit_price_iqd, line_total_iqd, voided, notes,
+           menu_item:menu_items(name_en, name_ar, category_id),
+           variant:menu_item_variants(name_en, name_ar),
+           order_item_modifiers(qty, price_delta_iqd, modifier:modifiers(name_en, name_ar))
+         )
+       ),
+       payments(id, method, amount_iqd),
+       tab_adjustments(id, kind, amount_iqd)`,
+    )
+    .eq('id', tabId)
+    .single();
+  if (error) throw error;
+  return data as unknown as TabDetail;
+}
+
 export function TillScreen() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
@@ -166,45 +241,7 @@ export function TillScreen() {
   // ---- data -----------------------------------------------------------------
   const dayQ = useQuery({ queryKey: QK.day, queryFn: fetchOpenDay });
 
-  const menuQ = useQuery({
-    queryKey: ['menu'],
-    queryFn: async () => {
-      // cachedQuery wraps only the serialisable half (SOW L671: the till keeps
-      // trading from the cached menu + prices); the Map is rebuilt after.
-      const raw = await cachedQuery('menu', async () => {
-        const [cats, items, groups, mods, avail] = await Promise.all([
-          supabase
-            .from('menu_categories')
-            .select('id, name_en, name_ar, sort_order, is_active, tax_group:tax_groups(rate_bp)')
-            .order('sort_order'),
-          supabase
-            .from('menu_items')
-            .select(
-              'id, category_id, name_en, name_ar, is_active, sort_order, menu_item_variants(*), menu_item_modifier_groups(group_id, sort_order)',
-            )
-            .order('sort_order'),
-          supabase.from('modifier_groups').select('*'),
-          supabase.from('modifiers').select('*').order('sort_order'),
-          supabase.from('menu_item_availability').select('item_id, orderable'),
-        ]);
-        for (const r of [cats, items, groups, mods, avail]) if (r.error) throw r.error;
-        return {
-          categories: (cats.data ?? []) as unknown as CategoryRow[],
-          items: (items.data ?? []) as unknown as ItemRow[],
-          groups: (groups.data ?? []) as unknown as ModifierGroupRow[],
-          modifiers: (mods.data ?? []) as unknown as ModifierRow[],
-          availabilityRows: (avail.data ?? []) as { item_id: string; orderable: boolean }[],
-        };
-      });
-      return {
-        categories: raw.categories,
-        items: raw.items,
-        groups: raw.groups,
-        modifiers: raw.modifiers,
-        availability: new Map(raw.availabilityRows.map((a) => [a.item_id, a.orderable])),
-      };
-    },
-  });
+  const menuQ = useQuery({ ...TILL_MENU_QUERY });
 
   useBroadcast({
     topic: 'menu',
@@ -260,6 +297,12 @@ export function TillScreen() {
     return items.filter((i) => i.category_id === activeCategory);
   }, [menuQ.data, filter, activeCategory]);
 
+  // Latest values for the window-level key handler (registered once).
+  const visibleRef = useRef<ItemRow[]>([]);
+  visibleRef.current = visibleItems;
+  const sendRef = useRef<() => Promise<void>>(async () => {});
+  const addOrOpenRef = useRef<(item: ItemRow) => void>(() => {});
+
   // ---- keyboard-first: number keys pick categories, typing filters ----------
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -267,7 +310,32 @@ export function TillScreen() {
       const inField =
         target &&
         (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT');
+      // Function keys work everywhere on the till — "keyboard-first" (L440).
+      if (e.key === 'F2') {
+        e.preventDefault();
+        void sendRef.current();
+        return;
+      }
+      if (e.key === 'F4' || e.key === 'F5') {
+        // Opens the settle pane only — money is never CONFIRMED by keyboard.
+        e.preventDefault();
+        window.dispatchEvent(
+          new CustomEvent('till-settle-hotkey', { detail: e.key === 'F4' ? 'cash' : 'card' }),
+        );
+        return;
+      }
       if (inField && target !== filterRef.current) return;
+      if (target === filterRef.current && e.key === 'Enter') {
+        // Enter in the filter quick-adds when exactly one visible item needs
+        // no choices — type "wat", Enter, done.
+        const visible = visibleRef.current;
+        if (visible.length === 1 && quickVariant(visible[0]!)) {
+          e.preventDefault();
+          addOrOpenRef.current(visible[0]!);
+          setFilter('');
+        }
+        return;
+      }
       if (!inField && /^[1-9]$/.test(e.key)) {
         const cat = categories[Number(e.key) - 1];
         if (cat) {
@@ -284,6 +352,51 @@ export function TillScreen() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [categories]);
+
+  // ---- quick add / tab switching -------------------------------------------
+  /** Plain click on a nothing-to-choose item goes straight to the basket. */
+  function addOrOpen(item: ItemRow) {
+    const v = quickVariant(item);
+    if (!v || !selectedTabId) {
+      setSheetItem(item);
+      return;
+    }
+    setBasket((b) =>
+      mergeQuickLine(b, {
+        key: crypto.randomUUID(),
+        variantId: v.id,
+        itemName: pickName(locale, item),
+        variantName: pickName(locale, v),
+        qty: 1,
+        notes: '',
+        unitPriceIqd: v.price_iqd,
+        modifiers: [],
+      }),
+    );
+  }
+
+  /** Switching tabs discards the unsent basket — never silently (audit B2). */
+  async function selectTab(id: string | null) {
+    if (basket.length > 0 && id !== selectedTabId) {
+      const ok = await confirm({
+        title: tr('op.till.discardBasketTitle'),
+        body: tr('op.till.discardBasketBody', { count: basket.length }),
+        kind: 'danger',
+      });
+      if (!ok) return;
+    }
+    setSelectedTabId(id);
+    setBasket([]);
+  }
+
+  function bumpBasketQty(key: string, delta: number) {
+    setBasket((b) =>
+      b
+        .map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l))
+        .filter((l) => l.qty > 0),
+    );
+  }
+  addOrOpenRef.current = addOrOpen;
 
   // ---- send basket ----------------------------------------------------------
   async function sendBasket() {
@@ -326,6 +439,7 @@ export function TillScreen() {
       setSending(false);
     }
   }
+  sendRef.current = sendBasket;
 
   function tabTitle(tb: TabListRow): string {
     if (tb.table) return `${tr('op.till.table')} ${tb.table.table_number}`;
@@ -368,10 +482,23 @@ export function TillScreen() {
             key={tb.id}
             kind={tb.id === selectedTabId ? 'primary' : 'default'}
             style={{ display: 'block', inlineSize: '100%', marginBlockStart: '0.4rem', textAlign: 'start' }}
-            onClick={() => {
-              setSelectedTabId(tb.id);
-              setBasket([]);
-            }}
+            // Prefetch on hover/focus: the six-level tab-detail join is in
+            // flight before the click, so switching tabs paints instantly.
+            onMouseEnter={() =>
+              void queryClient.prefetchQuery({
+                queryKey: ['tab', tb.id],
+                queryFn: () => fetchTabDetail(tb.id),
+                staleTime: 10_000,
+              })
+            }
+            onFocus={() =>
+              void queryClient.prefetchQuery({
+                queryKey: ['tab', tb.id],
+                queryFn: () => fetchTabDetail(tb.id),
+                staleTime: 10_000,
+              })
+            }
+            onClick={() => void selectTab(tb.id)}
           >
             {tabTitle(tb)}
             {tb.status === 'awaiting_payment' && ' ⏳'}
@@ -384,10 +511,7 @@ export function TillScreen() {
               key={ot.idemKey}
               kind={localId === selectedTabId ? 'primary' : 'default'}
               style={{ display: 'block', inlineSize: '100%', marginBlockStart: '0.4rem', textAlign: 'start' }}
-              onClick={() => {
-                setSelectedTabId(localId);
-                setBasket([]);
-              }}
+              onClick={() => void selectTab(localId)}
             >
               {ot.tableNumber ? `${tr('op.till.table')} ${ot.tableNumber}` : (ot.label ?? '—')} ⟳
             </Button>
@@ -435,7 +559,13 @@ export function TillScreen() {
                 key={item.id}
                 type="button"
                 disabled={!orderable || !selectedTabId}
-                onClick={() => setSheetItem(item)}
+                onClick={() => addOrOpen(item)}
+                // Right-click (or long-press on a touch till) still opens the
+                // sheet for notes/qty on a quick-addable item.
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setSheetItem(item);
+                }}
                 style={{
                   ...card,
                   cursor: orderable && selectedTabId ? 'pointer' : 'not-allowed',
@@ -477,12 +607,18 @@ export function TillScreen() {
                   </span>
                 )}
               </span>
-              <span style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <span style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
                 {formatIQD(
                   (l.unitPriceIqd + l.modifiers.reduce((s, m) => s + m.priceDeltaIqd * m.qty, 0)) *
                     l.qty,
                   locale,
                 )}
+                <Button kind="ghost" aria-label="−1" onClick={() => bumpBasketQty(l.key, -1)}>
+                  −
+                </Button>
+                <Button kind="ghost" aria-label="+1" onClick={() => bumpBasketQty(l.key, 1)}>
+                  +
+                </Button>
                 <Button kind="ghost" onClick={() => setBasket((b) => b.filter((x) => x.key !== l.key))}>
                   ✕
                 </Button>
@@ -493,8 +629,8 @@ export function TillScreen() {
           {basket.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <strong>{formatIQD(basketTotal, locale)}</strong>
-              <Button kind="primary" disabled={sending || !selectedTabId} onClick={() => void sendBasket()}>
-                {tr('op.till.sendOrder')}
+              <Button kind="primary" disabled={sending || !selectedTabId} title="F2" aria-label={tr('op.till.sendOrder')} onClick={() => void sendBasket()}>
+                {tr('op.till.sendOrder')} <span aria-hidden>· F2</span>
               </Button>
             </div>
           )}
@@ -933,59 +1069,58 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
   const [busy, setBusy] = useState(false);
   const [lastChange, setLastChange] = useState<number | null>(null);
 
-  const tabQ = useQuery({
-    queryKey: ['tab', tabId],
-    queryFn: async (): Promise<TabDetail> => {
+  const tabQ = useQuery({ queryKey: ['tab', tabId], queryFn: () => fetchTabDetail(tabId) });
+
+  // Tax rates come off the SAME ['menu'] cache the grid already holds — the
+  // old ['taxContext'] key re-downloaded every menu category just for rate_bp.
+  // Only tax_inclusive (one venue_settings column) is its own tiny query.
+  const menuForTaxQ = useQuery({ ...TILL_MENU_QUERY });
+  const taxInclusiveQ = useQuery({
+    queryKey: ['taxInclusive'],
+    staleTime: 300_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
       const { data, error } = await supabase
-        .from('tabs')
-        .select(
-          `id, status, label, subtotal_iqd, total_iqd,
-           table:cafe_tables(table_number), reservation:reservations(guest_name),
-           orders (
-             id, status, placed_at,
-             order_items (
-               id, qty, unit_price_iqd, line_total_iqd, voided, notes,
-               menu_item:menu_items(name_en, name_ar, category_id),
-               variant:menu_item_variants(name_en, name_ar),
-               order_item_modifiers(qty, price_delta_iqd, modifier:modifiers(name_en, name_ar))
-             )
-           ),
-           payments(id, method, amount_iqd),
-           tab_adjustments(id, kind, amount_iqd)`,
-        )
-        .eq('id', tabId)
+        .from('venue_settings')
+        .select('tax_inclusive')
         .single();
       if (error) throw error;
-      return data as unknown as TabDetail;
+      return Boolean((data as { tax_inclusive: boolean }).tax_inclusive);
     },
   });
-
-  const taxQ = useQuery({
-    queryKey: ['taxContext'],
-    queryFn: async () => {
-      const [cats, settings] = await Promise.all([
-        supabase.from('menu_categories').select('id, tax_group:tax_groups(rate_bp)'),
-        supabase.from('venue_settings').select('tax_inclusive').single(),
-      ]);
-      if (cats.error) throw cats.error;
-      if (settings.error) throw settings.error;
-      return {
-        rateByCategory: new Map(
-          (cats.data as unknown as { id: string; tax_group: { rate_bp: number } | null }[]).map(
-            (c) => [c.id, c.tax_group?.rate_bp ?? 0],
-          ),
-        ),
-        taxInclusive: Boolean((settings.data as { tax_inclusive: boolean }).tax_inclusive),
-      };
-    },
-  });
+  const taxCtx = useMemo(() => {
+    if (!menuForTaxQ.data || taxInclusiveQ.data === undefined) return null;
+    return {
+      rateByCategory: new Map(
+        menuForTaxQ.data.categories.map((c) => [c.id, c.tax_group?.rate_bp ?? 0]),
+      ),
+      taxInclusive: taxInclusiveQ.data,
+    };
+  }, [menuForTaxQ.data, taxInclusiveQ.data]);
 
   const tab = tabQ.data;
 
   // Extracted to features/till/tabTotals.ts so the money arithmetic on the
   // till has tests, and so the guest bill renders from the SAME computation
   // the settle buttons use rather than a second one that can drift.
-  const totals = useMemo(() => computeTabTotals(tab ?? null, taxQ.data ?? null), [tab, taxQ.data]);
+  const totals = useMemo(() => computeTabTotals(tab ?? null, taxCtx), [tab, taxCtx]);
+
+  // F4/F5 from anywhere on the till OPEN the settle pane (TillScreen's key
+  // handler dispatches; money is confirmed by click only). Registered before
+  // the loading early-return — hooks must run unconditionally.
+  const hotkeyGate = useRef({ settled: true, due: 0 });
+  hotkeyGate.current = { settled: tab?.status === 'settled', due: totals.due };
+  useEffect(() => {
+    function onHotkey(e: Event) {
+      if (hotkeyGate.current.settled || hotkeyGate.current.due <= 0) return;
+      const method = (e as CustomEvent<'cash' | 'card'>).detail;
+      setSettleMode(method);
+      setLastChange(null);
+      if (method === 'cash') setTendered(0);
+    }
+    window.addEventListener('till-settle-hotkey', onHotkey);
+    return () => window.removeEventListener('till-settle-hotkey', onHotkey);
+  }, []);
   const due = totals.due;
 
   function refresh() {
@@ -1170,11 +1305,11 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
           <p style={{ color: 'var(--tp-accent)', fontWeight: 700 }}>{tr('op.till.paidInFull')}</p>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBlockStart: '0.5rem' }}>
-            <Button kind="primary" disabled={due <= 0} onClick={() => { setSettleMode('cash'); setTendered(0); setLastChange(null); }}>
-              {tr('op.till.payCash')}
+            <Button kind="primary" disabled={due <= 0} title="F4" aria-label={tr('op.till.payCash')} onClick={() => { setSettleMode('cash'); setTendered(0); setLastChange(null); }}>
+              {tr('op.till.payCash')} <span aria-hidden>· F4</span>
             </Button>
-            <Button disabled={due <= 0} onClick={() => { setSettleMode('card'); setLastChange(null); }}>
-              {tr('op.till.payCard')}
+            <Button disabled={due <= 0} title="F5" aria-label={tr('op.till.payCard')} onClick={() => { setSettleMode('card'); setLastChange(null); }}>
+              {tr('op.till.payCard')} <span aria-hidden>· F5</span>
             </Button>
             <Button disabled={due <= 0} onClick={() => { setSettleMode('split'); setShares(null); }}>
               {tr('op.till.splitEvenly')}
@@ -1248,7 +1383,7 @@ function TabDetailPanel({ tabId, onClosedTab }: { tabId: string; onClosedTab: ()
           orders={tab.orders}
           totals={totals}
           payments={tab.payments}
-          taxInclusive={Boolean(taxQ.data?.taxInclusive)}
+          taxInclusive={Boolean(taxCtx?.taxInclusive)}
           onClose={() => setBillOpen(false)}
         />
       )}

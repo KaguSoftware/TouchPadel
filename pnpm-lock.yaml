@@ -192,9 +192,15 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.47.0
         version: 2.112.3
+      '@tanstack/query-sync-storage-persister':
+        specifier: ^5.102.8
+        version: 5.102.8
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.102.2(react@19.1.0)
+      '@tanstack/react-query-persist-client':
+        specifier: ^5.62.0
+        version: 5.102.7(@tanstack/react-query@5.102.2(react@19.1.0))(react@19.1.0)
       '@tanstack/react-router':
         specifier: ^1.95.0
         version: 1.170.32(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -2609,8 +2615,17 @@ packages:
   '@tanstack/query-core@5.102.7':
     resolution: {integrity: sha512-4TH8KQrCLoNs9Zvl1LW1iaZ9cZx3dGTgfZ1BnLrcRxMNnX/toe/dGbfvF/DkvbzRyfLfpMKZkembz3o0rnugtw==}
 
+  '@tanstack/query-core@5.102.8':
+    resolution: {integrity: sha512-ZNjkJ33CqvPNec/6lZBnHqLc3EVGPZ9ySLhYahU9TcuRFdmwXewuj0c4hwSWcGHqEUwcSrKeZ+oGcvPBqXcQcg==}
+
   '@tanstack/query-persist-client-core@5.102.7':
     resolution: {integrity: sha512-nropT9sI7fOhoZEMUi2IYJnOj1OtCNmmThqaZlvIplQmPy9swhlr0cPW58FzyJbC1Z8X8SdzziAnB63fAH30Jg==}
+
+  '@tanstack/query-persist-client-core@5.102.8':
+    resolution: {integrity: sha512-t3v4/D6ejo/BrPzM5gm/AT3c4CWPCxFa+0cIjAeHAeanGPG6rCjFS1hZnPZH/rf55qe3qYYgx5U6iBZMY1PQjA==}
+
+  '@tanstack/query-sync-storage-persister@5.102.8':
+    resolution: {integrity: sha512-UvIpYl6jipKJHfITAieQaXMvVPoJh2IkQkWDYZNRPycoGbNYdqB+UdRVoXkZagB3EdeKnlC7sA61grsEC87Wfw==}
 
   '@tanstack/react-query-persist-client@5.102.7':
     resolution: {integrity: sha512-rLCR9zeKDv4f1eN1MSrHO2zJoCUpTQJfxcGygN4JaudEy2sJMVBqEvTgJz72ILvc0kHVkqONeAZb0gZ3fqfU1w==}
@@ -9410,9 +9425,20 @@ snapshots:
 
   '@tanstack/query-core@5.102.7': {}
 
+  '@tanstack/query-core@5.102.8': {}
+
   '@tanstack/query-persist-client-core@5.102.7':
     dependencies:
       '@tanstack/query-core': 5.102.7
+
+  '@tanstack/query-persist-client-core@5.102.8':
+    dependencies:
+      '@tanstack/query-core': 5.102.8
+
+  '@tanstack/query-sync-storage-persister@5.102.8':
+    dependencies:
+      '@tanstack/query-core': 5.102.8
+      '@tanstack/query-persist-client-core': 5.102.8
 
   '@tanstack/react-query-persist-client@5.102.7(@tanstack/react-query@5.102.2(react@19.1.0))(react@19.1.0)':
     dependencies:

@@ -36,6 +36,8 @@ export const inputStyle: CSSProperties = {
 export function Button({
   children,
   onClick,
+  onMouseEnter,
+  onFocus,
   kind = 'default',
   disabled,
   type = 'button',
@@ -47,6 +49,9 @@ export function Button({
 }: {
   children: ReactNode;
   onClick?: () => void;
+  /** Prefetch hooks (the till's tab rail warms the detail query on hover). */
+  onMouseEnter?: () => void;
+  onFocus?: () => void;
   kind?: 'default' | 'primary' | 'danger' | 'ghost';
   disabled?: boolean;
   type?: 'button' | 'submit';
@@ -84,6 +89,8 @@ export function Button({
     <button
       type={type}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onFocus={onFocus}
       disabled={disabled}
       style={{ ...base, ...style }}
       autoFocus={autoFocus}

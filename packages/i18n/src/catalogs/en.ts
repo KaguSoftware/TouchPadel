@@ -972,6 +972,8 @@ export const en = {
       paidInFull: 'Tab settled.',
       offlineTab: 'Offline — syncs when the connection returns.',
       estimatedTotal: 'Estimated total',
+      discardBasketTitle: 'Discard unsent items?',
+      discardBasketBody: 'The basket has {count} unsent line(s). Switching tabs discards them.',
       splitEvenly: 'Split evenly',
       splitCount: 'Number of people',
       share: 'Share {index}: {amount}',

@@ -132,11 +132,23 @@ test.describe('operator journeys', () => {
     await capp.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(capp).toBeHidden();
 
-    // ---- item 2: Turkish Coffee ------------------------------------------
+    // ---- item 2: Turkish Coffee (two sizes → the sheet still opens) -------
     await page.getByRole('button', { name: /^Turkish Coffee/ }).click();
     const turk = page.getByRole('dialog', { name: 'Turkish Coffee' });
     await turk.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(turk).toBeHidden();
+
+    // ---- quick-add: Kunafa (one size, no modifiers) skips the sheet, and
+    // the new basket ± controls bump and remove the line ---------------------
+    await page.getByRole('button', { name: /Desserts/ }).click();
+    await page.getByRole('button', { name: /^Kunafa/ }).click();
+    await expect(page.getByText('1× Kunafa (Regular)')).toBeVisible();
+    await page.getByRole('button', { name: '+1' }).last().click();
+    await expect(page.getByText('2× Kunafa (Regular)')).toBeVisible();
+    await page.getByRole('button', { name: '−1' }).last().click();
+    await page.getByRole('button', { name: '−1' }).last().click();
+    await expect(page.getByText(/× Kunafa/)).toHaveCount(0);
+    await page.getByRole('button', { name: /Hot Drinks/ }).click();
 
     // ---- send to kitchen --------------------------------------------------
     // Basket: (4,000 + 1,000) + 3,000 = 8,000
@@ -390,6 +402,7 @@ test.describe('operator journeys', () => {
     await page.getByRole('button', { name: /^Turkish Coffee/ }).click();
     const turk = page.getByRole('dialog', { name: 'Turkish Coffee' });
     await turk.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(turk).toBeHidden();
     await page.getByRole('button', { name: 'Send to kitchen' }).click();
     await expect(page.getByText('3,000 IQD').first()).toBeVisible();
 
