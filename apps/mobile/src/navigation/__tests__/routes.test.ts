@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -31,11 +31,14 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const routeFiles = walk(APP);
 
+/** APP-relative, '/'-separated regardless of platform (join() emits '\' on Windows). */
+const rel = (f: string): string => f.slice(APP.length + 1).split(sep).join('/');
+
 describe('route layout', () => {
   it('keeps no route group except (tabs)', () => {
     const groups = new Set<string>();
     for (const f of routeFiles) {
-      for (const seg of f.slice(APP.length + 1).split('/')) {
+      for (const seg of rel(f).split('/')) {
         if (seg.startsWith('(') && seg.endsWith(')')) groups.add(seg);
       }
     }
@@ -45,9 +48,7 @@ describe('route layout', () => {
   it('has no layout that hides a pushed screen behind a nested stack', () => {
     // A `_layout` outside (tabs) would reintroduce a nested navigator, and with
     // it the screens whose back item UIKit refuses to draw.
-    const layouts = routeFiles
-      .map((f) => f.slice(APP.length + 1))
-      .filter((f) => f.endsWith('_layout.tsx'));
+    const layouts = routeFiles.map(rel).filter((f) => f.endsWith('_layout.tsx'));
     expect(layouts.sort()).toEqual(['(tabs)/_layout.tsx', '_layout.tsx']);
   });
 });
@@ -73,7 +74,7 @@ describe('navigation targets', () => {
   it('points every push at a route that exists', () => {
     const routes = new Set(
       routeFiles
-        .map((f) => f.slice(APP.length + 1).replace(/\.tsx?$/, ''))
+        .map((f) => rel(f).replace(/\.tsx?$/, ''))
         .filter((r) => !r.endsWith('_layout'))
         .map((r) => '/' + r.replace(/\/index$/, '')),
     );
