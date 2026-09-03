@@ -23,7 +23,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatIQD } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
-import { deviceId, idemKey } from '../../lib/idem';
+import { deviceId } from '../../lib/idem';
+import { mutate } from '../../lib/mutate';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import {
@@ -221,13 +222,12 @@ export function OverridePriceDialog({
     setBusy(true);
     setError(null);
     try {
-      await appRpc('override_price', {
-        p_order_item_id: orderItemId,
-        p_new_unit_price_iqd: price,
-        p_pin: pin,
-        p_reason_code: reasonCode,
-        p_device_id: deviceId(),
-        p_idempotency_key: idemKey('adjustment.apply'),
+      await mutate('adjustment.apply', {
+        kind: 'price_override',
+        orderItemId,
+        newUnitPriceIqd: price,
+        pin,
+        reasonCode,
       });
       setPinOpen(false);
       onDone();

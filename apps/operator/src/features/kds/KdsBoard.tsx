@@ -8,8 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
-import { appRpc } from '../../lib/appRpc';
-import { deviceId } from '../../lib/idem';
+import { mutate } from '../../lib/mutate';
 import { useLocale, pickName } from '../../lib/i18n';
 import { StartShiftBanner } from '../../lib/audio';
 import { Button, ErrorText, card } from '../../components/ui';
@@ -92,12 +91,10 @@ export function KdsBoard() {
   });
 
   const setStatus = useMutation({
+    // Single write path (lib/mutate.ts): queued durably in Electron, direct
+    // RPC in browser mode. Transition-idempotent server-side either way.
     mutationFn: (vars: { ticketId: string; status: 'preparing' | 'ready' | 'completed' }) =>
-      appRpc('set_ticket_status', {
-        p_ticket_id: vars.ticketId,
-        p_status: vars.status,
-        p_device_id: deviceId(),
-      }),
+      mutate('ticket.status', { ticketId: vars.ticketId, status: vars.status }),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ['tickets'] }),
   });
 
