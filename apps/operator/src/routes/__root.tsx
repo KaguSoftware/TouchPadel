@@ -1,9 +1,11 @@
 import { Link, Outlet, createRootRoute } from '@tanstack/react-router';
-import { useCallback, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useAuth, canAccess, allowedRoutes, homeRoute, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
 import { Button, ErrorText, Field, card, inputStyle } from '../components/ui';
 import { appRpc, AppRpcError } from '../lib/appRpc';
+import { supabase } from '../lib/supabase';
+import { useCafeSettings } from '../lib/settings';
 import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
 import { ConfirmProvider } from '../components/ConfirmDialog';
@@ -77,6 +79,7 @@ function RootShell() {
 
   return (
     <div style={{ display: 'flex', minBlockSize: '100vh', flexDirection: 'column' }}>
+      <IdleLock />
       <VenueStatusBanner state={venue} />
       <div style={{ display: 'flex', flex: 1, minBlockSize: 0 }}>
       <nav
@@ -117,6 +120,167 @@ function RootShell() {
         <main style={{ flex: 1, paddingBlock: '1rem', paddingInline: '1rem', minInlineSize: 0 }}>
           <Outlet />
         </main>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Idle lock — the station half of SOW L237-238 ("short-lived sessions on
+ * shared till machines"). The Supabase session stays signed in (fighting
+ * kiosk token lifetimes buys nothing); after `till_idle_lock_seconds` without
+ * a touch the OVERLAY locks the screen. Unlock = the signed-in staff member's
+ * OWN pin (app.verify_own_pin, 0064: self-scoped, rate-limited) — or their
+ * password when they have no pin (NO_PIN_SET). "Switch user" signs out.
+ * UI-only by design, same posture as ROUTE_ROLES: the RPCs remain the wall.
+ * Queries keep running underneath — a locked KDS still shows a warm board the
+ * moment it unlocks.
+ */
+function IdleLock() {
+  const { tr } = useLocale();
+  const { staff, session, signOut } = useAuth();
+  const { settings } = useCafeSettings();
+  const timeoutS = settings.till_idle_lock_seconds;
+  const [locked, setLocked] = useState(false);
+  const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
+  const [usePassword, setUsePassword] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const lastActivity = useRef(Date.now());
+
+  const enabled = !!staff && timeoutS > 0;
+
+  useEffect(() => {
+    if (!enabled) return;
+    const touch2 = () => {
+      lastActivity.current = Date.now();
+    };
+    const events = ['pointerdown', 'keydown', 'wheel'] as const;
+    for (const ev of events) window.addEventListener(ev, touch2, { passive: true });
+    const timer = setInterval(() => {
+      if (Date.now() - lastActivity.current >= timeoutS * 1000) setLocked(true);
+    }, 5_000);
+    return () => {
+      for (const ev of events) window.removeEventListener(ev, touch2);
+      clearInterval(timer);
+    };
+  }, [enabled, timeoutS]);
+
+  function clearAndUnlock() {
+    setLocked(false);
+    setPin('');
+    setPassword('');
+    setUsePassword(false);
+    setError(null);
+    lastActivity.current = Date.now();
+  }
+
+  async function unlock() {
+    setBusy(true);
+    setError(null);
+    try {
+      if (usePassword) {
+        const email = session?.user.email;
+        if (!email) throw new Error('no email on session');
+        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+        if (err) throw err;
+        clearAndUnlock();
+        return;
+      }
+      const ok = await appRpc<boolean>('verify_own_pin', {
+        p_pin: pin,
+        p_device_id: touch.getStation().stationId,
+      });
+      if (!ok) {
+        setError(new AppRpcError('PIN_INVALID', 'PIN_INVALID'));
+        setPin('');
+        return;
+      }
+      // Only an authorising role's pin feeds the offline manager-pin cache.
+      if (staff && (staff.role === 'manager' || staff.role === 'owner')) {
+        touch.pinObserved(pin);
+      }
+      clearAndUnlock();
+    } catch (e) {
+      if (e instanceof AppRpcError && e.code === 'NO_PIN_SET') {
+        setUsePassword(true);
+        setError(null);
+      } else {
+        setError(e);
+      }
+      setPin('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!locked || !staff) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={tr('op.lock.title')}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 60,
+        background: 'var(--tp-bg)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <div style={{ ...card, inlineSize: '20rem' }}>
+        <h2 style={{ marginBlockStart: 0 }}>{tr('op.lock.title')}</h2>
+        <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: 0 }}>
+          {tr('op.lock.hint', { name: staff.displayName })}
+        </p>
+        {usePassword ? (
+          <Field label={tr('auth.passwordLabel')}>
+            <input
+              style={inputStyle}
+              type="password"
+              value={password}
+              autoFocus
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void unlock()}
+            />
+          </Field>
+        ) : (
+          <Field label={tr('op.lock.pin')}>
+            <input
+              style={inputStyle}
+              type="password"
+              inputMode="numeric"
+              value={pin}
+              autoFocus
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+              onKeyDown={(e) => e.key === 'Enter' && void unlock()}
+            />
+          </Field>
+        )}
+        <ErrorText error={error} />
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'space-between' }}>
+          <Button kind="ghost" onClick={() => void signOut()}>
+            {tr('op.lock.switchUser')}
+          </Button>
+          <span style={{ display: 'flex', gap: '0.5rem' }}>
+            {!usePassword && (
+              <Button kind="ghost" onClick={() => setUsePassword(true)}>
+                {tr('op.lock.usePassword')}
+              </Button>
+            )}
+            <Button
+              kind="primary"
+              disabled={busy || (usePassword ? password.length === 0 : pin.length < 4)}
+              onClick={() => void unlock()}
+            >
+              {tr('op.lock.unlock')}
+            </Button>
+          </span>
+        </div>
       </div>
     </div>
   );

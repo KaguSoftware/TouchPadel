@@ -874,6 +874,10 @@ export type Database = {
         Args: { p_device_id?: string; p_pin: string }
         Returns: string
       }
+      verify_own_pin: {
+        Args: { p_device_id?: string; p_pin: string }
+        Returns: boolean
+      }
       verify_table_token: { Args: { p_token: string }; Returns: string }
       void_after_send: {
         Args: {

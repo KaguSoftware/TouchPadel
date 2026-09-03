@@ -800,6 +800,15 @@ export const en = {
       queued: '{count} waiting to sync',
       attention: '{count} did not sync — see the Day close screen',
     },
+    // SOW L237-238: the shared-till idle lock (0064).
+    lock: {
+      title: 'Station locked',
+      hint: 'Signed in as {name}. Unlock to continue.',
+      pin: 'Your PIN',
+      unlock: 'Unlock',
+      usePassword: 'Use password',
+      switchUser: 'Switch user',
+    },
     queue: {
       state: {
         pending: 'Waiting to send',
