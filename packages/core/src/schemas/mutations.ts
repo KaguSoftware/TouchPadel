@@ -207,9 +207,134 @@ export const reservationCreatePayloadSchema = z
 
 export type ReservationCreatePayload = z.infer<typeof reservationCreatePayloadSchema>;
 
-// TODO(core): tighten the remaining payloads as their RPCs land (W2-W3):
-// order.add_items, ticket.status, reservation.update, waiter_call.action, stock.waste,
-// tab.open, tab.settle, adjustment.apply currently accept z.unknown().
+/**
+ * order.add_items — replayed through app.till_add_items. The replay mapper reads
+ * variantId/qty/notes/modifiers per item (menuItemId/clientRef are order.create-only,
+ * where the client names rows it created offline).
+ */
+export const orderAddItemsPayloadSchema = z
+  .object({
+    tabId: uuid,
+    items: z
+      .array(
+        z
+          .object({
+            variantId: uuid,
+            qty: z.number().int().positive(),
+            notes: z.string().max(500).optional(),
+            modifiers: z
+              .array(z.object({ modifierId: uuid, qty: z.number().int().positive().default(1) }).strict())
+              .default([]),
+          })
+          .strict(),
+      )
+      .min(1),
+    // NOTE: no price fields — unit_price_iqd / line_total_iqd are DB snapshots at send time.
+  })
+  .strict();
+
+export type OrderAddItemsPayload = z.infer<typeof orderAddItemsPayloadSchema>;
+
+/** ticket.status — app.set_ticket_status; transition-idempotent server-side. */
+export const ticketStatusPayloadSchema = z
+  .object({
+    ticketId: uuid,
+    status: z.enum(['queued', 'preparing', 'ready', 'completed', 'voided']),
+  })
+  .strict();
+
+export type TicketStatusPayload = z.infer<typeof ticketStatusPayloadSchema>;
+
+/** tab.open — app.open_tab(p_table_id, p_label, p_reservation_id, ...). */
+export const tabOpenPayloadSchema = z
+  .object({
+    tableId: uuid.optional(),
+    label: z.string().min(1).max(200).optional(),
+    reservationId: uuid.optional(),
+  })
+  .strict()
+  .refine((p) => p.tableId !== undefined || p.label !== undefined || p.reservationId !== undefined, {
+    message: 'a tab needs a table, a label or a reservation',
+    path: ['tableId'],
+  });
+
+export type TabOpenPayload = z.infer<typeof tabOpenPayloadSchema>;
+
+/**
+ * tab.settle — app.settle_tab. amountIqd/tenderedIqd optional (the server computes
+ * the due total from its own rows; the tender is cash bookkeeping only).
+ */
+export const tabSettlePayloadSchema = z
+  .object({
+    tabId: uuid,
+    method: z.enum(['cash', 'card']),
+    amountIqd: intIqd.optional(),
+    tenderedIqd: intIqd.optional(),
+  })
+  .strict()
+  .superRefine((p, ctx) => {
+    if (p.method === 'card' && p.tenderedIqd !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'tenderedIqd is a cash-only field',
+        path: ['tenderedIqd'],
+      });
+    }
+    if (p.tenderedIqd !== undefined && p.amountIqd !== undefined && p.tenderedIqd < p.amountIqd) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'tenderedIqd must be >= amountIqd',
+        path: ['tenderedIqd'],
+      });
+    }
+  });
+
+export type TabSettlePayload = z.infer<typeof tabSettlePayloadSchema>;
+
+/**
+ * adjustment.apply — kind discriminates app.override_price vs app.apply_discount
+ * (adjustment_kind enum, 0002). The PIN rides in the payload because the server
+ * re-verifies it at replay — the queue never becomes a PIN bypass. Discount value
+ * for discount_percent is basis points (25% = 2500).
+ */
+export const adjustmentApplyPayloadSchema = z
+  .discriminatedUnion('kind', [
+    // zod v3 discriminatedUnion members must be plain ZodObjects — cross-field
+    // refinements live on the union below.
+    z
+      .object({
+        kind: z.literal('price_override'),
+        orderItemId: uuid,
+        newUnitPriceIqd: intIqd,
+        pin: z.string().regex(/^\d{4,12}$/, 'pin must be 4-12 digits'),
+        reasonCode: z.string().min(1).max(64),
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.enum(['discount_percent', 'discount_amount']),
+        tabId: uuid,
+        value: z.number().int().positive(),
+        pin: z.string().regex(/^\d{4,12}$/, 'pin must be 4-12 digits'),
+        reasonCode: z.string().min(1).max(64),
+        orderItemId: uuid.optional(),
+      })
+      .strict(),
+  ])
+  .superRefine((p, ctx) => {
+    if (p.kind === 'discount_percent' && p.value > 10_000) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'discount_percent value is basis points, max 10000 (=100%)',
+        path: ['value'],
+      });
+    }
+  });
+
+export type AdjustmentApplyPayload = z.infer<typeof adjustmentApplyPayloadSchema>;
+
+// TODO(core): tighten the remaining payloads as their call sites move onto the queue:
+// reservation.update, waiter_call.action, stock.waste currently accept z.unknown().
 const todoPayload = z.unknown();
 
 // ---------------------------------------------------------------------------
@@ -250,10 +375,18 @@ const envelopeVariants = z.discriminatedUnion('mutationType', [
     })
     .strict(),
   z
-    .object({ ...baseFields, mutationType: z.literal('order.add_items'), payload: todoPayload })
+    .object({
+      ...baseFields,
+      mutationType: z.literal('order.add_items'),
+      payload: orderAddItemsPayloadSchema,
+    })
     .strict(),
   z
-    .object({ ...baseFields, mutationType: z.literal('ticket.status'), payload: todoPayload })
+    .object({
+      ...baseFields,
+      mutationType: z.literal('ticket.status'),
+      payload: ticketStatusPayloadSchema,
+    })
     .strict(),
   z
     .object({ ...baseFields, mutationType: z.literal('reservation.update'), payload: todoPayload })
@@ -264,12 +397,22 @@ const envelopeVariants = z.discriminatedUnion('mutationType', [
   z
     .object({ ...baseFields, mutationType: z.literal('stock.waste'), payload: todoPayload })
     .strict(),
-  z.object({ ...baseFields, mutationType: z.literal('tab.open'), payload: todoPayload }).strict(),
   z
-    .object({ ...baseFields, mutationType: z.literal('tab.settle'), payload: todoPayload })
+    .object({ ...baseFields, mutationType: z.literal('tab.open'), payload: tabOpenPayloadSchema })
     .strict(),
   z
-    .object({ ...baseFields, mutationType: z.literal('adjustment.apply'), payload: todoPayload })
+    .object({
+      ...baseFields,
+      mutationType: z.literal('tab.settle'),
+      payload: tabSettlePayloadSchema,
+    })
+    .strict(),
+  z
+    .object({
+      ...baseFields,
+      mutationType: z.literal('adjustment.apply'),
+      payload: adjustmentApplyPayloadSchema,
+    })
     .strict(),
 ]);
 

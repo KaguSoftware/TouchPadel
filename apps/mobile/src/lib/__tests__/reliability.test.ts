@@ -156,10 +156,12 @@ describe('expo-gl import boundary (the stale-binary crash)', () => {
   // kills the whole (tabs)/index route module on any binary built before
   // expo-gl existed — seen 2026-09-02 as "Cannot find native module
   // 'ExponentGLObjectManager'" plus a bogus "missing the required default
-  // export". Court3D must probe the native module and require optionally.
-  it('Court3D never value-imports expo-gl; the component is resolved optionally', () => {
+  // export". A name probe (requireOptionalNativeModule) wrongly rejects web,
+  // where GLView.web.js is plain WebGL with no native module — so the gate is
+  // the guarded require itself (commit 63278c9): try { require('expo-gl') }.
+  it('Court3D never value-imports expo-gl; the component is resolved via a guarded require', () => {
     const src = readFileSync(join(here, '../../components/Court3D.tsx'), 'utf8');
     expect(src).not.toMatch(/^import\s+\{[^}]*\bGLView\b[^}]*\}\s+from 'expo-gl'/m);
-    expect(src).toMatch(/requireOptionalNativeModule\(\s*'ExponentGLObjectManager',?\s*\)/);
+    expect(src).toMatch(/try\s*\{[^}]*require\(\s*'expo-gl'\s*\)/s);
   });
 });

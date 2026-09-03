@@ -22,6 +22,7 @@ import {
 
 const ULID = '01J5XABCDEFGHJKMNPQRSTVWXY';
 const ULID2 = '01J5XZZZZZZZZZZZZZZZZZZZZZ';
+const STAFF = '5c9f1f1e-2b3a-4c4d-8e9f-0000000000aa';
 
 function envelope(over: Record<string, unknown> = {}) {
   return {
@@ -30,6 +31,8 @@ function envelope(over: Record<string, unknown> = {}) {
     mutationType: 'order.create',
     payload: { tabId: 'abc' },
     createdAt: '2026-08-28T09:00:00.000Z',
+    staffId: STAFF,
+    deviceId: 'TILL-01',
     ...over,
   };
 }
@@ -55,9 +58,11 @@ describe('validateMutationEnvelope', () => {
   it('accepts a well-formed envelope and returns only known fields', () => {
     const result = validateMutationEnvelope(envelope({ sneaky: 'extra' }));
     expect(Object.keys(result).sort()).toEqual(
-      ['createdAt', 'idempotencyKey', 'localId', 'mutationType', 'payload'].sort(),
+      ['createdAt', 'deviceId', 'idempotencyKey', 'localId', 'mutationType', 'payload', 'staffId'].sort(),
     );
     expect((result as Record<string, unknown>).sneaky).toBeUndefined();
+    expect(result.staffId).toBe(STAFF);
+    expect(result.deviceId).toBe('TILL-01');
   });
 
   it.each([
@@ -77,10 +82,10 @@ describe('validateMutationEnvelope', () => {
   });
 
   it('refuses a lowercase hex pseudo-ULID', () => {
-    // apps/operator/src/lib/idem.ts currently builds ids by hex-slicing
-    // crypto.randomUUID(), which is NOT Crockford base32. Nothing calls enqueue
-    // yet; this asserts the queue would refuse it rather than accept a key the
-    // server will not recognise.
+    // apps/operator/src/lib/idem.ts used to build ids by hex-slicing
+    // crypto.randomUUID(), which is NOT Crockford base32 (audit M9, fixed —
+    // it now mints real ULIDs via @touch/core). This asserts the queue refuses
+    // the old shape rather than accept a key the server will not recognise.
     const hex = 'a1b2c3d4e5f6a7b8c9d0e1f2a3';
     expect(() =>
       validateMutationEnvelope(
@@ -109,11 +114,23 @@ describe('validateMutationEnvelope', () => {
     ).toThrow(/does not match mutationType/);
   });
 
-  it('refuses a localId from a different station than the key', () => {
-    // Cross-station ids would attribute a write to the wrong till in the audit.
-    expect(() => validateMutationEnvelope(envelope({ localId: `DESK-01-${ULID}` }))).toThrow(
+  it('refuses a deviceId that disagrees with the key station', () => {
+    // The queue owner mints the key; the replay function 400s on the same pair,
+    // so a row that passed here with a mismatch would sit undeliverable forever.
+    expect(() => validateMutationEnvelope(envelope({ deviceId: 'DESK-01' }))).toThrow(
       /disagree on the station/,
     );
+  });
+
+  it('accepts a localId from a different station than the key — the till enqueues on the KDS behalf', () => {
+    // Single writer (design-arch §2.4): a KDS status frame is wrapped by the TILL,
+    // key minted with the till's deviceId, localId keeping the KDS provenance.
+    const e = envelope({
+      localId: `KDS-01-${ULID2}`,
+      idempotencyKey: `TILL-01:ticket.status:${ULID2}`,
+      mutationType: 'ticket.status',
+    });
+    expect(validateMutationEnvelope(e).localId).toBe(`KDS-01-${ULID2}`);
   });
 
   it('accepts a station id containing hyphens', () => {
@@ -122,8 +139,21 @@ describe('validateMutationEnvelope', () => {
       localId: `KDS-BACK-01-${ULID2}`,
       idempotencyKey: `KDS-BACK-01:ticket.status:${ULID2}`,
       mutationType: 'ticket.status',
+      deviceId: 'KDS-BACK-01',
     });
     expect(validateMutationEnvelope(e).localId).toBe(`KDS-BACK-01-${ULID2}`);
+  });
+
+  it('refuses a missing or malformed staffId — replay 400s without one', () => {
+    const { staffId: _s, ...missing } = envelope();
+    expect(() => validateMutationEnvelope(missing)).toThrow(/staffId/);
+    expect(() => validateMutationEnvelope(envelope({ staffId: 'staff-1' }))).toThrow(/staffId/);
+  });
+
+  it('refuses a missing or malformed deviceId', () => {
+    const { deviceId: _d, ...missing } = envelope();
+    expect(() => validateMutationEnvelope(missing)).toThrow(/deviceId/);
+    expect(() => validateMutationEnvelope(envelope({ deviceId: 'till 01' }))).toThrow(/deviceId/);
   });
 
   it('refuses a non-ISO createdAt', () => {

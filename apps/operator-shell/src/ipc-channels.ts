@@ -14,15 +14,21 @@ export const IPC = {
 } as const;
 
 export interface MutationEnvelope {
-  /** Client entity ref: '{station}-{ulid}' (plan override #2). */
+  /** Client entity ref: '{station}-{ulid}' (plan override #2). The station segment may
+   *  differ from deviceId when the till enqueues on the KDS's behalf. */
   localId: string;
-  /** '{station}:{mutation_type}:{ulid}' (plan override #2). */
+  /** '{station}:{mutation_type}:{ulid}' — station segment MUST equal deviceId (the
+   *  queue owner mints the key; the replay function enforces the same pair). */
   idempotencyKey: string;
   /** 'order.create' | 'order.add_items' | 'ticket.status' | 'payment.record' | ... */
   mutationType: string;
   payload: unknown;
   /** Station clock, informational. */
   createdAt: string;
+  /** The staff member the write is attributed to — replay 400s without it. */
+  staffId: string;
+  /** The station that owns the durable queue, e.g. 'TILL-01'. */
+  deviceId: string;
 }
 
 export interface QueueStatus {
