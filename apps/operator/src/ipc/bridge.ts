@@ -65,11 +65,24 @@ export interface QueueRowInfo {
   createdAt: string;
 }
 
+/** A LAN-delivered kitchen ticket — identified by the order envelope's key. */
 export interface KitchenTicket {
-  clientRef: string;
-  status: string;
-  payload: unknown;
+  ref: string;
+  tabLabel: string | null;
+  items: {
+    variantId: string;
+    qty: number;
+    notes?: string;
+    modifiers: { modifierId: string; qty: number }[];
+  }[];
+  createdAt: string;
+  status: 'queued' | 'preparing' | 'ready' | 'completed';
 }
+
+export type LanFrame =
+  | { type: 'ticket.new'; data: KitchenTicket }
+  | { type: 'ticket.snapshot'; data: KitchenTicket[] }
+  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } };
 
 // Cached reference data keys (design-arch.md §2.3). Payload types tighten when
 // @touch/db types.gen.ts exists. 'day' joined on day 14 — the till's
@@ -115,7 +128,9 @@ export interface StationInfo {
 export interface TouchBridge {
   enqueue(m: MutationEnvelope): Promise<{ localId: string; state: 'queued' }>;
   onQueueUpdate(cb: (s: QueueStatus) => void): Unsub;
-  onLanTicket(cb: (t: KitchenTicket) => void): Unsub;
+  onLanTicket(cb: (frame: LanFrame) => void): Unsub;
+  /** KDS stations only: carry a bump to the till over the LAN when the cloud is down. */
+  sendLanStatus(update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void;
   getCachedRef(key: RefKey): Promise<CachedRef | undefined>;
   print(job: PrintJob): Promise<PrintResult>;
   /** OFFLINE pin check only (authorisation-token cache, 14-day TTL) — online
@@ -154,6 +169,9 @@ const mock: TouchBridge = {
   },
   onLanTicket() {
     return () => {};
+  },
+  sendLanStatus() {
+    // Browser mode has no LAN peer.
   },
   pushAuthState() {
     // Browser mode has no main process; writes go straight to the network.

@@ -264,11 +264,11 @@ export async function mutate<T = unknown>(
   const key = makeIdempotencyKey(device, type);
 
   if (!isElectron()) {
-    // tabIdemKey only exists for tabs opened OFFLINE — impossible in browser
-    // mode, which has no queue. Refuse loudly rather than send p_tab_id: null.
-    const p = payload as { tabIdemKey?: unknown } | null;
-    if (p && typeof p === 'object' && p.tabIdemKey != null) {
-      throw new AppRpcError('UNKNOWN', 'tabIdemKey is a queue-only reference');
+    // tabIdemKey/ticketIdemKey only exist for rows queued OFFLINE — impossible
+    // in browser mode, which has no queue. Refuse loudly rather than send null ids.
+    const p = payload as { tabIdemKey?: unknown; ticketIdemKey?: unknown } | null;
+    if (p && typeof p === 'object' && (p.tabIdemKey != null || p.ticketIdemKey != null)) {
+      throw new AppRpcError('UNKNOWN', 'idemKey references are queue-only');
     }
     const { fn, args } = DIRECT_RPC[type](payload, key, device);
     const result = await appRpc<T>(fn as AppFunctionName, args);

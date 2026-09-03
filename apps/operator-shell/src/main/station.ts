@@ -10,6 +10,8 @@ import type { StationInfo } from '../ipc-channels';
 export interface StationConfig extends StationInfo {
   /** Pre-shared key for the LAN KDS websocket (design-arch.md §2.4). */
   lanPsk?: string;
+  /** Override for the LAN server bind address (default: first RFC1918 IPv4). */
+  lanBind?: string;
 }
 
 interface StationFile {
@@ -17,6 +19,7 @@ interface StationFile {
   mode?: string;
   till_host?: string;
   lan_psk?: string;
+  lan_bind?: string;
 }
 
 let cached: StationConfig | null = null;
@@ -33,6 +36,7 @@ export function loadStation(): StationConfig {
       mode,
       tillHost: raw.till_host,
       lanPsk: raw.lan_psk,
+      lanBind: raw.lan_bind,
     };
   } catch {
     // Dev fallback so `electron .` boots on a clean machine. Production installs MUST

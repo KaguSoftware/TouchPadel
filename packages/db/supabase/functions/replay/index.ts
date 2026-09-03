@@ -319,6 +319,26 @@ Deno.serve(async (req) => {
     }
     effectivePayload = { ...(payload as Record<string, unknown>), tabId: tab.data.id };
   }
+  // Same idea for a KDS bump of an offline ticket: the order envelope's key →
+  // orders.idempotency_key → tickets.order_id. Ordered strictly after the
+  // order's own replay in the same queue.
+  const pt = payload as { ticketId?: unknown; ticketIdemKey?: unknown } | null;
+  if (pt && typeof pt === 'object' && typeof pt.ticketIdemKey === 'string' && pt.ticketId == null) {
+    const order = await service
+      .from('orders')
+      .select('id, tickets(id)')
+      .eq('idempotency_key', pt.ticketIdemKey)
+      .maybeSingle();
+    if (order.error) return json({ error: order.error.message }, 500);
+    const ticketId = (order.data?.tickets as { id: string }[] | null)?.[0]?.id;
+    if (!ticketId) {
+      return json(
+        { error: `no ticket for ticketIdemKey '${pt.ticketIdemKey}' — its order never applied` },
+        400,
+      );
+    }
+    effectivePayload = { ...(effectivePayload as Record<string, unknown>), ticketId };
+  }
 
   const ctx: Ctx = { idempotencyKey: idempotency_key, stationId: station_id, staffId: staff_id };
   let route: Route;

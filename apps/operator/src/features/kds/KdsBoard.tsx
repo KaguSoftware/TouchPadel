@@ -8,7 +8,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
-import { mutate } from '../../lib/mutate';
+import { isElectron, mutate } from '../../lib/mutate';
+import { LanBoard, useLanTickets } from './LanBoard';
 import { useLocale, pickName } from '../../lib/i18n';
 import { StartShiftBanner } from '../../lib/audio';
 import { Button, ErrorText, card } from '../../components/ui';
@@ -111,6 +112,12 @@ export function KdsBoard() {
   // Owns the 'kds' subscription (invalidates ['tickets']), chimes, stale alarms, unseen title.
   const { stale, status } = useKdsAlarms(tickets, tr('kds.title'));
 
+  // Degraded fallback (design-arch §2.4): when the cloud query cannot answer,
+  // the board renders LAN frames from the till instead — food keeps reaching
+  // the pass. Bumps travel back over the LAN into the till's queue.
+  const lanTickets = useLanTickets();
+  const lanFallback = ticketsQ.isError && isElectron();
+
   function tag(t: TicketRow): string {
     const tab = t.order?.tab;
     if (tab?.table) return tr('op.kds.table', { table: tab.table.table_number });
@@ -157,10 +164,11 @@ export function KdsBoard() {
         </div>
       )}
       <ErrorText error={setStatus.error} />
-      {tickets.length === 0 && <p style={card}>{tr('op.kds.empty')}</p>}
+      {lanFallback && <LanBoard tickets={lanTickets} />}
+      {!lanFallback && tickets.length === 0 && <p style={card}>{tr('op.kds.empty')}</p>}
       <div
         style={{
-          display: 'grid',
+          display: lanFallback ? 'none' : 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))',
           gap: '0.7rem',
         }}

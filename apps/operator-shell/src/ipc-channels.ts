@@ -23,6 +23,8 @@ export const IPC = {
   cachePut: 'touch:cache-put',
   /** Renderer → main (send): a PIN that just succeeded server-side — cache its hash. */
   pinObserved: 'touch:pin-observed',
+  /** Renderer → main (send, KDS stations): a bump to carry over the LAN to the till. */
+  lanStatus: 'touch:lan-status',
 } as const;
 
 /**
@@ -93,11 +95,26 @@ export interface QueueStatus {
   blocking: number;
 }
 
+/** What the LAN delivers (the wire types live in main/lan-frames.ts) — frames
+ *  are forwarded to the KDS renderer verbatim over IPC.lanTicket. */
 export interface KitchenTicket {
-  clientRef: string;
-  status: string;
-  payload: unknown;
+  /** The order envelope's idempotency key — the ticket's LAN identity. */
+  ref: string;
+  tabLabel: string | null;
+  items: {
+    variantId: string;
+    qty: number;
+    notes?: string;
+    modifiers: { modifierId: string; qty: number }[];
+  }[];
+  createdAt: string;
+  status: 'queued' | 'preparing' | 'ready' | 'completed';
 }
+
+export type LanFrameForRenderer =
+  | { type: 'ticket.new'; data: KitchenTicket }
+  | { type: 'ticket.snapshot'; data: KitchenTicket[] }
+  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } };
 
 export interface PrintJob {
   kind: 'receipt' | 'kitchen' | 'reprint';
