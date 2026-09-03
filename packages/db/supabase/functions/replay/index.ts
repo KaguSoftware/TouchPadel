@@ -296,10 +296,34 @@ Deno.serve(async (req) => {
   const routeFor = MUTATION_RPCS[mutation_type];
   if (!routeFor) return json({ error: `unknown mutation_type '${mutation_type}'` }, 400);
 
+  // Offline tab reference: a tab opened while disconnected has no server id, so
+  // the queued row names its tab.open envelope's idempotency key instead —
+  // unique on `tabs`, and strictly BEFORE this row in the same queue, so by the
+  // time this row replays the tab either exists or its open terminally failed
+  // (in which case failing this row too is the correct cascade). Service client
+  // is lookup-only; the RPC still enforces everything as the staff session.
+  let effectivePayload = payload;
+  const p = payload as { tabId?: unknown; tabIdemKey?: unknown } | null;
+  if (p && typeof p === 'object' && typeof p.tabIdemKey === 'string' && p.tabId == null) {
+    const tab = await service
+      .from('tabs')
+      .select('id')
+      .eq('idempotency_key', p.tabIdemKey)
+      .maybeSingle();
+    if (tab.error) return json({ error: tab.error.message }, 500);
+    if (!tab.data) {
+      return json(
+        { error: `no tab for tabIdemKey '${p.tabIdemKey}' — its tab.open never applied` },
+        400,
+      );
+    }
+    effectivePayload = { ...(payload as Record<string, unknown>), tabId: tab.data.id };
+  }
+
   const ctx: Ctx = { idempotencyKey: idempotency_key, stationId: station_id, staffId: staff_id };
   let route: Route;
   try {
-    route = routeFor(payload, ctx);
+    route = routeFor(effectivePayload, ctx);
   } catch (e) {
     if (e instanceof BadRequest) return json({ error: e.message }, 400);
     throw e;
@@ -316,7 +340,7 @@ Deno.serve(async (req) => {
   );
   const { data: rpcResult, error: rpcError } = await asStaff
     .schema('app')
-    .rpc(route.rpc, route.args(payload, ctx));
+    .rpc(route.rpc, route.args(effectivePayload, ctx));
 
   // NOTE on sync_replays: canonical DDL (design-data §1.9) has `conflict_detail
   // jsonb`; this endpoint uses that column as the generic result echo for ALL

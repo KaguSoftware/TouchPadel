@@ -11,6 +11,7 @@ import { formatIQD, formatTime, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { clientRef } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
+import { cachedQuery } from '../../lib/refCache';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow } from '../../lib/queries';
 import { WeekGrid } from './WeekGrid';
 import { startOfWeek, weekDates } from './weekLogic';
@@ -178,16 +179,23 @@ export function DeskCalendar() {
   const reservationsQ = useQuery({
     queryKey: ['reservations', date],
     queryFn: async (): Promise<ReservationRow[]> => {
-      const { data, error } = await supabase
-        .from('reservations')
-        .select(
-          'id, court_id, kind, status, start_at, end_at, guest_id, guest_name, guest_phone, price_iqd, hold_expires_at, notes',
-        )
-        .gte('start_at', dayStart.toISOString())
-        .lt('start_at', dayEnd.toISOString())
-        .order('start_at');
-      if (error) throw error;
-      return data as unknown as ReservationRow[];
+      // The ref_cache slot holds ONE day's rows tagged with its date; offline,
+      // a cached different day must not be presented as this one — the fetch
+      // error is more honest than the wrong grid.
+      const cached = await cachedQuery('reservations', async () => {
+        const { data, error } = await supabase
+          .from('reservations')
+          .select(
+            'id, court_id, kind, status, start_at, end_at, guest_id, guest_name, guest_phone, price_iqd, hold_expires_at, notes',
+          )
+          .gte('start_at', dayStart.toISOString())
+          .lt('start_at', dayEnd.toISOString())
+          .order('start_at');
+        if (error) throw error;
+        return { date, rows: data as unknown as ReservationRow[] };
+      });
+      if (cached.date !== date) throw new Error(`cached reservations are for ${cached.date}`);
+      return cached.rows;
     },
     enabled: settingsQ.isSuccess,
     // Safety net under the 'courts' broadcast. Without it a missed realtime

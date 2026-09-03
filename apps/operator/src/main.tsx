@@ -17,6 +17,7 @@ import { AuthProvider, useAuth, homeRoute } from './lib/auth';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
 import { captureException, installGlobalHandlers } from './lib/telemetry';
 import { initQueueResults } from './lib/queueResults';
+import { initOfflineTabRetirement } from './lib/offlineTabs';
 
 // Code-based route tree for the shell phase. TODO(FE2): switch to file-based codegen
 // (@tanstack/router-plugin generating routeTree.gen.ts) once typed search params land.
@@ -74,6 +75,7 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, retry: 1 } },
 });
 initQueueResults(queryClient);
+initOfflineTabRetirement();
 
 /**
  * Boundary fallback for everything ABOVE the router — providers, the sidebar

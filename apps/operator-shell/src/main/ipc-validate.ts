@@ -136,7 +136,10 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
   };
 }
 
-/** Cache keys are a closed set (design-arch.md §2.3), not free-form strings. */
+/** Cache keys are a closed set (design-arch.md §2.3), not free-form strings.
+ *  'day' joined the set on day 14: the till's "no business day is open" gate
+ *  must not fire just because the network died. 'staff_pins' is vestigial —
+ *  superseded by the pin_cache authorisation-token model (pin-cache.ts). */
 export const REF_KEYS = [
   'menu',
   'prices',
@@ -147,8 +150,31 @@ export const REF_KEYS = [
   'staff_pins',
   'reservations',
   'open_tabs',
+  'day',
 ] as const;
 export type RefKey = (typeof REF_KEYS)[number];
+
+/** Ref payloads are whole menus/reservation days — far above MAX_PAYLOAD_BYTES. */
+export const MAX_REF_PAYLOAD_BYTES = 2 * 1024 * 1024;
+
+export function validateCachePut(value: unknown): { key: RefKey; payload: unknown } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('cachePut must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const key = validateRefKey(raw.key);
+  let serialized: string | undefined;
+  try {
+    serialized = JSON.stringify(raw.payload ?? null);
+  } catch {
+    fail('cachePut payload is not JSON-serialisable');
+  }
+  if (serialized === undefined) fail('cachePut payload is not JSON-serialisable');
+  if (Buffer.byteLength(serialized, 'utf8') > MAX_REF_PAYLOAD_BYTES) {
+    fail('cachePut payload is too large');
+  }
+  return { key, payload: raw.payload ?? null };
+}
 
 export function validateRefKey(value: unknown): RefKey {
   const key = requireString(value, 'refKey', 32);

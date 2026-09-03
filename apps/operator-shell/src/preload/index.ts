@@ -38,6 +38,9 @@ const touch = {
   // Fire-and-forget pushes: the renderer is the auth + connectivity authority.
   pushAuthState: (s: AuthState | null): void => ipcRenderer.send(IPC.authState, s),
   pushConnState: (online: boolean): void => ipcRenderer.send(IPC.connState, online),
+  cachePut: (key: string, payload: unknown): void =>
+    ipcRenderer.send(IPC.cachePut, { key, payload }),
+  pinObserved: (pin: string): void => ipcRenderer.send(IPC.pinObserved, pin),
 
   onMutationResult: (cb: (r: MutationResult) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, r: MutationResult) => cb(r);

@@ -45,9 +45,8 @@ const BASE_DDL = `
     fetched_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS pin_cache (
-    staff_id   TEXT PRIMARY KEY,
-    pin_hash   TEXT NOT NULL,                          -- scrypt(pin, station salt), cached on online verify
-    role       TEXT NOT NULL,
+    pin_hash   TEXT PRIMARY KEY,                       -- scrypt(pin, station salt), cached on online success
+    role       TEXT NOT NULL,                          -- authorisation level the pin demonstrated
     updated_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS meta (
@@ -65,22 +64,38 @@ const BASE_DDL = `
  */
 function migrate(d: Database.Database): void {
   const version = d.pragma('user_version', { simple: true }) as number;
-  if (version >= 1) return;
-  const cols = d.pragma('table_info(mutation_queue)') as { name: string }[];
-  if (!cols.some((c) => c.name === 'staff_id')) {
-    d.exec('ALTER TABLE mutation_queue ADD COLUMN staff_id TEXT');
+  if (version < 1) {
+    const cols = d.pragma('table_info(mutation_queue)') as { name: string }[];
+    if (!cols.some((c) => c.name === 'staff_id')) {
+      d.exec('ALTER TABLE mutation_queue ADD COLUMN staff_id TEXT');
+    }
+    if (!cols.some((c) => c.name === 'device_id')) {
+      d.exec('ALTER TABLE mutation_queue ADD COLUMN device_id TEXT');
+    }
+    d.exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    // A pre-v1 row cannot carry the staff attribution replay demands. Dev machines only
+    // (no production queue exists yet) — park it visibly rather than wedge the worker.
+    d.exec(
+      `UPDATE mutation_queue SET state = 'failed', last_error = 'pre-v1 row: missing staff_id'
+       WHERE state IN ('pending','inflight') AND staff_id IS NULL`,
+    );
+    d.pragma('user_version = 1');
   }
-  if (!cols.some((c) => c.name === 'device_id')) {
-    d.exec('ALTER TABLE mutation_queue ADD COLUMN device_id TEXT');
+  if (version < 2) {
+    // v2: pin_cache re-keyed from staff_id to pin_hash (authorisation-token
+    // model — the server never exposes whose pin a hash is). The v1 table was
+    // never written by anything, so drop-and-recreate loses no data.
+    const pinCols = d.pragma('table_info(pin_cache)') as { name: string }[];
+    if (pinCols.some((c) => c.name === 'staff_id')) {
+      d.exec('DROP TABLE pin_cache');
+      d.exec(`CREATE TABLE pin_cache (
+        pin_hash   TEXT PRIMARY KEY,
+        role       TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`);
+    }
+    d.pragma('user_version = 2');
   }
-  d.exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
-  // A pre-v1 row cannot carry the staff attribution replay demands. Dev machines only
-  // (no production queue exists yet) — park it visibly rather than wedge the worker.
-  d.exec(
-    `UPDATE mutation_queue SET state = 'failed', last_error = 'pre-v1 row: missing staff_id'
-     WHERE state IN ('pending','inflight') AND staff_id IS NULL`,
-  );
-  d.pragma('user_version = 1');
 }
 
 /** Open (or create) a queue db at an explicit path — the testable seam. */
@@ -253,11 +268,25 @@ export function queueStatus(): QueueStatus {
   };
 }
 
-export function getCachedRef(key: string): unknown {
-  const row = openQueue().prepare('SELECT payload FROM ref_cache WHERE key = ?').get(key) as
-    | { payload: string }
-    | undefined;
-  return row ? (JSON.parse(row.payload) as unknown) : undefined;
+export function getCachedRef(key: string): { payload: unknown; fetchedAt: string } | undefined {
+  const row = openQueue()
+    .prepare('SELECT payload, fetched_at FROM ref_cache WHERE key = ?')
+    .get(key) as { payload: string; fetched_at: string } | undefined;
+  return row
+    ? { payload: JSON.parse(row.payload) as unknown, fetchedAt: row.fetched_at }
+    : undefined;
+}
+
+/** Upsert one reference-data payload; main stamps fetched_at (SOW L671: the till
+ *  trades from cached menu/prices/courts/tables/reservations, and the banner
+ *  shows the data's age). */
+export function putCachedRef(key: string, payload: unknown): void {
+  openQueue()
+    .prepare(
+      `INSERT INTO ref_cache (key, payload, fetched_at) VALUES (@key, @payload, @at)
+       ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, fetched_at = excluded.fetched_at`,
+    )
+    .run({ key, payload: JSON.stringify(payload ?? null), at: new Date().toISOString() });
 }
 
 export function getMeta(key: string): string | undefined {

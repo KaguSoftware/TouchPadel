@@ -1,16 +1,26 @@
 import * as path from 'node:path';
 import { BrowserWindow, app, ipcMain, shell } from 'electron';
 import { IPC, type PrintResult } from '../ipc-channels';
-import { enqueue, getCachedRef, listBlockingRows, openQueue, queueStatus, setConnOnline } from './queue';
+import {
+  enqueue,
+  getCachedRef,
+  listBlockingRows,
+  openQueue,
+  putCachedRef,
+  queueStatus,
+  setConnOnline,
+} from './queue';
 import { loadStation } from './station';
 import { startLanKdsServer } from './lan-kds-server';
 import { startHeartbeat } from './heartbeat';
 import { setAuthState } from './auth-state';
+import { observePin, unlockPinOffline } from './pin-cache';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
 import { mayNavigateTo, mayOpenExternally, type NavigationPolicy } from './window-security';
 import {
   IpcValidationError,
   validateAuthState,
+  validateCachePut,
   validateConnState,
   validateMutationEnvelope,
   validatePin,
@@ -180,13 +190,28 @@ if (gotTheLock) {
     );
     ipcMain.handle(IPC.unlockPin, (_e, pin: unknown) =>
       guardIpc('unlockPin', () => {
-        validatePin(pin);
-        // PIN check is online server-side crypt() per design-data.md (plan override #6) —
-        // NO per-staff HMAC pin_proof machinery. TODO(W3): call the unlock RPC; pin_cache
-        // (argon2 hashes, refreshed online) covers unlock during outages.
-        return null;
+        // Purely the OFFLINE check (pin-cache.ts): scrypt of pins that
+        // succeeded server-side recently, constant-time compare, 14-day TTL.
+        // Online verification stays where it always was — inside the PIN-gated
+        // RPCs themselves. The renderer decides which path applies.
+        return unlockPinOffline(validatePin(pin));
       }),
     );
+
+    ipcMain.on(IPC.cachePut, (_e, v: unknown) => {
+      guardIpc('cachePut', () => {
+        const { key, payload } = validateCachePut(v);
+        putCachedRef(key, payload);
+        return null;
+      });
+    });
+
+    ipcMain.on(IPC.pinObserved, (_e, pin: unknown) => {
+      guardIpc('pinObserved', () => {
+        observePin(validatePin(pin));
+        return null;
+      });
+    });
     ipcMain.on(IPC.getStation, (e) => {
       e.returnValue = {
         stationId: station.stationId,

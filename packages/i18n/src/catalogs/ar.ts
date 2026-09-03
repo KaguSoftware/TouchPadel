@@ -958,6 +958,8 @@ export const ar: Messages = {
       recordPayment: 'تسجيل الدفعة',
       remaining: 'المتبقي {amount}',
       paidInFull: 'تمت تسوية الحساب.',
+      offlineTab: 'دون اتصال — سيُزامن عند عودة الاتصال.',
+      estimatedTotal: 'الإجمالي التقديري',
       splitEvenly: 'تقسيم بالتساوي',
       splitCount: 'عدد الأشخاص',
       share: 'الحصة {index}: {amount}',

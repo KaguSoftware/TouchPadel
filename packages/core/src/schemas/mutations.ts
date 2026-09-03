@@ -211,10 +211,15 @@ export type ReservationCreatePayload = z.infer<typeof reservationCreatePayloadSc
  * order.add_items — replayed through app.till_add_items. The replay mapper reads
  * variantId/qty/notes/modifiers per item (menuItemId/clientRef are order.create-only,
  * where the client names rows it created offline).
+ *
+ * tabIdemKey is the OFFLINE tab reference: a tab opened while disconnected has no
+ * server id yet, but its tab.open envelope's idempotency key is unique on `tabs`
+ * and strictly precedes this row in the queue — replay resolves it server-side.
  */
 export const orderAddItemsPayloadSchema = z
   .object({
-    tabId: uuid,
+    tabId: uuid.optional(),
+    tabIdemKey: idempotencyKeySchema.optional(),
     items: z
       .array(
         z
@@ -231,7 +236,11 @@ export const orderAddItemsPayloadSchema = z
       .min(1),
     // NOTE: no price fields — unit_price_iqd / line_total_iqd are DB snapshots at send time.
   })
-  .strict();
+  .strict()
+  .refine((p) => (p.tabId !== undefined) !== (p.tabIdemKey !== undefined), {
+    message: 'exactly one of tabId or tabIdemKey is required',
+    path: ['tabId'],
+  });
 
 export type OrderAddItemsPayload = z.infer<typeof orderAddItemsPayloadSchema>;
 
@@ -266,13 +275,22 @@ export type TabOpenPayload = z.infer<typeof tabOpenPayloadSchema>;
  */
 export const tabSettlePayloadSchema = z
   .object({
-    tabId: uuid,
+    tabId: uuid.optional(),
+    /** Offline tab reference — see orderAddItemsPayloadSchema. */
+    tabIdemKey: idempotencyKeySchema.optional(),
     method: z.enum(['cash', 'card']),
     amountIqd: intIqd.optional(),
     tenderedIqd: intIqd.optional(),
   })
   .strict()
   .superRefine((p, ctx) => {
+    if ((p.tabId !== undefined) === (p.tabIdemKey !== undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'exactly one of tabId or tabIdemKey is required',
+        path: ['tabId'],
+      });
+    }
     if (p.method === 'card' && p.tenderedIqd !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
