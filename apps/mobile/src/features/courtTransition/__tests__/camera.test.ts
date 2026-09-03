@@ -7,6 +7,13 @@ describe('net tape projection (the on-net button follows it)', () => {
 
   it('at rest the tape is centred horizontally, a little below the middle, and spans most of the width', () => {
     const n = projectNet(0, W, H);
+    // ARABIC DEPENDS ON THIS. The Book tab anchors the on-net button with a
+    // LOGICAL `start` (net.rest.centreX - width / 2) and then moves it with a
+    // PHYSICAL translateX off the same projection. The two agree only because
+    // the rest camera sits on the x = 0 plane, which makes an inset from the
+    // right edge land on the same pixel as one from the left. Give the orbit a
+    // non-zero starting azimuth and the button would sit off the net in RTL
+    // only — a bug no LTR run could show.
     expect(Math.abs(n.centreX - W / 2)).toBeLessThan(0.5);
     // look-at is 0.8 m past the net, so the net sits below centre
     expect(n.centreY).toBeGreaterThan(H / 2);

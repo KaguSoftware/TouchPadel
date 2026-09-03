@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Linking, ScrollView, Text, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
+import { Text } from '../src/i18n/text';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
+import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Locale } from '@touch/i18n';
+import { isolate, type Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import {
   getPushPermissionState,
@@ -15,26 +17,18 @@ import { useVenueSettings } from '../src/features/availability/hooks';
 import { venuePhoneOf } from '../src/features/availability/assemble';
 import { callPhone } from '../src/lib/phone';
 import { radius, space, useTheme, type Appearance } from '../src/theme';
-import {
-  Button,
-  Card,
-  Hint,
-  MicroLabel,
-  Screen,
-  ScreenHeader,
-  SegmentedControl,
-} from '../src/components/ui';
+import { Button, Card, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
 import { BellIcon, GlobeIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
 
 /**
  * Settings (design 2026-08-31): Appearance (Light/Dark — app-driven theme),
- * Language (segmented, with the RTL-restart note), Notifications (the three
+ * Language (segmented; the switch applies in place), Notifications (the three
  * permission states render differently), the venue call card, and the version
  * footer. Public route; reached from the signed-in Profile.
  */
 export default function SettingsScreen() {
-  const { t, locale, setLocale, needsRestart } = useLocale();
+  const { t, locale, setLocale } = useLocale();
   const { colors, fonts, appearance, setAppearance } = useTheme();
   const insets = useSafeAreaInsets();
   const settings = useVenueSettings();
@@ -54,9 +48,8 @@ export default function SettingsScreen() {
   }, []);
 
   const onPickLocale = async (next: Locale) => {
-    if (next === locale) return;
-    // In development this reloads into the new direction; in a release build
-    // `needsRestart` turns on and the note below explains.
+    // Fades the tree out, flips strings + faces + direction in one commit,
+    // fades back in — on this very screen, no reload (LocaleProvider).
     await setLocale(next);
   };
 
@@ -76,7 +69,8 @@ export default function SettingsScreen() {
       return;
     }
     void callPhone(phone).then((ok) => {
-      if (!ok) toast(t('errors.callFailed', { phone }), 'error');
+      // Isolated: an RTL paragraph would otherwise reorder the number groups.
+      if (!ok) toast(t('errors.callFailed', { phone: isolate(phone) }), 'error');
     });
   };
 
@@ -84,6 +78,8 @@ export default function SettingsScreen() {
   const appVersion = Constants.expoConfig?.version ?? Application.nativeApplicationVersion ?? '0.0.0';
   const build = isRunningInExpoGo() ? 'dev' : (Application.nativeBuildVersion ?? '0');
 
+  // A plain row: the layout direction (DirectionRoot) puts the icon on the
+  // leading side in both languages.
   const groupLabel = (icon: React.ReactNode, label: string) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       {icon}
@@ -92,8 +88,8 @@ export default function SettingsScreen() {
   );
 
   return (
-    <Screen>
-      <ScreenHeader title={t('settings.title')} />
+    <Screen edges={[]}>
+      <Stack.Screen options={{ title: t('settings.title') }} />
       <ScrollView
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: space.sm }}
         showsVerticalScrollIndicator={false}
@@ -137,7 +133,6 @@ export default function SettingsScreen() {
           >
             {t('settings.languageNote')}
           </Text>
-          {needsRestart ? <Hint>{t('settings.rtlRestartNote')}</Hint> : null}
         </Card>
 
         {/* Notifications — three permission states, rendered differently */}
@@ -221,7 +216,16 @@ export default function SettingsScreen() {
               {phone ? (
                 <Text
                   numberOfLines={1}
-                  style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, marginTop: 2 }}
+                  // Shrink-wrapped to the leading edge (logical, English unchanged):
+                  // a digits-only string has no strong character, so iOS's natural
+                  // alignment would put it on the LEFT of this column in Arabic.
+                  style={{
+                    alignSelf: 'flex-start',
+                    fontFamily: fonts.body400,
+                    fontSize: 12,
+                    color: colors.mut,
+                    marginTop: 2,
+                  }}
                 >
                   {phone}
                 </Text>

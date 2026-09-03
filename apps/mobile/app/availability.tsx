@@ -1,13 +1,16 @@
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useRef } from 'react';
+import { RefreshControl, ScrollView, View, type LayoutChangeEvent } from 'react-native';
+import { Text } from '../src/i18n/text';
+import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
+import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../src/features/availability/useAvailabilityBooking';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { space, useTheme } from '../src/theme';
-import { ErrorText, Hint, Screen, ScreenHeader, SegmentedControl } from '../src/components/ui';
+import { ErrorText, Hint, Screen, SegmentedControl } from '../src/components/ui';
 import { DayChip, DegradedBanner, SlotCell } from '../src/components/booking';
 import { NoticeSheet } from '../src/components/overlays';
 
@@ -28,18 +31,32 @@ const GRID_INSET = 18 + space.l;
  * All state and handlers live in useAvailabilityBooking — this file is layout.
  */
 export default function AvailabilityScreen() {
-  const { t, locale } = useLocale();
+  const { t, dir, locale } = useLocale();
   const { colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
   const a = useAvailabilityBooking({ origin: 'screen' });
 
+  // Open on the first time that has not started yet, the same as the booking
+  // sheet: a trading night runs 09:00 into the small hours, so an evening guest
+  // would otherwise scroll past a dead day to reach tonight. Rows vary in height
+  // (a capacity line makes one taller), so the target row reports its own y.
+  // `key` remounts the list per day/duration, which is what makes the homing run
+  // exactly once per list instead of fighting a scroll already in progress.
+  const gridRef = useRef<ScrollView>(null);
+  const gridKey = `${a.date}|${a.durationMin}`;
+  const homedFor = useRef<string | null>(null);
+  const homeGrid = (r: number) => (e: LayoutChangeEvent) => {
+    if (r !== a.openRow || homedFor.current === gridKey) return;
+    homedFor.current = gridKey;
+    const { y } = e.nativeEvent.layout;
+    if (y > 0) gridRef.current?.scrollTo({ y, animated: false });
+  };
+
   return (
     // Unpadded so the day strip can scroll out under the screen edge; every
     // other block carries its own gutter.
-    <Screen padded={false}>
-      <View style={{ paddingStart: GUTTER, paddingEnd: GUTTER }}>
-        <ScreenHeader title={t('booking.availabilityTitle')} />
-      </View>
+    <Screen padded={false} edges={[]}>
+      <Stack.Screen options={{ title: t('booking.availabilityTitle') }} />
 
       {a.degraded ? (
         <View style={{ marginTop: 6, marginStart: GUTTER, marginEnd: GUTTER }}>
@@ -52,11 +69,27 @@ export default function AvailabilityScreen() {
         </View>
       ) : null}
 
-      {/* Day strip (one chip = one trading night) — venue timezone + Latin digits via the shared formatters */}
+      {/*
+        Day strip — venue timezone + Latin digits via the shared formatters.
+
+        `flexShrink: 0` is load-bearing. RN's ScrollView base style is
+        `{ flexGrow: 1, flexShrink: 1 }`, so overriding flexGrow alone left this
+        strip as the ONLY shrinkable child of the screen column: every time the
+        content below overflowed, Yoga took the height out of the chips. Result:
+        tapping a day made the strip snap to full height (skeleton — nothing
+        overflows) and squash again a second later when the grid landed. The day
+        chips are a fixed-height control; they never give up height.
+      */}
       <ScrollView
+        // A fresh mount starts at the leading edge on both platforms; a strip
+        // already on screen keeps its scroll offset across a language switch
+        // (this screen sits under Welcome/Sign-up while a guest flips to
+        // Arabic), and on Android that offset is physical — the strip would
+        // then show its logical END. Remount on the direction instead.
+        key={dir}
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
+        style={{ flexGrow: 0, flexShrink: 0 }}
         contentContainerStyle={{
           gap: 7,
           paddingStart: GUTTER,
@@ -100,7 +133,9 @@ export default function AvailabilityScreen() {
       </View>
 
       {a.day.isLoading ? (
-        <View style={{ marginTop: space.l, paddingStart: GRID_INSET, paddingEnd: GRID_INSET }}>
+        <View
+          style={{ flex: 1, marginTop: space.l, paddingStart: GRID_INSET, paddingEnd: GRID_INSET }}
+        >
           <SkeletonList rows={4} height={52} />
         </View>
       ) : a.day.isError ? (
@@ -112,7 +147,9 @@ export default function AvailabilityScreen() {
           busy={a.day.isRefetching}
         />
       ) : a.closedDay ? (
-        <View style={{ marginTop: 30, alignItems: 'center', paddingStart: 24, paddingEnd: 24 }}>
+        <View
+          style={{ flex: 1, marginTop: 30, alignItems: 'center', paddingStart: 24, paddingEnd: 24 }}
+        >
           <Text
             style={{
               fontFamily: fonts.display900,
@@ -138,6 +175,9 @@ export default function AvailabilityScreen() {
         </View>
       ) : (
         <ScrollView
+          key={gridKey}
+          ref={gridRef}
+          style={{ flex: 1 }}
           refreshControl={
             <RefreshControl
               refreshing={a.day.isRefetching}
@@ -160,6 +200,7 @@ export default function AvailabilityScreen() {
               {a.rows.map((row, i) => (
                 <View
                   key={row[0]?.startAt.toISOString() ?? i}
+                  onLayout={homeGrid(i)}
                   style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}
                 >
                   {row.map((cell) => (
@@ -198,7 +239,7 @@ export default function AvailabilityScreen() {
           a.notice === 'horizon' ? t('booking.deskOnlyTitle') : t('booking.slotUnavailableTitle')
         }
         body={a.notice === 'horizon' ? t('booking.deskOnlyBody') : t('booking.blockedBody')}
-        callLabel={a.phone ? t('booking.callPhone', { phone: a.phone }) : null}
+        callLabel={a.phone ? t('booking.callPhone', { phone: isolate(a.phone) }) : null}
         onCall={a.onCall}
         onClose={a.dismissNotice}
       />

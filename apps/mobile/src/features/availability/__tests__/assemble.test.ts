@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { iqd } from '@touch/core';
 import type { CourtSlots, Slot } from '@touch/core';
 import {
+  firstUpcomingIndex,
   hasAnySlots,
   mergeAcrossCourts,
   openNowInfo,
@@ -10,7 +11,9 @@ import {
   assembleTradingNight,
   groupByStart,
   listBookableDates,
+  protectedHorizonEnd,
   type AvailabilityRow,
+  type MergedCell,
   type CourtRow,
   type RateRulePriceRow,
   type RateRuleRow,
@@ -235,6 +238,44 @@ describe('mergeAcrossCourts', () => {
   });
 });
 
+// ── protectedHorizonEnd: the client copy of app.assert_not_degraded_for ──────
+
+describe('protectedHorizonEnd', () => {
+  const now = new Date('2026-09-02T15:50:00Z');
+
+  it('is now + protected_horizon_hours', () => {
+    expect(protectedHorizonEnd(now, { protected_horizon_hours: 48 }).toISOString()).toBe(
+      '2026-09-04T15:50:00.000Z',
+    );
+    expect(protectedHorizonEnd(now, { protected_horizon_hours: 12 }).toISOString()).toBe(
+      '2026-09-03T03:50:00.000Z',
+    );
+  });
+
+  it('falls back to the 48 h server default when the column is missing or invalid', () => {
+    expect(protectedHorizonEnd(now).toISOString()).toBe('2026-09-04T15:50:00.000Z');
+    expect(protectedHorizonEnd(now, null).toISOString()).toBe('2026-09-04T15:50:00.000Z');
+    expect(protectedHorizonEnd(now, { protected_horizon_hours: null }).toISOString()).toBe(
+      '2026-09-04T15:50:00.000Z',
+    );
+  });
+
+  it('honours 0 as "no protected window" rather than defaulting', () => {
+    expect(protectedHorizonEnd(now, { protected_horizon_hours: 0 }).getTime()).toBe(now.getTime());
+  });
+
+  it('covers the window the old "midnight after tomorrow" rule left uncovered', () => {
+    // The regression: a slot on the third day chip, before the current
+    // wall-clock time. Free under the old rule, refused by the server.
+    const slotStart = new Date('2026-09-04T10:00:00Z');
+    const oldRule = new Date('2026-09-04T00:00:00Z'); // midnight after tomorrow
+    expect(slotStart.getTime() < oldRule.getTime()).toBe(false);
+    expect(slotStart.getTime() < protectedHorizonEnd(now, { protected_horizon_hours: 48 }).getTime()).toBe(
+      true,
+    );
+  });
+});
+
 describe('openNowInfo', () => {
   const overnight = {
     timezone: TZ,
@@ -292,6 +333,35 @@ describe('mergeAcrossCourts with a clock', () => {
 
   it('without a clock nothing is past (legacy behaviour)', () => {
     expect(mergeAcrossCourts(grid, 60)[1]?.state).toBe('free');
+  });
+});
+
+describe('firstUpcomingIndex', () => {
+  const cell = (state: MergedCell['state']): MergedCell => ({
+    startAt: new Date(T10),
+    state,
+    freeCount: 0,
+    capacity: 2,
+    priceIqd: null,
+    courtId: null,
+  });
+
+  it('skips the run of started times so the grid can open on tonight', () => {
+    expect(firstUpcomingIndex([cell('past'), cell('past'), cell('free')])).toBe(2);
+  });
+
+  it('stops at a booked or blocked hour — those still explain the night', () => {
+    expect(firstUpcomingIndex([cell('past'), cell('booked'), cell('free')])).toBe(1);
+    expect(firstUpcomingIndex([cell('past'), cell('horizon')])).toBe(1);
+  });
+
+  it('is 0 on a day with nothing past (a future chip opens at the top)', () => {
+    expect(firstUpcomingIndex([cell('free'), cell('free')])).toBe(0);
+  });
+
+  it('is 0 when the whole night has run out, and when there are no cells', () => {
+    expect(firstUpcomingIndex([cell('past'), cell('past')])).toBe(0);
+    expect(firstUpcomingIndex([])).toBe(0);
   });
 });
 

@@ -208,6 +208,7 @@ function timeline(name, stack = []) {
 const STATUS_ONLY_RESERVATION_WRITERS = new Set([
   'cancel_reservation',   // -> cancelled: leaves the constrained set
   'expire_stale_holds',   // -> expired:   leaves it
+  'release_hold',         // -> expired:   leaves it (0058, guest hand-back)
   'mark_reservation',     // -> arrived / no_show / completed
   'confirm_booking',      // pending -> confirmed: same period, same court
 ]);

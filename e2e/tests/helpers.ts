@@ -57,12 +57,12 @@ export function fixtureTableId(n: number): string {
   return `f1f70000-0000-4000-8000-00000000ab${String(n).padStart(2, '0')}`;
 }
 
-export const FIXTURE_COURTS_EN = [
-  'Indoor Court 1',
-  'Indoor Court 2',
-  'Outdoor Court 1',
-  'Outdoor Court 2',
-] as const;
+/**
+ * Every court the desk calendar should show. The fixture dropped its two
+ * invented outdoor courts on 2026-09-03 to match the venue's real two — see the
+ * COURT COUNT note in packages/db/fixtures/courts.sql.
+ */
+export const FIXTURE_COURTS_EN = ['Indoor Court 1', 'Indoor Court 2'] as const;
 
 // ---------------------------------------------------------------------------
 // Table tokens — app.generate_table_token requires manager/owner

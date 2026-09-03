@@ -46,11 +46,26 @@ export async function cancelReservation(client: Client, reservationId: string) {
   return data as { reservation_id?: string; status?: string };
 }
 
+/**
+ * app.release_hold (0058) — hand an OWN unconfirmed hold back to the grid.
+ * cancel_reservation cannot do this: its cancellation_window_hours guard
+ * refuses a same-day hold, which is why abandoned holds used to sit on the
+ * slot for the whole TTL and burn the guest's per-account hold quota.
+ * Idempotent server-side, so a release that races the countdown is not an error.
+ */
+export async function releaseHold(client: Client, reservationId: string) {
+  const { data, error } = await client.schema('app').rpc('release_hold', {
+    p_reservation_id: reservationId,
+  });
+  if (error) throw error;
+  return data as { reservation_id?: string; status?: string; released?: boolean };
+}
+
 /** Own reservations (RLS restricts to guest_id = auth.uid()). */
 export async function fetchMyReservations(client: Client): Promise<BookingRow[]> {
   const { data, error } = await client
     .from('reservations')
-    .select('id, court_id, kind, status, start_at, end_at, price_iqd')
+    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at')
     .order('start_at', { ascending: false })
     .limit(100);
   if (error) throw error;
@@ -61,7 +76,7 @@ export async function fetchMyReservations(client: Client): Promise<BookingRow[]>
 export async function fetchReservationById(client: Client, id: string): Promise<BookingRow | null> {
   const { data, error } = await client
     .from('reservations')
-    .select('id, court_id, kind, status, start_at, end_at, price_iqd')
+    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;

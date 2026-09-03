@@ -32,6 +32,9 @@ export const en = {
     signIn: 'Sign in',
     signUp: 'Create account',
     signOut: 'Sign out',
+    // Signing out is a deliberate act: a native alert confirms before dropping the
+    // session, matching PetApp's Cancel / destructive-Sign-out shape.
+    signOutConfirm: "You'll need to log back in to see your bookings.",
     // SOW: email + password with verification — phone/OTP login is out of scope for Phase 1.
     emailLabel: 'Email',
     passwordLabel: 'Password',
@@ -524,10 +527,23 @@ export const en = {
     cancelDialogBody: "Your slot on {when} goes back on the grid. This can't be undone in the app.",
     cancelledToast: 'Booking cancelled — slot released',
     notFound: 'This booking could not be found.',
+    // Held slots (0058): a hold the guest has not confirmed yet.
+    heldSection: 'Held for you',
+    heldSectionBody:
+      'A held slot is yours for a few minutes only. Release one you no longer want — it goes straight back on the grid, and frees you to hold another time.',
+    holdEndsIn: 'Ends in',
+    finishBooking: 'Finish booking',
+    releaseHold: 'Release',
+    holdReleasedToast: 'Hold released — slot back on the grid',
+    holdQuota:
+      'You are already holding as many slots as we allow at once. Finish or release one under Bookings, then try again.',
+    notAHold: 'That slot is already booked. Cancel it from the booking itself.',
+    beyondHorizon: 'That date is further ahead than the venue takes bookings.',
+    accountRequired: 'Booking a court needs a signed-in account.',
   },
   tabs: {
     book: 'Book',
-    bookings: 'Bookings',
+    bookings: 'My Bookings',
     profile: 'Profile',
   },
   profile: {
@@ -556,7 +572,6 @@ export const en = {
     language: 'Language',
     english: 'English',
     arabic: 'العربية',
-    rtlRestartNote: 'The new layout direction is applied fully after you restart the app.',
     notifications: 'Notifications',
     enablePush: 'Enable notifications',
     pushRegistered: 'Push notifications are enabled on this device.',
@@ -565,7 +580,7 @@ export const en = {
     appearance: 'Appearance',
     light: 'Light',
     dark: 'Dark',
-    languageNote: 'Switching to العربية flips the whole app right-to-left and restarts it.',
+    languageNote: 'Switching to العربية flips the whole app right-to-left, instantly.',
     notifBody: 'Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.',
     notifGranted: 'Enabled — booking confirmations, reminders and cancellations.',
     notifDenied: 'Notifications are turned off for this app. Enable them in system settings.',

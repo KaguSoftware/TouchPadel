@@ -1,111 +1,20 @@
-import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { brand, radius, useTheme } from '../../src/theme';
-import { TabBookIcon, TabBookingsIcon, TabProfileIcon } from '../../src/components/icons';
-
-/** Design: 62 pt bar; the home indicator / Android nav bar inset is added below it. */
-const TAB_BAR_BASE = 62;
-
-/** Archivo label + the 14×3 green active dot, per the design. */
-function TabLabel({ text, focused }: { text: string; focused: boolean }) {
-  const { colors, fonts, tracking } = useTheme();
-  return (
-    <View style={{ alignItems: 'center', gap: 2 }}>
-      <Text
-        style={{
-          fontFamily: fonts.display800,
-          fontSize: 9.5,
-          letterSpacing: tracking(0.57),
-          textTransform: 'uppercase',
-          color: focused ? colors.blue : colors.fnt2,
-        }}
-      >
-        {text}
-      </Text>
-      <View
-        style={{
-          width: 14,
-          height: 3,
-          borderRadius: radius.pill,
-          backgroundColor: focused ? brand.green : 'transparent',
-        }}
-      />
-    </View>
-  );
-}
+/**
+ * The tab navigator differs by platform: iOS uses the native `UITabBar`
+ * (system material, Liquid Glass on iOS 26) and Android keeps the custom
+ * design bar with Archivo labels and the green active dot.
+ *
+ * Both live in `src/navigation/` rather than beside this file because
+ * expo-router globs the routes directory and would otherwise register
+ * `_layout.ios` and `_layout.android` as two separate routes. Importing a
+ * single specifier instead lets Metro's platform resolution pick the variant,
+ * so exactly one navigator ends up in each bundle.
+ */
 
 /**
- * Bottom tabs per the design: Book / Bookings / Profile, translucent bar
- * floating over the content, Archivo labels, green active dot. expo-router
- * `Tabs` per the native-feel convention — platform behavior (state
- * preservation, back handling) stays native while the visuals follow the
- * design. Screens pad their scroll content with useBottomTabBarHeight().
- *
- * A fixed `height: 86/66` used to ignore the safe-area inset: clipped labels
- * under Android's gesture bar (SDK 54 is edge-to-edge) and a too-tall bar on
- * phones without a home indicator.
+ * Book sits in the middle of the bar but is still the tab the app opens on, so
+ * it has to be named explicitly — a navigator otherwise starts on whichever
+ * screen is declared first, which is now Bookings.
  */
-export default function TabsLayout() {
-  const { t } = useLocale();
-  const { colors, appearance } = useTheme();
-  const insets = useSafeAreaInsets();
+export const unstable_settings = { initialRouteName: 'index' };
 
-  return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.blue,
-        tabBarInactiveTintColor: colors.fnt2,
-        tabBarStyle: {
-          position: 'absolute',
-          // iOS blurs the content behind; Android draws the 95 % tint flat.
-          backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.tabBg,
-          borderTopWidth: 1,
-          borderTopColor: colors.line,
-          elevation: 0,
-          height: TAB_BAR_BASE + insets.bottom,
-          paddingBottom: insets.bottom,
-          paddingTop: 4,
-        },
-        tabBarBackground:
-          Platform.OS === 'ios'
-            ? () => (
-                <BlurView
-                  intensity={40}
-                  tint={appearance === 'dark' ? 'dark' : 'light'}
-                  style={[StyleSheet.absoluteFill, { backgroundColor: colors.tabBg }]}
-                />
-              )
-            : undefined,
-        tabBarItemStyle: { paddingTop: 2 },
-        tabBarHideOnKeyboard: true,
-        sceneStyle: { backgroundColor: colors.bg },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          tabBarIcon: ({ color }) => <TabBookIcon color={color} />,
-          tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.book')} focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="bookings"
-        options={{
-          tabBarIcon: ({ color }) => <TabBookingsIcon color={color} />,
-          tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.bookings')} focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          tabBarIcon: ({ color }) => <TabProfileIcon color={color} />,
-          tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.profile')} focused={focused} />,
-        }}
-      />
-    </Tabs>
-  );
-}
+export { default } from '../../src/navigation/TabsLayout';

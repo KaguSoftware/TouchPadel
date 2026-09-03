@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import type { Locale } from '@touch/i18n';
-import { supabase } from '../../src/lib/supabase';
-import { signUp, validateSignUp } from '../../src/features/auth/api';
-import { verifyRedirect } from '../../src/features/auth/redirects';
-import { hasSocial, useSocialSignIn } from '../../src/features/auth/useSocialSignIn';
-import { usePostAuthContinue } from '../../src/features/booking/usePostAuthContinue';
-import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useLocale } from '../../src/i18n/LocaleProvider';
-import { space } from '../../src/theme';
+import { supabase } from '../src/lib/supabase';
+import { signUp, validateSignUp } from '../src/features/auth/api';
+import { verifyRedirect } from '../src/features/auth/redirects';
+import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
+import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
+import { mapErrorToKey } from '../src/features/booking/errors';
+import { useLocale } from '../src/i18n/LocaleProvider';
+import { space } from '../src/theme';
 import {
   Button,
   ErrorText,
@@ -19,12 +20,11 @@ import {
   LabeledDivider,
   MicroLabel,
   Screen,
-  ScreenHeader,
   SegmentedControl,
   Title,
-} from '../../src/components/ui';
-import { SocialSignInBlock } from '../../src/components/social';
-import { useToast } from '../../src/components/overlays';
+} from '../src/components/ui';
+import { SocialSignInBlock } from '../src/components/social';
+import { useToast } from '../src/components/overlays';
 
 /**
  * Create account (design 2026-08-31): name · email · password · phone ·
@@ -36,7 +36,7 @@ import { useToast } from '../../src/components/overlays';
  * email verification — provider emails are verified — so it never lands on
  * verify-email; a missing phone is collected on complete-profile instead.
  */
-export default function SignUpScreen() {
+function SignUpScreen() {
   const { t, locale, setLocale } = useLocale();
   const router = useRouter();
   const [fullName, setFullName] = useState('');
@@ -75,10 +75,11 @@ export default function SignUpScreen() {
     setBusy(true);
     try {
       await signUp(supabase, { fullName, email, phone, password, preferredLang }, verifyRedirect());
-      // The chosen language becomes the app language; direction is reconciled
-      // on the next launch rather than flipped under the verify screen.
-      await setLocale(preferredLang, { flip: false });
-      router.replace({ pathname: '/(auth)/verify-email', params: { email } });
+      // The chosen language becomes the app language — strings, faces and
+      // layout direction switch in one commit, under a short crossfade, before
+      // the verify screen comes up.
+      await setLocale(preferredLang);
+      router.replace({ pathname: '/verify-email', params: { email } });
     } catch (err) {
       setError(t(mapErrorToKey(err)));
     } finally {
@@ -87,8 +88,7 @@ export default function SignUpScreen() {
   };
 
   return (
-    <Screen gutter={20}>
-      <ScreenHeader />
+    <Screen gutter={20} edges={[]}>
       <FormScreen>
         <Title plain>{t('auth.signUp')}</Title>
         <SocialSignInBlock
@@ -118,6 +118,10 @@ export default function SignUpScreen() {
           keyboardType="email-address"
           autoComplete="email"
           textContentType="emailAddress"
+          importantForAutofill="yes"
+          autoCorrect={false}
+          spellCheck={false}
+          secureTextEntry={false}
           error={fieldErrors.email}
         />
         <Field
@@ -162,10 +166,24 @@ export default function SignUpScreen() {
           lead={t('auth.alreadyLead')}
           label={t('auth.signIn')}
           // Reached from Profile as well as Welcome — always land on sign-in.
-          onPress={() => router.replace('/(auth)/sign-in')}
+          onPress={() => router.replace('/sign-in')}
           style={{ marginTop: 18 }}
         />
       </FormScreen>
     </Screen>
+  );
+}
+
+/**
+ * Signed-out only, on the ROOT stack. The `(auth)` group carried this rule in
+ * its layout; flattening it is what lets UIKit draw its own back item here
+ * instead of a JS stand-in. See RequireNoSession for the pending-slot
+ * exemption that keeps the post-auth booking continuation working.
+ */
+export default function GuardedSignUpScreen() {
+  return (
+    <RequireNoSession>
+      <SignUpScreen />
+    </RequireNoSession>
   );
 }
