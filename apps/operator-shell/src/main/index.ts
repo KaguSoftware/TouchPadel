@@ -1,13 +1,17 @@
 import * as path from 'node:path';
 import { BrowserWindow, app, ipcMain, shell } from 'electron';
 import { IPC, type PrintResult } from '../ipc-channels';
-import { enqueue, getCachedRef, openQueue, queueStatus } from './queue';
+import { enqueue, getCachedRef, listBlockingRows, openQueue, queueStatus, setConnOnline } from './queue';
 import { loadStation } from './station';
 import { startLanKdsServer } from './lan-kds-server';
 import { startHeartbeat } from './heartbeat';
+import { setAuthState } from './auth-state';
+import { startSyncWorker, type SyncWorker } from './sync-worker';
 import { mayNavigateTo, mayOpenExternally, type NavigationPolicy } from './window-security';
 import {
   IpcValidationError,
+  validateAuthState,
+  validateConnState,
   validateMutationEnvelope,
   validatePin,
   validatePrintJob,
@@ -28,6 +32,8 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 }
+
+let worker: SyncWorker | null = null;
 
 /** Wrap an IPC handler so a malformed argument is refused, not stored. */
 function guardIpc<T>(name: string, fn: () => T): T | { error: string } {
@@ -122,7 +128,42 @@ if (gotTheLock) {
     openQueue();
 
     ipcMain.handle(IPC.enqueue, (_e, m: unknown) =>
-      guardIpc('enqueue', () => enqueue(validateMutationEnvelope(m))),
+      guardIpc('enqueue', () => {
+        const result = enqueue(validateMutationEnvelope(m));
+        // The insert is fsynced; replay immediately — online, the round trip
+        // lands sub-second and the "one write path" costs nothing perceptible.
+        worker?.kick();
+        return result;
+      }),
+    );
+
+    ipcMain.on(IPC.authState, (_e, s: unknown) => {
+      guardIpc('authState', () => {
+        setAuthState(validateAuthState(s));
+        return null;
+      });
+    });
+
+    ipcMain.on(IPC.connState, (_e, v: unknown) => {
+      guardIpc('connState', () => {
+        setConnOnline(validateConnState(v));
+        return null;
+      });
+    });
+
+    ipcMain.handle(IPC.queueRows, () =>
+      guardIpc('queueRows', () =>
+        listBlockingRows().map((r) => ({
+          seq: r.seq,
+          localId: r.localId,
+          idempotencyKey: r.idempotencyKey,
+          mutationType: r.mutationType,
+          state: r.state as Exclude<typeof r.state, 'acked'>,
+          attempts: r.attempts,
+          lastError: r.lastError,
+          createdAt: r.createdAt,
+        })),
+      ),
     );
     ipcMain.handle(IPC.getCachedRef, (_e, key: unknown) =>
       guardIpc('getCachedRef', () => getCachedRef(validateRefKey(key))),
@@ -164,11 +205,24 @@ if (gotTheLock) {
       win.focus();
     });
 
-    // Push queue status (depth / degraded / conflicts) to the renderer.
-    const statusTimer = setInterval(() => {
+    const pushStatus = () => {
       if (!win.isDestroyed()) win.webContents.send(IPC.queueUpdate, queueStatus());
-    }, 2_000);
-    win.on('closed', () => clearInterval(statusTimer));
+    };
+
+    worker = startSyncWorker({
+      onResult: (result) => {
+        if (!win.isDestroyed()) win.webContents.send(IPC.mutationResult, result);
+      },
+      onActivity: pushStatus,
+    });
+
+    // Push queue status (depth / degraded / conflicts) to the renderer — the
+    // 2s timer is the floor; the worker pushes eagerly on every state change.
+    const statusTimer = setInterval(pushStatus, 2_000);
+    win.on('closed', () => {
+      clearInterval(statusTimer);
+      worker?.stop();
+    });
 
     startLanKdsServer(station);
     startHeartbeat(station);
