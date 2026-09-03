@@ -166,7 +166,61 @@ describe('paragraphs carry a base writing direction', () => {
     for (const f of SOURCES) {
       const src = stripComments(readFileSync(f, 'utf8'));
       if (!/<Text[\s/>]/.test(src) || rel(f) === 'src/i18n/text.tsx') continue;
-      expect(src, rel(f)).toMatch(/import \{ Text \} from '[^']*i18n\/text';/);
+      // `Text` among the names, not necessarily alone: the segmented control
+      // takes AnimatedText from the same module in the same statement.
+      expect(src, rel(f)).toMatch(/import \{[^}]*\bText\b[^}]*\} from '[^']*i18n\/text';/);
     }
+  });
+
+  /**
+   * A plain function component never subscribes to an `Animated` style value,
+   * so an interpolated color reaches native unresolved and paints BLACK. The
+   * animated wrapper has to wrap THIS module's Text, or an animated label
+   * silently loses the writing direction every other label carries.
+   */
+  it('offers an animated Text that keeps the direction, wrapping its own', () => {
+    expect(TEXT).toMatch(/Animated\.createAnimatedComponent\(Text\)/);
+    for (const f of SOURCES) {
+      const src = stripComments(readFileSync(f, 'utf8'));
+      if (!/<AnimatedText[\s/>]/.test(src)) continue;
+      expect(src, rel(f)).toMatch(/import \{[^}]*\bAnimatedText\b[^}]*\} from '[^']*i18n\/text';/);
+    }
+  });
+
+  /**
+   * The whole point of the animated label: an interpolation handed to a plain
+   * `Text` is the black-in-dark-mode bug. Pin the segmented control's label to
+   * the animated component.
+   */
+  /**
+   * The language picker is the ONE control whose segment order is fixed. Its
+   * options are not a mirrorable list but a pair of destinations: mirroring it
+   * means the app flips as the guest taps, and the option they just chose
+   * swaps to the other side under their finger. Every OTHER segmented control
+   * — appearance, duration — is ordinary UI and must keep mirroring, so this
+   * pins both halves: the language pickers opt in, the others do not.
+   */
+  it('pins the language picker order and leaves every other control mirroring', () => {
+    const ui = stripComments(read('src', 'components', 'ui.tsx'));
+    expect(ui).toMatch(/pinOrder \? \{ direction: 'ltr' as const \} : null/);
+    // A pinned track measures left-to-right, so the thumb must not fold back.
+    expect(ui).toContain("const rtl = dir === 'rtl' && !pinOrder;");
+
+    const LANGUAGE_PICKERS = ['app/settings.tsx', 'app/sign-up.tsx', 'app/complete-profile.tsx'];
+    for (const f of LANGUAGE_PICKERS) {
+      const src = stripComments(read(...f.split('/')));
+      const locale = src.slice(src.indexOf('<SegmentedControl<Locale>'));
+      expect(locale.slice(0, locale.indexOf('/>')), f).toContain('pinOrder');
+    }
+
+    // The appearance picker sits in the same file and must NOT be pinned.
+    const settings = stripComments(read('app', 'settings.tsx'));
+    const appearance = settings.slice(settings.indexOf('<SegmentedControl<AppearancePreference>'));
+    expect(appearance.slice(0, appearance.indexOf('/>'))).not.toContain('pinOrder');
+  });
+
+  it('renders the segmented control label through the animated Text', () => {
+    const ui = stripComments(read('src', 'components', 'ui.tsx'));
+    expect(ui).toMatch(/<AnimatedText style=\{\[style, \{ color \}\]\}>/);
   });
 });

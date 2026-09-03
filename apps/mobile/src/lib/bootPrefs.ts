@@ -18,6 +18,7 @@ import * as Localization from 'expo-localization';
 import type { Locale } from '@touch/i18n';
 import { rememberLocale } from '../i18n/lastLocale';
 import { rememberAppearance } from '../theme/lastAppearance';
+import type { AppearancePreference } from '../theme/lastAppearance';
 import { addBreadcrumb, captureException } from './telemetry';
 
 export const APPEARANCE_KEY = 'tp.appearance';
@@ -30,7 +31,11 @@ export const LOCALE_KEY = 'tp.locale';
  */
 export const RETIRED_KEYS = ['tp.resumeRoute', 'tp.rtlReloadPending'] as const;
 
-export type BootAppearance = 'light' | 'dark';
+/**
+ * The STORED preference, 'automatic' included — not the scheme it resolves to.
+ * ThemeProvider does that resolving, and keeps doing it as the device flips.
+ */
+export type BootAppearance = AppearancePreference;
 
 export interface BootPrefs {
   appearance: BootAppearance;
@@ -74,12 +79,17 @@ async function readLegacyLocale(): Promise<Locale | null> {
 }
 
 export async function loadBootPrefs(): Promise<BootPrefs> {
+  // Default 'light', not 'automatic': the design shipped a Light/Dark choice
+  // with light as the default, so an install that predates this option keeps
+  // the appearance it has always had rather than silently adopting the
+  // device's. A fresh install gets the same default for the same reason.
   let appearance: BootAppearance = 'light';
   let locale: Locale | null = null;
   try {
     const pairs = await AsyncStorage.multiGet([APPEARANCE_KEY, LOCALE_KEY]);
     for (const [key, value] of pairs) {
-      if (key === APPEARANCE_KEY && (value === 'light' || value === 'dark')) appearance = value;
+      if (key === APPEARANCE_KEY && (value === 'light' || value === 'dark' || value === 'automatic'))
+        appearance = value;
       if (key === LOCALE_KEY) locale = asLocale(value);
     }
   } catch (error) {

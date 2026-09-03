@@ -10,6 +10,7 @@ import {
   sampleEased,
   slice,
   SPEC,
+  SPRING,
 } from '../spec';
 
 const close = (a: number, b: number, eps = 1e-3) => Math.abs(a - b) < eps;
@@ -66,6 +67,44 @@ describe('PITCH ease (direction-aware)', () => {
     const tAt08 = slice(0.8, SPEC.sheet.move);
     expect(close(rev(tAt08), 1, 1e-6)).toBe(true);
     expect(rev(tAt08 / 2)).toBe(EASE_OUT(0.5));
+  });
+});
+
+describe('the close spring outruns the sheet it is hiding', () => {
+  // Why the Book tab does not wait for this spring to finish before it drops
+  // the sheet (useCourtTransition retires it on a progress listener instead):
+  // the spring is overdamped, so its tail is far longer than the part of the
+  // close a guest can actually see. Reverse p from 1, analytically, the way
+  // RN's SpringAnimation does.
+  const { stiffness: k, damping: c, mass: m } = SPRING;
+  const zeta = c / (2 * Math.sqrt(k * m));
+  const omega0 = Math.sqrt(k / m);
+  /** p at t seconds into a close, released from rest at p = 1. */
+  const p = (t: number) =>
+    zeta < 1
+      ? Math.exp(-zeta * omega0 * t) *
+        (Math.cos(omega0 * Math.sqrt(1 - zeta * zeta) * t) +
+          ((zeta * omega0) / (omega0 * Math.sqrt(1 - zeta * zeta))) *
+            Math.sin(omega0 * Math.sqrt(1 - zeta * zeta) * t))
+      : Math.exp(-omega0 * t) * (1 + omega0 * t);
+  /** First t at which p has fallen to `target`. */
+  const reaches = (target: number) => {
+    let t = 0;
+    while (p(t) > target && t < 10) t += 0.001;
+    return t;
+  };
+
+  it('is overdamped, so it approaches 0 asymptotically rather than snapping', () => {
+    expect(zeta).toBeGreaterThan(1);
+  });
+
+  it('hides the card in under half a second but keeps crawling for a second more', () => {
+    // The card's opacity is 0 at and below SPEC.sheet.fade[0].
+    const invisible = reaches(SPEC.sheet.fade[0]);
+    expect(invisible).toBeLessThan(0.5);
+    // Yet p is still visibly off 0 long after that — this gap is exactly the
+    // dead time the old "unmount when the spring finishes" behaviour showed.
+    expect(reaches(0.01) - invisible).toBeGreaterThan(0.5);
   });
 });
 

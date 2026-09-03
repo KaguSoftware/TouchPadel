@@ -34,7 +34,7 @@
  * src/i18n/__tests__/direction.test.ts instead.
  */
 import type { ComponentRef, Ref } from 'react';
-import { Text as RNText, type TextProps } from 'react-native';
+import { Animated, Text as RNText, type TextProps } from 'react-native';
 import { useLocale } from './LocaleProvider';
 
 export type AppTextProps = TextProps & { ref?: Ref<ComponentRef<typeof RNText>> };
@@ -43,3 +43,15 @@ export function Text({ style, ref, ...rest }: AppTextProps) {
   const { dir } = useLocale();
   return <RNText ref={ref} {...rest} style={[{ writingDirection: dir }, style]} />;
 }
+
+/**
+ * The same paragraph rule, for text whose STYLE IS ANIMATED.
+ *
+ * `Text` above is a plain function component: an `Animated.Value` handed to it
+ * as a style value is never subscribed to, so it reaches the native side as an
+ * unresolved node and the label paints BLACK — in both themes, which is only
+ * visible in dark. `createAnimatedComponent` is what installs that
+ * subscription, and it has to wrap this module's Text (not react-native's) so
+ * the animated label keeps its writing direction like every other one.
+ */
+export const AnimatedText = Animated.createAnimatedComponent(Text);

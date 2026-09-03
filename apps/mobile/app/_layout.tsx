@@ -19,7 +19,7 @@ import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
 import { DirectionRoot } from '../src/i18n/direction';
 import { lastKnownLocale } from '../src/i18n/lastLocale';
 import { ensureFontsLoaded, fontsFor } from '../src/theme/fonts';
-import { lastKnownAppearance } from '../src/theme/lastAppearance';
+import { lastKnownPreference } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { AuthProvider } from '../src/features/auth/context';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
@@ -67,7 +67,7 @@ function FallbackShell({ children }: { children: React.ReactNode }) {
   const locale = lastKnownLocale();
   return (
     <LocaleProvider key={locale} initialLocale={locale}>
-      <ThemeProvider initialAppearance={lastKnownAppearance()}>
+      <ThemeProvider initialAppearance={lastKnownPreference()}>
         <DirectionRoot>{children}</DirectionRoot>
       </ThemeProvider>
     </LocaleProvider>

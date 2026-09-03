@@ -61,6 +61,12 @@ export const en = {
     nameRequired: 'Enter your full name.',
     emailInvalid: 'Enter a valid email address.',
     phoneRequired: 'Enter your phone number.',
+    phoneInvalid: "That doesn't look like a phone number.",
+    // Country-code picker on every phone field. Iraq is the default (the venue's
+    // own country) — the guest changes it here.
+    countryCode: 'Country code',
+    countryCodeSearch: 'Search country or code',
+    countryCodeNoResults: 'No country matches that.',
     // Verification body is three lines with the address in bold (design).
     checkEmailLead: 'We sent a verification link to',
     checkEmailTail: 'Open it to activate your account.',
@@ -580,6 +586,8 @@ export const en = {
     appearance: 'Appearance',
     light: 'Light',
     dark: 'Dark',
+    automatic: 'Auto',
+    automaticNote: 'Auto follows your device\u2019s appearance setting.',
     languageNote: 'Switching to العربية flips the whole app right-to-left, instantly.',
     notifBody: 'Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.',
     notifGranted: 'Enabled — booking confirmations, reminders and cancellations.',

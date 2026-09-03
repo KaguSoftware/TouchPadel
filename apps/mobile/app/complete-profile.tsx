@@ -22,6 +22,8 @@ import {
   Title,
   useSafeBack,
 } from '../src/components/ui';
+import { PhoneField } from '../src/components/phone';
+import { composePhone, DEFAULT_ISO, parsePhone, validatePhone } from '../src/features/profile/phone';
 import { useToast } from '../src/components/overlays';
 import { ErrorState, SkeletonList } from '../src/components/states';
 
@@ -55,7 +57,9 @@ export default function CompleteProfileScreen() {
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
 
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  // Country + national digits in the form, E.164 on save — see components/phone.
+  const [iso, setIso] = useState(DEFAULT_ISO);
+  const [national, setNational] = useState('');
   const [lang, setLang] = useState<Locale>(locale);
   const [initialised, setInitialised] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -68,7 +72,9 @@ export default function CompleteProfileScreen() {
   useEffect(() => {
     if (!profile.data) return;
     if (!initialised) {
-      setPhone(profile.data.phone ?? '');
+      const parsed = parsePhone(profile.data.phone);
+      setIso(parsed.iso);
+      setNational(parsed.national);
       setLang(locale);
       setInitialised(true);
     }
@@ -161,14 +167,16 @@ export default function CompleteProfileScreen() {
     setNameError(null);
     setPhoneError(null);
     if (!name.trim()) return setNameError(t('auth.nameRequired'));
-    if (!phone.trim()) return setPhoneError(t('auth.phoneRequired'));
+    const badPhone = validatePhone(iso, national);
+    if (badPhone === 'PHONE_REQUIRED') return setPhoneError(t('auth.phoneRequired'));
+    if (badPhone) return setPhoneError(t('auth.phoneInvalid'));
     // The save's own invalidation refetches the profile while this screen is still
     // mounted; without this the auto-continue effect above would fire a SECOND
     // continueAfterAuth() (a duplicate hold_slot, or a replace to the tabs that
     // pulls the guest off Review). The save path navigates itself below.
     skipped.current = true;
     update.mutate(
-      { full_name: name.trim(), phone: phone.trim() },
+      { full_name: name.trim(), phone: composePhone(iso, national) },
       {
         onSuccess: async () => {
           // ALWAYS, even when unchanged: a new OAuth row has preferred_lang 'en'
@@ -214,13 +222,12 @@ export default function CompleteProfileScreen() {
             dense
             error={nameError}
           />
-          <Field
+          <PhoneField
             label={t('auth.phoneLabel')}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            autoComplete="tel"
-            textContentType="telephoneNumber"
+            iso={iso}
+            onChangeIso={setIso}
+            national={national}
+            onChangeNational={setNational}
             dense
             error={phoneError}
           />
@@ -234,6 +241,7 @@ export default function CompleteProfileScreen() {
               ]}
               value={lang}
               onChange={setLang}
+              pinOrder
             />
           </View>
           <ErrorText>{error}</ErrorText>

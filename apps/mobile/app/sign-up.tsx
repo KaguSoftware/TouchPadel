@@ -23,6 +23,8 @@ import {
   SegmentedControl,
   Title,
 } from '../src/components/ui';
+import { PhoneField } from '../src/components/phone';
+import { composePhone, DEFAULT_ISO, validatePhone } from '../src/features/profile/phone';
 import { SocialSignInBlock } from '../src/components/social';
 import { useToast } from '../src/components/overlays';
 
@@ -42,7 +44,9 @@ function SignUpScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
+  // Country + national digits; `signUp` receives the composed E.164.
+  const [iso, setIso] = useState(DEFAULT_ISO);
+  const [national, setNational] = useState('');
   const [preferredLang, setPreferredLang] = useState<Locale>(locale);
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
@@ -66,12 +70,16 @@ function SignUpScreen() {
     setError(null);
     setFieldErrors({});
     social.clearError();
+    const phone = composePhone(iso, national);
     const invalid = validateSignUp({ fullName, email, password, phone });
     if (invalid === 'NAME_REQUIRED') return setFieldErrors({ name: t('auth.nameRequired') });
     if (invalid === 'EMAIL_INVALID') return setFieldErrors({ email: t('auth.emailInvalid') });
     if (invalid === 'PASSWORD_TOO_SHORT') return setFieldErrors({ password: t('auth.passwordTooShort') });
     if (invalid === 'PHONE_REQUIRED') return setFieldErrors({ phone: t('auth.phoneRequired') });
     if (invalid) return setError(t('errors.validation'));
+    // Length check runs LAST so the field order of the form is the order the
+    // guest is corrected in — name, email, password, then the phone.
+    if (validatePhone(iso, national)) return setFieldErrors({ phone: t('auth.phoneInvalid') });
     setBusy(true);
     try {
       await signUp(supabase, { fullName, email, phone, password, preferredLang }, verifyRedirect());
@@ -133,13 +141,12 @@ function SignUpScreen() {
           textContentType="newPassword"
           error={fieldErrors.password}
         />
-        <Field
+        <PhoneField
           placeholder={t('auth.phoneLabel')}
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          autoComplete="tel"
-          textContentType="telephoneNumber"
+          iso={iso}
+          onChangeIso={setIso}
+          national={national}
+          onChangeNational={setNational}
           error={fieldErrors.phone}
         />
         <View style={{ marginTop: space.sm }}>
@@ -151,6 +158,7 @@ function SignUpScreen() {
             ]}
             value={preferredLang}
             onChange={setPreferredLang}
+            pinOrder
           />
         </View>
         <ErrorText>{error ?? social.errorText}</ErrorText>
