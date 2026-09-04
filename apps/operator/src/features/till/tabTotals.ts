@@ -99,3 +99,28 @@ export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null
 
   return { subtotal, discount, tax: taxTotal, total, paid, due: Math.max(total - paid, 0) };
 }
+
+/**
+ * Split the tab's discount rows into what a manager did and what the server
+ * applied as a promotion (0067: `reason_code = 'promotion'`). Both are plain
+ * sums of server rows — the same rule computeTabTotals uses for `discount` —
+ * so the two lines on the bill add up to that figure. Non-discount kinds
+ * (price overrides) are not discounts and are excluded, as in computeTabTotals.
+ */
+export interface DiscountBreakdown {
+  manager: number;
+  promotion: number;
+}
+
+export function discountBreakdown(
+  adjustments: readonly (TotalsAdjustment & { reason_code?: string | null })[],
+): DiscountBreakdown {
+  let manager = 0;
+  let promotion = 0;
+  for (const a of adjustments) {
+    if (!DISCOUNT_KINDS.has(a.kind)) continue;
+    if (a.reason_code === 'promotion') promotion += a.amount_iqd;
+    else manager += a.amount_iqd;
+  }
+  return { manager, promotion };
+}

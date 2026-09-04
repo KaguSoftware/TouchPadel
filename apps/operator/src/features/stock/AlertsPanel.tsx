@@ -1,15 +1,16 @@
 /**
  * Manager alerts (SOW L544-545 low-stock / negative stock, plus the replay
  * conflicts the sync path raises). Acknowledge is optimistic — it's an
- * idempotent flag flip.
+ * idempotent flag flip that never changes stock.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatTime } from '@touch/i18n';
+import { formatDateTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, card } from '../../components/ui';
+import { Button } from '../../components/ui';
+import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, StatusBadge, asyncStatus, type Column, type Tone } from '../../components/kit';
 import { SK, fetchIngredients } from './stockKeys';
 
 interface AlertRow {
@@ -18,6 +19,8 @@ interface AlertRow {
   payload: { ingredient_id?: string; shortfall?: number; [k: string]: unknown };
   created_at: string;
 }
+
+const KIND_TONE: Record<string, Tone> = { negative_stock: 'danger', low_stock: 'warn', replay_conflict: 'danger' };
 
 export function AlertsPanel() {
   const { tr, locale } = useLocale();
@@ -28,11 +31,7 @@ export function AlertsPanel() {
     queryKey: SK.alerts,
     refetchInterval: 60_000, // no realtime topic for alerts — advisory cadence
     queryFn: async (): Promise<AlertRow[]> => {
-      const { data, error } = await supabase
-        .from('manager_alerts')
-        .select('id, kind, payload, created_at')
-        .is('acknowledged_at', null)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('manager_alerts').select('id, kind, payload, created_at').is('acknowledged_at', null).order('created_at', { ascending: false });
       if (error) throw error;
       return data as AlertRow[];
     },
@@ -45,9 +44,7 @@ export function AlertsPanel() {
     onMutate: async (alertId) => {
       await queryClient.cancelQueries({ queryKey: SK.alerts });
       const prev = queryClient.getQueryData<AlertRow[]>(SK.alerts);
-      queryClient.setQueryData<AlertRow[]>(SK.alerts, (rows) =>
-        rows?.filter((r) => r.id !== alertId),
-      );
+      queryClient.setQueryData<AlertRow[]>(SK.alerts, (rows) => rows?.filter((r) => r.id !== alertId));
       return { prev };
     },
     onError: (e, _id, ctx) => {
@@ -57,46 +54,56 @@ export function AlertsPanel() {
     onSettled: () => void queryClient.invalidateQueries({ queryKey: SK.alerts }),
   });
 
-  const rows = alertsQ.data ?? [];
-
   const alertLabel: Record<string, string> = {
     negative_stock: tr('op.stock.alertNegative'),
     low_stock: tr('op.stock.alertLow'),
     replay_conflict: tr('op.stock.alertReplay'),
   };
 
-  return (
-    <div style={{ maxInlineSize: '36rem' }}>
-      <h2 style={{ marginBlock: '0.4rem' }}>{tr('op.stock.alertsTitle')}</h2>
-      {rows.map((a) => {
+  const columns: Column<AlertRow>[] = [
+    { key: 'kind', header: tr('op.stock.alertsTitle'), render: (a) => <StatusBadge tone={KIND_TONE[a.kind] ?? 'neutral'} label={alertLabel[a.kind] ?? a.kind} /> },
+    {
+      key: 'ingredient',
+      header: tr('op.stock.ingredient'),
+      render: (a) => {
         const ing = a.payload.ingredient_id ? nameOf.get(a.payload.ingredient_id) : null;
         return (
-          <div
-            key={a.id}
-            style={{
-              ...card,
-              marginBlockEnd: '0.4rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.6rem',
-              borderInlineStart: '4px solid var(--tp-danger)',
-            }}
-          >
-            <div style={{ flex: 1, minInlineSize: 0 }}>
-              <strong>{alertLabel[a.kind] ?? a.kind}</strong>
-              {ing && <> — {pickName(locale, ing)}</>}
-              {typeof a.payload.shortfall === 'number' && (
-                <span style={{ color: 'var(--tp-muted-fg)' }}> ({a.payload.shortfall})</span>
-              )}
-              <div style={{ color: 'var(--tp-muted-fg)', fontSize: '0.8rem' }}>
-                {formatTime(new Date(a.created_at), locale)}
-              </div>
-            </div>
-            <Button onClick={() => acknowledge.mutate(a.id)}>{tr('op.stock.acknowledge')}</Button>
-          </div>
+          <span>
+            {ing ? <bdi>{pickName(locale, ing)}</bdi> : '—'}
+            {typeof a.payload.shortfall === 'number' && (
+              <span style={{ color: 'var(--tp-muted-fg)' }} dir="ltr">
+                {' '}
+                ({a.payload.shortfall})
+              </span>
+            )}
+          </span>
         );
-      })}
-      {alertsQ.isSuccess && rows.length === 0 && <p style={card}>{tr('op.stock.noAlerts')}</p>}
+      },
+    },
+    { key: 'when', header: tr('op.stock.when'), render: (a) => <bdi>{formatDateTime(new Date(a.created_at), locale)}</bdi> },
+    {
+      key: 'ack',
+      header: '',
+      align: 'end',
+      render: (a) => (
+        <Button size="sm" icon="check" busy={acknowledge.isPending && acknowledge.variables === a.id} onClick={() => acknowledge.mutate(a.id)}>
+          {tr('op.stock.acknowledge')}
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <div>
+      <PageHeader title={tr('op.stock.alertsTitle')} subtitle={tr('ws.manager.stock.alerts.lead')} />
+      <AsyncStateWrapper
+        status={asyncStatus(alertsQ, (d) => d.length === 0)}
+        error={alertsQ.error}
+        onRetry={() => void alertsQ.refetch()}
+        emptyContent={<EmptyState icon="checkCircle" title={tr('op.stock.noAlerts')} body={tr('ws.manager.stock.alerts.emptyBody')} />}
+      >
+        <DataTable dense columns={columns} rows={alertsQ.data ?? []} rowKey={(a) => a.id} aria-label={tr('op.stock.alertsTitle')} />
+      </AsyncStateWrapper>
     </div>
   );
 }

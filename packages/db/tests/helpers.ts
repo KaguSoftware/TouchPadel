@@ -867,3 +867,92 @@ export async function ensureCafeProbeDataDrop4(svc: SupabaseClient): Promise<voi
     reason: 'probe', created_by: SEED_STAFF_IDS.owner, created_at: past,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 0065 customers — probe rows for the RLS matrix (drop 5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Deterministic probe guest for the customer surface (0065). */
+export const PROBE_CUSTOMER_EMAIL = 'probe-customer@test.touch.local';
+
+/**
+ * One probe guest profile carrying one note and one flag, so the matrix's
+ * 'rows' expectations on customer_notes / customer_flags have something to
+ * see. The auth user is find-or-create by email (GoTrue refuses a duplicate
+ * address, so a rerun re-uses the first one); the note and flag are keyed on
+ * the probe's customer_id so they are planted once.
+ */
+export async function ensureCustomerProbeData(svc: SupabaseClient): Promise<string> {
+  let id: string | null = null;
+  const { data: existing } = await svc
+    .from('profiles')
+    .select('id')
+    .eq('full_name', 'RLS Probe Customer')
+    .limit(1);
+  if (existing && existing.length > 0) id = (existing[0] as { id: string }).id;
+  if (!id) {
+    const { data, error } = await svc.auth.admin.createUser({
+      email: PROBE_CUSTOMER_EMAIL,
+      password: DEV_PASSWORD,
+      email_confirm: true,
+      user_metadata: { full_name: 'RLS Probe Customer', phone: '+964 770 000 0065' },
+    });
+    if (error || !data.user) throw new Error(`probe customer createUser failed: ${error?.message}`);
+    id = data.user.id;
+  }
+  const { data: note } = await svc
+    .from('customer_notes')
+    .select('id')
+    .eq('customer_id', id)
+    .limit(1);
+  if (!note || note.length === 0) {
+    const { error } = await svc.from('customer_notes').insert({
+      customer_id: id,
+      body: 'RLS probe note — staff-only',
+      author_id: SEED_STAFF_IDS.court_desk,
+    });
+    if (error) throw new Error(`probe customer_notes failed: ${error.message}`);
+  }
+  const { error: flagErr } = await svc
+    .from('customer_flags')
+    .upsert(
+      { customer_id: id, type: 'vip', label: 'probe', created_by: SEED_STAFF_IDS.court_desk },
+      { onConflict: 'customer_id,type', ignoreDuplicates: true },
+    );
+  if (flagErr) throw new Error(`probe customer_flags failed: ${flagErr.message}`);
+  return id;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 0067 promotions — probe rows for the RLS matrix (drop 5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * One DISABLED probe promotion (ee57…701 — disabled so it can never be picked
+ * for a real tab), a promotion adjustment on the settled drop-2 probe tab
+ * (ee57…302) and the matching redemption row. Same ee57 scheme + idempotency
+ * as ensureCafeProbeData; run after it (the tab must exist).
+ */
+export async function ensurePromotionProbeData(svc: SupabaseClient): Promise<void> {
+  const up = async (table: string, row: Record<string, unknown>, onConflict = 'id') => {
+    const { error } = await svc.from(table).upsert(row, { onConflict, ignoreDuplicates: true });
+    if (error) throw new Error(`probe ${table} failed: ${error.message}`);
+  };
+  const past = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
+
+  await up('promotions', {
+    id: probeId('701'), name_en: 'Probe Promotion', name_ar: 'عرض الفحص',
+    type: 'amount', value: 500, enabled: false, auto: true,
+    created_by: SEED_STAFF_IDS.manager, created_at: past, updated_at: past,
+  });
+  await up('tab_adjustments', {
+    id: probeId('703'), tab_id: probeId('302'), kind: 'discount_amount', value: 500, amount_iqd: 500,
+    applied_by: SEED_STAFF_IDS.cashier, authorized_by: SEED_STAFF_IDS.manager,
+    reason_code: 'promotion', promotion_id: probeId('701'), created_at: past,
+  });
+  await up('promotion_redemptions', {
+    id: probeId('702'), promotion_id: probeId('701'), tab_id: probeId('302'),
+    adjustment_id: probeId('703'), amount_iqd: 500, redeemed_by: SEED_STAFF_IDS.cashier,
+    redeemed_at: past,
+  });
+}

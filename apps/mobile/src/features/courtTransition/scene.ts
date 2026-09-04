@@ -270,7 +270,8 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     }
   }
 
-  // racket (brand sticker): the design's teardrop frame, perforated face plate,
+  // racket (brand sticker): the design's teardrop frame, blue face plate with
+  // white perforations,
   // rim highlights, lofted collar and wrapped lime grip (racket.ts). One shared
   // build; each player gets the rig — mount (stance) → pivot (hand) → lay (the
   // top-view cheat) → the racket — and the rally drives all three per frame.

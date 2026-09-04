@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeTabTotals, liveLines, type TaxContext, type TotalsInput } from './tabTotals';
+import { computeTabTotals, discountBreakdown, liveLines, type TaxContext, type TotalsInput } from './tabTotals';
 
 // This arithmetic used to live inside a useMemo in the middle of a 1,162-line
 // component, which is why the till's money display had no tests at all. The
@@ -170,5 +170,25 @@ describe('computeTabTotals', () => {
     const t = computeTabTotals(tab(), null);
     expect(t.tax).toBe(0);
     expect(t.total).toBe(10_000);
+  });
+});
+
+describe('discountBreakdown', () => {
+  it('separates promotion rows from manager discounts and ignores overrides', () => {
+    const out = discountBreakdown([
+      { kind: 'discount_percent', amount_iqd: 1000, reason_code: 'comp' },
+      { kind: 'discount_amount', amount_iqd: 500, reason_code: 'promotion' },
+      { kind: 'discount_amount', amount_iqd: 250, reason_code: 'promotion' },
+      { kind: 'price_override', amount_iqd: 9999, reason_code: 'other' },
+    ]);
+    expect(out).toEqual({ manager: 1000, promotion: 750 });
+  });
+
+  it('treats a missing reason as a manager discount', () => {
+    expect(discountBreakdown([{ kind: 'discount_amount', amount_iqd: 300 }])).toEqual({ manager: 300, promotion: 0 });
+  });
+
+  it('is zero for no adjustments', () => {
+    expect(discountBreakdown([])).toEqual({ manager: 0, promotion: 0 });
   });
 });

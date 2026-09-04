@@ -126,6 +126,8 @@ const bannerStyle: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: '0.6rem',
+  // The till mounts this in a narrow column; let the label wrap under the hint.
+  flexWrap: 'wrap',
   padding: '0.5rem 0.8rem',
   marginBlockEnd: '0.6rem',
   borderRadius: '8px',
