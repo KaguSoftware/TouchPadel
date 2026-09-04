@@ -81,7 +81,7 @@ export function CustomerCreateScreen() {
   }
 
   return (
-    <div style={{ maxInlineSize: '36rem' }}>
+    <div style={{ maxInlineSize: 'var(--tp-measure-form)' }}>
       <PageHeader title={tr('ws.courtDesk.createCustomer.title')} subtitle={tr('ws.courtDesk.createCustomer.lead')} />
       <Panel>
         <form

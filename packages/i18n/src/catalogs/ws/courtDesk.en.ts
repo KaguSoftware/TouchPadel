@@ -36,6 +36,8 @@ export const courtDeskEn = {
     startsIn: 'Starts {time}',
     live: 'Live',
     polling: 'Updating every minute',
+    newBookingBlockedLoading: 'Waiting for today’s bookings and courts to load.',
+    newBookingBlockedError: 'Today’s bookings could not be loaded — try again first.',
   },
 
   // 06.2 Calendar
@@ -72,6 +74,7 @@ export const courtDeskEn = {
     pickAnother: 'Pick another time',
     price: 'Price',
     priced: 'The server prices the slot when it is created.',
+    needsGuest: 'Enter a guest name, or link an account.',
   },
 
   // 06.4 Booking detail
@@ -112,6 +115,8 @@ export const courtDeskEn = {
     newTime: 'New start time',
     moveSubmit: 'Move',
     refused: 'The server refused this override.',
+    shortenFloor: 'Already at the shortest length this court is priced for ({minutes}).',
+    moveNeedsTime: 'Pick a new start time first.',
     done: 'Saved.',
     reason: {
       move: 'move this booking',
@@ -182,6 +187,8 @@ export const courtDeskEn = {
     invalidEnd: 'The last date must be after the first.',
     invalidWeekdays: 'Pick at least one weekday.',
     staleDraft: 'The pattern changed since the last check — check clashes again.',
+    needsCheck: 'Check clashes before creating the series.',
+    needsCustomer: 'Add a customer, or enter a walk-in name.',
     date: 'Date',
     occurrence: 'Occurrence',
     outcome: 'Outcome',
@@ -211,6 +218,8 @@ export const courtDeskEn = {
     reasonCancelSeries: 'cancel {count} occurrences of this series',
     reasonCancelOne: 'cancel one occurrence of this series',
     cancelled: 'Series cancelled.',
+    nothingToCancel: 'Every occurrence has already been played or cancelled.',
+    scopeEmpty: 'This scope covers no occurrence that can still be cancelled.',
     seriesCancelled: 'This series is cancelled.',
     patternLabel: {
       weekly: 'Weekly',
@@ -238,6 +247,7 @@ export const courtDeskEn = {
     conflictBody: 'That court is already taken for part of this window. Nothing was saved.',
     openCalendar: 'Open calendar',
     another: 'Block another',
+    needsFields: 'Fill in the court, date, start, end and reason first.',
   },
 
   // 06.8–06.10 Customers
@@ -256,6 +266,8 @@ export const courtDeskEn = {
     attachingBooking: 'Choose the customer to attach to this booking.',
     attachingTab: 'Choose the customer to attach to this tab.',
     attached: 'Attached.',
+    queryChip: 'Matching “{query}”',
+    capped: 'Showing the first {count} matches — add more of the name or number to narrow it.',
     counts: {
       bookings: '{count} bookings',
       cancellations: '{count} cancelled',
@@ -300,6 +312,7 @@ export const courtDeskEn = {
     notes: 'Staff notes',
     notesLead: 'Visible to staff only. Never printed, never shown to the guest.',
     noNotes: 'No notes yet.',
+    noteEmpty: 'Write the note first.',
     addNote: 'Add note',
     notePlaceholder: 'Write a note for the team…',
     saveNote: 'Save note',

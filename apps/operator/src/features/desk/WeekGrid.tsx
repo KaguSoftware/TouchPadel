@@ -10,12 +10,19 @@
  *
  * Clicking a chip opens the SAME detail modal the day grid uses, so move,
  * shorten, extend and cancel all work from here without a second code path.
+ *
+ * Colour and label both come from deskStatus, not from here. This file used to
+ * own a private palette — solid --tp-accent and --tp-accent-2 fills — that
+ * agreed with nothing else on the workspace and stated every state in colour
+ * alone; a chip is now the same soft-ground, edged, LABELLED shape as a block
+ * on the day grid.
  */
 import { useMemo } from 'react';
 import { formatTime } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
-import { card } from '../../components/ui';
+import { EmptyState } from '../../components/kit';
 import type { CourtRow } from '../../lib/queries';
+import { ReservationBadge, TONE_EDGE, TONE_FG, TONE_SOFT, reservationTone } from './deskStatus';
 import { bucketByLocalDate, localMinutesOf, rowIndexFor, weekDates } from './weekLogic';
 
 export interface WeekReservation {
@@ -29,6 +36,19 @@ export interface WeekReservation {
 }
 
 const SLOT_MIN = 60; // Coarser than the day grid: a week has to fit on one screen.
+
+/**
+ * The header row and the time column stay put while the night scrolls.
+ * Scroll to 23:00 in the old grid and both were gone, leaving seven unlabelled
+ * columns of chips — the two facts you need to read one are which day it is
+ * and what hour you are looking at.
+ */
+const STICKY_HEAD = {
+  position: 'sticky',
+  insetBlockStart: 0,
+  zIndex: 'var(--tp-z-table-head)',
+  background: 'var(--tp-bg)',
+} as const;
 
 export function WeekGrid({
   date,
@@ -68,30 +88,33 @@ export function WeekGrid({
   );
 
   if (rowCount === 0) {
-    return <p style={card}>{tr('op.desk.closedToday')}</p>;
+    return <EmptyState icon="ban" title={tr('op.desk.closedToday')} />;
   }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div style={{ flex: 1, minBlockSize: 0, overflow: 'auto' }}>
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: `4.5rem repeat(7, minmax(9rem, 1fr))`,
-          gap: '2px',
+          gap: 'var(--tp-sp-0)',
           minInlineSize: '68rem',
         }}
       >
-        <div />
+        {/* Above both sticky axes, or the time labels slide out from under it. */}
+        <div style={{ ...STICKY_HEAD, insetInlineStart: 0, zIndex: 'var(--tp-z-sticky)' }} />
         {dates.map((d) => {
           const closed = closedDates.includes(d);
           return (
             <div
               key={d}
               style={{
-                paddingBlock: '0.3rem',
+                ...STICKY_HEAD,
+                paddingBlock: 'var(--tp-sp-1)',
                 textAlign: 'center',
                 fontWeight: 600,
                 color: closed ? 'var(--tp-muted-fg)' : 'var(--tp-fg)',
+                borderBlockEnd: '2px solid var(--tp-border)',
               }}
             >
               <div>
@@ -100,13 +123,13 @@ export function WeekGrid({
                   { weekday: 'short', timeZone: 'UTC' },
                 )}
               </div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 400 }} dir="ltr">
+              <div style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 400 }} dir="ltr">
                 {d.slice(5)}
               </div>
               {/* A closed day is stated, not just empty: an empty column and a
                   shut venue look identical otherwise. */}
               {closed && (
-                <div style={{ fontSize: '0.7rem', color: 'var(--tp-muted-fg)' }}>
+                <div style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 400, color: 'var(--tp-muted-fg)' }}>
                   {tr('op.hours.closedDay')}
                 </div>
               )}
@@ -160,7 +183,15 @@ function FragmentRow({
   return (
     <>
       <div
-        style={{ fontSize: '0.75rem', color: 'var(--tp-muted-fg)', paddingBlockStart: '0.2rem' }}
+        style={{
+          position: 'sticky',
+          insetInlineStart: 0,
+          zIndex: 'var(--tp-z-table-head)',
+          background: 'var(--tp-bg)',
+          fontSize: 'var(--tp-fs-xs)',
+          color: 'var(--tp-muted-fg)',
+          paddingBlockStart: 'var(--tp-sp-1)',
+        }}
         dir="ltr"
       >
         {label}
@@ -175,57 +206,64 @@ function FragmentRow({
           <div
             key={d}
             style={{
-              minBlockSize: '2.6rem',
-              background: 'var(--tp-surface-2, var(--tp-muted))',
-              borderRadius: '4px',
-              padding: '2px',
+              minBlockSize: 'var(--tp-row-h)',
+              background: 'var(--tp-surface-2)',
+              borderRadius: 'var(--tp-radius-sm)',
+              padding: 'var(--tp-sp-0)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '2px',
+              gap: 'var(--tp-sp-0)',
             }}
           >
-            {inRow.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => onSelect(r.id)}
-                title={`${courtName.get(r.court_id) ?? ''} · ${r.guest_name ?? tr('op.desk.walkIn')}`}
-                style={{
-                  ...chipStyle(r),
-                  textAlign: 'start',
-                  border: 'none',
-                  cursor: 'pointer',
-                  font: 'inherit',
-                  fontSize: '0.72rem',
-                  paddingBlock: '0.15rem',
-                  paddingInline: '0.3rem',
-                  borderRadius: '3px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {formatTime(new Date(r.start_at), locale, timeZone)}{' '}
-                {courtName.get(r.court_id) ?? ''} · {r.guest_name ?? tr('op.desk.walkIn')}
-              </button>
-            ))}
+            {inRow.map((r) => {
+              const name = r.guest_name ?? tr('op.desk.walkIn');
+              const court = courtName.get(r.court_id) ?? '';
+              const tone = reservationTone(r);
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => onSelect(r.id)}
+                  title={`${court} · ${name}`}
+                  style={{
+                    // Deliberately NOT .tp-tile: its hover repaints the whole
+                    // surface in --tp-accent-soft, which would erase the one
+                    // thing this chip's ground is carrying.
+                    cursor: 'pointer',
+                    textAlign: 'start',
+                    // `font: inherit` FIRST: as a later declaration the
+                    // shorthand reset the font-size set above it, so every
+                    // chip rendered at body size whatever this file asked for.
+                    font: 'inherit',
+                    fontSize: 'var(--tp-fs-xs)',
+                    lineHeight: 1.3,
+                    display: 'grid',
+                    gap: 'var(--tp-sp-0)',
+                    minInlineSize: 0,
+                    background: TONE_SOFT[tone],
+                    color: TONE_FG[tone],
+                    border: `1px ${r.kind === 'maintenance' ? 'dashed' : 'solid'} ${TONE_EDGE[tone]}`,
+                    borderRadius: 'var(--tp-radius-sm)',
+                    paddingBlock: 'var(--tp-sp-1)',
+                    paddingInline: 'var(--tp-sp-1-5)',
+                  }}
+                >
+                  <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {formatTime(new Date(r.start_at), locale, timeZone)}
+                    </bdi>{' '}
+                    <bdi>{name}</bdi>
+                  </strong>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-1)' }}>
+                    <bdi style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{court}</bdi>
+                    <ReservationBadge reservation={r} size="sm" />
+                  </span>
+                </button>
+              );
+            })}
           </div>
         );
       })}
     </>
   );
-}
-
-/** Same colour language as the day grid, so the two views read as one calendar. */
-function chipStyle(r: WeekReservation): { background: string; color: string } {
-  if (r.kind === 'maintenance') {
-    return { background: 'var(--tp-muted)', color: 'var(--tp-fg)' };
-  }
-  if (r.kind === 'hold' || r.status === 'arrived') {
-    return { background: 'var(--tp-accent-2)', color: 'var(--tp-accent-2-contrast)' };
-  }
-  if (r.status === 'completed') {
-    return { background: 'var(--tp-muted)', color: 'var(--tp-muted-fg)' };
-  }
-  return { background: 'var(--tp-accent)', color: 'var(--tp-accent-contrast)' };
 }

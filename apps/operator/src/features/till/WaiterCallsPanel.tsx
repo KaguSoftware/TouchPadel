@@ -33,7 +33,7 @@ interface WaiterCallRow {
   table: { table_number: string } | null;
 }
 
-const AMBER = '#E8A317'; // same amber as kds/ageColor.ts
+const AMBER = 'var(--tp-warn-mark)'; // same amber as kds/ageColor.ts
 const ESCALATE_MIN = 5;
 const WARN_MIN = 2;
 
@@ -113,18 +113,18 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
   }
 
   return (
-    <div style={{ ...card, marginBlockEnd: '0.6rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
-        <h2 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+    <div style={{ ...card, marginBlockEnd: 'var(--tp-sp-2-5)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-1-5)' }}>
+        <h2 style={{ margin: 0, fontSize: 'var(--tp-fs-lg)', display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
           {tr('op.floor.waiterCalls')}
           {calls.length > 0 && (
             <span
               style={{
                 background: 'var(--tp-danger)',
                 color: 'var(--tp-danger-contrast)',
-                borderRadius: '999px',
-                paddingInline: '0.5rem',
-                fontSize: '0.8rem',
+                borderRadius: 'var(--tp-radius-pill)',
+                paddingInline: 'var(--tp-sp-2)',
+                fontSize: 'var(--tp-fs-sm)',
                 fontWeight: 700,
               }}
             >
@@ -135,7 +135,7 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
         {status && <ConnectionPill status={status} />}
       </div>
       {calls.length === 0 && (
-        <p style={{ margin: 0, marginBlockStart: '0.3rem', color: 'var(--tp-muted-fg)', fontSize: '0.85rem' }}>
+        <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
           {tr('op.floor.noCalls')}
         </p>
       )}
@@ -148,25 +148,39 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
             key={c.id}
             data-escalated={escalated || undefined}
             style={{
-              marginBlockStart: '0.5rem',
-              fontSize: '0.9rem',
-              paddingInlineStart: '0.45rem',
+              position: 'relative',
+              marginBlockStart: 'var(--tp-sp-2)',
+              fontSize: 'var(--tp-fs-md)',
+              paddingInlineStart: 'var(--tp-sp-2)',
               border: `1px solid ${tone.color}`,
-              animation: escalated ? 'tpPulse 1.2s infinite' : undefined,
             }}
           >
+            {/* The alarm rides a ring that carries no text, so the table
+                number and the age never fade. Same fix as the KDS card. */}
+            {escalated && (
+              <span
+                aria-hidden="true"
+                className="tp-attention"
+                style={{
+                  position: 'absolute',
+                  inset: '-1px',
+                  boxShadow: `0 0 0 2px ${tone.color}`,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
             {/* The till mounts this in a 13rem rail: a long table number must wrap,
                 never widen the column or clip its age. */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.4rem', flexWrap: 'wrap' }}>
-              <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', minInlineSize: 0, overflowWrap: 'anywhere' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+              <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0, overflowWrap: 'anywhere' }}>
                 {tr('op.floor.table', { table: isolate(c.table?.table_number ?? '—') })}
                 <span
                   style={{
                     background: 'var(--tp-accent)',
                     color: 'var(--tp-accent-contrast)',
-                    borderRadius: '999px',
-                    paddingInline: '0.4rem',
-                    fontSize: '0.68rem',
+                    borderRadius: 'var(--tp-radius-pill)',
+                    paddingInline: 'var(--tp-sp-1-5)',
+                    fontSize: 'var(--tp-fs-xs)',
                     fontWeight: 700,
                     whiteSpace: 'nowrap',
                   }}
@@ -191,13 +205,13 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
                 <span style={{ color: 'var(--tp-danger)', fontWeight: 700 }}> · {tr('op.floor.escalated')}</span>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '0.35rem', marginBlockStart: '0.25rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-1)', alignItems: 'center', flexWrap: 'wrap' }}>
               {c.status === 'raised' ? (
                 <Button disabled={busyId === c.id} onClick={() => void act(c.id, 'ack')}>
                   {tr('op.floor.ack')}
                 </Button>
               ) : (
-                <span style={{ color: 'var(--tp-accent)', alignSelf: 'center', fontSize: '0.85rem' }}>
+                <span style={{ color: 'var(--tp-accent)', alignSelf: 'center', fontSize: 'var(--tp-fs-sm)' }}>
                   {tr('op.floor.acked')}
                   {c.acknowledged_label && (
                     <span style={{ color: 'var(--tp-muted-fg)' }}> ({c.acknowledged_label})</span>
@@ -209,7 +223,7 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
               </Button>
             </div>
             {c.resolved_label && (
-              <div style={{ color: 'var(--tp-muted-fg)', fontSize: '0.8rem' }}>{c.resolved_label}</div>
+              <div style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{c.resolved_label}</div>
             )}
           </div>
         );

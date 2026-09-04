@@ -9,7 +9,7 @@
  */
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { formatIQD, formatNumber } from '@touch/i18n';
+import { formatIQD, formatNumber, formatPercent } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
 import type { StaffRole } from '../lib/auth';
 import { Button, ErrorText, Field, Modal, REASON_CODES, Select, Skeleton, Spinner, card, inputStyle, type ReasonCode } from './ui';
@@ -90,6 +90,7 @@ export function Panel({
   children,
   muted,
   padded = true,
+  level = 2,
   style,
   'data-testid': testId,
 }: {
@@ -98,9 +99,16 @@ export function Panel({
   children: ReactNode;
   muted?: boolean;
   padded?: boolean;
+  /**
+   * Heading rank. A Panel nested inside another Panel — or inside a section
+   * that already owns the h2 — must not emit a second h2 at the same depth,
+   * or heading navigation reads the page as a flat list of equals.
+   */
+  level?: 2 | 3 | 4;
   style?: CSSProperties;
   'data-testid'?: string;
 }) {
+  const Heading = `h${level}` as 'h2' | 'h3' | 'h4';
   return (
     <section
       data-testid={testId}
@@ -124,7 +132,7 @@ export function Panel({
             borderBlockEnd: '1px solid var(--tp-border)',
           }}
         >
-          {title && <h2 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{title}</h2>}
+          {title && <Heading style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{title}</Heading>}
           {actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>}
         </div>
       )}
@@ -146,7 +154,7 @@ export function Kbd({ children }: { children: ReactNode }) {
         paddingInline: '0.35rem',
         border: '1px solid var(--tp-border-strong)',
         borderBlockEndWidth: '2px',
-        borderRadius: '4px',
+        borderRadius: 'var(--tp-radius-sm)',
         background: 'var(--tp-surface-2)',
         color: 'var(--tp-muted-fg)',
       }}
@@ -169,6 +177,14 @@ export function asyncStatus<T>(q: UseQueryResult<T>, isEmpty: (data: T) => boole
   return isEmpty(q.data) ? 'empty' : 'ready';
 }
 
+/**
+ * Which kind of nothing (rulebook 9.2). "Nothing here yet" told a manager whose
+ * filter matched no rows that the system was empty and offered no way back —
+ * the sentence a user saw depended on which component won the race, not on what
+ * had actually happened.
+ */
+export type EmptyKind = 'initial' | 'filtered' | 'nothingToDo';
+
 export function AsyncStateWrapper({
   status,
   onRetry,
@@ -178,6 +194,8 @@ export function AsyncStateWrapper({
   skeleton,
   children,
   compact,
+  kind,
+  onClearFilters,
 }: {
   status: AsyncStatus;
   onRetry?: () => void;
@@ -187,9 +205,29 @@ export function AsyncStateWrapper({
   skeleton?: ReactNode;
   children: ReactNode;
   compact?: boolean;
+  /** Passed straight to the default EmptyState; ignored when `emptyContent` is given. */
+  kind?: EmptyKind;
+  /** The way back out of a filter that matched nothing. Only used at kind='filtered'. */
+  onClearFilters?: () => void;
 }) {
   const { tr } = useLocale();
-  if (status === 'loading') return <>{skeleton ?? <Skeleton lines={compact ? 2 : 5} />}</>;
+  if (status === 'loading') {
+    return (
+      <>
+        {/*
+          Skeleton is aria-hidden, so between the click and the data a
+          screen-reader user got silence. The live region is a SIBLING and not
+          a wrapper on purpose: this branch renders straight into whatever grid
+          or flex column the caller owns, and .tp-sr-only is absolutely
+          positioned, so it announces without claiming a track.
+        */}
+        <span role="status" className="tp-sr-only">
+          {tr('common.loading')}
+        </span>
+        {skeleton ?? <Skeleton lines={compact ? 2 : 5} />}
+      </>
+    );
+  }
   if (status === 'error') {
     return (
       <div role="alert" style={{ ...card, display: 'grid', gap: '0.5rem', justifyItems: 'start' }}>
@@ -206,26 +244,59 @@ export function AsyncStateWrapper({
       </div>
     );
   }
-  if (status === 'empty') return <>{emptyContent ?? <EmptyState title={tr('ws.kit.async.empty')} compact={compact} />}</>;
+  if (status === 'empty')
+    return <>{emptyContent ?? <EmptyState kind={kind} onClearFilters={onClearFilters} compact={compact} />}</>;
   return <>{children}</>;
 }
 
-/** Empty states teach the next action rather than saying "nothing here". */
+const EMPTY_ICON: Record<EmptyKind, IconName> = {
+  initial: 'layers',
+  filtered: 'search',
+  nothingToDo: 'checkCircle',
+};
+
+/**
+ * Empty states teach the next action rather than saying "nothing here".
+ *
+ * The grey circle chip this used to draw around the icon is PRODUCT.md's stated
+ * anti-reference word for word ("white cards on grey with an icon, a heading and
+ * a paragraph each"), and it was the most-seen composition in the product. The
+ * icon now sits inline with the title at the title's own optical weight, so it
+ * reads as part of the sentence rather than as a decorated placeholder.
+ */
 export function EmptyState({
-  icon = 'layers',
+  icon,
   title,
+  kind = 'initial',
   body,
   action,
+  onClearFilters,
+  titleAs: Heading = 'h2',
   compact,
   style,
 }: {
   icon?: IconName;
-  title: string;
+  /** Overrides the sentence `kind` would choose. */
+  title?: string;
+  kind?: EmptyKind;
   body?: ReactNode;
   action?: ReactNode;
+  /** Rendered as the primary way out when `kind='filtered'`. */
+  onClearFilters?: () => void;
+  /** A styled <p> here made heading navigation skip every empty state in the app. */
+  titleAs?: 'h2' | 'h3' | 'h4';
   compact?: boolean;
   style?: CSSProperties;
 }) {
+  const { tr } = useLocale();
+  const sentence =
+    title ??
+    (kind === 'filtered'
+      ? tr('ws.kit.empty.filtered')
+      : kind === 'nothingToDo'
+        ? tr('ws.kit.empty.nothingToDo')
+        : tr('ws.kit.async.empty'));
+  const clear = kind === 'filtered' && onClearFilters ? onClearFilters : undefined;
   return (
     <div
       style={{
@@ -233,32 +304,39 @@ export function EmptyState({
         flexDirection: 'column',
         alignItems: 'center',
         textAlign: 'center',
-        gap: '0.5rem',
-        paddingBlock: compact ? '1.25rem' : '2.5rem',
-        paddingInline: '1rem',
+        gap: 'var(--tp-sp-2)',
+        paddingBlock: compact ? 'var(--tp-sp-5)' : 'var(--tp-sp-6)',
+        paddingInline: 'var(--tp-sp-4)',
         border: '1px dashed var(--tp-border-strong)',
         borderRadius: 'var(--tp-radius-panel)',
         color: 'var(--tp-muted-fg)',
         ...style,
       }}
     >
-      <span
+      <Heading
         style={{
           display: 'inline-flex',
-          inlineSize: compact ? '2rem' : '2.75rem',
-          blockSize: compact ? '2rem' : '2.75rem',
           alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: '50%',
-          background: 'var(--tp-surface-2)',
-          color: 'var(--tp-accent)',
+          gap: 'var(--tp-sp-2)',
+          color: 'var(--tp-fg)',
+          fontSize: compact ? 'var(--tp-fs-md)' : 'var(--tp-fs-lg)',
+          fontWeight: 600,
         }}
       >
-        <Icon name={icon} size={compact ? 16 : 22} />
-      </span>
-      <p style={{ color: 'var(--tp-fg)', fontWeight: 600 }}>{title}</p>
+        <Icon name={icon ?? EMPTY_ICON[kind]} size={compact ? 16 : 18} />
+        {sentence}
+      </Heading>
       {body && <p style={{ maxInlineSize: '46ch', fontSize: 'var(--tp-fs-sm)' }}>{body}</p>}
-      {action && <div style={{ marginBlockStart: '0.4rem' }}>{action}</div>}
+      {(action || clear) && (
+        <div style={{ marginBlockStart: 'var(--tp-sp-1-5)', display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {clear && (
+            <Button size="sm" icon="x" onClick={clear}>
+              {tr('ws.kit.empty.clearFilters')}
+            </Button>
+          )}
+          {action}
+        </div>
+      )}
     </div>
   );
 }
@@ -405,12 +483,59 @@ export interface Column<T> {
   sortable?: boolean;
   /** Number-ish columns get tabular numerals and end alignment by default. */
   numeric?: boolean;
+  /**
+   * The plain text a truncated cell reveals on hover. Needed whenever `render`
+   * is set, because the row value behind a rendered column is rarely a string.
+   */
+  truncateTitle?: (row: T) => string;
+  /**
+   * Rulebook 6.11. One long guest name used to widen its column until the whole
+   * table scrolled sideways, which rule 6.1 forbids at 1366px; the value now
+   * ellipsises and reveals in full on hover.
+   */
+  truncate?: boolean;
 }
 
 export interface SortState {
   key: string;
   dir: 'asc' | 'desc';
 }
+
+/**
+ * Anything inside a cell that owns its own click. Without this guard the row's
+ * onClick fired as well, so a manager switching a promotion off also opened the
+ * editor — which is exactly why PromotionsList grew a private stopPropagation
+ * wrapper. The guard belongs in the primitive so no screen has to fork one.
+ */
+const CELL_CONTROL = 'button, a, input, select, textarea, label, [role="switch"]';
+
+function fromCellControl(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(CELL_CONTROL) !== null;
+}
+
+/**
+ * A header that sorts is a control, so it must be tabbable and take the focus
+ * ring; it was a bare `<th onClick>`, unreachable by keyboard on every report
+ * and every admin list. `aria-sort` stays on the <th>, because the state
+ * belongs to the column and not to the button that changes it.
+ */
+const sortHeaderButton: CSSProperties = {
+  // Fills the cell: .tp-table th[data-sortable] already paints cursor:pointer
+  // across the whole header, so a small button inside it would advertise a
+  // target the operator cannot hit — and the focus ring now frames the column.
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--tp-sp-1)',
+  inlineSize: '100%',
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  margin: 0,
+  font: 'inherit',
+  color: 'inherit',
+  cursor: 'pointer',
+  textAlign: 'start',
+};
 
 export function DataTable<T>({
   columns,
@@ -458,6 +583,19 @@ export function DataTable<T>({
               const align = c.align ?? (c.numeric ? 'end' : 'start');
               const active = sort?.key === c.key;
               const sortable = Boolean(c.sortable && onSort);
+              const inner = (
+                <>
+                  {c.header}
+                  {active && (
+                    <Icon
+                      name="chevronDown"
+                      size={12}
+                      label={sort!.dir === 'asc' ? tr('ws.kit.table.sortAsc') : tr('ws.kit.table.sortDesc')}
+                      style={{ transform: sort!.dir === 'asc' ? 'rotate(180deg)' : undefined }}
+                    />
+                  )}
+                </>
+              );
               return (
                 <th
                   key={c.key}
@@ -465,23 +603,21 @@ export function DataTable<T>({
                   data-sortable={sortable ? 'true' : undefined}
                   aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
                   style={{ inlineSize: c.width }}
-                  onClick={
-                    sortable
-                      ? () => onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })
-                      : undefined
-                  }
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                    {c.header}
-                    {active && (
-                      <Icon
-                        name="chevronDown"
-                        size={12}
-                        label={sort!.dir === 'asc' ? tr('ws.kit.table.sortAsc') : tr('ws.kit.table.sortDesc')}
-                        style={{ transform: sort!.dir === 'asc' ? 'rotate(180deg)' : undefined }}
-                      />
-                    )}
-                  </span>
+                  {sortable ? (
+                    <button
+                      type="button"
+                      style={{
+                        ...sortHeaderButton,
+                        justifyContent: align === 'end' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
+                      }}
+                      onClick={() => onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })}
+                    >
+                      {inner}
+                    </button>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>{inner}</span>
+                  )}
                 </th>
               );
             })}
@@ -503,27 +639,73 @@ export function DataTable<T>({
                 data-clickable={onRowClick ? 'true' : undefined}
                 data-selected={selectedKey === key ? 'true' : undefined}
                 tabIndex={onRowClick ? 0 : undefined}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onClick={
+                  onRowClick
+                    ? (e) => {
+                        if (fromCellControl(e.target)) return;
+                        onRowClick(row);
+                      }
+                    : undefined
+                }
                 onKeyDown={
                   onRowClick
                     ? (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onRowClick(row);
-                        }
+                        if (e.key !== 'Enter' && e.key !== ' ') return;
+                        // Space on a switch, Enter on a link in a cell: the
+                        // control's key, not the row's.
+                        if (fromCellControl(e.target)) return;
+                        e.preventDefault();
+                        onRowClick(row);
                       }
                     : undefined
                 }
               >
-                {columns.map((c) => (
-                  <td
-                    key={c.key}
-                    data-align={c.align ?? (c.numeric ? 'end' : 'start')}
-                    style={c.numeric ? { fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums' } : undefined}
-                  >
-                    {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '')}
-                  </td>
-                ))}
+                {columns.map((c) => {
+                  const raw = (row as Record<string, unknown>)[c.key];
+                  const content = c.render ? c.render(row) : String(raw ?? '');
+                  // A percentage column width would resolve against the cell
+                  // rather than the table and clamp far tighter than asked; only
+                  // an absolute width can drive the cap, otherwise a measure.
+                  const clamp = c.width && !c.width.includes('%') ? c.width : '24ch';
+                  return (
+                    <td
+                      key={c.key}
+                      data-align={c.align ?? (c.numeric ? 'end' : 'start')}
+                      style={c.numeric ? { fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums' } : undefined}
+                    >
+                      {c.truncate ? (
+                        <span
+                          // Prefer the caller's plain text. Every identifying
+                          // column in this app is built with a custom `render`,
+                          // and for those `raw` is an object or undefined — so
+                          // reading it alone clamped the value with no way to
+                          // see it, shipping half of rulebook 6.11.
+                          title={
+                            c.truncateTitle
+                              ? c.truncateTitle(row)
+                              : typeof raw === 'string' || typeof raw === 'number'
+                                ? String(raw)
+                                : undefined
+                          }
+                          style={{
+                            // The clamp sits on an inner block, not on the <td>:
+                            // an auto table layout treats max-inline-size on a
+                            // cell as a hint, and the column widened anyway.
+                            display: 'block',
+                            maxInlineSize: clamp,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {content}
+                        </span>
+                      ) : (
+                        content
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
@@ -546,15 +728,398 @@ export function Pagination({
   style?: CSSProperties;
 }) {
   const { tr } = useLocale();
-  if (pageCount <= 1) return null;
+  // Rulebook 11.5. This used to return null below two pages, so narrowing a
+  // filter to a single page collapsed the footer and pulled the table down
+  // under the pointer. The nav keeps its height with both arrows dead instead.
+  const count = Math.max(1, pageCount);
   return (
-    <nav style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end', marginBlockStart: '0.6rem', ...style }}>
-      <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-        {tr('ws.kit.table.page', { page, count: pageCount })}
+    <nav style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', marginBlockStart: 'var(--tp-sp-2-5)', ...style }}>
+      <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
+        {tr('ws.kit.table.page', { page: Math.min(page, count), count })}
       </span>
       <Button size="sm" icon="chevronStart" aria-label={tr('ws.kit.table.prev')} disabled={page <= 1} onClick={() => onChange(page - 1)} />
-      <Button size="sm" icon="chevronEnd" aria-label={tr('ws.kit.table.next')} disabled={page >= pageCount} onClick={() => onChange(page + 1)} />
+      <Button size="sm" icon="chevronEnd" aria-label={tr('ws.kit.table.next')} disabled={page >= count} onClick={() => onChange(page + 1)} />
     </nav>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The §6 list primitives every screen was improvising
+// ---------------------------------------------------------------------------
+
+export interface RowAction {
+  id: string;
+  /** Verb + object (rulebook 8.3). Carries the accessible name in both shapes. */
+  label: string;
+  icon: IconName;
+  onSelect: () => void;
+  disabled?: boolean;
+  /** Rulebook 4.3: a disabled control is never a dead end. */
+  disabledReason?: string;
+  /** Sorted last inside the overflow menu and separated from the rest (8.4). */
+  danger?: boolean;
+}
+
+const menuItemStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--tp-sp-2)',
+  inlineSize: '100%',
+  minBlockSize: 'var(--tp-touch)',
+  paddingBlock: 'var(--tp-sp-2)',
+  paddingInline: 'var(--tp-sp-3)',
+  background: 'none',
+  border: 'none',
+  font: 'inherit',
+  textAlign: 'start',
+  whiteSpace: 'nowrap',
+};
+
+/**
+ * Rulebook 6.4: up to two row actions are inline icon buttons; three or more
+ * collapse into one overflow menu whose position never varies. The menu's
+ * contents may differ by role, its anchor may not — so the operator's hand
+ * learns one target per table rather than one per row shape.
+ *
+ * Presentational only: the caller owns every piece of state behind `actions`.
+ * `icon="more"` has existed in icons.tsx since day one and had zero call sites,
+ * which is why rule 6.4 was unsatisfiable by any screen in the app.
+ */
+export function RowActions({
+  actions,
+  label,
+  style,
+}: {
+  actions: readonly RowAction[];
+  /** The row's own name, so the overflow trigger is not the forty-first "More". */
+  label?: string;
+  style?: CSSProperties;
+}) {
+  const { tr, dir } = useLocale();
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menu, setMenu] = useState<{ inlineEnd: number; blockStart: number } | null>(null);
+
+  function dismiss() {
+    setMenu(null);
+    anchorRef.current?.querySelector('button')?.focus();
+  }
+
+  function openMenu() {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // `position: fixed`, because the table's own scroll container would clip an
+    // absolutely-positioned menu. Logical insets against the viewport mirror
+    // for free: in Arabic inset-inline-end resolves to the left edge, so the
+    // one arithmetic below is direction-correct with a single sign flip.
+    setMenu({
+      inlineEnd: dir === 'rtl' ? rect.left : window.innerWidth - rect.right,
+      blockStart: rect.bottom,
+    });
+  }
+
+  useEffect(() => {
+    if (!menu) return;
+    // The anchor rect is measured once; a scroll would leave the menu hovering
+    // over a different row, so movement dismisses rather than chases.
+    const close = () => setMenu(null);
+    const onPointerDown = (e: globalThis.MouseEvent) => {
+      const t = e.target as Node;
+      if (!menuRef.current?.contains(t) && !anchorRef.current?.contains(t)) close();
+    };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    document.addEventListener('mousedown', onPointerDown);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      document.removeEventListener('mousedown', onPointerDown);
+    };
+  }, [menu]);
+
+  useEffect(() => {
+    if (menu) menuRef.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus();
+  }, [menu]);
+
+  if (actions.length === 0) return null;
+
+  const container: CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 'var(--tp-sp-1)',
+    ...style,
+  };
+
+  if (actions.length <= 2) {
+    return (
+      <div role="group" aria-label={tr('ws.kit.table.rowActions')} style={container}>
+        {actions.map((a) => (
+          <Button
+            key={a.id}
+            size="sm"
+            // Ghost even when destructive: a solid red button repeated down
+            // every row would put one "primary" per record on the screen, and
+            // rule 8.1 allows exactly one. The hue carries it at row level.
+            kind="ghost"
+            icon={a.icon}
+            aria-label={a.label}
+            title={a.disabled && a.disabledReason ? a.disabledReason : a.label}
+            disabled={a.disabled}
+            onClick={a.onSelect}
+            style={a.danger ? { color: 'var(--tp-danger-fg)' } : undefined}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // Stable sort: destructive last, the order the caller gave otherwise.
+  const ordered = [...actions].sort((a, b) => Number(a.danger ?? false) - Number(b.danger ?? false));
+
+  return (
+    <div role="group" aria-label={tr('ws.kit.table.rowActions')} style={container}>
+      <span ref={anchorRef} style={{ display: 'inline-flex' }}>
+        <Button
+          size="sm"
+          kind="ghost"
+          icon="more"
+          // Verb + object (rulebook 8.3). Without `label`, a screen-reader
+          // user in a 40-row table hears forty buttons called "More".
+          aria-label={label ? tr('ws.kit.table.rowActionsFor', { name: label }) : tr('ws.kit.actions.more')}
+          title={tr('ws.kit.actions.more')}
+          onClick={() => (menu ? dismiss() : openMenu())}
+        />
+      </span>
+      {menu && (
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={tr('ws.kit.table.rowActions')}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              dismiss();
+              return;
+            }
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+            e.preventDefault();
+            const items = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
+            if (items.length === 0) return;
+            const at = items.indexOf(document.activeElement as HTMLButtonElement);
+            const next = e.key === 'ArrowDown' ? (at + 1) % items.length : (at - 1 + items.length) % items.length;
+            items[next]?.focus();
+          }}
+          style={{
+            position: 'fixed',
+            insetInlineEnd: `${menu.inlineEnd}px`,
+            insetBlockStart: `${menu.blockStart}px`,
+            marginBlockStart: 'var(--tp-sp-1)',
+            zIndex: 'var(--tp-z-popover)',
+            display: 'grid',
+            minInlineSize: '11rem',
+            background: 'var(--tp-surface)',
+            border: '1px solid var(--tp-border)',
+            borderRadius: 'var(--tp-radius-ctl)',
+            boxShadow: 'var(--tp-shadow-popover)',
+            paddingBlock: 'var(--tp-sp-1)',
+          }}
+        >
+          {ordered.map((a, i) => (
+            <button
+              key={a.id}
+              type="button"
+              role="menuitem"
+              className="tp-row"
+              data-clickable={a.disabled ? undefined : 'true'}
+              disabled={a.disabled}
+              title={a.disabled ? a.disabledReason : undefined}
+              onClick={() => {
+                dismiss();
+                a.onSelect();
+              }}
+              style={{
+                ...menuItemStyle,
+                color: a.danger ? 'var(--tp-danger-fg)' : 'var(--tp-fg)',
+                borderBlockStart: a.danger && i > 0 && !ordered[i - 1]?.danger ? '1px solid var(--tp-border)' : undefined,
+                opacity: a.disabled ? 'var(--tp-opacity-disabled)' : undefined,
+                cursor: a.disabled ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <Icon name={a.icon} size={16} />
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export interface FilterChip {
+  id: string;
+  /** What the chip shows. May be a node (a badge, a bidi-isolated name). */
+  label: ReactNode;
+  /** The same filter as plain text, for the remove button's accessible name. */
+  text: string;
+  onRemove: () => void;
+}
+
+/**
+ * Rulebook 6.6: an active filter is visible and removable where the results
+ * are, not only inside the control that set it. The array is the caller's —
+ * this decides nothing about what a filter means.
+ */
+export function FilterChips({
+  chips,
+  onClearAll,
+  style,
+}: {
+  chips: readonly FilterChip[];
+  onClearAll?: () => void;
+  style?: CSSProperties;
+}) {
+  const { tr } = useLocale();
+  if (chips.length === 0) return null;
+  return (
+    <div
+      role="group"
+      aria-label={tr('ws.kit.filters.active')}
+      style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', ...style }}
+    >
+      {chips.map((c) => (
+        <span
+          key={c.id}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--tp-sp-1)',
+            background: 'var(--tp-accent-soft)',
+            color: 'var(--tp-accent-soft-fg)',
+            borderRadius: 'var(--tp-radius-pill)',
+            paddingBlock: 'var(--tp-sp-0)',
+            paddingInlineStart: 'var(--tp-sp-2-5)',
+            paddingInlineEnd: 'var(--tp-sp-1)',
+            fontSize: 'var(--tp-fs-sm)',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {c.label}
+          <Button
+            kind="ghost"
+            size="sm"
+            icon="x"
+            // `text`, never the id: a chip whose label is a ReactNode used to
+            // announce an internal identifier as user-facing copy, untranslated
+            // in both locales.
+            aria-label={tr('ws.kit.filters.remove', { label: c.text })}
+            onClick={c.onRemove}
+            style={{
+              // The sm button keeps its own 1.85rem floor. Overriding it left a
+              // ~14px target, under WCAG 2.2's 24px and far under --tp-touch.
+              inlineSize: 'auto',
+              paddingBlock: 0,
+              paddingInline: 'var(--tp-sp-1)',
+              background: 'none',
+              border: 'none',
+              color: 'inherit',
+            }}
+          />
+        </span>
+      ))}
+      {onClearAll && (
+        <Button kind="ghost" size="sm" onClick={onClearAll}>
+          {tr('ws.kit.filters.clearAll')}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Rulebook 6.10: the count belongs at the top, beside the title, not only in
+ * the pagination footer. Wraps `ws.kit.table.rowsOf`, which was in the catalog
+ * with no consumer, and routes both figures through the shared formatter so
+ * Arabic does not get one grouped number and one bare one.
+ */
+export function ResultCount({ shown, total, style }: { shown: number; total: number; style?: CSSProperties }) {
+  const { tr, locale } = useLocale();
+  return (
+    <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums', ...style }}>
+      {tr('ws.kit.table.rowsOf', { shown: formatNumber(shown, locale), total: formatNumber(total, locale) })}
+    </span>
+  );
+}
+
+/**
+ * Rulebook 9.1: a skeleton matches the layout it replaces, so nothing moves
+ * when the rows arrive. Built from the same `Column[]` the caller already hands
+ * DataTable, which is what keeps the two in step. Announcement is the caller's
+ * job — AsyncStateWrapper's loading branch owns the live region.
+ */
+export function TableSkeleton<T>({
+  columns,
+  rows = 5,
+  dense,
+  maxBlockSize,
+  style,
+}: {
+  columns: readonly Column<T>[];
+  rows?: number;
+  dense?: boolean;
+  maxBlockSize?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        border: '1px solid var(--tp-border)',
+        borderRadius: 'var(--tp-radius-panel)',
+        overflow: 'hidden',
+        maxBlockSize,
+        background: 'var(--tp-surface)',
+        ...style,
+      }}
+    >
+      <table className="tp-table" data-dense={dense ? 'true' : undefined}>
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th key={c.key} data-align={c.align ?? (c.numeric ? 'end' : 'start')} style={{ inlineSize: c.width }}>
+                {c.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: Math.max(1, rows) }, (_, r) => (
+            <tr key={r}>
+              {columns.map((c) => {
+                const toEnd = (c.align ?? (c.numeric ? 'end' : 'start')) === 'end';
+                return (
+                  <td key={c.key}>
+                    <span
+                      className="tp-skel"
+                      style={{
+                        display: 'block',
+                        // As tall as the line it stands in for, so the row
+                        // height is the real one before the data lands.
+                        blockSize: 'var(--tp-fs-md)',
+                        inlineSize: c.numeric ? '45%' : r % 3 === 0 ? '80%' : '60%',
+                        borderRadius: 'var(--tp-radius-sm)',
+                        marginInlineStart: toEnd ? 'auto' : undefined,
+                      }}
+                    />
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -580,7 +1145,10 @@ export function DescriptionList({
     >
       {items.map((it, i) => (
         <div key={i} style={{ minInlineSize: 0 }}>
-          <dt style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          {/* Was 12px all-caps with tracking, the worst case for arm's-length
+              reading; rulebook 6.2 wants this to read as the same words as the
+              table header above it. Weight and colour carry it instead. */}
+          <dt style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>
             {it.label}
           </dt>
           <dd style={{ margin: 0, fontVariantNumeric: it.numeric ? 'tabular-nums' : undefined, overflowWrap: 'anywhere' }}>{it.value}</dd>
@@ -624,6 +1192,17 @@ export function ComparisonDelta({
   const good = flat ? null : invert ? !up : up;
   const color = flat ? 'var(--tp-muted-fg)' : good ? 'var(--tp-success-fg)' : 'var(--tp-danger-fg)';
   const fmt = format ?? ((n: number) => formatNumber(n, locale));
+  // The absolute change went through the shared formatter and the percentage
+  // through toFixed + a literal '%', so one number on the line was localised
+  // and the other was not — in Arabic, grouped digits beside ungrouped ones and
+  // a Latin percent sign. The rounding is display rounding, nothing is computed.
+  // formatPercent, not formatNumber: Intl's 0-3 default made the precision
+  // value-dependent, so a KPI column printed 25%, 12.3%, 0% with ragged
+  // decimals where it used to align. One decimal, always, in one place.
+  const pct =
+    changePct == null
+      ? null
+      : `${up ? '+' : ''}${formatPercent(changePct, locale)}${tr('ws.kit.common.percent')}`;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color, fontVariantNumeric: 'tabular-nums' }} dir="ltr">
       {!flat && <Icon name={up ? 'trendUp' : 'trendDown'} size={13} />}
@@ -631,7 +1210,7 @@ export function ComparisonDelta({
         {up ? '+' : ''}
         {fmt(abs)}
       </span>
-      {changePct != null && <span style={{ opacity: 0.85 }}>({up ? '+' : ''}{changePct.toFixed(1)}%)</span>}
+      {pct && <span style={{ opacity: 0.85 }}>({pct})</span>}
     </span>
   );
 }
@@ -1024,13 +1603,35 @@ export function PermissionRefusedNotice({ action, requiredRole, style }: { actio
   );
 }
 
-export function MessagePresenter({ message, tone, icon, style }: { message: ReactNode; tone: 'success' | 'refused' | 'error' | 'info'; icon?: IconName; style?: CSSProperties }) {
-  const t: Tone = tone === 'success' ? 'success' : tone === 'error' ? 'danger' : tone === 'refused' ? 'warn' : 'info';
-  const s = TONE_STYLE[t];
-  const ic: IconName = icon ?? (tone === 'success' ? 'checkCircle' : tone === 'error' ? 'alert' : tone === 'refused' ? 'ban' : 'info');
+export type MessageTone = 'success' | 'refused' | 'error' | 'info';
+
+/**
+ * The four message tones in one table. Exported so toast.tsx can stop keeping a
+ * private copy — two vocabularies for "this worked" put the marketing green and
+ * the semantic green on one screen at the same time.
+ */
+export const MESSAGE_TONE: Record<MessageTone, { tone: Tone; icon: IconName }> = {
+  success: { tone: 'success', icon: 'checkCircle' },
+  refused: { tone: 'warn', icon: 'ban' },
+  error: { tone: 'danger', icon: 'alert' },
+  info: { tone: 'info', icon: 'info' },
+};
+
+export function MessagePresenter({ message, tone, icon, rise, style }: { message: ReactNode; tone: MessageTone; icon?: IconName; /** Settle in on mount. Only for a message that ARRIVED unprompted — never for static copy or a direct answer to a click. */ rise?: boolean; style?: CSSProperties }) {
+  const meta = MESSAGE_TONE[tone];
+  const s = TONE_STYLE[meta.tone];
+  const ic: IconName = icon ?? meta.icon;
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
+      // Opt-in, NOT default. Roughly thirty of this component's call sites are
+      // static explanatory copy that is part of the page's first paint, or a
+      // direct answer to the operator's own click — and motion is reserved for
+      // what the SERVER did while they were looking somewhere else. Putting the
+      // class in the primitive also made the trigger uninspectable from the
+      // call site. Pass `rise` only where the message genuinely arrives
+      // unprompted: a refusal, a conflict, a queued write coming back.
+      className={rise ? 'tp-rise' : undefined}
       style={{
         display: 'flex',
         gap: '0.5rem',
@@ -1131,7 +1732,9 @@ export function SearchField({
         style={{
           ...inputStyle,
           paddingInlineStart: '2.1rem',
-          paddingInlineEnd: busy || value ? '2.1rem' : undefined,
+          // Reserved unconditionally: it used to appear with the first
+          // character typed, shifting the text out from under the cursor.
+          paddingInlineEnd: '2.1rem',
           minBlockSize: size === 'lg' ? '2.75rem' : undefined,
           fontSize: size === 'lg' ? 'var(--tp-fs-lg)' : undefined,
         }}
@@ -1169,8 +1772,8 @@ export function SegmentedControl<T extends string>({
         background: 'var(--tp-surface-2)',
         border: '1px solid var(--tp-border)',
         borderRadius: 'var(--tp-radius-ctl)',
-        padding: '2px',
-        gap: '2px',
+        padding: 'var(--tp-sp-0)',
+        gap: 'var(--tp-sp-0)',
       }}
     >
       {options.map((o) => {
@@ -1187,16 +1790,16 @@ export function SegmentedControl<T extends string>({
               alignItems: 'center',
               gap: '0.35rem',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: 'var(--tp-radius-sm)',
               paddingBlock: size === 'sm' ? '0.2rem' : '0.35rem',
               paddingInline: size === 'sm' ? '0.55rem' : '0.8rem',
               fontSize: size === 'sm' ? 'var(--tp-fs-sm)' : 'var(--tp-fs-md)',
               fontWeight: 600,
               background: active ? 'var(--tp-surface)' : 'transparent',
               color: active ? 'var(--tp-fg)' : 'var(--tp-muted-fg)',
-              boxShadow: active ? '0 1px 2px oklch(20% 0.03 262 / 0.12)' : undefined,
+              boxShadow: active ? 'var(--tp-shadow-raised)' : undefined,
               cursor: o.disabled ? 'not-allowed' : 'pointer',
-              opacity: o.disabled ? 0.5 : 1,
+              opacity: o.disabled ? 'var(--tp-opacity-disabled)' : 1,
               transition: 'background var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out)',
               whiteSpace: 'nowrap',
             }}
@@ -1235,7 +1838,7 @@ export function ChangeDueDisplay({ due, tendered, change, short }: { due: number
         { label: tr('ws.kit.change.change'), value: change, tone: (change ?? 0) > 0 ? ('success' as Tone) : ('neutral' as Tone) },
       ].map((cell) => (
         <div key={cell.label} style={{ ...card, background: TONE_STYLE[cell.tone].bg, borderColor: 'transparent', textAlign: 'center' }}>
-          <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>
             {cell.label}
           </span>
           <span style={{ display: 'block', fontSize: 'var(--tp-fs-2xl)', fontWeight: 700, color: TONE_STYLE[cell.tone].fg }}>

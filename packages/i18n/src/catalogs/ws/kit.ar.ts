@@ -9,6 +9,16 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     retry: 'حاول مرة أخرى',
     offlineHint: 'قد تكون غير متصل. تُعرض آخر بيانات معروفة حيثما توفرت.',
   },
+  empty: {
+    filtered: 'لا شيء يطابق هذه الفلاتر.',
+    nothingToDo: 'لا شيء يحتاج انتباهك.',
+    clearFilters: 'مسح الفلاتر',
+  },
+  filters: {
+    active: 'الفلاتر النشطة',
+    remove: 'إزالة الفلتر: {label}',
+    clearAll: 'مسح الكل',
+  },
   bookingStatus: {
     pending: 'محجوز مؤقتًا',
     confirmed: 'مؤكد',
@@ -92,6 +102,8 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     page: 'صفحة {page} من {count}',
     prev: 'الصفحة السابقة',
     next: 'الصفحة التالية',
+    rowActions: 'إجراءات الصف',
+    rowActionsFor: 'إجراءات إضافية لـ {name}',
   },
   search: {
     placeholder: 'بحث…',
@@ -179,5 +191,6 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     readOnly: 'للقراءة فقط',
     temporary: 'مؤقت',
     readOnlyStock: 'يحدده المخزون — ليس مفتاحًا',
+    percent: '٪',
   },
 };

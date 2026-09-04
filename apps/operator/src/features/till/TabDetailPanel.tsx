@@ -10,6 +10,11 @@
  * States: loading · ready · busy · error · voidRefused (VOID_REQUIRES_REFUND —
  * the void control stays visible with the refusal beside it) · partiallyPaid ·
  * settled.
+ *
+ * Layout: three fixed zones — identity header, scrolling body, pay footer. The
+ * cashier must be able to read WHICH tab this is and reach Pay without
+ * scrolling, on a tab with two lines and on one with forty; and the pay target
+ * must not move between those two tabs, or between any of the states above.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -252,8 +257,8 @@ export function TabDetailPanel({
   // ---- render ---------------------------------------------------------------
   if (tabQ.isError && !tab) {
     return (
-      <section aria-label={tr('ws.cashier.till.regionTab')}>
-        <ErrorText error={tabQ.error} />
+      <section aria-label={tr('ws.cashier.till.regionTab')} style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
+        <ErrorText error={tabQ.error} style={{ marginBlock: 0 }} />
         <Button icon="refresh" onClick={() => void tabQ.refetch()}>
           {tr('ws.kit.async.retry')}
         </Button>
@@ -262,8 +267,18 @@ export function TabDetailPanel({
   }
   if (!tab) {
     return (
-      <section aria-label={tr('ws.cashier.till.regionTab')} aria-busy="true">
-        <Skeleton lines={6} />
+      // The skeleton stands where the panel will: an identity line, the body,
+      // and the pay block's own reserved height at the end (rulebook 9.1).
+      <section
+        aria-label={tr('ws.cashier.till.regionTab')}
+        aria-busy="true"
+        style={{ flex: '1 1 auto', blockSize: '100%', minBlockSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)', paddingBlock: 'var(--tp-sp-3)' }}
+      >
+        <Skeleton lines={1} blockSize="var(--tp-fs-2xl)" />
+        <div style={{ flex: 1, minBlockSize: 0 }}>
+          <Skeleton lines={6} />
+        </div>
+        <Skeleton lines={1} blockSize="var(--tp-tile-min-block)" />
       </section>
     );
   }
@@ -274,17 +289,43 @@ export function TabDetailPanel({
   const partiallyPaid = !settled && totals.paid > 0 && due > 0;
   const overrideLine = overlay.kind === 'override' ? allLines.find((l) => l.id === overlay.lineId) : undefined;
 
+  // Rulebook 4.3 — no dead ends. Only STATE gets a reason here: `busy` is
+  // already spoken by the spinner on the control the operator just pressed.
+  const nothingDue = due <= 0;
+  const payBlockedReason = nothingDue ? tr('ws.cashier.payment.nothingDue') : undefined;
+
   return (
-    <section aria-label={tr('ws.cashier.till.regionTab')} aria-busy={busy || undefined} style={{ display: 'grid', gap: '0.75rem', alignContent: 'start' }}>
-      <header style={{ display: 'grid', gap: '0.3rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+    /*
+     * Three fixed zones (rulebook 5.1), and the outer flex column is what makes
+     * them fixed: the identity header and the pay footer are siblings of the
+     * scroller, not passengers inside it. Before this the whole panel scrolled
+     * as one, so Cash and Card sat wherever the line count, the promotion box
+     * and five conditional notices happened to leave them — the pay target
+     * stood somewhere different on a part-paid tab than on a fresh one.
+     */
+    <section
+      aria-label={tr('ws.cashier.till.regionTab')}
+      aria-busy={busy || undefined}
+      style={{ flex: '1 1 auto', blockSize: '100%', minBlockSize: 0, display: 'flex', flexDirection: 'column' }}
+    >
+      {/* ---- zone 1: identity, always on screen (rulebook 5.2) ---- */}
+      <header
+        style={{
+          flex: '0 0 auto',
+          display: 'grid',
+          gap: 'var(--tp-sp-1)',
+          paddingBlock: 'var(--tp-sp-3)',
+          borderBlockEnd: '1px solid var(--tp-border)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
           <h2 style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <bdi>{label}</bdi>
           </h2>
           <TabStatusIndicator status={tab.status} size="sm" />
         </div>
         {tab.reservation_id && (
-          <span style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+          <span style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
             <Icon name="calendar" size={13} /> {tr('ws.cashier.detail.chargedTo')}
             {tab.reservation?.court && (
               <>
@@ -296,160 +337,184 @@ export function TabDetailPanel({
         )}
       </header>
 
-      {/* ---- lines (TabLineList, sent = not editable, void = waste) ---- */}
-      <div style={{ display: 'grid', gap: '0.35rem' }}>
-        <h3 style={sectionTitle}>{tr('ws.cashier.detail.linesTitle')}</h3>
-        {allLines.length === 0 && <p style={muted}>{tr('ws.cashier.detail.noLines')}</p>}
-        {liveOrders.map((o) => (
-          <ul key={o.id} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.25rem' }}>
-            {o.order_items.map((line) => (
-              <TabLine
-                key={line.id}
-                line={line}
-                settled={Boolean(settled)}
-                busy={busy}
-                onOverride={() => setOverlay({ kind: 'override', lineId: line.id })}
-                onVoid={() => {
-                  setVoidRefused(false);
-                  setPinError(null);
-                  setOverlay({ kind: 'void', lineId: line.id });
-                }}
-              />
-            ))}
-          </ul>
-        ))}
-        {allLines.length > 0 && !settled && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.sentHint')}</p>}
-        {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
-      </div>
+      {/* ---- zone 2: everything that grows ---- */}
+      <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto', display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
+        {/* ---- lines (TabLineList, sent = not editable, void = waste) ---- */}
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+          <h3 style={sectionTitle}>{tr('ws.cashier.detail.linesTitle')}</h3>
+          {allLines.length === 0 && <p style={muted}>{tr('ws.cashier.detail.noLines')}</p>}
+          {liveOrders.map((o) => (
+            <ul key={o.id} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+              {o.order_items.map((line) => (
+                <TabLine
+                  key={line.id}
+                  line={line}
+                  settled={Boolean(settled)}
+                  busy={busy}
+                  onOverride={() => setOverlay({ kind: 'override', lineId: line.id })}
+                  onVoid={() => {
+                    setVoidRefused(false);
+                    setPinError(null);
+                    setOverlay({ kind: 'void', lineId: line.id });
+                  }}
+                />
+              ))}
+            </ul>
+          ))}
+          {allLines.length > 0 && !settled && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.sentHint')}</p>}
+          {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
+        </div>
 
-      {/* ---- totals (TabTotals + AppliedPromotionRow) ---- */}
-      <div style={{ display: 'grid', gap: '0.1rem', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: '0.5rem' }}>
-        <Row label={tr('common.subtotal')} amount={totals.subtotal} />
-        {discounts.manager > 0 && <Row label={tr('ws.cashier.detail.managerDiscount')} amount={-discounts.manager} />}
-        {discounts.promotion > 0 && (
-          <Row
-            label={
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                <Icon name="tag" size={13} /> {tr('ws.cashier.detail.promoAppliedRow')}
-              </span>
-            }
-            amount={-discounts.promotion}
-          />
+        {/* ---- totals (TabTotals + AppliedPromotionRow) ---- */}
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-2)' }}>
+          <Row label={tr('common.subtotal')} amount={totals.subtotal} />
+          {discounts.manager > 0 && <Row label={tr('ws.cashier.detail.managerDiscount')} amount={-discounts.manager} />}
+          {discounts.promotion > 0 && (
+            <Row
+              label={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+                  <Icon name="tag" size={13} /> {tr('ws.cashier.detail.promoAppliedRow')}
+                </span>
+              }
+              amount={-discounts.promotion}
+            />
+          )}
+          {totals.tax > 0 && <Row label={taxCtx?.taxInclusive ? tr('op.till.taxIncluded') : tr('op.till.tax')} amount={totals.tax} />}
+          <Row label={tr('common.total')} amount={totals.total} strong />
+          {totals.paid > 0 && <Row label={tr('ws.cashier.detail.paid')} amount={-totals.paid} />}
+          {totals.paid > 0 && !settled && <Row label={tr('ws.cashier.detail.due')} amount={due} strong />}
+          {lastChange != null && lastChange > 0 && <Row label={tr('op.till.change')} amount={lastChange} strong tone="success" />}
+        </div>
+
+        {/*
+          The five conditional notices. They live inside the scroller, which the
+          pay footer is deliberately not part of, so any combination of them can
+          appear without the Cash button knowing about it.
+        */}
+        {partiallyPaid && <MessagePresenter tone="info" icon="banknote" message={tr('ws.cashier.payment.partiallyPaid', { amount: formatIQD(due, locale) })} />}
+        {settled && <MessagePresenter tone="success" message={tr('op.till.paidInFull')} />}
+        {drawerNoted && <MessagePresenter tone="success" icon="drawer" message={tr('op.till.drawerNoted')} />}
+        <ErrorText error={actionError} />
+
+        {/* ---- promotion (read-only result; the server chose it) ---- */}
+        {!settled && allLines.length > 0 && (
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+            <h3 style={sectionTitle}>{tr('ws.cashier.detail.promoTitle')}</h3>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'end' }}>
+              <Field label={tr('ws.cashier.detail.promoCode')} style={{ marginBlockEnd: 0, flex: 1 }}>
+                <input
+                  style={inputStyle}
+                  value={promoCode}
+                  maxLength={32}
+                  disabled={busy}
+                  placeholder={tr('ws.cashier.detail.promoCodePlaceholder')}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !busy && void applyPromotion()}
+                />
+              </Field>
+              <Button icon="tag" busy={busy} onClick={() => void applyPromotion()}>
+                {tr('ws.cashier.detail.promoApply')}
+              </Button>
+            </div>
+            {promoNotice && <MessagePresenter tone={promoNotice.tone} message={promoNotice.text} />}
+            <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.promoHint')}</p>
+          </div>
         )}
-        {totals.tax > 0 && <Row label={taxCtx?.taxInclusive ? tr('op.till.taxIncluded') : tr('op.till.tax')} amount={totals.tax} />}
-        <Row label={tr('common.total')} amount={totals.total} strong />
-        {totals.paid > 0 && <Row label={tr('ws.cashier.detail.paid')} amount={-totals.paid} />}
-        {totals.paid > 0 && !settled && <Row label={tr('ws.cashier.detail.due')} amount={due} strong />}
-        {lastChange != null && lastChange > 0 && <Row label={tr('op.till.change')} amount={lastChange} strong tone="success" />}
-      </div>
 
-      {partiallyPaid && <MessagePresenter tone="info" icon="banknote" message={tr('ws.cashier.payment.partiallyPaid', { amount: formatIQD(due, locale) })} />}
-      {settled && <MessagePresenter tone="success" message={tr('op.till.paidInFull')} />}
-      {drawerNoted && <MessagePresenter tone="success" icon="drawer" message={tr('op.till.drawerNoted')} />}
-      <ErrorText error={actionError} />
-
-      {/* ---- promotion (read-only result; the server chose it) ---- */}
-      {!settled && allLines.length > 0 && (
-        <div style={{ display: 'grid', gap: '0.4rem' }}>
-          <h3 style={sectionTitle}>{tr('ws.cashier.detail.promoTitle')}</h3>
-          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'end' }}>
-            <Field label={tr('ws.cashier.detail.promoCode')} style={{ marginBlockEnd: 0, flex: 1 }}>
-              <input
-                style={inputStyle}
-                value={promoCode}
-                maxLength={32}
-                disabled={busy}
-                placeholder={tr('ws.cashier.detail.promoCodePlaceholder')}
-                onChange={(e) => setPromoCode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !busy && void applyPromotion()}
-              />
-            </Field>
-            <Button icon="tag" busy={busy} onClick={() => void applyPromotion()}>
-              {tr('ws.cashier.detail.promoApply')}
-            </Button>
-          </div>
-          {promoNotice && <MessagePresenter tone={promoNotice.tone} message={promoNotice.text} />}
-          <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.promoHint')}</p>
-        </div>
-      )}
-
-      {/* ---- payment ---- */}
-      {!settled && (
-        <div style={{ display: 'grid', gap: '0.4rem' }}>
-          <h3 style={sectionTitle}>{tr('ws.cashier.payment.title')}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-            <Button
-              kind="primary"
-              size="xl"
-              icon="banknote"
-              disabled={due <= 0 || busy}
-              title="F4"
-              aria-label={tr('op.till.payCash')}
-              onClick={() => {
-                setLastChange(null);
-                setActionError(null);
-                setOverlay({ kind: 'pay', method: 'cash' });
-              }}
-            >
-              {tr('op.till.payCash')} <Kbd>F4</Kbd>
-            </Button>
-            <Button
-              size="xl"
-              icon="card"
-              disabled={due <= 0 || busy}
-              title="F5"
-              aria-label={tr('op.till.payCard')}
-              onClick={() => {
-                setLastChange(null);
-                setActionError(null);
-                setOverlay({ kind: 'pay', method: 'card' });
-              }}
-            >
-              {tr('op.till.payCard')} <Kbd>F5</Kbd>
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ---- actions ---- */}
-      <div style={{ display: 'grid', gap: '0.4rem' }}>
-        <h3 style={sectionTitle}>{tr('ws.cashier.detail.actionsTitle')}</h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-          {!settled && (
-            <>
-              <Button icon="split" disabled={due <= 0 || busy} onClick={() => setOverlay({ kind: 'split' })}>
-                {tr('ws.cashier.detail.split')}
-              </Button>
-              <Button icon="tag" disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
-                {tr('ws.cashier.detail.discount')}
-              </Button>
-              <Button icon="merge" disabled={busy} onClick={() => setOverlay({ kind: 'merge' })}>
-                {tr('ws.cashier.detail.merge')}
-              </Button>
-              {!tab.reservation_id && (
-                <Button icon="calendar" disabled={busy} onClick={() => setOverlay({ kind: 'charge' })}>
-                  {tr('ws.cashier.detail.chargeBooking')}
+        {/* ---- actions ---- */}
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+          <h3 style={sectionTitle}>{tr('ws.cashier.detail.actionsTitle')}</h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)', alignItems: 'flex-start' }}>
+            {!settled && (
+              <>
+                <Button
+                  icon="split"
+                  disabled={nothingDue || busy}
+                  disabledReason={nothingDue ? tr('ws.cashier.detail.splitNothing') : undefined}
+                  onClick={() => setOverlay({ kind: 'split' })}
+                >
+                  {tr('ws.cashier.detail.split')}
                 </Button>
-              )}
-            </>
-          )}
-          <Button icon="receipt" disabled={busy} onClick={() => setOverlay({ kind: 'bill' })}>
-            {tr('op.till.bill')}
-          </Button>
-          <Button icon="drawer" disabled={busy} onClick={() => setOverlay({ kind: 'drawer' })}>
-            {tr('op.till.openDrawer')}
-          </Button>
-          {tab.payments.length > 0 && (
-            <Button kind="danger" icon="undo" disabled={busy} onClick={() => setOverlay({ kind: 'refund' })}>
-              {tr('op.till.refund')}
+                <Button icon="tag" disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
+                  {tr('ws.cashier.detail.discount')}
+                </Button>
+                <Button icon="merge" disabled={busy} onClick={() => setOverlay({ kind: 'merge' })}>
+                  {tr('ws.cashier.detail.merge')}
+                </Button>
+                {!tab.reservation_id && (
+                  <Button icon="calendar" disabled={busy} onClick={() => setOverlay({ kind: 'charge' })}>
+                    {tr('ws.cashier.detail.chargeBooking')}
+                  </Button>
+                )}
+              </>
+            )}
+            <Button icon="receipt" disabled={busy} onClick={() => setOverlay({ kind: 'bill' })}>
+              {tr('op.till.bill')}
             </Button>
+            <Button icon="drawer" disabled={busy} onClick={() => setOverlay({ kind: 'drawer' })}>
+              {tr('op.till.openDrawer')}
+            </Button>
+            {tab.payments.length > 0 && (
+              <Button kind="danger" icon="undo" disabled={busy} onClick={() => setOverlay({ kind: 'refund' })}>
+                {tr('op.till.refund')}
+              </Button>
+            )}
+          </div>
+          {tab.payments.length > 0 && !can.refund && (
+            <PermissionRefusedNotice action={tr('ws.cashier.detail.refundAction')} requiredRole={requiredRoleFor('refund')} />
           )}
         </div>
-        {tab.payments.length > 0 && !can.refund && (
-          <PermissionRefusedNotice action={tr('ws.cashier.detail.refundAction')} requiredRole={requiredRoleFor('refund')} />
-        )}
-        {settled && (
-          <Button icon="x" onClick={onClosedTab}>
+      </div>
+
+      {/*
+        ---- zone 3: the pay footer, pinned ----
+        Cash and Card land on the same two coordinates on every tab in every
+        state, because nothing above them is allowed to push them. The row also
+        reserves the height of a disabled-reason line, so stating the reason
+        cannot move the button the reason is about.
+      */}
+      <div style={{ flex: '0 0 auto', borderBlockStart: '1px solid var(--tp-border)', paddingBlock: 'var(--tp-sp-2-5)', display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+        {!settled ? (
+          <>
+            <h3 style={sectionTitle}>{tr('ws.cashier.payment.title')}</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-1-5)', alignItems: 'start', minBlockSize: '5rem' }}>
+              <Button
+                kind="primary"
+                size="xl"
+                icon="banknote"
+                disabled={nothingDue || busy}
+                disabledReason={payBlockedReason}
+                title="F4"
+                aria-label={tr('op.till.payCash')}
+                style={{ inlineSize: '100%' }}
+                onClick={() => {
+                  setLastChange(null);
+                  setActionError(null);
+                  setOverlay({ kind: 'pay', method: 'cash' });
+                }}
+              >
+                {tr('op.till.payCash')} <Kbd>F4</Kbd>
+              </Button>
+              <Button
+                size="xl"
+                icon="card"
+                disabled={nothingDue || busy}
+                disabledReason={payBlockedReason}
+                title="F5"
+                aria-label={tr('op.till.payCard')}
+                style={{ inlineSize: '100%' }}
+                onClick={() => {
+                  setLastChange(null);
+                  setActionError(null);
+                  setOverlay({ kind: 'pay', method: 'card' });
+                }}
+              >
+                {tr('op.till.payCard')} <Kbd>F5</Kbd>
+              </Button>
+            </div>
+          </>
+        ) : (
+          <Button kind="primary" size="lg" icon="x" onClick={onClosedTab} style={{ inlineSize: '100%' }}>
             {tr('ws.cashier.detail.close')}
           </Button>
         )}
@@ -511,7 +576,7 @@ export function TabDetailPanel({
       )}
       {overlay.kind === 'drawer' && (
         <ReasonCodePrompt action={tr('ws.cashier.payment.drawerAction')} busy={busy} error={actionError} withNote={false} onSubmit={(code) => void recordDrawerOpen(code)} onCancel={close}>
-          <p style={{ ...muted, marginBlockEnd: '0.75rem' }}>{tr('ws.cashier.drawer.openHint')}</p>
+          <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
         </ReasonCodePrompt>
       )}
       {overrideLine && (
@@ -568,7 +633,7 @@ export function TabDetailPanel({
           }}
           onSubmit={(pin, reason) => void voidLine(overlay.lineId, pin, reason)}
         >
-          <MessagePresenter tone="refused" icon="alert" message={tr('ws.cashier.detail.voidConsequence')} style={{ marginBlockEnd: '0.85rem' }} />
+          <MessagePresenter tone="refused" icon="alert" message={tr('ws.cashier.detail.voidConsequence')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
         </PinReasonModal>
       )}
     </section>

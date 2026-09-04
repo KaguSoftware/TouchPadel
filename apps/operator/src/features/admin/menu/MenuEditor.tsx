@@ -19,6 +19,7 @@ import {
   PageHeader,
   Panel,
   PermissionRefusedNotice,
+  ResultCount,
   SearchField,
   StatusBadge,
   asyncStatus,
@@ -111,14 +112,14 @@ export function MenuEditor() {
       render: (i) => {
         const block = stockBlockFor(i, availabilityQ.data, today);
         return (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minInlineSize: 0, opacity: i.is_active ? 1 : 0.55 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0, opacity: i.is_active ? 1 : 0.55 }}>
             <Thumb path={i.photo_path} size="2rem" />
-            <span style={{ minInlineSize: 0, display: 'grid', gap: '0.15rem' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: i.id === selectedItem ? 700 : 500 }}>
+            <span style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-0)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontWeight: i.id === selectedItem ? 700 : 500 }}>
                 <HighlightDot highlight={i.highlight} />
                 <bdi>{pickName(locale, i)}</bdi>
               </span>
-              <span style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+              <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
                 {!i.is_active && <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.menu.inactive')} />}
                 {i.sold_out && <StatusBadge size="sm" tone="danger" label={tr('ws.manager.menu.soldOut')} />}
                 {i.unavailable_on === today && <StatusBadge size="sm" tone="warn" label={tr('ws.manager.menu.offToday')} />}
@@ -136,7 +137,7 @@ export function MenuEditor() {
       render: (i) => {
         const price = defaultPrice(i.menu_item_variants);
         return (
-          <span style={{ display: 'inline-grid', justifyItems: 'end', gap: '0.15rem' }}>
+          <span style={{ display: 'inline-grid', justifyItems: 'end', gap: 'var(--tp-sp-0)' }}>
             <Money amount={price} />
             <MarginChip price={price} cost={data?.costs.get(i.id) ?? null} />
           </span>
@@ -193,7 +194,16 @@ export function MenuEditor() {
             <Button icon="plus" disabled={!can.editMenu} onClick={() => setEditCategory('new')}>
               {tr('ws.manager.menu.newCategory')}
             </Button>
-            <Button kind="primary" icon="plus" disabled={!can.editMenu || !activeCat} onClick={() => void guardedSelect(() => setSelectedItem('new'))}>
+            <Button
+              kind="primary"
+              icon="plus"
+              disabled={!can.editMenu || !activeCat}
+              // Items live inside categories, so with none there is nowhere to
+              // put one — say so rather than leaving the page's one primary
+              // action dead (rulebook 4.3).
+              disabledReason={!activeCat ? tr('ws.manager.menu.noCategoriesBody') : undefined}
+              onClick={() => void guardedSelect(() => setSelectedItem('new'))}
+            >
               {tr('ws.manager.menu.newItem')}
             </Button>
           </>
@@ -238,17 +248,17 @@ export function MenuEditor() {
             style={{
               display: 'grid',
               gridTemplateColumns: 'minmax(11rem, 13rem) minmax(20rem, 26rem) minmax(0, 1fr)',
-              gap: '1rem',
+              gap: 'var(--tp-sp-4)',
               alignItems: 'start',
             }}
           >
             {/* categories */}
             <Panel title={tr('ws.manager.menu.categories')} padded={false}>
-              <ul style={{ listStyle: 'none', margin: 0, padding: '0.35rem' }}>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 'var(--tp-sp-1-5)' }}>
                 {categories.map((c) => {
                   const active = c.id === activeCat;
                   return (
-                    <li key={c.id} className="tp-row" data-clickable="true" data-selected={active ? 'true' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', borderRadius: 'var(--tp-radius-ctl)' }}>
+                    <li key={c.id} className="tp-row" data-clickable="true" data-selected={active ? 'true' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', borderRadius: 'var(--tp-radius-ctl)' }}>
                       <button
                         type="button"
                         aria-current={active || undefined}
@@ -269,8 +279,8 @@ export function MenuEditor() {
                           font: 'inherit',
                           fontWeight: active ? 700 : 500,
                           opacity: c.is_active ? 1 : 0.5,
-                          paddingBlock: '0.5rem',
-                          paddingInline: '0.6rem',
+                          paddingBlock: 'var(--tp-sp-2)',
+                          paddingInline: 'var(--tp-sp-2-5)',
                           cursor: 'pointer',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -285,7 +295,7 @@ export function MenuEditor() {
                 })}
               </ul>
               {editCategory && (
-                <div style={{ paddingInline: '0.5rem', paddingBlockEnd: '0.5rem' }}>
+                <div style={{ paddingInline: 'var(--tp-sp-2)', paddingBlockEnd: 'var(--tp-sp-2)' }}>
                   <CategoryForm
                     key={editCategory === 'new' ? 'new' : editCategory.id}
                     category={editCategory === 'new' ? null : editCategory}
@@ -301,8 +311,9 @@ export function MenuEditor() {
             </Panel>
 
             {/* items */}
-            <div style={{ minInlineSize: 0, display: 'grid', gap: '0.5rem' }}>
+            <div style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
               <SearchField value={search} onChange={setSearch} placeholder={tr('ws.manager.menu.search')} aria-label={tr('op.common.search')} />
+              <ResultCount shown={visibleItems.length} total={categoryItems.length} />
               <ErrorText error={availabilityQ.error} />
               {categoryItems.length === 0 ? (
                 <EmptyState
@@ -318,17 +329,19 @@ export function MenuEditor() {
                 />
               ) : (
                 <DataTable
-                  dense
                   columns={columns}
                   rows={visibleItems}
                   rowKey={(i) => i.id}
                   selectedKey={item?.id ?? null}
                   onRowClick={(i) => void guardedSelect(() => setSelectedItem(i.id))}
-                  emptyContent={tr('ws.manager.menu.noMatch')}
+                  // A bare sentence in a table body told a manager whose search
+                  // matched nothing that the category was empty, and offered no
+                  // way back (rulebook 9.2).
+                  emptyContent={<EmptyState compact kind="filtered" title={tr('ws.manager.menu.noMatch')} onClearFilters={() => setSearch('')} />}
                   aria-label={tr('ws.manager.menu.items')}
                 />
               )}
-              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', display: 'flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
                 <Icon name="info" size={12} /> {tr('ws.manager.menu.reorderHint')}
               </p>
             </div>

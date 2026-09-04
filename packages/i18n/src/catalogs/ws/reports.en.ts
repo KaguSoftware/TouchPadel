@@ -32,6 +32,7 @@ export const reportsEn = {
     week: 'Week',
     month: 'Month',
     view: 'View',
+    period: 'Period',
   },
   views: {
     revenue: {
@@ -142,6 +143,10 @@ export const reportsEn = {
     at: 'When',
     actor: 'By',
     note: 'Note',
+  },
+  columnSet: {
+    showAll: 'Show all columns',
+    showKey: 'Show key columns',
   },
   totals: 'Total',
   emptyTitle: 'Nothing to report for this range',

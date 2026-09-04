@@ -9,10 +9,13 @@ export function ContactTab() {
   const { tr } = useLocale();
   const venueQ = useQuery({ queryKey: VENUE_ADMIN_KEY, queryFn: fetchVenueAdmin, staleTime: 60_000 });
   return (
-    <div style={{ maxInlineSize: '40rem' }}>
+    <div style={{ maxInlineSize: 'var(--tp-measure-form)' }}>
       <AsyncStateWrapper status={asyncStatus(venueQ, () => false)} error={venueQ.error} onRetry={() => void venueQ.refetch()} skeleton={<Skeleton lines={4} />}>
+        {/* Was titled "Settings" — the panel is the CONTACT details, and a
+            section named after the page it sits on tells the reader nothing
+            (rulebook 2.5: label by effect). */}
         {venueQ.data && (
-          <Panel title={tr('ws.shell.nav.settings')} actions={<StatusBadge tone="neutral" size="sm" label={tr('ws.kit.common.readOnly')} />}>
+          <Panel title={tr('ws.owner.settings.tabs.contact')} actions={<StatusBadge tone="neutral" size="sm" label={tr('ws.kit.common.readOnly')} />}>
             <DescriptionList
               items={[
                 { label: tr('ws.owner.settings.contact.venueName'), value: <bdi>{venueQ.data.venue_name}</bdi> },
@@ -23,7 +26,7 @@ export function ContactTab() {
                 { label: tr('ws.owner.settings.contact.timezone'), value: <span dir="ltr">{venueQ.data.timezone}</span> },
               ]}
             />
-            <MessagePresenter tone="info" message={tr('ws.owner.settings.contact.readOnlyNote')} style={{ marginBlockStart: '0.8rem' }} />
+            <MessagePresenter tone="info" message={tr('ws.owner.settings.contact.readOnlyNote')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />
           </Panel>
         )}
       </AsyncStateWrapper>

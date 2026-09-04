@@ -94,6 +94,47 @@ describe('CourtsReportScreen — four states', () => {
     expect(await screen.findByText('Nothing to report for this range')).toBeTruthy();
   });
 
+  it('shows the declared column set, and the rest one click away', async () => {
+    const user = userEvent.setup();
+    rpc.mockResolvedValue({
+      columns: ['court', 'occupancy_pct', 'booked_hours', 'available_hours', 'revenue_iqd', 'revenue_per_hour_iqd', 'ledger_ref'],
+      rows: [{ court_id: 'c1', court: 'Court 1', occupancy_pct: 50, booked_hours: 4, available_hours: 8, revenue_iqd: 1000, revenue_per_hour_iqd: 125, ledger_ref: 'L-1' }],
+    });
+    renderReport();
+    await screen.findByText('Court 1');
+    // Chosen, not inherited: the column the view does not name is not rendered.
+    expect(screen.queryByText('ledger ref')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Show all columns' }));
+    expect(screen.getByText('ledger ref')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show key columns' })).toBeTruthy();
+  });
+
+  it('counts the rows and renders every one of them', async () => {
+    // A report is read whole, printed, and searched with Ctrl-F, so it is NOT
+    // paged: every row the RPC returned is on screen and the count says how
+    // many that is (rulebook 6.10). Paging it would need page state, which the
+    // desk lane declined on /desk/customers for the same reason — see the
+    // follow-ups. This test exists to keep the two screens agreeing.
+    const rows = Array.from({ length: 30 }, (_, i) => ({ court_id: `c${i}`, court: `Court ${i}`, occupancy_pct: i, revenue_iqd: i * 1000 }));
+    rpc.mockResolvedValue({ columns: ['court', 'occupancy_pct', 'revenue_iqd'], rows, totals: null });
+    renderReport();
+    const table = await screen.findByRole('table', { name: 'Courts' });
+    expect(screen.getByText('30 of 30')).toBeTruthy();
+    expect(within(table).getByText('Court 27')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Next page' })).toBeNull();
+  });
+
+  it('renders an active filter as a removable chip with a way to clear it', async () => {
+    const user = userEvent.setup();
+    rpc.mockResolvedValue(READY);
+    renderReport();
+    await screen.findByRole('table', { name: 'Courts' });
+    await user.selectOptions(screen.getByLabelText('Court'), 'c1');
+    expect(await screen.findByText('Court: Court 1')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Clear all' }));
+    await waitFor(() => expect(screen.queryByText('Court: Court 1')).toBeNull());
+  });
+
   it('error: shows the failure and a retry that calls the RPC again', async () => {
     const user = userEvent.setup();
     rpc.mockRejectedValueOnce(new Error('UNKNOWN')).mockResolvedValue({ columns: ['court'], rows: [{ court: 'Court 9' }] });

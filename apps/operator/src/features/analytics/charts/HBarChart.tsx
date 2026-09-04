@@ -5,7 +5,7 @@
  */
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useLocale } from '../../../lib/i18n';
-import { BLUE, BROWN, GRID, MUTED } from './colors';
+import { AXIS, BAR_MUTED, GRID, HIGHLIGHT } from './colors';
 
 export interface HBarRow {
   label: string;
@@ -30,16 +30,16 @@ export function HBarChart({
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={[...rows]} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 4 }}>
         <CartesianGrid stroke={GRID} horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 11, fill: MUTED }} stroke={GRID} tickFormatter={format} />
-        <YAxis type="category" dataKey="label" width={axisWidth} tick={{ fontSize: 11, fill: MUTED }} stroke={GRID} interval={0} />
+        <XAxis type="number" tick={{ fontSize: 11, fill: AXIS }} stroke={GRID} tickFormatter={format} />
+        <YAxis type="category" dataKey="label" width={axisWidth} tick={{ fontSize: 11, fill: AXIS }} stroke={GRID} interval={0} />
         <Tooltip
           wrapperStyle={{ direction: dir }}
-          contentStyle={{ fontSize: '0.8rem' }}
+          contentStyle={{ fontSize: 'var(--tp-fs-sm)' }}
           formatter={(value) => [format(Number(value)), name] as [string, string]}
         />
         <Bar dataKey="value" name={name} radius={[0, 2, 2, 0]}>
           {rows.map((row, i) => (
-            <Cell key={`${row.label}-${i}`} fill={row.highlight ? BROWN : BLUE} />
+            <Cell key={`${row.label}-${i}`} fill={row.highlight ? HIGHLIGHT : BAR_MUTED} />
           ))}
         </Bar>
       </BarChart>

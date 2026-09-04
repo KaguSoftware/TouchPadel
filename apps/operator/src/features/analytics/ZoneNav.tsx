@@ -11,7 +11,7 @@ export function ZoneNav() {
   const { tr } = useLocale();
   const active = useZoneSpy(IDS);
   return (
-    <nav aria-label={tr('analytics.deck.jumpTo')} style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+    <nav aria-label={tr('analytics.deck.jumpTo')} style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
       {ZONES.map((zone) => {
         const selected = zone.id === active;
         return (
@@ -21,18 +21,18 @@ export function ZoneNav() {
             aria-current={selected ? 'true' : undefined}
             onClick={() => document.getElementById(`zone-${zone.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             style={{
-              paddingBlock: '0.3rem',
-              paddingInline: '0.6rem',
-              borderRadius: '999px',
+              paddingBlock: 'var(--tp-sp-1-5)',
+              paddingInline: 'var(--tp-sp-2-5)',
+              borderRadius: 'var(--tp-radius-pill)',
               border: `1px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
               background: selected ? 'var(--tp-accent)' : 'transparent',
               color: selected ? 'var(--tp-accent-contrast)' : 'var(--tp-muted-fg)',
-              fontSize: '0.8rem',
+              fontSize: 'var(--tp-fs-sm)',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
           >
-            <span aria-hidden="true" style={{ opacity: 0.7, marginInlineEnd: '0.3rem' }}>
+            <span aria-hidden="true" style={{ opacity: 0.7, marginInlineEnd: 'var(--tp-sp-1-5)' }}>
               {zone.ordinal}
             </span>
             {tr(zone.titleKey)}

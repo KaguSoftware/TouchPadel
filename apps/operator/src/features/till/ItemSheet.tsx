@@ -9,7 +9,7 @@ import { formatIQD } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Field, Modal, inputStyle } from '../../components/ui';
 import type { BasketLine, ItemRow, ModifierGroupRow, ModifierRow } from './tillData';
-import { muted, touchTarget } from './tillStyles';
+import { muted, reasonedFooter, touchTarget } from './tillStyles';
 
 export function ItemSheet({
   item,
@@ -39,10 +39,13 @@ export function ItemSheet({
 
   const variant = variants.find((v) => v.id === variantId);
 
-  const selectionValid = linkedGroups.every((g) => {
+  // The first group whose min/max is not satisfied — Add is disabled because
+  // of THAT group, so name it rather than leaving a grey button (rulebook 4.3).
+  const unsatisfied = linkedGroups.find((g) => {
     const count = modifiers.filter((m) => m.group_id === g.id && chosen.has(m.id)).length;
-    return count >= g.min_select && count <= g.max_select;
+    return count < g.min_select || count > g.max_select;
   });
+  const selectionValid = unsatisfied === undefined;
 
   function toggle(m: ModifierRow, group: ModifierGroupRow) {
     setChosen((prev) => {
@@ -87,17 +90,31 @@ export function ItemSheet({
       title={pickName(locale, item)}
       onClose={onClose}
       footer={
-        <>
+        <div style={reasonedFooter}>
           <Button onClick={onClose}>{tr('common.cancel')}</Button>
-          <Button kind="primary" size="lg" disabled={!variant || !selectionValid} onClick={add}>
+          <Button
+            kind="primary"
+            size="lg"
+            disabled={!variant || !selectionValid}
+            disabledReason={
+              unsatisfied
+                ? tr('ws.cashier.till.sheet.needChoice', {
+                    group: pickName(locale, unsatisfied),
+                    min: unsatisfied.min_select,
+                    max: unsatisfied.max_select,
+                  })
+                : undefined
+            }
+            onClick={add}
+          >
             {tr('op.till.addToBasket')}
           </Button>
-        </>
+        </div>
       }
     >
       {variants.length > 1 ? (
         <Field label={tr('op.till.size')}>
-          <div role="radiogroup" aria-label={tr('op.till.size')} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+          <div role="radiogroup" aria-label={tr('op.till.size')} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
             {variants.map((v) => (
               <Button
                 key={v.id}
@@ -113,18 +130,18 @@ export function ItemSheet({
         </Field>
       ) : (
         variant && (
-          <p style={{ ...muted, marginBlockEnd: '0.75rem' }}>
+          <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>
             {pickName(locale, variant)} · <bdi>{formatIQD(variant.price_iqd, locale)}</bdi>
           </p>
         )
       )}
 
       {linkedGroups.map((g) => (
-        <div key={g.id} style={{ marginBlockEnd: '0.85rem' }}>
-          <p style={{ ...muted, marginBlockEnd: '0.3rem', fontWeight: 600 }}>
+        <div key={g.id} style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
+          <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-1)', fontWeight: 600 }}>
             {pickName(locale, g)} <span style={{ fontWeight: 400 }}>({g.min_select}–{g.max_select})</span>
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
             {modifiers
               .filter((m) => m.group_id === g.id && m.is_active)
               .map((m) => (
@@ -149,7 +166,7 @@ export function ItemSheet({
       ))}
 
       <Field label={tr('op.till.qty')}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
           <Button size="lg" icon="minus" aria-label="−1" disabled={qty <= 1} onClick={() => setQty((q) => Math.max(1, q - 1))} style={touchTarget} />
           <input
             style={{ ...inputStyle, inlineSize: '4.5rem', textAlign: 'center', fontSize: 'var(--tp-fs-lg)' }}

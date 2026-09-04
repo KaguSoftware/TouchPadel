@@ -9,7 +9,7 @@ import type { AbandonedView } from '@touch/core';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
 import type { Formatters } from '../format';
-import { DWELL, GRID, MUTED } from './colors';
+import { AXIS, DWELL, GRID } from './colors';
 
 export function AbandonedViewsChart({ rows, f }: { rows: readonly AbandonedView[]; f: Formatters }) {
   const { tr, dir, locale } = useLocale();
@@ -23,10 +23,10 @@ export function AbandonedViewsChart({ rows, f }: { rows: readonly AbandonedView[
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 4 }}>
         <CartesianGrid stroke={GRID} horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 11, fill: MUTED }} stroke={GRID} tickFormatter={(v: number) => f.num(v)} />
-        <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 11, fill: MUTED }} stroke={GRID} interval={0} />
-        <Tooltip wrapperStyle={{ direction: dir }} contentStyle={{ fontSize: '0.8rem' }} formatter={(value) => f.num(Number(value))} />
-        <Legend wrapperStyle={{ fontSize: '0.78rem', direction: dir }} />
+        <XAxis type="number" tick={{ fontSize: 11, fill: AXIS }} stroke={GRID} tickFormatter={(v: number) => f.num(v)} />
+        <YAxis type="category" dataKey="label" width={130} tick={{ fontSize: 11, fill: AXIS }} stroke={GRID} interval={0} />
+        <Tooltip wrapperStyle={{ direction: dir }} contentStyle={{ fontSize: 'var(--tp-fs-sm)' }} formatter={(value) => f.num(Number(value))} />
+        <Legend wrapperStyle={{ fontSize: 'var(--tp-fs-xs)', direction: dir }} />
         <Bar dataKey="short" stackId="d" name={tr('analytics.cards.dwellShort')} fill={DWELL[0]} />
         <Bar dataKey="medium" stackId="d" name={tr('analytics.cards.dwellMedium')} fill={DWELL[1]} />
         <Bar dataKey="long" stackId="d" name={tr('analytics.cards.dwellLong')} fill={DWELL[2]} />

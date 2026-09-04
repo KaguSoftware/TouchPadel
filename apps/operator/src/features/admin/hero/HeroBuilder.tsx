@@ -206,13 +206,13 @@ export function HeroBuilder() {
   ];
 
   return (
-    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <div style={{ flex: '1 1 26rem', minInlineSize: 0, display: 'grid', gap: '0.8rem' }}>
+    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div style={{ flex: '1 1 26rem', minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <h2 style={{ margin: 0 }}>{tr('op.hero.title')}</h2>
 
         <section style={card}>
           <Field label={tr('op.hero.mode')}>
-            <div role="radiogroup" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <div role="radiogroup" style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
               {modes.map((m) => (
                 <Button
                   key={m.id}
@@ -226,7 +226,7 @@ export function HeroBuilder() {
               ))}
             </div>
           </Field>
-          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
             {modes.find((m) => m.id === draft.hero_mode)?.hint}
           </p>
         </section>
@@ -244,7 +244,7 @@ export function HeroBuilder() {
             maxBytes={HERO_IMAGE_MAX_BYTES}
             maxVideoMb={HERO_VIDEO_MAX_MB}
           />
-          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
             {tr('op.hero.mediaHint', { mb: HERO_VIDEO_MAX_MB })}
           </p>
         </section>
@@ -272,7 +272,7 @@ export function HeroBuilder() {
             </select>
           </Field>
           {menuQ.isSuccess && grouped.length === 0 && (
-            <p style={{ fontSize: '0.85rem', color: 'var(--tp-muted-fg)' }}>{tr('op.hero.noItems')}</p>
+            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.hero.noItems')}</p>
           )}
           <BilingualFields
             labelEn={`${tr('op.hero.label')} (EN)`}
@@ -302,13 +302,13 @@ export function HeroBuilder() {
 
         <section style={card}>
           <Field label={tr('op.hero.ticker')}>
-            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.4rem' }}>
+            <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
               {tr('op.hero.tickerHint')}
             </span>
           </Field>
           <TickerEditor rows={draft.ticker} onChange={(ticker) => patch({ ticker })} />
           {tickerProblem === 'incomplete' && (
-            <p role="alert" style={{ color: 'var(--tp-danger)', fontSize: '0.85rem' }}>
+            <p role="alert" style={{ color: 'var(--tp-danger)', fontSize: 'var(--tp-fs-sm)' }}>
               {tr('op.hero.rowIncomplete')}
             </p>
           )}
@@ -320,21 +320,21 @@ export function HeroBuilder() {
             onChange={(next) => patch({ bell_tutorial_enabled: next })}
             label={tr('op.hero.bellTutorial')}
           />
-          <p style={{ margin: 0, marginBlockStart: '0.3rem', fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>
+          <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
             {tr('op.hero.bellTutorialHint')}
           </p>
         </section>
 
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center' }}>
           <Button kind="primary" disabled={!canSave} onClick={() => void save()}>
             {tr('common.save')}
           </Button>
-          {modeProblem && <span style={{ color: 'var(--tp-danger)', fontSize: '0.85rem' }}>{modeProblem}</span>}
+          {modeProblem && <span style={{ color: 'var(--tp-danger)', fontSize: 'var(--tp-fs-sm)' }}>{modeProblem}</span>}
         </div>
       </div>
 
-      <aside data-no-print style={{ flex: '0 0 auto', position: 'sticky', insetBlockStart: '1rem' }}>
-        <p style={{ margin: 0, marginBlockEnd: '0.4rem', fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>
+      <aside data-no-print style={{ flex: '0 0 auto', position: 'sticky', insetBlockStart: 'var(--tp-sp-4)' }}>
+        <p style={{ margin: 0, marginBlockEnd: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
           {tr('op.hero.preview')}
         </p>
         <HeroPreview

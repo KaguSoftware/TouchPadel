@@ -121,6 +121,59 @@ export const managerEn = {
     },
   },
 
+  /**
+   * Shared filter-chip and disabled-reason vocabulary. Rulebook 6.6 wants an
+   * active filter visible and removable where the results are, and 4.3 wants a
+   * disabled control to say why — both of which every admin list was inventing
+   * its own wording for. One phrasing, reused.
+   */
+  filters: {
+    search: 'Search: {value}',
+    area: 'Area: {value}',
+    person: 'Person: {value}',
+    missingReason: 'Missing reason only',
+    includeInactive: 'Including inactive',
+    lowStock: 'Low stock only',
+    belowPar: 'Below par only',
+  },
+
+  disabled: {
+    namesRequired: 'Fill in both names first.',
+    daysRequired: 'Choose at least one weekday.',
+    priceRequired: 'Enter a price for at least one duration.',
+    atCap: 'The list is full — remove one to add another.',
+    noSiteUrl: 'No public site address is configured, so a card would print without a link.',
+    durationsRequired: 'Choose at least one duration.',
+    noChanges: 'Nothing has changed yet.',
+    self: 'You cannot change your own account.',
+  },
+
+  settings: {
+    groups: {
+      tradingDay: 'The trading day',
+      service: 'Service',
+      analytics: 'Analytics',
+    },
+    analyticsLead: 'What the analytics screens count, and from when. Nothing here changes what is sold or charged.',
+    noChanges: 'This is already the saved value.',
+    cooldownInvalid: 'Enter a whole number of seconds between 30 and 600.',
+    stationOnly: 'This station only',
+    floorPickDate: 'Choose a date first.',
+    telegram: {
+      lead: 'How the venue is told about new orders and waiter calls, and the record of what was sent.',
+      channel: 'The channel',
+      check: 'Check it works',
+      chatIdInvalid: 'Enter a group chat ID like -1001234567890.',
+      testDisabled: 'Switch notifications on and save a group chat ID first.',
+      testRunning: 'A test message is already on its way.',
+      enabledHint: 'On: new orders and waiter calls are posted to the group below. Off: nothing is sent and nothing is queued.',
+      langHint: 'The language every message is written in, whatever language the staff use in this app.',
+      outboxLead: 'The last 20 messages, newest first.',
+      outboxEmptyBody: 'Send a test message to check the bot is wired up.',
+      retryDisabled: 'This message has not been attempted yet.',
+    },
+  },
+
   promotions: {
     title: 'Promotions',
     lead: 'Every promotion, active and inactive. Promotions are switched off, never deleted, so history stays intact.',

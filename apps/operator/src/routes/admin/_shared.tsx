@@ -19,7 +19,7 @@ export function guarded(route: string, Component: ComponentType): () => ReactEle
 
 export function RoutePending() {
   return (
-    <div style={{ paddingBlock: '2rem', display: 'flex', justifyContent: 'center' }}>
+    <div style={{ paddingBlock: 'var(--tp-sp-6)', display: 'flex', justifyContent: 'center' }}>
       <Spinner size="md" />
     </div>
   );

@@ -24,9 +24,9 @@ export function WasteAndProduction() {
   return (
     <div style={{ maxInlineSize: '60rem' }}>
       <PageHeader title={tr('op.stock.wasteTitle')} subtitle={tr('ws.manager.stock.waste.lead')} />
-      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', alignItems: 'start' }}>
         <WasteForm />
-        <div style={{ display: 'grid', gap: '1rem' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           <ReasonsPanel />
           <Panel title={tr('op.stock.productionTitle')}>
             <ProductionForm />
@@ -44,7 +44,7 @@ function ReasonsPanel() {
   const { tr } = useLocale();
   const navigate = useNavigate();
   const line = (label: string, hint: string | null, tone: 'accent' | 'neutral') => (
-    <li style={{ display: 'grid', gap: '0.15rem', paddingBlock: '0.4rem', borderBlockEnd: '1px solid var(--tp-border)' }}>
+    <li style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlock: 'var(--tp-sp-1-5)', borderBlockEnd: '1px solid var(--tp-border)' }}>
       <StatusBadge size="sm" tone={tone} label={label} style={{ justifySelf: 'start' }} />
       {hint && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</span>}
     </li>
@@ -57,7 +57,7 @@ function ReasonsPanel() {
         {line(tr('ws.manager.stock.waste.voidAfterSend'), tr('ws.manager.stock.waste.voidAfterSendHint'), 'neutral')}
         {line(tr('ws.manager.stock.waste.expiredWriteOff'), tr('ws.manager.stock.waste.expiredWriteOffHint'), 'neutral')}
       </ul>
-      <Button size="sm" icon="hourglass" style={{ marginBlockStart: '0.5rem' }} onClick={() => void navigate({ to: '/stock/expiry' })}>
+      <Button size="sm" icon="hourglass" style={{ marginBlockStart: 'var(--tp-sp-2)' }} onClick={() => void navigate({ to: '/stock/expiry' })}>
         {tr('ws.manager.stock.waste.goToExpiry')}
       </Button>
     </Panel>

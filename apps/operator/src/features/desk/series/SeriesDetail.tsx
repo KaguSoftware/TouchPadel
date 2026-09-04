@@ -102,7 +102,13 @@ export function SeriesDetailScreen() {
               {tr('ws.courtDesk.detail.backToCalendar')}
             </Link>
             {s && !cancelled && (
-              <Button kind="danger" icon="ban" disabled={busy || summary.upcoming === 0} onClick={() => setScopeDialog(true)}>
+              <Button
+                kind="danger"
+                icon="ban"
+                disabled={busy || summary.upcoming === 0}
+                disabledReason={summary.upcoming === 0 ? tr('ws.courtDesk.seriesDetail.nothingToCancel') : undefined}
+                onClick={() => setScopeDialog(true)}
+              >
                 {tr('ws.courtDesk.seriesDetail.cancelSeries')}
               </Button>
             )}
@@ -176,7 +182,7 @@ export function SeriesDetailScreen() {
                   {occurrences.map((o) => {
                     const editable = occurrenceEditable(o);
                     return (
-                      <tr key={o.id} aria-disabled={o.played || undefined} style={{ opacity: o.played ? 0.55 : 1 }}>
+                      <tr key={o.id} aria-disabled={o.played || undefined} style={{ opacity: o.played ? 'var(--tp-opacity-disabled)' : 1 }}>
                         <td style={{ whiteSpace: 'nowrap' }}>
                           <bdi>{formatDate(new Date(o.start_at), locale, tz)}</bdi>
                         </td>
@@ -230,6 +236,7 @@ export function SeriesDetailScreen() {
               <Button
                 kind="danger"
                 disabled={cancelScopeCount(occurrences, scope, nowIso) === 0}
+                disabledReason={tr('ws.courtDesk.seriesDetail.scopeEmpty')}
                 onClick={() => {
                   setScopeDialog(false);
                   setPending({ kind: 'series', scope });

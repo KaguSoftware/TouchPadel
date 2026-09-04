@@ -212,7 +212,7 @@ export function RecipeEditor() {
       />
 
       <Panel>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <Field label={tr('op.stock.kind')} style={{ marginBlockEnd: 0 }}>
             <SegmentedControl<TargetKind>
               value={target}
@@ -235,25 +235,25 @@ export function RecipeEditor() {
             </select>
           </Field>
         </div>
-        {target === 'modifier' && <MessagePresenter tone="info" message={tr('ws.manager.stock.recipes.modifierHint')} style={{ marginBlockStart: '0.75rem' }} />}
+        {target === 'modifier' && <MessagePresenter tone="info" message={tr('ws.manager.stock.recipes.modifierHint')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />}
       </Panel>
 
       {target === 'variant' && siblings.length > 0 && (
         <Panel
           title={tr('ws.manager.stock.recipes.matrixTitle')}
           padded={false}
-          style={{ marginBlockStart: '0.75rem' }}
+          style={{ marginBlockStart: 'var(--tp-sp-3)' }}
           actions={incompleteCount > 0 ? <StatusBadge size="sm" tone="danger" icon="alert" label={`${tr('ws.manager.stock.recipes.incomplete')} · ${formatNumber(incompleteCount, locale)}`} /> : undefined}
         >
-          <p style={{ paddingBlock: '0.5rem', paddingInline: '0.85rem', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.recipes.matrixLead')}</p>
-          <DataTable dense columns={matrixColumns} rows={siblings} rowKey={(v) => v.id} selectedKey={targetId} aria-label={tr('ws.manager.stock.recipes.matrixTitle')} />
+          <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.recipes.matrixLead')}</p>
+          <DataTable columns={matrixColumns} rows={siblings} rowKey={(v) => v.id} selectedKey={targetId} aria-label={tr('ws.manager.stock.recipes.matrixTitle')} />
         </Panel>
       )}
 
       {targetId && (
-        <Panel title={selectedOption?.label ?? ''} style={{ marginBlockStart: '0.75rem' }}>
+        <Panel title={selectedOption?.label ?? ''} style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
           {lines.map((l) => (
-            <div key={l.key} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '0.4rem', alignItems: 'end', marginBlockEnd: '0.3rem' }}>
+            <div key={l.key} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 'var(--tp-sp-1-5)', alignItems: 'end', marginBlockEnd: 'var(--tp-sp-1)' }}>
               <Field label={tr('op.stock.ingredient')} style={{ marginBlockEnd: 0 }}>
                 <select
                   style={inputStyle}
@@ -279,15 +279,15 @@ export function RecipeEditor() {
                   onChange={(e) => setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, qty: e.target.value } : x)))}
                 />
               </Field>
-              <div style={{ paddingBlockEnd: '0.15rem' }}>
+              <div style={{ paddingBlockEnd: 'var(--tp-sp-0)' }}>
                 <Button kind="ghost" size="sm" icon="x" disabled={busy} aria-label={tr('ws.kit.actions.remove')} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))} />
               </div>
             </div>
           ))}
           {lines.length === 0 && (
-            <MessagePresenter tone="refused" icon="alert" message={tr('ws.manager.stock.recipes.incomplete')} style={{ marginBlockEnd: '0.6rem' }} />
+            <MessagePresenter tone="refused" icon="alert" message={tr('ws.manager.stock.recipes.incomplete')} style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }} />
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBlockStart: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBlockStart: 'var(--tp-sp-2)', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
             <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, { key: crypto.randomUUID(), ingredientId: '', qty: '' }])}>
               {tr('op.stock.addLine')}
             </Button>
