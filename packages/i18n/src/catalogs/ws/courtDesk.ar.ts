@@ -37,6 +37,8 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     startsIn: 'يبدأ {time}',
     live: 'مباشر',
     polling: 'يُحدَّث كل دقيقة',
+    newBookingBlockedLoading: 'بانتظار تحميل حجوزات اليوم والملاعب.',
+    newBookingBlockedError: 'تعذّر تحميل حجوزات اليوم — أعد المحاولة أولاً.',
   },
 
   calendar: {
@@ -71,6 +73,7 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     pickAnother: 'اختيار وقت آخر',
     price: 'السعر',
     priced: 'يحدد الخادم سعر الخانة عند الإنشاء.',
+    needsGuest: 'أدخل اسم الضيف، أو اربط حساباً.',
   },
 
   detail: {
@@ -110,6 +113,8 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     newTime: 'وقت البداية الجديد',
     moveSubmit: 'نقل',
     refused: 'رفض الخادم هذا التجاوز.',
+    shortenFloor: 'الحجز أصلاً بأقصر مدة مسعّرة لهذا الملعب ({minutes}).',
+    moveNeedsTime: 'اختر وقت البدء الجديد أولاً.',
     done: 'تم الحفظ.',
     reason: {
       move: 'نقل هذا الحجز',
@@ -179,6 +184,8 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     invalidEnd: 'يجب أن يكون التاريخ الأخير بعد الأول.',
     invalidWeekdays: 'اختر يوماً واحداً على الأقل.',
     staleDraft: 'تغيّر النمط منذ آخر فحص — افحص التعارضات مجدداً.',
+    needsCheck: 'افحص التعارضات قبل إنشاء السلسلة.',
+    needsCustomer: 'أضف عميلاً، أو أدخل اسم زائر.',
     date: 'التاريخ',
     occurrence: 'الموعد',
     outcome: 'النتيجة',
@@ -207,6 +214,8 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     reasonCancelSeries: 'إلغاء {count} مواعيد من هذه السلسلة',
     reasonCancelOne: 'إلغاء موعد واحد من هذه السلسلة',
     cancelled: 'أُلغيت السلسلة.',
+    nothingToCancel: 'كل المواعيد لُعبت أو أُلغيت بالفعل.',
+    scopeEmpty: 'لا يشمل هذا النطاق أي موعد يمكن إلغاؤه.',
     seriesCancelled: 'هذه السلسلة ملغاة.',
     patternLabel: {
       weekly: 'أسبوعي',
@@ -233,6 +242,7 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     conflictBody: 'هذا الملعب محجوز فعلاً في جزء من هذه الفترة. لم يُحفظ شيء.',
     openCalendar: 'فتح التقويم',
     another: 'حجب آخر',
+    needsFields: 'أكمل الملعب والتاريخ والبداية والنهاية والسبب أولاً.',
   },
 
   customers: {
@@ -250,6 +260,8 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     attachingBooking: 'اختر الزبون لربطه بهذا الحجز.',
     attachingTab: 'اختر الزبون لربطه بهذه الطاولة.',
     attached: 'تم الربط.',
+    queryChip: 'مطابق لـ «{query}»',
+    capped: 'تُعرض أول {count} نتيجة — أضف المزيد من الاسم أو الرقم لتضييق البحث.',
     counts: {
       bookings: '{count} حجوزات',
       cancellations: '{count} ملغاة',
@@ -294,6 +306,7 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     notes: 'ملاحظات الموظفين',
     notesLead: 'مرئية للموظفين فقط. لا تُطبع ولا تُعرض للضيف أبداً.',
     noNotes: 'لا ملاحظات بعد.',
+    noteEmpty: 'اكتب الملاحظة أولاً.',
     addNote: 'إضافة ملاحظة',
     notePlaceholder: 'اكتب ملاحظة للفريق…',
     saveNote: 'حفظ الملاحظة',

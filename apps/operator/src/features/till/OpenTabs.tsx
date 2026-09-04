@@ -142,7 +142,7 @@ export function OpenTabsBoard({
       key: 'source',
       header: tr('ws.cashier.tabs.colSource'),
       render: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: r.web ? 'var(--tp-accent)' : 'var(--tp-muted-fg)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: r.web ? 'var(--tp-accent)' : 'var(--tp-muted-fg)' }}>
           <Icon name={r.web ? 'globe' : 'receipt'} size={13} /> {r.web ? tr('ws.cashier.tabs.sourceWeb') : tr('ws.cashier.tabs.sourceTill')}
         </span>
       ),
@@ -170,7 +170,7 @@ export function OpenTabsBoard({
       header: '',
       align: 'end',
       render: (r) => (
-        <span style={{ display: 'inline-flex', gap: '0.3rem' }} onClick={(e) => e.stopPropagation()}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)' }} onClick={(e) => e.stopPropagation()}>
           <Button size="sm" icon="merge" onClick={() => onMerge(r.id)} title={tr('ws.cashier.tabs.survivor')}>
             {tr('ws.cashier.tabs.merge')}
           </Button>
@@ -238,7 +238,7 @@ export function OpenTabsBoard({
           emptyContent={tr('ws.cashier.tabs.noMatches')}
           aria-label={tr('ws.cashier.tabs.title')}
         />
-        <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: '0.5rem' }}>{tr('ws.cashier.tabs.runningTotal')}</p>
+        <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.tabs.runningTotal')}</p>
       </AsyncStateWrapper>
     </div>
   );
@@ -309,7 +309,7 @@ export function OpenTabsScreen() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(16rem, 18rem)', gap: '1.25rem', alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(16rem, 18rem)', gap: 'var(--tp-sp-5)', alignItems: 'start' }}>
       <OpenTabsBoard
         status={asyncStatus(tabsQ, (d) => d.length === 0)}
         rows={rows}
@@ -324,7 +324,7 @@ export function OpenTabsScreen() {
         onOpenTab={() => setNewTab(true)}
         onRetry={() => void tabsQ.refetch()}
       />
-      <aside style={{ display: 'grid', gap: '0.75rem' }}>
+      <aside style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <StartShiftBanner />
         <WaiterCallsPanel status={floorStatus} />
       </aside>

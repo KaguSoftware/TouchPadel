@@ -78,7 +78,7 @@ export function CourtBlockScreen() {
   }
 
   return (
-    <div style={{ maxInlineSize: '40rem' }}>
+    <div style={{ maxInlineSize: 'var(--tp-measure-form)' }}>
       <PageHeader title={tr('ws.courtDesk.block.title')} subtitle={tr('ws.courtDesk.block.lead')} />
       <AsyncStateWrapper status={asyncStatus(courtsQ, (c) => c.length === 0)} error={courtsQ.error} onRetry={() => void courtsQ.refetch()}>
         {done ? (
@@ -125,7 +125,14 @@ export function CourtBlockScreen() {
               <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
                 {tr('common.cancel')}
               </Link>
-              <Button kind="primary" icon="ban" busy={busy} disabled={!canSubmit} onClick={() => void submit()}>
+              <Button
+                kind="primary"
+                icon="ban"
+                busy={busy}
+                disabled={!canSubmit}
+                disabledReason={rangeInvalid ? tr('ws.courtDesk.block.invalidRange') : tr('ws.courtDesk.block.needsFields')}
+                onClick={() => void submit()}
+              >
                 {tr('ws.courtDesk.block.submit')}
               </Button>
             </div>

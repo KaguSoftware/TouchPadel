@@ -6,13 +6,19 @@
  * RPC call shape (build plan §4): `(p_from, p_to, p_group, p_filters jsonb)`.
  * The active view, the comparison mode and the four filters travel inside
  * `p_filters` — the jsonb is the contract's extension point.
+ *
+ * Rulebook 2.2 fixes the anatomy of a list page and this is the one place all
+ * five reports get it from: title + primary action and the row count, filter
+ * bar, toolbar, table, pagination. The reports used to render whatever columns
+ * the RPC happened to send, in whatever order, all of them, unpaged, with one
+ * empty state doing the work of three.
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { appRpc, type AppFunctionName } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
-import { Tabs } from '../../components/ui';
+import { Button, Tabs } from '../../components/ui';
 import {
   AsyncStateWrapper,
   ComparisonControl,
@@ -21,6 +27,8 @@ import {
   EmptyState,
   ExportButton,
   PageHeader,
+  ResultCount,
+  TableSkeleton,
   Toolbar,
   asyncStatus,
   presetPeriod,
@@ -34,9 +42,27 @@ import { ReportFilterBar, type FilterField, type ReportView } from './ReportFilt
 import { ReportTable } from './ReportTable';
 import { columnLabel, toDataColumns } from './columns';
 import { reportCsv, reportFilename } from './reportCsv';
-import { drillKeyFor, normalizeColumns, rowLabel, type DrillResult, type ReportFilters, type ReportGroup, type ReportName, type ReportResult, type ReportRow } from './reportTypes';
+import {
+  drillKeyFor,
+  inferKind,
+  normalizeColumns,
+  rowLabel,
+  sortRows,
+  type DrillResult,
+  type NormalizedColumn,
+  type ReportFilters,
+  type ReportGroup,
+  type ReportName,
+  type ReportResult,
+  type ReportRow,
+} from './reportTypes';
 
 export type ReportRpc = Extract<AppFunctionName, `report_${string}`>;
+
+/**
+ * Enough rows to read a month of days without paging, few enough that the
+ * totals row stays on screen with the figures it totals.
+ */
 
 const REPORT_TABS: readonly { id: ReportName; path: '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff' }[] = [
   { id: 'revenue', path: '/reports/revenue' },
@@ -66,11 +92,21 @@ export interface ReportScreenProps {
 export function ReportScreen({ name, rpc, views, fields, enabled = true, notice, intro, sortable = true, defaultSort, rowExtra, extraControls }: ReportScreenProps) {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
-  const [period, setPeriod] = useState<Period>(() => presetPeriod('thisMonth'));
+  const [period, setPeriodState] = useState<Period>(() => presetPeriod('thisMonth'));
   const [compare, setCompare] = useState<ComparisonMode>('none');
-  const [group, setGroup] = useState<ReportGroup>('day');
-  const [filters, setFilters] = useState<ReportFilters>({ view: views[0]?.id ?? 'default' });
+  const [group, setGroupState] = useState<ReportGroup>('day');
+  const [filters, setFiltersState] = useState<ReportFilters>({ view: views[0]?.id ?? 'default' });
   const [drill, setDrill] = useState<{ key: string; label: string } | null>(null);
+  const [sort, setSortState] = useState<SortState | null>(defaultSort ?? null);
+  const [allColumns, setAllColumns] = useState(false);
+
+  // Anything that changes which rows exist returns the pager to the first page.
+  // Clamping instead would silently put the manager back on page 4 the moment
+  // they widened the range again.
+  const setPeriod = (p: Period) => setPeriodState(p);
+  const setGroup = (g: ReportGroup) => setGroupState(g);
+  const setFilters = (f: ReportFilters) => setFiltersState(f);
+  const setSort = (s: SortState) => setSortState(s);
 
   // Argument shapes follow migration 0068 exactly: only report_revenue takes
   // p_group, report_staff_activity takes p_staff_id instead of p_filters, and
@@ -100,6 +136,37 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
   const status = enabled ? asyncStatus(reportQ, (d) => (d?.rows ?? []).length === 0) : 'ready';
   const view = views.find((v) => v.id === filters.view);
 
+  /**
+   * Rulebook 6.1: columns are chosen, not inherited. The server sends every
+   * column it has and the CSV below still exports all of them; the table shows
+   * the ones the active view is about. If the payload has stopped carrying the
+   * declared keys — a shape change, a renamed column — the server's own set
+   * wins, because a one-column table is a worse answer than a wide one.
+   */
+  const visibleColumns = useMemo(() => {
+    const declared = view?.columns;
+    if (!declared || allColumns) return columns;
+    const byKey = new Map(columns.map((c) => [c.key, c] as const));
+    const picked = declared.map((k) => byKey.get(k)).filter((c): c is NormalizedColumn => c !== undefined);
+    return picked.length >= 2 ? picked : columns;
+  }, [columns, view, allColumns]);
+  const columnsHidden = columns.length - visibleColumns.length;
+  const canToggleColumns = Boolean(view?.columns) && (allColumns || columnsHidden > 0);
+
+  /**
+   * Rulebook 9.1: the skeleton is built from the same declared column set, so
+   * the headers, the column count and the end-aligned numeric columns are
+   * already in place when the rows land and nothing jumps.
+   */
+  const skeletonColumns = useMemo(() => {
+    const declared = view?.columns;
+    if (!declared) return null;
+    const shape: NormalizedColumn[] = declared.map((key) => ({ key, kind: inferKind(key, null, undefined), labelEn: null, labelAr: null }));
+    return toDataColumns(shape, locale, tr);
+  }, [view, locale, tr]);
+
+  const sorted = useMemo(() => sortRows(rows, sort?.key ?? null, sort?.dir ?? 'asc'), [rows, sort]);
+
   const drillQ = useQuery({
     queryKey: ['reports', 'drill', name, drill?.key, period.from, period.to],
     // A row drill is scoped by its own key ('court:<id>' | 'item:<id>' | 'staff:<id>'); that IS the figure argument.
@@ -116,6 +183,8 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
   }
 
   function exportCsv() {
+    // The full column set, always: hiding a column is a reading decision on
+    // this screen, not a decision about what the manager may take away.
     const csv = reportCsv(columns, rows, reportQ.data?.totals, (c) => columnLabel(c, locale, tr), tr('ws.reports.totals'));
     downloadCsv(
       reportFilename(tr(`ws.reports.export.${name}`), period, {
@@ -132,6 +201,7 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
 
   const ctx = { filters, period };
   const extra = rowExtra?.(ctx);
+  const activeFilters = [filters.courtId, filters.categoryId, filters.staffId, filters.paymentMethod].filter(Boolean).length;
 
   return (
     <div>
@@ -139,7 +209,15 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
         title={tr(`ws.reports.nav.${name}`)}
         eyebrow={tr('ws.reports.title')}
         subtitle={tr(`ws.reports.lead.${name}`)}
-        actions={<ExportButton onExport={exportCsv} disabled={status !== 'ready'} />}
+        actions={
+          <>
+            {/* Rulebook 6.10. First in the actions row, which is end-aligned, so
+                the export button stays exactly where it was before the count
+                arrived. */}
+            {status === 'ready' && <ResultCount shown={sorted.length} total={rows.length} />}
+            <ExportButton onExport={exportCsv} disabled={status !== 'ready'} />
+          </>
+        }
       >
         <Tabs<ReportName>
           value={name}
@@ -152,7 +230,18 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
         />
       </PageHeader>
       {notice}
-      <Toolbar end={<ComparisonControl mode={compare} onChange={setCompare} disabled={!enabled || reportQ.isFetching} />}>
+      <Toolbar
+        end={
+          <>
+            {canToggleColumns && (
+              <Button size="sm" icon="layers" aria-pressed={allColumns} onClick={() => setAllColumns((v) => !v)}>
+                {allColumns ? tr('ws.reports.columnSet.showKey') : tr('ws.reports.columnSet.showAll')}
+              </Button>
+            )}
+            <ComparisonControl mode={compare} onChange={setCompare} disabled={!enabled || reportQ.isFetching} />
+          </>
+        }
+      >
         <DateRangeControl period={period} onChange={setPeriod} disabled={!enabled || reportQ.isFetching} />
       </Toolbar>
       <ReportFilterBar fields={fields} filters={filters} onChange={setFilters} group={group} onGroup={setGroup} views={views} disabled={!enabled} />
@@ -162,17 +251,32 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
         status={status}
         error={reportQ.error}
         onRetry={() => void reportQ.refetch()}
-        emptyContent={<EmptyState icon="chart" title={tr('ws.reports.emptyTitle')} body={tr('ws.reports.emptyBody')} />}
+        skeleton={skeletonColumns ? <TableSkeleton columns={skeletonColumns} rows={8} dense /> : undefined}
+        emptyContent={
+          /* Rulebook 9.2, three different situations and three sentences: a
+             filter that matched nothing offers the way back out of it, a view
+             that lists exceptions says so positively, and only a genuinely
+             empty range says there is nothing to report. */
+          activeFilters > 0 ? (
+            <EmptyState kind="filtered" body={tr('ws.reports.emptyBody')} onClearFilters={() => setFilters({ view: filters.view })} />
+          ) : view?.emptyKind === 'nothingToDo' ? (
+            <EmptyState kind="nothingToDo" />
+          ) : (
+            <EmptyState icon="chart" title={tr('ws.reports.emptyTitle')} body={tr('ws.reports.emptyBody')} />
+          )
+        }
       >
+        {/* The bars summarise the whole result; the table below pages it. */}
         {view?.bars && <HourBars rows={rows} labelKey={view.bars.labelKey} valueKey={view.bars.valueKey} columns={columns} title={tr('ws.reports.bars.label')} />}
         <ReportTable
           aria-label={tr(`ws.reports.nav.${name}`)}
-          columns={columns}
-          rows={rows}
+          columns={visibleColumns}
+          rows={sorted}
           totals={reportQ.data?.totals}
           onDrill={onDrill}
           sortable={sortable}
-          defaultSort={defaultSort}
+          sort={sort}
+          onSort={setSort}
           rowExtra={extra}
         />
       </AsyncStateWrapper>

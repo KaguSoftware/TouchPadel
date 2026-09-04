@@ -1,7 +1,7 @@
 /**
  * Category strip + item grid (spec CategoryGrid / MenuItemGrid / MenuItemTile).
  *
- * Tiles are ≥ 72px tall with 44px targets. Two visibly different disabled
+ * Tiles are var(--tp-tile-min-block) (72px) tall with 44px targets. Two visibly different disabled
  * looks, each with a text label (never colour alone):
  *   `unavailable`     staff-marked, temporary — dashed border, "set by staff"
  *   `blockedByStock`  stock-derived — solid muted ground, "Out of stock"
@@ -41,7 +41,7 @@ export function CategoryStrip({
       style={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: '0.35rem',
+        gap: 'var(--tp-sp-1-5)',
         flexShrink: 0,
         maxBlockSize: '8.75rem',
         overflowY: 'auto',
@@ -58,7 +58,7 @@ export function CategoryStrip({
             data-size="lg"
             aria-pressed={active}
             onClick={() => onSelect(c.id)}
-            style={{ minBlockSize: 'var(--tp-touch)', gap: '0.5rem' }}
+            style={{ minBlockSize: 'var(--tp-touch)', gap: 'var(--tp-sp-2)' }}
           >
             {i < 9 && <Kbd>{i + 1}</Kbd>}
             {pickName(locale, c)}
@@ -129,7 +129,7 @@ export function MenuItemGrid({
   }
 
   if (items.length === 0) {
-    return <p style={{ ...muted, paddingBlock: '1rem' }}>{emptyText}</p>;
+    return <p style={{ ...muted, paddingBlock: 'var(--tp-sp-4)' }}>{emptyText}</p>;
   }
 
   return (
@@ -141,7 +141,7 @@ export function MenuItemGrid({
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))',
-        gap: '0.45rem',
+        gap: 'var(--tp-sp-1-5)',
         alignContent: 'start',
       }}
     >
@@ -189,11 +189,13 @@ export function MenuItemGrid({
             style={{
               display: 'grid',
               alignContent: 'space-between',
-              gap: '0.35rem',
+              gap: 'var(--tp-sp-1-5)',
               textAlign: 'start',
-              minBlockSize: '4.75rem',
-              paddingBlock: '0.6rem',
-              paddingInline: '0.7rem',
+              // 72px, in px so it can never drift with the reading root — the
+              // floor DESIGN.md names for a till tile.
+              minBlockSize: 'var(--tp-tile-min-block)',
+              paddingBlock: 'var(--tp-sp-2-5)',
+              paddingInline: 'var(--tp-sp-2-5)',
               borderRadius: 'var(--tp-radius-panel)',
               color: 'var(--tp-fg)',
               font: 'inherit',
@@ -203,7 +205,7 @@ export function MenuItemGrid({
             <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', lineHeight: 1.25, overflowWrap: 'anywhere' }}>
               <bdi>{pickName(locale, item)}</bdi>
             </span>
-            <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: '0.4rem' }}>
+            <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: 'var(--tp-sp-1-5)' }}>
               {defVariant && (
                 <span style={{ ...muted, fontVariantNumeric: 'tabular-nums' }}>
                   {item.menu_item_variants.length > 1 && <span>{tr('ws.cashier.till.tile.from')} </span>}
@@ -211,12 +213,12 @@ export function MenuItemGrid({
                 </span>
               )}
               {state === 'unavailable' && (
-                <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--tp-warn-fg)' }}>
+                <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: 'var(--tp-warn-fg)' }}>
                   <Icon name="eyeOff" size={12} /> {tr('ws.cashier.till.tile.unavailable')}
                 </span>
               )}
               {state === 'blockedByStock' && (
-                <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--tp-danger-fg)' }}>
+                <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: 'var(--tp-danger-fg)' }}>
                   <Icon name="package" size={12} /> {tr('ws.cashier.till.tile.blockedByStock')}
                 </span>
               )}
@@ -235,19 +237,19 @@ export function TileLegend() {
   const chip: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '0.3rem',
+    gap: 'var(--tp-sp-1)',
     fontSize: 'var(--tp-fs-xs)',
     color: 'var(--tp-muted-fg)',
   };
   return (
-    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBlockStart: '0.4rem' }} aria-hidden="true">
+    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-1-5)' }} aria-hidden="true">
       <span style={sectionTitle}>{tr('ws.cashier.till.items')}</span>
       <span style={chip}>
-        <span style={{ inlineSize: '0.9rem', blockSize: '0.9rem', border: '1px dashed var(--tp-border-strong)', borderRadius: '3px' }} />
+        <span style={{ inlineSize: 'var(--tp-sp-3)', blockSize: 'var(--tp-sp-3)', border: '1px dashed var(--tp-border-strong)', borderRadius: 'var(--tp-radius-sm)' }} />
         {tr('ws.cashier.till.tile.unavailable')}
       </span>
       <span style={chip}>
-        <span style={{ inlineSize: '0.9rem', blockSize: '0.9rem', background: 'var(--tp-surface-3)', border: '1px solid var(--tp-border)', borderRadius: '3px' }} />
+        <span style={{ inlineSize: 'var(--tp-sp-3)', blockSize: 'var(--tp-sp-3)', background: 'var(--tp-surface-3)', border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-sm)' }} />
         {tr('ws.cashier.till.tile.blockedByStock')}
       </span>
     </div>

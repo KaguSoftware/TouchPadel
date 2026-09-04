@@ -12,9 +12,10 @@ import { useLocale } from '../../lib/i18n';
 import { useAudioArming } from '../../lib/audio';
 import type { BroadcastStatus } from '../../lib/realtime';
 import { Button, ErrorText } from '../../components/ui';
-import { Kbd, type AsyncStatus } from '../../components/kit';
-import { BrandMark, Icon } from '../../components/icons';
-import { TicketList, kdsCard } from './TicketList';
+import type { AsyncStatus } from '../../components/kit';
+import { Icon } from '../../components/icons';
+import { BrandLockup } from '../../components/brand';
+import { TicketList, KdsKbd, kdsCard, kdsGrid, KDS_BAND_BLOCK } from './TicketList';
 import { useKdsKeyboard } from './useKdsKeyboard';
 import { openCount, type TicketAction, type TicketView } from './ticketView';
 
@@ -97,14 +98,14 @@ export function KitchenDisplayScreen({
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '1.25rem',
-          paddingBlockEnd: '0.6rem',
-          marginBlockEnd: '0.6rem',
+          gap: 'var(--tp-sp-4)',
+          paddingBlockEnd: 'var(--tp-sp-2-5)',
+          marginBlockEnd: 'var(--tp-sp-2-5)',
           borderBlockEnd: '1px solid var(--tp-kds-border)',
           flexShrink: 0,
         }}
       >
-        <BrandMark compact style={{ color: 'var(--tp-kds-fg)' }} />
+        <BrandLockup size={24} tone="onDark" />
         <h1 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 600, color: 'var(--tp-kds-muted)' }}>
           {tr('kds.title')}
         </h1>
@@ -129,7 +130,22 @@ export function KitchenDisplayScreen({
         <KdsConnectionPill status={connection} />
       </header>
 
-      <div style={{ flexShrink: 0, display: 'grid', gap: '0.5rem' }}>
+      {/*
+        The notice region is RESERVED, not conditional. A stale banner arriving
+        used to shove the whole ticket grid down by its own height at the exact
+        moment the chef was reading a card — the board moved because a ticket
+        aged, which is rulebook 11.5's case exactly. One notice row is held
+        open permanently; the start-shift strip and the LAN notice occupy the
+        same reserved space rather than each buying their own.
+      */}
+      <div
+        style={{
+          flexShrink: 0,
+          display: 'grid',
+          gap: 'var(--tp-sp-2)',
+          minBlockSize: KDS_BAND_BLOCK,
+        }}
+      >
         <KdsStartShiftBanner />
         {degraded && (
           <p
@@ -141,7 +157,7 @@ export function KitchenDisplayScreen({
               color: 'var(--tp-kds-fg)',
             }}
           >
-            <Icon name="wifiOff" size={22} />
+            <Icon name="wifiOff" size={24} />
             {tr('op.kds.lanMode')}
           </p>
         )}
@@ -149,7 +165,12 @@ export function KitchenDisplayScreen({
           <p
             role="alert"
             data-testid="stale-banner"
-            style={{ ...notice, background: 'var(--tp-kds-late)', color: 'var(--tp-brand-black)', fontWeight: 700 }}
+            style={{
+              ...notice,
+              background: 'var(--tp-kds-late)',
+              color: 'var(--tp-kds-on-fill)',
+              fontWeight: 700,
+            }}
           >
             {/* The literal glyph is the e2e suite's anchor for this banner. */}
             <span aria-hidden="true">⚠</span>
@@ -162,13 +183,13 @@ export function KitchenDisplayScreen({
             ...notice,
             marginBlock: 0,
             background: 'var(--tp-kds-late)',
-            color: 'var(--tp-brand-black)',
+            color: 'var(--tp-kds-on-fill)',
             fontWeight: 700,
           }}
         />
       </div>
 
-      <div style={{ flex: 1, minBlockSize: 0, overflow: 'auto', paddingBlockStart: '0.6rem' }}>
+      <div style={{ flex: 1, minBlockSize: 0, overflow: 'auto', paddingBlockStart: 'var(--tp-sp-2-5)' }}>
         {status === 'loading' && <KdsSkeleton />}
         {status === 'error' && (
           <KdsErrorPanel error={error} onRetry={onRetry} />
@@ -197,12 +218,16 @@ export function KitchenDisplayScreen({
   );
 }
 
+/** A skeleton card stands in for a two-item ticket, so the loading board and
+ *  the loaded board fill roughly the same amount of wall. */
+const SKELETON_CARD_BLOCK = '16rem';
+
 const notice: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '0.6rem',
-  paddingBlock: '0.6rem',
-  paddingInline: '0.85rem',
+  gap: 'var(--tp-sp-2-5)',
+  paddingBlock: 'var(--tp-sp-2-5)',
+  paddingInline: 'var(--tp-sp-4)',
   borderRadius: 'var(--tp-radius-panel)',
   fontSize: 'var(--tp-fs-kds)',
 };
@@ -234,27 +259,29 @@ export function KdsConnectionPill({ status }: { status: BroadcastStatus }) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '0.5rem',
-        fontSize: 'var(--tp-fs-lg)',
+        gap: 'var(--tp-sp-2)',
+        fontSize: 'var(--tp-fs-kds-sm)',
         fontWeight: 700,
         color: status === 'disconnected' ? 'var(--tp-kds-late)' : 'var(--tp-kds-fg)',
         border: '1px solid var(--tp-kds-border)',
         background: 'var(--tp-kds-card)',
         borderRadius: 'var(--tp-radius-pill)',
-        paddingInline: '0.85rem',
-        minBlockSize: '2.25rem',
+        paddingInline: 'var(--tp-sp-4)',
+        minBlockSize: 'var(--tp-row-h)',
         whiteSpace: 'nowrap',
       }}
     >
       <span
         aria-hidden="true"
         style={{
-          inlineSize: '0.75rem',
-          blockSize: '0.75rem',
+          inlineSize: 'var(--tp-sp-3)',
+          blockSize: 'var(--tp-sp-3)',
           borderRadius: '50%',
           background: color,
-          animation: status === 'connecting' ? 'tpPulse 1.2s infinite' : undefined,
         }}
+        // Transient and pending, so it may loop. 'live' is a steady state
+        // already carried by the label and never does.
+        className={status === 'connecting' ? 'tp-attention' : undefined}
       />
       {label}
     </span>
@@ -274,9 +301,9 @@ function KdsStartShiftBanner() {
       style={{
         ...notice,
         justifyContent: 'space-between',
-        minBlockSize: '3.5rem',
+        minBlockSize: KDS_BAND_BLOCK,
         background: 'var(--tp-kds-fresh)',
-        color: 'var(--tp-brand-black)',
+        color: 'var(--tp-kds-on-fill)',
         border: 'none',
         inlineSize: '100%',
         textAlign: 'start',
@@ -286,7 +313,14 @@ function KdsStartShiftBanner() {
       }}
     >
       <span>{tr('op.kds.startShiftHint')}</span>
-      <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}>
+      <strong
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-1-5)',
+          whiteSpace: 'nowrap',
+        }}
+      >
         <Icon name="play" size={20} />
         {tr('op.kds.startShift')}
       </strong>
@@ -298,30 +332,22 @@ function KdsStartShiftBanner() {
 // States
 // ---------------------------------------------------------------------------
 
+/** Skeleton cards on the board's own grid, so nothing moves when the tickets land. */
 function KdsSkeleton() {
   const { tr } = useLocale();
   return (
-    <div
-      role="status"
-      aria-label={tr('ws.kit.async.loading')}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(22rem, 1fr))',
-        gap: '1rem',
-      }}
-    >
+    <div role="status" aria-label={tr('ws.kit.async.loading')} style={kdsGrid}>
       {[0, 1, 2].map((i) => (
         <div
           key={i}
           aria-hidden="true"
-          style={{
-            ...kdsCard,
-            blockSize: '16rem',
-            animation: 'tpPulse 1.4s ease-in-out infinite',
-            animationDelay: `${i * 0.15}s`,
-          }}
+          className="tp-skel"
+          // The sweep is the whole animation and it runs on the one period the
+          // board is allowed (--tp-dur-attention, via .tp-skel). The per-card
+          // stagger that used to sit here was a second, hand-typed duration.
+          style={{ ...kdsCard, blockSize: SKELETON_CARD_BLOCK }}
         >
-          <div style={{ blockSize: '3.5rem', background: 'var(--tp-kds-card-2)' }} />
+          <div style={{ blockSize: KDS_BAND_BLOCK, background: 'var(--tp-kds-card-2)' }} />
         </div>
       ))}
     </div>
@@ -337,10 +363,10 @@ function KdsEmpty({ title, body }: { title: string; body: string | null }) {
         alignItems: 'center',
         justifyContent: 'center',
         textAlign: 'center',
-        gap: '0.75rem',
+        gap: 'var(--tp-sp-3)',
         minBlockSize: '60%',
-        paddingBlock: '3rem',
-        paddingInline: '1.5rem',
+        paddingBlock: 'var(--tp-sp-6)',
+        paddingInline: 'var(--tp-sp-5)',
       }}
     >
       <span style={{ color: 'var(--tp-kds-fresh)', display: 'inline-flex' }}>
@@ -362,18 +388,18 @@ function KdsErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () => voi
       style={{
         ...kdsCard,
         display: 'grid',
-        gap: '0.75rem',
+        gap: 'var(--tp-sp-3)',
         justifyItems: 'start',
-        paddingBlock: '1.25rem',
-        paddingInline: '1.25rem',
-        maxInlineSize: '48rem',
+        paddingBlock: 'var(--tp-sp-5)',
+        paddingInline: 'var(--tp-sp-5)',
+        maxInlineSize: 'var(--tp-measure-form)',
       }}
     >
       <p
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.6rem',
+          gap: 'var(--tp-sp-2-5)',
           fontSize: 'var(--tp-fs-kds-lg)',
           fontWeight: 700,
           color: 'var(--tp-kds-late)',
@@ -405,8 +431,15 @@ function KeyLegend({ dir }: { dir: 'ltr' | 'rtl' }) {
   const prev = dir === 'rtl' ? '→' : '←';
   const next = dir === 'rtl' ? '←' : '→';
   const entry = (keys: ReactNode, label: string) => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}>
-      <span style={{ display: 'inline-flex', gap: '0.2rem' }}>{keys}</span>
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 'var(--tp-sp-1-5)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)' }}>{keys}</span>
       {label}
     </span>
   );
@@ -418,39 +451,41 @@ function KeyLegend({ dir }: { dir: 'ltr' | 'rtl' }) {
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
-        gap: '0.5rem 1.5rem',
-        paddingBlockStart: '0.6rem',
-        marginBlockStart: '0.4rem',
+        gap: 'var(--tp-sp-2) var(--tp-sp-5)',
+        paddingBlockStart: 'var(--tp-sp-2-5)',
+        marginBlockStart: 'var(--tp-sp-1)',
         borderBlockStart: '1px solid var(--tp-kds-border)',
-        fontSize: 'var(--tp-fs-md)',
+        // Was --tp-fs-md — the desk scale, on the only instructions this
+        // station ever gets, read from the same three metres as everything else.
+        fontSize: 'var(--tp-fs-kds-sm)',
         color: 'var(--tp-kds-muted)',
         flexShrink: 0,
       }}
     >
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}>
-        <Icon name="keyboard" size={18} />
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontWeight: 700 }}>
+        <Icon name="keyboard" size={20} />
         {tr('ws.prep.keys.legend')}
       </span>
-      {entry(<Kbd>1–9</Kbd>, tr('ws.prep.keys.ticket'))}
+      {entry(<KdsKbd>1–9</KdsKbd>, tr('ws.prep.keys.ticket'))}
       {entry(
         <>
-          <Kbd>{prev}</Kbd>
-          <Kbd>{next}</Kbd>
+          <KdsKbd>{prev}</KdsKbd>
+          <KdsKbd>{next}</KdsKbd>
         </>,
         tr('ws.prep.keys.prevNext'),
       )}
       {entry(
         <>
-          <Kbd>↑</Kbd>
-          <Kbd>↓</Kbd>
+          <KdsKbd>↑</KdsKbd>
+          <KdsKbd>↓</KdsKbd>
         </>,
         tr('ws.prep.keys.items'),
       )}
-      {entry(<Kbd>Space</Kbd>, tr('ws.prep.keys.toggle'))}
-      {entry(<Kbd>S</Kbd>, tr('ws.prep.keys.start'))}
-      {entry(<Kbd>R</Kbd>, tr('ws.prep.keys.ready'))}
-      {entry(<Kbd>C</Kbd>, tr('ws.prep.keys.complete'))}
-      {entry(<Kbd>Esc</Kbd>, tr('ws.prep.keys.clear'))}
+      {entry(<KdsKbd>Space</KdsKbd>, tr('ws.prep.keys.toggle'))}
+      {entry(<KdsKbd>S</KdsKbd>, tr('ws.prep.keys.start'))}
+      {entry(<KdsKbd>R</KdsKbd>, tr('ws.prep.keys.ready'))}
+      {entry(<KdsKbd>C</KdsKbd>, tr('ws.prep.keys.complete'))}
+      {entry(<KdsKbd>Esc</KdsKbd>, tr('ws.prep.keys.clear'))}
     </footer>
   );
 }

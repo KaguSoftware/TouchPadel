@@ -7,7 +7,7 @@
  * Layout: a dense headline band (revenue, cash, card), then two columns —
  * padel against cafe — as figure rows, not a grid of identical cards.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatIQD, formatNumber } from '@touch/i18n';
@@ -104,7 +104,7 @@ export function ManagementPanelScreen() {
           />
         }
       >
-        <section aria-label={tr('ws.owner.panel.headline')} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)', gap: '0.75rem', marginBlockEnd: '1rem' }}>
+        <section aria-label={tr('ws.owner.panel.headline')} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-4)' }}>
           {figuresIn('headline').map((meta) => {
             const f = figures.get(meta.key);
             return (
@@ -123,7 +123,7 @@ export function ManagementPanelScreen() {
           })}
         </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1rem', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
           <Panel
             title={tr('ws.owner.panel.padel')}
             padded={false}
@@ -140,7 +140,7 @@ export function ManagementPanelScreen() {
           </Panel>
         </div>
 
-        <nav aria-label={tr('ws.shell.nav.reports')} style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBlockStart: '1rem' }}>
+        <nav aria-label={tr('ws.shell.nav.reports')} style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-4)' }}>
           <Button size="sm" icon="chart" onClick={() => go('/reports/revenue')}>{tr('ws.owner.panel.openRevenue')}</Button>
           <Button size="sm" icon="box" onClick={() => go('/reports/stock')}>{tr('ws.owner.panel.openStock')}</Button>
           <Button size="sm" icon="users" onClick={() => go('/reports/staff')}>{tr('ws.owner.panel.openStaff')}</Button>
@@ -184,47 +184,57 @@ function FigureRows({
   onDrill: (key: FigureKey) => void;
 }) {
   const { tr } = useLocale();
+  const row: CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto auto',
+    alignItems: 'center',
+    gap: 'var(--tp-sp-3)',
+    inlineSize: '100%',
+    paddingBlock: 'var(--tp-sp-2-5)',
+    paddingInline: 'var(--tp-sp-3)',
+    background: 'transparent',
+    border: 'none',
+    color: 'inherit',
+    textAlign: 'start',
+    font: 'inherit',
+  };
   return (
     <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
       {metas.map((meta) => {
         const f = figures.get(meta.key);
         const drillable = Boolean(f);
+        const body = (
+          <>
+            <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
+              <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label(meta.key)}</span>
+              {compare !== 'none' && f && (
+                <ComparisonDelta changeAbs={f.changeAbs} changePct={f.changePct} format={meta.kind === 'money' ? money : count} invert={meta.invert} />
+              )}
+            </span>
+            <span dir="ltr" style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)' }}>
+              {valueOf(meta, f)}
+            </span>
+            {/* Reserved either way, so nothing shifts as figures arrive (11.5). */}
+            <Icon name="arrowUpRight" size={14} style={{ color: 'var(--tp-muted-fg)', visibility: drillable ? 'visible' : 'hidden' }} />
+          </>
+        );
         return (
           <li key={meta.key} style={{ borderBlockEnd: '1px solid var(--tp-border)' }}>
-            <button
-              type="button"
-              className="tp-row"
-              data-clickable={drillable ? 'true' : undefined}
-              disabled={!drillable}
-              onClick={() => onDrill(meta.key)}
-              title={drillable ? tr('ws.kit.drill.title') : undefined}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) auto auto',
-                alignItems: 'center',
-                gap: '0.75rem',
-                inlineSize: '100%',
-                paddingBlock: '0.55rem',
-                paddingInline: '0.85rem',
-                background: 'transparent',
-                border: 'none',
-                color: 'inherit',
-                textAlign: 'start',
-                cursor: drillable ? 'pointer' : 'default',
-                font: 'inherit',
-              }}
-            >
-              <span style={{ display: 'grid', gap: '0.1rem', minInlineSize: 0 }}>
-                <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label(meta.key)}</span>
-                {compare !== 'none' && f && (
-                  <ComparisonDelta changeAbs={f.changeAbs} changePct={f.changePct} format={meta.kind === 'money' ? money : count} invert={meta.invert} />
-                )}
-              </span>
-              <span dir="ltr" style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)' }}>
-                {valueOf(meta, f)}
-              </span>
-              <Icon name="arrowUpRight" size={14} style={{ color: 'var(--tp-muted-fg)', visibility: drillable ? 'visible' : 'hidden' }} />
-            </button>
+            {/*
+              A figure the server did not send has nothing to open. It used to
+              render as a disabled button carrying no reason, which the rulebook
+              treats as a dead end (4.3) — and there is no reason to give: the
+              row already says '—' where the value would be. So it is not a
+              control at all, and the keyboard walks past it instead of landing
+              on something that cannot answer.
+            */}
+            {drillable ? (
+              <button type="button" className="tp-row" data-clickable="true" onClick={() => onDrill(meta.key)} title={tr('ws.kit.drill.title')} style={{ ...row, cursor: 'pointer' }}>
+                {body}
+              </button>
+            ) : (
+              <div style={row}>{body}</div>
+            )}
           </li>
         );
       })}
@@ -234,13 +244,13 @@ function FigureRows({
 
 function PanelSkeleton() {
   return (
-    <div aria-busy="true" style={{ display: 'grid', gap: '1rem' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)', gap: '0.75rem' }}>
+    <div aria-busy="true" style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)', gap: 'var(--tp-sp-3)' }}>
         <Skeleton lines={3} blockSize="1.2rem" />
         <Skeleton lines={3} blockSize="1.2rem" />
         <Skeleton lines={3} blockSize="1.2rem" />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: 'var(--tp-sp-4)' }}>
         <Skeleton lines={5} />
         <Skeleton lines={6} />
       </div>

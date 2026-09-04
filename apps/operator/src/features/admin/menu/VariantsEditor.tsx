@@ -47,7 +47,7 @@ export function VariantsEditor({ item }: { item: ItemRow }) {
   const variants = [...item.menu_item_variants].sort((a, b) => a.sort_order - b.sort_order);
 
   return (
-    <div style={{ ...card, marginBlockStart: '0.6rem' }}>
+    <div style={{ ...card, marginBlockStart: 'var(--tp-sp-2-5)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h4 style={{ margin: 0 }}>{tr('op.menu.variants')}</h4>
         <Button onClick={() => setDraft({ nameEn: '', nameAr: '', price: 0 })} disabled={!!draft}>
@@ -66,9 +66,9 @@ export function VariantsEditor({ item }: { item: ItemRow }) {
         <div
           style={{
             display: 'flex',
-            gap: '0.4rem',
+            gap: 'var(--tp-sp-1-5)',
             alignItems: 'flex-end',
-            marginBlockStart: '0.5rem',
+            marginBlockStart: 'var(--tp-sp-2)',
             flexWrap: 'wrap',
           }}
         >
@@ -136,15 +136,15 @@ function VariantRowEditor({
     <div
       style={{
         display: 'flex',
-        gap: '0.5rem',
+        gap: 'var(--tp-sp-2)',
         alignItems: 'center',
-        marginBlockStart: '0.4rem',
+        marginBlockStart: 'var(--tp-sp-1-5)',
         flexWrap: 'wrap',
       }}
     >
       <span style={{ flex: 1, minInlineSize: '6rem' }}>{pickName(locale, variant)}</span>
       <MoneyInput value={price} onChange={(n) => setPrice(n ?? 0)} style={{ inlineSize: '12rem' }} />
-      <label style={{ display: 'flex', gap: '0.25rem', fontSize: '0.85rem', alignItems: 'center' }}>
+      <label style={{ display: 'flex', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', alignItems: 'center' }}>
         <input
           type="checkbox"
           checked={isDefault}

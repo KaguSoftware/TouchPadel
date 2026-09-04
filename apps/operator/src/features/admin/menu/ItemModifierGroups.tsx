@@ -46,22 +46,22 @@ export function ItemModifierGroups({
   );
 
   return (
-    <div style={{ ...card, marginBlockStart: '0.6rem' }}>
+    <div style={{ ...card, marginBlockStart: 'var(--tp-sp-2-5)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h4 style={{ margin: 0 }}>{tr('op.menu.modifierGroups')}</h4>
-        <Link to="/admin/addons" style={{ fontSize: '0.85rem', color: 'var(--tp-accent)' }}>
+        <Link to="/admin/addons" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-accent)' }}>
           {tr('op.adminNav.addons')} →
         </Link>
       </div>
       {sorted.length === 0 && (
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: '0.9rem' }}>{tr('op.common.none')}</p>
+        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.none')}</p>
       )}
       {sorted.map((g) => {
         const isLinked = linked.has(g.id);
         const options = modifiers.filter((m) => m.group_id === g.id);
         return (
-          <div key={g.id} style={{ marginBlockStart: '0.35rem' }}>
-            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          <div key={g.id} style={{ marginBlockStart: 'var(--tp-sp-1-5)' }}>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
               <Button
                 kind="ghost"
                 onClick={() => setOpen(open === g.id ? null : g.id)}
@@ -71,7 +71,7 @@ export function ItemModifierGroups({
               </Button>
               <span style={{ flex: 1 }}>
                 {pickName(locale, g)}{' '}
-                <span style={{ color: 'var(--tp-muted-fg)', fontSize: '0.8rem' }} dir="ltr">
+                <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }} dir="ltr">
                   ({g.min_select}–{g.max_select})
                 </span>
               </span>
@@ -86,10 +86,10 @@ export function ItemModifierGroups({
             {open === g.id && (
               <ul
                 style={{
-                  marginInlineStart: '2rem',
-                  marginBlock: '0.2rem',
-                  paddingInlineStart: '1rem',
-                  fontSize: '0.9rem',
+                  marginInlineStart: 'var(--tp-sp-6)',
+                  marginBlock: 'var(--tp-sp-1)',
+                  paddingInlineStart: 'var(--tp-sp-4)',
+                  fontSize: 'var(--tp-fs-md)',
                 }}
               >
                 {options.length === 0 && (

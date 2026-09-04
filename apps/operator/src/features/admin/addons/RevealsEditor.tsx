@@ -81,28 +81,28 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
   return (
     <div
       style={{
-        marginInlineStart: '1.5rem',
-        marginBlockStart: '0.4rem',
-        paddingBlock: '0.5rem',
-        paddingInline: '0.6rem',
+        marginInlineStart: 'var(--tp-sp-5)',
+        marginBlockStart: 'var(--tp-sp-1-5)',
+        paddingBlock: 'var(--tp-sp-2)',
+        paddingInline: 'var(--tp-sp-2-5)',
         border: '1px dashed var(--tp-border)',
-        borderRadius: '0.4rem',
+        borderRadius: 'var(--tp-radius-ctl)',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-        <strong style={{ fontSize: '0.9rem' }}>{tr('op.addons.reveals')}</strong>
-        <span style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>{tr('op.addons.revealsHint')}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+        <strong style={{ fontSize: 'var(--tp-fs-md)' }}>{tr('op.addons.reveals')}</strong>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.addons.revealsHint')}</span>
       </div>
 
       {ownGroupIsTarget && (
-        <p style={{ fontSize: '0.85rem', color: 'var(--tp-muted-fg)', marginBlock: '0.3rem' }}>
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlock: 'var(--tp-sp-1)' }}>
           {tr('op.errors.REVEAL_DEPTH')}
         </p>
       )}
 
       {/* ordered, selected */}
       {selected.map((id, index) => (
-        <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBlockStart: '0.3rem' }}>
+        <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-1)' }}>
           <input
             type="checkbox"
             checked
@@ -121,25 +121,25 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
 
       {/* available to add */}
       {available.map((g) => (
-        <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBlockStart: '0.3rem' }}>
+        <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-1)' }}>
           <input type="checkbox" checked={false} onChange={() => setSelected([...selected, g.id])} />
           <span style={{ flex: 1, color: 'var(--tp-muted-fg)' }}>
             {pickName(locale, g)}{' '}
-            <span dir="ltr" style={{ fontSize: '0.8rem' }}>
+            <span dir="ltr" style={{ fontSize: 'var(--tp-fs-sm)' }}>
               ({g.min_select}–{g.max_select})
             </span>
           </span>
         </label>
       ))}
       {!ownGroupIsTarget && selected.length === 0 && available.length === 0 && (
-        <p style={{ fontSize: '0.85rem', color: 'var(--tp-muted-fg)', marginBlock: '0.3rem' }}>
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlock: 'var(--tp-sp-1)' }}>
           {tr('op.addons.noSubGroups')}
         </p>
       )}
 
       {/* new sub-group inline */}
       {draft ? (
-        <div style={{ marginBlockStart: '0.5rem', paddingBlockStart: '0.5rem', borderBlockStart: '1px solid var(--tp-border)' }}>
+        <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-2)', borderBlockStart: '1px solid var(--tp-border)' }}>
           <BilingualFields
             labelEn={tr('op.menu.nameEn')}
             labelAr={tr('op.menu.nameAr')}
@@ -149,9 +149,9 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
             onAr={(v) => setDraft({ ...draft, nameAr: v })}
             maxLength={80}
           />
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>{tr('op.addons.minMax')}</span>
-            <span dir="ltr" style={{ display: 'inline-flex', gap: '0.3rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.addons.minMax')}</span>
+            <span dir="ltr" style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
               <input
                 style={numStyle}
                 type="number"
@@ -182,7 +182,7 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: '0.4rem', marginBlockStart: '0.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2)', alignItems: 'center' }}>
           <Button
             kind="ghost"
             disabled={ownGroupIsTarget}

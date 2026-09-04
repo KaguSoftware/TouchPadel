@@ -24,6 +24,18 @@ export const shellEn = {
     current: 'Current',
     open: 'Open',
   },
+  // The healthy rung of the connectivity strip (rulebook 9.6). The other three
+  // read op.status.*; only "normal" had no string at all, because the banner
+  // used to render nothing when everything was fine.
+  status: {
+    ok: 'Connected — nothing waiting to sync.',
+  },
+  // Named so RequireRole can hand the shared PermissionRefusedNotice a subject
+  // instead of forking its own sentence. Reads as "{action} needs the {role}
+  // role"; a verbal noun, so the Arabic template agrees with it.
+  forbidden: {
+    action: 'Opening this screen',
+  },
   lock: {
     title: 'Station locked',
     hint: 'Signed in as {name}. Unlock to continue where you left off.',
@@ -74,6 +86,9 @@ export const shellEn = {
     guestSite: 'Guest site',
     groupOperations: 'Operations',
     groupSetup: 'Setup',
+    // The owner's rail puts 17 links and four controls before the routed
+    // screen; without this every navigation costs up to 21 Tab presses.
+    skipToMain: 'Skip to main content',
     switchWorkspace: 'Switch workspace',
     language: 'العربية',
     languageAlt: 'English',

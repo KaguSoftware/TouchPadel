@@ -18,7 +18,7 @@ import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText, Modal } from '../../components/ui';
 import { AsyncStateWrapper, MessagePresenter, asyncStatus } from '../../components/kit';
 import { ReservationPicker, reservationOptionLabel, useTodaysOpenReservations } from './NewTabDialog';
-import { muted } from './tillStyles';
+import { muted, reasonedFooter } from './tillStyles';
 
 export function ChargeToBookingDialog({
   tabId,
@@ -72,17 +72,24 @@ export function ChargeToBookingDialog({
       subtitle={tr('ws.cashier.charge.lead')}
       onClose={busy ? () => {} : onClose}
       footer={
-        <>
+        <div style={reasonedFooter}>
           <Button onClick={onClose} disabled={busy}>
             {tr('common.cancel')}
           </Button>
-          <Button kind="primary" icon="calendar" busy={busy} disabled={!selected} onClick={() => void confirm()}>
+          <Button
+            kind="primary"
+            icon="calendar"
+            busy={busy}
+            disabled={!selected}
+            disabledReason={selected ? undefined : tr('ws.cashier.charge.pickBooking')}
+            onClick={() => void confirm()}
+          >
             {tr('ws.cashier.charge.confirm')}
           </Button>
-        </>
+        </div>
       }
     >
-      <p style={{ marginBlockEnd: '0.6rem' }}>
+      <p style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }}>
         <strong>
           <bdi>{tabLabel}</bdi>
         </strong>
@@ -97,7 +104,7 @@ export function ChargeToBookingDialog({
         <ReservationPicker rows={rows} selectedId={selectedId} onSelect={setSelectedId} busy={busy} />
       </AsyncStateWrapper>
       {selected && (
-        <div style={{ display: 'grid', gap: '0.5rem', marginBlockStart: '0.85rem' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-3)' }}>
           <p>
             <span style={muted}>{tr('ws.cashier.charge.selected')}</span>
             <br />
@@ -108,7 +115,7 @@ export function ChargeToBookingDialog({
           <MessagePresenter tone="info" icon="info" message={tr('ws.cashier.charge.consequence')} />
         </div>
       )}
-      {partialFailure && <MessagePresenter tone="refused" style={{ marginBlockStart: '0.5rem' }} message={tr('ws.cashier.charge.partialFailure')} />}
+      {partialFailure && <MessagePresenter tone="refused" style={{ marginBlockStart: 'var(--tp-sp-2)' }} message={tr('ws.cashier.charge.partialFailure')} />}
       <ErrorText error={error} />
     </Modal>
   );

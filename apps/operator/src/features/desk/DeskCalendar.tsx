@@ -25,19 +25,17 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { Button, inputStyle, type ReasonCode } from '../../components/ui';
 import {
   AsyncStateWrapper,
-  BookingStatusIndicator,
   ConflictNotice,
   EmptyState,
   Kbd,
   PageHeader,
   ReasonCodePrompt,
   SegmentedControl,
-  StatusBadge,
   Toolbar,
   asyncStatus,
-  type Tone,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { ReservationBadge, TONE_EDGE, TONE_FG, TONE_SOFT, reservationTone } from './deskStatus';
 import { WeekGrid } from './WeekGrid';
 import { shiftIsoDate, startOfWeek, weekDates } from './weekLogic';
 import { CreateReservationDialog } from './CreateReservationDialog';
@@ -48,47 +46,24 @@ import { RESERVATION_COLUMNS, type ReservationRow } from './deskTypes';
 
 type View = 'day' | 'week';
 
-/** Tone per block, from tokens — the same language as the status indicators. */
-function blockTone(r: ReservationRow): Tone {
-  if (r.kind === 'maintenance') return 'neutral';
-  if (r.kind === 'hold') return 'info';
-  switch (r.status) {
-    case 'arrived':
-      return 'success';
-    case 'pending':
-      return 'warn';
-    case 'completed':
-      return 'neutral';
-    default:
-      return 'accent';
-  }
-}
-const TONE_BG: Record<Tone, string> = {
-  neutral: 'var(--tp-neutral-soft)',
-  accent: 'var(--tp-accent-soft)',
-  success: 'var(--tp-success-soft)',
-  warn: 'var(--tp-warn-soft)',
-  danger: 'var(--tp-danger-soft)',
-  info: 'var(--tp-info-soft)',
-};
-const TONE_FG: Record<Tone, string> = {
-  neutral: 'var(--tp-neutral-fg)',
-  accent: 'var(--tp-accent-soft-fg)',
-  success: 'var(--tp-success-fg)',
-  warn: 'var(--tp-warn-fg)',
-  danger: 'var(--tp-danger-fg)',
-  info: 'var(--tp-info-fg)',
-};
-const TONE_EDGE: Record<Tone, string> = {
-  neutral: 'var(--tp-border-strong)',
-  accent: 'var(--tp-accent)',
-  success: 'var(--tp-success)',
-  warn: 'var(--tp-warn)',
-  danger: 'var(--tp-danger)',
-  info: 'var(--tp-accent)',
-};
-
 const DRAG_THRESHOLD_PX = 6;
+
+/**
+ * The two axes that must survive a scroll to 23:00. Both live in the grid's
+ * own scrollport, so they need no arithmetic against the page header.
+ */
+const STICKY_HEAD = {
+  position: 'sticky',
+  insetBlockStart: 0,
+  zIndex: 'var(--tp-z-table-head)',
+  background: 'var(--tp-bg)',
+} as const;
+const STICKY_TIME = {
+  position: 'sticky',
+  insetInlineStart: 0,
+  zIndex: 'var(--tp-z-table-head)',
+  background: 'var(--tp-bg)',
+} as const;
 
 interface DragState {
   id: string;
@@ -286,8 +261,16 @@ export function DeskCalendar() {
   const dayStatus = settingsQ.isError && !settingsQ.data ? 'error' : reservationsQ.isError && !reservationsQ.data ? 'error' : settingsQ.data && reservationsQ.data ? 'ready' : 'loading';
 
   return (
-    <div>
+    /*
+     * The screen owns main's full height and hands ALL of it to the grid, so
+     * the date controls, the view switch and the court headers stay on screen
+     * at 23:00 (rulebook 5.2 / 5.4). Scrolling the page instead of the grid is
+     * what used to take them away — the two facts a clerk needs while a guest
+     * waits are which court a column is and which date they are looking at.
+     */
+    <div style={{ display: 'flex', flexDirection: 'column', blockSize: '100%', minBlockSize: 0 }}>
       <PageHeader
+        style={{ flexShrink: 0 }}
         title={tr('desk.title')}
         subtitle={tr('ws.courtDesk.calendar.lead')}
         actions={
@@ -380,31 +363,38 @@ export function DeskCalendar() {
             void courtsQ.refetch();
             void reservationsQ.refetch();
           }}
-          skeleton={<div style={{ display: 'grid', gap: '2px', gridTemplateColumns: '4.5rem repeat(3, 1fr)' }}>{Array.from({ length: 24 }, (_, i) => <div key={i} style={{ blockSize: '2.4rem', background: 'var(--tp-surface-2)', borderRadius: '4px' }} />)}</div>}
+          skeleton={
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', gridTemplateColumns: '4.5rem repeat(3, 1fr)' }}>
+              {Array.from({ length: 24 }, (_, i) => (
+                <div key={i} className="tp-skel" style={{ blockSize: '2.4rem', borderRadius: 'var(--tp-radius-sm)' }} />
+              ))}
+            </div>
+          }
         >
           {closed || rowCount === 0 ? (
             <EmptyState icon="ban" title={tr('op.desk.closedToday')} />
           ) : (
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ flex: 1, minBlockSize: 0, overflow: 'auto' }}>
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: `4.5rem repeat(${courts.length}, minmax(11rem, 1fr))`,
-                  gap: '2px',
+                  gap: 'var(--tp-sp-0)',
                   minInlineSize: `${4.5 + courts.length * 11}rem`,
                   userSelect: drag ? 'none' : undefined,
                 }}
               >
-                <div />
+                {/* Above both sticky axes, or the time labels slide out from under it. */}
+                <div style={{ ...STICKY_HEAD, insetInlineStart: 0, zIndex: 'var(--tp-z-sticky)' }} />
                 {courts.map((c) => (
-                  <div key={c.id} style={{ fontWeight: 700, paddingBlock: '0.35rem', textAlign: 'center', borderBlockEnd: '2px solid var(--tp-border)' }}>
+                  <div key={c.id} style={{ ...STICKY_HEAD, fontWeight: 700, paddingBlock: 'var(--tp-sp-1)', textAlign: 'center', borderBlockEnd: '2px solid var(--tp-border)' }}>
                     {pickName(locale, c)}
                   </div>
                 ))}
 
-                <div style={{ display: 'grid', gridTemplateRows: `repeat(${rowCount}, 2.4rem)`, rowGap: '2px' }}>
+                <div style={{ ...STICKY_TIME, display: 'grid', gridTemplateRows: `repeat(${rowCount}, 2.4rem)`, rowGap: 'var(--tp-sp-0)' }}>
                   {rows.map((min) => (
-                    <div key={min} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums', paddingBlockStart: '0.15rem' }}>
+                    <div key={min} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums', paddingBlockStart: 'var(--tp-sp-0)' }}>
                       {formatTime(wallTimeToUtc(date, min, tz), locale, tz)}
                     </div>
                   ))}
@@ -419,7 +409,7 @@ export function DeskCalendar() {
                     for (let i = from; i < Math.min(rowCount, from + spanOf(r)); i++) blockedRows.add(i);
                   }
                   return (
-                    <div key={c.id} style={{ display: 'grid', gridTemplateRows: `repeat(${rowCount}, 2.4rem)`, rowGap: '2px', position: 'relative' }}>
+                    <div key={c.id} style={{ display: 'grid', gridTemplateRows: `repeat(${rowCount}, 2.4rem)`, rowGap: 'var(--tp-sp-0)', position: 'relative' }}>
                       {rows.map((min, i) => {
                         const startAt = wallTimeToUtc(date, min, tz);
                         const past = startAt.getTime() < now;
@@ -429,7 +419,7 @@ export function DeskCalendar() {
                           'data-slot-min': min,
                         } as const;
                         if (blockedRows.has(i)) {
-                          return <div key={min} {...common} style={{ outline: isTarget ? '2px solid var(--tp-accent)' : undefined, borderRadius: '0.25rem' }} />;
+                          return <div key={min} {...common} style={{ outline: isTarget ? '2px solid var(--tp-accent)' : undefined, borderRadius: 'var(--tp-radius-sm)' }} />;
                         }
                         return (
                           <button
@@ -445,10 +435,10 @@ export function DeskCalendar() {
                             aria-label={`${pickName(locale, c)} ${formatTime(startAt, locale, tz)} · ${past ? tr('ws.courtDesk.calendar.pastSlot') : tr('ws.courtDesk.calendar.freeSlot')}`}
                             style={{
                               border: isTarget ? '2px solid var(--tp-accent)' : '1px dashed var(--tp-border)',
-                              borderRadius: '0.25rem',
+                              borderRadius: 'var(--tp-radius-sm)',
                               background: isTarget ? 'var(--tp-accent-soft)' : past ? 'var(--tp-surface)' : 'var(--tp-bg)',
                               cursor: past ? 'default' : 'pointer',
-                              opacity: past && !isTarget ? 0.5 : 1,
+                              opacity: past && !isTarget ? 'var(--tp-opacity-disabled)' : 1,
                               padding: 0,
                             }}
                           />
@@ -457,7 +447,7 @@ export function DeskCalendar() {
                       {courtRes.map((r) => {
                         const from = Math.max(0, rowIndexOf(r.start_at));
                         const span = spanOf(r);
-                        const tone = blockTone(r);
+                        const tone = reservationTone(r);
                         const dragging = drag?.id === r.id;
                         const draggable = r.kind === 'booking' && isLive(r.status);
                         const name = r.kind === 'maintenance' ? (r.notes ?? tr('op.desk.maintenance')) : r.kind === 'hold' ? tr('op.desk.hold') : (r.guest_name ?? tr('op.desk.walkIn'));
@@ -476,9 +466,12 @@ export function DeskCalendar() {
                             style={{
                               gridRow: `${from + 1} / span ${Math.min(span, rowCount - from)}`,
                               gridColumn: 1,
+                              /* position: relative alone paints this above the
+                                 unpositioned slot buttons behind it; the raw
+                                 z-index: 2 it used to carry sat outside the
+                                 scale and fought the sticky header. */
                               position: 'relative',
-                              zIndex: 2,
-                              background: TONE_BG[tone],
+                              background: TONE_SOFT[tone],
                               color: TONE_FG[tone],
                               border: `1px ${r.kind === 'maintenance' ? 'dashed' : 'solid'} ${TONE_EDGE[tone]}`,
                               borderRadius: 'var(--tp-radius-ctl)',
@@ -502,7 +495,7 @@ export function DeskCalendar() {
                             </strong>
                             <span style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
                               <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
-                              {r.kind === 'booking' ? <BookingStatusIndicator status={r.status} size="sm" /> : <StatusBadge size="sm" tone={tone} label={tr(`ws.kit.reservationKind.${r.kind}`)} />}
+                              <ReservationBadge reservation={r} size="sm" />
                             </span>
                           </button>
                         );

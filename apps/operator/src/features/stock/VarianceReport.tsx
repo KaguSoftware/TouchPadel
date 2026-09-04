@@ -11,7 +11,7 @@ import { formatDateTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Select } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, PageHeader, Toolbar, asyncStatus, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, FilterChips, PageHeader, ResultCount, TableSkeleton, Toolbar, asyncStatus, type Column } from '../../components/kit';
 import { Switch } from '../../components/Switch';
 import { downloadCsv, toCsv } from '../analytics/csv';
 import { LedgerDrawer } from './LedgerDrawer';
@@ -147,7 +147,9 @@ export function VarianceReport() {
         title={tr('op.stock.varianceTitle')}
         subtitle={tr('ws.manager.stock.variance.lead')}
         actions={<ExportButton onExport={exportCsv} disabled={rows.length === 0} />}
-      />
+      >
+        <ResultCount shown={rows.length} total={all.length} />
+      </PageHeader>
       <Toolbar end={<Switch checked={onlyVariance} onChange={setOnlyVariance} label={tr('ws.manager.stock.variance.onlyVariance')} />}>
         <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('ws.manager.stock.variance.count')}</span>
         <Select
@@ -168,14 +170,26 @@ export function VarianceReport() {
           </span>
         )}
       </Toolbar>
+      {/* The switch is at the far end of the toolbar; the chip is where the
+          rows are, which is where the reader notices the shortfall (6.6). */}
+      <FilterChips
+        chips={onlyVariance ? [{ id: 'variance', label: tr('ws.manager.stock.variance.onlyVariance'), text: tr('ws.manager.stock.variance.onlyVariance'), onRemove: () => setOnlyVariance(false) }] : []}
+        onClearAll={() => setOnlyVariance(false)}
+        style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }}
+      />
 
       <AsyncStateWrapper
         status={status}
         error={varianceQ.error ?? countsQ.error}
         onRetry={() => void (countsQ.refetch(), varianceQ.refetch())}
+        skeleton={<TableSkeleton columns={columns} />}
         emptyContent={<EmptyState icon="scale" title={tr('op.stock.noCounts')} body={tr('ws.manager.stock.variance.noCountsBody')} />}
       >
-        <DataTable dense columns={columns} rows={rows} rowKey={(r) => r.ingredient_id} aria-label={tr('op.stock.varianceTitle')} />
+        {rows.length === 0 ? (
+          <EmptyState kind="filtered" onClearFilters={() => setOnlyVariance(false)} />
+        ) : (
+          <DataTable columns={columns} rows={rows} rowKey={(r) => r.ingredient_id} aria-label={tr('op.stock.varianceTitle')} />
+        )}
       </AsyncStateWrapper>
 
       {drill && <LedgerDrawer ingredient={drill} movementIds={drill.movement_ids ?? []} onClose={() => setDrill(null)} />}

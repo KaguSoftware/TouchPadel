@@ -6,7 +6,8 @@
 import { useLocale } from '../../../lib/i18n';
 import type { RawAnalytics } from '../derive';
 import type { Formatters } from '../format';
-import { CardShell, Chip, muted, type CardState } from './CardShell';
+import { CardShell, muted, type CardState } from './CardShell';
+import { StatusBadge } from '../../../components/kit';
 
 export function LocalePrefs({ raw, state, f }: { raw: RawAnalytics | null; state: CardState; f: Formatters }) {
   const { tr } = useLocale();
@@ -23,12 +24,12 @@ export function LocalePrefs({ raw, state, f }: { raw: RawAnalytics | null; state
         {rows.map((row) => (
           <div key={row.locale}>
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'baseline' }}>
-              <Chip tone="accent">{label(row.locale)}</Chip>
+              <StatusBadge size="sm" tone="accent" dot={false} label={label(row.locale)} />
               <span style={muted}>
                 {f.num(row.sessions)} {tr('analytics.cards.sessions').toLowerCase()} · {f.duration(row.medianSeconds)}
               </span>
             </div>
-            <ul style={{ margin: '0.2rem 0 0', paddingInlineStart: '1.1rem', fontSize: '0.8rem' }}>
+            <ul style={{ margin: '0.2rem 0 0', paddingInlineStart: '1.1rem', fontSize: 'var(--tp-fs-sm)' }}>
               {row.topItems.slice(0, 3).map((item) => (
                 <li key={item.id}>
                   {item.name || item.id} <span style={muted}>{f.pct(Math.round(item.rate * 100))}</span>

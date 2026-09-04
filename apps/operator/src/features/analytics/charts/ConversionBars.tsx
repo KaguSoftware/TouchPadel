@@ -8,9 +8,10 @@ import { useState } from 'react';
 import type { PriceBandSales } from '@touch/core';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
-import { Chip } from '../cards/CardShell';
+
 import type { Formatters } from '../format';
 import { BLUE } from './colors';
+import { StatusBadge } from '../../../components/kit';
 
 export function ConversionBars({ bands, f }: { bands: readonly PriceBandSales[]; f: Formatters }) {
   const { tr, locale } = useLocale();
@@ -36,7 +37,7 @@ export function ConversionBars({ bands, f }: { bands: readonly PriceBandSales[];
               padding: 0,
               cursor: 'pointer',
               color: 'var(--tp-fg)',
-              fontSize: '0.82rem',
+              fontSize: 'var(--tp-fs-sm)',
             }}
             aria-expanded={open === band.band}
           >
@@ -50,13 +51,11 @@ export function ConversionBars({ bands, f }: { bands: readonly PriceBandSales[];
           </div>
           {band.soldWithoutView > 0 && (
             <div style={{ marginBlockStart: '0.25rem' }}>
-              <Chip tone="warn">
-                {tr('analytics.conversion.soldWithoutView')}: {f.num(band.soldWithoutView)}
-              </Chip>
+              <StatusBadge size="sm" tone="warn" label={`${tr('analytics.conversion.soldWithoutView')}: ${f.num(band.soldWithoutView)}`} />
             </div>
           )}
           {open === band.band && (
-            <ul style={{ margin: '0.4rem 0 0', paddingInlineStart: '1rem', fontSize: '0.78rem', color: 'var(--tp-muted-fg)' }}>
+            <ul style={{ margin: '0.4rem 0 0', paddingInlineStart: '1rem', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
               {band.items.slice(0, 8).map((item) => (
                 <li key={item.id}>
                   {pickLocale({ en: item.nameEn, ar: item.nameAr }, locale) || item.id} — {f.num(item.views)} /{' '}

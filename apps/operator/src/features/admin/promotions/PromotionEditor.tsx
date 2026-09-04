@@ -166,7 +166,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
         {readOnly && <PermissionRefusedNotice action={tr('ws.kit.actions.save')} requiredRole={requiredRoleFor('editPromotions')} />}
       </PageHeader>
 
-      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', alignItems: 'start' }}>
         {/* Basics */}
         <Panel title={tr('ws.manager.promotions.editor.basics')}>
           <BilingualFieldPair
@@ -203,7 +203,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
 
         {/* When */}
         <Panel title={tr('ws.manager.promotions.editor.whenTitle')}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
             <Field label={tr('ws.manager.promotions.editor.starts')}>
               <input style={inputStyle} type="date" dir="ltr" value={draft.startsOn} disabled={readOnly} onChange={(e) => patch({ startsOn: e.target.value })} />
             </Field>
@@ -219,7 +219,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
             <MessagePresenter
               tone={lc === 'expired' && !dirty ? 'refused' : 'info'}
               icon="clock"
-              style={{ marginBlockEnd: '0.75rem' }}
+              style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
               message={
                 lc === 'expired' && !dirty
                   ? tr('ws.manager.promotions.editor.expiredOn', { date: endsLabel })
@@ -228,7 +228,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
             />
           )}
           <Field label={tr('ws.manager.promotions.editor.weekdays')} hint={tr('ws.manager.promotions.editor.weekdaysHint')}>
-            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
               {DAY_KEYS.map((key, i) => (
                 <Button
                   key={key}
@@ -248,7 +248,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
             hint={tr('ws.manager.promotions.editor.hoursHint')}
             error={errors.includes('hours') ? tr('ws.manager.promotions.editor.errors.hours') : undefined}
           >
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
               <input
                 style={{ ...inputStyle, inlineSize: 'auto' }}
                 type="time"
@@ -274,7 +274,7 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
 
         {/* Scope */}
         <Panel title={tr('ws.manager.promotions.editor.scopeTitle')}>
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.75rem' }}>{tr('ws.manager.promotions.editor.scopeHint')}</p>
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.manager.promotions.editor.scopeHint')}</p>
           <ChipPicker
             label={tr('ws.manager.promotions.editor.courts')}
             options={(courtsQ.data ?? []).map((c) => ({ id: c.id, label: pickName(locale, c) }))}
@@ -301,8 +301,8 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
 
         {/* Limits */}
         <Panel title={tr('ws.manager.promotions.editor.limitsTitle')}>
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.75rem' }}>{tr('ws.manager.promotions.editor.limitHint')}</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.manager.promotions.editor.limitHint')}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
             <Field label={tr('ws.manager.promotions.editor.limitTotal')}>
               <CountInput value={draft.limits.total} disabled={readOnly} onChange={(total) => patch({ limits: { ...draft.limits, total } })} />
             </Field>
@@ -317,14 +317,14 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
 
         {/* How */}
         <Panel title={tr('ws.manager.promotions.editor.howTitle')} style={{ gridColumn: '1 / -1' }}>
-          <div style={{ display: 'grid', gap: '0.9rem', gridTemplateColumns: 'repeat(auto-fit, minmax(18rem, 1fr))', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(18rem, 1fr))', alignItems: 'start' }}>
             <div>
               <Switch checked={draft.auto} disabled={readOnly} onChange={(auto) => patch({ auto })} label={tr('ws.manager.promotions.editor.autoLabel')} />
-              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.3rem' }}>{tr('ws.manager.promotions.editor.autoHint')}</p>
+              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.manager.promotions.editor.autoHint')}</p>
             </div>
             <div>
-              <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}>{tr('ws.manager.promotions.editor.publicCode')}</span>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.manager.promotions.editor.publicCode')}</span>
+              <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
                 {draft.publicCode ? (
                   <StatusBadge tone="accent" icon="tag" label={draft.publicCode} />
                 ) : (
@@ -342,15 +342,15 @@ function Editor({ id, row }: { id: string | null; row: PromotionRow | null }) {
                 </Button>
               </div>
               {(id === null || dirty) && (
-                <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.3rem' }}>{tr('ws.manager.promotions.editor.generateHint')}</p>
+                <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.manager.promotions.editor.generateHint')}</p>
               )}
-              <div style={{ marginBlockStart: '0.6rem' }}>
+              <div style={{ marginBlockStart: 'var(--tp-sp-2-5)' }}>
                 <Switch checked={draft.codeSingleUse} disabled={readOnly} onChange={(codeSingleUse) => patch({ codeSingleUse })} label={tr('ws.manager.promotions.editor.codeSingleUse')} />
               </div>
             </div>
             <div>
               <Switch checked={draft.enabled} disabled={readOnly} onChange={(enabled) => patch({ enabled })} label={tr('ws.manager.promotions.editor.enabledLabel')} />
-              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.3rem' }}>{tr('ws.manager.promotions.lead')}</p>
+              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.manager.promotions.lead')}</p>
             </div>
           </div>
           <ErrorText error={error} />
@@ -395,21 +395,21 @@ function ChipPicker({
   const [q, setQ] = useState('');
   const shown = q.trim() ? options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase()) || selected.includes(o.id)) : options;
   return (
-    <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: '0.85rem' }}>
-      <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}>
+    <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
+      <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>
         {label}
         {selected.length > 0 && <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 400 }}> · {selected.length}</span>}
       </legend>
       {searchable && (
         <input
           type="search"
-          style={{ ...inputStyle, marginBlockEnd: '0.4rem' }}
+          style={{ ...inputStyle, marginBlockEnd: 'var(--tp-sp-1-5)' }}
           placeholder={tr('ws.kit.search.placeholder')}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
       )}
-      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', maxBlockSize: '9rem', overflowY: 'auto' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', maxBlockSize: '9rem', overflowY: 'auto' }}>
         {shown.length === 0 && <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.kit.common.none')}</span>}
         {shown.map((o) => {
           const on = selected.includes(o.id);

@@ -10,7 +10,7 @@ import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, StatusBadge, asyncStatus, type Column, type Tone } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column, type Tone } from '../../components/kit';
 import { SK, fetchIngredients } from './stockKeys';
 
 interface AlertRow {
@@ -95,14 +95,17 @@ export function AlertsPanel() {
 
   return (
     <div>
-      <PageHeader title={tr('op.stock.alertsTitle')} subtitle={tr('ws.manager.stock.alerts.lead')} />
+      <PageHeader title={tr('op.stock.alertsTitle')} subtitle={tr('ws.manager.stock.alerts.lead')}>
+        <ResultCount shown={alertsQ.data?.length ?? 0} total={alertsQ.data?.length ?? 0} />
+      </PageHeader>
       <AsyncStateWrapper
         status={asyncStatus(alertsQ, (d) => d.length === 0)}
         error={alertsQ.error}
         onRetry={() => void alertsQ.refetch()}
-        emptyContent={<EmptyState icon="checkCircle" title={tr('op.stock.noAlerts')} body={tr('ws.manager.stock.alerts.emptyBody')} />}
+        skeleton={<TableSkeleton columns={columns} rows={3} />}
+        emptyContent={<EmptyState kind="nothingToDo" icon="checkCircle" title={tr('op.stock.noAlerts')} body={tr('ws.manager.stock.alerts.emptyBody')} />}
       >
-        <DataTable dense columns={columns} rows={alertsQ.data ?? []} rowKey={(a) => a.id} aria-label={tr('op.stock.alertsTitle')} />
+        <DataTable columns={columns} rows={alertsQ.data ?? []} rowKey={(a) => a.id} aria-label={tr('op.stock.alertsTitle')} />
       </AsyncStateWrapper>
     </div>
   );

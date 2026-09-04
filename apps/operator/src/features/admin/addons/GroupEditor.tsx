@@ -114,7 +114,7 @@ export function GroupEditor({
         maxLength={80}
       />
       <Field label={tr('op.addons.minMax')}>
-        <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }} dir="ltr">
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }} dir="ltr">
           <input
             style={numStyle}
             type="number"
@@ -133,11 +133,11 @@ export function GroupEditor({
             onChange={(e) => setMax(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
           />
           {min > 0 && (
-            <span style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>{tr('op.addons.required')}</span>
+            <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.addons.required')}</span>
           )}
         </span>
         {mmErr && (
-          <span role="alert" style={{ display: 'block', color: 'var(--tp-danger)', fontSize: '0.85rem' }}>
+          <span role="alert" style={{ display: 'block', color: 'var(--tp-danger)', fontSize: 'var(--tp-fs-sm)' }}>
             {tr('op.menu.minSelect')} ≤ {tr('op.menu.maxSelect')} · {tr('op.menu.maxSelect')} ≥ 1
           </span>
         )}
@@ -147,7 +147,7 @@ export function GroupEditor({
         <Field label={`${tr('op.addons.linkedItems')} (${linked.size})`}>
           <input
             type="search"
-            style={{ ...inputStyle, marginBlockEnd: '0.3rem' }}
+            style={{ ...inputStyle, marginBlockEnd: 'var(--tp-sp-1)' }}
             placeholder={tr('op.menu.search')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -157,22 +157,22 @@ export function GroupEditor({
               maxBlockSize: '14rem',
               overflowY: 'auto',
               border: '1px solid var(--tp-border)',
-              borderRadius: '0.35rem',
-              paddingBlock: '0.3rem',
-              paddingInline: '0.5rem',
+              borderRadius: 'var(--tp-radius-ctl)',
+              paddingBlock: 'var(--tp-sp-1)',
+              paddingInline: 'var(--tp-sp-2)',
             }}
           >
             {visibleItems.length === 0 && (
-              <span style={{ color: 'var(--tp-muted-fg)', fontSize: '0.9rem' }}>{tr('op.common.none')}</span>
+              <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.none')}</span>
             )}
             {visibleItems.map((i) => (
               <label
                 key={i.id}
                 style={{
                   display: 'flex',
-                  gap: '0.4rem',
+                  gap: 'var(--tp-sp-1-5)',
                   alignItems: 'center',
-                  paddingBlock: '0.15rem',
+                  paddingBlock: 'var(--tp-sp-0)',
                   opacity: i.is_active ? 1 : 0.55,
                 }}
               >
@@ -189,7 +189,7 @@ export function GroupEditor({
       )}
 
       <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', justifyContent: 'flex-end' }}>
         {onCancel && <Button onClick={onCancel}>{tr('common.cancel')}</Button>}
         <Button kind="primary" disabled={save.isPending || !valid || !dirty} onClick={() => save.mutate()}>
           {tr('common.save')}

@@ -23,7 +23,8 @@ import type { Derived, RawAnalytics } from '../derive';
 import type { Formatters } from '../format';
 import { buildInsightsData } from '../payload';
 import type { StoredSets } from '../useAnalyticsData';
-import { CardShell, Chip, muted, type CardState } from './CardShell';
+import { CardShell, muted, type CardState } from './CardShell';
+import { StatusBadge } from '../../../components/kit';
 
 type Busy = null | 'generate' | 'recheck' | 'replace';
 
@@ -98,7 +99,7 @@ export function AiInsightsCard({
         <div>
           <p style={{ marginBlockStart: 0 }}>{tr('analytics.insights.rejectPrompt')}</p>
           <p style={{ ...muted, fontStyle: 'italic' }}>{insight.text}</p>
-          <label style={{ display: 'block', fontSize: '0.8rem' }}>
+          <label style={{ display: 'block', fontSize: 'var(--tp-fs-sm)' }}>
             {tr('analytics.insights.rejectReason')}
             <textarea
               rows={2}
@@ -147,14 +148,14 @@ export function AiInsightsCard({
           <Button
             disabled={!ready || busy !== null}
             onClick={() => void run('insights')}
-            style={{ fontSize: '0.8rem', paddingBlock: '0.25rem' }}
+            style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}
           >
             {tr('analytics.insights.generate')}
           </Button>
           <Button
             disabled={!ready || busy !== null || shown.length === 0}
             onClick={() => void run('revalidate', shown.map((i) => i.text))}
-            style={{ fontSize: '0.8rem', paddingBlock: '0.25rem' }}
+            style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}
           >
             {tr('analytics.insights.recheck')}
           </Button>
@@ -168,14 +169,16 @@ export function AiInsightsCard({
         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '0.45rem' }}>
           {shown.map((insight, i) => (
             <li key={`${i}-${insight.text}`} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-              <Chip tone={insight.confidence === 'high' ? 'good' : insight.confidence === 'low' ? 'warn' : 'neutral'}>
-                {tr(`analytics.patterns.confidence.${insight.confidence}`)}
-              </Chip>
-              <span style={{ flex: 1, fontSize: '0.88rem' }}>
+              <StatusBadge
+                size="sm"
+                tone={insight.confidence === 'high' ? 'success' : insight.confidence === 'low' ? 'warn' : 'neutral'}
+                label={tr(`analytics.patterns.confidence.${insight.confidence}`)}
+              />
+              <span style={{ flex: 1, fontSize: 'var(--tp-fs-md)' }}>
                 {insight.text}
                 {insight.status === 'ongoing' && (
                   <span style={{ marginInlineStart: '0.4rem' }}>
-                    <Chip>{tr('analytics.insights.ongoing')}</Chip>
+                    <StatusBadge size="sm" tone="neutral" dot={false} label={tr('analytics.insights.ongoing')} />
                   </span>
                 )}
               </span>
@@ -199,7 +202,7 @@ export function AiInsightsCard({
               {stored.insights.slice(1).map((row) => (
                 <div key={row.id}>
                   <span style={muted}>{tr('analytics.insights.generatedAt', { date: f.date(row.created_at.slice(0, 10), true) })}</span>
-                  <ul style={{ margin: '0.15rem 0 0', paddingInlineStart: '1.1rem', fontSize: '0.8rem' }}>
+                  <ul style={{ margin: '0.15rem 0 0', paddingInlineStart: '1.1rem', fontSize: 'var(--tp-fs-sm)' }}>
                     {row.insights.map((i) => (
                       <li key={i.text}>{i.text}</li>
                     ))}

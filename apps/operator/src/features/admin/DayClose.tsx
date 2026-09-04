@@ -274,11 +274,11 @@ export function DayClose() {
               onChange={(e) => setOpeningFloat(Number(e.target.value.replace(/\D/g, '')) || 0)}
             />
           </Field>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBlockEnd: '0.6rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
             <AmountPad value={openingFloat} onChange={setOpeningFloat} onConfirm={() => void openDay()} disabled={busy} />
           </div>
           <ErrorText error={error} />
-          {!can.closeDay && <PermissionRefusedNotice action={tr('op.dayClose.openDayBtn')} requiredRole={requiredRoleFor('closeDay')} style={{ marginBlockEnd: '0.5rem' }} />}
+          {!can.closeDay && <PermissionRefusedNotice action={tr('op.dayClose.openDayBtn')} requiredRole={requiredRoleFor('closeDay')} style={{ marginBlockEnd: 'var(--tp-sp-2)' }} />}
           <Button kind="primary" busy={busy} disabled={!can.closeDay} onClick={() => void openDay()}>
             {tr('op.dayClose.openDayBtn')}
           </Button>
@@ -316,12 +316,12 @@ export function DayClose() {
         }
       />
 
-      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(20rem, 1fr) minmax(20rem, 1fr)', alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: '1rem' }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'minmax(20rem, 1fr) minmax(20rem, 1fr)', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           {/* Blocked: open tabs */}
           {state === 'blockedByOpenTabs' && (
             <Panel title={tr('op.dayClose.blockedTabs')} padded={false}>
-              <p style={{ paddingBlock: '0.5rem', paddingInline: '0.85rem', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)' }}>
+              <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)' }}>
                 {tr('ws.manager.dayClose.openTabsLead')}
               </p>
               <DataTable<OpenTabRow>
@@ -360,9 +360,9 @@ export function DayClose() {
           {state === 'blockedByUnsyncedQueue' && (
             <Panel title={tr('op.dayClose.unsyncedTitle')} data-testid="day-close-queue">
               <div data-queue-rows>
-                <MessagePresenter tone="refused" message={tr('ws.manager.dayClose.unsyncedLead', { count: queueRows.length })} style={{ marginBlockEnd: '0.6rem' }} />
-                <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.5rem' }}>{tr('op.dayClose.unsyncedHint')}</p>
-                <ul style={{ marginBlock: 0, paddingInlineStart: '1.2rem' }}>
+                <MessagePresenter tone="refused" message={tr('ws.manager.dayClose.unsyncedLead', { count: queueRows.length })} style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }} />
+                <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('op.dayClose.unsyncedHint')}</p>
+                <ul style={{ marginBlock: 0, paddingInlineStart: 'var(--tp-sp-4)' }}>
                   {queueRows.map((row) => (
                     <li key={row.seq} style={{ fontSize: 'var(--tp-fs-sm)' }}>
                       <code>{row.mutationType}</code> · {tr(`op.queue.state.${row.state}`)}
@@ -391,13 +391,13 @@ export function DayClose() {
               <>
                 <DescriptionList
                   columns={2}
-                  style={{ marginBlockEnd: '0.85rem' }}
+                  style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
                   items={[
                     { label: tr('ws.manager.dayClose.openingFloat'), value: <Money amount={day?.opening_float_iqd ?? summary?.opening_float_iqd} />, numeric: true },
                     { label: tr('ws.manager.dayClose.cashPayments'), value: <Money amount={summary?.cash_payments_iqd} />, numeric: true },
                   ]}
                 />
-                <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem' }}>{tr('ws.manager.dayClose.expectedAtClose')}</p>
+                <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>{tr('ws.manager.dayClose.expectedAtClose')}</p>
                 <Field label={tr('ws.manager.dayClose.countedCash')}>
                   <input
                     style={{ ...inputStyle, textAlign: 'end', fontSize: 'var(--tp-fs-xl)' }}
@@ -429,7 +429,7 @@ export function DayClose() {
               <>
                 <DescriptionList
                   columns={1}
-                  style={{ marginBlockEnd: '0.85rem' }}
+                  style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
                   items={[{ label: tr('ws.manager.dayClose.cardPayments'), value: <Money amount={summary?.card_payments_iqd} />, numeric: true }]}
                 />
                 <Field label={tr('ws.manager.dayClose.cardBatch')} hint={tr('ws.manager.dayClose.cardBatchHint')}>
@@ -446,13 +446,23 @@ export function DayClose() {
                 <input style={inputStyle} value={notes} disabled={busy} onChange={(e) => setNotes(e.target.value)} />
               </Field>
               <ErrorText error={error} />
-              {!can.closeDay && <PermissionRefusedNotice action={tr('op.dayClose.closeBtn')} requiredRole={requiredRoleFor('closeDay')} style={{ marginBlockEnd: '0.5rem' }} />}
+              {!can.closeDay && <PermissionRefusedNotice action={tr('op.dayClose.closeBtn')} requiredRole={requiredRoleFor('closeDay')} style={{ marginBlockEnd: 'var(--tp-sp-2)' }} />}
               <Button
                 kind="danger"
                 size="lg"
                 icon="lock"
                 busy={busy}
                 disabled={!can.closeDay || state === 'blockedByOpenTabs' || state === 'blockedByUnsyncedQueue'}
+                // The blocking reason was stated at the top of the screen, which
+                // is the one place a manager scrolled past on the way down to
+                // this button (rulebook 4.3).
+                disabledReason={
+                  state === 'blockedByOpenTabs'
+                    ? tr('ws.manager.dayClose.openTabsLead')
+                    : state === 'blockedByUnsyncedQueue'
+                      ? tr('ws.manager.dayClose.unsyncedLead', { count: queueRows.length })
+                      : undefined
+                }
                 onClick={() => void closeDay()}
               >
                 {tr('ws.manager.dayClose.closeBtn')}
@@ -462,9 +472,9 @@ export function DayClose() {
         </div>
 
         {/* Summary with authorisers */}
-        <div style={{ display: 'grid', gap: '1rem' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           <Panel title={tr('ws.manager.dayClose.summaryTitle')}>
-            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.75rem' }}>{tr('ws.manager.dayClose.summaryLead')}</p>
+            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.manager.dayClose.summaryLead')}</p>
             <ErrorText error={summaryQ.error} />
             {summary ? (
               <DescriptionList
@@ -488,7 +498,7 @@ export function DayClose() {
           <Panel title={tr('ws.manager.dayClose.adjustmentsTitle')} padded={false}>
             <ErrorText error={adjustmentsQ.error} />
             {adjustments.length === 0 ? (
-              <div style={{ padding: '0.85rem' }}>
+              <div style={{ padding: 'var(--tp-sp-3)' }}>
                 <EmptyState compact icon="shield" title={tr('ws.manager.dayClose.noAdjustments')} />
               </div>
             ) : (

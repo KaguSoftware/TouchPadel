@@ -37,9 +37,9 @@ export function ageStateVar(state: AgeState): string {
 export function ageColorVar(color: AgeColor): string {
   switch (color) {
     case 'green':
-      return 'var(--tp-accent-2)';
+      return 'var(--tp-success-mark)';
     case 'amber':
-      return '#E8A317';
+      return 'var(--tp-warn-mark)';
     case 'red':
       return 'var(--tp-danger)';
   }

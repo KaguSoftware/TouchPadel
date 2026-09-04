@@ -23,9 +23,11 @@ import {
   EmptyState,
   MessagePresenter,
   PageHeader,
+  ResultCount,
   Panel,
   PermissionRefusedNotice,
   StatusBadge,
+  TableSkeleton,
   asyncStatus,
   type Column,
 } from '../../components/kit';
@@ -82,7 +84,7 @@ export function RateRuleEditor() {
       key: 'name',
       header: tr('ws.manager.rates.rule'),
       render: (r) => (
-        <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', fontWeight: 600, opacity: r.is_active ? 1 : 0.6 }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', fontWeight: 600, opacity: r.is_active ? 1 : 0.6 }}>
           <bdi>{r.name}</bdi>
           {overlapsFor(overlaps, r.id).length > 0 && <StatusBadge size="sm" tone="warn" icon="alert" label={tr('ws.manager.rates.overlapBadge')} />}
         </span>
@@ -130,14 +132,15 @@ export function RateRuleEditor() {
           </>
         }
       >
+        <ResultCount shown={rules.length} total={rules.length} />
         {!can.editRates && <PermissionRefusedNotice action={tr('ws.manager.rates.newRule')} requiredRole={requiredRoleFor('editRates')} />}
       </PageHeader>
 
-      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: selected ? 'minmax(0, 1.4fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
-        <div style={{ display: 'grid', gap: '0.75rem' }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: selected ? 'minmax(0, 1.4fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
           {overlaps.length > 0 && (
             <Panel title={tr('ws.manager.rates.overlapTitle')} muted>
-              <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.5rem' }}>{tr('ws.manager.rates.overlapLead')}</p>
+              <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.manager.rates.overlapLead')}</p>
               <OverlapList overlaps={overlaps} rules={rules} />
             </Panel>
           )}
@@ -145,6 +148,7 @@ export function RateRuleEditor() {
             status={status}
             error={rulesQ.error}
             onRetry={() => void rulesQ.refetch()}
+            skeleton={<TableSkeleton columns={columns} />}
             emptyContent={
               <EmptyState
                 icon="court"
@@ -204,7 +208,7 @@ function OverlapList({ overlaps, rules }: { overlaps: Overlap[]; rules: RuleRow[
   });
   const nameOf = (id: string) => rules.find((r) => r.id === id)?.name ?? id;
   return (
-    <ul style={{ margin: 0, paddingInlineStart: '1.1rem', fontSize: 'var(--tp-fs-sm)' }}>
+    <ul style={{ margin: 0, paddingInlineStart: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)' }}>
       {pairs.map((o) => (
         <li key={`${o.ruleId}|${o.otherId}`}>
           <bdi>{nameOf(o.ruleId)}</bdi> — <bdi>{tr('ws.manager.rates.overlapWith', { name: o.otherName })}</bdi>{' '}
@@ -288,16 +292,16 @@ function RuleForm({
       title={rule ? tr('ws.manager.rates.editRule') : tr('ws.manager.rates.newRule')}
       actions={rule ? <StatusBadge size="sm" tone={rule.is_active ? 'success' : 'neutral'} label={rule.is_active ? tr('ws.manager.rates.active') : tr('ws.manager.rates.inactive')} /> : undefined}
     >
-      <MessagePresenter tone="info" icon="shield" message={tr('ws.manager.rates.nonDestructive')} style={{ marginBlockEnd: '0.85rem' }} />
+      <MessagePresenter tone="info" icon="shield" message={tr('ws.manager.rates.nonDestructive')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
       {overlaps.length > 0 && (
         <MessagePresenter
           tone="refused"
           icon="alert"
-          style={{ marginBlockEnd: '0.85rem' }}
+          style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
           message={
             <>
               <strong>{tr('ws.manager.rates.overlapTitle')}</strong>
-              <ul style={{ margin: 0, marginBlockStart: '0.25rem', paddingInlineStart: '1.1rem' }}>
+              <ul style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', paddingInlineStart: 'var(--tp-sp-4)' }}>
                 {overlaps.map((o) => (
                   <li key={o.otherId}>
                     <bdi>{tr('ws.manager.rates.overlapWith', { name: o.otherName })}</bdi> ({tr(`op.days.${DAY_KEYS[o.weekday] ?? 'sun'}`)})
@@ -323,7 +327,7 @@ function RuleForm({
         </select>
       </Field>
       <Field label={tr('op.rates.daysLabel')}>
-        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
           {DAY_KEYS.map((key, i) => (
             <Button
               key={key}
@@ -345,7 +349,7 @@ function RuleForm({
           ))}
         </div>
       </Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 5rem', gap: '0.6rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 5rem', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.rates.startTime')}>
           <input style={inputStyle} dir="ltr" type="time" value={startTime} disabled={readOnly} onChange={(e) => setStartTime(e.target.value)} />
         </Field>
@@ -356,7 +360,7 @@ function RuleForm({
           <input style={inputStyle} dir="ltr" type="number" value={priority} disabled={readOnly} onChange={(e) => setPriority(Number(e.target.value) || 0)} />
         </Field>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.rates.validFrom')}>
           <input style={inputStyle} dir="ltr" type="date" value={validFrom} disabled={readOnly} onChange={(e) => setValidFrom(e.target.value)} />
         </Field>
@@ -365,10 +369,10 @@ function RuleForm({
         </Field>
       </div>
 
-      <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: '0.85rem' }}>
-        <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}>{tr('op.rates.prices')}</legend>
-        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.5rem' }}>{tr('ws.manager.rates.pricesHint')}</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', gap: '0.6rem' }}>
+      <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
+        <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.rates.prices')}</legend>
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.manager.rates.pricesHint')}</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', gap: 'var(--tp-sp-2-5)' }}>
           {durations.map((d) => (
             <Field key={d} label={tr('op.rates.priceFor', { minutes: d })} style={{ marginBlockEnd: 0 }}>
               <MoneyInput value={prices[d] ?? null} allowEmpty disabled={readOnly} onChange={(v) => setPrices((prev) => ({ ...prev, [d]: v }))} />
@@ -377,16 +381,31 @@ function RuleForm({
         </div>
       </fieldset>
 
-      <div style={{ marginBlockEnd: '0.85rem' }}>
+      <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
         <Switch checked={isActive} disabled={readOnly} onChange={setIsActive} label={tr('op.rates.isActive')} />
       </div>
       <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', alignItems: 'center' }}>
         <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>{tr('ws.manager.rates.saveHint')}</span>
         <Button onClick={onCancel} disabled={busy}>
           {tr('common.cancel')}
         </Button>
-        <Button kind="primary" icon="check" busy={busy} disabled={readOnly || !name || days.size === 0 || !anyPrice} onClick={() => void save()}>
+        <Button
+          kind="primary"
+          icon="check"
+          busy={busy}
+          disabled={readOnly || !name || days.size === 0 || !anyPrice}
+          disabledReason={
+            !name
+              ? tr('ws.manager.disabled.namesRequired')
+              : days.size === 0
+                ? tr('ws.manager.disabled.daysRequired')
+                : !anyPrice
+                  ? tr('ws.manager.disabled.priceRequired')
+                  : undefined
+          }
+          onClick={() => void save()}
+        >
           {tr('common.save')}
         </Button>
       </div>

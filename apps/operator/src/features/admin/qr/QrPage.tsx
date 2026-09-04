@@ -148,14 +148,21 @@ export function QrPage() {
               <Button kind="danger" icon="repeat" disabled={!canRotate || rows.length === 0} busy={rotateBusy} onClick={() => void rotate(rows.map((r) => r.table_id))}>
                 {rotating ? tr('op.qr.rotating', { done: rotating.done, total: rotating.total }) : tr('op.qr.rotateAll')}
               </Button>
-              <Button kind="primary" icon="printer" disabled={!canPrint} busy={printing && printTarget === null} onClick={() => void print(null)}>
+              <Button
+                kind="primary"
+                icon="printer"
+                disabled={!canPrint}
+                disabledReason={!siteUrl ? tr('ws.manager.disabled.noSiteUrl') : undefined}
+                busy={printing && printTarget === null}
+                onClick={() => void print(null)}
+              >
                 {tr('op.qr.print')}
               </Button>
             </>
           }
         />
-        {!canRotate && <PermissionRefusedNotice action={tr('ws.owner.tables.refusedRotate')} requiredRole="owner" style={{ marginBlockEnd: '0.75rem' }} />}
-        <Toolbar style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.5rem' }}>
+        {!canRotate && <PermissionRefusedNotice action={tr('ws.owner.tables.refusedRotate')} requiredRole="owner" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />}
+        <Toolbar style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--tp-sp-2)' }}>
           <MessagePresenter tone="refused" icon="alert" message={tr('ws.owner.tables.rotateNote')} />
           {!siteUrl && <MessagePresenter tone="error" message={tr('op.qr.noSiteUrl')} />}
           <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.qr.printHint')}</p>
@@ -169,25 +176,25 @@ export function QrPage() {
         onRetry={() => void tokensQ.refetch()}
         emptyContent={<EmptyState icon="qr" title={tr('ws.owner.tables.emptyTitle')} body={tr('ws.owner.tables.emptyBody')} action={<Button kind="primary" onClick={() => setEditing(NEW_TABLE)}>{tr('op.qr.addTable')}</Button>} />}
       >
-        <section aria-label={tr('ws.owner.tables.artworkTitle')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(15rem, 1fr))', gap: '0.8rem' }}>
+        <section aria-label={tr('ws.owner.tables.artworkTitle')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(15rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
           {rows.map((row) => {
             const url = guestTableUrl(siteUrl, row.token);
             const hidden = printTarget !== null && printTarget !== row.table_id;
             return (
-              <div key={row.table_id} data-print-page data-no-print={hidden ? 'true' : undefined} style={{ ...card, paddingBlock: '0.5rem', paddingInline: '0.5rem' }}>
+              <div key={row.table_id} data-print-page data-no-print={hidden ? 'true' : undefined} style={{ ...card, paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-2)' }}>
                 {url ? (
                   <QrCard tableNumber={row.table_number} url={url} />
                 ) : (
-                  <div style={{ aspectRatio: '420 / 592', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 800, color: 'var(--tp-muted-fg)', background: 'var(--tp-bg)', borderRadius: '0.4rem' }}>
+                  <div style={{ aspectRatio: '420 / 592', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--tp-fs-3xl)', fontWeight: 800, color: 'var(--tp-muted-fg)', background: 'var(--tp-bg)', borderRadius: 'var(--tp-radius-ctl)' }}>
                     {row.table_number}
                   </div>
                 )}
-                <div data-no-print style={{ display: 'grid', gap: '0.45rem', marginBlockStart: '0.5rem', fontSize: 'var(--tp-fs-sm)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem' }}>
+                <div data-no-print style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
                     <Switch checked={row.bell_enabled} label={row.bell_enabled ? tr('op.qr.bellOn') : tr('op.qr.bellOff')} onChange={(next) => bell.mutateAsync({ id: row.table_id, enabled: next }).then(() => undefined)} />
                     <StatusBadge tone="neutral" size="sm" dot={false} label={tr('op.qr.version', { v: row.token_version })} title={tr('ws.owner.tables.columns.version')} />
                   </div>
-                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>
                       <bdi>{row.zone ?? ''}</bdi>
                       {row.capacity ? <span dir="ltr"> · {row.capacity}</span> : null}
@@ -208,9 +215,9 @@ export function QrPage() {
       </AsyncStateWrapper>
 
       {(inactiveQ.data?.length ?? 0) > 0 && (
-        <section data-no-print style={{ marginBlockStart: '1.2rem' }}>
-          <h2 style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBlockEnd: '0.4rem' }}>{tr('op.qr.inactive')}</h2>
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+        <section data-no-print style={{ marginBlockStart: 'var(--tp-sp-4)' }}>
+          <h2 style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1-5)' }}>{tr('op.qr.inactive')}</h2>
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
             {inactiveQ.data!.map((t) => (
               <Button key={t.id} kind="ghost" size="sm" style={{ textDecoration: 'line-through', color: 'var(--tp-muted-fg)' }} onClick={() => setEditing({ id: t.id, table_number: t.table_number, zone: t.zone ?? '', capacity: t.capacity, is_active: t.is_active })}>
                 {t.table_number}

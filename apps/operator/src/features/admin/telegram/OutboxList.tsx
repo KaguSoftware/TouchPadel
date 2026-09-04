@@ -1,6 +1,10 @@
 /**
  * Last 20 `telegram_outbox` rows (RLS: manager|owner read), refetched every
  * 10 s; Retry re-queues through `app.retry_telegram_outbox` (owner).
+ *
+ * The hand-rolled <table> with its own `th`/`td` style objects is gone: it was
+ * a fifth spelling of the shared table (12px headers, no row-height floor, no
+ * loading or empty treatment) sitting one import away from DataTable.
  */
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { formatDate, formatTime } from '@touch/i18n';
@@ -8,7 +12,18 @@ import { supabase } from '../../../lib/supabase';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
-import { Button, ErrorText, Skeleton } from '../../../components/ui';
+import { Button, ErrorText } from '../../../components/ui';
+import {
+  AsyncStateWrapper,
+  DataTable,
+  EmptyState,
+  ResultCount,
+  StatusBadge,
+  TableSkeleton,
+  asyncStatus,
+  type Column,
+  type Tone,
+} from '../../../components/kit';
 
 export const OUTBOX_QUERY_KEY: QueryKey = ['telegramOutbox'];
 
@@ -24,32 +39,18 @@ export interface OutboxRow {
   sent_at: string | null;
 }
 
+/** One colour, one label, one shape, defined once (rulebook 10.6) — on the shared badge. */
+const STATUS_TONE: Record<OutboxStatus, Tone> = {
+  sent: 'success',
+  failed: 'danger',
+  queued: 'warn',
+  skipped: 'neutral',
+};
+
 export function StatusChip({ status }: { status: OutboxStatus }) {
   const { tr } = useLocale();
-  const tone =
-    status === 'sent'
-      ? { background: 'var(--tp-accent-2)', color: 'var(--tp-accent-2-contrast)' }
-      : status === 'failed'
-        ? { background: 'var(--tp-danger)', color: 'var(--tp-danger-contrast)' }
-        : { background: 'var(--tp-muted)', color: 'var(--tp-fg)' };
-  const label =
-    status === 'skipped' ? tr('op.telegram.statusSkipped') : tr(`op.telegram.status.${status}`);
-  return (
-    <span
-      style={{
-        ...tone,
-        display: 'inline-block',
-        paddingBlock: '0.1rem',
-        paddingInline: '0.5rem',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
-        fontWeight: 700,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-    </span>
-  );
+  const label = status === 'skipped' ? tr('op.telegram.statusSkipped') : tr(`op.telegram.status.${status}`);
+  return <StatusBadge size="sm" tone={STATUS_TONE[status]} label={label} />;
 }
 
 function when(iso: string | null, locale: 'en' | 'ar'): string {
@@ -87,72 +88,72 @@ export function OutboxList() {
   });
 
   const rows = outboxQ.data ?? [];
-  const th: React.CSSProperties = {
-    textAlign: 'start',
-    fontSize: '0.75rem',
-    color: 'var(--tp-muted-fg)',
-    paddingBlock: '0.3rem',
-    paddingInline: '0.4rem',
-    borderBlockEnd: '1px solid var(--tp-border)',
-  };
-  const td: React.CSSProperties = {
-    paddingBlock: '0.4rem',
-    paddingInline: '0.4rem',
-    borderBlockEnd: '1px solid var(--tp-border)',
-    verticalAlign: 'top',
-    fontSize: '0.85rem',
-  };
+
+  const columns: Column<OutboxRow>[] = [
+    {
+      key: 'kind',
+      header: tr('op.telegram.kind'),
+      render: (r) => (
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <StatusChip status={r.status} />
+          <span dir="ltr">{r.kind}</span>
+        </span>
+      ),
+    },
+    { key: 'created', header: tr('op.telegram.created'), render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{when(r.created_at, locale)}</span> },
+    { key: 'sent', header: tr('op.telegram.sentAt'), render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{when(r.sent_at, locale)}</span> },
+    { key: 'attempts', header: tr('op.telegram.attemptsCol'), numeric: true, render: (r) => <span dir="ltr">{r.attempts}</span> },
+    {
+      key: 'error',
+      header: tr('op.telegram.lastError'),
+      truncate: true,
+      truncateTitle: (r) => r.last_error ?? '',
+      render: (r) => (
+        <span dir="ltr" style={{ color: r.last_error ? 'var(--tp-danger-fg)' : 'var(--tp-muted-fg)' }}>
+          {r.last_error ?? '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'retry',
+      header: '',
+      align: 'end',
+      render: (r) => (
+        <Button
+          kind="ghost"
+          size="sm"
+          icon="refresh"
+          disabled={r.status === 'queued' || retry.isPending}
+          // Rulebook 4.3 in its cheapest form: the button used to VANISH on a
+          // queued row, so the operator could not tell "cannot retry yet" from
+          // "this venue cannot retry at all".
+          disabledReason={r.status === 'queued' ? tr('ws.manager.settings.telegram.retryDisabled') : undefined}
+          onClick={() => retry.mutate(r.id)}
+        >
+          {tr('op.telegram.retry')}
+        </Button>
+      ),
+    },
+  ];
 
   return (
-    <div>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.manager.settings.telegram.outboxLead')}</p>
+        <ResultCount shown={rows.length} total={rows.length} />
+      </div>
       <ErrorText error={outboxQ.error} />
-      {outboxQ.isLoading && <Skeleton lines={4} />}
-      {outboxQ.isSuccess && rows.length === 0 && (
-        <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.telegram.emptyOutbox')}</p>
-      )}
-      {rows.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ inlineSize: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={th}>{tr('op.telegram.kind')}</th>
-                <th style={th}>{tr('op.telegram.created')}</th>
-                <th style={th}>{tr('op.telegram.sentAt')}</th>
-                <th style={th}>{tr('op.telegram.attemptsCol')}</th>
-                <th style={th}>{tr('op.telegram.lastError')}</th>
-                <th style={th} />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td style={td}>
-                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                      <StatusChip status={r.status} />
-                      <span dir="ltr">{r.kind}</span>
-                    </div>
-                  </td>
-                  <td style={{ ...td, whiteSpace: 'nowrap' }}>{when(r.created_at, locale)}</td>
-                  <td style={{ ...td, whiteSpace: 'nowrap' }}>{when(r.sent_at, locale)}</td>
-                  <td style={{ ...td, textAlign: 'center' }} dir="ltr">
-                    {r.attempts}
-                  </td>
-                  <td style={{ ...td, color: r.last_error ? 'var(--tp-danger)' : 'var(--tp-muted-fg)' }} dir="ltr">
-                    {r.last_error ?? '—'}
-                  </td>
-                  <td style={td}>
-                    {r.status !== 'queued' && (
-                      <Button kind="ghost" disabled={retry.isPending} onClick={() => retry.mutate(r.id)}>
-                        {tr('op.telegram.retry')}
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <AsyncStateWrapper
+        status={asyncStatus(outboxQ, (d) => d.length === 0)}
+        error={outboxQ.error}
+        onRetry={() => void outboxQ.refetch()}
+        skeleton={<TableSkeleton columns={columns} rows={4} />}
+        emptyContent={
+          <EmptyState icon="bell" title={tr('op.telegram.emptyOutbox')} body={tr('ws.manager.settings.telegram.outboxEmptyBody')} />
+        }
+      >
+        <DataTable columns={columns} rows={rows} rowKey={(r) => String(r.id)} aria-label={tr('op.telegram.outbox')} />
+      </AsyncStateWrapper>
     </div>
   );
 }
