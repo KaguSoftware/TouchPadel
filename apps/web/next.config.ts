@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { STATIC_SECURITY_HEADERS, TABLE_ROUTE_HEADERS } from './src/lib/security/headers';
 
 const MEDIA_PATH = '/storage/v1/object/public/menu-media/**';
 
@@ -9,6 +10,22 @@ const MEDIA_PATH = '/storage/v1/object/public/menu-media/**';
 const isLocalSupabase = /^https?:\/\/(127\.0\.0\.1|localhost)([:/]|$)/.test(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
 );
+
+/**
+ * The single Supabase host this deployment may optimize images from. Falls back
+ * to the known project ref so a build without the env var still renders the
+ * menu rather than shipping broken images — but never to a wildcard.
+ */
+const supabaseImageHost = (() => {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) return 'lczijabnorujcgmbuqlw.supabase.co';
+  try {
+    const { hostname } = new URL(raw);
+    return /^(127\.0\.0\.1|localhost)$/.test(hostname) ? null : hostname;
+  } catch {
+    return 'lczijabnorujcgmbuqlw.supabase.co';
+  }
+})();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -21,11 +38,24 @@ const nextConfig: NextConfig = {
   // Next must transpile them itself.
   transpilePackages: ['@touch/core', '@touch/db', '@touch/i18n', '@touch/ui'],
   images: {
-    // Only the public `menu-media` bucket (0027/0031) — staging, any Supabase
-    // project (Touch's production at handover), and the local stack.
+    // Only the public `menu-media` bucket (0027/0031), on the ONE project this
+    // deployment talks to, plus the local stack.
+    //
+    // The wildcard `*.supabase.co` that used to be here turned the Next image
+    // optimizer into an open proxy: anyone could pass
+    // /_next/image?url=https://<their-project>.supabase.co/... and have this
+    // origin fetch, resize, cache and serve their bytes under the venue's own
+    // domain and TLS certificate. That is a free CDN for whatever they like,
+    // billed to this deployment, and it launders the content's origin.
+    //
+    // The host is derived from NEXT_PUBLIC_SUPABASE_URL so it follows the
+    // deployment rather than being pinned to one ref in source — a hardcoded
+    // ref silently stops working at handover, and the usual fix for that is to
+    // put the wildcard back.
     remotePatterns: [
-      { protocol: 'https', hostname: 'lczijabnorujcgmbuqlw.supabase.co', pathname: MEDIA_PATH },
-      { protocol: 'https', hostname: '*.supabase.co', pathname: MEDIA_PATH },
+      ...(supabaseImageHost
+        ? [{ protocol: 'https' as const, hostname: supabaseImageHost, pathname: MEDIA_PATH }]
+        : []),
       { protocol: 'http', hostname: '127.0.0.1', port: '54321', pathname: MEDIA_PATH },
     ],
     // Next 16 requires every non-default quality to be listed: 40 = blurred
@@ -39,6 +69,32 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 2592000,
     ...(isLocalSupabase ? { dangerouslyAllowLocalIP: true } : {}),
   },
+  /**
+   * Security headers — Security Layer 1, Block 4 · Web (SEC-25).
+   *
+   * Set here rather than in proxy.ts so they also cover static assets, images
+   * and error responses, which the proxy matcher deliberately skips. The one
+   * header that CANNOT live here is the CSP, because its nonce changes per
+   * request; that is set in proxy.ts.
+   */
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [...STATIC_SECURITY_HEADERS],
+      },
+      {
+        // Both the printed form and the post-exchange form of the table route.
+        source: '/:locale(en|ar)/t/:path*',
+        headers: [...TABLE_ROUTE_HEADERS],
+      },
+      {
+        source: '/t/:path*',
+        headers: [...TABLE_ROUTE_HEADERS],
+      },
+    ];
+  },
+
   async redirects() {
     return [
       // Legacy /{locale}/menu alias → the cafe app root (web-slice §1).

@@ -1,47 +1,31 @@
-import type { Metadata } from 'next';
-import { makeT } from '@touch/i18n';
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { asLocale } from '@/lib/locales';
-import { getCachedCafeSettings, getCachedMenu, getCachedVenue } from '@/lib/menu.server';
-import { CafeApp } from '@/components/cafe/CafeApp';
+import { TABLE_COOKIE, tableCookieOptions } from '@/lib/security/headers';
 
-// Cafe table-bound ordering (Touch Cafe identity). The token in the URL is a
-// signed opaque blob (0014) — the client boot signs in anonymously and calls
-// app.open_table_session in the background; the menu itself is server-rendered
-// from the shared cached read model first, so nothing is blank meanwhile.
-// Table URLs are never indexed.
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string; token: string }>;
-}): Promise<Metadata> {
-  const locale = asLocale((await params).locale);
-  const tr = makeT(locale);
-  return {
-    title: tr('seo.tableTitle'),
-    robots: { index: false, follow: false },
-  };
-}
-
-export default async function TableSessionPage({
+/**
+ * Fallback for `/t/{token}` — defence in depth behind proxy.ts.
+ *
+ * proxy.ts normally performs the token→cookie exchange before routing, so this
+ * route is not reached in practice. It exists because the proxy has a `matcher`
+ * and matchers are edited: if a future change excludes this path, the token
+ * would silently start living in the address bar again and nothing would fail.
+ *
+ * So the exchange is implemented twice, and this copy is the one that keeps
+ * working when the first is bypassed. It does the same thing — set the cookie,
+ * redirect to the token-less route — and never renders the menu with a token in
+ * the URL.
+ */
+export default async function LegacyTableTokenPage({
   params,
 }: {
   params: Promise<{ locale: string; token: string }>;
 }) {
   const { locale: rawLocale, token } = await params;
-  const [menuResult, settings, venue] = await Promise.all([
-    getCachedMenu(),
-    getCachedCafeSettings(),
-    // Footer hours + phone and the hero strapline (web-slice §2).
-    getCachedVenue(),
-  ]);
-  return (
-    <CafeApp
-      locale={asLocale(rawLocale)}
-      token={token}
-      initialMenu={menuResult.categories}
-      menuStatus={menuResult.status}
-      settings={settings}
-      venue={venue}
-    />
-  );
+  const locale = asLocale(rawLocale);
+
+  const store = await cookies();
+  store.set(TABLE_COOKIE, token, tableCookieOptions(process.env.NODE_ENV !== 'production'));
+
+  redirect(`/${locale}/t`);
 }

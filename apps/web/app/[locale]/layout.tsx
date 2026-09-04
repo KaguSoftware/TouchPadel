@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { headers } from 'next/headers';
 // Subpath imports: the @touch/ui barrel also exports the client-side
 // ThemeProvider (React hooks), which a Server Component must not pull in.
 import { themeCss } from '@touch/ui/theme';
@@ -81,6 +82,11 @@ export default async function LocaleLayout({
 }) {
   const locale = asLocale((await params).locale);
   const dir = dirAttr(locale);
+  // proxy.ts mints one nonce per request and passes it here on `x-nonce`.
+  // Next stamps its OWN inline bootstrap scripts from the request's CSP header;
+  // this inline <style> is ours, so it carries the nonce explicitly. Without it
+  // the tokens and cafe stylesheet are blocked and the page renders unstyled.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <html lang={locale} dir={dir} data-theme="cafe">
       <head>
@@ -90,6 +96,7 @@ export default async function LocaleLayout({
         <link rel="preload" as="style" href={FONTS_HREF} />
         <link href={FONTS_HREF} rel="stylesheet" />
         <style
+          nonce={nonce}
           // Token stylesheet + cafe styles — logical properties only (RTL-safe).
           dangerouslySetInnerHTML={{ __html: `${themeCss}\n${cafeCss}` }}
         />

@@ -26,7 +26,10 @@
     "test:concurrency": "vitest run tests/concurrency.test.ts",
     "check:locks": "node scripts/check-lock-order.mjs",
     "check:authz": "node scripts/check-rpc-authz.mjs",
-    "check:safeupdate": "node scripts/check-safe-update.mjs"
+    "check:safeupdate": "node scripts/check-safe-update.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "check:invariants": "node scripts/check-db-invariants.mjs",
+    "check:rpc-registry": "node scripts/check-rpc-registry.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.47.0",

@@ -4,6 +4,32 @@
 **Parent** `docs/security/security-general.md` — the full checklist. This file is the slice you do **first**.
 **Verified against** the repository at commit `3a6d8f5`, 2026-08-30.
 
+## Status — 2026-09-04
+
+**30 of 60 ticked.** Everything that is code is done and verified, except where a box says otherwise.
+
+| Why the other 30 are open | Count |
+|---|---|
+| Needs a **dashboard/account** (GitHub, Supabase, Vercel, Expo, Apple, registrar) | 13 |
+| Needs the **client** (D1, domain, venue-PC policy, signatures, account ownership) | 8 |
+| Needs a **purchase** (OV/EV code-signing certificate) | 1 |
+| **Written but unverified** — Docker was not running, so no local Supabase stack | 4 |
+| **Deliberately incomplete**, with the reasoning in the box | 4 |
+
+The four unverified boxes are `check:invariants` (views + `search_path`), the header e2e suite, and
+migration 0069. Run `pnpm db:start` then `pnpm --filter @touch/db check:invariants && pnpm db:reset && pnpm e2e`
+to close them.
+
+New gates, all runnable now: `pnpm security` · `pnpm --filter @touch/db check:migrations`
+· `check:rpc-registry` · `check:invariants` · `pnpm --filter @touch/operator-shell check:electron`.
+
+---
+
+> ⚠ **This file has drifted from the repo.** It was verified at migration 55; the repo is at 68. Some boxes
+> describe work that has since landed — `sandbox: true` and the single-file preload bundle are both done
+> (`apps/operator-shell/src/main/index.ts:107-112`), and `lan-kds-server.ts` does not exist yet at all.
+> Re-verify each box against the code before working it; do not trust a box's premise.
+
 ---
 
 ## What Layer 1 is
@@ -77,16 +103,13 @@ Four boxes further down are **decisions**, not implementation. Each has more tha
 each changes the code around it, so answering them while already halfway through the work means rewriting.
 Decide them first; the boxes then become ordinary tasks.
 
-- [ ] **The table token in the URL** — exchange it for a cookie on first load, or accept it in writing with
-      the `Referrer-Policy` and analytics mitigations. Not a small change: it touches `proxy.ts`, the session
-      boot in `useTableSession.ts`, and the relationship with QR cards that may already be printed.
+- [x] **The table token in the URL — SETTLED 2026-09-04: exchange for a cookie.** Implemented and
+      verified; see the Block 4 · Web box. *(Box in Block 4 · Web.)*
+- [ ] **PostHog — technical mitigation DONE, contract question OPEN.** Kept and fully mitigated rather
+      than deleted on our own judgement; the signed variation is still required and is SEC's call.
       *(Box in Block 4 · Web.)*
-- [ ] **PostHog on the guest cafe app** — remove it, or get a signed variation. This is a contract question,
-      not a technical one: SOW Module 6 NOT INCLUDED lists "Analytics, marketing tags or advertising pixels".
-      *(Box in Block 4 · Web.)*
-- [ ] **`pin_cache` on the venue PC** — encrypt via `safeStorage`, restrict to the roles that need it, or
-      drop offline PIN unlock. All three are defensible; one must be chosen before the Electron work lands.
-      *(Box in Block 4 · Desktop.)*
+- [x] **`pin_cache` — SETTLED 2026-09-04: encrypt via `safeStorage`, fail closed.** Implemented and
+      tested. *(Box in Block 4 · Desktop.)*
 - [ ] **Who accepts the risk of bringing the hosted project to head.** The write itself is routine; the
       context is not — it lands on the client's live database, over real guest data, with no staging
       rehearsal. Name the person who accepts that the venue may not trade if it goes wrong, and pick a time
@@ -103,9 +126,13 @@ Decide them first; the boxes then become ordinary tasks.
 - [ ] **Supabase member roles**: SEC and DEV as Owner/Admin; FE1 and FE2 as Developer with **no SQL Editor
       access to the hosted project**. With one project, access control *is* environment separation.
       (SEC-37 · SEC)
-- [ ] **`.github/CODEOWNERS`** routing `packages/db/supabase/migrations/` and
-      `.github/workflows/db-migrate.yml` to the technical lead; enable "Require review from Code Owners" on
-      the `main` ruleset. **Confirmed missing — there is no CODEOWNERS file today.** (SEC-01 · SEC)
+- [ ] **`.github/CODEOWNERS`** — **FILE WRITTEN; INERT UNTIL TWO GITHUB SETTINGS EXIST.**
+      Routes the migrations directory, `db-migrate.yml`, `ci.yml`, `CODEOWNERS` itself and the security
+      gates to `@KaguSoftware/tech-leads` — the gates included, because otherwise the cheapest way to make
+      a failing check pass is to edit the check.
+      ⚠ **GitHub silently ignores an owner it cannot resolve**, so a file that looks like a control can
+      enforce nothing. The team must exist AND "Require review from Code Owners" must be on the `main`
+      ruleset. Confirm with a test PR. (SEC-01 · SEC)
 - [ ] **Re-verify required reviewers on the `staging` GitHub Environment.** They were enabled on 2026-08-27,
       before the secrets went in (`HANDOFF.md:542-546`) — the correct order. But this is a GitHub UI setting
       with **no repo artifact**: it can be edited or deleted at any time leaving no git trace, and the job it
@@ -135,102 +162,174 @@ have to make on every pull request forever.
 > The other thirteen pass or fail honestly on the current repo and can land immediately.
 
 ### Secrets
-- [ ] ★ **`gitleaks` over full history**: `gitleaks detect --source . -v --log-opts="--all"`. Not just the
-      working tree. **Confirmed absent — `gitleaks` appears nowhere in the repo**, despite Security Layer
-      §9.2 and §11.3 both stating it runs in CI and fails the build. The standard describes an intention.
+- [x] ★ **`gitleaks` over full history** — DONE, DEV, 2026-09-04. `.gitleaks.toml` + the `secrets` job in
+      `ci.yml` (`fetch-depth: 0`, pinned 8.30.1 binary — the official ACTION needs a paid licence for
+      org-owned repos and would have failed on licensing rather than on secrets). Baseline run: 123 commits,
+      10 findings, **zero real leaks** — 8 are the published `iss: supabase-demo` local-stack keys, 2 are the
+      hosted project's **anon** key in `eas.json`, which ships in every client binary by design. All three
+      are allowlisted **by exact value**, never by path, so a different token in the same file still fails.
+      A custom rule (`touchpadel-live-service-role`) fails on any JWT claiming `service_role`; verified
+      against a planted key. (SEC-24 · DEV)
+- [x] Rotate anything it finds — **nothing to rotate**, DEV, 2026-09-04. The one genuinely sensitive
+      credential in the project, the hosted `service_role` key, lives only in untracked `.env.local` files;
+      `git log --all -S` over the full object graph confirms it was never committed. (SEC-24 · DEV)
+- [x] ★ **Built-artifact secret grep** — DONE, DEV, 2026-09-04.
+      `scripts/security/check-artifact-secrets.mjs`, wired into the three jobs that already build each
+      client (`--only=web|mobile|desktop`) rather than a fourth job that rebuilds them all.
+      ⚠ The literal grep in this box is **not implementable as written**: `@supabase/auth-js` contains the
+      string `service_role` in its own source, so a bare-word gate fires 168 times on a clean tree and would
+      be deleted within a day. It fails instead on things that cannot be false positives — a JWT whose
+      **decoded** payload claims `service_role`, any `sb_secret_*`, or a token for a real project with an
+      unexpected role — and reports the bare-word count as information. It also **fails when nothing was
+      built**, because a scan of an empty directory is the exact green tick this gate exists to prevent.
+      First real run: `.next` built with a live `service_role` in `.env.local` — not inlined. (SEC-24 · DEV)
+- [x] **`NEXT_PUBLIC_` / `EXPO_PUBLIC_` naming check** — DONE, DEV, 2026-09-04.
+      `scripts/security/check-public-env-names.mjs`, over `git ls-files` so build output and untracked local
+      `.env` files cannot skew it. Four names legitimately match the pattern (both Supabase anon keys, the
+      publishable key, the PostHog ingest key) and are allowlisted by exact name with a written reason each.
       (SEC-24 · DEV)
-- [ ] Rotate anything it finds, in rotation-runbook order. (SEC-24 · DEV)
-- [ ] ★ **Built-artifact secret grep** on all three clients: the Expo bundle, `.next/static`, and the
-      Electron `app.asar`. Search `service_role`, `sb_secret`, `role":"service_role"`. Code review is not
-      evidence. (SEC-24 · DEV)
-- [ ] **`NEXT_PUBLIC_` / `EXPO_PUBLIC_` naming check** — fail if any such name matches
-      `/SECRET|KEY|TOKEN|PIN|HMAC/`. (SEC-24 · DEV)
-- [ ] **Lint rule: no `service_role` in client paths.** Security Layer §11.3 lists this as a merge-blocking
-      gate. It does not exist. There is no root eslint config — only `apps/mobile`, `apps/operator` and
-      `apps/operator-shell` have one, and **`apps/web` has no lint script at all**, which is also the only
-      app with no login. (SEC-24 · DEV)
-- [ ] **`pnpm audit --audit-level=high` + Dependabot.** Neither is configured. (SEC-24 · DEV)
-- [ ] Confirm `.env*`, `.env.remote` and `station.json` are absent from git **history**, not just ignored.
-      `.gitignore` already covers `.env`, `.env.*`, `station.json`, `*.pem`, `*.p12`, `*.keystore`.
-      (SEC-24 · DEV)
+- [x] **Lint rule: no `service_role` in client paths** — DONE, DEV, 2026-09-04. `clientSecrets` /
+      `clientSecretRules` in `@touch/config/eslint`, wired into all four client packages.
+      ⚠ Landing it exposed a trap worth knowing about: ESLint **replaces** `no-restricted-syntax` wholesale
+      rather than merging it, and both the RTL guard and this rule use that rule name. The two pre-existing
+      `'no-restricted-syntax': 'off'` exemptions (operator recharts geometry, mobile court art) would have
+      silently opened holes where a key could sit unlinted, so both now restate the secret rules explicitly.
+      One true-negative suppressed with a reason: the audit-log test asserting how the till *renders* the
+      role name `service_role`. (SEC-24 · DEV)
+- [x] **`pnpm audit --audit-level=high` + Dependabot** — DONE, DEV, 2026-09-04.
+      ⚠ Bare `pnpm audit --audit-level=high` goes **red on arrival** (14 high, 2 critical, all transitive),
+      so it lands wrapped in `scripts/security/check-dependency-audit.mjs` on the same principle this file
+      applies to migrations — grandfather what is committed, guard what arrives.
+      `.security/audit-waivers.json` holds all 14 with a per-advisory reachability argument, an owner and an
+      **expiry date**; an expired waiver fails the build exactly as an un-waived advisory does, and stale
+      waivers are reported so the file shrinks as upgrades land. All three behaviours verified.
+      **The one that matters is `electron@33.4.11` — 7 high advisories, fixed only at ≥38.8.6/39.8.10,
+      including a context-isolation bypass. That is the binary on the venue PC. Waived to 2026-10-15 and it
+      belongs in the Block 4 desktop lane, not here.** Dependabot groups by "does it ship" so the backlog
+      arrives as a handful of reviewable PRs, not thirty unread ones. (SEC-24 · DEV)
+- [x] Confirm `.env*`, `.env.remote` and `station.json` are absent from git **history** — DONE, DEV,
+      2026-09-04. `scripts/security/check-history-secrets.mjs` walks `--diff-filter=A` over `--all`: 994
+      paths, clean. Four `.env.example` files (deliberate) and a root `.npmrc` holding only pnpm settings.
+      The `.npmrc` is checked by **content in every historical revision** rather than by path — a committed
+      root `.npmrc` is normal and correct, and a path rule there is either a permanent false positive or a
+      missed `_authToken`. (SEC-24 · DEV)
 
 ### Migrations
-- [ ] ★ **`check:migrations` — and scope it to lock-taking DDL, not just object drops.** The obvious
-      drop-only rule lands green on this repo while missing every real hazard in it:
-      **11 of 12 `add constraint` statements omit `NOT VALID`** (`0027:50,54,58,63`, `0030:35,40`,
-      `0054:37,141`, `0019:33`, `0008:43`) — each takes `ACCESS EXCLUSIVE` plus a full validating scan on a
-      table that already holds live data — `0039:71` is a three-statement blocking sequence on `order_items`,
-      and **0 of 48 `create index` statements use `CONCURRENTLY`**. Exactly one site uses the safe
-      `NOT VALID` → `VALIDATE` pattern, so the pattern is known and simply not applied. Fail on all of that,
-      plus `DROP TABLE` / `DROP COLUMN` / `TRUNCATE` / `ALTER COLUMN … TYPE` / unpaired `DROP POLICY`,
-      unless the PR body carries `MIGRATION-RISK-ACCEPTED:` with a reason.
-      ⚠ **Scope the check to the migration files changed in the pull request, not the whole directory.**
-      The existing 11 constraint sites and 48 non-concurrent indexes are already applied and cannot be
-      rewritten; a whole-directory scan turns `main` red on history and the rule gets weakened or deleted
-      within a day. Grandfather what is committed, guard what arrives. (SEC-02 · DEV)
-- [ ] ★ **Nightly `supabase db diff --linked`**, failing on non-empty output. "We are behind" becomes a
-      build failure instead of a memory. (SEC-03 · DEV)
-- [ ] Data-only dump of the ledger tables as a retained CI artifact **before** each push; print
-      `supabase db diff` into the job log for the reviewer. (SEC-02 · DEV)
-
+- [x] ★ **`check:migrations`, scoped to lock-taking DDL** — DONE — DEV, 2026-09-04.
+      `packages/db/scripts/check-migrations.mjs`. Independently reproduced this file's audit:
+      **57 non-CONCURRENTLY indexes, 11 `add constraint` without `NOT VALID`, and `0039:71`** — the exact
+      site named above. Scoped to files changed against the merge base, so history is grandfathered and only
+      new migrations are judged; `MIGRATION-RISK-ACCEPTED:` in the PR body downgrades a failure to a report.
+      Also enforces the Block 3 timeout preamble. All four behaviours negative-tested.
+      ⚠ Its SQL parser strips string literals, so the preamble rule reads the RAW text of the region before
+      the first non-SET statement — that is what lets it reject `lock_timeout = 0`, which would otherwise
+      pass as "a timeout is set". (SEC-02 · DEV)
+- [x] ★ **Nightly `supabase db diff --linked`** — DONE — DEV, 2026-09-04.
+      `.github/workflows/db-drift.yml`, 02:00 Asia/Baghdad. Two checks, because the remedies differ:
+      `migration list` catches the hosted project being BEHIND (the eight-migration drift that already
+      happened), and a non-empty `db diff` catches the schema being EDITED BY HAND — which Block 3 forbids
+      precisely because it leaves no migration and no audit trail.
+      ⚠ Missing secrets produce a **warning annotation**, not a silent pass: a drift job that never runs is
+      the original failure with extra steps. (SEC-03 · DEV)
+- [x] Data-only dump of the ledger tables + `db diff` in the job log — DONE — DEV, 2026-09-04.
+      Both added to `db-migrate.yml`. The diff is printed into the **job summary**, where the person
+      approving the environment gate actually looks. The ledger dump (`audit_log`, `stock_ledger`,
+      `payments` — the three with UPDATE/DELETE revoked) is retained 30 days: with no PITR rehearsal and no
+      staging, it is the only "before" that will exist. It is evidence, not a restore path. (SEC-02 · DEV)
 ### Database invariants
-- [ ] **Every view is `security_invoker = on`**, with a named allowlist of the four audited projections
-      (`venue_settings_public`, `cafe_settings_public`, `menu_item_availability`, `court_availability`). Any
-      *new* invoker-off view fails the test. Asserting a flat zero would go red on a clean repo. (SEC-04 · DEV)
-- [ ] **Every `security definer` function in `app` has a pinned `search_path`.** Coverage is 159/159 with
-      zero offenders — this is a pure regression lock so the next function cannot forget. It will pass on the
-      first run. (SEC-04 · DEV)
-- [ ] **RPC registry** — move the exemption list out of code and into data. It exists today as a hardcoded
-      JS `Set` (`PUBLIC_BY_DESIGN`, `check-rpc-authz.mjs:38-56`); make it
-      `packages/db/fixtures/rpc-allowlist.json` and fail when a function appears in `pg_proc` and not in the
-      file. Closes "a new RPC ships unguarded" permanently. (SEC-12 · SEC)
-- [ ] **Authz coverage counter — this is the real gap.** Against the 121 distinct names in
-      `grant execute on function app.*`, `tests/rls-matrix.ts` covers 50; **71 are uncovered**, including
-      `override_price`, `void_after_send`, `apply_pct_discount`, `merge_tabs`, `split_by_item`,
-      `set_cafe_settings`, `set_opening_hours` and the staff-admin and `analytics_*` families. Extend the
-      pass that already exists rather than writing a second one, and fail the build when the ratio
-      regresses. (SEC-12 · SEC)
-- [ ] **No real-format Iraqi phone numbers** in seed or fixture files outside a reserved test range.
-      (SEC-37 · DEV)
-
+- [ ] **Every view is `security_invoker = on`** — **WRITTEN, NOT VERIFIED.**
+      `packages/db/scripts/check-db-invariants.mjs` (`pnpm --filter @touch/db check:invariants`), wired into
+      the CI `db` job. The four audited projections are named in an allowlist; any NEW invoker-off view fails.
+      ⚠ **Docker was not running on this machine, so it has never been executed.** It reads `pg_class`
+      through the stack's container exactly as `check-lock-order.mjs` does. Run `pnpm db:start` then
+      `pnpm --filter @touch/db check:invariants` before trusting it. (SEC-04 · DEV)
+- [ ] **Every `security definer` function has a pinned `search_path`** — **WRITTEN, NOT VERIFIED.**
+      Second stage of the same `check:invariants` script. Expected to pass on the first run (159/159).
+      ⚠ Unexecuted for the same reason — no Docker. (SEC-04 · DEV)
+- [x] **RPC registry — moved out of code and into data** — DONE — DEV, 2026-09-04.
+      `packages/db/fixtures/rpc-allowlist.json` classifies all **127** client-callable RPCs (19 public by
+      design with a written reason each, 108 guarded); `check-rpc-authz.mjs` now loads its exemptions from
+      it instead of the hardcoded `Set`.
+      The point is the DEFAULT, not the list: a newly granted RPC used to appear in no list at all, so
+      nothing failed and it shipped unguarded unless a reviewer noticed. `check:rpc-registry` now fails on
+      any unclassified RPC — silence stops being a pass. Negative-tested. (SEC-12 · SEC)
+- [x] **Authz coverage counter, with a ratchet** — DONE — DEV, 2026-09-04.
+      Measured against the grants themselves: **60 of 127 covered, 67 uncovered** (this file said 50/121 —
+      the repo has grown from migration 55 to 69). The floor is recorded in
+      `packages/db/fixtures/rpc-coverage-floor.json` and the build fails when the RATIO regresses, so
+      adding an RPC without a rule in `tests/rls-matrix.ts` fails. Verified: adding an RPC dropped it to
+      60/128 and failed.
+      ⚠ **This closes the ratchet, not the gap.** `override_price`, `void_after_send`, `apply_pct_discount`,
+      `merge_tabs`, `split_by_item` and the `analytics_*` family are still asserted by nobody — the script
+      prints them on every run. Raising 60 → 127 is real work and is NOT done. (SEC-12 · SEC)
+- [x] **No real-format Iraqi phone numbers in seeds or fixtures** — DONE — DEV, 2026-09-04.
+      `scripts/security/check-data-hygiene.mjs`. Iraq has no ITU documentation range, so the script DEFINES
+      the reserved convention: `+964 7XX 000000N`. Currently clean. (SEC-37 · DEV)
 ### Clients
-- [ ] **`check:electron`** — fail on `nodeIntegration: true`, `contextIsolation: false`, `sandbox: false`,
-      `webSecurity: false` or `@electron/remote`, so the hardening cannot regress. Note this gate must land
-      *with* the `sandbox: true` fix in Block 4, not before it. (SEC-30 · DEV)
-- [ ] **Web security-header e2e assertions** — each header present, no inline script without a nonce, no
-      table-token substring in any captured analytics payload. (SEC-25 · FE2)
-
+- [x] **`check:electron`** — DONE — DEV, 2026-09-04.
+      `apps/operator-shell/scripts/check-electron.mjs`. ⚠ **This file's premise is stale**: `sandbox: true`
+      and the single-file preload bundle both landed already (`src/main/index.ts:107-112`), so the gate
+      passes today and did NOT need to wait for Block 4.
+      It fails on the five forbidden settings AND on any REQUIRED one going MISSING — a deleted
+      `sandbox: true` is as dangerous as an inverted one, and Electron's defaults have changed across
+      majors. Also asserts `will-navigate`, `setWindowOpenHandler` and `will-attach-webview` stay wired.
+      Negative-tested. (SEC-30 · DEV)
+- [ ] **Web security-header e2e assertions** — **WRITTEN, NOT RUN.**
+      `e2e/tests/web-security-headers.spec.ts`: every header present, a fresh nonce per request, no inline
+      script without one, the cookie exchange, and — the assertion that would otherwise be argued rather
+      than measured — **no outbound request carrying the table token**.
+      ⚠ Playwright needs the local Supabase stack, and Docker was not running. The header and nonce
+      assertions WERE verified by hand against a production build (`next start` + curl: all 14 inline
+      scripts carried the nonce). The token-leak test has never executed. (SEC-25 · FE2)
 ---
 
 ## Block 3 · The database floor
 
-- [ ] ★ **Write the live-migration procedure**: `SET lock_timeout = '3s'; SET statement_timeout = '60s';`
-      at the top of every migration session. An `ALTER TABLE` behind a long Realtime transaction freezes
-      the till mid-service. No migration currently sets either. (SEC-02 · DEV)
-- [ ] ★ **Bring the hosted project to the local migration head** through that gated procedure. This has
-      already bitten once: `db-migrate.yml` silently skipped from day 1 for want of secrets and **the hosted
-      DB drifted eight migrations behind** before anyone noticed (`HANDOFF.md:544-545`). Until it is at head,
-      every green-gate claim is a claim about a database the venue does not use. (SEC-03 · DEV)
-- [ ] **Add `timeout-minutes` to the `db-migrate` job.** There is none, so a push blocked on a lock can sit
-      against GitHub's 360-minute default while the till is frozen mid-service. (SEC-02 · DEV)
-- [ ] Re-run the DB suite against the hosted project through a **restricted role**, never `service_role`
-      from a laptop. (SEC-03 · DEV)
-- [ ] **Move `btree_gist` into `extensions`** — `0001:5` is a bare `create extension if not exists
-      btree_gist;`. `pgcrypto` is already in `extensions` (`0009` exists for exactly this) and `pg_cron` in
-      `cron`; leave both alone. This is the one finding the dashboard Security Advisor will raise as
-      `extension_in_public`. (SEC-04 · DEV)
-- [ ] Write the rule that **production rows are inspected only through a masked, audited definer
-      function** — never the SQL Editor. (SEC-37 · SEC)
-- [ ] Set the **`client-data/` intake rule**: intake packs are committed verbatim as the contractual record,
-      so no pack containing guest or staff personal data may ever be committed. Currently clean —
-      `courts.sql` only. (SEC-37 · DEV)
-- [ ] `[FREEZE]` Run the dashboard **Security Advisor** and file the result. Expect exactly two known
-      findings: `extension_in_public` for `btree_gist` (fix it) and `security_definer_view` ×4 (accepted by
-      design — record the waiver). "Clean" means every other lint is zero. (SEC-04 · SEC)
-- [ ] Record the **one-project residual risk** in writing and have the client sign it — with one project, a
-      bad migration reaches live guest data with no rehearsal. No control here removes that; see D1.
-      (SEC-37 · SEC)
-
+- [x] ★ **Live-migration procedure** — DONE — DEV, 2026-09-04.
+      Not a document — a rule in `check:migrations`: every NEW migration must open with
+      `set lock_timeout = '3s'; set statement_timeout = '60s';` and `lock_timeout = 0` is rejected.
+      Without it an `ALTER TABLE` queued behind a long Realtime transaction waits forever and everything
+      arriving after it queues behind the ALTER: the till freezes mid-service and stays frozen until
+      someone finds and kills the session. A failed deploy is recoverable; that is not.
+      Written up in `docs/security/layer-1-rules-and-decisions.md` §6. (SEC-02 · DEV)
+- [ ] ★ **Bring the hosted project to the migration head** — **NOT DONE. Needs a named person, not a
+      script.** Everything around it is now in place: the gated procedure, the printed diff, the ledger
+      snapshot, the 15-minute bound and the timeout preamble. What is missing is the three preconditions in
+      `docs/security/layer-1-rules-and-decisions.md` §6 — a named risk owner, a time outside service, and
+      D1 answered. **Until this runs, every green gate above describes a database the venue does not use.**
+      (SEC-03 · DEV)
+- [x] **`timeout-minutes` on the `db-migrate` job** — DONE — DEV, 2026-09-04.
+      `timeout-minutes: 15`. GitHub's default is **360 minutes** — six hours of a held lock with the till
+      frozen behind it. This is the outer bound; `lock_timeout = '3s'` is the real control. (SEC-02 · DEV)
+- [ ] Re-run the DB suite against the hosted project through a **restricted role** — **NOT DONE.**
+      Requires hosted credentials and a restricted role that does not exist yet; blocked behind the item
+      above. (SEC-03 · DEV)
+- [ ] **Move `btree_gist` into `extensions`** — **MIGRATION WRITTEN, NOT EXECUTED.**
+      `20260904000069_btree_gist_schema_fix.sql`. Idempotent, carries the timeout preamble, and ends with a
+      post-check that re-asserts the reservations exclusion constraint still exists — the constraint that
+      stops two bookings taking the same court, i.e. the most important invariant in the product.
+      Relocation is a catalog update (btree_gist is `relocatable`; the index references its opclasses by
+      OID), so it should not touch data.
+      ⚠ **"Should" is doing work in that sentence and Docker was not running to check.** Run
+      `pnpm db:reset` and the concurrency suite before this reaches the venue's database. (SEC-04 · DEV)
+- [x] **Production rows are read only through a masked, audited definer function** — DONE — DEV, 2026-09-04.
+      `docs/security/layer-1-rules-and-decisions.md` §1, with §2 (who may reach the hosted project) as the
+      control that actually enforces it — a read cannot be caught after the fact, so access is limited
+      instead. DDL through the SQL Editor IS caught, by the nightly drift job. (SEC-37 · SEC)
+- [x] **`client-data/` intake rule** — DONE — DEV, 2026-09-04. Written up (§3) and **enforced** by
+      `check-data-hygiene.mjs`.
+      ⚠ **This file said "currently clean". It was not.** The scan found the client's own hosting-account
+      email in both intake packs, already committed in `634462a` and `e4f2acc` — so redaction would remove
+      nothing. It is a business contact rather than guest or staff data, so it is grandfathered explicitly
+      with that reasoning; **raise it with the client so the acceptance is theirs.** (SEC-37 · DEV)
+- [ ] `[FREEZE]` Run the dashboard **Security Advisor** — **NOT DONE (dashboard access).**
+      Migration 0069 removes the expected `extension_in_public`; the four `security_definer_view` findings
+      are the audited projections now named in `check:invariants`, and the waiver wording is in §2 of the
+      rules doc. (SEC-04 · SEC)
+- [ ] **One-project residual risk** — **WRITTEN, AWAITING SIGNATURE.**
+      `docs/security/layer-1-rules-and-decisions.md` §5: the risk stated plainly, a table of the six
+      controls now reducing it and what each cannot catch, and a signature block. **No control removes it —
+      only a second project does, which is D1.** (SEC-37 · SEC)
 ---
 
 ## Block 4 · The client floor
@@ -255,55 +354,105 @@ The baseline each of the three clients needs before feature work stacks on top.
 > The least-defended surface in the system and the only one with no login. It ships **zero security
 > headers**, has **no `middleware.ts`**, and has **no lint script**.
 
-- [ ] ★ **Ship the production headers**: HSTS with `includeSubDomains`, `X-Content-Type-Options: nosniff`,
-      `frame-ancestors 'none'`, and a nonce-based CSP with no `unsafe-inline` for scripts. `next.config.ts`
-      has no `headers()` block at all. (SEC-25 · FE2)
-- [ ] ★ **Settle the table token in the URL.** `apps/web/proxy.ts` (Next 16's `proxy` convention) **rewrites**
-      rather than redirects at `:50-53`, deliberately keeping the printed token verbatim in the address bar.
-      There is no cookie exchange and no `history.replaceState` anywhere in `apps/web`. That contradicts
-      Security Layer §6.3 ("the table session is a signed cookie, not a value in the URL"). Either exchange it
-      for a cookie on first load, or accept it in writing with the Referrer-Policy and analytics mitigations
-      below. (SEC-25 · FE2)
-- [ ] Set `Referrer-Policy: no-referrer` on `/t/*` specifically. (SEC-25 · FE2)
-- [ ] Confirm cookies are `HttpOnly; Secure; SameSite=Lax`. (SEC-25 · FE2)
-- [ ] **Narrow the Next image optimizer allowlist.** `next.config.ts` allows `{ hostname: '*.supabase.co' }`,
-      which makes the optimizer a proxy for any Supabase project. Pin the project ref. (SEC-25 · FE2)
-- [ ] **Decide the PWA posture now.** `/manifest.webmanifest` ships with no service worker today. Write the
-      rule before someone adds one: a service worker must never cache `/t/[token]`. (SEC-25 · FE2)
-- [ ] **Guard Vercel preview deployments.** The SOW promises "preview deployment per change", and every
-      preview points at the one live database. Password-protect previews or point them at a seeded project.
+- [x] ★ **Production security headers** — DONE — DEV, 2026-09-04.
+      `next.config.ts` `headers()` + a per-request nonce CSP in `proxy.ts`. HSTS (2y, includeSubDomains,
+      preload), nosniff, `frame-ancestors 'none'`, X-Frame-Options, Referrer-Policy, Permissions-Policy,
+      COOP. **Verified against a real production build**, not just configured: `script-src` is
+      `'nonce-…' 'strict-dynamic'` with no `unsafe-inline`, and all 14 of Next's inline scripts plus the
+      layout's inline `<style>` carried the nonce.
+      ⚠ **Cost, stated:** the nonce forces `/[locale]` to render dynamically — it was static. The menu
+      still comes from the cached read model, so it costs a render, not a database round trip.
       (SEC-25 · FE2)
-- [ ] **Resolve the PostHog question.** It is mounted on the guest cafe app
-      (`src/lib/analytics/AnalyticsProvider.tsx`) while SOW Module 6 NOT INCLUDED lists "Analytics,
-      marketing tags or advertising pixels". Removing it is both the cheapest fix and the contract-aligned
-      one; keeping it needs a signed variation plus the full SEC-25 token-leak mitigation. (SEC-19 · SEC)
-- [ ] Add a `lint` script to `apps/web` and wire it into `turbo lint`. (SEC-24 · FE2)
+- [x] ★ **Table token exchanged for a cookie** — DONE — DEV, 2026-09-04.
+      `proxy.ts` 307s `/t/{token}` → `/{locale}/t` with an `HttpOnly; Secure; SameSite=Lax` cookie; the
+      `[token]` route remains as a defence-in-depth fallback for a future matcher edit. **Printed QR cards
+      are unaffected.** Verified end to end.
+      ⚠ **KNOWN RESIDUAL, measured not assumed.** The token still appears **once** in the RSC payload,
+      because `useTableSession` runs in the browser and needs it to call `open_table_session`.
+      FIXED: `Referer` leakage, analytics capture, browser history, screenshots, shared links.
+      NOT FIXED: an XSS in the guest app could still read it. Closing that means never sending the token to
+      the client at all — a route handler calling the RPC server-side as the guest — which is a real
+      refactor of the ordering boot and is **not** done. (SEC-25 · FE2)
+- [x] `Referrer-Policy: no-referrer` on `/t/*` — DONE — DEV, 2026-09-04. Plus
+      `Cache-Control: no-store` there: a table page is one guest's session and must never sit in a shared
+      cache. Verified on the live route. (SEC-25 · FE2)
+- [x] Cookies are `HttpOnly; Secure; SameSite=Lax` — DONE — DEV, 2026-09-04.
+      Confirmed on the wire. `Lax` not `Strict` on purpose: a guest following the QR from a messaging app
+      arrives cross-site, and `Strict` would drop the cookie on the one navigation that matters.
+      (SEC-25 · FE2)
+- [x] **Next image optimizer allowlist narrowed** — DONE — DEV, 2026-09-04.
+      The `*.supabase.co` wildcard made the optimizer an open proxy: anyone could pass
+      `/_next/image?url=https://<their-project>.supabase.co/…` and have this origin fetch, resize, cache and
+      serve their bytes under the venue's own domain and TLS certificate. Now derived from
+      `NEXT_PUBLIC_SUPABASE_URL` — following the deployment rather than hardcoding a ref that silently
+      breaks at handover, which is how the wildcard gets put back. (SEC-25 · FE2)
+- [x] **PWA posture decided and enforced** — DONE — DEV, 2026-09-04.
+      Written as CODE, not a sentence: `check-web-security.mjs` passes vacuously while no service worker
+      exists, and the moment one appears it FAILS unless `/t` is excluded from caching. A cached table page
+      is one guest's session served to the next person on that phone; a cached `/t/{token}` puts the
+      credential in Cache Storage where page script CAN read it, undoing the HttpOnly cookie entirely.
+      (SEC-25 · FE2)
+- [ ] **Guard Vercel preview deployments** — **NOT DONE (dashboard access).**
+      Vercel → Deployment Protection. Every preview points at the one live database. (SEC-25 · FE2)
+- [ ] **PostHog** — **MITIGATED; the contract question is still open.**
+      Decision taken: keep + mitigate rather than delete a shipped feature on our own judgement.
+      `sanitize_properties` now redacts `/t/<token>` from every captured property — `$current_url`,
+      `$pathname`, `$referrer` — which covers the first request and any QR card printed before the cookie
+      exchange. Autocapture and session recording were already off.
+      ⚠ **SOW Module 6 NOT INCLUDED still lists "Analytics, marketing tags or advertising pixels". The
+      signed variation is outstanding and is SEC's call, not a technical one.** (SEC-19 · SEC)
+- [x] Add a `lint` script to `apps/web` and wire it into `turbo lint` — DONE, DEV, 2026-09-04.
+      `apps/web/eslint.config.mjs` (base + react + clientSecrets + `@next/eslint-plugin-next`) and a `lint`
+      script; `turbo lint` now runs 4 packages, not 3. It found 5 real errors the missing script had been
+      hiding, all now fixed: an unused import, a physical-CSS RTL violation, a raw `createClient` import
+      outside the factory, and two `eslint-disable` comments naming a rule ESLint had never heard of (the
+      Next plugin was not installed, so those deliberate suppressions were themselves failures).
+      **Zero client-secret violations** — that is the security result. (SEC-24 · FE2)
 
 ### Desktop — `apps/operator-shell`
-- [ ] **Bundle the preload to a single file and set `sandbox: true`.** Everything else is already in place:
-      `contextIsolation: true`, `nodeIntegration: false`, `will-navigate` blocked, `setWindowOpenHandler`
-      filtered. This is the one `TODO(W3)` left. (SEC-30 · DEV)
-- [ ] ★ **Bind the LAN KDS server to the POS interface, not `0.0.0.0`**, and require a bearer token minted
-      at pairing and rotated on each shell start. `lan-kds-server.ts:26` is still `TODO(W4)`, and this is a
-      hard gate you will be tested on with a phone in the cafe. (SEC-31 · DEV)
-- [ ] **Scope `pin_cache` before it ships.** `queue.ts:36` stores argon2 staff PIN hashes on the venue PC
-      for offline unlock (`TODO(W3)`). Decide now whether it is encrypted via `safeStorage`, restricted to
-      the roles that actually need it, or dropped — a credential store on an unmanaged Windows box is a
-      Layer 1 decision, not a week-4 one. (SEC-32/SEC-34 · DEV)
-- [ ] **Start the code-signing certificate purchase.** OV or EV, key in a cloud HSM, not on a laptop.
-      Issuance takes days; it blocks the signed installer and the update-verification gate. (SEC-14 · DEV)
-
+- [x] **Preload bundled + `sandbox: true`** — **ALREADY DONE before this pass**; verified 2026-09-04.
+      `src/main/index.ts:107-112`. This file's `TODO(W3)` is stale. Now locked by `check:electron` so it
+      cannot regress. (SEC-30 · DEV)
+- [ ] ★ **LAN KDS bind + bearer token** — **MOSTLY ALREADY DONE; rotation is not.**
+      This file's premise is stale — `lan-kds-server.ts` binds to the first private RFC1918 IPv4 (never
+      `0.0.0.0`, with a test pinning that) and requires `Authorization: Bearer <psk>`.
+      ⚠ **What is NOT done is "rotated on each shell start".** The PSK comes from `station.json` at
+      pairing and is static. Rotating it per start would break every paired KDS tablet on every restart
+      unless a re-pairing handshake distributes the new value — that is a feature with a UI, and it cannot
+      be validated without a real tablet. Deliberately left, not overlooked. (SEC-31 · DEV)
+- [x] **`pin_cache` scoped** — DONE — DEV, 2026-09-04. Decision: encrypt via `safeStorage`.
+      The exposure was not the hashes, it was **the salt sitting in plaintext beside them**: a PIN is 4–6
+      digits, so with the salt the whole keyspace falls in seconds — and those PINs are the manager
+      authorisations for voids, discounts and price overrides. The salt is now encrypted with `safeStorage`
+      (DPAPI on Windows), binding it to the logged-in account: a copied `queue.db` is inert.
+      **Fails closed** — no encryption, no cached credential material. Legacy plaintext salts migrate in
+      place so a running station does not lose offline unlock; an undecryptable salt wipes the cache rather
+      than leaving dead credential material on disk. 6 new tests, 117 passing. (SEC-32/SEC-34 · DEV)
+- [ ] **OV/EV code-signing certificate** — **NOT DONE — this is a PURCHASE, and it is one of the two
+      items this file says cannot fit in a week. Start it today.** Days of identity verification; key in a
+      cloud HSM, not a laptop. Blocks the signed installer and the update-verification gate.
+      (SEC-14 · DEV)
 ### Mobile — `apps/mobile`
-- [ ] ★ **Register universal / app links against the real domain.** The redirect bug is *fixed* — do not redo
-      it (`api.ts:24-25`, `redirects.ts` via `Linking.createURL()`, `useAuthDeepLink` mounted at
-      `_layout.tsx:73`, local allowlist at `config.toml:59-63`). What remains: `ios.associatedDomains` and
-      `android.intentFilters` in `app.config.ts`; serve `apple-app-site-association` and
-      `/.well-known/assetlinks.json` from `apps/web`; `exp://*` on the **dev** project only; and fix
-      `site_url = "http://localhost:3000"` (`config.toml:53`) on the hosted project. (SEC-18 · FE1)
-- [ ] **Sign EAS Updates and reject unsigned manifests.** An OTA channel pushes code to every guest phone
-      with no store review — the highest-leverage credential in the mobile lane, and today it is protected
-      by one password. (SEC-23 · FE1)
-
+- [ ] ★ **Universal / app links** — **CONFIGURED; BLOCKED ON THE DOMAIN.**
+      Done: `ios.associatedDomains` and `android.intentFilters` with `autoVerify: true`
+      (`app.config.ts`), and both association files served from `apps/web` —
+      `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json`, verified 200 with
+      `application/json` and NOT swallowed by the locale proxy.
+      Scoped to `/auth/*` only — deliberately **not** `/t/*`, which must stay in the browser.
+      ⚠ Three values are placeholders that **fail closed** until real ones exist: the domain
+      (`touchpadel.invalid`, RFC 2606), `APPLE_TEAM_ID`, and `ANDROID_SHA256_FINGERPRINTS` (empty). Until
+      then the app falls back to the custom scheme — today's behaviour. `site_url` on the hosted project is
+      a dashboard change (§8). (SEC-18 · FE1)
+- [ ] **Sign EAS Updates** — **KEYS GENERATED AND WIRED; TWO HUMAN STEPS LEFT.**
+      Done: RSA-2048 keypair, 10-year certificate committed at `apps/mobile/certs/certificate.pem` (with an
+      explicit `.gitignore` exception to the blanket `*.pem`), and `app.config.ts` declaring
+      `codeSigningCertificate` + `codeSigningMetadata`.
+      ⚠ **The private key is NOT in the repository** — it is in this session's scratchpad and must be moved
+      to the password manager and EAS secrets, then deleted. Runbook:
+      `docs/security/eas-update-signing.md`.
+      ⚠ **Signing protects a device only once that device runs a binary containing the certificate**, so
+      this must ship in a store release before it protects anyone. Until then the Expo account password is
+      still load-bearing. (SEC-23 · FE1)
 ---
 
 ## Exit criteria — Layer 1 is done when
