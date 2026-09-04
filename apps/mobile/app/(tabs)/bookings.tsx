@@ -21,7 +21,7 @@ import { requestBookingSheet } from '../../src/features/courtTransition/openInte
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
 import { Screen, SectionLabel, Title } from '../../src/components/ui';
-import { DateBadge, DegradedBanner, HeldSlotCard, StatusPill } from '../../src/components/booking';
+import { DateBadge, DegradedToast, HeldSlotCard, StatusPill } from '../../src/components/booking';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 
@@ -46,6 +46,8 @@ export default function BookingsScreen() {
   const courts = useCourts();
   const settings = useVenueSettings();
   const degraded = useIsDegraded();
+  // Closed by the guest, not by a timer or a refetch — see `notice` below.
+  const [noticeClosed, setNoticeClosed] = useState(false);
   const release = useReleaseHold();
   const toast = useToast();
   useCourtsBroadcast(); // desk moves/cancels reflect live
@@ -174,19 +176,24 @@ export default function BookingsScreen() {
   const header = (
     <View style={{ paddingTop: space.l }}>
       <Title>{t('booking.myBookings')}</Title>
-      {degraded ? (
-        <View style={{ marginTop: 2, marginBottom: 8 }}>
-          <DegradedBanner
-            tight
-            lead={t('degraded.leadConnectionLost')}
-            message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-            phone={phone}
-          />
-        </View>
-      ) : null}
       {heldSection}
     </View>
   );
+
+  /**
+   * The venue notice floats over the list instead of shifting it, and stays up
+   * until the guest closes it — every branch below renders it, so the notice
+   * survives the screen flipping between loading, error, empty and list.
+   */
+  const notice =
+    degraded && !noticeClosed ? (
+      <DegradedToast
+        lead={t('degraded.leadConnectionLost')}
+        message={t('degraded.bannerBookings', { phone: phone ?? '' })}
+        phone={phone}
+        onDismiss={() => setNoticeClosed(true)}
+      />
+    ) : null;
 
   const bottomPad = { paddingBottom: tabBarHeight + 24 };
 
@@ -194,6 +201,7 @@ export default function BookingsScreen() {
   if (!session) {
     return (
       <Screen>
+        {notice}
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <EmptyState
@@ -211,6 +219,7 @@ export default function BookingsScreen() {
   if (bookings.isLoading) {
     return (
       <Screen>
+        {notice}
         {header}
         <SkeletonList rows={3} height={78} />
       </Screen>
@@ -221,6 +230,7 @@ export default function BookingsScreen() {
   if (bookings.isError) {
     return (
       <Screen>
+        {notice}
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <ErrorState
@@ -333,6 +343,7 @@ export default function BookingsScreen() {
 
   return (
     <Screen>
+      {notice}
       {noBookings ? (
         <>
           {header}
