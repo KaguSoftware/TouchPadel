@@ -12,9 +12,15 @@
  *
  * Persisted to localStorage: a till reboot mid-outage (the power-cut drill)
  * must bring the open offline tabs back alongside the queue itself. Entries
- * retire themselves when the tab.open reaches a terminal state — acked means
- * the server tab appears through the normal invalidations; failed/conflict
- * stays visible in the day-close queue panel.
+ * retire ONLY on 'acked' — the server tab then appears through the normal
+ * invalidations. A 'failed' or 'conflict' entry stays on the rail, marked, so
+ * the cashier can still see the tab and its lines; the abstract queue row in
+ * day close is not a substitute for the bill someone is standing at.
+ *
+ * A SETTLED tab also stays until its tab.settle acks. It used to leave the rail
+ * the instant the settle was ENQUEUED, which meant a taken payment was visible
+ * nowhere at all while it sat undelivered in the outbox — 30,000 IQD in the
+ * 2026-09-04 case.
  */
 import { touch, type Unsub } from '../ipc/bridge';
 
@@ -33,8 +39,16 @@ export interface OfflineTab {
   tableNumber: string | null;
   openedAt: string;
   lines: OfflineTabLine[];
-  /** A settle has been queued; the rail drops it but the record survives. */
+  /** A settle has been queued. The rail KEEPS it until `settleIdemKey` acks. */
   settled: boolean;
+  /**
+   * The tab.settle envelope's idempotency key, once one has been queued.
+   * `undefined` on entries restored from a build older than this field — those
+   * retire on the old rule so a mid-upgrade till cannot strand a tab forever.
+   */
+  settleIdemKey?: string | null;
+  /** Set when this tab's own mutation came back terminal. Never auto-clears. */
+  failure?: { state: 'failed' | 'conflict'; error?: string };
 }
 
 /** Rail selection ids for offline tabs are namespaced to never collide with uuids. */
@@ -44,8 +58,17 @@ const STORAGE_KEY = 'touch-operator-offline-tabs';
 
 let tabs: OfflineTab[] = load();
 /** Stable snapshot for useSyncExternalStore — recomputed only on writes. */
-let openSnapshot: OfflineTab[] = tabs.filter((t) => !t.settled);
+let openSnapshot: OfflineTab[] = tabs.filter(isOnRail);
 const listeners = new Set<() => void>();
+
+/**
+ * A settled tab leaves the rail only once its settle has actually landed. Old
+ * entries (no `settleIdemKey`) keep the previous behaviour.
+ */
+function isOnRail(t: OfflineTab): boolean {
+  if (!t.settled) return true;
+  return t.settleIdemKey != null;
+}
 
 function load(): OfflineTab[] {
   try {
@@ -65,7 +88,7 @@ function persist(): void {
 }
 
 function emit(): void {
-  openSnapshot = tabs.filter((t) => !t.settled);
+  openSnapshot = tabs.filter(isOnRail);
   persist();
   for (const fn of listeners) fn();
 }
@@ -93,8 +116,17 @@ export function appendOfflineLines(idemKey: string, lines: OfflineTabLine[]): vo
   emit();
 }
 
-export function markOfflineSettled(idemKey: string): void {
-  tabs = tabs.map((t) => (t.idemKey === idemKey ? { ...t, settled: true } : t));
+export function markOfflineSettled(idemKey: string, settleIdemKey: string): void {
+  tabs = tabs.map((t) => (t.idemKey === idemKey ? { ...t, settled: true, settleIdemKey } : t));
+  emit();
+}
+
+/** Terminal outcome on a tab's own mutation — kept visible, never silently dropped. */
+export function markOfflineTabFailed(
+  idemKey: string,
+  failure: { state: 'failed' | 'conflict'; error?: string },
+): void {
+  tabs = tabs.map((t) => (t.idemKey === idemKey ? { ...t, failure } : t));
   emit();
 }
 
@@ -109,13 +141,28 @@ export function subscribeOfflineTabs(fn: () => void): Unsub {
 }
 
 /**
- * Retire entries as their tab.open lands. Mounted once at app root; separate
+ * Retire entries as their mutations land. Mounted once at app root; separate
  * from queueResults so this store has no React/query dependencies.
+ *
+ * Only 'acked' retires. This used to remove the entry on ANY result, so a
+ * deterministic 4xx deleted the tab, its table and its priced lines out from
+ * under a cashier mid-service, leaving only an abstract row in day close.
  */
 export function initOfflineTabRetirement(): Unsub {
   return touch.onMutationResult((r) => {
-    if (r.mutationType !== 'tab.open') return;
-    const entry = tabs.find((t) => t.localId === r.localId || t.idemKey === r.idempotencyKey);
-    if (entry) removeOfflineTab(entry.idemKey);
+    if (r.mutationType === 'tab.open') {
+      const entry = tabs.find((t) => t.localId === r.localId || t.idemKey === r.idempotencyKey);
+      if (!entry) return;
+      if (r.state === 'acked') removeOfflineTab(entry.idemKey);
+      else markOfflineTabFailed(entry.idemKey, { state: r.state, error: r.error });
+      return;
+    }
+    if (r.mutationType === 'tab.settle') {
+      const entry = tabs.find((t) => t.settleIdemKey === r.idempotencyKey);
+      if (!entry) return;
+      // The money is now the server's problem — the tab can leave the rail.
+      if (r.state === 'acked') removeOfflineTab(entry.idemKey);
+      else markOfflineTabFailed(entry.idemKey, { state: r.state, error: r.error });
+    }
   });
 }

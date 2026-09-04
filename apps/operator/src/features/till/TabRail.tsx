@@ -19,6 +19,8 @@ interface RailEntry {
   label: string;
   status: string;
   offline: boolean;
+  /** Only meaningful when `offline` — see the entries builder. */
+  offlineState?: 'queued' | 'settled' | 'failed';
   web: boolean;
 }
 
@@ -53,6 +55,9 @@ export function TabRail({
       label: ot.tableNumber ? `${tr('op.till.table')} ${ot.tableNumber}` : (ot.label ?? '—'),
       status: 'open',
       offline: true,
+      // Three distinct offline states, and the cashier must be able to tell
+      // them apart: queued, paid-but-unsent, and terminally rejected.
+      offlineState: ot.failure ? 'failed' : ot.settled ? 'settled' : 'queued',
       web: false,
     })),
   ];
@@ -134,8 +139,29 @@ export function TabRail({
               </span>
               <span style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                 {entry.offline ? (
-                  <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <Icon name="wifiOff" size={12} /> {tr('ws.cashier.till.rail.offline')}
+                  <span
+                    style={{
+                      ...muted,
+                      fontSize: 'var(--tp-fs-xs)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      ...(entry.offlineState === 'failed' ? { color: 'var(--tp-danger)' } : {}),
+                    }}
+                  >
+                    {entry.offlineState === 'failed' ? (
+                      <>
+                        <Icon name="alert" size={12} /> {tr('ws.cashier.till.rail.failed')}
+                      </>
+                    ) : entry.offlineState === 'settled' ? (
+                      <>
+                        <Icon name="clock" size={12} /> {tr('ws.cashier.till.rail.settledAwaitingSync')}
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="wifiOff" size={12} /> {tr('ws.cashier.till.rail.offline')}
+                      </>
+                    )}
                   </span>
                 ) : (
                   <>

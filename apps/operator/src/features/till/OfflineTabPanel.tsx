@@ -29,13 +29,16 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
     setBusy(true);
     setError(null);
     try {
-      await mutate('tab.settle', {
+      // The settle's OWN idempotency key: the tab stays on the rail, marked
+      // settled, until this lands. Retiring on the enqueue made a taken payment
+      // invisible everywhere but day close while it sat in the outbox.
+      const outcome = await mutate('tab.settle', {
         tabIdemKey: idemKey,
         method,
         ...(total > 0 ? { amountIqd: total } : {}),
         ...(tenderedIqd != null ? { tenderedIqd } : {}),
       });
-      markOfflineSettled(idemKey);
+      markOfflineSettled(idemKey, outcome.idempotencyKey);
       onSettled();
     } catch (e) {
       setError(e);
