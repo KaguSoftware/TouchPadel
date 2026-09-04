@@ -1,6 +1,7 @@
 /**
  * The racket from `docs/design/mobile-ui/padel-racket.html`, built for the
- * court: the teardrop frame with its throat window, the perforated face plate,
+ * court: the teardrop frame with its throat window, the face plate and its
+ * white perforations,
  * the cartoon rim highlights, the lofted collar that morphs the frame's slab
  * section into a round grip, the wrapped handle and the butt cap. Ported mesh
  * for mesh, in the design's own model metres (a 26 cm head), then blown up by
@@ -20,9 +21,9 @@
  *       lay  the top-view cheat (rally.layAngle)
  *         hold → body, both fixed: the racket, held
  *
- * `lite` (low-end phones) drops the face perforations, the rim highlights and
- * the lofted collar, and halves every curve's segments: the same silhouette
- * for roughly a third of the triangles.
+ * `lite` (low-end phones) drops the rim highlights and the lofted collar and
+ * halves every curve's segments — but keeps the perforations, which are what
+ * makes a padel racket one: the same silhouette for a third of the triangles.
  */
 import * as THREE from 'three';
 import type { CourtQuality } from './quality';
@@ -43,6 +44,7 @@ const COLORS = {
   rim: 0x6ec3f0,
   grip: 0xa5d06f,
   trim: 0x101b30,
+  hole: 0xffffff,
 } as const;
 
 const rad = (d: number): number => (d * Math.PI) / 180;
@@ -56,11 +58,16 @@ const NW = 0.018;
 /** Grip radius. */
 const R = 0.0195;
 /**
- * Perforation radius. Real padel holes: ≈ 5.5 cm across once the racket is at
- * court scale, ≈ 2 px on the phone at the camera's rest distance — they read
- * as the face's texture rather than as holes, which is what they should do.
+ * Perforation radius: ≈ 5.5 cm across once the racket is at court scale, ≈ 2 px
+ * on the phone at the camera's rest distance. Widen this if they read as mush.
  */
 const HOLE_R = 0.0065;
+/**
+ * How proud of the face plate each white plug stands, model metres. Non-zero
+ * so the plug's caps are strictly in front of the plate's and nothing z-fights;
+ * 0.5 mm here is 2 mm at court scale, which no camera in the transition sees.
+ */
+const PLUG_PROUD = 0.0005;
 
 export interface RacketRig {
   /** Add this to the scene: the player's stance. */
@@ -91,22 +98,112 @@ function teardrop(r: number, a: number, bottomY: number, neckW: number): THREE.P
 }
 
 /**
- * One perforation as an explicit polygon rather than an arc: ExtrudeGeometry
- * subdivides every curve in a shape at the SAME resolution, so a circle drawn
- * with absarc would cost the outline's segment count 35 times over. Eight
- * sides is more than a 2 px hole can show.
+ * The hole field: the face plate's own teardrop, inset by ≈ 2.7 mm so no
+ * perforation can break the rim.
+ *
+ * The design tests the two halves of the face with different rules — a circle
+ * of r 0.09 above the centre line, but `|x| <= 0.088 - |y| * 0.55` below it,
+ * a linear taper that pulls in about twice as fast as the outline actually
+ * does. It leaves 4.3–4.8 mm of blank margin on the lower rows against 3.0 mm
+ * on the upper ones, and because the rows are staggered the counts come out
+ * 3, 4, 3, 4 from the bottom instead of widening. Testing BOTH halves against
+ * the real outline gives the hex lattice a padel face should have: 4, 5, 6, 7,
+ * 6, 5, 4 up from the throat.
  */
-function hole(x: number, y: number, sides: number): THREE.Path {
-  const p = new THREE.Path();
-  for (let i = 0; i < sides; i++) {
-    const a = -(i / sides) * Math.PI * 2; // clockwise: the opposite winding to the outline
-    const px = x + Math.cos(a) * HOLE_R;
-    const py = y + Math.sin(a) * HOLE_R;
-    if (i === 0) p.moveTo(px, py);
-    else p.lineTo(px, py);
+const HOLE_FIELD = teardrop(0.092, 25, 0.22, 0.055).getPoints(64);
+
+/** Ray crossing, so the field is whatever shape the outline is. */
+function inField(x: number, y: number): boolean {
+  let hit = false;
+  for (let i = 0, j = HOLE_FIELD.length - 1; i < HOLE_FIELD.length; j = i++) {
+    const a = HOLE_FIELD[i]!;
+    const b = HOLE_FIELD[j]!;
+    if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
   }
-  p.closePath();
-  return p;
+  return hit;
+}
+
+/**
+ * The perforations' centres: a hex lattice, 30 mm across and 26 mm between
+ * rows (30 · sin 60°), every other row offset half a step, clipped to the
+ * field. Rows below −3 fall in the throat, which a padel racket leaves solid.
+ * 37 holes in rows of 4, 5, 6, 7, 6, 5, 4 up from the throat.
+ */
+export const HOLE_CENTRES: readonly (readonly [number, number])[] = (() => {
+  const out: [number, number][] = [];
+  for (let k = -3; k <= 3; k++) {
+    const y = HEAD.y + k * 0.026;
+    for (let j = -4; j <= 4; j++) {
+      const x = HEAD.x + j * 0.03 + (k % 2 ? 0.015 : 0);
+      if (inField(x, y)) out.push([x, y]);
+    }
+  }
+  return out;
+})();
+
+/**
+ * The perforations, as one merged geometry of white plugs.
+ *
+ * The design cuts them clean through the face plate, which puts the COURT
+ * behind every hole — from the top-down camera the strings read as turf. The
+ * brand's racket has white holes (the flat court illustration draws them that
+ * way too), so they are filled instead: a short capped cylinder per hole,
+ * standing PLUG_PROUD of the plate on both sides.
+ *
+ * One geometry, not one mesh per hole — thirty-odd extra draw calls per racket
+ * would be four times that on the court, every frame. And with the holes
+ * filled there is nothing to cut, so the face plate goes back to a plain
+ * teardrop: the cut was most of its triangles (every hole tessellated at the
+ * outline's own resolution).
+ */
+function plugsGeometry(
+  centres: readonly (readonly [number, number])[],
+  depth: number,
+  sides: number,
+): THREE.BufferGeometry {
+  const pos: number[] = [];
+  const nrm: number[] = [];
+  const idx: number[] = [];
+  const h = depth / 2 + PLUG_PROUD;
+  for (const [cx, cy] of centres) {
+    const base = pos.length / 3;
+    // Wall: a ring at each end, its own vertices so the caps stay crisp.
+    for (let i = 0; i <= sides; i++) {
+      const a = (i / sides) * Math.PI * 2;
+      const x = Math.cos(a);
+      const y = Math.sin(a);
+      for (const z of [-h, h]) {
+        pos.push(cx + x * HOLE_R, cy + y * HOLE_R, z);
+        nrm.push(x, y, 0);
+      }
+    }
+    for (let i = 0; i < sides; i++) {
+      const q = base + i * 2;
+      idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2);
+    }
+    // Caps: a centre vertex and a ring, front and back.
+    for (const z of [h, -h]) {
+      const centre = pos.length / 3;
+      const face = Math.sign(z);
+      pos.push(cx, cy, z);
+      nrm.push(0, 0, face);
+      for (let i = 0; i <= sides; i++) {
+        const a = (i / sides) * Math.PI * 2;
+        pos.push(cx + Math.cos(a) * HOLE_R, cy + Math.sin(a) * HOLE_R, z);
+        nrm.push(0, 0, face);
+      }
+      for (let i = 0; i < sides; i++) {
+        const r = centre + 1 + i;
+        if (face > 0) idx.push(centre, r, r + 1);
+        else idx.push(centre, r + 1, r);
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  g.setIndex(idx);
+  return g;
 }
 
 export function buildRacketKit(quality: CourtQuality): RacketKit {
@@ -126,6 +223,7 @@ export function buildRacketKit(quality: CourtQuality): RacketKit {
   const faceMat = mat(COLORS.face, 0.6);
   const rimMat = mat(COLORS.rim, 0.45);
   const gripMat = mat(COLORS.grip, 0.85, 0);
+  const holeMat = mat(COLORS.hole, 0.6);
   const trimMat = mat(COLORS.trim, 0.5);
 
   const body = new THREE.Group();
@@ -169,23 +267,11 @@ export function buildRacketKit(quality: CourtQuality): RacketKit {
   frameGeo.translate(0, 0, -frameDepth / 2);
   part(frameGeo, frameMat);
 
-  // ── Face plate, perforated
+  // ── Face plate, with the white perforations plugged into it
   const face = new THREE.Shape();
   const fp = teardrop(0.1195, 25, 0.2, 0.05);
   face.curves = fp.curves;
   face.autoClose = true;
-  if (full) {
-    for (let k = -4; k <= 3; k++) {
-      const y = k * 0.026;
-      for (let j = -4; j <= 4; j++) {
-        const x = j * 0.03 + (k % 2 ? 0.015 : 0);
-        const inside =
-          y >= 0 ? Math.hypot(x, y) <= 0.09 : Math.abs(x) <= 0.088 - Math.abs(y) * 0.55;
-        if (!inside) continue;
-        face.holes.push(hole(HEAD.x + x, HEAD.y + y, 8));
-      }
-    }
-  }
   const faceDepth = T - 0.008;
   const faceGeo = new THREE.ExtrudeGeometry(face, {
     depth: faceDepth,
@@ -198,6 +284,9 @@ export function buildRacketKit(quality: CourtQuality): RacketKit {
   });
   faceGeo.translate(0, 0, -faceDepth / 2);
   part(faceGeo, faceMat);
+  // The bevel adds a bevelThickness at each end, so the plate's flat faces sit
+  // a touch beyond `faceDepth`; the plugs have to clear that too.
+  part(plugsGeometry(HOLE_CENTRES, faceDepth + 0.002, full ? 8 : 6), holeMat);
 
   // ── Cartoon highlight bands on the rim (front + back)
   if (full) {

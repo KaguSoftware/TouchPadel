@@ -1448,4 +1448,461 @@ export const matrix: MatrixRule[] = [
     note: 'CRITICAL: the callback write-back is service-role only — a client could otherwise move tickets unguarded',
     drop: 4,
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DROP 5 — 0065 customers (customer_notes / customer_flags + desk RPCs).
+  // Probe rows: helpers.ensureCustomerProbeData (ee57 prefix, one note + one
+  // flag on a probe guest profile).
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── customer_notes: STAFF ONLY. Spec 06.9 "never rendered on any guest-
+  //    facing surface" — a booking guest and a café guest are `authenticated`
+  //    and get RLS silence; prep has no customer surface. Writes RPC-only. ──
+  {
+    kind: 'select',
+    name: 'customer_notes',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows',
+      court_desk: 'rows',
+      manager: 'rows',
+      owner: 'rows',
+    }),
+    note: 'CRITICAL: staff-only notes — guest_account / guest_anon_session must read ZERO rows',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'customer_notes',
+    op: 'insert',
+    payload: { customer_id: NIL_UUID, body: 'x', author_id: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'notes are written only through app.add_customer_note / edit_customer_note',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'customer_notes',
+    op: 'update',
+    payload: { body: 'x' },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'an edit must stamp edited_at/edited_by and be audited — RPC-only for every principal',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'customer_notes',
+    op: 'delete',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 5,
+  },
+
+  // ── customer_flags: same wall as notes ──────────────────────────────────
+  {
+    kind: 'select',
+    name: 'customer_flags',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows',
+      court_desk: 'rows',
+      manager: 'rows',
+      owner: 'rows',
+    }),
+    note: 'flags surface wherever the customer appears on STAFF screens; never to guests',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'customer_flags',
+    op: 'insert',
+    payload: { customer_id: NIL_UUID, type: 'vip', created_by: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'flags are replaced only through app.set_customer_flags',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'customer_flags',
+    op: 'delete',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 5,
+  },
+
+  // ── RPCs: desk reads (cashier included), desk writes (cashier excluded) ──
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'customer_search',
+    args: { p_query: 'zz' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      cashier: 'execute',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'search is court_desk|cashier|manager|owner; guests are refused before the query is read',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'customer_record',
+    args: { p_customer_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      cashier: 'execute',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'nil customer fails CUSTOMER_NOT_FOUND past the guard',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'add_customer_note',
+    args: { p_customer_id: NIL_UUID, p_body: 'x' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'cashier reads notes but does not write them; nil customer fails CUSTOMER_NOT_FOUND past the guard',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'edit_customer_note',
+    args: { p_note_id: NIL_UUID, p_body: 'x' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'nil note fails NOTE_NOT_FOUND past the guard',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'set_customer_flags',
+    args: { p_customer_id: NIL_UUID, p_flags: [] },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'nil customer fails CUSTOMER_NOT_FOUND past the guard — nothing replaced',
+    drop: 5,
+  },
+
+  // ── RPCs: service-role only (desk-customer-create edge function) ─────────
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'find_customer_by_phone',
+    args: { p_phone: '0000000' },
+    expect: ex<RpcExpectation>('denied'),
+    note: 'CRITICAL: the digits-only phone lookup has no client EXECUTE — it would otherwise be a phone-to-account oracle',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'desk_register_customer',
+    args: {
+      p_customer_id: NIL_UUID,
+      p_full_name: 'x',
+      p_phone: '0000000',
+      p_preferred_lang: 'en',
+      p_actor_id: NIL_UUID,
+    },
+    expect: ex<RpcExpectation>('denied'),
+    note: 'CRITICAL: profile registration is service-role only (the edge function names the actor)',
+    drop: 5,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DROP 5 — 0066 reservation series (reservation_series, reservations.series_id).
+  // Probe row: the runner plants one reservation_series row beside its probe
+  // reservation (belongs to no guest).
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── reservation_series: staff read (cashier included: the till charges to a
+  //    booking), the owning guest reads own; writes RPC-only for everyone ───
+  {
+    kind: 'select',
+    name: 'reservation_series',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows',
+      court_desk: 'rows',
+      manager: 'rows',
+      owner: 'rows',
+    }),
+    note: 'probe series belongs to no guest: guests get RLS silence; prep has no booking surface',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'reservation_series',
+    op: 'insert',
+    payload: {
+      court_id: NIL_UUID,
+      pattern: 'weekly',
+      start_time: '10:00',
+      duration_min: 60,
+      starts_on: '2001-01-01',
+      ends_on: '2001-01-01',
+      guest_name: 'x',
+    },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'CRITICAL: a series exists only via app.create_series (-> staff_create_reservation)',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'reservation_series',
+    op: 'update',
+    payload: { cancelled_at: FUTURE },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'cancel is app.cancel_series only (reason required, audited per row)',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'reservations',
+    op: 'update',
+    payload: { series_id: null },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'series membership is stamped inside app.create_series only',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'preview_series',
+    args: {
+      p_court_id: NIL_UUID,
+      p_pattern: 'weekly',
+      p_weekdays: null,
+      p_start_time: '10:00',
+      p_duration_min: 60,
+      p_starts_on: '2001-01-01',
+      p_ends_on: '2001-01-01',
+    },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'read-only desk surface; nil court fails COURT_NOT_FOUND past the guard',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'create_series',
+    args: {
+      p_court_id: NIL_UUID,
+      p_pattern: 'weekly',
+      p_weekdays: null,
+      p_start_time: '10:00',
+      p_duration_min: 60,
+      p_starts_on: '2001-01-01',
+      p_ends_on: '2001-01-01',
+      p_guest_name: 'x',
+    },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'nil court fails COURT_NOT_FOUND past the guard — nothing written, no lock taken',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'series_detail',
+    args: { p_series_id: NIL_UUID },
+    expect: ex<RpcExpectation>('execute', { anon: 'denied', guest_anon_session: 'guarded' }),
+    note:
+      'ownership-guarded like cancel_reservation: any ACCOUNT may ask and gets SERIES_NOT_FOUND ' +
+      'for a series it does not own; an anonymous cafe session has no account (ACCOUNT_REQUIRED)',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'cancel_series',
+    args: { p_series_id: NIL_UUID, p_scope: 'future', p_reason_code: '' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'empty reason fails REASON_REQUIRED past the guard — no side effect',
+    drop: 5,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DROP 5 — 0067 promotions (promotions, promotion_redemptions,
+  // tab_adjustments.promotion_id). Probe rows: helpers.ensurePromotionProbeData
+  // — promotion ee57…701 is DISABLED so it can never reach a real tab.
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    kind: 'select',
+    name: 'promotions',
+    expect: ex<SelectExpectation>('rows', {
+      anon: 'denied',
+      guest_account: 'silence',
+      guest_anon_session: 'silence',
+    }),
+    note: 'every staff role reads promotions (the till needs names); guests never do in phase 1',
+    drop: 5,
+  },
+  {
+    kind: 'select',
+    name: 'promotion_redemptions',
+    expect: ex<SelectExpectation>('silence', {
+      anon: 'denied',
+      cashier: 'rows',
+      manager: 'rows',
+      owner: 'rows',
+    }),
+    note: 'money surface: same audience as tab_adjustments',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'promotions',
+    op: 'insert',
+    payload: { name_en: 'x', name_ar: 'س', type: 'percent', value: 10, created_by: NIL_UUID },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'RPC-only: app.upsert_promotion',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'promotions',
+    op: 'update',
+    payload: { enabled: false },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'RPC-only: app.set_promotion_enabled — and no delete exists anywhere (06.26)',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'promotions',
+    op: 'delete',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'promotion_redemptions',
+    op: 'insert',
+    payload: {
+      promotion_id: NIL_UUID,
+      tab_id: NIL_UUID,
+      adjustment_id: NIL_UUID,
+      amount_iqd: 1,
+      redeemed_by: NIL_UUID,
+    },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'written only by app.apply_best_promotion',
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'promotion_redemptions',
+    op: 'update',
+    payload: { amount_iqd: 1 },
+    expect: ex<WriteExpectation>('denied'),
+    drop: 5,
+  },
+  {
+    kind: 'write',
+    name: 'promotion_redemptions',
+    op: 'delete',
+    expect: ex<WriteExpectation>('denied'),
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'upsert_promotion',
+    args: {},
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'manager|owner configure promotions; empty args fail NAME_REQUIRED past the guard — no side effect',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'set_promotion_enabled',
+    args: { p_id: NIL_UUID, p_enabled: false },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'nil id fails PROMOTION_NOT_FOUND past the guard',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'generate_promo_code',
+    args: { p_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'nil id fails PROMOTION_NOT_FOUND past the guard',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'eligible_promotions',
+    args: { p_tab_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      cashier: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'till roles only (prep/desk guarded); nil tab fails TAB_NOT_FOUND past the guard',
+    drop: 5,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'apply_best_promotion',
+    args: { p_tab_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      cashier: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'cashier+ apply; nil tab fails TAB_NOT_FOUND past the guard — nothing written',
+    drop: 5,
+  },
 ];

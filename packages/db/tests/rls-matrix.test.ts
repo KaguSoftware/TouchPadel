@@ -18,6 +18,8 @@ import {
   ensureTestRateRule,
   createTestCourt,
   ensureCafeProbeData,
+  ensureCustomerProbeData,
+  ensurePromotionProbeData,
   ensureTillFresh,
   appRpc,
   SEED_STAFF,
@@ -58,9 +60,11 @@ const WRITE_FILTERS: Record<string, [string, unknown]> = {
   telegram_actions: ['id', -1],
   cafe_settings: ['key', '__none__'],
   menu_item_costs: ['item_id', '00000000-0000-4000-8000-000000000000'],
+  // drop 5 (0065) — customer_flags has a composite pk, no `id`
+  customer_flags: ['customer_id', '00000000-0000-4000-8000-000000000000'],
 };
 
-describe.skipIf(!up)('RLS role matrix (drops 1-4: 0004-0021 + 0024 + 0027-0034 surface)', () => {
+describe.skipIf(!up)('RLS role matrix (drops 1-5: 0004-0021 + 0024 + 0027-0034 + 0065 surface)', () => {
   const clients = {} as Record<Principal, SupabaseClient>;
   let svc: SupabaseClient;
 
@@ -70,6 +74,8 @@ describe.skipIf(!up)('RLS role matrix (drops 1-4: 0004-0021 + 0024 + 0027-0034 s
     // Probe data every 'rows' expectation can rely on.
     await ensureTestRateRule(svc);
     await ensureCafeProbeData(svc); // drop 2+3 probe rows (ee57 prefix)
+    await ensureCustomerProbeData(svc); // drop 5 (0065) probe note + flag
+    await ensurePromotionProbeData(svc); // drop 5 (0067) disabled probe promotion + redemption
     await ensureTillFresh(svc); // degraded mode would corrupt guest-RPC guard outcomes
     const probeCourt = await createTestCourt(svc, 'RLS-probe');
     const { error: resErr } = await svc.from('reservations').insert({
@@ -82,6 +88,17 @@ describe.skipIf(!up)('RLS role matrix (drops 1-4: 0004-0021 + 0024 + 0027-0034 s
       guest_name: 'RLS Probe',
     });
     if (resErr) throw new Error(`probe reservation failed: ${resErr.message}`);
+    // drop 5 (0066): a series belonging to no guest, for the reservation_series row.
+    const { error: seriesErr } = await svc.from('reservation_series').insert({
+      court_id: probeCourt,
+      pattern: 'weekly',
+      start_time: '10:00',
+      duration_min: 60,
+      starts_on: '2001-01-01',
+      ends_on: '2001-01-01',
+      guest_name: 'RLS Probe',
+    });
+    if (seriesErr) throw new Error(`probe series failed: ${seriesErr.message}`);
     const { error: auditErr } = await svc.from('audit_log').insert({
       action: 'test.probe',
       entity: 'rls-matrix',

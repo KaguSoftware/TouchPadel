@@ -28,7 +28,7 @@ import {
 } from './hooks';
 import {
   DEFAULT_TZ,
-  firstUpcomingIndex,
+  upcomingOnly,
   hasAnySlots,
   listBookableDates,
   mergeAcrossCourts,
@@ -65,12 +65,6 @@ export interface AvailabilityBooking {
   cells: MergedCell[];
   /** Rows of two: an odd trailing cell stays half width (design `repeat(2, 1fr)`). */
   rows: MergedCell[][];
-  /**
-   * The row the grid should open on — the first one holding a time that has not
-   * started yet. 0 on a future day (nothing is past) and whenever the whole
-   * night has run out.
-   */
-  openRow: number;
   /** The venue does not trade that day (closed date, or a grid with no slots at all). */
   closedDay: boolean;
   isClosedDate: (date: string) => boolean;
@@ -171,16 +165,15 @@ export function useAvailabilityBooking(
     [degraded, now, venueSettings.data],
   );
 
+  // An hour that has already started is dropped, not greyed: the grid opens on
+  // tonight's first bookable time and there is nothing above it to scroll back
+  // to. The minute tick retires them one by one.
   const cells = useMemo(
-    () => mergeAcrossCourts(day.grid, durationMin, horizonEnd, now),
+    () => upcomingOnly(mergeAcrossCourts(day.grid, durationMin, horizonEnd, now), now),
     [day.grid, durationMin, horizonEnd, now],
   );
   // Rows of two: an odd trailing cell stays half width (design `repeat(2, 1fr)`).
   const rows = useMemo(() => chunkArray(cells, 2), [cells]);
-  // Two cells to a row, so the cell index halves into a row index. The minute
-  // tick can move this by a row; the surfaces only ever act on it when the day
-  // or the duration changes, so the list is never yanked under a reading guest.
-  const openRow = useMemo(() => Math.floor(firstUpcomingIndex(cells) / 2), [cells]);
 
   // "Closed" means the venue does not trade that day. A duration that simply
   // has no priced slots is "no times", not "closed" — the old check compared
@@ -312,7 +305,6 @@ export function useAvailabilityBooking(
     day,
     cells,
     rows,
-    openRow,
     closedDay,
     isClosedDate,
     phone,

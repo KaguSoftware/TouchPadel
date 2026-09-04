@@ -118,10 +118,12 @@ describe('allowedSubRoutes', () => {
 
 describe('homeRoute', () => {
   it('lands each role on its module', () => {
+    // Spec §04 workspace map: each role signs into its own landing screen.
     expect(homeRoute('cashier')).toBe('/till');
     expect(homeRoute('prep')).toBe('/kds');
-    expect(homeRoute('court_desk')).toBe('/desk');
-    expect(homeRoute('manager')).toBe('/desk');
+    expect(homeRoute('court_desk')).toBe('/desk/today');
+    expect(homeRoute('manager')).toBe('/ops');
+    expect(homeRoute('owner')).toBe('/panel');
   });
 });
 
@@ -159,5 +161,36 @@ describe('capability matrix', () => {
     for (const roles of Object.values(CAPABILITY_ROLES)) {
       for (const role of roles) expect(ALL_ROLES).toContain(role);
     }
+  });
+});
+
+describe('permissionsFor (spec §03 can.*)', () => {
+  it('is default-deny with no role', async () => {
+    const { permissionsFor } = await import('./auth');
+    expect(Object.values(permissionsFor(undefined)).every((v) => v === false)).toBe(true);
+  });
+  it('separates cashier, management and owner powers', async () => {
+    const { permissionsFor } = await import('./auth');
+    const cashier = permissionsFor('cashier');
+    expect(cashier.takePayment).toBe(true);
+    expect(cashier.refund).toBe(false);
+    expect(cashier.closeDay).toBe(false);
+    const manager = permissionsFor('manager');
+    expect(manager.refund).toBe(true);
+    expect(manager.manageStaff).toBe(false);
+    expect(manager.viewFinancials).toBe(false);
+    const owner = permissionsFor('owner');
+    expect(owner.manageStaff).toBe(true);
+    expect(owner.viewFinancials).toBe(true);
+  });
+  it('new workspace routes are default-deny for the wrong role', async () => {
+    const { canAccess } = await import('./auth');
+    expect(canAccess('cashier', '/ops')).toBe(false);
+    expect(canAccess('manager', '/panel')).toBe(false);
+    expect(canAccess('manager', '/reports/revenue')).toBe(false);
+    expect(canAccess('manager', '/reports/courts')).toBe(true);
+    expect(canAccess('cashier', '/desk/customers')).toBe(true);
+    expect(canAccess('cashier', '/desk/customers/new')).toBe(false);
+    expect(canAccess('court_desk', '/workspaces')).toBe(false);
   });
 });
