@@ -79,11 +79,6 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     body: 'سبقك شخص آخر إلى هذه الفترة أو غيّر هذا السجل. لم يُحفظ شيء.',
     dismiss: 'فهمت',
   },
-  degraded: {
-    title: 'وضع عدم الاتصال',
-    body: 'تعذّر الوصول إلى الخادم. يواصل الكاشير العمل؛ {count} تغييرات في الانتظار وستُزامن تلقائيًا.',
-    queued: '{count} في الانتظار',
-  },
   table: {
     sortAsc: 'مرتب تصاعديًا',
     sortDesc: 'مرتب تنازليًا',

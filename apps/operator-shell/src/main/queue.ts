@@ -229,7 +229,7 @@ export function listBlockingRows(): QueueRow[] {
 }
 
 /**
- * Degraded inputs — two independent witnesses, either one flips the flag:
+ * uploadBlocked inputs — two independent witnesses, either one flips the flag:
  * the renderer's heartbeat verdict (pushed over touch:conn-state after every
  * beat) and the sync worker's own transport failures. The renderer's BANNER
  * still prefers the server's res.degraded when a beat succeeds; this local
@@ -264,7 +264,7 @@ export function queueStatus(): QueueStatus {
     conflicts,
     failed,
     blocking: depth + conflicts + failed,
-    degraded: !rendererOnline || workerUnreachable,
+    uploadBlocked: !rendererOnline || workerUnreachable,
   };
 }
 

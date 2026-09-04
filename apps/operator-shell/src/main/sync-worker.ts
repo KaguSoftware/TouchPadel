@@ -17,8 +17,10 @@ import {
  * as the staff session the renderer pushed (auth-state.ts).
  *
  * Outcome map (mirrors the replay function's contract):
- *   200                  → ack(echo). 'duplicate' is an ack too — the server already
- *                          holds the result; re-sending is what the key is for.
+ *   200                  → ack(echo). A duplicate is an ack too — the server already
+ *                          holds the result, and answers 2xx for it; re-sending is what
+ *                          the key is for. (There is no separate 'duplicate' branch:
+ *                          the contract is the STATUS, not a marker in the body.)
  *   409                  → markConflict(detail): the desk resolves manually, replay
  *                          of LATER rows continues (an exclusion clash on one
  *                          reservation must not stop tonight's food orders).
@@ -28,7 +30,13 @@ import {
  *                          from strict-order replay: an unreplayable row (say, staff
  *                          deactivated since) must not block every later sale forever.
  *   429 / 5xx / network  → releaseToPending + exponential backoff (1s → 30s cap).
- *   no/expired token     → paused-auth: no spinning; a TOKEN_REFRESHED push resumes.
+ *   401                  → paused-auth: the row goes back to pending and the worker
+ *                          STOPS until a TOKEN_REFRESHED push resumes it. It must not
+ *                          look like a healthy transport — this branch used to call
+ *                          noteTransportOk(), which zeroed the backoff AND cleared the
+ *                          unreachable flag, so an expired token span the 3s tick
+ *                          forever while reporting the upload path as healthy.
+ *   no token             → paused-auth, same idea: nothing is sent at all.
  *
  * A row found 'inflight' on boot is a POST interrupted by a crash or power cut —
  * peekNext returns it first (lowest seq) and it is simply re-sent.
@@ -66,19 +74,37 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
   let backoffMs = 0;
   let nextAllowedAt = 0;
   let transportFailures = 0;
+  /** A 401 stops the worker dead until a fresh token arrives — see replayOne. */
+  let pausedOnAuth = false;
+  /** Mirrors what we last told queue.ts, so only TRANSITIONS are logged. */
+  let reportedUnreachable = false;
+
+  /**
+   * The write path had no logging at all. 144 consecutive failed uploads
+   * produced two lines of stdout, neither about sync, and the outage had to be
+   * diagnosed from the guest side hours later. Transitions only — never one
+   * line per attempt.
+   */
+  function reportUnreachable(unreachable: boolean): void {
+    if (unreachable === reportedUnreachable) return;
+    reportedUnreachable = unreachable;
+    setWorkerUnreachable(unreachable);
+    if (unreachable) console.warn('[sync] replay unreachable — writes are queueing, not sending');
+    else console.warn('[sync] replay reachable again — draining');
+  }
 
   function noteTransportFailure(): void {
     transportFailures += 1;
     backoffMs = Math.min(backoffMs === 0 ? 1_000 : backoffMs * 2, backoffCapMs);
     nextAllowedAt = Date.now() + backoffMs;
-    if (transportFailures >= 2) setWorkerUnreachable(true);
+    if (transportFailures >= 2) reportUnreachable(true);
   }
 
   function noteTransportOk(): void {
     transportFailures = 0;
     backoffMs = 0;
     nextAllowedAt = 0;
-    setWorkerUnreachable(false);
+    reportUnreachable(false);
   }
 
   function emit(row: QueueRow, state: MutationResult['state'], extra: Partial<MutationResult>): void {
@@ -127,6 +153,7 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
       });
     } catch (error) {
       releaseToPending(row.idempotencyKey, `transport: ${String(error)}`);
+      if (transportFailures === 0) console.warn('[sync] replay unreachable —', String(error));
       noteTransportFailure();
       opts.onActivity();
       return false;
@@ -155,6 +182,7 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
 
     if (res.status === 429 || res.status >= 500) {
       releaseToPending(row.idempotencyKey, `server ${res.status}`);
+      if (transportFailures === 0) console.warn('[sync] replay failed —', res.status, row.mutationType);
       noteTransportFailure();
       opts.onActivity();
       return false;
@@ -162,9 +190,13 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
 
     if (res.status === 401) {
       // The token the renderer pushed no longer verifies. Not the row's fault:
-      // back to pending, pause until a fresh TOKEN_REFRESHED push arrives.
-      noteTransportOk();
+      // back to pending, and PAUSE — a dead token cannot be retried into life,
+      // so spinning the tick on it only burns the battery and hides the state.
+      // Deliberately NOT noteTransportOk(): the upload path is not healthy, and
+      // saying so used to clear the unreachable flag on the way past.
+      pausedOnAuth = true;
       releaseToPending(row.idempotencyKey, 'staff session rejected (401)');
+      console.warn('[sync] staff session rejected (401) — paused until a fresh token');
       opts.onActivity();
       return false;
     }
@@ -174,6 +206,8 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
     const b = (body ?? {}) as Record<string, unknown>;
     const detail =
       typeof b.code === 'string' ? b.code : typeof b.error === 'string' ? b.error : `HTTP ${res.status}`;
+    // Terminal: this row will never replay, and a person has to deal with it.
+    console.error('[sync] row will never replay —', row.mutationType, `${res.status}: ${detail}`);
     markFailed(row.idempotencyKey, `${res.status}: ${detail}`);
     // serverResult rides along so the renderer can surface the machine code
     // (PIN_INVALID, FORBIDDEN, ...) through its normal error mapping.
@@ -193,6 +227,7 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
 
   function scheduleDrain(force: boolean): void {
     if (stopped || draining) return;
+    if (!force && pausedOnAuth) return;
     if (!force && Date.now() < nextAllowedAt) return;
     draining = drain().finally(() => {
       draining = null;
@@ -207,6 +242,7 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
   function kick(): void {
     backoffMs = 0;
     nextAllowedAt = 0;
+    pausedOnAuth = false;
     scheduleDrain(true);
   }
 

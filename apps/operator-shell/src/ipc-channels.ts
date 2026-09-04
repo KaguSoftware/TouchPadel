@@ -89,7 +89,15 @@ export interface MutationEnvelope {
 export interface QueueStatus {
   /** pending + inflight — what is still travelling. */
   depth: number;
-  degraded: boolean;
+  /**
+   * This STATION cannot get its writes out: the renderer reported its beat
+   * failing, or the sync worker has hit >=2 consecutive transport failures.
+   * Distinct from HeartbeatState.degraded, which is the SERVER's verdict on the
+   * venue. The two used to share the name `degraded`, and that collision is
+   * exactly how this one ended up with no consumer at all — a till showed a
+   * green banner through 144 consecutive failed uploads (2026-09-04).
+   */
+  uploadBlocked: boolean;
   conflicts: number;
   failed: number;
   /** Everything non-acked (depth + conflicts + failed) — what day close refuses on

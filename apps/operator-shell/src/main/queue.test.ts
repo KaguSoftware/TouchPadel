@@ -272,7 +272,7 @@ describe('queueStatus', () => {
       conflicts: 0,
       failed: 0,
       blocking: 0,
-      degraded: false,
+      uploadBlocked: false,
     });
   });
 
@@ -295,19 +295,19 @@ describe('queueStatus', () => {
     expect(s.blocking).toBe(4);
   });
 
-  it('derives degraded from the renderer conn-state and the worker reachability', () => {
+  it('derives uploadBlocked from the renderer conn-state and the worker reachability', () => {
     // The A2 fix for the old KNOWN GAP (degraded was hard-coded false): either
     // witness flips it — the heartbeat's verdict pushed over touch:conn-state,
     // or the sync worker's own consecutive transport failures.
-    expect(queueStatus().degraded).toBe(false);
+    expect(queueStatus().uploadBlocked).toBe(false);
     setConnOnline(false);
-    expect(queueStatus().degraded).toBe(true);
+    expect(queueStatus().uploadBlocked).toBe(true);
     setConnOnline(true);
-    expect(queueStatus().degraded).toBe(false);
+    expect(queueStatus().uploadBlocked).toBe(false);
     setWorkerUnreachable(true);
-    expect(queueStatus().degraded).toBe(true);
+    expect(queueStatus().uploadBlocked).toBe(true);
     setWorkerUnreachable(false);
-    expect(queueStatus().degraded).toBe(false);
+    expect(queueStatus().uploadBlocked).toBe(false);
   });
 });
 

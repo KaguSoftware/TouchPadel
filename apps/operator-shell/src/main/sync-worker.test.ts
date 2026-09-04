@@ -65,14 +65,21 @@ function makeFetch(script: Scripted[]) {
 let worker: SyncWorker | null = null;
 const results: MutationResult[] = [];
 
-function start(fetchImpl: typeof fetch): SyncWorker {
+function start(fetchImpl: typeof fetch, tickMs = 3_600_000): SyncWorker {
   worker = startSyncWorker({
     onResult: (r) => results.push(r),
     onActivity: () => {},
     fetchImpl,
-    tickMs: 3_600_000, // tests drive the worker via kick(), never the timer
+    // Default: tests drive the worker via kick(), never the timer. A test that
+    // needs to prove the timer does NOT fire passes a real interval instead.
+    tickMs,
   });
   return worker;
+}
+
+/** Let the real tick run a few times. */
+function ticks(ms = 60): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 beforeEach(() => {
@@ -208,7 +215,7 @@ describe('startSyncWorker', () => {
     w.kick();
     await w.idle();
     expect(w.isUnreachable()).toBe(true);
-    expect(queueStatus().degraded).toBe(true); // the worker is a degraded input
+    expect(queueStatus().uploadBlocked).toBe(true); // the worker is a degraded input
     expect(peekNext()?.attempts).toBe(2);
   });
 
@@ -255,7 +262,53 @@ describe('startSyncWorker', () => {
     expect(results).toEqual([]);
   });
 
-  it('acked rows clear degraded-by-worker on the next success', async () => {
+  it('a 401 PAUSES the worker instead of spinning the tick on a dead token', async () => {
+    // The branch used to call noteTransportOk(), which zeroed nextAllowedAt and
+    // cleared the unreachable flag — so an expired token re-sent the same row
+    // every 3s forever while reporting the upload path as perfectly healthy.
+    const m = envelope();
+    enqueue(m);
+    const { fetchImpl, calls } = makeFetch([
+      { status: 401, body: { error: 'staff session required' } },
+      { status: 200, body: { result: 'applied' } },
+    ]);
+    const w = start(fetchImpl, 5); // a real, fast tick
+    w.kick();
+    await w.idle();
+    expect(calls).toHaveLength(1);
+
+    // Many ticks later, it has still not retried a token it knows is dead.
+    await ticks();
+    await w.idle();
+    expect(calls).toHaveLength(1);
+    expect(peekNext()?.state).toBe('pending');
+
+    // ...and a fresh token resumes it immediately, as the docblock promises.
+    setAuthState(AUTH);
+    await w.idle();
+    expect(calls).toHaveLength(2);
+    expect(ackCount()).toBe(1);
+  });
+
+  it('a 401 does not report the upload path as healthy', async () => {
+    // noteTransportOk() on this branch also cleared uploadBlocked, so a station
+    // stuck on a dead token showed the reassuring green banner.
+    const m = envelope();
+    enqueue(m);
+    const { fetchImpl } = makeFetch([{ status: 503 }, { status: 503 }, { status: 401 }]);
+    const w = start(fetchImpl);
+    w.kick();
+    await w.idle();
+    w.kick();
+    await w.idle();
+    expect(queueStatus().uploadBlocked).toBe(true);
+
+    w.kick(); // the 401 must not launder the station back to healthy
+    await w.idle();
+    expect(queueStatus().uploadBlocked).toBe(true);
+  });
+
+  it('acked rows clear uploadBlocked-by-worker on the next success', async () => {
     const m = envelope();
     enqueue(m);
     const { fetchImpl } = makeFetch([{ status: 503 }, { status: 503 }, { status: 200 }]);
@@ -264,10 +317,10 @@ describe('startSyncWorker', () => {
     await w.idle();
     w.kick();
     await w.idle();
-    expect(queueStatus().degraded).toBe(true);
+    expect(queueStatus().uploadBlocked).toBe(true);
     w.kick();
     await w.idle();
-    expect(queueStatus().degraded).toBe(false);
+    expect(queueStatus().uploadBlocked).toBe(false);
     expect(ackCount()).toBe(1);
   });
 });

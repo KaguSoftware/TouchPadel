@@ -80,11 +80,6 @@ export const kitEn = {
     body: 'Someone else took this slot or changed this record first. Nothing was saved.',
     dismiss: 'Understood',
   },
-  degraded: {
-    title: 'Offline mode',
-    body: 'The server cannot be reached. The till keeps trading; {count} changes are queued and will sync automatically.',
-    queued: '{count} queued',
-  },
   table: {
     sortAsc: 'Sorted ascending',
     sortDesc: 'Sorted descending',

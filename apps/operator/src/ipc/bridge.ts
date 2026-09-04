@@ -28,7 +28,15 @@ export interface MutationEnvelope {
 export interface QueueStatus {
   /** pending + inflight — what is still travelling. */
   depth: number;
-  degraded: boolean;
+  /**
+   * This STATION cannot get its writes out: the renderer reported its beat
+   * failing, or the sync worker has hit >=2 consecutive transport failures.
+   * Distinct from HeartbeatState.degraded, which is the SERVER's verdict on the
+   * venue. The two used to share the name `degraded`, and that collision is
+   * exactly how this one ended up with no consumer at all — a till showed a
+   * green banner through 144 consecutive failed uploads (2026-09-04).
+   */
+  uploadBlocked: boolean;
   conflicts: number;
   failed: number;
   /** Everything non-acked — what day close refuses on and the heartbeat reports. */
@@ -166,7 +174,7 @@ const mock: TouchBridge = {
     return { localId: m.localId, state: 'queued' };
   },
   onQueueUpdate(cb) {
-    cb({ depth: 0, degraded: false, conflicts: 0, failed: 0, blocking: 0 });
+    cb({ depth: 0, uploadBlocked: false, conflicts: 0, failed: 0, blocking: 0 });
     return () => {};
   },
   onLanTicket() {

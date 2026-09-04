@@ -113,6 +113,15 @@ function createWindow(): BrowserWindow {
       // KDS / floor chimes (WebAudio) must play without a click on a station;
       // browser dev keeps the "Start shift" arming gesture (operator-slice.md §4.5).
       autoplayPolicy: 'no-user-gesture-required',
+      // Chromium throttles timers in a hidden or OCCLUDED window to roughly one
+      // fire per minute. The heartbeat runs on a 10s interval against a 45s stale
+      // window (venue_settings.heartbeat_stale_seconds), so a till sitting behind
+      // another window stops beating for long enough that app.is_degraded() flips
+      // and the WHOLE VENUE goes desk-only — the same damage the closable:false
+      // rule above guards against, arriving through a window nobody closed.
+      // Measured on the hosted project 2026-09-04: 10s beats while focused, then a
+      // 48s gap while backgrounded, with is_degraded() true for the tail of it.
+      backgroundThrottling: false,
     },
   });
 

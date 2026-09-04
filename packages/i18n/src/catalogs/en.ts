@@ -763,8 +763,6 @@ export const en = {
       'Online ordering is temporarily paused. Please see a member of staff to order.',
     waiterCallRefused: 'The call button is temporarily unavailable. Please see a member of staff.',
     readOnlyNotice: 'You can still browse — new requests are paused for a moment.',
-    tillBanner: 'Offline — orders are being queued ({count} waiting to sync).',
-    tillBannerSynced: 'Back online — all queued items have synced.',
     dayCloseBlocked: 'The day cannot be closed while {count} items are still unsynced.',
     // Design 2026-08-31: proactive banners (refusal copy above remains the backstop).
     // The bold lead sentence renders separately (DegradedBanner `lead`).
@@ -801,6 +799,8 @@ export const en = {
     status: {
       degraded: 'Offline mode — the app and website cannot take near-term bookings or orders. The desk is the only channel selling.',
       offline: 'This station cannot reach the server. Keep serving; the venue will switch to desk-only until it reconnects.',
+      uploadBlocked:
+        'This station can reach the server but cannot send its writes. Keep serving — nothing is lost, and everything syncs when the upload path returns.',
       queued: '{count} waiting to sync',
       attention: '{count} did not sync — see the Day close screen',
     },
@@ -984,7 +984,7 @@ export const en = {
       recordPayment: 'Record payment',
       remaining: 'Remaining {amount}',
       paidInFull: 'Tab settled.',
-      offlineTab: 'Offline — syncs when the connection returns.',
+      offlineTab: 'Not yet on the server — syncs automatically.',
       estimatedTotal: 'Estimated total',
       discardBasketTitle: 'Discard unsent items?',
       discardBasketBody: 'The basket has {count} unsent line(s). Switching tabs discards them.',
