@@ -27,5 +27,15 @@ export default defineConfig({
     environmentMatchGlobs: [['src/**/*.test.tsx', 'jsdom']],
     setupFiles: ['./vitest.setup.ts'],
     restoreMocks: true,
+    // Hermetic backend env. Vitest otherwise loads the developer's .env.local,
+    // so the suite's behaviour depended on which project that machine happened
+    // to point at — and once lib/supabase.ts began refusing a dev build aimed at
+    // a hosted project, every file that transitively imports it failed to LOAD
+    // on a machine configured for hosted. Tests never heartbeat, so the local
+    // stack is always the right answer here.
+    env: {
+      VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    },
   },
 });
