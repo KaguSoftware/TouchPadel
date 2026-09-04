@@ -14,7 +14,6 @@ import {
   RACKET_Y,
   RALLY_ORDER,
   rallyAt,
-  stringBed,
 } from '../rally';
 import { applyEulerYXZ, HEAD_ARM, RACKET_SCALE, SWING_CONTACT, SWING_DURATION } from '../swing';
 

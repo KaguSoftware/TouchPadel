@@ -31,6 +31,23 @@ describe('PhoneField', () => {
     expect(PHONE_CODE).toContain('lead={');
   });
 
+  it('leaves the same gap on BOTH sides of the divider', () => {
+    // The digits ran flush against the hairline once: the chip's paddingEnd
+    // sits BEFORE the divider (it is drawn at the chip's trailing edge), so it
+    // never spaced the text on the far side. Field supplies that half. The two
+    // live in different files, so they are pinned to agree here — if they
+    // drift, the separator stops being centred between code and number.
+    const chip = PHONE.match(/const CHIP_GAP = (\d+);/);
+    const lead = UI.match(/const LEAD_GAP = (\d+);/);
+    expect(chip, 'phone.tsx still names its chip gap').not.toBeNull();
+    expect(lead, 'ui.tsx still names the post-adornment gap').not.toBeNull();
+    expect(Number(lead![1]), 'divider gap is symmetric').toBe(Number(chip![1]));
+
+    // The chip's side additionally corrects for the caret's rotation overhang,
+    // so the OPTICAL gap matches rather than just the declared padding.
+    expect(PHONE_CODE).toContain('paddingEnd: CHIP_GAP + CHEVRON_BLEED');
+  });
+
   it('gives the gap after the divider exactly once', () => {
     // CHIP_GAP is the whole distance from divider to first digit: Field
     // contributes no leading padding when it has an adornment. Two sources
@@ -39,8 +56,8 @@ describe('PhoneField', () => {
     expect(PHONE).toContain('paddingEnd: CHIP_GAP');
 
     const FIELD = UI.slice(UI.indexOf('export function Field('));
-    expect(FIELD, "Field zeroes its own leading pad under an adornment").toContain(
-      'paddingStart: lead ? 0 : space.m',
+    expect(FIELD, 'Field owns the gap after an adornment').toContain(
+      'paddingStart: lead ? LEAD_GAP : space.m',
     );
   });
 

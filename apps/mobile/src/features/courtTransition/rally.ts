@@ -15,6 +15,8 @@ import {
   addV,
   applyEulerYXZ,
   faceOffset,
+  HEAD_ARM,
+  RACKET_SCALE,
   scaleV,
   subV,
   SWING_CONTACT,
@@ -86,6 +88,13 @@ export interface Player {
   seed: number;
   /** Which side of the body the forehand comes off: the swing clip is mirrored for −1. */
   hand: 1 | -1;
+  /**
+   * Radians nudged onto this racket's resting yaw, on top of the mirrored base
+   * pose. The base pose is symmetric across both centre lines, which reads as
+   * four copies of one racket; a per-player trim breaks that up. Optional —
+   * omitted means 0, the exact base pose.
+   */
+  trim?: number;
 }
 
 /**
@@ -94,7 +103,7 @@ export interface Player {
  * TOP-LEFT racket, [1] top-right, [2] bottom-left, [3] bottom-right.
  */
 export const PLAYERS: readonly Player[] = [
-  { x: -2.3, z: -6.3, face: -1, seed: 0.0, hand: 1 },
+  { x: -2.3, z: -6.3, face: -1, seed: 0.0, hand: 1, trim: 15 * DEG },
   { x: 2.3, z: -6.3, face: -1, seed: 1.7, hand: -1 },
   { x: -2.3, z: 6.3, face: 1, seed: 3.1, hand: 1 },
   { x: 2.3, z: 6.3, face: 1, seed: 4.4, hand: -1 },
@@ -173,6 +182,12 @@ export function playerYaw(p: Player): number {
  * head — and the strings — away from the ball it is meant to meet.
  */
 const LAUNCH = 0.172;
+/**
+ * The head's reach: grip pivot to sweet spot in COURT metres — the rigid arm
+ * the swing whips the head around, and so the radius every placement below is
+ * computed from. The model's arm blown up by the court's racket scale.
+ */
+const REACH = HEAD_ARM * RACKET_SCALE;
 /**
  * The racket's pitch, radians from flat on the court — how far it stands up on
  * its edge. Both views use it: a racket lying FLAT (0) has its string bed

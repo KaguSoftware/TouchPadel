@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { RefreshControl, ScrollView, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
@@ -11,7 +11,7 @@ import { mapErrorToKey } from '../src/features/booking/errors';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { space, useTheme } from '../src/theme';
 import { ErrorText, Hint, Screen, SegmentedControl } from '../src/components/ui';
-import { DayChip, DegradedBanner, SlotCell } from '../src/components/booking';
+import { DayChip, DegradedToast, SlotCell } from '../src/components/booking';
 import { NoticeSheet } from '../src/components/overlays';
 
 const GUTTER = space.l;
@@ -42,6 +42,9 @@ export default function AvailabilityScreen() {
   // (a capacity line makes one taller), so the target row reports its own y.
   // `key` remounts the list per day/duration, which is what makes the homing run
   // exactly once per list instead of fighting a scroll already in progress.
+  // The venue notice floats over the grid and leaves only when the guest
+  // closes it — a refetch flipping `degraded` back on must not resurrect it.
+  const [noticeClosed, setNoticeClosed] = useState(false);
   const gridRef = useRef<ScrollView>(null);
   const gridKey = `${a.date}|${a.durationMin}`;
   const homedFor = useRef<string | null>(null);
@@ -58,15 +61,13 @@ export default function AvailabilityScreen() {
     <Screen padded={false} edges={[]}>
       <Stack.Screen options={{ title: t('booking.availabilityTitle') }} />
 
-      {a.degraded ? (
-        <View style={{ marginTop: 6, marginStart: GUTTER, marginEnd: GUTTER }}>
-          <DegradedBanner
-            tight
-            lead={t('degraded.leadDeskOnly')}
-            message={t('degraded.bannerAvailability', { phone: a.phone ?? '' })}
-            phone={a.phone}
-          />
-        </View>
+      {a.degraded && !noticeClosed ? (
+        <DegradedToast
+          lead={t('degraded.leadDeskOnly')}
+          message={t('degraded.bannerAvailability', { phone: a.phone ?? '' })}
+          phone={a.phone}
+          onDismiss={() => setNoticeClosed(true)}
+        />
       ) : null}
 
       {/*
