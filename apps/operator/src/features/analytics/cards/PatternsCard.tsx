@@ -150,7 +150,7 @@ export function PatternsCard({
       <div style={{ display: 'grid', gap: '0.5rem' }}>
         <ErrorText error={error} />
         {rows.map(({ candidate, text }) => (
-          <div key={candidate.id} style={{ borderInlineStart: '3px solid var(--tp-border)', paddingInlineStart: '0.55rem' }}>
+          <div key={candidate.id} style={{ borderInlineStart: '1px solid var(--tp-border)', paddingInlineStart: '0.55rem' }}>
             <div style={{ display: 'flex', gap: '0.3rem', marginBlockEnd: '0.15rem', flexWrap: 'wrap' }}>
               <Chip tone="accent">{KIND_KEY[candidate.kind] ? tr(KIND_KEY[candidate.kind]!) : candidate.kind}</Chip>
               <Chip tone={candidate.confidence === 'high' ? 'good' : candidate.confidence === 'low' ? 'warn' : 'neutral'}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ageColor, formatAge } from './ageColor';
+import { ageColor, ageState, ageStateVar, formatAge } from './ageColor';
 
 const TARGET = 600; // default tickets.target_seconds
 
@@ -39,5 +39,15 @@ describe('formatAge', () => {
     expect(formatAge(0)).toBe('0:00');
     expect(formatAge(65)).toBe('1:05');
     expect(formatAge(600)).toBe('10:00');
+  });
+});
+
+describe('ageState', () => {
+  it('maps the three colours onto the kitchen tokens', () => {
+    expect(ageState(0, TARGET)).toBe('fresh');
+    expect(ageState(300, TARGET)).toBe('warm');
+    expect(ageState(600, TARGET)).toBe('late');
+    expect(ageState(240, 240)).toBe('late');
+    expect(ageStateVar('warm')).toBe('var(--tp-kds-warm)');
   });
 });

@@ -1,23 +1,17 @@
 /**
- * The three cashier actions the contract names and the till could not perform.
+ * The PIN-and-reason cashier actions (spec 06.16 merge · 06.18 refund · price
+ * override on 06.13). Each RPC has existed, granted and audited, since the
+ * first drops:
  *
- * Each RPC has existed, granted and tested, since the first drops; nothing ever
- * called them, so the acceptance test "every discount, void and refund
- * traceable to a named actor" (SOW L434-439) had no refund to trace:
+ *   - REFUND   (L453) `app.refund` — manager role. Naming the items is what
+ *              reverses the stock movement; the consequence is rendered
+ *              BEFORE the action (spec 06.18 note). `can.refund` decides the
+ *              refused state; the control stays visible (R9).
+ *   - OVERRIDE (L450-451) `app.override_price` via mutate('adjustment.apply').
+ *   - MERGE    (L444) `app.merge_tabs`.
  *
- *   - REFUND      (L453) "Refunds by a manager role, reversing the stock
- *                 movement" — `app.refund`. The stock reversal is why the item
- *                 picker matters: refunding money without naming the items
- *                 leaves the ledger claiming they were consumed.
- *   - OVERRIDE    (L450-451) "Discounts and price overrides behind an
- *                 authorised PIN with a reason code" — `app.override_price`.
- *                 Discounts were wired; overrides never were.
- *   - MERGE       (L444) "Merge tables" — `app.merge_tabs`. The tab list even
- *                 filters on `merged_into_tab_id`, a column nothing could set.
- *
- * All three are PIN-and-reason actions, so they reuse `PinReasonModal` — the
- * same component the discount and void flows use, whose own doc comment has
- * always claimed it was "shared by discount / void / refund flows".
+ * All three reuse `PinReasonModal` (manager PIN + reason code) so the server
+ * verifies the PIN and writes the reason to the audit log.
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -28,19 +22,13 @@ import { mutate } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
-import {
-  Button,
-  ErrorText,
-  Field,
-  Modal,
-  PinReasonModal,
-  Select,
-  card,
-  inputStyle,
-} from '../../components/ui';
+import { requiredRoleFor } from '../../lib/auth';
+import { Button, ErrorText, Field, Modal, PinReasonModal, Select, inputStyle } from '../../components/ui';
+import { MessagePresenter, Money, PermissionRefusedNotice } from '../../components/kit';
+import { kvRow, muted, numeric } from './tillStyles';
 
 // ---------------------------------------------------------------------------
-// Refund
+// Refund (06.18)
 // ---------------------------------------------------------------------------
 
 export interface RefundablePayment {
@@ -60,11 +48,14 @@ export interface RefundableLine {
 export function RefundDialog({
   payments,
   lines,
+  canRefund,
   onDone,
   onClose,
 }: {
   payments: readonly RefundablePayment[];
   lines: readonly RefundableLine[];
+  /** `can.refund` — false renders the `refused` state; the controls stay visible. */
+  canRefund: boolean;
   onDone(): void;
   onClose(): void;
 }) {
@@ -79,6 +70,7 @@ export function RefundDialog({
   const payment = payments.find((p) => p.id === paymentId);
   const max = payment?.amount_iqd ?? 0;
   const valid = !!payment && amount > 0 && amount <= max;
+  const namedItems = Object.values(items).some((q) => q > 0);
 
   async function submit(pin: string, reasonCode: string) {
     setBusy(true);
@@ -92,8 +84,7 @@ export function RefundDialog({
         p_amount_iqd: amount,
         p_pin: pin,
         p_reason_code: reasonCode,
-        // Naming the items is what reverses the stock movement (L453). Money
-        // back with no items leaves the ledger claiming they were consumed.
+        // Naming the items is what reverses the stock movement (L453).
         p_items: chosen.length > 0 ? chosen : null,
         p_device_id: deviceId(),
       });
@@ -110,14 +101,37 @@ export function RefundDialog({
 
   return (
     <>
-      <Modal title={tr('op.till.refund')} onClose={onClose}>
+      <Modal
+        title={tr('op.till.refund')}
+        onClose={onClose}
+        footer={
+          <>
+            <Button onClick={onClose} disabled={busy}>
+              {tr('common.cancel')}
+            </Button>
+            <Button kind="danger" icon="undo" disabled={!valid || busy || !canRefund || payments.length === 0} onClick={() => setPinOpen(true)}>
+              {tr('op.till.refund')}
+            </Button>
+          </>
+        }
+      >
+        {!canRefund && (
+          <PermissionRefusedNotice action={tr('ws.cashier.refund.refusedAction')} requiredRole={requiredRoleFor('refund')} style={{ marginBlockEnd: '0.85rem' }} />
+        )}
         {payments.length === 0 ? (
-          <p>{tr('op.till.refundNoPayments')}</p>
+          <p style={muted}>{tr('op.till.refundNoPayments')}</p>
         ) : (
           <>
+            <MessagePresenter
+              tone={namedItems ? 'info' : 'refused'}
+              icon="package"
+              message={tr('ws.cashier.refund.consequence')}
+              style={{ marginBlockEnd: '0.85rem' }}
+            />
             <Field label={tr('op.till.refundPayment')}>
               <Select
                 value={paymentId}
+                disabled={!canRefund}
                 onChange={(v) => {
                   setPaymentId(v);
                   setAmount(payments.find((p) => p.id === v)?.amount_iqd ?? 0);
@@ -128,77 +142,56 @@ export function RefundDialog({
                 }))}
               />
             </Field>
-            <Field label={tr('op.till.refundAmount')}>
+            <Field label={tr('op.till.refundAmount')} hint={tr('op.till.refundMax', { amount: formatIQD(max, locale) })}>
               <input
-                style={{ ...inputStyle, textAlign: 'end' }}
+                style={{ ...inputStyle, ...numeric, textAlign: 'end' }}
                 dir="ltr"
                 inputMode="numeric"
+                disabled={!canRefund}
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value.replace(/\D/g, '')) || 0)}
               />
             </Field>
-            <p style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>
-              {tr('op.till.refundMax', { amount: formatIQD(max, locale) })}
-            </p>
 
-            <h4 style={{ marginBlockEnd: '0.2rem' }}>{tr('op.till.refundItems')}</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)', marginBlockStart: 0 }}>
-              {tr('op.till.refundItemsHint')}
-            </p>
-            <div style={{ ...card, maxBlockSize: '12rem', overflowY: 'auto' }}>
+            <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.2rem' }}>{tr('op.till.refundItems')}</h3>
+            <p style={{ ...muted, marginBlockEnd: '0.4rem' }}>{tr('op.till.refundItemsHint')}</p>
+            <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', maxBlockSize: '12rem', overflowY: 'auto' }}>
               {lines
                 .filter((l) => !l.voided)
                 .map((l) => (
-                  <div
-                    key={l.id}
-                    style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBlockEnd: '0.2rem' }}
-                  >
+                  <div key={l.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', paddingBlock: '0.3rem', paddingInline: '0.6rem', borderBlockEnd: '1px solid var(--tp-border)' }}>
                     <span style={{ flex: 1 }}>
-                      {l.qty}× {pickName(locale, l.menu_item)}
+                      {l.qty}× <bdi>{pickName(locale, l.menu_item)}</bdi>
                     </span>
                     <input
-                      style={{ ...inputStyle, inlineSize: '4rem', textAlign: 'end' }}
+                      style={{ ...inputStyle, ...numeric, inlineSize: '4.5rem', textAlign: 'end' }}
                       dir="ltr"
                       inputMode="numeric"
+                      disabled={!canRefund}
                       aria-label={pickName(locale, l.menu_item) || l.id}
                       value={items[l.id] ?? 0}
                       onChange={(e) => {
-                        const qty = Math.min(
-                          Math.max(Number(e.target.value.replace(/\D/g, '')) || 0, 0),
-                          l.qty,
-                        );
+                        const qty = Math.min(Math.max(Number(e.target.value.replace(/\D/g, '')) || 0, 0), l.qty);
                         setItems((prev) => ({ ...prev, [l.id]: qty }));
                       }}
                     />
                   </div>
                 ))}
             </div>
-
             <ErrorText error={error} />
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <Button onClick={onClose}>{tr('common.cancel')}</Button>
-              <Button kind="danger" disabled={!valid || busy} onClick={() => setPinOpen(true)}>
-                {tr('op.till.refund')}
-              </Button>
-            </div>
           </>
         )}
       </Modal>
 
       {pinOpen && (
-        <PinReasonModal
-          title={tr('op.till.refund')}
-          busy={busy}
-          onSubmit={(pin, reason) => void submit(pin, reason)}
-          onClose={() => setPinOpen(false)}
-        />
+        <PinReasonModal title={tr('op.till.refund')} busy={busy} onSubmit={(pin, reason) => void submit(pin, reason)} onClose={() => setPinOpen(false)} />
       )}
     </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Price override
+// Price override (06.13)
 // ---------------------------------------------------------------------------
 
 export function OverridePriceDialog({
@@ -214,7 +207,7 @@ export function OverridePriceDialog({
   onDone(): void;
   onClose(): void;
 }) {
-  const { tr, locale } = useLocale();
+  const { tr } = useLocale();
   const [price, setPrice] = useState(currentUnitPriceIqd);
   const [pinOpen, setPinOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -231,8 +224,7 @@ export function OverridePriceDialog({
         pin,
         reasonCode,
       });
-      // Only a server-verified pin feeds the offline cache — a queued one
-      // hasn't been checked yet.
+      // Only a server-verified pin feeds the offline cache — a queued one hasn't been checked yet.
       if (!outcome.queued) touch.pinObserved(pin);
       setPinOpen(false);
       onDone();
@@ -246,47 +238,50 @@ export function OverridePriceDialog({
 
   return (
     <>
-      <Modal title={tr('op.till.override')} onClose={onClose}>
-        <p style={{ marginBlockStart: 0 }}>{label}</p>
-        <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: 0 }}>
-          {tr('op.till.overrideCurrent', { amount: formatIQD(currentUnitPriceIqd, locale) })}
+      <Modal
+        title={tr('op.till.override')}
+        onClose={onClose}
+        size="sm"
+        footer={
+          <>
+            <Button onClick={onClose} disabled={busy}>
+              {tr('common.cancel')}
+            </Button>
+            <Button kind="primary" icon="tag" disabled={busy || price === currentUnitPriceIqd} onClick={() => setPinOpen(true)}>
+              {tr('op.till.override')}
+            </Button>
+          </>
+        }
+      >
+        <p style={{ fontWeight: 600 }}>
+          <bdi>{label}</bdi>
         </p>
+        <div style={{ ...kvRow, ...muted, marginBlockEnd: '0.75rem' }}>
+          <span>{tr('op.till.overrideCurrent', { amount: '' }).trim()}</span>
+          <Money amount={currentUnitPriceIqd} />
+        </div>
         <Field label={tr('op.till.overrideNew')}>
           <input
-            style={{ ...inputStyle, textAlign: 'end' }}
+            style={{ ...inputStyle, ...numeric, textAlign: 'end', fontSize: 'var(--tp-fs-lg)' }}
             dir="ltr"
             inputMode="numeric"
+            autoFocus
             value={price}
             onChange={(e) => setPrice(Number(e.target.value.replace(/\D/g, '')) || 0)}
           />
         </Field>
         <ErrorText error={error} />
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-          <Button onClick={onClose}>{tr('common.cancel')}</Button>
-          <Button
-            kind="primary"
-            disabled={busy || price === currentUnitPriceIqd}
-            onClick={() => setPinOpen(true)}
-          >
-            {tr('op.till.override')}
-          </Button>
-        </div>
       </Modal>
 
       {pinOpen && (
-        <PinReasonModal
-          title={tr('op.till.override')}
-          busy={busy}
-          onSubmit={(pin, reason) => void submit(pin, reason)}
-          onClose={() => setPinOpen(false)}
-        />
+        <PinReasonModal title={tr('op.till.override')} busy={busy} onSubmit={(pin, reason) => void submit(pin, reason)} onClose={() => setPinOpen(false)} />
       )}
     </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Merge tables
+// Merge tables (06.16)
 // ---------------------------------------------------------------------------
 
 interface MergeCandidate {
@@ -312,8 +307,7 @@ export function MergeTabsDialog({
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
-  // Only open tabs other than this one can be folded in. `merged_into_tab_id`
-  // is null for every tab that has not already been merged away.
+  // Only open tabs other than this one can be folded in.
   const candidatesQ = useQuery({
     queryKey: ['mergeCandidates', survivorTabId],
     queryFn: async () => {
@@ -350,32 +344,36 @@ export function MergeTabsDialog({
   const candidates = candidatesQ.data ?? [];
 
   return (
-    <Modal title={tr('op.till.merge')} onClose={onClose}>
-      <p style={{ marginBlockStart: 0 }}>{tr('op.till.mergeInto', { name: survivorLabel })}</p>
+    <Modal
+      title={tr('ws.cashier.merge.title')}
+      onClose={busy ? () => {} : onClose}
+      size="sm"
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>
+            {tr('common.cancel')}
+          </Button>
+          <Button kind="primary" icon="merge" busy={busy} disabled={!donorId} onClick={() => void submit()}>
+            {tr('ws.cashier.merge.confirm')}
+          </Button>
+        </>
+      }
+    >
+      <p style={{ marginBlockEnd: '0.75rem' }}>{tr('ws.cashier.merge.into', { name: survivorLabel })}</p>
       <ErrorText error={candidatesQ.error} />
       {candidatesQ.isSuccess && candidates.length === 0 ? (
-        <p>{tr('op.till.mergeNone')}</p>
+        <p style={muted}>{tr('ws.cashier.merge.none')}</p>
       ) : (
-        <Field label={tr('op.till.mergeDonor')}>
+        <Field label={tr('ws.cashier.merge.donor')}>
           <Select
             value={donorId}
             onChange={setDonorId}
-            placeholder={tr('op.till.mergeDonor')}
-            options={[
-              { value: '', label: tr('op.till.mergeDonor') },
-              ...candidates.map((t) => ({ value: t.id, label: nameOf(t) })),
-            ]}
+            options={[{ value: '', label: tr('ws.cashier.merge.donor') }, ...candidates.map((t) => ({ value: t.id, label: nameOf(t) }))]}
           />
         </Field>
       )}
-      <p style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>{tr('op.till.mergeHint')}</p>
+      <MessagePresenter tone="refused" icon="alert" message={tr('ws.cashier.merge.hint')} />
       <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-        <Button onClick={onClose}>{tr('common.cancel')}</Button>
-        <Button kind="primary" disabled={!donorId || busy} onClick={() => void submit()}>
-          {tr('op.till.merge')}
-        </Button>
-      </div>
     </Modal>
   );
 }

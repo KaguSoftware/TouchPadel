@@ -26,10 +26,9 @@
  * On a short phone the card caps itself to the stage and the grid shrinks
  * (min 96 pt) instead of the card overflowing under the title or tab bar.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Animated,
-  type LayoutChangeEvent,
   Platform,
   ScrollView,
   StyleSheet,
@@ -213,25 +212,12 @@ export function BookingSheet({
   const pillsAtStart = pillsScrolledIn !== dir;
   const [gridAtTop, setGridAtTop] = useState(true);
 
-  // The grid opens on the first time that has not started yet (a.openRow), so a
-  // 21:00 guest does not scroll 09:00 → 21:00 to reach tonight. Rows are not a
-  // fixed height (a capacity line makes one taller), so the target row reports
-  // its own y through onLayout rather than the offset being multiplied out.
-  // `key` remounts the list per day/duration — a fresh ScrollView starts at 0
-  // and always lays its rows out, so the homing runs exactly once per list and
-  // never fights a scroll the guest is in the middle of.
-  const gridRef = useRef<ScrollView>(null);
+  // The grid's first row IS tonight's first bookable time — the hook drops every
+  // hour that has already started — so a fresh ScrollView per day/duration opens
+  // at the top with nothing above it to scroll back to. `key` does the remount,
+  // and a list that starts at 0 keeps the leading fade off until the guest
+  // scrolls.
   const gridKey = `${a.date}|${a.durationMin}`;
-  const homedFor = useRef<string | null>(null);
-  const homeGrid = (r: number) => (e: LayoutChangeEvent) => {
-    if (r !== a.openRow || homedFor.current === gridKey) return;
-    homedFor.current = gridKey;
-    const { y } = e.nativeEvent.layout;
-    if (y > 0) gridRef.current?.scrollTo({ y, animated: false });
-    // A programmatic scroll does not reliably emit onScroll on Android, and the
-    // flag outlives the remount either way — say where the list landed.
-    setGridAtTop(y <= 0);
-  };
 
   // Sheet: direction-aware PITCH ease (remapped inside its 0.25 → 1 slice).
   const sheet = useMemo(() => {
@@ -384,7 +370,6 @@ export function BookingSheet({
     grid = (
       <ScrollView
         key={gridKey}
-        ref={gridRef}
         showsVerticalScrollIndicator={false}
         onScroll={onGridScroll}
         scrollEventThrottle={32}
@@ -395,7 +380,6 @@ export function BookingSheet({
           return (
             <Animated.View
               key={row[0]?.startAt.toISOString() ?? r}
-              onLayout={homeGrid(r)}
               style={{
                 flexDirection: 'row',
                 gap: 6,

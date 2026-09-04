@@ -8,13 +8,20 @@ import { ThemeProvider } from '@touch/ui';
 import { rootRoute } from './routes/__root';
 import { indexRoute } from './routes/index';
 import { tillRoute } from './routes/till';
+import { tillChildren } from './routes/till/_children';
 import { deskRoute } from './routes/desk';
+import { deskChildren } from './routes/desk/_children';
 import { kdsRoute } from './routes/kds';
 import { stockRoute } from './routes/stock';
 import { stockChildren } from './routes/stock/_children';
 import { adminRoute } from './routes/admin';
 import { adminChildren } from './routes/admin/_children';
 import { analyticsRoute } from './routes/analytics';
+import { opsRoute } from './routes/ops';
+import { panelRoute } from './routes/panel';
+import { workspacesRoute } from './routes/workspaces';
+import { reportsRoute } from './routes/reports';
+import { reportsChildren } from './routes/reports/_children';
 import { LocaleProvider, useLocale } from './lib/i18n';
 import { AuthProvider, useAuth, homeRoute } from './lib/auth';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
@@ -26,9 +33,13 @@ import { initOfflineTabRetirement } from './lib/offlineTabs';
 // (@tanstack/router-plugin generating routeTree.gen.ts) once typed search params land.
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  tillRoute,
-  deskRoute,
+  workspacesRoute,
+  tillRoute.addChildren([...tillChildren]),
+  deskRoute.addChildren([...deskChildren]),
   kdsRoute,
+  opsRoute,
+  panelRoute,
+  reportsRoute.addChildren([...reportsChildren]),
   stockRoute.addChildren([...stockChildren]),
   adminRoute.addChildren([...adminChildren]),
   analyticsRoute,
@@ -99,7 +110,7 @@ function ThemedApp() {
   const { dir } = useLocale();
   // Operator surfaces use the padel theme (cafe theme is for guest cafe pages).
   return (
-    <ThemeProvider theme="padel" dir={dir}>
+    <ThemeProvider theme="operator" dir={dir}>
       <AppErrorBoundary fallback={(error, reset) => <ShellCrash error={error} reset={reset} />}>
         <AuthProvider>
           <PersistQueryClientProvider

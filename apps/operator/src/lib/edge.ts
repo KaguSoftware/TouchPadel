@@ -8,7 +8,11 @@
  */
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
 
-export type EdgeFunctionName = 'analytics-posthog' | 'analytics-insights' | 'staff-admin';
+export type EdgeFunctionName =
+  | 'analytics-posthog'
+  | 'analytics-insights'
+  | 'staff-admin'
+  | 'desk-customer-create';
 
 export type EdgeErrorCode =
   'NOT_CONFIGURED' | 'FORBIDDEN' | 'AUTH_REQUIRED' | 'UPSTREAM' | 'RATE_LIMITED' | 'UNKNOWN';
@@ -64,6 +68,12 @@ function bodyCode(body: unknown): string | undefined {
   if (body !== null && typeof body === 'object' && 'code' in body) {
     const code = (body as { code?: unknown }).code;
     return typeof code === 'string' ? code : undefined;
+  }
+  // staff-admin / desk-customer-create answer `{ error: 'DUPLICATE_PHONE', message }`:
+  // an upper-snake `error` IS the code (a prose `error` string is not).
+  if (body !== null && typeof body === 'object' && 'error' in body) {
+    const err = (body as { error?: unknown }).error;
+    return typeof err === 'string' && /^[A-Z][A-Z0-9_]*$/.test(err) ? err : undefined;
   }
   return undefined;
 }

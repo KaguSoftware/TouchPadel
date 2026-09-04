@@ -1,25 +1,66 @@
 /**
- * Waste with a mandatory reason (SOW L529-530: spill or spoilage, never a bare
- * number) and sub-recipe production runs (app.record_production consumes the
- * components FEFO and mints the prepared batch at computed cost).
+ * Waste entry (spec 06.34) + sub-recipe production runs.
+ *
+ * The reason list is the FIXED set: spill · spoilage · void after send ·
+ * expired write-off. Only the first two are entered here (app.record_waste
+ * accepts waste_spill / waste_spoilage); void-after-send is written by the
+ * till when a sent item is voided, and the expired write-off is recorded on
+ * the Expiry screen against its batch, so the variance report keeps the four
+ * apart. Production: app.record_production consumes the components FEFO and
+ * mints the prepared batch at computed cost.
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, card, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
+import { EmptyState, PageHeader, Panel, StatusBadge } from '../../components/kit';
 import { SK, fetchIngredients } from './stockKeys';
 
 export function WasteAndProduction() {
   const { tr } = useLocale();
   return (
-    <div style={{ maxInlineSize: '30rem' }}>
-      <h2 style={{ marginBlock: '0.4rem' }}>{tr('op.stock.wasteTitle')}</h2>
-      <WasteForm />
-      <h2 style={{ marginBlock: '0.6rem' }}>{tr('op.stock.productionTitle')}</h2>
-      <ProductionForm />
+    <div style={{ maxInlineSize: '60rem' }}>
+      <PageHeader title={tr('op.stock.wasteTitle')} subtitle={tr('ws.manager.stock.waste.lead')} />
+      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', alignItems: 'start' }}>
+        <WasteForm />
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          <ReasonsPanel />
+          <Panel title={tr('op.stock.productionTitle')}>
+            <ProductionForm />
+          </Panel>
+        </div>
+      </div>
     </div>
+  );
+}
+
+/** Route alias for the spec name. */
+export const WasteEntryScreen = WasteAndProduction;
+
+function ReasonsPanel() {
+  const { tr } = useLocale();
+  const navigate = useNavigate();
+  const line = (label: string, hint: string | null, tone: 'accent' | 'neutral') => (
+    <li style={{ display: 'grid', gap: '0.15rem', paddingBlock: '0.4rem', borderBlockEnd: '1px solid var(--tp-border)' }}>
+      <StatusBadge size="sm" tone={tone} label={label} style={{ justifySelf: 'start' }} />
+      {hint && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</span>}
+    </li>
+  );
+  return (
+    <Panel title={tr('ws.manager.stock.waste.reasons')} muted>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {line(tr('ws.manager.stock.waste.spill'), null, 'accent')}
+        {line(tr('ws.manager.stock.waste.spoilage'), null, 'accent')}
+        {line(tr('ws.manager.stock.waste.voidAfterSend'), tr('ws.manager.stock.waste.voidAfterSendHint'), 'neutral')}
+        {line(tr('ws.manager.stock.waste.expiredWriteOff'), tr('ws.manager.stock.waste.expiredWriteOffHint'), 'neutral')}
+      </ul>
+      <Button size="sm" icon="hourglass" style={{ marginBlockStart: '0.5rem' }} onClick={() => void navigate({ to: '/stock/expiry' })}>
+        {tr('ws.manager.stock.waste.goToExpiry')}
+      </Button>
+    </Panel>
   );
 }
 
@@ -36,6 +77,7 @@ function WasteForm() {
 
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
   const ingredients = (ingredientsQ.data ?? []).filter((i) => i.is_active);
+  const unit = ingredients.find((i) => i.id === ingredientId)?.unit;
 
   async function submit() {
     setBusy(true);
@@ -47,7 +89,7 @@ function WasteForm() {
         p_movement_type: movementType,
         p_reason_code: reason,
       });
-      toast.ok(tr('op.toast.saved'));
+      toast.ok(tr('ws.manager.stock.waste.recorded'));
       setQty('');
       setReason('');
       void queryClient.invalidateQueries({ queryKey: ['stock'] });
@@ -59,9 +101,9 @@ function WasteForm() {
   }
 
   return (
-    <div style={card}>
-      <Field label={tr('op.stock.ingredient')}>
-        <select style={inputStyle} value={ingredientId} onChange={(e) => setIngredientId(e.target.value)}>
+    <Panel title={tr('op.stock.recordWasteBtn')}>
+      <Field label={tr('op.stock.ingredient')} required>
+        <select style={inputStyle} value={ingredientId} disabled={busy} onChange={(e) => setIngredientId(e.target.value)}>
           <option value="">—</option>
           {ingredients.map((i) => (
             <option key={i.id} value={i.id}>
@@ -70,31 +112,23 @@ function WasteForm() {
           ))}
         </select>
       </Field>
-      <Field label={tr('op.stock.qty')}>
-        <input style={inputStyle} dir="ltr" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
+      <Field label={tr('op.stock.qty')} hint={unit} required>
+        <input style={inputStyle} dir="ltr" inputMode="decimal" value={qty} disabled={busy} onChange={(e) => setQty(e.target.value)} />
       </Field>
-      <Field label={tr('op.stock.wasteKind')}>
-        <select
-          style={inputStyle}
-          value={movementType}
-          onChange={(e) => setMovementType(e.target.value as typeof movementType)}
-        >
+      <Field label={tr('op.stock.wasteKind')} required>
+        <select style={inputStyle} value={movementType} disabled={busy} onChange={(e) => setMovementType(e.target.value as typeof movementType)}>
           <option value="waste_spill">{tr('op.stock.spill')}</option>
           <option value="waste_spoilage">{tr('op.stock.spoilage')}</option>
         </select>
       </Field>
-      <Field label={tr('op.common.reason')}>
-        <input style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value)} />
+      <Field label={tr('op.common.reason')} hint={tr('ws.manager.stock.waste.note')} required>
+        <input style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
       </Field>
       <ErrorText error={error} />
-      <Button
-        kind="primary"
-        disabled={busy || !ingredientId || !(Number(qty) > 0) || !reason.trim()}
-        onClick={() => void submit()}
-      >
+      <Button kind="primary" icon="ban" busy={busy} disabled={!ingredientId || !(Number(qty) > 0) || !reason.trim()} onClick={() => void submit()}>
         {tr('op.stock.recordWasteBtn')}
       </Button>
-    </div>
+    </Panel>
   );
 }
 
@@ -128,14 +162,14 @@ function ProductionForm() {
     }
   }
 
-  if (prepared.length === 0) {
-    return <p style={card}>{tr('op.stock.noPrepared')}</p>;
+  if (ingredientsQ.isSuccess && prepared.length === 0) {
+    return <EmptyState compact icon="flame" title={tr('op.stock.noPrepared')} />;
   }
 
   return (
-    <div style={card}>
+    <div>
       <Field label={tr('op.stock.preparedIngredient')}>
-        <select style={inputStyle} value={ingredientId} onChange={(e) => setIngredientId(e.target.value)}>
+        <select style={inputStyle} value={ingredientId} disabled={busy} onChange={(e) => setIngredientId(e.target.value)}>
           <option value="">—</option>
           {prepared.map((i) => (
             <option key={i.id} value={i.id}>
@@ -145,10 +179,10 @@ function ProductionForm() {
         </select>
       </Field>
       <Field label={tr('op.stock.outputQty')}>
-        <input style={inputStyle} dir="ltr" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
+        <input style={inputStyle} dir="ltr" inputMode="decimal" value={qty} disabled={busy} onChange={(e) => setQty(e.target.value)} />
       </Field>
       <ErrorText error={error} />
-      <Button kind="primary" disabled={busy || !ingredientId || !(Number(qty) > 0)} onClick={() => void submit()}>
+      <Button kind="primary" icon="flame" busy={busy} disabled={!ingredientId || !(Number(qty) > 0)} onClick={() => void submit()}>
         {tr('op.stock.produceBtn')}
       </Button>
     </div>

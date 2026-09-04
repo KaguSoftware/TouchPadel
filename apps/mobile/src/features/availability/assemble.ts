@@ -419,19 +419,20 @@ export function mergeAcrossCourts(
 }
 
 /**
- * Index of the first cell still ahead of the clock — everything before it has
- * already started. A trading night runs 09:00 into the small hours, so by 21:00
- * two thirds of the list is dead; the grid opens here instead of at 09:00 so
- * nobody scrolls a whole day to reach tonight.
+ * The cells still ahead of the clock. A trading night runs 09:00 into the small
+ * hours, so by 21:00 two thirds of the list is dead — an hour that has already
+ * started cannot be booked, so it is not offered and cannot be scrolled back to
+ * (the grid used to carry the whole day and merely open partway down it).
  *
- * Nothing upcoming (or no cells at all) reads as 0 — the grid opens where it
- * always did. `past` is the only state this skips: a booked or blocked hour
- * ahead of the clock still belongs on screen, since it explains why the free
- * hour after it is where it is.
+ * The cut is on the START, not the state: a booked or blocked hour behind the
+ * clock is just as unbookable as a `past` one. Boundary matches
+ * mergeAcrossCourts — a cell starting exactly at `now` is still upcoming. A day
+ * whose every hour has run out comes back empty, which the surfaces already
+ * read as "no times".
  */
-export function firstUpcomingIndex(cells: readonly MergedCell[]): number {
-  const i = cells.findIndex((c) => c.state !== 'past');
-  return i < 0 ? 0 : i;
+export function upcomingOnly(cells: readonly MergedCell[], now: Date): MergedCell[] {
+  const nowMs = now.getTime();
+  return cells.filter((c) => c.startAt.getTime() >= nowMs);
 }
 
 // ── "Open now" pill (design 2026-08-31, courts home) ─────────────────────────

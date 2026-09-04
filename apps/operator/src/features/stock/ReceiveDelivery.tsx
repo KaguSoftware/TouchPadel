@@ -1,7 +1,11 @@
 /**
- * Goods received (SOW L519-523: against a delivery, short-delivery capture,
- * expiry date per received batch). One BLOCKING app.receive_delivery call —
- * the RPC takes no idempotency key, so this stays online-only by design
+ * Goods received (spec 06.33): one delivery per submit against
+ * app.receive_delivery — per line: ingredient, expected, received (short-
+ * delivery capture), unit cost and an EXPIRY DATE PER BATCH. One ingredient
+ * may be held as several batches with different expiry dates; the server
+ * keeps them apart and so does every screen that lists them.
+ *
+ * The RPC takes no idempotency key, so this stays online-only by design
  * (flagged for the offline architect in the day-14 plan).
  */
 import { useState } from 'react';
@@ -9,7 +13,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Field, card, inputStyle } from '../../components/ui';
+import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
+import { MessagePresenter, PageHeader, Panel, StatusBadge } from '../../components/kit';
 import { SK, fetchIngredients } from './stockKeys';
 
 interface DraftLine {
@@ -30,6 +35,11 @@ const emptyLine = (): DraftLine => ({
   expiryDate: '',
 });
 
+/** Short-delivery flag for a draft line: the received quantity is below the expected one. */
+export function isShort(l: Pick<DraftLine, 'qtyExpected' | 'qtyReceived'>): boolean {
+  return l.qtyExpected !== '' && l.qtyReceived !== '' && Number(l.qtyReceived) < Number(l.qtyExpected);
+}
+
 export function ReceiveDelivery() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
@@ -47,9 +57,9 @@ export function ReceiveDelivery() {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...part } : l)));
   }
 
-  const validLines = lines.filter(
-    (l) => l.ingredientId && Number(l.qtyReceived) > 0 && Number(l.unitCostIqd) >= 0 && l.unitCostIqd !== '',
-  );
+  const validLines = lines.filter((l) => l.ingredientId && Number(l.qtyReceived) > 0 && Number(l.unitCostIqd) >= 0 && l.unitCostIqd !== '');
+  const shortCount = lines.filter(isShort).length;
+  const dirty = lines.some((l) => l.ingredientId || l.qtyReceived || l.qtyExpected) || supplier !== '' || notes !== '';
 
   async function submit() {
     setBusy(true);
@@ -79,44 +89,50 @@ export function ReceiveDelivery() {
   }
 
   return (
-    <div style={{ maxInlineSize: '52rem' }}>
-      <h2 style={{ marginBlock: '0.4rem' }}>{tr('op.stock.receiveTitle')}</h2>
-      <p style={{ marginBlockStart: 0, color: 'var(--tp-muted-fg)', fontSize: '0.9rem' }}>
-        {tr('op.stock.receiveHint')}
-      </p>
+    <div style={{ maxInlineSize: '64rem' }}>
+      <PageHeader
+        title={tr('op.stock.receiveTitle')}
+        subtitle={tr('ws.manager.stock.goodsIn.lead')}
+        actions={
+          <>
+            {dirty && <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} />}
+            {shortCount > 0 && <StatusBadge tone="warn" icon="alert" label={tr('ws.manager.stock.goodsIn.shortTitle')} />}
+          </>
+        }
+      />
 
-      <div style={card}>
+      <Panel>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
           <Field label={tr('op.stock.supplier')}>
-            <input style={inputStyle} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+            <input style={inputStyle} value={supplier} disabled={busy} onChange={(e) => setSupplier(e.target.value)} />
           </Field>
           <Field label={tr('op.common.notes')}>
-            <input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <input style={inputStyle} value={notes} disabled={busy} onChange={(e) => setNotes(e.target.value)} />
           </Field>
         </div>
+      </Panel>
 
+      <Panel title={tr('ws.manager.stock.goodsIn.lines')} style={{ marginBlockStart: '0.75rem' }}>
+        {shortCount > 0 && (
+          <MessagePresenter tone="refused" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead', { count: shortCount })} style={{ marginBlockEnd: '0.75rem' }} />
+        )}
         {lines.map((l) => {
-          const short =
-            l.qtyExpected !== '' &&
-            l.qtyReceived !== '' &&
-            Number(l.qtyReceived) < Number(l.qtyExpected);
+          const short = isShort(l);
           return (
             <div
               key={l.key}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto',
+                gridTemplateColumns: '2fr 1fr 1fr 1fr 1.2fr auto',
                 gap: '0.4rem',
                 alignItems: 'end',
                 marginBlockEnd: '0.4rem',
+                paddingBlockEnd: '0.4rem',
+                borderBlockEnd: '1px solid var(--tp-border)',
               }}
             >
-              <Field label={tr('op.stock.ingredient')}>
-                <select
-                  style={inputStyle}
-                  value={l.ingredientId}
-                  onChange={(e) => patch(l.key, { ingredientId: e.target.value })}
-                >
+              <Field label={tr('op.stock.ingredient')} style={{ marginBlockEnd: 0 }}>
+                <select style={inputStyle} value={l.ingredientId} disabled={busy} onChange={(e) => patch(l.key, { ingredientId: e.target.value })}>
                   <option value="">—</option>
                   {ingredients.map((i) => (
                     <option key={i.id} value={i.id}>
@@ -125,44 +141,56 @@ export function ReceiveDelivery() {
                   ))}
                 </select>
               </Field>
-              <Field label={tr('op.stock.qtyExpected')}>
-                <input style={inputStyle} dir="ltr" inputMode="decimal" value={l.qtyExpected} onChange={(e) => patch(l.key, { qtyExpected: e.target.value })} />
+              <Field label={tr('op.stock.qtyExpected')} style={{ marginBlockEnd: 0 }}>
+                <input style={inputStyle} dir="ltr" inputMode="decimal" value={l.qtyExpected} disabled={busy} onChange={(e) => patch(l.key, { qtyExpected: e.target.value })} />
               </Field>
-              <Field label={tr('op.stock.qtyReceived')}>
-                <input style={inputStyle} dir="ltr" inputMode="decimal" value={l.qtyReceived} onChange={(e) => patch(l.key, { qtyReceived: e.target.value })} />
+              <Field
+                label={tr('op.stock.qtyReceived')}
+                style={{ marginBlockEnd: 0 }}
+                error={short ? tr('op.stock.short', { qty: Number(l.qtyExpected) - Number(l.qtyReceived) }) : undefined}
+              >
+                <input
+                  style={{ ...inputStyle, borderColor: short ? 'var(--tp-warn)' : undefined }}
+                  dir="ltr"
+                  inputMode="decimal"
+                  value={l.qtyReceived}
+                  disabled={busy}
+                  onChange={(e) => patch(l.key, { qtyReceived: e.target.value })}
+                />
               </Field>
-              <Field label={tr('op.stock.unitCost')}>
-                <input style={inputStyle} dir="ltr" inputMode="numeric" value={l.unitCostIqd} onChange={(e) => patch(l.key, { unitCostIqd: e.target.value })} />
+              <Field label={tr('op.stock.unitCost')} style={{ marginBlockEnd: 0 }}>
+                <input style={inputStyle} dir="ltr" inputMode="numeric" value={l.unitCostIqd} disabled={busy} onChange={(e) => patch(l.key, { unitCostIqd: e.target.value })} />
               </Field>
-              <Field label={tr('op.stock.expiry')}>
-                <input style={inputStyle} type="date" dir="ltr" value={l.expiryDate} onChange={(e) => patch(l.key, { expiryDate: e.target.value })} />
+              <Field label={tr('op.stock.expiry')} hint={tr('ws.manager.stock.goodsIn.expiryHint')} style={{ marginBlockEnd: 0 }}>
+                <input style={inputStyle} type="date" dir="ltr" value={l.expiryDate} disabled={busy} onChange={(e) => patch(l.key, { expiryDate: e.target.value })} />
               </Field>
-              <div style={{ paddingBlockEnd: '0.35rem' }}>
-                {short && (
-                  <span style={{ color: 'var(--tp-danger)', fontSize: '0.8rem', fontWeight: 700 }}>
-                    {tr('op.stock.short', {
-                      qty: Number(l.qtyExpected) - Number(l.qtyReceived),
-                    })}
-                  </span>
-                )}
-                <Button kind="ghost" onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>
-                  ✕
-                </Button>
+              <div style={{ paddingBlockEnd: '0.15rem' }}>
+                <Button
+                  kind="ghost"
+                  size="sm"
+                  icon="x"
+                  disabled={busy || lines.length === 1}
+                  aria-label={tr('ws.manager.stock.goodsIn.removeLine')}
+                  onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
+                />
               </div>
             </div>
           );
         })}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBlockStart: '0.5rem' }}>
-          <Button onClick={() => setLines((ls) => [...ls, emptyLine()])}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBlockStart: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
             {tr('op.stock.addLine')}
           </Button>
-          <Button kind="primary" disabled={busy || validLines.length === 0} onClick={() => void submit()}>
+          <Button kind="primary" icon="package" busy={busy} disabled={validLines.length === 0} onClick={() => void submit()}>
             {tr('op.stock.receiveBtn')}
           </Button>
         </div>
         <ErrorText error={error} />
-      </div>
+      </Panel>
     </div>
   );
 }
+
+/** Route alias for the spec name. */
+export const GoodsReceivedScreen = ReceiveDelivery;
