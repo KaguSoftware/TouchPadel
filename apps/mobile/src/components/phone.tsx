@@ -87,12 +87,16 @@ export function PhoneField({
               // Field's own inset on the outside, so the flag starts exactly
               // where a plain field's first character does.
               paddingStart: space.m,
-              // …and the same gap again on the inside, between the divider and
-              // the first digit. The input contributes NO leading padding of
-              // its own (see Field's `lead` handling), so this single value is
-              // the whole gap — it cannot be double-counted the way the old
-              // measured overlay's was.
-              paddingEnd: CHIP_GAP,
+              // Chevron → divider. The divider is drawn at this box's trailing
+              // EDGE, so this padding only ever covers the chip's own side of
+              // it; the gap on the far side is Field's LEAD_GAP.
+              //
+              // CHEVRON_BLEED is added because the caret is a 7x7 box rotated
+              // 45°: its corners reach ~4.95 px from centre while the box is
+              // only 3.5 px half-wide, so the drawn tip overhangs the layout
+              // box and eats into this padding. Without the correction the
+              // visible gap here is 8.55 px against 10 px on the other side.
+              paddingEnd: CHIP_GAP + CHEVRON_BLEED,
               // Matches the input's own vertical padding, so the divider and
               // the text share a baseline box.
               paddingTop: dense ? 13 : 14,
@@ -152,8 +156,9 @@ export function PhoneField({
 }
 
 /**
- * Gap between the country chip and the first digit — and, by construction, the
- * same value on both sides of the divider.
+ * The nominal gap either side of the divider. Field applies the matching half
+ * after the adornment (its LEAD_GAP); this side adds CHEVRON_BLEED on top,
+ * because the caret's drawn tip overhangs its layout box.
  *
  * This used to be a measured overlay: the chip was absolutely positioned and
  * the input's `paddingStart` was grown to the chip's `onLayout` width. That
@@ -163,6 +168,12 @@ export function PhoneField({
  * row has neither problem: the input simply takes the width that is left.
  */
 const CHIP_GAP = 10;
+/**
+ * How far the rotated caret overhangs its own layout box, per side:
+ * (√2 · 3.5) − 3.5 ≈ 1.45. Added to the chip's trailing padding so the gap the
+ * EYE sees matches Field's LEAD_GAP on the far side of the divider.
+ */
+const CHEVRON_BLEED = 1.45;
 /**
  * How far the hairline stops SHORT of the input's text box. Subtracted from
  * the field's vertical padding, so the separator keeps the same visual

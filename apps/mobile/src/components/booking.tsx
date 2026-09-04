@@ -9,9 +9,9 @@ import { Pressable, View } from 'react-native';
 import { Text } from '../i18n/text';
 import { formatDayNumber, formatMonthShort, isolate, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
-import { brand, radius, slotStateStyles, space, useTheme, type Palette } from '../theme';
+import { brand, radius, shadows, slotStateStyles, space, useTheme, type Palette } from '../theme';
 import type { MergedCell } from '../features/availability/assemble';
-import { CardIcon, ChevronIcon, WifiOffIcon, type IconProps } from './icons';
+import { CardIcon, ChevronIcon, CloseIcon, WifiOffIcon, type IconProps } from './icons';
 import { Button } from './ui';
 
 // ── Status pill (7 statuses, all handled — spec BookingStatusIndicator) ─────
@@ -353,20 +353,29 @@ export function HeldSlotCard({
  * Amber venue notice. `lead` renders bold ("Venue connection lost."), and the
  * venue phone is bolded inside `message` when present — the design's whole
  * hierarchy for this banner, which a single flat string had lost.
+ *
+ * With `onDismiss` the notice grows a close (×) button. Nothing else retires
+ * it: the venue notice is the guest's only cue that booking has gone
+ * desk-only, so it must outlive a scroll, a re-render, or a data refresh, and
+ * leave only when the guest says so. See DegradedToast for the floating form.
  */
 export function DegradedBanner({
   lead,
   message,
   phone,
   tight = false,
+  onDismiss,
 }: {
   lead?: string;
   message: string;
   phone?: string | null;
   /** Availability / bookings variant: 9×12 padding, 16 pt icon, top-aligned. */
   tight?: boolean;
+  /** When given, renders the close button; the notice never self-dismisses. */
+  onDismiss?: () => void;
 }) {
   const { colors, fonts } = useTheme();
+  const { t } = useLocale();
   const bold = { fontFamily: fonts.body800 };
   const parts: ReactNode[] = [];
   if (phone && message.includes(phone)) {
@@ -407,6 +416,73 @@ export function DegradedBanner({
         {lead ? <Text style={bold}>{lead} </Text> : null}
         {parts}
       </Text>
+      {onDismiss ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
+          onPress={onDismiss}
+          // The glyph is 14 pt; the negative margins let a 44 pt touch target
+          // hang outside the padding without stretching the notice itself.
+          hitSlop={12}
+          style={{ marginTop: tight ? -1 : 0, marginEnd: -2, padding: 2 }}
+        >
+          <CloseIcon size={14} color={colors.ambstrong} strokeWidth={2.2} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The venue notice as a toast: the same amber card, floated over the screen
+ * instead of pushing its content down, and closed ONLY by its × button — no
+ * timer, no tap-through dismissal. `pointerEvents="box-none"` on the wrapper
+ * keeps the screen behind it tappable everywhere but the card.
+ *
+ * Callers own the dismissed flag, so a notice stays gone for that screen's
+ * lifetime; a fresh mount shows it again, which is right — the guest should
+ * be told once per visit that the venue is offline.
+ */
+export function DegradedToast({
+  lead,
+  message,
+  phone,
+  onDismiss,
+  /**
+   * Gap below the top of the containing Screen's content box. Yoga offsets an
+   * absolute child from the parent's PADDING box, so Screen's safe-area inset
+   * is already accounted for whichever `edges` it uses — the default is right
+   * for a screen whose content starts at the top. Only a screen with its own
+   * in-flow header passes more, to clear it.
+   */
+  top = space.s,
+}: {
+  lead?: string;
+  message: string;
+  phone?: string | null;
+  onDismiss: () => void;
+  top?: number;
+}) {
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        top,
+        start: space.l,
+        end: space.l,
+        zIndex: 20,
+      }}
+    >
+      <View style={{ boxShadow: shadows.toast, borderRadius: radius.cell }}>
+        <DegradedBanner
+          tight
+          lead={lead}
+          message={message}
+          phone={phone}
+          onDismiss={onDismiss}
+        />
+      </View>
     </View>
   );
 }

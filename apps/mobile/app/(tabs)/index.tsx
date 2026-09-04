@@ -41,7 +41,7 @@ import { addBreadcrumb } from '../../src/lib/telemetry';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';
-import { DegradedBanner } from '../../src/components/booking';
+import { DegradedToast } from '../../src/components/booking';
 import { BackChevronIcon } from '../../src/components/icons';
 import { Court3D, type Court3DHandle } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
@@ -50,6 +50,8 @@ import { BookingSheet } from '../../src/components/BookingSheet';
 /** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
 const LOGO_H = 30;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
+/** Logo row: 10 above + the wordmark + 6 below — what the floating notice clears. */
+const HEADER_H = 10 + LOGO_H + 6;
 /** The back button's width + gap: the title slides over to make room for it. */
 const BACK_SHIFT = 44;
 /** The on-net button (prototype: 16 px padding round a 16 px line, top = tape − 24). */
@@ -190,6 +192,7 @@ export default function BookHomeScreen() {
   const reduceMotion = useReduceMotion();
   const { progress, veil, direction, isOpen, sheetMounted, openBooking, closeBooking } =
     useCourtTransition();
+  const [noticeClosed, setNoticeClosed] = useState(false);
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
@@ -353,15 +356,20 @@ export default function BookHomeScreen() {
         <OpenNowPill settings={settings.data} />
       </View>
 
-      {degraded ? (
-        <View style={{ zIndex: 1, marginTop: space.s, marginStart: space.l, marginEnd: space.l }}>
-          <DegradedBanner
-            lead={t('degraded.leadConnectionLost')}
-            // Isolated: an RTL paragraph would otherwise reorder the number groups.
-            message={t('degraded.bannerCourts', { phone: phone ? isolate(phone) : '' })}
-            phone={phone}
-          />
-        </View>
+      {/*
+        The venue notice floats clear of the header row rather than pushing the
+        court down — the stage measures itself, and a banner appearing mid-session
+        used to resize it. It leaves only when the guest taps ×.
+      */}
+      {degraded && !noticeClosed ? (
+        <DegradedToast
+          top={HEADER_H + space.s}
+          lead={t('degraded.leadConnectionLost')}
+          // Isolated: an RTL paragraph would otherwise reorder the number groups.
+          message={t('degraded.bannerCourts', { phone: phone ? isolate(phone) : '' })}
+          phone={phone}
+          onDismiss={() => setNoticeClosed(true)}
+        />
       ) : null}
 
       {/* Title row: [back to the court] BOOK A COURT */}

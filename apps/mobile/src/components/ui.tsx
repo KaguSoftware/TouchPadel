@@ -388,6 +388,13 @@ export interface FieldProps extends TextInputProps {
   lead?: ReactNode;
 }
 
+/**
+ * Space between a `lead` adornment and the input's first character. Matches
+ * the gap the adornment leaves on its own side of the divider, so the
+ * separator sits centred between the two.
+ */
+const LEAD_GAP = 10;
+
 export function Field({ label, error, latin, dense, style, lead, onFocus, onBlur, ...inputProps }: FieldProps) {
   const { colors, fonts } = useTheme();
   const { dir } = useLocale();
@@ -436,7 +443,10 @@ export function Field({ label, error, latin, dense, style, lead, onFocus, onBlur
             ...(lead ? null : chrome),
             // The adornment supplies the leading inset; a second one here
             // would double the gap between the chip and the first character.
-            paddingStart: lead ? 0 : space.m,
+            // With an adornment the leading inset is the gap AFTER it (the
+            // chip supplies the field's outer inset itself). It is not zero:
+            // at zero the text starts flush against the chip's divider.
+            paddingStart: lead ? LEAD_GAP : space.m,
             paddingEnd: space.m,
             ...(lead ? { flex: 1 } : null),
             paddingTop: dense ? 13 : 14,
