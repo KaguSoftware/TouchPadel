@@ -1,0 +1,46 @@
+# CODEOWNERS — Security Layer 1, Block 1 (SEC-01).
+#
+# Two paths in this repository can reach the client's live database. Everything
+# else can be reverted; these cannot:
+#
+#   packages/db/supabase/migrations/   a merged migration runs against real
+#                                      guest data, with no staging rehearsal
+#                                      (see D1) — a bad DROP is not undoable
+#   .github/workflows/db-migrate.yml   the job that pushes those migrations, and
+#                                      the only place its secrets are read
+#
+# Requiring a named reviewer on exactly these paths is the cheapest control in
+# the whole programme: it costs nothing on the 95% of PRs that touch neither.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# ⚠ THIS FILE IS INERT UNTIL TWO THINGS ARE TRUE. Both are GitHub UI settings and
+# neither leaves a trace in git:
+#
+#   1. The team/user below must EXIST and have write access. GitHub silently
+#      ignores an owner it cannot resolve — a typo'd handle produces a file that
+#      looks like a control and enforces nothing.
+#   2. "Require review from Code Owners" must be enabled on the `main` ruleset.
+#      Without it this file is advisory only.
+#
+# Confirm both by opening a test PR that touches a migration and checking that
+# the owner is auto-requested. Do not take this file as evidence on its own.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Default: no global owner. A catch-all here would auto-request the same person
+# on every pull request in the repo, and a reviewer who is requested on
+# everything reads nothing — which would weaken the two rules that matter below.
+
+# The two paths that reach live guest data.
+/packages/db/supabase/migrations/   @KaguSoftware/tech-leads
+/.github/workflows/db-migrate.yml   @KaguSoftware/tech-leads
+
+# The gates themselves. Without this, the cheapest way to make a failing
+# security check pass is to edit the check — and that edit would otherwise need
+# no more review than a typo fix.
+/.github/workflows/ci.yml           @KaguSoftware/tech-leads
+/.github/CODEOWNERS                 @KaguSoftware/tech-leads
+/.gitleaks.toml                     @KaguSoftware/tech-leads
+/.security/                         @KaguSoftware/tech-leads
+/scripts/security/                  @KaguSoftware/tech-leads
+/packages/db/scripts/check-*.mjs    @KaguSoftware/tech-leads
+/packages/db/fixtures/rpc-allowlist.json @KaguSoftware/tech-leads

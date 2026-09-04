@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "dist": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --win nsis --config electron-builder.yml",
-    "dist:dir": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --dir --config electron-builder.yml"
+    "dist:dir": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --dir --config electron-builder.yml",
+    "check:electron": "node scripts/check-electron.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",

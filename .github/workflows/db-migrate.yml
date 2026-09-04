@@ -16,6 +16,18 @@ jobs:
     name: Push migrations to staging
     runs-on: ubuntu-latest
 
+    # Security Layer 1, Block 3 (SEC-02). GitHub's default job timeout is 360
+    # MINUTES. This job takes a lock on the venue's live database; if a push
+    # blocks behind a long Realtime transaction, the default would let it sit
+    # there for six hours with the till frozen behind it. Fifteen minutes is far
+    # longer than any healthy push and far shorter than a service.
+    #
+    # This is the outer bound only — the real control is `lock_timeout = '3s'`
+    # at the top of each migration (enforced by check:migrations), which makes
+    # the statement give up in seconds. This is what catches everything else:
+    # a hung network call, a CLI that never returns, a stuck approval.
+    timeout-minutes: 15
+
     # The linked Supabase project is the CLIENT'S long-term production database
     # (HANDOFF.md: additive migrations only, never destructive ops). Binding the
     # job to a GitHub Environment gives that push a human gate: add "Required
@@ -92,6 +104,58 @@ jobs:
         if: steps.preflight.outputs.configured == 'true'
         working-directory: packages/db
         run: supabase migration list
+
+      # Security Layer 1, Block 3 (SEC-02): the reviewer approving this run in
+      # the `staging` environment gate needs to see WHAT it will change, not
+      # just which files are pending. `db diff` prints the actual schema delta
+      # between the hosted project and this commit.
+      #
+      # `|| true` on purpose: a diff failure must not block the push. This step
+      # is information for the human at the gate, and an unreadable diff is a
+      # worse reason to skip a migration than no diff at all.
+      - name: Print the schema diff for the reviewer
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: |
+          {
+            echo "### Schema diff — hosted project vs this commit"
+            echo '```sql'
+            supabase db diff --linked 2>&1 || echo "(diff unavailable — see the step log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Security Layer 1, Block 3 (SEC-02): a data-only dump of the APPEND-ONLY
+      # ledgers, taken BEFORE the push and retained as an artifact.
+      #
+      # These four tables are the ones with no undo: audit_log, stock_ledger and
+      # payments have UPDATE and DELETE revoked precisely because they are the
+      # financial and accountability record. If a migration goes wrong against
+      # them there is no staging copy to compare with and no PITR rehearsal
+      # (D1/SEC-38) — this dump is the only "before" that will exist.
+      #
+      # Data only, no schema: it is evidence, not a restore path.
+      - name: Ledger snapshot before the push
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          supabase db dump --linked --data-only \
+            --schema app \
+            -f ledger-snapshot.sql 2>&1 | tail -5
+          ls -lh ledger-snapshot.sql
+
+      - name: Upload ledger snapshot
+        if: steps.preflight.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ledger-snapshot-${{ github.sha }}
+          path: packages/db/ledger-snapshot.sql
+          # Long enough to cover a dispute that surfaces weeks later; short
+          # enough that guest data is not retained indefinitely in CI storage
+          # (the retention policy lands in security-general.md phase 8).
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: Push migrations
         if: steps.preflight.outputs.configured == 'true'

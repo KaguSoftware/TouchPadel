@@ -19,7 +19,14 @@
     "db:clear-dev-till": "pnpm --filter @touch/db db:clear-dev-till",
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:install": "playwright install chromium",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "security:env-names": "node scripts/security/check-public-env-names.mjs",
+    "security:history": "node scripts/security/check-history-secrets.mjs",
+    "security:artifacts": "node scripts/security/check-artifact-secrets.mjs",
+    "security:audit": "node scripts/security/check-dependency-audit.mjs",
+    "security": "pnpm security:env-names && pnpm security:history && pnpm security:data && pnpm security:web && pnpm security:audit",
+    "security:data": "node scripts/security/check-data-hygiene.mjs",
+    "security:web": "node scripts/security/check-web-security.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

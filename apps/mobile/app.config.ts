@@ -20,6 +20,21 @@ const googleIosClientId =
 const googleIosUrlScheme = googleIosClientId
   ? 'com.googleusercontent.apps.' + googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, '')
   : undefined;
+/**
+ * The domain that proves this app owns its auth links — Security Layer 1,
+ * Block 4 · Mobile (SEC-18).
+ *
+ * It does not exist yet: the domain is a Block 0 item still waiting on the
+ * client (SEC-06), and it blocks the privacy URL, HSTS and the printed QR cards
+ * as well as this. The placeholder is deliberately a `.invalid` host — reserved
+ * by RFC 2606 and guaranteed never to resolve — so an unconfigured build fails
+ * the association cleanly instead of pointing at somebody else's domain.
+ *
+ * Set EXPO_PUBLIC_LINK_DOMAIN (and the matching NEXT_PUBLIC_SITE_URL on the web
+ * app, which serves the two association files) the day DNS is delegated.
+ */
+const LINK_DOMAIN = process.env.EXPO_PUBLIC_LINK_DOMAIN ?? 'touchpadel.invalid';
+
 // EAS sets EAS_BUILD=true in every build job. A binary without the scheme has a
 // Google button that never returns to the app, so an EAS build with the env
 // unset fails LOUDLY here, at config time — never at app runtime (see
@@ -100,12 +115,55 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // store version (0.1.0) to its own update runtime, so an OTA can never land
   // on incompatible natives. The development profile has no channel — the dev
   // client ignores this block.
-  updates: { url: 'https://u.expo.dev/d9597f8e-79bb-4bc2-882e-c44c3a013045' },
+  updates: {
+    url: 'https://u.expo.dev/d9597f8e-79bb-4bc2-882e-c44c3a013045',
+    // ── EAS Update code signing — Security Layer 1, Block 4 · Mobile (SEC-23) ──
+    //
+    // An OTA channel pushes JavaScript to every guest phone with NO store
+    // review in between. That makes it the highest-leverage credential in the
+    // mobile lane: whoever can publish an update owns the app on every device
+    // that has installed it. Until now the only thing standing there was one
+    // Expo account password.
+    //
+    // With this certificate embedded in the BINARY, expo-updates verifies the
+    // signature on every manifest before applying it and REJECTS anything not
+    // signed by the matching private key. Compromising the Expo account is then
+    // no longer sufficient — the attacker also needs a key that was never on
+    // Expo's servers.
+    //
+    // The private key is NOT in this repository and must never be. It lives in
+    // the password manager and in EAS as a secret; `eas update` is given it with
+    // --private-key-path at publish time. See docs/security/eas-update-signing.md.
+    //
+    // NOTE: signing takes effect for clients running a build that CONTAINS this
+    // certificate. Binaries already installed without it keep accepting unsigned
+    // manifests, so this must ship in a store release before it protects anyone.
+    codeSigningCertificate: './certs/certificate.pem',
+    codeSigningMetadata: { keyid: 'main', alg: 'rsa-v1_5-sha256' },
+  },
   runtimeVersion: { policy: 'appVersion' },
   backgroundColor: '#FFFFFF',
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.kagu.touchpadel',
+    // Universal Links — Security Layer 1, Block 4 · Mobile (SEC-18).
+    //
+    // A custom scheme (touchpadel://) is claimed by whichever app registered it
+    // and iOS does NOT arbitrate: a malicious app installed alongside this one
+    // can register the same scheme and receive the auth redirect, code included.
+    // Universal Links cannot be hijacked that way — the association is proved by
+    // a file served over https from a domain the attacker does not control.
+    //
+    // `applinks:` only. No `webcredentials:` — this app does not use the iOS
+    // shared-credential API, and listing it would invite a password autofill
+    // surface that nothing here handles.
+    //
+    // Domain comes from the environment because it does not exist yet (Block 0,
+    // SEC-06 — waiting on the client). Until it is delegated, the entry resolves
+    // to the placeholder and Apple simply fails the association: the app falls
+    // back to the custom scheme, which is exactly today's behaviour. Nothing
+    // breaks by landing this early, and the day DNS lands it starts working.
+    associatedDomains: [`applinks:${LINK_DOMAIN}`],
     // Sign in with Apple (owner decision D2, 2026-09-01: iOS only, native).
     usesAppleSignIn: true,
     infoPlist: {
@@ -119,6 +177,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.kagu.touchpadel',
+    // App Links — the Android half of the same argument (SEC-18).
+    //
+    // `autoVerify: true` is the part that matters: without it this is an
+    // ordinary intent filter and Android shows a disambiguation dialog that any
+    // other app can appear in. With it, Android fetches
+    // /.well-known/assetlinks.json from the domain and refuses to let any other
+    // app claim these links.
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [{ scheme: 'https', host: LINK_DOMAIN, pathPrefix: '/auth' }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
   },
   plugins,
   extra: {

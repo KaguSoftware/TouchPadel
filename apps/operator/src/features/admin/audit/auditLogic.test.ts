@@ -189,6 +189,11 @@ describe('actorLabel', () => {
 
   it('calls an actorless row what it is', () => {
     expect(actorLabel(null, null, names)).toBe('system');
+    // The audit log RENDERS this role name — a row written by a backend job has
+    // actor_role = 'service_role', and the till shows it as such. It is display
+    // data, not a credential, so the client-secret guard is suppressed here and
+    // nowhere else in this app.
+    // eslint-disable-next-line no-restricted-syntax -- role name shown in the audit UI, not a key
     expect(actorLabel(null, 'service_role', names)).toBe('service_role');
   });
 });

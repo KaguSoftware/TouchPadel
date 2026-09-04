@@ -1,0 +1,133 @@
+# Nightly schema-drift check — Security Layer 1, Block 2 · Migrations (SEC-03).
+#
+# WHY THIS EXISTS
+#
+# This has already gone wrong once. `db-migrate.yml` skipped silently from day 1
+# for want of secrets, and the hosted database drifted EIGHT migrations behind
+# before anyone noticed (HANDOFF.md:544-545). Nothing was broken in a way anyone
+# could see — CI was green, the repo was at head, and every claim made about the
+# database was a claim about a database the venue does not actually use.
+#
+# The failure mode is not "someone made a mistake". It is that being behind has
+# no symptom until a feature depends on the missing migration, at which point it
+# surfaces during service as a broken till.
+#
+# So drift becomes a build failure on a schedule instead of a thing somebody is
+# supposed to remember.
+name: DB drift (nightly)
+
+on:
+  schedule:
+    # 02:00 Asia/Baghdad = 23:00 UTC. Deliberately after close: if this job's
+    # `db diff` were ever to take a lock, it must not do so during service.
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: db-drift
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: hosted project vs migration head
+    runs-on: ubuntu-latest
+    # Read-only against the hosted project, but it is still the client's live
+    # database — the same environment gate as the push job.
+    environment: staging
+    timeout-minutes: 15
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Preflight — are the deploy secrets configured?
+        id: preflight
+        env:
+          ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "${ACCESS_TOKEN:-}" ] || missing="${missing} SUPABASE_ACCESS_TOKEN"
+          [ -n "${PROJECT_REF:-}" ]  || missing="${missing} PROJECT_REF"
+          [ -n "${DB_PASSWORD:-}" ]  || missing="${missing} SUPABASE_DB_PASSWORD"
+          if [ -n "${missing}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            # A NOTICE, not a silent pass. This job existing but never running is
+            # exactly the shape of the original eight-migration drift.
+            echo "::warning title=Drift check skipped::Missing secrets:${missing} — the hosted project is UNVERIFIED."
+            exit 0
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Link to the hosted project
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: supabase link --project-ref "${{ secrets.PROJECT_REF }}"
+
+      # `migration list` shows which migrations the hosted project has applied.
+      # A local file with no remote counterpart is the eight-migrations-behind
+      # failure, and it is worth reporting separately from a schema diff
+      # because the remedies differ: one needs a push, the other needs a fix.
+      - name: Unapplied migrations
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: |
+          set -o pipefail
+          supabase migration list | tee /tmp/migration-list.txt
+          # Rows where the Local column is populated and Remote is blank.
+          if awk -F'|' 'NR>2 && $2 ~ /[0-9]/ && $3 !~ /[0-9]/ { found=1 } END { exit !found }' /tmp/migration-list.txt; then
+            echo "::error title=Hosted project is behind::Local migrations are not applied to the hosted project."
+            {
+              echo "### ❌ The hosted project is behind the repository"
+              echo
+              echo '```'
+              cat /tmp/migration-list.txt
+              echo '```'
+              echo
+              echo "Every green gate in CI describes a database the venue does not use."
+              echo "Run **DB Migrate (staging)** — outside service hours."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      # The stronger check: even with every migration applied, the live schema
+      # can differ — someone edited a table in the SQL Editor, or a migration
+      # was applied by hand and recorded without running. Non-empty output here
+      # means the database is not what this repository says it is.
+      - name: Schema diff must be empty
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: |
+          set -o pipefail
+          supabase db diff --linked > /tmp/drift.sql 2>/tmp/drift.err || {
+            echo "::error title=db diff failed::$(tail -3 /tmp/drift.err)"
+            cat /tmp/drift.err
+            exit 1
+          }
+          # `db diff` prints an informational line when there is nothing to do;
+          # treat only actual SQL as drift.
+          if grep -qE '^\s*(create|alter|drop|comment)\b' -i /tmp/drift.sql; then
+            echo "::error title=Schema drift detected::The hosted schema differs from the migration head."
+            {
+              echo "### ❌ Schema drift"
+              echo
+              echo "The hosted database does not match this repository. Most likely someone"
+              echo "changed it through the dashboard SQL Editor — which Block 3 forbids precisely"
+              echo "because it leaves no migration, no review and no audit trail."
+              echo
+              echo '```sql'
+              cat /tmp/drift.sql
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "### ✅ No drift — hosted schema matches the migration head" >> "$GITHUB_STEP_SUMMARY"

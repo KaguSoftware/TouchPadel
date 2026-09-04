@@ -8,12 +8,13 @@
 // "CSS logical properties only (lint-enforced)". The preset with that RTL guard
 // was written on day 1 and consumed by nobody. This wires it up.
 import expoConfig from 'eslint-config-expo/flat.js';
-import { base, react } from '@touch/config/eslint';
+import { base, react, clientSecrets, clientSecretRules } from '@touch/config/eslint';
 
 export default [
   ...expoConfig,
   ...base, // typescript-eslint recommended + the repo's RTL logical-property guard
   ...react, // react-hooks
+  ...clientSecrets, // service_role / sb_secret_ must never reach the phone bundle
   {
     name: '@touch/mobile',
     rules: {
@@ -79,9 +80,12 @@ export default [
     // Physical coordinates by design: the decorative court art (rooted in an
     // LtrIsland, so it is invariant under the language — pinned by
     // src/i18n/__tests__/direction.test.ts) and three.js camera geometry.
+    // Drops the RTL selectors ONLY — see the operator's recharts note: a blanket
+    // 'off' would now also disable the client-secret guard, which shares the
+    // rule name.
     name: '@touch/mobile/physical-art',
     files: ['src/components/CourtIllustration.tsx', 'src/features/courtTransition/**/*.ts'],
-    rules: { 'no-restricted-syntax': 'off' },
+    rules: clientSecretRules,
   },
   {
     ignores: ['.expo/**', 'expo-env.d.ts', 'android/**', 'ios/**', 'dist/**', 'babel.config.js', 'metro.config.js'],

@@ -10,6 +10,108 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Security Layer 1, Block 2 — the secret gates.
+  #
+  # Four checks that each replace a judgement somebody would otherwise have to
+  # make on every pull request forever. None needs a database, a browser or a
+  # build, so this job is the fastest signal in the pipeline and should stay
+  # that way. The fifth secret gate — scanning the BUILT artifacts — cannot live
+  # here: it runs inside the jobs that produce each bundle, further down.
+  # ---------------------------------------------------------------------------
+  secrets:
+    name: secret gates (gitleaks, env names, history, audit)
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 is LOAD-BEARING, not a default worth trimming. Both
+      # gitleaks and check-history-secrets.mjs read the whole object graph;
+      # with the standard shallow clone they scan one commit, find nothing,
+      # and report a confident green that means nothing at all.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The official gitleaks ACTION is deliberately not used: it requires a paid
+      # GITLEAKS_LICENSE for organisation-owned repositories, and this repo is
+      # org-owned. Without the licence the step fails on licensing rather than on
+      # secrets — a red build that says nothing about the code. The binary itself
+      # is MIT and unrestricted, so it is pinned and run directly.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          curl -sSfL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      # Full history, every branch — not the working tree. A key deleted in the
+      # next commit is still in the history, still in every clone, and still
+      # valid until it is rotated. --redact keeps any finding out of the public
+      # build log; the fingerprint is enough to locate it.
+      # Config + baseline rationale: .gitleaks.toml
+      - name: gitleaks (full history)
+        run: gitleaks detect --source . -v --redact --log-opts="--all"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # A NEXT_PUBLIC_/EXPO_PUBLIC_ name is an instruction to inline the value
+      # into shipped client JavaScript. Anything behind such a name that reads
+      # like a secret is one.
+      - name: Public env-var naming
+        run: pnpm security:env-names
+
+      # .gitignore protects tomorrow; this checks yesterday.
+      - name: No secret-bearing file in git history
+        run: pnpm security:history
+
+      # Fails on any un-waived high/critical advisory, and on any waiver that
+      # has passed its expiry date. Waivers live in .security/audit-waivers.json.
+      - name: Dependency audit
+        run: pnpm security:audit
+
+      # No real-format Iraqi phone number, and no personal data in a committed
+      # intake pack. Fixtures load into whatever database is to hand — and there
+      # is only one Supabase project (D1), the venue's live one.
+      - name: Committed-data hygiene
+        run: pnpm security:data
+
+      # The headers, the nonce CSP, the table-token cookie exchange and the PWA
+      # rule. Every one of them is a few lines that a later change could remove
+      # with no test going red — apps/web renders perfectly well with no CSP.
+      - name: Web hardening lock
+        run: pnpm security:web
+
+      # Electron: sandbox / contextIsolation / nodeIntegration and the navigation
+      # guards. A pure regression lock — it passes today and exists so a
+      # debugging session cannot quietly undo the hardening on the venue PC.
+      - name: Electron hardening lock
+        run: pnpm --filter @touch/operator-shell check:electron
+
+      # Every client-callable RPC must be classified as guarded or public-by-design,
+      # and authorization coverage may not regress. A guest holds `authenticated`
+      # exactly as staff do, so an unclassified RPC is an unguarded one.
+      - name: RPC registry + authz coverage
+        run: pnpm --filter @touch/db check:rpc-registry
+
+      # Lock-taking and destructive DDL, scoped to the migrations THIS PR changes.
+      # The 57 non-concurrent indexes already applied cannot be rewritten, so
+      # history is grandfathered and only new migrations are judged.
+      - name: Migration safety (changed files)
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: pnpm --filter @touch/db check:migrations
+
   checks:
     name: lint / typecheck / test / build
     runs-on: ubuntu-latest
@@ -28,6 +130,13 @@ jobs:
 
       - name: Lint, typecheck, test, build
         run: pnpm turbo lint typecheck test build
+
+      # Code review tells you what the author meant to ship; this reads what the
+      # bundler actually emitted. Runs here because `turbo build` has just
+      # produced apps/web/.next — rebuilding it in the secrets job to scan it
+      # would roughly double the pipeline for no extra coverage.
+      - name: Built-artifact secret scan (web)
+        run: node scripts/security/check-artifact-secrets.mjs --only=web
 
   operator-shell-windows:
     # The venue machines are Windows and better-sqlite3 is a native module —
@@ -53,6 +162,11 @@ jobs:
 
       - name: Package smoke (unpacked dir, real ABI rebuild)
         run: pnpm --filter @touch/operator-shell dist:dir
+
+      # win-unpacked carries app.asar plus the whole minified renderer — i.e.
+      # exactly the bytes that land on the venue PC, a machine nobody administers.
+      - name: Built-artifact secret scan (desktop)
+        run: node scripts/security/check-artifact-secrets.mjs --only=desktop
 
   mobile:
     name: mobile (doctor + bundle)
@@ -83,6 +197,12 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
         run: pnpm exec expo export --platform ios --platform android --output-dir dist
+
+      # The bundle that would be pushed to every guest phone, including over an
+      # EAS update with no store review in between.
+      - name: Built-artifact secret scan (mobile)
+        working-directory: ${{ github.workspace }}
+        run: node scripts/security/check-artifact-secrets.mjs --only=mobile
 
   db:
     name: db (migrations + RLS/concurrency tests)
@@ -145,6 +265,11 @@ jobs:
       # broken — the opening-hours screen could not save, ever.
       - name: safeupdate invariant
         run: pnpm --filter @touch/db check:safeupdate
+      # Views that read past the caller's RLS, and definer functions that resolve
+      # unqualified names using the CALLER's search_path. Both are true-today
+      # properties; this is the lock so the next migration cannot forget.
+      - name: Database invariants (views + search_path)
+        run: pnpm --filter @touch/db check:invariants
       # Runs the @touch/db test suite — includes the RLS matrix and the reservation
       # concurrency suite, which only make sense with the stack up (hence this job).
       - name: DB tests (RLS + concurrency)

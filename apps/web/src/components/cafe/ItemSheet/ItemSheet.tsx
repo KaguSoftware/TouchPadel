@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type JSX, type UIEvent } from 'react';
-import { formatIQD, makeT, type Locale } from '@touch/i18n';
+import { formatIQD, makeT } from '@touch/i18n';
 import { buildLine, violatedGroup } from '@/lib/cafe/basket';
 import { activeGroups, type MenuItem, type MenuModifierGroup } from '@/lib/menu';
 import { CloseIcon } from '../brand';

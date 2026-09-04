@@ -27,3 +27,35 @@ export const app = {
 export function __resetUserData(): void {
   userData = null;
 }
+
+/**
+ * safeStorage stand-in. Deliberately NOT real encryption — it is a reversible
+ * transform whose only job is to let the pin-cache code exercise its
+ * encrypt/decrypt/migrate paths under vitest, where no OS keyring exists.
+ *
+ * `available` is togglable so tests can assert the FAIL-CLOSED behaviour, which
+ * is the part that actually matters: a station that cannot encrypt must refuse
+ * to cache PIN material rather than quietly write it in plaintext.
+ */
+let encryptionAvailable = true;
+
+export const safeStorage = {
+  isEncryptionAvailable(): boolean {
+    return encryptionAvailable;
+  },
+  encryptString(plaintext: string): Buffer {
+    if (!encryptionAvailable) throw new Error('electron-stub: encryption unavailable');
+    return Buffer.from(`stub:${Buffer.from(plaintext, 'utf8').toString('base64')}`, 'utf8');
+  },
+  decryptString(buf: Buffer): string {
+    if (!encryptionAvailable) throw new Error('electron-stub: encryption unavailable');
+    const s = buf.toString('utf8');
+    if (!s.startsWith('stub:')) throw new Error('electron-stub: not stub ciphertext');
+    return Buffer.from(s.slice('stub:'.length), 'base64').toString('utf8');
+  },
+};
+
+/** Test helper: simulate a machine with no usable keyring. */
+export function __setEncryptionAvailable(v: boolean): void {
+  encryptionAvailable = v;
+}

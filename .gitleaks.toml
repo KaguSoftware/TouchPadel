@@ -1,0 +1,73 @@
+# gitleaks configuration — Security Layer 1, Block 2 "Secrets".
+#
+# Run over FULL HISTORY, not the working tree:
+#   gitleaks detect --source . -v --log-opts="--all"
+#
+# Baseline established 2026-09-04: 123 commits scanned, 10 findings, ZERO real
+# leaks. Every one of the ten is a JWT that is public by design, and each is
+# allowlisted below BY ITS EXACT VALUE — never by path and never by rule.
+# That distinction is the whole point: `paths`/`stopwords` allowlists rot into
+# "this file may contain secrets", which is how a real key ships next to a fake
+# one. Pinning the literal means a DIFFERENT token in the same file still fails.
+#
+# The one genuinely sensitive credential in this project — the hosted
+# service_role key — lives only in untracked .env.local files and has never
+# been committed (verified with `git log --all -S`). Rule `touchpadel-live-service-role`
+# below exists to keep that true.
+
+[extend]
+useDefault = true
+
+# -----------------------------------------------------------------------------
+# Project-specific rules
+# -----------------------------------------------------------------------------
+
+[[rules]]
+# The default `jwt` rule catches any JWT, which is why the ten benign ones above
+# fire. This rule is narrower and far more serious: a Supabase JWT whose payload
+# claims service_role. Base64url of `"role":"service_role"` appears in the middle
+# segment as `InNlcnZpY2Vfcm9sZSI` (offset-independent forms included). A hit is
+# a full-database credential and must fail the build even if someone has
+# allowlisted the file for other reasons.
+id = "touchpadel-live-service-role"
+description = "Supabase service_role JWT (full DB access, bypasses RLS)"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]*(?:InNlcnZpY2Vfcm9sZSI|Jyb2xlIjoic2VydmljZV9yb2xl|InJvbGUiOiJzZXJ2aWNlX3JvbGUi)[A-Za-z0-9_-]*\.[A-Za-z0-9_-]{10,}'''
+keywords = ["eyJ"]
+
+  [rules.allowlist]
+  # The local-stack demo service_role key. Published verbatim in Supabase's own
+  # docs and identical in every developer's machine — it authorises nothing
+  # beyond a throwaway container on 127.0.0.1.
+  regexTarget = "match"
+  regexes = ['''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0\.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU''']
+
+[[rules]]
+# Supabase's newer key format. sb_secret_* is the server-only half and must
+# never appear in the repo at all; sb_publishable_* is the client half and is
+# deliberately NOT matched here.
+id = "touchpadel-sb-secret-key"
+description = "Supabase secret key (sb_secret_*)"
+regex = '''sb_secret_[A-Za-z0-9_-]{20,}'''
+keywords = ["sb_secret_"]
+
+# -----------------------------------------------------------------------------
+# Global allowlist — public-by-design values only, pinned literally
+# -----------------------------------------------------------------------------
+
+[allowlist]
+description = "JWTs that are public by design. Exact values only — never paths."
+regexTarget = "match"
+regexes = [
+  # Local Supabase stack demo keys (iss: supabase-demo). Shipped in the CLI,
+  # identical everywhere, authorise only a container on 127.0.0.1. Used by
+  # packages/db/tests/helpers.ts, packages/db/scripts/check-rpc-authz.mjs and
+  # e2e/tests/helpers.ts.
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9\.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0''',
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0\.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU''',
+  # The hosted project's ANON key, committed in apps/mobile/eas.json. The anon
+  # key is compiled into every shipped client binary — treating it as a secret
+  # is a category error. It is RLS, not obscurity, that protects the data.
+  # NOTE: this is the anon key ONLY. A service_role key for the same project
+  # would still fail, via touchpadel-live-service-role above.
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjemlqYWJub3J1amNnbWJ1cWx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NjMzNTIsImV4cCI6MjEwMzEzOTM1Mn0\.rDF6GbRLqXuvG63ZV_pFgF1gDPjx_AVxXlQlb_ZQ-gM''',
+]
