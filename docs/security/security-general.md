@@ -49,7 +49,7 @@ technical debt; they are commercial exposure. None of them appeared in v1.0.
 | D2 | Module 1 INCLUDED: "**Error tracking and uptime monitoring** on the booking and ordering paths" | Neither exists in any client. | Build both, or vary the contract. (SEC-36 · DEV) |
 | D3 | Module 1 INCLUDED: "Automated daily backups with **point-in-time recovery**" | PITR is treated as an open question. | PITR is promised. Buy the tier or get the variation signed. (SEC-38 · SEC) |
 | D4 | Module 6 NOT INCLUDED: "**Analytics**, marketing tags or advertising pixels" | PostHog is mounted on the guest cafe web app (`apps/web/src/lib/analytics/AnalyticsProvider.tsx`) — the exact surface carrying a table token in the URL. | Remove it, or get a signed variation **and** complete SEC-25. (SEC-19 · SEC) |
-| D5 | Module 1 NOT INCLUDED: "**Phone / SMS one-time-code login**" | Security Layer v1.1 §5.2 recommends phone + OTP. | **Settled by contract: email + password.** SEC-22 is closed. Correct the Security Layer. (SEC-22 · SEC) |
+| D5 | Module 1 NOT INCLUDED: "**Phone / SMS one-time-code login**" | Security Layer v1.1 §5.2 recommends phone + OTP. **2026-09-05:** a DORMANT scaffold exists (migration 0069, `functions/send-sms-otp`, flag-gated mobile screens; `docs/design/phone-otp-2026-09-05.md`) — three switches, all off; no client role can reach any of it. | **Settled by contract: email + password.** SEC-22 stays closed until the owner's written decision D4a–D4d activates the scaffold (`docs/client/phone-otp-activation.md`); the SEC checklist for that day is in the design note §5. (SEC-22 · SEC) |
 | D6 | Track A week 4: "**load test at twice peak**" | Not scheduled, not in v1.0. | Schedule it. (SEC-38 · DEV) |
 | D7 | Module 7: "the day **cannot be closed while unsynced items remain**" | Not verified; no box in v1.0. | Add the assertion and a test. (SEC-32 · DEV) |
 
@@ -225,7 +225,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - [ ] Ask the client for the PC policy in writing: BitLocker, OS auto-updates, 5-minute screen lock, no shared Windows admin account, **guest wifi on a separate VLAN from the POS**. (SEC-41 · CLIENT)
 - [ ] Ask the client to decide account ownership at handover. Longest-lead item. (SEC-42 · CLIENT)
 - [ ] Confirm the Supabase plan tier and whether PITR is available — **note D3: the SOW promises it.** (SEC-38 · SEC)
-- [x] ~~Decide guest sign-in~~ — **settled by the SOW: email + password. Phone/OTP is out of scope.** (SEC-22)
+- [x] ~~Decide guest sign-in~~ — **settled by the SOW: email + password. Phone/OTP is out of scope.** (SEC-22) 2026-09-05: a dormant phone-OTP scaffold exists behind three off switches; activation needs the owner's written D4a–D4d (D5 row above).
 
 ---
 

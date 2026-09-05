@@ -1148,6 +1148,60 @@ account decision), the hosted catch-up in Gotchas (0060–0064 + replay redeploy
 `docs/client/operator-download-2026-09-05.md`, then push `operator-v0.2.0`; code signing and
 the mac build switch on by themselves when their secrets exist).
 
+## Day 16 (2026-09-05) — phone OTP: the dormant base
+
+The owner asked whether mobile login / password reset could move to phone one-time codes, then asked for **the
+base to exist now** so that, once the SMS vendor and four decisions land, activation is "activate otp" — configuration
+and secrets, not code. Approved plan `~/.claude/plans/for-the-login-authentication-optimized-candy.md`; design note
+**`docs/design/phone-otp-2026-09-05.md`**; the activation checklist **`docs/client/phone-otp-activation.md`**. SOW
+L259-260 excludes phone/SMS login; this is a vendor-addition scaffold in the social-sign-in mould, and SEC-22 stays
+closed until the owner's written D4a–D4d (`security-general.md` D5 updated).
+
+**Three switches, all shipped OFF, each sufficient on its own.** (1) `EXPO_PUBLIC_PHONE_OTP=on` — read in exactly one
+place (`src/features/auth/phoneOtp.ts`, guarded by `reliability.test.ts`), `off` in every `eas.json` profile; with it
+off the app is byte-for-byte the same experience. (2) The hosted Phone provider + Send SMS hook (dashboard). (3)
+`app.sms_limits.enabled` (0069) — the hook refuses every send with `SMS_DISABLED` while false, so an early dashboard
+flip bills nothing. Locally the whole flow works with no vendor: GoTrue `test_otp` number `0770 000 0001`, code
+`123456` (`config.toml`), which never invokes the hook.
+
+**Database (0069).** `app.sms_limits` (kill switch, `per_phone_per_day` 5, `daily_total` 500, `allowed_prefixes {964}`),
+`app.sms_sends` (one row per attempt, refused included, vendor id + cost for the invoice), `app.sms_send_gate` /
+`app.sms_send_result` (definer, **service role only** — `check-rpc-authz` never sees them; the suite asserts anon and
+a desk session are refused), and `app.handle_new_user` learning to copy `new.phone` (digits, no '+') into
+`profiles.phone` for a phone-only user with name `''`. The per-IP cap deliberately stays in GoTrue: the hook is called
+by GoTrue, not the phone, and never sees the client IP. `types.gen.ts` **not regenerated** (no Docker on this machine);
+nothing typed reads the new objects — run `db:types` at the next reset.
+
+**Edge function `send-sms-otp`** (`verify_jwt = false`; Standard-Webhooks HMAC-SHA256 is the auth, fail-closed on an
+unset secret, ±300 s, constant-time). Pure halves `verify.ts` / `otp.ts` run under vitest on Node 22's webcrypto; the
+bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `providers/*`: `log`
+(default, spends nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender —
+Asiacell requires sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (written from the
+vendor's public client libraries; the runbook re-verifies the request shape before opening the gate). `_shared/phone.ts`
+is the edge copy of the new `@touch/core` normaliser, parity-tested on one fixture table.
+
+**Mobile.** `@touch/core` `phone/iraq.ts` (`phoneCanon` twin of SQL 0065, strict `toE164Iraq`, national formatter);
+`features/auth/phoneOtp.ts` (flag grammar, validation, `hasRealEmail`, `mapOtpError` for GoTrue codes AND the hook's
+relayed refusal reasons); five GoTrue calls in `api.ts`; screens `phone-sign-in.tsx` (fixed +964 chip, `signin` /
+`link` modes) and `verify-otp.tsx` (iOS autofill, auto-submit at 6, 30 s resend, ungated in sign-in mode for the same
+reason verify-email is); entry buttons on welcome / sign-in; Profile gains **Verify phone number** for email/social
+users (sets `auth.users.phone` via `phone_change`, then rewrites `profiles.phone` to the number that proved itself)
+and hides change-password when the account has no real mailbox. `needsProfileCompletion` now also flags a blank NAME
+when supplied (a phone sign-up's shape); the Profile nudge picks its copy accordingly. EN/AR strings under "Phone OTP".
+
+**Identity rules, fixed now.** New phone sign-up → trigger fills the phone, complete-profile collects the name,
+`PHONE_REQUIRED` passes. Email/social user → links by code from Profile; **no blind backfill** from `profiles.phone`
+(a typo'd profile phone would hand the account to a stranger). Desk-created walk-ins → the promised "claim" flow,
+shipped as a **gated SQL script in the runbook** (D4c), not a migration.
+
+**Gate:** core 320 · i18n 22 · mobile **260** (incl. 12 phoneOtp + 2 boundary) · db `phone-otp.test.ts` 24 pure, **7
+stack cases skipped** — Docker is not installed on this machine, so `db reset`, the stack block, `check:authz`,
+`check:locks`, `check:safeupdate` and `db:types` were **not run**; typecheck green across core / i18n / mobile / db.
+First thing on a machine with the stack: `db:reset` → `pnpm --filter @touch/db test` → the three static guards.
+
+**Still owed to activate** (owner): vendor + channel (D4a), scope (D4b), desk-claim policy (D4c), Iraq-only (D4d), the
+sender-id registration and the API key. Us: the runbook §C, in order.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,

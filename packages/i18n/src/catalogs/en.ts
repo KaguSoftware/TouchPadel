@@ -39,7 +39,10 @@ export const en = {
     // Signing out is a deliberate act: a native alert confirms before dropping the
     // session, matching PetApp's Cancel / destructive-Sign-out shape.
     signOutConfirm: "You'll need to log back in to see your bookings.",
-    // SOW: email + password with verification — phone/OTP login is out of scope for Phase 1.
+    // SOW: email + password with verification is the contractual path. Phone/OTP
+    // login exists as a DORMANT vendor-addition scaffold (2026-09-05, keys under
+    // "Phone OTP" below; docs/design/phone-otp-2026-09-05.md) behind
+    // EXPO_PUBLIC_PHONE_OTP — off until the owner activates it.
     emailLabel: 'Email',
     passwordLabel: 'Password',
     placeholder: 'you@example.com',
@@ -120,6 +123,32 @@ export const en = {
     googlePlayServices: 'Google Play services are not available on this device. Sign in with your email instead.',
     socialFailed: "Couldn't sign you in with {provider}. Try again or use your email.",
     appleUnavailable: 'Sign in with Apple is not available on this device.',
+    // Phone OTP (dormant vendor-addition scaffold 2026-09-05; shown only with
+    // EXPO_PUBLIC_PHONE_OTP=on). The number is always an Iraqi mobile: the
+    // prefix is fixed, the guest types the national 07XX part.
+    continueWithPhone: 'Continue with phone',
+    orContinueWithPhone: 'or continue with your phone number',
+    phoneSignInTitle: 'Your phone number',
+    phoneSignInBody: "We'll text you a 6-digit code. No password needed.",
+    phoneLinkBody: "We'll text a 6-digit code to confirm this number is yours.",
+    phoneNationalPlaceholder: '0770 123 4567',
+    phoneInvalid: 'Enter an Iraqi mobile number, like 0770 123 4567.',
+    sendCode: 'Send code',
+    otpTitle: 'Enter the code',
+    otpBody: 'We sent a 6-digit code to {phone}.',
+    otpLabel: 'Verification code',
+    // GoTrue answers otp_expired for BOTH a wrong and a stale code, so one message covers both.
+    otpInvalid: "That code isn't right or has expired. Check it, or send a new one.",
+    otpTooMany: 'Too many codes requested. Wait a while and try again.',
+    otpSendFailed: "We couldn't send the code right now. Try again in a moment, or sign in with your email.",
+    phoneSignInUnavailable: 'Phone sign-in is not available right now. Use your email instead.',
+    resendCode: 'Resend code',
+    resendCodeIn: 'Resend code in {seconds}s',
+    codeSentAgain: 'We sent a new code.',
+    changeNumber: 'Use a different number',
+    verifyPhoneRow: 'Verify phone number',
+    phoneVerified: 'Phone number verified',
+    addNameLink: 'Add your name',
   },
   courts: {
     title: 'Courts',
@@ -572,6 +601,8 @@ export const en = {
     saveChanges: 'Save changes',
     updated: 'Profile updated',
     completeProfileNudge: 'Add your phone number so the desk can reach you about your bookings.',
+    // A phone sign-up (dormant OTP scaffold) has a verified phone but no name yet.
+    completeNameNudge: 'Add your name so the desk knows who booked.',
     currentPassword: 'Current password',
     newPasswordMin: 'New password (min 8 characters)',
     confirmNewPassword: 'Confirm new password',
