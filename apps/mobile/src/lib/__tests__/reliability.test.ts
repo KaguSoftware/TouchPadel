@@ -149,6 +149,18 @@ describe('social sign-in library boundary', () => {
       'src/features/auth/providers/apple.ios.ts',
     ]);
   });
+
+  // Phone OTP (dormant scaffold): every GoTrue OTP call goes through the one
+  // pure, testable module, and the feature flag is read through ONE function —
+  // so "activate otp" and "turn it off" are each a single place.
+  it('calls signInWithOtp / verifyOtp from features/auth/api.ts only', () => {
+    expect(importers('.signInWithOtp(')).toEqual(['src/features/auth/api.ts']);
+    expect(importers('.verifyOtp(')).toEqual(['src/features/auth/api.ts']);
+  });
+
+  it('reads EXPO_PUBLIC_PHONE_OTP in features/auth/phoneOtp.ts only', () => {
+    expect(importers('process.env.EXPO_PUBLIC_PHONE_OTP')).toEqual(['src/features/auth/phoneOtp.ts']);
+  });
 });
 
 describe('expo-gl import boundary (the stale-binary crash)', () => {

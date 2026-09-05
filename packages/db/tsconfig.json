@@ -1,7 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    // Edge-function modules import each other with explicit `.ts` (Deno's rule);
+    // the vitest suites that import their PURE halves pull those in transitively.
+    "allowImportingTsExtensions": true
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
 }
