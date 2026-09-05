@@ -14,19 +14,36 @@
  *   2. navigate to the role's home screen — the rest of the app is fine;
  *   3. reload the whole renderer.
  */
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, type CSSProperties, type ErrorInfo, type ReactNode } from 'react';
 import { useLocale } from '../lib/i18n';
 import { captureException, describeError } from '../lib/telemetry';
 import { Button, card } from './ui';
 
-const wrap = {
-  display: 'flex',
-  minBlockSize: '100vh',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingBlock: '2rem',
-  paddingInline: '2rem',
-} as const;
+/**
+ * Where the recovery card sits.
+ *
+ * This used to force `minBlockSize: '100vh'` unconditionally, and CrashPanel is
+ * the router's `defaultErrorComponent` — so it renders INSIDE <main>, which is
+ * already a 100vh shell minus the status strip minus its own padding. A 100vh
+ * box centred inside a shorter scrolling box puts the card BELOW THE FOLD: on a
+ * kiosk with no menu bar a cashier saw an empty area and had to scroll to find
+ * "Try this screen again", mid-service.
+ *
+ * `fullBleed` is therefore opt-IN. Only the shell boundary in main.tsx (which
+ * really does own the whole viewport, because the crash may BE the shell) wants
+ * the viewport height; everything routed wants to fill its container and start
+ * at the top of it.
+ */
+function wrapStyle(fullBleed: boolean): CSSProperties {
+  return {
+    display: 'flex',
+    minBlockSize: fullBleed ? '100vh' : '100%',
+    alignItems: fullBleed ? 'center' : 'flex-start',
+    justifyContent: 'center',
+    paddingBlock: 'var(--tp-sp-6)',
+    paddingInline: 'var(--tp-sp-6)',
+  };
+}
 
 function Actions({
   onRetry,
@@ -42,7 +59,7 @@ function Actions({
   reloadLabel: string;
 }) {
   return (
-    <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBlockStart: '1rem' }}>
+    <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-4)' }}>
       {onRetry && (
         <Button kind="primary" onClick={onRetry}>
           {retryLabel}
@@ -65,16 +82,19 @@ export function CrashPanel({
   error,
   onRetry,
   onHome,
+  fullBleed = false,
 }: {
   error: unknown;
   onRetry?: () => void;
   onHome?: () => void;
+  /** Only the pre-router shell boundary owns the viewport. See wrapStyle. */
+  fullBleed?: boolean;
 }) {
   const { tr } = useLocale();
   return (
-    <div style={wrap}>
+    <div style={wrapStyle(fullBleed)}>
       <div style={{ ...card, maxInlineSize: '32rem' }} role="alert">
-        <h1 style={{ marginBlockStart: 0, fontSize: '1.2rem' }}>{tr('op.crash.title')}</h1>
+        <h1 style={{ marginBlockStart: 0, fontSize: 'var(--tp-fs-2xl)' }}>{tr('op.crash.title')}</h1>
         <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.crash.body')}</p>
         <Actions
           onRetry={onRetry}
@@ -83,8 +103,8 @@ export function CrashPanel({
           homeLabel={tr('op.crash.home')}
           reloadLabel={tr('op.crash.reload')}
         />
-        <details style={{ marginBlockStart: '1rem' }}>
-          <summary style={{ cursor: 'pointer', color: 'var(--tp-muted-fg)', fontSize: '0.85rem' }}>
+        <details style={{ marginBlockStart: 'var(--tp-sp-4)' }}>
+          <summary style={{ cursor: 'pointer', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
             {tr('op.crash.details')}
           </summary>
           <pre
@@ -92,9 +112,9 @@ export function CrashPanel({
             style={{
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
-              fontSize: '0.75rem',
+              fontSize: 'var(--tp-fs-xs)',
               color: 'var(--tp-muted-fg)',
-              marginBlockStart: '0.5rem',
+              marginBlockStart: 'var(--tp-sp-2)',
             }}
           >
             {describeError(error)}
@@ -106,12 +126,12 @@ export function CrashPanel({
 }
 
 /** The 404 screen. Same shape, no retry — retrying a bad URL changes nothing. */
-export function NotFoundPanel({ onHome }: { onHome?: () => void }) {
+export function NotFoundPanel({ onHome, fullBleed = false }: { onHome?: () => void; fullBleed?: boolean }) {
   const { tr } = useLocale();
   return (
-    <div style={wrap}>
+    <div style={wrapStyle(fullBleed)}>
       <div style={{ ...card, maxInlineSize: '32rem' }} role="alert">
-        <h1 style={{ marginBlockStart: 0, fontSize: '1.2rem' }}>{tr('op.crash.notFoundTitle')}</h1>
+        <h1 style={{ marginBlockStart: 0, fontSize: 'var(--tp-fs-2xl)' }}>{tr('op.crash.notFoundTitle')}</h1>
         <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.crash.notFoundBody')}</p>
         <Actions onHome={onHome} retryLabel="" homeLabel={tr('op.crash.home')} reloadLabel={tr('op.crash.reload')} />
       </div>

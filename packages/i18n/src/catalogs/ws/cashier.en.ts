@@ -34,6 +34,9 @@ export const cashierEn = {
       sheet: 'Opens size and extras',
       from: 'from',
     },
+    sheet: {
+      needChoice: '“{group}” needs between {min} and {max} choices.',
+    },
     rail: {
       title: 'Open tabs',
       newTab: 'New tab',
@@ -139,8 +142,10 @@ export const cashierEn = {
     actionsTitle: 'Actions',
     discount: 'Discount',
     override: 'Change price',
+    overrideSame: 'Type a different price to change it.',
     chargeBooking: 'Charge to booking',
     split: 'Split bill',
+    splitNothing: 'Nothing left to pay, so there is nothing to split.',
     merge: 'Merge tables',
     refund: 'Refund',
     refundAction: 'refund a payment',
@@ -177,6 +182,9 @@ export const cashierEn = {
     drawerRecorded: 'Drawer opening recorded.',
     queued: 'Recorded offline — it syncs when the connection returns.',
     confirmByClick: 'Confirm with the button; function keys only open this pane.',
+    nothingDue: 'Nothing to pay yet — add items to this tab first.',
+    enterAmount: 'Enter an amount to record.',
+    shortTendered: 'The tendered amount does not cover what is due.',
   },
 
   split: {
@@ -188,6 +196,7 @@ export const cashierEn = {
     share: 'Share {index}',
     person: 'Person {index}',
     settleShare: 'Take share (cash)',
+    shareOverDue: 'This share is more than what is still due.',
     unallocated: '{count} line(s) not assigned to anyone.',
     unallocatedHint: 'Every line must belong to a person before the shares can be computed.',
     remaining: 'Remaining {amount}',
@@ -202,6 +211,7 @@ export const cashierEn = {
     donor: 'Tab to merge in',
     none: 'No other open tabs to merge.',
     hint: 'The other tab is closed and its items, orders and payments move here. This cannot be undone.',
+    pickDonor: 'Pick the tab that closes.',
     confirm: 'Merge',
   },
 
@@ -215,6 +225,7 @@ export const cashierEn = {
     selected: 'Selected booking',
     consequence: 'A tab bound to the booking is opened and this tab’s lines, orders and payments move onto it. The court fee is stamped by the server at settlement.',
     confirm: 'Charge to this booking',
+    pickBooking: 'Pick a booking from the list first.',
     partialFailure: 'The booking tab was opened but the merge was refused — this tab is untouched. Merge it by hand from Open tabs.',
     option: '{time} · {court} · {guest}',
   },
@@ -267,5 +278,6 @@ export const cashierEn = {
     fromBooking: 'Bound to booking',
     fromBookingHint: 'This tab is opened for the booking chosen on the desk; the court fee is added at settlement.',
     bookingMissing: 'That booking is not available to open a tab on (already has a tab, or not today).',
+    needAnchor: 'Pick a table, type a name, or choose a booking.',
   },
 } as const;

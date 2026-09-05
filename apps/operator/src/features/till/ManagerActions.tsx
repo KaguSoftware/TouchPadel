@@ -25,7 +25,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { requiredRoleFor } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, PinReasonModal, Select, inputStyle } from '../../components/ui';
 import { MessagePresenter, Money, PermissionRefusedNotice } from '../../components/kit';
-import { kvRow, muted, numeric } from './tillStyles';
+import { kvRow, muted, numeric, reasonedFooter } from './tillStyles';
 
 // ---------------------------------------------------------------------------
 // Refund (06.18)
@@ -71,6 +71,19 @@ export function RefundDialog({
   const max = payment?.amount_iqd ?? 0;
   const valid = !!payment && amount > 0 && amount <= max;
   const namedItems = Object.values(items).some((q) => q > 0);
+  /*
+   * Rulebook 4.3, in the order the cashier meets them. The permission case is
+   * NOT repeated here: PermissionRefusedNotice already names the role at the
+   * top of the dialog, and saying it twice on one screen is noise.
+   */
+  const refundBlockedReason =
+    payments.length === 0
+      ? tr('ws.cashier.refund.noPayments')
+      : !canRefund
+        ? undefined
+        : !valid
+          ? tr('ws.cashier.refund.max', { amount: formatIQD(max, locale) })
+          : undefined;
 
   async function submit(pin: string, reasonCode: string) {
     setBusy(true);
@@ -105,18 +118,24 @@ export function RefundDialog({
         title={tr('op.till.refund')}
         onClose={onClose}
         footer={
-          <>
+          <div style={reasonedFooter}>
             <Button onClick={onClose} disabled={busy}>
               {tr('common.cancel')}
             </Button>
-            <Button kind="danger" icon="undo" disabled={!valid || busy || !canRefund || payments.length === 0} onClick={() => setPinOpen(true)}>
+            <Button
+              kind="danger"
+              icon="undo"
+              disabled={!valid || busy || !canRefund || payments.length === 0}
+              disabledReason={refundBlockedReason}
+              onClick={() => setPinOpen(true)}
+            >
               {tr('op.till.refund')}
             </Button>
-          </>
+          </div>
         }
       >
         {!canRefund && (
-          <PermissionRefusedNotice action={tr('ws.cashier.refund.refusedAction')} requiredRole={requiredRoleFor('refund')} style={{ marginBlockEnd: '0.85rem' }} />
+          <PermissionRefusedNotice action={tr('ws.cashier.refund.refusedAction')} requiredRole={requiredRoleFor('refund')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
         )}
         {payments.length === 0 ? (
           <p style={muted}>{tr('op.till.refundNoPayments')}</p>
@@ -126,7 +145,7 @@ export function RefundDialog({
               tone={namedItems ? 'info' : 'refused'}
               icon="package"
               message={tr('ws.cashier.refund.consequence')}
-              style={{ marginBlockEnd: '0.85rem' }}
+              style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
             />
             <Field label={tr('op.till.refundPayment')}>
               <Select
@@ -153,13 +172,13 @@ export function RefundDialog({
               />
             </Field>
 
-            <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.2rem' }}>{tr('op.till.refundItems')}</h3>
-            <p style={{ ...muted, marginBlockEnd: '0.4rem' }}>{tr('op.till.refundItemsHint')}</p>
+            <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-0)' }}>{tr('op.till.refundItems')}</h3>
+            <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-1-5)' }}>{tr('op.till.refundItemsHint')}</p>
             <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', maxBlockSize: '12rem', overflowY: 'auto' }}>
               {lines
                 .filter((l) => !l.voided)
                 .map((l) => (
-                  <div key={l.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', paddingBlock: '0.3rem', paddingInline: '0.6rem', borderBlockEnd: '1px solid var(--tp-border)' }}>
+                  <div key={l.id} style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-touch)', paddingBlock: 'var(--tp-sp-1)', paddingInline: 'var(--tp-sp-2-5)', borderBlockEnd: '1px solid var(--tp-border)' }}>
                     <span style={{ flex: 1 }}>
                       {l.qty}× <bdi>{pickName(locale, l.menu_item)}</bdi>
                     </span>
@@ -243,20 +262,26 @@ export function OverridePriceDialog({
         onClose={onClose}
         size="sm"
         footer={
-          <>
+          <div style={reasonedFooter}>
             <Button onClick={onClose} disabled={busy}>
               {tr('common.cancel')}
             </Button>
-            <Button kind="primary" icon="tag" disabled={busy || price === currentUnitPriceIqd} onClick={() => setPinOpen(true)}>
+            <Button
+              kind="primary"
+              icon="tag"
+              disabled={busy || price === currentUnitPriceIqd}
+              disabledReason={price === currentUnitPriceIqd ? tr('ws.cashier.detail.overrideSame') : undefined}
+              onClick={() => setPinOpen(true)}
+            >
               {tr('op.till.override')}
             </Button>
-          </>
+          </div>
         }
       >
         <p style={{ fontWeight: 600 }}>
           <bdi>{label}</bdi>
         </p>
-        <div style={{ ...kvRow, ...muted, marginBlockEnd: '0.75rem' }}>
+        <div style={{ ...kvRow, ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>
           <span>{tr('op.till.overrideCurrent', { amount: '' }).trim()}</span>
           <Money amount={currentUnitPriceIqd} />
         </div>
@@ -349,17 +374,24 @@ export function MergeTabsDialog({
       onClose={busy ? () => {} : onClose}
       size="sm"
       footer={
-        <>
+        <div style={reasonedFooter}>
           <Button onClick={onClose} disabled={busy}>
             {tr('common.cancel')}
           </Button>
-          <Button kind="primary" icon="merge" busy={busy} disabled={!donorId} onClick={() => void submit()}>
+          <Button
+            kind="primary"
+            icon="merge"
+            busy={busy}
+            disabled={!donorId}
+            disabledReason={donorId ? undefined : tr('ws.cashier.merge.pickDonor')}
+            onClick={() => void submit()}
+          >
             {tr('ws.cashier.merge.confirm')}
           </Button>
-        </>
+        </div>
       }
     >
-      <p style={{ marginBlockEnd: '0.75rem' }}>{tr('ws.cashier.merge.into', { name: survivorLabel })}</p>
+      <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.merge.into', { name: survivorLabel })}</p>
       <ErrorText error={candidatesQ.error} />
       {candidatesQ.isSuccess && candidates.length === 0 ? (
         <p style={muted}>{tr('ws.cashier.merge.none')}</p>

@@ -175,7 +175,9 @@ export const OPEN_TABS_QUERY = {
 
 /** True when any order on the tab arrived from the guest web menu. */
 export function tabHasWebOrder(tab: Pick<TabListRow, 'orders'>): boolean {
-  return tab.orders.some((o) => o.source === 'guest_web');
+  // `?? []` for the same reason computeTabTotals guards its arrays: a row out
+  // of the persisted cache may predate this embed. See tabTotals.TotalsInput.
+  return (tab.orders ?? []).some((o) => o.source === 'guest_web');
 }
 
 // ---------------------------------------------------------------------------

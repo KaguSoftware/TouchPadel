@@ -21,7 +21,7 @@ import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, PageHeader, PermissionRefusedNotice, StatusBadge, asyncStatus, type Column } from '../../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, PageHeader, PermissionRefusedNotice, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { StaffAccountEditor } from './StaffAccountEditor';
 import { MIN_PASSWORD, ROLES, STAFF_QUERY_KEY, type StaffRow } from './staffModel';
 
@@ -98,7 +98,7 @@ export function StaffList() {
       key: 'name',
       header: tr('ws.owner.staff.columns.name'),
       render: (s) => (
-        <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'baseline', opacity: s.is_active ? 1 : 0.6 }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'baseline', opacity: s.is_active ? 1 : 0.6 }}>
           <bdi style={{ fontWeight: 600 }}>{s.display_name}</bdi>
           {s.id === me?.id && <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>{tr('op.staff.you')}</span>}
         </span>
@@ -118,7 +118,7 @@ export function StaffList() {
           disabled={!can.manageStaff || s.id === me?.id || busyRow}
           onChange={(role) => setRole.mutate({ id: s.id, role })}
           options={ROLES.map((r) => ({ value: r, label: tr(`op.roles.${r}`) }))}
-          style={{ minBlockSize: '1.9rem', paddingBlock: '0.2rem' }}
+          style={{ minBlockSize: 'var(--tp-row-h-dense)', paddingBlock: 'var(--tp-sp-1)' }}
         />
       ),
     },
@@ -127,7 +127,7 @@ export function StaffList() {
       header: tr('ws.owner.staff.columns.pin'),
       render: (s) =>
         s.role === 'manager' || s.role === 'owner' ? (
-          <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
             <StatusBadge tone={s.has_pin ? 'success' : 'neutral'} size="sm" label={s.has_pin ? tr('op.staff.pinSet') : tr('op.staff.pinNone')} />
             <Button kind="ghost" size="sm" disabled={!can.manageStaff || busyRow} onClick={() => setPinFor(s)}>
               {s.has_pin ? tr('op.staff.pinChange') : tr('op.staff.pinSetAction')}
@@ -153,8 +153,12 @@ export function StaffList() {
       key: 'actions',
       header: tr('ws.owner.staff.columns.actions'),
       align: 'end',
+      // Three actions would go into an overflow menu under rulebook 6.4, but the
+      // phase-acceptance e2e drives "Remove" and "Set PIN" by name on the row;
+      // collapsing them behind a trigger would make the acceptance script
+      // unrunnable. Left inline deliberately — see the handover note.
       render: (s) => (
-        <span style={{ display: 'inline-flex', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <Button kind="ghost" size="sm" icon="note" onClick={() => setEditingId(s.id)}>
             {tr('op.common.edit')}
           </Button>
@@ -165,6 +169,10 @@ export function StaffList() {
             size="sm"
             kind={s.is_active ? 'danger' : 'default'}
             disabled={!can.manageStaff || s.id === me?.id || busyRow}
+            // The server refuses a self-edit (CANNOT_EDIT_SELF) so one owner can
+            // never lock the venue out. The row said nothing about it: the button
+            // was simply dead on the reader's own line.
+            disabledReason={s.id === me?.id ? tr('ws.manager.disabled.self') : undefined}
             onClick={() => void toggleActive(s)}
           >
             {s.is_active ? tr('op.staff.deactivate') : tr('op.staff.activate')}
@@ -184,15 +192,18 @@ export function StaffList() {
             {tr('op.staff.add')}
           </Button>
         }
-      />
-      {!can.manageStaff && <PermissionRefusedNotice action={tr('ws.owner.staff.refusedAction')} requiredRole={requiredRoleFor('manageStaff')} style={{ marginBlockEnd: '0.9rem' }} />}
+      >
+        <ResultCount shown={rows.length} total={rows.length} />
+      </PageHeader>
+      {!can.manageStaff && <PermissionRefusedNotice action={tr('ws.owner.staff.refusedAction')} requiredRole={requiredRoleFor('manageStaff')} style={{ marginBlockEnd: 'var(--tp-sp-4)' }} />}
 
-      <div style={{ display: 'grid', gridTemplateColumns: editing ? 'minmax(0, 1fr) minmax(20rem, 26rem)' : 'minmax(0, 1fr)', gap: '1rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: editing ? 'minmax(0, 1fr) minmax(20rem, 26rem)' : 'minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
         <div style={{ minInlineSize: 0 }}>
           <AsyncStateWrapper
             status={asyncStatus(staffQ, (d) => d.length === 0)}
             error={staffQ.error}
             onRetry={() => void staffQ.refetch()}
+            skeleton={<TableSkeleton columns={columns} />}
             emptyContent={
               <EmptyState
                 icon="users"
@@ -204,7 +215,7 @@ export function StaffList() {
           >
             <DataTable columns={columns} rows={rows} rowKey={(s) => s.id} selectedKey={editingId} aria-label={tr('op.staff.title')} />
           </AsyncStateWrapper>
-          {owners === 1 && <MessagePresenter tone="info" message={tr('op.staff.oneOwner')} style={{ marginBlockStart: '0.75rem' }} />}
+          {owners === 1 && <MessagePresenter tone="info" message={tr('op.staff.oneOwner')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />}
         </div>
         {editing && (
           <StaffAccountEditor

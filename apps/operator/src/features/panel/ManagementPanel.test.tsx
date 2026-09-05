@@ -59,6 +59,10 @@ describe('ManagementPanelScreen — four states', () => {
     expect(await screen.findByText('15,000 IQD')).toBeTruthy();
     expect(screen.getByText('5,000 IQD')).toBeTruthy();
     expect(screen.getByText('42')).toBeTruthy();
+    // The percentage goes through @touch/i18n like the absolute change beside
+    // it (it used to be toFixed(1) + a literal '%', so one number on the line
+    // was localised and the other was not), and formatPercent pins it to one
+    // decimal so a KPI column stays aligned.
     expect(screen.getByText('(+25.0%)')).toBeTruthy();
     // Unknown keys are dropped, never guessed at.
     expect(screen.queryByText('mystery')).toBeNull();

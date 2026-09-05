@@ -63,7 +63,7 @@ export function ExcludedItemsModal({
       />
       <div style={{ maxBlockSize: '50vh', overflowY: 'auto', display: 'grid', gap: '0.15rem' }}>
         {rows.map((row) => (
-          <label key={row.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.9rem' }}>
+          <label key={row.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: 'var(--tp-fs-md)' }}>
             <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggle(row.id)} />
             <span>{row.name}</span>
           </label>

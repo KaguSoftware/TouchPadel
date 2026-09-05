@@ -15,7 +15,7 @@ import { QK, fetchActiveCafeTables } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { MessagePresenter, SearchField } from '../../components/kit';
-import { muted } from './tillStyles';
+import { muted, reasonedFooter, touchTarget } from './tillStyles';
 
 export interface OpenReservationRow {
   id: string;
@@ -87,14 +87,14 @@ export function ReservationPicker({
   const [query, setQuery] = useState('');
   const visible = useMemo(() => rows.filter((r) => reservationMatches(r, query)), [rows, query]);
   return (
-    <div style={{ display: 'grid', gap: '0.5rem' }}>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
       <SearchField value={query} onChange={setQuery} placeholder={tr('ws.cashier.charge.searchPlaceholder')} aria-label={tr('ws.cashier.charge.search')} busy={busy} />
       {rows.length === 0 ? (
         <p style={muted}>{tr('ws.cashier.charge.noBookings')}</p>
       ) : visible.length === 0 ? (
         <p style={muted}>{tr('ws.cashier.charge.noMatches')}</p>
       ) : (
-        <div role="listbox" aria-label={tr('ws.cashier.charge.search')} style={{ display: 'grid', gap: '0.25rem', maxBlockSize: '14rem', overflowY: 'auto' }}>
+        <div role="listbox" aria-label={tr('ws.cashier.charge.search')} style={{ display: 'grid', gap: 'var(--tp-sp-1)', maxBlockSize: '14rem', overflowY: 'auto' }}>
           {visible.map((r) => {
             const selected = r.id === selectedId;
             return (
@@ -108,13 +108,13 @@ export function ReservationPicker({
                 data-selected={selected ? 'true' : undefined}
                 onClick={() => onSelect(selected ? '' : r.id)}
                 style={{
+                  ...touchTarget,
                   textAlign: 'start',
                   border: '1px solid var(--tp-border)',
                   background: 'var(--tp-surface)',
                   borderRadius: 'var(--tp-radius-ctl)',
-                  paddingBlock: '0.5rem',
-                  paddingInline: '0.65rem',
-                  minBlockSize: 'var(--tp-touch)',
+                  paddingBlock: 'var(--tp-sp-2)',
+                  paddingInline: 'var(--tp-sp-2-5)',
                   cursor: 'pointer',
                   font: 'inherit',
                   color: 'inherit',
@@ -186,32 +186,38 @@ export function NewTabDialog({
   }
 
   const bound = reservations.find((r) => r.id === reservationId);
+  // app.open_tab needs at least one anchor; which one is the cashier's choice.
+  const anchored = Boolean(tableId || label || reservationId);
 
   return (
     <Modal
       title={tr('op.till.newTab')}
       onClose={onClose}
       footer={
-        <>
+        // Reserved height: the reason line below "Open tab" appears and clears
+        // as the cashier picks an anchor, and the button it explains must not
+        // travel while they are reaching for it.
+        <div style={reasonedFooter}>
           <Button onClick={onClose} disabled={busy}>
             {tr('common.cancel')}
           </Button>
           <Button
             kind="primary"
             busy={busy}
-            disabled={!tableId && !label && !reservationId}
+            disabled={!anchored}
+            disabledReason={anchored ? undefined : tr('ws.cashier.newTab.needAnchor')}
             onClick={() => void submit()}
           >
             {tr('op.till.openTabBtn')}
           </Button>
-        </>
+        </div>
       }
     >
       {initialReservationId && bound && (
         <MessagePresenter
           tone="info"
           icon="calendar"
-          style={{ marginBlockEnd: '0.85rem' }}
+          style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
           message={
             <>
               <strong>{tr('ws.cashier.newTab.fromBooking')}</strong> — <bdi>{reservationOptionLabel(tr, locale, bound)}</bdi>
@@ -222,7 +228,7 @@ export function NewTabDialog({
         />
       )}
       {preboundMissing && (
-        <MessagePresenter tone="refused" style={{ marginBlockEnd: '0.85rem' }} message={tr('ws.cashier.newTab.bookingMissing')} />
+        <MessagePresenter tone="refused" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} message={tr('ws.cashier.newTab.bookingMissing')} />
       )}
       <Field label={tr('op.till.table')}>
         <select style={inputStyle} value={tableId} onChange={(e) => setTableId(e.target.value)} autoFocus>

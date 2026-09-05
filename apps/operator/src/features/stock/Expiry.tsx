@@ -110,7 +110,7 @@ export function Expiry() {
       key: 'expiry',
       header: tone === 'danger' ? tr('ws.manager.stock.expiry.expiredOn') : tr('ws.manager.stock.expiry.expiresOn'),
       render: (b) => (
-        <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
           <bdi>{formatDate(new Date(`${b.expiry_date}T00:00:00`), locale)}</bdi>
           <StatusBadge
             size="sm"
@@ -146,21 +146,21 @@ export function Expiry() {
         {!can.adjustStock && <PermissionRefusedNotice action={tr('op.stock.writeOff')} requiredRole={requiredRoleFor('adjustStock')} />}
       </PageHeader>
 
-      <div style={{ display: 'grid', gap: '1rem' }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
         <Panel title={tr('op.stock.expiredTitle')} padded={false} actions={<StatusBadge size="sm" tone={expired.length > 0 ? 'danger' : 'neutral'} label={formatNumber(expired.length, locale)} />}>
-          <p style={{ paddingBlock: '0.5rem', paddingInline: '0.85rem', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.expiry.writeOffLead')}</p>
+          <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.expiry.writeOffLead')}</p>
           <AsyncStateWrapper
             compact
             status={asyncStatus(expiredQ, (d) => d.length === 0)}
             error={expiredQ.error}
             onRetry={() => void expiredQ.refetch()}
             emptyContent={
-              <div style={{ padding: '0.85rem' }}>
+              <div style={{ padding: 'var(--tp-sp-3)' }}>
                 <EmptyState compact icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpired')} />
               </div>
             }
           >
-            <DataTable dense columns={expiredColumns} rows={expired} rowKey={(b) => b.batch_id} aria-label={tr('op.stock.expiredTitle')} />
+            <DataTable columns={expiredColumns} rows={expired} rowKey={(b) => b.batch_id} aria-label={tr('op.stock.expiredTitle')} />
           </AsyncStateWrapper>
         </Panel>
 
@@ -190,12 +190,12 @@ export function Expiry() {
             error={expiringQ.error}
             onRetry={() => void expiringQ.refetch()}
             emptyContent={
-              <div style={{ padding: '0.85rem' }}>
+              <div style={{ padding: 'var(--tp-sp-3)' }}>
                 <EmptyState compact icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpiring')} />
               </div>
             }
           >
-            <DataTable dense columns={baseColumns('warn')} rows={expiring} rowKey={(b) => b.batch_id} aria-label={tr('op.stock.expiringTitle')} />
+            <DataTable columns={baseColumns('warn')} rows={expiring} rowKey={(b) => b.batch_id} aria-label={tr('op.stock.expiringTitle')} />
           </AsyncStateWrapper>
         </Panel>
       </div>
@@ -212,7 +212,7 @@ export function Expiry() {
             setError(null);
           }}
         >
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem' }}>
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
             <bdi>
               {writeOff.qty_remaining} {writeOff.unit} · {formatDate(new Date(`${writeOff.expiry_date}T00:00:00`), locale)}
             </bdi>

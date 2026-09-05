@@ -19,7 +19,9 @@ import {
   Money,
   PageHeader,
   PermissionRefusedNotice,
+  ResultCount,
   StatusBadge,
+  TableSkeleton,
   asyncStatus,
   type Column,
   type Tone,
@@ -42,7 +44,8 @@ export function PromotionsListScreen() {
   const can = usePermissions();
 
   const promosQ = useQuery({ queryKey: PROMOTIONS_KEY, queryFn: fetchPromotions });
-  const status = asyncStatus(promosQ, (rows) => rows.length === 0);
+  const rows = promosQ.data ?? [];
+  const status = asyncStatus(promosQ, (r) => r.length === 0);
 
   async function setEnabled(id: string, enabled: boolean) {
     await appRpc('set_promotion_enabled', { p_id: id, p_enabled: enabled });
@@ -76,7 +79,7 @@ export function PromotionsListScreen() {
       key: 'applies',
       header: tr('ws.manager.promotions.applies'),
       render: (p) => (
-        <span style={{ display: 'inline-flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
           <StatusBadge size="sm" tone={p.auto ? 'accent' : 'neutral'} dot={false} label={p.auto ? tr('ws.manager.promotions.auto') : tr('ws.manager.promotions.staffSelected')} />
           {p.public_code && (
             <StatusBadge
@@ -105,16 +108,17 @@ export function PromotionsListScreen() {
       key: 'enabled',
       header: tr('ws.manager.promotions.enabled'),
       align: 'end',
+      // No stopPropagation wrapper: DataTable now ignores a row click that
+      // started on a control inside a cell, so switching a promotion off no
+      // longer also opens its editor.
       render: (p) => (
-        <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-          <Switch
-            checked={p.enabled}
-            disabled={!can.editPromotions}
-            onChange={(next) => setEnabled(p.id, next)}
-            label={`${tr('ws.manager.promotions.enabled')} — ${locale === 'ar' ? p.name_ar : p.name_en}`}
-            hideLabel
-          />
-        </span>
+        <Switch
+          checked={p.enabled}
+          disabled={!can.editPromotions}
+          onChange={(next) => setEnabled(p.id, next)}
+          label={`${tr('ws.manager.promotions.enabled')} — ${locale === 'ar' ? p.name_ar : p.name_en}`}
+          hideLabel
+        />
       ),
     },
   ];
@@ -130,6 +134,8 @@ export function PromotionsListScreen() {
           </Button>
         }
       >
+        {/* Rulebook 6.10: the count belongs beside the title, not only under the table. */}
+        <ResultCount shown={rows.length} total={rows.length} />
         <MessagePresenter tone="info" message={tr('ws.manager.promotions.bestOnly')} />
         {!can.editPromotions && <PermissionRefusedNotice action={tr('ws.manager.promotions.create')} requiredRole={requiredRoleFor('editPromotions')} />}
       </PageHeader>
@@ -138,6 +144,7 @@ export function PromotionsListScreen() {
         status={status}
         error={promosQ.error}
         onRetry={() => void promosQ.refetch()}
+        skeleton={<TableSkeleton columns={columns} />}
         emptyContent={
           <EmptyState
             icon="tag"
@@ -153,7 +160,7 @@ export function PromotionsListScreen() {
       >
         <DataTable
           columns={columns}
-          rows={promosQ.data ?? []}
+          rows={rows}
           rowKey={(p) => p.id}
           onRowClick={(p) => openEditor(p.id)}
           aria-label={tr('ws.manager.promotions.title')}

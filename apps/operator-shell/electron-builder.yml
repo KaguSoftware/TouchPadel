@@ -28,8 +28,11 @@ win:
   # No code-signing certificate in hand (owner decision pending) — SmartScreen
   # shows "More info → Run anyway" on first launch; documented in
   # docs/install-runbook.md. Revisit if the client sources a cert.
-  # icon: build/icon.ico — pending the brand asset drop (Next Art faces too);
-  # electron-builder falls back to the stock Electron icon meanwhile.
+  # Generated from docs/brand/touch_padel_logo_transparent.png: the padel ball
+  # on a rounded Touch Blue tile, the same convention as the Touch Cafe app
+  # mark. The ball rather than the wordmark because an app icon is square and
+  # the ball is the only part of the lockup that survives 16px on a taskbar.
+  icon: build/icon.ico
 nsis:
   oneClick: true
   # Launch-on-boot: runAfterFinish for the first session; app.setLoginItemSettings

@@ -10,6 +10,23 @@ export const kitEn = {
     retry: 'Try again',
     offlineHint: 'You may be offline. The last known data is shown where available.',
   },
+  /**
+   * Rulebook 9.2: "empty" is three different situations and they need three
+   * different sentences. `async.empty` above is the *initial* one ("nothing
+   * yet") and stays where it is; a filtered list that matched nothing must not
+   * tell staff the system is empty, and a queue that is genuinely clear should
+   * say so positively rather than apologise.
+   */
+  empty: {
+    filtered: 'Nothing matches those filters.',
+    nothingToDo: 'Nothing needs your attention.',
+    clearFilters: 'Clear filters',
+  },
+  filters: {
+    active: 'Active filters',
+    remove: 'Remove filter: {label}',
+    clearAll: 'Clear all',
+  },
   bookingStatus: {
     pending: 'Held',
     confirmed: 'Confirmed',
@@ -93,6 +110,8 @@ export const kitEn = {
     page: 'Page {page} of {count}',
     prev: 'Previous page',
     next: 'Next page',
+    rowActions: 'Row actions',
+    rowActionsFor: 'More actions for {name}',
   },
   search: {
     placeholder: 'Search…',
@@ -182,5 +201,7 @@ export const kitEn = {
     readOnly: 'Read-only',
     temporary: 'Temporary',
     readOnlyStock: 'Set by stock — not a toggle',
+    /** The unit, not the number: Arabic uses U+066A, so it cannot be a literal. */
+    percent: '%',
   },
 } as const;

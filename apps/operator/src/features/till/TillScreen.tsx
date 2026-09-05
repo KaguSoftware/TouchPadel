@@ -27,7 +27,7 @@ import { chime, StartShiftBanner } from '../../lib/audio';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Skeleton, inputStyle } from '../../components/ui';
-import { AsyncStateWrapper, EmptyState, Kbd, MessagePresenter } from '../../components/kit';
+import { AsyncStateWrapper, EmptyState, Kbd } from '../../components/kit';
 import { WaiterCallsPanel } from './WaiterCallsPanel';
 import { TabRail } from './TabRail';
 import { CategoryStrip, MenuItemGrid, TileLegend } from './TillGrid';
@@ -42,7 +42,7 @@ import { resolveTillKey } from './keymap';
 import { localIsoDate, deriveTileState, tileInteractive } from './tileState';
 import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, type BasketLine, type ItemRow } from './tillData';
 import type { TillSearch } from './tillSearch';
-import { muted } from './tillStyles';
+import { BASKET_BLOCK_SIZE, muted } from './tillStyles';
 
 export function TillScreen() {
   const { tr, locale } = useLocale();
@@ -272,8 +272,8 @@ export function TillScreen() {
   // ---- render ---------------------------------------------------------------
   if (dayQ.isSuccess && !dayQ.data) {
     return (
-      <div style={{ maxInlineSize: '40rem' }}>
-        <h1 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: '0.75rem' }}>{tr('till.title')}</h1>
+      <div style={{ maxInlineSize: 'var(--tp-measure-form)' }}>
+        <h1 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('till.title')}</h1>
         <EmptyState icon="sun" title={tr('op.till.noOpenDay')} />
       </div>
     );
@@ -282,20 +282,24 @@ export function TillScreen() {
   const menuStatus = menuQ.isError && !menuQ.data ? 'error' : menuQ.data ? 'ready' : 'loading';
   const filtering = filter.trim().length > 0;
   const selectedIsOffline = selectedTabId?.startsWith(LOCAL_TAB_PREFIX) ?? false;
+  // Rulebook 4.3 — the reason travels with the control, not in a tooltip. The
+  // empty case already says so in the basket's own body, so only the missing
+  // tab needs stating here.
+  const sendBlockedReason = !hasActiveTab ? tr('ws.cashier.till.tile.noTab') : undefined;
 
   return (
     <div
       style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(13rem, 15rem) minmax(0, 1fr) minmax(20rem, 23rem)',
-        gap: '1rem',
+        gap: 'var(--tp-sp-4)',
         blockSize: '100%',
         minBlockSize: 0,
         alignItems: 'stretch',
       }}
     >
       {/* ---- inline-start: waiter calls + rail ---- */}
-      <aside style={{ minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'grid', gap: '0.75rem', alignContent: 'start', paddingInlineEnd: '0.25rem' }}>
+      <aside style={{ minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', paddingInlineEnd: 'var(--tp-sp-1)' }}>
         <StartShiftBanner />
         <WaiterCallsPanel status={floorStatus} />
         <TabRail
@@ -310,8 +314,8 @@ export function TillScreen() {
       </aside>
 
       {/* ---- centre: filter, categories, grid, basket ---- */}
-      <section aria-label={tr('ws.cashier.till.regionMenu')} style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <section aria-label={tr('ws.cashier.till.regionMenu')} style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2-5)' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
           <input
             ref={filterRef}
             style={{ ...inputStyle, flex: 1, minBlockSize: 'var(--tp-touch)' }}
@@ -336,12 +340,14 @@ export function TillScreen() {
           onRetry={() => void menuQ.refetch()}
           error={menuQ.error}
           skeleton={
-            <div style={{ display: 'grid', gap: '0.6rem' }} aria-busy="true">
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }} aria-busy="true">
               <p style={muted}>{tr('ws.cashier.till.loadingMenu')}</p>
-              <Skeleton lines={1} blockSize="2.75rem" />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: '0.45rem' }}>
+              {/* The skeleton stands on the same two physical tokens the real
+                  strip and tiles do, so the menu does not resize on arrival. */}
+              <Skeleton lines={1} blockSize="var(--tp-touch)" />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: 'var(--tp-sp-1-5)' }}>
                 {Array.from({ length: 8 }, (_, i) => (
-                  <Skeleton key={i} lines={1} blockSize="4.75rem" />
+                  <Skeleton key={i} lines={1} blockSize="var(--tp-tile-min-block)" />
                 ))}
               </div>
             </div>
@@ -370,12 +376,23 @@ export function TillScreen() {
           </div>
         </AsyncStateWrapper>
 
-        <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: '0.6rem' }}>
+        {/* Reserved, not emergent: see BASKET_BLOCK_SIZE. The grid above keeps
+            exactly the same height from the first item of the shift to the
+            last, so a finger already travelling to a tile still lands on it. */}
+        <div
+          style={{
+            flex: '0 0 auto',
+            blockSize: BASKET_BLOCK_SIZE,
+            borderBlockStart: '1px solid var(--tp-border)',
+            paddingBlockStart: 'var(--tp-sp-2-5)',
+          }}
+        >
           <Basket
             lines={basket}
             sending={sending}
             error={sendError}
             canSend={hasActiveTab && basket.length > 0}
+            blockedReason={sendBlockedReason}
             onBump={bumpBasketQty}
             onRemove={(key) => setBasket((b) => b.filter((x) => x.key !== key))}
             onClear={() => setBasket([])}
@@ -384,19 +401,34 @@ export function TillScreen() {
         </div>
       </section>
 
-      {/* ---- inline-end: the active tab ---- */}
-      <aside style={{ minBlockSize: 0, overflowY: 'auto', paddingInlineStart: '0.25rem', borderInlineStart: '1px solid var(--tp-border)', paddingInline: '0.75rem' }}>
+      {/*
+        ---- inline-end: the active tab ----
+        The column does NOT scroll: TabDetailPanel scrolls inside itself so its
+        identity header and its pay footer stay pinned (rulebook 5.2 and 11.5).
+        A scroll here would let the Cash button drift with the line count.
+      */}
+      <aside
+        style={{
+          minBlockSize: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          borderInlineStart: '1px solid var(--tp-border)',
+          paddingInline: 'var(--tp-sp-3)',
+        }}
+      >
         {!selectedTabId && (
-          <EmptyState
-            icon="receipt"
-            title={tr('ws.cashier.till.noActiveTab')}
-            body={tr('ws.cashier.till.noActiveTabBody')}
-            action={
-              <Button kind="primary" icon="plus" onClick={() => setNewTab({})}>
-                {tr('ws.cashier.till.rail.newTab')} <Kbd>F6</Kbd>
-              </Button>
-            }
-          />
+          <div style={{ minBlockSize: 0, overflowY: 'auto' }}>
+            <EmptyState
+              icon="receipt"
+              title={tr('ws.cashier.till.noActiveTab')}
+              body={tr('ws.cashier.till.noActiveTabBody')}
+              action={
+                <Button kind="primary" icon="plus" onClick={() => setNewTab({})}>
+                  {tr('ws.cashier.till.rail.newTab')} <Kbd>F6</Kbd>
+                </Button>
+              }
+            />
+          </div>
         )}
         {selectedTabId && !selectedIsOffline && (
           <TabDetailPanel
@@ -412,9 +444,10 @@ export function TillScreen() {
           />
         )}
         {selectedTabId && selectedIsOffline && (
-          <OfflineTabPanel idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)} onSettled={() => setSelectedTabId(null)} />
+          <div style={{ minBlockSize: 0, overflowY: 'auto' }}>
+            <OfflineTabPanel idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)} onSettled={() => setSelectedTabId(null)} />
+          </div>
         )}
-        {sending && <MessagePresenter tone="info" message={tr('ws.cashier.till.basket.sending')} style={{ marginBlockStart: '0.75rem' }} />}
       </aside>
 
       {/* ---- overlays ---- */}

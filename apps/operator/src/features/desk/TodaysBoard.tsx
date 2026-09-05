@@ -7,7 +7,7 @@
  * `TodaysBoardView` is pure presentation (spec §06.1 data-in / events-out)
  * so its four states are testable without a database.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
@@ -30,6 +30,7 @@ import {
   type AsyncStatus,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { ReservationBadge, availabilityTone } from './deskStatus';
 import { arrivals, courtAvailability, groupByStart, isVisible, paymentStatusFor, type CourtAvailability } from './deskLogic';
 import type { CustomerFlag, ReservationRow, TabLinkRow } from './deskTypes';
 import { CreateReservationDialog } from './CreateReservationDialog';
@@ -76,7 +77,13 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
       subtitle={tr('ws.courtDesk.board.subtitle', { date: formatDate(new Date(`${p.date}T12:00:00Z`), locale, 'UTC'), count: formatNumber(bookings.length, locale) })}
       actions={
         <>
-          <Button kind="primary" icon="plus" onClick={p.onCreateBooking} disabled={p.status !== 'ready' && p.status !== 'empty'}>
+          <Button
+            kind="primary"
+            icon="plus"
+            onClick={p.onCreateBooking}
+            disabled={p.status !== 'ready' && p.status !== 'empty'}
+            disabledReason={p.status === 'error' ? tr('ws.courtDesk.board.newBookingBlockedError') : tr('ws.courtDesk.board.newBookingBlockedLoading')}
+          >
             {tr('ws.courtDesk.board.newBooking')}
           </Button>
           <Button icon="search" onClick={p.onSearchCustomer}>
@@ -262,7 +269,9 @@ function BoardRow({
           ))}
         </span>
       </td>
-      <td>{r.kind === 'booking' ? <BookingStatusIndicator status={r.status} size="sm" /> : <StatusBadge size="sm" label={tr(`ws.kit.reservationKind.${r.kind}`)} />}</td>
+      <td>
+        <ReservationBadge reservation={r} size="sm" />
+      </td>
       <td>{r.kind === 'booking' ? <PaymentStatusIndicator paymentStatus={paymentStatusFor(r, tabLinks)} size="sm" /> : null}</td>
       <td style={{ textAlign: 'end', whiteSpace: 'nowrap' }}>
         <span style={{ display: 'inline-flex', gap: '0.3rem' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
@@ -297,30 +306,33 @@ function AvailabilityStrip({
       title={tr('ws.courtDesk.board.availability')}
       padded={false}
       actions={
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: 'var(--tp-fs-xs)', color: live ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)' }}>
-          <Icon name={live ? 'wifiOff' : 'clock'} size={12} style={{ display: live ? 'none' : undefined }} />
+        /*
+         * This rendered a wifiOff glyph and then hid it with display:'none'
+         * whenever the feed WAS live, so the good state was the only one with
+         * no shape at all (rulebook 10.6). Both states carry a glyph now, and
+         * neither pulses: live is steady, and its label already says so.
+         */
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: live ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)' }}>
+          <Icon name={live ? 'checkCircle' : 'clock'} size={12} />
           {live ? tr('ws.courtDesk.board.live') : tr('ws.courtDesk.board.polling')}
         </span>
       }
     >
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {availability.map((a) => {
-          let body: ReactNode;
-          let tone: 'success' | 'accent' | 'neutral' = 'success';
-          if (a.state === 'busy') {
-            tone = a.kind === 'maintenance' ? 'neutral' : 'accent';
-            body = tr(a.kind === 'maintenance' ? 'ws.courtDesk.board.busyBlocked' : 'ws.courtDesk.board.busyUntil', { time: formatTime(new Date(a.untilAt), locale, tz) });
-          } else if (a.nextStartAt) {
-            body = tr('ws.courtDesk.board.freeUntil', { time: formatTime(new Date(a.nextStartAt), locale, tz) });
-          } else {
-            body = tr('ws.courtDesk.board.free');
-          }
+          const tone = availabilityTone(a);
+          const body =
+            a.state === 'busy'
+              ? tr(a.kind === 'maintenance' ? 'ws.courtDesk.board.busyBlocked' : 'ws.courtDesk.board.busyUntil', { time: formatTime(new Date(a.untilAt), locale, tz) })
+              : a.nextStartAt
+                ? tr('ws.courtDesk.board.freeUntil', { time: formatTime(new Date(a.nextStartAt), locale, tz) })
+                : tr('ws.courtDesk.board.free');
           return (
             <li key={a.courtId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', paddingBlock: '0.5rem', paddingInline: '0.85rem', borderBlockEnd: '1px solid var(--tp-border)' }}>
               <span style={{ fontWeight: 600 }}>
                 <bdi>{courtName(a.courtId)}</bdi>
               </span>
-              <StatusBadge size="sm" tone={tone} label={typeof body === 'string' ? body : ''} />
+              <StatusBadge size="sm" tone={tone} label={body} />
             </li>
           );
         })}

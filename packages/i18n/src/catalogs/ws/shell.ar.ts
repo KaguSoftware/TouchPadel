@@ -23,6 +23,12 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     current: 'الحالية',
     open: 'فتح',
   },
+  status: {
+    ok: 'متصل — لا شيء بانتظار المزامنة.',
+  },
+  forbidden: {
+    action: 'فتح هذه الشاشة',
+  },
   lock: {
     title: 'المحطة مقفلة',
     hint: 'مسجّل الدخول باسم {name}. افتح القفل للمتابعة من حيث توقفت.',
@@ -73,6 +79,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     guestSite: 'موقع الضيوف',
     groupOperations: 'العمليات',
     groupSetup: 'الإعداد',
+    skipToMain: 'تخطَّ إلى المحتوى الرئيسي',
     switchWorkspace: 'تبديل مساحة العمل',
     language: 'English',
     languageAlt: 'العربية',

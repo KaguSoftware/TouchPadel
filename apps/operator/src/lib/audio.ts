@@ -149,7 +149,7 @@ export function StartShiftBanner() {
   return createElement(
     'button',
     { type: 'button', onClick: arm, style: bannerStyle, 'data-testid': 'start-shift' },
-    createElement('span', { style: { fontSize: '0.85rem', opacity: 0.9 } }, tr('op.kds.startShiftHint')),
+    createElement('span', { style: { fontSize: 'var(--tp-fs-md)', opacity: 0.9 } }, tr('op.kds.startShiftHint')),
     createElement('strong', { style: { whiteSpace: 'nowrap' } }, `▶ ${tr('op.kds.startShift')}`),
   );
 }

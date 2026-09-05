@@ -8,8 +8,15 @@ import type { BroadcastStatus } from '../lib/realtime';
 
 export function ConnectionPill({ status }: { status: BroadcastStatus }) {
   const { tr } = useLocale();
+  // Marks, not fills: a 8px dot drawn in --tp-accent-2 measures 1.78:1 on the
+  // desk's paper ground, i.e. invisible. And 'live' is a STATUS, so it takes
+  // the success family rather than borrowing the marketing accent.
   const color =
-    status === 'live' ? 'var(--tp-accent-2)' : status === 'connecting' ? '#E8A317' : 'var(--tp-danger)';
+    status === 'live'
+      ? 'var(--tp-success-mark)'
+      : status === 'connecting'
+        ? 'var(--tp-warn-mark)'
+        : 'var(--tp-danger-mark)';
   const label =
     status === 'live'
       ? tr('op.common.live')
@@ -25,11 +32,11 @@ export function ConnectionPill({ status }: { status: BroadcastStatus }) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: '0.35rem',
-        fontSize: '0.75rem',
+        fontSize: 'var(--tp-fs-xs)',
         fontWeight: 600,
         color: status === 'disconnected' ? 'var(--tp-danger)' : 'var(--tp-muted-fg)',
         border: '1px solid var(--tp-border)',
-        borderRadius: '999px',
+        borderRadius: 'var(--tp-radius-pill)',
         paddingInline: '0.55rem',
         paddingBlock: '0.15rem',
         whiteSpace: 'nowrap',
@@ -41,8 +48,10 @@ export function ConnectionPill({ status }: { status: BroadcastStatus }) {
           blockSize: '0.5rem',
           borderRadius: '50%',
           background: color,
-          animation: status === 'connecting' ? 'tpPulse 1.2s infinite' : undefined,
         }}
+        // 'connecting' is transient and pending, so it may loop; 'live' is a
+        // steady state already carried by the label and never does.
+        className={status === 'connecting' ? 'tp-attention' : undefined}
       />
       {label}
     </span>

@@ -45,7 +45,7 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
   }
 
   return (
-    <section aria-label={tr('ws.cashier.till.regionTab')} style={{ display: 'grid', gap: '0.6rem', alignContent: 'start' }}>
+    <section aria-label={tr('ws.cashier.till.regionTab')} style={{ display: 'grid', gap: 'var(--tp-sp-2-5)', alignContent: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
       <h2 style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700 }}>
         <bdi>{tab.tableNumber ? `${tr('op.till.table')} ${tab.tableNumber}` : (tab.label ?? '—')}</bdi>
       </h2>
@@ -68,7 +68,7 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
       </div>
       <ErrorText error={error} />
       {tab.lines.length > 0 && !cashOpen && (
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
           <Button kind="primary" size="lg" icon="banknote" disabled={busy} onClick={() => setCashOpen(true)}>
             {tr('op.till.payCash')}
           </Button>
@@ -78,7 +78,7 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
         </div>
       )}
       {cashOpen && (
-        <div style={{ display: 'grid', gap: '0.6rem' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
           <Field label={tr('op.till.tendered')}>
             <input
               style={{ ...inputStyle, fontSize: 'var(--tp-fs-xl)', textAlign: 'end' }}
@@ -93,11 +93,17 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
           </div>
           <ChangeDueDisplay due={total} tendered={tendered} change={change.sufficient ? change.changeIqd : null} short={change.sufficient ? null : change.shortByIqd} />
           <p style={muted}>{tr('ws.cashier.payment.queued')}</p>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', alignItems: 'flex-start', minBlockSize: '4rem' }}>
             <Button onClick={() => setCashOpen(false)} disabled={busy}>
               {tr('common.back')}
             </Button>
-            <Button kind="primary" busy={busy} disabled={!change.sufficient} onClick={() => void settleOffline('cash', tendered)}>
+            <Button
+              kind="primary"
+              busy={busy}
+              disabled={!change.sufficient}
+              disabledReason={change.sufficient ? undefined : tr('ws.cashier.payment.shortTendered')}
+              onClick={() => void settleOffline('cash', tendered)}
+            >
               {tr('op.till.recordPayment')}
             </Button>
           </div>
