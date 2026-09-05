@@ -13,7 +13,25 @@
  */
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 
-export const PERSIST_BUSTER = `op-${import.meta.env.VITE_APP_VERSION ?? 'dev'}`;
+/**
+ * Bump on ANY shape change to a persisted query's payload — a column added to
+ * its select, a field renamed, an embed added or dropped.
+ *
+ * The buster is the only thing standing between an old payload and new code
+ * that reads it, but `VITE_APP_VERSION` is undefined in dev: without this the
+ * dev buster is the constant `op-dev`, so a station warm-starts forever from
+ * the shape it cached before the change and the version half never fires.
+ * That is not hypothetical — c1b98ef added `orders`, `tab_adjustments`,
+ * `payments` and `total_iqd` to ['tabs'], and every station that had cached
+ * the previous shape hydrated rows with no `orders` straight into
+ * `computeTabTotals`, taking /till/tabs down with a TypeError mid-service.
+ *
+ * 2 — c1b98ef: ['tabs'] gained the totals embeds + total_iqd and the court on
+ *     the reservation; ['menu'] gained sold_out / unavailable_on.
+ */
+const PERSIST_SHAPE = 2;
+
+export const PERSIST_BUSTER = `op-${import.meta.env.VITE_APP_VERSION ?? 'dev'}-s${PERSIST_SHAPE}`;
 
 const PERSISTED_ROOTS = new Set(['menu', 'tabs', 'day', 'courts', 'activeCafeTables', 'venueSettings', 'taxInclusive']);
 
