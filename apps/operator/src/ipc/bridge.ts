@@ -119,10 +119,57 @@ export interface PrintResult {
 
 export type Role = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
 
+export type StationMode = 'till' | 'desk' | 'kds';
+
 export interface StationInfo {
   stationId: string; // e.g. 'TILL1'
-  mode: 'till' | 'desk' | 'kds';
+  mode: StationMode;
   tillHost?: string;
+  /** false ⇔ station.json does not exist yet: first run, show the setup screen. */
+  configured: boolean;
+  /** station.json exists but could not be read; the shell runs on dev defaults. */
+  configError?: string;
+  /** The shell build (app.getVersion()) — what auto-update replaces. */
+  appVersion: string;
+}
+
+/** What the first-run setup screen sends. Only accepted while unconfigured. */
+export interface StationSetupRequest {
+  stationId: string;
+  mode: StationMode;
+  /** kds only: the till's private IPv4 (discovered, or typed under Advanced). */
+  tillHost?: string;
+  /** kds only: the NORMALISED 10-char pairing code from the till. */
+  pairingCode?: string;
+}
+
+export type StationSetupResult =
+  | { ok: true }
+  | { ok: false; error: 'already-configured' | 'write-failed' };
+
+export type PairingInfoResult =
+  | { ok: true; stationId: string; host: string | null; port: number; code: string }
+  | { ok: false; error: 'pin not recognised' | 'not-a-till' | 'no-psk' | 'custom-psk' };
+
+export interface DiscoverRequest {
+  code: string;
+  /** Advanced path: confirm this one host instead of sweeping the subnet. */
+  host?: string;
+}
+
+export type DiscoverResult =
+  | { status: 'found'; tills: string[] }
+  | { status: 'bad-code'; candidates: string[] }
+  | { status: 'none' }
+  | { status: 'no-lan' };
+
+export interface UpdateReadyInfo {
+  version: string;
+}
+
+/** A validation refusal from main — every invoke may answer with this instead. */
+export interface IpcRefusal {
+  error: string;
 }
 
 export interface TouchBridge {
@@ -149,6 +196,16 @@ export interface TouchBridge {
   getQueueRows(): Promise<QueueRowInfo[]>;
   /** Manager-PIN quit — the only way a production kiosk window closes. */
   quitApp(pin: string): Promise<{ ok: boolean; error?: string }>;
+  /** First run only: write station.json and relaunch. */
+  saveStation(req: StationSetupRequest): Promise<StationSetupResult | IpcRefusal>;
+  /** Till only, behind the manager PIN: what a kitchen screen needs to pair. */
+  getPairingInfo(pin: string): Promise<PairingInfoResult | IpcRefusal>;
+  /** Unconfigured kitchen screen: find the till that accepts this code. */
+  discoverTill(req: DiscoverRequest): Promise<DiscoverResult | IpcRefusal>;
+  /** Fires (also on subscribe, if already the case) once an update has downloaded. */
+  onUpdateReady(cb: (info: UpdateReadyInfo) => void): Unsub;
+  /** Restart into the downloaded update. */
+  installUpdate(): Promise<{ ok: boolean }>;
 }
 
 declare global {
@@ -205,7 +262,25 @@ const mock: TouchBridge = {
     return null;
   },
   getStation() {
-    return { stationId: 'DEV1', mode: 'till' };
+    // `configured: true` keeps the first-run screen out of browser mode and the
+    // e2e suite; there is no station.json to write outside Electron.
+    return { stationId: 'DEV1', mode: 'till', configured: true, appVersion: import.meta.env.VITE_APP_VERSION ?? 'dev' };
+  },
+  async saveStation() {
+    console.warn('[touch:mock] saveStation: no station.json outside Electron');
+    return { ok: false, error: 'write-failed' };
+  },
+  async getPairingInfo() {
+    return { ok: false, error: 'not-a-till' };
+  },
+  async discoverTill() {
+    return { status: 'no-lan' };
+  },
+  onUpdateReady() {
+    return () => {};
+  },
+  async installUpdate() {
+    return { ok: false };
   },
 };
 
