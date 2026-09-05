@@ -46,7 +46,7 @@ function TabLabel({ text, focused }: { text: string; focused: boolean }) {
  * design. Screens pad their scroll content with useBottomTabBarHeight().
  *
  * A fixed `height: 86/66` used to ignore the safe-area inset: clipped labels
- * under Android's gesture bar (SDK 54 is edge-to-edge) and a too-tall bar on
+ * under Android's gesture bar (edge-to-edge, mandatory since SDK 55) and a too-tall bar on
  * phones without a home indicator.
  */
 export default function TabsLayoutAndroid() {

@@ -7,6 +7,7 @@
  * with `mirror(dir)` — from the locale context, the app's one direction.
  */
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import type { ColorValue } from 'react-native';
 import { useLocale } from '../i18n/LocaleProvider';
 import { mirror } from '../i18n/direction';
 import { brand, vendor } from '../theme/tokens';
@@ -144,19 +145,22 @@ export function PadelBallIcon({
 }
 
 // ── Tab bar icons (design: grid court / calendar / person) ──────────────────
-export const TabBookIcon = ({ size = 21, color }: { size?: number; color: string }) => (
+/** Tab bar icons take react-navigation's `ColorValue` (SDK 57: no longer a plain string). */
+type TabIconProps = { size?: number; color: ColorValue };
+
+export const TabBookIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
     <Rect x={3.5} y={4.5} width={17} height={15} rx={2.5} stroke={color} strokeWidth={2} />
     <Path d="M12 4.5v15M3.5 12h17" stroke={color} strokeWidth={2} />
   </Svg>
 );
-export const TabBookingsIcon = ({ size = 21, color }: { size?: number; color: string }) => (
+export const TabBookingsIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
     <Rect x={3.5} y={5.5} width={17} height={15} rx={2.5} stroke={color} strokeWidth={2} />
     <Path d="M3.5 10h17M8 3v4M16 3v4" stroke={color} strokeWidth={2} strokeLinecap="round" />
   </Svg>
 );
-export const TabProfileIcon = ({ size = 21, color }: { size?: number; color: string }) => (
+export const TabProfileIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
     <Circle cx={12} cy={8.5} r={3.5} stroke={color} strokeWidth={2} />
     <Path d="M5 19.5c1.5-3.2 4-4.5 7-4.5s5.5 1.3 7 4.5" stroke={color} strokeWidth={2} strokeLinecap="round" />
