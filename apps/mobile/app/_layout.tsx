@@ -7,7 +7,10 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { LocaleDirContext } from '@react-navigation/native';
+// SDK 56+: expo-router vendors react-navigation; app code imports it from here.
+// LocaleDirContext is marked deprecated there in favour of I18nManager — which
+// this app pins LTR on purpose (see RootStack), so the context stays.
+import { LocaleDirContext } from 'expo-router/react-navigation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';

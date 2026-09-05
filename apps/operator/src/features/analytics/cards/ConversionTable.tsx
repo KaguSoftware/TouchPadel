@@ -5,28 +5,25 @@
  * still shows up in "sold" — so the card states that in `howToRead` and marks
  * rows with sales but no views rather than printing an impossible ratio.
  * Sortable, searchable, CSV-exportable, collapsed to 15 rows.
+ *
+ * This was a hand-rolled <table> with `<th onClick>` headers — no button, no
+ * tabindex, no focus ring, so on the one screen an owner reads at a laptop the
+ * sort could not be reached from the keyboard at all — literal ▲/▼ glyphs where
+ * the rest of the app uses the chevron icon, and every figure start-aligned
+ * beside the item names. It is DataTable now, which owns all three.
  */
 import { useMemo, useState } from 'react';
 import { pickLocale, type ItemConversion } from '@touch/core';
-import { Button, inputStyle } from '../../../components/ui';
+import { Button } from '../../../components/ui';
 import { useLocale } from '../../../lib/i18n';
+import { DataTable, ResultCount, SearchField, StatusBadge, type Column } from '../../../components/kit';
 import { downloadCsv, toCsv } from '../csv';
 import type { Formatters } from '../format';
-import { CardShell, Chip, type CardState } from './CardShell';
+import { CardShell, type CardState } from './CardShell';
 
 type SortKey = 'name' | 'views' | 'carts' | 'sold' | 'conv';
 const COLLAPSED = 15;
 
-const th: React.CSSProperties = {
-  textAlign: 'start',
-  fontSize: '0.75rem',
-  color: 'var(--tp-muted-fg)',
-  fontWeight: 600,
-  paddingBlock: '0.25rem',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-};
-const td: React.CSSProperties = { fontSize: '0.82rem', paddingBlock: '0.22rem', borderBlockStart: '1px solid var(--tp-border)' };
 
 export function ConversionTable({
   rows,
@@ -63,25 +60,29 @@ export function ConversionTable({
 
   const shown = expanded ? filtered : filtered.slice(0, COLLAPSED);
 
-  function head(key: SortKey, label: string) {
-    return (
-      <th
-        scope="col"
-        style={th}
-        onClick={() => {
-          if (sort === key) setAsc((v) => !v);
-          else {
-            setSort(key);
-            setAsc(key === 'name');
-          }
-        }}
-        aria-sort={sort === key ? (asc ? 'ascending' : 'descending') : 'none'}
-      >
-        {label}
-        {sort === key ? (asc ? ' ▲' : ' ▼') : ''}
-      </th>
-    );
-  }
+  type Row = (typeof named)[number];
+  const columns: Column<Row>[] = [
+    { key: 'name', header: tr('analytics.conversion.item'), sortable: true, truncate: true, truncateTitle: (r) => r.name },
+    {
+      key: 'views',
+      header: tr('analytics.conversion.views'),
+      sortable: true,
+      numeric: true,
+      render: (r) => (r.views === 0 ? <StatusBadge size="sm" tone="warn" label={tr('analytics.conversion.noViews')} /> : f.num(r.views)),
+    },
+    { key: 'carts', header: tr('analytics.conversion.carts'), sortable: true, numeric: true, render: (r) => f.num(r.carts) },
+    { key: 'sold', header: tr('analytics.conversion.sold'), sortable: true, numeric: true, render: (r) => f.num(r.sold) },
+    {
+      key: 'conv',
+      header: tr('analytics.conversion.conv'),
+      sortable: true,
+      numeric: true,
+      // Two different populations: a guest who never scanned still lands in
+      // "sold", so a ratio here would be arithmetic on incompatible counts.
+      render: (r) => (r.views === 0 && r.sold > 0 ? <StatusBadge size="sm" tone="warn" label={tr('analytics.conversion.soldWithoutView')} /> : f.pct(r.convPct)),
+    },
+  ];
+
 
   function exportCsv() {
     const csv = toCsv(
@@ -105,63 +106,56 @@ export function ConversionTable({
       note={tr('analytics.conversion.howToRead')}
       actions={
         <>
-          <input
-            style={{ ...inputStyle, inlineSize: '10rem', fontSize: '0.8rem', paddingBlock: '0.25rem' }}
-            placeholder={tr('analytics.conversion.searchItems')}
+          {/* One search control in the app, not a bare input per card. */}
+          <SearchField
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={setSearch}
+            placeholder={tr('analytics.conversion.searchItems')}
             aria-label={tr('analytics.conversion.searchItems')}
+            style={{ inlineSize: '12rem' }}
           />
           <Button
+            size="sm"
             onClick={() => {
               setSort('sold');
               setAsc(true);
             }}
-            style={{ fontSize: '0.8rem', paddingBlock: '0.25rem' }}
           >
             {tr('analytics.conversion.leastSold')}
           </Button>
-          <Button onClick={exportCsv} style={{ fontSize: '0.8rem', paddingBlock: '0.25rem' }}>
+          <Button size="sm" icon="fileText" onClick={exportCsv}>
             {tr('analytics.conversion.csv')}
           </Button>
         </>
       }
     >
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ inlineSize: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {head('name', tr('analytics.conversion.item'))}
-              {head('views', tr('analytics.conversion.views'))}
-              {head('carts', tr('analytics.conversion.carts'))}
-              {head('sold', tr('analytics.conversion.sold'))}
-              {head('conv', tr('analytics.conversion.conv'))}
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((r) => (
-              <tr key={r.id}>
-                <td style={td}>{r.name}</td>
-                <td style={td}>{r.views === 0 ? <Chip tone="warn">{tr('analytics.conversion.noViews')}</Chip> : f.num(r.views)}</td>
-                <td style={td}>{f.num(r.carts)}</td>
-                <td style={td}>{f.num(r.sold)}</td>
-                <td style={td}>
-                  {r.views === 0 && r.sold > 0 ? (
-                    <Chip tone="warn">{tr('analytics.conversion.soldWithoutView')}</Chip>
-                  ) : (
-                    f.pct(r.convPct)
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <DataTable
+        aria-label={tr('analytics.conversion.title')}
+        columns={columns}
+        rows={shown}
+        rowKey={(r) => r.id}
+        dense
+        sort={{ key: sort, dir: asc ? 'asc' : 'desc' }}
+        // DataTable proposes a direction; this card keeps its own rule, because
+        // "sort by views" means the most-viewed first and only "sort by name"
+        // means A to Z. Nothing here decides what a figure is, only its order.
+        onSort={(next) => {
+          if (next.key === sort) {
+            setAsc((v) => !v);
+            return;
+          }
+          setSort(next.key as SortKey);
+          setAsc(next.key === 'name');
+        }}
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)' }}>
+        <ResultCount shown={shown.length} total={named.length} />
+        {filtered.length > COLLAPSED && (
+          <Button kind="ghost" size="sm" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? tr('analytics.conversion.showLess') : tr('analytics.conversion.showAll')}
+          </Button>
+        )}
       </div>
-      {filtered.length > COLLAPSED && (
-        <Button kind="ghost" onClick={() => setExpanded((v) => !v)} style={{ fontSize: '0.8rem', marginBlockStart: '0.4rem' }}>
-          {expanded ? tr('analytics.conversion.showLess') : tr('analytics.conversion.showAll')}
-        </Button>
-      )}
     </CardShell>
   );
 }

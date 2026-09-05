@@ -20,7 +20,7 @@ export function HiddenGems({ derived, state, f }: { derived: Derived | null; sta
     >
       <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '0.25rem' }}>
         {gems.map((g) => (
-          <li key={g.id} style={{ fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+          <li key={g.id} style={{ fontSize: 'var(--tp-fs-sm)', display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
             <span>{pickLocale({ en: g.nameEn, ar: g.nameAr }, locale) || g.id}</span>
             <span style={muted}>
               {f.pct(g.convPct)} · {f.num(g.views)} / {f.num(g.sold)}

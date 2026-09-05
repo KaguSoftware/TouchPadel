@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
@@ -39,6 +40,10 @@ export default function AvailabilityScreen() {
   // that has already started — so a fresh ScrollView per day/duration opens
   // where it should with no homing scroll. `key` does the remount.
   const gridKey = `${a.date}|${a.durationMin}`;
+
+  // The venue notice floats over the grid and leaves only when the guest
+  // closes it — a refetch flipping `degraded` back on must not resurrect it.
+  const [noticeClosed, setNoticeClosed] = useState(false);
 
   return (
     // Unpadded so the day strip can scroll out under the screen edge; every

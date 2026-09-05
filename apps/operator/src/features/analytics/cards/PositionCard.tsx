@@ -8,7 +8,8 @@ import type { MessageKey } from '@touch/i18n';
 import { useLocale } from '../../../lib/i18n';
 import type { Derived } from '../derive';
 import type { Formatters } from '../format';
-import { CardShell, Chip, muted, type CardState } from './CardShell';
+import { CardShell, muted, type CardState } from './CardShell';
+import { StatusBadge } from '../../../components/kit';
 
 const VERDICT: Record<string, MessageKey> = {
   'top-sells': 'analytics.position.verdictTop',
@@ -41,11 +42,11 @@ export function PositionCard({ derived, state, f }: { derived: Derived | null; s
           </>
         ) : undefined
       }
-      actions={pos && pos.hasData ? <Chip tone="neutral">{tr(strengthKey(pos.overallRho, pos.significant))}</Chip> : undefined}
+      actions={pos && pos.hasData ? <StatusBadge size="sm" tone="neutral" dot={false} label={tr(strengthKey(pos.overallRho, pos.significant))} /> : undefined}
     >
       {pos && (
         <div style={{ display: 'grid', gap: '0.6rem' }}>
-          <p style={{ margin: 0, fontSize: '0.9rem' }}>{tr(VERDICT[pos.direction] ?? 'analytics.position.verdictNone')}</p>
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-md)' }}>{tr(VERDICT[pos.direction] ?? 'analytics.position.verdictNone')}</p>
           <Bucket
             title={tr('analytics.position.buried')}
             hint={tr('analytics.position.buriedHint')}
@@ -63,10 +64,10 @@ export function PositionCard({ derived, state, f }: { derived: Derived | null; s
             <div style={{ display: 'grid', gap: '0.4rem', marginBlockStart: '0.4rem' }}>
               {pos.categories.map((cat) => (
                 <div key={cat.categoryId ?? 'none'}>
-                  <strong style={{ fontSize: '0.8rem' }}>
+                  <strong style={{ fontSize: 'var(--tp-fs-sm)' }}>
                     {pickLocale({ en: cat.categoryNameEn, ar: cat.categoryNameAr }, locale)}
                   </strong>
-                  <ol style={{ margin: '0.15rem 0 0', paddingInlineStart: '1.4rem', fontSize: '0.78rem' }}>
+                  <ol style={{ margin: '0.15rem 0 0', paddingInlineStart: '1.4rem', fontSize: 'var(--tp-fs-xs)' }}>
                     {cat.items.map((i) => (
                       <li key={i.id}>
                         {name(i)} — {f.num(i.qty)}
@@ -104,12 +105,12 @@ function Bucket({
   const { tr } = useLocale();
   return (
     <div>
-      <span style={{ fontSize: '0.82rem', fontWeight: 700 }}>{title}</span>
+      <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{title}</span>
       <span style={{ ...muted, marginInlineStart: '0.4rem' }}>{hint}</span>
       {rows.length === 0 ? (
         <p style={muted}>{tr('analytics.empty.generic')}</p>
       ) : (
-        <ul style={{ margin: '0.15rem 0 0', paddingInlineStart: '1.1rem', fontSize: '0.8rem' }}>
+        <ul style={{ margin: '0.15rem 0 0', paddingInlineStart: '1.1rem', fontSize: 'var(--tp-fs-sm)' }}>
           {rows.map((r) => (
             <li key={r.id}>
               {r.label} <span style={{ color: 'var(--tp-muted-fg)' }}>({f.num(r.gap)})</span>

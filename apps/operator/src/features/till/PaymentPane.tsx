@@ -19,7 +19,7 @@ import { AmountPad, Button, ErrorText, Field, Modal, inputStyle } from '../../co
 import { ChangeDueDisplay, MessagePresenter, Money } from '../../components/kit';
 import { Switch } from '../../components/Switch';
 import { computeChange } from './change';
-import { kvRow, muted, numeric } from './tillStyles';
+import { kvRow, muted, numeric, reasonedFooter } from './tillStyles';
 
 export type PaymentMethod = 'cash' | 'card';
 
@@ -56,8 +56,20 @@ export function PaymentPane({
 
   const digits = (raw: string) => Number(raw.replace(/\D/g, '')) || 0;
 
+  /*
+   * Rulebook 4.3. The two ways to reach a dead-ended Record payment are a
+   * zeroed part-payment amount and a tender that does not cover the target;
+   * both are the operator's own typing, so the reason must sit ON the control
+   * they are about to press, not only in the change display above it.
+   */
+  const recordBlockedReason = !amountValid
+    ? tr('ws.cashier.payment.enterAmount')
+    : !change.sufficient
+      ? tr('ws.cashier.payment.shortTendered')
+      : undefined;
+
   const partialControl = (
-    <div style={{ display: 'grid', gap: '0.4rem', marginBlockEnd: '0.75rem' }}>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', marginBlockEnd: 'var(--tp-sp-3)' }}>
       <Switch checked={partial} onChange={(v) => setPartial(v)} label={tr('ws.cashier.payment.partial')} disabled={busy} />
       {partial ? (
         <Field label={tr('ws.cashier.payment.amount')} hint={tr('ws.cashier.payment.partialHint')}>
@@ -86,18 +98,26 @@ export function PaymentPane({
         onClose={busy ? () => {} : onCancel}
         size="sm"
         footer={
-          <>
+          <div style={reasonedFooter}>
             <Button onClick={onCancel} disabled={busy}>
               {tr('common.cancel')}
             </Button>
-            <Button kind="primary" size="lg" icon="card" busy={busy} disabled={!amountValid} onClick={() => onSettle('card', partial ? target : null, null)}>
+            <Button
+              kind="primary"
+              size="lg"
+              icon="card"
+              busy={busy}
+              disabled={!amountValid}
+              disabledReason={amountValid ? undefined : tr('ws.cashier.payment.enterAmount')}
+              onClick={() => onSettle('card', partial ? target : null, null)}
+            >
               {tr('op.till.recordPayment')}
             </Button>
-          </>
+          </div>
         }
       >
-        <MessagePresenter tone="info" icon="card" message={tr('ws.cashier.payment.cardNote')} style={{ marginBlockEnd: '0.85rem' }} />
-        <div style={{ ...kvRow, fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: '0.75rem' }}>
+        <MessagePresenter tone="info" icon="card" message={tr('ws.cashier.payment.cardNote')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
+        <div style={{ ...kvRow, fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-3)' }}>
           <span>{tr('common.total')}</span>
           <Money amount={due} strong />
         </div>
@@ -113,7 +133,7 @@ export function PaymentPane({
       title={tr('op.till.payCash')}
       onClose={busy ? () => {} : onCancel}
       footer={
-        <>
+        <div style={reasonedFooter}>
           <Button onClick={onCancel} disabled={busy}>
             {tr('common.cancel')}
           </Button>
@@ -123,23 +143,24 @@ export function PaymentPane({
             icon="banknote"
             busy={busy}
             disabled={!amountValid || !change.sufficient}
+            disabledReason={recordBlockedReason}
             onClick={() => onSettle('cash', partial ? target : null, tendered)}
           >
             {tr('op.till.recordPayment')}
           </Button>
-        </>
+        </div>
       }
     >
-      <div style={{ ...kvRow, fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: '0.5rem' }}>
+      <div style={{ ...kvRow, fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-2)' }}>
         <span>{tr('common.total')}</span>
         <Money amount={due} strong />
       </div>
       {partialControl}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '0.9rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
         <div>
           <Field label={tr('op.till.tendered')}>
             <input
-              style={{ ...inputStyle, ...numeric, fontSize: 'var(--tp-fs-2xl)', textAlign: 'end', minBlockSize: '3rem' }}
+              style={{ ...inputStyle, ...numeric, fontSize: 'var(--tp-fs-2xl)', textAlign: 'end', minBlockSize: 'var(--tp-touch)' }}
               dir="ltr"
               inputMode="numeric"
               autoFocus
@@ -154,7 +175,7 @@ export function PaymentPane({
               }}
             />
           </Field>
-          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBlockEnd: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap', marginBlockEnd: 'var(--tp-sp-3)' }}>
             <Button size="sm" disabled={busy} onClick={() => setTendered(target)}>
               {tr('ws.cashier.payment.fullAmount')} · <bdi>{formatIQD(target, locale)}</bdi>
             </Button>
@@ -169,7 +190,7 @@ export function PaymentPane({
         short={change.sufficient ? null : change.shortByIqd}
       />
       <ErrorText error={error} />
-      <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: '0.5rem' }}>{tr('ws.cashier.payment.confirmByClick')}</p>
+      <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.payment.confirmByClick')}</p>
     </Modal>
   );
 }

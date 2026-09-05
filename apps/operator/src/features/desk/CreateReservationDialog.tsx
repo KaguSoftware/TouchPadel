@@ -86,7 +86,13 @@ export function CreateReservationDialog({
           <Button onClick={onClose} disabled={busy}>
             {tr('common.cancel')}
           </Button>
-          <Button kind="primary" busy={busy} disabled={!canSubmit} onClick={() => void submit()}>
+          <Button
+            kind="primary"
+            busy={busy}
+            disabled={!canSubmit}
+            disabledReason={tr('ws.courtDesk.create.needsGuest')}
+            onClick={() => void submit()}
+          >
             {tr('op.desk.create')}
           </Button>
         </>

@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
-import { AsyncStateWrapper, DataTable, EmptyState, Money, PageHeader, StatusBadge, asyncStatus, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, Money, PageHeader, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
 import { SK } from './stockKeys';
 
 interface MarginRow {
@@ -58,7 +58,7 @@ export function Margins() {
         const bad = r.margin_iqd < 0;
         const thin = !bad && (r.margin_percent ?? 100) < 30;
         return (
-          <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
             {bad && <StatusBadge size="sm" tone="danger" label={tr('ws.manager.stock.margins.negative')} />}
             {thin && <StatusBadge size="sm" tone="warn" label={tr('ws.manager.stock.margins.thin')} />}
             <Money amount={r.margin_iqd} strong />
@@ -71,14 +71,17 @@ export function Margins() {
 
   return (
     <div>
-      <PageHeader title={tr('op.stock.marginsTitle')} subtitle={tr('ws.manager.stock.margins.lead')} />
+      <PageHeader title={tr('op.stock.marginsTitle')} subtitle={tr('ws.manager.stock.margins.lead')}>
+        <ResultCount shown={marginsQ.data?.length ?? 0} total={marginsQ.data?.length ?? 0} />
+      </PageHeader>
       <AsyncStateWrapper
         status={asyncStatus(marginsQ, (d) => d.length === 0)}
         error={marginsQ.error}
         onRetry={() => void marginsQ.refetch()}
-        emptyContent={<EmptyState icon="chart" title={tr('op.stock.noRecipes')} />}
+        skeleton={<TableSkeleton columns={columns} />}
+        emptyContent={<EmptyState icon="chart" title={tr('op.stock.noRecipes')} body={tr('ws.manager.stock.margins.lead')} />}
       >
-        <DataTable dense columns={columns} rows={marginsQ.data ?? []} rowKey={(r) => r.variant_id} aria-label={tr('op.stock.marginsTitle')} />
+        <DataTable columns={columns} rows={marginsQ.data ?? []} rowKey={(r) => r.variant_id} aria-label={tr('op.stock.marginsTitle')} />
       </AsyncStateWrapper>
     </div>
   );

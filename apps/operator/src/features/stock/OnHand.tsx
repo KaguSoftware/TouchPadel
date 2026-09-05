@@ -18,8 +18,10 @@ import {
   EmptyState,
   HeadlineFigure,
   PageHeader,
+  ResultCount,
   SegmentedControl,
   StatusBadge,
+  TableSkeleton,
   Toolbar,
   asyncStatus,
   type Column,
@@ -86,7 +88,7 @@ export function OnHand() {
       key: 'ingredient',
       header: tr('op.stock.ingredient'),
       render: (r) => (
-        <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
           <bdi>{pickName(locale, r)}</bdi>
           <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>({r.unit})</span>
           {r.kind === 'prepared' && <StatusBadge size="sm" tone="neutral" dot={false} label={tr('op.stock.prepared')} />}
@@ -138,9 +140,11 @@ export function OnHand() {
             </Button>
           </>
         }
-      />
+      >
+        <ResultCount shown={rows.length} total={active.length} />
+      </PageHeader>
 
-      <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', marginBlockEnd: '1rem' }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', marginBlockEnd: 'var(--tp-sp-4)' }}>
         <HeadlineFigure
           label={tr('ws.manager.stock.overview.low')}
           value={formatNumber(lowRows.length, locale)}
@@ -207,9 +211,16 @@ export function OnHand() {
         status={status}
         error={onHandQ.error}
         onRetry={() => void onHandQ.refetch()}
+        skeleton={<TableSkeleton columns={columns} />}
         emptyContent={<EmptyState icon="box" title={tr('op.stock.empty')} body={tr('ws.manager.stock.overview.emptyBody')} />}
       >
-        <DataTable columns={columns} rows={rows} rowKey={(r) => r.ingredient_id} dense aria-label={tr('op.stock.onHandTitle')} />
+        {rows.length === 0 ? (
+          // The cupboard is not empty — the segment above narrowed it to
+          // nothing, so the way out is that filter (rulebook 9.2).
+          <EmptyState kind="filtered" onClearFilters={() => setFilter('all')} />
+        ) : (
+          <DataTable columns={columns} rows={rows} rowKey={(r) => r.ingredient_id} aria-label={tr('op.stock.onHandTitle')} />
+        )}
       </AsyncStateWrapper>
 
       {open && <LedgerDrawer ingredient={open} onClose={() => setOpen(null)} />}

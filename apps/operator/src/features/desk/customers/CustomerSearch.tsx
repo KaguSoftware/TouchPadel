@@ -15,7 +15,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../../../lib/i18n';
 import { Button, Skeleton } from '../../../components/ui';
-import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, MessagePresenter, PageHeader, SearchField, type AsyncStatus } from '../../../components/kit';
+import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, FilterChips, MessagePresenter, PageHeader, ResultCount, SearchField, type AsyncStatus } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import type { CustomerSearchRow } from '../deskTypes';
 import { CUSTOMER_SEARCH_MIN, useCustomerSearch } from './CustomerPicker';
@@ -36,13 +36,17 @@ export function validateCustomerSearch(raw: Record<string, unknown>): CustomerSe
   };
 }
 
+/** What `customer_search` returns at most; the screen states when it is hit. */
+const CUSTOMER_SEARCH_LIMIT = 12;
+
 export function CustomerSearchScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const params = useSearch({ strict: false }) as CustomerSearchParams;
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const search = useCustomerSearch(query, 12);
+  const search = useCustomerSearch(query, CUSTOMER_SEARCH_LIMIT);
+  const results = search.data ?? [];
 
   const status: AsyncStatus | 'idle' | 'searching' = !search.enabled
     ? 'idle'
@@ -69,8 +73,19 @@ export function CustomerSearchScreen() {
   );
 
   return (
-    <div style={{ maxInlineSize: '56rem' }}>
-      <PageHeader title={tr('ws.courtDesk.customers.title')} subtitle={tr('ws.courtDesk.customers.lead')} actions={createLink} />
+    <div style={{ maxInlineSize: 'var(--tp-measure-wide)' }}>
+      <PageHeader
+        title={tr('ws.courtDesk.customers.title')}
+        subtitle={
+          /* Rulebook 6.10: the count belongs beside the title, not only in a
+             footer line the eye reaches last. */
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'baseline', flexWrap: 'wrap' }}>
+            {tr('ws.courtDesk.customers.lead')}
+            {status === 'ready' && <ResultCount shown={results.length} total={results.length} />}
+          </span>
+        }
+        actions={createLink}
+      />
       {params.attach && (
         <MessagePresenter
           tone="info"
@@ -91,6 +106,28 @@ export function CustomerSearchScreen() {
         style={{ marginBlockEnd: '1rem' }}
       />
 
+      {/* Rulebook 6.6: the filter actually behind the results is the DEBOUNCED
+          query, which can differ from what is still being typed. Showing it
+          removably is also the one-click way back to an empty screen. */}
+      <FilterChips
+        chips={
+          search.enabled
+            ? [
+                {
+                  id: 'query',
+                  label: tr('ws.courtDesk.customers.queryChip', { query: search.debouncedQuery }),
+                  text: search.debouncedQuery,
+                  onRemove: () => {
+                    setQuery('');
+                    inputRef.current?.focus();
+                  },
+                },
+              ]
+            : []
+        }
+        style={{ marginBlockEnd: 'var(--tp-sp-2)' }}
+      />
+
       {status === 'idle' && <EmptyState icon="search" title={tr('ws.courtDesk.customers.idle')} body={tr('ws.courtDesk.customers.idleBody')} compact />}
       {status === 'searching' && <Skeleton lines={4} blockSize="2.6rem" />}
       {(status === 'ready' || status === 'empty' || status === 'error') && (
@@ -99,17 +136,34 @@ export function CustomerSearchScreen() {
           error={search.error}
           onRetry={() => void search.refetch()}
           emptyContent={
-            <EmptyState icon="users" title={tr('ws.courtDesk.customers.noMatch', { query: search.debouncedQuery })} body={tr('ws.courtDesk.customers.noMatchBody')} action={createLink} />
+            /* 'filtered', not 'initial': the desk did not arrive at an empty
+               customer book, it typed something that matched nothing, and the
+               way back is clearing the search — not only creating a record. */
+            <EmptyState
+              kind="filtered"
+              icon="users"
+              title={tr('ws.courtDesk.customers.noMatch', { query: search.debouncedQuery })}
+              body={tr('ws.courtDesk.customers.noMatchBody')}
+              onClearFilters={() => {
+                setQuery('');
+                inputRef.current?.focus();
+              }}
+              action={createLink}
+            />
           }
         >
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', background: 'var(--tp-surface)', overflow: 'hidden' }}>
-            {(search.data ?? []).map((c) => (
+            {results.map((c) => (
               <CustomerResultRow key={c.id} customer={c} attachLabel={params.attach ? (params.attach === 'booking' ? tr('ws.courtDesk.customers.attachBooking') : tr('ws.courtDesk.customers.attachTab')) : null} onAttach={() => attach(c)} onSelect={() => void navigate({ to: '/desk/customers/$id', params: { id: c.id } })} />
             ))}
           </ul>
-          <p style={{ marginBlockStart: '0.5rem', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-            {formatNumber((search.data ?? []).length, locale)} · {tr('ws.courtDesk.customers.lead')}
-          </p>
+          {/* The RPC caps the list, so a full page is never "all of them" —
+              say so rather than letting the count imply a complete answer. */}
+          {results.length === CUSTOMER_SEARCH_LIMIT && (
+            <p style={{ marginBlockStart: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+              {tr('ws.courtDesk.customers.capped', { count: formatNumber(CUSTOMER_SEARCH_LIMIT, locale) })}
+            </p>
+          )}
         </AsyncStateWrapper>
       )}
       {query.trim().length > 0 && query.trim().length < CUSTOMER_SEARCH_MIN && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.courtDesk.customers.idle')}</p>}

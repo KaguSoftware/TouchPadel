@@ -9,7 +9,7 @@ import { formatDateTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Modal } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, Money, asyncStatus, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, Money, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
 import { LEDGER_PAGE, SK, fetchLedger, type MovementRow } from './stockKeys';
 
 function refLabel(m: MovementRow): string {
@@ -97,9 +97,10 @@ export function LedgerDrawer({
         status={asyncStatus(ledgerQ, (d) => d.length === 0)}
         error={ledgerQ.error}
         onRetry={() => void ledgerQ.refetch()}
+        skeleton={<TableSkeleton columns={columns} rows={4} />}
         emptyContent={<EmptyState compact icon="fileText" title={tr('op.stock.noMovements')} />}
       >
-        <DataTable dense columns={columns} rows={rows} rowKey={(m) => String(m.id)} maxBlockSize="60vh" aria-label={tr('op.stock.ledger')} />
+        <DataTable columns={columns} rows={rows} rowKey={(m) => String(m.id)} maxBlockSize="60vh" aria-label={tr('op.stock.ledger')} />
       </AsyncStateWrapper>
     </Modal>
   );

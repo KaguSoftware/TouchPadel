@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack, useNavigation } from 'expo-router';
-import type { NavigationAction } from '@react-navigation/routers';
+import type { NavigationAction } from 'expo-router/react-navigation';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';

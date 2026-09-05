@@ -37,8 +37,8 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 
 ## Stack & environment
 - pnpm + Turborepo monorepo; TypeScript strict; Node ≥22 (supabase-js needs native WebSocket);
-  packages scoped `@touch/*`; **React 19.1** workspace-wide (pinned via root `pnpm.overrides`).
-- Apps: `apps/mobile` (**Expo SDK 54**, expo-router 6, RN 0.81) · `apps/web` (**Next 16.3** App Router, Vercel) ·
+  packages scoped `@touch/*`; **React 19.2** workspace-wide (pinned via root `pnpm.overrides`).
+- Apps: `apps/mobile` (**Expo SDK 57**, expo-router 57, RN 0.86) · `apps/web` (**Next 16.3** App Router, Vercel) ·
   `apps/operator` (Vite + React + TanStack Router SPA) · `apps/operator-shell` (Electron main/
   preload — SQLite queue, LAN KDS server, ESC/POS printing, heartbeat, kiosk — still skeleton).
 - DB: Supabase CLI + Docker locally (`supabase start`); schema-first migrations 0001–0026 in
@@ -198,8 +198,11 @@ surface was built out. Full audit: `docs/design/mobile-audit-2026-08-27.md`. Hea
   script and no `eslint.config.*` exists, despite `packages/config/src/eslint.js` shipping a complete
   preset *including the RTL logical-properties guard this file claims is enforced*.
 
-Target is **Expo SDK 54** — deliberately, because Expo Go on the Apple App Store stops at SDK 54, so
-it is the highest SDK that keeps the Expo Go loop alive on a physical iPhone. (Latest is 57.)
+Target was **Expo SDK 54** until 2026-09-05 — deliberately, because Expo Go on the Apple App Store
+stops at SDK 54. **Now Expo SDK 57** (RN 0.86, React 19.2, expo-router 57): the App Store Expo Go no
+longer loads the project, so the on-phone loop is an EAS **development build** (`eas build --profile
+development`; `eas go` is the only Expo Go route on iOS). SDK 56 split expo-router from
+react-navigation — app code imports `expo-router/react-navigation` / `expo-router/js-tabs`, lint-guarded.
 
 ## Day 4 (2026-08-27) — the padel booking backend was audited too
 

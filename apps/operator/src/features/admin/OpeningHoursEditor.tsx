@@ -144,7 +144,7 @@ export function OpeningHoursEditor() {
   const showDate = (iso: string) => formatDate(new Date(`${iso}T00:00:00`), locale);
 
   return (
-    <div style={{ display: 'grid', gap: '1rem', maxInlineSize: '44rem' }}>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', maxInlineSize: '44rem' }}>
       <Panel title={tr('op.hours.title')} padded={false}>
         <div role="group" aria-label={tr('op.hours.title')} style={{ display: 'grid' }}>
           {DAY_KEYS.map((key) => {
@@ -156,18 +156,18 @@ export function OpeningHoursEditor() {
                   display: 'grid',
                   gridTemplateColumns: '4.5rem auto minmax(0, 1fr)',
                   alignItems: 'center',
-                  gap: '0.75rem',
-                  paddingBlock: '0.45rem',
-                  paddingInline: '0.85rem',
+                  gap: 'var(--tp-sp-3)',
+                  paddingBlock: 'var(--tp-sp-2)',
+                  paddingInline: 'var(--tp-sp-3)',
                   borderBlockEnd: '1px solid var(--tp-border)',
                 }}
               >
                 <span style={{ fontWeight: 600 }}>{tr(`op.days.${key}`)}</span>
-                <label style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', fontSize: 'var(--tp-fs-sm)' }}>
+                <label style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)' }}>
                   <input type="checkbox" checked={d.closed} disabled={busy} onChange={(e) => editDay(key, { closed: e.target.checked })} />
                   {tr('op.hours.closedDay')}
                 </label>
-                <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', minBlockSize: '2.25rem' }}>
+                <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap', minBlockSize: 'var(--tp-row-h)' }}>
                   {!d.closed && (
                     <>
                       <input
@@ -199,13 +199,13 @@ export function OpeningHoursEditor() {
           })}
         </div>
         {DAY_KEYS.some((k) => draft[k].split) && (
-          <MessagePresenter tone="refused" message={tr('op.hours.splitNotice')} style={{ marginBlock: '0.75rem', marginInline: '0.85rem' }} />
+          <MessagePresenter tone="refused" message={tr('op.hours.splitNotice')} style={{ marginBlock: 'var(--tp-sp-3)', marginInline: 'var(--tp-sp-3)' }} />
         )}
       </Panel>
 
       <Panel title={tr('op.hours.closedDatesTitle')}>
-        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem' }}>{tr('op.hours.closedDatesHint')}</p>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>{tr('op.hours.closedDatesHint')}</p>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             style={{ ...inputStyle, inlineSize: 'auto' }}
             dir="ltr"
@@ -229,11 +229,11 @@ export function OpeningHoursEditor() {
         </div>
 
         {upcoming.length === 0 ? (
-          <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: '0.6rem' }}>{tr('op.hours.closedDatesNone')}</p>
+          <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-2-5)' }}>{tr('op.hours.closedDatesNone')}</p>
         ) : (
-          <ul style={{ listStyle: 'none', paddingInline: 0, marginBlock: '0.6rem 0', display: 'grid' }}>
+          <ul style={{ listStyle: 'none', paddingInline: 0, marginBlock: 'var(--tp-sp-2-5) 0', display: 'grid' }}>
             {upcoming.map((d) => (
-              <li key={d} className="tp-row" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', paddingBlock: '0.3rem', borderBlockEnd: '1px solid var(--tp-border)' }}>
+              <li key={d} className="tp-row" style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', paddingBlock: 'var(--tp-sp-1)', borderBlockEnd: '1px solid var(--tp-border)' }}>
                 <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', minInlineSize: '7rem' }}>
                   {d}
                 </span>
@@ -247,14 +247,14 @@ export function OpeningHoursEditor() {
         )}
 
         {past.length > 0 && (
-          <details style={{ marginBlockStart: '0.6rem' }}>
+          <details style={{ marginBlockStart: 'var(--tp-sp-2-5)' }}>
             <summary style={{ cursor: 'pointer', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
               {tr('op.hours.closedDatesPast', { count: past.length })}
             </summary>
             {/* Kept, not pruned: closed_dates is also the record of why a day has
                 no takings, and dropping last Eid would make the day-close history
                 unexplainable. */}
-            <ul style={{ listStyle: 'none', paddingInline: 0, display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+            <ul style={{ listStyle: 'none', paddingInline: 0, display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
               {past.map((d) => (
                 <li key={d} dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
                   {d}
@@ -267,11 +267,11 @@ export function OpeningHoursEditor() {
 
       <ErrorText error={error} style={{ marginBlock: 0 }} />
       {saved && !dirty && <MessagePresenter tone="success" message={tr('op.hours.saved')} />}
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
         <Button kind="primary" icon="check" busy={busy} onClick={() => void save()}>
           {tr('common.save')}
         </Button>
-        <Button kind="ghost" disabled={busy || !dirty} onClick={discard}>
+        <Button kind="ghost" disabled={busy || !dirty} disabledReason={!dirty ? tr('ws.manager.disabled.noChanges') : undefined} onClick={discard}>
           {tr('ws.kit.actions.discard')}
         </Button>
         {dirty && <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} />}

@@ -12,7 +12,7 @@ import { Icon } from '../../components/icons';
 import { LOCAL_TAB_PREFIX, type OfflineTab } from '../../lib/offlineTabs';
 import { moveInList } from './keymap';
 import { tabAnchorLabel, tabHasWebOrder, type TabListRow } from './tillData';
-import { muted } from './tillStyles';
+import { muted, touchTarget } from './tillStyles';
 
 interface RailEntry {
   id: string;
@@ -74,12 +74,12 @@ export function TabRail({
   }
 
   return (
-    <section aria-label={tr('op.till.openTabs')} style={{ display: 'grid', gap: '0.5rem', alignContent: 'start', minInlineSize: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem', minInlineSize: 0 }}>
+    <section aria-label={tr('op.till.openTabs')} style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start', minInlineSize: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-1-5)', minInlineSize: 0 }}>
         <h2 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{tr('op.till.openTabs')}</h2>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
           <Kbd>F6</Kbd>
-          <Button kind="primary" size="lg" onClick={onNew} title={tr('ws.cashier.till.rail.newTab')} style={{ minInlineSize: 'var(--tp-touch)' }}>
+          <Button kind="primary" size="lg" onClick={onNew} title={tr('ws.cashier.till.rail.newTab')} style={touchTarget}>
             +
           </Button>
         </span>
@@ -92,7 +92,7 @@ export function TabRail({
       )}
       {!loading && entries.length === 0 && <p style={muted}>{tr('ws.cashier.till.rail.empty')}</p>}
 
-      <div role="listbox" aria-label={tr('op.till.openTabs')} onKeyDown={onKeyDown} style={{ display: 'grid', gap: '0.3rem' }}>
+      <div role="listbox" aria-label={tr('op.till.openTabs')} onKeyDown={onKeyDown} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
         {entries.map((entry, i) => {
           const selected = entry.id === selectedId;
           return (
@@ -114,11 +114,11 @@ export function TabRail({
               onClick={() => onSelect(entry.id)}
               style={{
                 display: 'grid',
-                gap: '0.2rem',
+                gap: 'var(--tp-sp-0)',
                 textAlign: 'start',
                 minBlockSize: 'var(--tp-touch)',
-                paddingBlock: '0.45rem',
-                paddingInline: '0.65rem',
+                paddingBlock: 'var(--tp-sp-2)',
+                paddingInline: 'var(--tp-sp-2-5)',
                 border: `1px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
                 borderRadius: 'var(--tp-radius-ctl)',
                 background: selected ? 'var(--tp-accent-soft)' : 'var(--tp-surface)',
@@ -126,22 +126,22 @@ export function TabRail({
                 font: 'inherit',
               }}
             >
-              <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
                 <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <bdi>{entry.label}</bdi>
                 </strong>
                 {selected && <Icon name="check" size={14} label={tr('ws.cashier.till.rail.selected')} />}
               </span>
-              <span style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+              <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
                 {entry.offline ? (
-                  <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
                     <Icon name="wifiOff" size={12} /> {tr('ws.cashier.till.rail.offline')}
                   </span>
                 ) : (
                   <>
                     {entry.status === 'awaiting_payment' && <TabStatusIndicator status="awaiting_payment" size="sm" />}
                     {entry.web && (
-                      <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
                         <Icon name="globe" size={12} /> {tr('ws.cashier.tabs.sourceWeb')}
                       </span>
                     )}

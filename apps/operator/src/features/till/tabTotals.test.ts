@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { computeTabTotals, discountBreakdown, liveLines, type TaxContext, type TotalsInput } from './tabTotals';
+import {
+  computeTabTotals,
+  discountBreakdown,
+  liveLines,
+  type TaxContext,
+  type TotalsInput,
+  type TotalsLine,
+} from './tabTotals';
 
 // This arithmetic used to live inside a useMemo in the middle of a 1,162-line
 // component, which is why the till's money display had no tests at all. The
@@ -9,7 +16,7 @@ import { computeTabTotals, discountBreakdown, liveLines, type TaxContext, type T
 const NO_TAX: TaxContext = { rateByCategory: new Map(), taxInclusive: false };
 const TEN_PCT: TaxContext = { rateByCategory: new Map([['food', 1000]]), taxInclusive: false };
 
-function line(total: number, over: Partial<TotalsInput['orders'][0]['order_items'][0]> = {}) {
+function line(total: number, over: Partial<TotalsLine> = {}) {
   return {
     line_total_iqd: total,
     voided: false,
@@ -190,5 +197,27 @@ describe('discountBreakdown', () => {
 
   it('is zero for no adjustments', () => {
     expect(discountBreakdown([])).toEqual({ manager: 0, promotion: 0 });
+  });
+});
+
+describe('a payload that predates an embed', () => {
+  // The regression: lib/persist.ts warm-starts ['tabs'] out of localStorage,
+  // and its buster is a constant in dev — so a station that had cached the
+  // pre-c1b98ef shape hydrated rows with NO `orders` key and OpenTabs read
+  // `undefined.filter`, killing /till/tabs behind the crash card. The buster
+  // now carries a shape version; this is the belt under that brace.
+
+  it('treats a missing orders embed as no lines rather than throwing', () => {
+    expect(() => computeTabTotals({} as TotalsInput, NO_TAX)).not.toThrow();
+    expect(computeTabTotals({} as TotalsInput, NO_TAX).total).toBe(0);
+  });
+
+  it('survives a missing order_items, tab_adjustments and payments', () => {
+    const stale = { orders: [{ status: 'sent' }] } as unknown as TotalsInput;
+    expect(computeTabTotals(stale, NO_TAX)).toMatchObject({ subtotal: 0, paid: 0, due: 0 });
+  });
+
+  it('liveLines tolerates an absent orders array', () => {
+    expect(liveLines(undefined)).toEqual([]);
   });
 });

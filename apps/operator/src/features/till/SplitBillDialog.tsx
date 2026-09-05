@@ -35,7 +35,7 @@ export function SplitBillDialog({
   const [mode, setMode] = useState<SplitMode>('even');
   return (
     <Modal title={tr('ws.cashier.split.title')} onClose={onClose} size="lg" footer={<Button onClick={onClose}>{tr('common.close')}</Button>}>
-      <div style={{ marginBlockEnd: '0.85rem' }}>
+      <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
         <SegmentedControl<SplitMode>
           value={mode}
           onChange={setMode}
@@ -86,9 +86,9 @@ function SplitEvenlyPanel({
   }
 
   return (
-    <div style={{ display: 'grid', gap: '0.6rem' }}>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
       <p style={muted}>{tr('ws.cashier.split.evenHint')}</p>
-      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'end' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'end' }}>
         <Field label={tr('ws.cashier.split.people')} style={{ marginBlockEnd: 0 }}>
           <input
             style={{ ...inputStyle, inlineSize: '6rem' }}
@@ -103,19 +103,30 @@ function SplitEvenlyPanel({
             }}
           />
         </Field>
-        <Button kind="primary" busy={loading} disabled={due <= 0} onClick={() => void load()}>
+        <Button
+          kind="primary"
+          busy={loading}
+          disabled={due <= 0}
+          disabledReason={due <= 0 ? tr('ws.cashier.detail.splitNothing') : undefined}
+          onClick={() => void load()}
+        >
           {tr('ws.cashier.split.compute')}
         </Button>
       </div>
       <ErrorText error={error} />
       {shares && (
-        <div style={{ display: 'grid', gap: '0.3rem' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
           {shares.map((s, i) => (
             <div key={i} style={{ ...kvRow, alignItems: 'center' }}>
               <span>
                 {tr('ws.cashier.split.share', { index: i + 1 })}: <Money amount={s} strong />
               </span>
-              <Button icon="banknote" disabled={busy || due <= 0 || s > due} onClick={() => onSettleShare(s)}>
+              <Button
+                icon="banknote"
+                disabled={busy || due <= 0 || s > due}
+                disabledReason={!busy && s > due && due > 0 ? tr('ws.cashier.split.shareOverDue') : undefined}
+                onClick={() => onSettleShare(s)}
+              >
                 {tr('ws.cashier.split.settleShare')}
               </Button>
             </div>
