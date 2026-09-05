@@ -1202,6 +1202,46 @@ First thing on a machine with the stack: `db:reset` → `pnpm --filter @touch/db
 **Still owed to activate** (owner): vendor + channel (D4a), scope (D4b), desk-claim policy (D4c), Iraq-only (D4d), the
 sender-id registration and the API key. Us: the runbook §C, in order.
 
+## Day 17 (2026-09-06) — the banner was the till again; push had never sent; the icon
+
+The owner sent a screenshot of the amber "Venue connection lost" banner and asked for a test-notification
+button and an app icon. Plan `~/.claude/plans/wtf-is-this-error-iterative-rivest.md`.
+
+**The banner.** Not the phone: `app.is_degraded()` was `true` on hosted because `device_heartbeats` held two
+stale dev tills — `DEV1` (browser-mode operator) and `TILL1` (the dev Electron shell's first-run name) from
+2026-09-05. Third occurrence. The mop is still `pnpm db:clear-dev-till`; the **tap** is new:
+`apps/operator/src/lib/heartbeat.ts` `devSafeIdentity` — under `import.meta.env.DEV` the beat goes out as
+`DEV-<station>` with `is_till: false`, so neither half of the till test can match (`heartbeat.test.ts`).
+
+**Push had never delivered — and it was the 403, not deployment.** `send-push` was deployed on 08-27 and the
+cron runs, but every `pg_net` call to `send-push` and `telegram-send` got the function's own 403 (2,515/day):
+the Vault JWT is gateway-valid but not byte-equal to the env key the platform injects.
+`_shared/supabase.ts` `isServiceRoleRequest` now also accepts a gateway-verified JWT with `role = service_role`
+(safe only because `verify_jwt = true` for both callers). Outbox rows 1–4 were sitting at `attempts = 0`.
+
+**"Send a test notification"** (Settings › Notifications, shown once permission is granted): a REAL push —
+`app.send_test_push()` (**0070**: own profile only, `NO_PUSH_TOKEN` / `RATE_LIMITED` 1/min / `AUTH_REQUIRED`,
+then `push_nudge()` so it leaves now) → `send-push` `kind = 'test'` → Expo → the phone. The screen re-registers
+the token once on `NO_PUSH_TOKEN` and retries. Boot wiring that was missing since the day-4 audit landed with
+it: `installNotificationHandler` in `push.ts` (still the one `expo-notifications` importer) — foreground
+display, the Android `default` channel, tap → `/booking/[id]`; plus the `expo-notifications` config plugin.
+
+**App icon / adaptive icon / splash / notification icon.** Owner chose the brand ball on Touch Blue (the
+operator desktop icon's design). Sources `apps/mobile/assets/brand/*.svg`, rendered by
+`pnpm --filter @touch/mobile icons` (Playwright, like the operator's script) to `assets/icon.png`,
+`adaptive-icon.png`, `adaptive-icon-monochrome.png`, `notification-icon.png`; splash = `logo-white.png` on
+`#3360AB`. `assets/README.md` is the swap runbook. **Native changes → new EAS builds.**
+
+**Not done here (the classifier refused every production write; owner runs, from `packages/db`):**
+`pnpm db:clear-dev-till`; void the two stale 09-02 outbox rows
+(`update notification_outbox set attempts = 5, last_error = 'VOID_STALE' where id in (1,2) and sent_at is null`);
+apply **0070 alone** — hosted is still at **0059**, `db push` would also apply the whole 0060–0069 backlog, so
+either do that catch-up deliberately or `supabase db query --linked -f supabase/migrations/20260906000070_test_push.sql`
+then `supabase migration repair --status applied 20260906000070`; `supabase functions deploy send-push
+telegram-send`; then watch `net._http_response` turn 200. Checks run: i18n 22, mobile 332, operator 495+3
+tests green; mobile + operator typecheck green; eslint on the changed mobile files green; `expo config
+--type prebuild` resolves every asset. Not run: deno check (no deno here), the db stack (no Docker).
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -1280,7 +1320,7 @@ sender-id registration and the API key. Us: the runbook §C, in order.
    module (Module-5 acceptance e2e passes), courts admin, KDS persistence, idle lock, batch
    expiry. **Code-complete; still owed on site**: physical print test, the packaged-install
    drill rehearsal (×2 before 2026-10-04), app icon, Sentry DSN — and the hosted catch-up
-   (Gotchas: `db push` 0060–0064 + replay redeploy).
+   (Gotchas: `db push` 0060–0070 — hosted verified at 0059 on 2026-09-06 — + function redeploys).
 7. **the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). ✔ crash fix + SDK 54 (day 5);
    ✔ **UI rebuild to the approved design 2026-08-31** (day 8 — guest browse, dark mode, merged
    grid, all screens); ✔ **day 9: the on-phone fix pass** ("no internet" root-caused — hosted
@@ -1427,22 +1467,28 @@ sender-id registration and the API key. Us: the runbook §C, in order.
   2026-09-02 (a `DEV1` session from 2026-09-01 evening left hosted degraded ~17 h). The fix
   is now one command from `packages/db`: **`pnpm db:clear-dev-till`**
   (`scripts/clear-dev-till.mjs`, the 0057 delete + sweep + verify; never touches a till
-  fresh < 1 h). Until a real till is installed: keep the operator open while testing guests
-  against hosted, or run that after closing it. Verify with the anon key:
+  fresh < 1 h). Verify with the anon key:
   `POST /rest/v1/rpc/is_degraded` (`Content-Profile: app`) → must be `false`.
+  **Third time 2026-09-05/06** (`DEV1` + a dev Electron shell set up as `TILL1`), after which
+  the tap was closed: `apps/operator/src/lib/heartbeat.ts` `devSafeIdentity` files any
+  `import.meta.env.DEV` session as `DEV-<station>` with `is_till: false`, so a development
+  operator can no longer put hosted into degraded mode. Builds older than that still can —
+  run the script if the banner ever comes back.
 - **MOBILE: NetInfo's `isInternetReachable` is a Google probe, not connectivity.** It stays
   `false` forever on networks where `clients3.google.com` is filtered or slow (and behind some
   VPNs on Android) while Supabase works. The app now uses `isConnected` only
   (`src/lib/queryClient.ts`) and never labels a non-transport failure as "no connection"
   (`src/lib/network.ts`). Do not reintroduce reachability gating.
-- **MOBILE: `send-push` was never deployed and its cron was never scheduled.** Day 3 records "all
-  four edge functions deployed" and names `telegram-send`, `telegram-callback`, `analytics-posthog`,
-  `analytics-insights` — **`send-push` and `replay` are not among them**. The every-minute cron is a
-  manual deploy step (`packages/db/README.md:100-108`, restated at `0024:164-167`) and was never run.
-  Combined with the client never obtaining a token (no `projectId` passed to
-  `getExpoPushTokenAsync()`, inside a `catch` that discards the error), push fails on **three**
-  independent counts. Verify with `select jobname, schedule, active from cron.job;` and
-  `supabase functions list --linked`.
+- **MOBILE: push never delivered until 2026-09-06 — and the reason was the bearer compare, not
+  deployment.** `send-push` and `replay` HAVE been deployed since 2026-08-27 and `tp_push_sweep`
+  runs every minute (0048), but every `pg_net` call to `send-push` AND `telegram-send` answered
+  **403 `{"error":"forbidden"}`** — 2,515 in one day. The 403 is the function's own
+  (`isServiceRoleRequest`): the gateway (`verify_jwt = true`) accepted the Vault JWT as validly
+  signed, yet it was not byte-equal to the `SUPABASE_SERVICE_ROLE_KEY` env the platform injects
+  (the project's key format moved on; both stay valid). `_shared/supabase.ts` now also accepts a
+  gateway-verified JWT whose `role` claim is `service_role`. Verify with
+  `select status_code, left(content::text,80) from net._http_response order by created desc limit 5`
+  → 200. If it ever regresses to 403, that is the first place to look — Telegram goes dark with it.
 - **MOBILE: account deletion is blocked by a foreign key, not just missing UI.**
   `profiles.id references auth.users(id) on delete cascade` (0004:9) but
   `reservations.guest_id references profiles(id)` has **no on-delete clause** (0008:21), so

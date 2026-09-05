@@ -64,21 +64,42 @@ export interface HeartbeatState {
   lastOkAt: number | null;
 }
 
+/**
+ * A DEVELOPMENT SESSION IS NEVER THE VENUE'S TILL.
+ *
+ * `app.is_degraded()` is "a till row exists in device_heartbeats AND none is
+ * fresh", where a till is `is_till` OR a device id starting with `TILL`. No till
+ * is installed at the venue yet, so the moment a dev operator session (the Vite
+ * dev server's `DEV1`, or the dev Electron shell set up as `TILL1`) closes
+ * against the hosted project, its row goes stale and every guest — mobile and
+ * web — sees "Venue connection lost" with holds refused. This happened on
+ * 2026-08-31 (migration 0057), 2026-09-02 and 2026-09-05; `pnpm db:clear-dev-till`
+ * is the mop, this is the tap. `import.meta.env.DEV` is true under `vite dev`
+ * and `electron-vite dev`, false in every packaged build, so the beat keeps
+ * flowing in development (the station still learns the server's real
+ * `degraded`) but is filed as a plain device: `is_till` false AND a `DEV-`
+ * name, because either half alone still matches the other half of the test.
+ */
+export function devSafeIdentity(stationId: string, isTill: boolean, dev = import.meta.env.DEV) {
+  return dev ? { deviceId: `DEV-${stationId}`, isTill: false } : { deviceId: stationId, isTill };
+}
+
 export async function sendHeartbeat(
   stationId: string,
   isTill: boolean,
   queueDepth: number,
   appVersion: string,
 ): Promise<HeartbeatResult> {
+  const identity = devSafeIdentity(stationId, isTill);
   return appRpc<HeartbeatResult>('heartbeat', {
-    p_device_id: stationId,
+    p_device_id: identity.deviceId,
     p_queue_depth: queueDepth,
     p_app_version: appVersion,
     // Explicit rather than relying on the `TILL%` name-prefix back-compat in
     // app.is_degraded(): a station called DESK-01 that is in fact the till
     // would otherwise never be recognised, and the venue would never be
     // detected as degraded at all.
-    p_is_till: isTill,
+    p_is_till: identity.isTill,
   });
 }
 

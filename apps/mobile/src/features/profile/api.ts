@@ -35,6 +35,17 @@ export async function updatePushToken(client: Client, uid: string, token: string
   if (error) throw error;
 }
 
+/**
+ * Settings > "Send a test notification": app.send_test_push (migration 0070)
+ * queues a real push for the caller's own token and nudges the sender. Raises
+ * NO_PUSH_TOKEN / RATE_LIMITED / AUTH_REQUIRED as P0001 — mapped by the screen.
+ */
+export async function sendTestPush(client: Client): Promise<{ queued: boolean; id: number }> {
+  const { data, error } = await client.schema('app').rpc('send_test_push');
+  if (error) throw error;
+  return data as { queued: boolean; id: number };
+}
+
 /** Own contact details (design 2026-08-31: Edit profile). RLS: own row only. */
 export async function updateOwnProfile(
   client: Client,

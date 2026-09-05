@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -26,6 +26,7 @@ import { lastKnownAppearance } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { AuthProvider } from '../src/features/auth/context';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
+import { installNotificationHandler } from '../src/features/profile/push';
 import { ErrorState, OfflineBanner } from '../src/components/states';
 import { ToastProvider } from '../src/components/overlays';
 import { palettes, ThemeProvider, useTheme } from '../src/theme';
@@ -240,6 +241,18 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
       stopFocus();
     };
   }, [prefs.locale, prefs.appearance]);
+
+  // Push: foreground display, the Android channel, and "tap opens the booking".
+  // Once per app life — it does not depend on language or theme. The booking
+  // screen carries its own RequireSession, so a tap while signed out lands on
+  // the sign-in it redirects to.
+  useEffect(
+    () =>
+      installNotificationHandler({
+        onOpenReservation: (id) => router.push({ pathname: '/booking/[id]', params: { id } }),
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (fontsLoaded || fontsError) {

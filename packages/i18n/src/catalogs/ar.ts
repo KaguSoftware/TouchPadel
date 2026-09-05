@@ -622,6 +622,10 @@ export const ar: Messages = {
     venue: 'المكان',
     versionLine: '{name} · الإصدار {version} ({build})',
     phoneUnavailable: 'لم ينشر المكان رقم هاتف بعد.',
+    sendTestPush: 'إرسال إشعار تجريبي',
+    testPushSent: 'أُرسل الإشعار التجريبي — يصلك خلال ثوانٍ.',
+    testPushNoToken: 'فعّل الإشعارات أولًا.',
+    testPushRateLimited: 'انتظر دقيقة قبل إرسال إشعار تجريبي آخر.',
   },
   cafe: {
     menu: 'قائمة الطعام',
