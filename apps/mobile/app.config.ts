@@ -40,6 +40,9 @@ if (!googleIosUrlScheme) {
 
 const plugins: NonNullable<ExpoConfig['plugins']> = [
   'expo-router',
+  // Declared per SDK 57's `expo install --fix` (both packages are already deps).
+  'expo-font',
+  'expo-status-bar',
   'expo-secure-store',
   // THE NATIVE RTL FLAG IS PINNED LEFT-TO-RIGHT, ON EVERY LAUNCH, BEFORE REACT.
   //
@@ -94,7 +97,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // theme drive the native scheme (Appearance.setColorScheme in ThemeProvider)
   // so keyboards, alerts and share sheets follow it instead of staying light.
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
+  // `newArchEnabled` left the schema in SDK 55: the New Architecture is the only one.
   // EAS Update (expo-updates, added eba8353 for the eas.json channels): store
   // binaries poll this URL on their profile's channel. 'appVersion' pins each
   // store version (0.1.0) to its own update runtime, so an OTA can never land

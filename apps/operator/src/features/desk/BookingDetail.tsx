@@ -24,7 +24,6 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle, type ReasonCode } from '../../components/ui';
 import {
   AsyncStateWrapper,
-  BookingStatusIndicator,
   CustomerFlagBadge,
   DescriptionList,
   EmptyState,
@@ -34,9 +33,9 @@ import {
   Panel,
   PaymentStatusIndicator,
   ReasonCodePrompt,
-  StatusBadge,
 } from '../../components/kit';
 import { allowedMarks, isLive, isOverrideRefusal, paymentStatusFor } from './deskLogic';
+import { ReservationBadge } from './deskStatus';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import { OVERRIDE_REASONS, STEP_MIN } from './ReservationActionsDialog';
 import { useTabLinks } from './useTradingNight';
@@ -194,7 +193,7 @@ export function BookingDetailScreen() {
               <bdi>{court ? pickName(locale, court) : ''}</bdi>
               <bdi>{formatDate(new Date(r.start_at), locale, tz)}</bdi>
               <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
-              {r.kind === 'booking' ? <BookingStatusIndicator status={r.status} /> : <StatusBadge label={tr(`ws.kit.reservationKind.${r.kind}`)} />}
+              <ReservationBadge reservation={r} />
             </span>
           ) : undefined
         }
@@ -316,7 +315,13 @@ export function BookingDetailScreen() {
                     </Button>
                   )}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    <Button icon="minus" busy={busy === 'shorten'} disabled={busy !== null || !canShorten} onClick={() => setPending('shorten')}>
+                    <Button
+                      icon="minus"
+                      busy={busy === 'shorten'}
+                      disabled={busy !== null || !canShorten}
+                      disabledReason={canShorten ? undefined : tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
+                      onClick={() => setPending('shorten')}
+                    >
                       {tr('ws.courtDesk.detail.shorten')}
                     </Button>
                     <Button icon="plus" busy={busy === 'extend'} disabled={busy !== null} onClick={() => setPending('extend')}>
@@ -346,7 +351,13 @@ export function BookingDetailScreen() {
                       <Field label={tr('ws.courtDesk.detail.newTime')}>
                         <input type="time" step={STEP_MIN * 60} style={inputStyle} value={move.time} onChange={(e) => setMove({ ...move, time: e.target.value })} />
                       </Field>
-                      <Button kind="primary" busy={busy === 'move'} disabled={busy !== null || !/^\d{2}:\d{2}$/.test(move.time)} onClick={() => setPending('move')}>
+                      <Button
+                        kind="primary"
+                        busy={busy === 'move'}
+                        disabled={busy !== null || !/^\d{2}:\d{2}$/.test(move.time)}
+                        disabledReason={tr('ws.courtDesk.detail.moveNeedsTime')}
+                        onClick={() => setPending('move')}
+                      >
                         {tr('ws.courtDesk.detail.moveSubmit')}
                       </Button>
                     </div>

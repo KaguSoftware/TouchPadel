@@ -273,7 +273,7 @@ export function NoteList({ customerId, notes, tz, onChanged }: { customerId: str
       </Field>
       <ErrorText error={error} />
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button kind="primary" icon="note" busy={busy} disabled={!draft.trim()} onClick={() => void add()}>
+        <Button kind="primary" icon="note" busy={busy} disabled={!draft.trim()} disabledReason={tr('ws.courtDesk.record.noteEmpty')} onClick={() => void add()}>
           {tr('ws.courtDesk.record.saveNote')}
         </Button>
       </div>

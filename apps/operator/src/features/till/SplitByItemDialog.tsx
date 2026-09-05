@@ -85,7 +85,7 @@ export function SplitByItemPanel({
   }
 
   return (
-    <div style={{ display: 'grid', gap: '0.6rem' }}>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
       <p style={muted}>{tr('ws.cashier.split.itemHint')}</p>
       <Field label={tr('ws.cashier.split.people')}>
         <input
@@ -108,7 +108,7 @@ export function SplitByItemPanel({
               key={l.id}
               className="tp-row"
               data-selected={current === undefined ? undefined : 'true'}
-              style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', paddingBlock: '0.35rem', paddingInline: '0.6rem', borderBlockEnd: '1px solid var(--tp-border)' }}
+              style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-touch)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', borderBlockEnd: '1px solid var(--tp-border)' }}
             >
               <span style={{ flex: 1, minInlineSize: 0 }}>
                 <bdi>{name}</bdi>
@@ -148,7 +148,7 @@ export function SplitByItemPanel({
       </div>
 
       {shares && (
-        <div style={{ display: 'grid', gap: '0.3rem' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
           {/* These are the amounts to take, not the goods subtotals: the
               discount, tax and court fee are spread across them by the server. */}
           {shares.map((s, i) => (

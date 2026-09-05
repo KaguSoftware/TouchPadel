@@ -75,7 +75,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
   }
 
   return (
-    <div style={{ ...card, marginBlockStart: '0.8rem' }}>
+    <div style={{ ...card, marginBlockStart: 'var(--tp-sp-3)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h4 style={{ margin: 0 }}>{tr('op.addons.options')}</h4>
         <Button onClick={() => setDraft({ nameEn: '', nameAr: '', delta: 0 })} disabled={!!draft}>
@@ -83,7 +83,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
         </Button>
       </div>
       {options.length === 0 && !draft && (
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: '0.9rem' }}>{tr('op.common.none')}</p>
+        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.none')}</p>
       )}
       {options.map((m, index) => (
         <div key={m.id}>
@@ -108,7 +108,7 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
         </div>
       ))}
       {draft && (
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', marginBlockStart: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-2)' }}>
           <input
             style={{ ...inputStyle, flex: 1, minInlineSize: '8rem' }}
             dir="ltr"
@@ -184,10 +184,10 @@ function OptionRow({
     <div
       style={{
         display: 'flex',
-        gap: '0.4rem',
+        gap: 'var(--tp-sp-1-5)',
         alignItems: 'center',
         flexWrap: 'wrap',
-        marginBlockStart: '0.4rem',
+        marginBlockStart: 'var(--tp-sp-1-5)',
         opacity: option.is_active ? 1 : 0.6,
       }}
     >

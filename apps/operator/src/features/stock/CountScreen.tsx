@@ -214,7 +214,7 @@ export function CountScreen() {
                 </Button>
               </>
             }
-            style={{ marginBlockEnd: '0.75rem' }}
+            style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
           />
         )}
         {!open ? (
@@ -225,7 +225,7 @@ export function CountScreen() {
               body={tr('op.stock.noOpenCount')}
               action={
                 <>
-                  {!can.adjustStock && <PermissionRefusedNotice action={tr('op.stock.startCount')} requiredRole={requiredRoleFor('adjustStock')} style={{ marginBlockEnd: '0.5rem' }} />}
+                  {!can.adjustStock && <PermissionRefusedNotice action={tr('op.stock.startCount')} requiredRole={requiredRoleFor('adjustStock')} style={{ marginBlockEnd: 'var(--tp-sp-2)' }} />}
                   <Button kind="primary" icon="scale" busy={busy} disabled={!can.adjustStock} onClick={() => void start()}>
                     {tr('op.stock.startCount')}
                   </Button>
@@ -236,15 +236,15 @@ export function CountScreen() {
           </Panel>
         ) : (
           <Panel padded={false}>
-            <p style={{ paddingBlock: '0.5rem', paddingInline: '0.85rem', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+            <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
               {tr('op.stock.blindHint')} {tr('ws.manager.stock.count.draftSaved')}
             </p>
             <ErrorText error={linesQ.error} />
-            <DataTable dense columns={columns} rows={lines} rowKey={(l) => l.ingredient_id} aria-label={tr('op.stock.countsTitle')} />
-            <div style={{ paddingBlock: '0.75rem', paddingInline: '0.85rem', borderBlockStart: '1px solid var(--tp-border)' }}>
+            <DataTable columns={columns} rows={lines} rowKey={(l) => l.ingredient_id} aria-label={tr('op.stock.countsTitle')} />
+            <div style={{ paddingBlock: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-3)', borderBlockStart: '1px solid var(--tp-border)' }}>
               <ErrorText error={error} />
-              {!can.adjustStock && <PermissionRefusedNotice action={tr('op.stock.finalizeBtn')} requiredRole={requiredRoleFor('adjustStock')} style={{ marginBlockEnd: '0.5rem' }} />}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', alignItems: 'center' }}>
+              {!can.adjustStock && <PermissionRefusedNotice action={tr('op.stock.finalizeBtn')} requiredRole={requiredRoleFor('adjustStock')} style={{ marginBlockEnd: 'var(--tp-sp-2)' }} />}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
                 <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>{tr('ws.manager.stock.count.untouched')}</span>
                 <Button kind="danger" icon="check" busy={busy} disabled={!can.adjustStock} onClick={() => void finalize()}>
                   {tr('op.stock.finalizeBtn')}

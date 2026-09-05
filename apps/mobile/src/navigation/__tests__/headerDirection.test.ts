@@ -50,7 +50,9 @@ describe('navigation bar direction', () => {
     // Without the provider the context falls back to its 'ltr' default and the
     // Arabic bar mirrors the wrong way.
     expect(LAYOUT).toContain('LocaleDirContext.Provider');
-    expect(LAYOUT).toContain("from '@react-navigation/native'");
+    // SDK 56+: react-navigation is vendored by expo-router; the bare package
+    // is no longer resolvable from app code.
+    expect(LAYOUT).toContain("from 'expo-router/react-navigation'");
   });
 
   it('drives the direction from the app locale, not the native RTL flag', () => {

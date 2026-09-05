@@ -13,6 +13,7 @@ export {
   formatDayNumber,
   formatIQD,
   formatNumber,
+  formatPercent,
   VENUE_TZ,
 } from './formatting';
 export { isolate, dirAttr, FSI, PDI } from './bidi';

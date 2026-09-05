@@ -98,7 +98,7 @@ export function StaffAccountEditor({
   return (
     <Panel
       title={
-        <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
           {tr('ws.owner.staff.editor.title')} — <bdi>{staff.display_name}</bdi>
           {dirty && <StatusBadge tone="warn" size="sm" label={tr('ws.owner.staff.editor.unsaved')} />}
         </span>
@@ -106,7 +106,7 @@ export function StaffAccountEditor({
       actions={<Button kind="ghost" size="sm" icon="x" aria-label={tr('ws.owner.staff.editor.close')} onClick={onClose} disabled={busy} />}
       data-testid="staff-editor"
     >
-      {isSelf && <MessagePresenter tone="info" message={tr('ws.owner.staff.editor.selfNote')} style={{ marginBlockEnd: '0.8rem' }} />}
+      {isSelf && <MessagePresenter tone="info" message={tr('ws.owner.staff.editor.selfNote')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />}
 
       <Field label={tr('ws.owner.staff.editor.name')}>
         <input style={inputStyle} value={name} disabled={!canManage || busy} maxLength={80} onChange={(e) => setName(e.target.value)} />
@@ -118,10 +118,10 @@ export function StaffAccountEditor({
         <Select<StaffRole> value={role} disabled={locked || busy} onChange={setRole} options={ROLES.map((r) => ({ value: r, label: tr(`op.roles.${r}`) }))} style={{ maxInlineSize: '14rem' }} />
       </Field>
 
-      <div style={{ marginBlockEnd: '0.85rem' }}>
-        <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}>{tr('ws.owner.staff.editor.pin')}</span>
+      <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
+        <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.owner.staff.editor.pin')}</span>
         {holdsPin ? (
-          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
             <StatusBadge tone={staff.has_pin ? 'success' : 'neutral'} size="sm" label={staff.has_pin ? tr('op.staff.pinSet') : tr('op.staff.pinNone')} />
             <Button size="sm" icon="lock" disabled={!canManage || busy} onClick={onSetPin}>
               {staff.has_pin ? tr('op.staff.pinChange') : tr('op.staff.pinSetAction')}
@@ -135,22 +135,22 @@ export function StaffAccountEditor({
         ) : (
           <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.staff.editor.pinNotApplicable')}</span>
         )}
-        <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.25rem' }}>{tr('ws.owner.staff.editor.pinNote')}</span>
+        <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.owner.staff.editor.pinNote')}</span>
       </div>
 
-      <div style={{ marginBlockEnd: '0.85rem' }}>
+      <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
         <Switch checked={active} label={tr('ws.owner.staff.editor.enabled')} disabled={locked || busy} onChange={(next) => setActive(next)} />
-        <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.25rem' }}>{tr('ws.owner.staff.editor.enabledNote')}</span>
+        <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.owner.staff.editor.enabledNote')}</span>
       </div>
 
-      <div style={{ marginBlockEnd: '0.85rem' }}>
+      <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
         <Button size="sm" icon="lock" disabled={!canManage || busy} onClick={onResetPassword}>
           {tr('op.staff.resetPassword')}
         </Button>
       </div>
 
       <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>
         <Button onClick={discard} disabled={!dirty || busy}>
           {tr('ws.kit.actions.discard')}
         </Button>

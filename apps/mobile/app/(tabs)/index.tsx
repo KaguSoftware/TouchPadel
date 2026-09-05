@@ -52,6 +52,8 @@ const LOGO_H = 30;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
 /** Logo row: 10 above + the wordmark + 6 below — what the floating notice clears. */
 const HEADER_H = 10 + LOGO_H + 6;
+/** Breathing room between the title's squiggle and the floating venue notice. */
+const NOTICE_GAP = 2;
 /** The back button's width + gap: the title slides over to make room for it. */
 const BACK_SHIFT = 44;
 /** The on-net button (prototype: 16 px padding round a 16 px line, top = tape − 24). */
@@ -197,6 +199,8 @@ export default function BookHomeScreen() {
   const { progress, veil, direction, isOpen, sheetMounted, openBooking, closeBooking } =
     useCourtTransition();
   const [noticeClosed, setNoticeClosed] = useState(false);
+  // The title row's measured height, so the notice clears its green squiggle.
+  const [titleRowH, setTitleRowH] = useState(0);
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
@@ -365,9 +369,9 @@ export default function BookHomeScreen() {
         court down — the stage measures itself, and a banner appearing mid-session
         used to resize it. It leaves only when the guest taps ×.
       */}
-      {degraded && !noticeClosed ? (
+      {degraded && !noticeClosed && titleRowH > 0 ? (
         <DegradedToast
-          top={HEADER_H + space.s}
+          top={HEADER_H + titleRowH + space.s + NOTICE_GAP}
           lead={t('degraded.leadConnectionLost')}
           // Isolated: an RTL paragraph would otherwise reorder the number groups.
           message={t('degraded.bannerCourts', { phone: phone ? isolate(phone) : '' })}
@@ -377,7 +381,13 @@ export default function BookHomeScreen() {
       ) : null}
 
       {/* Title row: [back to the court] BOOK A COURT */}
-      <View style={{ zIndex: 1, paddingStart: space.l, paddingEnd: space.l, paddingTop: space.sm }}>
+      <View
+        // Measured so the floating venue notice can sit below the green
+        // squiggle: the heading's height follows the locale, and Title's own
+        // bottom margin falls outside this box, so a constant would not do.
+        onLayout={(e) => setTitleRowH(e.nativeEvent.layout.height)}
+        style={{ zIndex: 1, paddingStart: space.l, paddingEnd: space.l, paddingTop: space.sm }}
+      >
         <Animated.View
           pointerEvents={isOpen ? 'auto' : 'none'}
           accessibilityElementsHidden={!isOpen}

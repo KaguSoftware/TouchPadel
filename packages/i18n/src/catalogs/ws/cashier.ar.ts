@@ -32,6 +32,9 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
       sheet: 'يفتح الحجم والإضافات',
       from: 'ابتداءً من',
     },
+    sheet: {
+      needChoice: '«{group}» يحتاج ما بين {min} و{max} من الاختيارات.',
+    },
     rail: {
       title: 'الحسابات المفتوحة',
       newTab: 'حساب جديد',
@@ -137,8 +140,10 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     actionsTitle: 'الإجراءات',
     discount: 'خصم',
     override: 'تعديل السعر',
+    overrideSame: 'اكتب سعرًا مختلفًا لتغييره.',
     chargeBooking: 'تحميل على حجز',
     split: 'تقسيم الفاتورة',
+    splitNothing: 'لم يبقَ مبلغ مستحق، فلا شيء لتقسيمه.',
     merge: 'دمج الطاولات',
     refund: 'استرجاع',
     refundAction: 'استرجاع دفعة',
@@ -175,6 +180,9 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     drawerRecorded: 'تم تسجيل فتح الدرج.',
     queued: 'سُجّلت دون اتصال — تُزامَن عند عودة الاتصال.',
     confirmByClick: 'أكّد بالزر؛ مفاتيح الوظائف تفتح هذه اللوحة فقط.',
+    nothingDue: 'لا يوجد مبلغ مستحق بعد — أضف أصنافًا إلى هذا الحساب أولًا.',
+    enterAmount: 'أدخل مبلغًا لتسجيله.',
+    shortTendered: 'المبلغ المستلم لا يغطي المستحق.',
   },
 
   split: {
@@ -186,6 +194,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     share: 'الحصة {index}',
     person: 'الشخص {index}',
     settleShare: 'أخذ الحصة (نقدًا)',
+    shareOverDue: 'هذه الحصة أكبر من المبلغ المتبقي المستحق.',
     unallocated: '{count} سطر/أسطر غير مُسنَدة لأحد.',
     unallocatedHint: 'يجب أن يعود كل سطر لشخص قبل حساب الحصص.',
     remaining: 'المتبقي {amount}',
@@ -200,6 +209,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     donor: 'الحساب المراد دمجه',
     none: 'لا توجد حسابات مفتوحة أخرى للدمج.',
     hint: 'يُغلق الحساب الآخر وتنتقل أصنافه وطلباته ودفعاته إلى هنا. لا يمكن التراجع عن ذلك.',
+    pickDonor: 'اختر الحساب الذي سيُغلق.',
     confirm: 'دمج',
   },
 
@@ -213,6 +223,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     selected: 'الحجز المحدَّد',
     consequence: 'يُفتح حساب مرتبط بالحجز وتنتقل إليه أسطر هذا الحساب وطلباته ودفعاته. يختم الخادم رسوم الملعب عند التسوية.',
     confirm: 'تحميل على هذا الحجز',
+    pickBooking: 'اختر حجزًا من القائمة أولًا.',
     partialFailure: 'فُتح حساب الحجز لكن الدمج رُفض — هذا الحساب لم يُمَس. ادمجه يدويًا من الحسابات المفتوحة.',
     option: '{time} · {court} · {guest}',
   },
@@ -265,5 +276,6 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     fromBooking: 'مرتبط بحجز',
     fromBookingHint: 'يُفتح هذا الحساب للحجز المختار من المكتب؛ تُضاف رسوم الملعب عند التسوية.',
     bookingMissing: 'هذا الحجز غير متاح لفتح حساب عليه (له حساب بالفعل، أو ليس اليوم).',
+    needAnchor: 'اختر طاولة، أو اكتب اسمًا، أو اختر حجزًا.',
   },
 };

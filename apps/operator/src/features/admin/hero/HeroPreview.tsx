@@ -45,21 +45,21 @@ export function HeroPreview(p: HeroPreviewProps) {
     inlineSize: `${PHONE_W}px`,
     maxInlineSize: '100%',
     borderRadius: '2rem',
-    border: '10px solid #1b1b1b',
+    border: '10px solid var(--tp-brand-black)',
     overflow: 'hidden',
     background: 'var(--tp-bg)',
     color: 'var(--tp-fg)',
     fontFamily: 'var(--tp-font-body, inherit)',
-    boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+    boxShadow: 'var(--tp-shadow-popover)',
   };
 
   return (
     <div data-theme="cafe" dir={dir} style={frame} aria-label={tr('op.hero.preview')}>
-      <div style={{ blockSize: '1.4rem', background: '#1b1b1b' }} />
+      <div style={{ blockSize: '1.4rem', background: 'var(--tp-brand-black)' }} />
       <header
         style={{
-          paddingBlock: '0.7rem',
-          paddingInline: '1rem',
+          paddingBlock: 'var(--tp-sp-3)',
+          paddingInline: 'var(--tp-sp-4)',
           background: 'var(--tp-accent)',
           color: 'var(--tp-accent-contrast)',
           display: 'flex',
@@ -67,8 +67,8 @@ export function HeroPreview(p: HeroPreviewProps) {
           alignItems: 'center',
         }}
       >
-        <strong style={{ letterSpacing: '0.1em', fontSize: '0.9rem' }}>TOUCH CAFE</strong>
-        <span style={{ fontSize: '0.75rem', opacity: 0.85 }}>
+        <strong style={{ letterSpacing: '0.1em', fontSize: 'var(--tp-fs-md)' }}>TOUCH CAFE</strong>
+        <span style={{ fontSize: 'var(--tp-fs-xs)', opacity: 0.85 }}>
           {tr('op.hero.previewTable', { table: '12' })}
         </span>
       </header>
@@ -78,15 +78,15 @@ export function HeroPreview(p: HeroPreviewProps) {
           style={{
             background: 'var(--tp-accent-2)',
             color: 'var(--tp-accent-2-contrast)',
-            fontSize: '0.75rem',
-            paddingBlock: '0.25rem',
+            fontSize: 'var(--tp-fs-xs)',
+            paddingBlock: 'var(--tp-sp-1)',
             overflow: 'hidden',
             whiteSpace: 'nowrap',
           }}
         >
           <span style={{ display: 'inline-block', animation: 'tpMarquee 14s linear infinite' }}>
             {phrases.map((s, i) => (
-              <span key={i} style={{ paddingInline: '1.2rem' }}>
+              <span key={i} style={{ paddingInline: 'var(--tp-sp-4)' }}>
                 {s}
               </span>
             ))}
@@ -121,7 +121,7 @@ export function HeroPreview(p: HeroPreviewProps) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--tp-muted-fg)',
-                fontSize: '0.85rem',
+                fontSize: 'var(--tp-fs-sm)',
               }}
             >
               {tr('op.hero.mediaRequired')}
@@ -132,13 +132,13 @@ export function HeroPreview(p: HeroPreviewProps) {
 
       {p.mode === 'featured' && <FeaturedCard {...p} label={label} badge={badge} />}
 
-      <div style={{ paddingBlock: '0.8rem', paddingInline: '1rem', display: 'grid', gap: '0.5rem' }}>
+      <div style={{ paddingBlock: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-2)' }}>
         {[0, 1, 2].map((i) => (
           <div
             key={i}
             style={{
               blockSize: '2.6rem',
-              borderRadius: '0.6rem',
+              borderRadius: 'var(--tp-radius-panel)',
               background: 'var(--tp-surface)',
               border: '1px solid var(--tp-border)',
             }}
@@ -149,14 +149,14 @@ export function HeroPreview(p: HeroPreviewProps) {
       {p.bellTutorial && (
         <div
           style={{
-            marginInline: '1rem',
-            marginBlockEnd: '0.8rem',
-            paddingBlock: '0.4rem',
-            paddingInline: '0.7rem',
-            borderRadius: '0.6rem',
+            marginInline: 'var(--tp-sp-4)',
+            marginBlockEnd: 'var(--tp-sp-3)',
+            paddingBlock: 'var(--tp-sp-1-5)',
+            paddingInline: 'var(--tp-sp-3)',
+            borderRadius: 'var(--tp-radius-panel)',
             background: 'var(--tp-surface)',
             border: '1px dashed var(--tp-accent-2)',
-            fontSize: '0.75rem',
+            fontSize: 'var(--tp-fs-xs)',
             color: 'var(--tp-muted-fg)',
           }}
         >
@@ -182,7 +182,7 @@ function FeaturedCard({
   return (
     <div
       style={{
-        margin: '0.8rem 1rem 0',
+        margin: 'var(--tp-sp-3) var(--tp-sp-4) 0',
         borderRadius: '1rem',
         overflow: 'hidden',
         background: 'var(--tp-surface)',
@@ -201,14 +201,14 @@ function FeaturedCard({
           <span
             style={{
               position: 'absolute',
-              insetBlockStart: '0.6rem',
-              insetInlineStart: '0.6rem',
-              paddingBlock: '0.2rem',
-              paddingInline: '0.6rem',
-              borderRadius: '999px',
+              insetBlockStart: 'var(--tp-sp-2-5)',
+              insetInlineStart: 'var(--tp-sp-2-5)',
+              paddingBlock: 'var(--tp-sp-1)',
+              paddingInline: 'var(--tp-sp-2-5)',
+              borderRadius: 'var(--tp-radius-pill)',
               background: 'var(--tp-accent-2)',
               color: 'var(--tp-accent-2-contrast)',
-              fontSize: '0.7rem',
+              fontSize: 'var(--tp-fs-xs)',
               fontWeight: 700,
             }}
           >
@@ -216,20 +216,20 @@ function FeaturedCard({
           </span>
         )}
       </div>
-      <div style={{ paddingBlock: '0.6rem', paddingInline: '0.8rem' }}>
+      <div style={{ paddingBlock: 'var(--tp-sp-2-5)', paddingInline: 'var(--tp-sp-3)' }}>
         {label && (
-          <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', fontSize: '0.75rem', color: 'var(--tp-accent)' }}>
+          <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-accent)' }}>
             <span style={{ display: 'inline-block', animation: 'tpMarquee 10s linear infinite' }}>
               {label}
             </span>
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
-          <strong style={{ fontSize: '1rem' }}>{name}</strong>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)' }}>
+          <strong style={{ fontSize: 'var(--tp-fs-lg)' }}>{name}</strong>
           {list !== null && (
             <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
               {discounted !== null && (
-                <s style={{ color: 'var(--tp-muted-fg)', marginInlineEnd: '0.4rem', fontSize: '0.8rem' }}>
+                <s style={{ color: 'var(--tp-muted-fg)', marginInlineEnd: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)' }}>
                   {formatIQD(list, locale)}
                 </s>
               )}

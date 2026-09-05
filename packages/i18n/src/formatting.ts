@@ -131,3 +131,18 @@ export function formatIQD(amount: number, locale: Locale): string {
 export function formatNumber(value: number, locale: Locale): string {
   return new Intl.NumberFormat(intlLocale(locale)).format(value);
 }
+
+/**
+ * A percentage change, always to ONE decimal place.
+ *
+ * Pinned rather than left to Intl's 0-3 default: these render in KPI columns,
+ * and a column that prints 25%, 12.3%, 0% has ragged decimals down its length
+ * where a single format would align. One format per data type, in one place
+ * (rulebook 12.4). The sign is the caller's — this formats the magnitude.
+ */
+export function formatPercent(value: number, locale: Locale): string {
+  return new Intl.NumberFormat(intlLocale(locale), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value);
+}

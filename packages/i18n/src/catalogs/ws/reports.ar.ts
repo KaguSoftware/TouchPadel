@@ -34,6 +34,7 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
     week: 'الأسبوع',
     month: 'الشهر',
     view: 'العرض',
+    period: 'الفترة',
   },
   views: {
     revenue: {
@@ -144,6 +145,10 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
     at: 'الوقت',
     actor: 'بواسطة',
     note: 'ملاحظة',
+  },
+  columnSet: {
+    showAll: 'إظهار كل الأعمدة',
+    showKey: 'إظهار الأعمدة الأساسية',
   },
   totals: 'الإجمالي',
   emptyTitle: 'لا شيء يُبلَّغ عنه في هذا النطاق',

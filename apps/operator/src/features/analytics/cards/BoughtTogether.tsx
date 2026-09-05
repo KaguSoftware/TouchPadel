@@ -24,7 +24,7 @@ export function BoughtTogether({ derived, state, f }: { derived: Derived | null;
     >
       <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '0.3rem' }}>
         {pairs.map((p) => (
-          <li key={`${p.a}-${p.b}`} style={{ fontSize: '0.85rem' }}>
+          <li key={`${p.a}-${p.b}`} style={{ fontSize: 'var(--tp-fs-sm)' }}>
             <span>
               {name(p.a)} + {name(p.b)}
             </span>

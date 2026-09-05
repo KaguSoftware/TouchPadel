@@ -28,9 +28,15 @@ function themeBlock(name: ThemeName): string {
   // scoped sub-trees (e.g. a cafe-branded embed inside the padel site).
   // Semantic status tokens ride along in BOTH themes; the cafe brand extras
   // (radii, shadows, type scale, motion, z-index, swoosh/bean tiles) only in cafe.
+  // `statusVars` is the CAFE status vocabulary (--tp-warn-bg, --tp-error-bg,
+  // --tp-backdrop …). The operator has its own, four rungs deep and OKLCH
+  // (--tp-warn-soft / -mark / -fg, --tp-overlay), so emitting both inside one
+  // theme block gave the operator two names for every status and six raw cafe
+  // hexes it never meant to have. It leaked: an admin chip rendered in cafe
+  // yellow off --tp-warn-bg. The operator block now carries one vocabulary.
   const vars: Readonly<Record<string, string>> = {
     ...palettes[name],
-    ...statusVars,
+    ...(name === 'operator' ? {} : statusVars),
     ...(name === 'cafe' ? cafeBrandVars : {}),
     ...(name === 'operator' ? operatorVars : {}),
   };
@@ -47,7 +53,9 @@ export const themeCss: string = [
   themeBlock('cafe'),
   themeBlock('operator'),
   // Base ground: paint from tokens so an unthemed flash never shows raw UA colors.
-  `body {\n  background: var(--tp-bg, #ffffff);\n  color: var(--tp-fg, #000000);\n  font-family: var(--tp-font-body);\n}`,
+  // Fallbacks are tokens, not raw #fff / #000: DESIGN.md forbids both, and an
+  // unthemed flash is exactly the moment a raw value would be visible.
+  `body {\n  background: var(--tp-bg, #FBFBFD);\n  color: var(--tp-fg, #0B0F17);\n  font-family: var(--tp-font-body);\n}`,
   // Arabic rendering: same tokens; the arabic-capable body stack already leads.
   // dir='rtl' needs no per-property overrides (logical properties only).
   `[dir='rtl'] {\n  font-family: var(--tp-font-arabic);\n}`,

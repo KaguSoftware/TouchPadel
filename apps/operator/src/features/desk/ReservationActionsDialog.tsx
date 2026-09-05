@@ -18,7 +18,7 @@ import type { CourtRow } from '../../lib/queries';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
-import { BookingStatusIndicator, StatusBadge } from '../../components/kit';
+import { ReservationBadge } from './deskStatus';
 import { allowedMarks, isLive } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
@@ -106,7 +106,7 @@ export function ReservationActionsDialog({
           <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
           {r.guest_phone && <bdi dir="ltr">{r.guest_phone}</bdi>}
           {r.price_iqd != null && <bdi dir="ltr">{formatIQD(r.price_iqd, locale)}</bdi>}
-          {r.kind === 'booking' ? <BookingStatusIndicator status={r.status} size="sm" /> : <StatusBadge size="sm" label={tr(`ws.kit.reservationKind.${r.kind}`)} />}
+          <ReservationBadge reservation={r} size="sm" />
         </span>
       }
       onClose={busy ? () => {} : onClose}
@@ -162,6 +162,9 @@ export function ReservationActionsDialog({
           <Button
             busy={busy}
             disabled={durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000}
+            // Rulebook 4.3: the floor is the court's own shortest priced
+            // length, which is not guessable from a greyed button.
+            disabledReason={tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
             onClick={() =>
               void run(() =>
                 mutate('reservation.update', {

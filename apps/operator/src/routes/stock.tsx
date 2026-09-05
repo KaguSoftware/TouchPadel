@@ -78,7 +78,7 @@ function StockShell() {
   }));
 
   return (
-    <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
+    <div style={{ display: 'flex', gap: 'var(--tp-sp-5)', alignItems: 'flex-start' }}>
       <SubNav title={tr('stock.title')} groups={groups} />
       <div style={{ flex: 1, minInlineSize: 0 }}>
         <Outlet />

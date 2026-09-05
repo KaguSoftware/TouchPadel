@@ -12,7 +12,7 @@ import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Field } from '../../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, StatusBadge, asyncStatus, type Column } from '../../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { BilingualFields, SortButtons } from '../../../components/inputs';
 import { Switch } from '../../../components/Switch';
 import { ImageField } from '../../../components/ImageField';
@@ -87,7 +87,7 @@ export function CourtsAdmin() {
       key: 'name',
       header: tr('ws.owner.courts.columns.name'),
       render: (c) => (
-        <span style={{ display: 'grid', gap: '0.1rem' }}>
+        <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
           <bdi style={{ fontWeight: 600 }}>{pickName(locale, c)}</bdi>
           {(c.description_en || c.description_ar) && (
             <bdi style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{locale === 'ar' ? c.description_ar || c.description_en : c.description_en || c.description_ar}</bdi>
@@ -125,11 +125,14 @@ export function CourtsAdmin() {
             {tr('op.common.add')}
           </Button>
         }
-      />
+      >
+        <ResultCount shown={rows.length} total={rows.length} />
+      </PageHeader>
       <AsyncStateWrapper
         status={asyncStatus(courtsQ, (d) => d.length === 0)}
         error={courtsQ.error}
         onRetry={() => void courtsQ.refetch()}
+        skeleton={<TableSkeleton columns={columns} />}
         emptyContent={
           <EmptyState icon="court" title={tr('ws.owner.courts.emptyTitle')} body={tr('ws.owner.courts.emptyBody')} action={<Button kind="primary" onClick={() => setEditing('new')}>{tr('op.common.add')}</Button>} />
         }
@@ -203,28 +206,28 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
   return (
     <Panel
       title={
-        <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
           {court ? tr('op.courts.editTitle') : tr('op.courts.newTitle')}
           {dirty && <StatusBadge tone="warn" size="sm" label={tr('ws.owner.courts.unsaved')} />}
         </span>
       }
-      style={{ marginBlockStart: '1rem' }}
+      style={{ marginBlockStart: 'var(--tp-sp-4)' }}
       data-testid="court-editor"
     >
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 13rem', gap: '1.25rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 13rem', gap: 'var(--tp-sp-5)', alignItems: 'start' }}>
         <div>
           {/* Labels stay "Name (English)" / "Name (Arabic)": the e2e suite and the
               desk staff both know them by those names. */}
           <BilingualFields labelEn={tr('op.courts.nameEn')} labelAr={tr('op.courts.nameAr')} en={nameEn} ar={nameAr} onEn={setNameEn} onAr={setNameAr} disabled={busy} maxLength={60} />
           <BilingualFields labelEn={tr('op.courts.descEn')} labelAr={tr('op.courts.descAr')} en={descEn} ar={descAr} onEn={setDescEn} onAr={setDescAr} disabled={busy} multiline maxLength={300} />
 
-          <div style={{ display: 'flex', gap: '1.4rem', marginBlock: '0.5rem 0.85rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-5)', marginBlock: 'var(--tp-sp-2) var(--tp-sp-3)', flexWrap: 'wrap' }}>
             <Switch checked={indoor} onChange={setIndoor} label={tr('op.courts.indoor')} disabled={busy} />
             <Switch checked={active} onChange={setActive} label={tr('op.courts.active')} disabled={busy} />
           </div>
 
           <Field label={tr('op.courts.durations')} error={durationsValid(durations) ? undefined : tr('ws.kit.common.required')}>
-            <div role="group" aria-label={tr('op.courts.durations')} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+            <div role="group" aria-label={tr('op.courts.durations')} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
               {DURATION_CHOICES.map((d) => (
                 <Button key={d} size="sm" kind={durations.includes(d) ? 'primary' : 'default'} aria-pressed={durations.includes(d)} disabled={busy} onClick={() => setDurations((prev) => toggleDuration(prev, d))}>
                   {tr('op.common.minutesShort', { minutes: d })}
@@ -237,11 +240,24 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
       </div>
 
       <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>
         <Button onClick={onCancel} disabled={busy}>
           {dirty ? tr('ws.owner.courts.discard') : tr('common.back')}
         </Button>
-        <Button kind="primary" icon="check" busy={busy} disabled={!nameEn.trim() || !nameAr.trim() || !durationsValid(durations)} onClick={() => void save()}>
+        <Button
+          kind="primary"
+          icon="check"
+          busy={busy}
+          disabled={!nameEn.trim() || !nameAr.trim() || !durationsValid(durations)}
+          // Rulebook 4.3. The button was dead with nothing said about it, on a
+          // form where the blocking field can be scrolled off the screen.
+          disabledReason={
+            !nameEn.trim() || !nameAr.trim()
+              ? tr('ws.manager.disabled.namesRequired')
+              : tr('ws.manager.disabled.durationsRequired')
+          }
+          onClick={() => void save()}
+        >
           {tr('op.common.apply')}
         </Button>
       </div>

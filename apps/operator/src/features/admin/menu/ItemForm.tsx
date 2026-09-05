@@ -231,15 +231,15 @@ export function ItemForm({
   const busy = save.isPending;
 
   return (
-    <div style={{ minInlineSize: 0, display: 'grid', gap: '0.75rem' }}>
+    <div style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
       {/* Title + save bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
         <div style={{ minInlineSize: 0 }}>
           <h2 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700 }}>
             <bdi>{item ? pickName(locale, item) : tr('ws.manager.menu.newItem')}</bdi>
           </h2>
           {item && (
-            <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+            <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
               {price !== null && (
                 <span>
                   {tr('op.menu.defaultPrice')}: <Money amount={price} />
@@ -249,12 +249,29 @@ export function ItemForm({
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
           {dirty && <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} />}
-          <Button kind="ghost" size="sm" disabled={!dirty || busy} onClick={discard}>
+          <Button kind="ghost" size="sm" disabled={!dirty || busy} disabledReason={!dirty ? tr('ws.manager.disabled.noChanges') : undefined} onClick={discard}>
             {tr('ws.kit.actions.discard')}
           </Button>
-          <Button kind="primary" icon="check" busy={busy} disabled={readOnly || !valid || !dirty} onClick={() => save.mutate()}>
+          <Button
+            kind="primary"
+            icon="check"
+            busy={busy}
+            disabled={readOnly || !valid || !dirty}
+            // Names and the flavour-line pair are the two things `valid` gates
+            // on; naming the wrong one would send the manager to the wrong field.
+            disabledReason={
+              name.en.trim() === '' || name.ar.trim() === ''
+                ? tr('ws.manager.disabled.namesRequired')
+                : hookErr === 'pair'
+                  ? tr('op.errors.HOOK_PAIR_MISMATCH')
+                  : !dirty
+                    ? tr('ws.manager.disabled.noChanges')
+                    : undefined
+            }
+            onClick={() => save.mutate()}
+          >
             {tr('ws.kit.actions.save')}
           </Button>
         </div>
@@ -278,7 +295,7 @@ export function ItemForm({
 
       {/* Photo + highlight + cost / sort / active */}
       <Panel title={tr('ws.manager.menu.form.presentation')}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: '1rem', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
           <div style={{ inlineSize: '11rem' }}>
             <ImageField
               label={tr('op.menu.photo')}
@@ -292,9 +309,9 @@ export function ItemForm({
             <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('op.menu.photoHint')}</p>
           </div>
           <div style={{ minInlineSize: 0 }}>
-            <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: '0.85rem' }}>
-              <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}>{tr('op.menu.highlight')}</legend>
-              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
+              <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.menu.highlight')}</legend>
+              <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
                 {HIGHLIGHTS.map((h) => {
                   const selected = highlight === h;
                   const label = h === 'none' ? tr('op.menu.highlightNone') : h === 'blue' ? tr('op.menu.highlightBlue') : tr('op.menu.highlightBrown');
@@ -304,9 +321,9 @@ export function ItemForm({
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '0.35rem',
-                        paddingBlock: '0.3rem',
-                        paddingInline: '0.6rem',
+                        gap: 'var(--tp-sp-1-5)',
+                        paddingBlock: 'var(--tp-sp-1)',
+                        paddingInline: 'var(--tp-sp-2-5)',
                         border: `2px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
                         borderRadius: 'var(--tp-radius-pill)',
                         cursor: readOnly ? 'not-allowed' : 'pointer',
@@ -340,7 +357,7 @@ export function ItemForm({
               </div>
             </fieldset>
 
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <Field label={tr('op.menu.cost')} hint={tr('op.menu.costHint')} style={{ marginBlockEnd: 0 }}>
                 <span onBlur={commitCost} style={{ display: 'inline-block' }}>
                   <MoneyInput value={costDraft} onChange={setCostDraft} allowEmpty disabled={readOnly || costMutation.isPending} style={{ inlineSize: '13rem' }} />
@@ -356,7 +373,7 @@ export function ItemForm({
                   onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
                 />
               </Field>
-              <div style={{ paddingBlockEnd: '0.35rem' }}>
+              <div style={{ paddingBlockEnd: 'var(--tp-sp-1-5)' }}>
                 <Switch checked={isActive} disabled={readOnly} onChange={setIsActive} label={tr('op.menu.isActive')} />
               </div>
             </div>
@@ -367,13 +384,13 @@ export function ItemForm({
       {/* Availability — three distinct states */}
       <Panel title={tr('ws.manager.menu.form.availability')}>
         {item ? (
-          <div style={{ display: 'grid', gap: '0.85rem' }}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
             <div>
               <Switch checked={item.sold_out} disabled={readOnly} onChange={setSoldOut} label={tr('op.menu.soldOut')} tone="danger" />
-              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.3rem' }}>{tr('ws.manager.menu.form.soldOutHint')}</p>
+              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.manager.menu.form.soldOutHint')}</p>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center', flexWrap: 'wrap' }}>
               <StatusBadge tone={offUntil ? 'warn' : 'neutral'} icon="clock" label={`${tr('ws.manager.menu.form.offTodayTitle')} · ${tr('ws.kit.common.temporary')}`} />
               {offUntil ? (
                 <>
@@ -394,7 +411,7 @@ export function ItemForm({
 
             {stockBlock.blocked && (
               <div role="status" aria-label={tr('ws.manager.menu.form.blockedTitle')}>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBlockEnd: '0.4rem' }}>
+                <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
                   <StatusBadge tone="warn" icon="box" label={tr('ws.manager.menu.form.blockedTitle')} />
                   <StatusBadge tone="neutral" icon="lock" label={tr('ws.kit.common.readOnlyStock')} size="sm" />
                 </div>

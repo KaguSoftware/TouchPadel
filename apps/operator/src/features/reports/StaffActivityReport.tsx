@@ -3,6 +3,10 @@
  * Rows stay in name order (no sorting by any figure), every figure sits
  * beside the person's shift context, and there is no rank, score or
  * leaderboard anywhere. The audit log filtered to one person is one click.
+ *
+ * The person is the identity of every row and leads every view. Days worked
+ * stays in the activity set on purpose: an order count read without it is the
+ * ranking this screen exists to refuse.
  */
 import { useNavigate } from '@tanstack/react-router';
 import { formatNumber } from '@touch/i18n';
@@ -26,21 +30,39 @@ export function StaffActivityReportScreen() {
       sortable={false}
       defaultSort={{ key: 'staff', dir: 'asc' }}
       views={[
-        { id: 'activity', label: tr('ws.reports.views.staff.activity') },
-        { id: 'exceptions', label: tr('ws.reports.views.staff.exceptions') },
-        { id: 'waiterCalls', label: tr('ws.reports.views.staff.waiterCalls') },
-        { id: 'cashVariance', label: tr('ws.reports.views.staff.cashVariance') },
+        {
+          id: 'activity',
+          label: tr('ws.reports.views.staff.activity'),
+          columns: ['staff', 'orders_taken', 'bookings_created', 'days_worked', 'busiest_day'],
+        },
+        {
+          id: 'exceptions',
+          label: tr('ws.reports.views.staff.exceptions'),
+          columns: ['staff', 'kind', 'count', 'amount_iqd', 'authoriser'],
+          emptyKind: 'nothingToDo',
+        },
+        {
+          id: 'waiterCalls',
+          label: tr('ws.reports.views.staff.waiterCalls'),
+          columns: ['staff', 'count', 'response_min', 'busiest_day'],
+        },
+        {
+          id: 'cashVariance',
+          label: tr('ws.reports.views.staff.cashVariance'),
+          columns: ['staff', 'business_date', 'cash_variance_iqd', 'closed_by', 'note'],
+          emptyKind: 'nothingToDo',
+        },
       ]}
-      intro={<MessagePresenter tone="info" icon="users" message={tr('ws.reports.staff.note')} style={{ marginBlockEnd: '0.9rem' }} />}
+      intro={<MessagePresenter tone="info" icon="users" message={tr('ws.reports.staff.note')} style={{ marginBlockEnd: 'var(--tp-sp-4)' }} />}
       extraControls={({ filters }) =>
         filters.staffId ? (
-          <div style={{ marginBlockEnd: '0.9rem' }}>
+          <div style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
             <Button size="sm" icon="shield" onClick={() => openAudit(filters.staffId!)}>
               {tr('ws.reports.staff.audit')}
             </Button>
           </div>
         ) : (
-          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.9rem' }}>{tr('ws.reports.staff.filterFirst')}</p>
+          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)' }}>{tr('ws.reports.staff.filterFirst')}</p>
         )
       }
       rowExtra={() => ({
@@ -50,14 +72,16 @@ export function StaffActivityReportScreen() {
           const days = typeof row.days_worked === 'number' ? row.days_worked : null;
           const busiest = typeof row.busiest_day === 'string' ? row.busiest_day : null;
           return (
-            <span style={{ display: 'inline-flex', gap: '0.6rem', alignItems: 'center', whiteSpace: 'nowrap' }}>
+            <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center', whiteSpace: 'nowrap' }}>
               {days != null && (
                 <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
                   {tr('ws.reports.staff.context', { days: formatNumber(days, locale), day: busiest ?? '—' })}
                 </span>
               )}
+              {/* DataTable no longer fires the row action for a control inside a
+                  cell, so the private stopPropagation this button carried is gone. */}
               {id && (
-                <Button size="sm" kind="ghost" icon="shield" onClick={(e) => { e.stopPropagation(); openAudit(id); }} title={tr('ws.reports.staff.audit')} aria-label={tr('ws.reports.staff.audit')} />
+                <Button size="sm" kind="ghost" icon="shield" onClick={() => openAudit(id)} title={tr('ws.reports.staff.audit')} aria-label={tr('ws.reports.staff.audit')} />
               )}
             </span>
           );

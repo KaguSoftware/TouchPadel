@@ -93,7 +93,7 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
             }
           />
         </Field>
-        <div style={{ marginBlockEnd: '0.8rem' }}>
+        <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
           <Switch
             checked={draft.is_active}
             onChange={(next) => setDraft((d) => ({ ...d, is_active: next }))}
@@ -101,7 +101,7 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
           />
         </div>
         <ErrorText error={save.error} />
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>
           <Button onClick={onClose} disabled={save.isPending}>
             {tr('common.cancel')}
           </Button>

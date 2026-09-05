@@ -57,24 +57,26 @@ export function useZoneSpy(ids: readonly string[]): string {
 const headRow: CSSProperties = {
   display: 'flex',
   alignItems: 'baseline',
-  gap: '0.6rem',
-  marginBlockEnd: '0.75rem',
+  gap: 'var(--tp-sp-2-5)',
+  marginBlockEnd: 'var(--tp-sp-3)',
   borderBlockEnd: '1px solid var(--tp-border)',
-  paddingBlockEnd: '0.4rem',
+  paddingBlockEnd: 'var(--tp-sp-1-5)',
 };
 
 export function Zone({ zone, children }: { zone: ZoneDef; children: ReactNode }) {
   const { tr } = useLocale();
   return (
-    <section id={`zone-${zone.id}`} aria-labelledby={`zone-${zone.id}-title`} style={{ marginBlockEnd: '2rem', scrollMarginBlockStart: '5rem' }}>
+    <section id={`zone-${zone.id}`} aria-labelledby={`zone-${zone.id}-title`} style={{ marginBlockEnd: 'var(--tp-sp-6)', scrollMarginBlockStart: '5rem' }}>
       <div style={headRow}>
-        <span aria-hidden="true" style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tp-muted)' }}>
+        {/* --tp-muted is a SURFACE step (86% lightness); as ink on the page
+            ground the ordinal was all but invisible. */}
+        <span aria-hidden="true" style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, color: 'var(--tp-muted-fg)' }}>
           {zone.ordinal}
         </span>
-        <h2 id={`zone-${zone.id}-title`} style={{ margin: 0, fontSize: '1.05rem' }}>
+        <h2 id={`zone-${zone.id}-title`} style={{ margin: 0, fontSize: 'var(--tp-fs-xl)' }}>
           {tr(zone.titleKey)}
         </h2>
-        <span style={{ fontSize: '0.85rem', color: 'var(--tp-muted-fg)' }}>{tr(zone.descKey)}</span>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(zone.descKey)}</span>
       </div>
       {children}
     </section>
@@ -84,7 +86,7 @@ export function Zone({ zone, children }: { zone: ZoneDef; children: ReactNode })
 /** Responsive-free desktop grid used by every zone body (page is min 1024px wide). */
 export function ZoneGrid({ columns = 2, children }: { columns?: number; children: ReactNode }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: '0.75rem', alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
       {children}
     </div>
   );

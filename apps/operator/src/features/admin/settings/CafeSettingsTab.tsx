@@ -3,6 +3,11 @@
  * hour (owner), waiter-call cooldown (`set_waiter_call_cooldown`), analytics
  * excluded items (owner), covers multiplier (per station, localStorage),
  * engagement floor. Every write goes through the RPCs it always did.
+ *
+ * Laid out as three grouped lists rather than five equal cards (rulebook 2.5):
+ * the settings are grouped by the thing they change — the trading day, the
+ * floor, the analytics screens — and every explanatory line now hangs off its
+ * control through Field's hint slot instead of floating beneath the card.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,7 +23,9 @@ import {
 } from '../../../lib/coversMultiplier';
 import { useCafeSettings, useSetCafeSetting } from '../../../lib/settings';
 import { useToast } from '../../../components/toast';
-import { Button, ErrorText, Field, Select, Skeleton, card, inputStyle } from '../../../components/ui';
+import { Button, ErrorText, Field, Select, Skeleton, inputStyle } from '../../../components/ui';
+import { ResultCount, StatusBadge } from '../../../components/kit';
+import { SettingsGroup, SettingsRow, settingField } from './SettingsList';
 
 const BUSINESS_DAY_HOURS = [0, 4, 5, 6, 7, 8] as const;
 const COOLDOWN_MIN = 30;
@@ -130,33 +137,57 @@ export function CafeSettingsTab() {
 
   if (isLoading) return <Skeleton lines={6} />;
 
-  const hint: React.CSSProperties = { margin: 0, marginBlockStart: '0.3rem', fontSize: '0.8rem', color: 'var(--tp-muted-fg)' };
+  const floorSaved = settings.analytics_engagement_floor ?? '';
 
   return (
-    <div style={{ maxInlineSize: '40rem', display: 'grid', gap: '0.8rem' }}>
+    <div style={{ maxInlineSize: 'var(--tp-measure-form)', display: 'grid', gap: 'var(--tp-sp-4)' }}>
       <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.owner.settings.cafe.lead')}</p>
 
       {canSetBusinessDay && (
-        <section style={card}>
-          <Field label={tr('op.settings.businessDay')}>
-            <Select
-              value={String(settings.analytics_business_day_start_hour)}
-              style={{ maxInlineSize: '14rem' }}
-              options={BUSINESS_DAY_HOURS.map((h) => ({
-                value: String(h),
-                label: h === 0 ? tr('op.settings.calendarDay') : tr('op.settings.hour', { hour: String(h).padStart(2, '0') }),
-              }))}
-              onChange={(v) => void write('analytics_business_day_start_hour', Number(v))}
-            />
-          </Field>
-          <p style={hint}>{tr('op.settings.businessDayHint')}</p>
-        </section>
+        <SettingsGroup title={tr('ws.manager.settings.groups.tradingDay')}>
+          <SettingsRow>
+            <Field label={tr('op.settings.businessDay')} hint={tr('op.settings.businessDayHint')} style={settingField}>
+              <Select
+                value={String(settings.analytics_business_day_start_hour)}
+                style={{ maxInlineSize: '14rem' }}
+                options={BUSINESS_DAY_HOURS.map((h) => ({
+                  value: String(h),
+                  label: h === 0 ? tr('op.settings.calendarDay') : tr('op.settings.hour', { hour: String(h).padStart(2, '0') }),
+                }))}
+                onChange={(v) => void write('analytics_business_day_start_hour', Number(v))}
+              />
+            </Field>
+          </SettingsRow>
+        </SettingsGroup>
       )}
 
-      <section style={card}>
-        <Field label={tr('op.settings.cooldown')}>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <SettingsGroup title={tr('ws.manager.settings.groups.service')}>
+        <SettingsRow
+          end={
+            <Button
+              kind="primary"
+              disabled={!cooldownValid || cooldownNum === venueQ.data || saveCooldown.isPending}
+              disabledReason={
+                !cooldownValid ? tr('ws.manager.settings.cooldownInvalid') : tr('ws.manager.settings.noChanges')
+              }
+              busy={saveCooldown.isPending}
+              onClick={() => saveCooldown.mutate()}
+            >
+              {tr('common.save')}
+            </Button>
+          }
+        >
+          <Field
+            label={tr('op.settings.cooldown')}
+            // The range used to sit in a paragraph under the card that turned red
+            // on failure — meaning by colour alone, and never announced. It is the
+            // control's own hint now, and its own error when the value is refused.
+            hint={`${tr('op.settings.cooldownHint')} ${tr('op.settings.cooldownRange')}`}
+            error={cooldown !== null && !cooldownValid ? tr('ws.manager.settings.cooldownInvalid') : undefined}
+            style={settingField}
+          >
             <input
+              // Three digits of expected input, three digits of field (7.5).
               style={{ ...inputStyle, inlineSize: '7rem', fontVariantNumeric: 'tabular-nums' }}
               dir="ltr"
               type="number"
@@ -167,92 +198,121 @@ export function CafeSettingsTab() {
               disabled={venueQ.isLoading}
               onChange={(e) => setCooldown(e.target.value)}
             />
-            <Button
-              kind="primary"
-              disabled={!cooldownValid || cooldownNum === venueQ.data || saveCooldown.isPending}
-              onClick={() => saveCooldown.mutate()}
-            >
-              {tr('common.save')}
-            </Button>
-          </div>
-        </Field>
-        <ErrorText error={venueQ.error} />
-        <p style={{ ...hint, color: cooldown !== null && !cooldownValid ? 'var(--tp-danger)' : hint.color }}>
-          {tr('op.settings.cooldownHint')} {tr('op.settings.cooldownRange')}
-        </p>
-      </section>
+          </Field>
+          <ErrorText error={venueQ.error} />
+        </SettingsRow>
+      </SettingsGroup>
 
-      {canSetExclusions && excluded && (
-        <section style={card}>
-          <Field label={tr('op.settings.excludedItems')}>
-            <input
-              style={inputStyle}
-              type="search"
-              placeholder={tr('op.common.search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+      <SettingsGroup title={tr('ws.manager.settings.groups.analytics')} description={tr('ws.manager.settings.analyticsLead')}>
+        {canSetExclusions && excluded ? (
+          <SettingsRow
+            end={
+              <Button
+                kind="primary"
+                disabled={!excludedDirty || setSetting.isPending}
+                disabledReason={!excludedDirty ? tr('ws.manager.settings.noChanges') : undefined}
+                busy={setSetting.isPending}
+                onClick={() => void write('analytics_excluded_item_ids', [...excluded])}
+              >
+                {tr('common.save')}
+              </Button>
+            }
+          >
+            <Field label={tr('op.settings.excludedItems')} hint={tr('op.settings.excludedHint')} style={settingField}>
+              <input
+                style={inputStyle}
+                type="search"
+                placeholder={tr('op.common.search')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </Field>
+            <div
+              style={{
+                maxBlockSize: '14rem',
+                overflowY: 'auto',
+                border: '1px solid var(--tp-border)',
+                borderRadius: 'var(--tp-radius-ctl)',
+                background: 'var(--tp-bg)',
+                paddingBlock: 'var(--tp-sp-1)',
+                paddingInline: 'var(--tp-sp-2)',
+              }}
+            >
+              {itemsQ.isLoading && <Skeleton lines={3} />}
+              {filteredItems.map((i) => (
+                <label
+                  key={i.id}
+                  style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-row-h-dense)' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={excluded.has(i.id)}
+                    onChange={(e) => {
+                      const next = new Set(excluded);
+                      if (e.target.checked) next.add(i.id);
+                      else next.delete(i.id);
+                      setExcluded(next);
+                    }}
+                  />
+                  <span>{locale === 'ar' ? i.name_ar : i.name_en}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', flexWrap: 'wrap' }}>
+              <ResultCount shown={filteredItems.length} total={itemsQ.data?.length ?? 0} />
+              <StatusBadge
+                size="sm"
+                tone={excluded.size > 0 ? 'warn' : 'neutral'}
+                label={tr('op.settings.excludedCount', { count: excluded.size })}
+              />
+            </div>
+          </SettingsRow>
+        ) : null}
+
+        <SettingsRow end={<StatusBadge size="sm" tone="neutral" label={tr('ws.manager.settings.stationOnly')} />}>
+          <Field label={tr('op.settings.coversMult')} hint={tr('op.settings.coversMultHint')} style={settingField}>
+            <Select
+              value={String(coversMult)}
+              style={{ maxInlineSize: '10rem' }}
+              options={COVERS_MULTIPLIER_OPTIONS.map((v) => ({ value: String(v), label: `×${v}` }))}
+              onChange={changeCoversMult}
             />
           </Field>
-          <div
-            style={{
-              maxBlockSize: '14rem',
-              overflowY: 'auto',
-              border: '1px solid var(--tp-border)',
-              borderRadius: '0.35rem',
-              background: 'var(--tp-bg)',
-              paddingBlock: '0.3rem',
-              paddingInline: '0.5rem',
-            }}
-          >
-            {itemsQ.isLoading && <Skeleton lines={3} />}
-            {filteredItems.map((i) => (
-              <label key={i.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', paddingBlock: '0.2rem' }}>
-                <input
-                  type="checkbox"
-                  checked={excluded.has(i.id)}
-                  onChange={(e) => {
-                    const next = new Set(excluded);
-                    if (e.target.checked) next.add(i.id);
-                    else next.delete(i.id);
-                    setExcluded(next);
-                  }}
-                />
-                <span>{locale === 'ar' ? i.name_ar : i.name_en}</span>
-              </label>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginBlockStart: '0.5rem' }}>
-            <Button
-              kind="primary"
-              disabled={!excludedDirty || setSetting.isPending}
-              onClick={() => void write('analytics_excluded_item_ids', [...excluded])}
-            >
-              {tr('common.save')}
-            </Button>
-            <span style={{ fontSize: '0.85rem', color: 'var(--tp-muted-fg)' }}>
-              {tr('op.settings.excludedCount', { count: excluded.size })}
-            </span>
-          </div>
-          <p style={hint}>{tr('op.settings.excludedHint')}</p>
-        </section>
-      )}
+        </SettingsRow>
 
-      <section style={card}>
-        <Field label={tr('op.settings.coversMult')}>
-          <Select
-            value={String(coversMult)}
-            style={{ maxInlineSize: '10rem' }}
-            options={COVERS_MULTIPLIER_OPTIONS.map((v) => ({ value: String(v), label: `×${v}` }))}
-            onChange={changeCoversMult}
-          />
-        </Field>
-        <p style={hint}>{tr('op.settings.coversMultHint')}</p>
-      </section>
-
-      <section style={card}>
-        <Field label={tr('op.settings.engagementFloor')}>
-          {canSetFloor ? (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <SettingsRow
+          end={
+            canSetFloor ? (
+              <>
+                <Button
+                  kind="primary"
+                  disabled={!floor || floor === floorSaved || setSetting.isPending}
+                  disabledReason={!floor ? tr('ws.manager.settings.floorPickDate') : tr('ws.manager.settings.noChanges')}
+                  busy={setSetting.isPending}
+                  onClick={() => void write('analytics_engagement_floor', floor)}
+                >
+                  {tr('common.save')}
+                </Button>
+                {settings.analytics_engagement_floor && (
+                  <Button
+                    kind="ghost"
+                    disabled={setSetting.isPending}
+                    onClick={() => {
+                      setFloor('');
+                      void write('analytics_engagement_floor', null);
+                    }}
+                  >
+                    {tr('op.settings.clear')}
+                  </Button>
+                )}
+              </>
+            ) : (
+              <StatusBadge size="sm" tone="neutral" icon="lock" label={tr('ws.kit.common.readOnly')} />
+            )
+          }
+        >
+          <Field label={tr('op.settings.engagementFloor')} hint={tr('op.settings.engagementFloorHint')} style={settingField}>
+            {canSetFloor ? (
               <input
                 style={{ ...inputStyle, inlineSize: 'auto' }}
                 dir="ltr"
@@ -260,37 +320,18 @@ export function CafeSettingsTab() {
                 value={floor ?? ''}
                 onChange={(e) => setFloor(e.target.value)}
               />
-              <Button
-                kind="primary"
-                disabled={!floor || floor === (settings.analytics_engagement_floor ?? '') || setSetting.isPending}
-                onClick={() => void write('analytics_engagement_floor', floor)}
-              >
-                {tr('common.save')}
-              </Button>
-              {settings.analytics_engagement_floor && (
-                <Button
-                  kind="ghost"
-                  disabled={setSetting.isPending}
-                  onClick={() => {
-                    setFloor('');
-                    void write('analytics_engagement_floor', null);
-                  }}
-                >
-                  {tr('op.settings.clear')}
-                </Button>
-              )}
-            </div>
-          ) : (
-            <span dir="ltr">
-              {settings.analytics_engagement_floor
-                ? formatDate(new Date(`${settings.analytics_engagement_floor}T00:00:00`), locale)
-                : tr('op.settings.notSet')}{' '}
-              <span style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>({tr('op.settings.readOnly')})</span>
-            </span>
-          )}
-        </Field>
-        <p style={hint}>{tr('op.settings.engagementFloorHint')}</p>
-      </section>
+            ) : (
+              // Rule 4.2: a role that will never be allowed to set this sees the
+              // value, not a greyed-out date picker.
+              <span dir="ltr" style={{ fontWeight: 600 }}>
+                {settings.analytics_engagement_floor
+                  ? formatDate(new Date(`${settings.analytics_engagement_floor}T00:00:00`), locale)
+                  : tr('op.settings.notSet')}
+              </span>
+            )}
+          </Field>
+        </SettingsRow>
+      </SettingsGroup>
     </div>
   );
 }

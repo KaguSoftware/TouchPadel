@@ -7,7 +7,7 @@ import { useLocale } from '../../../lib/i18n';
 import { weekdayName } from '../copy';
 import type { HeatCell } from '../shape';
 import type { Formatters } from '../format';
-import { BROWN, GRID, heatColor } from './colors';
+import { GRID, HEAT_RAMP, heatColor } from './colors';
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const DOWS = [0, 1, 2, 3, 4, 5, 6];
@@ -22,7 +22,7 @@ export function WeekHeatmap({ cells, f }: { cells: readonly HeatCell[]; f: Forma
       <div style={{ display: 'grid', gridTemplateColumns: `3rem repeat(24, minmax(0, 1fr))`, gap: '1px', minInlineSize: '42rem' }}>
         <span />
         {HOURS.map((h) => (
-          <span key={h} style={{ fontSize: '0.6rem', color: 'var(--tp-muted-fg)', textAlign: 'center' }}>
+          <span key={h} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', textAlign: 'center' }}>
             {h % 3 === 0 ? h : ''}
           </span>
         ))}
@@ -49,7 +49,7 @@ function Row({
 }) {
   return (
     <>
-      <span style={{ fontSize: '0.7rem', color: 'var(--tp-muted-fg)', lineHeight: '1.1rem' }}>{label}</span>
+      <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', lineHeight: '1.1rem' }}>{label}</span>
       {HOURS.map((hour) => {
         const views = byKey.get(`${dow}:${hour}`) ?? 0;
         const peak = max > 0 && views === max;
@@ -59,7 +59,10 @@ function Row({
             title={`${label} ${f.hour(hour)} — ${f.num(views)}`}
             style={{
               blockSize: '1.1rem',
-              background: peak ? BROWN : heatColor(max > 0 ? views / max : 0),
+              // The peak is the ramp's own darkest step, not a second hue: a sequential
+              // encoding says 'most' by depth, and a different colour there would read
+              // as a different category.
+              background: peak ? HEAT_RAMP[HEAT_RAMP.length - 1] : heatColor(max > 0 ? views / max : 0),
               border: `1px solid ${GRID}`,
               borderRadius: '2px',
             }}

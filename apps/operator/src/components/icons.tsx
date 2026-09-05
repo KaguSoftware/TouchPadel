@@ -82,6 +82,7 @@ export function Icon({
   label,
   style,
   strokeWidth = 1.75,
+  dataChevron,
 }: {
   name: IconName;
   size?: number | string;
@@ -89,6 +90,8 @@ export function Icon({
   label?: string;
   style?: CSSProperties;
   strokeWidth?: number;
+  /** Marks a directional glyph so RTL mirrors it. See ChevronForward. */
+  dataChevron?: boolean;
 }) {
   return (
     <svg
@@ -104,6 +107,7 @@ export function Icon({
       role={label ? 'img' : undefined}
       aria-label={label}
       focusable="false"
+      data-chevron={dataChevron ? '' : undefined}
       style={{ display: 'inline-block', flexShrink: 0, verticalAlign: 'middle', ...style }}
     >
       <path d={PATHS[name]} />
@@ -111,29 +115,39 @@ export function Icon({
   );
 }
 
-/** Direction-aware chevron: "forward" points along the reading direction. */
+/**
+ * Direction-aware chevrons. These were straight aliases that flipped nothing,
+ * so every "open" and "next" affordance in the app pointed backwards in
+ * Arabic. `data-chevron` is the hook for the single `[dir='rtl'] scaleX(-1)`
+ * rule in GlobalStyles — one mechanism, not a mirrored icon set.
+ */
 export function ChevronForward(props: { size?: number; style?: CSSProperties }) {
-  return <Icon name="chevronEnd" {...props} />;
+  return <Icon name="chevronEnd" dataChevron {...props} />;
 }
 export function ChevronBack(props: { size?: number; style?: CSSProperties }) {
-  return <Icon name="chevronStart" {...props} />;
+  return <Icon name="chevronStart" dataChevron {...props} />;
 }
 
 /**
- * The court-line motif from the 2026 brand deck: diagonal green lines over
- * the blue ground. Used once, in the navigation rail header and on the sign-in
- * panel — never as a page decoration.
+ * The court-line motif from the 2026 brand deck: diagonal green lines over the
+ * blue ground. TWO call sites only — the navigation rail header and the lock
+ * overlay. The sign-in panel carries the swoosh instead (components/brand.tsx);
+ * court lines and swoosh on one navy panel read as mush. Never a page
+ * decoration, and never on a data surface.
  */
 export function CourtLines({ opacity = 0.18, style }: { opacity?: number; style?: CSSProperties }) {
   return (
     <svg
       viewBox="0 0 320 120"
-      preserveAspectRatio="none"
+      // `none` stretched a 320x120 box into a ~570x768 panel — a 3.6x aspect
+      // distortion that sheared the 45-degree court diagonals into vertical
+      // streaks. `slice` keeps the angle and lets the parent's overflow clip.
+      preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
       focusable="false"
       style={{ display: 'block', inlineSize: '100%', blockSize: '100%', ...style }}
     >
-      <g stroke="var(--tp-rail-green, #A5D06F)" strokeWidth="3" strokeLinecap="round" opacity={opacity}>
+      <g stroke="var(--tp-court-line)" strokeWidth="3" strokeLinecap="round" opacity={opacity}>
         <path d="M-20 110 L140 -10" />
         <path d="M40 130 L220 -10" />
         <path d="M120 130 L300 -10" />
@@ -141,38 +155,5 @@ export function CourtLines({ opacity = 0.18, style }: { opacity?: number; style?
         <path d="M-10 70 L330 20" strokeWidth="2" />
       </g>
     </svg>
-  );
-}
-
-/** The wordmark placeholder until the logo files land — a typographic "Touch Padel". */
-export function BrandMark({ compact, style }: { compact?: boolean; style?: CSSProperties }) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'baseline',
-        gap: '0.3rem',
-        fontWeight: 700,
-        letterSpacing: '-0.01em',
-        fontSize: compact ? '1rem' : '1.25rem',
-        lineHeight: 1,
-        ...style,
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          display: 'inline-block',
-          inlineSize: '0.75em',
-          blockSize: '0.75em',
-          borderRadius: '50%',
-          background: 'var(--tp-brand-green)',
-          boxShadow: 'inset 0 0 0 2px var(--tp-brand-blue)',
-          transform: 'translateY(0.05em)',
-        }}
-      />
-      <span>Touch</span>
-      <span style={{ fontWeight: 400 }}>Padel</span>
-    </span>
   );
 }

@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Skeleton } from '../../../components/ui';
-import { AsyncStateWrapper, DataTable, DescriptionList, MessagePresenter, Panel, StatusBadge, asyncStatus, type Column } from '../../../components/kit';
+import { AsyncStateWrapper, DataTable, DescriptionList, EmptyState, MessagePresenter, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { TAX_GROUPS_KEY, VENUE_ADMIN_KEY, bpToPercent, fetchTaxGroups, fetchVenueAdmin, type TaxGroupRow } from './venueQueries';
 
 export function TradingTab() {
@@ -28,7 +28,7 @@ export function TradingTab() {
   ];
 
   return (
-    <div style={{ display: 'grid', gap: '1rem', maxInlineSize: '52rem' }}>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', maxInlineSize: 'var(--tp-measure-wide)' }}>
       <AsyncStateWrapper status={asyncStatus(venueQ, () => false)} error={venueQ.error} onRetry={() => void venueQ.refetch()} skeleton={<Skeleton lines={6} />}>
         {venueQ.data && (
           <>
@@ -38,7 +38,7 @@ export function TradingTab() {
               </p>
               <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.owner.settings.trading.currencyHint')}</p>
               <DescriptionList
-                style={{ marginBlockStart: '0.6rem' }}
+                style={{ marginBlockStart: 'var(--tp-sp-2-5)' }}
                 items={[{ label: tr('ws.owner.settings.trading.taxInclusive'), value: venueQ.data.tax_inclusive ? tr('ws.kit.common.on') : tr('ws.kit.common.off') }]}
               />
             </Panel>
@@ -55,22 +55,23 @@ export function TradingTab() {
                   { label: tr('ws.owner.settings.trading.noShow'), value: <span style={{ fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.owner.settings.trading.noShowBody')}</span> },
                 ]}
               />
-              <MessagePresenter tone="info" message={tr('ws.owner.settings.trading.readOnlyNote')} style={{ marginBlockStart: '0.8rem' }} />
+              <MessagePresenter tone="info" message={tr('ws.owner.settings.trading.readOnlyNote')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />
             </Panel>
           </>
         )}
       </AsyncStateWrapper>
 
       <Panel title={tr('ws.owner.settings.trading.taxTitle')} padded={false} actions={<StatusBadge tone="neutral" size="sm" label={tr('ws.kit.common.readOnly')} />}>
-        <div style={{ paddingBlock: '0.75rem', paddingInline: '0.85rem', display: 'grid', gap: '0.6rem' }}>
+        <div style={{ paddingBlock: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-3)', display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
           <AsyncStateWrapper
             status={asyncStatus(taxQ, (rows) => rows.length === 0)}
             error={taxQ.error}
             onRetry={() => void taxQ.refetch()}
             compact
-            emptyContent={<p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.settings.trading.taxNone')}</p>}
+            skeleton={<TableSkeleton columns={taxColumns} rows={3} />}
+            emptyContent={<EmptyState compact icon="tag" title={tr('ws.owner.settings.trading.taxNone')} />}
           >
-            <DataTable columns={taxColumns} rows={taxQ.data ?? []} rowKey={(g) => g.id} dense aria-label={tr('ws.owner.settings.trading.taxTitle')} />
+            <DataTable columns={taxColumns} rows={taxQ.data ?? []} rowKey={(g) => g.id} aria-label={tr('ws.owner.settings.trading.taxTitle')} />
           </AsyncStateWrapper>
           <MessagePresenter tone="info" message={tr('ws.owner.settings.trading.taxReadOnly')} />
         </div>
@@ -81,7 +82,7 @@ export function TradingTab() {
 
 function Hinted({ value, hint }: { value: string; hint: string }) {
   return (
-    <span style={{ display: 'grid', gap: '0.1rem' }}>
+    <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
       <span dir="ltr" style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'start' }}>
         {value}
       </span>

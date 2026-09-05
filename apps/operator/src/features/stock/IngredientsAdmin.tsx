@@ -15,15 +15,19 @@ import {
   AsyncStateWrapper,
   DataTable,
   EmptyState,
+  FilterChips,
   MessagePresenter,
   Money,
   PageHeader,
   Panel,
+  ResultCount,
   SearchField,
   StatusBadge,
+  TableSkeleton,
   Toolbar,
   asyncStatus,
   type Column,
+  type FilterChip,
 } from '../../components/kit';
 import { BilingualFields } from '../../components/inputs';
 import { Switch } from '../../components/Switch';
@@ -41,17 +45,34 @@ export function IngredientsAdmin() {
   const onHandOf = useMemo(() => new Map((onHandQ.data ?? []).map((r) => [r.ingredient_id, r])), [onHandQ.data]);
 
   const q = search.trim().toLowerCase();
-  const rows = (ingredientsQ.data ?? [])
+  const all = ingredientsQ.data ?? [];
+  const rows = all
     .filter((r) => showInactive || r.is_active)
     .filter((r) => q === '' || r.name_en.toLowerCase().includes(q) || r.name_ar.includes(search.trim()));
   const status = asyncStatus(ingredientsQ, (d) => d.length === 0);
+  const filtering = search.trim() !== '' || showInactive;
+  function clearFilters() {
+    setSearch('');
+    setShowInactive(false);
+  }
+  // Rulebook 6.6: both filters live in controls at the top of the screen, and a
+  // manager who left "show inactive" on last week had no way to see that from
+  // the rows themselves.
+  const chips: FilterChip[] = ([
+    search.trim()
+      ? { id: 'search', label: <bdi>{tr('ws.manager.filters.search', { value: search.trim() })}</bdi>, text: tr('ws.manager.filters.search', { value: search.trim() }), onRemove: () => setSearch('') }
+      : null,
+    showInactive
+      ? { id: 'inactive', label: tr('ws.manager.filters.includeInactive'), text: tr('ws.manager.filters.includeInactive'), onRemove: () => setShowInactive(false) }
+      : null,
+  ] as (FilterChip | null)[]).filter((c): c is FilterChip => c !== null);
 
   const columns: Column<IngredientRow>[] = [
     {
       key: 'name',
       header: tr('op.stock.ingredient'),
       render: (r) => (
-        <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', opacity: r.is_active ? 1 : 0.6 }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap', opacity: r.is_active ? 1 : 0.6 }}>
           <strong>
             <bdi>{pickName(locale, r)}</bdi>
           </strong>
@@ -102,7 +123,9 @@ export function IngredientsAdmin() {
             {tr('op.common.add')}
           </Button>
         }
-      />
+      >
+        <ResultCount shown={rows.length} total={all.length} />
+      </PageHeader>
       <Toolbar
         end={<Switch checked={showInactive} onChange={setShowInactive} label={tr('ws.manager.stock.ingredients.inactiveShown')} />}
       >
@@ -110,12 +133,14 @@ export function IngredientsAdmin() {
           <SearchField value={search} onChange={setSearch} placeholder={tr('ws.manager.stock.ingredients.search')} />
         </span>
       </Toolbar>
+      <FilterChips chips={chips} onClearAll={clearFilters} style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }} />
 
-      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: editing ? 'minmax(0, 1.3fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: editing ? 'minmax(0, 1.3fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
         <AsyncStateWrapper
           status={status}
           error={ingredientsQ.error}
           onRetry={() => void ingredientsQ.refetch()}
+          skeleton={<TableSkeleton columns={columns} />}
           emptyContent={
             <EmptyState
               icon="box"
@@ -129,8 +154,12 @@ export function IngredientsAdmin() {
             />
           }
         >
+          {rows.length === 0 ? (
+            // The ingredient list is not empty — the filters matched nothing,
+            // and the way out is the filters (rulebook 9.2).
+            <EmptyState kind="filtered" onClearFilters={filtering ? clearFilters : undefined} />
+          ) : (
           <DataTable
-            dense
             columns={columns}
             rows={rows}
             rowKey={(r) => r.id}
@@ -138,6 +167,7 @@ export function IngredientsAdmin() {
             onRowClick={(r) => setEditing(r)}
             aria-label={tr('op.stock.ingredientsTitle')}
           />
+          )}
         </AsyncStateWrapper>
 
         {editing && (
@@ -244,19 +274,19 @@ function IngredientForm({
       actions={dirty ? <StatusBadge size="sm" tone="warn" label={tr('ws.kit.actions.unsaved')} /> : undefined}
     >
       {row && (
-        <div style={{ marginBlockEnd: '0.85rem' }}>
-          <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}>{tr('ws.manager.stock.ingredients.onHandReadOnly')}</span>
-          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
+          <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.manager.stock.ingredients.onHandReadOnly')}</span>
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }} dir="ltr">
               {onHand ? `${onHand.on_hand} ${row.unit}` : '—'}
             </span>
             <StatusBadge size="sm" tone="neutral" icon="lock" label={tr('ws.kit.common.readOnly')} />
           </div>
-          <MessagePresenter tone="info" icon="scale" message={tr('ws.manager.stock.ingredients.onHandHint')} style={{ marginBlockStart: '0.5rem' }} />
+          <MessagePresenter tone="info" icon="scale" message={tr('ws.manager.stock.ingredients.onHandHint')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />
         </div>
       )}
       <BilingualFields labelEn={tr('op.courts.nameEn')} labelAr={tr('op.courts.nameAr')} en={nameEn} ar={nameAr} onEn={setNameEn} onAr={setNameAr} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.stock.unit')}>
           {/* Locked server-side once the ledger has movements (UNIT_LOCKED). */}
           <select style={inputStyle} value={unit} onChange={(e) => setUnit(e.target.value as typeof unit)}>
@@ -296,15 +326,22 @@ function IngredientForm({
           <input style={inputStyle} dir="ltr" inputMode="decimal" value={lowStock} onChange={(e) => setLowStock(e.target.value)} />
         </Field>
       </div>
-      <div style={{ marginBlock: '0.5rem' }}>
+      <div style={{ marginBlock: 'var(--tp-sp-2)' }}>
         <Switch checked={active} onChange={setActive} label={tr('op.courts.active')} />
       </div>
       <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>
         <Button onClick={onCancel} disabled={busy}>
           {tr('common.back')}
         </Button>
-        <Button kind="primary" icon="check" busy={busy} disabled={!nameEn.trim() || !nameAr.trim()} onClick={() => void save()}>
+        <Button
+          kind="primary"
+          icon="check"
+          busy={busy}
+          disabled={!nameEn.trim() || !nameAr.trim()}
+          disabledReason={tr('ws.manager.disabled.namesRequired')}
+          onClick={() => void save()}
+        >
           {tr('op.common.apply')}
         </Button>
       </div>

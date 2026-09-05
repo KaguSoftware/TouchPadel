@@ -14,7 +14,8 @@ import { patternsCopy } from '../copy';
 import type { Derived, RawAnalytics } from '../derive';
 import type { Formatters } from '../format';
 import type { StoredSets } from '../useAnalyticsData';
-import { CardShell, Chip, muted, type CardState } from './CardShell';
+import { CardShell, muted, type CardState } from './CardShell';
+import { StatusBadge } from '../../../components/kit';
 
 const KIND_KEY: Record<string, MessageKey> = {
   'co-move': 'analytics.patterns.kinds.coMove',
@@ -133,14 +134,14 @@ export function PatternsCard({
           <Button
             disabled={busy || candidates.length === 0}
             onClick={() => void judge()}
-            style={{ fontSize: '0.8rem', paddingBlock: '0.25rem' }}
+            style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}
           >
             {tr('analytics.insights.recheck')}
           </Button>
           <Button
             disabled={busy || level >= 2}
             onClick={() => setLevel((l) => Math.min(2, l + 1) as PatternLevel)}
-            style={{ fontSize: '0.8rem', paddingBlock: '0.25rem' }}
+            style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}
           >
             {tr('analytics.patterns.rescan')}
           </Button>
@@ -152,13 +153,15 @@ export function PatternsCard({
         {rows.map(({ candidate, text }) => (
           <div key={candidate.id} style={{ borderInlineStart: '1px solid var(--tp-border)', paddingInlineStart: '0.55rem' }}>
             <div style={{ display: 'flex', gap: '0.3rem', marginBlockEnd: '0.15rem', flexWrap: 'wrap' }}>
-              <Chip tone="accent">{KIND_KEY[candidate.kind] ? tr(KIND_KEY[candidate.kind]!) : candidate.kind}</Chip>
-              <Chip tone={candidate.confidence === 'high' ? 'good' : candidate.confidence === 'low' ? 'warn' : 'neutral'}>
-                {tr(`analytics.patterns.confidence.${candidate.confidence}`)}
-              </Chip>
+              <StatusBadge size="sm" tone="accent" dot={false} label={KIND_KEY[candidate.kind] ? tr(KIND_KEY[candidate.kind]!) : candidate.kind} />
+              <StatusBadge
+                size="sm"
+                tone={candidate.confidence === 'high' ? 'success' : candidate.confidence === 'low' ? 'warn' : 'neutral'}
+                label={tr(`analytics.patterns.confidence.${candidate.confidence}`)}
+              />
               <span style={muted}>{candidate.sampleLabel}</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.85rem' }}>{text}</p>
+            <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)' }}>{text}</p>
           </div>
         ))}
       </div>

@@ -102,7 +102,7 @@ export function ReceiveDelivery() {
       />
 
       <Panel>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
           <Field label={tr('op.stock.supplier')}>
             <input style={inputStyle} value={supplier} disabled={busy} onChange={(e) => setSupplier(e.target.value)} />
           </Field>
@@ -112,9 +112,9 @@ export function ReceiveDelivery() {
         </div>
       </Panel>
 
-      <Panel title={tr('ws.manager.stock.goodsIn.lines')} style={{ marginBlockStart: '0.75rem' }}>
+      <Panel title={tr('ws.manager.stock.goodsIn.lines')} style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
         {shortCount > 0 && (
-          <MessagePresenter tone="refused" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead', { count: shortCount })} style={{ marginBlockEnd: '0.75rem' }} />
+          <MessagePresenter tone="refused" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead', { count: shortCount })} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
         )}
         {lines.map((l) => {
           const short = isShort(l);
@@ -124,10 +124,10 @@ export function ReceiveDelivery() {
               style={{
                 display: 'grid',
                 gridTemplateColumns: '2fr 1fr 1fr 1fr 1.2fr auto',
-                gap: '0.4rem',
+                gap: 'var(--tp-sp-1-5)',
                 alignItems: 'end',
-                marginBlockEnd: '0.4rem',
-                paddingBlockEnd: '0.4rem',
+                marginBlockEnd: 'var(--tp-sp-1-5)',
+                paddingBlockEnd: 'var(--tp-sp-1-5)',
                 borderBlockEnd: '1px solid var(--tp-border)',
               }}
             >
@@ -164,7 +164,7 @@ export function ReceiveDelivery() {
               <Field label={tr('op.stock.expiry')} hint={tr('ws.manager.stock.goodsIn.expiryHint')} style={{ marginBlockEnd: 0 }}>
                 <input style={inputStyle} type="date" dir="ltr" value={l.expiryDate} disabled={busy} onChange={(e) => patch(l.key, { expiryDate: e.target.value })} />
               </Field>
-              <div style={{ paddingBlockEnd: '0.15rem' }}>
+              <div style={{ paddingBlockEnd: 'var(--tp-sp-0)' }}>
                 <Button
                   kind="ghost"
                   size="sm"
@@ -178,7 +178,7 @@ export function ReceiveDelivery() {
           );
         })}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBlockStart: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBlockStart: 'var(--tp-sp-2)', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
           <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
             {tr('op.stock.addLine')}
           </Button>

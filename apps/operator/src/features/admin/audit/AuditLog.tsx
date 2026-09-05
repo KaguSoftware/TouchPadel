@@ -25,12 +25,17 @@ import {
   DateRangeControl,
   EmptyState,
   ExportButton,
+  FilterChips,
   PageHeader,
+  ResultCount,
   SearchField,
   StatusBadge,
+  TableSkeleton,
   Toolbar,
   asyncStatus,
   presetPeriod,
+  type Column,
+  type FilterChip,
   type Period,
 } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
@@ -178,6 +183,38 @@ export function AuditLog() {
     return [...seen.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   }, [rows, names]);
 
+  const familyLabel = filter.family;
+  const actorName = actorOptions.find((o) => o.value === filter.actorId)?.label ?? filter.actorId;
+  // Rulebook 6.6: the four filters used to be legible only inside the controls
+  // that set them, and "Clear" was a lone ghost button with no statement of
+  // what it would clear.
+  const chips: FilterChip[] = ([
+    filter.query
+      ? { id: 'query', label: tr('ws.manager.filters.search', { value: filter.query }), text: tr('ws.manager.filters.search', { value: filter.query }), onRemove: () => setFilter((f) => ({ ...f, query: '' })) }
+      : null,
+    filter.family
+      ? { id: 'family', label: tr('ws.manager.filters.area', { value: familyLabel }), text: tr('ws.manager.filters.area', { value: familyLabel }), onRemove: () => setFilter((f) => ({ ...f, family: '' })) }
+      : null,
+    filter.actorId
+      ? { id: 'actor', label: <bdi>{tr('ws.manager.filters.person', { value: actorName })}</bdi>, text: tr('ws.manager.filters.person', { value: actorName }), onRemove: () => setFilter((f) => ({ ...f, actorId: '' })) }
+      : null,
+    filter.onlyMissingReason
+      ? { id: 'missing', label: tr('ws.manager.filters.missingReason'), text: tr('ws.manager.filters.missingReason'), onRemove: () => setFilter((f) => ({ ...f, onlyMissingReason: false })) }
+      : null,
+  ] as (FilterChip | null)[]).filter((c): c is FilterChip => c !== null);
+
+  // The table is hand-rolled (the expandable before/after row is a second <tr>
+  // per record), so the skeleton is built from the same header labels rather
+  // than from a Column[] DataTable would own.
+  const skeletonColumns: Column<AuditRow>[] = [
+    { key: 'when', header: tr('op.audit.when') },
+    { key: 'actor', header: tr('op.audit.actor') },
+    { key: 'action', header: tr('op.audit.action') },
+    { key: 'entity', header: tr('op.audit.entity') },
+    { key: 'reason', header: tr('op.audit.reason') },
+    { key: 'device', header: tr('op.audit.device') },
+  ];
+
   function exportCsv() {
     const { headers, rows: out } = auditCsv(
       {
@@ -214,7 +251,9 @@ export function AuditLog() {
             </Button>
           </>
         }
-      />
+      >
+        <ResultCount shown={visible.length} total={rows.length} />
+      </PageHeader>
 
       <Toolbar>
         <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('ws.manager.audit.period')}</span>
@@ -253,13 +292,12 @@ export function AuditLog() {
         >
           {tr('op.audit.missingReason', { count: missingCount })}
         </Button>
-        <Button kind="ghost" onClick={() => setFilter(EMPTY_FILTER)}>
-          {tr('op.audit.clear')}
-        </Button>
       </Toolbar>
 
+      <FilterChips chips={chips} onClearAll={() => setFilter(EMPTY_FILTER)} style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }} />
+
       {initialQuery && filter.query === initialQuery && (
-        <p style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem' }}>
+        <p style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
           <Icon name="info" size={14} />
           <bdi>{tr('ws.manager.audit.filteredFrom', { query: initialQuery })}</bdi>
           <Button size="sm" kind="ghost" onClick={() => setFilter((f) => ({ ...f, query: '' }))}>
@@ -274,17 +312,19 @@ export function AuditLog() {
         status={status}
         error={logQ.error}
         onRetry={() => void logQ.refetch()}
-        emptyContent={<EmptyState icon="fileText" title={tr('op.audit.empty')} />}
+        skeleton={<TableSkeleton columns={skeletonColumns} rows={8} />}
+        emptyContent={<EmptyState kind="initial" icon="fileText" title={tr('op.audit.empty')} />}
       >
-        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.5rem' }}>
-          {tr('op.audit.showing', { shown: visible.length, total: rows.length })}{' '}
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>
           {logQ.data?.source === 'server' ? tr('ws.manager.audit.source.server') : tr('ws.manager.audit.source.fallback', { count: PAGE_SIZE })}
         </p>
         {visible.length === 0 ? (
-          <EmptyState compact icon="fileText" title={tr('op.audit.empty')} />
+          // Not "no entries" — the log HAS entries, the filters matched none of
+          // them, and the way out is the filters (rulebook 9.2).
+          <EmptyState compact kind="filtered" onClearFilters={() => setFilter(EMPTY_FILTER)} />
         ) : (
           <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'auto', background: 'var(--tp-surface)' }}>
-            <table className="tp-table" data-dense="true" aria-label={tr('op.audit.title')}>
+            <table className="tp-table" aria-label={tr('op.audit.title')}>
               <thead>
                 <tr>
                   <th>{tr('op.audit.when')}</th>
@@ -327,7 +367,10 @@ export function AuditLog() {
 export const AuditLogScreen = AuditLog;
 
 const mono: React.CSSProperties = {
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  // The stack was hand-typed here while --tp-font-mono sat in the token file
+  // with no consumer, so the audit log was the one screen with its own idea of
+  // what a machine identifier looks like.
+  fontFamily: 'var(--tp-font-mono)',
   fontSize: 'var(--tp-fs-xs)',
 };
 

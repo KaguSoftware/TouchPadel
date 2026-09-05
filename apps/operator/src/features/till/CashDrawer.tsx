@@ -146,7 +146,7 @@ export function CashDrawerScreen() {
       key: 'event',
       header: tr('ws.cashier.drawer.colEvent'),
       render: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
           <Icon name={r.kind === 'open' ? 'drawer' : 'banknote'} size={14} />
           {r.kind === 'open' ? tr('ws.cashier.drawer.eventOpen') : tr('ws.cashier.drawer.eventCash')}
         </span>
@@ -172,7 +172,7 @@ export function CashDrawerScreen() {
   ];
 
   return (
-    <div style={{ maxInlineSize: '64rem' }}>
+    <div style={{ maxInlineSize: 'var(--tp-measure-wide)' }}>
       <PageHeader
         title={tr('ws.cashier.drawer.title')}
         subtitle={tr('ws.cashier.drawer.lead')}
@@ -197,22 +197,22 @@ export function CashDrawerScreen() {
             action={<DayCloseLink canClose={can.closeDay} label={tr('ws.cashier.drawer.dayClose')} />}
           />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: '0.75rem', marginBlockEnd: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-4)' }}>
             <HeadlineFigure
               label={tr('ws.cashier.drawer.float')}
               value={<Money amount={day.opening_float_iqd} />}
               hint={tr('ws.cashier.drawer.dayOpenedAt', { time: formatTime(new Date(day.opened_at), locale) })}
             />
             <Panel muted>
-              <p style={{ ...muted, marginBlockEnd: '0.5rem' }}>{tr('ws.cashier.drawer.floatHint')}</p>
-              <p style={{ ...muted, marginBlockEnd: '0.5rem' }}>{tr('ws.cashier.drawer.dayCloseHint')}</p>
+              <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.cashier.drawer.floatHint')}</p>
+              <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.cashier.drawer.dayCloseHint')}</p>
               <DayCloseLink canClose={can.closeDay} label={tr('ws.cashier.drawer.goDayClose')} />
             </Panel>
           </div>
         )}
       </AsyncStateWrapper>
 
-      {recorded && <MessagePresenter tone="success" icon="drawer" message={tr('ws.cashier.drawer.recorded')} style={{ marginBlockEnd: '0.75rem' }} />}
+      {recorded && <MessagePresenter tone="success" icon="drawer" message={tr('ws.cashier.drawer.recorded')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />}
       <ErrorText error={error} />
 
       {day && (
@@ -235,7 +235,7 @@ export function CashDrawerScreen() {
 
       {reasonOpen && (
         <ReasonCodePrompt action={tr('ws.cashier.drawer.openDrawerAction')} busy={busy} error={error} withNote={false} onSubmit={(code) => void recordOpen(code)} onCancel={() => setReasonOpen(false)}>
-          <p style={{ ...muted, marginBlockEnd: '0.75rem' }}>{tr('ws.cashier.drawer.openHint')}</p>
+          <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
         </ReasonCodePrompt>
       )}
     </div>
@@ -253,7 +253,7 @@ function DayCloseLink({ canClose, label }: { canClose: boolean; label: string })
     );
   }
   return (
-    <div style={{ display: 'grid', gap: '0.4rem', justifyItems: 'start' }}>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', justifyItems: 'start' }}>
       <Button icon="lock" disabled>
         {label}
       </Button>

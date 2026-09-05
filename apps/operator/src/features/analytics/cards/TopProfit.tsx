@@ -20,7 +20,7 @@ export function TopProfit({ derived, state, f }: { derived: Derived | null; stat
     >
       <ol style={{ margin: 0, paddingInlineStart: '1.2rem', display: 'grid', gap: '0.25rem' }}>
         {items.map((i) => (
-          <li key={i.id} style={{ fontSize: '0.85rem' }}>
+          <li key={i.id} style={{ fontSize: 'var(--tp-fs-sm)' }}>
             <span>{pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.id}</span>
             <span style={{ ...muted, marginInlineStart: '0.4rem' }}>
               {f.money(i.profitIqd)} · {f.pct(i.marginPct)} · {f.num(i.qty)}

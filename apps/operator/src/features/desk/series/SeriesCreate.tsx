@@ -141,6 +141,25 @@ export function RecurringSeriesCreateScreen() {
   const problemText =
     problem === 'weekdays' ? tr('ws.courtDesk.series.invalidWeekdays') : problem === 'weeks' ? tr('ws.courtDesk.series.invalidWeeks') : problem === 'end' ? tr('ws.courtDesk.series.invalidEnd') : null;
 
+  /*
+   * Rulebook 4.3. Five separate conditions hold this button shut and the
+   * screen used to state none of them on the control itself, so a desk that
+   * had filled the form in and could not see why nothing happened had to
+   * reverse-engineer the rule. First unmet condition wins, in the order the
+   * operator would meet them.
+   */
+  const submitBlockedReason =
+    problemText ??
+    (!hasCustomer
+      ? tr('ws.courtDesk.series.needsCustomer')
+      : preview === null
+        ? tr('ws.courtDesk.series.needsCheck')
+        : stale
+          ? tr('ws.courtDesk.series.staleDraft')
+          : unresolved.length > 0
+            ? tr('ws.courtDesk.series.unresolved', { count: formatNumber(unresolved.length, locale) })
+            : undefined);
+
   return (
     <div>
       <PageHeader title={tr('ws.courtDesk.series.title')} subtitle={tr('ws.courtDesk.series.lead')} />
@@ -197,7 +216,14 @@ export function RecurringSeriesCreateScreen() {
             <Panel
               title={tr('ws.courtDesk.series.previewTitle')}
               actions={
-                <Button kind={preview ? 'default' : 'primary'} icon="search" busy={checking} disabled={busy || problem !== null} onClick={() => void checkClashes()}>
+                <Button
+                  kind={preview ? 'default' : 'primary'}
+                  icon="search"
+                  busy={checking}
+                  disabled={busy || problem !== null}
+                  disabledReason={problemText ?? undefined}
+                  onClick={() => void checkClashes()}
+                >
                   {preview ? tr('ws.courtDesk.series.recheck') : tr('ws.courtDesk.series.checkClashes')}
                 </Button>
               }
@@ -233,7 +259,7 @@ export function RecurringSeriesCreateScreen() {
                 <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
                   {tr('common.cancel')}
                 </Link>
-                <Button kind="primary" icon="repeat" busy={busy} disabled={!submitEnabled} onClick={() => void submit()}>
+                <Button kind="primary" icon="repeat" busy={busy} disabled={!submitEnabled} disabledReason={submitBlockedReason} onClick={() => void submit()}>
                   {tr('ws.courtDesk.series.submit')}
                 </Button>
               </div>

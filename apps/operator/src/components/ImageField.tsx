@@ -130,7 +130,7 @@ export function ImageField({
       <span
         style={{
           display: 'block',
-          fontSize: '0.8rem',
+          fontSize: 'var(--tp-fs-sm)',
           color: 'var(--tp-muted-fg)',
           marginBlockEnd: '0.2rem',
         }}
@@ -161,15 +161,18 @@ export function ImageField({
           maxInlineSize: aspect === '16:9' ? '22rem' : '14rem',
           aspectRatio: aspect === '16:9' ? '16 / 9' : '1 / 1',
           border: `2px dashed ${dragOver ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-          borderRadius: '0.5rem',
+          borderRadius: 'var(--tp-radius-ctl)',
           background: 'var(--tp-surface)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
           cursor: disabled ? 'not-allowed' : 'pointer',
-          opacity: disabled ? 0.6 : 1,
-          outline: 'none',
+          opacity: disabled ? 'var(--tp-opacity-disabled)' : 1,
+          // No `outline: 'none'`. This is a role="button" tabIndex={0} drop
+          // zone, so removing its ring left the only keyboard-reachable control
+          // in the app with no visible focus — a flat accessibility failure.
+          // The global :focus-visible rule paints it.
         }}
       >
         {preview &&
@@ -193,13 +196,13 @@ export function ImageField({
         {uploading && (
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Spinner size="sm" />
-            <span style={{ fontSize: '0.85rem' }}>{tr('op.common.uploading')}</span>
+            <span style={{ fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.uploading')}</span>
           </span>
         )}
         {!preview && !uploading && (
           <span
             style={{
-              fontSize: '0.85rem',
+              fontSize: 'var(--tp-fs-md)',
               color: 'var(--tp-muted-fg)',
               textAlign: 'center',
               paddingInline: '0.8rem',

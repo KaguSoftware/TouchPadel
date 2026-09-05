@@ -25,6 +25,9 @@ import { DateBadge, DegradedToast, HeldSlotCard, StatusPill } from '../../src/co
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 
+/** Breathing room between the title's squiggle and the floating venue notice. */
+const NOTICE_GAP = 2;
+
 /**
  * My bookings tab (design 2026-08-31): Upcoming as date-badge cards, Past as a
  * muted list, both routing into booking detail — cancellation lives THERE now.
@@ -48,6 +51,8 @@ export default function BookingsScreen() {
   const degraded = useIsDegraded();
   // Closed by the guest, not by a timer or a refetch — see `notice` below.
   const [noticeClosed, setNoticeClosed] = useState(false);
+  // The title block's measured height, so the floating notice can clear it.
+  const [titleH, setTitleH] = useState(0);
   const release = useReleaseHold();
   const toast = useToast();
   useCourtsBroadcast(); // desk moves/cancels reflect live
@@ -175,7 +180,19 @@ export default function BookingsScreen() {
   const phone = venuePhoneOf(settings.data);
   const header = (
     <View style={{ paddingTop: space.l }}>
-      <Title>{t('booking.myBookings')}</Title>
+      {/*
+        Measured, not assumed: Title's line box follows the locale (Cairo needs
+        a taller one than Archivo for its descenders), so the floating notice
+        below cannot hardcode a height without riding up over the title in
+        Arabic. The wrapper measures the heading AND its green squiggle; the
+        squiggle is the last thing in the row, and the notice must clear it.
+
+        Title's own `marginBottom` sits OUTSIDE this box — a margin is not part
+        of a node's measured height — so the gap is added at the call site.
+      */}
+      <View onLayout={(e) => setTitleH(e.nativeEvent.layout.height)}>
+        <Title>{t('booking.myBookings')}</Title>
+      </View>
       {heldSection}
     </View>
   );
@@ -186,8 +203,11 @@ export default function BookingsScreen() {
    * survives the screen flipping between loading, error, empty and list.
    */
   const notice =
-    degraded && !noticeClosed ? (
+    degraded && !noticeClosed && titleH > 0 ? (
       <DegradedToast
+        // Clear the whole title row — heading, green squiggle, and the margin
+        // below it, which onLayout does not report — then a small breathing gap.
+        top={space.l + titleH + space.s + NOTICE_GAP}
         lead={t('degraded.leadConnectionLost')}
         message={t('degraded.bannerBookings', { phone: phone ?? '' })}
         phone={phone}

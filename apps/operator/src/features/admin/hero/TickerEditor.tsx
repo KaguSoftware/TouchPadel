@@ -41,9 +41,9 @@ export function TickerEditor({
           style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr auto auto',
-            gap: '0.4rem',
+            gap: 'var(--tp-sp-1-5)',
             alignItems: 'center',
-            marginBlockEnd: '0.4rem',
+            marginBlockEnd: 'var(--tp-sp-1-5)',
           }}
         >
           <input
@@ -81,12 +81,12 @@ export function TickerEditor({
           </Button>
         </div>
       ))}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2-5)' }}>
         <Button disabled={full} onClick={() => onChange([...rows, { en: '', ar: '' }])}>
           {tr('op.hero.addPhrase')}
         </Button>
         {full && (
-          <span style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>
+          <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
             {tr('op.hero.tickerFull', { max: TICKER_MAX_ROWS })}
           </span>
         )}
