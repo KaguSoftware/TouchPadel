@@ -1,10 +1,26 @@
 /**
- * Design tokens ported verbatim from the approved mobile design
+ * Design tokens from the approved mobile design
  * (`docs/design/mobile-ui/Touch Padel App.dc.html`, 2026-08-31).
  *
  * Token names deliberately mirror the design file's CSS variables (--bg, --card,
  * --ink, --gtint, …) so a side-by-side check against the artboards is a straight
  * rename-free diff. Components never reference raw hex — only these tokens.
+ *
+ * THE PALETTE IS CLOSED (owner, 2026-09-05). Five colours exist:
+ *
+ *     blue  #3360AB      green #A5D06F      gray #BCBDBF
+ *     black #000000      white #FFFFFF
+ *
+ * Everything else in this file is an EXACT shade of one of them — same hue, same
+ * saturation, lightness the only free variable — or one of the two status hues
+ * the owner kept (amber, red). No other hue may enter. When you need a new step,
+ * take another lightness off the relevant ramp; do not eyedrop a colour.
+ *
+ * `palettes.dark` DIVERGES from the design file on purpose: the artboards' dark
+ * mode was hand-picked navy (#0D1830 is hue 221 at L12 — a colour that merely
+ * looks blue-ish), which read as "very dark" instead of as the brand. Dark is
+ * now "blue mode", built from true shades of #3360AB. Light is unchanged beyond
+ * a hue snap onto the exact brand hue (largest shift: 4/255, invisible).
  */
 
 /** One palette; `palettes.light` / `palettes.dark` share this exact shape. */
@@ -30,7 +46,7 @@ export interface Palette {
   fnt: string;
   fnt2: string;
   fnt3: string;
-  /** Interactive blue (brand #3360AB in light; lifted for dark contrast). */
+  /** Primary interactive: brand #3360AB in light, white in blue mode (see below). */
   blue: string;
   // green family — success/pay-at-desk/price accents
   gtint: string;
@@ -73,21 +89,21 @@ export const palettes: Record<'light' | 'dark', Palette> = {
     seg: '#E4E9F1',
     line: '#E2E8F2',
     line2: '#D6DEEA',
-    ink: '#1B2A47',
-    mut: '#5A6B8C',
-    mut2: '#41527A',
-    fnt: '#8494B2',
-    fnt2: '#98A6BF',
+    ink: '#1B2C47',
+    mut: '#5A6D8C',
+    mut2: '#41567A',
+    fnt: '#8495B2',
+    fnt2: '#98A7BF',
     fnt3: '#C3CCDB',
     blue: '#3360AB',
-    gtint: '#EDF6DF',
-    gline: '#CBE3A4',
-    gtext: '#3E6318',
-    gtext2: '#41541F',
-    gstrong: '#4C7F19',
-    gph: '#647F45',
-    ph1: '#E2EED0',
-    ph2: '#ECF4DF',
+    gtint: '#ECF6DF',
+    gline: '#C7E3A4',
+    gtext: '#426318',
+    gtext2: '#3D541F',
+    gstrong: '#527F19',
+    gph: '#657F45',
+    ph1: '#E1EED0',
+    ph2: '#EBF4DF',
     amb: '#FAF1DC',
     ambline: '#EAD9A8',
     ambtext: '#6B4E0A',
@@ -97,54 +113,69 @@ export const palettes: Record<'light' | 'dark', Palette> = {
     redtext: '#B42318',
     redtext2: '#7A2E26',
     tabBg: '#FFFFFFF2',
-    crtTurf: '#7BA4DE',
-    crtTurfLine: '#3E6BB0',
+    crtTurf: '#7D9FD8',
+    crtTurfLine: '#3360AB',
     crtLine: '#FFFFFF',
-    crtShadow: '#1B2A47',
-    crtCast: '#1B2A4759',
-    crtCast2: '#1B2A472E',
+    crtShadow: '#1B2C47',
+    crtCast: '#1B2C4759',
+    crtCast2: '#1B2C472E',
   },
+  // ── Dark = "blue mode" ────────────────────────────────────────────────────
+  // Every blue below is an EXACT shade of brand #3360AB: hue 217.5, saturation
+  // 54.05%, lightness the only thing that moves. The old ramp was hand-picked
+  // navy (#0D1830 was hue 221 at L12 — a different colour that merely looked
+  // blue-ish), which is why the theme read as "very dark" rather than as the
+  // brand. `line2` is the brand blue itself, unmodified.
   dark: {
-    bg: '#0D1830',
-    page: '#0A1326',
-    card: '#16233F',
-    sub: '#1E2D4D',
-    tint: '#1C2C50',
-    seg: '#0A1428',
-    line: '#283A5E',
-    line2: '#33466E',
-    ink: '#EDF2FB',
-    mut: '#9DAECB',
-    mut2: '#B4C2DC',
-    fnt: '#7E92B8',
-    fnt2: '#6C80A6',
-    fnt3: '#3D4F75',
-    blue: '#8FB0E8',
-    gtint: '#20331A',
-    gline: '#3A5626',
-    gtext: '#BCDF8F',
-    gtext2: '#A8CD7F',
-    gstrong: '#9CCB62',
-    gph: '#7E9B55',
-    ph1: '#1A2A14',
-    ph2: '#203218',
-    amb: '#33290F',
-    ambline: '#4D3F17',
-    ambtext: '#E7C877',
-    ambstrong: '#D9B25C',
-    redtint: '#3A1613',
-    redline: '#5C2823',
-    redtext: '#F09A8D',
-    redtext2: '#E8AFA5',
-    tabBg: '#0F1B36F2',
-    crtTurf: '#2B5CA8',
-    crtTurfLine: '#8FB0E8',
+    page: '#172C4F', // L20
+    bg: '#1C355E', // L24
+    card: '#224072', // L29
+    sub: '#274982', // L33
+    tint: '#284B86', // L34
+    seg: '#152847', // L18
+    line: '#2D5495', // L38
+    line2: '#3360AB', // L43.53 — #3360AB exactly
+    ink: '#FFFFFF',
+    mut: '#BCBDBF', // brand gray, exactly
+    mut2: '#E0E0E1',
+    // Faint ramp: shades of the brand gray. Every step measures HIGHER against
+    // its own ground than the light theme's equivalent does (light runs this
+    // ramp at 1.48-3.06:1), so dark is nowhere fainter than the approved design.
+    fnt: '#ACADAF',
+    fnt2: '#919396',
+    fnt3: '#696A6E',
+    // Primary interactive. On a blue ground the brand blue cannot carry text —
+    // #3360AB on `bg` is 1.98:1 — so the blue lives in the GROUND here and the
+    // accent on top of it is white (12.21:1), exactly as the Welcome screen
+    // already works. Light mode keeps #3360AB.
+    blue: '#FFFFFF',
+    gtint: '#334918',
+    gline: '#4C6C23',
+    gtext: '#A5D06F', // brand green, exactly
+    gtext2: '#B7D98C',
+    gstrong: '#BCDC93',
+    gph: '#90C54E',
+    ph1: '#263612',
+    ph2: '#334918',
+    amb: '#4F380D',
+    ambline: '#7B5714',
+    ambtext: '#E9BF72',
+    ambstrong: '#E3AF4F',
+    redtint: '#5A110C',
+    redline: '#871A12',
+    redtext: '#ED8078',
+    redtext2: '#F2A29C',
+    tabBg: '#1C355EF2',
+    // The court is the brand blue itself, marked out in white.
+    crtTurf: '#3360AB',
+    crtTurfLine: '#FFFFFF',
     crtLine: '#FFFFFF',
-    crtShadow: '#050C1A',
-    // The design's dark-mode `.tpfloat` override: the court GLOWS blue instead
-    // of casting a shadow.
-    crtCast: '#8FB0E859',
-    crtCast2: '#8FB0E82E',
+    crtShadow: '#000000',
+    // The design's dark-mode `.tpfloat` override: the court GLOWS instead of
+    // casting a shadow. A blue glow is invisible on a blue ground, so it is a
+    // white halo.
+    crtCast: '#FFFFFF3D',
+    crtCast2: '#FFFFFF1F',
   },
 };
 
@@ -154,34 +185,40 @@ export const palettes: Record<'light' | 'dark', Palette> = {
  */
 export const brand = {
   green: '#A5D06F',
-  /** Ink used ON the green CTA. */
-  greenInk: '#1E3311',
+  /** Ink used ON the green CTA. Brand black, 11.85:1. */
+  greenInk: '#000000',
   blue: '#3360AB',
-  navy: '#1B2A47',
-  /** Card surface on navy screens (booking success). */
-  navyCard: '#243756',
-  navyText: '#B9C6DE',
-  navyMuted: '#8FA3C7',
-  navyLine: '#3A507A',
-  navyTrack: '#324569',
+  /**
+   * The deep brand-blue ground (booking success, review, the court's hard drop
+   * shadow). L20 on the brand-blue ramp — the same step as `palettes.dark.page`,
+   * so a navy screen and blue mode are now the same colour rather than two
+   * different invented navies.
+   */
+  navy: '#172C4F',
+  /** Card surface on those screens. L26. */
+  navyCard: '#1E3966',
+  navyText: '#BCBDBF',
+  navyMuted: '#9C9DA0',
+  navyLine: '#274982',
+  navyTrack: '#234276',
   white: '#FFFFFF',
   danger: '#B42318',
   /** Countdown bar when nearly out of time. */
-  dangerSoft: '#E88B7D',
-  /** Summary-grid icons on Review / Booking detail (design literal `#6FA33A`). */
-  leaf: '#6FA33A',
-  /** Success toast background (design literal). */
-  successToast: '#3E6318',
+  dangerSoft: '#ED8078',
+  /** Summary-grid icons on Review / Booking detail. The brand green itself. */
+  leaf: '#A5D06F',
+  /** Success toast background — dark enough to carry the white toast label (6.76:1). */
+  successToast: '#466421',
   /** Ink on the white "Sign in" button of the Welcome screen. */
-  welcomeInk: '#132038',
-  /** Welcome screen gradient stops, 168deg (design `linear-gradient(168deg, …)`). */
-  welcomeGradient: ['#274B87', '#3360AB', '#2A529A'] as const,
-  /** Modal scrims: notice sheet (66) and confirmation dialog (80). */
-  scrim: '#10182866',
-  scrimStrong: '#10182880',
+  welcomeInk: '#3360AB',
+  /** Welcome screen gradient stops, 168deg — three steps of the brand-blue ramp. */
+  welcomeGradient: ['#274982', '#3360AB', '#2D5495'] as const,
+  /** Modal scrims: notice sheet (66) and confirmation dialog (80). Brand black. */
+  scrim: '#00000066',
+  scrimStrong: '#00000080',
   /** Court illustration: ball fill/glow and the green rackets' darker edge. */
-  ballFill: '#EAF7D2',
-  racketEdge: '#7FAE4C',
+  ballFill: '#FFFFFF',
+  racketEdge: '#77A937',
 } as const;
 
 /**
@@ -198,6 +235,22 @@ export const vendor = {
   /** Surfaces for the busy placeholder that stands in for the native Apple button. */
   apple: { black: '#000000', white: '#FFFFFF' },
 } as const;
+
+/**
+ * `#RRGGBB` + alpha → `#RRGGBBAA`. RN accepts 8-digit hex everywhere a colour
+ * goes (the tab bar tint is one), which is what lets a translucent shade be
+ * built out of a PALETTE token rather than a hard-coded rgba() — so it follows
+ * the theme instead of being a third colour that has to be kept in step.
+ *
+ * Every palette entry is a 7-character hex, so the slice is safe; an 8-digit
+ * input has its existing alpha replaced rather than multiplied.
+ */
+export const withAlpha = (hex: string, alpha: number): string =>
+  hex.slice(0, 7) +
+  Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase();
 
 /** Spacing scale (px). The design works on a 16px gutter with 8/12/14 steps. */
 export const space = { xs: 4, s: 8, sm: 12, m: 14, l: 16, xl: 20, xxl: 26 } as const;
@@ -227,14 +280,17 @@ export const shadows = {
 } as const;
 
 /**
- * Font families, resolved per locale. Archivo/Mulish carry no Arabic glyphs, so
- * Arabic renders everything in Cairo — same swap-point discipline as
- * `packages/ui/src/tokens/typography.ts` (Next Art / Frutiger LT Arabic land later,
- * as a change in this one place).
+ * Font families by role. Lama Sans carries Latin and Arabic in the same faces,
+ * so a role resolves to one family in both languages — no per-script fork, the
+ * same swap-point discipline as `packages/ui/src/tokens/typography.ts`. The
+ * display and body roles stay separate names because call sites say what a
+ * line IS (a heading, tab or button vs. copy), which is what lets a future
+ * face land as a change in this one place.
  *
- * Values are `string | undefined`: when the Google-font download fails (Expo Go
- * on a slow link) every family resolves to `undefined` — the system face —
- * instead of an unregistered family name, which on iOS red-boxes
+ * Values are `string | undefined`: the config-error and crash screens mount
+ * their own providers ABOVE the `useFonts` in app/_layout.tsx, so they paint
+ * with nothing registered — every family resolves to `undefined`, the system
+ * face, instead of an unregistered family name, which on iOS red-boxes
  * "Unrecognized font family" on every single <Text>.
  */
 export type FontRole =
@@ -249,26 +305,17 @@ export type FontRole =
 
 export type FontSet = Record<FontRole, string | undefined>;
 
-export const fontSets: Record<'latin' | 'arabic' | 'system', FontSet> = {
-  latin: {
-    display600: 'Archivo_600SemiBold',
-    display700: 'Archivo_700Bold',
-    display800: 'Archivo_800ExtraBold',
-    display900: 'Archivo_900Black',
-    body400: 'Mulish_400Regular',
-    body600: 'Mulish_600SemiBold',
-    body700: 'Mulish_700Bold',
-    body800: 'Mulish_800ExtraBold',
-  },
-  arabic: {
-    display600: 'Cairo_600SemiBold',
-    display700: 'Cairo_700Bold',
-    display800: 'Cairo_800ExtraBold',
-    display900: 'Cairo_900Black',
-    body400: 'Cairo_400Regular',
-    body600: 'Cairo_600SemiBold',
-    body700: 'Cairo_700Bold',
-    body800: 'Cairo_800ExtraBold',
+export const fontSets: Record<'brand' | 'system', FontSet> = {
+  /** Every value is a key of BRAND_FONTS in ./fonts.ts — see the note there. */
+  brand: {
+    display600: 'LamaSans_600SemiBold',
+    display700: 'LamaSans_700Bold',
+    display800: 'LamaSans_800ExtraBold',
+    display900: 'LamaSans_900Black',
+    body400: 'LamaSans_400Regular',
+    body600: 'LamaSans_600SemiBold',
+    body700: 'LamaSans_700Bold',
+    body800: 'LamaSans_800ExtraBold',
   },
   /** Platform default faces — the fallback when brand fonts are unavailable. */
   system: {

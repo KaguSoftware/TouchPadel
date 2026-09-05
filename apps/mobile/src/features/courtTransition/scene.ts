@@ -20,16 +20,30 @@
  * clear colour, set by the component per theme.
  */
 import * as THREE from 'three';
-import { nearCageOpacity, PLAYERS, playerYaw, rallyAt, BALL_RADIUS, layAngle, RACKET_Y } from './rally';
+import {
+  nearCageOpacity,
+  PLAYERS,
+  playerYaw,
+  rallyAt,
+  BALL_RADIUS,
+  layAngle,
+  RACKET_Y,
+} from './rally';
 import { buildRacketKit } from './racket';
+import { buildPatternBackdrop, type BackdropViewport } from './patternBackdrop';
 import { makeCamera, poseCamera } from './camera';
 import { lerp, slice, SPEC } from './spec';
 import type { CourtQuality } from './quality';
 
-const NAVY = 0x1b2a47;
+// Brand ramp values (see src/theme/tokens.ts — the palette is closed to five
+// colours). NAVY and TURF are exact shades of brand blue #3360AB; LIME and BLUE
+// are the brand colours themselves. NOTE: these are MeshStandardMaterial colours
+// under a hemisphere light + directional sun, so they do NOT render as these
+// hexes on screen — lighting lifts and desaturates them. Judge on a device.
+const NAVY = 0x172c4f;
 const LIME = 0xa5d06f;
 const BLUE = 0x3360ab;
-const TURF = 0x3a63b8;
+const TURF = 0x2d5495;
 /** The ghost trail: 36 fading spheres spread over the last 22 samples. */
 const TRAIL_N = 36;
 const TRAIL_HISTORY = 24;
@@ -43,6 +57,20 @@ export interface CourtScene {
   camera: THREE.PerspectiveCamera;
   /** Apply camera + rally + fades for time t (s) and eased pitch camK; p is the raw progress. */
   update(t: number, p: number, camK: number): void;
+  /**
+   * Where this surface sits in the app window, so the brand pattern behind the
+   * court lines up with the page's copy of it (patternBackdrop). Call it on
+   * layout and whenever the window changes; until it is called the backdrop
+   * has nothing to place itself against and stays where it was built.
+   */
+  setBackdropViewport(view: BackdropViewport): void;
+  /**
+   * The pattern's ink, ALREADY blended into the page colour behind it — the
+   * page's copy carries a different alpha in each appearance and this one has
+   * to be opaque, so the caller does the blend (theme/brandPattern.ts,
+   * patternInk) and re-does it on a theme flip.
+   */
+  setBackdropInk(color: string): void;
   /** Everything with a `dispose()`: geometries, materials. */
   dispose(): void;
 }
@@ -54,14 +82,23 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
   const scene = new THREE.Scene();
   const overlay = new THREE.Scene();
   const camera = makeCamera(390 / 844);
+  // The pattern behind the court. Parented to the CAMERA so it stays put on
+  // the glass while the camera orbits, and the camera is parented to the SCENE
+  // so `renderer.render(scene, camera)` updates the group's world matrix with
+  // everything else. See patternBackdrop.ts for why this is geometry and not a
+  // transparent clear colour.
+  const backdrop = buildPatternBackdrop(SPEC.camera.fov);
+  camera.add(backdrop.group);
+  scene.add(camera);
+  let viewport: BackdropViewport | null = null;
 
   // the overlay is lit like the court, minus the shadow pass
-  overlay.add(new THREE.HemisphereLight(0xffffff, 0xb9c8e0, 0.95));
+  overlay.add(new THREE.HemisphereLight(0xffffff, 0xb0c5e8, 0.95));
   const sun2 = new THREE.DirectionalLight(0xffffff, 1.4);
   sun2.position.set(6, 30, 10);
   overlay.add(sun2);
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xb9c8e0, 0.95));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xb0c5e8, 0.95));
   const sun = new THREE.DirectionalLight(0xffffff, 1.4);
   sun.position.set(6, 30, 10);
   sun.castShadow = shadows;
@@ -71,7 +108,14 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     sun.shadow.bias = -0.0002;
     sun.shadow.normalBias = 0.05;
     sun.shadow.radius = 4;
-    Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 12, bottom: -12, near: 5, far: 60 });
+    Object.assign(sun.shadow.camera, {
+      left: -8,
+      right: 8,
+      top: 12,
+      bottom: -12,
+      near: 5,
+      far: 60,
+    });
   }
   scene.add(sun);
 
@@ -267,7 +311,10 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
   // ball (brand sticker): lime with a white + blue wavy seam — in the overlay, over the button
   const ball = new THREE.Group();
   ball.add(
-    new THREE.Mesh(geo(new THREE.SphereGeometry(BALL_RADIUS, 32, 24)), Mat(LIME, { roughness: 0.55 })),
+    new THREE.Mesh(
+      geo(new THREE.SphereGeometry(BALL_RADIUS, 32, 24)),
+      Mat(LIME, { roughness: 0.55 }),
+    ),
   );
   const seamW = new THREE.Mesh(
     geo(new THREE.TorusGeometry(0.215, 0.022, 8, 64)),
@@ -322,8 +369,25 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     scene,
     overlay,
     camera,
+    setBackdropViewport(view) {
+      viewport = view;
+    },
+    setBackdropInk(color) {
+      backdrop.setInk(color);
+    },
     update(t, p, camK) {
       poseCamera(camera, camK);
+      if (viewport) {
+        // The court layer's own lift, so the backdrop can cancel it and stay
+        // with the window. index.tsx drives that lift through a 24-sample
+        // table of the same ease (sampleEased) rather than the ease itself, so
+        // the two agree to well under a pixel but not to the bit.
+        backdrop.place(viewport, lerp(SPEC.court.y[0], SPEC.court.y[1], camK));
+      }
+      // The overlay pass reuses this camera, and three skips updateMatrixWorld
+      // for a camera that has a parent — which this one now does. Doing it here
+      // means neither pass depends on the other having run first.
+      camera.updateMatrixWorld(true);
 
       lineMat.opacity = lerp(
         SPEC.lines.opacity[0],
@@ -368,6 +432,7 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
       shadeMat.opacity = state.shade.opacity;
     },
     dispose() {
+      backdrop.dispose();
       for (const d of disposables) d.dispose();
       scene.clear();
       overlay.clear();

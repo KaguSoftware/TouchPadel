@@ -21,7 +21,7 @@ import { addBreadcrumb, captureException } from '../src/lib/telemetry';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
 import { DirectionRoot } from '../src/i18n/direction';
 import { lastKnownLocale } from '../src/i18n/lastLocale';
-import { ensureFontsLoaded, fontsFor } from '../src/theme/fonts';
+import { BRAND_FONTS } from '../src/theme/fonts';
 import { lastKnownAppearance } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { AuthProvider } from '../src/features/auth/context';
@@ -225,9 +225,10 @@ export default function RootLayout() {
 }
 
 function AppRoot({ prefs }: { prefs: BootPrefs }) {
-  // Only the active script blocks first paint (8 Latin faces or 5 Cairo); the
-  // other loads in the background so a language switch has its faces ready.
-  const [fontsLoaded, fontsError] = useFonts(fontsFor(prefs.locale));
+  // One family covers both scripts, so this is every face the app renders in:
+  // there is nothing left to load in the background and a language switch can
+  // never wait on a face.
+  const [fontsLoaded, fontsError] = useFonts(BRAND_FONTS);
 
   // Token refresh follows the foreground lifecycle; query focus follows it too.
   useEffect(() => {
@@ -242,17 +243,12 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
 
   useEffect(() => {
     if (fontsLoaded || fontsError) {
-      // A failed font download must not hold the splash forever — the theme
-      // falls back to system faces and the app still works.
+      // A face that fails to register must not hold the splash forever — the
+      // theme falls back to system faces and the app still works.
       if (fontsError) captureException(fontsError, { scope: 'fonts.load' });
       void SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontsError]);
-
-  useEffect(() => {
-    if (!fontsLoaded) return;
-    void ensureFontsLoaded(prefs.locale === 'ar' ? 'en' : 'ar');
-  }, [fontsLoaded, prefs.locale]);
 
   if (!fontsLoaded && !fontsError) return null; // splash is still covering us
 

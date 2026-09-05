@@ -18,12 +18,22 @@
  * colour (`veil` 0 → 1 → 0 over REDUCED_MOTION_MS) and p jumps behind it.
  *
  * `sheetMounted` keeps the sheet — and its availability queries and realtime
- * subscription — mounted only from the first open until a close settles.
+ * subscription — mounted only from the first open until the CARD is off
+ * screen, which is p ≤ SHEET_GONE (0.25) and NOT the spring's rest: those are
+ * ≈ 0.40 s and ≈ 1.70 s into a close, and the second one is the court settling
+ * behind a card that has already left (SHEET_GONE has the arithmetic). Waiting
+ * for it left the card parked over the tab bar and, since the on-net "check
+ * availability" button takes its `hidden` from this same flag, dead to touch
+ * for 1.3 s after the sheet had visibly gone (owner, 2026-09-05).
+ *
+ * So a close watches p and lets go of the stage at the crossing; the
+ * animation's own callback stays as the backstop that catches a close whose
+ * value updates never arrive.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing } from 'react-native';
 import { useReduceMotion } from '../../lib/useReduceMotion';
-import { REDUCED_MOTION_MS, SPRING, type Dir } from './spec';
+import { REDUCED_MOTION_MS, SHEET_GONE, SPRING, type Dir } from './spec';
 
 export interface CourtTransition {
   progress: Animated.Value;
@@ -49,11 +59,19 @@ export function useCourtTransition(): CourtTransition {
   const [isOpen, setOpen] = useState(false);
   const [sheetMounted, setMounted] = useState(false);
   const running = useRef<Animated.CompositeAnimation | null>(null);
+  /** The id of the close's p listener, while one is attached. */
+  const watch = useRef<string | null>(null);
+  const unwatch = useCallback(() => {
+    if (watch.current === null) return;
+    progress.removeListener(watch.current);
+    watch.current = null;
+  }, [progress]);
 
   const goTo = useCallback(
     (target: 0 | 1) => {
       const inFlight = running.current !== null;
       running.current?.stop();
+      unwatch();
       if (!inFlight) setDirection(target === 1 ? 1 : -1);
       setOpen(target === 1);
       if (target === 1) setMounted(true);
@@ -85,18 +103,38 @@ export function useCourtTransition(): CourtTransition {
         return;
       }
 
+      // Off screen ≠ at rest: drop the sheet the frame p crosses SHEET_GONE
+      // rather than ~1.3 s later when the spring stops creeping. p is
+      // native-driven, so this costs one bridge event per frame — for the
+      // ~0.4 s of a close only, and the listener takes itself off at the
+      // crossing.
+      if (target === 0) {
+        watch.current = progress.addListener(({ value }) => {
+          if (value > SHEET_GONE) return;
+          unwatch();
+          setMounted(false);
+        });
+      }
+
       const anim = Animated.spring(progress, { toValue: target, ...SPRING, useNativeDriver: true });
       running.current = anim;
       anim.start(({ finished }) => {
         if (running.current === anim) running.current = null;
+        unwatch();
         // A close that was interrupted by a re-open keeps the sheet mounted.
         if (finished && target === 0) setMounted(false);
       });
     },
-    [progress, veil, reduceMotion],
+    [progress, veil, reduceMotion, unwatch],
   );
 
-  useEffect(() => () => running.current?.stop(), []);
+  useEffect(
+    () => () => {
+      running.current?.stop();
+      unwatch();
+    },
+    [unwatch],
+  );
 
   const openBooking = useCallback(() => goTo(1), [goTo]);
   const closeBooking = useCallback(() => goTo(0), [goTo]);

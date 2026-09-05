@@ -1,7 +1,7 @@
 /**
  * The tab navigator differs by platform: iOS uses the native `UITabBar`
  * (system material, Liquid Glass on iOS 26) and Android keeps the custom
- * design bar with Archivo labels and the green active dot.
+ * design bar with display-face labels and the green active dot.
  *
  * Both live in `src/navigation/` rather than beside this file because
  * expo-router globs the routes directory and would otherwise register

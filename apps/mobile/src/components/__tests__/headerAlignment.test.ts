@@ -65,7 +65,7 @@ describe('Title (every page header)', () => {
   });
 
   it('keeps uppercase and negative tracking on the Latin branch only', () => {
-    // Cairo has no letter case and breaks apart when tracked; Archivo needs
+    // Arabic has no letter case and breaks apart when tracked; Latin needs
     // both. Pinned so the rtl rename cannot invert it.
     expect(TITLE).toContain("const rtl = dir === 'rtl';");
     expect(TITLE).toMatch(/textTransform: rtl \? 'none' : 'uppercase'/);
