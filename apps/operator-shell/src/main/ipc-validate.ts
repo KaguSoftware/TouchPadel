@@ -1,4 +1,12 @@
-import type { AuthState, MutationEnvelope, PrintJob } from '../ipc-channels';
+import type {
+  AuthState,
+  DiscoverRequest,
+  MutationEnvelope,
+  PrintJob,
+  StationMode,
+  StationSetupRequest,
+} from '../ipc-channels';
+import { ipv4Regex, isPrivateIpv4 } from './lan-net';
 
 /**
  * Runtime validation for everything crossing the IPC boundary.
@@ -251,4 +259,62 @@ export function validatePin(value: unknown): string {
   const pin = value as string;
   if (!/^\d{4,12}$/.test(pin)) fail('pin must be 4-12 digits');
   return pin;
+}
+
+// --- first-run station setup + kitchen-screen pairing --------------------------
+
+/** Mirror of @touch/core/pairing/pairingCode — drift-tested in pairing-code.test.ts. */
+export const pairingCodeRegex = /^[0-9A-HJKMNP-TV-Z]{10}$/;
+const STATION_MODES = ['till', 'desk', 'kds'] as const;
+
+/**
+ * The pairing code IS the LAN secret, so like the PIN it is never echoed in
+ * an error message. Accepts only the canonical (normalised) form: the renderer
+ * normalises what staff type before it crosses the bridge.
+ */
+export function validatePairingCode(value: unknown): string {
+  if (typeof value !== 'string') fail('pairingCode must be a string');
+  const code = value as string;
+  if (!pairingCodeRegex.test(code)) fail('pairingCode must be 10 Crockford-base32 characters');
+  return code;
+}
+
+function validatePrivateHost(value: unknown, field: string): string {
+  const host = requireString(value, field, 15);
+  if (!ipv4Regex.test(host)) fail(`${field} must be an IPv4 address`);
+  if (!isPrivateIpv4(host)) fail(`${field} must be a private (LAN) address`);
+  return host;
+}
+
+/**
+ * What the first-run screen sends. Till and desk carry only id + mode (a till
+ * mints its own PSK in main); a kitchen screen must bring the till it found
+ * and the code that opened it. Extras are dropped, as everywhere here.
+ */
+export function validateStationSetup(value: unknown): StationSetupRequest {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('station setup must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const stationId = requireString(raw.stationId, 'stationId', 32);
+  if (!stationRegex.test(stationId)) fail('stationId must look like TILL-01');
+  const mode = requireString(raw.mode, 'mode', 8);
+  if (!(STATION_MODES as readonly string[]).includes(mode)) fail(`unknown station mode '${mode}'`);
+  if (mode !== 'kds') return { stationId, mode: mode as StationMode };
+  return {
+    stationId,
+    mode: 'kds',
+    tillHost: validatePrivateHost(raw.tillHost, 'tillHost'),
+    pairingCode: validatePairingCode(raw.pairingCode),
+  };
+}
+
+export function validateDiscoverRequest(value: unknown): DiscoverRequest {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('discover request must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const code = validatePairingCode(raw.code);
+  if (raw.host === undefined || raw.host === null || raw.host === '') return { code };
+  return { code, host: validatePrivateHost(raw.host, 'host') };
 }

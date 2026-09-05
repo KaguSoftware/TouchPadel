@@ -56,7 +56,7 @@ beforeEach(() => {
   openQueue().exec('DELETE FROM mutation_queue;');
   setAuthState({ accessToken: 't', staffId: STAFF, supabaseUrl: 'https://x.test', anonKey: 'k' });
   server = startLanKdsServer(
-    { stationId: 'TILL1', mode: 'till', lanPsk: PSK, lanBind: '127.0.0.1' },
+    { stationId: 'TILL1', mode: 'till', lanPsk: PSK, lanBind: '127.0.0.1', configured: true, appVersion: 't' },
     { port: PORT },
   );
   expect(server).not.toBeNull();

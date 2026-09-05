@@ -18,6 +18,6 @@ export default [
   {
     // release/ is electron-builder output (win-unpacked carries the whole
     // minified renderer) — linting it is noise at best.
-    ignores: ['dist/**', 'release/**', 'eslint.config.mjs', 'esbuild.config.mjs'],
+    ignores: ['dist/**', 'release/**', 'eslint.config.mjs', 'esbuild.config.mjs', 'electron-builder.config.cjs', 'scripts/**'],
   },
 ];

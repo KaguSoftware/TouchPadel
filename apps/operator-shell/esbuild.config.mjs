@@ -14,7 +14,7 @@ const shared = {
   format: 'cjs',
   target: 'node20', // Electron 33 ships Node 20
   sourcemap: true,
-  external: ['electron', 'better-sqlite3', 'ws'],
+  external: ['electron', 'better-sqlite3', 'ws', 'electron-updater'],
   logLevel: 'info',
 };
 

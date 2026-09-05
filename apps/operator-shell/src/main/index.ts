@@ -11,9 +11,13 @@ import {
   queueStatus,
   setConnOnline,
 } from './queue';
-import { loadStation } from './station';
-import { startLanKdsServer, type LanKdsServer } from './lan-kds-server';
+import { loadStation, writeStation } from './station';
+import { completeFirstRun } from './first-run';
+import { isPairingCode } from './pairing-code';
+import { LAN_KDS_PORT, pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
 import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
+import { confirmTill, discoverTill, SCAN_HANDSHAKE_TIMEOUT_MS } from './lan-discover';
+import { startUpdater, type UpdaterHandle } from './updater';
 import { startHeartbeat } from './heartbeat';
 import { setAuthState } from './auth-state';
 import { observePin, unlockPinOffline } from './pin-cache';
@@ -25,11 +29,13 @@ import {
   validateAuthState,
   validateCachePut,
   validateConnState,
+  validateDiscoverRequest,
   validateLanStatus,
   validateMutationEnvelope,
   validatePin,
   validatePrintJob,
   validateRefKey,
+  validateStationSetup,
 } from './ipc-validate';
 
 const devServerUrl = process.env.VITE_DEV_SERVER_URL; // e.g. http://localhost:5174 (apps/operator `pnpm dev`)
@@ -50,12 +56,15 @@ if (!gotTheLock) {
 let worker: SyncWorker | null = null;
 let lanServer: LanKdsServer | null = null;
 let lanClient: LanKdsClient | null = null;
+let updater: UpdaterHandle | null = null;
+/** The kitchen screen's in-flight LAN sweep; a new request cancels the last. */
+let discoverAbort: AbortController | null = null;
 
 /**
- * First-run station bootstrap: `--station-id=TILL-01 --station-mode=till
+ * Scripted station bootstrap: `--station-id=TILL-01 --station-mode=till
  * [--till-host=… --lan-psk=… --lan-bind=…]` writes station.json into userData
- * when none exists — so the three-machine install runbook is scriptable
- * (a shortcut per station) instead of hand-editing JSON in %APPDATA%.
+ * when none exists — the install runbook's shortcut-per-station alternative to
+ * the first-run setup screen (which is the primary path: completeFirstRun).
  */
 function bootstrapStationFromArgv(): void {
   const file = path.join(app.getPath('userData'), 'station.json');
@@ -65,15 +74,13 @@ function bootstrapStationFromArgv(): void {
   const stationId = flag('station-id');
   const mode = flag('station-mode');
   if (!stationId && !mode) return;
-  const config = {
+  writeStation({
     station_id: stationId ?? 'TILL1',
     mode: mode ?? 'till',
     ...(flag('till-host') ? { till_host: flag('till-host') } : {}),
     ...(flag('lan-psk') ? { lan_psk: flag('lan-psk') } : {}),
     ...(flag('lan-bind') ? { lan_bind: flag('lan-bind') } : {}),
-  };
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(config, null, 2));
+  });
   console.log('[station] wrote', file, 'from CLI flags');
 }
 
@@ -94,15 +101,20 @@ function guardIpc<T>(name: string, fn: () => T): T | { error: string } {
 
 function createWindow(): BrowserWindow {
   const station = loadStation();
+  // An UNCONFIGURED station (first run, before station.json exists) is a
+  // normal window: there is no manager PIN in the offline cache yet, so a
+  // kiosk whose only exit is the setup screen would be a machine nobody can
+  // close if it was launched by mistake. Kiosk starts on the relaunch after setup.
+  const relaxed = isDev || !station.configured;
   const win = new BrowserWindow({
     // Kiosk-leaning per design-arch.md §2.5, but closable in dev.
-    kiosk: !isDev && (station.mode === 'till' || station.mode === 'kds'),
+    kiosk: !relaxed && (station.mode === 'till' || station.mode === 'kds'),
     autoHideMenuBar: true,
-    frame: isDev,
+    frame: relaxed,
     // Production: the window closes only through the manager-PIN quit
     // (touch:quit-app below) — a till someone can casually X out of is a till
     // that silently stops heartbeating and degrades the whole venue.
-    closable: isDev,
+    closable: relaxed,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -300,7 +312,11 @@ if (gotTheLock) {
       guardIpc('quitApp', () => {
         const unlocked = unlockPinOffline(validatePin(pin));
         if (!unlocked) return { ok: false as const, error: 'pin not recognised' };
-        setTimeout(() => app.exit(0), 50); // let the reply reach the renderer
+        setTimeout(() => {
+          // A downloaded update installs on the way out. app.exit() skips
+          // will-quit, so autoInstallOnAppQuit alone would never fire here.
+          if (!updater?.installOnQuit()) app.exit(0);
+        }, 50); // let the reply reach the renderer
         return { ok: true as const };
       }),
     );
@@ -309,10 +325,76 @@ if (gotTheLock) {
         stationId: station.stationId,
         mode: station.mode,
         tillHost: station.tillHost,
+        configured: station.configured,
+        ...(station.configError ? { configError: station.configError } : {}),
+        appVersion: app.getVersion(),
       };
     });
 
+    // First-run setup (design-arch §2.1 station identity): the renderer's
+    // answer becomes station.json and the process relaunches. Refused once a
+    // file exists — a configured station is never re-pointed from the renderer.
+    ipcMain.handle(IPC.saveStation, (_e, v: unknown) =>
+      guardIpc('saveStation', () => completeFirstRun(validateStationSetup(v))),
+    );
+
+    // The till's pairing card: behind the same offline PIN gate as quitApp
+    // (the renderer verifies server-side first when online). The code is the
+    // LAN secret, so it only ever crosses the bridge after a manager PIN.
+    ipcMain.handle(IPC.getPairingInfo, (_e, pin: unknown) =>
+      guardIpc('getPairingInfo', () => {
+        if (!unlockPinOffline(validatePin(pin))) return { ok: false as const, error: 'pin not recognised' as const };
+        if (station.mode !== 'till') return { ok: false as const, error: 'not-a-till' as const };
+        if (!station.lanPsk) return { ok: false as const, error: 'no-psk' as const };
+        // A hex PSK from the CLI flags is not typeable on the kitchen screen's form.
+        if (!isPairingCode(station.lanPsk)) return { ok: false as const, error: 'custom-psk' as const };
+        const bind = pickLanBind(station.lanBind);
+        return {
+          ok: true as const,
+          stationId: station.stationId,
+          host: bind === '127.0.0.1' ? null : bind,
+          port: LAN_KDS_PORT,
+          code: station.lanPsk,
+        };
+      }),
+    );
+
+    // An unconfigured kitchen screen looking for its till. First-run only.
+    ipcMain.handle(IPC.discoverTill, async (_e, v: unknown) => {
+      let req;
+      try {
+        req = validateDiscoverRequest(v);
+      } catch (error) {
+        if (error instanceof IpcValidationError) {
+          console.error('[ipc:discoverTill]', error.message);
+          return { error: error.message };
+        }
+        throw error;
+      }
+      if (station.configured) return { status: 'none' as const };
+      discoverAbort?.abort();
+      discoverAbort = new AbortController();
+      if (req.host) {
+        const outcome = await confirmTill(req.host, LAN_KDS_PORT, req.code, SCAN_HANDSHAKE_TIMEOUT_MS);
+        if (outcome === 'ok') return { status: 'found' as const, tills: [req.host] };
+        if (outcome === 'bad-code') return { status: 'bad-code' as const, candidates: [req.host] };
+        return { status: 'none' as const };
+      }
+      return discoverTill(req.code, { signal: discoverAbort.signal });
+    });
+
+    ipcMain.handle(IPC.updateState, () => updater?.ready() ?? null);
+    ipcMain.handle(IPC.installUpdate, () => ({ ok: updater?.installNow() ?? false }));
+
     const win = createWindow();
+
+    // Auto-update: silent download, human-triggered install (updater.ts).
+    updater = startUpdater({
+      enabled: app.isPackaged,
+      onReady: (info) => {
+        if (!win.isDestroyed()) win.webContents.send(IPC.updateReady, info);
+      },
+    });
 
     // A second launch should surface the station that is already trading, not
     // silently do nothing. (Previously there was no handler at all.)
@@ -353,6 +435,8 @@ if (gotTheLock) {
     win.on('closed', () => {
       lanServer?.close();
       lanClient?.close();
+      updater?.stop();
+      discoverAbort?.abort();
     });
     startHeartbeat(station);
   });

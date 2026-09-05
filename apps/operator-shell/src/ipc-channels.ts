@@ -27,6 +27,18 @@ export const IPC = {
   lanStatus: 'touch:lan-status',
   /** Invoke: manager-PIN quit — the only way a production window closes. */
   quitApp: 'touch:quit-app',
+  /** Invoke (first run only): write station.json, then relaunch. Refused once configured. */
+  saveStation: 'touch:save-station',
+  /** Invoke (till, manager PIN): LAN host + port + the pairing code a kitchen screen types. */
+  getPairingInfo: 'touch:get-pairing-info',
+  /** Invoke (unconfigured kitchen screen): sweep the LAN for a till that accepts this code. */
+  discoverTill: 'touch:discover-till',
+  /** Main → renderer (push): an update has downloaded and waits for a restart. */
+  updateReady: 'touch:update-ready',
+  /** Invoke: the updateReady payload, or null — for a renderer that mounted after the push. */
+  updateState: 'touch:update-state',
+  /** Invoke: autoUpdater.quitAndInstall — the rail's "Restart to update" control. */
+  installUpdate: 'touch:install-update',
 } as const;
 
 /**
@@ -130,10 +142,52 @@ export interface PrintResult {
 
 export type Role = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
 
+export type StationMode = 'till' | 'desk' | 'kds';
+
 export interface StationInfo {
   stationId: string;
-  mode: 'till' | 'desk' | 'kds';
+  mode: StationMode;
   tillHost?: string;
+  /** false ⇔ userData/station.json does not exist yet (first run → setup screen). */
+  configured: boolean;
+  /** Set when station.json exists but could not be read; dev defaults are in force. */
+  configError?: string;
+  /** app.getVersion() — the shell build, which is what auto-update replaces. */
+  appVersion: string;
+}
+
+/** What the first-run setup screen sends. Only accepted while unconfigured. */
+export interface StationSetupRequest {
+  stationId: string;
+  mode: StationMode;
+  /** kds only: the till's private IPv4 (discovered, or typed under Advanced). */
+  tillHost?: string;
+  /** kds only: the NORMALISED 10-char pairing code from the till. */
+  pairingCode?: string;
+}
+
+export type StationSetupResult =
+  | { ok: true }
+  | { ok: false; error: 'already-configured' | 'write-failed' };
+
+export type PairingInfoResult =
+  | { ok: true; stationId: string; host: string | null; port: number; code: string }
+  | { ok: false; error: 'pin not recognised' | 'not-a-till' | 'no-psk' | 'custom-psk' };
+
+export interface DiscoverRequest {
+  code: string;
+  /** Advanced path: confirm this one host instead of sweeping the subnet. */
+  host?: string;
+}
+
+export type DiscoverResult =
+  | { status: 'found'; tills: string[] }
+  | { status: 'bad-code'; candidates: string[] }
+  | { status: 'none' }
+  | { status: 'no-lan' };
+
+export interface UpdateReadyInfo {
+  version: string;
 }
 
 /** A cached ref-data row: the payload plus when it was fetched (banner shows the age). */

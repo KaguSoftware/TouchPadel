@@ -12,6 +12,7 @@ import {
   type LanTicketItem,
 } from './lan-frames';
 import type { StationConfig } from './station';
+import { isPrivateIpv4 } from './lan-net';
 
 // LAN KDS fallback server — runs in the TILL's main process only (design-arch.md §2.4).
 // KDS discovery: static till_host IP in the KDS's station.json (no mDNS in phase 1).
@@ -40,13 +41,7 @@ export function pickLanBind(override?: string): string {
   for (const addrs of Object.values(os.networkInterfaces())) {
     for (const addr of addrs ?? []) {
       if (addr.family !== 'IPv4' || addr.internal) continue;
-      if (
-        /^10\./.test(addr.address) ||
-        /^192\.168\./.test(addr.address) ||
-        /^172\.(1[6-9]|2\d|3[01])\./.test(addr.address)
-      ) {
-        return addr.address;
-      }
+      if (isPrivateIpv4(addr.address)) return addr.address;
     }
   }
   console.warn('[lan-kds] no private IPv4 interface found — binding 127.0.0.1 (KDS unreachable)');

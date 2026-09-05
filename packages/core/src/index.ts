@@ -14,3 +14,4 @@ export * from './i18n/pickLocale';
 export * from './time/tz';
 export * from './time/openingHours';
 export * from './analytics';
+export * from './pairing/pairingCode';

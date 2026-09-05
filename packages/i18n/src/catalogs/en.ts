@@ -728,6 +728,22 @@ export const en = {
     removedUnavailable: 'Some items are no longer available and were removed from your basket.',
     localeSwitch: 'العربية',
   },
+  // Staff-only page (/download, noindex): the operator desktop installer.
+  download: {
+    title: 'Touch Padel Operator',
+    lead: 'The till, desk and kitchen-screen app for Touch Padel staff.',
+    staffOnly: 'For venue staff. Guests order from the table QR code instead.',
+    windowsHeading: 'Windows',
+    windowsButton: 'Download for Windows',
+    windowsMeta: 'Windows 10 or 11. Installs in one click and updates itself.',
+    smartScreenNote:
+      'Windows may show "Windows protected your PC" the first time. Choose "More info", then "Run anyway".',
+    macHeading: 'Mac',
+    macBody: 'Mac builds appear on the releases page when available: choose the Apple silicon or Intel .dmg for your machine.',
+    macButton: 'Mac downloads',
+    allVersions: 'All versions',
+    versionHint: 'The installed version is shown at the bottom of the app sidebar.',
+  },
   seo: {
     siteTitle: 'Touch Cafe — Menu',
     siteDescription:

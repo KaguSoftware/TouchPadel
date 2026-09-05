@@ -10,12 +10,14 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "dist": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --win nsis --config electron-builder.yml",
-    "dist:dir": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --dir --config electron-builder.yml"
+    "dist": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --win nsis --config electron-builder.config.cjs --publish never",
+    "dist:dir": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --dir --config electron-builder.config.cjs --publish never",
+    "icon": "node scripts/make-icon.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@touch/config": "workspace:*",
@@ -33,7 +35,7 @@
   "x-notes": [
     "CommonJS on purpose (no \"type\": \"module\"): Electron main/preload compile to CJS — the monorepo-wide ESM rule's one exception.",
     "sharp is deliberately NOT installed: the print pipeline thresholds Chromium BGRA captures in plain JS (src/main/print/raster.ts).",
-    "electron-builder + electron-updater are added when operator-release.yml lands (design-arch.md 8); config already drafted in electron-builder.yml.",
-    "Auto-update scheduling machinery is CUT from phase 1 (plan cut #7) — plain electron-updater only, no update windows."
+    "electron-builder.config.cjs (JS, not YAML) so Windows signing is conditional on env: Azure Trusted Signing or a PFX, else unsigned. Publishes to the public KaguSoftware/touchpadel-releases repo, which is also the electron-updater feed.",
+    "Auto-update: electron-updater checks at boot + every 6h, downloads silently, installs on the rail's Restart control or the manager-PIN quit. No scheduled update windows (plan cut #7 stands)."
   ]
 }

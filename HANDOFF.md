@@ -1087,8 +1087,20 @@ did-not-sync attention count; Day close pre-checks the queue and lists blocking 
 - **A6 — a Windows installer exists.** esbuild-bundles main+preload (so `sandbox:true`),
   electron-builder NSIS (electron 33.4.11 pinned, renderer as extraResources, asarUnpack for
   better-sqlite3), station bootstrap via `--station-id/--station-mode/--till-host/--lan-psk`,
-  auto-launch, kiosk closable only in dev; release workflow + Windows CI smoke job. No code
-  signing — the SmartScreen "More info → Run anyway" step is in `docs/install-runbook.md`.
+  auto-launch, kiosk closable only in dev; release workflow + Windows CI smoke job.
+  **2026-09-05 — made downloadable end to end:** `electron-builder.config.cjs` (JS, signing
+  conditional on env: Azure Trusted Signing or PFX, else unsigned), publishes to the PUBLIC
+  `KaguSoftware/touchpadel-releases` (stable link
+  `…/releases/latest/download/Touch-Padel-Operator-Setup.exe`; also the electron-updater
+  feed), version stamped from the tag, placeholder icon in `assets/`, macOS dmg+zip job gated
+  on Apple secrets, staff page `/download` on the guest site (noindex), **first-run station
+  setup screen** (Till / Desk / Kitchen screen; the till mints a 10-char pairing code, the
+  kitchen screen types it and finds the till on the LAN — `main/first-run.ts`,
+  `main/lan-discover.ts`, `features/setup/`), rail "Pair a kitchen screen" card (manager PIN,
+  code + QR), **auto-update** (`main/updater.ts`: check at boot + 6 h, silent download,
+  "Update ready" rail row / KDS pill, installs on the manager-PIN quit too), sidebar version
+  line. Owner checklist: `docs/client/operator-download-2026-09-05.md`. Pipeline still
+  never RUN — needs the public repo + 4 secrets, then `git tag operator-v0.2.0`.
 - **A7 — thermal receipts.** Hand-rolled ESC/POS: offscreen 576px BrowserWindow → capturePage →
   Rec.601 threshold → `GS v 0` bands → socket 9100. Arabic ships as a rendered image (SOW
   L425-433). BillView keeps `window.print()` fallback. Golden-bytes tested; physical print
@@ -1123,9 +1135,12 @@ ingredients via `receive_delivery` and, when it actually restocked, waits out th
 60s `unstable_cache` window.
 
 **Still owed on the desktop app** (site-visit + ops, not code): physical thermal print test,
-the disconnection drill rehearsed twice on packaged installs, app icon (brand assets pending),
-Sentry DSN (owner account decision), and the hosted catch-up in Gotchas (0060–0064 + replay
-redeploy).
+the disconnection drill rehearsed twice on packaged installs, the official app icon (a
+placeholder ships; swap = replace `apps/operator-shell/assets/icon.png`), Sentry DSN (owner
+account decision), the hosted catch-up in Gotchas (0060–0064 + replay redeploy), and the
+**first real release run** (owner: public repo + secrets per
+`docs/client/operator-download-2026-09-05.md`, then push `operator-v0.2.0`; code signing and
+the mac build switch on by themselves when their secrets exist).
 
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
@@ -1254,10 +1269,22 @@ redeploy).
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
-| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)**: durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS installer, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | On-site proof: physical print, drill rehearsal ×2 on packaged installs, app icon, Sentry DSN; auto-update + USB printer transport deliberately deferred | Site visit before 2026-10-04 |
+| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **downloadable 2026-09-05**: durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS installer published to a public releases repo with a stable link + `/download` page, first-run station setup + kitchen-screen pairing code, auto-update, conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: create the public repo + secrets and push the first tag; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |
 | Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
+
+- **Operator release pipeline (2026-09-05, never yet run).** The public repo
+  `KaguSoftware/touchpadel-releases` must exist WITH a first commit before the first tag push
+  (release creation makes the tag there). The version is the tag's and nothing else — both
+  package.json files stay at 0.1.0 in git and are stamped on the runner. `EP_GH_IGNORE_TIME=true`
+  is what lets a re-run or the mac job upload to a release older than two hours; re-cutting the
+  SAME version needs the release + tag deleted in the public repo first. `electron-builder.config.cjs`
+  is not auto-discovered: every invocation passes `--config`. Running `dist`/`dist:dir` locally
+  rebuilds better-sqlite3 for Electron's ABI and breaks the shell's vitest suite until
+  `cd node_modules/better-sqlite3 && npm run install` (CI orders test before package for this
+  reason). The Windows Firewall prompt for the till's LAN port appears on the till's first LAN
+  listen — allow on private networks; the kitchen screen's discovery is outbound only.
 - **NEVER run `eas`/`expo` from the repo root** (same rule as supabase). Done once on 2026-09-01:
   `eas init` scaffolded a root `app.json`/`eas.json` with android package
   `com.parsamansouri.touchpadel` (wrong) and no env — a build from the root is a dead app that

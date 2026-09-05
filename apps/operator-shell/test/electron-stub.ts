@@ -21,9 +21,20 @@ export const app = {
   getVersion(): string {
     return '0.0.0-test';
   },
+  isPackaged: false,
+  relaunch(): void {
+    __calls.push('relaunch');
+  },
+  exit(code = 0): void {
+    __calls.push('exit:' + code);
+  },
 };
+
+/** Every process-level call a module under test made (relaunch, exit). */
+export const __calls: string[] = [];
 
 /** Test helper: forget the temp userData dir so the next test gets a fresh queue.db. */
 export function __resetUserData(): void {
   userData = null;
+  __calls.length = 0;
 }

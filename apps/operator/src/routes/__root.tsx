@@ -43,9 +43,15 @@ import { useCafeSettings } from '../lib/settings';
 import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
 import { ConfirmProvider } from '../components/ConfirmDialog';
-import { touch } from '../ipc/bridge';
+import { touch, type UpdateReadyInfo } from '../ipc/bridge';
 import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
 import { VenueStatusBanner } from '../components/VenueStatusBanner';
+import { isElectron } from '../lib/mutate';
+import { useUpdateReady } from '../lib/updates';
+import { UpdateReadyControl } from '../components/UpdateReady';
+import { StationSetupContainer } from '../features/setup/StationSetupContainer';
+import { qrModules, qrPath } from '../features/admin/qr/qrCardGeometry';
+import { formatPairingCode } from '@touch/core';
 
 export const rootRoute = createRootRoute({
   component: RootProviders,
@@ -99,6 +105,17 @@ function RootShell() {
     appVersion: APP_VERSION,
     onState: useCallback((s: HeartbeatState) => setVenue(s), []),
   });
+
+  // Station identity comes before the human's (design-arch §2.1). A machine
+  // without station.json shows the setup screen instead of sign-in; a machine
+  // whose station.json is unreadable is a broken install, shown as such rather
+  // than silently trading as TILL1. Both are Electron-only: the browser mock
+  // always reports a configured station.
+  const station = useMemo(() => touch.getStation(), []);
+  if (isElectron() && !station.configured) return <StationSetupContainer />;
+  if (isElectron() && station.configError) {
+    return <AppBootScreen fullBleed error={tr('ws.shell.setup.configError', { error: station.configError })} />;
+  }
 
   if (loading) return <AppBootScreen fullBleed />;
   if (!session) return <SignInScreen />;
@@ -212,6 +229,9 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
   const value = useMemo(() => ({ active, available, setActive }), [active, available, setActive]);
   const workspace = WORKSPACES[active];
   const noNav = workspace.groups.length === 0;
+  // A downloaded update waiting for a restart: a rail row where there is a
+  // rail, a floating pill on the kitchen screen, which has none.
+  const update = useUpdateReady();
 
   return (
     <WorkspaceContext.Provider value={value}>
@@ -222,8 +242,11 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
         <SkipToMain />
         <IdleLock />
         <VenueStatusBanner state={venue} />
+        {noNav && update && (
+          <UpdateReadyControl variant="pill" version={update.version} onInstall={() => void touch.installUpdate()} />
+        )}
         <div style={{ display: 'flex', flex: 1, minBlockSize: 0 }}>
-          {!noNav && <WorkspaceNav workspaceKey={active} path={path} />}
+          {!noNav && <WorkspaceNav workspaceKey={active} path={path} update={update} />}
           {/* tabIndex -1 so the skip link has somewhere to land; the routed
               screen's own first heading is the next stop from here. */}
           <main
@@ -324,7 +347,15 @@ const navButtonStyle: CSSProperties = {
 // ---------------------------------------------------------------------------
 // WorkspaceNav — the rail. Props: items, activeKey, role (spec §07).
 // ---------------------------------------------------------------------------
-function WorkspaceNav({ workspaceKey, path }: { workspaceKey: WorkspaceKey; path: string }) {
+function WorkspaceNav({
+  workspaceKey,
+  path,
+  update,
+}: {
+  workspaceKey: WorkspaceKey;
+  path: string;
+  update: UpdateReadyInfo | null;
+}) {
   const { tr, toggleLocale, locale } = useLocale();
   const { staff, signOut } = useAuth();
   const { available } = useWorkspace();
@@ -415,6 +446,15 @@ function WorkspaceNav({ workspaceKey, path }: { workspaceKey: WorkspaceKey; path
           <Icon name="logOut" size={16} />
           <span>{tr('auth.signOut')}</span>
         </button>
+        <PairKitchenScreen />
+        {update && (
+          <UpdateReadyControl
+            variant="rail"
+            version={update.version}
+            onInstall={() => void touch.installUpdate()}
+            style={navButtonStyle}
+          />
+        )}
 
         {/* Rulebook 4.5 wants the role and the scoped context legible at all
             times. One line reading "Mohammed Al-Rashid · Court desk · TILL-01"
@@ -443,6 +483,14 @@ function WorkspaceNav({ workspaceKey, path }: { workspaceKey: WorkspaceKey; path
             style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           >
             {tr('ws.shell.nav.station', { id: station.stationId })}
+          </p>
+          {/* The shell build, so "which version is that till on" is answerable
+              from the till itself and not only from device_heartbeats. */}
+          <p
+            dir="ltr"
+            style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'start' }}
+          >
+            {tr('ws.shell.nav.version', { version: station.appVersion })}
           </p>
         </div>
 
@@ -744,6 +792,136 @@ function QuitToDesktop() {
             />
           </Field>
           <ErrorText error={error} />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/**
+ * "Pair a kitchen screen" — the till's pairing card (design-arch §2.4; SEC-31
+ * "a bearer token minted at pairing"). The code IS the LAN secret, so it sits
+ * behind the same manager-PIN gate as Quit: verify_manager_pin server-side
+ * when online, the offline cache in main otherwise (touch:get-pairing-info
+ * re-checks). Till stations only; nothing at all in browser mode.
+ */
+function PairKitchenScreen() {
+  const { tr } = useLocale();
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<{ host: string | null; port: number; code: string } | null>(null);
+  const [refusal, setRefusal] = useState<'not-a-till' | 'no-psk' | 'custom-psk' | null>(null);
+  if (!isElectron() || touch.getStation().mode !== 'till') return null;
+
+  function close() {
+    setOpen(false);
+    setPin('');
+    setInfo(null);
+    setRefusal(null);
+    setError(null);
+  }
+
+  async function reveal() {
+    setBusy(true);
+    setError(null);
+    try {
+      try {
+        await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
+        touch.pinObserved(pin);
+      } catch (e) {
+        // Offline: fall through to the cache check in main. A server REFUSAL
+        // (PIN_INVALID / PIN_LOCKED) still surfaces.
+        if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
+      }
+      const res = await touch.getPairingInfo(pin);
+      if (!('ok' in res)) throw new Error(res.error);
+      if (!res.ok) {
+        if (res.error === 'pin not recognised') throw new Error(res.error);
+        setRefusal(res.error);
+        return;
+      }
+      setInfo({ host: res.host, port: res.port, code: res.code });
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const qr = info ? qrPath(qrModules(info.code)) : null;
+  const refusalKey = { 'not-a-till': 'notTill', 'no-psk': 'noPsk', 'custom-psk': 'customPsk' } as const;
+
+  return (
+    <>
+      <button type="button" className="tp-nav-item" onClick={() => setOpen(true)} style={navButtonStyle}>
+        <Icon name="qr" size={16} />
+        <span>{tr('ws.shell.nav.pairKitchen')}</span>
+      </button>
+      {open && (
+        <Modal
+          title={tr('ws.shell.pair.title')}
+          size="sm"
+          onClose={close}
+          footer={
+            info || refusal ? (
+              <Button onClick={close}>{tr('common.back')}</Button>
+            ) : (
+              <>
+                <Button onClick={close}>{tr('common.back')}</Button>
+                <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => void reveal()}>
+                  {tr('ws.shell.pair.title')}
+                </Button>
+              </>
+            )
+          }
+        >
+          {info && qr ? (
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'center', textAlign: 'center' }}>
+              <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.pair.lead')}</p>
+              <p
+                dir="ltr"
+                aria-label={tr('ws.shell.pair.code')}
+                style={{ fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, letterSpacing: '0.18em', fontVariantNumeric: 'tabular-nums' }}
+              >
+                {formatPairingCode(info.code)}
+              </p>
+              <svg
+                viewBox={`-2 -2 ${qr.size + 4} ${qr.size + 4}`}
+                width="9rem"
+                height="9rem"
+                role="img"
+                aria-label={tr('ws.shell.pair.code')}
+                style={{ background: 'var(--tp-brand-white)', color: '#000', borderRadius: 'var(--tp-radius-ctl)' }}
+              >
+                <path d={qr.d} fill="currentColor" shapeRendering="crispEdges" />
+              </svg>
+              <p dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+                {info.host
+                  ? tr('ws.shell.pair.host', { host: info.host, port: String(info.port) })
+                  : tr('ws.shell.pair.noHost')}
+              </p>
+            </div>
+          ) : refusal ? (
+            <p role="alert">{tr(`ws.shell.pair.${refusalKey[refusal]}`)}</p>
+          ) : (
+            <>
+              <Field label={tr('op.common.pin')}>
+                <input
+                  style={inputStyle}
+                  type="password"
+                  inputMode="numeric"
+                  dir="ltr"
+                  autoFocus
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && void reveal()}
+                />
+              </Field>
+              <ErrorText error={error} />
+            </>
+          )}
         </Modal>
       )}
     </>
