@@ -1,6 +1,10 @@
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, useTheme } from '../theme';
+
+// SDK 57 expo-router: `Icon` / `Label` are no longer top-level exports; they hang
+// off the trigger.
+const { Icon, Label } = NativeTabs.Trigger;
 
 /**
  * iOS bottom tabs backed by the real `UITabBar`, via expo-router's own
