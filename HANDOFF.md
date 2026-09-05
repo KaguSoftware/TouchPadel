@@ -59,8 +59,14 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - Bilingual content = paired `_en` / `_ar` columns (not jsonb). CSS logical properties only
   (lint-enforced in `apps/mobile`, `apps/operator` and `apps/operator-shell` as of day 6;
   `apps/web` and the packages still define no `lint` script); every demo runs once in Arabic.
-- Fonts: brand faces are **Next Art** (Latin) + **Frutiger LT Arabic** — commercial, files not yet
-  in hand; free stand-ins live behind tokens in `packages/ui` (one-line swap later).
+- Fonts: one family for both scripts — **Lama Sans** (`packages/ui/fonts/lama/`, supplied by Touch
+  2026-09-05; the brand decks' typography boards name **Next Art** + **Frutiger LT Arabic** instead
+  and that is unreconciled — see the Fonts row in the scope ledger). Latin and Arabic
+  live in the same faces, so nothing forks a family on direction any more. Stacks in
+  `packages/ui/src/tokens/typography.ts`, `@font-face` + preload list in
+  `packages/ui/src/fontFace.ts`; app code never spells a family name. `pnpm fonts:sync` copies the
+  files into the app static roots and `pnpm fonts:check` fails on drift —
+  `docs/brand/lama-sans/README.md`.
 - **Mobile native-feel rule (owner, 2026-08-24):** if it can look/behave native in React Native, it
   must — bottom tabs via expo-router `Tabs`, native stack with platform back gestures/transitions,
   platform pickers/switches/action sheets. No web-styled custom nav in `apps/mobile`.
@@ -1153,6 +1159,9 @@ the mac build switch on by themselves when their secrets exist).
   `operator-slice.md`, `upperdeck-spec.md` (the reference project's full spec), `decisions.md`
   (owner decisions, binding), `context-existing-cafe.md`, `context-operator.md`.
 - `docs/brand/cafe/p01–16.png` — the Touch Cafe brand deck, rendered (blue #3360AB / brown #603813).
+- `packages/ui/fonts/lama/` — the brand faces, canonical; every app static root holds a synced copy.
+  `docs/brand/lama-sans/README.md` is the reference (coverage, the seven-face set, adding a weight);
+  the specimen PDF sits beside it but is local-only, since `*.pdf` is gitignored repo-wide.
 - `docs/scope/touch-padel-phase1-scope-of-work.pdf` — the signed contract (17pp; .txt alongside).
 - **`docs/design/operator-audit-2026-08-28.md`** — the desktop-app audit: 3 critical, 7 high,
   10 medium, every one with file:line evidence, plus what waves 0 and 1 closed.
@@ -1258,7 +1267,7 @@ the mac build switch on by themselves when their secrets exist).
 | Area | What ships now | Intended full shape | Grows in |
 |---|---|---|---|
 | Business data | Fixture courts/menu/recipes/tables (`f1f7`) remain the dev/test default. Touch's real venue config (hours, cancellation window, phone, currency, tax) is now in `seed.sql`; her two real courts are in `client-data/` (`70c4`), applied only by `pnpm db:client` | Client's real data throughout, once rate rules arrive -- until then the real courts price as `NO_RATE` and cannot be booked | Blocked on the client (rates, menu, recipes, staff) |
-| Fonts | Montserrat + IBM Plex Sans Arabic behind tokens | Licensed Next Art + Frutiger LT Arabic — client says files "in hand", sent via WhatsApp (pack 2026-08-30); need the actual files + licence proof routed to Parsa | Separate swap task once files land (`packages/ui/src/tokens/typography.ts`) |
+| Fonts | ◐ **Lama Sans** landed 2026-09-05 — supplied by Touch and now rendered by every surface. **Provenance unreconciled:** the decks' typography boards (`full-brand2.pdf` p11, `identity.pdf` p10) specify Next Art + Frutiger LT Arabic, "Lama" appears nowhere in either deck's 52 pages, and the decks embed those two alongside Alexandria, GE Dinkum, IBM Plex Sans Arabic, Araboto and Adobe Arabic — a two-face board over a seven-face document. Nothing here establishes which face is the brand's or who holds which licence; ask Touch. If Lama Sans supersedes the deck, re-typesetting the decks is a designer handover item. Dual-script (Latin + Arabic in the same faces, `fsType` 0 so embedding is permitted), which collapsed the two-stack Latin/Arabic architecture to one. Seven faces ship — 400/500/600/700/800/900 roman + 400 italic, standard width, woff2 for web and ttf for mobile — canonical at `packages/ui/fonts/lama/`, distributed by `pnpm fonts:sync` | The drop was 29 MB: 3 widths × 9 weights × roman/italic × otf/ttf/woff/woff2. Cut to 1.4 MB deliberately — condensed and expanded widths, 100/200/300, and every italic but Regular have no call site anywhere in the UI. They are not lost, they are unimported | A weight comes back the same way it went: file into `packages/ui/fonts/lama/{woff2,ttf}/`, spec into `FONT_FACES`, `pnpm fonts:sync` (`docs/brand/lama-sans/README.md`) |
 | Touch Cafe logo | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments) | The official supplied artwork — sent via WhatsApp per pack 2, not yet in the build; re-send requested | When the files reach the repo |
 | Backups | Daily Supabase backups (Pro built-in) | SOW L258 promised PITR — owner declined it 2026-08-30 (~$100/mo). Deviation recorded; Mustafa's written acknowledgment pending (doc 07 §4) | Restore rehearsal W6 |
 | Telegram / PostHog / Groq | ✔ Live 2026-08-27 — accounts created, secrets set, functions deployed | Untested against a real order; allowlist points at seed staff | Roadmap 6 |

@@ -59,16 +59,17 @@ const WORDMARK_FILL: Record<BrandTone, string> = {
 };
 
 /**
- * The gradient the swoosh runs along: Padel Green at the tail, through the
- * teal of the brand deck's applications page, into Touch Blue where it becomes
- * the "P". Declared per instance because two lockups on one screen would
- * otherwise share an id.
+ * The gradient the swoosh runs along: Padel Green at the tail running straight
+ * into Touch Blue where it becomes the "P". It used to pass through a teal
+ * midpoint (`--tp-brand-teal`, #1FA79A) borrowed from the deck's applications
+ * page; the palette is closed to five colours, so the teal is gone and the
+ * green now meets the blue directly. Declared per instance because two lockups
+ * on one screen would otherwise share an id.
  */
 function SwooshGradient({ id }: { id: string }) {
   return (
     <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="7.7" y1="17" x2="50.5" y2="9">
       <stop offset="0" stopColor="var(--tp-brand-green)" />
-      <stop offset="0.55" stopColor="var(--tp-brand-teal)" />
       <stop offset="1" stopColor="var(--tp-brand-blue)" />
     </linearGradient>
   );

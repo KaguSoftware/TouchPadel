@@ -10,7 +10,7 @@ import { TabBookIcon, TabBookingsIcon, TabProfileIcon } from '../components/icon
 /** Design: 62 pt bar; the home indicator / Android nav bar inset is added below it. */
 const TAB_BAR_BASE = 62;
 
-/** Archivo label + the 14×3 green active dot, per the design. */
+/** Display-face label + the 14×3 green active dot, per the design. */
 function TabLabel({ text, focused }: { text: string; focused: boolean }) {
   const { colors, fonts, tracking } = useTheme();
   return (
@@ -40,7 +40,7 @@ function TabLabel({ text, focused }: { text: string; focused: boolean }) {
 
 /**
  * Bottom tabs per the design: Bookings / Book / Profile, translucent bar
- * floating over the content, Archivo labels, green active icon and dot. expo-router
+ * floating over the content, display-face labels, green active icon and dot. expo-router
  * `Tabs` per the native-feel convention — platform behavior (state
  * preservation, back handling) stays native while the visuals follow the
  * design. Screens pad their scroll content with useBottomTabBarHeight().

@@ -26,6 +26,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The brand faces are committed three times over — packages/ui/fonts/lama is
+      # canonical, the copies under apps/*/public/fonts and apps/mobile/assets/fonts
+      # are what the bundlers can actually reach. Update one and forget the others
+      # and two apps render two different typefaces; nothing else in this pipeline
+      # would notice, because every one of them is a valid font file.
+      - name: Fonts in sync
+        run: pnpm fonts:check
+
       - name: Lint, typecheck, test, build
         run: pnpm turbo lint typecheck test build
 

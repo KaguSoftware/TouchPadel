@@ -1,13 +1,23 @@
 export { padelPalette, cafePalette, palettes } from './tokens/palette';
 export type { ThemeName, PaletteVars } from './tokens/palette';
 export {
+  BRAND_FAMILY,
   latinDisplayStack,
   arabicStack,
   bodyStack,
   monoStack,
+  numericStack,
   fontVars,
 } from './tokens/typography';
 export type { FontVars } from './tokens/typography';
+export {
+  FONT_BASE,
+  FONT_FACES,
+  PRELOAD_FACES,
+  fontFaceCss,
+  fontFaceCssFrom,
+} from './fontFace';
+export type { FontFaceSpec } from './fontFace';
 export {
   statusVars,
   cafeColorVars,

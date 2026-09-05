@@ -7,20 +7,32 @@
  * marketing surface. Same semantic names as the other two palettes so every
  * shared component keeps working, plus the operator-only extras below.
  *
- * All colours are OKLCH, every neutral tinted toward the brand-blue hue (262).
- * Never #000 / #fff. See docs/DESIGN.md.
+ * The NEUTRALS are OKLCH, every one tinted toward the brand-blue hue, and none
+ * of them is pure black or white — a tinted paper and a tinted ink are what
+ * make this read as a product surface rather than a document.
+ *
+ * The BRAND COLOURS are not negotiable and not approximated: #3360AB, #A5D06F,
+ * #BCBDBF, #000000, #FFFFFF, spelled exactly, with every accent aliased onto
+ * them by `var()` so the identity cannot drift a second time. See docs/DESIGN.md.
  */
 import type { PaletteVars } from './palette';
 
-const HUE = 262;
+/**
+ * The brand blue's TRUE OKLCH hue. This was 262, an eyeball approximation that
+ * rendered --tp-accent as #3057A3 rather than #3360AB — close enough to look
+ * right in isolation and wrong next to the mobile app. #3360AB is
+ * oklch(49.65% 0.13 260.02); every neutral is tinted toward that hue.
+ */
+const HUE = 260.02;
+/** The brand green's true OKLCH hue: #A5D06F is oklch(80.51% 0.134 128.68). */
+const GREEN_HUE = 128.68;
 
 export const operatorPalette = {
   // raw brand colours (Padel 2026 identity)
   '--tp-brand-green': '#A5D06F',
   '--tp-brand-blue': '#3360AB',
-  '--tp-brand-teal': '#1FA79A',
-  '--tp-brand-black': '#0B0F17',
-  '--tp-brand-white': '#FBFBFD',
+  '--tp-brand-black': '#000000',
+  '--tp-brand-white': '#FFFFFF',
   '--tp-brand-gray': '#BCBDBF',
 
   // semantic (same keys as padel/cafe)
@@ -32,10 +44,10 @@ export const operatorPalette = {
   '--tp-bg': `oklch(96.5% 0.005 ${HUE})`,
   '--tp-fg': `oklch(22% 0.03 ${HUE})`,
   '--tp-surface': `oklch(99.4% 0.002 ${HUE})`,
-  '--tp-accent': `oklch(47% 0.13 ${HUE})`,
-  '--tp-accent-contrast': `oklch(99% 0.002 ${HUE})`,
-  '--tp-accent-2': 'oklch(80% 0.13 125)',
-  '--tp-accent-2-contrast': `oklch(22% 0.03 ${HUE})`,
+  '--tp-accent': 'var(--tp-brand-blue)',
+  '--tp-accent-contrast': 'var(--tp-brand-white)',
+  '--tp-accent-2': 'var(--tp-brand-green)',
+  '--tp-accent-2-contrast': 'var(--tp-brand-black)',
   '--tp-muted': `oklch(86% 0.012 ${HUE})`,
   '--tp-muted-fg': `oklch(48% 0.025 ${HUE})`,
   '--tp-border': `oklch(90% 0.01 ${HUE})`,
@@ -81,9 +93,9 @@ export const operatorVars = {
   // It used to be spelled out identically in four places, so a partial edit
   // could silently split the identity between the rail, the board and a badge.
   '--tp-success': 'var(--tp-accent-2)',
-  '--tp-success-soft': 'oklch(95% 0.05 125)',
-  '--tp-success-mark': 'oklch(58% 0.13 135)',
-  '--tp-success-fg': 'oklch(42% 0.11 135)',
+  '--tp-success-soft': `oklch(95% 0.05 ${GREEN_HUE})`,
+  '--tp-success-mark': `oklch(58% 0.13 ${GREEN_HUE})`,
+  '--tp-success-fg': `oklch(42% 0.11 ${GREEN_HUE})`,
   '--tp-warn': 'oklch(80% 0.15 78)',
   '--tp-warn-soft': 'oklch(95.5% 0.05 85)',
   '--tp-warn-mark': 'oklch(58% 0.14 70)',
@@ -133,7 +145,7 @@ export const operatorVars = {
   '--tp-kds-on-fill': 'var(--tp-brand-black)',
 
   // focus ring
-  '--tp-ring': `0 0 0 2px oklch(99% 0.002 ${HUE}), 0 0 0 4px oklch(47% 0.13 ${HUE})`,
+  '--tp-ring': '0 0 0 2px var(--tp-brand-white), 0 0 0 4px var(--tp-brand-blue)',
 
   // shape
   /** Chips, grid cells, skeleton blocks — below a control. Was hand-typed as
@@ -223,19 +235,13 @@ export const operatorVars = {
   '--tp-z-lock': '150',
   '--tp-z-toast': '200',
 
-  // fonts — the operator is Windows-only; Segoe covers Latin + Arabic without a download.
-  // SWAP: the licensed faces already lead each stack; drop the files in and register @font-face.
-  '--tp-font-body':
-    "'Next Art', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif",
-  '--tp-font-arabic':
-    "'Frutiger LT Arabic', 'Segoe UI', 'Noto Sans Arabic', 'IBM Plex Sans Arabic', Tahoma, system-ui, sans-serif",
-  '--tp-font-numeric':
-    "'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif",
-  // These two resolved to the CAFE stacks (Poppins / Cascadia) from the base
-  // :root block, because the operator theme never overrode them — so the
-  // Next Art swap the typography comment promises never reached this app.
-  '--tp-font-display':
-    "'Next Art', 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif",
+  // fonts — mono only, and the four text tokens are absent on purpose.
+  // `:root[data-theme='operator']` is (0,2,0) against the base `:root` block's
+  // (0,1,0), so any text family named in this map out-specifies the brand stacks
+  // on every element of the app and cannot be argued down from a component: the
+  // @font-face rules `themeCss` emits above it would still fetch the brand faces
+  // and nothing on the screen would ever select one. Falling through is what
+  // keeps the till, the KDS and the phone reading as the same product.
   '--tp-font-mono': "'Cascadia Mono', 'Consolas', 'SF Mono', 'Roboto Mono', monospace",
 } as const satisfies Readonly<Record<`--tp-${string}`, string>>;
 
@@ -258,14 +264,14 @@ export type OperatorVars = typeof operatorVars;
  */
 export const operatorChartColors = {
   /** Categorical. Distinguishable in order, and none of them is the status green. */
-  series: ['#3057A3', '#7C7F94', '#1F7A8C', '#8C5BA8', '#B0763B'],
+  series: ['#3360AB', '#7C7F94', '#1F7A8C', '#8C5BA8', '#B0763B'],
   /** "This one is the peak." The one sanctioned use of Padel Green in a chart. */
-  highlight: '#ABCC6B',
-  danger: '#BE2323',
+  highlight: '#A5D06F',
+  danger: '#B42318',
   grid: '#DADEE5',
   axis: '#565E6C',
   surface: '#FCFDFE',
   ink: '#131B29',
   /** Sequential ramp, floored on the panel rather than on raw white. */
-  heat: ['#F2F3F7', '#DDE3EF', '#BFCCE4', '#97AED4', '#6B8AC0', '#3057A3'],
+  heat: ['#F2F3F7', '#DDE3EF', '#BFCCE4', '#97AED4', '#6B8AC0', '#3360AB'],
 } as const;

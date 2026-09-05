@@ -23,7 +23,7 @@ import { captureException } from '../lib/telemetry';
 import { APPEARANCE_KEY } from '../lib/bootPrefs';
 import { useLocale } from '../i18n/LocaleProvider';
 import { palettes, fontSets, type Palette, type FontSet } from './tokens';
-import { fontsLoaded, subscribeFontsRegistered } from './fonts';
+import { fontsLoaded } from './fonts';
 import { rememberAppearance } from './lastAppearance';
 
 export type Appearance = 'light' | 'dark';
@@ -34,7 +34,7 @@ export interface ThemeContextValue {
   setAppearance: (next: Appearance) => void;
   /** The active palette — the only color source components should touch. */
   colors: Palette;
-  /** Locale-resolved font families (Arabic renders in Cairo throughout). */
+  /** Brand font families by role — one set of faces, both scripts. */
   fonts: FontSet;
   /**
    * Letter-spacing guard. Positive tracking visually disconnects the letters of
@@ -48,7 +48,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   appearance: 'light',
   setAppearance: () => {},
   colors: palettes.light,
-  fonts: fontSets.latin,
+  fonts: fontSets.brand,
   tracking: (px) => px,
 });
 
@@ -65,13 +65,11 @@ export function ThemeProvider({
 }) {
   const { locale } = useLocale();
   const [appearance, setAppearanceState] = useState<Appearance>(initialAppearance);
-  // Faces that register after mount (a switch's late download) re-render us.
-  const [, bump] = useState(0);
-  useEffect(() => subscribeFontsRegistered(() => bump((n) => n + 1)), []);
-  // A script whose faces are not registered (a failed or still-running
-  // download) renders in the system face rather than in a family the OS does
-  // not know — per script, so one failed download never costs the other.
-  const facesReady = fontsLoaded(locale);
+  // Nothing paints under AppRoot until `useFonts` has settled, so this is a
+  // constant for the life of a mount — but the crash and config-error screens
+  // mount their own provider above it, and those render in the system face
+  // rather than in a family the OS does not know.
+  const facesReady = fontsLoaded();
 
   // Tell the OS so keyboards, alerts, share sheets and scroll indicators follow
   // the in-app choice (app.config.ts declares userInterfaceStyle 'automatic').
@@ -97,7 +95,7 @@ export function ThemeProvider({
       appearance,
       setAppearance,
       colors: palettes[appearance],
-      fonts: !facesReady ? fontSets.system : locale === 'ar' ? fontSets.arabic : fontSets.latin,
+      fonts: facesReady ? fontSets.brand : fontSets.system,
       tracking: locale === 'ar' ? () => 0 : (px) => px,
     }),
     [appearance, setAppearance, locale, facesReady],

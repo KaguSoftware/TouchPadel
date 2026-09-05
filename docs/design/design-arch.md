@@ -266,7 +266,7 @@ Guest order status uses broadcast because the guest's RLS view is scoped to `cre
 
 Pipeline lives entirely in the Electron **main** process:
 1. Renderer sends `PrintJob` (structured bill data, not markup) over IPC.
-2. Main renders `receipt.html` (Frutiger LT Arabic embedded as woff2, CSS logical properties, width fixed to printer dots — 576 px for 80 mm/203 dpi, 384 px for 58 mm) in a **hidden offscreen BrowserWindow** → `webContents.printToPDF`? No — `capturePage()` → PNG. Chromium does the Arabic shaping/bidi; the printer never sees text.
+2. Main renders `receipt.html` (**Lama Sans** inlined as base64 woff2 — the document is a `data:` URL with no origin, so a served font path would not resolve, and one family covers a bilingual bill; CSS logical properties, width fixed to printer dots — 576 px for 80 mm/203 dpi, 384 px for 58 mm) in a **hidden offscreen BrowserWindow** → `webContents.printToPDF`? No — `capturePage()` → PNG. Chromium does the Arabic shaping/bidi; the printer never sees text.
 3. PNG → 1-bit dither (`sharp` threshold) → ESC/POS `GS v 0` raster command via `node-thermal-printer`/raw socket or USB (`escpos-usb`).
 4. Print jobs are queued in SQLite too (`print_queue`), so a paper-out doesn't lose a bill; reprint from till UI.
 

@@ -73,7 +73,7 @@ function WelcomeScreen() {
           style={{
             fontFamily: fonts.display900,
             fontSize: 34,
-            // Cairo drops its tails well under the baseline; the Latin-caps
+            // Arabic drops its tails well under the baseline; the Latin-caps
             // line box clips them (same 1.45 ratio as Title in ui.tsx).
             lineHeight: dir === 'rtl' ? 49 : 35,
             textTransform: 'uppercase',

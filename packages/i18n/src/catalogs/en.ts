@@ -518,6 +518,18 @@ export const en = {
     noBookingsBody: 'Your court reservations will show up here.',
     emptyUpcoming: 'Nothing upcoming.',
     bookNext: 'Book your next game →',
+    // "More life" pass (owner, 2026-09-05): My bookings stopped being a flat
+    // list — a hero card for the next game, counted section headings, and a
+    // timeline down Past. These are the strings that pass carries.
+    nextUp: 'Next up',
+    onNow: 'On now',
+    startsNow: 'Starting now',
+    startsInMinutes: 'In {count} min',
+    startsInHours: 'In {count} h',
+    startsInDay: 'In 1 day',
+    startsInDays: 'In {count} days',
+    upcomingCount: '{count} upcoming',
+    playedCount: '{count} played',
     weeklySeries: 'Weekly series',
     bookingRef: 'Booking {ref}',
     priceAtDesk: 'Price · at desk',

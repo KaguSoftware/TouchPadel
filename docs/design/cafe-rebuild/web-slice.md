@@ -40,7 +40,8 @@ prefix → `tp-locale` cookie → `Accept-Language` → `ar`. `src/lib/locales.t
 Files — DELETE: `app/[locale]/(public)/layout.tsx`, `(public)/page.tsx`, `(public)/menu/page.tsx`,
 `(public)/menu/MenuLive.tsx`. NEW: `app/[locale]/page.tsx`, `app/[locale]/t/[token]/loading.tsx`,
 `app/[locale]/error.tsx`, `app/[locale]/not-found.tsx`. MODIFY `app/[locale]/layout.tsx`
-(`data-theme="cafe"` on `<html>`, font `<link>`s + preload of Montserrat 700/800, inline
+(`data-theme="cafe"` on `<html>`, preload of Lama Sans 400/700 (`PRELOAD_FACES`; the faces are
+self-hosted and `themeCss` carries the `@font-face` rules, so no font `<link>` at all), inline
 `${themeCss}\n${cafeCss}`, `generateViewport()` → `{ themeColor: cafePalette['--tp-accent'],
 viewportFit: 'cover', width: 'device-width', initialScale: 1 }`, metadata "Touch Cafe — Menu", icons
 `/brand/cafe/*`, OG image, `alternates.languages` en/ar + `x-default: /ar`). MODIFY `app/manifest.ts`
@@ -147,9 +148,10 @@ and raw hex outside `tokens-bridge`. Marquee: `translate: calc(var(--tp-dir-sign
 Visual language (brand pages p04–p09, p11, p14, p15): page `--tp-bg` white; cards `--tp-surface`;
 TopBar/Hero-none solid Touch Blue with a white swoosh band (SVG, `preserveAspectRatio="none"`);
 prices, bean, smile, ticker strip, footer = Coffee Brown; CTAs, active pill, links = Blue; highlight
-tints blue/brown at 10 % + 3 px inset ring. Type: headlines Montserrat 800 ALL-CAPS `line-height .95`
-tracking `.02em`; eyebrow/hook 11 px uppercase `.18em`; body IBM Plex Sans Arabic-first stack; AR
-headlines Plex Arabic 700. Motion (`motion.css.ts`): `tp-slide-up 250ms`, `tp-fade-in`, `tp-stamp-slam
+tints blue/brown at 10 % + 3 px inset ring. Type: headlines Lama Sans 800 ALL-CAPS `line-height .95`
+tracking `.02em`; eyebrow/hook 11 px uppercase `.18em`; body the same family via `--tp-font-body`;
+AR headlines 800 too — one family covers both scripts, so weights do not diverge by locale.
+Motion (`motion.css.ts`): `tp-slide-up 250ms`, `tp-fade-in`, `tp-stamp-slam
 400ms`, `tp-tick var(--tp-ticker-dur) linear infinite`, `tp-bean-pulse 1.6s`, `tp-spin-ring 1.2s`,
 `tp-arrow-draw 900ms`, `tp-float 1.8s`; hero/section collapse via `grid-template-rows`;
 `prefers-reduced-motion` → durations `1ms`, marquee static, video → poster. a11y/UX: `:focus-visible`
@@ -319,5 +321,5 @@ client refetch on broadcast; `[locale]/page.tsx` must not read cookies/headers (
 only if needed); marquee via `--tp-dir-sign`; tutorial spotlight from JS-measured FAB rect; `mask-image`
 fades `to inline-end`. iOS: drag armed on header only; `92dvh` with `85vh` fallback. Storage URLs cached
 30 d → always versioned paths. PostHog idle-loaded; drop events before init. Featured discount drift →
-`reconcile` + server wins. Fonts: Plex Arabic has no 800 → AR headlines 700. Empty/failed menu must
-never render blank.
+`reconcile` + server wins. Fonts: one family for both scripts, so AR headlines take the same 800
+as EN. Empty/failed menu must never render blank.
