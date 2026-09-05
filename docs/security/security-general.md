@@ -388,7 +388,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       a note containing `0x1B 0x70` prints as inert glyphs and never reaches the printer as control bytes. The
       drawer is wired to the printer's own pulse, so the risk is injection, not an emit site. Gate any future
       kick to the settle path only. (SEC-27 · DEV)
-- [ ] ★ Bind the LAN KDS server to the POS interface, not `0.0.0.0`, and require a bearer token minted at pairing and rotated on each shell start. `lan-kds-server.ts:26` is still `TODO(W4)`. (SEC-31 · DEV)
+- [ ] ★ Bind the LAN KDS server to the POS interface, not `0.0.0.0`, and require a bearer token minted at pairing and rotated on each shell start. Bind: done (`pickLanBind`, first RFC1918 IPv4, `lan_bind` override). Minted at pairing: done 2026-09-05 — the till mints a 50-bit pairing code at first run (`main/first-run.ts`), shows it behind the manager PIN, and the kitchen screen proves it with a real handshake before saving (`main/lan-discover.ts`). Rotation on each shell start is NOT done (a rotated key would strand every paired kitchen screen; needs a re-pair flow first). (SEC-31 · DEV)
 - [ ] Restrict the printer socket to the shell's host, and never expose the print endpoint through the KDS server. (SEC-31 · DEV)
 - [ ] Resolve the self-unlock PIN gap: PINs exist only for `manager`/`owner` today, so a cashier has nothing to unlock with. Either lock returns to the staff picker with the account password, or add a **separate** unlock PIN in a separate column with a verification function that can never satisfy an approval RPC. Do not reuse the manager PIN. (SEC-34 · FE2)
 

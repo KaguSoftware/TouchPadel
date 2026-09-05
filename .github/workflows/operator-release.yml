@@ -1,10 +1,18 @@
 # Operator desktop installer (design-arch.md §8, plan A6).
 #
-# Trigger: push a tag like `operator-v0.1.0`. Builds the renderer with the
-# HOSTED Supabase env baked in (VITE_* are build-time inlined), bundles
-# main/preload, runs electron-builder NSIS on Windows, and attaches the
-# installer to a GitHub release. No code signing (owner decision pending):
-# the install runbook documents the SmartScreen "More info → Run anyway" step.
+# Trigger: push a tag like `operator-v0.2.0`. The version comes from the tag
+# and nothing else: it is stamped into both package.json files on the runner
+# (never committed) and into VITE_APP_VERSION, so the installer's metadata, the
+# sidebar's version line and device_heartbeats all agree.
+#
+# Output goes to the PUBLIC repo KaguSoftware/touchpadel-releases (the staff
+# download page links there, and it is the electron-updater feed). This private
+# repo gets nothing written to it, hence `contents: read`.
+#
+# Signing is conditional on secrets — see electron-builder.config.cjs. With
+# none set the build is unsigned and the runbook's SmartScreen step applies.
+# macOS builds only when Apple credentials exist (an unsigned mac app is
+# unusable). The owner's checklist: docs/client/operator-download-2026-09-05.md.
 name: operator-release
 
 on:
@@ -12,11 +20,69 @@ on:
     tags:
       - 'operator-v*'
 
+permissions:
+  contents: read
+
 jobs:
-  installer:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      mac_enabled: ${{ steps.creds.outputs.mac_enabled }}
+      win_signing: ${{ steps.creds.outputs.win_signing }}
+    steps:
+      - name: Version from the tag
+        id: ver
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          v="${TAG#operator-v}"
+          if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::$TAG is not operator-v<semver> (e.g. operator-v0.2.0)"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      # Job-level `if:` cannot read secrets; a step can, and reports what the
+      # build is going to be able to do before anything is built.
+      - name: Which credentials exist
+        id: creds
+        env:
+          OPERATOR_SUPABASE_URL: ${{ secrets.OPERATOR_SUPABASE_URL }}
+          OPERATOR_SUPABASE_ANON_KEY: ${{ secrets.OPERATOR_SUPABASE_ANON_KEY }}
+          RELEASES_GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$OPERATOR_SUPABASE_URL" ] || [ -z "$OPERATOR_SUPABASE_ANON_KEY" ]; then
+            echo "::error::OPERATOR_SUPABASE_URL / OPERATOR_SUPABASE_ANON_KEY are missing — the renderer would crash at startup by design"
+            exit 1
+          fi
+          if [ -z "$RELEASES_GH_TOKEN" ]; then
+            echo "::error::RELEASES_GH_TOKEN is missing — nothing could be published to KaguSoftware/touchpadel-releases"
+            exit 1
+          fi
+          win=unsigned
+          [ -n "$WIN_CSC_LINK" ] && win=pfx
+          [ -n "$AZURE_CLIENT_ID" ] && win=azure
+          mac=false
+          if [ -n "$MAC_CSC_LINK" ] && [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            mac=true
+          fi
+          echo "win_signing=$win" >> "$GITHUB_OUTPUT"
+          echo "mac_enabled=$mac" >> "$GITHUB_OUTPUT"
+          echo "::notice::windows signing: $win — macOS build: $mac"
+
+  windows:
+    needs: prepare
     runs-on: windows-latest
-    permissions:
-      contents: write # create the release + upload the asset
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
 
@@ -31,23 +97,113 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Stamp the version from the tag (not committed)
+        shell: bash
+        run: |
+          (cd apps/operator-shell && npm pkg set version="$VERSION")
+          (cd apps/operator && npm pkg set version="$VERSION")
+
       - name: Build renderer (hosted env baked in)
         env:
           VITE_SUPABASE_URL: ${{ secrets.OPERATOR_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.OPERATOR_SUPABASE_ANON_KEY }}
           VITE_GUEST_SITE_URL: ${{ secrets.OPERATOR_GUEST_SITE_URL }}
-          VITE_APP_VERSION: ${{ github.ref_name }}
+          VITE_APP_VERSION: ${{ needs.prepare.outputs.version }}
         run: pnpm --filter @touch/operator build
 
       - name: Bundle main + preload
         run: pnpm --filter @touch/operator-shell build
 
-      - name: Build NSIS installer
+      - name: Build the installer, sign if credentials exist, publish
         working-directory: apps/operator-shell
-        run: pnpm exec electron-builder --win nsis --config electron-builder.yml --publish never
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
+          # A re-run, or the mac job, may land more than two hours after the
+          # release was created; without this electron-publish skips the upload.
+          EP_GH_IGNORE_TIME: 'true'
+          # Route a — Azure Trusted Signing. All six present → the config adds
+          # win.azureSignOptions; electron-builder installs the TrustedSigning
+          # PowerShell module itself.
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_CODE_SIGNING_ENDPOINT: ${{ vars.AZURE_CODE_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          AZURE_CERTIFICATE_PROFILE_NAME: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
+          WIN_SIGN_PUBLISHER_NAME: ${{ vars.WIN_SIGN_PUBLISHER_NAME }}
+          # Route b — a PFX. An empty value is "unsigned" to electron-builder.
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: pnpm exec electron-builder --win nsis --config electron-builder.config.cjs --publish always
 
-      - name: Attach installer to the release
-        uses: softprops/action-gh-release@v2
+      # A debugging copy. The public release is the real output.
+      - uses: actions/upload-artifact@v4
         with:
-          files: apps/operator-shell/release/*.exe
-          generate_release_notes: true
+          name: operator-windows-${{ env.VERSION }}
+          path: |
+            apps/operator-shell/release/*.exe
+            apps/operator-shell/release/*.yml
+            apps/operator-shell/release/*.blockmap
+          retention-days: 14
+
+  macos:
+    needs: prepare
+    if: needs.prepare.outputs.mac_enabled == 'true'
+    # arm64 host; x64 is cross-packaged and better-sqlite3 is rebuilt per arch.
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Stamp the version from the tag (not committed)
+        run: |
+          (cd apps/operator-shell && npm pkg set version="$VERSION")
+          (cd apps/operator && npm pkg set version="$VERSION")
+
+      - name: Build renderer (hosted env baked in)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.OPERATOR_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.OPERATOR_SUPABASE_ANON_KEY }}
+          VITE_GUEST_SITE_URL: ${{ secrets.OPERATOR_GUEST_SITE_URL }}
+          VITE_APP_VERSION: ${{ needs.prepare.outputs.version }}
+        run: pnpm --filter @touch/operator build
+
+      - name: Bundle main + preload
+        run: pnpm --filter @touch/operator-shell build
+
+      - name: Build dmg + zip, sign, notarize, publish
+        working-directory: apps/operator-shell
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
+          EP_GH_IGNORE_TIME: 'true'
+          # Developer ID Application certificate (.p12, base64) + its password.
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          # Notarization (electron-builder's `notarize: true` reads these).
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm exec electron-builder --mac --config electron-builder.config.cjs --publish always
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: operator-macos-${{ env.VERSION }}
+          path: |
+            apps/operator-shell/release/*.dmg
+            apps/operator-shell/release/*.zip
+            apps/operator-shell/release/*.yml
+            apps/operator-shell/release/*.blockmap
+          retention-days: 14
