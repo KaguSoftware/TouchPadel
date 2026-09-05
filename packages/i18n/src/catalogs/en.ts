@@ -635,6 +635,12 @@ export const en = {
     venue: 'Venue',
     versionLine: '{name} · v{version} ({build})',
     phoneUnavailable: "The venue hasn't published a phone number yet.",
+    // "Send a test notification" (owner request 2026-09-06): a real push via
+    // app.send_test_push — the outcomes are the RPC's own error codes.
+    sendTestPush: 'Send a test notification',
+    testPushSent: 'Test sent — it should arrive in a few seconds.',
+    testPushNoToken: 'Enable notifications first.',
+    testPushRateLimited: 'Wait a minute before sending another test.',
   },
   cafe: {
     menu: 'Menu',

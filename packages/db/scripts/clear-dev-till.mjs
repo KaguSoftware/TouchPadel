@@ -15,6 +15,11 @@
  * station cannot be wiped. Once a real till is installed and heartbeating,
  * this script is a no-op. Delete it when the venue goes live.
  *
+ * Third occurrence 2026-09-05/06 (DEV1 + a dev Electron shell set up as TILL1).
+ * Since then a development session never identifies as a till at all —
+ * apps/operator/src/lib/heartbeat.ts devSafeIdentity files it as `DEV-<id>`,
+ * is_till false — so this script only matters for rows left by OLDER builds.
+ *
  * Usage (from packages/db — the CLI misbehaves from the repo root):
  *   pnpm db:clear-dev-till
  */

@@ -12,7 +12,8 @@
     "test": "vitest run",
     "lint": "eslint .",
     "build": "expo export --platform ios --platform android --output-dir dist",
-    "doctor": "npx --yes expo-doctor@latest"
+    "doctor": "npx --yes expo-doctor@latest",
+    "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

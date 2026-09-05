@@ -70,7 +70,22 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   // With only `supportsRTL: true`, forceRTL would follow the device language
   // and overwrite the in-app choice at every start — the original bug.
   ['expo-localization', { supportsRTL: false }],
-  ['expo-splash-screen', { backgroundColor: '#FFFFFF', resizeMode: 'contain' }],
+  // Launch screen: the white wordmark on Touch Blue — the middle stop of the
+  // Welcome screen's gradient (a native splash cannot draw the gradient itself),
+  // so the first frame of the app is the same colour as the last frame of the
+  // splash. assets/README.md covers every brand file here.
+  [
+    'expo-splash-screen',
+    {
+      image: './assets/logo-white.png',
+      imageWidth: 220,
+      resizeMode: 'contain',
+      backgroundColor: '#3360AB',
+    },
+  ],
+  // Android status-bar glyph (white-on-transparent, the platform tints it) and
+  // the accent colour Android paints behind it. iOS uses the app icon.
+  ['expo-notifications', { icon: './assets/notification-icon.png', color: '#3360AB' }],
   // Sign in with Apple entitlement (com.apple.developer.applesignin). EAS Build
   // syncs the capability to the App ID on every build (EXPO_NO_CAPABILITY_SYNC opts out).
   'expo-apple-authentication',
@@ -106,6 +121,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   updates: { url: 'https://u.expo.dev/d9597f8e-79bb-4bc2-882e-c44c3a013045' },
   runtimeVersion: { policy: 'appVersion' },
   backgroundColor: '#FFFFFF',
+  // The padel ball on a Touch Blue tile — the brand deck's ball beziers, the
+  // same design as the operator desktop icon. Rendered from assets/brand/*.svg
+  // by `pnpm --filter @touch/mobile icons`; to swap in official art, drop a
+  // 1024x1024 PNG on assets/icon.png (see assets/README.md). Square and
+  // full-bleed on purpose: iOS and Android apply their own corner masks.
+  icon: './assets/icon.png',
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.kagu.touchpadel',
@@ -122,6 +143,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.kagu.touchpadel',
+    // Layered launcher icon: the ball (inside the 66 % safe zone) over a solid
+    // Touch Blue, plus the white silhouette Android 13+ tints for themed icons.
+    adaptiveIcon: {
+      foregroundImage: './assets/adaptive-icon.png',
+      monochromeImage: './assets/adaptive-icon-monochrome.png',
+      backgroundColor: '#3360AB',
+    },
   },
   plugins,
   extra: {

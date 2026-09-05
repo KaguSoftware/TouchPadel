@@ -711,6 +711,7 @@ export type Database = {
       }
       search_norm: { Args: { p_text: string }; Returns: string }
       secret: { Args: { p_name: string }; Returns: string }
+      send_test_push: { Args: never; Returns: Json }
       series_detail: { Args: { p_series_id: string }; Returns: Json }
       series_occurrences: {
         Args: {
