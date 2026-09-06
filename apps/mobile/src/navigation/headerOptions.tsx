@@ -37,9 +37,9 @@ export function useNativeHeaderOptions() {
   const tint = useBackTint();
   const { t, dir } = useLocale();
   const backLabel = t('common.back');
-  // Cairo carries taller ascenders and below-baseline dots than Archivo, so at
-  // a shared 17 pt the Arabic title overflows the fixed native bar and clips
-  // top and bottom. Give it a touch less size and an explicit line box.
+  // Arabic carries taller ascenders and below-baseline dots than Latin caps,
+  // so at a shared 17 pt the Arabic title overflows the fixed native bar and
+  // clips top and bottom. Give it a touch less size and an explicit line box.
   const arabic = dir === 'rtl';
 
   return useMemo(

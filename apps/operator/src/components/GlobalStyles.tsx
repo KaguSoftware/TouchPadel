@@ -32,9 +32,22 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Figures line up column to column across the whole app: a price whose digits
+     shift by a pixel as the total ticks is what a cashier reads as a wrong
+     number. The brand family ships a real tnum feature, so this is the
+     declaration that does the work; the forty-odd cells and spans repeating it
+     locally are belt and braces, and no surface anywhere asks for proportional
+     figures. Arabic-Indic digits are covered too — the same faces carry them. */
   font-variant-numeric: tabular-nums;
   overflow: hidden;
 }
+/* A no-op today — --tp-font-arabic and --tp-font-body resolve to the same face,
+   because the brand family carries both scripts. Kept for the reason
+   packages/ui/src/theme.ts keeps its equivalent: the token is the name the app
+   uses for "set this in Arabic", and the two stacks' FALLBACK tails are allowed
+   to diverge again, at which point this rule is the only thing that would make
+   an unpainted Arabic frame legible. Deleting it costs nothing today and costs
+   a silent regression the day the tails differ. */
 [dir='rtl'] body { font-family: var(--tp-font-arabic); }
 h1, h2, h3, h4 { margin: 0; line-height: 1.25; letter-spacing: -0.01em; }
 p { margin: 0; }

@@ -15,6 +15,21 @@
  * turf beneath it. Both surfaces get `layerStyle` (the court layer's lift and
  * dim); the button between them is the caller's to move.
  *
+ * The court surface is OPAQUE, and that is a frame-budget decision, not a
+ * stylistic one. It was tried transparent so the Book tab's brand pattern
+ * (BrandPattern, index.tsx) would show through the court, and the court froze
+ * on device (owner, 2026-09-05): a full-screen translucent GL layer, over the
+ * ball's translucent layer, over the pattern's SVG, with 4× MSAA on a ~1170 ×
+ * 2532 buffer and the sheet's blur sampling the stack, costs more than the
+ * phone has. When the GPU falls behind, `endFrameEXP` back-pressures the JS
+ * thread — and BOTH the rally and the court's pitch are drawn from the one rAF
+ * loop below, so a starved loop reads as frozen rackets AND a court stuck at
+ * whatever pitch it last drew while the sheet slides on natively. An opaque
+ * clear cuts the whole stack off at the court. The pattern therefore runs
+ * behind the header and title row and stops at the stage; putting it back
+ * under the court means drawing it INSIDE the scene (a textured backdrop
+ * quad), not clearing to nothing.
+ *
  * Runtime shape:
  *   · `p` arrives through a native-driven Animated.Value listener (per frame).
  *   · The rally loops on a wall clock; the frame loop only runs while the tab
@@ -84,7 +99,8 @@ import { buildCourtScene, type CourtScene } from '../features/courtTransition/sc
 import { LOOP_SECONDS, nextLegStart } from '../features/courtTransition/rally';
 import { pitchEase, type Dir } from '../features/courtTransition/spec';
 import { addBreadcrumb, captureException, captureMessage, describeError } from '../lib/telemetry';
-import { useTheme } from '../theme';
+import { brand, useTheme } from '../theme';
+import { PATTERN_DEFAULT_OPACITY, patternInk } from '../theme/brandPattern';
 
 /**
  * expo-gl resolves its native module at import time (GLView.js top level), so a
@@ -128,6 +144,19 @@ export interface Court3DProps {
   children?: ReactNode;
   /** Shown (faded in, above everything) while the rally is held idle at the court view. */
   pausedNote?: ReactNode;
+  /**
+   * Where the page's brand pattern is, so the court can draw the SAME crop of
+   * it behind the scene (patternBackdrop) instead of clearing to a flat colour
+   * and cutting the page's copy off at the top of the stage.
+   *
+   * The caller measures both boxes with onLayout, in one coordinate space, and
+   * hands over the pattern's box plus this view's corner inside it. Measured
+   * rather than derived because the two views are several boxes apart, and
+   * handed DOWN rather than measured here because onLayout answers
+   * synchronously in the space the caller already has, where measureInWindow
+   * would be a second, asynchronous answer in a different one.
+   */
+  patternBox?: { width: number; height: number; offsetX: number; offsetY: number };
 }
 
 /** Reduced motion holds the rally here: the first strike, ball on the face, no trail. */
@@ -168,8 +197,17 @@ export function Court3D({
   layerStyle,
   children,
   pausedNote,
+  patternBox,
 }: Court3DProps) {
-  const { colors } = useTheme();
+  const { colors, appearance } = useTheme();
+  /** Pre-blended: the backdrop's material is opaque on purpose (patternInk). */
+  const ink = patternInk(colors.page, brand.green, PATTERN_DEFAULT_OPACITY[appearance]);
+  // Read as four numbers, not one object, so a caller that rebuilds the object
+  // every render does not re-push the viewport and schedule a frame with it.
+  const boxWidth = patternBox?.width ?? 0;
+  const boxHeight = patternBox?.height ?? 0;
+  const boxOffsetX = patternBox?.offsetX ?? 0;
+  const boxOffsetY = patternBox?.offsetY ?? 0;
   // Fixed for the life of the scene: the tier shapes what gets built.
   const quality = useRef(qualityProp ?? detectCourtQuality()).current;
   const court = useRef<CourtScene | null>(null);
@@ -292,6 +330,25 @@ export function Court3D({
     });
   }, [renderFrame]);
 
+  /**
+   * Tell the scene where this surface sits inside the page's pattern box, so
+   * the pattern drawn behind the court is the same crop as the one above it.
+   * A no-op until the caller has measured both boxes and this view has a size.
+   */
+  const pushViewport = useCallback(() => {
+    const size = layout.current;
+    if (!size || boxWidth <= 0 || boxHeight <= 0) return;
+    court.current?.setBackdropViewport({
+      boxWidth,
+      boxHeight,
+      offsetX: boxOffsetX,
+      offsetY: boxOffsetY,
+      viewWidth: size.width,
+      viewHeight: size.height,
+    });
+    if (running.current) requestOnce();
+  }, [boxWidth, boxHeight, boxOffsetX, boxOffsetY, requestOnce]);
+
   /** Activity: note the time, and if the rally is held, play on from that frame. */
   const wake = useCallback(() => {
     const now = performance.now();
@@ -342,18 +399,26 @@ export function Court3D({
           canvas,
           context: gl,
           antialias: true,
+          // Informational only: three reads `alpha` off the CONTEXT when one is
+          // passed (WebGLRenderer, r160), and expo-gl's getContextAttributes
+          // hardcodes alpha: true. The clear alpha below is what actually
+          // decides whether a surface composites over what is behind it.
           alpha: kind === 'ball',
         });
         renderer.setPixelRatio(1); // drawingBuffer* are already device pixels
         renderer.setSize(w, h, false);
         if (kind === 'court') {
-          renderer.setClearColor(clear.current, 1);
+          renderer.setClearColor(clear.current, 1); // opaque: see the header
           renderer.shadowMap.enabled = quality === 'full';
           renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         } else {
           renderer.setClearColor(0x000000, 0); // see-through: the button shows between the ghosts
         }
-        if (!court.current) court.current = buildCourtScene(quality);
+        if (!court.current) {
+          court.current = buildCourtScene(quality);
+          court.current.setBackdropInk(ink);
+          pushViewport();
+        }
         surfaces.current[kind] = { gl, renderer, width: w, height: h };
         if (start.current === 0) {
           start.current = performance.now();
@@ -368,10 +433,18 @@ export function Court3D({
         const attempt = initFailures.current;
         // `surface` and `focused` say which GLView failed and whether the screen
         // had already been navigated away from — the signature of a dead context.
-        const context = { label: 'court3d.init', surface: kind, attempt, focused: focusedRef.current };
+        const context = {
+          label: 'court3d.init',
+          surface: kind,
+          attempt,
+          focused: focusedRef.current,
+        };
         teardown();
         if (attempt < MAX_INIT_ATTEMPTS) {
-          captureMessage('court3d.init retry', 'warning', { ...context, error: describeError(error) });
+          captureMessage('court3d.init retry', 'warning', {
+            ...context,
+            error: describeError(error),
+          });
           setGlGeneration((n) => n + 1);
           return;
         }
@@ -379,10 +452,19 @@ export function Court3D({
         unavailableCb.current?.();
       }
     },
-    [detach, teardown, requestOnce, quality],
+    // `pushViewport` and `ink` only seed a freshly built scene, so the identity
+    // churn they add here costs a new onContextCreate prop and nothing else —
+    // expo-gl calls it once, when the context is born.
+    [detach, teardown, requestOnce, quality, ink, pushViewport],
   );
-  const onCourtContext = useCallback((gl: ExpoWebGLRenderingContext) => attach('court', gl), [attach]);
-  const onBallContext = useCallback((gl: ExpoWebGLRenderingContext) => attach('ball', gl), [attach]);
+  const onCourtContext = useCallback(
+    (gl: ExpoWebGLRenderingContext) => attach('court', gl),
+    [attach],
+  );
+  const onBallContext = useCallback(
+    (gl: ExpoWebGLRenderingContext) => attach('ball', gl),
+    [attach],
+  );
 
   // p per frame from the native driver; under reduced motion that is the only
   // trigger to draw, otherwise it is activity (a transition is in flight).
@@ -449,12 +531,19 @@ export function Court3D({
     }).start();
   }, [paused, noteOpacity]);
 
-  // Theme flips repaint the page colour behind the court.
+  // Theme flips repaint the page colour behind the court, and re-weight the
+  // brand pattern drawn on it — the page's copy carries a different alpha in
+  // each appearance, so this one has to follow or the seam shows.
   useEffect(() => {
     clear.current = hexToInt(colors.page);
     surfaces.current.court?.renderer.setClearColor(clear.current, 1);
+    court.current?.setBackdropInk(ink);
     if (running.current) requestOnce();
-  }, [colors.page, requestOnce]);
+  }, [colors.page, ink, requestOnce]);
+
+  // The caller's measurements land after this view's own, and change again on
+  // a rotation, so the push cannot hang off onLayout alone.
+  useEffect(pushViewport, [pushViewport]);
 
   useEffect(
     () => () => {
@@ -487,6 +576,7 @@ export function Court3D({
         if (width <= 0 || height <= 0) return;
         layout.current = { width, height };
         sizeCb.current?.({ width, height });
+        pushViewport(); // the backdrop's crop depends on this view's size too
         if (running.current) requestOnce(); // reduced motion: redraw at the new size now
       }}
     >

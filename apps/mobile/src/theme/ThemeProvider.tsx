@@ -43,22 +43,10 @@ import { APPEARANCE_KEY } from '../lib/bootPrefs';
 import { useReduceMotion } from '../lib/useReduceMotion';
 import { useLocale } from '../i18n/LocaleProvider';
 import { palettes, fontSets, type Palette, type FontSet } from './tokens';
-import { fontsLoaded, subscribeFontsRegistered } from './fonts';
-import { deviceAppearance, rememberAppearance, resolveAppearance } from './lastAppearance';
-import type { AppearanceName, AppearancePreference } from './lastAppearance';
+import { fontsLoaded } from './fonts';
+import { rememberAppearance } from './lastAppearance';
 
-/** The scheme actually painted. Never 'automatic'. */
-export type Appearance = AppearanceName;
-/** What the user picked in Settings. */
-export type { AppearancePreference } from './lastAppearance';
-
-/**
- * The crossfade. Slower than the language switch's (120/180): that one hides a
- * text swap, this one carries the whole surface from one palette to the other,
- * and a dissolve that reads as a dissolve needs the extra frames.
- */
-const FADE_OUT_MS = 160;
-const FADE_IN_MS = 240;
+export type Appearance = 'light' | 'dark';
 
 export interface ThemeContextValue {
   /**
@@ -72,7 +60,7 @@ export interface ThemeContextValue {
   setAppearance: (next: AppearancePreference) => void;
   /** The active palette — the only color source components should touch. */
   colors: Palette;
-  /** Locale-resolved font families (Arabic renders in Cairo throughout). */
+  /** Brand font families by role — one set of faces, both scripts. */
   fonts: FontSet;
   /**
    * Letter-spacing guard. Positive tracking visually disconnects the letters of
@@ -101,7 +89,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   preference: 'light',
   setAppearance: () => {},
   colors: palettes.light,
-  fonts: fontSets.latin,
+  fonts: fontSets.brand,
   tracking: (px) => px,
 });
 
@@ -134,44 +122,12 @@ export function ThemeProvider({
   initialAppearance?: AppearancePreference;
 }) {
   const { locale } = useLocale();
-  const [preference, setPreferenceState] = useState<AppearancePreference>(initialAppearance);
-  // Resolved once for the first frame, then kept in step by the two paths
-  // below: an explicit pick, and (under 'automatic') the device flipping.
-  const [appearance, setAppearanceState] = useState<Appearance>(() =>
-    resolveAppearance(initialAppearance),
-  );
-  const appearanceRef = useRef(appearance);
-  appearanceRef.current = appearance;
-  const preferenceRef = useRef(preference);
-  preferenceRef.current = preference;
-  // Faces that register after mount (a switch's late download) re-render us.
-  const [, bump] = useState(0);
-  useEffect(() => subscribeFontsRegistered(() => bump((n) => n + 1)), []);
-  // A script whose faces are not registered (a failed or still-running
-  // download) renders in the system face rather than in a family the OS does
-  // not know — per script, so one failed download never costs the other.
-  const facesReady = fontsLoaded(locale);
-
-  const [switching, setSwitching] = useState(false);
-  // Painted with the outgoing background for the fade-up, then repainted with
-  // the incoming one for the fade-away. Never null while the cover is visible.
-  // Seeded from the RESOLVED scheme: `initialAppearance` may be 'automatic',
-  // which is not a palette.
-  const [coverColor, setCoverColor] = useState(
-    () => palettes[resolveAppearance(initialAppearance)].bg,
-  );
-  const cover = useRef(new Animated.Value(0)).current;
-  const reduceMotion = useReduceMotion();
-  const reduceMotionRef = useRef(reduceMotion);
-  reduceMotionRef.current = reduceMotion;
-  // Re-entrancy guard for the whole window, cover fade-up to settle.
-  const inFlight = useRef(false);
-  // A switch asked for while one is in flight; applied at settle, latest wins.
-  const queued = useRef<AppearancePreference | null>(null);
-  const mounted = useRef(true);
-  // Resolves from the effect that runs AFTER the commit that changed
-  // `appearance`, so the fade-away starts on a tree that has already repainted.
-  const committed = useRef<(() => void) | null>(null);
+  const [appearance, setAppearanceState] = useState<Appearance>(initialAppearance);
+  // Nothing paints under AppRoot until `useFonts` has settled, so this is a
+  // constant for the life of a mount — but the crash and config-error screens
+  // mount their own provider above it, and those render in the system face
+  // rather than in a family the OS does not know.
+  const facesReady = fontsLoaded();
 
   // Tell the OS so keyboards, alerts, share sheets and scroll indicators follow
   // the in-app choice (app.config.ts declares userInterfaceStyle 'automatic').
@@ -328,7 +284,7 @@ export function ThemeProvider({
       preference,
       setAppearance,
       colors: palettes[appearance],
-      fonts: !facesReady ? fontSets.system : locale === 'ar' ? fontSets.arabic : fontSets.latin,
+      fonts: facesReady ? fontSets.brand : fontSets.system,
       tracking: locale === 'ar' ? () => 0 : (px) => px,
     }),
     [appearance, preference, setAppearance, locale, facesReady],

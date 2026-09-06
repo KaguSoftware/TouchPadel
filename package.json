@@ -19,7 +19,9 @@
     "db:clear-dev-till": "pnpm --filter @touch/db db:clear-dev-till",
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:install": "playwright install chromium",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "fonts:sync": "node scripts/sync-fonts.mjs",
+    "fonts:check": "node scripts/sync-fonts.mjs --check"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

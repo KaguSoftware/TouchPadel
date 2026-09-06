@@ -151,3 +151,48 @@ export async function setUserMetadata(client: Client, data: { full_name: string 
   const { error } = await client.auth.updateUser({ data });
   if (error) throw error;
 }
+
+// ── Phone OTP (dormant vendor-addition scaffold 2026-09-05) ─────────────────
+// GoTrue-native: the session these return is the same object the email path
+// stores. Delivery goes through GoTrue's Send SMS hook (functions/send-sms-otp),
+// which refuses every send until app.sms_limits.enabled (0069) is flipped —
+// so calling these against a project that has not been activated fails
+// cleanly with a message features/auth/phoneOtp.ts maps to copy.
+
+/** Sign in or sign up by phone: GoTrue creates the user on first use and sends a code. */
+export async function sendPhoneOtp(client: Client, phoneE164: string) {
+  const { error } = await client.auth.signInWithOtp({ phone: phoneE164 });
+  if (error) throw error;
+}
+
+export async function verifyPhoneOtp(client: Client, phoneE164: string, code: string) {
+  const { data, error } = await client.auth.verifyOtp({ phone: phoneE164, token: code, type: 'sms' });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Link a verified phone to an EXISTING (email / social) account so a later
+ * phone sign-in lands on the same user instead of minting a second one. GoTrue
+ * sends the code to the new number; verifyPhoneLink confirms it.
+ */
+export async function startPhoneLink(client: Client, phoneE164: string) {
+  const { error } = await client.auth.updateUser({ phone: phoneE164 });
+  if (error) throw error;
+}
+
+export async function verifyPhoneLink(client: Client, phoneE164: string, code: string) {
+  const { data, error } = await client.auth.verifyOtp({
+    phone: phoneE164,
+    token: code,
+    type: 'phone_change',
+  });
+  if (error) throw error;
+  return data;
+}
+
+/** Resend for the link flow (a sign-in resend is simply sendPhoneOtp again). */
+export async function resendPhoneLink(client: Client, phoneE164: string) {
+  const { error } = await client.auth.resend({ type: 'phone_change', phone: phoneE164 });
+  if (error) throw error;
+}

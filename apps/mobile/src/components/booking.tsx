@@ -5,14 +5,24 @@
  * Stateless — all data arrives as props (spec §06).
  */
 import type { ComponentType, ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '../i18n/text';
 import { formatDayNumber, formatMonthShort, isolate, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
-import { brand, radius, shadows, slotStateStyles, space, useTheme, type Palette } from '../theme';
+import { brand, palettes, radius, shadows, slotStateStyles, space, useTheme, type Palette } from '../theme';
 import type { MergedCell } from '../features/availability/assemble';
-import { CardIcon, ChevronIcon, CloseIcon, WifiOffIcon, type IconProps } from './icons';
-import { Button } from './ui';
+import {
+  CalendarIcon,
+  CardIcon,
+  ChevronIcon,
+  ClockIcon,
+  PadelBallIcon,
+  TagIcon,
+  WifiOffIcon,
+  type IconProps,
+} from './icons';
+import { BrandPattern } from './BrandPattern';
+import { Button, SectionLabel } from './ui';
 
 // ── Status pill (7 statuses, all handled — spec BookingStatusIndicator) ─────
 
@@ -347,6 +357,533 @@ export function HeldSlotCard({
   );
 }
 
+// ── My bookings: hero, headings, rows ───────────────────────────────────────
+
+/**
+ * One icon + label pair from a booking's metadata ("🕐 7:30 PM–9:00 PM").
+ *
+ * The list used to run weekday, date, time and price together as a single
+ * middot-separated string, which reads as one flat grey sentence — nothing in
+ * it can be found without reading all of it. Split into labelled pairs, the eye
+ * lands on the time without passing through the price, and the glyph carries
+ * the meaning at a glance in either language.
+ */
+function MetaItem({
+  icon: Icon,
+  text,
+  color,
+  iconColor,
+  bold = false,
+  size = 12,
+}: {
+  icon: ComponentType<IconProps>;
+  text: string;
+  color: string;
+  /** Defaults to the text colour; the hero tints its glyphs brand green. */
+  iconColor?: string;
+  /** Prices are the one metadata item the design weights up. */
+  bold?: boolean;
+  size?: number;
+}) {
+  const { fonts } = useTheme();
+  return (
+    // No alignSelf here: this is a ROW, so the cross axis is vertical and a
+    // `flex-start` would top-align the label against its glyph. The Text hugs
+    // its content anyway, which is what the leading-edge trick buys elsewhere.
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+      <Icon size={size + 1} color={iconColor ?? color} strokeWidth={2} />
+      <Text
+        numberOfLines={1}
+        style={{
+          flexShrink: 1,
+          fontFamily: bold ? fonts.body800 : fonts.body600,
+          fontSize: size,
+          color,
+        }}
+      >
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * The next game, lifted out of the list (owner, 2026-09-05: My bookings "reads
+ * like just a list").
+ *
+ * It stands on the brand's navy — the same ground as Review and the success
+ * screen — under the brand line pattern at a whisper, so the top of the tab is
+ * a POSTER for the next match instead of row one of a table. The list below
+ * starts at the SECOND upcoming booking: nothing is shown twice.
+ *
+ * The pattern is painted on the card's own ground rather than borrowed from the
+ * page behind it. Two copies of a `slice`-cropped drawing over one background
+ * can never agree — each crops to its own box — and the seam is the loudest
+ * thing on screen. An opaque card carrying its own copy has no seam to keep.
+ *
+ * IN BLUE MODE IT INVERTS TO THE BRAND GREEN (owner, 2026-09-05). The navy that
+ * makes this card a poster on a pale page is DARKER than the page in dark mode
+ * — #172C4F under a #1C355E ground — so the hero sank into the tab instead of
+ * standing off it, and the one card meant to be seen first was the quietest
+ * thing on screen. On green it is the brightest thing in the tab by a mile, and
+ * it is the same green the Book tab's on-net CTA is cut from, so the two loudest
+ * surfaces in the app now agree.
+ *
+ * The pattern lives HERE and only here (owner, 2026-09-05: "the pattern bg on
+ * the card but not on the entire page"). It ran full-bleed behind the whole tab
+ * for a moment; on the card it does the same work in the one place the eye is
+ * already going, and the list below is left alone to be a list. Its ink is the
+ * one thing that has to change with the ground — see BrandPattern's header for
+ * why green-on-navy and white-on-green, and why neither alpha is free.
+ */
+export function NextUpCard({
+  label,
+  courtName,
+  status,
+  when,
+  timeRange,
+  price,
+  proximity,
+  imminent,
+  ctaLabel,
+  onPress,
+}: {
+  /** "Next up". */
+  label: string;
+  courtName: string;
+  /** The row's status; only a non-confirmed one is named (see the eyebrow). */
+  status: string;
+  /** Weekday + date, already formatted. */
+  when: string;
+  timeRange: string;
+  /** Formatted price, or the duration when the row carries none. */
+  price: string;
+  /** "In 2 days" / "On now". */
+  proximity: string;
+  /** On court now, or minutes away: the chip goes solid green. */
+  imminent: boolean;
+  ctaLabel: string;
+  onPress: () => void;
+}) {
+  const { appearance, fonts, tracking } = useTheme();
+  const { t, dir } = useLocale();
+  /**
+   * The card's own two-sided palette — the ONE thing that flips with the theme
+   * here, since everything else on it is theme-invariant brand.
+   *
+   * The green side's darks are NOT invented and not the dark palette's greens
+   * either — blue mode's green ramp is built to sit ON a blue ground and runs
+   * pale (`gstrong` is #BCDC93), which is invisible here. They come off
+   * `palettes.light`, the ramp already measured against a light ground:
+   * `greenInk` for everything that must carry (11.85:1, the brand's own
+   * on-green ink), `gtext2` #3D541F for the metadata at 4.77:1, and `gph`
+   * #657F45 for the rule. `gtext` #426318 is deliberately NOT used — it looks
+   * like the obvious choice and measures 3.91:1, under AA.
+   *
+   * The chip keeps its meaning on both sides: resting recedes, imminent is the
+   * loudest pill on the card. Which colour does that simply swaps — solid green
+   * on navy, solid navy on green.
+   */
+  const ink =
+    appearance === 'dark'
+      ? {
+          ground: brand.green,
+          pattern: 0.4,
+          patternInk: brand.white,
+          eyebrow: brand.greenInk,
+          title: brand.greenInk,
+          meta: palettes.light.gtext2,
+          glyph: palettes.light.gtext2,
+          line: palettes.light.gph,
+          price: brand.greenInk,
+          chipBg: 'transparent',
+          chipLine: palettes.light.gph,
+          chipInk: palettes.light.gtext2,
+          hotBg: brand.navy,
+          hotInk: brand.green,
+          cta: palettes.light.gtext2,
+          // A navy disc whose arcs are the ground showing through.
+          ballFill: brand.navy,
+          ballStroke: brand.green,
+        }
+      : {
+          ground: brand.navy,
+          // 0.2 is the ceiling, not a preference: green lines take the navy to
+          // #334D55 under them, and `navyText` on THAT is 4.78:1.
+          pattern: 0.2,
+          patternInk: brand.green,
+          eyebrow: brand.green,
+          title: brand.white,
+          meta: brand.navyText,
+          glyph: brand.green,
+          line: brand.navyLine,
+          price: brand.green,
+          chipBg: brand.navyCard,
+          chipLine: brand.navyLine,
+          chipInk: brand.navyText,
+          hotBg: brand.green,
+          hotInk: brand.greenInk,
+          cta: brand.navyText,
+          ballFill: brand.green,
+          ballStroke: brand.navy,
+        };
+  // Arabic has no letter case (`tracking` already zeroes itself in AR).
+  const caps = dir === 'rtl' ? ('none' as const) : ('uppercase' as const);
+  // The hero carries no StatusPill — the pill's tints are built for a card in
+  // the page palette, and neither of this card's grounds is one, so all seven
+  // of them would have to be re-derived twice over. 'confirmed' needs no saying
+  // anyway; the two that DO ('pending', 'arrived') are named in the eyebrow,
+  // which costs no room and cannot be missed above the court name.
+  const eyebrow =
+    status === 'confirmed' ? label : `${label} · ${t(STATUS_KEY[status] ?? 'booking.statusPending')}`;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        marginTop: 10,
+        borderRadius: radius.card,
+        backgroundColor: ink.ground,
+        // Clips the pattern to the corners — without it the SVG paints square
+        // shoulders over the card's radius.
+        overflow: 'hidden',
+        opacity: pressed ? 0.92 : 1,
+      })}
+    >
+      <BrandPattern opacity={ink.pattern} color={ink.patternInk} />
+      <View style={{ padding: space.l }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <PadelBallIcon size={15} fill={ink.ballFill} stroke={ink.ballStroke} strokeWidth={3.5} />
+          <Text
+            style={{
+              fontFamily: fonts.display800,
+              fontSize: 10,
+              letterSpacing: tracking(1.1),
+              textTransform: caps,
+              color: ink.eyebrow,
+            }}
+          >
+            {eyebrow}
+          </Text>
+          <View style={{ flex: 1 }} />
+          <View
+            style={{
+              paddingStart: 9,
+              paddingEnd: 9,
+              paddingTop: 5,
+              paddingBottom: 5,
+              borderRadius: radius.pill,
+              backgroundColor: imminent ? ink.hotBg : ink.chipBg,
+              borderWidth: 1,
+              borderColor: imminent ? ink.hotBg : ink.chipLine,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: fonts.display800,
+                fontSize: 10,
+                letterSpacing: tracking(0.5),
+                textTransform: caps,
+                color: imminent ? ink.hotInk : ink.chipInk,
+              }}
+            >
+              {proximity}
+            </Text>
+          </View>
+        </View>
+        <Text
+          numberOfLines={1}
+          // Shrink-wrapped to the leading edge (this one IS in a column):
+          // pickLocale can hand back the Latin court name, which iOS aligns from
+          // its own first strong character rather than from the layout direction.
+          style={{
+            alignSelf: 'flex-start',
+            marginTop: 11,
+            fontFamily: fonts.display900,
+            fontSize: 21,
+            color: ink.title,
+          }}
+        >
+          {courtName}
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            columnGap: 14,
+            rowGap: 4,
+            marginTop: 5,
+          }}
+        >
+          <MetaItem icon={CalendarIcon} text={when} color={ink.meta} iconColor={ink.glyph} size={12.5} />
+          <MetaItem icon={ClockIcon} text={timeRange} color={ink.meta} iconColor={ink.glyph} size={12.5} />
+        </View>
+        <View
+          style={{
+            height: StyleSheet.hairlineWidth,
+            backgroundColor: ink.line,
+            marginTop: space.sm,
+          }}
+        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+          <MetaItem icon={TagIcon} text={price} color={ink.price} bold size={13} />
+          <View style={{ flex: 1 }} />
+          <Text
+            style={{
+              fontFamily: fonts.display800,
+              fontSize: 10.5,
+              letterSpacing: tracking(0.7),
+              textTransform: caps,
+              color: ink.cta,
+            }}
+          >
+            {ctaLabel}
+          </Text>
+          <ChevronIcon size={13} color={ink.glyph} strokeWidth={2.6} />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+/**
+ * A section heading that carries its own icon, a rule out to the margin and a
+ * count: `🗓 UPCOMING ───────── 3`.
+ *
+ * Three identical grey labels down a page read as one undifferentiated list;
+ * the rule gives each section a top edge and the count says how much is under
+ * it without the guest scrolling to find out.
+ */
+export function ListHeading({
+  icon: Icon,
+  label,
+  count,
+  style,
+}: {
+  icon: ComponentType<IconProps>;
+  label: string;
+  /** Omitted or 0 renders no number (an empty section says so in its body). */
+  count?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { colors, fonts, tracking } = useTheme();
+  return (
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8 }, style]}>
+      <Icon size={13} color={colors.fnt} strokeWidth={2.2} />
+      <SectionLabel>{label}</SectionLabel>
+      <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.line }} />
+      {count ? (
+        <Text
+          style={{
+            fontFamily: fonts.display800,
+            fontSize: 10.5,
+            letterSpacing: tracking(0.4),
+            color: colors.fnt,
+            fontVariant: ['tabular-nums'],
+          }}
+        >
+          {count}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** A counted fact under the page title ("3 upcoming", "12 played"). */
+export function StatChip({
+  icon: Icon,
+  label,
+  accent = false,
+}: {
+  icon: ComponentType<IconProps>;
+  label: string;
+  /** The upcoming chip, which is the live one, takes the blue tint. */
+  accent?: boolean;
+}) {
+  const { colors, fonts } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingStart: 9,
+        paddingEnd: 10,
+        paddingTop: 5,
+        paddingBottom: 5,
+        borderRadius: radius.pill,
+        backgroundColor: accent ? colors.tint : colors.sub,
+        borderWidth: 1,
+        borderColor: colors.line,
+      }}
+    >
+      <Icon size={12} color={accent ? colors.blue : colors.fnt} strokeWidth={2.2} />
+      <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: accent ? colors.mut2 : colors.mut }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * An upcoming booking below the hero: date badge, court, metadata pairs, and a
+ * status/price stack on the trailing edge.
+ */
+export function UpcomingBookingRow({
+  date,
+  courtName,
+  weekday,
+  timeRange,
+  price,
+  status,
+  onPress,
+}: {
+  date: Date;
+  courtName: string;
+  weekday: string;
+  timeRange: string;
+  price: string | null;
+  status: string;
+  onPress: () => void;
+}) {
+  const { colors, fonts } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: colors.line,
+        borderRadius: radius.button,
+        boxShadow: shadows.thumb,
+        paddingStart: space.sm,
+        paddingEnd: space.sm,
+        paddingTop: space.sm,
+        paddingBottom: space.sm,
+        flexDirection: 'row',
+        gap: space.sm,
+        alignItems: 'center',
+        marginTop: 9,
+        opacity: pressed ? 0.9 : 1,
+      })}
+    >
+      <DateBadge date={date} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text
+          numberOfLines={1}
+          // Shrink-wrapped to the leading edge, like the hero's court name.
+          style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
+        >
+          {courtName}
+        </Text>
+        <View
+          style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 11, rowGap: 2, marginTop: 3 }}
+        >
+          <MetaItem icon={CalendarIcon} text={weekday} color={colors.mut} size={11.5} />
+          <MetaItem icon={ClockIcon} text={timeRange} color={colors.mut} size={11.5} />
+        </View>
+      </View>
+      {/* Column, so `flex-end` is the cross axis — Yoga resolves it against the
+          layout direction, i.e. the trailing edge in both languages. */}
+      <View style={{ alignItems: 'flex-end', gap: 5 }}>
+        <StatusPill status={status} />
+        {price ? (
+          <Text style={{ fontFamily: fonts.body800, fontSize: 11.5, color: colors.gstrong }}>
+            {price}
+          </Text>
+        ) : null}
+      </View>
+      <ChevronIcon size={14} color={colors.fnt3} strokeWidth={2.2} />
+    </Pressable>
+  );
+}
+
+/**
+ * A past booking, hung off a timeline rail.
+ *
+ * Past was the flattest part of the screen — the same card as Upcoming, dimmed.
+ * The rail turns it into one continuous thread with a node per game, and the
+ * node's colour says at a glance which of them were actually played: green for
+ * turned up, red for cancelled or no-show, grey for anything else. The card's
+ * own bottom margin sits INSIDE this row's height, so the rail stretches
+ * through the gap and the thread never breaks between rows.
+ */
+export function PastBookingRow({
+  courtName,
+  when,
+  price,
+  status,
+  first,
+  last,
+  onPress,
+}: {
+  courtName: string;
+  when: string;
+  price: string | null;
+  status: string;
+  first: boolean;
+  last: boolean;
+  onPress: () => void;
+}) {
+  const { colors, fonts } = useTheme();
+  const node =
+    status === 'cancelled' || status === 'no_show'
+      ? colors.redline
+      : status === 'completed' || status === 'arrived'
+        ? colors.gline
+        : colors.fnt3;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
+      <View style={{ width: 22, alignItems: 'center' }}>
+        <View
+          style={{ width: 1.5, height: 17, backgroundColor: first ? 'transparent' : colors.line }}
+        />
+        <View style={{ width: 9, height: 9, borderRadius: radius.pill, backgroundColor: node }} />
+        <View
+          style={{ flex: 1, width: 1.5, backgroundColor: last ? 'transparent' : colors.line }}
+        />
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => ({
+          flex: 1,
+          marginBottom: 9,
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.line,
+          borderRadius: radius.cell,
+          paddingStart: space.sm,
+          paddingEnd: space.sm,
+          paddingTop: 10,
+          paddingBottom: 10,
+          flexDirection: 'row',
+          gap: space.s,
+          alignItems: 'center',
+          opacity: pressed ? 0.7 : 0.88,
+        })}
+      >
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            numberOfLines={1}
+            style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 13, color: colors.mut2 }}
+          >
+            {courtName}
+          </Text>
+          <View
+            style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 2, marginTop: 2 }}
+          >
+            <MetaItem icon={ClockIcon} text={when} color={colors.fnt} size={11} />
+            {price ? <MetaItem icon={TagIcon} text={price} color={colors.fnt} size={11} /> : null}
+          </View>
+        </View>
+        <StatusPill status={status} />
+      </Pressable>
+    </View>
+  );
+}
+
 // ── Degraded banner (courts / availability / bookings) ──────────────────────
 
 /**
@@ -521,8 +1058,11 @@ export function DayChip({
   closedLabel: string;
   onPress: () => void;
   /**
-   * The booking sheet's pill (court → booking transition, 2026-09-01): 40 wide,
-   * radius 10, 5×4 padding, 9 pt weekday + 14 pt day — six fit in the card.
+   * The booking sheet's pill (court → booking transition, 2026-09-01): 46 wide,
+   * radius 12, 6×5 padding, 10 pt weekday + 16 pt day in Black — about five fit
+   * in the card and the rest scroll. Grown from 40 / 9 / 14 on 2026-09-05
+   * (owner: bigger and bolder), which is why the strip now scrolls a pill
+   * sooner than it did.
    */
   compact?: boolean;
 }) {
@@ -533,14 +1073,14 @@ export function DayChip({
       accessibilityState={{ selected }}
       onPress={onPress}
       style={{
-        minWidth: compact ? 40 : 52,
+        minWidth: compact ? 46 : 52,
         alignItems: 'center',
-        gap: compact ? 0 : 1,
-        paddingTop: compact ? 5 : 8,
-        paddingBottom: compact ? 5 : 8,
-        paddingStart: compact ? 4 : 6,
-        paddingEnd: compact ? 4 : 6,
-        borderRadius: compact ? 10 : radius.cell,
+        gap: 1,
+        paddingTop: compact ? 6 : 8,
+        paddingBottom: compact ? 6 : 8,
+        paddingStart: compact ? 5 : 6,
+        paddingEnd: compact ? 5 : 6,
+        borderRadius: compact ? 12 : radius.cell,
         borderWidth: 1.5,
         borderColor: selected ? brand.blue : colors.line,
         backgroundColor: selected ? brand.blue : closed ? colors.sub : colors.card,
@@ -548,11 +1088,11 @@ export function DayChip({
     >
       <Text
         style={{
-          fontFamily: fonts.body700,
-          fontSize: compact ? 9 : 10,
+          fontFamily: compact ? fonts.body800 : fonts.body700,
+          fontSize: 10,
           letterSpacing: tracking(compact ? 0.45 : 0.6),
           textTransform: 'uppercase',
-          opacity: 0.75,
+          opacity: compact ? 0.85 : 0.75,
           color: selected ? brand.white : closed ? colors.fnt2 : colors.ink,
         }}
       >
@@ -560,8 +1100,8 @@ export function DayChip({
       </Text>
       <Text
         style={{
-          fontFamily: fonts.display800,
-          fontSize: compact ? 14 : 16,
+          fontFamily: compact ? fonts.display900 : fonts.display800,
+          fontSize: 16,
           color: selected ? brand.white : closed ? colors.fnt2 : colors.ink,
         }}
       >
@@ -571,7 +1111,7 @@ export function DayChip({
         <Text
           style={{
             fontFamily: fonts.body700,
-            fontSize: compact ? 7.5 : 8.5,
+            fontSize: 8.5,
             textTransform: 'uppercase',
             letterSpacing: tracking(0.34),
             opacity: 0.7,
@@ -610,8 +1150,11 @@ export function SlotCell({
   onPress?: () => void;
   /**
    * The booking sheet's cell (court → booking transition, 2026-09-01): min
-   * height 40, radius 10, 7×4 padding, 13 / 9.5 / 8.5 pt — four rows show in
-   * the card's 200 pt grid; the sheet presses with a scale, not a dim.
+   * height 46, radius 12, 8×4 padding, a 2 pt border and 15 / 11 / 9.5 pt in
+   * Black / ExtraBold — four rows show in the card's 216 pt grid; the sheet
+   * presses with a scale, not a dim. Grown from 40 / 13 / 9.5 / 8.5 on
+   * 2026-09-05 (owner: bigger and bolder) — the grid grew with it, and the
+   * card's own heading moved out to the screen title to pay for it.
    */
   compact?: boolean;
 }) {
@@ -627,27 +1170,37 @@ export function SlotCell({
       style={({ pressed }) => ({
         flex: 1,
         alignItems: 'center',
-        gap: compact ? 1 : 2,
-        paddingTop: compact ? 7 : 10,
-        paddingBottom: compact ? 7 : 10,
+        gap: 2,
+        paddingTop: compact ? 8 : 10,
+        paddingBottom: compact ? 8 : 10,
         paddingStart: 4,
         paddingEnd: 4,
-        minHeight: compact ? 40 : 52,
-        borderRadius: compact ? 10 : radius.cell,
+        minHeight: compact ? 46 : 52,
+        borderRadius: compact ? 12 : radius.cell,
         backgroundColor: visual.bg,
-        borderWidth: 1.5,
+        borderWidth: compact ? 2 : 1.5,
         borderColor: visual.border,
         borderStyle: visual.borderStyle,
         opacity: pressed && !compact ? 0.85 : 1,
         transform: [{ scale: pressed && compact ? 0.96 : 1 }],
       })}
     >
-      <Text style={{ fontFamily: fonts.display800, fontSize: compact ? 13 : 15, color: visual.text }}>
+      <Text
+        style={{
+          fontFamily: compact ? fonts.display900 : fonts.display800,
+          fontSize: 15,
+          color: visual.text,
+        }}
+      >
         {time}
       </Text>
       <Text
         numberOfLines={1}
-        style={{ fontFamily: fonts.body700, fontSize: compact ? 9.5 : 10.5, color: visual.subText }}
+        style={{
+          fontFamily: compact ? fonts.body800 : fonts.body700,
+          fontSize: compact ? 11 : 10.5,
+          color: visual.subText,
+        }}
       >
         {sub}
       </Text>
@@ -655,8 +1208,8 @@ export function SlotCell({
         <Text
           numberOfLines={1}
           style={{
-            fontFamily: fonts.body700,
-            fontSize: compact ? 8.5 : 9.5,
+            fontFamily: compact ? fonts.body800 : fonts.body700,
+            fontSize: 9.5,
             letterSpacing: tracking(0.3),
             color: cell.freeCount > 1 ? colors.fnt : colors.ambstrong,
           }}

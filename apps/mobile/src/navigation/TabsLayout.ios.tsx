@@ -14,7 +14,7 @@ const { Icon, Label } = NativeTabs.Trigger;
  *
  * The system draws the bar, so it picks up the native material (Liquid Glass on
  * iOS 26), scroll-edge behavior, RTL mirroring and iPad layout. Labels still
- * take the design's Archivo face, and the selected tab tints its icon with the
+ * take the design's display face, and the selected tab tints its icon with the
  * design's green; the 14x3 green active dot has no UIKit equivalent and is
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.

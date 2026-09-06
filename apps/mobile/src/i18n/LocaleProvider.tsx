@@ -15,18 +15,11 @@ import { supabase } from '../lib/supabase';
 import { LOCALE_KEY } from '../lib/bootPrefs';
 import { useReduceMotion } from '../lib/useReduceMotion';
 import { addBreadcrumb, captureException } from '../lib/telemetry';
-import { ensureFontsLoaded } from '../theme/fonts';
 import { rememberLocale } from './lastLocale';
 
 /** The switch crossfade: cover up, one commit, cover down. Skipped under Reduce Motion. */
 const FADE_OUT_MS = 120;
 const FADE_IN_MS = 180;
-/**
- * How long a switch may wait for the target script's faces before committing
- * anyway (they normally preloaded right after first paint). Past this the
- * theme renders system faces and swaps in the brand faces when they register.
- */
-const FONT_WAIT_CAP_MS = 1500;
 
 export interface LocaleContextValue {
   locale: Locale;
@@ -34,7 +27,7 @@ export interface LocaleContextValue {
   dir: Direction;
   t: (key: MessageKey, params?: TParams) => string;
   /**
-   * Switch language IN PLACE: a cover fades over the tree, strings + faces +
+   * Switch language IN PLACE: a cover fades over the tree, strings and
    * direction change in a single commit, the cover fades away. Persists
    * on-device and writes profiles.preferred_lang when a session exists.
    * Resolves once the new language has been COMMITTED (the cover may still be
@@ -78,10 +71,6 @@ function animateTo(value: Animated.Value, toValue: number, duration: number): Pr
   return new Promise((resolve) => {
     Animated.timing(value, { toValue, duration, useNativeDriver: true }).start(() => resolve());
   });
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Best-effort: a guest may be offline. Retried the next time they switch. */
@@ -150,18 +139,13 @@ export function LocaleProvider({
         // iOS (Fabric ignores near-transparent views when hit-testing).
         if (reduceMotionRef.current) cover.setValue(1);
         else await animateTo(cover, 1, FADE_OUT_MS);
-        try {
-          await Promise.race([ensureFontsLoaded(next), delay(FONT_WAIT_CAP_MS)]);
-        } catch (error) {
-          captureException(error, { label: 'locale.switchPrep', next });
-        }
         if (!mounted.current) return;
         rememberLocale(next);
         void syncProfileLanguage(next);
         await new Promise<void>((resolve) => {
           committed.current = resolve;
-          // ONE commit: strings, faces (ThemeProvider), direction (DirectionRoot)
-          // and the native header's direction (LocaleDirContext) change here.
+          // ONE commit: strings, direction (DirectionRoot), the tracking guard
+          // (ThemeProvider) and the native bar's direction (LocaleDirContext).
           setLocaleState(next);
         });
       } catch (error) {

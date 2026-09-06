@@ -28,6 +28,11 @@
   in the renderer, even for "quick" things. Reads are fine.
 - **Styling**: CSS logical properties only (`margin-inline-start`, not `margin-left`) — lint
   enforces it. Test every screen you touch in Arabic (`/ar`) before calling it done.
+- **Fonts**: never spell a family name in app code — the stacks live in
+  `packages/ui/src/tokens/typography.ts` and reach surfaces as `--tp-font-*` or the mobile theme's
+  font tokens. The files are canonical in `packages/ui/fonts/lama/`; touch one and you owe the repo
+  a `pnpm fonts:sync` plus the copies it writes into the app static roots (CI runs `pnpm fonts:check`
+  and fails on drift). Background: `docs/brand/lama-sans/README.md`.
 - **Bilingual content**: `_en` and `_ar` are both `NOT NULL` on new content tables — no
   English-only rows.
 - **Secrets**: `.env*` and `station.json` are gitignored; the service-role key exists only in edge

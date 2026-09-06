@@ -3,11 +3,18 @@ import { Pressable, RefreshControl, SectionList, View } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
-import { formatDate, formatTime, formatTimeRange } from '@touch/i18n';
+import { formatDate, formatTime, formatTimeRange, formatWeekdayShort } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useMyBookings, useReleaseHold } from '../../src/features/booking/hooks';
-import { secondsUntil, splitBookings, type BookingRow } from '../../src/features/booking/logic';
+import {
+  playedCount,
+  secondsUntil,
+  splitBookings,
+  startProximity,
+  type BookingRow,
+  type StartProximity,
+} from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import {
   useCourts,
@@ -20,24 +27,49 @@ import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
-import { Screen, SectionLabel, Title } from '../../src/components/ui';
-import { DateBadge, DegradedToast, HeldSlotCard, StatusPill } from '../../src/components/booking';
+import { Screen, Title } from '../../src/components/ui';
+import {
+  DegradedBanner,
+  HeldSlotCard,
+  ListHeading,
+  NextUpCard,
+  PastBookingRow,
+  StatChip,
+  UpcomingBookingRow,
+} from '../../src/components/booking';
+import { CalendarIcon, CheckIcon, ClockIcon, PadelBallIcon, StopwatchIcon } from '../../src/components/icons';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 
-/** Breathing room between the title's squiggle and the floating venue notice. */
-const NOTICE_GAP = 2;
-
 /**
- * My bookings tab (design 2026-08-31): Upcoming as date-badge cards, Past as a
- * muted list, both routing into booking detail — cancellation lives THERE now.
- * Signed-out shows the empty state with a sign-in path (browsing is public).
+ * My bookings tab (design 2026-08-31; "more life" pass 2026-09-05).
+ *
+ * Upcoming as date-badge cards, Past as a muted list, both routing into booking
+ * detail — cancellation lives THERE now. Signed-out shows the empty state with
+ * a sign-in path (browsing is public).
  *
  * Above them sits HELD: slots the guest has taken but not confirmed (0058).
  * Nothing in the app used to show a hold, so a guest who left Review had no way
  * to check what was still held in their name — the only symptom was the fourth
  * slot tap failing with HOLD_QUOTA_EXCEEDED. Each hold can be finished or
  * handed straight back from here.
+ *
+ * What the "more life" pass changed (owner: the screen "reads like just a
+ * list"), all presentation, no behaviour:
+ *
+ *  - the FIRST upcoming booking is promoted to a hero carrying the Book tab's
+ *    brand line pattern, a countdown chip and the metadata as icon pairs, so
+ *    the top of the tab is the next match rather than row one of a table;
+ *  - section headings gained an icon, a rule and a count;
+ *  - Past hangs off a timeline rail whose node colour says which games were
+ *    actually played;
+ *  - the middot-separated metadata line became labelled icon pairs everywhere.
+ *
+ * The pattern is ON THE HERO, not behind the page (owner). It ran full-bleed
+ * here for a moment: under an opaque list it only ever surfaced in the margins
+ * and the 9 px between cards, which is a texture nobody asked a booking list
+ * for. On the card it lands where the eye is already going, and the list below
+ * is left alone to be a list.
  */
 export default function BookingsScreen() {
   const { t, locale } = useLocale();
@@ -59,6 +91,7 @@ export default function BookingsScreen() {
 
   // The upcoming/past boundary follows the clock, not the last data change —
   // a booking that ended while the screen was open used to stay "Upcoming".
+  // The hero's countdown rides the same minute tick.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -77,6 +110,7 @@ export default function BookingsScreen() {
     () => splitBookings(bookings.data ?? [], now),
     [bookings.data, now],
   );
+  const played = useMemo(() => playedCount(past), [past]);
 
   // A hold's countdown has to move every second, but re-splitting the whole
   // list that often is waste — so the seconds tick is its own state and runs
@@ -145,7 +179,12 @@ export default function BookingsScreen() {
 
   const heldSection = holds.length > 0 && (
     <View>
-      <SectionLabel style={{ marginTop: 6 }}>{t('booking.heldSection')}</SectionLabel>
+      <ListHeading
+        icon={StopwatchIcon}
+        label={t('booking.heldSection')}
+        count={holds.length}
+        style={{ marginTop: 6 }}
+      />
       {holds.map((row) => {
         const left = secondsUntil(row.hold_expires_at ?? null, holdNow) ?? 0;
         const start = new Date(row.start_at);
@@ -177,22 +216,42 @@ export default function BookingsScreen() {
     </View>
   );
 
+  // Two counted facts under the title. "Played" counts only the games the guest
+  // turned up for — a tally that included cancellations would be the one number
+  // on the screen that lies.
+  const stats =
+    upcoming.length > 0 || played > 0 ? (
+      <View
+        style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 2, marginBottom: 4 }}
+      >
+        {upcoming.length > 0 ? (
+          <StatChip
+            icon={CalendarIcon}
+            label={t('booking.upcomingCount', { count: upcoming.length })}
+            accent
+          />
+        ) : null}
+        {played > 0 ? (
+          <StatChip icon={CheckIcon} label={t('booking.playedCount', { count: played })} />
+        ) : null}
+      </View>
+    ) : null;
+
   const phone = venuePhoneOf(settings.data);
   const header = (
     <View style={{ paddingTop: space.l }}>
-      {/*
-        Measured, not assumed: Title's line box follows the locale (Cairo needs
-        a taller one than Archivo for its descenders), so the floating notice
-        below cannot hardcode a height without riding up over the title in
-        Arabic. The wrapper measures the heading AND its green squiggle; the
-        squiggle is the last thing in the row, and the notice must clear it.
-
-        Title's own `marginBottom` sits OUTSIDE this box — a margin is not part
-        of a node's measured height — so the gap is added at the call site.
-      */}
-      <View onLayout={(e) => setTitleH(e.nativeEvent.layout.height)}>
-        <Title>{t('booking.myBookings')}</Title>
-      </View>
+      <Title>{t('booking.myBookings')}</Title>
+      {stats}
+      {degraded ? (
+        <View style={{ marginTop: 2, marginBottom: 8 }}>
+          <DegradedBanner
+            tight
+            lead={t('degraded.leadConnectionLost')}
+            message={t('degraded.bannerBookings', { phone: phone ?? '' })}
+            phone={phone}
+          />
+        </View>
+      ) : null}
       {heldSection}
     </View>
   );
@@ -269,97 +328,89 @@ export default function BookingsScreen() {
   // the blind spot this section exists to close.
   const noBookings = holds.length === 0 && upcoming.length === 0 && past.length === 0;
 
-  const priceSuffix = (row: BookingRow) => {
-    const price = formatPrice(row.price_iqd, locale);
-    return price ? ` · ${price}` : '';
+  // "In 2 days" / "On now" for the hero's chip. The unit steps hand off exactly
+  // (see startProximity), so there is no gap that renders an empty chip; days
+  // takes a singular of its own because the catalogs carry no plural rules.
+  const proximityLabel = (p: StartProximity) => {
+    switch (p.unit) {
+      case 'live':
+        return t('booking.onNow');
+      case 'now':
+        return t('booking.startsNow');
+      case 'minutes':
+        return t('booking.startsInMinutes', { count: p.value });
+      case 'hours':
+        return t('booking.startsInHours', { count: p.value });
+      case 'days':
+        return p.value === 1
+          ? t('booking.startsInDay')
+          : t('booking.startsInDays', { count: p.value });
+    }
   };
 
-  const renderUpcoming = (item: BookingRow) => (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
-      style={({ pressed }) => ({
-        backgroundColor: colors.card,
-        borderWidth: 1,
-        borderColor: colors.line,
-        borderRadius: radius.button,
-        paddingStart: space.m,
-        paddingEnd: space.m,
-        paddingTop: space.sm,
-        paddingBottom: space.sm,
-        flexDirection: 'row',
-        gap: space.sm,
-        alignItems: 'center',
-        marginTop: 9,
-        opacity: pressed ? 0.9 : 1,
-      })}
-    >
-      <DateBadge date={new Date(item.start_at)} />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text
-          numberOfLines={1}
-          // Shrink-wrapped to the leading edge, like HeldSlotCard: pickLocale can
-          // hand back the Latin name, which a stretched Text left-aligns on iOS
-          // under RTL.
-          style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
-        >
-          {courtNames.get(item.court_id) ?? ''}
-        </Text>
-        <Text
-          numberOfLines={2}
-          style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, marginTop: 2 }}
-        >
-          {formatDate(new Date(item.start_at), locale)}
-          {' · '}
-          {formatTimeRange(new Date(item.start_at), new Date(item.end_at), locale)}
-          {priceSuffix(item)}
-        </Text>
-      </View>
-      <StatusPill status={item.status} />
-    </Pressable>
-  );
+  const openBooking = (id: string) =>
+    router.push({ pathname: '/booking/[id]', params: { id } });
 
-  const renderPast = (item: BookingRow) => (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
-      style={({ pressed }) => ({
-        backgroundColor: colors.card,
-        borderWidth: 1,
-        borderColor: colors.line,
-        borderRadius: radius.button,
-        paddingStart: space.m,
-        paddingEnd: space.m,
-        paddingTop: 11,
-        paddingBottom: 11,
-        flexDirection: 'row',
-        gap: space.sm,
-        alignItems: 'center',
-        marginTop: 9,
-        opacity: pressed ? 0.7 : 0.82,
-      })}
-    >
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text
-          numberOfLines={1}
-          // Same as the upcoming card.
-          style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 13, color: colors.mut2 }}
-        >
-          {courtNames.get(item.court_id) ?? ''}
-        </Text>
-        <Text
-          numberOfLines={1}
-          style={{ fontFamily: fonts.body400, fontSize: 11.5, color: colors.fnt, marginTop: 2 }}
-        >
-          {formatDate(new Date(item.start_at), locale)}
-          {' · '}
-          {formatTime(new Date(item.start_at), locale)}
-          {priceSuffix(item)}
-        </Text>
-      </View>
-      <StatusPill status={item.status} />
-    </Pressable>
-  );
+  const durationLabel = (row: BookingRow) =>
+    t('booking.durationMinutes', {
+      minutes: Math.round(
+        (new Date(row.end_at).getTime() - new Date(row.start_at).getTime()) / 60_000,
+      ),
+    });
+
+  // The hero: the very next game, out of the list and onto the brand's navy.
+  const renderHero = (item: BookingRow) => {
+    const start = new Date(item.start_at);
+    const proximity = startProximity(item, now);
+    return (
+      <NextUpCard
+        label={t('booking.nextUp')}
+        courtName={courtNames.get(item.court_id) ?? ''}
+        status={item.status}
+        when={`${formatWeekdayShort(start, locale)} · ${formatDate(start, locale)}`}
+        timeRange={formatTimeRange(start, new Date(item.end_at), locale)}
+        // A slot with no price still has a duration: the footer row never
+        // renders an orphaned tag glyph with nothing beside it.
+        price={formatPrice(item.price_iqd, locale) ?? durationLabel(item)}
+        proximity={proximityLabel(proximity)}
+        imminent={proximity.unit !== 'hours' && proximity.unit !== 'days'}
+        ctaLabel={t('booking.viewBooking')}
+        onPress={() => openBooking(item.id)}
+      />
+    );
+  };
+
+  const renderUpcoming = (item: BookingRow) => {
+    const start = new Date(item.start_at);
+    return (
+      <UpcomingBookingRow
+        date={start}
+        courtName={courtNames.get(item.court_id) ?? ''}
+        // The date badge already carries month and day; the row adds the
+        // weekday, which is the part of "when" a badge cannot show.
+        weekday={formatWeekdayShort(start, locale)}
+        timeRange={formatTimeRange(start, new Date(item.end_at), locale)}
+        price={formatPrice(item.price_iqd, locale)}
+        status={item.status}
+        onPress={() => openBooking(item.id)}
+      />
+    );
+  };
+
+  const renderPast = (item: BookingRow, index: number, total: number) => {
+    const start = new Date(item.start_at);
+    return (
+      <PastBookingRow
+        courtName={courtNames.get(item.court_id) ?? ''}
+        when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
+        price={formatPrice(item.price_iqd, locale)}
+        status={item.status}
+        first={index === 0}
+        last={index === total - 1}
+        onPress={() => openBooking(item.id)}
+      />
+    );
+  };
 
   return (
     <Screen>
@@ -394,9 +445,12 @@ export default function BookingsScreen() {
           }
           renderSectionHeader={({ section }) =>
             section.data.length > 0 || section.key === 'upcoming' ? (
-              <SectionLabel style={{ marginTop: section.key === 'past' ? 20 : 6 }}>
-                {section.title}
-              </SectionLabel>
+              <ListHeading
+                icon={section.key === 'past' ? ClockIcon : CalendarIcon}
+                label={section.title}
+                count={section.data.length}
+                style={{ marginTop: section.key === 'past' ? 22 : 6 }}
+              />
             ) : null
           }
           renderSectionFooter={({ section }) =>
@@ -405,17 +459,22 @@ export default function BookingsScreen() {
                 accessibilityRole="link"
                 onPress={bookNext}
                 style={({ pressed }) => ({
-                  marginTop: 8,
+                  marginTop: 9,
                   backgroundColor: colors.card,
                   borderWidth: 1,
                   borderStyle: 'dashed',
                   borderColor: colors.line2,
                   borderRadius: radius.button,
-                  padding: 18,
+                  paddingStart: space.l,
+                  paddingEnd: space.l,
+                  paddingTop: 18,
+                  paddingBottom: 18,
                   alignItems: 'center',
+                  gap: 8,
                   opacity: pressed ? 0.8 : 1,
                 })}
               >
+                <PadelBallIcon size={30} opacity={0.9} />
                 <Text
                   style={{
                     fontFamily: fonts.body400,
@@ -430,8 +489,12 @@ export default function BookingsScreen() {
               </Pressable>
             ) : null
           }
-          renderItem={({ item, section }) =>
-            section.key === 'upcoming' ? renderUpcoming(item) : renderPast(item)
+          renderItem={({ item, index, section }) =>
+            section.key === 'upcoming'
+              ? index === 0
+                ? renderHero(item)
+                : renderUpcoming(item)
+              : renderPast(item, index, section.data.length)
           }
         />
       )}

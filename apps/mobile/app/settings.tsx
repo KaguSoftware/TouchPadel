@@ -13,8 +13,13 @@ import {
   registerPushToken,
   type PushPermissionState,
 } from '../src/features/profile/push';
+import { sendTestPush } from '../src/features/profile/api';
 import { useVenueSettings } from '../src/features/availability/hooks';
 import { venuePhoneOf } from '../src/features/availability/assemble';
+import { mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
+import { supabase } from '../src/lib/supabase';
+import { errorMessageOf } from '../src/lib/network';
+import { addBreadcrumb } from '../src/lib/telemetry';
 import { callPhone } from '../src/lib/phone';
 import { radius, space, useTheme, type AppearancePreference } from '../src/theme';
 import { Button, Card, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
@@ -28,6 +33,19 @@ import { useToast } from '../src/components/overlays';
  * permission states render differently), the venue call card, and the version
  * footer. Public route; reached from the signed-in Profile.
  */
+/**
+ * The RPC's own P0001 codes, which the booking mapper does not know (they are
+ * not booking outcomes); anything else falls through to mapErrorToKey.
+ */
+type TestPushCode = 'NO_PUSH_TOKEN' | 'RATE_LIMITED' | 'AUTH_REQUIRED';
+function errorCodeOf(err: unknown): TestPushCode | ReturnType<typeof rpcErrorCode> {
+  const message = errorMessageOf(err) ?? '';
+  for (const code of ['NO_PUSH_TOKEN', 'RATE_LIMITED', 'AUTH_REQUIRED'] as const) {
+    if (message.includes(code)) return code;
+  }
+  return rpcErrorCode(message);
+}
+
 export default function SettingsScreen() {
   const { t, locale, setLocale } = useLocale();
   const { colors, fonts, preference, setAppearance } = useTheme();
@@ -61,6 +79,46 @@ export default function SettingsScreen() {
       result === 'registered' ? 'granted' : result === 'denied' ? 'denied' : 'unavailable',
     );
     setBusyPush(false);
+  };
+
+  /**
+   * "Send a test notification" — a REAL push through the production path
+   * (app.send_test_push, 0070), not a local notification: green here means the
+   * whole pipeline works. A profile whose token has rotted (DeviceNotRegistered
+   * nulls it server-side) is re-registered once and the send retried, so the
+   * button repairs the common failure instead of reporting it.
+   */
+  const [busyTest, setBusyTest] = useState(false);
+  const onSendTest = async () => {
+    setBusyTest(true);
+    try {
+      let result: string;
+      try {
+        await sendTestPush(supabase);
+        result = 'queued';
+      } catch (err) {
+        if (errorCodeOf(err) !== 'NO_PUSH_TOKEN') throw err;
+        const reg = await registerPushToken();
+        if (reg !== 'registered') {
+          result = `no-token:${reg}`;
+          toast(t('settings.testPushNoToken'), 'info');
+          addBreadcrumb('push.test', { result });
+          return;
+        }
+        await sendTestPush(supabase);
+        result = 'queued-after-register';
+      }
+      addBreadcrumb('push.test', { result });
+      toast(t('settings.testPushSent'), 'info');
+    } catch (err) {
+      const code = errorCodeOf(err);
+      addBreadcrumb('push.test', { result: 'error', code });
+      if (code === 'RATE_LIMITED') toast(t('settings.testPushRateLimited'), 'info');
+      else if (code === 'NO_PUSH_TOKEN') toast(t('settings.testPushNoToken'), 'info');
+      else toast(t(mapErrorToKey(err)), 'error');
+    } finally {
+      setBusyTest(false);
+    }
   };
 
   const phone = venuePhoneOf(settings.data);
@@ -159,16 +217,26 @@ export default function SettingsScreen() {
         <Card style={{ padding: space.m }}>
           {groupLabel(<BellIcon size={13} color={colors.gstrong} />, t('settings.notifications'))}
           {pushState === 'granted' ? (
-            <Text
-              style={{
-                fontFamily: fonts.body700,
-                fontSize: 12.5,
-                color: colors.gtext,
-                marginTop: 7,
-              }}
-            >
-              ✓ {t('settings.notifGranted')}
-            </Text>
+            <>
+              <Text
+                style={{
+                  fontFamily: fonts.body700,
+                  fontSize: 12.5,
+                  color: colors.gtext,
+                  marginTop: 7,
+                }}
+              >
+                ✓ {t('settings.notifGranted')}
+              </Text>
+              <Button
+                label={t('settings.sendTestPush')}
+                variant="secondary"
+                size="compact"
+                busy={busyTest}
+                onPress={() => void onSendTest()}
+                style={{ marginTop: 10 }}
+              />
+            </>
           ) : pushState === 'denied' ? (
             <>
               <Text

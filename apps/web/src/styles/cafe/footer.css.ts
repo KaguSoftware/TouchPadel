@@ -1,7 +1,7 @@
 /**
  * Footer — the design's arched blue cap: an ellipse-cornered blue field that
- * closes the column, centred, with the Poppins strapline, the venue line and a
- * green rule. The venue's hours and phone keep their place inside it.
+ * closes the column, centred, with the display-face strapline, the venue line
+ * and a green rule. The venue's hours and phone keep their place inside it.
  */
 export const footerCss = `
 .tp-footer { margin-block-start: 24px; background: var(--tp-accent); color: var(--tp-accent-contrast);

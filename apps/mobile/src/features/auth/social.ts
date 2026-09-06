@@ -151,12 +151,19 @@ export function mapSocialError(err: unknown): SocialErrorOutcome {
  * when the row is KNOWN and the phone is blank. `null` (no row — an anonymous
  * cafe session) and `undefined` (not loaded) are false: fail open, the screens
  * treat "unknown" separately via profileGateState.
+ *
+ * 2026-09-05 (phone OTP scaffold): a blank NAME also counts, when the caller
+ * supplies it. A phone sign-up arrives with a verified phone and no name at
+ * all (the trigger has no email local part to fall back on), and the desk
+ * searches profiles by name. Existing users are unaffected: the email form
+ * validates the name, and an Apple relay sign-in already lacked a phone.
  */
 export function needsProfileCompletion(
-  profile: { phone: string | null } | null | undefined,
+  profile: { phone: string | null; full_name?: string | null } | null | undefined,
 ): boolean {
   if (!profile) return false;
-  return (profile.phone ?? '').trim().length === 0;
+  if ((profile.phone ?? '').trim().length === 0) return true;
+  return profile.full_name !== undefined && (profile.full_name ?? '').trim().length === 0;
 }
 
 export type ProfileGate = 'unknown' | 'complete' | 'incomplete';
@@ -164,7 +171,7 @@ export type ProfileGate = 'unknown' | 'complete' | 'incomplete';
 /** For screens holding a TanStack result: pending / error -> 'unknown'. */
 export function profileGateState(query: {
   status: 'pending' | 'error' | 'success';
-  data: { phone: string | null } | null | undefined;
+  data: { phone: string | null; full_name?: string | null } | null | undefined;
 }): ProfileGate {
   if (query.status !== 'success') return 'unknown';
   return needsProfileCompletion(query.data) ? 'incomplete' : 'complete';

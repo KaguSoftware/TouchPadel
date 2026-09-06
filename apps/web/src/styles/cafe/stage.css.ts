@@ -24,15 +24,20 @@ export const stageCss = `
 .tp-stage__band[data-tone='green'] { background: var(--tp-cafe-green-tint); }
 .tp-stage__word { font-family: var(--tp-font-display); font-weight: 800; font-size: 26px; line-height: 1.25; letter-spacing: 0.04em;
   color: transparent; -webkit-text-stroke: 1.3px var(--tp-accent); }
-/* Arabic sections show the operator's Arabic name, so the band takes the
-   Arabic face — and no caps tracking, which Arabic has no use for.
-   Arabic also carries dots and diacritics, and Cairo draws them as diamonds.
-   Outlined like a letterform each one becomes a hollow triangle sitting inside
-   the word, which the Latin headings never show. paint-order lays the stroke
-   down first and the fill over it, so a mark small enough to be swallowed by
-   its own stroke closes up into a solid dot while the letter bowls, far wider
-   than the stroke, keep the outline the design asks for. */
-[dir='rtl'] .tp-stage__word { font-family: var(--tp-font-arabic); font-weight: 900; letter-spacing: 0;
+/* Arabic sections show the operator's Arabic name, so the band names the
+   Arabic token — and kills the caps tracking, which Arabic has no use for:
+   the .04em above is aimed at Latin caps, and positive tracking on a cursive
+   script pulls the word apart at the joins the letters are supposed to share.
+   The WEIGHT is not forked with it. One family draws both scripts, so 800 sets
+   the same stroke either way; a heavier Arabic step would only make the band
+   read bolder than its Latin counterpart at the same nominal weight.
+   Arabic also carries dots and diacritics, drawn far smaller than a letter.
+   Outlined like one, each becomes a hollow speck sitting inside the word, which
+   the Latin headings never show. paint-order lays the stroke down first and the
+   fill over it, so a mark small enough to be swallowed by its own stroke closes
+   up into a solid dot while the letter bowls, far wider than the stroke, keep
+   the outline the design asks for. */
+[dir='rtl'] .tp-stage__word { font-family: var(--tp-font-arabic); letter-spacing: 0;
   paint-order: stroke fill; color: var(--tp-cafe-blue-tint); -webkit-text-stroke-width: 2.4px; }
 .tp-stage__band[data-tone='green'] .tp-stage__word { -webkit-text-stroke-color: var(--tp-cafe-green); }
 [dir='rtl'] .tp-stage__band[data-tone='green'] .tp-stage__word { color: var(--tp-cafe-green-tint); }

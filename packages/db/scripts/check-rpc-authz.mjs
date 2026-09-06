@@ -51,6 +51,10 @@ const PUBLIC_BY_DESIGN = new Set([
   'confirm_booking', 'cancel_reservation', 'expire_stale_holds',
   // Device telemetry from the till/guest app.
   'heartbeat', 'log_replay',
+  // Settings > "Send a test notification" (0070): any signed-in session, by
+  // design — it can only ever push to auth.uid()'s own token, and a guest
+  // without one is turned away with NO_PUSH_TOKEN.
+  'send_test_push',
   // Trigger function; never usefully callable directly.
   'trg_order_item_line_no',
 ]);
