@@ -386,6 +386,21 @@ export interface FieldProps extends TextInputProps {
    * padding, so the input drops its own on that side.
    */
   lead?: ReactNode;
+  /**
+   * Holds the `lead` row PHYSICAL (left-to-right) under an RTL locale, while
+   * the label above it still flips. For a field whose content has a
+   * left-to-right reading order of its own regardless of language — a phone
+   * number, whose dial code precedes the national digits — so the adornment
+   * must not swap sides with the form around it.
+   */
+  ltrBox?: boolean;
+  /**
+   * Style for the BOX rather than the text. With a `lead` adornment the
+   * background and border belong to the row that wraps the pair, so a `style`
+   * override (which lands on the TextInput) would paint behind the text only
+   * and leave the adornment's corner in the original color.
+   */
+  boxStyle?: StyleProp<ViewStyle>;
 }
 
 /**
@@ -395,7 +410,19 @@ export interface FieldProps extends TextInputProps {
  */
 const LEAD_GAP = 10;
 
-export function Field({ label, error, latin, dense, style, lead, onFocus, onBlur, ...inputProps }: FieldProps) {
+export function Field({
+  label,
+  error,
+  latin,
+  dense,
+  style,
+  lead,
+  ltrBox,
+  boxStyle,
+  onFocus,
+  onBlur,
+  ...inputProps
+}: FieldProps) {
   const { colors, fonts } = useTheme();
   const { dir } = useLocale();
   const [focused, setFocused] = useState(false);
@@ -432,8 +459,17 @@ export function Field({ label, error, latin, dense, style, lead, onFocus, onBlur
       <View
         style={
           lead
-            ? [chrome, ring, { flexDirection: 'row', alignItems: 'center', overflow: 'hidden' }]
-            : undefined
+            ? [
+                chrome,
+                ring,
+                { flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
+                // The label above keeps the locale's direction; only this row
+                // is held physical. Yoga resolves start/end against it, so the
+                // adornment stays on the left and the input beside it.
+                ltrBox && { direction: 'ltr' as const },
+                boxStyle,
+              ]
+            : boxStyle
         }
       >
         {lead}
