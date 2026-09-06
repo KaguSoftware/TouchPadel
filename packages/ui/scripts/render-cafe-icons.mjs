@@ -29,9 +29,40 @@ const root = path.resolve(here, '..', '..', '..');
 const SRC = path.join(root, 'packages', 'ui', 'src', 'brand', 'cafe-mark.svg');
 const OUT = path.join(root, 'apps', 'web', 'public', 'brand', 'cafe');
 
+// The brand family, spelled out because a .mjs script cannot import the token
+// that owns it (packages/ui/src/tokens/typography.ts is TypeScript). Keep it
+// equal to BRAND_FAMILY there.
+const BRAND_FAMILY = 'Lama Sans';
+
+// Canonical faces, not apps/web's synced public/ copy — the render must not
+// depend on whether `pnpm fonts:sync` has run. Only the two weights the OG card
+// sets: Chromium has nothing to fall back to, so a face it never uses is pure
+// weight in a page that exists for one screenshot.
+const FONT_DIR = path.join(root, 'packages', 'ui', 'fonts', 'lama', 'woff2');
+const FONT_FACES = [
+  ['LamaSans-Bold', 700],
+  ['LamaSans-ExtraBold', 800],
+];
+
 const BLUE = '#3360AB';
 const BROWN = '#603813';
 const WHITE = '#FFFFFF';
+
+/**
+ * The faces inline, as data URIs. A family NAME resolves against the fonts
+ * installed on the machine running Chromium, which on a build box is none of
+ * ours, and a webfont <link> trades that for a render that changes when the
+ * network does — both ways the wordmark comes out in something off-brand, and
+ * a screenshot cannot tell you it fell back.
+ */
+const fontFaceCss = (
+  await Promise.all(
+    FONT_FACES.map(async ([file, weight]) => {
+      const b64 = (await fs.readFile(path.join(FONT_DIR, `${file}.woff2`))).toString('base64');
+      return `@font-face{font-family:'${BRAND_FAMILY}';font-style:normal;font-weight:${weight};src:url(data:font/woff2;base64,${b64}) format('woff2')}`;
+    }),
+  )
+).join('\n');
 
 const svg = await fs.readFile(SRC, 'utf8');
 const svgDataUri = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
@@ -59,14 +90,12 @@ const maskablePage = (size) => {
 /**
  * Open Graph card: Touch Blue field, white outline-bean pattern, white
  * wordmark "T[bean]uch Cafe" + brown smile, subtitle "Menu · القائمة".
- * Montserrat is fetched from Google Fonts (rendering only; nothing ships).
  */
 const ogPage = `<!doctype html><html><head>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=IBM+Plex+Sans+Arabic:wght@500&display=swap" rel="stylesheet">
 <style>
+  ${fontFaceCss}
   html,body{margin:0}
-  body{width:1200px;height:630px;overflow:hidden;background:${BLUE};position:relative;font-family:'Montserrat',sans-serif;color:${WHITE}}
+  body{width:1200px;height:630px;overflow:hidden;background:${BLUE};position:relative;font-family:'${BRAND_FAMILY}',sans-serif;color:${WHITE}}
   .beans{position:absolute;inset:0;opacity:.10;background-image:url("data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' width='40' height='48' viewBox='0 0 40 48'><g transform='rotate(-28 20 24)'><ellipse cx='20' cy='24' rx='9.5' ry='14' fill='none' stroke='${WHITE}' stroke-width='1.6'/><path d='M20 10.5 C 14.5 18, 25.5 30, 20 37.5' fill='none' stroke='${WHITE}' stroke-width='1.8' stroke-linecap='round'/></g></svg>`,
   )}");background-size:40px 48px}
@@ -75,7 +104,7 @@ const ogPage = `<!doctype html><html><head>
   .word{display:flex;align-items:baseline;font-weight:800;font-size:168px;letter-spacing:-.02em;line-height:1;position:relative}
   .word .bean{display:inline-block;width:.82em;height:.82em;vertical-align:-.05em;margin:0 .01em}
   .smile{position:absolute;left:.60em;right:2.55em;bottom:-.20em;height:.42em}
-  .sub{font-size:44px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;font-family:'Montserrat','IBM Plex Sans Arabic',sans-serif}
+  .sub{font-size:44px;font-weight:700;letter-spacing:.18em;text-transform:uppercase}
 </style></head><body>
 <div class="beans"></div>
 <svg class="swoosh" viewBox="0 0 1000 120" preserveAspectRatio="none"><path d="M0 120 L0 92 C 220 140, 520 30, 1000 4 L1000 120 Z" fill="${WHITE}" fill-opacity=".16"/></svg>

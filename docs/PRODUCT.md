@@ -22,9 +22,10 @@ court desk, cashier, prep (kitchen), manager, owner. Bilingual English/Arabic wi
 
 ## Brand
 Touch Padel 2026 identity: Touch Blue `#3360AB`, Padel Green `#A5D06F`, a teal accent, black,
-white, grey `#BCBDBF`. Motif: diagonal court lines in green over blue. Latin display face
-**Next Art**, Arabic **Frutiger LT Arabic** (licensed files not yet delivered; system faces
-stand in behind tokens). Tone: confident, athletic, direct. "Touch is a lifestyle."
+white, grey `#BCBDBF`. Motif: diagonal court lines in green over blue. One typeface for both
+scripts, **Lama Sans** — delivered in place of the Next Art / Frutiger LT Arabic pair the 2026
+deck names; Latin and Arabic sit in the same faces, so the interface does not change family when
+it changes language. Tone: confident, athletic, direct. "Touch is a lifestyle."
 
 ## Tone
 Plain operational English and Arabic. Short labels. Every refusal states its reason. No

@@ -4,7 +4,7 @@
  * Arabic footer comes from the catalog instead of numeric entities.
  */
 import { useMemo } from 'react';
-import { cafePalette } from '@touch/ui';
+import { cafePalette, latinDisplayStack } from '@touch/ui';
 import { useLocale } from '../../../lib/i18n';
 import { cardLayout, qrModules, qrPath } from './qrCardGeometry';
 
@@ -13,8 +13,14 @@ const BROWN = cafePalette['--tp-accent-2'];
 const WARM_BG = cafePalette['--tp-surface'];
 const WARM_BORDER = cafePalette['--tp-border'];
 const WHITE = cafePalette['--tp-brand-white'];
-// Brand faces (Next Art / Frutiger LT Arabic) are not in hand yet — generic stack.
-const SANS = "'Helvetica Neue', Arial, sans-serif";
+// This card is SVG inside the live document, not a standalone file, so the faces
+// ThemeProvider registers apply to the <text> nodes and the A6 print goes out with
+// them. That is the one difference from the generator this is a port of:
+// packages/db/scripts/qr-artwork.mjs writes .svg files a print shop opens on a
+// machine that has never heard of our fonts, so it has to embed them as base64.
+// The tail matters anyway — it covers the frame before the face lands and the
+// Arabic footer, which is why it is the display token and not a bare family.
+const SANS = latinDisplayStack;
 
 /**
  * SWAP POINT: replace this text wordmark with the licensed Touch Cafe logo

@@ -123,3 +123,44 @@ export function canCancel(row: BookingRow, cancellationWindowHours: number, now:
 export function displayRef(reservationId: string): string {
   return `TP-${reservationId.replace(/-/g, '').slice(0, 4).toUpperCase()}`;
 }
+
+/**
+ * How close the next booking's start is, for the "next up" hero on My bookings.
+ *
+ * Deliberately unit-based and NOT calendar-based: "Tomorrow" is a venue-timezone
+ * day boundary, and every cheap way to compute it here (device midnight, a
+ * 24-hour offset) is wrong for someone travelling or booking near midnight.
+ * Elapsed time has no such trap, so the hero counts down in minutes, hours and
+ * days and never claims a day name it cannot prove.
+ *
+ * The steps hand off exactly — 60 rounded minutes becomes 1 hour, 24 rounded
+ * hours becomes 1 day — so no gap between them can render an empty chip.
+ */
+export type StartProximity =
+  /** Started already and not yet ended: the guest is on court. */
+  | { unit: 'live' }
+  | { unit: 'now' }
+  | { unit: 'minutes'; value: number }
+  | { unit: 'hours'; value: number }
+  | { unit: 'days'; value: number };
+
+export function startProximity(row: BookingRow, now: Date): StartProximity {
+  const ms = new Date(row.start_at).getTime() - now.getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return { unit: 'live' };
+  const minutes = Math.round(ms / 60_000);
+  if (minutes <= 1) return { unit: 'now' };
+  if (minutes < 60) return { unit: 'minutes', value: minutes };
+  const hours = Math.round(ms / 3_600_000);
+  if (hours < 24) return { unit: 'hours', value: hours };
+  return { unit: 'days', value: Math.max(1, Math.round(ms / 86_400_000)) };
+}
+
+/**
+ * Past bookings the guest actually turned up for — the "N played" chip under
+ * the title. Cancellations, no-shows and expiries are history but not games,
+ * and counting them would inflate the one number on the screen that is a small
+ * point of pride.
+ */
+export function playedCount(past: readonly BookingRow[]): number {
+  return past.filter((r) => r.status === 'completed' || r.status === 'arrived').length;
+}

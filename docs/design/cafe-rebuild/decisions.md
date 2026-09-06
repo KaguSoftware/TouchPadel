@@ -42,6 +42,8 @@ branding, plus "send basket to waiters via Telegram" ordering (no payment).
 9. **Site root** `/` (touch domain) = the cafe menu app directly; **Arabic default locale**.
    The padel landing page is DROPPED entirely for now (cafe footer has hours + phone only).
 10. **Fonts**: Montserrat (Latin) + IBM Plex Sans Arabic, as today, behind the existing tokens.
+    *Superseded 2026-09-05* — Touch delivered **Lama Sans**, one family carrying both scripts. The
+    tokens are unchanged; what they resolve to is not, and the Latin/Arabic fork is gone.
 11. **Accounts**: NONE exist yet (no Telegram bot, no staff group, no PostHog, no Groq). Build with
     placeholders/env vars; everything must no-op gracefully when unset; the plan must include a
     written setup checklist for the owner.
@@ -87,4 +89,5 @@ branding, plus "send basket to waiters via Telegram" ordering (no payment).
   a unique coffee experience…" (English boilerplate on every poster).
 - `  5cm.pdf` = padel sticker icons (racket, bag, court) — NOT cafe; ignore for the cafe app.
 - `touch full brand2.pdf` = padel 2026 identity (green #A5D06F / blue #3360AB, Next Art + Frutiger
-  Arabic) — governs mobile/operator, not the cafe app.
+  Arabic — the faces the deck names; the family Touch actually delivered is **Lama Sans**,
+  `docs/brand/lama-sans/`) — governs mobile/operator, not the cafe app.

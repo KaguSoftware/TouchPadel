@@ -13,13 +13,19 @@
  * The categorical trio was not chosen by eye. It was run through a
  * colour-vision validator (lightness band, chroma floor, CVD separation,
  * normal-vision separation, contrast vs surface) and every check passes at
- * all pairs: worst normal-vision ΔE 21.4, worst CVD ΔE 11.4.
+ * all pairs. SERIES_1 moved #3057A3 -> #3360AB (the exact brand blue) on
+ * 2026-09-05; re-validated, CVD separation is unchanged and normal-vision
+ * separation stays comfortably above the floor.
  *
  * Two colours are deliberately ABSENT from the series:
  *   - Padel Green, which means live / ready / arrived / fresh everywhere else
  *     in the product. A "views" line drawn in it would spend a word the status
  *     vocabulary needs.
- *   - The swoosh teal, which belongs to the brand mark and is not a UI colour.
+ *   - Anything outside the closed five-colour palette as a BRAND statement.
+ *     SERIES_2 and SERIES_3 are not brand colours and are not trying to be:
+ *     a categorical scale needs hue separation to encode data, the same
+ *     reason the status red and amber survive the palette rule. Only
+ *     SERIES_1 and HIGHLIGHT carry the identity, and both are exact.
  */
 
 // ---------------------------------------------------------------------------
@@ -27,7 +33,7 @@
 // ---------------------------------------------------------------------------
 
 /** Series 1 — Touch Blue (`--tp-accent`). Revenue, sales, the primary measure. */
-export const SERIES_1 = '#3057A3';
+export const SERIES_1 = '#3360AB';
 /** Series 2 — rust. Views / engagement. */
 export const SERIES_2 = '#BE6517';
 /** Series 3 — magenta. Waiter calls / the third measure. */
@@ -64,7 +70,7 @@ export const SURFACE = '#FCFDFE';
 /** Body ink (`--tp-fg`). */
 export const INK = '#131B29';
 /** Status, reserved — never reused as a series (`--tp-danger`). */
-export const DANGER = '#BE2323';
+export const DANGER = '#B42318';
 
 /**
  * `MUTED` used to be both the axis-tick colour AND the waiter-calls series, so
@@ -78,7 +84,7 @@ export const MUTED = AXIS;
 // ground rather than on raw white (DESIGN.md: never #fff).
 // ---------------------------------------------------------------------------
 
-export const HEAT_RAMP = ['#F2F3F7', '#D0DDF4', '#ACC3ED', '#85A6E2', '#5E84CA', '#3057A3'] as const;
+export const HEAT_RAMP = ['#F2F3F7', '#D0DDF4', '#ACC3ED', '#85A6E2', '#5E84CA', '#3360AB'] as const;
 
 /** Dwell buckets of the "looked, not bought" stack, light → dark: same ramp. */
 export const DWELL = [HEAT_RAMP[1], HEAT_RAMP[3], HEAT_RAMP[5]] as const;

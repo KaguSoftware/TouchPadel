@@ -12,12 +12,10 @@
     "test": "vitest run",
     "lint": "eslint .",
     "build": "expo export --platform ios --platform android --output-dir dist",
-    "doctor": "npx --yes expo-doctor@latest"
+    "doctor": "npx --yes expo-doctor@latest",
+    "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
-    "@expo-google-fonts/archivo": "^0.4.2",
-    "@expo-google-fonts/cairo": "^0.4.2",
-    "@expo-google-fonts/mulish": "^0.4.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "12.0.1",
     "@supabase/supabase-js": "^2.47.0",

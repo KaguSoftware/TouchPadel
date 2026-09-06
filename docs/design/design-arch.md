@@ -266,7 +266,7 @@ Guest order status uses broadcast because the guest's RLS view is scoped to `cre
 
 Pipeline lives entirely in the Electron **main** process:
 1. Renderer sends `PrintJob` (structured bill data, not markup) over IPC.
-2. Main renders `receipt.html` (Frutiger LT Arabic embedded as woff2, CSS logical properties, width fixed to printer dots — 576 px for 80 mm/203 dpi, 384 px for 58 mm) in a **hidden offscreen BrowserWindow** → `webContents.printToPDF`? No — `capturePage()` → PNG. Chromium does the Arabic shaping/bidi; the printer never sees text.
+2. Main renders `receipt.html` (**Lama Sans** inlined as base64 woff2 — the document is a `data:` URL with no origin, so a served font path would not resolve, and one family covers a bilingual bill; CSS logical properties, width fixed to printer dots — 576 px for 80 mm/203 dpi, 384 px for 58 mm) in a **hidden offscreen BrowserWindow** → `webContents.printToPDF`? No — `capturePage()` → PNG. Chromium does the Arabic shaping/bidi; the printer never sees text.
 3. PNG → 1-bit dither (`sharp` threshold) → ESC/POS `GS v 0` raster command via `node-thermal-printer`/raw socket or USB (`escpos-usb`).
 4. Print jobs are queued in SQLite too (`print_queue`), so a paper-out doesn't lose a bill; reprint from till UI.
 
@@ -314,6 +314,7 @@ Only `EXPO_PUBLIC_`/`NEXT_PUBLIC_`/`VITE_` anon keys and public OAuth client ide
 | `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase project URL + anon key — public by design, RLS is the protection | `src/lib/supabase.ts` surfaces a config error (never a module-scope throw) |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google **Web** OAuth client id (social sign-in, vendor addition 2026-09-01). Passed to the native SDK and also the `aud` of Android id tokens; listed first in Supabase → Auth → Providers → Google → Client IDs | Google button hidden |
 | `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | Google **iOS** OAuth client id; its reversal is the iOS URL scheme the config plugin needs (derived in `app.config.ts`, no third var); listed second in Supabase | Google button hidden; `expo start` / `expo export` warn and skip the plugin; an **EAS build fails at config time** |
+| `EXPO_PUBLIC_PHONE_OTP` | Phone OTP feature flag (dormant vendor-addition scaffold 2026-09-05). Only the literal `on` enables; read in ONE place, `src/features/auth/phoneOtp.ts` (guarded by `reliability.test.ts`) | Default / anything else = off: no "Continue with phone" button, no Verify-phone row, the two OTP screens redirect away. `eas.json` carries `off` in every profile until `docs/client/phone-otp-activation.md` is run |
 
 Both Google values are **public identifiers, not secrets** (the Web client *secret* stays in the Google Cloud console and is unused by the native id-token flow — `API.md` §9). Apple needs no env: the bundle id is its client id, and the button is hidden in Expo Go on Android because Apple is iOS-only by decision.
 

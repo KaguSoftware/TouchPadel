@@ -28,17 +28,18 @@ export function svgDataUri(svg: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Brand raw colours (brand deck: Touch Blue / Coffee Brown / White)
+// Brand raw colours. The deck's "Touch Blue" IS #3360AB — the padel blue —
+// so these are the shared brand values, not a second identity.
 // ---------------------------------------------------------------------------
-const BLUE = '#2456B4';
+const BLUE = '#3360AB';
 /**
  * The second brand colour. The approved menu design (brand/Touch Cafe Menu
  * Final) carries no brown at all — every accent, section rule and illustration
  * highlight is green — so GREEN replaces the old coffee brown here and the
  * `--tp-cafe-brown*` names below are kept only as aliases onto it.
  */
-const GREEN = '#7FB05A';
-const GREEN_LIGHT = '#A5CE7F';
+const GREEN = '#A5D06F';
+const GREEN_LIGHT = '#BCDC93';
 const WHITE = '#FFFFFF';
 
 /**
@@ -71,14 +72,14 @@ const SWOOSH_SVG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 12
 // Shared semantic status tokens (both themes)
 // ---------------------------------------------------------------------------
 export const statusVars = {
-  '--tp-warn-bg': '#FBEFC9',
-  '--tp-warn-fg': '#6B4E00',
-  '--tp-warn-border': '#E8CF7A',
-  '--tp-error-bg': '#FBE1DF',
-  '--tp-error-border': '#EAB5B0',
-  '--tp-success': '#2E7D32',
-  '--tp-success-bg': '#E4F2E5',
-  '--tp-backdrop': 'rgba(30, 43, 69, 0.55)',
+  '--tp-warn-bg': '#F9EFDC',
+  '--tp-warn-fg': '#61440F',
+  '--tp-warn-border': '#F0D39E',
+  '--tp-error-bg': '#FBE6E4',
+  '--tp-error-border': '#F4B3AE',
+  '--tp-success': '#517326', // brand green at L30 (5.48:1 on white)
+  '--tp-success-bg': '#ECF5E0',
+  '--tp-backdrop': 'rgba(0, 0, 0, 0.55)',
 } as const satisfies BrandVars;
 
 // ---------------------------------------------------------------------------
@@ -86,24 +87,24 @@ export const statusVars = {
 // ---------------------------------------------------------------------------
 export const cafeColorVars = {
   '--tp-cafe-blue': BLUE,
-  '--tp-cafe-blue-deep': '#1A3F87', // hover / pressed blue
-  '--tp-cafe-blue-ink': '#17376F', // label on a green fill (active pill)
-  '--tp-cafe-blue-tint': '#EDF2FB', // section illustration band
-  '--tp-cafe-blue-tint-2': '#E9F1FC', // "بارد" chip + section badge fill
-  '--tp-cafe-sky': '#7FA3E0', // middle stroke of the hero sweep
+  '--tp-cafe-blue-deep': '#274982', // hover / pressed blue — brand blue at L33
+  '--tp-cafe-blue-ink': '#162A4B', // label on a green fill (active pill) — 8.08:1
+  '--tp-cafe-blue-tint': '#EFF3FA', // section illustration band
+  '--tp-cafe-blue-tint-2': '#EBF1F9', // "بارد" chip + section badge fill
+  '--tp-cafe-sky': '#7D9FD8', // middle stroke of the hero sweep
   '--tp-cafe-green': GREEN,
   '--tp-cafe-green-light': GREEN_LIGHT, // section rule + active pill fill
-  '--tp-cafe-green-tint': '#F3F8EC', // green illustration band
-  '--tp-cafe-ink': '#1E2B45', // item names
-  '--tp-cafe-ink-soft': '#93A0B5', // the small note line under a name
-  '--tp-cafe-rule': '#F0F3F8', // hairline under every menu row
-  '--tp-cafe-hot-bg': '#FDEBE7', // "حار" chip
-  '--tp-cafe-hot-fg': '#E8432A',
-  '--tp-cafe-page': '#E7EBF1', // ground either side of the 430 px column
+  '--tp-cafe-green-tint': '#F5FAF0', // green illustration band
+  '--tp-cafe-ink': '#162A4B', // item names
+  '--tp-cafe-ink-soft': '#707275', // the small note line under a name (4.82:1, was 2.9:1)
+  '--tp-cafe-rule': '#EBF1F9', // hairline under every menu row
+  '--tp-cafe-hot-bg': '#FCEAE8', // "حار" chip
+  '--tp-cafe-hot-fg': '#B42318',
+  '--tp-cafe-page': '#EAEAEB', // ground either side of the 430 px column
   // Deprecated aliases — modules not yet renamed keep rendering in palette.
   '--tp-cafe-brown': GREEN,
-  '--tp-cafe-brown-tint': '#F3F8EC',
-  '--tp-cafe-cream': '#E7EBF1',
+  '--tp-cafe-brown-tint': '#F5FAF0',
+  '--tp-cafe-cream': '#EAEAEB',
   '--tp-cafe-swoosh': svgDataUri(SWOOSH_SVG),
   '--tp-cafe-beans-brown': svgDataUri(beanTile(GREEN, WHITE)),
   '--tp-cafe-beans-white': svgDataUri(beanTile(null, WHITE)),
@@ -122,10 +123,10 @@ export const radiusVars = {
 
 export const shadowVars = {
   // Cooled toward the blue ink to match the design's column shadow.
-  '--tp-shadow-card': '0 1px 2px rgba(30, 43, 69, 0.05), 0 6px 18px rgba(30, 43, 69, 0.07)',
-  '--tp-shadow-column': '0 0 60px rgba(36, 86, 180, 0.15)',
-  '--tp-shadow-sheet': '0 -8px 32px rgba(30, 43, 69, 0.22)',
-  '--tp-shadow-fab': '0 6px 18px rgba(36, 86, 180, 0.35), 0 2px 4px rgba(30, 43, 69, 0.15)',
+  '--tp-shadow-card': '0 1px 2px rgba(22, 42, 75, 0.05), 0 6px 18px rgba(22, 42, 75, 0.07)',
+  '--tp-shadow-column': '0 0 60px rgba(51, 96, 171, 0.15)',
+  '--tp-shadow-sheet': '0 -8px 32px rgba(22, 42, 75, 0.22)',
+  '--tp-shadow-fab': '0 6px 18px rgba(51, 96, 171, 0.35), 0 2px 4px rgba(22, 42, 75, 0.15)',
 } as const satisfies BrandVars;
 
 export const typeScaleVars = {
