@@ -7,6 +7,7 @@ import {
   defaultCountry,
   flagOf,
   formatNational,
+  maxNationalDigits,
   parsePhone,
   sanitizeNationalInput,
   stripTrunk,
@@ -162,6 +163,100 @@ describe('input helpers', () => {
   });
 
   it('groups for display in threes', () => {
-    expect(formatNational('7701234567')).toBe('770 123 456 7');
+    // Iraq groups 3-3-4, so the last four stay together — the old blind
+    // threes-grouper left a stranded '7' on the end.
+    expect(formatNational('IQ', '7701234567')).toBe('770 123 4567');
+  });
+
+  it('uses each country\'s own grouping', () => {
+    expect(formatNational('TR', '5551234567')).toBe('(555) 123 45 67');
+    expect(formatNational('US', '4155550123')).toBe('(415) 555 0123');
+    expect(formatNational('GB', '7700900123')).toBe('7700 900123');
+    expect(formatNational('AE', '501234567')).toBe('50 123 4567');
+  });
+
+  it('closes the paren only once a digit follows, so the group stays erasable', () => {
+    // The bracket must never be the LAST character: if it were, a backspace
+    // would delete it, the digits would be unchanged, and the formatter would
+    // put it straight back — the field freezes and those digits cannot be
+    // erased. Reported from the device, 2026-09-06.
+    expect(formatNational('TR', '5')).toBe('(5');
+    expect(formatNational('TR', '555')).toBe('(555');
+    expect(formatNational('TR', '5551')).toBe('(555) 1');
+    expect(formatNational('US', '415')).toBe('(415');
+    expect(formatNational('US', '4155')).toBe('(415) 5');
+  });
+
+  it('never ends on a separator, at any length', () => {
+    // The general form of the bug above: a trailing space would strand the
+    // caret the same way a trailing bracket did.
+    for (const iso of ['TR', 'US', 'IQ', 'GB', 'AE', 'FR']) {
+      for (let n = 1; n <= 12; n++) {
+        const shown = formatNational(iso, '5'.repeat(n));
+        expect(/[\d)]$/.test(shown), `${iso} @ ${n}: ${shown}`).toBe(true);
+      }
+    }
+  });
+
+  it('deletes down to empty one digit at a time', () => {
+    // Simulates the field: the shown string loses its last character, and what
+    // survives as digits is re-formatted. Every step must lose exactly one.
+    let shown = formatNational('TR', '5551234567');
+    let guard = 0;
+    while (shown !== '' && guard++ < 50) {
+      const next = formatNational('TR', sanitizeNationalInput(shown.slice(0, -1)));
+      expect(next, `stuck at ${shown}`).not.toBe(shown);
+      shown = next;
+    }
+    expect(shown).toBe('');
+  });
+
+  it('keeps digits the shape did not account for', () => {
+    // Never drop what the guest typed: the shapes are the common case, not a
+    // length rule, and validation is length-based and lives elsewhere.
+    expect(formatNational('KW', '123456789012')).toBe('1234 5678 9012');
+  });
+
+  it('caps input at the country\'s own length', () => {
+    // Turkish mobiles are 10 national digits: the 11th is simply not accepted.
+    expect(sanitizeNationalInput('55512345678', 'TR')).toBe('5551234567');
+    expect(sanitizeNationalInput('7701234567', 'IQ')).toBe('7701234567');
+    expect(sanitizeNationalInput('77012345678999', 'IQ')).toBe('7701234567');
+  });
+
+  it('caps by the stated max where a country runs longer than its pattern', () => {
+    // `fmt` is the COMMON shape, not a length rule. German numbers run 10-11
+    // digits, so capping at the pattern's 11 must not clip a real one.
+    expect(maxNationalDigits('DE')).toBe(11);
+    expect(sanitizeNationalInput('15112345678', 'DE')).toBe('15112345678');
+  });
+
+  it('never lets the cap exceed what E.164 allows', () => {
+    // 15 digits total, dial code included — no country's field may accept more
+    // than the remainder, whatever its own table row claims.
+    for (const c of COUNTRIES) {
+      expect(maxNationalDigits(c.iso) + c.dial.length, c.iso).toBeLessThanOrEqual(15);
+    }
+  });
+
+  it('leaves the uncapped form alone for every other caller', () => {
+    // Without an iso it is the old digits-only helper, which parsePhone and
+    // composePhone both rely on.
+    expect(sanitizeNationalInput('+964 (770) abc 12-34')).toBe('9647701234');
+  });
+
+  it('a full number always fits the formatted width the field caps at', () => {
+    // The input's `maxLength` is the formatted length of a complete number, so
+    // an off-by-one here would refuse the last legitimate digit — the field
+    // would look broken on exactly the numbers it is meant to accept.
+    for (const c of COUNTRIES) {
+      const max = maxNationalDigits(c.iso);
+      const full = formatNational(c.iso, '0'.repeat(max));
+      expect(sanitizeNationalInput(full, c.iso).length, c.iso).toBe(max);
+    }
+  });
+
+  it('is display only — never changes what gets stored', () => {
+    expect(composePhone('TR', formatNational('TR', '5551234567'))).toBe('+905551234567');
   });
 });

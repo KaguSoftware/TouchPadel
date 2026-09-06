@@ -43,6 +43,8 @@ import {
   COUNTRIES,
   countryByIso,
   flagOf,
+  formatNational,
+  maxNationalDigits,
   sanitizeNationalInput,
   type Country,
 } from '../features/profile/phone';
@@ -71,6 +73,38 @@ export function PhoneField({
   const { colors, fonts } = useTheme();
   const { t } = useLocale();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const shown = formatNational(iso, national);
+  // The formatted width of a COMPLETE number for this country: the cap the
+  // native field enforces. Derived from a dummy full-length number rather than
+  // from `shown`, which would shrink to whatever is typed so far and lock the
+  // field at its current length.
+  const maxShownLength = useMemo(
+    () => formatNational(iso, '0'.repeat(maxNationalDigits(iso))).length,
+    [iso],
+  );
+  // `undefined` means "leave the caret alone" — the state after the guest has
+  // moved it themselves. It is only forced to the end on the render that
+  // follows a keystroke, which is the render that reformats the value.
+  const [selection, setSelection] = useState<{ start: number; end: number } | undefined>(
+    undefined,
+  );
+  const onType = useCallback(
+    (next: string) => {
+      // Capped to the country's own length: past it the digits are dropped, so
+      // the field stops rather than accepting a number that could never dial.
+      const digits = sanitizeNationalInput(next, iso);
+      onChangeNational(digits);
+      // Reformatting moves everything after the caret, so the only stable
+      // place to put it is the end of what the guest has typed so far.
+      const end = formatNational(iso, digits).length;
+      setSelection({ start: end, end });
+    },
+    [iso, onChangeNational],
+  );
+  // Once the platform reports the caret where we asked for it, control is
+  // handed back: holding `selection` fixed would stop the guest tapping into
+  // the middle of their own number.
+  const onSelectionChange = useCallback(() => setSelection(undefined), []);
   const country = countryByIso(iso);
   const flag = flagOf(country.iso);
   // Derived from the field's own vertical padding rather than a flat number:
@@ -93,8 +127,33 @@ export function PhoneField({
       <Field
         ltrBox
         label={label}
-        value={national}
-        onChangeText={(next) => onChangeNational(sanitizeNationalInput(next))}
+        // The VALUE shown is grouped for the country; the value stored stays
+        // bare digits. Formatting on the way out and sanitising on the way in
+        // keeps this component's contract (`national` is digits) exactly as it
+        // was — every caller, `composePhone` and `validatePhone` are untouched
+        // — while the guest sees the shape their own country writes.
+        value={shown}
+        onChangeText={onType}
+        // The caret, held explicitly at the end while typing.
+        //
+        // This is a controlled field whose value is REWRITTEN on every
+        // keystroke — `7705` becomes `770 5`, two characters longer than what
+        // was typed — and an uncontrolled caret is placed by the platform
+        // against the string it had before. Inserting a separator therefore
+        // made it lurch. Pinning it to the end of the new string is correct
+        // for typing and for backspacing, which is all this field supports:
+        // it is a phone-pad, so there is no selection gesture to preserve
+        // beyond the tap that `onSelectionChange` reports below.
+        selection={selection}
+        onSelectionChange={onSelectionChange}
+        // Refused NATIVELY, not corrected afterwards. Trimming in `onType`
+        // still let the native input accept the keystroke and paint it for a
+        // frame before React reset the value, so the extra digit visibly
+        // appeared and vanished. `maxLength` is the length of the FORMATTED
+        // string — the separators are characters in the field too — computed
+        // from a full-length number for this country so it does not shrink as
+        // the guest types.
+        maxLength={maxShownLength}
         placeholder={placeholder}
         keyboardType="phone-pad"
         autoComplete="tel"
@@ -174,6 +233,12 @@ export function PhoneField({
         selected={iso}
         onSelect={(next) => {
           onChangeIso(next);
+          // The number is CLEARED on a country change (owner's call,
+          // 2026-09-06). Digits typed for one country rarely mean anything
+          // under another — the lengths and the trunk rules differ — and a
+          // half-kept number silently trimmed to the new country's length is
+          // worse than an empty field the guest can simply retype.
+          if (next !== iso) onChangeNational('');
           setPickerOpen(false);
         }}
         onClose={() => setPickerOpen(false)}
