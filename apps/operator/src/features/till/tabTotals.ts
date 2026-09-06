@@ -30,7 +30,7 @@ export interface TotalsLine {
 
 export interface TotalsOrder {
   status: string;
-  order_items: TotalsLine[];
+  order_items?: TotalsLine[];
 }
 
 export interface TotalsAdjustment {
@@ -38,10 +38,18 @@ export interface TotalsAdjustment {
   amount_iqd: number;
 }
 
+/**
+ * Every array here is optional ON PURPOSE. These rows reach us through
+ * `as unknown as TabListRow[]` casts and out of the persisted query cache
+ * (lib/persist.ts), so a missing embed is a runtime possibility the compiler
+ * cannot rule out — and this runs on the screen that takes the money, on a
+ * kiosk with no address bar. A stale row must degrade to a wrong-for-a-moment
+ * figure that the next refetch corrects, never to a dead screen.
+ */
 export interface TotalsInput {
-  orders: TotalsOrder[];
-  tab_adjustments: TotalsAdjustment[];
-  payments: { amount_iqd: number }[];
+  orders?: TotalsOrder[];
+  tab_adjustments?: TotalsAdjustment[];
+  payments?: { amount_iqd: number }[];
 }
 
 export interface TaxContext {
@@ -63,10 +71,10 @@ export interface TabTotals {
 const DISCOUNT_KINDS = new Set(['discount_percent', 'discount_amount']);
 
 /** Every line that still counts: a voided line, or any line of a voided order, is out. */
-export function liveLines(orders: readonly TotalsOrder[]): TotalsLine[] {
-  return orders
+export function liveLines(orders: readonly TotalsOrder[] | undefined): TotalsLine[] {
+  return (orders ?? [])
     .filter((o) => o.status !== 'voided')
-    .flatMap((o) => o.order_items.filter((i) => !i.voided));
+    .flatMap((o) => (o.order_items ?? []).filter((i) => !i.voided));
 }
 
 export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null): TabTotals {
@@ -78,7 +86,7 @@ export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null
   // Capped at the subtotal: 0036 does the same, so a discount can never make a
   // tab owe less than nothing.
   const discount = Math.min(
-    tab.tab_adjustments
+    (tab.tab_adjustments ?? [])
       .filter((a) => DISCOUNT_KINDS.has(a.kind))
       .reduce((s, a) => s + a.amount_iqd, 0),
     subtotal,
@@ -95,7 +103,7 @@ export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null
   }
 
   const total = Math.max(subtotal - discount + (tax?.taxInclusive ? 0 : taxTotal), 0);
-  const paid = tab.payments.reduce((s, p) => s + p.amount_iqd, 0);
+  const paid = (tab.payments ?? []).reduce((s, p) => s + p.amount_iqd, 0);
 
   return { subtotal, discount, tax: taxTotal, total, paid, due: Math.max(total - paid, 0) };
 }

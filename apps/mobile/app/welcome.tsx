@@ -11,6 +11,7 @@ import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { mirror } from '../src/i18n/direction';
 import { clearPendingSlot, usePendingSlot } from '../src/features/booking/pendingSlot';
+import { phoneOtpEnabled } from '../src/features/auth/phoneOtp';
 import { brand, radius, useTheme } from '../src/theme';
 import { Button, useSafeBack } from '../src/components/ui';
 import { PadelBallIcon } from '../src/components/icons';
@@ -73,7 +74,7 @@ function WelcomeScreen() {
           style={{
             fontFamily: fonts.display900,
             fontSize: 34,
-            // Cairo drops its tails well under the baseline; the Latin-caps
+            // Arabic drops its tails well under the baseline; the Latin-caps
             // line box clips them (same 1.45 ratio as Title in ui.tsx).
             lineHeight: dir === 'rtl' ? 49 : 35,
             textTransform: 'uppercase',
@@ -124,6 +125,16 @@ function WelcomeScreen() {
           style={{ backgroundColor: brand.white, borderWidth: 0 }}
           labelColor={brand.welcomeInk}
         />
+        {/* Phone OTP entry — dormant vendor-addition scaffold (2026-09-05); off unless EXPO_PUBLIC_PHONE_OTP=on. */}
+        {phoneOtpEnabled() ? (
+          <Button
+            label={t('auth.continueWithPhone')}
+            onPress={() => router.push('/phone-sign-in')}
+            variant="secondary"
+            style={{ backgroundColor: `${brand.white}22`, borderColor: `${brand.white}55` }}
+            labelColor={brand.white}
+          />
+        ) : null}
         <Button label={t('auth.signUp')} onPress={() => router.push('/sign-up')} variant="cta" />
         <Button
           label={t('auth.keepBrowsing')}

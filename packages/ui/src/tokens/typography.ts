@@ -2,52 +2,59 @@
  * Font-stack tokens.
  *
  * ┌─────────────────────────────────────────────────────────────────────────────┐
- * │  BRAND FONTS NOT YET IN HAND — SWAP POINT                                   │
+ * │  ONE FAMILY, BOTH SCRIPTS: **Lama Sans**                                    │
  * │                                                                             │
- * │  The licensed brand faces are:                                              │
- * │    Latin display:  **Next Art**                                             │
- * │    Arabic:         **Frutiger LT Arabic**                                   │
+ * │  Touch delivered Lama Sans (docs/brand/lama-sans/) and it carries Latin     │
+ * │  AND Arabic in the same faces — 97 Arabic codepoints with real init/medi/   │
+ * │  fina/rlig shaping, Arabic-Indic and extended Arabic-Indic digits, all      │
+ * │  nine weights. `fsType` is 0 (installable embedding), so it ships inside    │
+ * │  the app binary and the web bundle.                                         │
  * │                                                                             │
- * │  Both are commercial and Touch has not delivered files/licenses yet         │
- * │  (see HANDOFF.md scope ledger). When the files arrive, register the         │
- * │  @font-face rules in each app and change ONLY the first name in each        │
- * │  stack below — a one-line swap per token. Nothing else in the codebase      │
- * │  references font family names directly; everything goes through these       │
- * │  tokens / the --tp-font-* CSS variables.                                    │
+ * │  That retires the whole two-script apparatus this file used to carry:       │
+ * │  Poppins/Montserrat for Latin, Cairo for Arabic, with a `[dir='rtl']`       │
+ * │  family fork to switch between them. Both stacks below now lead with the    │
+ * │  same face; they stay as SEPARATE tokens only so the ~200 call sites that   │
+ * │  say `var(--tp-font-arabic)` keep working and so the fallbacks can differ   │
+ * │  (an Arabic-capable tail behind the Arabic token, for the one frame where   │
+ * │  the webfont has not arrived).                                              │
+ * │                                                                             │
+ * │  The faces are registered by `fontFaceCss` (../fontFace.ts), which every    │
+ * │  web surface injects. Nothing in the codebase names a font family outside   │
+ * │  this file — everything goes through these tokens / the --tp-font-* vars.   │
  * └─────────────────────────────────────────────────────────────────────────────┘
  */
 
 export type FontVars = Readonly<Record<`--tp-font-${string}`, string>>;
 
-/**
- * Latin display stack. The approved Touch Cafe menu design sets every Latin
- * string in **Poppins** — the section words (COFFEE, SMOOTHIE…), the size
- * column headers and every price — so Poppins leads here rather than the older
- * Montserrat stand-in.
- * SWAP: prepend `'Next Art', ` when licensed files land.
- */
-export const latinDisplayStack =
-  "'Poppins', 'Montserrat', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
+/** The registered family name. Must match `fontFaceCss`'s `font-family`. */
+export const BRAND_FAMILY = 'Lama Sans';
 
 /**
- * Arabic stack. The menu design sets all Arabic — headings, item names, chips —
- * in **Cairo**, so Cairo leads; IBM Plex Sans Arabic and Noto Sans Arabic stay
- * behind it as fallbacks.
- * SWAP: prepend `'Frutiger LT Arabic', ` when licensed files land.
+ * Last-resort tail, used when the webfont has not painted yet (or failed).
+ * `system-ui` first so each OS picks its own text face; Tahoma and Segoe UI
+ * are in here because they are the two Windows faces that cover Arabic — the
+ * operator runs on Windows and its receipts render in Chromium.
  */
-export const arabicStack =
-  "'Cairo', 'IBM Plex Sans Arabic', 'Noto Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif";
+const SYSTEM_TAIL =
+  "system-ui, -apple-system, 'Segoe UI', Tahoma, 'Noto Sans Arabic', Arial, sans-serif";
 
-/** Body text: Arabic-capable first so mixed EN/AR body copy stays consistent. */
-export const bodyStack = `${arabicStack}`;
+/** Latin display: headings, the wordmark, section words, buttons. */
+export const latinDisplayStack = `'${BRAND_FAMILY}', ${SYSTEM_TAIL}`;
 
-/** Monospace for order refs, idempotency keys, debug panes. */
+/** Arabic: identical face, same tail (which is already Arabic-capable). */
+export const arabicStack = `'${BRAND_FAMILY}', ${SYSTEM_TAIL}`;
+
+/** Body text. One family covers mixed EN/AR body copy with no fork. */
+export const bodyStack = latinDisplayStack;
+
+/** Monospace for order refs, idempotency keys, debug panes. Not a brand face. */
 export const monoStack = "'Cascadia Code', 'SF Mono', Consolas, 'Roboto Mono', monospace";
 
 /**
- * Numerals + Latin micro-labels. The menu design prices everything in Poppins
- * even inside an otherwise Arabic row, so prices and size headers get their own
- * token instead of borrowing the display stack by accident.
+ * Numerals + Latin micro-labels. Prices sat in a separate token because the
+ * menu design set them in Poppins inside otherwise-Arabic rows; with one
+ * family that distinction is gone, but the token stays — `font-variant-numeric:
+ * tabular-nums` on top of it now resolves to Lama Sans's real `tnum` feature.
  */
 export const numericStack = latinDisplayStack;
 

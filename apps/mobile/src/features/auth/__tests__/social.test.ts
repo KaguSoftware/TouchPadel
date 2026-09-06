@@ -152,6 +152,17 @@ describe('needsProfileCompletion', () => {
     expect(needsProfileCompletion(null)).toBe(false);
     expect(needsProfileCompletion(undefined)).toBe(false);
   });
+
+  it('also flags a blank NAME when the caller supplies it (a first phone sign-up)', () => {
+    // The trigger has no email local part to fall back on for a phone-only
+    // user, and the desk searches profiles by name (phone OTP scaffold).
+    expect(needsProfileCompletion({ phone: '+9647701234567', full_name: '' })).toBe(true);
+    expect(needsProfileCompletion({ phone: '+9647701234567', full_name: '   ' })).toBe(true);
+    expect(needsProfileCompletion({ phone: '+9647701234567', full_name: null })).toBe(true);
+    expect(needsProfileCompletion({ phone: '+9647701234567', full_name: 'Sara Ali' })).toBe(false);
+    // A caller that only knows the phone is judged on the phone alone.
+    expect(needsProfileCompletion({ phone: '+9647701234567' })).toBe(false);
+  });
 });
 
 describe('profileGateState', () => {

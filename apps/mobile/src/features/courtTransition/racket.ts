@@ -1,8 +1,8 @@
 /**
  * The racket from `docs/design/mobile-ui/padel-racket.html`, built for the
- * court: the teardrop frame with its throat window, the face plate and its
- * white perforations,
- * the cartoon rim highlights, the lofted collar that morphs the frame's slab
+ * court: the teardrop frame with its throat window, the face plate with its
+ * white perforations and the brand mark decalled on the front of it, the
+ * cartoon rim highlights, the lofted collar that morphs the frame's slab
  * section into a round grip, the wrapped handle and the butt cap. Ported mesh
  * for mesh, in the design's own model metres (a 26 cm head), then blown up by
  * swing.RACKET_SCALE where it is used — the court's four rackets stand in for
@@ -23,9 +23,11 @@
  *
  * `lite` (low-end phones) drops the rim highlights and the lofted collar and
  * halves every curve's segments — but keeps the perforations, which are what
- * makes a padel racket one: the same silhouette for a third of the triangles.
+ * makes a padel racket one, and the brand mark, which is what the racket is
+ * doing on this court: the same silhouette for a shade over a third of them.
  */
 import * as THREE from 'three';
+import { buildSmileyShapes } from './smileyMark';
 import type { CourtQuality } from './quality';
 import {
   applyEulerYXZ,
@@ -60,14 +62,95 @@ const R = 0.0195;
 /**
  * Perforation radius: ≈ 5.5 cm across once the racket is at court scale, ≈ 2 px
  * on the phone at the camera's rest distance. Widen this if they read as mush.
+ * Exported because a hole is a disc, not a point: the clearance the test checks
+ * against HOLE_FIELD is the rim's, not the centre's.
  */
-const HOLE_R = 0.0065;
+export const HOLE_R = 0.0065;
 /**
  * How proud of the face plate each white plug stands, model metres. Non-zero
  * so the plug's caps are strictly in front of the plate's and nothing z-fights;
  * 0.5 mm here is 2 mm at court scale, which no camera in the transition sees.
  */
 const PLUG_PROUD = 0.0005;
+
+/**
+ * The smiley ball on the face, as a RADIUS — see `smileyMark.ts` for the mark
+ * itself. A ball's honest measure is a circle, and this one is barely a box at
+ * all (109.95 x 110.87 artwork units), so the question the round face asks and
+ * the question the mark answers are for once the same one.
+ *
+ * 0.06714 is 60 % of the 0.1119 the mark was first dropped in at — "the smiley
+ * face is too big, make it 40 % smaller" (owner, 2026-09-05) — and the 40 % is
+ * off the RADIUS, so the ball covers a third of the area it did. That first
+ * number was the lockup's own ceiling, inherited because the swap was a swap,
+ * and it did not survive the swap: a wordmark only touches its enclosing circle
+ * at a few extremes, while a ball fills it, so the same radius that read as a
+ * mark on a face read as the face itself.
+ *
+ * At this size the ink stops 48.9 mm of model short of the FRAME's 0.116
+ * opening and sits inside the perforations rather than under all of them: the
+ * lattice reaches ±0.075 in x and the ball ±0.067, so the outermost dots are on
+ * blue and the mark reads as printed on the plate. The ceiling is still 0.116,
+ * and the test still measures the built buffers against FACE_OUTLINE every run
+ * rather than trusting any number written here.
+ */
+const MARK_R = 0.06714;
+
+/**
+ * Where the decal sits through the plate. The plate's front flat face is at
+ * faceDepth / 2 + bevelThickness = 0.016 and the plugs' caps stand to ±0.0165,
+ * so this puts the mark a tenth of a millimetre proud of the blue — far enough
+ * that nothing z-fights — and leaves it 0.4 mm BEHIND the white.
+ *
+ * So the dots pierce the mark, which is what a drilled plate does to anything
+ * printed on it. It went the other way for exactly one day, when the mark was
+ * the wordmark: 13 of the 30 holes have their rims on the ink, and a word read
+ * through 13 holes is not a word ("the racket dots don't pierce through the
+ * logo", owner, 2026-09-05). The smiley wants no such protection and was chosen
+ * partly for that — "we could have the dots piercing this no problem" — so the
+ * decal is back under the white where it belongs, and the three layers below
+ * fit in the 0.4 mm that leaves. Front only; the back of a sticker is not
+ * printed.
+ */
+const DECAL_Z = 0.0161;
+
+/**
+ * The mark is three coplanar paint layers and they OVERLAP — the felt and the
+ * seams are painted into the navy's windows, and the left eye is painted back
+ * over the felt — so they cannot share a z or they will z-fight, which reads on
+ * a phone as the mark flickering as the racket swings. Each layer is lifted by
+ * this much over the one beneath: 0.1 mm of model, 0.4 mm at RACKET_SCALE, and
+ * 0.0163 for the topmost still clears the plugs' 0.0165. The dots stay in front
+ * of all three.
+ *
+ * This gap is what SEPARATES the layers; it is not what ORDERS them. 0.42 mm at
+ * RACKET_SCALE survives iOS's 24-bit depth buffer and is invisible to Android's
+ * 16-bit one, so the ordering is stated outright in FACE_STACK instead.
+ */
+const DECAL_LAYER = 0.0001;
+
+/**
+ * The face's coplanar stack, back to front, as explicit `renderOrder`s —
+ * because on Android the depth buffer cannot tell these surfaces apart.
+ *
+ * expo-gl asks Android's EGL for `EGL_DEPTH_SIZE, 16` (its GLContext.java) and
+ * eglChooseConfig returns the smallest conforming config, so the phone gets 16
+ * bits where iOS gets GL_DEPTH24_STENCIL8 (its GLView.swift). Against the
+ * camera's near 5 / far 200, with the racket at the orbit's 46–60 m, one 16-bit
+ * LSB is 6.3 to 10.7 mm of world space — while the whole stack, plate to plugs,
+ * spans 0.42 mm at RACKET_SCALE. Every surface here therefore quantises to the
+ * SAME depth value: the depth test settles nothing and draw order settles
+ * everything.
+ *
+ * Left to itself that order is an accident. three's `painterSortStable` breaks
+ * a renderOrder tie on `material.id` — the order `mat()` happened to construct
+ * them in — and that order is wrong twice: faceMat is built after frameMat, so
+ * the PLATE would paint over the mark's navy line work, and gripMat after
+ * frameMat, so the felt would paint over the left eye that exists only to sit
+ * on top of it. renderOrder is compared BEFORE material.id, so writing the
+ * stack down settles it on every phone and at every distance.
+ */
+const FACE_STACK = { plate: 0, mark: 1, plugs: 4 } as const;
 
 export interface RacketRig {
   /** Add this to the scene: the player's stance. */
@@ -98,22 +181,33 @@ function teardrop(r: number, a: number, bottomY: number, neckW: number): THREE.P
 }
 
 /**
- * The hole field: the face plate's own teardrop, inset by ≈ 2.7 mm so no
- * perforation can break the rim.
- *
- * The design tests the two halves of the face with different rules — a circle
- * of r 0.09 above the centre line, but `|x| <= 0.088 - |y| * 0.55` below it,
- * a linear taper that pulls in about twice as fast as the outline actually
- * does. It leaves 4.3–4.8 mm of blank margin on the lower rows against 3.0 mm
- * on the upper ones, and because the rows are staggered the counts come out
- * 3, 4, 3, 4 from the bottom instead of widening. Testing BOTH halves against
- * the real outline gives the hex lattice a padel face should have: 4, 5, 6, 7,
- * 6, 5, 4 up from the throat.
+ * The face plate's outline: the blue teardrop the perforations and the brand
+ * decal are both drawn on. Module-level and exported for the reason HOLE_FIELD
+ * is — it is the boundary everything laid on the face has to stay inside of,
+ * and the decal's clearance test measures the built mark against this curve
+ * rather than against a second copy of these four numbers.
  */
-const HOLE_FIELD = teardrop(0.092, 25, 0.22, 0.055).getPoints(64);
+export const FACE_OUTLINE = teardrop(0.1195, 25, 0.2, 0.05);
+
+/**
+ * The hole field: the face plate's own teardrop, pulled in by 27.5 mm of model
+ * (0.1195 → 0.092) with its tail dropped 20 mm and its neck widened 5 mm. That
+ * is a DESIGN INSET, not a rounding allowance — 115 mm at RACKET_SCALE, a tenth
+ * of the head's 1.09 m width left deliberately bare on each side, so the plate
+ * reads as a drilled panel with a margin rather than as a sieve. It no longer
+ * GENERATES the pattern — the row counts do that now — but it is still the
+ * statement of where a perforation is allowed to be, and the test holds every
+ * generated centre against it.
+ *
+ * Both halves of the face read this one outline. The design tested them with
+ * different rules — a circle of r 0.09 above the centre line, but
+ * `|x| <= 0.088 - |y| * 0.55` below it, a linear taper pulling in about twice
+ * as fast as the outline actually does, which left the lower rows visibly bare.
+ */
+export const HOLE_FIELD = teardrop(0.092, 25, 0.22, 0.055).getPoints(64);
 
 /** Ray crossing, so the field is whatever shape the outline is. */
-function inField(x: number, y: number): boolean {
+export function inField(x: number, y: number): boolean {
   let hit = false;
   for (let i = 0, j = HOLE_FIELD.length - 1; i < HOLE_FIELD.length; j = i++) {
     const a = HOLE_FIELD[i]!;
@@ -124,20 +218,54 @@ function inField(x: number, y: number): boolean {
 }
 
 /**
- * The perforations' centres: a hex lattice, 30 mm across and 26 mm between
- * rows (30 · sin 60°), every other row offset half a step, clipped to the
- * field. Rows below −3 fall in the throat, which a padel racket leaves solid.
- * 37 holes in rows of 4, 5, 6, 7, 6, 5, 4 up from the throat.
+ * The perforations, row by row from the throat up. These numbers are the spec,
+ * not something a lattice happens to produce once it is clipped, so they are
+ * written down rather than derived.
+ *
+ * THE SOURCE IS THE OWNER, NOT THE STICKER SHEET: "first row 4 then 5 then 6
+ * then 6 then 5 then 4 and thats it no more rows" (2026-09-05). Written out
+ * because this cited the brand's p8 for a day and that citation was wrong — the
+ * racket on `docs/brand/stickers-5cm.pdf` page 8 carries 32 dots, not 30, in
+ * six rows of 4, 5, 6, 6, 6, 5 read down from the tip, and its lattice spaces
+ * rows ≈ 6.4 units against ≈ 6.1 across a row, i.e. rows further apart than
+ * columns rather than the compression below. So the sheet is NOT authority for
+ * anything here: someone checking the dots against it will find a different,
+ * unmirrored pattern and must not "fix" the code toward it.
+ */
+const ROWS = [4, 5, 6, 6, 5, 4] as const;
+
+/**
+ * The perforations' centres: 30 holes, 30 mm apart across a row and 26 mm
+ * between rows (30 · sin 60°, the hex spacing the face keeps). Six rows
+ * STRADDLE the sweet spot — y = HEAD.y + (i − 2.5) · 26 mm, so ± 13, 39 and
+ * 65 mm — rather than one row sitting on it, which is what an even row count
+ * costs and what it buys: the pattern mirrors about the centre line.
+ *
+ * Worth knowing before it reads as a bug: an even, mirror-symmetric row count
+ * CANNOT be a strict alternating hex lattice. Rows of 4 and 6 need the half-step
+ * offset to stay centred on x = 0 and rows of 5 do not, so the stagger runs
+ * half, none, half | half, none, half — and the two 6-rows therefore sit
+ * directly above one another across the centre line instead of interleaving.
+ * That is forced by the count; it is the only way six rows are both symmetric
+ * and centred on the face.
+ *
+ * Every centre clears HOLE_FIELD with room for its own radius, and the tightest
+ * is NOT where it looks. Measured perpendicular to the field's own curve, less
+ * HOLE_R: an outermost hole of the TOP 4-row, (± 0.045, 0.385), has 6.43 mm of
+ * model to spare, while the outermost holes of the 6-rows — the ones that reach
+ * furthest in x, at ± 0.075 — have 9.37 mm. The crown has already begun to
+ * close over the top row while the field is still widening past the 6-rows, so
+ * reach in x is the wrong thing to budget against. 6.43 mm of model (27 mm at
+ * RACKET_SCALE) is the number to spend before widening HOLE_R or opening the
+ * row pitch; the test re-measures every rim against the built field rather than
+ * trusting this paragraph.
  */
 export const HOLE_CENTRES: readonly (readonly [number, number])[] = (() => {
   const out: [number, number][] = [];
-  for (let k = -3; k <= 3; k++) {
-    const y = HEAD.y + k * 0.026;
-    for (let j = -4; j <= 4; j++) {
-      const x = HEAD.x + j * 0.03 + (k % 2 ? 0.015 : 0);
-      if (inField(x, y)) out.push([x, y]);
-    }
-  }
+  ROWS.forEach((n, i) => {
+    const y = HEAD.y + (i - 2.5) * 0.026;
+    for (let j = 0; j < n; j++) out.push([HEAD.x + (j - (n - 1) / 2) * 0.03, y]);
+  });
   return out;
 })();
 
@@ -177,9 +305,17 @@ function plugsGeometry(
         nrm.push(x, y, 0);
       }
     }
+    // The ring pushes −h before +h, so the four corners of a wall quad are
+    // (q, q+1) = (back, front) at θ and (q+2, q+3) = (back, front) at θ + dθ.
+    // Wound q → q+2 → q+1, which is anticlockwise seen from OUTSIDE and so
+    // agrees with the (x, y, 0) normals pushed alongside. Take that ordering
+    // for granted and the geometric normal comes out radially inward instead:
+    // every wall triangle is then back-face culled by the default FrontSide
+    // material, and lit inside-out wherever it is not. The caps below make the
+    // same choice explicitly (`if (face > 0)`), and for the same reason.
     for (let i = 0; i < sides; i++) {
       const q = base + i * 2;
-      idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2);
+      idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3);
     }
     // Caps: a centre vertex and a ring, front and back.
     for (const z of [h, -h]) {
@@ -265,12 +401,11 @@ export function buildRacketKit(quality: CourtQuality): RacketKit {
     curveSegments: segments,
   });
   frameGeo.translate(0, 0, -frameDepth / 2);
-  part(frameGeo, frameMat);
+  part(frameGeo, frameMat).name = 'racket_frame';
 
   // ── Face plate, with the white perforations plugged into it
   const face = new THREE.Shape();
-  const fp = teardrop(0.1195, 25, 0.2, 0.05);
-  face.curves = fp.curves;
+  face.curves = FACE_OUTLINE.curves;
   face.autoClose = true;
   const faceDepth = T - 0.008;
   const faceGeo = new THREE.ExtrudeGeometry(face, {
@@ -283,10 +418,91 @@ export function buildRacketKit(quality: CourtQuality): RacketKit {
     curveSegments: segments,
   });
   faceGeo.translate(0, 0, -faceDepth / 2);
-  part(faceGeo, faceMat);
+  const plate = part(faceGeo, faceMat);
+  plate.name = 'racket_face';
+  plate.renderOrder = FACE_STACK.plate;
   // The bevel adds a bevelThickness at each end, so the plate's flat faces sit
   // a touch beyond `faceDepth`; the plugs have to clear that too.
-  part(plugsGeometry(HOLE_CENTRES, faceDepth + 0.002, full ? 8 : 6), holeMat);
+  const plugs = part(plugsGeometry(HOLE_CENTRES, faceDepth + 0.002, full ? 8 : 6), holeMat);
+  plugs.name = 'racket_perforations';
+  plugs.renderOrder = FACE_STACK.plugs;
+
+  // ── The brand mark, decalled on the plate and pierced by the dots
+  //
+  // THE SMILEY BALL, not the lockup: "instead of the logo, have it be the
+  // smiley face ball" (owner, 2026-09-05), which is `docs/brand/stickers-5cm.pdf`
+  // page 11 and now `smileyMark.ts`. The wordmark it replaces asked to be READ,
+  // and a lattice of holes across a word is unreadable — that is what forced
+  // the decal in front of the plugs and what the same instruction lifted in the
+  // same breath: "we could have the dots piercing this no problem". A ball with
+  // holes punched through it is a racket face, so the mark goes back UNDER the
+  // white, where a decal on a drilled plate belongs. See DECAL_Z.
+  //
+  // The mark's beziers are short — 41 mm of model at the very longest, under a
+  // third of HEAD.r — so what the tessellation buys here is chords, not arcs.
+  // At 4 segments the worst chord misses its own curve by 0.34 mm of model:
+  // 1.4 mm at RACKET_SCALE, a 760th of the head's 1.09 m width. The head is
+  // 5.6 % of the viewport's height where the orbit comes closest (fov 24°,
+  // 46 m), so on a 3x phone that miss is a seventh of one device pixel. `lite`
+  // takes that floor; `full`'s 8 segments quarter it to 0.09 mm of model, the
+  // same 2:1 the rest of the racket's curves keep (24 / 12).
+  const markSegments = full ? 8 : 4;
+  const smiley = buildSmileyShapes(MARK_R);
+  /** The mark's meshes, kept so the shadow pass can be told to skip them. */
+  const decals: THREE.Mesh[] = [];
+  const decal = (
+    shapes: THREE.Shape[],
+    material: THREE.Material,
+    name: string,
+    layer: number,
+  ): void => {
+    // ShapeGeometry emits one group per shape with its own incrementing
+    // materialIndex, and NOTHING here ever reads them: WebGLRenderer's
+    // projectObject and WebGLShadowMap alike walk `geometry.groups` only inside
+    // `if (Array.isArray(material))`, and these meshes carry one material
+    // apiece, so each buffer draws as a single range. Twelve shapes are four
+    // draw calls. Written down because the opposite is the natural reading —
+    // a `clearGroups()` rode here for a while on the strength of it, saving
+    // nothing.
+    const g = new THREE.ShapeGeometry(shapes, markSegments);
+    // smileyMark centres the mark on (0, 0) in its own frame; the face's centre
+    // is the sweet spot.
+    g.translate(HEAD.x, HEAD.y, DECAL_Z + layer * DECAL_LAYER);
+    const m = part(g, material);
+    m.name = name;
+    // The paint order, stated rather than inherited from material.id — the z
+    // above is invisible to a 16-bit depth buffer. See FACE_STACK.
+    m.renderOrder = FACE_STACK.mark + layer;
+    decals.push(m);
+  };
+  // THREE COLOURS THE RACKET ALREADY WEARS. The sticker is drawn navy, felt
+  // green and cream on white paper; the plate is a blue of its own, so the
+  // artwork's own inks cannot all be taken literally:
+  //
+  //  · the PDF's navy is (53, 78, 168) and this plate is (51, 96, 171) — the
+  //    same colour to any eye at arm's length. Taken literally the ring, the
+  //    eyes and the smile would have dissolved into the face, so the ink is the
+  //    FRAME's navy instead: the darkest thing on the racket, and already on it.
+  //  · the felt is the grip's lime, a shade off the artwork's own green.
+  //  · the seams go white, which is both the paper the brand prints this ball
+  //    on and the perforations' colour. That last one was a bug when the mark
+  //    was a wordmark — mark and lattice fused into one white mass — and is
+  //    right here, because a tennis ball's seams ARE white and they are held
+  //    inside a navy outline that the dots cannot blur.
+  //
+  // Materials are shared objects, not copies: three of the racket's own five
+  // for the whole court, so the mark costs draw calls but not a palette.
+  //
+  // The order is the artwork's, and it is not decoration: the navy is a disc
+  // with the felt's windows cut out of it, so it goes down FIRST and everything
+  // else is painted into it. See smileyMark's header for why that needs three
+  // layers and not twelve.
+  decal(smiley.ink, frameMat, 'racket_mark_ink', 0);
+  decal(smiley.ball, gripMat, 'racket_mark_ball', 1);
+  // Felt and seams never touch each other — only the navy under both — so they
+  // share a layer rather than spending one of the three this decal can afford.
+  decal(smiley.seam, holeMat, 'racket_mark_seam', 1);
+  decal(smiley.inkTop, frameMat, 'racket_mark_ink_top', 2);
 
   // ── Cartoon highlight bands on the rim (front + back)
   if (full) {
@@ -331,6 +547,7 @@ export function buildRacketKit(quality: CourtQuality): RacketKit {
 
   // ── Grip: wrapped handle on a butt cap
   const grip = part(new THREE.CylinderGeometry(R, R, 0.09, full ? 24 : 12), gripMat);
+  grip.name = 'racket_grip';
   grip.position.y = 0.057;
   const wrapGeo = geo(new THREE.TorusGeometry(R - 0.0015, 0.0034, 6, full ? 20 : 10));
   for (let i = 0; i < 4; i++) {
@@ -354,6 +571,18 @@ export function buildRacketKit(quality: CourtQuality): RacketKit {
   body.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) o.castShadow = shadows;
   });
+  // …except the mark, which cannot cast a shadow anyone could see. Its four
+  // passes are flat planes a tenth of a millimetre of model in front of an
+  // opaque plate that is already a caster, and every vertex of them lies inside
+  // that plate's outline (the decal test measures it). With the sun at
+  // (6, 30, 10) their silhouette along the light is displaced by well under
+  // that tenth of a millimetre — strictly inside the plate's own — and
+  // scene.ts's `shadow.normalBias` of 0.05 is a hundred times the whole
+  // separation anyway. Only the turf receives shadow, and no racket mesh sets
+  // receiveShadow. So this is four shadow-map draw calls a racket, sixteen
+  // across the court every `full` frame, whose output is bit-identical to what
+  // the plate behind them already wrote.
+  for (const m of decals) m.castShadow = false;
 
   return {
     disposables,

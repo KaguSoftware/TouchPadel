@@ -138,15 +138,15 @@ export function Title({
 }: {
   children: ReactNode;
   squiggle?: boolean;
-  /** Auth-screen variant: no tracking, no squiggle (design `font:900 26px Archivo`). */
+  /** Auth-screen variant: no tracking, no squiggle (design `font:900 26px`). */
   plain?: boolean;
   size?: number;
 }) {
   const { colors, fonts, tracking } = useTheme();
   const { dir } = useLocale();
-  // 1.05 is an all-caps Archivo ratio: Latin caps sit on the baseline with
-  // almost nothing below it. Cairo drops ج/ح/ي well under the baseline, so the
-  // same ratio clips their tails — Arabic needs a taller line box.
+  // 1.05 is an all-caps ratio: Latin caps sit on the baseline with almost
+  // nothing below it. Arabic drops ج/ح/ي well under the baseline, so the
+  // same ratio clips their tails — it needs a taller line box.
   const lineHeight = Math.round(size * (dir === 'rtl' ? 1.45 : 1.05));
   const rtl = dir === 'rtl';
   return (
@@ -242,7 +242,7 @@ export function SectionLabel({ children, style }: { children: ReactNode; style?:
   );
 }
 
-/** Small uppercase field/group label (design `font:700 11px Mulish`, `ls .06em`). */
+/** Small uppercase field/group label (design `font:700 11px`, `ls .06em`). */
 export function MicroLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
   const { colors, fonts, tracking } = useTheme();
   const { dir } = useLocale();

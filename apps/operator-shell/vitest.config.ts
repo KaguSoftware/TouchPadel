@@ -14,6 +14,7 @@ export default defineConfig({
       // space in its name, and `.pathname` hands back a percent-encoded '%20'
       // path that Vite cannot resolve.
       electron: fileURLToPath(new URL('./test/electron-stub.ts', import.meta.url)),
+      'electron-updater': fileURLToPath(new URL('./test/electron-updater-stub.ts', import.meta.url)),
     },
   },
   test: {

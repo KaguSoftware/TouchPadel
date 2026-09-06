@@ -69,32 +69,31 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 2592000,
     ...(isLocalSupabase ? { dangerouslyAllowLocalIP: true } : {}),
   },
-  /**
-   * Security headers — Security Layer 1, Block 4 · Web (SEC-25).
-   *
-   * Set here rather than in proxy.ts so they also cover static assets, images
-   * and error responses, which the proxy matcher deliberately skips. The one
-   * header that CANNOT live here is the CSP, because its nonce changes per
-   * request; that is set in proxy.ts.
-   */
   async headers() {
     return [
       {
-        source: '/:path*',
-        headers: [...STATIC_SECURITY_HEADERS],
-      },
-      {
-        // Both the printed form and the post-exchange form of the table route.
-        source: '/:locale(en|ar)/t/:path*',
-        headers: [...TABLE_ROUTE_HEADERS],
-      },
-      {
-        source: '/t/:path*',
-        headers: [...TABLE_ROUTE_HEADERS],
+        // Next's default for public/ is a revalidate-every-time no-cache, which
+        // on a QR menu means every scanned table re-checks seven font files
+        // before it can paint them, over the venue wifi the whole self-hosting
+        // decision was made for. A week covers a guest's visit and every repeat
+        // scan of the same table, and the month of stale-while-revalidate behind
+        // it keeps a device that has been away painting from cache while the new
+        // bytes come down in the background. Not `immutable`: the faces are
+        // served under fixed stems with no content hash — Next adds none for
+        // public/ — and a corrected cut lands as new bytes behind
+        // LamaSans-Regular.woff2, which is the one thing `pnpm fonts:check`
+        // exists to notice. `immutable` would pin the stale face for the whole
+        // max-age with nothing able to bust it.
+        source: '/fonts/lama/:file',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=604800, stale-while-revalidate=2592000',
+          },
+        ],
       },
     ];
   },
-
   async redirects() {
     return [
       // Legacy /{locale}/menu alias → the cafe app root (web-slice §1).

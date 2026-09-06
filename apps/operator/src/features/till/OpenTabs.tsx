@@ -298,7 +298,10 @@ export function OpenTabsScreen() {
         status: t.status,
         openedAt: t.opened_at,
         total: t.total_iqd ?? computeTabTotals(t, taxCtx).total,
-        stamped: t.total_iqd !== null,
+        // `!= null` so the flag agrees with the `??` above: an undefined
+        // total_iqd (a row cached before the column joined the select) is a
+        // running figure, not a settled one, and must not render as stamped.
+        stamped: t.total_iqd != null,
         web: tabHasWebOrder(t),
       })),
     [tabsQ.data, taxCtx, tr, locale],

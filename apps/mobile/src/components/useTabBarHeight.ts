@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Standard `UITabBar` content height, above the home-indicator inset. */

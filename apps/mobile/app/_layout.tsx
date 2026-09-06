@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { LocaleDirContext } from '@react-navigation/native';
+// SDK 56+: expo-router vendors react-navigation; app code imports it from here.
+// LocaleDirContext is marked deprecated there in favour of I18nManager — which
+// this app pins LTR on purpose (see RootStack), so the context stays.
+import { LocaleDirContext } from 'expo-router/react-navigation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
@@ -18,11 +21,12 @@ import { addBreadcrumb, captureException } from '../src/lib/telemetry';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
 import { DirectionRoot } from '../src/i18n/direction';
 import { lastKnownLocale } from '../src/i18n/lastLocale';
-import { ensureFontsLoaded, fontsFor } from '../src/theme/fonts';
+import { BRAND_FONTS } from '../src/theme/fonts';
 import { lastKnownAppearance } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { AuthProvider } from '../src/features/auth/context';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
+import { installNotificationHandler } from '../src/features/profile/push';
 import { ErrorState, OfflineBanner } from '../src/components/states';
 import { ToastProvider } from '../src/components/overlays';
 import { palettes, ThemeProvider, useTheme } from '../src/theme';
@@ -222,9 +226,10 @@ export default function RootLayout() {
 }
 
 function AppRoot({ prefs }: { prefs: BootPrefs }) {
-  // Only the active script blocks first paint (8 Latin faces or 5 Cairo); the
-  // other loads in the background so a language switch has its faces ready.
-  const [fontsLoaded, fontsError] = useFonts(fontsFor(prefs.locale));
+  // One family covers both scripts, so this is every face the app renders in:
+  // there is nothing left to load in the background and a language switch can
+  // never wait on a face.
+  const [fontsLoaded, fontsError] = useFonts(BRAND_FONTS);
 
   // Token refresh follows the foreground lifecycle; query focus follows it too.
   useEffect(() => {
@@ -237,19 +242,26 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
     };
   }, [prefs.locale, prefs.appearance]);
 
+  // Push: foreground display, the Android channel, and "tap opens the booking".
+  // Once per app life — it does not depend on language or theme. The booking
+  // screen carries its own RequireSession, so a tap while signed out lands on
+  // the sign-in it redirects to.
+  useEffect(
+    () =>
+      installNotificationHandler({
+        onOpenReservation: (id) => router.push({ pathname: '/booking/[id]', params: { id } }),
+      }),
+    [],
+  );
+
   useEffect(() => {
     if (fontsLoaded || fontsError) {
-      // A failed font download must not hold the splash forever — the theme
-      // falls back to system faces and the app still works.
+      // A face that fails to register must not hold the splash forever — the
+      // theme falls back to system faces and the app still works.
       if (fontsError) captureException(fontsError, { scope: 'fonts.load' });
       void SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontsError]);
-
-  useEffect(() => {
-    if (!fontsLoaded) return;
-    void ensureFontsLoaded(prefs.locale === 'ar' ? 'en' : 'ar');
-  }, [fontsLoaded, prefs.locale]);
 
   if (!fontsLoaded && !fontsError) return null; // splash is still covering us
 

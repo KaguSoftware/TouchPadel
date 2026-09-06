@@ -31,23 +31,34 @@ const ANON =
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel';
 
 /**
- * Reachable by a guest ON PURPOSE — now loaded from DATA, not hardcoded here.
- *
- * This was a literal `Set` in this file until Security Layer 1 Block 2
- * (SEC-12). The problem with that was not the list, it was the DEFAULT: a
- * newly granted RPC appeared in no list at all, so nothing failed and it
- * shipped unguarded unless a reviewer happened to notice.
- *
- * `packages/db/fixtures/rpc-allowlist.json` classifies EVERY client-callable
- * RPC, and check-rpc-registry.mjs fails when one is missing — so absence is now
- * a build failure rather than a silent exemption. This sweep still does the
- * proving: it calls each guarded RPC as a real cafe guest and fails if one
- * answers instead of refusing.
+ * Reachable by a guest ON PURPOSE. Everything here is either read-only public
+ * data the menu needs before any identity exists, or is guarded by SESSION
+ * ownership rather than by role. Adding a name here is a security decision:
+ * it asserts a café guest may call it.
  */
-const registry = JSON.parse(
-  readFileSync(new URL('../fixtures/rpc-allowlist.json', import.meta.url), 'utf8'),
-);
-const PUBLIC_BY_DESIGN = new Set(Object.keys(registry.publicByDesign ?? {}));
+const PUBLIC_BY_DESIGN = new Set([
+  // The guest menu app, pre-identity.
+  'open_table_session', 'verify_table_token', 'menu_availability', 'venue_mode',
+  'is_degraded', 'price_slot', 'item_active_groups', 'business_date',
+  // Tell-me-about-myself helpers; they leak only the caller's own standing.
+  'is_staff', 'staff_role', 'is_own_session', 'order_is_callers', 'tab_is_callers',
+  'touch_guest_session',
+  // Guest ordering surface — guarded by guest_sessions ownership, not by role.
+  'create_guest_order', 'raise_waiter_call',
+  // Booking surface — any signed-in ACCOUNT, by design. hold_slot is NOT here:
+  // since 0048 (C1) it refuses an anonymous session with ACCOUNT_REQUIRED, so the
+  // sweep above proves it rather than exempting it. confirm/cancel are ownership-
+  // guarded, not role-guarded, so the OWNERSHIP stage below is what covers them.
+  'confirm_booking', 'cancel_reservation', 'expire_stale_holds',
+  // Device telemetry from the till/guest app.
+  'heartbeat', 'log_replay',
+  // Settings > "Send a test notification" (0070): any signed-in session, by
+  // design — it can only ever push to auth.uid()'s own token, and a guest
+  // without one is turned away with NO_PUSH_TOKEN.
+  'send_test_push',
+  // Trigger function; never usefully callable directly.
+  'trg_order_item_line_no',
+]);
 
 const psql = (sql) =>
   execFileSync(
@@ -121,9 +132,9 @@ if (unrefused.length) {
   for (const u of unrefused) console.error(`  ${u.name.padEnd(28)} HTTP ${u.status}  ${u.body}`);
   console.error(
     '\nA café guest holds `authenticated`, exactly as staff do, so an RPC without\n' +
-      'its own guard is open to anyone who scans a table QR. Add the role check as\n' +
-      "the function's FIRST statement — or, if this is deliberate, add the name to\n" +
-      'PUBLIC_BY_DESIGN in this script and say why.',
+    'its own guard is open to anyone who scans a table QR. Add the role check as\n' +
+    "the function's FIRST statement — or, if this is deliberate, add the name to\n" +
+    'PUBLIC_BY_DESIGN in this script and say why.',
   );
   process.exit(1);
 }
@@ -257,8 +268,8 @@ if (ownershipFailures.length) {
   for (const f of ownershipFailures) console.error(`  ${f.name}\n    ${f.detail.slice(0, 300)}`);
   console.error(
     '\nRole guards are not enough on the booking surface: these RPCs are callable by\n' +
-      'every signed-in customer, so ownership is the only boundary. A failure here is\n' +
-      'the C1/H3 class returning.',
+    'every signed-in customer, so ownership is the only boundary. A failure here is\n' +
+    'the C1/H3 class returning.',
   );
   process.exit(1);
 }

@@ -1,6 +1,10 @@
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, useTheme } from '../theme';
+
+// SDK 57 expo-router: `Icon` / `Label` are no longer top-level exports; they hang
+// off the trigger.
+const { Icon, Label } = NativeTabs.Trigger;
 
 /**
  * iOS bottom tabs backed by the real `UITabBar`, via expo-router's own
@@ -10,7 +14,7 @@ import { brand, useTheme } from '../theme';
  *
  * The system draws the bar, so it picks up the native material (Liquid Glass on
  * iOS 26), scroll-edge behavior, RTL mirroring and iPad layout. Labels still
- * take the design's Archivo face, and the selected tab tints its icon with the
+ * take the design's display face, and the selected tab tints its icon with the
  * design's green; the 14x3 green active dot has no UIKit equivalent and is
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
