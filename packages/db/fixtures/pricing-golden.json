@@ -1,0 +1,527 @@
+{
+  "_readme": [
+    "GOLDEN PRICING CASES — docs/security/security-general.md §06, SEC-10.",
+    "",
+    "One file, two readers. packages/db/tests/pricing-golden.test.ts asserts it against",
+    "app.price_slot (SQL); packages/core/src/pricing/rateRules.golden.test.ts asserts the",
+    "SAME cases against resolveRateRule (TypeScript). The two implementations price every",
+    "slot in the product — SQL when a booking is written, TS when the phone renders the",
+    "grid — and a guest who is quoted one number and charged another is the failure this",
+    "file exists to make impossible. Neither test owns the numbers; this file does.",
+    "",
+    "THE CASES ARE IN A FIXED PAST WEEK (Sun 2026-03-01 .. Sun 2026-03-08, Asia/Baghdad,",
+    "UTC+3 with no DST). Fixed, so the expected values never move. Past, because",
+    "app.price_slot is a pure function of (court, instant, duration) with no notion of",
+    "'future' — and because every `validFrom`/`validTo` here confines these rules to that",
+    "week, so inserting them cannot change the price of any slot another suite books.",
+    "",
+    "WHAT THE CASES COVER: both boundary minutes of every window (16:59/17:00,",
+    "22:59/23:00, 08:59/09:00, 01:59/02:00); both sides of midnight on a weekday night and",
+    "on a weekend night, including the day-shift that makes Saturday 01:00 the tail of",
+    "FRIDAY (get it wrong and Friday night bills as a weekday); pricing by the SLOT START",
+    "rather than its end; court-specificity beating a higher priority; a date-limited",
+    "promotion; a winning-tier rule with no price for the requested duration falling",
+    "through instead of black-holing the slot; a retired rule being ignored; and an",
+    "unpriced duration resolving to nothing.",
+    "",
+    "expectedIqd null means NO rule prices the slot — app.price_slot returns zero rows and",
+    "resolveRateRule returns null. The booking RPCs turn that into NO_RATE.",
+    "",
+    "GENERATED, then checked in. To change a case, change it here and make both tests green."
+  ],
+  "timezone": "Asia/Baghdad",
+  "utcOffsetHours": 3,
+  "courtRefs": [
+    "a",
+    "b"
+  ],
+  "rules": [
+    {
+      "id": "g_offpeak",
+      "courtRef": null,
+      "daysOfWeek": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "startTime": "09:00",
+      "endTime": "17:00",
+      "priority": 100,
+      "validFrom": "2026-02-28",
+      "validTo": "2026-03-08",
+      "prices": {
+        "60": 40000,
+        "90": 55000,
+        "120": 70000
+      },
+      "isActive": true
+    },
+    {
+      "id": "g_peak",
+      "courtRef": null,
+      "daysOfWeek": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "startTime": "17:00",
+      "endTime": "23:00",
+      "priority": 110,
+      "validFrom": "2026-02-28",
+      "validTo": "2026-03-08",
+      "prices": {
+        "60": 50000,
+        "90": 70000,
+        "120": 90000
+      },
+      "isActive": true
+    },
+    {
+      "id": "g_weekend",
+      "courtRef": null,
+      "daysOfWeek": [
+        5,
+        6
+      ],
+      "startTime": "09:00",
+      "endTime": "23:00",
+      "priority": 105,
+      "validFrom": "2026-02-28",
+      "validTo": "2026-03-08",
+      "prices": {
+        "60": 60000,
+        "90": 85000,
+        "120": 110000
+      },
+      "isActive": true
+    },
+    {
+      "id": "g_wd_late",
+      "courtRef": null,
+      "daysOfWeek": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "startTime": "23:00",
+      "endTime": "24:00",
+      "priority": 110,
+      "validFrom": "2026-02-28",
+      "validTo": "2026-03-08",
+      "prices": {
+        "60": 50000,
+        "90": 70000,
+        "120": 90000
+      },
+      "isActive": true
+    },
+    {
+      "id": "g_wd_tail",
+      "courtRef": null,
+      "daysOfWeek": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "startTime": "00:00",
+      "endTime": "02:00",
+      "priority": 110,
+      "validFrom": "2026-02-28",
+      "validTo": "2026-03-08",
+      "prices": {
+        "60": 50000,
+        "90": 70000,
+        "120": 90000
+      },
+      "isActive": true
+    },
+    {
+      "id": "g_we_late",
+      "courtRef": null,
+      "daysOfWeek": [
+        5,
+        6
+      ],
+      "startTime": "23:00",
+      "endTime": "24:00",
+      "priority": 105,
+      "validFrom": "2026-02-28",
+      "validTo": "2026-03-08",
+      "prices": {
+        "60": 60000,
+        "90": 85000,
+        "120": 110000
+      },
+      "isActive": true
+    },
+    {
+      "id": "g_we_tail",
+      "courtRef": null,
+      "daysOfWeek": [
+        6,
+        0
+      ],
+      "startTime": "00:00",
+      "endTime": "02:00",
+      "priority": 105,
+      "validFrom": "2026-02-28",
+      "validTo": "2026-03-08",
+      "prices": {
+        "60": 60000,
+        "90": 85000,
+        "120": 110000
+      },
+      "isActive": true
+    },
+    {
+      "id": "g_court_a",
+      "courtRef": "a",
+      "daysOfWeek": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "startTime": "09:00",
+      "endTime": "23:00",
+      "priority": 50,
+      "validFrom": "2026-02-28",
+      "validTo": "2026-03-08",
+      "prices": {
+        "60": 99000,
+        "90": 99000,
+        "120": 99000
+      },
+      "isActive": true
+    },
+    {
+      "id": "g_promo",
+      "courtRef": "b",
+      "daysOfWeek": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "startTime": "09:00",
+      "endTime": "23:00",
+      "priority": 999,
+      "validFrom": "2026-03-04",
+      "validTo": "2026-03-04",
+      "prices": {
+        "60": 25000
+      },
+      "isActive": true
+    },
+    {
+      "id": "g_retired",
+      "courtRef": "b",
+      "daysOfWeek": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "startTime": "00:00",
+      "endTime": "23:59",
+      "priority": 9999,
+      "validFrom": "2026-02-28",
+      "validTo": "2026-03-08",
+      "prices": {
+        "60": 1,
+        "90": 1,
+        "120": 1
+      },
+      "isActive": false
+    }
+  ],
+  "cases": [
+    {
+      "name": "weekday off-peak, mid-window",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T09:00:00.000Z",
+      "localWallTime": "2026-03-02 12:00 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_offpeak",
+      "expectedIqd": 40000
+    },
+    {
+      "name": "weekday off-peak, 90 minutes",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T09:00:00.000Z",
+      "localWallTime": "2026-03-02 12:00 (Mon)",
+      "durationMin": 90,
+      "expectedRuleRef": "g_offpeak",
+      "expectedIqd": 55000
+    },
+    {
+      "name": "weekday off-peak, 120 minutes",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T09:00:00.000Z",
+      "localWallTime": "2026-03-02 12:00 (Mon)",
+      "durationMin": 120,
+      "expectedRuleRef": "g_offpeak",
+      "expectedIqd": 70000
+    },
+    {
+      "name": "weekday off-peak opens at 09:00 exactly",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T06:00:00.000Z",
+      "localWallTime": "2026-03-02 09:00 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_offpeak",
+      "expectedIqd": 40000
+    },
+    {
+      "name": "08:59 is before opening: nothing prices it",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T05:59:00.000Z",
+      "localWallTime": "2026-03-02 08:59 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": null,
+      "expectedIqd": null
+    },
+    {
+      "name": "16:59 is the LAST off-peak minute",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T13:59:00.000Z",
+      "localWallTime": "2026-03-02 16:59 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_offpeak",
+      "expectedIqd": 40000
+    },
+    {
+      "name": "17:00 is the FIRST peak minute",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T14:00:00.000Z",
+      "localWallTime": "2026-03-02 17:00 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_peak",
+      "expectedIqd": 50000
+    },
+    {
+      "name": "weekday peak, 120 minutes",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T16:00:00.000Z",
+      "localWallTime": "2026-03-02 19:00 (Mon)",
+      "durationMin": 120,
+      "expectedRuleRef": "g_peak",
+      "expectedIqd": 90000
+    },
+    {
+      "name": "22:59 is the LAST peak minute",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T19:59:00.000Z",
+      "localWallTime": "2026-03-02 22:59 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_peak",
+      "expectedIqd": 50000
+    },
+    {
+      "name": "23:00 crosses to the late rule",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T20:00:00.000Z",
+      "localWallTime": "2026-03-02 23:00 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_wd_late",
+      "expectedIqd": 50000
+    },
+    {
+      "name": "a slot is priced by its START, not its end",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T19:00:00.000Z",
+      "localWallTime": "2026-03-02 22:00 (Mon)",
+      "durationMin": 120,
+      "expectedRuleRef": "g_peak",
+      "expectedIqd": 90000
+    },
+    {
+      "name": "Sunday 23:30 is a WEEKDAY night",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-01T20:30:00.000Z",
+      "localWallTime": "2026-03-01 23:30 (Sun)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_wd_late",
+      "expectedIqd": 50000
+    },
+    {
+      "name": "Monday 00:30 is the tail of Sunday night",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-01T21:30:00.000Z",
+      "localWallTime": "2026-03-02 00:30 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_wd_tail",
+      "expectedIqd": 50000
+    },
+    {
+      "name": "Monday 01:59 is the last tail minute",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-01T22:59:00.000Z",
+      "localWallTime": "2026-03-02 01:59 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_wd_tail",
+      "expectedIqd": 50000
+    },
+    {
+      "name": "Monday 02:00 is past the tail: unpriced",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-01T23:00:00.000Z",
+      "localWallTime": "2026-03-02 02:00 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": null,
+      "expectedIqd": null
+    },
+    {
+      "name": "Thursday night tail lands on Friday, weekday money",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-05T22:00:00.000Z",
+      "localWallTime": "2026-03-06 01:00 (Fri)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_wd_tail",
+      "expectedIqd": 50000
+    },
+    {
+      "name": "Friday 12:00 is WEEKEND money",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-06T09:00:00.000Z",
+      "localWallTime": "2026-03-06 12:00 (Fri)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_weekend",
+      "expectedIqd": 60000
+    },
+    {
+      "name": "Saturday 12:00 is WEEKEND money",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-07T09:00:00.000Z",
+      "localWallTime": "2026-03-07 12:00 (Sat)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_weekend",
+      "expectedIqd": 60000
+    },
+    {
+      "name": "Friday 23:30 is a WEEKEND night",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-06T20:30:00.000Z",
+      "localWallTime": "2026-03-06 23:30 (Fri)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_we_late",
+      "expectedIqd": 60000
+    },
+    {
+      "name": "Saturday 01:00 is the tail of FRIDAY night",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-06T22:00:00.000Z",
+      "localWallTime": "2026-03-07 01:00 (Sat)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_we_tail",
+      "expectedIqd": 60000
+    },
+    {
+      "name": "Saturday 23:30 is a WEEKEND night",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-07T20:30:00.000Z",
+      "localWallTime": "2026-03-07 23:30 (Sat)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_we_late",
+      "expectedIqd": 60000
+    },
+    {
+      "name": "Sunday 00:30 is the tail of SATURDAY night",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-07T21:30:00.000Z",
+      "localWallTime": "2026-03-08 00:30 (Sun)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_we_tail",
+      "expectedIqd": 60000
+    },
+    {
+      "name": "Sunday 12:00 is back to weekday money",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-01T09:00:00.000Z",
+      "localWallTime": "2026-03-01 12:00 (Sun)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_offpeak",
+      "expectedIqd": 40000
+    },
+    {
+      "name": "court-specific beats a HIGHER-priority all-courts rule",
+      "courtRef": "a",
+      "startAtUtc": "2026-03-02T09:00:00.000Z",
+      "localWallTime": "2026-03-02 12:00 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_court_a",
+      "expectedIqd": 99000
+    },
+    {
+      "name": "court-specific wins in the evening too",
+      "courtRef": "a",
+      "startAtUtc": "2026-03-02T16:00:00.000Z",
+      "localWallTime": "2026-03-02 19:00 (Mon)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_court_a",
+      "expectedIqd": 99000
+    },
+    {
+      "name": "Wednesday promotion wins on priority",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-04T09:00:00.000Z",
+      "localWallTime": "2026-03-04 12:00 (Wed)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_promo",
+      "expectedIqd": 25000
+    },
+    {
+      "name": "the promotion does not apply on Tuesday",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-03T09:00:00.000Z",
+      "localWallTime": "2026-03-03 12:00 (Tue)",
+      "durationMin": 60,
+      "expectedRuleRef": "g_offpeak",
+      "expectedIqd": 40000
+    },
+    {
+      "name": "a winning rule with no price for the duration falls through",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-04T09:00:00.000Z",
+      "localWallTime": "2026-03-04 12:00 (Wed)",
+      "durationMin": 90,
+      "expectedRuleRef": "g_offpeak",
+      "expectedIqd": 55000
+    },
+    {
+      "name": "a retired rule is never considered",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-05T09:00:00.000Z",
+      "localWallTime": "2026-03-05 12:00 (Thu)",
+      "durationMin": 120,
+      "expectedRuleRef": "g_offpeak",
+      "expectedIqd": 70000
+    },
+    {
+      "name": "an unpriced duration resolves to nothing",
+      "courtRef": "b",
+      "startAtUtc": "2026-03-02T09:00:00.000Z",
+      "localWallTime": "2026-03-02 12:00 (Mon)",
+      "durationMin": 45,
+      "expectedRuleRef": null,
+      "expectedIqd": null
+    }
+  ]
+}

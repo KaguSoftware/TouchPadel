@@ -304,6 +304,10 @@ describe.skipIf(!up)('0048 desk re-pricing and re-validation (H1, H2)', () => {
       p_reservation_id: id,
       p_start_at: at(20, 10).toISOString(), // 13:00 local -> dear
       p_end_at: at(20, 11).toISOString(),
+      // 0071/SEC-09: this move CHANGES the price (30,000 -> 80,000), which now
+      // requires an explicit reason. The desk always sends one; what H1 asserts
+      // — that the move re-prices at all — is untouched.
+      p_reason: 'customer_request',
     }).then(outcome);
 
     expect(moved.ok, moved.errorMessage).toBe(true);
@@ -318,6 +322,7 @@ describe.skipIf(!up)('0048 desk re-pricing and re-validation (H1, H2)', () => {
     const ext = await appRpc(desk, 'extend_reservation', {
       p_reservation_id: id,
       p_new_end_at: at(21, 9).toISOString(), // now 120m
+      p_reason: 'customer_request', // 0071/SEC-09: 30,000 -> 50,000 is a price change
     }).then(outcome);
 
     expect(ext.ok, ext.errorMessage).toBe(true);

@@ -90,7 +90,7 @@ export function ReservationActionsDialog({
 
   const durationMs = new Date(r.end_at).getTime() - new Date(r.start_at).getTime();
   const live = isLive(r.status);
-  const marks = allowedMarks(r.status);
+  const marks = allowedMarks(r.status, r.start_at);
   const court = courts.find((c) => c.id === r.court_id);
   // The floor is the court's own shortest bookable duration: shorter than that
   // and no rate rule prices the slot, so the server refuses. Do not offer it.

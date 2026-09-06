@@ -35,6 +35,7 @@
     "order_is_callers": "tells the caller only about the caller",
     "price_slot": "booking surface: quotes a price before any identity exists",
     "raise_waiter_call": "guest ordering: guarded by guest_sessions OWNERSHIP, not by role",
+    "send_test_push": "notifications (0070): targets auth.uid() ONLY — a caller cannot name a profile — rate-limited to one per minute per profile; an account with no Expo token gets NO_PUSH_TOKEN",
     "staff_role": "tells the caller only about the caller",
     "tab_is_callers": "tells the caller only about the caller",
     "venue_mode": "guest menu, pre-identity: open / closed / degraded",

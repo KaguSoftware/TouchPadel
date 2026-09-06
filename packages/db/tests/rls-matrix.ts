@@ -1905,4 +1905,20 @@ export const matrix: MatrixRule[] = [
     note: 'cashier+ apply; nil tab fails TAB_NOT_FOUND past the guard — nothing written',
     drop: 5,
   },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'send_test_push',
+    args: {},
+    expect: ex<RpcExpectation>('execute', {
+      anon: 'denied',
+    }),
+    note:
+      '0070 self-service: takes NO arguments, so the caller cannot name a profile — it can only ever ' +
+      'enqueue for auth.uid(). Every signed-in principal reaches the body and stops at NO_PUSH_TOKEN ' +
+      '(no Expo token on a test profile), which is business validation, not a role guard. anon has no ' +
+      'grant at all. The security property under test is that there is no reachable path to another ' +
+      "person's device.",
+    drop: 5,
+  },
 ];

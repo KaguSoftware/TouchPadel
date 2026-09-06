@@ -16,6 +16,8 @@
  *
  * Baseline 2026-09-04: clean. Four .env.example files and a root .npmrc holding
  * only pnpm settings — no credential in any revision of either.
+ * 2026-09-06: `.pem` moved from the path list to the content list — see the note
+ * on that rule. Re-verified clean: the one committed .pem is a public certificate.
  *
  * Usage:  node scripts/security/check-history-secrets.mjs   (exit 1 on violation)
  */
@@ -26,7 +28,7 @@ const FORBIDDEN = [
   { re: /(^|\/)\.env$/, what: 'a real .env file' },
   { re: /(^|\/)\.env\.(?!example$)[^/]+$/, what: 'an environment-specific .env file (.env.local, .env.remote, …)' },
   { re: /(^|\/)station\.json$/, what: 'a venue station config (station identity + pairing state)' },
-  { re: /\.pem$/, what: 'a private key or certificate' },
+  // .pem is NOT here — it is content-checked below. See the note on PEM_PRIVATE_KEY.
   { re: /\.p12$/, what: 'a signing keystore' },
   { re: /\.keystore$/, what: 'an Android signing keystore' },
   { re: /\.jks$/, what: 'a Java keystore' },
@@ -44,6 +46,30 @@ const CONTENT_CHECKED = [
     re: /(^|\/)\.npmrc$/,
     bad: /^\s*(?:\/\/.*:)?_(?:authToken|auth|password)\s*=\s*\S/m,
     what: 'an npm registry credential (_authToken / _auth / _password)',
+  },
+  /**
+   * `.pem` used to be a PATH rule, and it went red on 2026-09-06 for
+   * `apps/mobile/certs/certificate.pem` — the EAS Update signing CERTIFICATE,
+   * committed deliberately in 91cf0dc with its own `!` exception in
+   * `.gitignore:15`. That file is a public X.509 certificate
+   * (`CN=Touch Padel OTA Updates`, valid 2026-09-04 to 2036-09-04) and contains
+   * no key material: it has to ship inside the app binary, because verifying an
+   * OTA manifest is the whole point of it. A path rule can only be satisfied by
+   * an allowlist entry, and an allowlisted path is a permanently unguarded path.
+   *
+   * The content rule is strictly stronger, and it matters MOST at exactly that
+   * path: `.gitignore` exempts it, so it is the one `.pem` in this repository
+   * that ignore rules will not stop — and therefore the likeliest place for
+   * `private-key.pem` to be pasted by mistake. A certificate passes; anything
+   * carrying a PRIVATE KEY block fails, at any path, in any revision.
+   *
+   * Binary keystores (.p12 / .keystore / .jks) stay path-forbidden above: those
+   * formats exist to hold a private key, so there is no benign version to admit.
+   */
+  {
+    re: /\.pem$/,
+    bad: /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----/,
+    what: 'a PRIVATE KEY in a .pem file (a bare CERTIFICATE block is fine — it is public by design)',
   },
 ];
 

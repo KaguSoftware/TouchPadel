@@ -137,10 +137,20 @@ export async function createTestCourt(svc: SupabaseClient, name: string): Promis
 /**
  * Ensure an all-day, all-week rate rule exists so price_slot always resolves —
  * concurrency tests must not depend on optional fixtures.
+ *
+ * `valid_from` is yesterday, NOT open-ended. This is an all-COURTS rule, so
+ * without a lower bound it prices every slot on every court at every instant in
+ * history — including the fixed past week that packages/db/fixtures/
+ * pricing-golden.json uses, where three cases assert that NOTHING prices the
+ * slot. An unbounded helper turns those three green-by-accident into failures
+ * and, worse, would have made a genuine "no rule prices this" regression
+ * invisible. Every suite that calls this books in the FUTURE, so a lower bound
+ * of yesterday costs nothing.
  */
 export async function ensureTestRateRule(svc: SupabaseClient): Promise<void> {
   const { data } = await svc.from('rate_rules').select('id').eq('name', 'TEST all-day').limit(1);
   if (data && data.length > 0) return;
+  const yesterday = new Date(Date.now() - 24 * 60 * 60_000).toISOString().slice(0, 10);
   const { data: rule, error } = await svc
     .from('rate_rules')
     .insert({
@@ -150,6 +160,7 @@ export async function ensureTestRateRule(svc: SupabaseClient): Promise<void> {
       start_time: '00:00',
       end_time: '23:59:59',
       priority: -100, // never beats a real fixture rule
+      valid_from: yesterday,
       is_active: true,
     })
     .select('id')

@@ -213,6 +213,19 @@ have to make on every pull request forever.
       The `.npmrc` is checked by **content in every historical revision** rather than by path — a committed
       root `.npmrc` is normal and correct, and a path rule there is either a permanent false positive or a
       missed `_authToken`. (SEC-24 · DEV)
+      ⚠ **Went red 2026-09-06 and was fixed the same day — as a rule change, not an allowlist entry.**
+      The blanket `\.pem$` PATH rule fired on `apps/mobile/certs/certificate.pem`, the EAS Update signing
+      certificate this very file says was committed deliberately (Block 4 · Mobile) with its own `!`
+      exception at `.gitignore:15`. Verified before touching anything: it is a public X.509 certificate
+      (`CN=Touch Padel OTA Updates`, 2026-09-04 → 2036-09-04) with **zero** `PRIVATE KEY` lines in the one
+      commit that added it. `.pem` therefore moved into `CONTENT_CHECKED` alongside `.npmrc`: a
+      `CERTIFICATE` block passes, a `PRIVATE KEY` block fails at **any** path in **any** revision.
+      That is stronger than the allowlist entry it replaces, and it matters most at exactly that path —
+      `.gitignore` exempts it, so it is the one `.pem` here that ignore rules will not stop, and therefore
+      the likeliest place for the private key to be pasted by mistake. Negative-tested in a scratch repo,
+      four cases: certificate at the exempt path passes; a private key at that same path fails; still fails
+      after deletion; fails at an unrelated path. `.p12`/`.keystore`/`.jks` stay path-forbidden — those
+      formats exist to hold a private key, so there is no benign version to admit.
 
 ### Migrations
 - [x] ★ **`check:migrations`, scoped to lock-taking DDL** — DONE — DEV, 2026-09-04.
@@ -247,6 +260,14 @@ have to make on every pull request forever.
       Second stage of the same `check:invariants` script. Expected to pass on the first run (159/159).
       ⚠ Unexecuted for the same reason — no Docker. (SEC-04 · DEV)
 - [x] **RPC registry — moved out of code and into data** — DONE — DEV, 2026-09-04.
+      ⚠ **This gate fired in anger on 2026-09-06 and it was right.** Migration 0070 (`send_test_push`,
+      2026-09-06) granted execute to `authenticated` with no registry entry, and branch `kemal` was red:
+      *"1 RPC callable by a guest and in NO registry entry"* plus a coverage regression 60/127 → 60/128.
+      Under the old hardcoded-`Set` design that RPC would have shipped in no list at all, unguarded by
+      default, with nothing to say so — which is the exact scenario this box was written for. Closed the
+      same day: classified `publicByDesign` with its reason (it takes **no arguments**, so it can only ever
+      target `auth.uid()`, and it is rate-limited to one per minute per profile), given a rule in
+      `tests/rls-matrix.ts`, floor ratcheted to **61/128**.
       `packages/db/fixtures/rpc-allowlist.json` classifies all **127** client-callable RPCs (19 public by
       design with a written reason each, 108 guarded); `check-rpc-authz.mjs` now loads its exemptions from
       it instead of the hardcoded `Set`.

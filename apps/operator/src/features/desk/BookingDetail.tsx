@@ -165,7 +165,7 @@ export function BookingDetailScreen() {
   const court = r ? courtsQ.data?.find((c) => c.id === r.court_id) : undefined;
   const courts = courtsQ.data ?? [];
   const live = r ? isLive(r.status) : false;
-  const marks = r ? allowedMarks(r.status) : [];
+  const marks = r ? allowedMarks(r.status, r.start_at) : [];
   const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
   const durationMs = r ? new Date(r.end_at).getTime() - new Date(r.start_at).getTime() : 0;
   const canShorten = live && durationMs - STEP_MIN * 60_000 >= minDurationMin * 60_000;
