@@ -44,9 +44,19 @@ import { useReduceMotion } from '../lib/useReduceMotion';
 import { useLocale } from '../i18n/LocaleProvider';
 import { palettes, fontSets, type Palette, type FontSet } from './tokens';
 import { fontsLoaded } from './fonts';
-import { rememberAppearance } from './lastAppearance';
+import {
+  deviceAppearance,
+  rememberAppearance,
+  resolveAppearance,
+  type AppearancePreference,
+} from './lastAppearance';
+
+export type { AppearancePreference };
 
 export type Appearance = 'light' | 'dark';
+
+const FADE_OUT_MS = 120;
+const FADE_IN_MS = 180;
 
 export interface ThemeContextValue {
   /**
@@ -122,7 +132,42 @@ export function ThemeProvider({
   initialAppearance?: AppearancePreference;
 }) {
   const { locale } = useLocale();
-  const [appearance, setAppearanceState] = useState<Appearance>(initialAppearance);
+  // The stored pick ('automatic' included) and the scheme it paints as. Seeded
+  // from the same prop: `initialAppearance` IS the preference, so an automatic
+  // install resolves against the device on this first render rather than
+  // painting light and correcting itself a frame later.
+  const [preference, setPreferenceState] = useState<AppearancePreference>(initialAppearance);
+  const [appearance, setAppearanceState] = useState<Appearance>(() =>
+    resolveAppearance(initialAppearance),
+  );
+  // Both mirrored into refs: crossfadeTo and the device listener read them
+  // without taking either value as a dependency, which would rebuild the
+  // callback mid-fade and re-subscribe the listener on every switch.
+  const appearanceRef = useRef(appearance);
+  appearanceRef.current = appearance;
+  const preferenceRef = useRef(preference);
+  preferenceRef.current = preference;
+
+  const [switching, setSwitching] = useState(false);
+  const cover = useRef(new Animated.Value(0)).current;
+  // Starts on the light background rather than the live one: the cover is
+  // invisible until a switch paints it (crossfadeTo sets it from the outgoing
+  // palette before fading up), so the seed is never what the eye sees.
+  const [coverColor, setCoverColor] = useState<string>(
+    () => palettes[resolveAppearance(initialAppearance)].bg,
+  );
+  const reduceMotion = useReduceMotion();
+  const reduceMotionRef = useRef(reduceMotion);
+  reduceMotionRef.current = reduceMotion;
+
+  // Re-entrancy guard for the whole window, cover fade-out to settle.
+  const inFlight = useRef(false);
+  // A switch asked for while one is in flight; applied at settle, latest wins.
+  const queued = useRef<AppearancePreference | null>(null);
+  const mounted = useRef(true);
+  // Resolved by the effect that runs AFTER the commit that changed the theme,
+  // so the fade only continues once the new palette is actually on screen.
+  const committed = useRef<(() => void) | null>(null);
   // Nothing paints under AppRoot until `useFonts` has settled, so this is a
   // constant for the life of a mount — but the crash and config-error screens
   // mount their own provider above it, and those render in the system face
@@ -139,7 +184,12 @@ export function ThemeProvider({
   // own echo and would never see the device change again.
   useEffect(() => {
     try {
-      NativeAppearance.setColorScheme(preference === 'automatic' ? null : appearance);
+      // `null` hands the scheme back to the OS (see the note above). RN's own
+      // types omit it from ColorSchemeName even though the native module
+      // accepts it, so the cast is the documented behaviour, not a bypass.
+      NativeAppearance.setColorScheme(
+        (preference === 'automatic' ? null : appearance) as Appearance,
+      );
     } catch (error) {
       captureException(error, { label: 'theme.nativeScheme' });
     }

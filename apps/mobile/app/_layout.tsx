@@ -22,7 +22,7 @@ import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
 import { DirectionRoot } from '../src/i18n/direction';
 import { lastKnownLocale } from '../src/i18n/lastLocale';
 import { BRAND_FONTS } from '../src/theme/fonts';
-import { lastKnownAppearance } from '../src/theme/lastAppearance';
+import { lastKnownPreference } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { AuthProvider } from '../src/features/auth/context';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
