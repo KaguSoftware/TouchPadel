@@ -254,7 +254,7 @@ export function MicroLabel({ children, style }: { children: ReactNode; style?: S
     <Text
       style={[
         {
-          fontFamily: fonts.body700,
+          fontFamily: fonts.body800,
           fontSize: 11,
           // Uppercase + tracking are Latin-only; Arabic has no case and its
           // joined letterforms break apart when tracked.
@@ -509,6 +509,14 @@ export function Field({ label, error, latin, dense, style, lead, onFocus, onBlur
  *
  * `pinOrder` opts one control out of that mirroring — see the prop.
  */
+/**
+ * Segment heights, pinned so a control is the same size in both languages.
+ * Sized to the ARABIC (Cairo) line box at the label sizes below — the taller
+ * of the two scripts — so nothing clips when the app flips.
+ */
+const SEGMENT_H = 42;
+const SEGMENT_H_FIT = 38;
+
 export function SegmentedControl<T extends string | number>({
   options,
   value,
@@ -660,11 +668,15 @@ export function SegmentedControl<T extends string | number>({
             style={{
               flex: fit ? 0 : 1,
               borderRadius: fit ? 8 : 9,
-              paddingTop: fit ? 8 : 10,
-              paddingBottom: fit ? 8 : 10,
+              // A fixed height, not padding around the label: Cairo's line box
+              // is ~4pt taller than Archivo's at the same size, so a
+              // padding-sized segment made the whole control (and the card)
+              // grow in Arabic. Both languages now get the Arabic height.
+              height: fit ? SEGMENT_H_FIT : SEGMENT_H,
               paddingStart: fit ? 12 : 4,
               paddingEnd: fit ? 12 : 4,
               alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <SegmentLabel
@@ -678,6 +690,10 @@ export function SegmentedControl<T extends string | number>({
               style={{
                 fontFamily: fonts.display800,
                 fontSize: fit ? 11.5 : 12,
+                // Explicit, so the label occupies the same box in Latin and
+                // Arabic and sits centred in the fixed-height segment.
+                lineHeight: fit ? 16 : 17,
+                textAlign: 'center',
                 letterSpacing: tracking(0.36),
               }}
             />
