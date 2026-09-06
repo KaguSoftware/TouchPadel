@@ -128,6 +128,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The brand faces are committed three times over — packages/ui/fonts/lama is
+      # canonical, the copies under apps/*/public/fonts and apps/mobile/assets/fonts
+      # are what the bundlers can actually reach. Update one and forget the others
+      # and two apps render two different typefaces; nothing else in this pipeline
+      # would notice, because every one of them is a valid font file.
+      - name: Fonts in sync
+        run: pnpm fonts:check
+
       - name: Lint, typecheck, test, build
         run: pnpm turbo lint typecheck test build
 
@@ -160,7 +168,12 @@ jobs:
       - name: Typecheck + test on Windows
         run: pnpm --filter @touch/operator-shell typecheck && pnpm --filter @touch/operator-shell test
 
+      # No secrets here on purpose: the JS config leaves signing out when the
+      # env is absent, `--publish never` creates no publisher, and `--dir`
+      # skips the update feed — so this proves the unsigned path packages.
       - name: Package smoke (unpacked dir, real ABI rebuild)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: pnpm --filter @touch/operator-shell dist:dir
 
       # win-unpacked carries app.asar plus the whole minified renderer — i.e.

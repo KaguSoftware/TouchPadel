@@ -1,14 +1,49 @@
 /**
- * Expo push-token registration -> profiles.expo_push_token. Fully guarded:
- * simulators, dev builds without the notifications module, and permission
- * denials all resolve to 'unavailable' instead of throwing.
+ * Expo push — the ONE module that touches expo-notifications (dynamic imports:
+ * the native module is absent in Expo Go / web / vitest, and importing it in
+ * Expo Go red-boxes on Android). Fully guarded: simulators, dev builds without
+ * the module, and permission denials all resolve to 'unavailable' instead of
+ * throwing.
+ *
+ *   registerPushToken          permission prompt + token -> profiles.expo_push_token
+ *   getPushPermissionState     passive probe for the Settings screen
+ *   installNotificationHandler foreground display + Android channel + tap routing
+ *
+ * The server half is migration 0024 (outbox + trigger), 0048 (cron nudge),
+ * 0070 (Settings test push) and the send-push edge function.
  */
+import { Platform } from 'react-native';
 import { isRunningInExpoGo } from 'expo';
+// Type-only: erased at compile time, so the native module is still loaded
+// through the guarded dynamic imports below and nowhere else.
+import type * as ExpoNotifications from 'expo-notifications';
 
 import { supabase } from '../../lib/supabase';
+import { addBreadcrumb } from '../../lib/telemetry';
 import { updatePushToken } from './api';
 
 export type PushRegistrationResult = 'registered' | 'denied' | 'unavailable';
+
+/**
+ * Android 8+ shows nothing (and plays nothing) for a notification whose channel
+ * does not exist. send-push sends no channelId, so Expo delivers on 'default';
+ * the channel is created here, before the first token is ever requested, and
+ * again at every boot (idempotent) so an install that predates it catches up.
+ */
+const ANDROID_CHANNEL = 'default';
+
+type NotificationsModule = typeof ExpoNotifications;
+
+async function ensureAndroidChannel(Notifications: NotificationsModule): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL, {
+    name: 'Touch Padel',
+    importance: Notifications.AndroidImportance.MAX,
+    sound: 'default',
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#3360AB',
+  });
+}
 
 export async function registerPushToken(): Promise<PushRegistrationResult> {
   try {
@@ -29,6 +64,7 @@ export async function registerPushToken(): Promise<PushRegistrationResult> {
     }
     if (status !== 'granted') return 'denied';
 
+    await ensureAndroidChannel(Notifications);
     const tokenResponse = await Notifications.getExpoPushTokenAsync();
     const token = tokenResponse.data;
     if (!token) return 'unavailable';
@@ -64,4 +100,65 @@ export async function getPushPermissionState(): Promise<PushPermissionState> {
   } catch {
     return 'unavailable';
   }
+}
+
+/**
+ * Boot-time wiring, called once from the root layout. Returns the teardown.
+ *
+ *  - setNotificationHandler: without it a push that lands while the app is in
+ *    the FOREGROUND is silently dropped on iOS — which is exactly when someone
+ *    is looking at Settings after pressing "Send a test notification".
+ *  - the Android channel (see ANDROID_CHANNEL).
+ *  - tap routing: send-push puts `reservation_id` in `data` for the booking
+ *    kinds; the caller decides where that goes (this module owns no navigation).
+ *    A cold start from a notification is covered by getLastNotificationResponseAsync.
+ *
+ * Never throws — Expo Go, simulators and a missing module all leave the app
+ * exactly as it was.
+ */
+export function installNotificationHandler(opts: {
+  onOpenReservation: (reservationId: string) => void;
+}): () => void {
+  let cancelled = false;
+  let remove: (() => void) | null = null;
+
+  void (async () => {
+    try {
+      if (isRunningInExpoGo()) return;
+      const Notifications = await import('expo-notifications');
+      if (cancelled) return;
+
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
+      });
+      await ensureAndroidChannel(Notifications);
+
+      const open = (response: ExpoNotifications.NotificationResponse | null) => {
+        const data = response?.notification.request.content.data as
+          | { kind?: unknown; reservation_id?: unknown }
+          | undefined;
+        addBreadcrumb('push.open', { kind: data?.kind });
+        const id = data?.reservation_id;
+        if (typeof id === 'string' && id) opts.onOpenReservation(id);
+      };
+
+      const sub = Notifications.addNotificationResponseReceivedListener(open);
+      remove = () => sub.remove();
+      // Launched by tapping a notification while the app was closed.
+      const last = await Notifications.getLastNotificationResponseAsync();
+      if (!cancelled && last) open(last);
+    } catch {
+      // Module absent (Expo Go, web, an older binary): push simply stays off.
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+    remove?.();
+  };
 }

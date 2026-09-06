@@ -7,6 +7,7 @@ import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
+import { hasRealEmail, phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
@@ -229,10 +230,11 @@ export default function ProfileScreen() {
             // D3: a social sign-in that left before completing its profile.
             <Card style={{ marginTop: space.m, backgroundColor: colors.amb, borderColor: colors.ambline }}>
               <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: colors.ambtext }}>
-                {t('profile.completeProfileNudge')}
+                {/* A phone sign-up (OTP scaffold) has the phone and lacks the name; every other case lacks the phone. */}
+                {t(profile.data?.phone ? 'profile.completeNameNudge' : 'profile.completeProfileNudge')}
               </Text>
               <Button
-                label={t('auth.addPhoneLink')}
+                label={t(profile.data?.phone ? 'auth.addNameLink' : 'auth.addPhoneLink')}
                 variant="secondary"
                 size="compact"
                 onPress={() => router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } })}
@@ -257,11 +259,24 @@ export default function ProfileScreen() {
               label={t('profile.editProfile')}
               onPress={() => router.push('/profile-edit')}
             />
-            <MenuRow
-              icon={<LockIcon size={15} color={colors.gstrong} />}
-              label={t('profile.changePassword')}
-              onPress={() => router.push('/change-password')}
-            />
+            {/* No password exists for a phone-only account, and a desk-created
+              walk-in's synthetic address has no mailbox to recover to. */}
+            {hasRealEmail(session?.user) ? (
+              <MenuRow
+                icon={<LockIcon size={15} color={colors.gstrong} />}
+                label={t('profile.changePassword')}
+                onPress={() => router.push('/change-password')}
+              />
+            ) : null}
+            {/* Phone OTP scaffold (dormant): an email / social account verifies
+              its number once so a later phone sign-in lands on THIS account. */}
+            {phoneOtpEnabled() && !session?.user.phone ? (
+              <MenuRow
+                icon={<PhoneIcon size={15} color={colors.gstrong} />}
+                label={t('auth.verifyPhoneRow')}
+                onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
+              />
+            ) : null}
             <MenuRow
               icon={<SlidersIcon size={15} color={colors.gstrong} />}
               label={t('settings.title')}

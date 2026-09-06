@@ -37,8 +37,8 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 
 ## Stack & environment
 - pnpm + Turborepo monorepo; TypeScript strict; Node ≥22 (supabase-js needs native WebSocket);
-  packages scoped `@touch/*`; **React 19.1** workspace-wide (pinned via root `pnpm.overrides`).
-- Apps: `apps/mobile` (**Expo SDK 54**, expo-router 6, RN 0.81) · `apps/web` (**Next 16.3** App Router, Vercel) ·
+  packages scoped `@touch/*`; **React 19.2** workspace-wide (pinned via root `pnpm.overrides`).
+- Apps: `apps/mobile` (**Expo SDK 57**, expo-router 57, RN 0.86) · `apps/web` (**Next 16.3** App Router, Vercel) ·
   `apps/operator` (Vite + React + TanStack Router SPA) · `apps/operator-shell` (Electron main/
   preload — SQLite queue, LAN KDS server, ESC/POS printing, heartbeat, kiosk — still skeleton).
 - DB: Supabase CLI + Docker locally (`supabase start`); schema-first migrations 0001–0026 in
@@ -59,8 +59,14 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - Bilingual content = paired `_en` / `_ar` columns (not jsonb). CSS logical properties only
   (lint-enforced in `apps/mobile`, `apps/operator` and `apps/operator-shell` as of day 6;
   `apps/web` and the packages still define no `lint` script); every demo runs once in Arabic.
-- Fonts: brand faces are **Next Art** (Latin) + **Frutiger LT Arabic** — commercial, files not yet
-  in hand; free stand-ins live behind tokens in `packages/ui` (one-line swap later).
+- Fonts: one family for both scripts — **Lama Sans** (`packages/ui/fonts/lama/`, supplied by Touch
+  2026-09-05; the brand decks' typography boards name **Next Art** + **Frutiger LT Arabic** instead
+  and that is unreconciled — see the Fonts row in the scope ledger). Latin and Arabic
+  live in the same faces, so nothing forks a family on direction any more. Stacks in
+  `packages/ui/src/tokens/typography.ts`, `@font-face` + preload list in
+  `packages/ui/src/fontFace.ts`; app code never spells a family name. `pnpm fonts:sync` copies the
+  files into the app static roots and `pnpm fonts:check` fails on drift —
+  `docs/brand/lama-sans/README.md`.
 - **Mobile native-feel rule (owner, 2026-08-24):** if it can look/behave native in React Native, it
   must — bottom tabs via expo-router `Tabs`, native stack with platform back gestures/transitions,
   platform pickers/switches/action sheets. No web-styled custom nav in `apps/mobile`.
@@ -198,8 +204,11 @@ surface was built out. Full audit: `docs/design/mobile-audit-2026-08-27.md`. Hea
   script and no `eslint.config.*` exists, despite `packages/config/src/eslint.js` shipping a complete
   preset *including the RTL logical-properties guard this file claims is enforced*.
 
-Target is **Expo SDK 54** — deliberately, because Expo Go on the Apple App Store stops at SDK 54, so
-it is the highest SDK that keeps the Expo Go loop alive on a physical iPhone. (Latest is 57.)
+Target was **Expo SDK 54** until 2026-09-05 — deliberately, because Expo Go on the Apple App Store
+stops at SDK 54. **Now Expo SDK 57** (RN 0.86, React 19.2, expo-router 57): the App Store Expo Go no
+longer loads the project, so the on-phone loop is an EAS **development build** (`eas build --profile
+development`; `eas go` is the only Expo Go route on iOS). SDK 56 split expo-router from
+react-navigation — app code imports `expo-router/react-navigation` / `expo-router/js-tabs`, lint-guarded.
 
 ## Day 4 (2026-08-27) — the padel booking backend was audited too
 
@@ -1084,8 +1093,20 @@ did-not-sync attention count; Day close pre-checks the queue and lists blocking 
 - **A6 — a Windows installer exists.** esbuild-bundles main+preload (so `sandbox:true`),
   electron-builder NSIS (electron 33.4.11 pinned, renderer as extraResources, asarUnpack for
   better-sqlite3), station bootstrap via `--station-id/--station-mode/--till-host/--lan-psk`,
-  auto-launch, kiosk closable only in dev; release workflow + Windows CI smoke job. No code
-  signing — the SmartScreen "More info → Run anyway" step is in `docs/install-runbook.md`.
+  auto-launch, kiosk closable only in dev; release workflow + Windows CI smoke job.
+  **2026-09-05 — made downloadable end to end:** `electron-builder.config.cjs` (JS, signing
+  conditional on env: Azure Trusted Signing or PFX, else unsigned), publishes to the PUBLIC
+  `KaguSoftware/touchpadel-releases` (stable link
+  `…/releases/latest/download/Touch-Padel-Operator-Setup.exe`; also the electron-updater
+  feed), version stamped from the tag, placeholder icon in `assets/`, macOS dmg+zip job gated
+  on Apple secrets, staff page `/download` on the guest site (noindex), **first-run station
+  setup screen** (Till / Desk / Kitchen screen; the till mints a 10-char pairing code, the
+  kitchen screen types it and finds the till on the LAN — `main/first-run.ts`,
+  `main/lan-discover.ts`, `features/setup/`), rail "Pair a kitchen screen" card (manager PIN,
+  code + QR), **auto-update** (`main/updater.ts`: check at boot + 6 h, silent download,
+  "Update ready" rail row / KDS pill, installs on the manager-PIN quit too), sidebar version
+  line. Owner checklist: `docs/client/operator-download-2026-09-05.md`. Pipeline still
+  never RUN — needs the public repo + 4 secrets, then `git tag operator-v0.2.0`.
 - **A7 — thermal receipts.** Hand-rolled ESC/POS: offscreen 576px BrowserWindow → capturePage →
   Rec.601 threshold → `GS v 0` bands → socket 9100. Arabic ships as a rendered image (SOW
   L425-433). BillView keeps `window.print()` fallback. Golden-bytes tested; physical print
@@ -1120,9 +1141,106 @@ ingredients via `receive_delivery` and, when it actually restocked, waits out th
 60s `unstable_cache` window.
 
 **Still owed on the desktop app** (site-visit + ops, not code): physical thermal print test,
-the disconnection drill rehearsed twice on packaged installs, app icon (brand assets pending),
-Sentry DSN (owner account decision), and the hosted catch-up in Gotchas (0060–0064 + replay
-redeploy).
+the disconnection drill rehearsed twice on packaged installs, the official app icon (a
+placeholder ships; swap = replace `apps/operator-shell/assets/icon.png`), Sentry DSN (owner
+account decision), the hosted catch-up in Gotchas (0060–0064 + replay redeploy), and the
+**first real release run** (owner: public repo + secrets per
+`docs/client/operator-download-2026-09-05.md`, then push `operator-v0.2.0`; code signing and
+the mac build switch on by themselves when their secrets exist).
+
+## Day 16 (2026-09-05) — phone OTP: the dormant base
+
+The owner asked whether mobile login / password reset could move to phone one-time codes, then asked for **the
+base to exist now** so that, once the SMS vendor and four decisions land, activation is "activate otp" — configuration
+and secrets, not code. Approved plan `~/.claude/plans/for-the-login-authentication-optimized-candy.md`; design note
+**`docs/design/phone-otp-2026-09-05.md`**; the activation checklist **`docs/client/phone-otp-activation.md`**. SOW
+L259-260 excludes phone/SMS login; this is a vendor-addition scaffold in the social-sign-in mould, and SEC-22 stays
+closed until the owner's written D4a–D4d (`security-general.md` D5 updated).
+
+**Three switches, all shipped OFF, each sufficient on its own.** (1) `EXPO_PUBLIC_PHONE_OTP=on` — read in exactly one
+place (`src/features/auth/phoneOtp.ts`, guarded by `reliability.test.ts`), `off` in every `eas.json` profile; with it
+off the app is byte-for-byte the same experience. (2) The hosted Phone provider + Send SMS hook (dashboard). (3)
+`app.sms_limits.enabled` (0069) — the hook refuses every send with `SMS_DISABLED` while false, so an early dashboard
+flip bills nothing. Locally the whole flow works with no vendor: GoTrue `test_otp` number `0770 000 0001`, code
+`123456` (`config.toml`), which never invokes the hook.
+
+**Database (0069).** `app.sms_limits` (kill switch, `per_phone_per_day` 5, `daily_total` 500, `allowed_prefixes {964}`),
+`app.sms_sends` (one row per attempt, refused included, vendor id + cost for the invoice), `app.sms_send_gate` /
+`app.sms_send_result` (definer, **service role only** — `check-rpc-authz` never sees them; the suite asserts anon and
+a desk session are refused), and `app.handle_new_user` learning to copy `new.phone` (digits, no '+') into
+`profiles.phone` for a phone-only user with name `''`. The per-IP cap deliberately stays in GoTrue: the hook is called
+by GoTrue, not the phone, and never sees the client IP. `types.gen.ts` **not regenerated** (no Docker on this machine);
+nothing typed reads the new objects — run `db:types` at the next reset.
+
+**Edge function `send-sms-otp`** (`verify_jwt = false`; Standard-Webhooks HMAC-SHA256 is the auth, fail-closed on an
+unset secret, ±300 s, constant-time). Pure halves `verify.ts` / `otp.ts` run under vitest on Node 22's webcrypto; the
+bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `providers/*`: `log`
+(default, spends nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender —
+Asiacell requires sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (written from the
+vendor's public client libraries; the runbook re-verifies the request shape before opening the gate). `_shared/phone.ts`
+is the edge copy of the new `@touch/core` normaliser, parity-tested on one fixture table.
+
+**Mobile.** `@touch/core` `phone/iraq.ts` (`phoneCanon` twin of SQL 0065, strict `toE164Iraq`, national formatter);
+`features/auth/phoneOtp.ts` (flag grammar, validation, `hasRealEmail`, `mapOtpError` for GoTrue codes AND the hook's
+relayed refusal reasons); five GoTrue calls in `api.ts`; screens `phone-sign-in.tsx` (fixed +964 chip, `signin` /
+`link` modes) and `verify-otp.tsx` (iOS autofill, auto-submit at 6, 30 s resend, ungated in sign-in mode for the same
+reason verify-email is); entry buttons on welcome / sign-in; Profile gains **Verify phone number** for email/social
+users (sets `auth.users.phone` via `phone_change`, then rewrites `profiles.phone` to the number that proved itself)
+and hides change-password when the account has no real mailbox. `needsProfileCompletion` now also flags a blank NAME
+when supplied (a phone sign-up's shape); the Profile nudge picks its copy accordingly. EN/AR strings under "Phone OTP".
+
+**Identity rules, fixed now.** New phone sign-up → trigger fills the phone, complete-profile collects the name,
+`PHONE_REQUIRED` passes. Email/social user → links by code from Profile; **no blind backfill** from `profiles.phone`
+(a typo'd profile phone would hand the account to a stranger). Desk-created walk-ins → the promised "claim" flow,
+shipped as a **gated SQL script in the runbook** (D4c), not a migration.
+
+**Gate:** core 320 · i18n 22 · mobile **260** (incl. 12 phoneOtp + 2 boundary) · db `phone-otp.test.ts` 24 pure, **7
+stack cases skipped** — Docker is not installed on this machine, so `db reset`, the stack block, `check:authz`,
+`check:locks`, `check:safeupdate` and `db:types` were **not run**; typecheck green across core / i18n / mobile / db.
+First thing on a machine with the stack: `db:reset` → `pnpm --filter @touch/db test` → the three static guards.
+
+**Still owed to activate** (owner): vendor + channel (D4a), scope (D4b), desk-claim policy (D4c), Iraq-only (D4d), the
+sender-id registration and the API key. Us: the runbook §C, in order.
+
+## Day 17 (2026-09-06) — the banner was the till again; push had never sent; the icon
+
+The owner sent a screenshot of the amber "Venue connection lost" banner and asked for a test-notification
+button and an app icon. Plan `~/.claude/plans/wtf-is-this-error-iterative-rivest.md`.
+
+**The banner.** Not the phone: `app.is_degraded()` was `true` on hosted because `device_heartbeats` held two
+stale dev tills — `DEV1` (browser-mode operator) and `TILL1` (the dev Electron shell's first-run name) from
+2026-09-05. Third occurrence. The mop is still `pnpm db:clear-dev-till`; the **tap** is new:
+`apps/operator/src/lib/heartbeat.ts` `devSafeIdentity` — under `import.meta.env.DEV` the beat goes out as
+`DEV-<station>` with `is_till: false`, so neither half of the till test can match (`heartbeat.test.ts`).
+
+**Push had never delivered — and it was the 403, not deployment.** `send-push` was deployed on 08-27 and the
+cron runs, but every `pg_net` call to `send-push` and `telegram-send` got the function's own 403 (2,515/day):
+the Vault JWT is gateway-valid but not byte-equal to the env key the platform injects.
+`_shared/supabase.ts` `isServiceRoleRequest` now also accepts a gateway-verified JWT with `role = service_role`
+(safe only because `verify_jwt = true` for both callers). Outbox rows 1–4 were sitting at `attempts = 0`.
+
+**"Send a test notification"** (Settings › Notifications, shown once permission is granted): a REAL push —
+`app.send_test_push()` (**0070**: own profile only, `NO_PUSH_TOKEN` / `RATE_LIMITED` 1/min / `AUTH_REQUIRED`,
+then `push_nudge()` so it leaves now) → `send-push` `kind = 'test'` → Expo → the phone. The screen re-registers
+the token once on `NO_PUSH_TOKEN` and retries. Boot wiring that was missing since the day-4 audit landed with
+it: `installNotificationHandler` in `push.ts` (still the one `expo-notifications` importer) — foreground
+display, the Android `default` channel, tap → `/booking/[id]`; plus the `expo-notifications` config plugin.
+
+**App icon / adaptive icon / splash / notification icon.** Owner chose the brand ball on Touch Blue (the
+operator desktop icon's design). Sources `apps/mobile/assets/brand/*.svg`, rendered by
+`pnpm --filter @touch/mobile icons` (Playwright, like the operator's script) to `assets/icon.png`,
+`adaptive-icon.png`, `adaptive-icon-monochrome.png`, `notification-icon.png`; splash = `logo-white.png` on
+`#3360AB`. `assets/README.md` is the swap runbook. **Native changes → new EAS builds.**
+
+**Not done here (the classifier refused every production write; owner runs, from `packages/db`):**
+`pnpm db:clear-dev-till`; void the two stale 09-02 outbox rows
+(`update notification_outbox set attempts = 5, last_error = 'VOID_STALE' where id in (1,2) and sent_at is null`);
+apply **0070 alone** — hosted is still at **0059**, `db push` would also apply the whole 0060–0069 backlog, so
+either do that catch-up deliberately or `supabase db query --linked -f supabase/migrations/20260906000070_test_push.sql`
+then `supabase migration repair --status applied 20260906000070`; `supabase functions deploy send-push
+telegram-send`; then watch `net._http_response` turn 200. Checks run: i18n 22, mobile 332, operator 495+3
+tests green; mobile + operator typecheck green; eslint on the changed mobile files green; `expo config
+--type prebuild` resolves every asset. Not run: deno check (no deno here), the db stack (no Docker).
 
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
@@ -1135,6 +1253,9 @@ redeploy).
   `operator-slice.md`, `upperdeck-spec.md` (the reference project's full spec), `decisions.md`
   (owner decisions, binding), `context-existing-cafe.md`, `context-operator.md`.
 - `docs/brand/cafe/p01–16.png` — the Touch Cafe brand deck, rendered (blue #3360AB / brown #603813).
+- `packages/ui/fonts/lama/` — the brand faces, canonical; every app static root holds a synced copy.
+  `docs/brand/lama-sans/README.md` is the reference (coverage, the seven-face set, adding a weight);
+  the specimen PDF sits beside it but is local-only, since `*.pdf` is gitignored repo-wide.
 - `docs/scope/touch-padel-phase1-scope-of-work.pdf` — the signed contract (17pp; .txt alongside).
 - **`docs/design/operator-audit-2026-08-28.md`** — the desktop-app audit: 3 critical, 7 high,
   10 medium, every one with file:line evidence, plus what waves 0 and 1 closed.
@@ -1199,7 +1320,7 @@ redeploy).
    module (Module-5 acceptance e2e passes), courts admin, KDS persistence, idle lock, batch
    expiry. **Code-complete; still owed on site**: physical print test, the packaged-install
    drill rehearsal (×2 before 2026-10-04), app icon, Sentry DSN — and the hosted catch-up
-   (Gotchas: `db push` 0060–0064 + replay redeploy).
+   (Gotchas: `db push` 0060–0070 — hosted verified at 0059 on 2026-09-06 — + function redeploys).
 7. **the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). ✔ crash fix + SDK 54 (day 5);
    ✔ **UI rebuild to the approved design 2026-08-31** (day 8 — guest browse, dark mode, merged
    grid, all screens); ✔ **day 9: the on-phone fix pass** ("no internet" root-caused — hosted
@@ -1240,7 +1361,7 @@ redeploy).
 | Area | What ships now | Intended full shape | Grows in |
 |---|---|---|---|
 | Business data | Fixture courts/menu/recipes/tables (`f1f7`) remain the dev/test default. Touch's real venue config (hours, cancellation window, phone, currency, tax) is now in `seed.sql`; her two real courts are in `client-data/` (`70c4`), applied only by `pnpm db:client` | Client's real data throughout, once rate rules arrive -- until then the real courts price as `NO_RATE` and cannot be booked | Blocked on the client (rates, menu, recipes, staff) |
-| Fonts | Montserrat + IBM Plex Sans Arabic behind tokens | Licensed Next Art + Frutiger LT Arabic — client says files "in hand", sent via WhatsApp (pack 2026-08-30); need the actual files + licence proof routed to Parsa | Separate swap task once files land (`packages/ui/src/tokens/typography.ts`) |
+| Fonts | ◐ **Lama Sans** landed 2026-09-05 — supplied by Touch and now rendered by every surface. **Provenance unreconciled:** the decks' typography boards (`full-brand2.pdf` p11, `identity.pdf` p10) specify Next Art + Frutiger LT Arabic, "Lama" appears nowhere in either deck's 52 pages, and the decks embed those two alongside Alexandria, GE Dinkum, IBM Plex Sans Arabic, Araboto and Adobe Arabic — a two-face board over a seven-face document. Nothing here establishes which face is the brand's or who holds which licence; ask Touch. If Lama Sans supersedes the deck, re-typesetting the decks is a designer handover item. Dual-script (Latin + Arabic in the same faces, `fsType` 0 so embedding is permitted), which collapsed the two-stack Latin/Arabic architecture to one. Seven faces ship — 400/500/600/700/800/900 roman + 400 italic, standard width, woff2 for web and ttf for mobile — canonical at `packages/ui/fonts/lama/`, distributed by `pnpm fonts:sync` | The drop was 29 MB: 3 widths × 9 weights × roman/italic × otf/ttf/woff/woff2. Cut to 1.4 MB deliberately — condensed and expanded widths, 100/200/300, and every italic but Regular have no call site anywhere in the UI. They are not lost, they are unimported | A weight comes back the same way it went: file into `packages/ui/fonts/lama/{woff2,ttf}/`, spec into `FONT_FACES`, `pnpm fonts:sync` (`docs/brand/lama-sans/README.md`) |
 | Touch Cafe logo | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments) | The official supplied artwork — sent via WhatsApp per pack 2, not yet in the build; re-send requested | When the files reach the repo |
 | Backups | Daily Supabase backups (Pro built-in) | SOW L258 promised PITR — owner declined it 2026-08-30 (~$100/mo). Deviation recorded; Mustafa's written acknowledgment pending (doc 07 §4) | Restore rehearsal W6 |
 | Telegram / PostHog / Groq | ✔ Live 2026-08-27 — accounts created, secrets set, functions deployed | Untested against a real order; allowlist points at seed staff | Roadmap 6 |
@@ -1251,10 +1372,22 @@ redeploy).
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
-| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)**: durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS installer, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | On-site proof: physical print, drill rehearsal ×2 on packaged installs, app icon, Sentry DSN; auto-update + USB printer transport deliberately deferred | Site visit before 2026-10-04 |
+| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **downloadable 2026-09-05**: durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS installer published to a public releases repo with a stable link + `/download` page, first-run station setup + kitchen-screen pairing code, auto-update, conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: create the public repo + secrets and push the first tag; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |
 | Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
+
+- **Operator release pipeline (2026-09-05, never yet run).** The public repo
+  `KaguSoftware/touchpadel-releases` must exist WITH a first commit before the first tag push
+  (release creation makes the tag there). The version is the tag's and nothing else — both
+  package.json files stay at 0.1.0 in git and are stamped on the runner. `EP_GH_IGNORE_TIME=true`
+  is what lets a re-run or the mac job upload to a release older than two hours; re-cutting the
+  SAME version needs the release + tag deleted in the public repo first. `electron-builder.config.cjs`
+  is not auto-discovered: every invocation passes `--config`. Running `dist`/`dist:dir` locally
+  rebuilds better-sqlite3 for Electron's ABI and breaks the shell's vitest suite until
+  `cd node_modules/better-sqlite3 && npm run install` (CI orders test before package for this
+  reason). The Windows Firewall prompt for the till's LAN port appears on the till's first LAN
+  listen — allow on private networks; the kitchen screen's discovery is outbound only.
 - **NEVER run `eas`/`expo` from the repo root** (same rule as supabase). Done once on 2026-09-01:
   `eas init` scaffolded a root `app.json`/`eas.json` with android package
   `com.parsamansouri.touchpadel` (wrong) and no env — a build from the root is a dead app that
@@ -1334,22 +1467,28 @@ redeploy).
   2026-09-02 (a `DEV1` session from 2026-09-01 evening left hosted degraded ~17 h). The fix
   is now one command from `packages/db`: **`pnpm db:clear-dev-till`**
   (`scripts/clear-dev-till.mjs`, the 0057 delete + sweep + verify; never touches a till
-  fresh < 1 h). Until a real till is installed: keep the operator open while testing guests
-  against hosted, or run that after closing it. Verify with the anon key:
+  fresh < 1 h). Verify with the anon key:
   `POST /rest/v1/rpc/is_degraded` (`Content-Profile: app`) → must be `false`.
+  **Third time 2026-09-05/06** (`DEV1` + a dev Electron shell set up as `TILL1`), after which
+  the tap was closed: `apps/operator/src/lib/heartbeat.ts` `devSafeIdentity` files any
+  `import.meta.env.DEV` session as `DEV-<station>` with `is_till: false`, so a development
+  operator can no longer put hosted into degraded mode. Builds older than that still can —
+  run the script if the banner ever comes back.
 - **MOBILE: NetInfo's `isInternetReachable` is a Google probe, not connectivity.** It stays
   `false` forever on networks where `clients3.google.com` is filtered or slow (and behind some
   VPNs on Android) while Supabase works. The app now uses `isConnected` only
   (`src/lib/queryClient.ts`) and never labels a non-transport failure as "no connection"
   (`src/lib/network.ts`). Do not reintroduce reachability gating.
-- **MOBILE: `send-push` was never deployed and its cron was never scheduled.** Day 3 records "all
-  four edge functions deployed" and names `telegram-send`, `telegram-callback`, `analytics-posthog`,
-  `analytics-insights` — **`send-push` and `replay` are not among them**. The every-minute cron is a
-  manual deploy step (`packages/db/README.md:100-108`, restated at `0024:164-167`) and was never run.
-  Combined with the client never obtaining a token (no `projectId` passed to
-  `getExpoPushTokenAsync()`, inside a `catch` that discards the error), push fails on **three**
-  independent counts. Verify with `select jobname, schedule, active from cron.job;` and
-  `supabase functions list --linked`.
+- **MOBILE: push never delivered until 2026-09-06 — and the reason was the bearer compare, not
+  deployment.** `send-push` and `replay` HAVE been deployed since 2026-08-27 and `tp_push_sweep`
+  runs every minute (0048), but every `pg_net` call to `send-push` AND `telegram-send` answered
+  **403 `{"error":"forbidden"}`** — 2,515 in one day. The 403 is the function's own
+  (`isServiceRoleRequest`): the gateway (`verify_jwt = true`) accepted the Vault JWT as validly
+  signed, yet it was not byte-equal to the `SUPABASE_SERVICE_ROLE_KEY` env the platform injects
+  (the project's key format moved on; both stay valid). `_shared/supabase.ts` now also accepts a
+  gateway-verified JWT whose `role` claim is `service_role`. Verify with
+  `select status_code, left(content::text,80) from net._http_response order by created desc limit 5`
+  → 200. If it ever regresses to 403, that is the first place to look — Telegram goes dark with it.
 - **MOBILE: account deletion is blocked by a foreign key, not just missing UI.**
   `profiles.id references auth.users(id) on delete cascade` (0004:9) but
   `reservations.guest_id references profiles(id)` has **no on-delete clause** (0008:21), so

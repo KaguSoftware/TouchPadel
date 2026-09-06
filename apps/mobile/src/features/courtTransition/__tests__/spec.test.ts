@@ -8,11 +8,26 @@ import {
   rowSlice,
   sampleCurve,
   sampleEased,
+  SHEET_GONE,
   slice,
   SPEC,
+  type Keyframes,
 } from '../spec';
 
 const close = (a: number, b: number, eps = 1e-3) => Math.abs(a - b) < eps;
+
+/** What `Animated.interpolate(table, extrapolate: 'clamp')` reads at p. */
+const readTable = ({ inputRange, outputRange }: Keyframes, p: number): number => {
+  if (p <= inputRange[0]!) return outputRange[0]!;
+  for (let i = 1; i < inputRange.length; i++) {
+    const a = inputRange[i - 1]!;
+    const b = inputRange[i]!;
+    if (p > b) continue;
+    const t = b === a ? 0 : (p - a) / (b - a);
+    return outputRange[i - 1]! + (outputRange[i]! - outputRange[i - 1]!) * t;
+  }
+  return outputRange[outputRange.length - 1]!;
+};
 
 describe('cubic-bezier easing (the prototype uses motion.dev cubicBezier)', () => {
   it('pins the endpoints and stays monotonic', () => {
@@ -117,5 +132,45 @@ describe('sampleEased → native-driver tables', () => {
     const t = sampleCurve((p) => p * p, 2);
     expect(t.inputRange).toEqual([0, 0.5, 1]);
     expect(t.outputRange).toEqual([0, 0.25, 1]);
+  });
+});
+
+describe('SHEET_GONE (where a close hands the court view back)', () => {
+  // The sheet's two tables, exactly as BookingSheet builds them.
+  const tables = (dir: 1 | -1) => {
+    const ease = pitchEase(dir, SPEC.sheet.move[0]);
+    return {
+      translateY: sampleEased(SPEC.sheet.move, SPEC.sheet.y, ease),
+      opacity: sampleEased(SPEC.sheet.fade, [0, 1], undefined, 1),
+    };
+  };
+
+  it('is the p at which the card is fully out — slid away and at zero opacity', () => {
+    for (const dir of [1, -1] as const) {
+      const { translateY, opacity } = tables(dir);
+      expect(close(readTable(translateY, SHEET_GONE), SPEC.sheet.y[0])).toBe(true);
+      expect(close(readTable(opacity, SHEET_GONE), 0)).toBe(true);
+    }
+  });
+
+  it('nothing of the sheet moves below it, so unmounting there cannot cut anything short', () => {
+    for (const dir of [1, -1] as const) {
+      const { translateY, opacity } = tables(dir);
+      for (const p of [0, 0.05, 0.1, 0.2, SHEET_GONE]) {
+        expect(close(readTable(translateY, p), SPEC.sheet.y[0])).toBe(true);
+        expect(close(readTable(opacity, p), 0)).toBe(true);
+      }
+    }
+    // The staggers live inside the card, so none of them may start earlier.
+    expect(pillSlice(0)[0]).toBeGreaterThanOrEqual(SHEET_GONE);
+    expect(rowSlice(0)[0]).toBeGreaterThanOrEqual(SHEET_GONE);
+  });
+
+  it('leaves the court the whole of the tail it still needs (~19 px at p = 0.06)', () => {
+    // Why the spring's rest thresholds cannot just be loosened instead: the
+    // reverse PITCH ease is steep near 0, so a "negligible" p is real pixels.
+    const lift = (p: number) => Math.abs(SPEC.court.y[1]) * pitchEase(-1, 0)(p);
+    expect(lift(0.06)).toBeGreaterThan(15);
+    expect(lift(SHEET_GONE)).toBeGreaterThan(40);
   });
 });

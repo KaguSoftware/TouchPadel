@@ -6,6 +6,7 @@ import { linkErrorParam } from '../src/features/auth/deepLink';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
+import { phoneOtpEnabled } from '../src/features/auth/phoneOtp';
 import { SocialSignInBlock } from '../src/components/social';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useLocale } from '../src/i18n/LocaleProvider';
@@ -45,6 +46,7 @@ function SignInScreen() {
   // useAuthDeepLink lands here when a verification link is dead, so the user is
   // told why instead of finding themselves back on sign-in for no visible reason.
   const linkError = linkErrorParam(useLocalSearchParams<{ authError?: string }>().authError);
+  const phoneOtp = phoneOtpEnabled();
   // Same landing as the email path: welcome-back toast, then the pending slot
   // (hold + Review) or the tabs. A phone-less first social sign-in is routed to
   // complete-profile by the hook instead.
@@ -91,7 +93,17 @@ function SignInScreen() {
           onPress={(provider) => void social.signInWith(provider)}
           style={{ marginTop: 14 }}
         />
-        {hasSocial(social.available) ? (
+        {/* Phone OTP entry — dormant vendor-addition scaffold (2026-09-05); off unless EXPO_PUBLIC_PHONE_OTP=on. */}
+        {phoneOtp ? (
+          <Button
+            label={t('auth.continueWithPhone')}
+            onPress={() => router.push('/phone-sign-in')}
+            disabled={busy || holdBusy || social.busyProvider !== null}
+            variant="secondary"
+            style={{ marginTop: hasSocial(social.available) ? 10 : 14 }}
+          />
+        ) : null}
+        {hasSocial(social.available) || phoneOtp ? (
           <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
         <Field

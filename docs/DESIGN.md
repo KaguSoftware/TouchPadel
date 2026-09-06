@@ -26,24 +26,50 @@ the court-line motif at low opacity.
 
 | Token | Value | Use |
 |---|---|---|
-| `--tp-bg` | oklch(98.5% 0.004 262) | page ground |
-| `--tp-surface` | oklch(99.4% 0.002 262) | panels, tiles, tables |
-| `--tp-surface-2` | oklch(96.4% 0.006 262) | toolbars, table heads, secondary panels |
-| `--tp-fg` | oklch(22% 0.03 262) | text |
-| `--tp-muted-fg` | oklch(48% 0.025 262) | secondary text (≥ 4.5:1 on bg) |
-| `--tp-border` | oklch(90% 0.01 262) | hairlines |
-| `--tp-border-strong` | oklch(82% 0.015 262) | inputs, focused rows |
-| `--tp-accent` | oklch(47% 0.13 262) ≈ #3360AB | primary action, selection |
-| `--tp-accent-hover` | oklch(42% 0.13 262) | |
-| `--tp-accent-soft` | oklch(94% 0.03 262) | selected row / chip ground |
-| `--tp-success` / `-soft` / `-fg` | green 125–135 hue | live, ready, arrived |
+| `--tp-bg` | oklch(98.5% 0.004 260) | page ground |
+| `--tp-surface` | oklch(99.4% 0.002 260) | panels, tiles, tables |
+| `--tp-surface-2` | oklch(96.4% 0.006 260) | toolbars, table heads, secondary panels |
+| `--tp-fg` | oklch(22% 0.03 260) | text |
+| `--tp-muted-fg` | oklch(48% 0.025 260) | secondary text (≥ 4.5:1 on bg) |
+| `--tp-border` | oklch(90% 0.01 260) | hairlines |
+| `--tp-border-strong` | oklch(82% 0.015 260) | inputs, focused rows |
+| `--tp-accent` | **#3360AB** (`var(--tp-brand-blue)`) | primary action, selection |
+| `--tp-accent-hover` | oklch(42% 0.13 260) | |
+| `--tp-accent-soft` | oklch(94% 0.03 260) | selected row / chip ground |
+| `--tp-success` / `-soft` / `-fg` | **#A5D06F**, hue 128.68 | live, ready, arrived |
 | `--tp-warn` / `-soft` / `-fg` | amber 75 hue | attention, ageing |
 | `--tp-danger` / `-soft` / `-fg` | red 27 hue | refused, void, stale |
 | `--tp-*-mark` | ~58% lightness | dots, small icons, 2px rules — see below |
-| `--tp-border-input` | oklch(65% 0.02 262) | control boundaries; clears 3:1 |
-| `--tp-skeleton` | oklch(90% 0.012 262) | the loading ground |
+| `--tp-border-input` | oklch(65% 0.02 260) | control boundaries; clears 3:1 |
+| `--tp-skeleton` | oklch(90% 0.012 260) | the loading ground |
 | `--tp-rail` / `--tp-rail-fg` / `--tp-rail-active` | navy ink family | workspace navigation |
 | `--tp-kds-bg` / `--tp-kds-card` / `--tp-kds-fg` | dark family | kitchen display only |
+
+### The palette is closed
+
+Five colours exist, and they are spelled exactly — never approximated in OKLCH, never eyedropped:
+
+| | | |
+|---|---|---|
+| Touch Blue | `#3360AB` | `oklch(49.65% 0.13 260.02)` |
+| Padel Green | `#A5D06F` | `oklch(80.51% 0.134 128.68)` |
+| Brand Gray | `#BCBDBF` | `oklch(79.82% 0.003 264.54)` |
+| Black | `#000000` | |
+| White | `#FFFFFF` | |
+
+Every accent token is a `var()` alias onto one of them, so the identity cannot drift a second
+time — it already had: `--tp-accent` was `oklch(47% 0.13 262)`, which renders **#3057A3**, and the
+cafe palette had wandered to **#2456B4** / **#7FB05A** even though the cafe deck names the same
+Touch Blue. Anything that is not one of the five is either an exact shade of one (same hue, same
+saturation, lightness the only free variable) or one of the three functional exceptions:
+
+- **status red and amber** — comprehension, not identity; the owner kept both;
+- **the categorical chart scale** (`SERIES_2`, `SERIES_3`) — a data encoding that needs hue
+  separation to be readable at all;
+- **the operator's tinted neutrals** — paper and ink, deliberately not the brand gray.
+
+The mobile app's dark theme is **blue mode**: its every blue is a true shade of #3360AB. See
+`apps/mobile/src/theme/tokens.ts`.
 
 Each status family has four rungs and the rung decides the job: **fill** (a ground large enough
 to read colour off), **soft** (the tinted ground a label sits on), **mark** (a dot, an icon, a
@@ -67,11 +93,13 @@ the swoosh path and nothing else — not text, not a border, not a divider, not 
 The court-line motif has two call sites (rail head, lock overlay).
 
 ## Typography
-One family for UI. Windows-only target, so the stack leads with the licensed faces (when they
-arrive) and falls back to `Segoe UI Variable` / `Segoe UI`, which covers Arabic well without a
-download (kiosks may be offline). Numerals are always tabular. Scale (rem): 0.75 · 0.8125 ·
-0.875 (base) · 1 · 1.125 · 1.375 · 1.75. Weights 400 / 600 / 700. Body line-height 1.5;
-data rows 1.3. Line length for prose ≤ 70ch.
+One family for UI, and here that is literal: **Lama Sans** carries Latin and Arabic in the same
+faces, so the operator never swaps family with locale. Windows-only target, so the stack leads
+with it and falls back to `Segoe UI Variable` / `Segoe UI`, which covers Arabic well without a
+download — the faces ship with the app, but a station that paints before they arrive still has to
+read. Numerals are always tabular. Scale (rem): 0.75 · 0.8125 · 0.875 (base) · 1 · 1.125 ·
+1.375 · 1.75. Weights 400 / 600 / 700. Body line-height 1.5; data rows 1.3. Line length for
+prose ≤ 70ch.
 
 ## Spacing and shape
 4px base. Common steps: 4 · 8 · 12 · 16 · 24 · 32. Radius: 6px controls, 10px panels, pill
