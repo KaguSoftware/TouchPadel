@@ -1,7 +1,13 @@
 # Supabase Security Advisor — result and waiver
 
-**Date** 2026-09-06 · **Project** hosted (`lczijabnorujcgmbuqlw`) · **Source** dashboard → Advisors → Security
-**Box** Security Layer 1, Block 3 `[FREEZE]` (SEC-04)
+**Date** 2026-09-06 · **Project** hosted (`lczijabnorujcgmbuqlw`) · **Box** Security Layer 1, Block 3 `[FREEZE]` (SEC-04)
+
+> **Evidence provenance.** The finding list below comes from a **screenshot** of
+> dashboard → Advisors → Security, sent by a colleague on 2026-09-06. Nobody who
+> signs this ran the advisor themselves, and **the screenshot may have been filtered
+> by severity** — see §4, which is the reason this box is not yet ticked in
+> `security-layer-1.md`. The per-view analysis in §2 was performed independently
+> against the migrations and does not depend on the screenshot.
 
 ## Result
 
@@ -15,7 +21,15 @@
 | `public.menu_item_availability` | CRITICAL | **Waived** — see §2 |
 
 These are exactly the four named in `AUDITED_OWNER_RIGHTS_VIEWS` in
-`packages/db/scripts/check-db-invariants.mjs`. A **fifth** owner-rights view fails CI.
+`packages/db/scripts/check-db-invariants.mjs`, which is written to fail on a **fifth**
+owner-rights view.
+
+> ⚠ **That gate has never been executed.** It reads `pg_class` through the local
+> Supabase container, and Docker has not been running on any machine that has had this
+> code. It is written and wired into the CI `db` job, but "a fifth view fails CI" is
+> currently a claim about a script that has never run once. Close it with
+> `pnpm db:start && pnpm --filter @touch/db check:invariants` before relying on it —
+> and before signing this.
 
 ## 1 · Why the advisor flags them, and why it is right to
 
@@ -57,12 +71,29 @@ through `app.set_cafe_settings`, which is in the `guarded` set and is proven to 
 guest by `check:authz` on every CI run.
 
 ### `venue_settings_public`
-Ten named columns. Withheld: `cash_rounding_iqd`, `hold_ttl_seconds`,
-`expiring_soon_days`, `heartbeat_stale_seconds`, `waiter_call_cooldown_seconds`,
-`tax_inclusive`, `id`. **`venue_settings` contains no credential of any kind** — the
-withheld columns are operational tuning, not secrets. The exposed set (name, hours,
-timezone, currency, phone, cancellation window) is what a venue publishes on its own
-website.
+
+`venue_settings` has **18 columns**; the view exposes **10** and withholds **8**. Full
+enumeration, because a column projection is only as good as the list you checked it
+against — an earlier draft of this section listed seven withheld columns and had missed
+`max_live_holds_per_guest`, which is exactly the error this table now prevents:
+
+| Exposed (10) | Withheld (8) |
+|---|---|
+| `venue_name`, `currency`, `timezone`, `opening_hours`, `closed_dates`, `phone`, `protected_horizon_hours`, `cancellation_window_hours`, `table_token_ttl_minutes`, `max_booking_horizon_days` | `id`, `hold_ttl_seconds`, `heartbeat_stale_seconds`, `waiter_call_cooldown_seconds`, `cash_rounding_iqd`, `expiring_soon_days`, `tax_inclusive`, `max_live_holds_per_guest` |
+
+Sources: `0006` (create table, 15 columns), `0026` (`phone`), `0048`
+(`max_live_holds_per_guest`, `max_booking_horizon_days`).
+
+**No column in the table is a credential** — verified against the complete list above,
+not a partial one. The withheld eight are operational tuning (rounding, heartbeat
+interval, hold limits); `id` is a `boolean primary key` singleton guard. The exposed ten
+are what a venue publishes on its own website, and `phone` is the **venue's** number,
+not a guest's.
+
+Note that the projection is a genuine decision rather than an accident: `hold_ttl_seconds`
+and `max_live_holds_per_guest` are the booking anti-abuse parameters and are deliberately
+NOT told to the client, while `max_booking_horizon_days` and `cancellation_window_hours`
+are, because the booking UI has to render them.
 
 ### `menu_item_availability`
 ```sql
@@ -76,6 +107,8 @@ guest anyway. No stock levels, no costs, no recipes.
 It is scoped to these four views **as currently defined**. It does not survive:
 
 - a column being **added** to any of the four projections;
+- a column being added to `venue_settings` and swept into the view by a future
+  `select *` — the table has already grown three columns since `0006`;
 - `court_availability` gaining any `reservations` identity or price column;
 - a credential column being added to `venue_settings`;
 - a **fifth** owner-rights view (CI fails — that is the gate, not this document).

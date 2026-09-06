@@ -238,6 +238,12 @@ describe.skipIf(!up)('booking concurrency (contractual acceptance suite)', () =>
       appRpc(desk, 'extend_reservation', {
         p_reservation_id: aId,
         p_new_end_at: slot.plus(120).toISOString(),
+        // Not needed today — ensureTestRateRule prices every duration the same,
+        // so this extend does not change the price and 0071/SEC-09 stays quiet.
+        // Passed anyway: this suite is about lock ordering, and a helper change
+        // must not turn a concurrency result into a REASON_REQUIRED refusal and
+        // send someone hunting in the wrong place.
+        p_reason: 'customer_request',
       }).then(outcome),
       appRpc(desk, 'staff_create_reservation', {
         p_court_id: court,

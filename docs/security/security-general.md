@@ -174,6 +174,14 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 ### Repository and delivery
 
+- ⚠ **The RPC registry gate is load-bearing, and it has now fired in anger.** On 2026-09-06
+  `check:rpc-registry` was **red on branch `kemal`**: migration 0070 (`send_test_push`, 2026-09-06)
+  granted execute to `authenticated` without an entry in `packages/db/fixtures/rpc-allowlist.json`,
+  and the coverage ratio had regressed 60/127 → 60/128. This is exactly the failure the gate was built
+  for in Layer 1 — under the previous hardcoded-`Set` design the RPC would have shipped in no list at
+  all, unguarded by default, and nothing would have said so. Closed the same day: classified
+  `publicByDesign` with its reason (it takes no arguments, so it can only ever target `auth.uid()`),
+  covered by a rule in `tests/rls-matrix.ts`, floor ratcheted to 61/128.
 - **`db-migrate.yml` is armed and gated.** Required reviewers were enabled on the `staging` GitHub
   Environment **first**, then the secrets were added (`HANDOFF.md:542-546`, 2026-08-27). ⚠ *But the gate is a
   GitHub UI setting with no repo artifact — it can be edited or deleted leaving no git trace, and the job it
@@ -273,11 +281,46 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 > **Most of this phase closed in migrations 0048 and 0049.** What follows is what genuinely remains.
 > See §02 before starting anything here.
 
-- [ ] Clean any remaining NULL-guest reservation rows, then make the guest column `not null`. (SEC-07 · DEV)
-- [ ] Extend the existing hold reaper to cover **legacy NULL-guest rows**. The sweep itself already runs —
-      `app.expire_stale_holds()` (`0008:81-96`) is scheduled every minute as `tp_hold_sweep` (`0021:306`) —
-      so this is a widening, not a build. (SEC-07 · DEV)
-- [ ] Add the remaining `rate_rules` CHECK constraints: **positive price** and **sane minute bounds**. Only `start_time < end_time` exists today. (SEC-10 · DEV)
+> **Status 2026-09-06 — DEV.** Everything below that is code is written: migration
+> **0071** (`20260906000071_booking_integrity.sql`), `packages/db/tests/booking-integrity.test.ts`,
+> `packages/db/fixtures/pricing-golden.json` with its two readers, and the operator mirror in
+> `apps/operator/src/features/desk/deskLogic.ts`.
+>
+> ⚠ **The SQL has NOT been executed.** There is no Docker on the machine this was written on, so no
+> local Supabase stack could be started — the same constraint that left four Layer 1 boxes open
+> (`security-layer-1.md` Status). Static gates pass (`check:migrations`, `check:rpc-registry`), the
+> TypeScript half of the golden fixture passes against the real `resolveRateRule` (31 cases), and
+> the operator tests pass. **Nothing here may be ticked until
+> `pnpm db:start && pnpm db:reset && pnpm --filter @touch/db test` has run the two new suites green.**
+> A written migration is a claim; a green suite is evidence. This document exists because that
+> distinction was skipped once already (§03).
+
+- [~] **A live hold belongs to an account** — **WRITTEN 2026-09-06, NOT EXECUTED (no Docker).** 0071 §1.
+      Not `guest_id not null` on the table, which would break the desk: a walk-in booking legitimately
+      carries `guest_name` with no account (`0008:38`). The property that actually matters is narrower —
+      a hold that occupies the exclusion set must be releasable by someone — so the constraint is
+      `reservations_live_hold_has_guest`: `kind <> 'hold' or status <> 'pending' or guest_id is not null`.
+      An orphan hold blocks the court AND cannot be handed back, because `app.release_hold` (0060) matches
+      on `guest_id = auth.uid()`. Scoped to `status = 'pending'` because a hold is only ever pending while
+      live (`confirm_booking` rewrites `kind` to `'booking'`, `0008:321`) — expired holds are history and
+      constraining them would fail VALIDATE on legacy rows to no purpose. The migration expires live
+      orphans first, then adds the constraint `NOT VALID` and validates. (SEC-07 · DEV)
+- [~] **Hold reaper widened to orphans** — **WRITTEN 2026-09-06, NOT EXECUTED.** 0071 §1.
+      `app.expire_stale_holds` now sweeps `hold_expires_at < now() OR guest_id is null`, same signature and
+      same deterministic `order by id ... for update` lock sequence (0042). Orphans are swept on sight
+      rather than at TTL because no caller can release them. With the constraint above in place this branch
+      is unreachable for NEW rows by design — it is the cleanup path for a database that reaches 0071 late,
+      which is the hosted project's actual situation (`security-layer-1.md` Block 3: not at head).
+      The test file says explicitly why it does not assert this branch. (SEC-07 · DEV)
+- [~] **`rate_rule_prices` constrained** — **WRITTEN 2026-09-06, NOT EXECUTED.** 0071 §2.
+      `rate_rule_prices_price_positive` (`price_iqd > 0`) and `rate_rule_prices_duration_bounds`
+      (`between 15 and 480`, on a 5-minute grid), both `NOT VALID` then validated. The `iqd` domain is
+      `bigint check (value >= 0)` (`0002:26`), so **zero always passed** — and a zero-priced rule is not a
+      free court, it is a rule that wins `price_slot` and charges nothing with no error anywhere.
+      `app.upsert_rate_rule` re-issued to raise `INVALID_PRICES` / `INVALID_DURATION` **before any write**,
+      so a manager sees a sentence rather than a raw 23514 naming the constraint (SEC-36's quiet-error rule)
+      — and so a bad entry late in the price map cannot leave the rule half-repriced, since the function
+      replaces prices wholesale. Both behaviours have a test. (SEC-10 · DEV)
 - [x] ~~Add a GiST exclusion constraint preventing overlapping rules~~ — **dropped, the premise is wrong.**
       Overlap *is* the pricing model: `rate_rules.priority` (`0007:25`, "highest priority wins on overlap") is
       resolved deterministically by `app.price_slot` (`0007:63`, court-specificity → priority → id) and mirrored
@@ -285,9 +328,46 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       that overlaps every fixture rule, so the constraint would make the suite unloadable — and `days_of_week`
       is `int[]`, which has no GiST opclass without `intarray`. *If ambiguity is the worry, add an admin-UI
       warning for two active same-priority rules instead.* (SEC-10 · DEV)
-- [ ] Create one shared golden-case fixture — ~30 `(court, timestamp, expected_iqd)` triples across both sides of midnight and both boundary minutes — asserted by a `packages/db` test **and** a `@touch/core` unit test reading the same file. (SEC-10 · DEV)
-- [ ] Require a reason code when a move or extend changes the price, and write both prices into the audit before/after. (SEC-09 · DEV)
-- [ ] ★ Add a temporal guard so a future reservation cannot be marked no-show or released and resold. Cancelling stays legal through the cancel RPC with a reason, and a manager PIN if it was paid. (SEC-11 · DEV)
+- [~] **Golden pricing fixture** — **WRITTEN 2026-09-06; the TypeScript half IS verified, the SQL half is not.**
+      `packages/db/fixtures/pricing-golden.json`: 30 cases, read by
+      `packages/core/src/pricing/rateRules.golden.test.ts` (**31 tests green** against the real
+      `resolveRateRule`) and by `packages/db/tests/pricing-golden.test.ts` against `app.price_slot`.
+      Covers both boundary minutes of every window (16:59/17:00, 22:59/23:00, 08:59/09:00, 01:59/02:00),
+      both sides of midnight on a weekday AND a weekend night — including the day-shift that makes
+      Saturday 01:00 the tail of **Friday** (the error the fixture header warns about), pricing by slot
+      START not end, court-specificity beating a higher priority, a date-limited promotion, a winning rule
+      with no price for the duration falling through, a retired rule ignored, and three cases where nothing
+      prices the slot. The DB half asserts the winning **rule id**, not only the money: two rules can carry
+      the same price for different reasons, and picking the wrong one is invisible until they diverge.
+      ⚠ Landing this exposed a real defect in the shared harness: `ensureTestRateRule` seeded an
+      **open-ended all-courts** rule, so "nothing prices this slot" could never be asserted anywhere in the
+      DB suite. Now bounded to `valid_from = yesterday`. (SEC-10 · DEV)
+- [~] **A price change carries a reason** — **WRITTEN 2026-09-06, NOT EXECUTED.** 0071 §3.
+      `move_reservation` and `extend_reservation` raise `REASON_REQUIRED` when the re-priced value differs
+      from the stored one and no real reason was given — checked **before** the write, so a refused move
+      leaves the booking as it was rather than moved-but-unexplained. `'staff_op'` is the *absence* of a
+      reason spelled as a default, so it is rejected alongside null and blank; the one judgement lives in
+      `app.reason_given(text)` so the two paths cannot drift. The audit `after` payload gains
+      `price_before` / `price_after` / `price_changed` / `rate_rule_before` / `rate_rule_after` as named
+      fields, so "every move that changed a price" is a query rather than a human diffing two row snapshots.
+      Deliberately scoped to price CHANGES: a same-price move must not start demanding a justification, or
+      the prompt becomes noise staff click through. **No client change was needed** — the operator already
+      sends an `OVERRIDE_REASONS` code on every path and already renders `REASON_REQUIRED` as a refusal
+      (`deskLogic.ts`). (SEC-09 · DEV)
+- [~] ★ **Temporal guard on the desk lifecycle** — **WRITTEN 2026-09-06, NOT EXECUTED.** 0071 §4.
+      `app.mark_reservation` refuses `no_show` **and** `completed` while `now() < start_at`, with
+      `RESERVATION_NOT_STARTED`. Both statuses sit OUTSIDE the exclusion predicate
+      (`status in ('pending','confirmed','arrived')`), so either one frees the court the instant it is
+      written — the fraud shape is marking a paid Friday booking absent on Tuesday and selling the slot
+      twice, and the ledger then shows an unremarkable no-show. `'arrived'` is deliberately **not** guarded:
+      it stays inside the predicate, frees nothing, and early check-in is real desk work.
+      The check runs against the `FOR UPDATE` read, so it cannot race a concurrent move that shifted
+      `start_at`. The legitimate path stays open and is asserted: `app.cancel_reservation` still frees a
+      future slot, with a reason and its cancellation window. Mirrored in the UI —
+      `allowedMarks(status, startAt)` withholds the two buttons — so the desk never sees a control that
+      cannot work, which is how workarounds get invented.
+      *Note: **release** needed no work. `app.release_hold` (0060) is already holds-only and owner-only.*
+      (SEC-11 · DEV)
 - [ ] Keep the 0048 regression suite green and named in the handover pack: anonymous refused, concurrent-hold cap, horizon, cross-caller idempotency, create-vs-move price equality. (SEC-07/08/09 · DEV)
 
 ---
@@ -474,8 +554,8 @@ Re-scored against the repository on 2026-08-30. **Seven of v1.0's twenty-one are
 | 06 | Anonymous sessions cannot hold courts (SEC-07) | ✅ **0048/C1** | Ask for the `booking-hardening` test. It exists and is green. |
 | 07 | Idempotency keys scoped to the caller (SEC-08) | ✅ **0048/H3 + 0049** | Ask for the cross-caller test. `IDEMPOTENCY_CONFLICT`. |
 | 08 | Move and extend re-price (SEC-09) | ✅ **0048/H1+H2** | Ask for the create-vs-move price equality test. |
-| 09 | `rate_rules` constrained, pricing agrees (SEC-10) | **PARTIAL** | `start < end` exists. Positive price, minute bounds and the golden fixture do not. |
-| 10 | Future bookings cannot be resold (SEC-11) | **OPEN** | Ask for the test marking a reservation three days out and being refused. |
+| 09 | `rate_rules` constrained, pricing agrees (SEC-10) | **PARTIAL → written 2026-09-06 (0071), unexecuted** | All three now exist in code: positive price, minute bounds, and a 30-case golden fixture read by BOTH pricing implementations. Ask for `rateRules.golden.test.ts` (green today, 31 cases) and `pricing-golden.test.ts` (needs a stack). |
+| 10 | Future bookings cannot be resold (SEC-11) | **OPEN → written 2026-09-06 (0071 §4), unexecuted** | The test exists: `booking-integrity.test.ts`, "no_show on a future booking is refused, and the court stays taken" — it marks a future booking, expects `RESERVATION_NOT_STARTED`, then tries to sell the slot again and expects `SLOT_TAKEN`. It has never run: no Docker. Run it before ticking. |
 | 11 | Second-pass authz sweep green (SEC-12) | **OPEN** | It is a CI job. Green or red. |
 | 12 | Account deletion works end to end (SEC-15/16) | **OPEN** | Delete your own test account on a real phone, then try to sign in. **Store blocker.** |
 | 13 | Privacy notice and web deletion page live (SEC-17) | **OPEN** | Open both URLs in Arabic and English. **Store blocker.** |
