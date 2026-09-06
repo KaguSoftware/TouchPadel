@@ -322,10 +322,13 @@ have to make on every pull request forever.
       email in both intake packs, already committed in `634462a` and `e4f2acc` — so redaction would remove
       nothing. It is a business contact rather than guest or staff data, so it is grandfathered explicitly
       with that reasoning; **raise it with the client so the acceptance is theirs.** (SEC-37 · DEV)
-- [ ] `[FREEZE]` Run the dashboard **Security Advisor** — **NOT DONE (dashboard access).**
-      Migration 0069 removes the expected `extension_in_public`; the four `security_definer_view` findings
-      are the audited projections now named in `check:invariants`, and the waiver wording is in §2 of the
-      rules doc. (SEC-04 · SEC)
+- [~] `[FREEZE]` **Security Advisor run and filed** — run by a colleague 2026-09-06, waiver recorded in
+      `docs/security/security-advisor-waiver-2026-09-06.md`. **4 findings, all `security_definer_view`,
+      all accepted** — exactly the four in the `check:invariants` allowlist, each re-verified against its
+      base table (notably `court_availability` withholds `guest_id`/`guest_name`/`guest_phone`/`price_iqd`).
+      ⚠ **NOT closed:** the expected `extension_in_public` for `btree_gist` did **not** appear. Either the
+      list was filtered to CRITICAL, or the hosted DB differs from the repo — which would be drift, a
+      bigger finding than the four. Re-run unfiltered before ticking. (SEC-04 · SEC)
 - [ ] **One-project residual risk** — **WRITTEN, AWAITING SIGNATURE.**
       `docs/security/layer-1-rules-and-decisions.md` §5: the risk stated plainly, a table of the six
       controls now reducing it and what each cannot catch, and a signature block. **No control removes it —
