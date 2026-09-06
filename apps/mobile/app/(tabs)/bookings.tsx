@@ -71,6 +71,7 @@ import { useToast } from '../../src/components/overlays';
  * for. On the card it lands where the eye is already going, and the list below
  * is left alone to be a list.
  */
+
 export default function BookingsScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts } = useTheme();
@@ -83,8 +84,6 @@ export default function BookingsScreen() {
   const degraded = useIsDegraded();
   // Closed by the guest, not by a timer or a refetch — see `notice` below.
   const [noticeClosed, setNoticeClosed] = useState(false);
-  // The title block's measured height, so the floating notice can clear it.
-  const [titleH, setTitleH] = useState(0);
   const release = useReleaseHold();
   const toast = useToast();
   useCourtsBroadcast(); // desk moves/cancels reflect live
@@ -238,41 +237,34 @@ export default function BookingsScreen() {
     ) : null;
 
   const phone = venuePhoneOf(settings.data);
+
+  /**
+   * The venue notice sits in flow under the heading and stays until the guest
+   * closes it — a refetch flipping `degraded` back on must not resurrect one
+   * they have already dealt with. It rides inside the header, so it survives
+   * the screen flipping between loading, error, empty and list.
+   */
+  const notice =
+    degraded && !noticeClosed ? (
+      <View style={{ marginTop: 2, marginBottom: space.s }}>
+        <DegradedBanner
+          lead={t('degraded.leadConnectionLost')}
+          message={t('degraded.bannerBookings', { phone: phone ?? '' })}
+          phone={phone}
+          blockLead
+          onDismiss={() => setNoticeClosed(true)}
+        />
+      </View>
+    ) : null;
+
   const header = (
     <View style={{ paddingTop: space.l }}>
       <Title>{t('booking.myBookings')}</Title>
+      {notice}
       {stats}
-      {degraded ? (
-        <View style={{ marginTop: 2, marginBottom: 8 }}>
-          <DegradedBanner
-            tight
-            lead={t('degraded.leadConnectionLost')}
-            message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-            phone={phone}
-          />
-        </View>
-      ) : null}
       {heldSection}
     </View>
   );
-
-  /**
-   * The venue notice floats over the list instead of shifting it, and stays up
-   * until the guest closes it — every branch below renders it, so the notice
-   * survives the screen flipping between loading, error, empty and list.
-   */
-  const notice =
-    degraded && !noticeClosed && titleH > 0 ? (
-      <DegradedToast
-        // Clear the whole title row — heading, green squiggle, and the margin
-        // below it, which onLayout does not report — then a small breathing gap.
-        top={space.l + titleH + space.s + NOTICE_GAP}
-        lead={t('degraded.leadConnectionLost')}
-        message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-        phone={phone}
-        onDismiss={() => setNoticeClosed(true)}
-      />
-    ) : null;
 
   const bottomPad = { paddingBottom: tabBarHeight + 24 };
 
@@ -280,7 +272,6 @@ export default function BookingsScreen() {
   if (!session) {
     return (
       <Screen>
-        {notice}
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <EmptyState
@@ -298,7 +289,6 @@ export default function BookingsScreen() {
   if (bookings.isLoading) {
     return (
       <Screen>
-        {notice}
         {header}
         <SkeletonList rows={3} height={78} />
       </Screen>
@@ -309,7 +299,6 @@ export default function BookingsScreen() {
   if (bookings.isError) {
     return (
       <Screen>
-        {notice}
         {header}
         <View style={[{ flex: 1 }, bottomPad]}>
           <ErrorState
@@ -414,7 +403,6 @@ export default function BookingsScreen() {
 
   return (
     <Screen>
-      {notice}
       {noBookings ? (
         <>
           {header}

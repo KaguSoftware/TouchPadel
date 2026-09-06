@@ -18,7 +18,6 @@ import { logicalSign } from '../../src/i18n/direction';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
 import {
   openNowInfo,
-  venuePhoneOf,
   type VenueSettingsPublic,
 } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
@@ -53,10 +52,6 @@ import { BookingSheet } from '../../src/components/BookingSheet';
 /** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
 const LOGO_H = 30;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
-/** Logo row: 10 above + the wordmark + 6 below — what the floating notice clears. */
-const HEADER_H = 10 + LOGO_H + 6;
-/** Breathing room between the title's squiggle and the floating venue notice. */
-const NOTICE_GAP = 2;
 /** The back button's width + gap: the title slides over to make room for it. */
 const BACK_SHIFT = 44;
 /** The on-net button (prototype: 16 px padding round a 16 px line, top = tape − 24). */
@@ -272,8 +267,6 @@ export default function BookHomeScreen() {
   const { progress, veil, direction, isOpen, sheetMounted, openBooking, closeBooking } =
     useCourtTransition();
   const [noticeClosed, setNoticeClosed] = useState(false);
-  // The title row's measured height, so the notice clears its green squiggle.
-  const [titleRowH, setTitleRowH] = useState(0);
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
@@ -420,7 +413,6 @@ export default function BookHomeScreen() {
   const courtShade = withAlpha(colors.page, SHADE_ALPHA[appearance] * FOOTER_SHADE_SCALE);
   const clear = withAlpha(colors.page, 0);
 
-  const phone = venuePhoneOf(settings.data);
   const cta = <NetCta progress={progress} hidden={sheetMounted} onPress={open} />;
   // Box height S, blank band f·H at its top: start it m above the stage so
   // f·(S + m) − m = COURT_GAP, i.e. m = (f·S − gap) / (1 − f).
@@ -507,17 +499,6 @@ export default function BookHomeScreen() {
           <OpenNowPill settings={settings.data} />
         </View>
 
-        {degraded ? (
-          <View style={{ marginTop: space.s, marginStart: space.l, marginEnd: space.l }}>
-            <DegradedBanner
-              lead={t('degraded.leadConnectionLost')}
-              // Isolated: an RTL paragraph would otherwise reorder the number groups.
-              message={t('degraded.bannerCourts', { phone: phone ? isolate(phone) : '' })}
-              phone={phone}
-            />
-          </View>
-        ) : null}
-
         {/* Title row: [back to the court] BOOK A COURT ⇄ PICK A TIME */}
         <View style={{ paddingStart: space.l, paddingEnd: space.l, paddingTop: space.sm }}>
           <Animated.View
@@ -581,6 +562,24 @@ export default function BookHomeScreen() {
             </View>
           </Animated.View>
         </View>
+
+        {/* Under the heading, not above it: the venue notice is a note about
+            the page, so BOOK A COURT stays the first thing read on the tab. */}
+        {degraded && !noticeClosed ? (
+          <View style={{ marginTop: 2, marginStart: space.l, marginEnd: space.l, marginBottom: space.s }}>
+            <DegradedBanner
+              lead={t('degraded.leadConnectionLost')}
+              // No number in the copy: it sent a long digit run through a narrow
+              // banner, which wrapped away from the "Call" that introduced it.
+              // Profile already has a Call-the-venue row that dials directly.
+              message={t('degraded.bannerCourts')}
+              blockLead
+              // Closed by the guest alone — a refetch flipping `degraded` back
+              // on must not resurrect a notice they have already dealt with.
+              onDismiss={() => setNoticeClosed(true)}
+            />
+          </View>
+        ) : null}
       </View>
 
       {/* Stage: the court fills everything above the tab bar; the button sits on its net, the ball

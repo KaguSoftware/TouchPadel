@@ -16,6 +16,7 @@ import {
   CardIcon,
   ChevronIcon,
   ClockIcon,
+  CloseIcon,
   PadelBallIcon,
   TagIcon,
   WifiOffIcon,
@@ -894,13 +895,14 @@ export function PastBookingRow({
  * With `onDismiss` the notice grows a close (×) button. Nothing else retires
  * it: the venue notice is the guest's only cue that booking has gone
  * desk-only, so it must outlive a scroll, a re-render, or a data refresh, and
- * leave only when the guest says so. See DegradedToast for the floating form.
+ * leave only when the guest says so.
  */
 export function DegradedBanner({
   lead,
   message,
   phone,
   tight = false,
+  blockLead = false,
   onDismiss,
 }: {
   lead?: string;
@@ -908,6 +910,12 @@ export function DegradedBanner({
   phone?: string | null;
   /** Availability / bookings variant: 9×12 padding, 16 pt icon, top-aligned. */
   tight?: boolean;
+  /**
+   * Break after the bold lead so it keeps a line of its own and the message
+   * starts the next. Without it the two run together and a narrow banner wraps
+   * the sentence mid-phrase, which reads as one ragged paragraph.
+   */
+  blockLead?: boolean;
   /** When given, renders the close button; the notice never self-dismisses. */
   onDismiss?: () => void;
 }) {
@@ -950,7 +958,7 @@ export function DegradedBanner({
       <Text
         style={{ flex: 1, fontFamily: fonts.body600, fontSize: 12, lineHeight: 17, color: colors.ambtext }}
       >
-        {lead ? <Text style={bold}>{lead} </Text> : null}
+        {lead ? <Text style={bold}>{lead}{blockLead ? '\n' : ' '}</Text> : null}
         {parts}
       </Text>
       {onDismiss ? (
@@ -966,76 +974,6 @@ export function DegradedBanner({
           <CloseIcon size={14} color={colors.ambstrong} strokeWidth={2.2} />
         </Pressable>
       ) : null}
-    </View>
-  );
-}
-
-/**
- * The venue notice as a toast: the same amber card, floated over the screen
- * instead of pushing its content down, and closed ONLY by its × button — no
- * timer, no tap-through dismissal. `pointerEvents="box-none"` on the wrapper
- * keeps the screen behind it tappable everywhere but the card.
- *
- * Callers own the dismissed flag, so a notice stays gone for that screen's
- * lifetime; a fresh mount shows it again, which is right — the guest should
- * be told once per visit that the venue is offline.
- *
- * TOP PLACEMENT. Android SDK 54 is edge-to-edge: the app paints behind the
- * status bar, so a toast at y=0 lands under the clock. Two cases, and the
- * caller must say which, because the component cannot see its own parent:
- *
- *  - Under a native Stack header (`Screen edges={[]}`, availability + booking
- *    detail): the header is opaque and Screen's box already starts below it.
- *    Nothing to add — the default gap is right.
- *  - No native header (the tabs, which set `headerShown: false`): Screen adds
- *    `paddingTop: insets.top`, and an absolute child IS offset from the
- *    parent's padding box, so the inset is handled — but the screen's own
- *    in-flow header row is not. That height is what `top` is for.
- */
-export function DegradedToast({
-  lead,
-  message,
-  phone,
-  onDismiss,
-  /**
-   * Extra gap below where the screen's content begins — the height of any
-   * header the screen draws itself, in flow. Safe-area insets are NOT included
-   * here; Screen's padding already covers them (see above).
-   */
-  top = space.s,
-}: {
-  lead?: string;
-  message: string;
-  phone?: string | null;
-  onDismiss: () => void;
-  top?: number;
-}) {
-  return (
-    <View
-      pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        top,
-        start: space.l,
-        end: space.l,
-        zIndex: 20,
-      }}
-    >
-      {/*
-        `alignSelf: 'stretch'` is load-bearing. The wrapper above is absolute
-        with both horizontal edges pinned, but its children still size to their
-        own content unless told otherwise — without this the card shrink-wraps
-        the text into a narrow column hugging the leading edge.
-      */}
-      <View style={{ alignSelf: 'stretch', boxShadow: shadows.toast, borderRadius: radius.cell }}>
-        <DegradedBanner
-          tight
-          lead={lead}
-          message={message}
-          phone={phone}
-          onDismiss={onDismiss}
-        />
-      </View>
     </View>
   );
 }

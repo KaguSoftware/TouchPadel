@@ -3,7 +3,7 @@ import { Image, ScrollView, View } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
-import { isolate } from '@touch/i18n';
+import { isolate, isolateLtr } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
@@ -149,10 +149,12 @@ export default function ProfileScreen() {
       .toUpperCase() ||
     email.slice(0, 1).toUpperCase() ||
     '•';
-  // The phone is Latin digits sitting next to Arabic UI text: without an
-  // isolate the bidi algorithm reorders it. Same reason the email is
-  // isolated below.
-  const detailLine = profile.data?.phone ? isolate(profile.data.phone) : '';
+  // The whole identity card is LTR in BOTH locales: avatar on the left, then the
+  // text column. `direction: 'ltr'` on the row stops RN's RTL layout mirroring it
+  // in Arabic; LRI + writingDirection keep the values themselves LTR, since a "+"
+  // prefix and an email are structurally left-to-right whatever the UI language.
+  const idStyle = { textAlign: 'left', writingDirection: 'ltr' } as const;
+  const detailLine = profile.data?.phone ? isolateLtr(profile.data.phone) : '';
 
   return (
     <Screen>
@@ -172,7 +174,7 @@ export default function ProfileScreen() {
           contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}
           showsVerticalScrollIndicator={false}
         >
-          <Card style={{ flexDirection: 'row', gap: 13, alignItems: 'center' }}>
+          <Card style={{ flexDirection: 'row', direction: 'ltr', gap: 13, alignItems: 'center' }}>
             <View
               style={{
                 width: 50,
@@ -189,34 +191,48 @@ export default function ProfileScreen() {
                 {initials}
               </Text>
             </View>
-            {/* alignItems shrink-wraps each line to the LEADING edge. Natural text
-                alignment on iOS follows the first strong character, so the email
-                (Latin) and a Latin-script name would otherwise sit on the trailing
-                edge in Arabic; Android already puts them at the start edge. */}
-            <View style={{ flex: 1, minWidth: 0, alignItems: 'flex-start' }}>
+            {/* 'stretch' (not 'flex-start') so each line spans the full column and
+                textAlign decides the edge; shrink-wrapping left the three lines at
+                ragged widths instead of flush against the avatar. `gap` spaces the
+                three evenly — with an explicit lineHeight on each, so the 16px name
+                does not add extra leading and make its gap read wider than the
+                12px lines' gap. */}
+            <View style={{ flex: 1, minWidth: 0, alignItems: 'stretch', gap: 1 }}>
               <Text
                 numberOfLines={1}
-                style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink, textAlign: 'auto' }}
+                style={{
+                  fontFamily: fonts.display800,
+                  fontSize: 16,
+                  lineHeight: 20,
+                  color: colors.ink,
+                  ...idStyle,
+                }}
               >
-                {isolate(name)}
+                {isolateLtr(name)}
               </Text>
               <Text
                 style={{
                   fontFamily: fonts.body400,
                   fontSize: 12,
+                  lineHeight: 16,
                   color: colors.mut,
-                  marginTop: 2,
-                  textAlign: 'auto',
+                  ...idStyle,
                 }}
                 numberOfLines={1}
               >
-                {isolate(email)}
+                {isolateLtr(email)}
               </Text>
               {/* Design: "{phone}" on the third line, dropped when unset. */}
               {detailLine ? (
                 <Text
                   numberOfLines={1}
-                  style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, textAlign: 'auto' }}
+                  style={{
+                    fontFamily: fonts.body400,
+                    fontSize: 12,
+                    lineHeight: 16,
+                    color: colors.mut,
+                    ...idStyle,
+                  }}
                 >
                   {detailLine}
                 </Text>

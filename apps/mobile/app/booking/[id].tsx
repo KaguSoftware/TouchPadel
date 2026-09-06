@@ -24,7 +24,7 @@ import {
   useSafeBack,
 } from '../../src/components/ui';
 import {
-  DegradedToast,
+  DegradedBanner,
   PayAtDeskCard,
   StatusPill,
   SummaryGrid,
@@ -117,18 +117,22 @@ function BookingDetailScreen() {
         options={{ title: booking ? t('booking.bookingRef', { ref: displayRef(booking.id) }) : '' }}
       />
       {/*
-        Spec 05.16: the venue contact whenever the venue is degraded. It floats
-        over the detail rather than pushing them down, and closes only on its ×
-        — a guest looking at a stale booking needs the phone number in reach
-        however long they spend reading, and however often the query refetches.
+        Spec 05.16: the venue contact whenever the venue is degraded, closed
+        only by its × — a guest looking at a stale booking needs the number in
+        reach however long they spend reading, and however often the query
+        refetches. In flow rather than floating, matching the Book tab: an
+        overlay covered the top of the detail it was commenting on.
       */}
       {degraded && !noticeClosed ? (
-        <DegradedToast
-          lead={t('degraded.leadConnectionLost')}
-          message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-          phone={phone}
-          onDismiss={() => setNoticeClosed(true)}
-        />
+        <View style={{ marginBottom: space.s }}>
+          <DegradedBanner
+            lead={t('degraded.leadConnectionLost')}
+            message={t('degraded.bannerBookings', { phone: phone ?? '' })}
+            phone={phone}
+            blockLead
+            onDismiss={() => setNoticeClosed(true)}
+          />
+        </View>
       ) : null}
       {reservation.isLoading ? (
         <SkeletonList rows={2} height={140} />
