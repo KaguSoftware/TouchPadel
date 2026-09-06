@@ -166,6 +166,17 @@ describe('paragraphs carry a base writing direction', () => {
     for (const f of SOURCES) {
       const src = stripComments(readFileSync(f, 'utf8'));
       if (!/<Text[\s/>]/.test(src) || rel(f) === 'src/i18n/text.tsx') continue;
+      // SwiftUI's own Text is a different component in a different tree: it
+      // cannot take this module's wrapper, and a native surface reads the
+      // SYSTEM locale for its direction regardless. That divergence is the
+      // accepted cost of the native iOS picker (see phone.ios-picker.tsx) —
+      // pinned here so the exception stays deliberate and stays ONE file.
+      if (/from '@expo\/ui\/swift-ui'/.test(src)) {
+        expect(rel(f), 'only the native picker may use SwiftUI Text').toBe(
+          'src/components/phone.ios-picker.tsx',
+        );
+        continue;
+      }
       // `Text` among the names, not necessarily alone: the segmented control
       // takes AnimatedText from the same module in the same statement.
       expect(src, rel(f)).toMatch(/import \{[^}]*\bText\b[^}]*\} from '[^']*i18n\/text';/);
