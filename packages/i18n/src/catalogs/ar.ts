@@ -123,7 +123,7 @@ export const ar: Messages = {
     phoneSignInBody: 'سنرسل لك رمزًا من 6 أرقام برسالة نصية. لا حاجة لكلمة مرور.',
     phoneLinkBody: 'سنرسل رمزًا من 6 أرقام للتأكد من أن هذا الرقم يخصّك.',
     phoneNationalPlaceholder: '0770 123 4567',
-    phoneInvalid: 'أدخل رقم هاتف عراقي، مثل 0770 123 4567.',
+    phoneOtpInvalid: 'أدخل رقم هاتف عراقي، مثل 0770 123 4567.',
     sendCode: 'إرسال الرمز',
     otpTitle: 'أدخل الرمز',
     otpBody: 'أرسلنا رمزًا من 6 أرقام إلى {phone}.',
@@ -821,7 +821,7 @@ export const ar: Messages = {
     // Design 2026-08-31: proactive banners (refusal copy above remains the backstop).
     leadConnectionLost: 'انقطع اتصال المكان.',
     leadDeskOnly: 'فترة الحجز عبر الاستقبال.',
-    bannerCourts: 'حجز اليوم والغد عبر الاستقبال فقط حاليًا. اتصل {phone}.',
+    bannerCourts: 'حجز اليوم والغد عبر الاستقبال فقط حاليًا.',
     bannerAvailability: 'لا يُحجز اليوم والغد إلا عبر الاستقبال · {phone}',
     bannerBookings: 'تظهر حجوزاتك بآخر حالة معروفة. اتصل {phone} للتغييرات.',
   },

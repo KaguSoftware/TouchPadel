@@ -11,7 +11,7 @@ import { mapErrorToKey } from '../src/features/booking/errors';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { space, useTheme } from '../src/theme';
 import { ErrorText, Hint, Screen, SegmentedControl } from '../src/components/ui';
-import { DayChip, DegradedToast, SlotCell } from '../src/components/booking';
+import { DayChip, DegradedBanner, SlotCell } from '../src/components/booking';
 import { NoticeSheet } from '../src/components/overlays';
 
 const GUTTER = space.l;
@@ -52,12 +52,15 @@ export default function AvailabilityScreen() {
       <Stack.Screen options={{ title: t('booking.availabilityTitle') }} />
 
       {a.degraded && !noticeClosed ? (
-        <DegradedToast
-          lead={t('degraded.leadDeskOnly')}
-          message={t('degraded.bannerAvailability', { phone: a.phone ?? '' })}
-          phone={a.phone}
-          onDismiss={() => setNoticeClosed(true)}
-        />
+        <View style={{ marginTop: space.s, marginStart: GUTTER, marginEnd: GUTTER }}>
+          <DegradedBanner
+            lead={t('degraded.leadDeskOnly')}
+            message={t('degraded.bannerAvailability', { phone: a.phone ?? '' })}
+            phone={a.phone}
+            blockLead
+            onDismiss={() => setNoticeClosed(true)}
+          />
+        </View>
       ) : null}
 
       {/*

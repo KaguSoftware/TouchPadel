@@ -122,10 +122,7 @@ export function useCourtTransition(): CourtTransition {
         if (running.current === anim) running.current = null;
         unwatch();
         // A close that was interrupted by a re-open keeps the sheet mounted.
-        if (finished && target === 0) {
-          clearRetire();
-          setMounted(false);
-        }
+        if (finished && target === 0) setMounted(false);
       });
     },
     [progress, veil, reduceMotion, unwatch],

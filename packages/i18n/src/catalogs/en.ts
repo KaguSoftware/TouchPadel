@@ -138,7 +138,7 @@ export const en = {
     phoneSignInBody: "We'll text you a 6-digit code. No password needed.",
     phoneLinkBody: "We'll text a 6-digit code to confirm this number is yours.",
     phoneNationalPlaceholder: '0770 123 4567',
-    phoneInvalid: 'Enter an Iraqi mobile number, like 0770 123 4567.',
+    phoneOtpInvalid: 'Enter an Iraqi mobile number, like 0770 123 4567.',
     sendCode: 'Send code',
     otpTitle: 'Enter the code',
     otpBody: 'We sent a 6-digit code to {phone}.',
@@ -843,7 +843,7 @@ export const en = {
     // The bold lead sentence renders separately (DegradedBanner `lead`).
     leadConnectionLost: 'Venue connection lost.',
     leadDeskOnly: 'Desk-only period.',
-    bannerCourts: 'Booking for today & tomorrow is desk-only for now. Call {phone}.',
+    bannerCourts: 'Booking for today & tomorrow is desk-only for now.',
     bannerAvailability: 'Today & tomorrow can only be booked at the desk · {phone}',
     bannerBookings: 'Your bookings are shown as last known. Call {phone} for changes.',
   },
