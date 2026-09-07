@@ -236,7 +236,11 @@ describe.skipIf(!up)('0069 sms_send_gate / sms_send_result / phone sign-up (stac
     expect(await gate('+995419010203')).toMatchObject({ allowed: false, reason: 'PHONE_NOT_ALLOWED' });
 
     const a = await gate(GATE_PHONE);
-    const b = await gate('0770 999 0069'); // same number, another shape: one canonical phone
+    // Same number, another E.164 shape: one canonical phone. The gate takes
+    // E.164 only (the hook's sole input — GoTrue hands it the verified number);
+    // national shapes like "0770 999 0069" are the app's job (toE164Iraq) and
+    // would fail the country-code allow-list here on their raw digits.
+    const b = await gate('+964 (770) 999-0069');
     expect(a.allowed).toBe(true);
     expect(b.allowed).toBe(true);
     expect(await gate(GATE_PHONE)).toMatchObject({ allowed: false, reason: 'PHONE_RATE' });

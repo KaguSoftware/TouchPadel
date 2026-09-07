@@ -110,6 +110,19 @@ max_frequency = "60s"
 # without sending anything. Keys are E.164 digits WITHOUT the '+'.
 9647700000001 = "123456"
 
+# The CLI turns phone login OFF at `supabase start` ("WARN: no SMS provider is
+# enabled. Disabling phone login") unless a provider block is enabled — the
+# send_sms hook above does NOT count. Without this block every signInWithOtp
+# fails with "Unsupported phone provider" (CI db job, 2026-09-07). These are
+# placeholders, not credentials: GoTrue resolves [auth.sms.test_otp] numbers
+# BEFORE any provider send, so vitest and dev never reach Twilio; a real number
+# locally fails by design. Hosted is dashboard-managed; this file is never pushed.
+[auth.sms.twilio]
+enabled = true
+account_sid = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+message_service_sid = "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+auth_token = "local-placeholder-not-a-secret"
+
 [auth.hook.send_sms]
 enabled = false
 uri = "http://host.docker.internal:54321/functions/v1/send-sms-otp"

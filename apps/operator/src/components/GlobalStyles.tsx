@@ -161,6 +161,36 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-nav-item:focus-visible { outline-color: var(--tp-rail-green); }
 .tp-nav-item svg { opacity: 0.85; }
 .tp-nav-item[data-active='true'] svg { opacity: 1; color: var(--tp-rail-green); }
+/* The way out of a section rail.
+   It used to be styled as the quietest thing on the rail — 11px, --tp-rail-muted,
+   no surface — on the theory that leaving is not a destination. That reasoning
+   is backwards for a SUBpanel: Setup and Operations are places you pass through,
+   so this is the single most-pressed control in the workspace, and it was
+   rendering smaller and fainter than every row it sits above. It is now a
+   control on the same 44px floor as .tp-nav-item, on the rail's raised surface,
+   in white — still visually distinct from a destination (bordered, above the
+   divider, chevron leading) without being the faintest thing on the panel. */
+.tp-rail-back {
+  display: flex; align-items: center; gap: 0.5rem;
+  inline-size: 100%;
+  padding-block: 0.4rem; padding-inline: 0.7rem;
+  min-block-size: var(--tp-touch);
+  border: 1px solid var(--tp-rail-border);
+  border-radius: var(--tp-radius-ctl);
+  background: var(--tp-rail-2);
+  color: var(--tp-brand-white);
+  font-size: var(--tp-fs-sm); font-weight: 600;
+  text-decoration: none;
+  transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-rail-back:hover { background: var(--tp-rail-active); border-color: var(--tp-rail-green); }
+/* Same frame-of-the-press nudge as .tp-btn, and for the same reason. */
+.tp-rail-back:active { transform: translateY(1px); }
+.tp-rail-back:focus-visible { outline-color: var(--tp-rail-green); }
+/* No transform here: [dir='rtl'] svg[data-chevron] owns the chevron's, and a
+   hover nudge would overwrite the mirror and point the arrow the wrong way in
+   Arabic. Colour is the whole affordance. */
+.tp-rail-back svg { color: var(--tp-rail-green); }
 
 /* ---- tables ---- */
 .tp-table { inline-size: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }

@@ -19,6 +19,8 @@ export const IPC = {
   mutationResult: 'touch:mutation-result',
   /** Invoke: every non-acked row — the day-close pre-check and conflicts panel. */
   queueRows: 'touch:queue-rows',
+  /** Invoke (manager PIN): park a conflict/failed row as resolved so day close can proceed. */
+  resolveQueueRow: 'touch:resolve-queue-row',
   /** Renderer → main (send): a fresh reference-data payload for the offline cache. */
   cachePut: 'touch:cache-put',
   /** Renderer → main (send): a PIN that just succeeded server-side — cache its hash. */
@@ -79,6 +81,21 @@ export interface QueueRowInfo {
   lastError: string | null;
   createdAt: string;
 }
+
+/**
+ * A manager dismissing a row the sync worker will never deliver (409 conflict
+ * or deterministic 4xx). The PIN is re-checked in main against the offline
+ * cache, exactly like quitApp — the renderer verifies server-side first when
+ * online. The row is kept ('resolved', with who and when), never deleted.
+ */
+export interface ResolveQueueRowRequest {
+  idempotencyKey: string;
+  pin: string;
+}
+
+export type ResolveQueueRowResult =
+  | { ok: true }
+  | { ok: false; error: 'pin not recognised' | 'not-resolvable' };
 
 export interface MutationEnvelope {
   /** Client entity ref: '{station}-{ulid}' (plan override #2). The station segment may

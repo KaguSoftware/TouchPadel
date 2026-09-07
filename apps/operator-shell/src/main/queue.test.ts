@@ -16,6 +16,7 @@ import {
   markConflict,
   markFailed,
   releaseToPending,
+  resolveRow,
   listBlockingRows,
   getMeta,
   setMeta,
@@ -116,7 +117,9 @@ describe('schema v1 migration', () => {
     const cols = (d.pragma('table_info(mutation_queue)') as { name: string }[]).map((c) => c.name);
     expect(cols).toContain('staff_id');
     expect(cols).toContain('device_id');
-    expect(d.pragma('user_version', { simple: true })).toBe(2);
+    expect(cols).toContain('resolved_by'); // v3: manager dismiss (resolveRow)
+    expect(cols).toContain('resolved_at');
+    expect(d.pragma('user_version', { simple: true })).toBe(3);
     expect(() => d.exec("INSERT INTO meta (key, value) VALUES ('k','v')")).not.toThrow();
     d.close();
   });
@@ -135,7 +138,7 @@ describe('schema v1 migration', () => {
     const file = legacyDbFile();
     openQueueAt(file).close();
     const d = openQueueAt(file);
-    expect(d.pragma('user_version', { simple: true })).toBe(2);
+    expect(d.pragma('user_version', { simple: true })).toBe(3);
     d.close();
   });
 });
@@ -262,6 +265,57 @@ describe('worker state machine', () => {
       'conflict',
       'failed',
     ]);
+  });
+});
+
+describe('resolveRow', () => {
+  // Before this existed a 'failed' row was terminal AND blocking with no way
+  // out: one ITEM_UNAVAILABLE on an offline order held day close shut forever.
+  it('parks a failed row as resolved: it stops blocking, keeps its error, records who and when', () => {
+    const m = unique();
+    enqueue(m);
+    markFailed(m.idempotencyKey, '400: ITEM_UNAVAILABLE');
+    expect(queueStatus().blocking).toBe(1);
+
+    expect(resolveRow(m.idempotencyKey, STAFF)).toBe(true);
+
+    expect(listBlockingRows()).toEqual([]);
+    expect(queueStatus()).toMatchObject({ depth: 0, conflicts: 0, failed: 0, blocking: 0 });
+    const row = openQueue()
+      .prepare('SELECT state, last_error, resolved_by, resolved_at FROM mutation_queue WHERE idempotency_key = ?')
+      .get(m.idempotencyKey) as { state: string; last_error: string; resolved_by: string; resolved_at: string };
+    expect(row.state).toBe('resolved');
+    expect(row.last_error).toBe('400: ITEM_UNAVAILABLE'); // the audit trail survives
+    expect(row.resolved_by).toBe(STAFF);
+    expect(Number.isNaN(Date.parse(row.resolved_at))).toBe(false);
+  });
+
+  it('resolves a conflict row too, and never re-enters the replay lane', () => {
+    const m = unique();
+    enqueue(m);
+    markConflict(m.idempotencyKey, { code: 'SLOT_TAKEN' });
+    expect(resolveRow(m.idempotencyKey, null)).toBe(true);
+    expect(peekNext()).toBeUndefined();
+    expect(listBlockingRows()).toEqual([]);
+  });
+
+  it('refuses a pending, inflight or acked row — those are not the manager\'s to dismiss', () => {
+    const pending = unique();
+    const inflight = unique();
+    const acked = unique();
+    [pending, inflight, acked].forEach(enqueue);
+    markInflight(inflight.idempotencyKey);
+    ack(acked.idempotencyKey, {});
+
+    expect(resolveRow(pending.idempotencyKey, STAFF)).toBe(false);
+    expect(resolveRow(inflight.idempotencyKey, STAFF)).toBe(false);
+    expect(resolveRow(acked.idempotencyKey, STAFF)).toBe(false);
+    expect(listBlockingRows().map((r) => r.state)).toEqual(['pending', 'inflight']);
+    expect(peekNext()?.idempotencyKey).toBe(pending.idempotencyKey);
+  });
+
+  it('returns false for an unknown key rather than throwing', () => {
+    expect(resolveRow('TILL1:order.create:NOPE', STAFF)).toBe(false);
   });
 });
 
