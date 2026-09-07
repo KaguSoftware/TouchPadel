@@ -658,7 +658,10 @@ export function SegmentedControl<T extends string | number>({
         // `direction` on the track itself, not a wrapper: it is what stops Yoga
         // reversing the row, and it cascades to the segments' own paddings.
         ...(pinOrder ? { direction: 'ltr' as const } : null),
-        alignSelf: fit ? 'flex-start' : 'stretch',
+        // `center`, not `flex-start`: an intrinsic-width control sits in the
+        // middle of its row. Only the duration pickers pass `fit`; the settings
+        // controls take the stretch branch and are unaffected.
+        alignSelf: fit ? 'center' : 'stretch',
         backgroundColor: colors.seg,
         borderRadius: fit ? 10 : radius.cell,
         padding: 3,
