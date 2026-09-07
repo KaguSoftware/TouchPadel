@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, ScrollView, View } from 'react-native';
+import { Alert, Image, ScrollView, View } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
@@ -20,7 +20,7 @@ import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui'
 import { MenuRow } from '../../src/components/booking';
 import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
-import { ConfirmationDialog, useToast } from '../../src/components/overlays';
+import { useToast } from '../../src/components/overlays';
 
 const LOGO_H = 40;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
@@ -58,24 +58,24 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await signOut(supabase);
-      setSignOutOpen(false);
       router.replace('/(tabs)');
     } catch (err) {
-      setSignOutOpen(false);
       setError(t(mapErrorToKey(err)));
     } finally {
       setSigningOut(false);
     }
   };
 
-  // The app's own dialog (spec R7 shape: Cancel, then the destructive Sign
-  // out), not Alert.alert: a native alert follows the SYSTEM language's
-  // direction, so an Arabic app on an English phone got an LTR alert with
-  // English button order.
-  const [signOutOpen, setSignOutOpen] = useState(false);
+  // Native UIAlertController (Alert.alert) for the sign-out confirmation:
+  // same copy and buttons as the in-app dialog, default iOS chrome. Note it
+  // follows the SYSTEM language's direction, so an Arabic app on an English
+  // phone shows an LTR alert with English button order.
   const confirmSignOut = () => {
     if (signingOut) return;
-    setSignOutOpen(true);
+    Alert.alert(t('auth.signOut'), t('auth.signOutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('auth.signOut'), style: 'destructive', onPress: () => void onSignOut() },
+    ]);
   };
 
   const header = (
@@ -317,17 +317,6 @@ export default function ProfileScreen() {
           />
         </ScrollView>
       )}
-      <ConfirmationDialog
-        visible={signOutOpen}
-        title={t('auth.signOut')}
-        body={t('auth.signOutConfirm')}
-        confirmLabel={t('auth.signOut')}
-        cancelLabel={t('common.cancel')}
-        busy={signingOut}
-        danger
-        onConfirm={() => void onSignOut()}
-        onDismiss={() => setSignOutOpen(false)}
-      />
     </Screen>
   );
 }

@@ -503,6 +503,7 @@ export const en = {
     stateHeld: 'Held',
     stateBooked: 'Booked',
     stateBlocked: 'Unavailable',
+    callOnly: 'Call only',
     statusPending: 'Pending',
     statusConfirmed: 'Confirmed',
     statusArrived: 'Arrived',
@@ -811,6 +812,7 @@ export const en = {
     tableTitle: 'Your table — Touch Cafe',
   },
   errors: {
+    title: 'Something went wrong',
     generic: 'Something went wrong. Please try again.',
     network: 'No connection. Check your internet and try again.',
     notFound: 'We could not find what you were looking for.',
