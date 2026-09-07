@@ -1242,6 +1242,98 @@ telegram-send`; then watch `net._http_response` turn 200. Checks run: i18n 22, m
 tests green; mobile + operator typecheck green; eslint on the changed mobile files green; `expo config
 --type prebuild` resolves every asset. Not run: deno check (no deno here), the db stack (no Docker).
 
+## Day 18 (2026-09-07) — Majed's operator wave: Financial / Observation, staff requests, marketing
+
+Commit `65c7e4e` (author **Majed Ahdab** — the first non-Parsa commit on `main` since `sait`'s PR #1).
+Migrations **0071–0075**. The owner's Management rail (17 rows) became the panel plus three sections cut
+by the question asked, not the screen type: **Financial** (revenue, court income, cafe sales, drawer, day
+close, rates, menu prices, stock value), **Observation** (floor now, patterns, bookings, tills, staff
+activity, requests, marketing, audit log), **Setup** (unchanged). The old Operations section is gone.
+
+- **0072 `staff_requests`** — leave, shift swap, wage advance, record correction. Immutable once
+  submitted (withdraw, never edit); the owner decides; nobody decides their own; a refusal carries a reason.
+- **0073 `marketing`** — campaigns, audiences as live RULES, sends, attribution. Credit only where a
+  promotion redemption links a sale to it; a campaign without a promotion reports money fields as
+  **null, not zero** ("not measurable" ≠ "earned nothing").
+- **0071** compact table QR · **0074** court delete with `COURT_IN_USE` refusal offering deactivate ·
+  **0075** no-show terminates the booking through to the guest app · `/ops` regrouped into an attention
+  band, four clusters and two review tables (overlapping groupings ranked, never totalled) · cafe
+  analytics control-deck alignment.
+- `check:authz` caught three new RPCs reachable by a cafe guest (a guest holds `authenticated` exactly as
+  staff do) — all three now guard first and raise. Every new error code is in `MAPPED_CODES`
+  (`REQUEST_/CAMPAIGN_/AUDIENCE_NOT_FOUND`).
+- Gate per the commit: operator 557 · mobile 334 · db 532/534 (the two failures are `phone-otp.test.ts`
+  against a local auth container that predates the 0069 phone-provider config — not this work).
+
+**Hosted correction (verified 2026-09-07 via `supabase migration list --linked`): hosted is at 0070**, not
+the 0059 the Day 17 entry recorded — 0060–0070 were pushed between 2026-09-06 and 09-07. Pending:
+**0071–0075** (dry-run confirms exactly those five). `replay` is still **v1 (2026-08-27)** — the day-14
+redeploy is still owed.
+
+## Day 18, continued (2026-09-07) — the first operator release was cut
+
+The owner created the public repo `KaguSoftware/touchpadel-releases` (README commit, verified public via
+the API); `gh` was installed on the dev machine and logged in as `ParSaMnSS`; the four release secrets
+were set with `gh secret set` (`OPERATOR_SUPABASE_ANON_KEY` = the hosted **publishable** key;
+`RELEASES_GH_TOKEN` = the gh session token as an interim — see checklist §2). Tag
+**`operator-v0.2.0`** was cut three times before the pipeline held:
+
+1. `prepare` failed in 7 s — no secrets yet (expected, the guard works).
+2. `windows` failed in 10 s — `pnpm/action-setup@v4` given `version: 9` while the root
+   `packageManager` pins `pnpm@9.15.9` → "Multiple versions of pnpm specified". Fixed (`bd2b85d`).
+3. `windows` built the installer (84 MB) but died publishing: electron-builder runs **one GitHub
+   publisher per artifact** (installer + blockmap); both saw "release doesn't exist" and POSTed
+   `/releases` concurrently; the loser got `422 Published releases must have a valid tag`. The public
+   repo was left with a release holding the `.exe` and NO `latest.yml` — a broken updater feed. The
+   owner downloaded that build: it **never opened a window** (the installer shipped the Node-ABI
+   `better-sqlite3`, see the ABI entry below). Release + tag deleted in the public repo.
+   Fix: `prepare` now creates the DRAFT release once (`gh release create --draft`), the builders
+   upload into it (electron-publish reuses a matching draft), and a final `publish` job asserts all
+   three Windows assets are present before `gh release edit --draft=false --latest`.
+
+**CI on `main` had been red since 2026-09-05** (three commits). Four independent causes, all fixed
+the same day — **CI green again on `93e93f0` (run `34104660220`: shell, mobile, db incl. types
+drift, lint/typecheck/test/build, e2e EN+AR)**:
+- **lint**: `apps/mobile/scripts/make-icons.mjs` uses `Buffer`; the mobile ESLint config linted
+  `scripts/` as RN app code → `no-undef`. `scripts/**` is now ignored (as operator-shell already did).
+- **e2e**: `operator-cafe-admin` (g) used `getByLabel('Search')`; Playwright label matching is a
+  substring match, and Majed's audit-log filter chips add a button `aria-label="Remove filter: Search:
+  sold_out"` → strict-mode violation. Now `getByRole('searchbox', { name: 'Search' })`.
+- **db** `phone-otp.test.ts` ×2 — never green anywhere, not an environment fluke: (a) the Supabase
+  CLI silently sets `enable_signup = false` at `supabase start` when **no `[auth.sms.<provider>]`
+  block is enabled** ("WARN: no SMS provider is enabled. Disabling phone login"); the `send_sms` hook
+  does NOT count. So the Day 16 "works locally with no vendor" claim was never true — every
+  `signInWithOtp` returned `Unsupported phone provider`. `config.toml` now carries a placeholder
+  `[auth.sms.twilio]` block; GoTrue resolves `test_otp` numbers BEFORE any provider send, so vitest and
+  dev never reach Twilio. (b) The gate test fed a national shape `0770 999 0069` to
+  `sms_send_gate(p_phone_e164)`, whose allow-list checks raw digits → `PHONE_NOT_ALLOWED`. The hook
+  only ever passes E.164; the test now uses an E.164 variant.
+- `supabase/setup-cli` pinned to **2.116.0** in both CI jobs (was `latest`) so the types-drift check
+  is reproducible.
+
+Two more packaging bugs surfaced only on an installed build (peer session `touchpadel-7b`, same day):
+4. **The 0.2.0 installer never opened a window** — `NODE_MODULE_VERSION 127 vs 130` inside
+   `app.whenReady`: pnpm's hoisted root `better-sqlite3` carries the Node-22 prebuild and
+   electron-builder's rebuild never reaches it (it runs in the package dir, finds nothing, reports
+   success). `apps/operator-shell/scripts/native-abi.mjs` now fetches the Electron prebuild and PROVES
+   it opens a database under `electron.exe` before packaging (`npmRebuild: false` so the builder can
+   never look like it did the job; `pnpm native:node` flips the binary back for vitest). A boot throw
+   is now a dialog + `userData/startup-error.log` + exit instead of a windowless process stuck
+   behind the single-instance lock. NSIS switched to the assisted installer (one-click "flashed and
+   vanished"). Tag `operator-v0.2.1` was cut with this, then **held and deleted** before publish because:
+5. **A configured till crashed at boot** — `import_ws.WebSocketServer is not a constructor` in
+   `startLanKdsServer`: the tree holds `ws` 7.5.13 hoisted at the root and 8.21.3 under
+   operator-shell; with `ws` external, the asar got 7.x, which has no `WebSocketServer`. Only shows
+   once `station.json` has a `lan_psk`. `ws` is now bundled by esbuild (`93e93f0`).
+
+**`operator-v0.2.2` is the first working public release — published 2026-09-07 09:14 UTC**: run
+`34104663424` green (prepare → windows → publish; macos skipped), release `v0.2.2` in
+`KaguSoftware/touchpadel-releases` with `Touch-Padel-Operator-Setup.exe` (84.5 MB), its `.blockmap`
+and `latest.yml` (`version: 0.2.2`); the stable link
+`…/releases/latest/download/Touch-Padel-Operator-Setup.exe` 302s to it and `/download` on the guest
+site serves it. Unsigned (SmartScreen prompt once per machine) until a cert exists. Machines that
+installed the broken 0.2.0 do NOT self-update (that build never reached the updater) — reinstall by hand.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
@@ -1274,9 +1366,10 @@ tests green; mobile + operator typecheck green; eslint on the changed mobile fil
 - `packages/db/client-data/` — both intake pack JSONs (clean originals, committed 2026-08-30) +
   `courts.sql` + the pack ledger in its README.
 - `packages/db/supabase/migrations/` — 0001–0026 (platform) + **0027–0035 (cafe rebuild)** + …
-  + 0058–0059 (2026-09-01: OAuth profile bootstrap + phone rule) + **0060–0064 (2026-09-03:
-  release_hold rename, kds_item_ready, courts_admin, stock_admin_writes, idle_lock — ALL local
-  only until pushed; hosted last has 0059)**.
+  + 0058–0059 (2026-09-01: OAuth profile bootstrap + phone rule) + 0060–0064 (2026-09-03:
+  release_hold rename, kds_item_ready, courts_admin, stock_admin_writes, idle_lock) + 0065–0070
+  (phone OTP base, test push) + 0071–0075 (2026-09-07, Majed: compact QR, staff_requests,
+  marketing, court_delete, no_show_terminates). **Hosted at 0075 as of 2026-09-07** (0 pending).
 - `packages/db/supabase/functions/` — `replay`, `send-push`, `telegram-send`, `telegram-callback`,
   `analytics-posthog`, `analytics-insights`, `_shared/`, `SETUP-telegram.md`.
 - `packages/db/tests/` — contractual suites (concurrency, rls-matrix, cafe-flow, degraded,
@@ -1318,9 +1411,9 @@ tests green; mobile + operator typecheck green; eslint on the changed mobile fil
    section above). Offline spine (queue→worker→mutate seam→ref_cache→offline PIN→offline
    tabs), LAN KDS, Windows installer, ESC/POS printing, drill runbook, speed pass, stock
    module (Module-5 acceptance e2e passes), courts admin, KDS persistence, idle lock, batch
-   expiry. **Code-complete; still owed on site**: physical print test, the packaged-install
-   drill rehearsal (×2 before 2026-10-04), app icon, Sentry DSN — and the hosted catch-up
-   (Gotchas: `db push` 0060–0070 — hosted verified at 0059 on 2026-09-06 — + function redeploys).
+   expiry. ✔ **2026-09-07: downloadable for real — `operator-v0.2.2` published** (Day 18); hosted
+   at 0075 + `replay` v2 the same day. **Still owed on site**: physical print test, the
+   packaged-install drill rehearsal (×2 before 2026-10-04), app icon, signing cert, Sentry DSN.
 7. **the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). ✔ crash fix + SDK 54 (day 5);
    ✔ **UI rebuild to the approved design 2026-08-31** (day 8 — guest browse, dark mode, merged
    grid, all screens); ✔ **day 9: the on-phone fix pass** ("no internet" root-caused — hosted
@@ -1372,7 +1465,7 @@ tests green; mobile + operator typecheck green; eslint on the changed mobile fil
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
-| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **downloadable 2026-09-05**: durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS installer published to a public releases repo with a stable link + `/download` page, first-run station setup + kitchen-screen pairing code, auto-update, conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: create the public repo + secrets and push the first tag; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |
+| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **PUBLISHED 2026-09-07 as `v0.2.2`** (first working public build — the public repo, secrets, draft→publish pipeline, Electron-ABI rebuild proof and bundled `ws` all landed that day): durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS assisted installer at the stable `/download` link, first-run station setup + kitchen-screen pairing code, auto-update (feed verified: `latest.yml` 0.2.2), conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: swap `RELEASES_GH_TOKEN` for a fine-grained PAT; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |
 | Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
@@ -1388,6 +1481,24 @@ tests green; mobile + operator typecheck green; eslint on the changed mobile fil
   `cd node_modules/better-sqlite3 && npm run install` (CI orders test before package for this
   reason). The Windows Firewall prompt for the till's LAN port appears on the till's first LAN
   listen — allow on private networks; the kitchen screen's discovery is outbound only.
+- **The Supabase CLI turns phone login OFF unless an `[auth.sms.<provider>]` block is enabled** —
+  `supabase start` prints "WARN: no SMS provider is enabled. Disabling phone login" and every
+  `signInWithOtp` then fails `Unsupported phone provider`. The `send_sms` hook does NOT count as a
+  provider. `config.toml` carries a placeholder `[auth.sms.twilio]` for this reason (2026-09-07);
+  `test_otp` numbers are resolved before any provider send, so nothing ever reaches Twilio locally.
+- **electron-builder creates the GitHub release once PER PUBLISHER, and there is one publisher per
+  artifact** — two concurrent creates raced to a 422 on 2026-09-07. `operator-release.yml` creates
+  the draft in `prepare` and publishes in a final job; never let the builder create the release.
+- **A packaged operator build must be INSTALLED and configured as a till before it counts as
+  tested.** Two bugs (2026-09-07) were invisible to every gate: the hoisted `better-sqlite3` is the
+  Node-ABI binary (app never opened a window — `scripts/native-abi.mjs` now proves the Electron
+  prebuild loads before packaging), and two `ws` versions in the tree put 7.x in the asar (a till
+  with a `lan_psk` crashed at boot — `ws` is now bundled). Any new native or duplicated dependency
+  is a candidate for the same class of failure; `userData/startup-error.log` is where a boot throw
+  lands now.
+- **Playwright `getByLabel('X')` is a substring match.** Any control whose accessible name contains
+  the word (the audit log's "Remove filter: Search: …" chip) makes it a strict-mode violation.
+  Prefer `getByRole(role, { name })` or `{ exact: true }`.
 - **NEVER run `eas`/`expo` from the repo root** (same rule as supabase). Done once on 2026-09-01:
   `eas init` scaffolded a root `app.json`/`eas.json` with android package
   `com.parsamansouri.touchpadel` (wrong) and no env — a build from the root is a dead app that
@@ -1396,10 +1507,13 @@ tests green; mobile + operator typecheck green; eslint on the changed mobile fil
 - ~~OPERATOR C1 heartbeat~~ FIXED wave 2 (renderer sender). ~~C2 no write goes through the
   queue~~ FIXED day 14. ~~C3 stock UI~~ **FIXED day 14 (2026-09-03)**: all three audit
   criticals are closed; the Module-5 acceptance script passes as an e2e.
-- **HOSTED IS BEHIND (2026-09-03): needs `supabase db push` (0060 release_hold through 0064
-  idle_lock — five migrations) AND a redeploy of the `replay` edge function** (p_reason on
-  reservation.update + the tabIdemKey/ticketIdemKey resolution offline tab-open depends on).
-  Not user-visible until the queue trades offline, but the drill needs both.
+- ~~HOSTED IS BEHIND~~ **CAUGHT UP 2026-09-07: hosted at 0075 (0 pending) and `replay` redeployed
+  (v2).** Two traps from that day: (1) `supabase db push` run from the REPO ROOT fails with "Remote
+  migration versions not found in local migrations directory" and then *suggests* `migration repair
+  --status reverted <every version>` — **never run that**; it would mark the whole hosted history as
+  undone. Run every `supabase` command from `packages/db`. (2) The 0071–0075 gap was user-visible:
+  the operator code on `main` calls those RPCs, so a packaged app against a lagging hosted DB errors on
+  the staff-requests / marketing / court-delete screens. Push migrations before cutting a release.
 - **`pnpm e2e` needs a FRESH database as well as `supabase functions serve`.** Run
   `supabase db reset && pnpm --filter @touch/db db:fixtures` first — **db:reset alone leaves
   menu_items and cafe_tables EMPTY** (fixtures are a separate script, discovered the hard way

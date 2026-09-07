@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { BrowserWindow, app, ipcMain, shell } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
 import { IPC, type PrintResult } from '../ipc-channels';
 import {
   enqueue,
@@ -9,6 +9,7 @@ import {
   openQueue,
   putCachedRef,
   queueStatus,
+  resolveRow,
   setConnOnline,
 } from './queue';
 import { loadStation, writeStation } from './station';
@@ -19,7 +20,7 @@ import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
 import { confirmTill, discoverTill, SCAN_HANDSHAKE_TIMEOUT_MS } from './lan-discover';
 import { startUpdater, type UpdaterHandle } from './updater';
 import { startHeartbeat } from './heartbeat';
-import { setAuthState } from './auth-state';
+import { getAuthState, setAuthState } from './auth-state';
 import { observePin, unlockPinOffline } from './pin-cache';
 import { printReceiptHtml } from './print/print-receipt';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
@@ -35,6 +36,7 @@ import {
   validatePin,
   validatePrintJob,
   validateRefKey,
+  validateResolveQueueRow,
   validateStationSetup,
 } from './ipc-validate';
 
@@ -82,6 +84,35 @@ function bootstrapStationFromArgv(): void {
     ...(flag('lan-bind') ? { lan_bind: flag('lan-bind') } : {}),
   });
   console.log('[station] wrote', file, 'from CLI flags');
+}
+
+/**
+ * A throw during boot used to vanish: app.whenReady().then(...) turned it into
+ * an unhandled rejection, Electron logged it to a stderr nobody sees on a
+ * kiosk, and the process sat there with no window — every later click on the
+ * shortcut was then eaten by the single-instance lock. (operator-v0.2.0 did
+ * exactly this with a better-sqlite3 built for the wrong ABI.) Now it is a
+ * dialog, a line in userData/startup-error.log, and an exit.
+ */
+function reportFatalStartup(error: unknown): void {
+  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  console.error('[boot] fatal:', detail);
+  let logFile = '';
+  try {
+    logFile = path.join(app.getPath('userData'), 'startup-error.log');
+    fs.appendFileSync(logFile, `${new Date().toISOString()} ${detail}
+
+`);
+  } catch {
+    logFile = ''; // userData unwritable — the dialog still carries the message
+  }
+  dialog.showErrorBox(
+    'Touch Padel Operator could not start',
+    `${detail}${logFile ? `
+
+Saved to ${logFile}` : ''}`,
+  );
+  app.exit(1);
 }
 
 /** Wrap an IPC handler so a malformed argument is refused, not stored. */
@@ -235,12 +266,29 @@ if (gotTheLock) {
           localId: r.localId,
           idempotencyKey: r.idempotencyKey,
           mutationType: r.mutationType,
-          state: r.state as Exclude<typeof r.state, 'acked'>,
+          state: r.state as Exclude<typeof r.state, 'acked' | 'resolved'>,
           attempts: r.attempts,
           lastError: r.lastError,
           createdAt: r.createdAt,
         })),
       ),
+    );
+
+    // A manager dismissing a row the worker will never deliver (409 conflict /
+    // deterministic 4xx). Until this existed, one ITEM_UNAVAILABLE on an
+    // offline order held day close shut forever: 'failed' is terminal, blocks
+    // close, and nothing could clear it. Same offline PIN gate as quitApp; the
+    // renderer verifies server-side first when online.
+    ipcMain.handle(IPC.resolveQueueRow, (_e, v: unknown) =>
+      guardIpc('resolveQueueRow', () => {
+        const req = validateResolveQueueRow(v);
+        if (!unlockPinOffline(req.pin)) return { ok: false as const, error: 'pin not recognised' as const };
+        if (!resolveRow(req.idempotencyKey, getAuthState()?.staffId ?? null)) {
+          return { ok: false as const, error: 'not-resolvable' as const };
+        }
+        pushStatus(); // the banner count and the heartbeat's depth drop now, not in 2s
+        return { ok: true as const };
+      }),
     );
     ipcMain.handle(IPC.getCachedRef, (_e, key: unknown) =>
       guardIpc('getCachedRef', () => getCachedRef(validateRefKey(key))),
@@ -439,7 +487,7 @@ if (gotTheLock) {
       discoverAbort?.abort();
     });
     startHeartbeat(station);
-  });
+  }).catch(reportFatalStartup);
 }
 
 app.on('window-all-closed', () => {
