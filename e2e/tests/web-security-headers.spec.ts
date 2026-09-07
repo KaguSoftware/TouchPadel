@@ -79,17 +79,42 @@ test.describe('web security headers', () => {
     //
     // Production-build property, for the same reason as unsafe-eval above: the
     // dev server injects its own un-nonced HMR and error-overlay scripts, which
-    // do not exist in a built app. Verified by hand against `next build &&
-    // next start` on 2026-09-04 — all 14 of Next's inline scripts plus the
-    // layout's inline <style> carried the nonce — but never by this assertion,
-    // which had no stack to run on until 2026-09-07.
+    // do not exist in a built app.
+    //
+    // ASSERTED AGAINST THE SERVED HTML, NOT THE LIVE DOM — and that distinction
+    // is the whole test. The first version of this read
+    // `document.querySelectorAll('script')` after hydration and failed on
+    // Next's `self.__next_f.push(...)` chunks. Those are created at runtime BY
+    // an already-nonced script, and `'strict-dynamic'` allows exactly that: a
+    // script the browser already trusts may create more. Requiring a nonce on
+    // them asserts something CSP does not mean, and it fails on a correct app.
+    //
+    // What matters is the RESPONSE BODY: a script injected into the server's
+    // HTML has no nonce and is blocked. So that is what gets counted.
     if (process.env.E2E_PROD_BUILD === '1') {
-      const unnonced = await page.evaluate(() =>
-        Array.from(document.querySelectorAll('script'))
-          .filter((s) => !s.getAttribute('nonce') && !s.src)
-          .map((s) => (s.textContent ?? '').slice(0, 60)),
-      );
-      expect(unnonced, 'every inline <script> must carry the nonce').toEqual([]);
+      // One request, and BOTH the header and the body read from it. The nonce is
+      // minted per request (see "the nonce is fresh on every request" below), so
+      // comparing this body against the header of an earlier navigation compares
+      // two different nonces and fails on a correct app.
+      const fresh = await page.request.get('/en');
+      const freshCsp = fresh.headers()['content-security-policy'] ?? '';
+      const nonce = /'nonce-([A-Za-z0-9+/=_-]{16,})'/.exec(freshCsp)?.[1];
+      expect(nonce, 'the CSP nonce should be extractable').toBeTruthy();
+
+      const html = await fresh.text();
+      const tags = html.match(/<script\b[^>]*>/g) ?? [];
+      expect(tags.length, 'the page should serve script tags at all').toBeGreaterThan(0);
+
+      const unnonced = tags.filter((t) => !t.includes('nonce='));
+      expect(
+        unnonced,
+        'every <script> in the SERVED HTML must carry the nonce — an injected one would not',
+      ).toEqual([]);
+
+      // …and the nonce on every tag must be THIS response's nonce, so a cached
+      // page carrying yesterday's nonce cannot pass.
+      const wrongNonce = tags.filter((t) => !t.includes(`nonce="${nonce}"`));
+      expect(wrongNonce, "every script nonce must match that response's CSP header").toEqual([]);
     }
   });
 

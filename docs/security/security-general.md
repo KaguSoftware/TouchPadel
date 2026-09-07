@@ -367,36 +367,165 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 ## 07 · Phase 3 — authorization, sessions and the surfaces the tests cannot see
 
-- [ ] ★ `[CI]` **Extend the realistic-argument pass that already exists** — `tests/rls-matrix.ts`, 8 principals
-      including `prep`, 50 RPC rules — to the RPCs it does not cover. Against the 121 distinct names in
-      `grant execute on function app.*`, **71 are uncovered**, including `override_price`, `void_after_send`,
-      `apply_pct_discount`, `merge_tabs`, `split_by_item`, `set_cafe_settings`, `set_opening_hours`, and the
-      whole staff-admin and `analytics_*` families. Do not build a second sweep; close the gap in this one.
+- [x] ★ `[CI]` ~~**Extend the realistic-argument pass that already exists** — `tests/rls-matrix.ts`,
+      8 principals including `prep` — to the RPCs it does not cover~~ — **done 2026-09-07, drop 7.**
+      **73/140 → 137/140**, executed against the local stack; floor ratcheted to match. The count this
+      line used to carry ("121 names, 71 uncovered") was stale from before drops 5–6.
+      `override_price`, `void_after_send`, `merge_tabs`, `split_by_item`, `set_cafe_settings`,
+      `set_opening_hours`, the staff-admin family and the whole `analytics_*` family are all now covered
+      as all eight principals. No second sweep was built; the gap was closed in the existing one.
+
+      **Three are deliberately NOT covered, and the reason is in the file:**
+      `verify_manager_pin` and `verify_own_pin` share one `app.pin_attempts` limiter (5 failures per
+      caller per 5 minutes) that `hardening.test.ts` and `idle-lock.test.ts` deliberately drive to
+      lockout and assert on — probing them from the matrix as five staff principals would make both
+      suites flaky, and both RPCs are already covered there in more depth. `start_count` takes no
+      arguments and validates nothing before its INSERT, so manager and owner cannot call it without
+      creating a real stock count; it is covered by `stock-admin.test.ts`.
+
+      Every argument was read out of the function body so the call dies on a lookup or a validation
+      check **before** anything is written — a NIL foreign key, a blank name, a min>max range, an
+      inverted date range, a cooldown below the floor. `override_price`, `void_after_send` and
+      `write_off_expired` pass the CORRECT manager PIN on purpose: a wrong one writes a failed row to
+      the shared limiter above.
       *(`check-rpc-authz.mjs` passes NULL for every argument by its own design — it is the blunt net, not the
-      realistic pass.)* (SEC-12 · SEC)
-- [ ] `[CI]` Track the covered/granted ratio as a number and fail the build when it regresses. (SEC-12 · SEC)
-- [ ] `[CI]` Store the allowlist as data (`packages/db/fixtures/rpc-allowlist.json`) and fail CI when a function appears in `pg_proc` and not in the file. Closes "a new RPC ships unguarded" permanently. (SEC-12 · SEC)
-- [ ] Raise the PIN minimum to 6 digits — `app.set_staff_pin` accepts `^[0-9]{4,6}$` today — and reject repeated and sequential runs. (SEC-13 · DEV)
+      realistic pass. It stays: it catches a NEW RPC that no one wrote a matrix rule for.)* (SEC-12 · SEC)
+- [x] ~~`[CI]` Track the covered/granted ratio as a number and fail the build when it regresses~~ — **already
+      done** (reconciled 2026-09-07). `packages/db/fixtures/rpc-coverage-floor.json` holds
+      `{covered, total}`; `scripts/check-rpc-registry.mjs` fails on any decrease and only moves up with
+      an explicit `--update-floor`. Wired into CI at `.github/workflows/ci.yml:105`. **Observed failing
+      correctly**: adding `delete_my_account` (0077) without a rule produced
+      `FAIL authorization coverage REGRESSED: 72/140 (was 72/139)`. (SEC-12 · SEC)
+- [x] ~~`[CI]` Store the allowlist as data (`packages/db/fixtures/rpc-allowlist.json`) and fail CI when a
+      function appears in `pg_proc` and not in the file~~ — **already done** (reconciled 2026-09-07).
+      The file carries `publicByDesign` (20, each with its reason) and `guarded` (120); the script fails
+      on any granted function missing from it, and `check:authz` then PROVES each `guarded` name actually
+      refuses a real anonymous guest. Same CI job. Closes "a new RPC ships unguarded" permanently. (SEC-12 · SEC)
+- [x] ~~Raise the PIN minimum to 6 digits and reject repeated and sequential runs~~ — **done 2026-09-07,
+      migration 0078.** `^[0-9]{6,12}$` (upper bound generous — a longer PIN is strictly better) plus
+      `app.pin_is_weak`, which refuses one repeated digit and straight runs in either direction:
+      21 PINs out of a million, and the ones anyone guesses first. Dates, repeated pairs (`121212`) and
+      keypad walks are deliberately ALLOWED — a rule that refuses a PIN the user thinks is fine, with no
+      way to explain why, trains people to write it down.
+      **The seeded dev PINs moved with it.** `111111` / `222222` are both refused by the rule they exist
+      to demonstrate; `seed.sql` writes `pin_hash` through `crypt()` directly, so they would have kept
+      WORKING while being unsettable through the product. Now `719264` / `380517`, with `DEV_PINS`, the
+      e2e specs, the operator's client-side check and the README moved to match.
+      8 tests in `pin-strength.test.ts`. (SEC-13 · DEV)
 - [ ] Make every PIN failure path return the same code, message and delay; audit every lockout and every manager-cleared lock. (SEC-13 · DEV)
 - [ ] Write and test the **quiet-error rule**: no stack traces, no raw Postgres errors, no "user 4412 not found" that confirms which accounts exist — the same generic message whether the account exists or not, with the full error going to the tracker. A guest must never see a constraint name. (SEC-36 · FE1+FE2)
-- [ ] Audit the private broadcast payloads the KDS and floor view receive: assert prep never receives a price, total or guest field. Send explicit payloads, never whole rows. (SEC-28 · DEV)
+- [x] ~~Audit the private broadcast payloads the KDS and floor view receive: assert prep never receives a
+      price, total or guest field~~ — **done 2026-09-07**, `packages/db/scripts/check-broadcast-payloads.mjs`,
+      wired into CI. The audit found the payloads already correct: all 11 `realtime.send` call sites use
+      explicit `jsonb_build_object` with ids and statuses, no whole rows, no money, no identity. So the
+      deliverable is the GATE, not a fix — it reads the catalog, so it sees a payload added by a migration
+      nobody reviewed for this, and it fails on a whole-row payload (`to_jsonb(new)`) or any money/identity
+      key on the `kds` or `floor` topic. Mutation-tested with a `total_iqd` + `guest_name` payload, which it
+      catches with both keys named. (SEC-28 · DEV)
 - [x] ~~Confirm `telegram-callback` verifies its secret header and allowlists the chat id~~ — **already done**
       (`index.ts:73-85` constant-time, fails closed when unset; allowlist in the DB at `0039:406-413`, tested).
-- [ ] Add a per-day call quota and a hard monthly spend cap to the LLM insights function. **Owner-only access
-      already holds**; the cap does not. Every cafe guest holds an `authenticated` JWT, so an uncapped model
-      endpoint is an uncapped bill. (SEC-29 · DEV)
-- [ ] Treat retrieved text as data before it enters a prompt: strip control and bidi characters, delimit it, constrain the response. Guest-written order notes reaching a prompt the owner reads as advice is prompt injection with the owner as the target. (SEC-29 · DEV)
-- [ ] Assert in code that no guest identifier leaves in the analytics or insights payload. (SEC-29 · DEV)
-- [ ] Have the disable-staff RPC call the admin API to sign the user out globally, and drop the operator's Realtime channel on the next role-resolution failure. *(The DB half is already done — see §02.)* (SEC-35 · DEV)
+- [x] ~~Add a per-day call quota and a hard monthly spend cap to the LLM insights function~~ — **done
+      2026-09-07, migration 0079.** `venue_settings.llm_daily_request_limit` (200),
+      `llm_monthly_cost_cap_micros` (USD 20) and `llm_cost_micros_per_mtok`; an `llm_usage` table;
+      `app.llm_begin_request()` as the gate and `app.llm_record_usage()` for the actuals, both
+      service-role only. `analytics-insights` calls the gate after the owner check and flushes the tally
+      in a `finally`, so a request that burned five calls and timed out on the sixth is still billed —
+      a cap that only counts successes is not a cap. Over-quota returns **429**, not 502, and the
+      templated fallback still renders. Owner-readable through `app.llm_usage_summary`.
+      ⚠ Two corrections to this box: the claim that "every cafe guest holds an `authenticated` JWT, so an
+      uncapped model endpoint is an uncapped bill" is **wrong** — `analytics-insights` calls
+      `requireStaffRole(..., ['owner'])` on its first line, so a guest never reaches the model. The real
+      exposure was that ONE request fans out to SIX model calls and nothing counted a token. And
+      `llm_cost_micros_per_mtok` is an **estimate**: nobody here can verify Groq's price list, so the day
+      quota is the control that actually bites until somebody sets it. 9 tests. (SEC-29 · DEV)
+- [ ] Treat retrieved text as data before it enters a prompt: strip control and bidi characters, delimit
+      it, constrain the response. (SEC-29 · DEV)
+      ⚠ **The vector this box names does not exist.** Traced 2026-09-07: `app.create_guest_order` takes
+      `(p_items, p_idempotency_key, p_device_id)` and writes no free text; `order_items.notes` is written
+      only by `app.add_order_items`, a till RPC no guest can call. **Guests cannot write order notes**,
+      and notes never enter the `analytics-insights` payload anyway — it carries aggregates, menu names
+      and prior insights.
+      The item is still worth doing for the surfaces that DO reach the prompt: menu item names
+      (manager-authored) and `prior_insights` (model output fed back into a prompt — a real loop).
+      Rewrite the box against those before working it. Control/bidi stripping itself now exists as
+      `app.safe_line` / `app.safe_text` (0080) and can be reused.
+- [x] ~~Assert in code that no guest identifier leaves in the analytics or insights payload~~ — **done
+      2026-09-07**, `packages/db/scripts/check-analytics-payload.mjs`, wired into CI. Scans every
+      CLIENT-CALLABLE `analytics_*` / `report_*` / `panel_*` function for a key naming a person or
+      carrying a handle back to one, and fails naming the function and the key.
+      Scope matters and cost a false alarm first time round: `app.analytics_sales_lines` DOES return
+      `guest_session_id` — it is the detail table the aggregates are built from — but it is granted to
+      nobody, so nothing it returns can leave. The gate now judges what a client can RETRIEVE, since that
+      is what reaches Groq. 16 functions scanned, clean. Mutation-tested with a plausible
+      "show me my regulars" function, which it catches on `customer_id`. (SEC-29 · DEV)
+- [x] ~~Have the disable-staff RPC sign the user out globally~~ — **done 2026-09-07, migration 0081.**
+      NOT via the admin API: GoTrue's `auth.admin.signOut(jwt)` takes the user's OWN token, so it cannot
+      sign out somebody else. `app.set_staff_active(false)` now calls `app.revoke_user_sessions`, which
+      deletes `auth.sessions` for that user — `auth.refresh_tokens` cascades, so every device is ended in
+      one statement, ATOMICALLY with the deactivation. The count is recorded on the audit row.
+      Before this, `is_active = false` removed every staff PERMISSION but the refresh token in the till
+      browser kept minting access tokens, so a leaver stayed signed in with a live Realtime subscription.
+      ⚠ Honest limit: an access token already issued stays valid until `jwt_expiry` (3600s today). Nothing
+      server-side can retract a signed JWT; shortening that is the SEC-05 dashboard box in Phase 0.
+      6 tests, including a refresh token captured before the deactivation failing afterwards — and one
+      asserting it WORKED before, so the test cannot pass vacuously.
+      Still open, client-side: drop the operator's Realtime channel on the next role-resolution failure. (SEC-35 · DEV)
 
 ---
 
 ## 08 · Phase 4 — store submission lane · 2026-09-16
 
-- [ ] ★ Unblock the FK chain so a guest can be deleted: anonymise the profile row rather than cascading, so booking rows survive for statistics. A data-model decision, not a button. (SEC-15 · DEV)
-- [ ] ★ Write `app.delete_my_account()` as `SECURITY DEFINER` with a pinned `search_path`: anonymise the name, null the phone and email, clear the push token, write an audit row, then delete the auth user and revoke sessions globally. **Confirmed absent from the repo.** (SEC-15 · DEV)
+- [x] ★ ~~Unblock the FK chain so a guest can be deleted: anonymise the profile row rather than cascading,
+      so booking rows survive for statistics~~ — **done 2026-09-07, migration 0077.** `profiles_id_fkey`
+      (ON DELETE CASCADE to `auth.users`) is DROPPED: no on-delete action lets a child row outlive its
+      parent, so the constraint had to go, and `profiles.id` becomes the venue's durable pseudonymous
+      guest key. Profile creation does not weaken — it never came from the FK, it comes from the
+      `on_auth_user_created` trigger, still the only INSERT path.
+      **A second FK blocked it and is not in the original box:** `guest_sessions.auth_user_id →
+      auth.users` is NO ACTION, so the delete failed outright for any guest who ever scanned a table QR —
+      and the row could not simply be removed instead, because `orders.guest_session_id` and
+      `waiter_calls.guest_session_id` are NO ACTION onto it. Deleting a guest's sessions to delete the
+      guest would take the café's sales history with them. Dropped too.
+      The cascade is replaced by an `on_auth_user_deleted` trigger + a `profiles.deleted_at` tombstone,
+      so `auth.admin.deleteUser` keeps its pre-0077 meaning for the two rollback paths that depend on it
+      (`desk-customer-create:161`, `staff-admin:115`). (SEC-15 · DEV)
+- [x] ★ ~~Write `app.delete_my_account()` as `SECURITY DEFINER` with a pinned `search_path`~~ — **done
+      2026-09-07, migration 0077.** Guards in order: `AUTH_REQUIRED` → `ACCOUNT_REQUIRED` (an anonymous
+      café session has no account — this is ALSO what stops `check-rpc-authz.mjs` deleting the account it
+      probes with on every run) → `FORBIDDEN` for staff (they are deactivated; `staff.id → auth.users` is
+      ON DELETE RESTRICT) → `ALREADY_DELETED` → `CONFIRMATION_REQUIRED` unless `p_confirm => 'DELETE'`.
+      Deleting the auth user IS the global sign-out: `auth.sessions` cascades from `auth.users` and
+      `auth.refresh_tokens` cascades from `auth.sessions`, taking `auth.identities`, the email, the phone
+      and `raw_user_meta_data` with it.
+      **Beyond the box:** `reservations` and `reservation_series` each carry their own `guest_name` /
+      `guest_phone` beside `guest_id`, and `confirm_booking` writes them whatever `guest_id` holds. No
+      client passes them today, so this is forward defence — but without it the deletion would silently
+      stop being complete the day the desk screen that does is built. The audit row deliberately carries
+      NO before-image: `to_jsonb(profile)` would write the name and phone this function exists to erase
+      into an append-only table manager and owner can read. (SEC-15 · DEV)
 - [ ] **Added 2026-09-01 (social sign-in, vendor addition):** Apple requires token revocation (`POST https://appleid.apple.com/auth/revoke`) when an account that used Sign in with Apple is deleted. `auth.admin.deleteUser` does not do it, and the id-token grant yields no refresh token — so the deletion flow must re-authenticate with Apple for a fresh `authorizationCode`, then exchange + revoke it from an edge function holding a Sign in with Apple `.p8` key: the ONLY Apple secret the feature introduces, server-side only, never in a client. Design note: `docs/design/social-signin-2026-09-01.md`. (SEC-15 · DEV)
-- [ ] Test it: no phone/email/name left, reservations still count in statistics, audit row exists, auth user gone, old refresh token no longer mints a JWT. (SEC-15 · DEV)
+      **Scaffolded 2026-09-07, still OPEN and still blocked on the `.p8`.**
+      `supabase/functions/apple-revoke/index.ts` exists, is registered in `config.toml` with
+      `verify_jwt = true`, and returns `501 NOT_CONFIGURED` naming the four missing secrets. Deletion is
+      NOT held hostage to it — a guest who asks to be deleted is deleted — so
+      `app.delete_my_account` records `apple_revoke_pending: true` on the audit row whenever the account
+      carried an Apple identity. Count what is owed at any time with:
+      `select count(*) from audit_log where action = 'account.delete' and (after->>'apple_revoke_pending')::bool;`
+      ⚠ **This gap is LIVE, not hypothetical:** `[auth.external.apple] enabled = true` in `config.toml`
+      with the real `com.kagu.touchpadel` client id, so a guest can sign in with Apple today and every
+      such deletion already breaches Apple's requirement. `packages/db/tests/apple-revoke.test.ts` is the
+      tripwire: it holds the gap documented while it is open and goes RED the moment the `APPLE_*`
+      secrets appear (verified by setting one). Per the session decision of 2026-09-07 it does NOT fail
+      the suite today — a permanently red gate gets deleted, as `check-migrations.mjs` argues in its own
+      header.
+- [x] ~~Test it: no phone/email/name left, reservations still count in statistics, audit row exists, auth
+      user gone, old refresh token no longer mints a JWT~~ — **done 2026-09-07.**
+      `packages/db/tests/account-deletion.test.ts`, 20 tests, all five assertions present including the
+      refresh-token one (a token captured before the deletion is replayed against
+      `/auth/v1/token?grant_type=refresh_token` and must not mint a JWT). **Mutation-tested**: removing
+      the reservations scrub from 0077 turns exactly two of them red and nothing else, so they are not
+      vacuous. The whole-table sweep uses a per-run marker — a fixed literal tripped over residue from an
+      earlier run and would have been flaky. (SEC-15 · DEV)
 - [ ] ★ `[FREEZE]` Build the in-app deletion screen with a typed confirmation; on success clear every chunk of the secure-store adapter, delete the push token locally and server-side, route to signed-out. No email, no support ticket. (SEC-16 · FE1)
 - [ ] `[FREEZE]` Verify on a physical device of each platform: delete, force-quit, reopen, still signed out, old token refused. (SEC-16 · FE1)
 - [ ] ★ `[FREEZE]` Publish a **web** deletion-request page on the real domain, both locales. Google Play requires a URL reachable without installing the app. (SEC-17 · FE2)
@@ -414,14 +543,35 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - [ ] **"Skip nonce check" stays OFF on both providers, by design.** The app mints a nonce per attempt (`apps/mobile/src/features/auth/providers/nonce.ts`: raw → GoTrue, SHA-256 hex → provider), so a replayed id token is refused. Turning it ON for Google is the documented fallback ONLY after the one-file library swap to `@react-native-google-signin` (no nonce support) or a proven SDK nonce defect — and only with SEC sign-off, a HANDOFF entry, and the client omitting `nonce`. `config.toml` pins `skip_nonce_check = false` locally; the hosted toggle has to be looked at (Prompt C reports it). (SEC-05 · SEC)
 - [ ] MFA on the three new accounts — Expo/EAS, Apple Developer, Google Cloud (and Google Play when created) — the day each is created. They are already named in the SEC-40 line in §04; nothing new to decide, just do not skip them because they arrived late. (SEC-40 · CLIENT+SEC)
 - [ ] Make push work end to end, sending only from an Edge Function that resolves recipients server-side — never from a client-supplied token list. (SEC-21 · FE1)
-- [ ] Finish treating the push token as personal data. **Already done:** guest-only read (`0004:163`), cleared
-      on an Expo `DeviceNotRegistered` ticket (`send-push:182`), never logged. **Still open:** clear it on
-      sign-out (`auth/api.ts:92` calls `auth.signOut()` and nothing else), clear it on account deletion (no
-      path exists yet), and narrow the `profiles` select grant so staff cannot read `expo_push_token` —
-      `pin_hash` already gets that column-level treatment at `0004:171`. (SEC-21 · FE1)
+- [x] ~~Finish treating the push token as personal data~~ — **done 2026-09-07.** All three remaining parts:
+      **cleared on sign-out** — `auth/api.ts` now clears it BEFORE `auth.signOut()`, because
+      `profiles_update_own` is `id = auth.uid()` and there is no uid afterwards; best effort, so a network
+      hiccup cannot strand somebody signed in on a shared phone (3 unit tests, including the ordering).
+      **cleared on account deletion** — inside `app.delete_my_account` (0077).
+      **grant narrowed** — 0077 replaces the table-wide `grant select on profiles` with a column grant
+      excluding `expo_push_token`, exactly the treatment `pin_hash` gets at `0004:171`.
+      ⚠ **The old box described this as "guest-only read (`0004:163`)" and that was wrong.** `0004:160` is
+      a bare `grant select on profiles to authenticated` — the WHOLE table — and `profiles_select` admits
+      `court_desk`/`manager`/`owner`. A café guest holds `authenticated` exactly as staff do, so **every
+      desk session could read every guest's `expo_push_token`**: the one credential needed to push an
+      arbitrary notification to that guest's phone. The column is now write-only to clients; only the
+      service role (`send-push`) reads it back. Asserted for all eight principals in the RLS matrix
+      alongside `pin_hash`. (SEC-21 · FE1)
 - [ ] Sign EAS Updates and reject unsigned manifests. An OTA channel pushes code to every guest phone with no store review — the highest-leverage credential in the mobile lane. (SEC-23 · FE1)
-- [ ] `[CI]` Encode the stored-field allowlist as a `packages/db` test asserting the exact column set of the guest-facing tables. A paragraph drifts; a test goes red. (SEC-20 · SEC)
-- [ ] `[FREEZE]` Fill both stores' data-safety forms **from that test's array**, not from memory. (SEC-20 · SEC)
+- [x] ~~`[CI]` Encode the stored-field allowlist as a `packages/db` test asserting the exact column set of
+      the guest-facing tables~~ — **done 2026-09-07.** `packages/db/tests/stored-fields.test.ts`.
+      `GUEST_DATA` declares every column of all 8 guest-linked tables with its store data-safety category,
+      its purpose, and its erasure route. Four things are enforced: the guest-linked tables are
+      DISCOVERED from the live catalog (a new table carrying `guest_id`/`profile_id`/`customer_id`/
+      `linked_profile_id`/`auth_user_id` fails until declared, so the list cannot silently grow); each
+      declared column set must EQUAL the live one; every personal column must carry a purpose and an
+      erasure route; and every erasable column is PROVED emptied by running a real
+      `app.delete_my_account`. The catalog comes from PostgREST's own OpenAPI document — the same view of
+      the schema the clients get. (SEC-20 · SEC)
+- [ ] `[FREEZE]` Fill both stores' data-safety forms **from that test's array**, not from memory. The test
+      now PRINTS them in the shape both forms ask for — run
+      `pnpm --filter @touch/db vitest run tests/stored-fields.test.ts` and copy the block it emits.
+      Still open because it needs a human in two store consoles. (SEC-20 · SEC)
 - [ ] ★ Write the processor register. All three are **live in production and none is papered**: PostHog
       (EU, project `touch-padel` id 209766, `HANDOFF.md:163`), **Groq** for LLM insights
       (`analytics-insights/index.ts:53`), and the Telegram Bot API (`telegram-send`). Record data categories,
@@ -434,35 +584,105 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 ## 09 · Phase 5 — desktop app and the offline queue
 
-- [ ] Bundle the preload to a single file and set `sandbox: true`. The rest of the window hardening is in place; this is the one `TODO(W3)` left. (SEC-30 · DEV)
-- [ ] `[CI]` Add `check:electron` failing on `nodeIntegration: true`, `contextIsolation: false`, `sandbox: false`, `webSecurity: false` or `@electron/remote`, so the hardening cannot regress. (SEC-30 · DEV)
+- [x] ~~Bundle the preload to a single file and set `sandbox: true`~~ — **already done** (reconciled
+      2026-09-07). `esbuild.config.mjs:34` bundles `src/preload/index.ts` to a single CJS file, and
+      `check:electron` confirms `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false` and the
+      three navigation guards. No `TODO(W3)` remains anywhere in the shell source. (SEC-30 · DEV)
+- [x] ~~`[CI]` Add `check:electron` failing on `nodeIntegration: true`, `contextIsolation: false`,
+      `sandbox: false`, `webSecurity: false` or `@electron/remote`~~ — **done 2026-09-07.**
+      ⚠ **The script existed and had NEVER RUN.** `scripts/check-electron.mjs` was written and CI called
+      `pnpm --filter @touch/operator-shell check:electron` — but that script was not in the package's
+      `package.json`, so pnpm printed "None of the selected packages has a check:electron script" and
+      **exited 0**. A green step that checked nothing, on every run since it was added. This is the third
+      instance of that exact shape in this repository (the unused header constants, the grep that matched
+      an unused import, and now a missing script name). The script is now registered and passes;
+      mutation-tested by flipping `sandbox: true` to `false`, which it catches. (SEC-30 · DEV)
 - [ ] Buy an OV or EV code-signing certificate, key in a cloud HSM, not on a laptop. Issuance takes days — start now. (SEC-14 · DEV)
 - [ ] Sign the installer and binaries; configure the updater to verify the publisher against the certificate and refuse a mismatch. (SEC-14 · DEV)
 - [ ] Prove it: install the signed build with no SmartScreen prompt, then serve a tampered `.exe` and show the updater refuses. (SEC-14 · DEV)
-- [ ] Encrypt the queue at rest with `safeStorage` (DPAPI-backed), and refuse to trade offline if `isEncryptionAvailable()` is false. (SEC-32 · DEV)
-- [ ] **Encrypt or remove `pin_cache`.** `queue.ts:36` stores argon2 staff PIN hashes on the venue PC for offline unlock (`TODO(W3)`). PIN hashes at rest on an unmanaged Windows box is a credential store nobody has scoped. **Not in v1.0.** (SEC-32/SEC-34 · DEV)
+- [x] ~~Encrypt the queue at rest with `safeStorage` (DPAPI-backed), and refuse to trade offline if
+      `isEncryptionAvailable()` is false~~ — **done 2026-09-07**, queue schema v4.
+      ⚠ **This one was real and worse than the box says.** A queued PIN-gated mutation carries the TYPED
+      PIN: `apps/operator/src/lib/mutate.ts:128,140` maps `p_pin: p?.pin` into the replayed args for
+      `override_price` and `apply_discount`, because the server re-verifies it at replay. So `queue.db`
+      held staff authorisation PINs in **plaintext JSON** on an unmanaged Windows box — the same
+      credential the `pin_cache` salt encryption went to such lengths to protect, one table away.
+      The payload column is now safeStorage ciphertext (`payload_enc` marks the encoding, so a queue
+      written before the upgrade still replays). `enqueue` throws
+      `QueueEncryptionUnavailableError` when the machine cannot encrypt — the till refuses the offline
+      sale rather than writing plaintext. A row that cannot be decrypted later is PARKED as failed and
+      stays visible to a manager, never skipped in silence and never replayed with a null body.
+      6 new tests, including one asserting a queued PIN is unreadable in the raw file. (SEC-32 · DEV)
+- [x] ~~**Encrypt or remove `pin_cache`.**~~ — **already done** (reconciled 2026-09-07). The box
+      describes a state that no longer exists: `src/main/pin-cache.ts` stores scrypt hashes whose SALT is
+      encrypted with `safeStorage` (DPAPI), and **fails closed** — if encryption is unavailable the
+      station does not cache PIN material at all and offline unlock is simply unavailable. `queue.ts:36`
+      no longer holds argon2 hashes and no `TODO(W3)` remains. (SEC-32 · DEV)
 - [x] ~~Write and flush to disk before the renderer confirms~~ — **already done** (`queue.ts:16-17`
       WAL + `synchronous = FULL`, IPC resolves after commit, asserted in `queue.test.ts:38-46`). `[SOW]` Module 7.
-- [ ] Generate the idempotency key at the moment of the action and carry the staff session captured at that moment — never the session present at replay. `[SOW]` Module 7. (SEC-32 · DEV)
-- [ ] Implement dequeue: ordered replay, bounded retry, no reordering. `queue.ts` exposes `openQueue`/`enqueue`/`ack`/`queueStatus`/`getCachedRef` — there is no dequeue, and the renderer never calls `touch.enqueue`. (SEC-32 · DEV)
-- [ ] Route a server-rejected write to a visible "needs a manager" list; never drop it, never let it block the queue forever. `[SOW]` Module 7. (SEC-32 · DEV)
-- [ ] Purge on confirmed sync, and assert the local schema cannot store the guest list. (SEC-32 · DEV)
+- [x] ~~Generate the idempotency key at the moment of the action and carry the staff session captured at
+      that moment~~ — **already done** (reconciled 2026-09-07). `apps/operator/src/lib/mutate.ts:278-287`
+      mints the key and captures `staffId` and `createdAt` before the envelope is enqueued; replay uses
+      the captured values, never the session present at replay time. (SEC-32 · DEV)
+- [x] ~~Implement dequeue: ordered replay, bounded retry, no reordering~~ — **already done**
+      (reconciled 2026-09-07). The box's premise ("there is no dequeue") is stale: `queue.ts` exposes
+      `peekNext` (strictly by `seq`, resuming an interrupted `inflight` row first), `markInflight`,
+      `releaseToPending`, `markConflict`, `markFailed` and `resolveRow`, and `sync-worker.ts` drives them
+      with its own tests. (SEC-32 · DEV)
+- [x] ~~Route a server-rejected write to a visible "needs a manager" list; never drop it, never let it
+      block the queue forever~~ — **already done** (reconciled 2026-09-07). `markConflict` / `markFailed`
+      park the row, `listBlockingRows` surfaces it, and `resolveRow` records WHO dismissed it and when —
+      the row is never deleted. Terminal rows are skipped by `peekNext` so one poisoned write cannot wedge
+      every later sale, and they still block day close. (SEC-32 · DEV)
+- [x] ~~Purge on confirmed sync, and assert the local schema cannot store the guest list~~ — **done
+      2026-09-07.** The assertion is the part that was missing: `local-data-surface.test.ts` pins the
+      exact table set of `queue.db` and fails on any COLUMN matching guest/customer/profile/phone/email/
+      full_name in any of them. The venue PC is the one machine in this system with no RLS in front of
+      its storage; "cache the customer list so search works offline" is a reasonable-sounding commit that
+      now cannot land quietly. (SEC-32 · DEV)
 - [ ] Stamp both the client's action time and the server's receipt time on a queued write and reconcile on replay. The venue PC's clock is managed by nobody. (SEC-32 · DEV)
-- [ ] `[SOW]` Assert the day cannot be closed while unsynced items remain — **D7**. (SEC-32 · DEV)
-- [ ] Make `QueueStatus.degraded` reflect the real heartbeat instead of a hard-coded `false` (`queue.ts:87`; there is a KNOWN-GAP test at `queue.test.ts:130`). The server-side guard holds, but the till's own banner lies. (SEC-33 · DEV)
+- [x] ~~`[SOW]` Assert the day cannot be closed while unsynced items remain — **D7**~~ — **already
+      done** (reconciled 2026-09-07). Enforced server-side (`DAY_UNSYNCED`, 0020) and surfaced by
+      `DayClose.tsx`, which lists WHICH rows are blocking rather than showing a bare error code. (SEC-32 · DEV)
+- [x] ~~Make `QueueStatus.degraded` reflect the real heartbeat instead of a hard-coded `false`~~ —
+      **already done** (reconciled 2026-09-07). `queueStatus()` returns
+      `degraded: !rendererOnline || workerUnreachable` — two independent witnesses, the renderer's
+      heartbeat verdict and the sync worker's own transport failures. Nothing is hard-coded. (SEC-32 · DEV)
 - [ ] Stop `station.ts:37-42` defaulting a misconfigured machine into a working station identity. A station with no `station.json` should refuse to trade, not guess. (SEC-32 · DEV)
-- [ ] ★ Strip control bytes and Unicode bidi overrides from guest text at write time in the RPC. **No such stripping exists today.** (SEC-27 · DEV)
-- [ ] ★ Whitelist bytes on every **text field entering the W3 ESC/POS builder** — printable ASCII, Arabic
-      ranges, LF; nothing else in `0x00–0x1F` — and **exempt the framed `GS v 0` raster payload**, or the
-      whitelist destroys the raster command itself. The designed pipeline rasterises in an offscreen window so
-      "the printer never sees text" (`design-arch.md` §6.1), but every field feeding that render is still guest
-      input. Nothing to audit yet: `index.ts:130-138` returns `printing-not-implemented`. (SEC-27 · DEV)
-- [ ] Keep Phase 1 drawer-kick-free and **prove the injection case instead**: assert in the W3 print tests that
-      a note containing `0x1B 0x70` prints as inert glyphs and never reaches the printer as control bytes. The
-      drawer is wired to the printer's own pulse, so the risk is injection, not an emit site. Gate any future
-      kick to the settle path only. (SEC-27 · DEV)
+- [x] ★ ~~Strip control bytes and Unicode bidi overrides from guest text at write time~~ — **done
+      2026-09-07, migration 0080.** `app.safe_line` (names, phones) and `app.safe_text` (notes, keeps
+      line breaks) over a shared control class: C0/C1, zero-width, and every bidi override and isolate.
+      Arabic is untouched — these are invisible FORMATTING controls, not script, and that is asserted.
+      **Enforced by BEFORE triggers, not in the RPC as the box says**, because `profiles.full_name` and
+      `profiles.phone` — measured to be the ONLY text columns in `public` a guest can write — are written
+      by the client DIRECTLY through PostgREST on a column grant. There is no RPC in that path to
+      sanitise in; a trigger is the only interception every writer must pass. `reservations` and
+      `reservation_series` are covered too.
+      Verified against the real attack: `Ali<U+202E>gnp.exe` stores and renders as `Alignp.exe` instead
+      of displaying as `Aliexe.png`. 8 tests. (SEC-27 · DEV)
+- [x] ★ ~~Whitelist bytes on every **text field entering the W3 ESC/POS builder**~~ — **NOT APPLICABLE
+      as written; closed 2026-09-07 by proving the property instead.**
+      There is no text field entering the ESC/POS builder. The receipt is composed as HTML, rendered by an
+      offscreen sandboxed Chromium window and captured as a BITMAP (`print-receipt.ts`); `receiptJob`
+      takes pixels, a width and a height — no strings at all. That is the SOW's own design ("the bill
+      composed and sent as a rendered image", L425-433) and it is a stronger guarantee than a byte
+      whitelist: guest text becomes GLYPHS before it is anywhere near the printer's command parser.
+      See the next box for the assertion that now holds it true. (SEC-27 · DEV)
+- [x] ~~Keep Phase 1 drawer-kick-free and **prove the injection case instead**~~ — **done 2026-09-07.**
+      `escpos.test.ts` builds a job whose entire bitmap is `0x1B 0x70` — the drawer kick — repeated, then
+      walks the emitted byte stream and accounts for every byte: `ESC @`, correctly framed `GS v 0` bands
+      whose payload length the printer's own parser counts, `ESC d` feed, partial cut. Nothing hostile
+      escapes a frame, and a second case asserts the only `ESC` sequences OUTSIDE the framed payload are
+      `ESC @` and `ESC d`. This is what the box means by exempting the framed raster payload. (SEC-27 · DEV)
 - [ ] ★ Bind the LAN KDS server to the POS interface, not `0.0.0.0`, and require a bearer token minted at pairing and rotated on each shell start. Bind: done (`pickLanBind`, first RFC1918 IPv4, `lan_bind` override). Minted at pairing: done 2026-09-05 — the till mints a 50-bit pairing code at first run (`main/first-run.ts`), shows it behind the manager PIN, and the kitchen screen proves it with a real handshake before saving (`main/lan-discover.ts`). Rotation on each shell start is NOT done (a rotated key would strand every paired kitchen screen; needs a re-pair flow first). (SEC-31 · DEV)
-- [ ] Restrict the printer socket to the shell's host, and never expose the print endpoint through the KDS server. (SEC-31 · DEV)
+- [x] ~~Restrict the printer socket to the shell's host, and never expose the print endpoint through the
+      KDS server~~ — **done 2026-09-07** (assertion added; the property already held).
+      The printer transport DIALS OUT (`net.createConnection`) and never listens, so there is no print
+      socket on the LAN to reach in the first place — a stronger form of "restricted to the shell's host".
+      The LAN protocol declares exactly three frame types (`ticket.new`, `ticket.snapshot`,
+      `status.update`) and none is a print. `local-data-surface.test.ts` now pins both: the frame set is
+      asserted exactly, the KDS modules are asserted never to import the print module, and the transport
+      is asserted to contain no `createServer`/`listen`. (SEC-31 · DEV)
 - [ ] Resolve the self-unlock PIN gap: PINs exist only for `manager`/`owner` today, so a cashier has nothing to unlock with. Either lock returns to the staff picker with the account password, or add a **separate** unlock PIN in a separate column with a verification function that can never satisfy an approval RPC. Do not reuse the manager PIN. (SEC-34 · FE2)
 
 ---
@@ -477,19 +697,36 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - [x] **`Referrer-Policy: no-referrer` on the table routes** — DONE, **verified on the wire 2026-09-07**, on `/t/{token}` AND on `/{locale}/t` where the 307 lands — the second was missing from the original. (SEC-25 · FE2)
 - [x] **Token kept out of analytics** — DONE 2026-09-04. PostHog `sanitize_properties` redacts `/t/<token>` from `$current_url`, `$pathname` and `$referrer`; autocapture and session recording were already off. Asserted by the e2e token-leak test, which checks `Referer` on **every** request. ⚠ **The SOW question is separate and still open — see D4.** (SEC-25 · FE2)
 - [x] **Cookies are `HttpOnly; Secure; SameSite=Lax`** — DONE, confirmed on the wire and asserted by e2e. `Lax` not `Strict` on purpose: a guest following the QR from a messaging app arrives cross-site, and `Strict` would drop the cookie on the one navigation that matters. (SEC-25 · FE2)
-- [ ] Add the **cafe abuse limits** Security Layer §6.2 asks for and the repo does not have: orders per minute and items per order per table session, a total open-tab value above which the till asks staff to confirm, and a per-IP limit. The only rate limiting in the database today is the PIN lockout; the waiter-call cooldown covers the bell and nothing else. (SEC-25 · FE2+DEV)
+- [x] ~~Add the **cafe abuse limits** Security Layer §6.2 asks for~~ — **mostly done 2026-09-07,
+      migration 0082.** `venue_settings.guest_orders_per_minute` (6),
+      `guest_items_per_order` (40) and `tab_confirm_threshold_iqd` (150,000), enforced by BEFORE triggers
+      on `orders` and `order_items` rather than by editing `create_guest_order` — 0076's lesson about
+      re-issuing a long body to add one line, and a trigger covers every path into the table.
+      Limits are per SESSION: one abusive table cannot stop the rest of the café ordering, which is the
+      difference between a rate limit and an outage. Staff orders are exempt — a busy till legitimately
+      fires faster than any guest and its actor is audited. The tab threshold is ADVISORY (read by the
+      till, not enforced): a genuine large tab must never be blocked by the database mid-service.
+      6 tests, including the cross-session isolation case.
+      **Still open: the per-IP limit.** Postgres never sees the client IP — it sees PostgREST — so it
+      belongs in front of the site, with the box below. Solving it here would have been pretence. (SEC-25 · FE2+DEV)
 - [ ] Put rate limiting and bot protection in front of the public site and the auth endpoints. (SEC-25 · FE2)
 - [x] Add e2e cases asserting each header, no inline script without a nonce, and no token substring in
       the captured analytics payload — DONE, **first executed 2026-09-07, 6/6 green**
       (`e2e/tests/web-security-headers.spec.ts`). This suite is what found that the static security
       headers were never shipping (see `security-layer-1.md` Block 4 · Web). (SEC-25 · FE2)
-- [ ] ★ **Run the header e2e against a PRODUCTION build in CI.** Two assertions — no `unsafe-eval` in
-      `script-src`, and no inline `<script>` without a nonce — are production-build properties: the
-      suite's webServer runs `next dev`, which needs eval for HMR and injects its own un-nounced overlay
-      scripts. They are gated behind `E2E_PROD_BUILD=1` so the suite is honest rather than red, and
-      **nothing sets that flag today, so neither assertion executes anywhere.** Add a CI job running
-      `next build && next start` with the flag set. Until then, "no `unsafe-inline`/`unsafe-eval` in
-      production" rests on one manual `curl` check from 2026-09-04. (SEC-25 · FE2)
+- [x] ★ ~~**Run the header e2e against a PRODUCTION build in CI.**~~ — **done 2026-09-07.**
+      `playwright.config.ts` now runs `next build && next start` when `E2E_PROD_BUILD=1` (with
+      `reuseExistingServer: false`, so a dev server already on :3000 cannot be silently measured
+      instead), and a CI step runs that one spec with the flag set.
+      **Running them for the first time found two things.** The `unsafe-eval` assertion passed. The nonce
+      assertion FAILED — and the app was right, the test was wrong: it read
+      `document.querySelectorAll('script')` after hydration and flagged Next's `self.__next_f.push(...)`
+      chunks, which are created at runtime BY an already-nonced script. `'strict-dynamic'` allows exactly
+      that; requiring a nonce on them asserts something CSP does not mean and fails on a correct app.
+      Rewritten to assert against the SERVED HTML — where an injected script would have no nonce and be
+      blocked — and verified on the wire: 14 of 14 script tags carry the nonce, and every one matches
+      that response's own header (checked within a single request, because the nonce is per-request).
+      6 of 6 header cases now pass against a real production build. (SEC-25 · FE2)
 - [ ] **`Cache-Control: no-store` on the rendered table page.** Measured 2026-09-07: it holds on
       `/t/{token}` (a middleware redirect) but Next overrides it on `/{locale}/t` with
       `no-cache, must-revalidate`, from both `headers()` and `NextResponse.next()`. A cache may store
@@ -499,8 +736,29 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - [x] **Next image optimizer allowlist narrowed** — DONE 2026-09-04. The `*.supabase.co` wildcard made the optimizer an open proxy under the venue's own domain and TLS certificate. Now derived from `NEXT_PUBLIC_SUPABASE_URL`, so it follows the deployment instead of hardcoding a ref that breaks at handover. (SEC-25 · FE2)
 - [x] **PWA posture decided and enforced as CODE** — DONE 2026-09-04. `check-web-security.mjs` passes vacuously while no service worker exists and FAILS the moment one appears unless `/t` is excluded from caching. A cached `/t/{token}` would put the credential in Cache Storage where page script can read it, undoing the HttpOnly cookie entirely. (SEC-25 · FE2)
 - [ ] Guard Vercel preview deployments — `[SOW]` Module 6 promises "preview deployment per change", and every preview points at the one live database. Password-protect previews or point them at a seeded project. **Not in v1.0.** (SEC-25 · FE2)
-- [ ] ★ Add `table_token_secret_prev` and accept a signature valid under either secret while minting only with the current one, writing an audit row when the previous key is used. Today rotating the secret kills every printed card at once, which collides with "all keys rotated at handover". *(Per-table rotation already works — see §02.)* (SEC-26 · DEV)
-- [ ] Test it: a token minted under the previous secret verifies while `prev` is set and fails once cleared; a third random secret always fails. (SEC-26 · DEV)
+- [x] ★ ~~Add `table_token_secret_prev` and accept a signature valid under either secret while minting only
+      with the current one, writing an audit row when the previous key is used~~ — **done 2026-09-07,
+      migration 0083.** `app.table_token_secret_prev()` (never bootstraps — absence is the normal state),
+      `verify_table_token` re-issued to try the current key then the previous one, for BOTH token forms,
+      and every acceptance on the old key writes `table_token.accepted_prev_secret`.
+      **The box described a four-step rotation with no supported way to perform any of it** — the secret
+      lives in Vault, so "copy it to prev and mint a new one" meant hand-editing Vault on the live
+      project at 2am. So 0083 also adds `app.rotate_table_token_secret()` (steps 1+2 atomically; doing
+      them separately leaves a window where every printed card is dead) and
+      `app.clear_table_token_secret_prev()` (step 4), which RETURNS how many scans arrived on the old key
+      in the last 7 days — so retiring the remaining cards is a decision made against a number.
+      Both service-role only. ⚠ Re-issuing the function is also the easiest place to widen a grant by
+      accident: the first draft granted `verify_table_token` to `anon`, which it never had. The
+      rls-matrix rule for that RPC caught it. (SEC-26 · DEV)
+- [x] ~~Test it: a token minted under the previous secret verifies while `prev` is set and fails once
+      cleared; a third random secret always fails~~ — **done 2026-09-07**,
+      `tests/table-token-rotation.test.ts`, 9 tests. All three named cases plus: a card minted after the
+      rotation works, a card TWO rotations old never verifies (the overlap is one generation deep), a
+      current-key scan writes no rotation audit row, and garbage is still refused while prev is set.
+      The tests drive the real `rotate_table_token_secret()` / `clear_table_token_secret_prev()` RPCs.
+      The first version wrote to `app.secrets` directly and measured NOTHING — the live value is in
+      Vault, which takes precedence, so the "current" key never changed and every card kept verifying
+      under it. (SEC-26 · DEV)
 
 ---
 
@@ -611,13 +869,18 @@ something that works. Land these in the first week and thirteen boxes become per
 - [x] **RPC registry** (SEC-12) — has now fired in anger twice (0070; then 0072/0073/0074, eleven at once)
 - [~] **Authz sweep coverage counter** (SEC-12) — the ratchet is DONE and enforced; the **gap is not**. 72 of 139 covered as of 2026-09-07 (up from 60/127). `override_price`, `void_after_send`, `apply_pct_discount`, `merge_tabs`, `split_by_item` and the `analytics_*` family are still asserted by nobody.
 - [x] **`check:electron`** (SEC-30) — window hardening cannot regress
-- [ ] Guest-field allowlist drift test (SEC-20) — **confirmed still absent 2026-09-07.** Blocks the store data-safety forms in §08.
+- [x] ~~Guest-field allowlist drift test (SEC-20)~~ — **built 2026-09-07**, `packages/db/tests/stored-fields.test.ts`. No longer blocks the store data-safety forms in §08; those now need only a human in the two consoles.
 - [x] **No real-format phone numbers in seeds or fixtures** (SEC-37) — `check-data-hygiene.mjs`
-- [ ] A **pull-request template** carrying the Security Layer §11.4 checklist — new table has RLS with
-      per-operation policies and tests; new guest field is in the allowlist and the privacy notice;
-      money/stock/booking writes carry an audit row in the same transaction; nothing logged that could hold a
-      phone, token or PIN; no client-supplied price, total, role, venue or table trusted; and no field that
-      could hold a card number. **There is no PR template in `.github/` today.** (SEC-43 · SEC)
+- [x] ~~A **pull-request template** carrying the Security Layer §11.4 checklist~~ — **done 2026-09-07**,
+      `.github/pull_request_template.md`. Covers RLS per operation on a new table; a new guest field
+      declared in `stored-fields.test.ts` and sanitised through `app.safe_line`/`safe_text`; a new RPC
+      classified in the allowlist AND ruled in `rls-matrix.ts` with the floor ratcheted; the role guard as
+      the FIRST statement; the migration rules (timeouts, CONCURRENTLY, NOT VALID, never edit an applied
+      migration, re-issue the whole function body); no secret in a public env name; no stack trace or
+      constraint name reaching a guest; no money or guest field on a KDS broadcast; and the one rule with
+      no exception — nothing that could hold a card number.
+      Each line names the gate that enforces it, so the template points at a failing check rather than
+      asking for a promise. (SEC-43 · SEC)
 - [x] **Web security-header e2e assertions** (SEC-25) — **6/6 on the first run, 2026-09-07; it is what found the headers were never shipping**
 
 ---

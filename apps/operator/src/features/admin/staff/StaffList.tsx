@@ -362,9 +362,12 @@ function PinDialog({ staff, onClose, onSaved }: { staff: StaffRow; onClose(): vo
     },
   });
 
-  // 4-6 digits, matching app.set_staff_pin's own check, so the refusal is
-  // caught here rather than after a round trip.
-  const valid = /^[0-9]{4,6}$/.test(pin);
+  // 6-12 digits, matching app.set_staff_pin's own check since 0078 (SEC-13),
+  // so the refusal is caught here rather than after a round trip. The server
+  // additionally refuses a repeated digit or a sequential run (PIN_WEAK) —
+  // deliberately NOT mirrored here: duplicating the blocklist in the client is
+  // how the two drift apart, and PIN_WEAK already carries its own hint.
+  const valid = /^[0-9]{6,12}$/.test(pin);
 
   return (
     <Modal

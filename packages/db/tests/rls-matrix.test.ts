@@ -64,7 +64,7 @@ const WRITE_FILTERS: Record<string, [string, unknown]> = {
   customer_flags: ['customer_id', '00000000-0000-4000-8000-000000000000'],
 };
 
-describe.skipIf(!up)('RLS role matrix (drops 1-5: 0004-0021 + 0024 + 0027-0034 + 0065 surface)', () => {
+describe.skipIf(!up)('RLS role matrix (drops 1-7: the whole granted RPC surface bar three)', () => {
   const clients = {} as Record<Principal, SupabaseClient>;
   let svc: SupabaseClient;
 

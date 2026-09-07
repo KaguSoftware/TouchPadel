@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import {
   openQueue,
@@ -22,9 +22,11 @@ import {
   setMeta,
   setConnOnline,
   setWorkerUnreachable,
+  QueueEncryptionUnavailableError,
 } from './queue';
 import { observePin, unlockPinOffline } from './pin-cache';
 import type { MutationEnvelope } from '../ipc-channels';
+import { __setEncryptionAvailable } from '../../test/electron-stub';
 
 // The SQLite queue is where the contract's hardest promise lives: "Every write
 // flushed to disk before the screen confirms it, so a power cut cannot lose a
@@ -119,7 +121,7 @@ describe('schema v1 migration', () => {
     expect(cols).toContain('device_id');
     expect(cols).toContain('resolved_by'); // v3: manager dismiss (resolveRow)
     expect(cols).toContain('resolved_at');
-    expect(d.pragma('user_version', { simple: true })).toBe(3);
+    expect(d.pragma('user_version', { simple: true })).toBe(4);
     expect(() => d.exec("INSERT INTO meta (key, value) VALUES ('k','v')")).not.toThrow();
     d.close();
   });
@@ -138,7 +140,7 @@ describe('schema v1 migration', () => {
     const file = legacyDbFile();
     openQueueAt(file).close();
     const d = openQueueAt(file);
-    expect(d.pragma('user_version', { simple: true })).toBe(3);
+    expect(d.pragma('user_version', { simple: true })).toBe(4);
     d.close();
   });
 });
@@ -157,8 +159,13 @@ describe('enqueue', () => {
     expect(row.mutation_type).toBe('order.create');
     expect(row.staff_id).toBe(STAFF);
     expect(row.device_id).toBe('TILL1');
-    expect(JSON.parse(row.payload as string)).toEqual(m.payload);
     expect(row.server_result).toBeNull();
+
+    // v4/SEC-32: the payload is ENCRYPTED at rest. Read back through the queue
+    // API it is the original object; read raw off the disk it is ciphertext.
+    expect(row.payload_enc).toBe(1);
+    expect(() => JSON.parse(row.payload as string)).toThrow();
+    expect(peekNext()?.payload).toEqual(m.payload);
   });
 
   it('refuses a duplicate idempotency key', () => {
@@ -193,9 +200,37 @@ describe('enqueue', () => {
     const m = unique({ payload: null });
     enqueue(m);
     const row = openQueue()
+      .prepare('SELECT payload, payload_enc FROM mutation_queue WHERE idempotency_key = ?')
+      .get(m.idempotencyKey) as { payload: string; payload_enc: number };
+    expect(row.payload_enc).toBe(1);
+    expect(row.payload).not.toBe('');
+    expect(peekNext()?.payload).toBeNull();
+  });
+
+  /**
+   * SEC-32, and the reason the column is encrypted at all.
+   *
+   * A queued PIN-gated mutation carries the TYPED PIN — apps/operator
+   * src/lib/mutate.ts maps `p_pin: p?.pin` into the replayed args for
+   * override_price and apply_discount, because the server re-verifies it at
+   * replay. Before v4 that PIN sat in plaintext JSON in queue.db on an
+   * unmanaged Windows box, one table away from the pin_cache the salt
+   * encryption went to such lengths to protect.
+   */
+  it('a queued manager PIN is not readable in the raw database file', () => {
+    const m = unique({
+      payload: { kind: 'price_override', orderItemId: 'oi-1', newUnitPriceIqd: 1000, pin: '482913' },
+    });
+    enqueue(m);
+
+    const raw = openQueue()
       .prepare('SELECT payload FROM mutation_queue WHERE idempotency_key = ?')
       .get(m.idempotencyKey) as { payload: string };
-    expect(JSON.parse(row.payload)).toBeNull();
+    expect(raw.payload).not.toContain('482913');
+    expect(raw.payload).not.toContain('pin');
+
+    // …and it still replays correctly.
+    expect((peekNext()?.payload as { pin: string }).pin).toBe('482913');
   });
 });
 
@@ -447,5 +482,164 @@ describe('meta', () => {
     setMeta('pin_salt', 'aaaa');
     setMeta('pin_salt', 'bbbb');
     expect(getMeta('pin_salt')).toBe('bbbb');
+  });
+});
+
+/**
+ * SEC-32 — "refuse to trade offline if isEncryptionAvailable() is false".
+ *
+ * The tempting alternative is a plaintext fallback so the till keeps working.
+ * That is exactly the choice that would put staff PINs back on the disk, and it
+ * would do so silently, on the one machine nobody is watching. A refused sale is
+ * visible and recoverable — it is taken online, or on paper. A leaked manager
+ * PIN is neither.
+ */
+describe('queue encryption is mandatory (SEC-32)', () => {
+  afterEach(() => {
+    __setEncryptionAvailable(true);
+  });
+
+  it('refuses to enqueue when the machine cannot encrypt at rest', () => {
+    __setEncryptionAvailable(false);
+    const m = unique();
+    expect(() => enqueue(m)).toThrow(QueueEncryptionUnavailableError);
+  });
+
+  it('writes nothing at all when it refuses — no half-committed row', () => {
+    __setEncryptionAvailable(false);
+    const m = unique();
+    try {
+      enqueue(m);
+    } catch {
+      /* expected */
+    }
+    __setEncryptionAvailable(true);
+    const row = openQueue()
+      .prepare('SELECT * FROM mutation_queue WHERE idempotency_key = ?')
+      .get(m.idempotencyKey);
+    expect(row).toBeUndefined();
+  });
+
+  /**
+   * A row written on a machine that could encrypt, read on one that cannot (the
+   * Windows profile was recreated, or the file was copied). It must be PARKED
+   * and visible to a manager — never skipped in silence, and never replayed
+   * with a null body.
+   */
+  it('parks an unreadable row instead of wedging the queue or replaying it blank', () => {
+    const bad = unique();
+    const good = unique();
+    enqueue(bad);
+    enqueue(good);
+
+    // Corrupt the first row's ciphertext in place.
+    openQueue()
+      .prepare('UPDATE mutation_queue SET payload = ? WHERE idempotency_key = ?')
+      .run('not-decryptable', bad.idempotencyKey);
+
+    // The worker skips past it and gets the NEXT real row.
+    expect(peekNext()?.idempotencyKey).toBe(good.idempotencyKey);
+
+    const parked = openQueue()
+      .prepare('SELECT state, last_error FROM mutation_queue WHERE idempotency_key = ?')
+      .get(bad.idempotencyKey) as { state: string; last_error: string };
+    expect(parked.state).toBe('failed');
+    expect(parked.last_error).toMatch(/cannot be decrypted/i);
+
+    // …and it still blocks day close, with its contents shown as unrecoverable.
+    const blocking = listBlockingRows().find((r) => r.idempotencyKey === bad.idempotencyKey);
+    expect(blocking).toBeDefined();
+    expect(blocking?.payload).toBeNull();
+  });
+});
+
+/**
+ * The upgrade a till in service actually performs: v3 (the shipping schema) to
+ * v4 (SEC-32, payload encrypted at rest). The pre-v1 fixture above does not
+ * cover this — its rows are parked as `failed` for a missing staff_id, so it
+ * can never show whether a legitimate pending row survives.
+ *
+ * A station that closed on Friday with unsent sales in the queue must send them
+ * on Monday after an update. Losing them is lost revenue with no trace, so the
+ * claim "an existing plaintext queue keeps replaying" is worth a test rather
+ * than a comment.
+ */
+describe('v3 -> v4 upgrade (a till updated mid-service)', () => {
+  function v3DbFile(): string {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tp-queue-v3-')), 'queue.db');
+    const db = new Database(file);
+    // The v3 shape: attribution and resolve columns present, payload_enc absent.
+    db.exec(`
+      CREATE TABLE mutation_queue (
+        seq             INTEGER PRIMARY KEY AUTOINCREMENT,
+        local_id        TEXT NOT NULL UNIQUE,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        mutation_type   TEXT NOT NULL,
+        payload         TEXT NOT NULL,
+        created_at      TEXT NOT NULL,
+        state           TEXT NOT NULL DEFAULT 'pending',
+        attempts        INTEGER NOT NULL DEFAULT 0,
+        last_error      TEXT,
+        server_result   TEXT,
+        staff_id        TEXT,
+        device_id       TEXT,
+        resolved_by     TEXT,
+        resolved_at     TEXT
+      );
+    `);
+    db.prepare(
+      `INSERT INTO mutation_queue
+         (local_id, idempotency_key, mutation_type, payload, created_at, state, staff_id, device_id)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+    ).run(
+      'TILL1-01J5XDDDDDDDDDDDDDDDDDDDDD',
+      'TILL1:order.create:01J5XDDDDDDDDDDDDDDDDDDDDD',
+      'order.create',
+      JSON.stringify({ tabId: 'friday-tab', lines: [{ sku: 'tea', qty: 2 }] }),
+      '2026-08-28T09:00:00.000Z',
+      STAFF,
+      'TILL1',
+    );
+    db.pragma('user_version = 3');
+    db.close();
+    return file;
+  }
+
+  it('adds payload_enc without touching the pending row', () => {
+    const d = openQueueAt(v3DbFile());
+    expect(d.pragma('user_version', { simple: true })).toBe(4);
+    const row = d
+      .prepare('SELECT state, payload_enc, payload FROM mutation_queue')
+      .get() as { state: string; payload_enc: number; payload: string };
+    // Still sendable, still readable, and flagged as the plaintext encoding.
+    expect(row.state).toBe('pending');
+    expect(row.payload_enc).toBe(0);
+    expect(JSON.parse(row.payload)).toEqual({ tabId: 'friday-tab', lines: [{ sku: 'tea', qty: 2 }] });
+    d.close();
+  });
+
+  it('replays a pre-v4 plaintext row through peekNext', () => {
+    // Written straight into the live queue at the v4 encoding boundary: enc=0 is
+    // exactly what the ALTER TABLE default leaves on every pre-upgrade row.
+    openQueue()
+      .prepare(
+        `INSERT INTO mutation_queue
+           (local_id, idempotency_key, mutation_type, payload, payload_enc, created_at, staff_id, device_id)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+      )
+      .run(
+        'TILL1-01J5XEEEEEEEEEEEEEEEEEEEEE',
+        'TILL1:order.create:01J5XEEEEEEEEEEEEEEEEEEEEE',
+        'order.create',
+        JSON.stringify({ tabId: 'friday-tab', lines: [] }),
+        '2026-08-28T09:00:00.000Z',
+        STAFF,
+        'TILL1',
+      );
+
+    const row = peekNext();
+    expect(row?.idempotencyKey).toBe('TILL1:order.create:01J5XEEEEEEEEEEEEEEEEEEEEE');
+    // Decoded, not handed back as ciphertext or dropped as unreadable.
+    expect(row?.payload).toEqual({ tabId: 'friday-tab', lines: [] });
   });
 });
