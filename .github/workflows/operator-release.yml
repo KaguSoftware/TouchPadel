@@ -9,6 +9,16 @@
 # download page links there, and it is the electron-updater feed). This private
 # repo gets nothing written to it, hence `contents: read`.
 #
+# Release lifecycle: `prepare` creates the DRAFT release (once, sequentially),
+# the build jobs upload into it, and `publish` flips it live after every asset
+# is there. electron-builder must never create the release itself: it runs one
+# GitHub publisher per artifact (installer + blockmap) and on the first real run
+# (2026-09-07) both saw "release doesn't exist", POSTed concurrently, and the
+# loser got `422 Published releases must have a valid tag` — leaving a public
+# release with the .exe but no latest.yml, i.e. a broken updater feed.
+# electron-publish reuses a draft whose tag matches, so the draft is the fix.
+# Publishing last also guarantees latest.yml never points at a missing installer.
+#
 # Signing is conditional on secrets — see electron-builder.config.cjs. With
 # none set the build is unsigned and the runbook's SmartScreen step applies.
 # macOS builds only when Apple credentials exist (an unsigned mac app is
@@ -77,6 +87,23 @@ jobs:
           echo "mac_enabled=$mac" >> "$GITHUB_OUTPUT"
           echo "::notice::windows signing: $win — macOS build: $mac"
 
+      # The one place the release is created (see the header). Idempotent: a
+      # re-run finds the existing draft. Re-cutting an already PUBLISHED version
+      # still needs the release + tag deleted in the public repo first.
+      - name: Create the draft release in the public repo
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          RELEASES_REPO: KaguSoftware/touchpadel-releases
+        run: |
+          if gh release view "v$VERSION" -R "$RELEASES_REPO" >/dev/null 2>&1; then
+            echo "release v$VERSION already exists — reusing it"
+          else
+            gh release create "v$VERSION" -R "$RELEASES_REPO" --draft \
+              --title "$VERSION" --target main \
+              --notes "Touch Padel Operator $VERSION"
+          fi
+
   windows:
     needs: prepare
     runs-on: windows-latest
@@ -114,6 +141,14 @@ jobs:
 
       - name: Bundle main + preload
         run: pnpm --filter @touch/operator-shell build
+
+      # pnpm install gave better-sqlite3 the Node-22 binary; Electron 33 needs
+      # its own ABI, and electron-builder's rebuild never reaches the hoisted
+      # copy. This fetches the Electron prebuild and proves it opens a database
+      # under electron.exe — operator-v0.2.0 skipped this and never opened a
+      # window. See apps/operator-shell/scripts/native-abi.mjs.
+      - name: Rebuild better-sqlite3 for Electron (and prove it loads)
+        run: pnpm --filter @touch/operator-shell native:electron
 
       - name: Build the installer, sign if credentials exist, publish
         working-directory: apps/operator-shell
@@ -186,6 +221,12 @@ jobs:
       - name: Bundle main + preload
         run: pnpm --filter @touch/operator-shell build
 
+      # Same as the Windows job. Host arch only (arm64): the x64 slice of the
+      # mac build still carries whatever binary is in place — settle that
+      # before the mac job is ever enabled.
+      - name: Rebuild better-sqlite3 for Electron (and prove it loads)
+        run: pnpm --filter @touch/operator-shell native:electron
+
       - name: Build dmg + zip, sign, notarize, publish
         working-directory: apps/operator-shell
         env:
@@ -209,3 +250,32 @@ jobs:
             apps/operator-shell/release/*.yml
             apps/operator-shell/release/*.blockmap
           retention-days: 14
+
+  # Flip the draft live only once every platform that was going to upload has
+  # uploaded. Until this runs, `releases/latest` and the updater feed still
+  # serve the previous version — a half-uploaded release is never visible.
+  publish:
+    needs: [prepare, windows, macos]
+    if: >-
+      always()
+      && needs.prepare.result == 'success'
+      && needs.windows.result == 'success'
+      && (needs.macos.result == 'success' || needs.macos.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASES_REPO: KaguSoftware/touchpadel-releases
+    steps:
+      - name: Assert the Windows assets are all there
+        run: |
+          assets=$(gh release view "v$VERSION" -R "$RELEASES_REPO" --json assets -q '.assets[].name')
+          echo "$assets"
+          for f in Touch-Padel-Operator-Setup.exe Touch-Padel-Operator-Setup.exe.blockmap latest.yml; do
+            if ! grep -qx "$f" <<<"$assets"; then
+              echo "::error::$f is missing from release v$VERSION — not publishing"
+              exit 1
+            fi
+          done
+      - name: Publish the release
+        run: gh release edit "v$VERSION" -R "$RELEASES_REPO" --draft=false --latest
