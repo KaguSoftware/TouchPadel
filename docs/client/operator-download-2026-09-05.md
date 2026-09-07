@@ -128,7 +128,17 @@ certificate. OV builds SmartScreen reputation over weeks; EV is trusted at once.
 When either route is configured, ask the developer to flip
 `SHOW_SMARTSCREEN_NOTE` on the download page.
 
-## 5. macOS (optional; only if a Mac will ever run the operator app)
+## 5. macOS (optional; only if a Mac will ever run the operator app) — ✔ DONE 2026-09-07
+
+All five secrets set; `Touch-Padel-Operator-arm64.dmg` ships from operator-v0.2.7 on. Notes from
+the day: the private key + `.p12` + its password live in `C:Usersp.mansouri	ouchpadel-signing`
+on Parsa's PC (back it up; Apple cannot re-issue the key). The `.p12` must be built with
+`openssl pkcs12 -export -legacy` — macOS rejects OpenSSL 3's default format. electron-builder
+26.15/26.16 cannot import CSC_LINK itself (upstream #10066), so the workflow imports into its own
+keychain and passes CSC_KEYCHAIN + CSC_NAME. Notarization is submit-and-continue
+(apps/operator-shell/scripts/notarize-mac.cjs): Apple held two submissions 55 min and 3 h; Gatekeeper
+checks the ticket online, so no stapling is needed. Apple silicon only.
+
 
 The mac build is scaffolded and runs only when all five secrets below exist.
 An unsigned mac app cannot be opened on current macOS and cannot update
