@@ -766,18 +766,11 @@ export const ar: Messages = {
   },
   download: {
     title: 'Touch Padel Operator',
-    lead: 'تطبيق الكاشير والمكتب وشاشة المطبخ لموظفي Touch Padel.',
-    staffOnly: 'لموظفي المكان. الضيوف يطلبون عبر رمز QR على الطاولة.',
-    windowsHeading: 'ويندوز',
+    lead: 'تطبيق الكاشير والمكتب وشاشة المطبخ لموظفي Touch Padel. يُثبَّت ويحدّث نفسه.',
     windowsButton: 'تنزيل لويندوز',
-    windowsMeta: 'ويندوز 10 أو 11. يُثبَّت بنقرة واحدة ويحدّث نفسه.',
+    macButton: 'تنزيل لماك',
     smartScreenNote:
       'قد يُظهر ويندوز "Windows protected your PC" في المرة الأولى. اختر "More info" ثم "Run anyway".',
-    macHeading: 'ماك',
-    macBody: 'تظهر إصدارات ماك في صفحة الإصدارات عند توفرها: اختر ملف .dmg المناسب لجهازك (Apple silicon أو Intel).',
-    macButton: 'تنزيلات ماك',
-    allVersions: 'كل الإصدارات',
-    versionHint: 'يظهر الإصدار المثبّت أسفل الشريط الجانبي في التطبيق.',
   },
   seo: {
     siteTitle: 'تتش كافيه — القائمة',
