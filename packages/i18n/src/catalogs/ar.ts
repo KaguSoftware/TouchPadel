@@ -769,6 +769,7 @@ export const ar: Messages = {
     lead: 'تطبيق الكاشير والمكتب وشاشة المطبخ لموظفي Touch Padel. يُثبَّت ويحدّث نفسه.',
     windowsButton: 'تنزيل لويندوز',
     macButton: 'تنزيل لماك',
+    macSoon: 'ماك: قريبًا',
     smartScreenNote:
       'قد يُظهر ويندوز "Windows protected your PC" في المرة الأولى. اختر "More info" ثم "Run anyway".',
   },

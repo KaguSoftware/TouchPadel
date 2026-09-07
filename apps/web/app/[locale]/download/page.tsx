@@ -10,15 +10,18 @@ import { LOCALES, asLocale } from '@/lib/locales';
  * cookies. Two buttons, nothing else to read: both point at STABLE URLs — the
  * public releases repo's "latest" redirect plus version-less artifact names
  * (apps/operator-shell/electron-builder.config.cjs) — so this page never needs
- * to know which version is current. The Mac link answers 404 until the mac
- * job in operator-release.yml is enabled (Apple credentials), and then serves
- * the Apple-silicon build; Intel Macs are not a target at this venue.
+ * to know which version is current. The Mac button is disabled until the mac
+ * job in operator-release.yml is enabled (Apple credentials — download
+ * checklist step 5); flip MAC_AVAILABLE once the first .dmg is on a release.
+ * It then serves the Apple-silicon build; Intel Macs are not a target here.
  */
 const RELEASES = 'https://github.com/KaguSoftware/touchpadel-releases/releases';
 const WIN_STABLE = `${RELEASES}/latest/download/Touch-Padel-Operator-Setup.exe`;
 const MAC_STABLE = `${RELEASES}/latest/download/Touch-Padel-Operator-arm64.dmg`;
 /** Flip to false once the Windows build is code-signed (SmartScreen stops). */
 const SHOW_SMARTSCREEN_NOTE = true;
+/** Flip to true once a release carries Touch-Padel-Operator-arm64.dmg. */
+const MAC_AVAILABLE = false;
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
@@ -51,9 +54,15 @@ export default async function DownloadPage({ params }: { params: Promise<{ local
           <a className="tp-btn tp-btn--primary tp-download__btn" href={WIN_STABLE}>
             {tr('download.windowsButton')}
           </a>
-          <a className="tp-btn tp-btn--primary tp-download__btn" href={MAC_STABLE}>
-            {tr('download.macButton')}
-          </a>
+          {MAC_AVAILABLE ? (
+            <a className="tp-btn tp-btn--primary tp-download__btn" href={MAC_STABLE}>
+              {tr('download.macButton')}
+            </a>
+          ) : (
+            <span className="tp-btn tp-btn--ghost tp-download__btn tp-download__btn--soon" aria-disabled="true">
+              {tr('download.macSoon')}
+            </span>
+          )}
         </div>
 
         {SHOW_SMARTSCREEN_NOTE && <p className="tp-download__note">{tr('download.smartScreenNote')}</p>}

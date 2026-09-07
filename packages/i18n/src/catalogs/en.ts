@@ -789,6 +789,7 @@ export const en = {
     lead: 'The till, desk and kitchen-screen app for Touch Padel staff. Installs and updates itself.',
     windowsButton: 'Download for Windows',
     macButton: 'Download for Mac',
+    macSoon: 'Mac: coming soon',
     smartScreenNote:
       'Windows may show "Windows protected your PC" the first time. Choose "More info", then "Run anyway".',
   },
