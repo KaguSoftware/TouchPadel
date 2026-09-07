@@ -263,6 +263,12 @@ jobs:
           # the team id in its name ("Developer ID Application: … (TEAMID)").
           CSC_KEYCHAIN: ${{ env.CSC_KEYCHAIN }}
           CSC_NAME: ${{ secrets.APPLE_TEAM_ID }}
+          # electron-builder prints nothing between "signing" and "notarization
+          # successful" — on the first mac run that silence lasted 50+ minutes
+          # with no way to tell codesign from Apple's queue. These make
+          # @electron/osx-sign and @electron/notarize narrate (submission id,
+          # status polls) so the log says which it is.
+          DEBUG: 'electron-osx-sign*,electron-notarize*'
           # Notarization (electron-builder's `notarize: true` reads these).
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
