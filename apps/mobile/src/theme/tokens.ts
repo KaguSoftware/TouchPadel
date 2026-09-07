@@ -216,6 +216,13 @@ export const brand = {
   /** Modal scrims: notice sheet (66) and confirmation dialog (80). Brand black. */
   scrim: '#00000066',
   scrimStrong: '#00000080',
+  /**
+   * The smiley ball's line work — the artwork's own navy, as the racket decal
+   * paints it (`courtTransition/racket.ts` COLORS.frame). One step off
+   * `palettes.light.ink` and genuinely its own value: it comes out of the
+   * brand PDF, not off the blue ramp.
+   */
+  markInk: '#1B2A47',
   /** Court illustration: ball fill/glow and the green rackets' darker edge. */
   ballFill: '#FFFFFF',
   racketEdge: '#77A937',
