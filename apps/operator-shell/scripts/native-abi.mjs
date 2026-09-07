@@ -35,13 +35,26 @@ const arch = process.env.npm_config_arch || process.arch;
 
 console.log(`[native-abi] better-sqlite3 at ${pkgDir}`);
 console.log(`[native-abi] fetching the prebuilt binary for ${runtime} ${target} (${arch})`);
-const fetch = spawnSync(
-  process.execPath,
-  [prebuildInstall, '--runtime', runtime, '--target', target, '--arch', arch, '--force', '--verbose'],
-  { cwd: pkgDir, stdio: 'inherit', env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined } },
-);
+// The prebuild comes from github.com/WiseLibs/better-sqlite3/releases, which
+// answered 504 for ten seconds on 2026-09-07 and took the whole release run
+// with it. A few tries with a pause cost nothing on the happy path.
+const FETCH_ATTEMPTS = 4;
+let fetch = null;
+for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
+  fetch = spawnSync(
+    process.execPath,
+    [prebuildInstall, '--runtime', runtime, '--target', target, '--arch', arch, '--force', '--verbose'],
+    { cwd: pkgDir, stdio: 'inherit', env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined } },
+  );
+  if (fetch.status === 0) break;
+  if (attempt < FETCH_ATTEMPTS) {
+    const wait = 15 * attempt;
+    console.warn(`[native-abi] prebuild-install failed (attempt ${attempt}/${FETCH_ATTEMPTS}); retrying in ${wait}s`);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait * 1000);
+  }
+}
 if (fetch.status !== 0) {
-  console.error('[native-abi] prebuild-install failed — no binary for this runtime/arch?');
+  console.error('[native-abi] prebuild-install failed — no binary for this runtime/arch, or the download host is down');
   process.exit(fetch.status ?? 1);
 }
 
