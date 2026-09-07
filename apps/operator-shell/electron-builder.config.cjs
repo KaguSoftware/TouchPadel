@@ -131,9 +131,14 @@ const config = {
     gatekeeperAssess: false,
     entitlements: 'assets/entitlements.mac.plist',
     entitlementsInherit: 'assets/entitlements.mac.plist',
-    // Boolean in electron-builder 26: credentials come from the APPLE_* env.
-    notarize: true,
+    // Notarization is scripts/notarize-mac.cjs (afterSign below), not
+    // electron-builder's: its `notarytool submit --wait` is one long-poll that
+    // died with the runner's network blip after Apple had held the submission
+    // ~55 min (operator-v0.2.5). Ours submits --no-wait and polls, shrugging
+    // off transport failures until Apple answers.
+    notarize: false,
   },
+  afterSign: 'scripts/notarize-mac.cjs',
 };
 
 module.exports = config;
