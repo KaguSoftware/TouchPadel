@@ -21,7 +21,7 @@ const MAC_STABLE = `${RELEASES}/latest/download/Touch-Padel-Operator-arm64.dmg`;
 /** Flip to false once the Windows build is code-signed (SmartScreen stops). */
 const SHOW_SMARTSCREEN_NOTE = true;
 /** Flip to true once a release carries Touch-Padel-Operator-arm64.dmg. */
-const MAC_AVAILABLE = false;
+const MAC_AVAILABLE = true;
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
