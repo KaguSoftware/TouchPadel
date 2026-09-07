@@ -96,9 +96,12 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'VOID_REQUIRES_REFUND',
   'INVALID_ARGUMENT',
   'REJECTION_NOT_FOUND',
-  // Courts admin (0062).
+  // Courts admin (0062) + delete (0074).
   'INVALID_DURATIONS',
   'COURT_HAS_FUTURE_RESERVATIONS',
+  // CourtsAdmin intercepts this via courtUsageFromError to show the counts and
+  // offer Deactivate, so this string is the net under that path, not the path.
+  'COURT_IN_USE',
   'NAME_REQUIRED',
   // Stock admin (0063) + counts (0019).
   'UNIT_LOCKED',
@@ -115,6 +118,22 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'COUNT_LINE_NOT_FOUND',
   'BATCH_NOT_FOUND',
   'NOT_EXPIRED',
+  // Staff requests (0072).
+  'REQUEST_NOT_PENDING',
+  'CANNOT_DECIDE_OWN',
+  'REQUEST_ALREADY_PENDING',
+  'BAD_KIND',
+  'BAD_STATUS',
+  // Marketing (0073).
+  'BAD_TRANSITION',
+  'CAMPAIGN_LOCKED',
+  'BAD_CHANNEL',
+  'BAD_RULE',
+  'BODY_REQUIRED',
+  'START_REQUIRED',
+  'REQUEST_NOT_FOUND',
+  'CAMPAIGN_NOT_FOUND',
+  'AUDIENCE_NOT_FOUND',
   // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
   'EDGE_NOT_CONFIGURED',
   'EDGE_FORBIDDEN',

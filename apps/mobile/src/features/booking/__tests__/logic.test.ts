@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../errors';
 import {
   canCancel,
+  endedNotice,
   isLiveHold,
   parseHoldResult,
   playedCount,
@@ -236,5 +237,20 @@ describe('playedCount', () => {
         row({ status: 'expired' }),
       ]),
     ).toBe(2);
+  });
+});
+
+describe('endedNotice', () => {
+  it('explains every ending the guest did not ask for', () => {
+    expect(endedNotice('cancelled')).toBe('booking.cancelledNotice');
+    // The two that used to render nothing at all.
+    expect(endedNotice('no_show')).toBe('booking.noShowNotice');
+    expect(endedNotice('expired')).toBe('booking.expiredNotice');
+  });
+
+  it('says nothing about a booking that is still live, or one that was played', () => {
+    for (const status of ['pending', 'confirmed', 'arrived', 'completed']) {
+      expect(endedNotice(status)).toBeNull();
+    }
   });
 });

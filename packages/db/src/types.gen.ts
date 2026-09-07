@@ -66,6 +66,78 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_limits: {
+        Row: {
+          allowed_prefixes: string[]
+          daily_total: number
+          enabled: boolean
+          id: boolean
+          per_phone_per_day: number
+          updated_at: string
+        }
+        Insert: {
+          allowed_prefixes?: string[]
+          daily_total?: number
+          enabled?: boolean
+          id?: boolean
+          per_phone_per_day?: number
+          updated_at?: string
+        }
+        Update: {
+          allowed_prefixes?: string[]
+          daily_total?: number
+          enabled?: boolean
+          id?: boolean
+          per_phone_per_day?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sms_sends: {
+        Row: {
+          channel: string
+          cost_iqd: number | null
+          created_at: string
+          id: number
+          phone_canon: string
+          phone_e164: string
+          provider: string | null
+          provider_msg_id: string | null
+          purpose: string
+          reason: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          channel?: string
+          cost_iqd?: number | null
+          created_at?: string
+          id?: never
+          phone_canon: string
+          phone_e164: string
+          provider?: string | null
+          provider_msg_id?: string | null
+          purpose?: string
+          reason?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          channel?: string
+          cost_iqd?: number | null
+          created_at?: string
+          id?: never
+          phone_canon?: string
+          phone_e164?: string
+          provider?: string | null
+          provider_msg_id?: string | null
+          purpose?: string
+          reason?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -354,6 +426,11 @@ export type Database = {
         Args: { p_limit?: number; p_query: string }
         Returns: Json[]
       }
+      decide_staff_request: {
+        Args: { p_approve: boolean; p_id: string; p_note?: string }
+        Returns: Json
+      }
+      delete_court: { Args: { p_id: string }; Returns: Json }
       desk_register_customer: {
         Args: {
           p_actor_id: string
@@ -478,6 +555,12 @@ export type Database = {
         }
         Returns: Json
       }
+      marketing_audience_reach: { Args: { p_rule: Json }; Returns: number }
+      marketing_campaign_performance: {
+        Args: { p_campaign: string }
+        Returns: Json
+      }
+      marketing_overview: { Args: never; Returns: Json }
       menu_availability: {
         Args: never
         Returns: {
@@ -709,6 +792,30 @@ export type Database = {
         }
         Returns: string
       }
+      save_marketing_audience: {
+        Args: {
+          p_id: string
+          p_name_ar: string
+          p_name_en: string
+          p_rule?: Json
+        }
+        Returns: string
+      }
+      save_marketing_campaign: {
+        Args: {
+          p_audience_id?: string
+          p_body_ar?: string
+          p_body_en?: string
+          p_channel: string
+          p_ends_at?: string
+          p_id: string
+          p_name_ar: string
+          p_name_en: string
+          p_promotion_id?: string
+          p_starts_at?: string
+        }
+        Returns: string
+      }
       search_norm: { Args: { p_text: string }; Returns: string }
       secret: { Args: { p_name: string }; Returns: string }
       send_test_push: { Args: never; Returns: Json }
@@ -744,6 +851,10 @@ export type Database = {
         Returns: Json
       }
       set_cafe_settings: { Args: { p_settings: Json }; Returns: Json }
+      set_campaign_status: {
+        Args: { p_id: string; p_status: string }
+        Returns: Json
+      }
       set_category_photo: {
         Args: {
           p_category_id: string
@@ -850,6 +961,22 @@ export type Database = {
         }
         Returns: Json
       }
+      sms_send_gate: {
+        Args: { p_phone_e164: string; p_purpose?: string; p_user_id?: string }
+        Returns: Json
+      }
+      sms_send_result: {
+        Args: {
+          p_channel?: string
+          p_cost_iqd?: number
+          p_error?: string
+          p_provider?: string
+          p_provider_msg_id?: string
+          p_send_id: number
+          p_status: string
+        }
+        Returns: undefined
+      }
       split_by_item: {
         Args: { p_groups: Json; p_tab_id: string }
         Returns: number[]
@@ -875,11 +1002,25 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_requests_page: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: Json
+      }
       staff_role: {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
       }
       start_count: { Args: never; Returns: Json }
+      submit_staff_request: {
+        Args: {
+          p_amount_iqd?: number
+          p_from?: string
+          p_kind: string
+          p_note?: string
+          p_to?: string
+        }
+        Returns: string
+      }
       sweep_degraded_periods: { Args: never; Returns: undefined }
       tab_is_callers: { Args: { p_tab_id: string }; Returns: boolean }
       tab_net_paid: { Args: { p_tab_id: string }; Returns: number }
@@ -1113,6 +1254,7 @@ export type Database = {
         }
         Returns: Json
       }
+      withdraw_staff_request: { Args: { p_id: string }; Returns: undefined }
       write_audit: {
         Args: {
           p_action: string
@@ -1888,6 +2030,155 @@ export type Database = {
             columns: ["acknowledged_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_audiences: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name_ar: string
+          name_en: string
+          rule: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name_ar: string
+          name_en: string
+          rule?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name_ar?: string
+          name_en?: string
+          rule?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_audiences_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_campaigns: {
+        Row: {
+          audience_id: string | null
+          body_ar: string
+          body_en: string
+          channel: Database["public"]["Enums"]["marketing_channel"]
+          created_at: string
+          created_by: string
+          ends_at: string | null
+          id: string
+          name_ar: string
+          name_en: string
+          promotion_id: string | null
+          starts_at: string | null
+          status: Database["public"]["Enums"]["campaign_status"]
+          updated_at: string
+        }
+        Insert: {
+          audience_id?: string | null
+          body_ar?: string
+          body_en?: string
+          channel: Database["public"]["Enums"]["marketing_channel"]
+          created_at?: string
+          created_by: string
+          ends_at?: string | null
+          id?: string
+          name_ar: string
+          name_en: string
+          promotion_id?: string | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          updated_at?: string
+        }
+        Update: {
+          audience_id?: string | null
+          body_ar?: string
+          body_en?: string
+          channel?: Database["public"]["Enums"]["marketing_channel"]
+          created_at?: string
+          created_by?: string
+          ends_at?: string | null
+          id?: string
+          name_ar?: string
+          name_en?: string
+          promotion_id?: string | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaigns_audience_id_fkey"
+            columns: ["audience_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_audiences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaigns_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_sends: {
+        Row: {
+          at: string
+          campaign_id: string
+          delivered: number
+          failed: number
+          id: string
+          meta: Json
+          recipients: number
+        }
+        Insert: {
+          at?: string
+          campaign_id: string
+          delivered?: number
+          failed?: number
+          id?: string
+          meta?: Json
+          recipients?: number
+        }
+        Update: {
+          at?: string
+          campaign_id?: string
+          delivered?: number
+          failed?: number
+          id?: string
+          meta?: Json
+          recipients?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
             referencedColumns: ["id"]
           },
         ]
@@ -3181,6 +3472,66 @@ export type Database = {
           },
         ]
       }
+      staff_requests: {
+        Row: {
+          amount_iqd: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          from_date: string | null
+          id: string
+          kind: Database["public"]["Enums"]["staff_request_kind"]
+          note: string
+          staff_id: string
+          status: Database["public"]["Enums"]["staff_request_status"]
+          to_date: string | null
+        }
+        Insert: {
+          amount_iqd?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          from_date?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["staff_request_kind"]
+          note?: string
+          staff_id: string
+          status?: Database["public"]["Enums"]["staff_request_status"]
+          to_date?: string | null
+        }
+        Update: {
+          amount_iqd?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          from_date?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["staff_request_kind"]
+          note?: string
+          staff_id?: string
+          status?: Database["public"]["Enums"]["staff_request_status"]
+          to_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requests_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_batches: {
         Row: {
           delivery_line_id: string | null
@@ -4339,8 +4690,10 @@ export type Database = {
         | "low_stock"
         | "expiring_soon"
         | "replay_conflict"
+      campaign_status: "draft" | "scheduled" | "live" | "ended" | "cancelled"
       day_status: "open" | "closing" | "closed"
       ingredient_kind: "purchased" | "prepared"
+      marketing_channel: "telegram" | "guest_site" | "in_venue"
       movement_type:
         | "goods_in"
         | "production_in"
@@ -4365,6 +4718,8 @@ export type Database = {
         | "cancelled"
         | "no_show"
         | "expired"
+      staff_request_kind: "leave" | "shift_swap" | "advance" | "correction"
+      staff_request_status: "pending" | "approved" | "rejected" | "withdrawn"
       staff_role: "cashier" | "prep" | "court_desk" | "manager" | "owner"
       stock_unit: "g" | "ml" | "pc"
       tab_status: "open" | "awaiting_payment" | "settled" | "void"
@@ -4512,8 +4867,10 @@ export const Constants = {
         "expiring_soon",
         "replay_conflict",
       ],
+      campaign_status: ["draft", "scheduled", "live", "ended", "cancelled"],
       day_status: ["open", "closing", "closed"],
       ingredient_kind: ["purchased", "prepared"],
+      marketing_channel: ["telegram", "guest_site", "in_venue"],
       movement_type: [
         "goods_in",
         "production_in",
@@ -4540,6 +4897,8 @@ export const Constants = {
         "no_show",
         "expired",
       ],
+      staff_request_kind: ["leave", "shift_swap", "advance", "correction"],
+      staff_request_status: ["pending", "approved", "rejected", "withdrawn"],
       staff_role: ["cashier", "prep", "court_desk", "manager", "owner"],
       stock_unit: ["g", "ml", "pc"],
       tab_status: ["open", "awaiting_payment", "settled", "void"],

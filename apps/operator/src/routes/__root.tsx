@@ -7,6 +7,11 @@
  * (lib/workspaces.ts), never by filtering one shared menu. The prep workspace
  * renders no navigation at all — a wall-mounted kitchen screen has nothing to
  * get lost in.
+ *
+ * A workspace with SECTIONS (Management: Setup, Operations) shows one rail
+ * button per section; inside one, the rail IS the section — its own header,
+ * its own list, and a way back to the workspace. Which section is open comes
+ * from the URL, so a deep link and a reload land on the same rail as a click.
  */
 import { Link, Outlet, createRootRoute, useRouterState } from '@tanstack/react-router';
 import {
@@ -29,13 +34,17 @@ import {
   isNavActive,
   loadWorkspace,
   saveWorkspace,
+  sectionForPath,
+  sectionRailItems,
   workspaceForRoute,
+  workspaceOwnsPath,
   workspacesForRole,
+  type NavItem,
   type WorkspaceKey,
 } from '../lib/workspaces';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
 import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
-import { Icon, CourtLines } from '../components/icons';
+import { ChevronBack, ChevronForward, Icon, CourtLines } from '../components/icons';
 import { BrandLockup, BrandSwoosh } from '../components/brand';
 import { appRpc, AppRpcError } from '../lib/appRpc';
 import { supabase } from '../lib/supabase';
@@ -217,7 +226,13 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
   // a manager who opens /kds sees the kitchen board full-bleed, not the ops rail.
   useEffect(() => {
     const ws = workspaceForRoute(path);
-    if (ws && ws !== active && (available as readonly string[]).includes(ws)) setActiveState(ws);
+    if (!ws || ws === active || !(available as readonly string[]).includes(ws)) return;
+    // A route the ACTIVE workspace already reaches keeps its own rail. The
+    // owner's Observation section lands on /ops, which is also the manager's
+    // home: without this, one click on Observation threw the owner out of
+    // Management and into the manager rail.
+    if (workspaceOwnsPath(active, path)) return;
+    setActiveState(ws);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 
@@ -344,6 +359,26 @@ const navButtonStyle: CSSProperties = {
   textAlign: 'start',
 };
 
+/** One rail destination. Same row whether it comes from a group or a section. */
+function RailLink({ item, path }: { item: NavItem; path: string }) {
+  const { tr } = useLocale();
+  const active = isNavActive(item, path);
+  return (
+    <Link
+      to={item.to}
+      className="tp-nav-item"
+      style={navItemStyle}
+      data-active={active ? 'true' : undefined}
+      aria-current={active ? 'page' : undefined}
+    >
+      <Icon name={item.icon} size={17} />
+      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {tr(`ws.shell.nav.${item.labelKey}`)}
+      </span>
+    </Link>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // WorkspaceNav — the rail. Props: items, activeKey, role (spec §07).
 // ---------------------------------------------------------------------------
@@ -362,11 +397,15 @@ function WorkspaceNav({
   const station = touch.getStation();
   const workspace = WORKSPACES[workspaceKey];
   const canSwitch = available.length > 1;
+  // Inside a section the rail IS the section: its name, its list, and one way
+  // back. Read from the path, so the rail and the screen can never disagree.
+  const section = sectionForPath(workspace, path);
+  const sections = (workspace.sections ?? []).filter((sec) => canAccess(staff?.role, sec.home));
 
   return (
     <nav
       data-no-print
-      aria-label={tr(`ws.shell.workspace.${workspaceKey}`)}
+      aria-label={section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
       style={{
         inlineSize: 'var(--tp-rail-w)',
         flexShrink: 0,
@@ -385,50 +424,94 @@ function WorkspaceNav({
         </div>
         <div style={{ position: 'relative' }}>
           <BrandLockup size={26} tone="onDark" />
+          {/* The way out of a section, in the place a browser back button
+              would be and above the name of where you are. Sizing, surface and
+              colour live in .tp-rail-back (GlobalStyles) — this is a control,
+              not a footnote: a section is somewhere the operator passes
+              through, so leaving it is the most-pressed row on the panel. */}
+          {section && (
+            /*
+              The visible text is the DESTINATION's name; the chevron carries
+              "back", the way a platform back control does. "Back to
+              Management" does not fit a 208px rail at --tp-fs-sm/600 and was
+              rendering as "Back to Managem…", which truncates the one word
+              that says where you are going. The full phrase stays as the
+              accessible name, so a screen reader still hears "Back to
+              Management" and only the pixels are shorter.
+            */
+            <Link
+              to={workspace.home}
+              className="tp-rail-back"
+              style={{ marginBlockStart: 'var(--tp-sp-2-5)' }}
+              aria-label={tr('ws.shell.nav.backTo', { workspace: tr(`ws.shell.workspace.${workspaceKey}`) })}
+            >
+              <ChevronBack size={14} />
+              <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {tr(`ws.shell.workspace.${workspaceKey}`)}
+              </span>
+            </Link>
+          )}
+          {/* One gap either way now. The section case used to be tightened to
+              --tp-sp-1 so the back link read as part of the title below it;
+              the back link is a bordered control now, and crowding a title
+              against its edge just looks like a mistake. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
             <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
-              <Icon name={workspace.icon} size={16} />
+              <Icon name={section ? section.icon : workspace.icon} size={16} />
             </span>
             <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
-              {tr(`ws.shell.workspace.${workspaceKey}`)}
+              {section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
             </span>
           </div>
           <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: 'var(--tp-sp-0)' }}>
-            {tr(`ws.shell.workspaceLead.${workspaceKey}`)}
+            {section ? tr(`ws.shell.sectionLead.${section.key}`) : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
           </p>
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-4)', alignContent: 'start' }}>
-        {workspace.groups.map((group, gi) => (
-          <div key={gi} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-            {group.labelKey && (
-              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, paddingInline: RAIL_ITEM_PAD, marginBlockEnd: 'var(--tp-sp-1)' }}>
-                {tr(`ws.shell.nav.${group.labelKey}`)}
-              </p>
-            )}
-            {group.items
+        {section ? (
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+            {sectionRailItems(section)
               .filter((item) => canAccess(staff?.role, item.to))
-              .map((item) => {
-                const active = isNavActive(item, path);
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className="tp-nav-item"
-                    style={navItemStyle}
-                    data-active={active ? 'true' : undefined}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    <Icon name={item.icon} size={17} />
-                    <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {tr(`ws.shell.nav.${item.labelKey}`)}
-                    </span>
-                  </Link>
-                );
-              })}
+              .map((item) => (
+                <RailLink key={item.to} item={item} path={path} />
+              ))}
           </div>
-        ))}
+        ) : (
+          <>
+            {workspace.groups.map((group, gi) => (
+              <div key={gi} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+                {group.labelKey && (
+                  <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, paddingInline: RAIL_ITEM_PAD, marginBlockEnd: 'var(--tp-sp-1)' }}>
+                    {tr(`ws.shell.nav.${group.labelKey}`)}
+                  </p>
+                )}
+                {group.items
+                  .filter((item) => canAccess(staff?.role, item.to))
+                  .map((item) => (
+                    <RailLink key={item.to} item={item} path={path} />
+                  ))}
+              </div>
+            ))}
+
+            {/* One row per section, chevron forward: this opens a place, it
+                does not switch a screen. */}
+            {sections.length > 0 && (
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+                {sections.map((sec) => (
+                  <Link key={sec.key} to={sec.home} className="tp-nav-item" style={navItemStyle}>
+                    <Icon name={sec.icon} size={17} />
+                    <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {tr(`ws.shell.section.${sec.key}`)}
+                    </span>
+                    <ChevronForward size={14} />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div style={{ borderBlockStart: '1px solid var(--tp-rail-border)', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-0)' }}>

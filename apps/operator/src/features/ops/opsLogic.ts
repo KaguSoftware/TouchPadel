@@ -86,13 +86,20 @@ function str(v: unknown): string | null {
   return typeof v === 'string' && v !== '' ? v : null;
 }
 
-/** `{count, amountIqd}` | `{count, amount}` | bare number (count only). */
+/**
+ * `{count, amountIqd}` | `{count, amount}` | `{count, costIqd}` | bare number.
+ *
+ * `costIqd` is not a hypothetical spelling: `ops_overview` builds the waste
+ * figure as `{count, costIqd}` while every other exception is `{count,
+ * amountIqd}`, so reading only the `amount*` keys silently dropped waste's money
+ * and printed its bare count where the other three showed IQD.
+ */
 export function normalizeCount(v: unknown): OpsCount {
   if (typeof v === 'number') return { count: num(v), amountIqd: null };
   if (isRecord(v)) {
     return {
       count: num(v.count),
-      amountIqd: numOrNull(v.amountIqd ?? v.amount_iqd ?? v.amount),
+      amountIqd: numOrNull(v.amountIqd ?? v.amount_iqd ?? v.amount ?? v.costIqd ?? v.cost_iqd),
     };
   }
   return { count: 0, amountIqd: null };
@@ -188,4 +195,91 @@ export function auditDrillHref(key: ExceptionKey): string {
 
 export function tillTabHref(tabId: string): string {
   return `/till?tab=${encodeURIComponent(tabId)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Grouping (spec 06.21) — which figures lead, and what state the day is in
+// ---------------------------------------------------------------------------
+
+/**
+ * The figures that mean "walk over there now", in the order a manager acts on
+ * them, with the screen each one opens.
+ *
+ * Only these five are alarms. The rest of the overview is the shape of the day —
+ * true, worth reading, but not a reason to leave the office — and a screen that
+ * prints `0` in a tile the same size as a real problem four times over is why
+ * the old layout could not be skimmed. `alertsFor` drops every zero, so the band
+ * this feeds is empty on a good day and says so in one line.
+ *
+ * `low` is danger rather than warn on purpose: it means the kitchen is about to
+ * run out of something mid-service, which is a harder stop than an expiry date
+ * three days out. `belowPar` and `expiringSoon` stay off this list entirely —
+ * they belong to the stock cluster, where there is room to read them.
+ */
+export const OPS_ALERTS = [
+  { key: 'ticketsLate', severity: 'danger', href: '/till/tabs', count: (o: OpsOverview) => o.cafe.ticketsLate },
+  { key: 'expired', severity: 'danger', href: '/stock', count: (o: OpsOverview) => o.stock.expired },
+  { key: 'low', severity: 'danger', href: '/stock', count: (o: OpsOverview) => o.stock.low },
+  { key: 'noShows', severity: 'danger', href: '/desk', count: (o: OpsOverview) => o.bookings.noShows },
+  { key: 'waiterCalls', severity: 'warn', href: '/till/tabs', count: (o: OpsOverview) => o.cafe.waiterCallsOpen },
+] as const;
+
+export type OpsAlertKey = (typeof OPS_ALERTS)[number]['key'];
+export type OpsSeverity = 'danger' | 'warn';
+
+export interface OpsAlert {
+  key: OpsAlertKey;
+  count: number;
+  severity: OpsSeverity;
+  href: string;
+}
+
+/** The non-zero alarms, worst first. Table order IS the order; nothing is sorted by value. */
+export function alertsFor(o: OpsOverview): OpsAlert[] {
+  return OPS_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: a.count(o) })).filter((a) => a.count > 0);
+}
+
+/** The loudest severity present, for the band's own ground. */
+export function worstSeverity(alerts: readonly OpsAlert[]): OpsSeverity | null {
+  if (alerts.length === 0) return null;
+  return alerts.some((a) => a.severity === 'danger') ? 'danger' : 'warn';
+}
+
+/**
+ * Day close as one word rather than four figures the manager has to combine.
+ *
+ * The four states are exactly the four the day-close screen itself names
+ * (`ws.manager.dayClose.state.*`), so the overview and the screen it routes to
+ * describe the same situation in the same words instead of inventing a second
+ * vocabulary for it. Open tabs outrank a queued write because a tab needs
+ * somebody on the floor, while a queue usually only needs the network back.
+ */
+export type DayCloseState = 'closed' | 'blockedByOpenTabs' | 'blockedByUnsyncedQueue' | 'ready';
+
+export function dayCloseState(d: OpsOverview['dayClose']): DayCloseState {
+  if (!d.open) return 'closed';
+  if (d.blockingCount > 0) return 'blockedByOpenTabs';
+  if (d.queued > 0) return 'blockedByUnsyncedQueue';
+  return 'ready';
+}
+
+export const DAY_CLOSE_TONE: Record<DayCloseState, 'neutral' | 'danger' | 'warn' | 'success'> = {
+  closed: 'neutral',
+  blockedByOpenTabs: 'danger',
+  blockedByUnsyncedQueue: 'warn',
+  ready: 'success',
+};
+
+/**
+ * The basis the exception bars are drawn against.
+ *
+ * Money where the server sends money for every figure, counts otherwise. Mixing
+ * the two inside one list of bars would put a 15,000 IQD discount and a count of
+ * 3 on the same scale, which is not a comparison of anything. `null` means the
+ * bars have no basis at all (every figure is zero) and none should be drawn.
+ */
+export function exceptionBasis(figures: readonly OpsCount[]): { by: 'amount' | 'count'; max: number } | null {
+  const by = figures.every((f) => f.amountIqd !== null) ? 'amount' : 'count';
+  const max = figures.reduce((m, f) => Math.max(m, (by === 'amount' ? f.amountIqd : f.count) ?? 0), 0);
+  return max > 0 ? { by, max } : null;
 }
