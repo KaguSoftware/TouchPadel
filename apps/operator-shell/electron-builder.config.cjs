@@ -112,14 +112,18 @@ const config = {
     artifactName: 'Touch-Padel-Operator-Setup.${ext}',
   },
 
-  // macOS scaffold. Builds only run on the mac job, which the release workflow
-  // enables once a Developer ID cert + Apple credentials exist: an unsigned mac
-  // app is unusable on current macOS (no "Run anyway") and Squirrel.Mac refuses
-  // to update it. zip is the updater's format; dmg is what people download.
+  // macOS. Builds only run on the mac job, which the release workflow enables
+  // once a Developer ID cert + Apple credentials exist: an unsigned mac app is
+  // unusable on current macOS (no "Run anyway") and Squirrel.Mac refuses to
+  // update it. zip is the updater's format; dmg is what people download.
+  // Apple silicon ONLY: scripts/native-abi.mjs rebuilds better-sqlite3 for the
+  // runner's own arch (arm64), so an x64 slice would ship a binary that cannot
+  // load. No Intel Mac is planned at the venue; add x64 back together with a
+  // per-arch rebuild if that changes.
   mac: {
     target: [
-      { target: 'dmg', arch: ['x64', 'arm64'] },
-      { target: 'zip', arch: ['x64', 'arm64'] },
+      { target: 'dmg', arch: ['arm64'] },
+      { target: 'zip', arch: ['arm64'] },
     ],
     artifactName: 'Touch-Padel-Operator-${arch}.${ext}',
     category: 'public.app-category.business',
