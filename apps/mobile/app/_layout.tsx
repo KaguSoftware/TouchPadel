@@ -11,6 +11,7 @@ import { useFonts } from 'expo-font';
 // LocaleDirContext is marked deprecated there in favour of I18nManager — which
 // this app pins LTR on purpose (see RootStack), so the context stays.
 import { LocaleDirContext } from 'expo-router/react-navigation';
+import { ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
@@ -24,6 +25,8 @@ import { lastKnownLocale } from '../src/i18n/lastLocale';
 import { BRAND_FONTS } from '../src/theme/fonts';
 import { lastKnownAppearance } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
+import { useNavigationTheme } from '../src/navigation/theme';
+import { useNativeBarDirection } from '../src/navigation/headerDirection';
 import { AuthProvider } from '../src/features/auth/context';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { installNotificationHandler } from '../src/features/profile/push';
@@ -133,10 +136,14 @@ function RootStack() {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
-  const { dir } = useLocale();
+  // The direction the NATIVE bar is told, plus the short window in which its
+  // back item is left off so UIKit rebuilds the chevron under the new
+  // mirroring. Both come from one module — see ./src/navigation/headerDirection.
+  const { direction: barDir, rebuilding } = useNativeBarDirection();
   // Real native bars on every pushed screen. The tabs draw the native tab bar
   // instead, and (auth) is a nested stack that configures its own.
-  const header = useNativeHeaderOptions();
+  const header = useNativeHeaderOptions(rebuilding);
+  const navTheme = useNavigationTheme();
   return (
     /**
      * THE NATIVE BAR'S DIRECTION.
@@ -150,32 +157,45 @@ function RootStack() {
      * LTR — so it is provided here from the app's own direction instead. It
      * updates live with the language, like everything under DirectionRoot.
      */
-    <LocaleDirContext.Provider value={dir}>
-      <Stack screenOptions={header}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        {/* Formerly the (auth) group. Flattened for the same reason as (gated):
+    <LocaleDirContext.Provider value={barDir}>
+      {/**
+       * THE NATIVE BAR'S INTERFACE STYLE.
+       *
+       * react-navigation's own theme, which expo-router's container fixes at
+       * `DefaultTheme` (`dark: false`). Its `dark` flag reaches UIKit as the
+       * navigation bar's `overrideUserInterfaceStyle`, and that is what decides
+       * how the back item's CHEVRON and LABEL are drawn — `headerTintColor`
+       * only colours them. Left at the default, dark mode drew a light bar's
+       * chevron (invisible on our ground) and a black title. Provided here from
+       * the app's own appearance, like the direction above it.
+       */}
+      <NavigationThemeProvider value={navTheme}>
+        <Stack screenOptions={header}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {/* Formerly the (auth) group. Flattened for the same reason as (gated):
           a screen pushed from the tabs was the first entry of a nested stack,
           so UIKit drew no back item and a JS stand-in had to fill in. Each
           screen carries `RequireNoSession` in place of the layout's redirect. */}
-        <Stack.Screen name="welcome" options={{ headerShown: false }} />
-        <Stack.Screen name="verify-email" options={{ headerShown: false }} />
-        <Stack.Screen name="verify-result" options={{ headerShown: false }} />
-        <Stack.Screen name="sign-in" />
-        <Stack.Screen name="sign-up" />
-        <Stack.Screen name="forgot-password" />
-        <Stack.Screen name="availability" />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="profile-edit" />
-        <Stack.Screen name="change-password" />
-        {/* Formerly the (gated) group, flattened onto the root stack so that
+          <Stack.Screen name="welcome" options={{ headerShown: false }} />
+          <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+          <Stack.Screen name="verify-result" options={{ headerShown: false }} />
+          <Stack.Screen name="sign-in" />
+          <Stack.Screen name="sign-up" />
+          <Stack.Screen name="forgot-password" />
+          <Stack.Screen name="availability" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="profile-edit" />
+          <Stack.Screen name="change-password" />
+          {/* Formerly the (gated) group, flattened onto the root stack so that
           every push leaves real history behind it and UIKit draws its OWN back
           item — the same one, animated, on every screen. Each carries its own
           `RequireSession` in place of the group layout's guard. */}
-        <Stack.Screen name="review" />
-        <Stack.Screen name="booking/[id]" />
-        <Stack.Screen name="success" options={{ headerShown: false }} />
-        <Stack.Screen name="reset-password" />
-      </Stack>
+          <Stack.Screen name="review" />
+          <Stack.Screen name="booking/[id]" />
+          <Stack.Screen name="success" options={{ headerShown: false }} />
+          <Stack.Screen name="reset-password" />
+        </Stack>
+      </NavigationThemeProvider>
     </LocaleDirContext.Provider>
   );
 }
