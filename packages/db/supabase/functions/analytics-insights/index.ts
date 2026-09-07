@@ -55,6 +55,17 @@ const API_KEY = Deno.env.get('GROQ_API_KEY') ?? '';
 const MODEL = Deno.env.get('GROQ_MODEL') || 'openai/gpt-oss-120b';
 const JUDGE_MODEL = Deno.env.get('GROQ_JUDGE_MODEL') || 'llama-3.1-8b-instant';
 const BUDGET_MS = 25_000;
+
+/**
+ * SEC-29 (0079) — per-request token tally.
+ *
+ * Module scope is safe here BECAUSE the accumulator is reset at the top of every
+ * request and an edge instance serves one request at a time. It is flushed to
+ * app.llm_record_usage once, at the end, rather than per model call: one
+ * `insights` request fans out to six calls and six round trips to the database
+ * to bill them would cost more than the calls.
+ */
+const tally = { calls: 0, prompt: 0, completion: 0 };
 const MAX_SPAN_DAYS = 400;
 const MAX_ITEM_ROWS = 40;
 const MAX_SECONDARY_ROWS = 25;
@@ -370,7 +381,16 @@ async function chat(
     });
     const text = await res.text();
     if (!res.ok) throw new UpstreamError(res.status, `groq ${res.status}: ${text.slice(0, 300)}`);
-    const parsed = JSON.parse(text) as { choices?: { message?: { content?: string } }[] };
+    const parsed = JSON.parse(text) as {
+      choices?: { message?: { content?: string } }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
+    // SEC-29 (0079): the bill is denominated in these and they were being
+    // thrown away. Accumulated per request and flushed once at the end, so a
+    // spend cap has something real to measure.
+    tally.calls += 1;
+    tally.prompt += parsed.usage?.prompt_tokens ?? 0;
+    tally.completion += parsed.usage?.completion_tokens ?? 0;
     return parsed.choices?.[0]?.message?.content ?? '';
   } catch (err) {
     if (err instanceof UpstreamError) throw err;
@@ -750,6 +770,29 @@ Deno.serve(async (req) => {
     return json({ degraded: true, model: null, insights: templated.map((i) => ({ ...i, status: 'new' })) });
   }
 
+  // SEC-29 (0079): the quota gate. Deliberately AFTER the degraded path above —
+  // templated sentences cost nothing and must keep working when the budget is
+  // spent, so the card still renders. Only the paid path is gated.
+  tally.calls = 0;
+  tally.prompt = 0;
+  tally.completion = 0;
+  const budget = await service.schema('app').rpc('llm_begin_request');
+  if (budget.error) {
+    const code = budget.error.message ?? 'LLM_BUDGET';
+    if (code.includes('LLM_DAILY_QUOTA') || code.includes('LLM_MONTHLY_CAP')) {
+      // 429, not 502: this is our own ceiling, not Groq failing. The operator
+      // shows the owner why, and the templated fallback is still available.
+      return json(
+        { error: code.includes('LLM_MONTHLY_CAP') ? 'LLM_MONTHLY_CAP' : 'LLM_DAILY_QUOTA',
+          message: budget.error.details ?? code,
+          hint: budget.error.hint ?? null },
+        429,
+      );
+    }
+    console.error('[analytics-insights] budget gate failed', code);
+    return json({ error: 'UPSTREAM', code: 'UPSTREAM', message: code }, 502);
+  }
+
   const deadline = Date.now() + BUDGET_MS;
   try {
     switch (parsed.mode) {
@@ -773,5 +816,18 @@ Deno.serve(async (req) => {
     // 429 / 5xx / timeout at Groq → 502 UPSTREAM (operator maps 5xx → EDGE_UPSTREAM, one retry).
     // Other 4xx (bad key, retired model) are permanent: 502 too, but say so in detail.
     return json({ error: 'UPSTREAM', code: 'UPSTREAM', upstream_status: status, message }, 502);
+  } finally {
+    // In `finally` on purpose: a request that burned five calls and then timed
+    // out on the sixth has still spent the money, and a cap that only counts
+    // successes is not a cap. Never allowed to throw — failing to record must
+    // not turn a served answer into an error.
+    if (tally.calls > 0) {
+      const rec = await service.schema('app').rpc('llm_record_usage', {
+        p_model_calls: tally.calls,
+        p_prompt_tokens: tally.prompt,
+        p_completion_tokens: tally.completion,
+      });
+      if (rec.error) console.error('[analytics-insights] usage not recorded', rec.error.message);
+    }
   }
 });
