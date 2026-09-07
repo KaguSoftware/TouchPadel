@@ -15,7 +15,7 @@
 --   H4  The hero builder wrote its settings in a `for … await` loop
 --       (HeroBuilder.tsx:190) with no rollback, so a failure part-way left the
 --       guest hero half-configured — mode changed, media not, or the reverse.
---
+-- 
 -- The fix in both cases is to make the whole change one statement in one
 -- transaction, which is also the only way the audit log can record it as one
 -- act by one actor.
