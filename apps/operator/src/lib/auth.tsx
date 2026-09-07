@@ -143,6 +143,17 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/panel': ['owner'],
   '/reports': ['manager', 'owner'],
   '/reports/revenue': ['owner'],
+  // The Setup section's landing screen. Its destinations are all under
+  // /admin, which manager shares; the section itself is the owner's.
+  '/setup': ['owner'],
+  // Management's other two sections. Same shape as /setup: the landing screen
+  // is the owner's even where individual destinations (day close, bookings,
+  // the audit log) are shared with the manager through their own keys.
+  '/financial': ['owner'],
+  '/observation': ['owner'],
+  // Campaigns move money and speak to guests in the venue's name, so this is
+  // the owner's alone — not manager, the way /admin/telegram already is.
+  '/marketing': ['owner'],
   '/workspaces': ['manager', 'owner'],
 };
 

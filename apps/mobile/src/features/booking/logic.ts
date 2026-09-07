@@ -106,6 +106,31 @@ export function splitBookings(
 }
 
 /**
+ * The line that explains why a booking is over — or null while it is still
+ * live. Detail rendered it for `cancelled` only, so the two endings the guest
+ * did NOT ask for said nothing at all: a no-show closed by the desk (0075) and
+ * a hold that lapsed before it was confirmed both left a booking that had
+ * quietly stopped meaning anything, with no way to tell that from a booking
+ * still standing.
+ *
+ * `completed` gets no notice: the guest played, and there is nothing to say.
+ */
+export function endedNotice(
+  status: string,
+): 'booking.cancelledNotice' | 'booking.noShowNotice' | 'booking.expiredNotice' | null {
+  switch (status) {
+    case 'cancelled':
+      return 'booking.cancelledNotice';
+    case 'no_show':
+      return 'booking.noShowNotice';
+    case 'expired':
+      return 'booking.expiredNotice';
+    default:
+      return null;
+  }
+}
+
+/**
  * Guest-side cancellability mirror of app.cancel_reservation's policy: live
  * status and outside the cancellation window. The RPC remains the authority.
  */

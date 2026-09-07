@@ -51,6 +51,19 @@ export const shellEn = {
     manager: 'Operations',
     owner: 'Management',
   },
+  // A section of a workspace with its own landing screen and its own rail
+  // (lib/workspaces.ts). Management shows one button per section instead of
+  // spilling all fourteen destinations into its own column.
+  section: {
+    financial: 'Financial',
+    observation: 'Observation',
+    setup: 'Setup',
+  },
+  sectionLead: {
+    financial: 'Money in, money out, and whether the cash agrees',
+    observation: 'The floor now, the pattern behind it, and what is waiting on you',
+    setup: 'Staff, courts, tables and how the venue is configured',
+  },
   workspaceLead: {
     courtDesk: 'Bookings, arrivals and customers',
     cashier: 'Orders, tabs and payment',
@@ -84,8 +97,25 @@ export const shellEn = {
     tables: 'Tables & QR',
     settings: 'Venue settings',
     guestSite: 'Guest site',
+    // Financial section rows. 'revenue'/'stockValue' are distinct from the old
+    // 'reports'/'stock': the row names the FIGURE the owner came for, not the
+    // screen that happens to show it.
+    revenue: 'Revenue',
+    courtIncome: 'Court income',
+    cafeSales: 'Cafe sales',
+    menuPrices: 'Menu prices',
+    stockValue: 'Stock value',
+    // Observation section rows.
+    floorNow: 'Floor now',
+    patterns: 'Patterns',
+    staffActivity: 'Staff activity',
+    requests: 'Requests',
+    marketing: 'Marketing',
+    telegram: 'Telegram',
     groupOperations: 'Operations',
     groupSetup: 'Setup',
+    // The way out of a section rail, back to the workspace's own.
+    backTo: 'Back to {workspace}',
     // The owner's rail puts 17 links and four controls before the routed
     // screen; without this every navigation costs up to 21 Tab presses.
     skipToMain: 'Skip to main content',
