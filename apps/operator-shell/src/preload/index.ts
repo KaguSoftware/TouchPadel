@@ -13,6 +13,8 @@ import {
   type PrintResult,
   type QueueRowInfo,
   type QueueStatus,
+  type ResolveQueueRowRequest,
+  type ResolveQueueRowResult,
   type StationInfo,
   type StationSetupRequest,
   type StationSetupResult,
@@ -61,6 +63,9 @@ const touch = {
   },
 
   getQueueRows: (): Promise<QueueRowInfo[]> => ipcRenderer.invoke(IPC.queueRows),
+
+  resolveQueueRow: (req: ResolveQueueRowRequest): Promise<ResolveQueueRowResult | { error: string }> =>
+    ipcRenderer.invoke(IPC.resolveQueueRow, req),
 
   print: (job: PrintJob): Promise<PrintResult> => ipcRenderer.invoke(IPC.print, job),
 

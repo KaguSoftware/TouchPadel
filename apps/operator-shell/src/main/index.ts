@@ -9,6 +9,7 @@ import {
   openQueue,
   putCachedRef,
   queueStatus,
+  resolveRow,
   setConnOnline,
 } from './queue';
 import { loadStation, writeStation } from './station';
@@ -19,7 +20,7 @@ import { startLanKdsClient, type LanKdsClient } from './lan-kds-client';
 import { confirmTill, discoverTill, SCAN_HANDSHAKE_TIMEOUT_MS } from './lan-discover';
 import { startUpdater, type UpdaterHandle } from './updater';
 import { startHeartbeat } from './heartbeat';
-import { setAuthState } from './auth-state';
+import { getAuthState, setAuthState } from './auth-state';
 import { observePin, unlockPinOffline } from './pin-cache';
 import { printReceiptHtml } from './print/print-receipt';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
@@ -35,6 +36,7 @@ import {
   validatePin,
   validatePrintJob,
   validateRefKey,
+  validateResolveQueueRow,
   validateStationSetup,
 } from './ipc-validate';
 
@@ -264,12 +266,29 @@ if (gotTheLock) {
           localId: r.localId,
           idempotencyKey: r.idempotencyKey,
           mutationType: r.mutationType,
-          state: r.state as Exclude<typeof r.state, 'acked'>,
+          state: r.state as Exclude<typeof r.state, 'acked' | 'resolved'>,
           attempts: r.attempts,
           lastError: r.lastError,
           createdAt: r.createdAt,
         })),
       ),
+    );
+
+    // A manager dismissing a row the worker will never deliver (409 conflict /
+    // deterministic 4xx). Until this existed, one ITEM_UNAVAILABLE on an
+    // offline order held day close shut forever: 'failed' is terminal, blocks
+    // close, and nothing could clear it. Same offline PIN gate as quitApp; the
+    // renderer verifies server-side first when online.
+    ipcMain.handle(IPC.resolveQueueRow, (_e, v: unknown) =>
+      guardIpc('resolveQueueRow', () => {
+        const req = validateResolveQueueRow(v);
+        if (!unlockPinOffline(req.pin)) return { ok: false as const, error: 'pin not recognised' as const };
+        if (!resolveRow(req.idempotencyKey, getAuthState()?.staffId ?? null)) {
+          return { ok: false as const, error: 'not-resolvable' as const };
+        }
+        pushStatus(); // the banner count and the heartbeat's depth drop now, not in 2s
+        return { ok: true as const };
+      }),
     );
     ipcMain.handle(IPC.getCachedRef, (_e, key: unknown) =>
       guardIpc('getCachedRef', () => getCachedRef(validateRefKey(key))),

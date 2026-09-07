@@ -17,7 +17,7 @@ export interface QueueRow {
   createdAt: string;
   staffId: string | null;
   deviceId: string | null;
-  state: 'pending' | 'inflight' | 'acked' | 'conflict' | 'failed';
+  state: 'pending' | 'inflight' | 'acked' | 'conflict' | 'failed' | 'resolved';
   attempts: number;
   lastError: string | null;
 }
@@ -34,10 +34,12 @@ const BASE_DDL = `
     created_at      TEXT NOT NULL,                     -- station clock, informational
     staff_id        TEXT,                              -- attributed actor; replay 400s without it
     device_id       TEXT,                              -- queue-owning station, key's first segment
-    state           TEXT NOT NULL DEFAULT 'pending',   -- pending|inflight|acked|conflict|failed
+    state           TEXT NOT NULL DEFAULT 'pending',   -- pending|inflight|acked|conflict|failed|resolved
     attempts        INTEGER NOT NULL DEFAULT 0,
     last_error      TEXT,
-    server_result   TEXT                               -- JSON echo (server ids/timestamps) on ack
+    server_result   TEXT,                              -- JSON echo (server ids/timestamps) on ack
+    resolved_by     TEXT,                              -- v3: staff id of the manager who dismissed it
+    resolved_at     TEXT                               -- v3: when (station clock)
   );
   CREATE TABLE IF NOT EXISTS ref_cache (
     key        TEXT PRIMARY KEY,                       -- menu|prices|recipes|courts|tables|... (§2.3)
@@ -95,6 +97,18 @@ function migrate(d: Database.Database): void {
       )`);
     }
     d.pragma('user_version = 2');
+  }
+  if (version < 3) {
+    // v3: a manager can dismiss a conflict/failed row from the day-close
+    // screen (resolveRow). Who and when live on the row — it is never deleted.
+    const cols = d.pragma('table_info(mutation_queue)') as { name: string }[];
+    if (!cols.some((c) => c.name === 'resolved_by')) {
+      d.exec('ALTER TABLE mutation_queue ADD COLUMN resolved_by TEXT');
+    }
+    if (!cols.some((c) => c.name === 'resolved_at')) {
+      d.exec('ALTER TABLE mutation_queue ADD COLUMN resolved_at TEXT');
+    }
+    d.pragma('user_version = 3');
   }
 }
 
@@ -217,6 +231,25 @@ export function ack(idempotencyKey: string, serverResult: unknown): void {
     .run({ key: idempotencyKey, result: JSON.stringify(serverResult ?? null) });
 }
 
+/**
+ * A manager dismissing a row the worker will never deliver. Only 'conflict' and
+ * 'failed' qualify — a pending/inflight row is still travelling and an acked
+ * row is already on the server. The row stays in the table as 'resolved' with
+ * who and when, so the audit trail of what this station tried to write is
+ * complete; it just stops blocking day close and disappears from the banner.
+ * Returns false when the key is unknown or the row is not in a resolvable state.
+ */
+export function resolveRow(idempotencyKey: string, resolvedBy: string | null): boolean {
+  const info = openQueue()
+    .prepare(
+      `UPDATE mutation_queue
+         SET state = 'resolved', resolved_by = @by, resolved_at = @at
+       WHERE idempotency_key = @key AND state IN ('conflict','failed')`,
+    )
+    .run({ key: idempotencyKey, by: resolvedBy, at: new Date().toISOString() });
+  return info.changes === 1;
+}
+
 /** Everything that blocks day close: pending, inflight, conflict AND failed rows. */
 export function listBlockingRows(): QueueRow[] {
   const rows = openQueue()
@@ -307,4 +340,5 @@ export function setMeta(key: string, value: string): void {
 // idempotency_key → server returns stored result (200). Reservation replay hitting
 // the EXCLUDE constraint → 409 → markConflict, surfaced in the desk UI. Negative
 // stock settles server-side (manager flag), never blocks replay. Day close is
-// refused while listBlockingRows() is non-empty. (design-arch.md §2.2.)
+// refused while listBlockingRows() is non-empty; a conflict/failed row leaves
+// that set only through resolveRow (manager PIN, day-close screen). (design-arch.md §2.2.)
