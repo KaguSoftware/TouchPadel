@@ -6,6 +6,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
 import type { Locale } from '@touch/i18n';
 
+import { clearPushToken } from '../profile/api';
+
 type Client = SupabaseClient<Database>;
 
 /**
@@ -89,7 +91,23 @@ export async function updatePassword(client: Client, newPassword: string) {
   if (error) throw error;
 }
 
+/**
+ * SEC-21 — the push token is cleared BEFORE the session goes.
+ *
+ * The update needs the guest's own JWT (profiles_update_own is
+ * `id = auth.uid()`), so it cannot be done after signOut(). It is also best
+ * effort: clearPushToken swallows its own failures, because a network hiccup
+ * must not leave somebody unable to sign out of a shared phone.
+ *
+ * Without this the row keeps a live capability to push notifications to a
+ * handset the guest has walked away from, and the next person to use it goes on
+ * receiving the previous guest's booking reminders.
+ */
 export async function signOut(client: Client) {
+  const { data } = await client.auth.getUser();
+  const uid = data.user?.id;
+  if (uid) await clearPushToken(client, uid);
+
   const { error } = await client.auth.signOut();
   if (error) throw error;
 }
