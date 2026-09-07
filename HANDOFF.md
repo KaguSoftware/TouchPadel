@@ -1292,7 +1292,8 @@ were set with `gh secret set` (`OPERATOR_SUPABASE_ANON_KEY` = the hosted **publi
    three Windows assets are present before `gh release edit --draft=false --latest`.
 
 **CI on `main` had been red since 2026-09-05** (three commits). Four independent causes, all fixed
-the same day:
+the same day — **CI green again on `93e93f0` (run `34104660220`: shell, mobile, db incl. types
+drift, lint/typecheck/test/build, e2e EN+AR)**:
 - **lint**: `apps/mobile/scripts/make-icons.mjs` uses `Buffer`; the mobile ESLint config linted
   `scripts/` as RN app code → `no-undef`. `scripts/**` is now ignored (as operator-shell already did).
 - **e2e**: `operator-cafe-admin` (g) used `getByLabel('Search')`; Playwright label matching is a
@@ -1309,6 +1310,29 @@ the same day:
   only ever passes E.164; the test now uses an E.164 variant.
 - `supabase/setup-cli` pinned to **2.116.0** in both CI jobs (was `latest`) so the types-drift check
   is reproducible.
+
+Two more packaging bugs surfaced only on an installed build (peer session `touchpadel-7b`, same day):
+4. **The 0.2.0 installer never opened a window** — `NODE_MODULE_VERSION 127 vs 130` inside
+   `app.whenReady`: pnpm's hoisted root `better-sqlite3` carries the Node-22 prebuild and
+   electron-builder's rebuild never reaches it (it runs in the package dir, finds nothing, reports
+   success). `apps/operator-shell/scripts/native-abi.mjs` now fetches the Electron prebuild and PROVES
+   it opens a database under `electron.exe` before packaging (`npmRebuild: false` so the builder can
+   never look like it did the job; `pnpm native:node` flips the binary back for vitest). A boot throw
+   is now a dialog + `userData/startup-error.log` + exit instead of a windowless process stuck
+   behind the single-instance lock. NSIS switched to the assisted installer (one-click "flashed and
+   vanished"). Tag `operator-v0.2.1` was cut with this, then **held and deleted** before publish because:
+5. **A configured till crashed at boot** — `import_ws.WebSocketServer is not a constructor` in
+   `startLanKdsServer`: the tree holds `ws` 7.5.13 hoisted at the root and 8.21.3 under
+   operator-shell; with `ws` external, the asar got 7.x, which has no `WebSocketServer`. Only shows
+   once `station.json` has a `lan_psk`. `ws` is now bundled by esbuild (`93e93f0`).
+
+**`operator-v0.2.2` is the first working public release — published 2026-09-07 09:14 UTC**: run
+`34104663424` green (prepare → windows → publish; macos skipped), release `v0.2.2` in
+`KaguSoftware/touchpadel-releases` with `Touch-Padel-Operator-Setup.exe` (84.5 MB), its `.blockmap`
+and `latest.yml` (`version: 0.2.2`); the stable link
+`…/releases/latest/download/Touch-Padel-Operator-Setup.exe` 302s to it and `/download` on the guest
+site serves it. Unsigned (SmartScreen prompt once per machine) until a cert exists. Machines that
+installed the broken 0.2.0 do NOT self-update (that build never reached the updater) — reinstall by hand.
 
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
@@ -1387,9 +1411,9 @@ the same day:
    section above). Offline spine (queue→worker→mutate seam→ref_cache→offline PIN→offline
    tabs), LAN KDS, Windows installer, ESC/POS printing, drill runbook, speed pass, stock
    module (Module-5 acceptance e2e passes), courts admin, KDS persistence, idle lock, batch
-   expiry. **Code-complete; still owed on site**: physical print test, the packaged-install
-   drill rehearsal (×2 before 2026-10-04), app icon, Sentry DSN — and the hosted catch-up
-   (Gotchas: `db push` 0060–0070 — hosted verified at 0059 on 2026-09-06 — + function redeploys).
+   expiry. ✔ **2026-09-07: downloadable for real — `operator-v0.2.2` published** (Day 18); hosted
+   at 0075 + `replay` v2 the same day. **Still owed on site**: physical print test, the
+   packaged-install drill rehearsal (×2 before 2026-10-04), app icon, signing cert, Sentry DSN.
 7. **the mobile app** (`docs/design/mobile-audit-2026-08-27.md`). ✔ crash fix + SDK 54 (day 5);
    ✔ **UI rebuild to the approved design 2026-08-31** (day 8 — guest browse, dark mode, merged
    grid, all screens); ✔ **day 9: the on-phone fix pass** ("no internet" root-caused — hosted
@@ -1441,7 +1465,7 @@ the same day:
 | Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
 | Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
 | Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
-| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **downloadable 2026-09-05**: durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS installer published to a public releases repo with a stable link + `/download` page, first-run station setup + kitchen-screen pairing code, auto-update, conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: create the public repo + secrets and push the first tag; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |
+| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **PUBLISHED 2026-09-07 as `v0.2.2`** (first working public build — the public repo, secrets, draft→publish pipeline, Electron-ABI rebuild proof and bundled `ws` all landed that day): durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS assisted installer at the stable `/download` link, first-run station setup + kitchen-screen pairing code, auto-update (feed verified: `latest.yml` 0.2.2), conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: swap `RELEASES_GH_TOKEN` for a fine-grained PAT; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |
 | Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
@@ -1465,6 +1489,13 @@ the same day:
 - **electron-builder creates the GitHub release once PER PUBLISHER, and there is one publisher per
   artifact** — two concurrent creates raced to a 422 on 2026-09-07. `operator-release.yml` creates
   the draft in `prepare` and publishes in a final job; never let the builder create the release.
+- **A packaged operator build must be INSTALLED and configured as a till before it counts as
+  tested.** Two bugs (2026-09-07) were invisible to every gate: the hoisted `better-sqlite3` is the
+  Node-ABI binary (app never opened a window — `scripts/native-abi.mjs` now proves the Electron
+  prebuild loads before packaging), and two `ws` versions in the tree put 7.x in the asar (a till
+  with a `lan_psk` crashed at boot — `ws` is now bundled). Any new native or duplicated dependency
+  is a candidate for the same class of failure; `userData/startup-error.log` is where a boot throw
+  lands now.
 - **Playwright `getByLabel('X')` is a substring match.** Any control whose accessible name contains
   the word (the audit log's "Remove filter: Search: …" chip) makes it a strict-mode violation.
   Prefer `getByRole(role, { name })` or `{ exact: true }`.

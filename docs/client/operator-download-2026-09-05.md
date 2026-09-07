@@ -1,10 +1,15 @@
 # Operator desktop app — making it downloadable (owner checklist, 2026-09-05)
 
+**Status 2026-09-07: LIVE.** `operator-v0.2.2` is published at
+`https://github.com/KaguSoftware/touchpadel-releases/releases` and the staff
+page `https://touch-padel-web.vercel.app/download` serves it. Steps 1–3 below
+are done (§2 as an interim token). Steps 4–6 remain and take effect on the next
+tag push without any code change. Anyone who installed the earlier 0.2.0 build
+(never opened a window) must download and run the new installer by hand.
+
 Everything in the code is done: a tag push builds the Windows installer, signs
 it if a certificate exists, publishes it to a public download page, and the
-installed app updates itself. What remains is account work only the owner can
-do. Steps 1–3 are required for the first release; 4 and 5 can come later and
-take effect on the next tag push without any code change.
+installed app updates itself.
 
 ## 1. Create the public releases repo (5 min) — ✔ DONE 2026-09-07
 
