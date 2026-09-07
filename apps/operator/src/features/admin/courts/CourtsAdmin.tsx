@@ -1,9 +1,17 @@
 /**
  * CourtAdminScreen (spec 06.47) — SOW L299-301: name, indoor/outdoor,
  * description, photograph, duration options per court. Writes via
- * app.upsert_court / app.reorder_courts (0062, audited). The list is a
- * DataTable; one court opens in an inline editor below it with paired EN/AR
- * fields. States: loading · ready · empty · error · busy · dirty.
+ * app.upsert_court / app.reorder_courts (0062, audited) and app.delete_court
+ * (0074). The list is a DataTable; one court opens in an inline editor below
+ * it with paired EN/AR fields. States: loading · ready · empty · error · busy ·
+ * dirty · refused.
+ *
+ * Delete lives in the EDITOR, not in the row's action cell. A destructive
+ * action on a row you have not opened is a misclick waiting to happen next to
+ * the reorder arrows, and the refusal it can come back with needs somewhere to
+ * be read: a court that has ever been booked cannot be deleted (the reports
+ * still read its name off the reservation), so COURT_IN_USE is rendered with
+ * its counts and the deactivate offered in the same breath.
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,12 +19,13 @@ import { supabase } from '../../../lib/supabase';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
+import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field } from '../../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, Panel, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, PageHeader, Panel, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { BilingualFields, SortButtons } from '../../../components/inputs';
 import { Switch } from '../../../components/Switch';
 import { ImageField } from '../../../components/ImageField';
-import { DURATION_CHOICES, durationsValid, toggleDuration } from './courtsLogic';
+import { DURATION_CHOICES, courtUsageFromError, durationsValid, toggleDuration, type CourtUsage } from './courtsLogic';
 
 interface CourtAdminRow {
   id: string;
@@ -156,8 +165,9 @@ export function CourtsAdmin() {
 }
 
 function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; onDone: () => void; onCancel: () => void }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const toast = useToast();
+  const confirm = useConfirm();
   const [nameEn, setNameEn] = useState(court?.name_en ?? '');
   const [nameAr, setNameAr] = useState(court?.name_ar ?? '');
   const [descEn, setDescEn] = useState(court?.description_en ?? '');
@@ -167,7 +177,10 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
   const [photo, setPhoto] = useState<string | null>(court?.photo_path ?? null);
   const [durations, setDurations] = useState<number[]>(court?.duration_options ?? [60, 90, 120]);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  /** COURT_IN_USE: a refusal, so the control stays and the counts are shown. */
+  const [inUse, setInUse] = useState<CourtUsage | null>(null);
 
   const dirty =
     nameEn !== (court?.name_en ?? '') ||
@@ -200,6 +213,61 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
       setError(e);
     } finally {
       setBusy(false);
+    }
+  }
+
+  const courtName = court ? pickName(locale, court) : '';
+
+  async function remove() {
+    if (!court) return;
+    const ok = await confirm({
+      title: tr('ws.owner.courts.deleteConfirm', { court: courtName }),
+      body: tr('ws.owner.courts.deleteConfirmBody'),
+      kind: 'danger',
+      confirmLabel: tr('ws.owner.courts.delete'),
+    });
+    if (!ok) return;
+    setDeleting(true);
+    setError(null);
+    setInUse(null);
+    try {
+      await appRpc('delete_court', { p_id: court.id });
+      toast.ok(tr('ws.owner.courts.deleted'));
+      onDone();
+    } catch (e) {
+      // A refusal is not a failure: the court has history and must be
+      // deactivated instead, which the notice below offers directly.
+      const usage = courtUsageFromError(e);
+      if (usage) setInUse(usage);
+      else setError(e);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  /** The way out of COURT_IN_USE, without making the operator hunt for it. */
+  async function deactivate() {
+    if (!court) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await appRpc('upsert_court', {
+        p_id: court.id,
+        p_name_en: nameEn,
+        p_name_ar: nameAr,
+        p_indoor: indoor,
+        p_description_en: descEn || null,
+        p_description_ar: descAr || null,
+        p_photo_path: photo,
+        p_duration_options: durations,
+        p_is_active: false,
+      });
+      toast.ok(tr('op.toast.saved'));
+      onDone();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -240,15 +308,54 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
       </div>
 
       <ErrorText error={error} />
+      {inUse && (
+        <MessagePresenter
+          tone="refused"
+          rise
+          style={{ marginBlockEnd: 'var(--tp-sp-3)', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--tp-sp-2)' }}
+          message={
+            <>
+              <p>
+                {tr('ws.owner.courts.deleteInUse', {
+                  court: courtName,
+                  bookings: inUse.reservations,
+                  series: inUse.series,
+                  rules: inUse.rate_rules,
+                })}
+              </p>
+              <p style={{ marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.owner.courts.deleteInUseFix')}</p>
+              <div style={{ marginBlockStart: 'var(--tp-sp-2)' }}>
+                <Button size="sm" icon="check" busy={deleting} disabled={busy} onClick={() => void deactivate()}>
+                  {tr('ws.owner.courts.deactivate')}
+                </Button>
+              </div>
+            </>
+          }
+        />
+      )}
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>
-        <Button onClick={onCancel} disabled={busy}>
+        {/* Destructive, so it sits apart from the pair that saves — inline-start
+            edge, and only on a court that already exists. */}
+        {court && (
+          <Button
+            kind="danger"
+            icon="trash"
+            busy={deleting}
+            disabled={busy}
+            style={{ marginInlineEnd: 'auto' }}
+            onClick={() => void remove()}
+          >
+            {tr('ws.owner.courts.delete')}
+          </Button>
+        )}
+        <Button onClick={onCancel} disabled={busy || deleting}>
           {dirty ? tr('ws.owner.courts.discard') : tr('common.back')}
         </Button>
         <Button
           kind="primary"
           icon="check"
           busy={busy}
-          disabled={!nameEn.trim() || !nameAr.trim() || !durationsValid(durations)}
+          disabled={deleting || !nameEn.trim() || !nameAr.trim() || !durationsValid(durations)}
           // Rulebook 4.3. The button was dead with nothing said about it, on a
           // form where the blocking field can be scrolled off the screen.
           disabledReason={

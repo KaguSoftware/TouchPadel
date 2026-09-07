@@ -39,6 +39,13 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
       title: 'Booking cancelled',
       body: (court, when) => `${court} — ${when} was cancelled.`,
     },
+    // Deliberately not worded as a cancellation, and deliberately not
+    // accusatory: the guest may well have been there and the desk may well
+    // have got it wrong, so it says what happened and where to take it.
+    booking_no_show: {
+      title: 'Booking closed',
+      body: (court, when) => `${court} — ${when} was closed as a no-show. Speak to the desk if that is wrong.`,
+    },
     // Settings > "Send a test notification" (app.send_test_push, migration 0070).
     test: {
       title: 'Test notification',
@@ -57,6 +64,10 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     booking_cancelled: {
       title: 'تم إلغاء الحجز',
       body: (court, when) => `${court} — ${when} تم إلغاؤه.`,
+    },
+    booking_no_show: {
+      title: 'تم إغلاق الحجز',
+      body: (court, when) => `${court} — ${when} أُغلق لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
     },
     test: {
       title: 'إشعار تجريبي',
@@ -79,7 +90,7 @@ function formatWhen(iso: string, lang: Lang): string {
 interface OutboxRow {
   id: number;
   profile_id: string;
-  kind: 'booking_confirmed' | 'booking_reminder' | 'booking_cancelled' | 'test';
+  kind: 'booking_confirmed' | 'booking_reminder' | 'booking_cancelled' | 'booking_no_show' | 'test';
   /** Reservation snapshot for the booking kinds; `{ source }` only for `test`. */
   payload: {
     reservation_id?: string;

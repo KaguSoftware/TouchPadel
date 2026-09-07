@@ -21,8 +21,11 @@ export function ZoneNav() {
             aria-current={selected ? 'true' : undefined}
             onClick={() => document.getElementById(`zone-${zone.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             style={{
+              // The deck stands every control on --tp-row-h; these pills came
+              // to ~30px and floated inside that band.
+              minBlockSize: 'var(--tp-row-h)',
               paddingBlock: 'var(--tp-sp-1-5)',
-              paddingInline: 'var(--tp-sp-2-5)',
+              paddingInline: 'var(--tp-sp-3)',
               borderRadius: 'var(--tp-radius-pill)',
               border: `1px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
               background: selected ? 'var(--tp-accent)' : 'transparent',

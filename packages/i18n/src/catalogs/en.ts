@@ -574,6 +574,12 @@ export const en = {
     windowClosedTitle: 'Cancellation window closed',
     windowClosedBody: 'The free window ended at {when}. The desk can still help with changes.',
     cancelledNotice: 'This booking was cancelled. The slot has been released back to the grid.',
+    // A no-show is closed by the venue, not by the guest — so it says who did
+    // it and where to take it, rather than leaving a booking that has quietly
+    // stopped meaning anything.
+    noShowNotice:
+      'The venue closed this booking as a no-show, and the slot went back on the grid. Speak to the desk if that is wrong.',
+    expiredNotice: 'This booking expired before it was confirmed. The slot went back on the grid.',
     payAtDeskShort: 'Pay at the desk. No online payment — settle at reception on arrival.',
     cancelDialogTitle: 'Cancel this booking?',
     cancelDialogBody: "Your slot on {when} goes back on the grid. This can't be undone in the app.",
@@ -1659,6 +1665,7 @@ export const en = {
       INVALID_DURATIONS: 'Duration options must be 30–300 minutes in 15-minute steps.',
       COURT_HAS_FUTURE_RESERVATIONS:
         'This court still has upcoming bookings — move or cancel them at the desk first.',
+      COURT_IN_USE: 'That court still has bookings or price rules. Deactivate it instead — it leaves the calendar and the guest app, and the reports keep its name.',
       NAME_REQUIRED: 'Both the English and Arabic names are required.',
       UNIT_LOCKED: 'The unit is locked — the ledger already holds quantities in it.',
       KIND_LOCKED: 'The kind is locked — the ledger already classifies this ingredient.',
@@ -1697,6 +1704,20 @@ export const en = {
       CANCELLATION_WINDOW: 'Inside the cancellation window.',
       RESERVATION_NOT_FOUND: 'Reservation not found.',
       REASON_REQUIRED: 'A reason is required.',
+      REQUEST_NOT_PENDING: 'That request has already been answered. Reload to see the decision.',
+      CANNOT_DECIDE_OWN: 'You cannot decide your own request.',
+      REQUEST_ALREADY_PENDING: 'There is already a pending request of that kind.',
+      BAD_KIND: 'That is not a kind of request.',
+      BAD_STATUS: 'That is not a status.',
+      BAD_TRANSITION: 'A campaign cannot move to that state from where it is now.',
+      CAMPAIGN_LOCKED: 'This campaign has already gone out and can no longer be edited.',
+      BAD_CHANNEL: 'Choose a channel.',
+      BAD_RULE: 'That audience rule is not valid.',
+      BODY_REQUIRED: 'Write the message in both languages before this campaign goes out.',
+      START_REQUIRED: 'Give the campaign a start date before it goes out.',
+      REQUEST_NOT_FOUND: 'That request no longer exists. Reload the queue.',
+      CAMPAIGN_NOT_FOUND: 'That campaign no longer exists. Reload the page.',
+      AUDIENCE_NOT_FOUND: 'That audience no longer exists.',
       INVALID_VALUE: 'Invalid value.',
       INVALID_PRICES: 'Prices must be whole IQD amounts per duration.',
       INVALID_DAYS: 'Pick at least one day of the week.',

@@ -8,9 +8,9 @@ import { formatDate, formatDateTime, formatTimeRange, isolate } from '@touch/i18
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
-import { canCancel, displayRef } from '../../src/features/booking/logic';
+import { canCancel, displayRef, endedNotice } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useCourts, useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
+import { useCourts, useCourtsBroadcast, useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { callPhone } from '../../src/lib/phone';
 import { formatPrice } from '../../src/lib/price';
@@ -53,6 +53,13 @@ function BookingDetailScreen() {
   const degraded = useIsDegraded();
   const cancel = useCancelReservation();
   const toast = useToast();
+  // The desk can end this booking while the guest is looking straight at it —
+  // a no-show, a cancel, a move. Bookings mounts this and the grid does; the
+  // detail screen did not, so the one screen showing a SINGLE booking was the
+  // one that kept showing it after the venue closed it, until a 15 s staleTime
+  // happened to lapse against a refocus. Reference-counted and shared, so this
+  // adds no second subscription when it is opened from Bookings.
+  useCourtsBroadcast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [noticeClosed, setNoticeClosed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +88,7 @@ function BookingDetailScreen() {
     start.getTime() > now.getTime() &&
     (booking.status === 'confirmed' || booking.status === 'pending');
   const eligible = booking != null && policyKnown && canCancel(booking, windowHours, now);
+  const endedNoticeKey = booking ? endedNotice(booking.status) : null;
   const windowEnd =
     start && windowHours > 0 ? new Date(start.getTime() - windowHours * 3_600_000) : null;
 
@@ -326,7 +334,17 @@ function BookingDetailScreen() {
             </View>
           ) : null}
 
-          {booking.status === 'cancelled' ? (
+          {/*
+            Why a booking is over, for every way it can be over.
+
+            This used to test `status === 'cancelled'` alone, so a booking the
+            venue closed as a no-show — or one that expired before it was
+            confirmed — showed a status pill and nothing else: no explanation,
+            and no hint that the slot had gone. The desk marks a no-show and
+            from the guest's side the booking simply stops meaning anything,
+            which is exactly what it looks like when nothing happened at all.
+          */}
+          {endedNoticeKey ? (
             <View
               style={{
                 marginTop: 10,
@@ -338,7 +356,7 @@ function BookingDetailScreen() {
               <Text
                 style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut }}
               >
-                {t('booking.cancelledNotice')}
+                {t(endedNoticeKey)}
               </Text>
             </View>
           ) : null}
