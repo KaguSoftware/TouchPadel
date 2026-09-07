@@ -51,6 +51,19 @@ const BLUE = '#3360AB';
 const BROWN = '#603813';
 const WARM_BG = '#F8F5F1';
 const WARM_BORDER = '#E0D8CE';
+/**
+ * The QR's ink, and it is deliberately NOT the brand brown.
+ *
+ * A print shop runs these A6s on a mono laser or a thermal head. Any mid-tone
+ * — brown included — has to be halftoned there, so the modules come out as a
+ * dotted mesh with no hard edges, which is the failure that reads as "the
+ * codes don't scan". Black prints as ink coverage: solid modules, real edges.
+ * A QR is a machine-readable mark; the brand is carried by the header band,
+ * the number and the type around it.
+ */
+const QR_INK = '#000000';
+/** 1.4:1 on white — the host line was set in the hairline colour and vanished. */
+const FAINT = '#8A8078';
 
 // The brand family, spelled out because this file cannot reach the token that
 // owns it: it is plain .mjs in a package that does not depend on @touch/ui, and
@@ -112,14 +125,32 @@ async function generateToken(tableId) {
   return token;
 }
 
-/** One <path> of 1-unit squares for the QR's dark modules. */
+/**
+ * One <path> for the QR's dark modules, as horizontal RUNS.
+ *
+ * One 1x1 square per module gives every module four independent fill edges,
+ * and a rasteriser that snaps them to its own dot grid leaves hairline white
+ * seams inside blocks the scanner has to read as solid. Merging each row's
+ * consecutive modules into one rect removes every interior vertical edge and
+ * cuts the path to about a third — which also matters to a spooler handling a
+ * sheet of these. Kept identical to qrPath() in
+ * apps/operator/src/features/admin/qr/qrCardGeometry.ts.
+ */
 function qrPath(url) {
   const qr = QRCode.create(url, { errorCorrectionLevel: 'M' });
   const { size, data } = qr.modules;
   let d = '';
   for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      if (data[y * size + x]) d += `M${x} ${y}h1v1h-1z`;
+    let x = 0;
+    while (x < size) {
+      if (!data[y * size + x]) {
+        x++;
+        continue;
+      }
+      let run = 1;
+      while (x + run < size && data[y * size + x + run]) run++;
+      d += `M${x} ${y}h${run}v1h-${run}z`;
+      x += run;
     }
   }
   return { d, size };
@@ -180,11 +211,12 @@ ${fontCss}
   <text x="210" y="234" text-anchor="middle" fill="${BLUE}"
         font-family="${sans}" font-size="${numSize}" font-weight="800">${esc(n)}</text>
 
-  <!-- QR (quiet zone is the surrounding white) -->
-  <rect x="${qrX - 10}" y="${qrY - 10}" width="${qrBox + 20}" height="${qrBox + 20}" rx="12"
-        fill="#FFFFFF" stroke="${WARM_BORDER}" stroke-width="2"/>
+  <!-- QR: black on white, no rule around the plate. A 2px stroke 10 units off
+       the quiet zone is close enough to a module edge to confuse some decoders,
+       and the white plate IS the quiet zone. -->
+  <rect x="${qrX - 12}" y="${qrY - 12}" width="${qrBox + 24}" height="${qrBox + 24}" rx="12" fill="#FFFFFF"/>
   <g transform="translate(${qrX + quiet * scale} ${qrY + quiet * scale}) scale(${scale})">
-    <path d="${d}" fill="${BROWN}"/>
+    <path d="${d}" fill="${QR_INK}" shape-rendering="crispEdges"/>
   </g>
 
   <!-- bilingual footer -->
@@ -193,7 +225,7 @@ ${fontCss}
   <text x="210" y="${qrY + qrBox + 72}" text-anchor="middle" fill="${BROWN}"
         font-family="${sans}" font-size="19" font-weight="600" direction="rtl"
         >&#1575;&#1605;&#1587;&#1581; &#1575;&#1604;&#1585;&#1605;&#1586; &#1604;&#1593;&#1585;&#1590; &#1575;&#1604;&#1602;&#1575;&#1574;&#1605;&#1577; &#1608;&#1575;&#1604;&#1591;&#1604;&#1576;</text>
-  <text x="210" y="574" text-anchor="middle" fill="${WARM_BORDER}" font-family="${sans}" font-size="10">
+  <text x="210" y="574" text-anchor="middle" fill="${FAINT}" font-family="${sans}" font-size="10">
     ${esc(new URL(qrUrl).host)}</text>
 </svg>
 `;
