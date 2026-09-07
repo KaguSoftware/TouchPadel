@@ -12,9 +12,11 @@ import {
   secondsUntil,
   splitBookings,
   startProximity,
+  visiblePast,
   type BookingRow,
   type StartProximity,
 } from '../../src/features/booking/logic';
+import { useHistoryClearedAt } from '../../src/features/booking/history';
 import { mapErrorToKey } from '../../src/features/booking/errors';
 import {
   useCourts,
@@ -37,16 +39,36 @@ import {
   StatChip,
   UpcomingBookingRow,
 } from '../../src/components/booking';
-import { CalendarIcon, CheckIcon, ClockIcon, PadelBallIcon, StopwatchIcon } from '../../src/components/icons';
+import {
+  CalendarIcon,
+  CheckIcon,
+  ChevronIcon,
+  ClockIcon,
+  PadelBallIcon,
+  StopwatchIcon,
+} from '../../src/components/icons';
 import { EmptyState, ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 
 /**
- * My bookings tab (design 2026-08-31; "more life" pass 2026-09-05).
+ * How many past games the tab itself carries (owner, 2026-09-08). The tab is
+ * for what is NEXT; two recent games are enough to say "and here is what you
+ * have been playing", and the rest belong in Booking history rather than in a
+ * scroll that grows for the life of the account.
+ */
+const PAST_PREVIEW = 2;
+
+/**
+ * My reservations tab (design 2026-08-31; "more life" pass 2026-09-05).
  *
  * Upcoming as date-badge cards, Past as a muted list, both routing into booking
  * detail — cancellation lives THERE now. Signed-out shows the empty state with
  * a sign-in path (browsing is public).
+ *
+ * PAST IS A PREVIEW, not the archive (owner, 2026-09-08): the two most recent
+ * games, then a link into app/booking-history.tsx, which holds the whole list
+ * and the only way to clear it. The heading's count and the link both speak of
+ * the FULL history, so the number on screen never contradicts the list.
  *
  * Above them sits HELD: slots the guest has taken but not confirmed (0058).
  * Nothing in the app used to show a hold, so a guest who left Review had no way
@@ -73,7 +95,7 @@ import { useToast } from '../../src/components/overlays';
  */
 export default function BookingsScreen() {
   const { t, locale } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, appearance } = useTheme();
   const router = useRouter();
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
@@ -82,6 +104,7 @@ export default function BookingsScreen() {
   const settings = useVenueSettings();
   const degraded = useIsDegraded();
   const release = useReleaseHold();
+  const cleared = useHistoryClearedAt();
   const toast = useToast();
   useCourtsBroadcast(); // desk moves/cancels reflect live
 
@@ -106,7 +129,12 @@ export default function BookingsScreen() {
     () => splitBookings(bookings.data ?? [], now),
     [bookings.data, now],
   );
-  const played = useMemo(() => playedCount(past), [past]);
+  // Everything below counts the VISIBLE past, so a cleared history takes the
+  // "N played" chip and the empty state with it rather than leaving numbers
+  // that describe a list nobody can see.
+  const history = useMemo(() => visiblePast(past, cleared.data ?? null), [past, cleared.data]);
+  const pastPreview = useMemo(() => history.slice(0, PAST_PREVIEW), [history]);
+  const played = useMemo(() => playedCount(history), [history]);
 
   // A hold's countdown has to move every second, but re-splitting the whole
   // list that often is waste — so the seconds tick is its own state and runs
@@ -143,9 +171,9 @@ export default function BookingsScreen() {
   const sections = useMemo(
     () => [
       { title: t('booking.upcoming'), key: 'upcoming', data: upcoming },
-      { title: t('booking.past'), key: 'past', data: past },
+      { title: t('booking.past'), key: 'past', data: pastPreview },
     ],
-    [t, upcoming, past],
+    [t, upcoming, pastPreview],
   );
 
   // Pick the hold back up where Review left it. Everything the screen needs is
@@ -254,6 +282,17 @@ export default function BookingsScreen() {
 
   const bottomPad = { paddingBottom: tabBarHeight + 24 };
 
+  // "Book your next game" in dark mode (owner, 2026-09-08). Light draws it as a
+  // dashed placeholder on a white card — a shape waiting to be filled. In blue
+  // mode that same recipe is a navy card inside a navy page with the brand blue
+  // as its dashes: the one action on an empty tab came out as a dark rectangle.
+  // So dark grounds it in the green tint the CTA already owns and puts the
+  // brand green on the words — the ball above them was green all along.
+  const dark = appearance === 'dark';
+  const emptyLink = dark
+    ? { bg: colors.gtint, border: colors.gline, lead: colors.gtext2, cta: colors.gtext }
+    : { bg: colors.card, border: colors.line2, lead: colors.mut, cta: colors.mut };
+
   // Signed-out: same empty state, with the sign-in path.
   if (!session) {
     return (
@@ -301,7 +340,7 @@ export default function BookingsScreen() {
 
   // A held slot counts: showing "No bookings yet" over a live hold is exactly
   // the blind spot this section exists to close.
-  const noBookings = holds.length === 0 && upcoming.length === 0 && past.length === 0;
+  const noBookings = holds.length === 0 && upcoming.length === 0 && history.length === 0;
 
   // "In 2 days" / "On now" for the hero's chip. The unit steps hand off exactly
   // (see startProximity), so there is no gap that renders an empty chip; days
@@ -422,22 +461,58 @@ export default function BookingsScreen() {
               <ListHeading
                 icon={section.key === 'past' ? ClockIcon : CalendarIcon}
                 label={section.title}
-                count={section.data.length}
+                count={section.key === 'past' ? history.length : section.data.length}
                 style={{ marginTop: section.key === 'past' ? 22 : 6 }}
               />
             ) : null
           }
           renderSectionFooter={({ section }) =>
-            section.data.length === 0 && section.key === 'upcoming' ? (
+            section.key === 'past' ? (
+              history.length > PAST_PREVIEW ? (
+                // Indented past the rail so the link starts where the cards do
+                // and the timeline reads as ending above it, not through it.
+                <Pressable
+                  accessibilityRole="link"
+                  onPress={() => router.push('/booking-history')}
+                  style={({ pressed }) => ({
+                    marginStart: 22,
+                    marginTop: 2,
+                    backgroundColor: pressed ? colors.sub : colors.card,
+                    borderWidth: 1,
+                    borderColor: colors.line,
+                    borderRadius: radius.cell,
+                    paddingStart: space.sm,
+                    paddingEnd: space.sm,
+                    paddingTop: 12,
+                    paddingBottom: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: space.s,
+                  })}
+                >
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontFamily: fonts.body700,
+                      fontSize: 12.5,
+                      color: colors.mut2,
+                    }}
+                  >
+                    {t('booking.viewAllPast', { count: history.length })}
+                  </Text>
+                  <ChevronIcon size={15} color={colors.fnt2} />
+                </Pressable>
+              ) : null
+            ) : section.data.length === 0 && section.key === 'upcoming' ? (
               <Pressable
                 accessibilityRole="link"
                 onPress={bookNext}
                 style={({ pressed }) => ({
                   marginTop: 9,
-                  backgroundColor: colors.card,
+                  backgroundColor: emptyLink.bg,
                   borderWidth: 1,
                   borderStyle: 'dashed',
-                  borderColor: colors.line2,
+                  borderColor: emptyLink.border,
                   borderRadius: radius.button,
                   paddingStart: space.l,
                   paddingEnd: space.l,
@@ -453,12 +528,14 @@ export default function BookingsScreen() {
                   style={{
                     fontFamily: fonts.body400,
                     fontSize: 12.5,
-                    color: colors.mut,
+                    color: emptyLink.lead,
                     textAlign: 'center',
                   }}
                 >
                   {t('booking.emptyUpcoming')}{' '}
-                  <Text style={{ fontFamily: fonts.body800 }}>{t('booking.bookNext')}</Text>
+                  <Text style={{ fontFamily: fonts.body800, color: emptyLink.cta }}>
+                    {t('booking.bookNext')}
+                  </Text>
                 </Text>
               </Pressable>
             ) : null

@@ -538,6 +538,18 @@ export const ar: Messages = {
     noBookingsBody: 'ستظهر حجوزات ملاعبك هنا.',
     emptyUpcoming: 'لا حجوزات قادمة.',
     bookNext: 'احجز مباراتك القادمة ←',
+    // Booking history panel (owner, 2026-09-08).
+    historyTitle: 'سجل الحجوزات',
+    viewAllPast: 'عرض كل المباريات السابقة ({count}) ←',
+    clearHistory: 'مسح السجل',
+    clearHistoryHint:
+        'يمسح القائمة على هذا الجهاز فقط. يحتفظ النادي بسجلاته، ولا يُلغى أي حجز.',
+    clearHistoryPrompt: 'مسح سجل الحجوزات؟',
+    clearHistoryBody:
+        'لن تظهر المباريات السابقة على هذا الجهاز. لا يُلغى أي حجز ولا يُحذف، والحجوزات القادمة لا تتأثر.',
+    historyClearedToast: 'تم مسح سجل الحجوزات',
+    noHistoryTitle: 'لا توجد مباريات سابقة',
+    noHistoryBody: 'ستظهر هنا المباريات التي لعبتها بعد انتهائها.',
     // بطاقة «التالي» وعناوين الأقسام والخط الزمني في «السابقة»
     nextUp: 'التالي',
     onNow: 'جارٍ الآن',
