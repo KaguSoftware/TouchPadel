@@ -1921,4 +1921,159 @@ export const matrix: MatrixRule[] = [
       "person's device.",
     drop: 5,
   },
+  // ── drop 6 · 0072 staff requests · 0073 marketing · 0074 court delete ───────
+  //
+  // Eleven RPCs granted to `authenticated` landed on 2026-09-07 with no rule
+  // here and no registry entry — the same gap migration 0070 left the day
+  // before. Every one carries a role guard on its FIRST line, and check:authz
+  // probes all of them as a real anonymous guest, so what these rules add is the
+  // per-ROLE shape: which staff tier may call each, asserted rather than assumed.
+  // Arguments are chosen to fail AFTER the guard and BEFORE any write.
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'submit_staff_request',
+    args: { p_kind: '__not_a_kind__' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      cashier: 'execute',
+      prep: 'execute',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'any staff may ask; guests refused by staff_role() is null. Bad kind fails BAD_KIND past the guard — nothing inserted',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'withdraw_staff_request',
+    args: { p_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      cashier: 'execute',
+      prep: 'execute',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'own request only; nil id fails past the guard',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'staff_requests_page',
+    args: {},
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      cashier: 'execute',
+      prep: 'execute',
+      court_desk: 'execute',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'read-only; a guest cannot list staff requests at all',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'decide_staff_request',
+    args: { p_id: NIL_UUID, p_approve: false },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      owner: 'execute',
+    }),
+    note: 'OWNER ONLY — approving leave or an advance is not a manager power; nil id fails past the guard',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'delete_court',
+    args: { p_id: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'nil id fails past the guard — no court is removed',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'marketing_overview',
+    args: {},
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      owner: 'execute',
+    }),
+    note: 'owner-only read',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'marketing_audience_reach',
+    args: { p_rule: {} },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'counts an audience; returns a number, never guest identifiers',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'marketing_campaign_performance',
+    args: { p_campaign: NIL_UUID },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      manager: 'execute',
+      owner: 'execute',
+    }),
+    note: 'read-only; nil campaign returns nothing',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'save_marketing_audience',
+    args: { p_id: NIL_UUID, p_name_en: '', p_name_ar: '' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      owner: 'execute',
+    }),
+    note: 'owner-only write; blank names fail NAME_REQUIRED before the insert/update',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'save_marketing_campaign',
+    args: { p_id: NIL_UUID, p_name_en: '', p_name_ar: '', p_channel: '' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      owner: 'execute',
+    }),
+    note: 'owner-only write; blank names fail past the guard before anything is written',
+    drop: 6,
+  },
+  {
+    kind: 'rpc',
+    schema: 'app',
+    name: 'set_campaign_status',
+    args: { p_id: NIL_UUID, p_status: '__not_a_status__' },
+    expect: ex<RpcExpectation>('guarded', {
+      anon: 'denied',
+      owner: 'execute',
+    }),
+    note: 'owner-only; bad status fails BAD_STATUS before the campaign is even looked up',
+    drop: 6,
+  },
 ];

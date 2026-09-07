@@ -72,6 +72,39 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // ⚠ THIS ENTRY WAS MISSING UNTIL 2026-09-07. The header set below was
+        // written, exported from src/lib/security/headers.ts, and IMPORTED here
+        // — but never returned, so not one of these headers ever shipped. Three
+        // things should have caught it and each missed in a different way:
+        // `pnpm --filter @touch/web lint` DID report both imports as unused and
+        // was not re-run; check-web-security.mjs greps next.config.ts for the
+        // constant NAME, which an unused import satisfies; and the e2e that
+        // asserts the headers on a live response had never executed for want of
+        // a container runtime. The first run of that e2e is what found it.
+        source: '/:path*',
+        headers: [...STATIC_SECURITY_HEADERS],
+      },
+      {
+        // The printed-QR path, before proxy.ts exchanges the token for a cookie.
+        // This is the ONE request that still carries the token in its URL, so it
+        // is the one that most needs no-referrer.
+        source: '/t/:path*',
+        headers: [...TABLE_ROUTE_HEADERS],
+      },
+      {
+        // ...and where the guest actually lands after that 307. A table page is
+        // one guest's session; it must not sit in a shared cache for the next
+        // person on that phone. Listed after the static set on purpose: Next
+        // applies matching rules in order, so no-referrer wins over the
+        // site-wide Referrer-Policy here.
+        source: '/:locale(en|ar)/t/:path*',
+        headers: [...TABLE_ROUTE_HEADERS],
+      },
+      {
+        source: '/:locale(en|ar)/t',
+        headers: [...TABLE_ROUTE_HEADERS],
+      },
+      {
         // Next's default for public/ is a revalidate-every-time no-cache, which
         // on a QR menu means every scanned table re-checks seven font files
         // before it can paint them, over the venue wifi the whole self-hosting
