@@ -427,7 +427,9 @@ test.describe('operator cafe admin', () => {
     });
 
     // The actor is a NAME, not a uuid — that is the contractual word.
-    const search = page.getByLabel('Search');
+    // By role, not label: getByLabel matches substrings, and once a term is set
+    // the filter chip's "Remove filter: Search: …" button matches too.
+    const search = page.getByRole('searchbox', { name: 'Search' });
     await search.fill('sold_out');
     const firstRow = page.locator('tbody tr').first();
     await expect(firstRow).toContainText('menu.item.sold_out');

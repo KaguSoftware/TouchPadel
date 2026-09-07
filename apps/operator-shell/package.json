@@ -10,9 +10,11 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "dist": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --win nsis --config electron-builder.config.cjs --publish never",
-    "dist:dir": "pnpm --filter @touch/operator build && node esbuild.config.mjs && electron-builder --dir --config electron-builder.config.cjs --publish never",
-    "icon": "node scripts/make-icon.mjs"
+    "dist": "pnpm --filter @touch/operator build && node esbuild.config.mjs && node scripts/native-abi.mjs electron && electron-builder --win nsis --config electron-builder.config.cjs --publish never",
+    "dist:dir": "pnpm --filter @touch/operator build && node esbuild.config.mjs && node scripts/native-abi.mjs electron && electron-builder --dir --config electron-builder.config.cjs --publish never",
+    "icon": "node scripts/make-icon.mjs",
+    "native:electron": "node scripts/native-abi.mjs electron",
+    "native:node": "node scripts/native-abi.mjs node"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
@@ -36,6 +38,7 @@
     "CommonJS on purpose (no \"type\": \"module\"): Electron main/preload compile to CJS — the monorepo-wide ESM rule's one exception.",
     "sharp is deliberately NOT installed: the print pipeline thresholds Chromium BGRA captures in plain JS (src/main/print/raster.ts).",
     "electron-builder.config.cjs (JS, not YAML) so Windows signing is conditional on env: Azure Trusted Signing or a PFX, else unsigned. Publishes to the public KaguSoftware/touchpadel-releases repo, which is also the electron-updater feed.",
-    "Auto-update: electron-updater checks at boot + every 6h, downloads silently, installs on the rail's Restart control or the manager-PIN quit. No scheduled update windows (plan cut #7 stands)."
+    "Auto-update: electron-updater checks at boot + every 6h, downloads silently, installs on the rail's Restart control or the manager-PIN quit. No scheduled update windows (plan cut #7 stands).",
+    "better-sqlite3 is ONE hoisted binary (root node_modules, node-linker=hoisted) and Electron 33 (ABI 130) and Node 22 (ABI 127) cannot share it. electron-builder's rebuild never reaches it (npmRebuild: false, see the config). `pnpm dist` and the release workflow run scripts/native-abi.mjs electron, which fetches the Electron prebuild and proves it opens a database under electron.exe before packaging. `pnpm native:node` flips it back so `pnpm test` (vitest under Node) passes again; expect ~47 shell tests to fail while the Electron build is in place."
   ]
 }

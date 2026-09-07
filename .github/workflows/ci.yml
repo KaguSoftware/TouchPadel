@@ -119,7 +119,10 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: the types-drift check diffs generated output, and the
+          # generator ships with the CLI. Bump deliberately, regenerating
+          # types.gen.ts in the same commit.
+          version: 2.116.0
 
       - name: Start local Supabase stack
         working-directory: packages/db
@@ -207,7 +210,10 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: the types-drift check diffs generated output, and the
+          # generator ships with the CLI. Bump deliberately, regenerating
+          # types.gen.ts in the same commit.
+          version: 2.116.0
 
       - name: Start local Supabase stack
         working-directory: packages/db

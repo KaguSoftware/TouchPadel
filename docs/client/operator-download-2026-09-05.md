@@ -6,7 +6,7 @@ installed app updates itself. What remains is account work only the owner can
 do. Steps 1–3 are required for the first release; 4 and 5 can come later and
 take effect on the next tag push without any code change.
 
-## 1. Create the public releases repo (5 min)
+## 1. Create the public releases repo (5 min) — ✔ DONE 2026-09-07
 
 - On GitHub, under the `KaguSoftware` organisation, create a **public** repo
   named exactly `touchpadel-releases`. Tick "Add a README" — the repo must have
@@ -18,7 +18,13 @@ Why public: the source repo is private, and GitHub does not serve release
 files from a private repo without a login. The download link on the staff
 page must work from any venue PC.
 
-## 2. Create the publishing token (5 min)
+## 2. Create the publishing token (5 min) — ◐ INTERIM 2026-09-07
+
+`RELEASES_GH_TOKEN` currently holds the `gh` CLI session token of `ParSaMnSS` (OAuth, `repo` +
+`workflow` + `admin:org` scopes — broader than the fine-grained token below). It works, but it
+grants write on every repo that account can reach. **Follow-up:** create the fine-grained token
+as described here and overwrite the secret:
+`gh secret set RELEASES_GH_TOKEN -R KaguSoftware/TouchPadel` (paste the new value).
 
 GitHub → your profile → Settings → Developer settings → Personal access tokens
 → **Fine-grained tokens** → Generate:
@@ -31,7 +37,10 @@ GitHub → your profile → Settings → Developer settings → Personal access 
 If the org disallows fine-grained tokens, a classic token with only the
 `public_repo` scope works.
 
-## 3. Add the secrets to the source repo (5 min)
+## 3. Add the secrets to the source repo (5 min) — ✔ DONE 2026-09-07
+
+All four set via `gh secret set` on 2026-09-07. `OPERATOR_SUPABASE_ANON_KEY` holds the hosted
+project's **publishable** key (`sb_publishable_…`), not the legacy anon JWT.
 
 `KaguSoftware/TouchPadel` → Settings → Secrets and variables → Actions.
 
@@ -59,7 +68,17 @@ staff page `https://<guest-site>/download` serves it. Until step 4 is done,
 Windows shows the SmartScreen "More info → Run anyway" prompt once per machine.
 
 To re-cut the **same** version (rare), delete both the release and its tag in
-`touchpadel-releases` first; otherwise bump the version.
+`touchpadel-releases` first; otherwise bump the version:
+
+```
+gh release delete v0.2.0 --cleanup-tag -y -R KaguSoftware/touchpadel-releases
+```
+
+How a run publishes (since 2026-09-07): the `prepare` job creates a **draft**
+release, the build jobs upload into it, and the final `publish` job flips it
+live only after the installer, its `.blockmap` and `latest.yml` are all present.
+A half-finished run therefore never changes what `releases/latest` serves — the
+draft just sits in the public repo until the next successful run reuses it.
 
 ## 4. Code signing (removes the SmartScreen prompt) — pick one route
 

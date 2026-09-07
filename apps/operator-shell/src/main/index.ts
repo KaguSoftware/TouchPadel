@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { BrowserWindow, app, ipcMain, shell } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
 import { IPC, type PrintResult } from '../ipc-channels';
 import {
   enqueue,
@@ -82,6 +82,35 @@ function bootstrapStationFromArgv(): void {
     ...(flag('lan-bind') ? { lan_bind: flag('lan-bind') } : {}),
   });
   console.log('[station] wrote', file, 'from CLI flags');
+}
+
+/**
+ * A throw during boot used to vanish: app.whenReady().then(...) turned it into
+ * an unhandled rejection, Electron logged it to a stderr nobody sees on a
+ * kiosk, and the process sat there with no window — every later click on the
+ * shortcut was then eaten by the single-instance lock. (operator-v0.2.0 did
+ * exactly this with a better-sqlite3 built for the wrong ABI.) Now it is a
+ * dialog, a line in userData/startup-error.log, and an exit.
+ */
+function reportFatalStartup(error: unknown): void {
+  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  console.error('[boot] fatal:', detail);
+  let logFile = '';
+  try {
+    logFile = path.join(app.getPath('userData'), 'startup-error.log');
+    fs.appendFileSync(logFile, `${new Date().toISOString()} ${detail}
+
+`);
+  } catch {
+    logFile = ''; // userData unwritable — the dialog still carries the message
+  }
+  dialog.showErrorBox(
+    'Touch Padel Operator could not start',
+    `${detail}${logFile ? `
+
+Saved to ${logFile}` : ''}`,
+  );
+  app.exit(1);
 }
 
 /** Wrap an IPC handler so a malformed argument is refused, not stored. */
@@ -439,7 +468,7 @@ if (gotTheLock) {
       discoverAbort?.abort();
     });
     startHeartbeat(station);
-  });
+  }).catch(reportFatalStartup);
 }
 
 app.on('window-all-closed', () => {
