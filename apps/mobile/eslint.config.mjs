@@ -102,6 +102,8 @@ export default [
     rules: { 'no-restricted-syntax': 'off' },
   },
   {
-    ignores: ['.expo/**', 'expo-env.d.ts', 'android/**', 'ios/**', 'dist/**', 'babel.config.js', 'metro.config.js'],
+    // scripts/ holds Node build tooling (make-icons.mjs uses Buffer) — not app
+    // code, and the RN globals set has no Buffer. Same carve-out operator-shell makes.
+    ignores: ['.expo/**', 'expo-env.d.ts', 'android/**', 'ios/**', 'dist/**', 'babel.config.js', 'metro.config.js', 'scripts/**'],
   },
 ];
