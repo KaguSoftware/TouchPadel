@@ -492,6 +492,7 @@ export const ar: Messages = {
     stateHeld: 'محجوز مؤقتًا',
     stateBooked: 'محجوز',
     stateBlocked: 'غير متاح',
+    callOnly: 'بالاتصال فقط',
     statusPending: 'قيد الانتظار',
     statusConfirmed: 'مؤكد',
     statusArrived: 'تم الوصول',
@@ -793,6 +794,7 @@ export const ar: Messages = {
     tableTitle: 'طاولتك — تتش كافيه',
   },
   errors: {
+    title: 'حدث خطأ',
     generic: 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
     network: 'لا يوجد اتصال. تحقق من الإنترنت وحاول مرة أخرى.',
     notFound: 'لم نتمكن من العثور على ما تبحث عنه.',

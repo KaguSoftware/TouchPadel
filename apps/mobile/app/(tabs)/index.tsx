@@ -562,11 +562,33 @@ export default function BookHomeScreen() {
             </View>
           </Animated.View>
         </View>
+      </View>
 
-        {/* Under the heading, not above it: the venue notice is a note about
-            the page, so BOOK A COURT stays the first thing read on the tab. */}
+      {/* Stage: the court fills everything above the tab bar; the button sits on its net, the ball
+          flies over the button (Court3D's second surface); the sheet floats over all of it. */}
+      <View
+        style={{ flex: 1 }}
+        onLayout={(e) => {
+          setStageHeight(e.nativeEvent.layout.height);
+          setStageRect(e.nativeEvent.layout);
+        }}
+      >
+        {/*
+          Under the heading, not above it: the venue notice is a note about the
+          page, so BOOK A COURT stays the first thing read on the tab.
+
+          OUT OF FLOW, and inside the stage. The header block and the stage are
+          flex siblings and the stage is `flex: 1`, so an in-flow notice took
+          its height straight out of the court — which visibly shrank the moment
+          the venue went offline and grew back when the guest closed it. Absolute
+          here means the stage measures the same either way, and `top: 0` is the
+          stage's own top edge: immediately under the title, where it was.
+        */}
         {degraded && !noticeClosed ? (
-          <View style={{ marginTop: 2, marginStart: space.l, marginEnd: space.l, marginBottom: space.s }}>
+          <View
+            pointerEvents="box-none"
+            style={{ position: 'absolute', top: 0, start: space.l, end: space.l, zIndex: 3 }}
+          >
             <DegradedBanner
               lead={t('degraded.leadConnectionLost')}
               // No number in the copy: it sent a long digit run through a narrow
@@ -580,17 +602,6 @@ export default function BookHomeScreen() {
             />
           </View>
         ) : null}
-      </View>
-
-      {/* Stage: the court fills everything above the tab bar; the button sits on its net, the ball
-          flies over the button (Court3D's second surface); the sheet floats over all of it. */}
-      <View
-        style={{ flex: 1 }}
-        onLayout={(e) => {
-          setStageHeight(e.nativeEvent.layout.height);
-          setStageRect(e.nativeEvent.layout);
-        }}
-      >
         {glUnavailable ? (
           // No GL context on this device: the flat court, button underneath as before.
           <Animated.View
