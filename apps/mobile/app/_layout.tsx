@@ -25,6 +25,7 @@ import { BRAND_FONTS } from '../src/theme/fonts';
 import { lastKnownAppearance } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { AuthProvider } from '../src/features/auth/context';
+import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
 import { installNotificationHandler } from '../src/features/profile/push';
 import { ErrorState, OfflineBanner } from '../src/components/states';
@@ -41,6 +42,11 @@ export const unstable_settings = { initialRouteName: '(tabs)' };
 // Splash stays up until boot prefs + the brand fonts are in (no flash of
 // fallback type, no light→dark flash, no en→ar flash).
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+// ...and then it CROSS-FADES into BootOverlay, which is painted in the splash's
+// own #3360AB by the time this runs. Without the fade the wordmark cuts to the
+// smiley ball on an identical ground, which reads as a glitch rather than as
+// one screen becoming the next. (iOS honours `fade`; Android ignores it.)
+SplashScreen.setOptions({ fade: true, duration: 180 });
 
 /**
  * Reveal a screen that renders INSTEAD of AppRoot.
@@ -173,6 +179,7 @@ function RootStack() {
           `RequireSession` in place of the group layout's guard. */}
         <Stack.Screen name="review" />
         <Stack.Screen name="booking/[id]" />
+        <Stack.Screen name="booking-history" />
         <Stack.Screen name="success" options={{ headerShown: false }} />
         <Stack.Screen name="reset-password" />
       </Stack>
@@ -254,14 +261,13 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
     [],
   );
 
+  // A face that fails to register must not hold the splash forever — the theme
+  // falls back to system faces and the app still works. The REVEAL itself is
+  // BootOverlay's (features/boot/splash.ts): hiding the splash here uncovered
+  // the Book tab mid-build, which is the whole reason the loading screen exists.
   useEffect(() => {
-    if (fontsLoaded || fontsError) {
-      // A face that fails to register must not hold the splash forever — the
-      // theme falls back to system faces and the app still works.
-      if (fontsError) captureException(fontsError, { scope: 'fonts.load' });
-      void SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [fontsLoaded, fontsError]);
+    if (fontsError) captureException(fontsError, { scope: 'fonts.load' });
+  }, [fontsError]);
 
   if (!fontsLoaded && !fontsError) return null; // splash is still covering us
 
@@ -283,6 +289,9 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
                   <ConnectivityBanner />
                 </ToastProvider>
               </AuthProvider>
+              {/* Over the navigator and the native tab bar, outside every
+                  route: the loading screen, and the hand on the splash. */}
+              <BootOverlay />
             </DirectionRoot>
           </ThemeProvider>
         </LocaleProvider>

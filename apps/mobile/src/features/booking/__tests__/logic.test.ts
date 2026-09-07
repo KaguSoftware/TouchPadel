@@ -9,6 +9,7 @@ import {
   secondsUntil,
   splitBookings,
   startProximity,
+  visiblePast,
   type BookingRow,
 } from '../logic';
 
@@ -252,5 +253,33 @@ describe('endedNotice', () => {
     for (const status of ['pending', 'confirmed', 'arrived', 'completed']) {
       expect(endedNotice(status)).toBeNull();
     }
+  });
+});
+
+describe('visiblePast (Clear history)', () => {
+  const rows = [
+    row({ id: 'after', end_at: '2026-09-02T11:00:00Z' }),
+    row({ id: 'boundary', end_at: '2026-09-01T12:00:00Z' }),
+    row({ id: 'before', end_at: '2026-08-20T11:00:00Z' }),
+  ];
+
+  it('shows everything when history has never been cleared', () => {
+    expect(visiblePast(rows, null).map((r) => r.id)).toEqual(['after', 'boundary', 'before']);
+  });
+
+  it('hides games that had already ENDED when history was cleared', () => {
+    // The boundary goes: a game that ended exactly at the cut is history.
+    expect(visiblePast(rows, '2026-09-01T12:00:00Z').map((r) => r.id)).toEqual(['after']);
+  });
+
+  it('falls back to showing everything on an unreadable cut', () => {
+    // A corrupted storage value must not blank the list.
+    expect(visiblePast(rows, 'not-a-date')).toHaveLength(3);
+  });
+
+  it('never mutates the list it was given', () => {
+    const original = [...rows];
+    visiblePast(rows, '2026-09-01T12:00:00Z');
+    expect(rows).toEqual(original);
   });
 });

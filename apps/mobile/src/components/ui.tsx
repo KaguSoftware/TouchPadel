@@ -566,13 +566,23 @@ export function Button({
   labelColor,
   pressedBg,
 }: ButtonProps) {
-  const { colors, fonts, tracking } = useTheme();
+  const { colors, fonts, tracking, appearance } = useTheme();
   const visual = {
     cta: { bg: brand.green, fg: brand.greenInk, border: 'transparent' },
     primary: { bg: brand.blue, fg: brand.white, border: 'transparent' },
     secondary: { bg: colors.card, fg: colors.ink, border: colors.line },
     danger: { bg: brand.danger, fg: brand.white, border: 'transparent' },
-    dangerOutline: { bg: colors.card, fg: colors.redtext, border: colors.redline },
+    // Dark ("blue mode") needs its own outline. The light recipe is a white
+    // card with a red hairline; in dark the same recipe is `card` navy with
+    // #871A12 on it, and Cancel booking came out as a dark rectangle rather
+    // than a red action (owner, 2026-09-08). So the ground moves to the red
+    // tint and the border joins the label on the bright coral — 5.2:1 on that
+    // tint, and unmistakably red against the navy card it sits in. Both are
+    // existing dark-palette tokens; the palette stays closed.
+    dangerOutline:
+      appearance === 'dark'
+        ? { bg: colors.redtint, fg: colors.redtext, border: colors.redtext }
+        : { bg: colors.card, fg: colors.redtext, border: colors.redline },
     ghost: { bg: 'transparent', fg: colors.mut, border: 'transparent' },
   }[variant];
   const ghost = variant === 'ghost';

@@ -274,7 +274,9 @@ function BookingDetailScreen() {
                 label={t('booking.cancelBooking')}
                 variant="dangerOutline"
                 size="compact"
-                pressedBg={colors.redtint}
+                // No pressedBg: in dark mode the variant's own ground IS
+                // redtint now, so overriding it would delete the press state.
+                // The Button's default dim covers both themes.
                 busy={cancel.isPending}
                 onPress={() => setDialogOpen(true)}
               />
