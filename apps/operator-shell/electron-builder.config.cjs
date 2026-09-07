@@ -50,13 +50,25 @@ const config = {
   ],
   // better-sqlite3's .node binary cannot load from inside the asar.
   asarUnpack: ['**/*.node'],
+  // Native deps are rebuilt by scripts/native-abi.mjs (`pnpm native:electron`),
+  // which `pnpm dist` and operator-release.yml run before this. electron-builder's
+  // own rebuild is a no-op here — node-linker=hoisted puts better-sqlite3 at the
+  // repo root, out of its reach — and it shipped a Node-ABI binary in
+  // operator-v0.2.0 (app never opened a window). Off, so it can never look like
+  // it did the job.
+  npmRebuild: false,
 
   // The public download host and the electron-updater feed. Publishing needs
   // GH_TOKEN (a PAT with contents:write on THAT repo; the workflow's own
-  // GITHUB_TOKEN cannot write to a foreign repo). `releaseType: release` makes
-  // the release public immediately; latest.yml is uploaded last, so the updater
-  // never sees a feed pointing at a missing installer. Even a `--publish never`
-  // build embeds this as resources/app-update.yml, so local installs self-update too.
+  // GITHUB_TOKEN cannot write to a foreign repo). The release itself is NOT
+  // created here: operator-release.yml's `prepare` job creates a draft first
+  // (electron-builder runs one publisher per artifact, and two concurrent
+  // creates raced to a 422 on the first real run), the builders upload into it,
+  // and the `publish` job flips it live once every asset is present.
+  // `releaseType: release` stays — electron-publish reuses a matching draft
+  // either way, but with `draft` it would silently skip an already-published
+  // release instead of uploading. Even a `--publish never` build embeds this as
+  // resources/app-update.yml, so local installs self-update too.
   publish: {
     provider: 'github',
     owner: 'KaguSoftware',
@@ -82,7 +94,14 @@ const config = {
       : {}),
   },
   nsis: {
-    oneClick: true,
+    // Assisted installer, not one-click: a welcome page, "just me / everyone",
+    // a folder picker, then a finish page with "Run Touch Padel Operator"
+    // ticked. The one-click variant flashed a progress bar and vanished, which
+    // on the first public build read as "nothing happened" (2026-09-07).
+    oneClick: false,
+    allowToChangeInstallationDirectory: true,
+    createDesktopShortcut: true,
+    createStartMenuShortcut: true,
     // Launch-on-boot: runAfterFinish for the first session; app.setLoginItemSettings
     // (main/index.ts) keeps it registered on every packaged boot.
     runAfterFinish: true,
@@ -93,14 +112,18 @@ const config = {
     artifactName: 'Touch-Padel-Operator-Setup.${ext}',
   },
 
-  // macOS scaffold. Builds only run on the mac job, which the release workflow
-  // enables once a Developer ID cert + Apple credentials exist: an unsigned mac
-  // app is unusable on current macOS (no "Run anyway") and Squirrel.Mac refuses
-  // to update it. zip is the updater's format; dmg is what people download.
+  // macOS. Builds only run on the mac job, which the release workflow enables
+  // once a Developer ID cert + Apple credentials exist: an unsigned mac app is
+  // unusable on current macOS (no "Run anyway") and Squirrel.Mac refuses to
+  // update it. zip is the updater's format; dmg is what people download.
+  // Apple silicon ONLY: scripts/native-abi.mjs rebuilds better-sqlite3 for the
+  // runner's own arch (arm64), so an x64 slice would ship a binary that cannot
+  // load. No Intel Mac is planned at the venue; add x64 back together with a
+  // per-arch rebuild if that changes.
   mac: {
     target: [
-      { target: 'dmg', arch: ['x64', 'arm64'] },
-      { target: 'zip', arch: ['x64', 'arm64'] },
+      { target: 'dmg', arch: ['arm64'] },
+      { target: 'zip', arch: ['arm64'] },
     ],
     artifactName: 'Touch-Padel-Operator-${arch}.${ext}',
     category: 'public.app-category.business',

@@ -3,6 +3,8 @@ import {
   CARD_HEIGHT,
   CARD_WIDTH,
   QR_BOX,
+  QR_INK,
+  QR_PAPER,
   QR_X,
   QR_Y,
   QUIET_MODULES,
@@ -14,19 +16,73 @@ import {
 } from './qrCardGeometry';
 
 const URL = 'https://touchcafe.iq/t/abcdef0123456789.1.signature';
+/**
+ * Real token shapes at the production origin. 0014 encoded the uuid and the
+ * signature as TEXT and came to 138 characters; 0071 encodes the same
+ * information as bytes and comes to 35.
+ */
+const LEGACY_TOKEN =
+  'ZTNmMWEyYjQtNWM2ZC00ZTdmLThhOWItMGMxZDJlM2Y0YTViLjMuOWYyYzdhMTBiNGU2ZDM4MDUyZmExY2JlNzdkMDQ5YTMzMTZlZDhiNWMwMmY0OTE3YWU2YjNkODEwMmNmNTRlNw';
+const COMPACT_TOKEN = '4_GitFxtTn-KmwwdLj9KW6QffAK-WdMUCGc';
+const legacyUrl = `https://touch-padel.com/t/${LEGACY_TOKEN}`;
+const compactUrl = `https://touch-padel.com/t/${COMPACT_TOKEN}`;
+
+/** Rebuild the module grid from the path, so runs are checked against truth. */
+function gridFromPath(d: string, size: number): Uint8Array {
+  const grid = new Uint8Array(size * size);
+  for (const m of d.matchAll(/M(\d+) (\d+)h(\d+)v1h-(\d+)z/g)) {
+    const [x, y, run, back] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+    expect(back).toBe(run); // the rect must close on itself
+    for (let i = 0; i < run; i++) grid[y * size + x + i] = 1;
+  }
+  return grid;
+}
 
 describe('qrPath', () => {
-  it('emits only 1×1 squares and one per dark module', () => {
+  it('covers exactly the dark modules, as horizontal runs', () => {
     const modules = qrModules(URL);
     const { d, size } = qrPath(modules);
     expect(size).toBe(modules.size);
-    const squares = d.match(/M\d+ \d+h1v1h-1z/g) ?? [];
-    expect(squares.join('')).toBe(d);
+    // Nothing but run rects in the path.
+    expect((d.match(/M\d+ \d+h\d+v1h-\d+z/g) ?? []).join('')).toBe(d);
+    const grid = gridFromPath(d, size);
     let dark = 0;
-    for (let i = 0; i < size * size; i++) if (modules.data[i]) dark++;
-    expect(squares.length).toBe(dark);
+    for (let i = 0; i < size * size; i++) {
+      expect(grid[i]).toBe(modules.data[i] ? 1 : 0);
+      if (modules.data[i]) dark++;
+    }
     expect(dark).toBeGreaterThan(0);
     expect(dark).toBeLessThan(size * size);
+  });
+
+  it('merges runs instead of emitting a square per module', () => {
+    const modules = qrModules(URL);
+    const { d } = qrPath(modules);
+    const rects = (d.match(/M\d+ \d+h\d+v1h-\d+z/g) ?? []).length;
+    let dark = 0;
+    for (let i = 0; i < modules.size * modules.size; i++) if (modules.data[i]) dark++;
+    // A real QR is full of finder patterns and timing runs; per-module squares
+    // is the thing being fixed, so the path must be materially shorter.
+    expect(rects).toBeLessThan(dark * 0.7);
+  });
+
+  it('0071 compact tokens land on a far coarser grid than 0014 text ones', () => {
+    // The whole point of the compact token: fewer, bigger modules in the same
+    // 56 mm box. If this ever inverts, the QR got harder to scan again.
+    const legacy = qrModules(legacyUrl).size;
+    const compact = qrModules(compactUrl).size;
+    expect(legacy).toBe(53);
+    expect(compact).toBe(33);
+    // 1.06 mm -> 1.70 mm per module inside the card's 56 mm QR box.
+    expect(QR_BOX / compact).toBeGreaterThan((QR_BOX / legacy) * 1.5);
+  });
+
+  it('prints the code in black on white, never a brand colour', () => {
+    // cafePalette['--tp-accent-2'] was the cafe brown when this card was
+    // written and is now #A5D06F, the brand green: 1.77:1 on white. The ink is
+    // pinned here so a palette edit can never silently reach the QR again.
+    expect(QR_INK).toBe('#000000');
+    expect(QR_PAPER).toBe('#FFFFFF');
   });
 
   it('module count is size²', () => {

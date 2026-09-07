@@ -145,6 +145,71 @@ describe.skipIf(!up)('0062 courts admin', () => {
     expect(ok.error).toBeNull();
   });
 
+  it('delete_court removes a court nothing references, audited', async () => {
+    const id = await createCourt(`CD-${Date.now()}`);
+    const res = await appRpc(manager, 'delete_court', { p_id: id });
+    expect(res.error).toBeNull();
+
+    const { data: gone } = await svc.from('courts').select('id').eq('id', id).maybeSingle();
+    expect(gone).toBeNull();
+
+    // The snapshot has to be taken BEFORE the row goes, or the audit trail
+    // records a delete with nothing in it.
+    const { data: audit } = await svc
+      .from('audit_log')
+      .select('action, before')
+      .eq('entity_id', id)
+      .eq('action', 'courts.delete')
+      .maybeSingle();
+    expect(audit).not.toBeNull();
+    expect((audit as { before: { name_en: string } }).before.name_en).toContain('CD-');
+  });
+
+  it('delete_court refuses a court with history and names what holds it', async () => {
+    const id = await createCourt(`CE-${Date.now()}`);
+    const slot = futureSlot();
+    const { error } = await svc.from('reservations').insert({
+      court_id: id,
+      kind: 'booking',
+      status: 'cancelled', // even dead history keeps the court: reports read its name
+      source: 'desk',
+      start_at: slot.start.toISOString(),
+      end_at: slot.plus(60).toISOString(),
+      guest_name: 'Delete guard',
+    });
+    expect(error).toBeNull();
+
+    const refused = outcome(await appRpc(manager, 'delete_court', { p_id: id }));
+    expect(refused.errorMessage).toContain('COURT_IN_USE');
+
+    // The court is untouched — a refused delete must not half-happen.
+    const { data: still } = await svc.from('courts').select('id').eq('id', id).maybeSingle();
+    expect(still).not.toBeNull();
+
+    // Deactivating is the way out, and it is still available.
+    const off = await appRpc(manager, 'upsert_court', {
+      p_id: id,
+      p_name_en: 'CE',
+      p_name_ar: 'ه',
+      p_indoor: true,
+      p_is_active: false,
+    });
+    expect(off.error).toBeNull();
+
+    await svc.from('reservations').delete().eq('court_id', id);
+  });
+
+  it('delete_court is manager+ only and 404s a court that is not there', async () => {
+    const id = await createCourt(`CF-${Date.now()}`);
+    const denied = outcome(await appRpc(cashier, 'delete_court', { p_id: id }));
+    expect(denied.errorMessage).toContain('FORBIDDEN');
+
+    const missing = outcome(
+      await appRpc(manager, 'delete_court', { p_id: '00000000-0000-4000-8000-000000000000' }),
+    );
+    expect(missing.errorMessage).toContain('COURT_NOT_FOUND');
+  });
+
   it('reorder_courts applies a permutation and refuses duplicates', async () => {
     const a = await createCourt(`CC1-${Date.now()}`);
     const b = await createCourt(`CC2-${Date.now()}`);

@@ -280,10 +280,42 @@ describe('validatePin', () => {
   });
 });
 
+describe('validateResolveQueueRow', () => {
+  const key = `TILL-01:order.add_items:${ULID}`;
+
+  it('accepts a well-formed key + pin and drops extras', () => {
+    expect(validateResolveQueueRow({ idempotencyKey: key, pin: '1234', extra: 'x' })).toEqual({
+      idempotencyKey: key,
+      pin: '1234',
+    });
+  });
+
+  it.each([
+    [{ idempotencyKey: 'not-a-key', pin: '1234' }],
+    [{ idempotencyKey: `TILL-01:nope.type:${ULID}`, pin: '1234' }],
+    [{ idempotencyKey: key, pin: '12' }],
+    [{ idempotencyKey: key }],
+    [null],
+    ['string'],
+  ])('refuses %j', (value) => {
+    expect(() => validateResolveQueueRow(value)).toThrow(IpcValidationError);
+  });
+
+  it('never echoes the pin in the error message', () => {
+    try {
+      validateResolveQueueRow({ idempotencyKey: key, pin: '77a77' });
+      throw new Error('expected a throw');
+    } catch (error) {
+      expect((error as Error).message).not.toContain('77a77');
+    }
+  });
+});
+
 import {
   pairingCodeRegex as shellPairingCodeRegex,
   validateDiscoverRequest,
   validatePairingCode,
+  validateResolveQueueRow,
   validateStationSetup,
 } from './ipc-validate';
 import { pairingCodeRegex } from '@touch/core/pairing/pairingCode';

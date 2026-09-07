@@ -19,6 +19,11 @@ import { adminChildren } from './routes/admin/_children';
 import { analyticsRoute } from './routes/analytics';
 import { opsRoute } from './routes/ops';
 import { panelRoute } from './routes/panel';
+import { setupRoute } from './routes/setup';
+import { financialRoute } from './routes/financial';
+import { observationRoute } from './routes/observation';
+import { observationChildren } from './routes/observation/_children';
+import { marketingRoute } from './routes/marketing';
 import { workspacesRoute } from './routes/workspaces';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
@@ -39,6 +44,10 @@ const routeTree = rootRoute.addChildren([
   kdsRoute,
   opsRoute,
   panelRoute,
+  setupRoute,
+  financialRoute,
+  observationRoute.addChildren([...observationChildren]),
+  marketingRoute,
   reportsRoute.addChildren([...reportsChildren]),
   stockRoute.addChildren([...stockChildren]),
   adminRoute.addChildren([...adminChildren]),

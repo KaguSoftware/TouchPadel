@@ -172,6 +172,16 @@ export interface IpcRefusal {
   error: string;
 }
 
+/** A manager dismissing a conflict/failed queue row (day-close screen). */
+export interface ResolveQueueRowRequest {
+  idempotencyKey: string;
+  pin: string;
+}
+
+export type ResolveQueueRowResult =
+  | { ok: true }
+  | { ok: false; error: 'pin not recognised' | 'not-resolvable' };
+
 export interface TouchBridge {
   enqueue(m: MutationEnvelope): Promise<{ localId: string; state: 'queued' }>;
   onQueueUpdate(cb: (s: QueueStatus) => void): Unsub;
@@ -194,6 +204,9 @@ export interface TouchBridge {
   pinObserved(pin: string): void;
   onMutationResult(cb: (r: MutationResult) => void): Unsub;
   getQueueRows(): Promise<QueueRowInfo[]>;
+  /** Manager PIN: park a conflict/failed row as resolved so it stops blocking day close.
+   *  The row is kept with who and when; the write it carried is NOT applied. */
+  resolveQueueRow(req: ResolveQueueRowRequest): Promise<ResolveQueueRowResult | IpcRefusal>;
   /** Manager-PIN quit — the only way a production kiosk window closes. */
   quitApp(pin: string): Promise<{ ok: boolean; error?: string }>;
   /** First run only: write station.json and relaunch. */
@@ -241,6 +254,10 @@ const mock: TouchBridge = {
   },
   async getQueueRows() {
     return [];
+  },
+  async resolveQueueRow() {
+    // Browser mode has no queue, so there is never a row to dismiss.
+    return { ok: false, error: 'not-resolvable' };
   },
   async quitApp() {
     return { ok: false, error: 'not-in-electron' };

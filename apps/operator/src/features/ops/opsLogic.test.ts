@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { auditDrillHref, normalizeCount, normalizeOverview, tillTabHref } from './opsLogic';
+import {
+  alertsFor,
+  auditDrillHref,
+  dayCloseState,
+  exceptionBasis,
+  normalizeCount,
+  normalizeOverview,
+  tillTabHref,
+  worstSeverity,
+} from './opsLogic';
 
 // The overview renders server figures only. These tests pin the two things
 // the screen depends on: the contract shape (build plan §4, 0068) parses, and
@@ -91,5 +100,109 @@ describe('drill hrefs', () => {
   });
   it('links a blocking tab straight into the till', () => {
     expect(tillTabHref('abc 123')).toBe('/till?tab=abc%20123');
+  });
+});
+
+// The grouping helpers decide what the screen's three tiers contain. They only
+// select, order and scale figures normalizeOverview already produced — so what
+// these pin is the SELECTION rules, which is where the readability of the screen
+// actually lives.
+
+describe('alertsFor', () => {
+  it('drops every zero, so a clear floor produces no alerts at all', () => {
+    const o = normalizeOverview({
+      bookings: { today: 12, arrived: 12, upcoming: 0, noShows: 0 },
+      cafe: { openTabs: 3, ticketsQueued: 2, ticketsLate: 0, waiterCallsOpen: 0 },
+      stock: { low: 0, belowPar: 5, expiringSoon: 1, expired: 0 },
+    });
+    // belowPar 5 and expiringSoon 1 are deliberately NOT alarms: they belong to
+    // the stock cluster, and promoting them would put the band back to noise.
+    expect(alertsFor(o)).toEqual([]);
+    expect(worstSeverity(alertsFor(o))).toBeNull();
+  });
+
+  it('returns the non-zero alarms in table order, worst first', () => {
+    const o = normalizeOverview({
+      bookings: { today: 12, arrived: 4, upcoming: 6, noShows: 2 },
+      cafe: { openTabs: 3, ticketsQueued: 2, ticketsLate: 3, waiterCallsOpen: 1 },
+      stock: { low: 4, belowPar: 5, expiringSoon: 1, expired: 7 },
+    });
+    expect(alertsFor(o).map((a) => a.key)).toEqual(['ticketsLate', 'expired', 'low', 'noShows', 'waiterCalls']);
+    // The order is the table's, never the counts': expired is 7 and late is 3,
+    // and late still leads because a guest is waiting on it.
+    expect(alertsFor(o).map((a) => a.count)).toEqual([3, 7, 4, 2, 1]);
+  });
+
+  it('carries each alarm to the screen that owns it', () => {
+    const o = normalizeOverview({ cafe: { ticketsLate: 1, waiterCallsOpen: 1 }, stock: { low: 1, expired: 1 }, bookings: { noShows: 1 } });
+    expect(Object.fromEntries(alertsFor(o).map((a) => [a.key, a.href]))).toEqual({
+      ticketsLate: '/till/tabs',
+      expired: '/stock',
+      low: '/stock',
+      noShows: '/desk',
+      waiterCalls: '/till/tabs',
+    });
+  });
+
+  it('reports the loudest severity present, for the band ground', () => {
+    const warnOnly = normalizeOverview({ cafe: { waiterCallsOpen: 2 } });
+    expect(worstSeverity(alertsFor(warnOnly))).toBe('warn');
+    const withDanger = normalizeOverview({ cafe: { waiterCallsOpen: 2, ticketsLate: 1 } });
+    expect(worstSeverity(alertsFor(withDanger))).toBe('danger');
+  });
+});
+
+describe('dayCloseState', () => {
+  const base = { open: true, businessDate: null, openedAt: null, blockingTabs: [], queued: 0 };
+
+  it('is closed whenever no business day is open, whatever else is outstanding', () => {
+    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, open: false, blockingTabs: 3, queued: 9 } }).dayClose)).toBe('closed');
+  });
+
+  it('ranks open tabs above a queued write — a tab needs a person, a queue needs the network', () => {
+    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, blockingTabs: 2, queued: 5 } }).dayClose)).toBe('blockedByOpenTabs');
+    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, blockingTabs: [], queued: 5 } }).dayClose)).toBe('blockedByUnsyncedQueue');
+  });
+
+  it('is ready only when both gates are clear', () => {
+    expect(dayCloseState(normalizeOverview({ dayClose: base }).dayClose)).toBe('ready');
+  });
+});
+
+describe('exceptionBasis', () => {
+  it('scales on money when every figure carries money', () => {
+    expect(
+      exceptionBasis([
+        { count: 2, amountIqd: 15000 },
+        { count: 1, amountIqd: 3000 },
+      ]),
+    ).toEqual({ by: 'amount', max: 15000 });
+  });
+
+  it('falls back to counts when any figure has no amount, so one scale never mixes units', () => {
+    expect(
+      exceptionBasis([
+        { count: 2, amountIqd: 15000 },
+        { count: 9, amountIqd: null },
+      ]),
+    ).toEqual({ by: 'count', max: 9 });
+  });
+
+  it('has no basis at all when there is nothing to draw', () => {
+    expect(exceptionBasis([{ count: 0, amountIqd: 0 }])).toBeNull();
+    expect(exceptionBasis([])).toBeNull();
+  });
+});
+
+describe('normalizeCount — the waste spelling', () => {
+  it('reads costIqd, which is how ops_overview spells the waste amount', () => {
+    // Verified against the local stack: exceptions.waste is {count, costIqd}
+    // while the other three are {count, amountIqd}. Reading only amount* here
+    // dropped waste's money and printed a bare count beside three IQD figures.
+    expect(normalizeCount({ count: 3, costIqd: 2500 })).toEqual({ count: 3, amountIqd: 2500 });
+    expect(normalizeCount({ count: 3, cost_iqd: 2500 })).toEqual({ count: 3, amountIqd: 2500 });
+  });
+  it('still prefers an explicit amount when both are present', () => {
+    expect(normalizeCount({ count: 1, amountIqd: 10, costIqd: 99 })).toEqual({ count: 1, amountIqd: 10 });
   });
 });

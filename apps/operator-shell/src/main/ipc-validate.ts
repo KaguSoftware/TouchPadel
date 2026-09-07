@@ -3,6 +3,7 @@ import type {
   DiscoverRequest,
   MutationEnvelope,
   PrintJob,
+  ResolveQueueRowRequest,
   StationMode,
   StationSetupRequest,
 } from '../ipc-channels';
@@ -259,6 +260,23 @@ export function validatePin(value: unknown): string {
   const pin = value as string;
   if (!/^\d{4,12}$/.test(pin)) fail('pin must be 4-12 digits');
   return pin;
+}
+
+/**
+ * A manager dismissing a conflict/failed queue row from the day-close screen.
+ * The key must look like one the queue owner could have minted; the PIN rides
+ * along unlogged (validatePin) and is re-checked against the offline cache.
+ */
+export function validateResolveQueueRow(value: unknown): ResolveQueueRowRequest {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('resolveQueueRow must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const idempotencyKey = requireString(raw.idempotencyKey, 'idempotencyKey', 128);
+  if (!idempotencyKeyRegex.test(idempotencyKey)) {
+    fail('idempotencyKey must be {STATION}:{mutation_type}:{ULID}');
+  }
+  return { idempotencyKey, pin: validatePin(raw.pin) };
 }
 
 // --- first-run station setup + kitchen-screen pairing --------------------------
