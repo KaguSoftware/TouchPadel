@@ -70,4 +70,22 @@ regexes = [
   # NOTE: this is the anon key ONLY. A service_role key for the same project
   # would still fail, via touchpadel-live-service-role above.
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjemlqYWJub3J1amNnbWJ1cWx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NjMzNTIsImV4cCI6MjEwMzEzOTM1Mn0\.rDF6GbRLqXuvG63ZV_pFgF1gDPjx_AVxXlQlb_ZQ-gM''',
+  # Synthetic table-QR tokens in apps/operator/src/features/admin/qr/qrCardGeometry.test.ts
+  # (commit 65c7e4e, 2026-09-07 — after the 09-04 baseline, hence not in the
+  # original ten). The suite renders a QR and re-derives the module grid from the
+  # emitted path; it needs a string of the right SHAPE and never verifies one.
+  #
+  # Established as fabricated, not merely assumed:
+  #   - the legacy token base64-decodes to table id e3f1a2b4-5c6d-4e7f-8a9b-0c1d2e3f4a5b,
+  #     a hand-written ascending-nibble pattern, not a v4 uuid. No such row exists.
+  #   - app.verify_table_token('4_GitFxtTn-KmwwdLj9KW6QffAK-WdMUCGc') returns NULL:
+  #     the signature does not validate under the real secret.
+  # A token that DID verify would carry a different signature and still fail here,
+  # which is the point of pinning literals rather than allowlisting the path.
+  '''ZTNmMWEyYjQtNWM2ZC00ZTdmLThhOWItMGMxZDJlM2Y0YTViLjMuOWYyYzdhMTBiNGU2ZDM4MDUyZmExY2JlNzdkMDQ5YTMzMTZlZDhiNWMwMmY0OTE3YWU2YjNkODEwMmNmNTRlNw''',
+  # gitleaks also base64-DECODES candidates and re-scans (tag decoded:base64),
+  # so the legacy token fires a second time in its decoded form. Same value,
+  # same verdict; the dots are escaped because these are regexes.
+  '''e3f1a2b4-5c6d-4e7f-8a9b-0c1d2e3f4a5b\.3\.9f2c7a10b4e6d38052fa1cbe77d049a3316ed8b5c02f4917ae6b3d8102cf54e7''',
+  '''4_GitFxtTn-KmwwdLj9KW6QffAK-WdMUCGc''',
 ]
