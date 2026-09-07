@@ -185,7 +185,7 @@ jobs:
   macos:
     needs: prepare
     if: needs.prepare.outputs.mac_enabled == 'true'
-    # arm64 host; x64 is cross-packaged and better-sqlite3 is rebuilt per arch.
+    # arm64 host, arm64 output only (see the mac target in electron-builder.config.cjs).
     runs-on: macos-latest
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
@@ -221,9 +221,8 @@ jobs:
       - name: Bundle main + preload
         run: pnpm --filter @touch/operator-shell build
 
-      # Same as the Windows job. Host arch only (arm64): the x64 slice of the
-      # mac build still carries whatever binary is in place — settle that
-      # before the mac job is ever enabled.
+      # Same as the Windows job. Host arch only (arm64), which is why the mac
+      # target in electron-builder.config.cjs is Apple silicon only.
       - name: Rebuild better-sqlite3 for Electron (and prove it loads)
         run: pnpm --filter @touch/operator-shell native:electron
 
