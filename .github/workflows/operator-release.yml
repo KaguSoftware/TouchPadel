@@ -86,9 +86,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `version:` here — the root package.json's `packageManager` pins pnpm,
+      # and giving both makes action-setup fail with "Multiple versions of pnpm
+      # specified" (first release run, 2026-09-07). Same shape as ci.yml.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
@@ -157,9 +158,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `version:` here — the root package.json's `packageManager` pins pnpm,
+      # and giving both makes action-setup fail with "Multiple versions of pnpm
+      # specified" (first release run, 2026-09-07). Same shape as ci.yml.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
