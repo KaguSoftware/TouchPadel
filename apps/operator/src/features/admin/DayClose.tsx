@@ -13,13 +13,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { formatDate, formatDateTime, formatIQD, formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
-import { appRpc } from '../../lib/appRpc';
+import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { QK, fetchOpenDay } from '../../lib/queries';
+import { sendHeartbeat } from '../../lib/heartbeat';
 import { useLocale } from '../../lib/i18n';
 import { usePermissions, requiredRoleFor } from '../../lib/auth';
 import { touch, type QueueRowInfo } from '../../ipc/bridge';
-import { AmountPad, Button, ErrorText, Field, inputStyle } from '../../components/ui';
+import { AmountPad, Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import {
   DataTable,
   DescriptionList,
@@ -146,6 +147,52 @@ export function DayClose() {
     };
   }, []);
 
+  // A conflict (409) or failed (deterministic 4xx) row is terminal: the worker
+  // will never retry it, so left alone it holds day close shut forever — which
+  // is exactly what happened on 2026-09-07 (ITEM_UNAVAILABLE + ALREADY_PAID on
+  // an offline till). A manager checks the tab at the till, then dismisses the
+  // row behind the same PIN gate as Quit: verify_manager_pin server-side when
+  // online, the offline cache in main otherwise (touch:resolve-queue-row
+  // re-checks). The row is kept as 'resolved' with who and when.
+  const [dismissing, setDismissing] = useState<QueueRowInfo | null>(null);
+  const [dismissPin, setDismissPin] = useState('');
+  const [dismissError, setDismissError] = useState<unknown>(null);
+  const [dismissBusy, setDismissBusy] = useState(false);
+
+  function closeDismiss() {
+    setDismissing(null);
+    setDismissPin('');
+    setDismissError(null);
+  }
+
+  async function dismissRow() {
+    if (!dismissing) return;
+    setDismissBusy(true);
+    setDismissError(null);
+    try {
+      try {
+        await appRpc('verify_manager_pin', { p_pin: dismissPin, p_device_id: touch.getStation().stationId });
+        touch.pinObserved(dismissPin);
+      } catch (e) {
+        // Offline: fall through to the cache check in main. A server REFUSAL
+        // (PIN_INVALID / PIN_LOCKED) still surfaces.
+        if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
+      }
+      const res = await touch.resolveQueueRow({ idempotencyKey: dismissing.idempotencyKey, pin: dismissPin });
+      if (!('ok' in res)) throw new Error(res.error);
+      if (!res.ok) {
+        if (res.error === 'pin not recognised') throw new AppRpcError('PIN_INVALID', res.error);
+        throw new AppRpcError('QUEUE_ROW_NOT_RESOLVABLE', res.error);
+      }
+      setQueueRows(await touch.getQueueRows());
+      closeDismiss();
+    } catch (e) {
+      setDismissError(e);
+    } finally {
+      setDismissBusy(false);
+    }
+  }
+
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: QK.day });
     void queryClient.invalidateQueries({ queryKey: ['dayOpenTabs'] });
@@ -171,6 +218,16 @@ export function DayClose() {
     setBusy(true);
     setError(null);
     try {
+      // close_day reads this station's LAST heartbeat (0020: DAY_UNSYNCED when
+      // queue_depth > 0). The beat runs every 10s, so a row dismissed seconds
+      // ago is still on the server as blocking — send a fresh beat with the
+      // depth as it is now. Best effort: if it fails, close_day is the judge.
+      try {
+        const station = touch.getStation();
+        await sendHeartbeat(station.stationId, station.mode === 'till', queueRows.length, station.appVersion);
+      } catch {
+        // The close below reports its own refusal.
+      }
       const res = await appRpc<CloseResult>('close_day', {
         p_cash_counted_iqd: countedCash,
         p_card_batch_iqd: cardBatch !== null && cardBatch > 0 ? cardBatch : null,
@@ -362,16 +419,70 @@ export function DayClose() {
               <div data-queue-rows>
                 <MessagePresenter tone="refused" message={tr('ws.manager.dayClose.unsyncedLead', { count: queueRows.length })} style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }} />
                 <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('op.dayClose.unsyncedHint')}</p>
-                <ul style={{ marginBlock: 0, paddingInlineStart: 'var(--tp-sp-4)' }}>
+                <ul style={{ marginBlock: 0, paddingInlineStart: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
                   {queueRows.map((row) => (
                     <li key={row.seq} style={{ fontSize: 'var(--tp-fs-sm)' }}>
-                      <code>{row.mutationType}</code> · {tr(`op.queue.state.${row.state}`)}
-                      {row.lastError ? ` — ${row.lastError}` : ''}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                        <span style={{ flex: '1 1 auto' }}>
+                          <code>{row.mutationType}</code> · {tr(`op.queue.state.${row.state}`)}
+                          {row.lastError ? ` — ${row.lastError}` : ''}
+                        </span>
+                        {(row.state === 'conflict' || row.state === 'failed') && (
+                          <Button
+                            size="sm"
+                            kind="soft"
+                            icon="x"
+                            disabled={!can.closeDay}
+                            onClick={() => {
+                              setDismissError(null);
+                              setDismissPin('');
+                              setDismissing(row);
+                            }}
+                          >
+                            {tr('op.dayClose.dismissRow')}
+                          </Button>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
               </div>
             </Panel>
+          )}
+
+          {dismissing && (
+            <Modal
+              title={tr('op.dayClose.dismissTitle')}
+              size="sm"
+              onClose={closeDismiss}
+              footer={
+                <>
+                  <Button onClick={closeDismiss} disabled={dismissBusy}>{tr('common.cancel')}</Button>
+                  <Button kind="danger" busy={dismissBusy} disabled={dismissPin.length < 4} onClick={() => void dismissRow()}>
+                    {tr('op.dayClose.dismissRow')}
+                  </Button>
+                </>
+              }
+            >
+              <p style={{ fontSize: 'var(--tp-fs-sm)', marginBlockStart: 0 }}>{tr('op.dayClose.dismissLead')}</p>
+              <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                <code>{dismissing.mutationType}</code> · {tr(`op.queue.state.${dismissing.state}`)}
+                {dismissing.lastError ? ` — ${dismissing.lastError}` : ''}
+              </p>
+              <Field label={tr('op.common.pin')}>
+                <input
+                  style={inputStyle}
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  dir="ltr"
+                  autoFocus
+                  value={dismissPin}
+                  onChange={(e) => setDismissPin(e.target.value.replace(/\D/g, ''))}
+                />
+              </Field>
+              <ErrorText error={dismissError} />
+            </Modal>
           )}
 
           {/* Cash */}
