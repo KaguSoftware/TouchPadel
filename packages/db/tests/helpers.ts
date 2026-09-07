@@ -25,7 +25,10 @@ export const SEED_STAFF = {
   prep: 'prep@dev.touch.local',
   court_desk: 'desk@dev.touch.local',
 } as const;
-export const DEV_PINS = { owner: '111111', manager: '222222' } as const;
+// 0078/SEC-13: six digits, no repeated digit and no sequential run. The old
+// 111111 / 222222 are both refused by app.set_staff_pin now, so seeding them
+// would have left the dev environment demonstrating a rule the product rejects.
+export const DEV_PINS = { owner: '719264', manager: '380517' } as const;
 
 const clientOptions = { auth: { persistSession: false, autoRefreshToken: false } } as const;
 

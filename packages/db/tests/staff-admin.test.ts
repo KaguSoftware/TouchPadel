@@ -161,7 +161,7 @@ describe.skipIf(!up)('0051 staff administration', () => {
       // demoted cashier is a live authorisation credential for someone who can
       // no longer authorise anything.
       const id = await makeStaff('demote', 'manager');
-      expect((await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '4321' })).error)
+      expect((await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '482913' })).error)
         .toBeNull();
       expect((await readStaff(id)).pin_hash).not.toBeNull();
 
@@ -173,7 +173,7 @@ describe.skipIf(!up)('0051 staff administration', () => {
 
     it('keeps the PIN when moving between manager and owner', async () => {
       const id = await makeStaff('sideways', 'manager');
-      await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '4321' });
+      await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '482913' });
       await appRpc(owner, 'set_staff_role', { p_staff_id: id, p_role: 'owner' });
       expect((await readStaff(id)).pin_hash).not.toBeNull();
     });
@@ -246,7 +246,7 @@ describe.skipIf(!up)('0051 staff administration', () => {
 
     it('clears the PIN on deactivation', async () => {
       const id = await makeStaff('pinned', 'manager');
-      await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '9876' });
+      await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '571038' });
       await appRpc(owner, 'set_staff_active', { p_staff_id: id, p_active: false });
       expect((await readStaff(id)).pin_hash).toBeNull();
     });
@@ -295,7 +295,7 @@ describe.skipIf(!up)('0051 staff administration', () => {
   describe('clear_staff_pin', () => {
     it('revokes a PIN without touching the role', async () => {
       const id = await makeStaff('clearpin', 'manager');
-      await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '1357' });
+      await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '635024' });
       expect((await appRpc(owner, 'clear_staff_pin', { p_staff_id: id })).error).toBeNull();
 
       const row = await readStaff(id);
@@ -305,7 +305,7 @@ describe.skipIf(!up)('0051 staff administration', () => {
 
     it('audits the fact, never the PIN', async () => {
       const id = await makeStaff('pinaudit', 'manager');
-      await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '2468' });
+      await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '904716' });
       await appRpc(owner, 'clear_staff_pin', { p_staff_id: id });
 
       const { data } = await svc

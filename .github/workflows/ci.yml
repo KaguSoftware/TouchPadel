@@ -104,6 +104,19 @@ jobs:
       - name: RPC registry + authz coverage
         run: pnpm --filter @touch/db check:rpc-registry
 
+      # SEC-28. What a kitchen screen receives. Prep needs what to cook and how
+      # long it has waited — never what it sold for or who the guest is. Reads
+      # the catalog, so a payload added by a migration nobody reviewed for this
+      # is still seen.
+      - name: Broadcast payloads (SEC-28)
+        run: pnpm --filter @touch/db check:broadcast
+
+      # SEC-29. Analytics output is POSTed to Groq, a third-party LLM outside the
+      # venue. A guest id in an aggregate is a guest record sent to a processor
+      # the privacy notice does not cover.
+      - name: Analytics payload (SEC-29)
+        run: pnpm --filter @touch/db check:analytics
+
       # Lock-taking and destructive DDL, scoped to the migrations THIS PR changes.
       # The 57 non-concurrent indexes already applied cannot be rewritten, so
       # history is grandfathered and only new migrations are judged.
@@ -376,6 +389,20 @@ jobs:
       # the local stack, so staging is never touched from CI.
       - name: Run e2e
         run: pnpm e2e
+
+      # SEC-25. Two assertions in web-security-headers.spec.ts are PRODUCTION
+      # properties — no 'unsafe-eval' in script-src, and every <script> in the
+      # served HTML nonced. `next dev` needs eval for HMR and injects its own
+      # un-nonced overlay scripts, so under the run above they SKIP. They skipped
+      # on every machine and every CI run this project ever had.
+      #
+      # This step builds the web app and runs that one spec against `next start`.
+      # Only that spec: a full production e2e pass would double the job for no
+      # extra security signal, and these are the only production-gated cases.
+      - name: Run web security headers against a PRODUCTION build
+        env:
+          E2E_PROD_BUILD: '1'
+        run: pnpm exec playwright test --config e2e/playwright.config.ts e2e/tests/web-security-headers.spec.ts
 
       - name: Upload traces and screenshots
         if: failure()

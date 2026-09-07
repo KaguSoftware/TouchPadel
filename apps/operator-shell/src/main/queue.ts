@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 import type { MutationEnvelope, QueueStatus } from '../ipc-channels';
+import { decryptSecret, encryptSecret, isEncryptionAvailable } from './secret-store';
 
 // SQLite durable write queue — design-arch.md §2.2. Flush-before-confirm is contractual:
 // journal_mode=WAL + synchronous=FULL, and the IPC promise resolves only after the
@@ -31,6 +32,7 @@ const BASE_DDL = `
     idempotency_key TEXT NOT NULL UNIQUE,              -- '{station}:{mutation_type}:{ulid}'
     mutation_type   TEXT NOT NULL,                     -- 'order.create' | 'ticket.status' | ...
     payload         TEXT NOT NULL,                     -- JSON, zod-validated before insert
+    payload_enc     INTEGER NOT NULL DEFAULT 0,        -- v4/SEC-32: 1 = safeStorage ciphertext
     created_at      TEXT NOT NULL,                     -- station clock, informational
     staff_id        TEXT,                              -- attributed actor; replay 400s without it
     device_id       TEXT,                              -- queue-owning station, key's first segment
@@ -98,6 +100,16 @@ function migrate(d: Database.Database): void {
     }
     d.pragma('user_version = 2');
   }
+  if (version < 4) {
+    // v4 (SEC-32): the payload column is encrypted at rest. `payload_enc` says
+    // which encoding a row uses, so an existing plaintext queue keeps replaying
+    // instead of being lost — a station mid-service must not have its queue
+    // invalidated by an upgrade.
+    const cols = d.pragma('table_info(mutation_queue)') as { name: string }[];
+    if (!cols.some((c) => c.name === 'payload_enc')) {
+      d.exec('ALTER TABLE mutation_queue ADD COLUMN payload_enc INTEGER NOT NULL DEFAULT 0');
+    }
+  }
   if (version < 3) {
     // v3: a manager can dismiss a conflict/failed row from the day-close
     // screen (resolveRow). Who and when live on the row — it is never deleted.
@@ -110,6 +122,7 @@ function migrate(d: Database.Database): void {
     }
     d.pragma('user_version = 3');
   }
+  d.pragma('user_version = 4');
 }
 
 /** Open (or create) a queue db at an explicit path — the testable seam. */
@@ -128,20 +141,75 @@ export function openQueue(): Database.Database {
   return db;
 }
 
+/**
+ * A queued row whose payload cannot be read back — the Windows profile was
+ * recreated, the app runs as a different user, the machine was reimaged. The
+ * mutation can never replay; what matters is that it becomes VISIBLE to a
+ * manager rather than being silently skipped or replayed with a null body.
+ */
+export class QueuePayloadUnreadableError extends Error {
+  constructor(readonly idempotencyKey: string) {
+    super(`queued payload cannot be decrypted (${idempotencyKey})`);
+    this.name = 'QueuePayloadUnreadableError';
+  }
+}
+
+/**
+ * Thrown by enqueue when the station cannot encrypt. SEC-32 asks the till to
+ * REFUSE TO TRADE OFFLINE rather than fall back to plaintext, and this is that
+ * refusal: the renderer surfaces it and the sale is taken online or not at all.
+ */
+export class QueueEncryptionUnavailableError extends Error {
+  constructor() {
+    super('offline queue unavailable: this machine cannot encrypt at rest');
+    this.name = 'QueueEncryptionUnavailableError';
+  }
+}
+
+/**
+ * SEC-32 — the queue payload is encrypted at rest.
+ *
+ * WHY. A queued PIN-gated mutation carries the TYPED PIN: apps/operator
+ * src/lib/mutate.ts maps `p_pin: p?.pin` into the replayed RPC args for
+ * override_price and apply_discount, because the server re-verifies it at
+ * replay. So `queue.db` held staff authorisation PINs in plaintext JSON on an
+ * unmanaged Windows box — the same credential the pin_cache work went to
+ * lengths to protect, sitting in the next table over.
+ *
+ * safeStorage binds the key to the logged-in Windows account (DPAPI), so the
+ * file is inert once copied off the machine.
+ */
+function encodePayload(payload: unknown): { text: string; enc: 0 | 1 } {
+  const json = JSON.stringify(payload ?? null);
+  if (!isEncryptionAvailable()) throw new QueueEncryptionUnavailableError();
+  return { text: encryptSecret(json), enc: 1 };
+}
+
+function decodePayload(text: string, enc: number, idempotencyKey: string): unknown {
+  if (enc !== 1) return JSON.parse(text) as unknown; // pre-v4 row, still replayable
+  const plain = decryptSecret(text);
+  if (plain === null) throw new QueuePayloadUnreadableError(idempotencyKey);
+  return JSON.parse(plain) as unknown;
+}
+
 export function enqueue(m: MutationEnvelope): { localId: string; state: 'queued' } {
   // Structural validation happens at the IPC boundary (ipc-validate.ts); the renderer
   // additionally parses the full @touch/core zod envelope before calling the bridge.
+  // Encoded BEFORE the insert so a station that cannot encrypt refuses the write
+  // outright rather than half-committing it.
+  const encoded = encodePayload(m.payload);
   openQueue()
     .prepare(
       `INSERT INTO mutation_queue
-         (local_id, idempotency_key, mutation_type, payload, created_at, staff_id, device_id)
-       VALUES (@localId, @idempotencyKey, @mutationType, @payload, @createdAt, @staffId, @deviceId)`,
+         (local_id, idempotency_key, mutation_type, payload, payload_enc, created_at, staff_id, device_id)
+       VALUES (@localId, @idempotencyKey, @mutationType, @payload, @payloadEnc, @createdAt, @staffId, @deviceId)`,
     )
     .run({
       localId: m.localId,
       idempotencyKey: m.idempotencyKey,
       mutationType: m.mutationType,
-      payload: JSON.stringify(m.payload ?? null),
+      payload: encoded.text,
+      payloadEnc: encoded.enc,
       createdAt: m.createdAt,
       staffId: m.staffId,
       deviceId: m.deviceId,
@@ -157,7 +225,11 @@ function toRow(r: Record<string, unknown>): QueueRow {
     localId: r.local_id as string,
     idempotencyKey: r.idempotency_key as string,
     mutationType: r.mutation_type as string,
-    payload: JSON.parse(r.payload as string) as unknown,
+    payload: decodePayload(
+      r.payload as string,
+      (r.payload_enc as number) ?? 0,
+      r.idempotency_key as string,
+    ),
     createdAt: r.created_at as string,
     staffId: (r.staff_id as string | null) ?? null,
     deviceId: (r.device_id as string | null) ?? null,
@@ -175,12 +247,24 @@ function toRow(r: Record<string, unknown>): QueueRow {
  * poisoned row cannot wedge every later sale; they still block day close.
  */
 export function peekNext(): QueueRow | undefined {
-  const r = openQueue()
-    .prepare(
-      `SELECT * FROM mutation_queue WHERE state IN ('pending','inflight') ORDER BY seq LIMIT 1`,
-    )
-    .get() as Record<string, unknown> | undefined;
-  return r ? toRow(r) : undefined;
+  // Loop rather than a single read: a row whose payload cannot be decrypted is
+  // parked as `failed` and the worker moves on. It stays visible in
+  // listBlockingRows (and so still blocks day close) instead of wedging every
+  // later sale behind a row that can never replay.
+  for (;;) {
+    const r = openQueue()
+      .prepare(
+        `SELECT * FROM mutation_queue WHERE state IN ('pending','inflight') ORDER BY seq LIMIT 1`,
+      )
+      .get() as Record<string, unknown> | undefined;
+    if (!r) return undefined;
+    try {
+      return toRow(r);
+    } catch (err) {
+      if (!(err instanceof QueuePayloadUnreadableError)) throw err;
+      markFailed(r.idempotency_key as string, err.message);
+    }
+  }
 }
 
 export function markInflight(idempotencyKey: string): void {
@@ -258,7 +342,28 @@ export function listBlockingRows(): QueueRow[] {
        WHERE state IN ('pending','inflight','conflict','failed') ORDER BY seq`,
     )
     .all() as Record<string, unknown>[];
-  return rows.map(toRow);
+  // A row that cannot be decrypted still BLOCKS: the manager must see that
+  // something is stuck even though its contents are unrecoverable.
+  return rows.map((r) => {
+    try {
+      return toRow(r);
+    } catch (err) {
+      if (!(err instanceof QueuePayloadUnreadableError)) throw err;
+      return {
+        seq: r.seq as number,
+        localId: r.local_id as string,
+        idempotencyKey: r.idempotency_key as string,
+        mutationType: r.mutation_type as string,
+        payload: null,
+        createdAt: r.created_at as string,
+        staffId: (r.staff_id as string | null) ?? null,
+        deviceId: (r.device_id as string | null) ?? null,
+        state: 'failed' as QueueRow['state'],
+        attempts: r.attempts as number,
+        lastError: err.message,
+      };
+    }
+  });
 }
 
 /**
