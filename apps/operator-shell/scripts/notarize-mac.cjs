@@ -9,10 +9,11 @@
 // of 10x-billed mac minutes was gone — while Apple, on its side, was still
 // processing a perfectly good submission.
 //
-// Here: submit with --no-wait (retried), then ask `notarytool info` every
-// 30 s, treating any transport failure as "ask again later", until Apple says
-// Accepted (staple, done) or Invalid (fetch the log, fail loudly). The one
-// thing that still ends the job early is the hard deadline below.
+// Here: submit with --no-wait (retried) and, by default, stop there — see the
+// NOTARIZE_WAIT note below. With NOTARIZE_WAIT=1 it then asks `notarytool
+// info` every 30 s, treating transport failures as "ask again later", until
+// Apple says Accepted (staple, done) or Invalid (fetch the log, fail loudly),
+// or the hard deadline below ends the job.
 //
 // Runs only on darwin, only when the five APPLE_/CSC values the workflow
 // injects are present; otherwise it says so and lets the build continue
@@ -25,6 +26,10 @@ const path = require('node:path');
 const POLL_MS = 30_000;
 const DEADLINE_MS = 3 * 60 * 60 * 1000; // Apple's first-ever submissions can take an hour+
 const SUBMIT_ATTEMPTS = 3;
+// A transport failure (offline, timeout) is retried indefinitely inside the
+// deadline; anything else (401, bad id, tool missing) this many times in a row
+// is a real error and ends the job instead of quietly waiting 3 hours.
+const MAX_CONSECUTIVE_HARD_FAILURES = 5;
 
 const log = (msg) => console.log(`  • notarize        ${msg}`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -79,11 +84,27 @@ module.exports = async function notarizeMac(context) {
       throw new Error(`notarize: submit failed: ${r.err || r.out}`);
     }
   }
-  log(`submission id ${id} — polling every ${POLL_MS / 1000}s, deadline ${DEADLINE_MS / 60000} min`);
+  log(`submission id ${id}`);
+
+  // Default: do NOT wait. Gatekeeper looks the ticket up online at launch, so
+  // the app is treated as notarized the moment Apple accepts, stapled or not;
+  // until then it opens via Privacy & Security → Open Anyway (the same
+  // one-time friction as SmartScreen on the unsigned Windows build). Set
+  // NOTARIZE_WAIT=1 to poll and staple — worth it once Apple's turnaround is
+  // minutes again, but on 2026-09-07 two submissions sat "In Progress" for
+  // 55 min and 3 h with the runner's network fine throughout, and every one
+  // of those minutes is 10x-billed mac time.
+  if (process.env.NOTARIZE_WAIT !== '1') {
+    log(`not waiting for Apple (NOTARIZE_WAIT is not 1) — check later with: xcrun notarytool info ${id}`);
+    fs.rmSync(tmp, { recursive: true, force: true });
+    return;
+  }
+  log(`polling every ${POLL_MS / 1000}s, deadline ${DEADLINE_MS / 60000} min`);
 
   const started = Date.now();
   let lastStatus = '';
   let transportFailures = 0;
+  let hardFailures = 0;
   for (;;) {
     if (Date.now() - started > DEADLINE_MS) {
       throw new Error(`notarize: gave up after ${DEADLINE_MS / 60000} min; submission ${id} last status "${lastStatus}"`);
@@ -91,10 +112,21 @@ module.exports = async function notarizeMac(context) {
     await sleep(POLL_MS);
     const r = xcrun(['notarytool', 'info', id, ...auth, '--output-format', 'json'], { json: true });
     if (!r.ok) {
-      transportFailures++;
-      log(`info failed (${transportFailures} so far, will keep asking): ${(r.err || r.out).split('\n')[0]}`);
+      const first = (r.err || r.out).split('\n')[0];
+      if (r.transport) {
+        transportFailures++;
+        hardFailures = 0;
+        log(`info failed on transport (${transportFailures} so far, will keep asking): ${first}`);
+        continue;
+      }
+      hardFailures++;
+      log(`info failed (${hardFailures}/${MAX_CONSECUTIVE_HARD_FAILURES} before giving up): ${first}`);
+      if (hardFailures >= MAX_CONSECUTIVE_HARD_FAILURES) {
+        throw new Error(`notarize: notarytool info keeps failing for ${id}: ${r.err || r.out}`);
+      }
       continue;
     }
+    hardFailures = 0;
     const status = r.data.status || '';
     if (status !== lastStatus) {
       log(`status ${status} (${Math.round((Date.now() - started) / 60000)} min)`);
