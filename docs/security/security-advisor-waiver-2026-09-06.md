@@ -24,12 +24,19 @@ These are exactly the four named in `AUDITED_OWNER_RIGHTS_VIEWS` in
 `packages/db/scripts/check-db-invariants.mjs`, which is written to fail on a **fifth**
 owner-rights view.
 
-> ⚠ **That gate has never been executed.** It reads `pg_class` through the local
-> Supabase container, and Docker has not been running on any machine that has had this
-> code. It is written and wired into the CI `db` job, but "a fifth view fails CI" is
-> currently a claim about a script that has never run once. Close it with
-> `pnpm db:start && pnpm --filter @touch/db check:invariants` before relying on it —
-> and before signing this.
+> ✅ **That gate has now been executed — 2026-09-07.** A container runtime was installed and
+> `pnpm --filter @touch/db check:invariants` ran for the first time:
+>
+> ```
+> views          12 total · 8 security_invoker=on · 4 owner-rights
+> definer fns    215 total · 215 with a pinned search_path
+> PASS
+> ```
+>
+> The four owner-rights views the advisor flagged are **exactly** the four in
+> `AUDITED_OWNER_RIGHTS_VIEWS` — no fifth, and no drift between what this waiver covers and
+> what the database holds. "A fifth view fails CI" is now a property of a script that runs,
+> rather than a claim about one that never had. **This precondition for signing is met.**
 
 ## 1 · Why the advisor flags them, and why it is right to
 
@@ -128,8 +135,16 @@ Security Layer 1 Block 3 expected a **second** finding — `extension_in_public`
    it is a bigger finding than anything above.
 
 Migration `20260904000069_btree_gist_schema_fix.sql` is idempotent and is a no-op if
-`btree_gist` has already been relocated, so it is safe either way — but it has **not
-been executed anywhere yet** (no local stack was available when it was written).
+`btree_gist` has already been relocated, so it is safe either way.
+
+> ⚠ **Update 2026-09-07 — it was executed for the first time, and it FAILED.** Its post-check
+> named `app.reservations`, a relation that does not exist (the table is in `public`), so the
+> migration aborted with 42P01 and took the whole stack down with it. Had explanation 1 above
+> been acted on by pushing 0069 to the hosted project, it would have failed there in the same
+> way. Fixed and re-run clean; `btree_gist` now relocates and the reservations exclusion
+> constraint is verified intact afterwards. **This strengthens explanation 1** — the advisor
+> list was almost certainly filtered, because 0069 had never successfully run anywhere and so
+> could not have fixed `extension_in_public`. Re-run the advisor unfiltered to confirm.
 
 ## Sign-off
 

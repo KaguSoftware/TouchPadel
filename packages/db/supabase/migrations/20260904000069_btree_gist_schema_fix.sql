@@ -62,13 +62,34 @@ end $$;
 -- class resolution broke, this constraint would no longer be enforceable and
 -- the failure would otherwise only surface as a double-booked court during
 -- service.
+--
+-- FIXED 2026-09-07, on the first execution this migration has ever had. The
+-- post-check named `app.reservations`. That table is in `public` — the `app`
+-- schema holds FUNCTIONS; the only tables in it are `secrets`, `rpc_replays`,
+-- `pin_attempts`, `sms_limits` and `sms_sends`. So `::regclass` raised
+-- 42P01 "relation app.reservations does not exist", the migration aborted, and
+-- `supabase start` failed outright at 0069 — no stack, and 0070/0071 never ran.
+--
+-- Two changes, because the second is what made the first hard to read:
+--   * the correct schema, `public.reservations`;
+--   * `to_regclass`, which returns NULL for a missing relation instead of
+--     raising. A post-check that dies with a raw catalog error tells you far
+--     less than one that says which invariant it could not verify — and this
+--     one exists precisely to be read by whoever is watching a migration run
+--     against the venue's live database.
 do $$
 declare
+  v_reloid  oid;
   v_conname text;
 begin
+  v_reloid := to_regclass('public.reservations');
+  if v_reloid is null then
+    raise exception 'POST-CHECK FAILED: public.reservations does not exist — cannot verify the exclusion constraint';
+  end if;
+
   select conname into v_conname
     from pg_constraint
-   where conrelid = 'app.reservations'::regclass
+   where conrelid = v_reloid
      and contype = 'x'
    limit 1;
 

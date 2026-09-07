@@ -56,6 +56,8 @@ const isDev = process.env.NODE_ENV !== 'production';
  *   /en/t/{token}     what a locale switch produces
  */
 const TABLE_URL = new RegExp(`^(?:/(${LOCALES.join('|')}))?/t/([^/]+)/?$`);
+/** Where the exchange LANDS: /{locale}/t, the page that holds the session. */
+const TABLE_SESSION_URL = new RegExp(`^/(${LOCALES.join('|')})/t/?$`);
 
 /**
  * Move the table token out of the URL and into an HttpOnly cookie.
@@ -106,6 +108,27 @@ export function proxy(req: NextRequest) {
   const withSecurity = (res: NextResponse) => {
     res.headers.set('content-security-policy', csp);
     res.headers.set('x-nonce', nonce);
+
+    /**
+     * `no-store` on the table session, set HERE and not in next.config.ts.
+     *
+     * TABLE_ROUTE_HEADERS declares it, but Next stamps its OWN Cache-Control on
+     * a dynamic page route and that value wins over `headers()`. Measured on the
+     * wire 2026-09-07: /en/t came back `no-cache, must-revalidate` — NOT the
+     * `no-store` the header module declares and the Layer 1 box recorded as
+     * "verified on the live route".
+     *
+     * The difference is not cosmetic. `no-cache` permits a shared cache to STORE
+     * the response as long as it revalidates; only `no-store` forbids keeping a
+     * copy. A table page is one guest's open tab, reached from a sticker on a
+     * table that the next person will also scan — so a stored copy is one
+     * guest's session served to another. Middleware runs after the route
+     * handler, so setting it here is what actually reaches the browser.
+     */
+    if (TABLE_URL.test(pathname) || TABLE_SESSION_URL.test(pathname)) {
+      res.headers.set('cache-control', 'no-store, no-cache, must-revalidate, private');
+      res.headers.set('referrer-policy', 'no-referrer');
+    }
     return res;
   };
 

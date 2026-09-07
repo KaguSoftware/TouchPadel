@@ -4,33 +4,40 @@
 **Parent** `docs/security/security-general.md` — the full checklist. This file is the slice you do **first**.
 **Verified against** the repository at commit `3a6d8f5`, 2026-08-30.
 
-## Status — 2026-09-04
+## Status — 2026-09-07
 
-**30 of 60 ticked.** Everything that is code is done and verified, except where a box says otherwise.
+**36 of 61 ticked.** Everything that is code is done **and now executed**: a container runtime was
+installed on 2026-09-07 and every gate ran for the first time. The four "written but unverified" boxes
+are closed — and running them found that **two of them were wrong**, which is the entire argument for
+never ticking a box you have not executed:
 
-| Why the other 30 are open | Count |
+| | |
 |---|---|
-| Needs a **dashboard/account** (GitHub, Supabase, Vercel, Expo, Apple, registrar) | 13 |
-| Needs the **client** (D1, domain, venue-PC policy, signatures, account ownership) | 8 |
+| Migration **0069** (`btree_gist`) | **was broken** — post-check named `app.reservations`, a relation that does not exist. Aborted with 42P01 and stopped the stack booting. Would have failed identically on the client's live database. |
+| **Web security headers** (Block 4) | **were never shipping** — written, exported, imported into `next.config.ts`, and never returned. Zero static headers, while the gate stayed green and this file said DONE. |
+| `check:invariants` | passed on the first run: 12 views / 8 invoker / 4 audited, 215 of 215 definer functions pin `search_path`. |
+| Header e2e | 6/6 green on the first run — and it is what found the headers above. |
+
+| Why the other 25 are open | Count |
+|---|---|
+| Needs a **dashboard/account** (GitHub, Supabase, Vercel, Expo, Apple, registrar) | 12 |
+| Needs the **client** (D1, domain, venue-PC policy, signatures, account ownership) | 7 |
 | Needs a **purchase** (OV/EV code-signing certificate) | 1 |
-| **Written but unverified** — Docker was not running, so no local Supabase stack | 4 |
-| **Deliberately incomplete**, with the reasoning in the box | 4 |
+| **Deliberately incomplete**, with the reasoning in the box | 5 |
 
-The four unverified boxes are `check:invariants` (views + `search_path`), the header e2e suite, and
-migration 0069. Run `pnpm db:start` then `pnpm --filter @touch/db check:invariants && pnpm db:reset && pnpm e2e`
-to close them.
+**Nothing is left that only needed a machine to run it.** What remains needs a person with an account,
+a signature, or a credit card.
 
-New gates, all runnable now: `pnpm security` · `pnpm --filter @touch/db check:migrations`
-· `check:rpc-registry` · `check:invariants` · `pnpm --filter @touch/operator-shell check:electron`.
-
----
-
-> ⚠ **This file has drifted from the repo.** It was verified at migration 55; the repo is at 68. Some boxes
-> describe work that has since landed — `sandbox: true` and the single-file preload bundle are both done
-> (`apps/operator-shell/src/main/index.ts:107-112`), and `lan-kds-server.ts` does not exist yet at all.
-> Re-verify each box against the code before working it; do not trust a box's premise.
+Gates, all green as of 2026-09-07: `check:migrations` · `check:rpc-registry` · `check:invariants` ·
+`check:locks` · `check:safeupdate` · `check:authz` · `check:electron` · `check-web-security` ·
+`check-data-hygiene` · `check-history-secrets` · `check-public-env-names`.
 
 ---
+
+> ⚠ **Re-verify each box against the code before working it.** This file was written at migration 55;
+> the repo is at **76**. Several boxes' premises were already stale when written — `sandbox: true` and
+> the preload bundle were done before the box was read, and `lan-kds-server.ts` did not exist. Two more
+> were found to be *false* on 2026-09-07 (above). Do not trust a box's premise; open the file it names.
 
 ## What Layer 1 is
 
@@ -250,15 +257,16 @@ have to make on every pull request forever.
       `payments` — the three with UPDATE/DELETE revoked) is retained 30 days: with no PITR rehearsal and no
       staging, it is the only "before" that will exist. It is evidence, not a restore path. (SEC-02 · DEV)
 ### Database invariants
-- [ ] **Every view is `security_invoker = on`** — **WRITTEN, NOT VERIFIED.**
+- [x] **Every view is `security_invoker = on`** — DONE — DEV, **VERIFIED 2026-09-07**.
+      First execution: **12 views · 8 `security_invoker=on` · 4 owner-rights**, exactly the four named
+      in the allowlist and waived in `security-advisor-waiver-2026-09-06.md`. The gate passes and the
+      waiver's "a fifth view fails CI" is now a tested claim rather than an untested one.
       `packages/db/scripts/check-db-invariants.mjs` (`pnpm --filter @touch/db check:invariants`), wired into
       the CI `db` job. The four audited projections are named in an allowlist; any NEW invoker-off view fails.
-      ⚠ **Docker was not running on this machine, so it has never been executed.** It reads `pg_class`
-      through the stack's container exactly as `check-lock-order.mjs` does. Run `pnpm db:start` then
-      `pnpm --filter @touch/db check:invariants` before trusting it. (SEC-04 · DEV)
-- [ ] **Every `security definer` function has a pinned `search_path`** — **WRITTEN, NOT VERIFIED.**
-      Second stage of the same `check:invariants` script. Expected to pass on the first run (159/159).
-      ⚠ Unexecuted for the same reason — no Docker. (SEC-04 · DEV)
+      (SEC-04 · DEV)
+- [x] **Every `security definer` function has a pinned `search_path`** — DONE — DEV, **VERIFIED 2026-09-07**.
+      First execution: **215 of 215** definer functions pin `search_path`, zero offenders. (This file
+      predicted 159/159; the repo has grown from migration 55 to 76 since.) (SEC-04 · DEV)
 - [x] **RPC registry — moved out of code and into data** — DONE — DEV, 2026-09-04.
       ⚠ **This gate fired in anger on 2026-09-06 and it was right.** Migration 0070 (`send_test_push`,
       2026-09-06) granted execute to `authenticated` with no registry entry, and branch `kemal` was red:
@@ -267,10 +275,18 @@ have to make on every pull request forever.
       default, with nothing to say so — which is the exact scenario this box was written for. Closed the
       same day: classified `publicByDesign` with its reason (it takes **no arguments**, so it can only ever
       target `auth.uid()`, and it is rate-limited to one per minute per profile), given a rule in
-      `tests/rls-matrix.ts`, floor ratcheted to **61/128**.
-      `packages/db/fixtures/rpc-allowlist.json` classifies all **127** client-callable RPCs (19 public by
-      design with a written reason each, 108 guarded); `check-rpc-authz.mjs` now loads its exemptions from
-      it instead of the hardcoded `Set`.
+      `tests/rls-matrix.ts`, floor ratcheted to 61/128.
+      ⚠ **And again on 2026-09-07 — eleven at once.** 0072/0073/0074 shipped the staff-request and
+      marketing families (`decide_staff_request`, `save_marketing_campaign`, `set_campaign_status`,
+      `delete_court`, …) granted to `authenticated` with no classification. Every one turned out to
+      carry a real role guard on its first line, confirmed by `check:authz` probing all 139 RPCs as a
+      live anonymous guest. Rather than lower the floor to admit them, all eleven were given rules in
+      `tests/rls-matrix.ts` — so coverage went **UP**, 61/128 → **72/139**, and the floor was ratcheted
+      to match. Twice in two days is not bad luck; it is the shape of this repo, and it is exactly why
+      the default had to become "absence is a failure".
+      `packages/db/fixtures/rpc-allowlist.json` classifies every client-callable RPC — **139 as of
+      2026-09-07: 20 public by design with a written reason each, 119 guarded**; `check-rpc-authz.mjs`
+      loads its exemptions from it instead of the hardcoded `Set`.
       The point is the DEFAULT, not the list: a newly granted RPC used to appear in no list at all, so
       nothing failed and it shipped unguarded unless a reviewer noticed. `check:rpc-registry` now fails on
       any unclassified RPC — silence stops being a pass. Negative-tested. (SEC-12 · SEC)
@@ -295,13 +311,24 @@ have to make on every pull request forever.
       `sandbox: true` is as dangerous as an inverted one, and Electron's defaults have changed across
       majors. Also asserts `will-navigate`, `setWindowOpenHandler` and `will-attach-webview` stay wired.
       Negative-tested. (SEC-30 · DEV)
-- [ ] **Web security-header e2e assertions** — **WRITTEN, NOT RUN.**
-      `e2e/tests/web-security-headers.spec.ts`: every header present, a fresh nonce per request, no inline
-      script without one, the cookie exchange, and — the assertion that would otherwise be argued rather
-      than measured — **no outbound request carrying the table token**.
-      ⚠ Playwright needs the local Supabase stack, and Docker was not running. The header and nonce
-      assertions WERE verified by hand against a production build (`next start` + curl: all 14 inline
-      scripts carried the nonce). The token-leak test has never executed. (SEC-25 · FE2)
+- [x] **Web security-header e2e assertions** — DONE — **RUN FOR THE FIRST TIME 2026-09-07, 6/6 green.**
+      It earned its keep immediately: **the first run is what found the headers above were not shipping
+      at all.** Four other things had to be fixed before it could pass, none of which was a security
+      defect but each of which had kept the suite from ever going green:
+      • `pnpm db:fixtures` is an unstated prerequisite — `db:reset` alone leaves no fixture cafe tables,
+        so `generate_table_token` returned `TABLE_NOT_FOUND`;
+      • the token-leak assertion compared origins against `page.url()`, which is `about:blank` on the
+        first navigation, so it flagged **its own opening request** and the venue's own Supabase backend
+        as third-party leaks — it could not have passed on a correct system. Now checks a fixed
+        first-party list, and still checks `Referer` on **every** request, which is the property that
+        matters (`layer-1-rules-and-decisions.md` §7);
+      • `unsafe-eval` and the inline-script nonce are **production-build** properties; the suite's
+        webServer runs `next dev`, which needs eval for HMR and injects un-nonced overlay scripts. Both
+        are now behind `E2E_PROD_BUILD=1` rather than deleted. ⚠ **Nothing sets that flag yet — CI must
+        run this suite against `next build && next start` or those two assertions never execute anywhere.**
+        Tracked in `security-general.md` §10.
+      The nonce, freshness, header-presence, cookie-exchange, no-referrer and token-leak assertions all
+      run in both modes and are green. (SEC-25 · FE2)
 ---
 
 ## Block 3 · The database floor
@@ -325,7 +352,18 @@ have to make on every pull request forever.
 - [ ] Re-run the DB suite against the hosted project through a **restricted role** — **NOT DONE.**
       Requires hosted credentials and a restricted role that does not exist yet; blocked behind the item
       above. (SEC-03 · DEV)
-- [ ] **Move `btree_gist` into `extensions`** — **MIGRATION WRITTEN, NOT EXECUTED.**
+- [x] **Move `btree_gist` into `extensions`** — DONE — DEV, **EXECUTED 2026-09-07 — and it was BROKEN.**
+      ⚠ **This box is the argument for the whole "written is not verified" rule.** The migration's
+      post-check named `app.reservations`. That table is in `public` — `app` holds functions, and its
+      only tables are `secrets`, `rpc_replays`, `pin_attempts`, `sms_limits`, `sms_sends`. So
+      `'app.reservations'::regclass` raised **42P01**, the migration aborted, and `supabase start`
+      failed outright at 0069: no stack at all, and 0070/0071 never applied. It would have failed
+      **identically on the hosted project**, inside the gated `db-migrate.yml` window, on the client's
+      live database. Fixed in place (correct schema, plus `to_regclass` so a missing relation reports
+      which invariant could not be checked instead of dying on a raw catalog error) — the migration
+      had never run anywhere, so nothing had to be rewritten. Re-run clean: all 76 migrations apply,
+      the reservations exclusion constraint is intact, and the 10-case concurrency suite is green.
+      **Everything below is the original box, and all of it held once the migration could run:**
       `20260904000069_btree_gist_schema_fix.sql`. Idempotent, carries the timeout preamble, and ends with a
       post-check that re-asserts the reservations exclusion constraint still exists — the constraint that
       stops two bookings taking the same court, i.e. the most important invariant in the product.
@@ -378,12 +416,31 @@ The baseline each of the three clients needs before feature work stacks on top.
 > The least-defended surface in the system and the only one with no login. It ships **zero security
 > headers**, has **no `middleware.ts`**, and has **no lint script**.
 
-- [x] ★ **Production security headers** — DONE — DEV, 2026-09-04.
-      `next.config.ts` `headers()` + a per-request nonce CSP in `proxy.ts`. HSTS (2y, includeSubDomains,
-      preload), nosniff, `frame-ancestors 'none'`, X-Frame-Options, Referrer-Policy, Permissions-Policy,
-      COOP. **Verified against a real production build**, not just configured: `script-src` is
-      `'nonce-…' 'strict-dynamic'` with no `unsafe-inline`, and all 14 of Next's inline scripts plus the
-      layout's inline `<style>` carried the nonce.
+- [x] ★ **Production security headers** — **RE-OPENED AND ACTUALLY FIXED 2026-09-07.**
+      🔴 **This box was ticked on 2026-09-04 and NOT ONE STATIC SECURITY HEADER WAS SHIPPING.**
+      `STATIC_SECURITY_HEADERS` and `TABLE_ROUTE_HEADERS` were written in
+      `apps/web/src/lib/security/headers.ts`, exported, and **imported into `next.config.ts` — where
+      nothing used them.** The `headers()` block returned a single font `Cache-Control` rule. So no
+      HSTS, no nosniff, no X-Frame-Options, no Referrer-Policy, no Permissions-Policy, no COOP, and no
+      `no-referrer` on the table route. Measured with `curl`, not inferred.
+      **Three things should have caught it, and each failed differently — this is the interesting part:**
+      1. `pnpm --filter @touch/web lint` **did** catch it and said so plainly —
+         `'STATIC_SECURITY_HEADERS' is defined but never used` — and was not re-run after the box was ticked.
+      2. `check-web-security.mjs` grepped `next.config.ts` for the constant NAME. **An unused import
+         satisfied it**, so the gate stayed green over zero shipped headers. Now fixed to look inside the
+         RETURNED array, and negative-tested: reverting to a bare import fails the gate.
+      3. The e2e that asserts headers on a live response had never executed — no container runtime.
+      The CSP nonce was genuinely fine throughout; it comes from `proxy.ts`, which is why the
+      2026-09-04 spot-check of `script-src` looked right and the rest was never looked at.
+      **Now:** wired into `headers()` for `/:path*`, plus `TABLE_ROUTE_HEADERS` on `/t/:path*` AND on
+      `/:locale(en|ar)/t` — the route the 307 actually lands on, which the original never covered.
+      Confirmed on the wire and by 6 green e2e assertions. (SEC-25 · FE2)
+      ⚠ **Residual, measured:** `Cache-Control: no-store` holds on `/t/{token}` (a middleware redirect,
+      where the proxy owns the response) but **not** on the rendered `/{locale}/t` page — Next stamps its
+      own `no-cache, must-revalidate` and it wins over both `headers()` and `NextResponse.next()`. A cache
+      may therefore STORE that page provided it revalidates. The session is gated by the HttpOnly cookie
+      rather than by the cache, so this is defence-in-depth, not access control — but the 2026-09-04 claim
+      "`Cache-Control: no-store` there … verified on the live route" was **not true** and is corrected here.
       ⚠ **Cost, stated:** the nonce forces `/[locale]` to render dynamically — it was static. The menu
       still comes from the cached read model, so it costs a render, not a database round trip.
       (SEC-25 · FE2)
@@ -397,9 +454,13 @@ The baseline each of the three clients needs before feature work stacks on top.
       NOT FIXED: an XSS in the guest app could still read it. Closing that means never sending the token to
       the client at all — a route handler calling the RPC server-side as the guest — which is a real
       refactor of the ordering boot and is **not** done. (SEC-25 · FE2)
-- [x] `Referrer-Policy: no-referrer` on `/t/*` — DONE — DEV, 2026-09-04. Plus
-      `Cache-Control: no-store` there: a table page is one guest's session and must never sit in a shared
-      cache. Verified on the live route. (SEC-25 · FE2)
+- [x] `Referrer-Policy: no-referrer` on `/t/*` — DONE, **re-verified on the wire 2026-09-07**.
+      ⚠ **The 2026-09-04 half of this box was wrong twice.** Neither header shipped at all until
+      2026-09-07 (the constants were imported and never returned — see the headers box above), so
+      "verified on the live route" cannot have been true. And `Cache-Control: no-store` reaches the
+      browser on `/t/{token}` but **not** on the rendered `/{locale}/t`, where Next stamps its own
+      `no-cache, must-revalidate` over it. `no-referrer` now holds on both. The `no-store` gap is
+      recorded as an open item in `security-general.md` §10. (SEC-25 · FE2)
 - [x] Cookies are `HttpOnly; Secure; SameSite=Lax` — DONE — DEV, 2026-09-04.
       Confirmed on the wire. `Lax` not `Strict` on purpose: a guest following the QR from a messaging app
       arrives cross-site, and `Strict` would drop the cookie on the one navigation that matters.

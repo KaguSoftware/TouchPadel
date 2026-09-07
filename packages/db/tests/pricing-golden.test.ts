@@ -22,7 +22,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { stackAvailable, serviceClient, createTestCourt } from './helpers';
+import { stackAvailable, serviceClient, anonClient, createTestCourt } from './helpers';
 
 interface GoldenRule {
   id: string;
@@ -55,12 +55,38 @@ const up = await stackAvailable();
 
 describe.skipIf(!up)('golden pricing cases (shared with @touch/core)', () => {
   let svc: SupabaseClient;
+  /**
+   * app.price_slot is granted to `anon` and `authenticated` ONLY (0007:69) —
+   * service_role has no EXECUTE on it and gets 42501. That is correct and
+   * deliberate: the price quote is a pre-identity guest surface, so the test
+   * must call it the way a guest does. Seeding still uses the service role.
+   */
+  let pub: SupabaseClient;
   const courtIdByRef = new Map<string, string>();
   /** fixture rule ref -> the uuid it was inserted as, to check WHICH rule won. */
   const ruleIdByRef = new Map<string, string>();
 
   beforeAll(async () => {
     svc = serviceClient();
+    pub = anonClient();
+
+    // The local database is NOT reset between `pnpm test` runs, so a second run
+    // would insert a SECOND copy of every rule below — identical court, priority
+    // and window. That is the one thing the fixture is built to avoid: with two
+    // candidates tied on (specificity, priority), resolution falls through to the
+    // final tie-break, `rule id ascending`, and the winner becomes whichever uuid
+    // sorted first — a previous run's. The prices still matched, which is why
+    // this showed up as "right money, wrong rule" rather than as an obvious
+    // failure. Clearing by name prefix makes the suite idempotent; the price rows
+    // go with them (rate_rule_prices cascades on delete).
+    const { data: stale } = await svc.from('rate_rules').select('id').like('name', 'GOLDEN %');
+    if (stale && stale.length > 0) {
+      await svc
+        .from('rate_rules')
+        .delete()
+        .in('id', (stale as { id: string }[]).map((r) => r.id));
+    }
+
     courtIdByRef.set('a', await createTestCourt(svc, 'GOLDEN-A'));
     courtIdByRef.set('b', await createTestCourt(svc, 'GOLDEN-B'));
 
@@ -103,7 +129,7 @@ describe.skipIf(!up)('golden pricing cases (shared with @touch/core)', () => {
 
   for (const c of golden.cases) {
     it(`${c.localWallTime} · court ${c.courtRef} · ${c.durationMin}m — ${c.name}`, async () => {
-      const { data, error } = await svc.schema('app').rpc('price_slot', {
+      const { data, error } = await pub.schema('app').rpc('price_slot', {
         p_court_id: courtIdByRef.get(c.courtRef),
         p_start_at: c.startAtUtc,
         p_duration_min: c.durationMin,

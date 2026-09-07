@@ -216,9 +216,9 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - [ ] ★ Enable MFA org-wide: GitHub, Supabase, Vercel, PostHog, Expo, Apple, Google. Recovery codes sealed to the client's owner, not a Kagu inbox. **2026-09-01:** the Expo/EAS, Apple Developer and Google Cloud accounts that social sign-in and the store release need do not exist yet (`API.md` §8 placeholders); each falls under this item the day it is created, Google Play included. (SEC-40 · CLIENT+SEC)
 - [ ] Add `.github/CODEOWNERS` routing `packages/db/supabase/migrations/` and `.github/workflows/db-migrate.yml` to the technical lead; enable "Require review from Code Owners" on `main`. **Confirmed missing.** (SEC-01 · SEC)
 - [ ] Add required reviewers to the `staging` GitHub Environment **before** the deploy secrets go in — without them the gate in `db-migrate.yml` is a no-op. (SEC-02 · DEV)
-- [ ] ★ `[CI]` Run `gitleaks detect --source . -v --log-opts="--all"` over full history. **Confirmed absent from the repo.** (SEC-24 · DEV)
-- [ ] Rotate anything gitleaks finds, in rotation-runbook order. (SEC-24 · DEV)
-- [ ] ★ `[CI]` `[FREEZE]` Grep built artifacts for a service key — Expo bundle, `.next/static`, Electron `app.asar`. Search `service_role`, `sb_secret`, `role":"service_role"`. Code review is not evidence. (SEC-24 · DEV)
+- [x] ★ `[CI]` `gitleaks` over full history — DONE, DEV, 2026-09-04. `.gitleaks.toml` + the `secrets` job in `ci.yml` (fetch-depth 0, pinned 8.30.1 binary). 123 commits, 10 findings, **zero real leaks**, all allowlisted by exact value. *(Layer 1 Block 2 · Secrets.)* (SEC-24 · DEV)
+- [x] Rotate anything gitleaks finds — **nothing to rotate**, DEV, 2026-09-04. The hosted `service_role` key lives only in untracked `.env.local`; `git log --all -S` over the full object graph confirms it was never committed. *(Layer 1 Block 2.)* (SEC-24 · DEV)
+- [x] ★ `[CI]` Built-artifact secret grep — DONE, DEV, 2026-09-04. `scripts/security/check-artifact-secrets.mjs`, wired into the three jobs that already build each client. Fails on a JWT whose **decoded** payload claims `service_role`, any `sb_secret_*`, or a real-project token with an unexpected role — the bare-word grep in this box fires 168 times on a clean tree and is not implementable as written. **Also fails when nothing was built.** *(Layer 1 Block 2.)* `[FREEZE]` still applies to the final release builds — §16. (SEC-24 · DEV)
 - [ ] ★ Supabase → Auth → Attack Protection: CAPTCHA on, token passed on `signInAnonymously`. **Nothing
       captcha-related exists in the repo** (0 hits); the only throttle today is `[auth.rate_limit]
       anonymous_users = 300` (`config.toml:74`), flagged in-file as "revisit before production handover".
@@ -239,40 +239,27 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 ## 05 · Phase 1 — make the one live database safe to work on
 
-- [ ] ★ Write the live-migration procedure: `SET lock_timeout = '3s'; SET statement_timeout = '60s';` at the top of every migration session. An `ALTER TABLE` behind a long Realtime transaction freezes the till mid-service. (SEC-02 · DEV)
-- [ ] ★ `[CI]` Add `check:migrations`, and **scope it to lock-taking DDL, not just object drops.** A
-      drop-only rule lands green here while missing every real hazard in the repo:
-      **11 of 12 `add constraint` statements omit `NOT VALID`** (`0027:50,54,58,63`, `0030:35,40`,
-      `0054:37,141`, `0019:33`, `0008:43`), each taking `ACCESS EXCLUSIVE` plus a full validating scan on
-      tables that already hold live data; `0039:71` is a three-statement blocking sequence on `order_items`,
-      the hottest table in a POS; and **0 of 48 `create index` statements use `CONCURRENTLY`**. Exactly one
-      site uses the safe `NOT VALID` → `VALIDATE` pattern, which proves the pattern is known and simply not
-      applied. Fail on all of it unless the PR body carries `MIGRATION-RISK-ACCEPTED:` with a reason —
-      plus the original `DROP TABLE` / `DROP COLUMN` / `TRUNCATE` / `ALTER COLUMN … TYPE` /
-      unpaired `DROP POLICY` classes.
-      ⚠ **Scope the check to the migration files changed in the pull request, not the whole directory.**
-      The 11 existing constraint sites and 48 non-concurrent indexes are already applied and cannot be
-      rewritten; a whole-directory scan turns `main` red on history and the rule gets weakened or deleted
-      within a day. Grandfather what is committed, guard what arrives. (SEC-02 · DEV)
-- [ ] Take a data-only dump of the ledger tables as a retained CI artifact **before** each push; print `supabase db diff` into the job log. (SEC-02 · DEV)
-- [ ] Add `timeout-minutes` to the `db-migrate` job. There is none today, so a push blocked on a lock can sit against GitHub's 360-minute default while the till is frozen. (SEC-02 · DEV)
+- [x] ★ **Live-migration procedure** — DONE, DEV, 2026-09-04. Not a document: a rule in `check:migrations` requiring `set lock_timeout = '3s'; set statement_timeout = '60s';` at the top of every NEW migration, with `lock_timeout = 0` rejected. Written up in `layer-1-rules-and-decisions.md` §6. *(Layer 1 Block 3.)* (SEC-02 · DEV)
+- [x] ★ `[CI]` **`check:migrations`, scoped to lock-taking DDL** — DONE, DEV, 2026-09-04; **executed 2026-09-07**. Independently reproduced this section's audit (57 non-CONCURRENTLY indexes, 11 `add constraint` without `NOT VALID`, `0039:71`). Scoped to files changed against the merge base, exactly as this box demands, with `MIGRATION-RISK-ACCEPTED:` as the escape hatch. All four behaviours negative-tested. *(Layer 1 Block 2.)* (SEC-02 · DEV)
+- [x] **Ledger dump + printed `db diff`** — DONE, DEV, 2026-09-04. Both in `db-migrate.yml`; the diff goes to the **job summary**, where the person approving the environment gate actually looks. `audit_log` / `stock_ledger` / `payments` retained 30 days. Evidence, not a restore path. *(Layer 1 Block 2.)* (SEC-02 · DEV)
+- [x] **`timeout-minutes: 15` on `db-migrate`** — DONE, DEV, 2026-09-04. GitHub's default is 360 minutes. This is the outer bound; `lock_timeout = '3s'` is the real control. *(Layer 1 Block 3.)* (SEC-02 · DEV)
 - [ ] `[FREEZE]` Re-verify that required reviewers are still enabled on the `staging` GitHub Environment. It is an out-of-repo setting with no git trace, and it is the only thing between a merge to `main` and the client's production database. (SEC-02 · SEC)
 - [ ] ★ Bring the hosted project to the local migration head through that gated procedure. This has already
       bitten once: `db-migrate.yml` silently skipped from day 1 for want of secrets, and **the hosted DB drifted
       eight migrations behind** before anyone noticed (`HANDOFF.md:544-545`). Every green-gate claim about a
       drifted database is a claim about a database the venue does not use. (SEC-03 · DEV)
-- [ ] ★ `[CI]` Nightly `supabase db diff --linked`, failing on non-empty output. (SEC-03 · DEV)
+- [x] ★ `[CI]` **Nightly `supabase db diff --linked`** — DONE, DEV, 2026-09-04. `.github/workflows/db-drift.yml`, 02:00 Asia/Baghdad. Two checks: `migration list` catches the hosted project being BEHIND, a non-empty `db diff` catches hand-editing. Missing secrets raise a warning annotation, not a silent pass. *(Layer 1 Block 2.)* (SEC-03 · DEV)
 - [ ] Re-run the DB suite against the hosted project through a restricted role, never `service_role` from a laptop. (SEC-03 · DEV)
-- [ ] `[CI]` `packages/db` test asserting every view in `public`/`app` is `security_invoker = on`, **with a named allowlist of the four audited projections** (`venue_settings_public`, `cafe_settings_public`, `menu_item_availability`, `court_availability`). Any *new* invoker-off view fails. Asserting a flat zero would go red on a clean repo. (SEC-04 · DEV)
-- [ ] `[CI]` `packages/db` test asserting every `security definer` function in `app` has a pinned `search_path`. Regression guard — expect it to pass first run. (SEC-04 · DEV)
-- [ ] Move **`btree_gist` only** into `extensions` — `0001:5` is a bare `create extension if not exists btree_gist;`. `pgcrypto` is already in `extensions` (0009) and `pg_cron` in `cron`; leave both alone. (SEC-04 · DEV)
-- [ ] `[FREEZE]` Run the dashboard Security Advisor; file the result. Expect exactly two known findings: `extension_in_public` for `btree_gist` (fix it) and `security_definer_view` ×4 (accepted by design — record the waiver). "Clean" means every other lint is zero. (SEC-04 · SEC)
-- [ ] `[CI]` CI check that seed and fixture files contain no real-format Iraqi phone number outside a reserved test range. (SEC-37 · DEV)
-- [ ] Write the rule that production rows are inspected only through a masked, audited definer function — never the SQL Editor. (SEC-37 · SEC)
+- [x] `[CI]` **Every view is `security_invoker = on`** — DONE, DEV; **VERIFIED 2026-09-07, first execution**: 12 views · 8 invoker · 4 owner-rights, exactly the named allowlist. Any NEW invoker-off view fails. *(Layer 1 Block 2.)* (SEC-04 · DEV)
+- [x] `[CI]` **Every definer function pins `search_path`** — DONE, DEV; **VERIFIED 2026-09-07**: **215 of 215**, zero offenders. *(Layer 1 Block 2.)* (SEC-04 · DEV)
+- [x] **`btree_gist` moved into `extensions`** — DONE, DEV; **EXECUTED 2026-09-07 — and the migration was BROKEN.** Its post-check named `app.reservations`, which does not exist (the table is in `public`), so it raised 42P01 and stopped the stack booting. It had never run anywhere and would have failed identically on the hosted project. Fixed; re-run clean with the reservations exclusion constraint verified intact and the concurrency suite green. *(Layer 1 Block 3.)* (SEC-04 · DEV)
+- [~] `[FREEZE]` Run the dashboard Security Advisor; file the result. **PARTIAL:** run by a colleague 2026-09-06 and waived in `security-advisor-waiver-2026-09-06.md` — 4 `security_definer_view`, all four the audited projections, each re-verified against its base table. **Not closed:** `extension_in_public` did not appear, and 0069 had never successfully run anywhere, so it cannot have been fixed — the list was almost certainly filtered by severity. Re-run unfiltered. Expect exactly two known findings: `extension_in_public` for `btree_gist` (fix it) and `security_definer_view` ×4 (accepted by design — record the waiver). "Clean" means every other lint is zero. (SEC-04 · SEC)
+- [x] `[CI]` **No real-format Iraqi phone numbers in seeds or fixtures** — DONE, DEV, 2026-09-04. `scripts/security/check-data-hygiene.mjs` DEFINES the reserved convention `+964 7XX 000000N` (Iraq has no ITU documentation range). Green. *(Layer 1 Block 2.)* (SEC-37 · DEV)
+- [x] **Production rows read only through a masked, audited definer function** — DONE, SEC, 2026-09-04. `layer-1-rules-and-decisions.md` §1, with §2 (who may reach the hosted project) as the control that enforces it — a read cannot be caught after the fact, so access is limited instead. DDL through the SQL Editor IS caught, by the nightly drift job. *(Layer 1 Block 3.)* (SEC-37 · SEC)
 - [ ] ★ Write down **the rule that has no exception** (Security Layer §1.1) and give it a check: never add a column, form field, note field or log line that could hold a card number. **Nothing in the repo states or enforces this today.** Add it to the PR checklist and to the guest-field allowlist test. (SEC-20 · SEC)
 - [ ] Restrict direct database connections on the hosted project so clients reach data only through the API and the pooler. No client opens a raw Postgres socket today, but the port posture is a dashboard setting nobody has checked. (SEC-04 · DEV)
-- [ ] Set the `client-data/` intake rule: packs are committed verbatim, so **no pack containing guest or staff personal data may be committed**. Currently clean (`courts.sql` only). (SEC-37 · DEV)
-- [ ] Record the residual risk in writing and have the client sign it — with one project, a bad migration reaches live guest data with no rehearsal. See **D1**. (SEC-37 · SEC)
+- [x] **`client-data/` intake rule** — DONE, DEV, 2026-09-04. Written up (§3 of the rules doc) and **enforced** by `check-data-hygiene.mjs`. ⚠ This section said "currently clean"; it was not — the client's own hosting-account email was already in both packs (`634462a`, `e4f2acc`). Business contact, not guest data, grandfathered explicitly. **Raise it with the client so the acceptance is theirs.** *(Layer 1 Block 3.)* (SEC-37 · DEV)
+- [~] **Record the residual risk in writing and have the client sign it** — **WRITTEN, AWAITING SIGNATURE.** `layer-1-rules-and-decisions.md` §5: the risk stated plainly, the six controls now reducing it and what each cannot catch, and a signature block. No control removes it — only a second project does, which is D1. Original text: — with one project, a bad migration reaches live guest data with no rehearsal. See **D1**. (SEC-37 · SEC)
 
 ---
 
@@ -281,21 +268,26 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 > **Most of this phase closed in migrations 0048 and 0049.** What follows is what genuinely remains.
 > See §02 before starting anything here.
 
-> **Status 2026-09-06 — DEV.** Everything below that is code is written: migration
-> **0071** (`20260906000071_booking_integrity.sql`), `packages/db/tests/booking-integrity.test.ts`,
-> `packages/db/fixtures/pricing-golden.json` with its two readers, and the operator mirror in
-> `apps/operator/src/features/desk/deskLogic.ts`.
+> **Status 2026-09-07 — DEV. EXECUTED AND GREEN.** A container runtime was installed (OrbStack), the
+> stack was reset from zero, and everything below ran: **594 DB tests across 35 files**, plus
+> `check:invariants` · `check:locks` · `check:safeupdate` · `check:authz` — the four catalog-reading
+> gates that had never executed on any machine.
 >
-> ⚠ **The SQL has NOT been executed.** There is no Docker on the machine this was written on, so no
-> local Supabase stack could be started — the same constraint that left four Layer 1 boxes open
-> (`security-layer-1.md` Status). Static gates pass (`check:migrations`, `check:rpc-registry`), the
-> TypeScript half of the golden fixture passes against the real `resolveRateRule` (31 cases), and
-> the operator tests pass. **Nothing here may be ticked until
-> `pnpm db:start && pnpm db:reset && pnpm --filter @touch/db test` has run the two new suites green.**
-> A written migration is a claim; a green suite is evidence. This document exists because that
-> distinction was skipped once already (§03).
+> **Running it found five things that reading it could not.** Recorded because the point of §17 is
+> that a written migration is a claim and a green suite is evidence:
+>
+> | # | Found | Where |
+> |---|---|---|
+> | 1 | **Migration 0069 was broken and stopped the stack booting.** Its post-check named `app.reservations`; that table is in `public`. `::regclass` raised 42P01, the migration aborted, and 0070/0071 never ran. It had never executed anywhere — it would have failed identically on the hosted project. | `0069`, fixed |
+> | 2 | **0075 silently reverted the SEC-11 hard gate.** Written a day later against the pre-0071 body, it re-issued `app.mark_reservation` through `CREATE OR REPLACE` and dropped the temporal guard. Nothing failed — 0075's own tests mark FUTURE bookings. | `0076`, restored |
+> | 3 | **11 client-callable RPCs shipped unclassified** (0072/0073/0074): the staff-request and marketing families, including owner-only approval and campaign writes. | registered + covered |
+> | 4 | **`ensureTestRateRule` seeded an open-ended all-courts rule**, so "no rule prices this slot" could never be asserted anywhere in the DB suite. | bounded |
+> | 5 | Three existing fixtures planted holds with `guest_id = null` — a state 0048/C1 abolished and 0071 now refuses at the table. | fixtures given owners |
+>
+> Items 1 and 2 are the ones that mattered: both were invisible to every static check, and both would
+> have reached the venue's database.
 
-- [~] **A live hold belongs to an account** — **WRITTEN 2026-09-06, NOT EXECUTED (no Docker).** 0071 §1.
+- [x] **A live hold belongs to an account** — DONE, DEV, **verified 2026-09-07**. 0071 §1.
       Not `guest_id not null` on the table, which would break the desk: a walk-in booking legitimately
       carries `guest_name` with no account (`0008:38`). The property that actually matters is narrower —
       a hold that occupies the exclusion set must be releasable by someone — so the constraint is
@@ -305,14 +297,14 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       live (`confirm_booking` rewrites `kind` to `'booking'`, `0008:321`) — expired holds are history and
       constraining them would fail VALIDATE on legacy rows to no purpose. The migration expires live
       orphans first, then adds the constraint `NOT VALID` and validates. (SEC-07 · DEV)
-- [~] **Hold reaper widened to orphans** — **WRITTEN 2026-09-06, NOT EXECUTED.** 0071 §1.
+- [x] **Hold reaper widened to orphans** — DONE, DEV, **verified 2026-09-07**. 0071 §1.
       `app.expire_stale_holds` now sweeps `hold_expires_at < now() OR guest_id is null`, same signature and
       same deterministic `order by id ... for update` lock sequence (0042). Orphans are swept on sight
       rather than at TTL because no caller can release them. With the constraint above in place this branch
       is unreachable for NEW rows by design — it is the cleanup path for a database that reaches 0071 late,
       which is the hosted project's actual situation (`security-layer-1.md` Block 3: not at head).
       The test file says explicitly why it does not assert this branch. (SEC-07 · DEV)
-- [~] **`rate_rule_prices` constrained** — **WRITTEN 2026-09-06, NOT EXECUTED.** 0071 §2.
+- [x] **`rate_rule_prices` constrained** — DONE, DEV, **verified 2026-09-07**. 0071 §2.
       `rate_rule_prices_price_positive` (`price_iqd > 0`) and `rate_rule_prices_duration_bounds`
       (`between 15 and 480`, on a 5-minute grid), both `NOT VALID` then validated. The `iqd` domain is
       `bigint check (value >= 0)` (`0002:26`), so **zero always passed** — and a zero-priced rule is not a
@@ -328,10 +320,11 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       that overlaps every fixture rule, so the constraint would make the suite unloadable — and `days_of_week`
       is `int[]`, which has no GiST opclass without `intarray`. *If ambiguity is the worry, add an admin-UI
       warning for two active same-priority rules instead.* (SEC-10 · DEV)
-- [~] **Golden pricing fixture** — **WRITTEN 2026-09-06; the TypeScript half IS verified, the SQL half is not.**
+- [x] **Golden pricing fixture** — DONE, DEV, **verified 2026-09-07: 31 green in SQL AND 31 green in TypeScript, same file.**
       `packages/db/fixtures/pricing-golden.json`: 30 cases, read by
-      `packages/core/src/pricing/rateRules.golden.test.ts` (**31 tests green** against the real
-      `resolveRateRule`) and by `packages/db/tests/pricing-golden.test.ts` against `app.price_slot`.
+      `packages/core/src/pricing/rateRules.golden.test.ts` (31 green against the real `resolveRateRule`)
+      and by `packages/db/tests/pricing-golden.test.ts` (31 green against `app.price_slot`). **Both halves
+      agree on all 30 cases** — which is the deliverable, not either half alone.
       Covers both boundary minutes of every window (16:59/17:00, 22:59/23:00, 08:59/09:00, 01:59/02:00),
       both sides of midnight on a weekday AND a weekend night — including the day-shift that makes
       Saturday 01:00 the tail of **Friday** (the error the fixture header warns about), pricing by slot
@@ -342,7 +335,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       ⚠ Landing this exposed a real defect in the shared harness: `ensureTestRateRule` seeded an
       **open-ended all-courts** rule, so "nothing prices this slot" could never be asserted anywhere in the
       DB suite. Now bounded to `valid_from = yesterday`. (SEC-10 · DEV)
-- [~] **A price change carries a reason** — **WRITTEN 2026-09-06, NOT EXECUTED.** 0071 §3.
+- [x] **A price change carries a reason** — DONE, DEV, **verified 2026-09-07**. 0071 §3.
       `move_reservation` and `extend_reservation` raise `REASON_REQUIRED` when the re-priced value differs
       from the stored one and no real reason was given — checked **before** the write, so a refused move
       leaves the booking as it was rather than moved-but-unexplained. `'staff_op'` is the *absence* of a
@@ -354,7 +347,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       the prompt becomes noise staff click through. **No client change was needed** — the operator already
       sends an `OVERRIDE_REASONS` code on every path and already renders `REASON_REQUIRED` as a refusal
       (`deskLogic.ts`). (SEC-09 · DEV)
-- [~] ★ **Temporal guard on the desk lifecycle** — **WRITTEN 2026-09-06, NOT EXECUTED.** 0071 §4.
+- [x] ★ **Temporal guard on the desk lifecycle** — DONE, DEV, **verified 2026-09-07**. 0071 §4, restored by 0076 after 0075 reverted it.
       `app.mark_reservation` refuses `no_show` **and** `completed` while `now() < start_at`, with
       `RESERVATION_NOT_STARTED`. Both statuses sit OUTSIDE the exclusion predicate
       (`status in ('pending','confirmed','arrived')`), so either one frees the court the instant it is
@@ -479,19 +472,32 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 > `apps/web` currently ships **zero security headers**, has **no `middleware.ts`**, and has **no lint script**.
 > This is the least-defended surface in the system and the only one with no login.
 
-- [ ] ★ `[FREEZE]` Ship the production headers: HSTS with `includeSubDomains`, `X-Content-Type-Options: nosniff`, `frame-ancestors 'none'`, and a nonce-based CSP with no `unsafe-inline` for scripts. `next.config.ts` has no `headers()` block at all. (SEC-25 · FE2)
-- [ ] ★ Exchange the table token for a cookie on first load and `history.replaceState` the path. `apps/web/proxy.ts`
-      (Next 16's `proxy` convention) **rewrites** rather than redirects at `:50-53`, deliberately keeping the printed
-      token verbatim in the address bar; there is no cookie exchange and no `replaceState` anywhere in `apps/web`.
-      That is a design decision that contradicts Security Layer §6.3 — settle it explicitly. (SEC-25 · FE2)
-- [ ] Set `Referrer-Policy: no-referrer` on `/t/*` specifically. The table token is a bearer credential in a URL path. (SEC-25 · FE2)
-- [ ] Stop the token reaching analytics: rewrite `$current_url` for `/t/*`, session recording off site-wide. **See D4 — the cleanest fix is removing PostHog from the guest web app, which is also what the SOW says.** (SEC-25 · FE2)
-- [ ] Confirm cookies are `HttpOnly; Secure; SameSite=Lax`. (SEC-25 · FE2)
+- [x] ★ `[FREEZE]` **Production headers shipped** — DONE, **2026-09-07**. HSTS (2y, includeSubDomains, preload), nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, COOP, plus a per-request nonce CSP with `'strict-dynamic'` and no `unsafe-inline`. 🔴 **Layer 1 ticked this on 2026-09-04 while shipping NOTHING** — the constants were imported into `next.config.ts` and never returned. Found by the first run of the header e2e, confirmed on the wire with `curl`; the gate that missed it now inspects the returned array and is negative-tested. `[FREEZE]` still applies against the real domain. (SEC-25 · FE2)
+- [x] ★ **Table token exchanged for a cookie** — DONE 2026-09-04, **e2e-verified 2026-09-07**. `proxy.ts` 307s `/t/{token}` → `/{locale}/t` with an `HttpOnly; Secure; SameSite=Lax` cookie — a redirect rather than `replaceState`, which is stronger: the token never enters history at all. Printed QR cards unaffected. ⚠ **Known residual:** the token still appears once in the RSC payload because `useTableSession` needs it to call `open_table_session` (`layer-1-rules-and-decisions.md` §7). Fixed: Referer, analytics, history, screenshots, shared links. Not fixed: an XSS in the guest app could still read it. (SEC-25 · FE2)
+- [x] **`Referrer-Policy: no-referrer` on the table routes** — DONE, **verified on the wire 2026-09-07**, on `/t/{token}` AND on `/{locale}/t` where the 307 lands — the second was missing from the original. (SEC-25 · FE2)
+- [x] **Token kept out of analytics** — DONE 2026-09-04. PostHog `sanitize_properties` redacts `/t/<token>` from `$current_url`, `$pathname` and `$referrer`; autocapture and session recording were already off. Asserted by the e2e token-leak test, which checks `Referer` on **every** request. ⚠ **The SOW question is separate and still open — see D4.** (SEC-25 · FE2)
+- [x] **Cookies are `HttpOnly; Secure; SameSite=Lax`** — DONE, confirmed on the wire and asserted by e2e. `Lax` not `Strict` on purpose: a guest following the QR from a messaging app arrives cross-site, and `Strict` would drop the cookie on the one navigation that matters. (SEC-25 · FE2)
 - [ ] Add the **cafe abuse limits** Security Layer §6.2 asks for and the repo does not have: orders per minute and items per order per table session, a total open-tab value above which the till asks staff to confirm, and a per-IP limit. The only rate limiting in the database today is the PIN lockout; the waiter-call cooldown covers the bell and nothing else. (SEC-25 · FE2+DEV)
 - [ ] Put rate limiting and bot protection in front of the public site and the auth endpoints. (SEC-25 · FE2)
-- [ ] Add e2e cases asserting each header, no inline script without a nonce, and no token substring in the captured analytics payload. (SEC-25 · FE2)
-- [ ] Narrow the Next image optimizer allowlist. `next.config.ts` allows `{ hostname: '*.supabase.co' }`, which makes the optimizer a proxy for any Supabase project. Pin the project ref. **Not in v1.0.** (SEC-25 · FE2)
-- [ ] Decide the PWA posture. `/manifest.webmanifest` ships today with no service worker. If one is added it must never cache `/t/[token]`. Write the rule now. **Not in v1.0.** (SEC-25 · FE2)
+- [x] Add e2e cases asserting each header, no inline script without a nonce, and no token substring in
+      the captured analytics payload — DONE, **first executed 2026-09-07, 6/6 green**
+      (`e2e/tests/web-security-headers.spec.ts`). This suite is what found that the static security
+      headers were never shipping (see `security-layer-1.md` Block 4 · Web). (SEC-25 · FE2)
+- [ ] ★ **Run the header e2e against a PRODUCTION build in CI.** Two assertions — no `unsafe-eval` in
+      `script-src`, and no inline `<script>` without a nonce — are production-build properties: the
+      suite's webServer runs `next dev`, which needs eval for HMR and injects its own un-nounced overlay
+      scripts. They are gated behind `E2E_PROD_BUILD=1` so the suite is honest rather than red, and
+      **nothing sets that flag today, so neither assertion executes anywhere.** Add a CI job running
+      `next build && next start` with the flag set. Until then, "no `unsafe-inline`/`unsafe-eval` in
+      production" rests on one manual `curl` check from 2026-09-04. (SEC-25 · FE2)
+- [ ] **`Cache-Control: no-store` on the rendered table page.** Measured 2026-09-07: it holds on
+      `/t/{token}` (a middleware redirect) but Next overrides it on `/{locale}/t` with
+      `no-cache, must-revalidate`, from both `headers()` and `NextResponse.next()`. A cache may store
+      that page provided it revalidates. Low severity — the session is gated by the HttpOnly cookie, not
+      by the cache — but the Layer 1 box claimed `no-store` "verified on the live route" and that was not
+      true. Either accept it in writing or serve the route through a handler that can set it. (SEC-25 · FE2)
+- [x] **Next image optimizer allowlist narrowed** — DONE 2026-09-04. The `*.supabase.co` wildcard made the optimizer an open proxy under the venue's own domain and TLS certificate. Now derived from `NEXT_PUBLIC_SUPABASE_URL`, so it follows the deployment instead of hardcoding a ref that breaks at handover. (SEC-25 · FE2)
+- [x] **PWA posture decided and enforced as CODE** — DONE 2026-09-04. `check-web-security.mjs` passes vacuously while no service worker exists and FAILS the moment one appears unless `/t` is excluded from caching. A cached `/t/{token}` would put the credential in Cache Storage where page script can read it, undoing the HttpOnly cookie entirely. (SEC-25 · FE2)
 - [ ] Guard Vercel preview deployments — `[SOW]` Module 6 promises "preview deployment per change", and every preview points at the one live database. Password-protect previews or point them at a seeded project. **Not in v1.0.** (SEC-25 · FE2)
 - [ ] ★ Add `table_token_secret_prev` and accept a signature valid under either secret while minting only with the current one, writing an audit row when the previous key is used. Today rotating the secret kills every printed card at once, which collides with "all keys rotated at handover". *(Per-table rotation already works — see §02.)* (SEC-26 · DEV)
 - [ ] Test it: a token minted under the previous secret verifies while `prev` is set and fails once cleared; a third random secret always fails. (SEC-26 · DEV)
@@ -554,14 +560,14 @@ Re-scored against the repository on 2026-08-30. **Seven of v1.0's twenty-one are
 | 06 | Anonymous sessions cannot hold courts (SEC-07) | ✅ **0048/C1** | Ask for the `booking-hardening` test. It exists and is green. |
 | 07 | Idempotency keys scoped to the caller (SEC-08) | ✅ **0048/H3 + 0049** | Ask for the cross-caller test. `IDEMPOTENCY_CONFLICT`. |
 | 08 | Move and extend re-price (SEC-09) | ✅ **0048/H1+H2** | Ask for the create-vs-move price equality test. |
-| 09 | `rate_rules` constrained, pricing agrees (SEC-10) | **PARTIAL → written 2026-09-06 (0071), unexecuted** | All three now exist in code: positive price, minute bounds, and a 30-case golden fixture read by BOTH pricing implementations. Ask for `rateRules.golden.test.ts` (green today, 31 cases) and `pricing-golden.test.ts` (needs a stack). |
-| 10 | Future bookings cannot be resold (SEC-11) | **OPEN → written 2026-09-06 (0071 §4), unexecuted** | The test exists: `booking-integrity.test.ts`, "no_show on a future booking is refused, and the court stays taken" — it marks a future booking, expects `RESERVATION_NOT_STARTED`, then tries to sell the slot again and expects `SLOT_TAKEN`. It has never run: no Docker. Run it before ticking. |
+| 09 | `rate_rules` constrained, pricing agrees (SEC-10) | ✅ **CLOSED 2026-09-07 (0071)** | Positive price, minute bounds, and a 30-case golden fixture asserted by BOTH pricing implementations against one file. Ask for `rateRules.golden.test.ts` and `pricing-golden.test.ts` — 31 green each. |
+| 10 | Future bookings cannot be resold (SEC-11) | ✅ **CLOSED 2026-09-07 (0071 §4 + 0076)** | Ask for `booking-integrity.test.ts` → "no_show on a future booking is refused, and the court stays taken": it marks a future booking, gets `RESERVATION_NOT_STARTED`, then tries to resell the slot and gets `SLOT_TAKEN`. ⚠ **0075 reverted this gate within a day and nothing but that test noticed.** If it is ever removed, this gate is open again. |
 | 11 | Second-pass authz sweep green (SEC-12) | **OPEN** | It is a CI job. Green or red. |
 | 12 | Account deletion works end to end (SEC-15/16) | **OPEN** | Delete your own test account on a real phone, then try to sign in. **Store blocker.** |
 | 13 | Privacy notice and web deletion page live (SEC-17) | **OPEN** | Open both URLs in Arabic and English. **Store blocker.** |
 | 14 | Password reset works on a real device (SEC-18) | **OPEN** | Do it yourself from a cold install. **Store blocker.** |
 | 15 | Auth hardening on (SEC-05) | **OPEN** — read 2026-09-01: captcha OFF, leaked-password protection OFF, `localhost` + `exp://` still in the redirect list | Dashboard toggles — look at them. |
-| 16 | Production headers and CSP live (SEC-25) | **OPEN** | `curl -I https://<domain>` and read the headers. Today there are none. |
+| 16 | Production headers and CSP live (SEC-25) | ⚠ **WAS FALSELY GREEN — fixed 2026-09-07** | The 2026-09-04 tick was wrong: the header set was written and *imported* into `next.config.ts` but never returned, so **zero** static headers shipped while the gate stayed green (it grepped for the constant's name, which an unused import satisfies). Now wired, gate strengthened and negative-tested, 6/6 e2e green. Do the third-column check yourself: `curl -I` the domain and read them. |
 | 17 | Table token is not a bearer credential in a URL (SEC-25) | **OPEN** | Scan a QR and look at the address bar. **New gate.** |
 | 18 | Table-token secret rotatable without reprinting (SEC-26) | **OPEN** | Ask for the test where a token signed with the previous secret still verifies. |
 | 19 | Guest text cannot reach the printer as commands (SEC-27) | **OPEN** | Order a note containing a drawer-kick sequence; watch the drawer stay shut. |
@@ -593,26 +599,26 @@ something that works. Land these in the first week and thirteen boxes become per
 >
 > The rest pass or fail honestly on the current repo and can land immediately.
 
-- [ ] `gitleaks` over full history (SEC-24)
-- [ ] Built-artifact secret grep on all three clients (SEC-24)
-- [ ] `pnpm audit --audit-level=high` + Dependabot (SEC-24)
-- [ ] `NEXT_PUBLIC_` / `EXPO_PUBLIC_` naming check — no `SECRET|KEY|TOKEN|PIN|HMAC` (SEC-24)
-- [ ] **Lint rule: no `service_role` in client paths** — Security Layer §11.3 lists this as a merge-blocking gate and it does not exist. There is no root eslint config, and `apps/web` has no lint script at all. (SEC-24)
-- [ ] `check:migrations` — destructive DDL needs an explicit acceptance line (SEC-02)
-- [ ] Nightly `supabase db diff --linked`, red when the hosted project drifts (SEC-03)
-- [ ] Zero views without `security_invoker` (SEC-04)
-- [ ] Every definer function has a pinned `search_path` (SEC-04)
-- [ ] RPC registry — a function in `pg_proc` that is not in the allowlist file fails the build (SEC-12)
-- [ ] Authz sweep coverage counter — 49 of ~86 today; fail when it regresses (SEC-12)
-- [ ] `check:electron` — window hardening cannot regress (SEC-30)
-- [ ] Guest-field allowlist drift test (SEC-20)
-- [ ] Seed and fixture files contain no real-format phone numbers (SEC-37)
+- [x] **`gitleaks` over full history** (SEC-24) — `.gitleaks.toml` + the `secrets` job, 2026-09-04
+- [x] **Built-artifact secret grep** on all three clients (SEC-24) — `check-artifact-secrets.mjs`, fails when nothing was built
+- [x] **`pnpm audit` + Dependabot** (SEC-24) — `check-dependency-audit.mjs` with dated, per-advisory waivers in `.security/audit-waivers.json`; an expired waiver fails the build
+- [x] **`NEXT_PUBLIC_` / `EXPO_PUBLIC_` naming check** (SEC-24) — `check-public-env-names.mjs`, over `git ls-files`
+- [x] **Lint rule: no `service_role` in client paths** (SEC-24) — `clientSecrets` in `@touch/config/eslint`, wired into all four client packages; `apps/web` now has a lint script. ⚠ **Running lint matters as much as having it:** on 2026-09-07 it was already reporting `'STATIC_SECURITY_HEADERS' is defined but never used` — the finding that the entire web header set was not shipping — and nobody had re-run it.
+- [x] **`check:migrations`** (SEC-02) — scoped to changed files, lock-taking DDL included
+- [x] **Nightly `supabase db diff --linked`** (SEC-03) — `db-drift.yml`
+- [x] **Zero views without `security_invoker`** (SEC-04) — **executed 2026-09-07**: 12 views, 4 audited exceptions
+- [x] **Every definer function pins `search_path`** (SEC-04) — **executed 2026-09-07**: 215/215
+- [x] **RPC registry** (SEC-12) — has now fired in anger twice (0070; then 0072/0073/0074, eleven at once)
+- [~] **Authz sweep coverage counter** (SEC-12) — the ratchet is DONE and enforced; the **gap is not**. 72 of 139 covered as of 2026-09-07 (up from 60/127). `override_price`, `void_after_send`, `apply_pct_discount`, `merge_tabs`, `split_by_item` and the `analytics_*` family are still asserted by nobody.
+- [x] **`check:electron`** (SEC-30) — window hardening cannot regress
+- [ ] Guest-field allowlist drift test (SEC-20) — **confirmed still absent 2026-09-07.** Blocks the store data-safety forms in §08.
+- [x] **No real-format phone numbers in seeds or fixtures** (SEC-37) — `check-data-hygiene.mjs`
 - [ ] A **pull-request template** carrying the Security Layer §11.4 checklist — new table has RLS with
       per-operation policies and tests; new guest field is in the allowlist and the privacy notice;
       money/stock/booking writes carry an audit row in the same transaction; nothing logged that could hold a
       phone, token or PIN; no client-supplied price, total, role, venue or table trusted; and no field that
       could hold a card number. **There is no PR template in `.github/` today.** (SEC-43 · SEC)
-- [ ] Web security-header e2e assertions (SEC-25)
+- [x] **Web security-header e2e assertions** (SEC-25) — **6/6 on the first run, 2026-09-07; it is what found the headers were never shipping**
 
 ---
 

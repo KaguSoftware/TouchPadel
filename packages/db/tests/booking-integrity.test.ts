@@ -40,7 +40,7 @@ async function lastAudit(svc: SupabaseClient, reservationId: string) {
     .select('action, reason_code, after')
     .eq('entity', 'reservations')
     .eq('entity_id', reservationId)
-    .order('created_at', { ascending: false })
+    .order('at', { ascending: false }) // audit_log's timestamp column is `at` (0005), not created_at
     .limit(1);
   return (data ?? [])[0] as
     | { action: string; reason_code: string | null; after: Record<string, unknown> }
@@ -52,6 +52,7 @@ describe.skipIf(!up)('0071 booking integrity (SEC-07 / 09 / 10 / 11)', () => {
   let owner: SupabaseClient;
   let desk: SupabaseClient;
   let courtId: string;
+  let otherCourtId: string;
 
   beforeAll(async () => {
     svc = serviceClient();
@@ -86,11 +87,50 @@ describe.skipIf(!up)('0071 booking integrity (SEC-07 / 09 / 10 / 11)', () => {
       { rule_id: ruleId, duration_min: 120, price_iqd: 70_000 },
     ]);
     if (pErr) throw new Error(`0071 rate prices: ${pErr.message}`);
+
+    // A SECOND court priced IDENTICALLY, for the "a move that changes nothing
+    // needs no reason" case. Relying on the shared all-day fixture for the
+    // destination made that test depend on which fixture packs happen to be
+    // loaded: with packages/db/fixtures/courts.sql applied, the destination
+    // resolves to the venue's real peak/off-peak/weekend rates instead of a flat
+    // 40,000, the price changes, and the test fails for a reason that has
+    // nothing to do with what it asserts. Its own court, its own rule, same
+    // numbers — so "the price did not change" is true by construction.
+    otherCourtId = await createTestCourt(svc, 'INTEG0071-B');
+    const { data: rule2, error: e2 } = await svc
+      .from('rate_rules')
+      .insert({
+        name: 'TEST 0071 tiered (court B)',
+        court_id: otherCourtId,
+        days_of_week: [0, 1, 2, 3, 4, 5, 6],
+        start_time: '00:00',
+        end_time: '23:59:59',
+        priority: 500,
+        is_active: true,
+      })
+      .select('id')
+      .single();
+    if (e2) throw new Error(`0071 rate rule B: ${e2.message}`);
+    const { error: pErr2 } = await svc.from('rate_rule_prices').insert(
+      [
+        { duration_min: 60, price_iqd: 40_000 },
+        { duration_min: 90, price_iqd: 55_000 },
+        { duration_min: 120, price_iqd: 70_000 },
+      ].map((r) => ({ ...r, rule_id: (rule2 as { id: string }).id })),
+    );
+    if (pErr2) throw new Error(`0071 rate prices B: ${pErr2.message}`);
   });
 
   /** A confirmed desk booking on the test court, priced by the tiered rule. */
   async function deskBooking(durationMin = 60) {
+    // futureSlot() hands out consecutive HOURS on the same day, so two bookings
+    // in a row are back-to-back. Several tests here extend a 60-minute booking
+    // to 120, which then occupies the next caller's slot and fails it with
+    // SLOT_TAKEN — a collision between tests, not a fault in anything under
+    // test. Burning one slot per booking leaves a two-hour lane, which is the
+    // longest any test here needs.
     const slot = futureSlot();
+    futureSlot();
     const res = await appRpc(desk, 'staff_create_reservation', {
       p_court_id: courtId,
       p_kind: 'booking',
@@ -364,17 +404,16 @@ describe.skipIf(!up)('0071 booking integrity (SEC-07 / 09 / 10 / 11)', () => {
       // start demanding a justification, or the prompt becomes noise that staff
       // click through — which is how a real reason stops meaning anything.
       const b = await deskBooking(60);
-      const other = await createTestCourt(svc, 'INTEG0071-B');
 
       const res = await appRpc(desk, 'move_reservation', {
         p_reservation_id: b.id,
-        p_court_id: other,
+        p_court_id: otherCourtId,
         p_reason: 'staff_op',
       }).then(outcome);
 
-      // The destination court is priced by the shared all-day fixture at 40,000
-      // for every duration — the same money, so no reason is demanded.
-      expect(res.ok).toBe(true);
+      // Both courts carry the same tiered prices, so this move cannot change the
+      // money — and the default reason is therefore accepted.
+      expect(res.ok, res.errorMessage).toBe(true);
       const out = res.data as { price_changed: boolean; price_iqd: number };
       expect(out.price_changed).toBe(false);
       expect(out.price_iqd).toBe(40_000);

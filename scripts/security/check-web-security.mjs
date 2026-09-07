@@ -38,11 +38,27 @@ const nextConfig = read('next.config.ts');
 if (!nextConfig) {
   failures.push({ label: 'next.config.ts present', why: 'the file is gone' });
 } else {
+  /**
+   * ⚠ THIS CHECK WAS A FALSE NEGATIVE UNTIL 2026-09-07.
+   *
+   * It used to test `/STATIC_SECURITY_HEADERS/.test(nextConfig)` — the constant
+   * NAME appearing anywhere in the file. An `import { STATIC_SECURITY_HEADERS }`
+   * that nothing ever used satisfied it, which is exactly the state the repo was
+   * in: the headers were written, exported and imported, the `headers()` block
+   * returned only a font Cache-Control rule, and NOT ONE security header shipped
+   * — while this gate stayed green and the Layer 1 box stayed ticked.
+   *
+   * A gate that greps for a name proves the name was typed. It has to look at
+   * the RETURNED value, which is the only thing Next actually serves.
+   */
+  const headersBody = nextConfig.match(/async\s+headers\s*\(\s*\)\s*\{([\s\S]*?)\n  \},/)?.[1] ?? '';
   require_(
     'next.config.ts ships security headers',
-    /async\s+headers\s*\(/.test(nextConfig) && /STATIC_SECURITY_HEADERS/.test(nextConfig),
+    /async\s+headers\s*\(/.test(nextConfig) && /STATIC_SECURITY_HEADERS/.test(headersBody),
     'the headers() block is how HSTS, nosniff, frame-ancestors and Permissions-Policy reach\n' +
-      '      static assets and error responses, which the proxy matcher skips.',
+      '      static assets and error responses, which the proxy matcher skips.\n' +
+      '      NOTE: the constant must be SPREAD INTO THE RETURNED ARRAY, not merely imported —\n' +
+      '      an unused import shipped zero headers for three days and this gate did not notice.',
   );
   require_(
     'image optimizer is not a wildcard proxy',
@@ -53,7 +69,7 @@ if (!nextConfig) {
   );
   require_(
     'table routes carry their own stricter headers',
-    /TABLE_ROUTE_HEADERS/.test(nextConfig),
+    /TABLE_ROUTE_HEADERS/.test(headersBody),
     'no-referrer and no-store on /t/* is what stops a QR card printed before the cookie\n' +
       '      exchange from leaking its token in a Referer header.',
   );
