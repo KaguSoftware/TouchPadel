@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
@@ -10,9 +10,9 @@ import { useAvailabilityBooking } from '../src/features/availability/useAvailabi
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { ErrorState, SkeletonList } from '../src/components/states';
 import { space, useTheme } from '../src/theme';
-import { ErrorText, Hint, Screen, SegmentedControl } from '../src/components/ui';
+import { Hint, Screen, SegmentedControl } from '../src/components/ui';
 import { DayChip, DegradedBanner, SlotCell } from '../src/components/booking';
-import { NoticeSheet } from '../src/components/overlays';
+import { ErrorAlert, NoticeSheet } from '../src/components/overlays';
 
 const GUTTER = space.l;
 /** Design: the grid sits 18 px inside a section that is itself 16 px in. */
@@ -46,10 +46,10 @@ export default function AvailabilityScreen() {
   // React reconcile; the sheet on the Book tab does the same, and has the
   // longer note on why.
   const gridKey = `${a.date}|${a.durationMin}`;
-  const gridRef = useRef<ScrollView>(null);
-  useEffect(() => {
-    gridRef.current?.scrollTo({ y: 0, animated: false });
-  }, [gridKey]);
+
+  // The venue notice floats over the grid and leaves only when the guest
+  // closes it — a refetch flipping `degraded` back on must not resurrect it.
+  const [noticeClosed, setNoticeClosed] = useState(false);
 
   return (
     // Unpadded so the day strip can scroll out under the screen edge; every
@@ -57,13 +57,14 @@ export default function AvailabilityScreen() {
     <Screen padded={false} edges={[]}>
       <Stack.Screen options={{ title: t('booking.availabilityTitle') }} />
 
-      {a.degraded ? (
-        <View style={{ marginTop: 6, marginStart: GUTTER, marginEnd: GUTTER }}>
+      {a.degraded && !noticeClosed ? (
+        <View style={{ marginTop: space.s, marginStart: GUTTER, marginEnd: GUTTER }}>
           <DegradedBanner
-            tight
             lead={t('degraded.leadDeskOnly')}
             message={t('degraded.bannerAvailability', { phone: a.phone ?? '' })}
             phone={a.phone}
+            blockLead
+            onDismiss={() => setNoticeClosed(true)}
           />
         </View>
       ) : null}
@@ -79,39 +80,44 @@ export default function AvailabilityScreen() {
         overflows) and squash again a second later when the grid landed. The day
         chips are a fixed-height control; they never give up height.
       */}
-      <ScrollView
-        // A fresh mount starts at the leading edge on both platforms; a strip
-        // already on screen keeps its scroll offset across a language switch
-        // (this screen sits under Welcome/Sign-up while a guest flips to
-        // Arabic), and on Android that offset is physical — the strip would
-        // then show its logical END. Remount on the direction instead.
-        key={dir}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, flexShrink: 0 }}
-        contentContainerStyle={{
-          gap: 7,
-          paddingStart: GUTTER,
-          paddingEnd: GUTTER,
-          paddingTop: 10,
-          paddingBottom: 2,
-        }}
-      >
-        {a.tzDates.map((d) => {
-          const noon = wallTimeToUtc(d, 12 * 60, a.tz);
-          return (
-            <DayChip
-              key={d}
-              dow={formatWeekdayShort(noon, locale, a.tz)}
-              dayNum={formatDayNumber(noon, locale, a.tz)}
-              selected={d === a.date}
-              closed={a.isClosedDate(d)}
-              closedLabel={t('booking.closedChip')}
-              onPress={() => a.selectDate(d)}
-            />
-          );
-        })}
-      </ScrollView>
+      {/* Inset and clipping, so a pill scrolling out disappears under that line
+          rather than running to the screen's edge. The gutter moved OFF the
+          content container onto this wrapper: as `contentContainerStyle`
+          padding it scrolled with the pills and so clipped nothing, and holding
+          it here leaves the first and last pill resting where they did. */}
+      <View style={{ marginStart: GUTTER, marginEnd: GUTTER, overflow: 'hidden' }}>
+        <ScrollView
+          // A fresh mount starts at the leading edge on both platforms; a strip
+          // already on screen keeps its scroll offset across a language switch
+          // (this screen sits under Welcome/Sign-up while a guest flips to
+          // Arabic), and on Android that offset is physical — the strip would
+          // then show its logical END. Remount on the direction instead.
+          key={dir}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexGrow: 0, flexShrink: 0 }}
+          contentContainerStyle={{
+            gap: 7,
+            paddingTop: 10,
+            paddingBottom: 2,
+          }}
+        >
+          {a.tzDates.map((d) => {
+            const noon = wallTimeToUtc(d, 12 * 60, a.tz);
+            return (
+              <DayChip
+                key={d}
+                dow={formatWeekdayShort(noon, locale, a.tz)}
+                dayNum={formatDayNumber(noon, locale, a.tz)}
+                selected={d === a.date}
+                closed={a.isClosedDate(d)}
+                closedLabel={t('booking.closedChip')}
+                onPress={() => a.selectDate(d)}
+              />
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {/* Duration segmented control (intrinsic width, per the design) */}
       <View style={{ marginTop: 10, paddingStart: GUTTER, paddingEnd: GUTTER }}>
@@ -127,9 +133,6 @@ export default function AvailabilityScreen() {
         />
       </View>
 
-      <View style={{ paddingStart: GUTTER, paddingEnd: GUTTER }}>
-        <ErrorText>{a.error}</ErrorText>
-      </View>
 
       {a.day.isLoading ? (
         <View
@@ -229,6 +232,8 @@ export default function AvailabilityScreen() {
           )}
         </ScrollView>
       )}
+
+      <ErrorAlert message={a.error} onDismiss={a.dismissError} />
 
       <NoticeSheet
         visible={a.notice !== null}
