@@ -18,7 +18,7 @@
     "native:node": "node scripts/native-abi.mjs node"
   },
   "dependencies": {
-    "better-sqlite3": "^12.2.0",
+    "better-sqlite3": "^13.0.3",
     "ws": "^8.18.0",
     "electron-updater": "^6.8.9"
   },
