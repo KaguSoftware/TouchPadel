@@ -26,12 +26,13 @@
  * On a short phone the card caps itself to the stage and the grid shrinks
  * (min 96 pt) instead of the card overflowing under the title or tab bar.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   Platform,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -195,7 +196,19 @@ export function BookingSheet({
   const rtl = dir === 'rtl';
   const dark = appearance === 'dark';
   const a = useAvailabilityBooking({ origin: 'sheet' });
-  const [container, setContainer] = useState({ width: 0, height: 0 });
+  // Seeded from the window rather than starting at zero. This box spans the
+  // stage's full width, so `width` is already exact; `height` is an
+  // over-estimate that only ever relaxes the card's cap, and onLayout corrects
+  // it on the very next commit. Starting at zero meant the card was not
+  // rendered AT ALL on its first frame and the whole tree — pills, picker,
+  // grid, every animation node in them — was built a second time when the
+  // measurement landed, which is precisely the frame the opening spring needs
+  // the JS thread for.
+  const windowSize = useWindowDimensions();
+  const [container, setContainer] = useState(() => ({
+    width: windowSize.width,
+    height: windowSize.height,
+  }));
   const cardW = Math.min(CARD_MAX_W, Math.max(0, container.width - 40));
   const cardMaxH = Math.max(0, container.height - 24);
   useEffect(() => {
@@ -210,11 +223,37 @@ export function BookingSheet({
   const [gridAtTop, setGridAtTop] = useState(true);
 
   // The grid's first row IS tonight's first bookable time — the hook drops every
-  // hour that has already started — so a fresh ScrollView per day/duration opens
-  // at the top with nothing above it to scroll back to. `key` does the remount,
-  // and a list that starts at 0 keeps the leading fade off until the guest
-  // scrolls.
+  // hour that has already started — so each day/duration opens at the top with
+  // nothing above it to scroll back to, and the leading fade stays off until
+  // the guest scrolls.
+  //
+  // This used to be a `key` on the ScrollView — a full unmount and remount of
+  // the scroller and everything in it on every day chip and every duration tap,
+  // to buy one thing: the offset back at 0. Reset the offset by hand instead
+  // and let React reconcile. A duration tap is where that pays most: 60 and 90
+  // minutes share nearly all their start times, so the cells' keys match and
+  // the rows are updated in place rather than destroyed and rebuilt. A day chip
+  // still replaces the cells (new start times, new keys) but no longer the
+  // scroller around them. Both were long enough to stall the court's rally
+  // behind the card (owner, 2026-09-08: picking between dates "glitches and is
+  // not running smoothly").
+  //
+  // A date that is NOT cached shows the skeleton first, so its list mounts
+  // fresh at 0 anyway and the ref below is simply null that time round.
   const gridKey = `${a.date}|${a.durationMin}`;
+  const gridRef = useRef<ScrollView>(null);
+  // The leading fade is reset DURING the render that changes the key (React's
+  // own "adjusting state when a prop changes"), not from the effect below: an
+  // effect would leave the fade painted over the new list's first frame. The
+  // effect only has to move the scroller, which is a native call either way.
+  const [gridShown, setGridShown] = useState(gridKey);
+  if (gridShown !== gridKey) {
+    setGridShown(gridKey);
+    setGridAtTop(true);
+  }
+  useEffect(() => {
+    gridRef.current?.scrollTo({ y: 0, animated: false });
+  }, [gridKey]);
 
   // Sheet: direction-aware PITCH ease (remapped inside its 0.25 → 1 slice).
   const sheet = useMemo(() => {
@@ -366,7 +405,7 @@ export function BookingSheet({
   } else {
     grid = (
       <ScrollView
-        key={gridKey}
+        ref={gridRef}
         showsVerticalScrollIndicator={false}
         onScroll={onGridScroll}
         scrollEventThrottle={32}
