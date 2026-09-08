@@ -480,7 +480,7 @@ export const en = {
     closedDate: 'The venue is closed on this date.',
     outsideHours: 'That time is outside the venue’s opening hours.',
     noSlots: 'No times are available on this day.',
-    myBookings: 'My bookings',
+    myBookings: 'My reservations',
     noBookings: 'You have no upcoming bookings.',
     selectDuration: 'Choose a duration',
     holdCountdown: 'Confirm within {seconds}s',
@@ -547,6 +547,19 @@ export const en = {
     noBookingsBody: 'Your court reservations will show up here.',
     emptyUpcoming: 'Nothing upcoming.',
     bookNext: 'Book your next game →',
+    // Booking history panel (owner, 2026-09-08): the tab keeps the two most
+    // recent past games; everything older lives here, behind one link.
+    historyTitle: 'Booking history',
+    viewAllPast: 'View all {count} past games →',
+    clearHistory: 'Clear history',
+    clearHistoryHint:
+        'Clears the list on this device only. The venue keeps its records, and nothing is cancelled.',
+    clearHistoryPrompt: 'Clear booking history?',
+    clearHistoryBody:
+        'Past games stop showing on this device. Nothing is cancelled or deleted, and upcoming bookings are untouched.',
+    historyClearedToast: 'Booking history cleared',
+    noHistoryTitle: 'No past games',
+    noHistoryBody: 'Games you have played will be listed here once they are over.',
     // "More life" pass (owner, 2026-09-05): My bookings stopped being a flat
     // list — a hero card for the next game, counted section headings, and a
     // timeline down Past. These are the strings that pass carries.
@@ -594,7 +607,7 @@ export const en = {
   },
   tabs: {
     book: 'Book',
-    bookings: 'My Bookings',
+    bookings: 'My Reservations',
     profile: 'Profile',
   },
   profile: {

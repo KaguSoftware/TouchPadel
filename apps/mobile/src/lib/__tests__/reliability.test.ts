@@ -27,10 +27,10 @@ describe('entry order (the ulid CSPRNG crash)', () => {
 });
 
 describe('splash reveal (the white screen with no message)', () => {
-  // AppRoot's font effect owns the only other hideAsync call, so a path that
-  // returns BEFORE AppRoot mounts used to leave the white splash covering its
-  // own error message — the exact failure src/lib/supabase.ts stopped throwing
-  // for. Both such paths must reveal the splash themselves.
+  // BootOverlay owns the only other reveal (features/boot/splash.ts), so a path
+  // that returns BEFORE AppRoot mounts used to leave the white splash covering
+  // its own error message — the exact failure src/lib/supabase.ts stopped
+  // throwing for. Both such paths must reveal the splash themselves.
   const layout = readFileSync(join(here, '../../../app/_layout.tsx'), 'utf8');
 
   it.each([['function ConfigErrorScreen()'], ['export function ErrorBoundary(']])(
@@ -46,6 +46,33 @@ describe('splash reveal (the white screen with no message)', () => {
   it('keeps hideAsync out of reach of the pre-AppRoot returns', () => {
     // If someone deletes the hook, this catches the regression at its source.
     expect(layout).toContain('function useRevealSplash()');
+  });
+
+  it('leaves the reveal to BootOverlay — AppRoot must not hide the splash', () => {
+    // Hiding it here uncovered the Book tab mid-build (the GL court, the brand
+    // pattern's bare frame), which is the whole reason the loading screen
+    // exists. The overlay hides the splash once it is itself painted.
+    const appRoot = layout.slice(layout.indexOf('function AppRoot('));
+    expect(appRoot).not.toContain('SplashScreen.hideAsync');
+  });
+
+  it('mounts BootOverlay inside DirectionRoot, above the navigator', () => {
+    // Outside every route and over the native tab bar. Nested any deeper it
+    // would be a screen, and a push could put something on top of it.
+    // lastIndexOf: FallbackShell wraps the crash/config screens in a
+    // DirectionRoot of its own, EARLIER in the file, and deliberately without
+    // the overlay — a brand cover over an error message is the silent white
+    // screen in another colour.
+    const open = layout.lastIndexOf('<DirectionRoot>');
+    const close = layout.lastIndexOf('</DirectionRoot>');
+    const overlay = layout.indexOf('<BootOverlay />');
+    expect(open).toBeGreaterThan(-1);
+    expect(overlay).toBeGreaterThan(open);
+    expect(overlay).toBeLessThan(close);
+    // ...and after the navigator, so it paints over it.
+    expect(overlay).toBeGreaterThan(layout.indexOf('<RootStack />'));
+    // Exactly one: the fallback shell must not grow one of its own.
+    expect(layout.split('<BootOverlay />')).toHaveLength(2);
   });
 });
 

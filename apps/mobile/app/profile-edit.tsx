@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { Stack, useNavigation } from 'expo-router';
-import type { NavigationAction } from 'expo-router/react-navigation';
+import { Stack } from 'expo-router';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
@@ -10,7 +9,8 @@ import { RequireSession } from '../src/features/auth/RequireSession';
 import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { radius, space, useTheme } from '../src/theme';
-import { Button, ErrorText, Field, FormScreen, Screen, useSafeBack } from '../src/components/ui';
+import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/ui';
+import { useBackGuard } from '../src/navigation/back';
 import { ConfirmationDialog, useToast } from '../src/components/overlays';
 import { SkeletonList } from '../src/components/states';
 
@@ -25,8 +25,6 @@ import { SkeletonList } from '../src/components/states';
 function EditProfileScreen() {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
-  const navigation = useNavigation();
-  const safeBack = useSafeBack();
   const { session } = useAuth();
   const profile = useOwnProfile(!!session);
   const update = useUpdateProfile();
@@ -39,17 +37,6 @@ function EditProfileScreen() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [discardOpen, setDiscardOpen] = useState(false);
-  const [pendingPop, setPendingPop] = useState<NavigationAction | null>(null);
-  /**
-   * Releases the unsaved-changes guard for a departure the user has already
-   * agreed to. Two cases, both of which leave the form still "dirty" — the
-   * edits differ from `initial`, which is captured once and never refreshed:
-   *  - Discard: without this the replayed navigation is intercepted a second
-   *    time and reopens the dialog, an inescapable loop;
-   *  - a successful Save: `router.back()` would otherwise be blocked and the
-   *    user asked to discard the changes they just saved.
-   */
-  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     if (profile.data && !initial) {
@@ -64,50 +51,15 @@ function EditProfileScreen() {
 
   const dirty = initial !== null && (name !== initial.name || phone !== initial.phone);
 
-  const blockPop = dirty && !update.isPending && !leaving;
-
   /**
-   * Intercepts the pop itself — the native back item AND the edge-swipe — so
-   * the prompt appears without replacing the button.
-   *
-   * NOT `usePreventRemove`, deliberately. That hook registers the route as
-   * prevented, and NativeStackView then forces
-   * `headerBackButtonMenuEnabled: !isRemovePrevented` (false) regardless of
-   * what the screen passes. react-native-screens reads that as
-   * `disableBackButtonMenu` and swaps UIKit's back item for a plain
-   * UIBarButtonItem carrying only the title — a bordered capsule with NO
-   * CHEVRON, in the default tint. That is exactly what the Arabic screenshot
-   * showed, and it appeared only while the form was dirty.
-   *
-   * Listening to `beforeRemove` directly gives the same interception (it is
-   * the very event that hook wraps) without ever marking the route prevented,
-   * so the back item stays native: chevron, our tint, the push/pop animation.
+   * Unsaved edits ask before leaving (spec `dirty` state). The guard covers the
+   * native back item, the edge-swipe and Android back alike; `leave` replays
+   * whichever one was blocked.
    */
-  useEffect(() => {
-    if (!blockPop) return;
-    return navigation.addListener('beforeRemove', (e) => {
-      e.preventDefault();
-      setPendingPop(e.data.action);
-      setDiscardOpen(true);
-    });
-  }, [navigation, blockPop]);
-
-  // Navigates only AFTER the guard has actually been released: `setLeaving` is
-  // async, so dispatching inside the dialog handler would still be intercepted
-  // by the previous render's guard.
-  // `useSafeBack` returns a fresh closure each render, so this effect would
-  // re-run — and re-navigate — on every render while `leaving` is true. The ref
-  // makes the departure fire exactly once.
-  const left = useRef(false);
-  useEffect(() => {
-    if (!leaving || left.current) return;
-    left.current = true;
-    // Replay the exact action that was blocked (back, edge-swipe, or a deep
-    // link pushing elsewhere) rather than assuming it was "back". A successful
-    // Save has no blocked action — nothing was intercepted — so it just leaves.
-    if (pendingPop) navigation.dispatch(pendingPop);
-    else safeBack();
-  }, [leaving, pendingPop, navigation, safeBack]);
+  const leave = useBackGuard({
+    when: dirty && !update.isPending,
+    onBlocked: () => setDiscardOpen(true),
+  });
 
   const onSave = () => {
     setError(null);
@@ -122,10 +74,10 @@ function EditProfileScreen() {
       {
         onSuccess: () => {
           toast(t('profile.updated'));
-          // Release the guard first: the form is still "dirty" against the
-          // captured `initial`, so the pop would otherwise be intercepted and
-          // offer to discard changes that were just saved.
-          setLeaving(true);
+          // `leave` rather than a plain back: the form is still "dirty"
+          // against the captured `initial`, so the pop would otherwise be
+          // intercepted and offer to discard changes that were just saved.
+          leave();
         },
         onError: (err) => setError(t(mapErrorToKey(err))),
       },
@@ -200,12 +152,9 @@ function EditProfileScreen() {
         danger
         onConfirm={() => {
           setDiscardOpen(false);
-          setLeaving(true);
+          leave();
         }}
-        onDismiss={() => {
-          setDiscardOpen(false);
-          setPendingPop(null);
-        }}
+        onDismiss={() => setDiscardOpen(false)}
       />
     </Screen>
   );

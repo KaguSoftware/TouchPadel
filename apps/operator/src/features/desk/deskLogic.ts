@@ -110,13 +110,40 @@ export function arrivals(reservations: readonly ReservationRow[], nowIso: string
   );
 }
 
-/** The transitions mark_reservation accepts (0026): what the UI may offer. */
-export function allowedMarks(status: string): readonly ('arrived' | 'completed' | 'no_show')[] {
+/**
+ * The transitions mark_reservation accepts (0026), narrowed by the temporal
+ * guard 0071 added (SEC-11): what the UI may offer.
+ *
+ * `no_show` and `completed` sit OUTSIDE the reservation exclusion predicate, so
+ * writing either frees the court for resale. On a booking that has not started
+ * yet that is a paid Friday slot marked absent on Tuesday and sold twice, so
+ * the server refuses both before `start_at` with RESERVATION_NOT_STARTED.
+ * `arrived` stays inside the predicate and frees nothing, so an early check-in
+ * is still offered.
+ *
+ * This mirrors the server rule rather than replacing it — the RPC is the
+ * control. The point of mirroring is that the desk never sees a button that
+ * cannot work: a refusal the UI could have predicted reads to staff as the
+ * software being broken, and that is how workarounds get invented.
+ *
+ * `startAt`/`now` are optional so existing callers keep compiling; without them
+ * the function returns what the server accepts on a STARTED booking, which is
+ * the wider set. Pass both wherever the reservation's start time is to hand.
+ */
+export function allowedMarks(
+  status: string,
+  startAt?: string,
+  now: Date = new Date(),
+): readonly ('arrived' | 'completed' | 'no_show')[] {
+  const notStarted = startAt !== undefined && now.getTime() < new Date(startAt).getTime();
   switch (status) {
     case 'confirmed':
-      return ['arrived', 'completed', 'no_show'];
+      return notStarted ? ['arrived'] : ['arrived', 'completed', 'no_show'];
     case 'arrived':
-      return ['completed'];
+      // A booking cannot be 'arrived' before it starts unless the desk checked
+      // the guest in early, and a guest standing at the desk has arrived — so
+      // 'completed' stays available here only once the slot is running.
+      return notStarted ? [] : ['completed'];
     default:
       return [];
   }
@@ -131,6 +158,7 @@ export const OVERRIDE_REFUSAL_CODES: ReadonlySet<string> = new Set([
   'INVALID_TRANSITION',
   'CANCELLATION_WINDOW',
   'REASON_REQUIRED',
+  'RESERVATION_NOT_STARTED',
 ]);
 
 export function isOverrideRefusal(code: string | undefined): boolean {

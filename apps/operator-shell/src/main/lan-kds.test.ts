@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import { setAuthState } from './auth-state';
 import { parseStatusUpdate, type LanServerFrame } from './lan-frames';
 import { pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
-import { openQueue } from './queue';
+import { openQueue, listBlockingRows } from './queue';
 import { ulid } from './ulid';
 import type { MutationEnvelope } from '../ipc-channels';
 
@@ -140,7 +140,13 @@ describe('lan kds server', () => {
     expect(String(row.idempotency_key)).toMatch(/^TILL1:ticket\.status:/);
     expect(String(row.local_id)).toMatch(/^KDS-01-/);
     expect(row.staff_id).toBe(STAFF);
-    expect(JSON.parse(String(row.payload))).toEqual({
+    // v4/SEC-32: the payload column is encrypted at rest, so read it back
+    // through the queue API rather than parsing the raw column.
+    expect(row.payload_enc).toBe(1);
+    const queued = listBlockingRows().find(
+      (r) => r.idempotencyKey === String(row.idempotency_key),
+    );
+    expect(queued?.payload).toEqual({
       ticketIdemKey: env.idempotencyKey,
       status: 'ready',
     });
