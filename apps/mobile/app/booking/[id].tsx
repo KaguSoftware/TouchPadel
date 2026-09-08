@@ -61,6 +61,7 @@ function BookingDetailScreen() {
   // adds no second subscription when it is opened from Bookings.
   useCourtsBroadcast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [noticeClosed, setNoticeClosed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Eligibility follows the clock: the window can close while the guest looks.
@@ -123,6 +124,24 @@ function BookingDetailScreen() {
       <Stack.Screen
         options={{ title: booking ? t('booking.bookingRef', { ref: displayRef(booking.id) }) : '' }}
       />
+      {/*
+        Spec 05.16: the venue contact whenever the venue is degraded, closed
+        only by its × — a guest looking at a stale booking needs the number in
+        reach however long they spend reading, and however often the query
+        refetches. In flow rather than floating, matching the Book tab: an
+        overlay covered the top of the detail it was commenting on.
+      */}
+      {degraded && !noticeClosed ? (
+        <View style={{ marginBottom: space.s }}>
+          <DegradedBanner
+            lead={t('degraded.leadConnectionLost')}
+            message={t('degraded.bannerBookings', { phone: phone ?? '' })}
+            phone={phone}
+            blockLead
+            onDismiss={() => setNoticeClosed(true)}
+          />
+        </View>
+      ) : null}
       {reservation.isLoading ? (
         <SkeletonList rows={2} height={140} />
       ) : reservation.isError ? (
@@ -145,18 +164,6 @@ function BookingDetailScreen() {
           contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + insets.bottom }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Spec 05.16: the venue contact whenever the venue is degraded. */}
-          {degraded ? (
-            <View style={{ marginBottom: 10 }}>
-              <DegradedBanner
-                tight
-                lead={t('degraded.leadConnectionLost')}
-                message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-                phone={phone}
-              />
-            </View>
-          ) : null}
-
           <Card>
             <View
               style={{
