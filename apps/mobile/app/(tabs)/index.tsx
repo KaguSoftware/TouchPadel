@@ -12,13 +12,13 @@ import {
 } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useFocusEffect } from 'expo-router';
+import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { logicalSign } from '../../src/i18n/direction';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
 import {
   openNowInfo,
-  venuePhoneOf,
   type VenueSettingsPublic,
 } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
@@ -50,7 +50,6 @@ import { BackChevronIcon, TitleSquiggle } from '../../src/components/icons';
 import { Court3D, type Court3DHandle } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
-import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 
 /** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
 const LOGO_H = 30;
@@ -340,6 +339,7 @@ export default function BookHomeScreen() {
   const reduceMotion = useReduceMotion();
   const { progress, veil, direction, isOpen, sheetMounted, openBooking, closeBooking } =
     useCourtTransition();
+  const [noticeClosed, setNoticeClosed] = useState(false);
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
@@ -486,7 +486,6 @@ export default function BookHomeScreen() {
   const courtShade = withAlpha(colors.page, SHADE_ALPHA[appearance] * FOOTER_SHADE_SCALE);
   const clear = withAlpha(colors.page, 0);
 
-  const phone = venuePhoneOf(settings.data);
   const cta = <NetCta progress={progress} hidden={sheetMounted} onPress={open} />;
   // Box height S, blank band f·H at its top: start it m above the stage so
   // f·(S + m) − m = COURT_GAP, i.e. m = (f·S − gap) / (1 − f).
@@ -572,17 +571,6 @@ export default function BookHomeScreen() {
           />
           <OpenNowPill settings={settings.data} />
         </View>
-
-        {degraded ? (
-          <View style={{ marginTop: space.s, marginStart: space.l, marginEnd: space.l }}>
-            <DegradedBanner
-              lead={t('degraded.leadConnectionLost')}
-              // Isolated: an RTL paragraph would otherwise reorder the number groups.
-              message={t('degraded.bannerCourts', { phone: phone ? isolate(phone) : '' })}
-              phone={phone}
-            />
-          </View>
-        ) : null}
 
         {/* Title row: [back to the court] BOOK A COURT ⇄ PICK A TIME */}
         <View style={{ paddingStart: space.l, paddingEnd: space.l, paddingTop: space.sm }}>
@@ -752,6 +740,35 @@ export default function BookHomeScreen() {
           setStageRect(e.nativeEvent.layout);
         }}
       >
+        {/*
+          Under the heading, not above it: the venue notice is a note about the
+          page, so BOOK A COURT stays the first thing read on the tab.
+
+          OUT OF FLOW, and inside the stage. The header block and the stage are
+          flex siblings and the stage is `flex: 1`, so an in-flow notice took
+          its height straight out of the court — which visibly shrank the moment
+          the venue went offline and grew back when the guest closed it. Absolute
+          here means the stage measures the same either way, and `top: 0` is the
+          stage's own top edge: immediately under the title, where it was.
+        */}
+        {degraded && !noticeClosed ? (
+          <View
+            pointerEvents="box-none"
+            style={{ position: 'absolute', top: 0, start: space.l, end: space.l, zIndex: 3 }}
+          >
+            <DegradedBanner
+              lead={t('degraded.leadConnectionLost')}
+              // No number in the copy: it sent a long digit run through a narrow
+              // banner, which wrapped away from the "Call" that introduced it.
+              // Profile already has a Call-the-venue row that dials directly.
+              message={t('degraded.bannerCourts')}
+              blockLead
+              // Closed by the guest alone — a refetch flipping `degraded` back
+              // on must not resurrect a notice they have already dealt with.
+              onDismiss={() => setNoticeClosed(true)}
+            />
+          </View>
+        ) : null}
         {glUnavailable ? (
           // No GL context on this device: the flat court, button underneath as before.
           <Animated.View
