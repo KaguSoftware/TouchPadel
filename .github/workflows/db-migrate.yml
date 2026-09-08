@@ -43,9 +43,9 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: latest
 
@@ -147,7 +147,7 @@ jobs:
 
       - name: Upload ledger snapshot
         if: steps.preflight.outputs.configured == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ledger-snapshot-${{ github.sha }}
           path: packages/db/ledger-snapshot.sql
@@ -178,8 +178,8 @@ jobs:
   #     SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_PROD }}
   #     SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD_PROD }}
   #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: supabase/setup-cli@v1
+  #     - uses: actions/checkout@v7
+  #     - uses: supabase/setup-cli@v3
   #       with:
   #         version: latest
   #     - name: Link to production project
