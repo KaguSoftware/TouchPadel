@@ -76,6 +76,33 @@ export interface DayGrid {
 /** Epoch: with this as `now` no slot is past and no hold is expired at build time. */
 const NO_CLOCK = new Date(0);
 
+/**
+ * Assembled trading nights, keyed by date and validated by REFERENCE against
+ * the five queries that build them.
+ *
+ * `assembleTradingNight` is pure but not cheap: two `buildSlotGrid` passes with
+ * a rate lookup per slot per court, and every one of those resolves the venue's
+ * wall clock through Intl — a few hundred `formatToParts` calls per date. The
+ * `useMemo` below only ever holds the LAST date, so moving between day chips
+ * rebuilt from scratch every time, synchronously, on the tap — including for
+ * dates whose rows were already sitting in the react-query cache. On the Book
+ * tab that lands on the same JS thread the 3D court draws its rally from, and
+ * the court visibly hitches (owner, 2026-09-08: picking between dates
+ * "glitches and is not running smoothly").
+ *
+ * react-query hands back a stable reference until data actually changes, so
+ * identity across all five inputs is a sound key: a refetch that returns new
+ * rows misses and rebuilds, one that changes nothing hits. Module-level, so the
+ * Book tab's sheet and the standalone Availability screen share one copy, and
+ * capped at a little over one entry per day chip on the strip.
+ */
+const GRID_CACHE_MAX = 8;
+interface GridCacheEntry {
+  inputs: readonly unknown[];
+  grid: CourtSlots[];
+}
+const gridCache = new Map<string, GridCacheEntry>();
+
 /** Assembled, priced grid for one venue-local trading night. */
 export function useDayGrid(date: string): DayGrid {
   const settings = useVenueSettings();
@@ -96,7 +123,16 @@ export function useDayGrid(date: string): DayGrid {
     if (!settings.data || !courts.data || !rules.data || !prices.data || !availability.data) {
       return [];
     }
-    return assembleTradingNight({
+    const inputs = [
+      settings.data,
+      courts.data,
+      rules.data,
+      prices.data,
+      availability.data,
+    ] as const;
+    const cached = gridCache.get(date);
+    if (cached && inputs.every((input, i) => cached.inputs[i] === input)) return cached.grid;
+    const built = assembleTradingNight({
       date,
       settings: settings.data,
       courts: courts.data,
@@ -105,6 +141,16 @@ export function useDayGrid(date: string): DayGrid {
       prices: prices.data,
       now: NO_CLOCK,
     });
+    // Delete before set so insertion order stays a true least-recently-BUILT
+    // order and the eviction below takes the right entry.
+    gridCache.delete(date);
+    gridCache.set(date, { inputs, grid: built });
+    while (gridCache.size > GRID_CACHE_MAX) {
+      const oldest = gridCache.keys().next().value;
+      if (oldest === undefined) break;
+      gridCache.delete(oldest);
+    }
+    return built;
   }, [date, settings.data, courts.data, rules.data, prices.data, availability.data]);
 
   const queries = [settings, courts, rules, prices, availability];
