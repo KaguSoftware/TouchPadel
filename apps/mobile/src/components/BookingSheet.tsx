@@ -26,28 +26,12 @@
  * On a short phone the card caps itself to the stage and the grid shrinks
  * (min 96 pt) instead of the card overflowing under the title or tab bar.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  Animated,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Animated, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { wallTimeToUtc } from '@touch/core';
-import {
-  formatDayNumber,
-  formatTime,
-  formatWeekdayShort,
-  isolate,
-  type Direction,
-} from '@touch/i18n';
+import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../features/availability/useAvailabilityBooking';
 import { mapErrorToKey } from '../features/booking/errors';
@@ -61,10 +45,10 @@ import {
   type Range,
 } from '../features/courtTransition/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
-import { Button, ErrorText, SegmentedControl } from './ui';
+import { Button, SegmentedControl } from './ui';
 import { DayChip, SlotCell } from './booking';
 import { SkeletonList } from './states';
-import { NoticeSheet } from './overlays';
+import { ErrorAlert, NoticeSheet } from './overlays';
 
 /** Prototype: a 280 px card in a 390 px phone; a touch narrower here, the duration picker still fits. */
 const CARD_MAX_W = 268;
@@ -83,25 +67,6 @@ const CARD_RADIUS = 22;
  */
 const GRID_H = 216;
 const PAD = 10;
-/** The card's hairline. Edge fades stop just inside it so the border stays crisp. */
-const CARD_BORDER = 1;
-const FADES = { pillsStart: 10, pillsEnd: 14, gridStart: 12, gridEnd: 24 } as const;
-
-/**
- * How the fade's ink falls off across its strip. A straight ramp is still half
- * opaque at the halfway point, so the band reads as bleeding inward over the
- * pills rather than as content dissolving at the edge; squaring it keeps almost
- * all the ink in the outer third and lets the strip stay a clean hard edge.
- */
-const FADE_STOPS = [0, 0.25, 0.5, 0.75, 1] as const;
-
-/** The stops' colours, squared falloff from `alpha` at the edge to nothing. */
-const fadeInk = (color: string, alpha: number) => {
-  const ink = (t: number) => withAlpha(color, alpha * (1 - t) ** 2);
-  const [s0, s1, s2, s3, s4] = FADE_STOPS;
-  return [ink(s0), ink(s1), ink(s2), ink(s3), ink(s4)] as const;
-};
-
 interface Entrance {
   opacity: Animated.AnimatedInterpolation<number>;
   translateY: Animated.AnimatedInterpolation<number>;
@@ -118,56 +83,6 @@ function entrance(
   const table = (out: Range) =>
     progress.interpolate({ ...sampleEased(range, out, undefined, 1), extrapolate: 'clamp' });
   return { opacity: table([0, 1]), translateY: table([rise, 0]), scale: table([scaleFrom, 1]) };
-}
-
-/**
- * The prototype's CSS mask-image edge fades, as gradient overlays in the card's
- * tint. `visible` = the leading fade, shown only once the list has scrolled.
- */
-function EdgeFade({
-  axis,
-  edge,
-  size,
-  color,
-  alpha,
-  rtl,
-  visible = true,
-  inset = 0,
-}: {
-  axis: 'x' | 'y';
-  edge: 'start' | 'end';
-  size: number;
-  /** Opaque `#RRGGBB`; the stops carry their own alpha. */
-  color: string;
-  /** Peak opacity, reached only at the very edge. */
-  alpha: number;
-  rtl: boolean;
-  visible?: boolean;
-  /** Pull the fade off the card's edge by this much — the border's width. */
-  inset?: number;
-}) {
-  if (!visible) return null;
-  const solidFirst = edge === 'start';
-  // Along x the logical start is the physical right under RTL.
-  const towardsEnd = axis === 'x' ? !rtl : true;
-  const from = solidFirst === towardsEnd ? { x: 0, y: 0 } : { x: 1, y: 1 };
-  const to = solidFirst === towardsEnd ? { x: 1, y: 1 } : { x: 0, y: 0 };
-  const along = axis === 'x' ? { start: from.x, end: to.x } : { start: from.y, end: to.y };
-  return (
-    <LinearGradient
-      pointerEvents="none"
-      colors={fadeInk(color, alpha)}
-      locations={FADE_STOPS}
-      start={axis === 'x' ? { x: along.start, y: 0 } : { x: 0, y: along.start }}
-      end={axis === 'x' ? { x: along.end, y: 0 } : { x: 0, y: along.end }}
-      style={[
-        { position: 'absolute' },
-        axis === 'x'
-          ? { top: 0, bottom: 0, width: size, [edge]: inset }
-          : { start: inset, end: inset, height: size, [edge === 'start' ? 'top' : 'bottom']: 0 },
-      ]}
-    />
-  );
 }
 
 export interface BookingSheetProps {
@@ -193,7 +108,6 @@ export function BookingSheet({
 }: BookingSheetProps) {
   const { t, locale, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
-  const rtl = dir === 'rtl';
   const dark = appearance === 'dark';
   const a = useAvailabilityBooking({ origin: 'sheet' });
   // Seeded from the window rather than starting at zero. This box spans the
@@ -214,14 +128,6 @@ export function BookingSheet({
   useEffect(() => {
     onBusyChange?.(a.holdPending);
   }, [a.holdPending, onBusyChange]);
-  // The direction the pill strip was scrolled off its leading edge in. A
-  // language switch remounts the strip (key={dir} below) so both platforms
-  // re-home it at the new leading edge — neither emits a scroll event on a
-  // direction change — and the flag must not outlive that strip.
-  const [pillsScrolledIn, setPillsScrolledIn] = useState<Direction | null>(null);
-  const pillsAtStart = pillsScrolledIn !== dir;
-  const [gridAtTop, setGridAtTop] = useState(true);
-
   // The grid's first row IS tonight's first bookable time — the hook drops every
   // hour that has already started — so each day/duration opens at the top with
   // nothing above it to scroll back to, and the leading fade stays off until
@@ -287,29 +193,8 @@ export function BookingSheet({
   // Frosted glass: blur + tint on iOS, a near-opaque tint on Android.
   const glass =
     Platform.OS === 'ios' ? withAlpha(colors.bg, dark ? 0.45 : 0.35) : withAlpha(colors.bg, 0.94);
-  const fadeAlpha = Platform.OS === 'ios' ? (dark ? 0.9 : 0.85) : 0.97;
   const glassLine = withAlpha(brand.white, dark ? 0.14 : 0.55);
   const shadow = dark ? shadows.sheetDark : shadows.sheet;
-
-  const onPillsScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    // BOTH platforms report a PHYSICAL contentOffset.x under RTL, measured from
-    // the content's left edge: Android emits HorizontalScrollView.scrollX as is,
-    // and iOS Fabric mirrors its UIScrollView but converts the offset back
-    // (RCTScrollViewComponentView _scrollViewMetrics). So the logical start
-    // reads as the maximum on both; undo that here.
-    // Clamped at 0: when the content is NARROWER than the strip there is
-    // nothing to scroll, `contentOffset.x` stays 0 and the undo goes negative
-    // by the slack — which reads as "scrolled" and would paint the leading
-    // fade permanently, in Arabic only. Seven or eight day pills always
-    // overflow the card today, so this is a guard, not a live bug.
-    const x = rtl
-      ? Math.max(0, contentSize.width - layoutMeasurement.width - contentOffset.x)
-      : contentOffset.x;
-    setPillsScrolledIn(Math.abs(x) < 2 ? null : dir);
-  };
-  const onGridScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) =>
-    setGridAtTop(e.nativeEvent.contentOffset.y < 2);
 
   let grid: ReactNode;
   if (a.day.isLoading) {
@@ -407,8 +292,6 @@ export function BookingSheet({
       <ScrollView
         ref={gridRef}
         showsVerticalScrollIndicator={false}
-        onScroll={onGridScroll}
-        scrollEventThrottle={32}
         contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD, paddingBottom: 14 }}
       >
         {a.rows.map((row, r) => {
@@ -470,11 +353,25 @@ export function BookingSheet({
             width: cardW,
             maxHeight: cardMaxH,
             borderRadius: CARD_RADIUS,
+            // The shadow stays on THIS view and the clip on the wrapper below:
+            // `overflow: 'hidden'` here would clip the card's own 50 px drop
+            // shadow away along with the overflow.
             boxShadow: shadow,
             transform: [{ translateY: sheet.translateY }, { scale: sheet.scale }],
           }}
         >
-          <View style={{ flexShrink: 1, borderRadius: CARD_RADIUS, overflow: 'hidden' }}>
+          {/* The clip carries `maxHeight` too. Bounded only by the parent, this
+              wrapper's `flexShrink: 1` could still measure taller than the cap,
+              and the excess — the grid's last rows — escaped the clip and drew
+              past the card's edge over the court. */}
+          <View
+            style={{
+              flexShrink: 1,
+              maxHeight: cardMaxH,
+              borderRadius: CARD_RADIUS,
+              overflow: 'hidden',
+            }}
+          >
             {Platform.OS === 'ios' ? (
               <BlurView
                 intensity={50}
@@ -505,8 +402,14 @@ export function BookingSheet({
                   would only repeat it — and screen readers would read it twice.
                   The ~26 pt it used to cost went to the grid. */}
 
-              {/* Day pills (one = one trading night), ~5 visible, the rest scroll */}
-              <View>
+              {/* Day pills (one = one trading night), ~5 visible, the rest scroll.
+                  The wrapper is inset by PAD and CLIPS, so a pill scrolling out
+                  disappears under that line rather than running on to the card's
+                  own edge. The inset moved OFF the content container onto this
+                  view: as `contentContainerStyle` padding it scrolled with the
+                  pills and so clipped nothing, and keeping it here leaves the
+                  first and last pill resting exactly where they did before. */}
+              <View style={{ marginStart: PAD, marginEnd: PAD, overflow: 'hidden' }}>
                 <ScrollView
                   key={dir}
                   horizontal
@@ -517,12 +420,9 @@ export function BookingSheet({
                   // (availability.tsx carries the same override for this reason).
                   style={{ flexGrow: 0, flexShrink: 0 }}
                   showsHorizontalScrollIndicator={false}
-                  onScroll={onPillsScroll}
                   scrollEventThrottle={32}
                   contentContainerStyle={{
                     gap: 4,
-                    paddingStart: PAD,
-                    paddingEnd: PAD,
                     // The heading used to open the card; the pills do now, so
                     // they carry its top breathing room instead of 5 pt.
                     paddingTop: 10,
@@ -549,25 +449,6 @@ export function BookingSheet({
                     );
                   })}
                 </ScrollView>
-                <EdgeFade
-                  axis="x"
-                  edge="start"
-                  size={FADES.pillsStart}
-                  color={colors.bg}
-                  alpha={fadeAlpha}
-                  rtl={rtl}
-                  inset={CARD_BORDER}
-                  visible={!pillsAtStart}
-                />
-                <EdgeFade
-                  axis="x"
-                  edge="end"
-                  size={FADES.pillsEnd}
-                  color={colors.bg}
-                  alpha={fadeAlpha}
-                  rtl={rtl}
-                  inset={CARD_BORDER}
-                />
               </View>
 
               {/* Duration picker enters with the last pill */}
@@ -592,37 +473,18 @@ export function BookingSheet({
                 />
               </Animated.View>
 
-              <View style={{ paddingStart: PAD, paddingEnd: PAD }}>
-                <ErrorText>{a.error}</ErrorText>
-              </View>
 
-              {/* Time grid: four rows visible, vertical scroll with edge fades; the one block that gives way on a short stage */}
+              {/* Time grid: four rows visible, vertical scroll; rows pass under
+                  the card's clipped edge. The one block that gives way on a short stage */}
               <View style={{ height: GRID_H, minHeight: 96, flexShrink: 1, marginTop: 6 }}>
                 {grid}
-                <EdgeFade
-                  axis="y"
-                  edge="start"
-                  size={FADES.gridStart}
-                  color={colors.bg}
-                  alpha={fadeAlpha}
-                  rtl={rtl}
-                  inset={CARD_BORDER}
-                  visible={!gridAtTop}
-                />
-                <EdgeFade
-                  axis="y"
-                  edge="end"
-                  size={FADES.gridEnd}
-                  color={colors.bg}
-                  alpha={fadeAlpha}
-                  rtl={rtl}
-                  inset={CARD_BORDER}
-                />
               </View>
             </Animated.View>
           </View>
         </Animated.View>
       ) : null}
+
+      <ErrorAlert message={a.error} onDismiss={a.dismissError} />
 
       <NoticeSheet
         visible={a.notice !== null}

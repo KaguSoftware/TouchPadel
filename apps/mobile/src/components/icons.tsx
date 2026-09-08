@@ -100,6 +100,15 @@ export const EnvelopeIcon = ({ size = 16, color, strokeWidth = 2 }: IconProps) =
   </Svg>
 );
 export const CheckIcon = (p: IconProps) => <StrokeIcon d={['M4.5 12.5l5 5 10-11']} {...p} />;
+export const CloseIcon = (p: IconProps) => <StrokeIcon d={['M6 6l12 12M18 6L6 18']} {...p} />;
+/**
+ * Deliberately NOT flipped. A magnifier is an object, not a direction: the
+ * glass reads as the same tool whichever way the language runs, and mirroring
+ * it under RTL only makes the handle collide with the text it sits beside.
+ */
+export const SearchIcon = (p: IconProps) => (
+  <StrokeIcon d={['M11 4a7 7 0 100 14 7 7 0 000-14zM16.2 16.2L21 21']} {...p} />
+);
 export const ChevronIcon = (p: IconProps) => <StrokeIcon d={['M9 6l6 6-6 6']} flip {...p} />;
 export const BackChevronIcon = (p: IconProps) => <StrokeIcon d={['M15 6l-6 6 6 6']} flip {...p} />;
 export const PencilIcon = (p: IconProps) => (
