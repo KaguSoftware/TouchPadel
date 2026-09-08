@@ -33,7 +33,7 @@
     "@supabase/supabase-js": "^2.47.0",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
-    "typescript": "^5.7.2"
+    "typescript": "^6.0.3"
   },
   "pnpm": {
     "overrides": {

@@ -39,7 +39,7 @@
     "dotenv": "^16.4.7",
     "qrcode": "^1.5.4",
     "supabase": "^2.0.0",
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.3",
     "vitest": "^2.1.8"
   }
 }

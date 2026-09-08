@@ -64,7 +64,7 @@
     "@types/three": "0.160.0",
     "eslint": "^9.15.0",
     "eslint-config-expo": "~57.0.2",
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.3",
     "vitest": "^2.1.8"
   },
   "expo": {
