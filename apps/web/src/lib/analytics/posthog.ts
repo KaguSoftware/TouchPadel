@@ -18,6 +18,38 @@
 const KILL_KEY = 'tp-analytics';
 const DEFAULT_HOST = 'https://eu.i.posthog.com';
 
+/**
+ * Table-token scrubbing — Security Layer 1, Block 4 · Web (SEC-19/SEC-25).
+ *
+ * The token is the table's bearer credential. `capture_pageview: true` sends
+ * `$current_url`, `$pathname` and `$referrer` on every event, so for as long as
+ * the token was in the address bar, PostHog received it — a third party holding
+ * credentials it has no use for and no idea it has.
+ *
+ * proxy.ts now exchanges the token for an HttpOnly cookie, so the URL reads
+ * `/t` by the time analytics loads. This is the second line: it redacts the
+ * token from any URL-shaped property regardless, which covers the first
+ * request, a QR card printed before the exchange landed, and any future code
+ * path that puts the token back in a URL without anyone noticing.
+ *
+ * Belt and braces on purpose — the cost is one regex per property, and the
+ * failure mode of getting it wrong is a credential sitting in someone else's
+ * database.
+ */
+const TABLE_PATH = /\/t\/[^/?#]+/g;
+
+function redactTableToken(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  return value.replace(TABLE_PATH, '/t/[redacted]');
+}
+
+/** Applied to every property of every captured event. */
+export function sanitizeProperties(props: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(props)) out[k] = redactTableToken(v);
+  return out;
+}
+
 type PostHogLike = {
   init: (key: string, options: Record<string, unknown>) => void;
   capture: (event: string, props?: Record<string, unknown>, opts?: Record<string, unknown>) => void;
@@ -87,6 +119,12 @@ export function initAnalytics(locale: string): void {
           capture_pageleave: true,
           person_profiles: 'identified_only',
           persistence: 'localStorage',
+          // Never let a table token reach PostHog in $current_url, $pathname
+          // or $referrer. See sanitizeProperties above.
+          sanitize_properties: sanitizeProperties,
+          // The token used to be the last path segment; masking the whole path
+          // in autocapture would be redundant with autocapture off, but
+          // pageviews still carry it, which is what the sanitizer catches.
           // The venue has no consent banner; the kill switch above is the opt-out.
           opt_out_capturing_by_default: false,
         });

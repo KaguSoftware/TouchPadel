@@ -189,3 +189,26 @@ export function startProximity(row: BookingRow, now: Date): StartProximity {
 export function playedCount(past: readonly BookingRow[]): number {
   return past.filter((r) => r.status === 'completed' || r.status === 'arrived').length;
 }
+
+/**
+ * Past games still visible after "Clear history" (Booking history panel).
+ *
+ * Clearing hides, it does not delete: a reservation is the VENUE's record too,
+ * so the app has no business destroying one to tidy a list. The cut is stored
+ * per user on the device (features/booking/history.ts) and applied here, so a
+ * cleared game is gone from every derived number as well as the list — the
+ * "N played" chip included, which would otherwise keep counting games the guest
+ * has just asked to stop seeing.
+ *
+ * The comparison is on `end_at` for the same reason the split is: a game that
+ * had not finished when history was cleared is not history yet.
+ */
+export function visiblePast(
+  past: readonly BookingRow[],
+  clearedAt: string | null,
+): BookingRow[] {
+  if (!clearedAt) return [...past];
+  const cutoff = new Date(clearedAt).getTime();
+  if (!Number.isFinite(cutoff)) return [...past];
+  return past.filter((r) => new Date(r.end_at).getTime() > cutoff);
+}

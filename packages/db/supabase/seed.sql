@@ -4,8 +4,8 @@
 --
 -- DEV CREDENTIALS (local/staging ONLY — never ship these to Touch's project):
 --   password for every staff account:  touch-dev-password
---   owner   owner@dev.touch.local     PIN 111111
---   manager manager@dev.touch.local   PIN 222222
+--   owner   owner@dev.touch.local     PIN 719264   (0078/SEC-13: 6+ digits, no run)
+--   manager manager@dev.touch.local   PIN 380517   (0078/SEC-13: 6+ digits, no run)
 --   cashier cashier@dev.touch.local   (no PIN — cashiers escalate via manager PIN)
 --   prep    prep@dev.touch.local
 --   desk    desk@dev.touch.local      (court_desk role)
@@ -160,7 +160,7 @@ insert into staff (id, display_name, role, is_active) values
 on conflict (id) do nothing;
 
 -- Dev PINs (bcrypt). In real environments the owner sets PINs via app.set_staff_pin.
-update staff set pin_hash = extensions.crypt('111111', extensions.gen_salt('bf'))
+update staff set pin_hash = extensions.crypt('719264', extensions.gen_salt('bf'))
  where id = 'a0000000-0000-4000-8000-000000000001';
-update staff set pin_hash = extensions.crypt('222222', extensions.gen_salt('bf'))
+update staff set pin_hash = extensions.crypt('380517', extensions.gen_salt('bf'))
  where id = 'a0000000-0000-4000-8000-000000000002';

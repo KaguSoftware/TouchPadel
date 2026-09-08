@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { formatDate, formatDateTime, formatIQD, formatTimeRange, isolate } from '@touch/i18n';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
+import { useBack } from '../src/navigation/back';
 import { useConfirmBooking, useReleaseHold } from '../src/features/booking/hooks';
 import { secondsUntil } from '../src/features/booking/logic';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../src/features/booking/errors';
@@ -202,8 +203,9 @@ function ReviewScreen() {
   // From the sheet, the grid the guest left is still open underneath — pop back
   // to it (the settled hold invalidated availability, so it is fresh); from the
   // standalone screen, land on the standalone screen.
+  const backToGrid = useBack('/availability');
   const backToAvailability = () => {
-    if (params.origin === 'sheet' && router.canGoBack()) router.back();
+    if (params.origin === 'sheet') backToGrid();
     else router.replace('/availability');
   };
 

@@ -22,6 +22,7 @@
  * Usage:  node scripts/check-rpc-authz.mjs      (exit 1 on any unrefused RPC)
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const URL_BASE = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const ANON =
@@ -131,9 +132,9 @@ if (unrefused.length) {
   for (const u of unrefused) console.error(`  ${u.name.padEnd(28)} HTTP ${u.status}  ${u.body}`);
   console.error(
     '\nA café guest holds `authenticated`, exactly as staff do, so an RPC without\n' +
-      'its own guard is open to anyone who scans a table QR. Add the role check as\n' +
-      "the function's FIRST statement — or, if this is deliberate, add the name to\n" +
-      'PUBLIC_BY_DESIGN in this script and say why.',
+    'its own guard is open to anyone who scans a table QR. Add the role check as\n' +
+    "the function's FIRST statement — or, if this is deliberate, add the name to\n" +
+    'PUBLIC_BY_DESIGN in this script and say why.',
   );
   process.exit(1);
 }
@@ -267,8 +268,8 @@ if (ownershipFailures.length) {
   for (const f of ownershipFailures) console.error(`  ${f.name}\n    ${f.detail.slice(0, 300)}`);
   console.error(
     '\nRole guards are not enough on the booking surface: these RPCs are callable by\n' +
-      'every signed-in customer, so ownership is the only boundary. A failure here is\n' +
-      'the C1/H3 class returning.',
+    'every signed-in customer, so ownership is the only boundary. A failure here is\n' +
+    'the C1/H3 class returning.',
   );
   process.exit(1);
 }

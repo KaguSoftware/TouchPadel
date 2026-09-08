@@ -190,5 +190,7 @@ verify_jwt = true                           # cron/pg_net posts with the service
 verify_jwt = true                           # owner session JWT; the body re-checks the staff row
 [functions.desk-customer-create]
 verify_jwt = true                           # desk session JWT; the body re-checks the staff row (court_desk/manager/owner)
+[functions.apple-revoke]
+verify_jwt = true                           # the guest's own session JWT; the body re-checks the caller
 [functions.send-sms-otp]
 verify_jwt = false                          # GoTrue's Send SMS hook carries no JWT; the Standard-Webhooks HMAC (SEND_SMS_HOOK_SECRET) is the auth

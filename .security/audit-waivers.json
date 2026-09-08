@@ -1,0 +1,117 @@
+{
+  "_readme": [
+    "Waivers for scripts/security/check-dependency-audit.mjs (Security Layer 1, Block 2).",
+    "",
+    "Every entry here is a decision that a KNOWN vulnerability may stay in the tree",
+    "for a stated reason until a stated date. It is not a mute button: an expired",
+    "waiver FAILS the build exactly as an un-waived advisory does, so the backlog",
+    "has a deadline rather than a good intention.",
+    "",
+    "Baseline taken 2026-09-04: 14 high + 2 critical. Every one is transitive; none",
+    "comes from a direct dependency this repo chose on its own.",
+    "",
+    "To add one you need: id (GHSA), module, reason, owner, expires (YYYY-MM-DD).",
+    "To remove one: do the upgrade, then delete the entry — the gate reports stale",
+    "waivers so the file shrinks on its own as the backlog clears."
+  ],
+  "waivers": [
+    {
+      "id": "GHSA-532v-xpq5-8h95",
+      "module": "electron",
+      "reason": "Use-after-free in the offscreen child-window paint callback. The shell renders no offscreen windows: the only BrowserWindow is the operator UI, and print-receipt.ts creates a hidden window that is on-screen-class, not offscreen-rendered. Real fix is the Electron 33 -> 39 upgrade, which is Block 4 desktop work (better-sqlite3 ABI + Windows packaging must be re-verified) and cannot ride along with a CI change.",
+      "owner": "DEV",
+      "expires": "2026-10-15"
+    },
+    {
+      "id": "GHSA-8337-3p73-46f4",
+      "module": "electron",
+      "reason": "Use-after-free in WebContents fullscreen / pointer-lock. Reachable only from renderer content; the shell loads no remote content (will-navigate blocked, setWindowOpenHandler filtered) so an attacker needs code execution in the operator bundle first. Cleared by the same 33 -> 39 upgrade.",
+      "owner": "DEV",
+      "expires": "2026-10-15"
+    },
+    {
+      "id": "GHSA-jjp3-mq3x-295m",
+      "module": "electron",
+      "reason": "Use-after-free in PowerMonitor. Same upgrade, same reachability argument: no remote content is ever loaded into the shell.",
+      "owner": "DEV",
+      "expires": "2026-10-15"
+    },
+    {
+      "id": "GHSA-9wfr-w7mm-pc7f",
+      "module": "electron",
+      "reason": "Renderer command-line switch injection. Requires an attacker-controlled renderer; the shell has one, loaded from the packaged asar. Cleared by the 33 -> 39 upgrade.",
+      "owner": "DEV",
+      "expires": "2026-10-15"
+    },
+    {
+      "id": "GHSA-v3j7-r9gq-3gjw",
+      "module": "electron",
+      "reason": "Custom protocol with supportFetchAPI but not corsEnabled. The shell registers no custom protocol with supportFetchAPI, so this is not reachable as configured. Cleared by the 33 -> 39 upgrade.",
+      "owner": "DEV",
+      "expires": "2026-10-15"
+    },
+    {
+      "id": "GHSA-h7rp-cf8h-j98x",
+      "module": "electron",
+      "reason": "Context-isolation bypass via Function.prototype.bind hijack. This is the most serious of the seven for this app, because context isolation is exactly what stands between the renderer and the durable queue, the PIN cache and the printer. It still needs hostile code running in the renderer to exploit. It is the reason the Electron upgrade is dated rather than open-ended.",
+      "owner": "DEV",
+      "expires": "2026-10-15"
+    },
+    {
+      "id": "GHSA-9f4c-93c8-jc8g",
+      "module": "electron",
+      "reason": "Sandboxed iframe bypassing allow-popups. The operator UI embeds no third-party iframes. Cleared by the 33 -> 39 upgrade.",
+      "owner": "DEV",
+      "expires": "2026-10-15"
+    },
+    {
+      "id": "GHSA-5xrq-8626-4rwp",
+      "module": "vitest",
+      "reason": "Arbitrary file read/execute when the Vitest UI SERVER is listening. This repo never starts it: every invocation is `vitest run` (CI and package scripts alike), which runs headless and opens no port. Dev-time only and never present in any shipped artifact. The fix is vitest 3.x, a test-infrastructure migration across five packages.",
+      "owner": "DEV",
+      "expires": "2026-11-30"
+    },
+    {
+      "id": "GHSA-fx2h-pf6j-xcff",
+      "module": "vite",
+      "reason": "server.fs.deny bypass on Windows alternate paths, in the vite DEV SERVER. Not shipped: vite builds the operator renderer, and the dev server binds to localhost on a developer machine only. Transitive through vitest 2.x; clears with the same vitest 3.x migration.",
+      "owner": "DEV",
+      "expires": "2026-11-30"
+    },
+    {
+      "id": "GHSA-6g55-p6wh-862q",
+      "module": "postcss",
+      "reason": "Arbitrary file read via attacker-controlled CSS, inside Expo's metro build tooling. Build-time only, over CSS this repo authors itself; nothing untrusted is ever compiled. Pinned by expo SDK 54's dependency graph, so it clears on the next SDK bump rather than by a direct override.",
+      "owner": "FE1",
+      "expires": "2026-11-30"
+    },
+    {
+      "id": "GHSA-r28c-9q8g-f849",
+      "module": "postcss",
+      "reason": "Path traversal via sourceMappingURL auto-loading, same build-time-only reachability as GHSA-6g55-p6wh-862q, same expo SDK 54 pin.",
+      "owner": "FE1",
+      "expires": "2026-11-30"
+    },
+    {
+      "id": "GHSA-w3rx-r6r6-pgpr",
+      "module": "image-size",
+      "reason": "NO FIX PUBLISHED. Denial of service via an infinite loop in the ICNS parser, reached only from Expo's asset pipeline at build time over images committed to this repo. A build-time DoS on our own assets is a broken build, not a security event. Re-check for a patched release at expiry.",
+      "owner": "FE1",
+      "expires": "2026-12-31"
+    },
+    {
+      "id": "GHSA-5p2g-fcmc-qvqq",
+      "module": "image-size",
+      "reason": "NO FIX PUBLISHED. Same package, same build-time-only reachability as GHSA-w3rx-r6r6-pgpr (JXL/HEIF parsers). Re-check at expiry.",
+      "owner": "FE1",
+      "expires": "2026-12-31"
+    },
+    {
+      "id": "GHSA-jmr9-qjv8-65gv",
+      "module": "extract-zip",
+      "reason": "NO FIX PUBLISHED. Symlink path traversal when extracting an untrusted zip. Reached only by electron-builder unpacking the Electron distribution it just downloaded from GitHub over TLS with a checksum — not an attacker-supplied archive. Clears with the Electron upgrade if that ships a newer extract-zip; otherwise re-check at expiry.",
+      "owner": "DEV",
+      "expires": "2026-12-31"
+    }
+  ]
+}

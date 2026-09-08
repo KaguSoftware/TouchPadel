@@ -39,7 +39,12 @@ export interface LocaleContextValue {
   setLocale: (locale: Locale) => Promise<void>;
 }
 
-/** Read by DirectionRoot and the modals only, so switch ticks re-render nothing else. */
+/**
+ * Read by DirectionRoot, the modals, and the native header options, so switch
+ * ticks re-render nothing else. The header takes it to drop the back item for
+ * the duration of a switch — the only window in which UIKit will rebuild that
+ * item under the new direction (see navigation/headerOptions.tsx).
+ */
 export interface LocaleSwitchValue {
   /** A switch is applying; input is blocked meanwhile. */
   switching: boolean;

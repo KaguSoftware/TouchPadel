@@ -93,6 +93,64 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
     return { id: holdId, guestId, start };
   }
 
+  const outboxOf = async (id: string, kind?: string) => {
+    let q = svc.from('notification_outbox').select('kind, sent_at').eq('payload->>reservation_id', id);
+    if (kind) q = q.eq('kind', kind);
+    const { data } = await q;
+    return (data ?? []) as { kind: string; sent_at: string | null }[];
+  };
+
+  let startedCount = 0;
+  /**
+   * Move a confirmed booking into the past so it can legally be marked no_show
+   * or completed. 0071/SEC-11 refuses both while now() < start_at, because both
+   * leave the exclusion set and would free a future court for resale — so a
+   * no-show is, by definition, something you can only determine after the guest
+   * failed to turn up.
+   *
+   * The reminder needs restoring afterwards. Back-dating start_at trips the
+   * `v_moved` branch of enqueue_reservation_push, which reschedules the pending
+   * reminder to start_at - 3h and then deletes it for being in the past. That is
+   * correct behaviour for a real move, but here it is an artefact of how the
+   * test reaches the state, and it would quietly empty the outbox before the
+   * assertions that are about emptying it — making them pass vacuously.
+   *
+   * A started booking with an UNSENT reminder is a real state, not a contrived
+   * one: the reminder is queued for start-3h and sent by cron, so any run that
+   * is behind (venue offline, sweep lagging) leaves exactly this.
+   */
+  async function started(b: { id: string; guestId: string; start: Date }) {
+    const hadPendingReminder = (await outboxOf(b.id, 'booking_reminder')).some(
+      (r) => r.sent_at === null,
+    );
+
+    // Each call gets its OWN past day. Every test in this file shares one court,
+    // so back-dating them all into the same window makes the second one collide
+    // with reservations_no_overlap — and a failed UPDATE here is invisible
+    // unless it is checked, leaving the booking in the future and the no-show
+    // refused for a reason that has nothing to do with what is under test.
+    startedCount += 1;
+    const newStart = new Date(Date.now() - (startedCount * 24 + 2) * 3_600_000);
+    const { error: backdateErr } = await svc
+      .from('reservations')
+      .update({
+        start_at: newStart.toISOString(),
+        end_at: new Date(newStart.getTime() + 60 * 60_000).toISOString(),
+      })
+      .eq('id', b.id);
+    expect(backdateErr).toBeNull();
+
+    if (hadPendingReminder && !(await outboxOf(b.id, 'booking_reminder')).length) {
+      await svc.from('notification_outbox').insert({
+        profile_id: b.guestId,
+        kind: 'booking_reminder',
+        payload: { reservation_id: b.id },
+        scheduled_for: new Date(newStart.getTime() - 3 * 3_600_000).toISOString(),
+      });
+    }
+    return { ...b, start: newStart };
+  }
+
   const rowOf = async (id: string) => {
     const { data } = await svc
       .from('reservations')
@@ -102,15 +160,8 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
     return data as ReservationRow;
   };
 
-  const outboxOf = async (id: string, kind?: string) => {
-    let q = svc.from('notification_outbox').select('kind, sent_at').eq('payload->>reservation_id', id);
-    if (kind) q = q.eq('kind', kind);
-    const { data } = await q;
-    return (data ?? []) as { kind: string; sent_at: string | null }[];
-  };
-
   it('stamps the booking as ended, with the reason the desk gave', async () => {
-    const b = await confirmedBooking('ns-stamp');
+    const b = await started(await confirmedBooking('ns-stamp'));
     const before = await rowOf(b.id);
     expect(before.status).toBe('confirmed');
     expect(before.cancelled_at).toBeNull();
@@ -131,7 +182,7 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
   });
 
   it('voids the pending 3-hour reminder instead of nudging a guest who is gone', async () => {
-    const b = await confirmedBooking('ns-reminder');
+    const b = await started(await confirmedBooking('ns-reminder'));
     // confirm_booking scheduled it, because the slot is more than 3h out.
     expect((await outboxOf(b.id, 'booking_reminder')).length).toBe(1);
 
@@ -142,7 +193,7 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
   });
 
   it('tells the guest, so the booking does not just change meaning on their phone', async () => {
-    const b = await confirmedBooking('ns-push');
+    const b = await started(await confirmedBooking('ns-push'));
     await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'no_show', p_reason: 'guest_no_show' });
 
     const notices = await outboxOf(b.id, 'booking_no_show');
@@ -151,7 +202,7 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
   });
 
   it('frees the slot the moment it is marked', async () => {
-    const b = await confirmedBooking('ns-slot');
+    const b = await started(await confirmedBooking('ns-slot'));
     await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'no_show', p_reason: 'guest_no_show' });
 
     // The desk rebooks the same court and time immediately: a no-show that
@@ -174,7 +225,7 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
   });
 
   it('completed also ends the booking, but explains nothing — there is nothing to explain', async () => {
-    const b = await confirmedBooking('ns-completed');
+    const b = await started(await confirmedBooking('ns-completed'));
     await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'completed', p_reason: 'staff_op' });
 
     const after = await rowOf(b.id);
@@ -197,7 +248,7 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
   });
 
   it('a no-show cannot be marked twice, and the transition set is unchanged', async () => {
-    const b = await confirmedBooking('ns-twice');
+    const b = await started(await confirmedBooking('ns-twice'));
     await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'no_show', p_reason: 'guest_no_show' });
 
     const again = outcome(
