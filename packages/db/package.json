@@ -38,7 +38,7 @@
     "@types/node": "^20.17.0",
     "dotenv": "^16.4.7",
     "qrcode": "^1.5.4",
-    "supabase": "^2.0.0",
+    "supabase": "^2.116.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

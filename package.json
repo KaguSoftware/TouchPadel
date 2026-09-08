@@ -29,10 +29,10 @@
     "security:web": "node scripts/security/check-web-security.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
+    "@playwright/test": "^1.63.0",
     "@supabase/supabase-js": "^2.47.0",
     "prettier": "^3.4.2",
-    "turbo": "^2.3.3",
+    "turbo": "^2.10.12",
     "typescript": "^5.7.2"
   },
   "pnpm": {
