@@ -20,6 +20,21 @@ const googleIosClientId =
 const googleIosUrlScheme = googleIosClientId
   ? 'com.googleusercontent.apps.' + googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, '')
   : undefined;
+/**
+ * The domain that proves this app owns its auth links — Security Layer 1,
+ * Block 4 · Mobile (SEC-18).
+ *
+ * It does not exist yet: the domain is a Block 0 item still waiting on the
+ * client (SEC-06), and it blocks the privacy URL, HSTS and the printed QR cards
+ * as well as this. The placeholder is deliberately a `.invalid` host — reserved
+ * by RFC 2606 and guaranteed never to resolve — so an unconfigured build fails
+ * the association cleanly instead of pointing at somebody else's domain.
+ *
+ * Set EXPO_PUBLIC_LINK_DOMAIN (and the matching NEXT_PUBLIC_SITE_URL on the web
+ * app, which serves the two association files) the day DNS is delegated.
+ */
+const LINK_DOMAIN = process.env.EXPO_PUBLIC_LINK_DOMAIN ?? 'touchpadel.invalid';
+
 // EAS sets EAS_BUILD=true in every build job. A binary without the scheme has a
 // Google button that never returns to the app, so an EAS build with the env
 // unset fails LOUDLY here, at config time — never at app runtime (see
@@ -27,7 +42,7 @@ const googleIosUrlScheme = googleIosClientId
 if (process.env.EAS_BUILD === 'true' && !googleIosUrlScheme) {
   throw new Error(
     'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is unset or still a placeholder for this EAS profile — put the real ' +
-      'iOS OAuth client id (<project-number>-<hash>.apps.googleusercontent.com) in the eas.json env block',
+    'iOS OAuth client id (<project-number>-<hash>.apps.googleusercontent.com) in the eas.json env block',
   );
 }
 if (!googleIosUrlScheme) {
@@ -40,6 +55,9 @@ if (!googleIosUrlScheme) {
 
 const plugins: NonNullable<ExpoConfig['plugins']> = [
   'expo-router',
+  // Declared per SDK 57's `expo install --fix` (both packages are already deps).
+  'expo-font',
+  'expo-status-bar',
   'expo-secure-store',
   // THE NATIVE RTL FLAG IS PINNED LEFT-TO-RIGHT, ON EVERY LAUNCH, BEFORE REACT.
   //
@@ -67,7 +85,22 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   // With only `supportsRTL: true`, forceRTL would follow the device language
   // and overwrite the in-app choice at every start — the original bug.
   ['expo-localization', { supportsRTL: false }],
-  ['expo-splash-screen', { backgroundColor: '#FFFFFF', resizeMode: 'contain' }],
+  // Launch screen: the white wordmark on Touch Blue — the middle stop of the
+  // Welcome screen's gradient (a native splash cannot draw the gradient itself),
+  // so the first frame of the app is the same colour as the last frame of the
+  // splash. assets/README.md covers every brand file here.
+  [
+    'expo-splash-screen',
+    {
+      image: './assets/logo-white.png',
+      imageWidth: 220,
+      resizeMode: 'contain',
+      backgroundColor: '#3360AB',
+    },
+  ],
+  // Android status-bar glyph (white-on-transparent, the platform tints it) and
+  // the accent colour Android paints behind it. iOS uses the app icon.
+  ['expo-notifications', { icon: './assets/notification-icon.png', color: '#3360AB' }],
   // Sign in with Apple entitlement (com.apple.developer.applesignin). EAS Build
   // syncs the capability to the App ID on every build (EXPO_NO_CAPABILITY_SYNC opts out).
   'expo-apple-authentication',
@@ -94,18 +127,67 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // theme drive the native scheme (Appearance.setColorScheme in ThemeProvider)
   // so keyboards, alerts and share sheets follow it instead of staying light.
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
+  // `newArchEnabled` left the schema in SDK 55: the New Architecture is the only one.
   // EAS Update (expo-updates, added eba8353 for the eas.json channels): store
   // binaries poll this URL on their profile's channel. 'appVersion' pins each
   // store version (0.1.0) to its own update runtime, so an OTA can never land
   // on incompatible natives. The development profile has no channel — the dev
   // client ignores this block.
-  updates: { url: 'https://u.expo.dev/d9597f8e-79bb-4bc2-882e-c44c3a013045' },
+  updates: {
+    url: 'https://u.expo.dev/d9597f8e-79bb-4bc2-882e-c44c3a013045',
+    // ── EAS Update code signing — Security Layer 1, Block 4 · Mobile (SEC-23) ──
+    //
+    // An OTA channel pushes JavaScript to every guest phone with NO store
+    // review in between. That makes it the highest-leverage credential in the
+    // mobile lane: whoever can publish an update owns the app on every device
+    // that has installed it. Until now the only thing standing there was one
+    // Expo account password.
+    //
+    // With this certificate embedded in the BINARY, expo-updates verifies the
+    // signature on every manifest before applying it and REJECTS anything not
+    // signed by the matching private key. Compromising the Expo account is then
+    // no longer sufficient — the attacker also needs a key that was never on
+    // Expo's servers.
+    //
+    // The private key is NOT in this repository and must never be. It lives in
+    // the password manager and in EAS as a secret; `eas update` is given it with
+    // --private-key-path at publish time. See docs/security/eas-update-signing.md.
+    //
+    // NOTE: signing takes effect for clients running a build that CONTAINS this
+    // certificate. Binaries already installed without it keep accepting unsigned
+    // manifests, so this must ship in a store release before it protects anyone.
+    codeSigningCertificate: './certs/certificate.pem',
+    codeSigningMetadata: { keyid: 'main', alg: 'rsa-v1_5-sha256' },
+  },
   runtimeVersion: { policy: 'appVersion' },
   backgroundColor: '#FFFFFF',
+  // The padel ball on a Touch Blue tile — the brand deck's ball beziers, the
+  // same design as the operator desktop icon. Rendered from assets/brand/*.svg
+  // by `pnpm --filter @touch/mobile icons`; to swap in official art, drop a
+  // 1024x1024 PNG on assets/icon.png (see assets/README.md). Square and
+  // full-bleed on purpose: iOS and Android apply their own corner masks.
+  icon: './assets/icon.png',
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.kagu.touchpadel',
+    // Universal Links — Security Layer 1, Block 4 · Mobile (SEC-18).
+    //
+    // A custom scheme (touchpadel://) is claimed by whichever app registered it
+    // and iOS does NOT arbitrate: a malicious app installed alongside this one
+    // can register the same scheme and receive the auth redirect, code included.
+    // Universal Links cannot be hijacked that way — the association is proved by
+    // a file served over https from a domain the attacker does not control.
+    //
+    // `applinks:` only. No `webcredentials:` — this app does not use the iOS
+    // shared-credential API, and listing it would invite a password autofill
+    // surface that nothing here handles.
+    //
+    // Domain comes from the environment because it does not exist yet (Block 0,
+    // SEC-06 — waiting on the client). Until it is delegated, the entry resolves
+    // to the placeholder and Apple simply fails the association: the app falls
+    // back to the custom scheme, which is exactly today's behaviour. Nothing
+    // breaks by landing this early, and the day DNS lands it starts working.
+    associatedDomains: [`applinks:${LINK_DOMAIN}`],
     // Sign in with Apple (owner decision D2, 2026-09-01: iOS only, native).
     usesAppleSignIn: true,
     infoPlist: {
@@ -119,6 +201,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.kagu.touchpadel',
+    // Layered launcher icon: the ball (inside the 66 % safe zone) over a solid
+    // Touch Blue, plus the white silhouette Android 13+ tints for themed icons.
+    adaptiveIcon: {
+      foregroundImage: './assets/adaptive-icon.png',
+      monochromeImage: './assets/adaptive-icon-monochrome.png',
+      backgroundColor: '#3360AB',
+    },
   },
   plugins,
   extra: {

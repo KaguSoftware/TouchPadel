@@ -25,23 +25,28 @@ import { useTheme } from '../theme';
  * root stack, so every push leaves real history and UIKit draws its OWN back
  * item — native chevron, native SF Pro label, native push/pop animation, and
  * the edge-swipe gesture. Screens that need to intercept a back (profile-edit's
- * unsaved-changes prompt) use `usePreventRemove`, which blocks the POP rather
- * than replacing the button.
+ * unsaved-changes prompt) use `useBackGuard` from `./back`, which blocks the
+ * POP rather than replacing the button — see there for why NOT
+ * `usePreventRemove`, which would cost the chevron.
  */
 function useBackTint(): string {
   return useTheme().colors.blue;
 }
 
-export function useNativeHeaderOptions() {
+/**
+ * @param rebuilding while true the back item is left OFF the bar, so UIKit
+ *   builds a fresh one under the new mirroring instead of keeping a chevron
+ *   UIAppearance can no longer restyle. Comes from `useNativeBarDirection`,
+ *   which owns the timing — see ./headerDirection.
+ */
+export function useNativeHeaderOptions(rebuilding = false) {
   const { colors, fonts } = useTheme();
   const tint = useBackTint();
-  const { t, dir } = useLocale();
-  const backLabel = t('common.back');
-  // Cairo carries taller ascenders and below-baseline dots than Archivo, so at
-  // a shared 17 pt the Arabic title overflows the fixed native bar and clips
-  // top and bottom. Give it a touch less size and an explicit line box.
+  const { dir } = useLocale();
+  // Arabic carries taller ascenders and below-baseline dots than Latin caps,
+  // so at a shared 17 pt the Arabic title overflows the fixed native bar and
+  // clips top and bottom. Give it a touch less size and an explicit line box.
   const arabic = dir === 'rtl';
-
   return useMemo(
     () => ({
       // Blank unless a screen sets its own, so a screen whose title has not
@@ -58,12 +63,25 @@ export function useNativeHeaderOptions() {
       },
       headerStyle: { backgroundColor: colors.bg },
       contentStyle: { backgroundColor: colors.bg },
-      // The system back item labels itself with the PREVIOUS screen's title
-      // (Profile → Settings reads "Profile"). A push out of the tabs has no
-      // title to inherit, so this is the fallback word for that case.
-      headerBackButtonDisplayMode: 'default' as const,
-      headerBackTitle: backLabel,
+      /**
+       * CHEVRON ONLY — no back title.
+       *
+       * `'default'` shows the previous screen's title beside the chevron, and
+       * on iOS 26 a titled back item is drawn as a Liquid Glass CAPSULE. Once
+       * the label is long enough to crowd the bar UIKit drops the chevron from
+       * that capsule, which is how Arabic ("رجوع", pushed from a titled screen)
+       * ended up as a bordered pill with no arrow at all.
+       *
+       * `'minimal'` asks for the bare chevron, so there is no label to grow,
+       * no capsule, and nothing for UIKit to trade the arrow against. The
+       * destination is already named by the title of the screen you return to,
+       * and by the push animation itself.
+       */
+      headerBackButtonDisplayMode: 'minimal' as const,
+      // `undefined` rather than `true` when settled: `headerBackVisible: true`
+      // also turns on `backButtonInCustomView`, a different layout.
+      headerBackVisible: rebuilding ? false : undefined,
     }),
-    [colors, fonts, tint, backLabel, arabic],
+    [colors, fonts, tint, arabic, rebuilding],
   );
 }

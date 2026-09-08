@@ -8,6 +8,11 @@ node_modules/
 !.env.example
 station.json
 *.pem
+# EXCEPT the EAS Update code-signing CERTIFICATE, which is the public half and
+# has to ship inside the app binary to be any use (SEC-23). The matching PRIVATE
+# key stays out — it is what proves an update is genuine, and it belongs in the
+# password manager and EAS secrets, never here.
+!apps/mobile/certs/certificate.pem
 *.p12
 *.keystore
 

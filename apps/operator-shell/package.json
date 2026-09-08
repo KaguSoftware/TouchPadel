@@ -5,16 +5,22 @@
   "description": "Electron shell for the Touch Padel operator app: SQLite durable queue, LAN KDS server, heartbeat, printing, kiosk.",
   "main": "dist/main/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json && electron .",
+    "build": "node esbuild.config.mjs",
+    "dev": "node esbuild.config.mjs && electron .",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "dist": "echo TODO: electron-builder --win nsis --config electron-builder.yml (operator-release.yml, design-arch.md 8)"
+    "dist": "pnpm --filter @touch/operator build && node esbuild.config.mjs && node scripts/native-abi.mjs electron && electron-builder --win nsis --config electron-builder.config.cjs --publish never",
+    "dist:dir": "pnpm --filter @touch/operator build && node esbuild.config.mjs && node scripts/native-abi.mjs electron && electron-builder --dir --config electron-builder.config.cjs --publish never",
+    "check:electron": "node scripts/check-electron.mjs",
+    "icon": "node scripts/make-icon.mjs",
+    "native:electron": "node scripts/native-abi.mjs electron",
+    "native:node": "node scripts/native-abi.mjs node"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@touch/config": "workspace:*",
@@ -23,14 +29,17 @@
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.13",
     "electron": "^33.2.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
     "eslint": "^9.15.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   },
   "x-notes": [
     "CommonJS on purpose (no \"type\": \"module\"): Electron main/preload compile to CJS — the monorepo-wide ESM rule's one exception.",
-    "sharp ^0.33 is NOT installed yet — added in W3 for the ESC/POS 1-bit raster print pipeline (design-arch.md 6.1).",
-    "electron-builder + electron-updater are added when operator-release.yml lands (design-arch.md 8); config already drafted in electron-builder.yml.",
-    "Auto-update scheduling machinery is CUT from phase 1 (plan cut #7) — plain electron-updater only, no update windows."
+    "sharp is deliberately NOT installed: the print pipeline thresholds Chromium BGRA captures in plain JS (src/main/print/raster.ts).",
+    "electron-builder.config.cjs (JS, not YAML) so Windows signing is conditional on env: Azure Trusted Signing or a PFX, else unsigned. Publishes to the public KaguSoftware/touchpadel-releases repo, which is also the electron-updater feed.",
+    "Auto-update: electron-updater checks at boot + every 6h, downloads silently, installs on the rail's Restart control or the manager-PIN quit. No scheduled update windows (plan cut #7 stands).",
+    "better-sqlite3 is ONE hoisted binary (root node_modules, node-linker=hoisted) and Electron 33 (ABI 130) and Node 22 (ABI 127) cannot share it. electron-builder's rebuild never reaches it (npmRebuild: false, see the config). `pnpm dist` and the release workflow run scripts/native-abi.mjs electron, which fetches the Electron prebuild and proves it opens a database under electron.exe before packaging. `pnpm native:node` flips it back so `pnpm test` (vitest under Node) passes again; expect ~47 shell tests to fail while the Electron build is in place."
   ]
 }

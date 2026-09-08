@@ -37,3 +37,4 @@ pnpm turbo lint typecheck test
 - `CONTRIBUTING.md` — workflow rules.
 - `docs/design/` — architecture, canonical data model, delivery plan.
 - `docs/client/` — client-facing input pack (checklists, CSV templates).
+- `docs/brand/lama-sans/README.md` — the brand family: what ships, what was cut, adding a weight.

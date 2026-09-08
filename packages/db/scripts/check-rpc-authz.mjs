@@ -22,6 +22,7 @@
  * Usage:  node scripts/check-rpc-authz.mjs      (exit 1 on any unrefused RPC)
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const URL_BASE = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const ANON =
@@ -51,6 +52,10 @@ const PUBLIC_BY_DESIGN = new Set([
   'confirm_booking', 'cancel_reservation', 'expire_stale_holds',
   // Device telemetry from the till/guest app.
   'heartbeat', 'log_replay',
+  // Settings > "Send a test notification" (0070): any signed-in session, by
+  // design — it can only ever push to auth.uid()'s own token, and a guest
+  // without one is turned away with NO_PUSH_TOKEN.
+  'send_test_push',
   // Trigger function; never usefully callable directly.
   'trg_order_item_line_no',
 ]);
@@ -77,6 +82,9 @@ const fns = JSON.parse(
                  or p.proargmodes[a.ord] in ('i','b')), '[]'::json))), '[]')
           from pg_proc p join pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'app' and p.prosecdef
+           -- Trigger functions (rt_* broadcast hooks) are not callable through
+           -- PostgREST at all; probing them 404s and reads as unguarded.
+           and p.prorettype <> 'trigger'::regtype
            and (has_function_privilege('anon', p.oid, 'EXECUTE')
              or has_function_privilege('authenticated', p.oid, 'EXECUTE'));`).trim(),
 );
@@ -124,9 +132,9 @@ if (unrefused.length) {
   for (const u of unrefused) console.error(`  ${u.name.padEnd(28)} HTTP ${u.status}  ${u.body}`);
   console.error(
     '\nA café guest holds `authenticated`, exactly as staff do, so an RPC without\n' +
-      'its own guard is open to anyone who scans a table QR. Add the role check as\n' +
-      "the function's FIRST statement — or, if this is deliberate, add the name to\n" +
-      'PUBLIC_BY_DESIGN in this script and say why.',
+    'its own guard is open to anyone who scans a table QR. Add the role check as\n' +
+    "the function's FIRST statement — or, if this is deliberate, add the name to\n" +
+    'PUBLIC_BY_DESIGN in this script and say why.',
   );
   process.exit(1);
 }
@@ -260,8 +268,8 @@ if (ownershipFailures.length) {
   for (const f of ownershipFailures) console.error(`  ${f.name}\n    ${f.detail.slice(0, 300)}`);
   console.error(
     '\nRole guards are not enough on the booking surface: these RPCs are callable by\n' +
-      'every signed-in customer, so ownership is the only boundary. A failure here is\n' +
-      'the C1/H3 class returning.',
+    'every signed-in customer, so ownership is the only boundary. A failure here is\n' +
+    'the C1/H3 class returning.',
   );
   process.exit(1);
 }

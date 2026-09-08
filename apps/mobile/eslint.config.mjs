@@ -8,12 +8,13 @@
 // "CSS logical properties only (lint-enforced)". The preset with that RTL guard
 // was written on day 1 and consumed by nobody. This wires it up.
 import expoConfig from 'eslint-config-expo/flat.js';
-import { base, react } from '@touch/config/eslint';
+import { base, react, clientSecrets, clientSecretRules } from '@touch/config/eslint';
 
 export default [
   ...expoConfig,
   ...base, // typescript-eslint recommended + the repo's RTL logical-property guard
   ...react, // react-hooks
+  ...clientSecrets, // service_role / sb_secret_ must never reach the phone bundle
   {
     name: '@touch/mobile',
     rules: {
@@ -56,11 +57,29 @@ export default [
               message: 'A language switch never reloads the app (src/i18n/direction.tsx).',
             },
           ],
+          patterns: [
+            {
+              // SDK 56+: expo-router vendors react-navigation and no longer
+              // depends on the bare packages, so they are not resolvable from
+              // app code (a second copy would also split every context).
+              group: ['@react-navigation/*'],
+              message:
+                "Import from expo-router's entry points instead: 'expo-router/react-navigation' (native/core/routers/elements) or 'expo-router/js-tabs' (bottom-tabs).",
+            },
+          ],
         },
       ],
       // Would have caught the push-registration effect that fired on mount with
       // a stale closure, and the countdown interval that never cleared.
       'react-hooks/exhaustive-deps': 'warn',
+      // eslint-config-expo 57 ships eslint-plugin-react-hooks 7, whose
+      // `recommended` set adds the React Compiler rules. Two of them flag the
+      // existing ref-driven animation code (i18n switch, court transition) —
+      // 51 sites on the day of the SDK 57 upgrade (2026-09-05). Kept visible as
+      // warnings rather than failing CI on the upgrade commit; clearing them is
+      // a refactor of its own, not part of the SDK bump.
+      'react-hooks/refs': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
     },
   },
   {
@@ -79,11 +98,16 @@ export default [
     // Physical coordinates by design: the decorative court art (rooted in an
     // LtrIsland, so it is invariant under the language — pinned by
     // src/i18n/__tests__/direction.test.ts) and three.js camera geometry.
+    // Drops the RTL selectors ONLY — see the operator's recharts note: a blanket
+    // 'off' would now also disable the client-secret guard, which shares the
+    // rule name.
     name: '@touch/mobile/physical-art',
     files: ['src/components/CourtIllustration.tsx', 'src/features/courtTransition/**/*.ts'],
-    rules: { 'no-restricted-syntax': 'off' },
+    rules: clientSecretRules,
   },
   {
-    ignores: ['.expo/**', 'expo-env.d.ts', 'android/**', 'ios/**', 'dist/**', 'babel.config.js', 'metro.config.js'],
+    // scripts/ holds Node build tooling (make-icons.mjs uses Buffer) — not app
+    // code, and the RN globals set has no Buffer. Same carve-out operator-shell makes.
+    ignores: ['.expo/**', 'expo-env.d.ts', 'android/**', 'ios/**', 'dist/**', 'babel.config.js', 'metro.config.js', 'scripts/**'],
   },
 ];

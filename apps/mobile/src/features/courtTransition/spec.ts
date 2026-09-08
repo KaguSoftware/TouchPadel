@@ -45,8 +45,16 @@ export const SPEC = {
   court: {
     slice: [0, 1] as Range,
     y: [0, -60] as Range,
+    /**
+     * The prototype dimmed the court to 55 % behind the card; the owner asked
+     * for it at full strength (2026-09-05), so the layer only lifts now. The
+     * slice and the flat table are kept rather than deleted: the sheet already
+     * frosts what is behind it on iOS and tints it on Android, which is what
+     * separates card from court, and restoring the dim is a one-number change
+     * here rather than a re-wiring in the screen.
+     */
     dim: [0.35, 0.85] as Range,
-    opacity: [1, 0.55] as Range,
+    opacity: [1, 1] as Range,
   },
   lines: { range: [0.3, 0.7] as Range, opacity: [1, 0.4] as Range },
   /** Near-side half of the cage fades with the pitch so it does not block the view: mesh, glass, frame, window panes. */
@@ -72,6 +80,28 @@ export const SPEC = {
   pills: { start: 0.45, stagger: 0.035, length: 0.22, y: 14 },
   grid: { start: 0.58, stagger: 0.06, length: 0.28, y: 18, scale: 0.96, sharedFromRow: 3 },
 } as const;
+
+/**
+ * The p below which the SHEET has nothing left to show: its slide has reached
+ * the far end of `sheet.move` and its content is at zero opacity (`sheet.fade`
+ * starts at the same 0.25). Everything under this point is the court alone,
+ * settling back up under a card that is already gone.
+ *
+ * That distinction is the whole reason this constant exists. The driver is a
+ * spring, so p approaches its target exponentially and the two halves of a
+ * close are nothing alike in WALL CLOCK time: with SPRING's roots at −5 and
+ * −10 s⁻¹, p(t) = 2e⁻⁵ᵗ − e⁻¹⁰ᵗ reaches 0.25 in ≈ 0.40 s and only trips the
+ * rest thresholds at ≈ 1.70 s. Handing the court view back on the animation's
+ * completion callback therefore left the card parked over the tab bar and the
+ * "check availability" button dead for the 1.3 s in between (owner,
+ * 2026-09-05). `useCourtTransition` watches for this crossing instead.
+ *
+ * The tail is not something the spring could simply skip: down there the
+ * reverse PITCH ease is at its steepest (EASE_OUT front-loads), so the last
+ * 6 % of p is still ~19 px of the court's lift. The sheet leaves early; the
+ * court really does take the full spring.
+ */
+export const SHEET_GONE = SPEC.sheet.move[0];
 
 // ── Scalar helpers ──────────────────────────────────────────────────────────
 

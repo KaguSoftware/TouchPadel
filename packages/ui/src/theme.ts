@@ -14,7 +14,9 @@
  */
 import { palettes, type ThemeName } from './tokens/palette';
 import { fontVars } from './tokens/typography';
+import { fontFaceCss } from './fontFace';
 import { cafeBrandVars, dirVars, statusVars } from './tokens/cafeBrand';
+import { operatorVars } from './tokens/operator';
 
 function varsBlock(vars: Readonly<Record<string, string>>, indent = '  '): string {
   return Object.entries(vars)
@@ -27,26 +29,44 @@ function themeBlock(name: ThemeName): string {
   // scoped sub-trees (e.g. a cafe-branded embed inside the padel site).
   // Semantic status tokens ride along in BOTH themes; the cafe brand extras
   // (radii, shadows, type scale, motion, z-index, swoosh/bean tiles) only in cafe.
+  // `statusVars` is the CAFE status vocabulary (--tp-warn-bg, --tp-error-bg,
+  // --tp-backdrop …). The operator has its own, four rungs deep and OKLCH
+  // (--tp-warn-soft / -mark / -fg, --tp-overlay), so emitting both inside one
+  // theme block gave the operator two names for every status and six raw cafe
+  // hexes it never meant to have. It leaked: an admin chip rendered in cafe
+  // yellow off --tp-warn-bg. The operator block now carries one vocabulary.
   const vars: Readonly<Record<string, string>> = {
     ...palettes[name],
-    ...statusVars,
+    ...(name === 'operator' ? {} : statusVars),
     ...(name === 'cafe' ? cafeBrandVars : {}),
+    ...(name === 'operator' ? operatorVars : {}),
   };
   return `:root[data-theme='${name}'],\n[data-theme='${name}'] {\n${varsBlock(vars)}\n}`;
 }
 
 export const themeCss: string = [
   `/* Generated from @touch/ui tokens — do not edit by hand. */`,
+  // The brand faces ride with the tokens, so every surface that inlines
+  // themeCss gets Lama Sans registered without remembering to. Files are served
+  // from /fonts/lama in both apps (see fontFace.ts); a surface with no origin
+  // — the Electron receipt — builds its own rules with fontFaceCssFrom.
+  fontFaceCss(),
   // Base block: fonts plus the direction sign. --tp-dir-sign MUST live here and
   // not in a theme block — `:root[data-theme='cafe']` (0,2,0) would out-specify
   // the `[dir='rtl']` override below (0,1,0) and pin the sign to +1.
   `:root {\n${varsBlock({ ...fontVars, ...dirVars })}\n}`,
   themeBlock('padel'),
   themeBlock('cafe'),
+  themeBlock('operator'),
   // Base ground: paint from tokens so an unthemed flash never shows raw UA colors.
-  `body {\n  background: var(--tp-bg, #ffffff);\n  color: var(--tp-fg, #000000);\n  font-family: var(--tp-font-body);\n}`,
-  // Arabic rendering: same tokens; the arabic-capable body stack already leads.
-  // dir='rtl' needs no per-property overrides (logical properties only).
+  // Fallbacks are tokens, not raw #fff / #000: DESIGN.md forbids both, and an
+  // unthemed flash is exactly the moment a raw value would be visible.
+  `body {\n  background: var(--tp-bg, #FBFBFD);\n  color: var(--tp-fg, #0B0F17);\n  font-family: var(--tp-font-body);\n}`,
+  // Arabic rendering. Lama Sans carries both scripts, so this now resolves to
+  // the SAME face as the body stack and the rule is a no-op — kept because the
+  // token is what ~200 call sites name, and because the two stacks' FALLBACK
+  // tails are allowed to diverge again. dir='rtl' needs no per-property
+  // overrides beyond it (logical properties only).
   `[dir='rtl'] {\n  font-family: var(--tp-font-arabic);\n}`,
   // The single direction-aware token: marquee/travel animations multiply by it.
   `[dir='rtl'] {\n  --tp-dir-sign: -1;\n}`,

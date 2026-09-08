@@ -4,9 +4,11 @@ import {
   Animated,
   BackHandler,
   Image,
+  Platform,
   Pressable,
   StyleSheet,
   View,
+  type LayoutRectangle,
 } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useFocusEffect } from 'expo-router';
@@ -39,10 +41,13 @@ import {
 } from '../../src/features/courtTransition/camera';
 import { addBreadcrumb } from '../../src/lib/telemetry';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
-import { brand, radius, space, useTheme } from '../../src/theme';
+import { brand, radius, space, useTheme, withAlpha } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { BrandPattern } from '../../src/components/BrandPattern';
 import { DegradedBanner } from '../../src/components/booking';
-import { BackChevronIcon } from '../../src/components/icons';
+import { BackChevronIcon, TitleSquiggle } from '../../src/components/icons';
 import { Court3D, type Court3DHandle } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
 import { BookingSheet } from '../../src/components/BookingSheet';
@@ -50,12 +55,88 @@ import { BookingSheet } from '../../src/components/BookingSheet';
 /** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
 const LOGO_H = 30;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
-/** The back button's width + gap: the title slides over to make room for it. */
-const BACK_SHIFT = 44;
+/** The back button's touch target, and the chevron's slot inside the capsule. */
+const BACK_BTN = 34;
+/**
+ * PICK A TIME's frosted capsule. It holds the back button AND the heading, so
+ * the padding is the air at the capsule's two ends; the gap between chevron and
+ * words reuses PAD_X. TEXT_PAD is extra on the trailing end only — a stadium's
+ * curve cuts closest where the text ends, while the chevron end is already held
+ * off by the button's own box.
+ */
+const PICK_PILL_PAD_X = 6;
+const PICK_PILL_PAD_Y = 6;
+const PICK_PILL_TEXT_PAD = 8;
+/**
+ * How far the capsule's backdrop sits BELOW the box that measures the text.
+ *
+ * The line box is 26 pt × 1.05, and all-caps Latin uses none of the descender
+ * room at its foot — the glyphs stop at the baseline. Centring the backdrop on
+ * that box therefore reads top-heavy: the air over the cap line is real, the
+ * air under the baseline is mostly empty line box. So the backdrop is pushed
+ * DOWN off the box's centre, which takes the surplus off the top and gives it
+ * back at the foot, and the caps end up optically centred.
+ *
+ * (This was a 2 pt lift before the chevron moved inside — that lift is what put
+ * the extra space above the text.) The text does not move, only the backdrop.
+ */
+const PICK_PILL_SINK = 3;
+/**
+ * The back button's width + gap: the title slides over to make room for it.
+ * The capsule now CONTAINS the button, so this doubles as the capsule's own
+ * leading offset — it opens BACK_SHIFT before the heading's margin, which lands
+ * the chevron where the free-standing button used to sit and the words back on
+ * the margin they share with BOOK A COURT. Deriving it from the parts keeps
+ * those two facts true if the padding is ever retuned.
+ */
+const BACK_SHIFT = BACK_BTN + PICK_PILL_PAD_X * 2;
+/**
+ * The plate's tint. iOS has a real blur under it, so the fill is only the
+ * sheet card's 35 % veil; Android has no blur to sit on and carries the
+ * contrast on the fill alone.
+ */
+const PICK_PILL_TINT = { ios: 0.35, other: 0.82 } as const;
 /** The on-net button (prototype: 16 px padding round a 16 px line, top = tape − 24). */
 const CTA_H = 48;
 /** Room under the flat fallback court for the "reserve in the app" footer line. */
 const FOOTER_SPACE = 34;
+/**
+ * The reading shade (owner, 2026-09-05: "a really subtle bg so the text is more
+ * readable over the pattern and the court").
+ *
+ * The HEADER no longer has one. It did, over the whole block above the stage,
+ * and that shade was the second reason the top of the page did not match the
+ * rest: it put the pattern up there at ~22 % of the strength it has everywhere
+ * else, which is a step you see before you see anything else on the screen.
+ * The owner chose to lose it and protect the one piece of small text it was
+ * really there for — the open-now pill — with a plate of its own (2026-09-05).
+ * What remains below is the FOOTER band, which lies on the court rather than
+ * on the pattern and is a different problem.
+ *
+ * It is the PAGE COLOUR at partial alpha, never a grey or a card: over the
+ * brand pattern the only thing that changes is how much of the lime shows
+ * through, so there is no second colour on screen and nothing that reads as a
+ * chip behind the words. What it must not do is announce its own edge — a hard
+ * rectangle crossing those long diagonals makes every line visibly step at the
+ * boundary — so each shade is a solid core that DISSOLVES into a gradient tail
+ * on the sides it ends on, and simply runs off-screen on the sides it does not.
+ *
+ * Lower in dark for the reason BrandPattern's own alpha is: lime is 1.77:1 on
+ * the light page and 7.85:1 on the dark one, so the navy veil puts the lines
+ * away much faster than the white one does and matching alphas would be two
+ * different designs. These are the ONE dial here — raise them if the words
+ * still fight the court, lower them if it stops reading through. Never to 1:
+ * the point is that the court steps back, not that it disappears.
+ */
+const SHADE_ALPHA = { light: 0.78, dark: 0.62 } as const;
+/**
+ * The footer's band lies on the COURT rather than on the pattern, and the owner
+ * has just asked to see the court at full strength — so it hazes at three
+ * quarters of the shade rather than veiling at the full one.
+ */
+const FOOTER_SHADE_SCALE = 0.75;
+/** The footer line's band: it dissolves on BOTH sides, into the court. */
+const FOOTER_SHADE_TAIL = 16;
 /** The stage's court box: everything above the tab bar (`top` / `bottom` are added per render). */
 const stageBounds = { position: 'absolute', start: 0, end: 0 } as const;
 /**
@@ -82,7 +163,29 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
   const info = useMemo(() => openNowInfo(settings, now), [settings, now]);
   if (!info) return null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+    // On its own plate. The header used to sit under a reading shade that ran
+    // the width of the page; that shade is gone (it made the top of the page a
+    // different picture from the bottom), and this is the one string it was
+    // really carrying — 11 pt `mut`, which over a full-strength band measures
+    // 2.69:1 in dark and cannot be left on the artwork. A card plate is what
+    // the paused note and the back button already use, so `mut` on `card` is a
+    // pairing the design has ruled on rather than a new one. It also stops
+    // being a loose label and starts being the chip it always looked like.
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingStart: 9,
+        paddingEnd: 10,
+        paddingTop: 5,
+        paddingBottom: 5,
+        borderRadius: radius.pill,
+        backgroundColor: colors.card,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.line,
+      }}
+    >
       <View
         style={{
           width: 7,
@@ -153,15 +256,19 @@ function NetCta({
           transform: [{ translateY: pressed ? 8 : 0 }],
         })}
       >
+        {/* No lineHeight: a 16 pt box on a 14 pt face cropped the label's
+            bottom (Arabic descenders — ض, ح — lost their tails) and rode the
+            text high in the button. Natural leading plus a 1 pt nudge down
+            optically centres the display face's tall caps. */}
         <Text
           numberOfLines={1}
           style={{
             fontFamily: fonts.display800,
             fontSize: 14,
-            lineHeight: 16,
             letterSpacing: tracking(0.7),
             textTransform: 'uppercase',
             color: brand.greenInk,
+            transform: [{ translateY: 1 }],
           }}
         >
           {t('courts.viewAvailability')}
@@ -179,6 +286,17 @@ function NetCta({
  * transition, design 2026-09-01). The standalone
  * Availability route still serves the other entry points. Public — browsing
  * needs no session (owner decision 2026-08-31).
+ *
+ * The tab stands on the brand line pattern (owner, 2026-09-05: "make the bg
+ * here be the lines pattern thats in the brand file", lines only, whole
+ * screen). It is one full-bleed view at the root, NOT a texture per section,
+ * so there is a single crop of the artwork rather than one per band.
+ *
+ * It runs from the status bar down to where the COURT starts, and no further:
+ * the court's GL surface clears opaque (Court3D's header has the why — the
+ * transparent clear that let the pattern through froze the rally on device).
+ * Putting the pattern back under the court means drawing it inside the scene,
+ * not clearing to nothing.
  */
 export default function BookHomeScreen() {
   const { t, dir } = useLocale();
@@ -193,6 +311,19 @@ export default function BookHomeScreen() {
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
+  /**
+   * The two boxes the brand pattern has to be the same picture in: the box the
+   * page draws it over, and the stage the court's GL surface stands in.
+   *
+   * Both come off onLayout, so both are in THIS view's coordinate space and
+   * neither has to know what that space is — which is the point. The pattern's
+   * box is an absolute child and the stage is a flex one, and whether Yoga
+   * resolves an absolute inset against the border box or the padding box is
+   * exactly the kind of thing that would put the court's copy 47 px out. Asking
+   * both, in one space, cannot be wrong.
+   */
+  const [patternRect, setPatternRect] = useState<LayoutRectangle | null>(null);
+  const [stageRect, setStageRect] = useState<LayoutRectangle | null>(null);
   const [glUnavailable, setGlUnavailable] = useState(false);
   // Touches in the sheet count as watching: the rally behind it plays on / restarts its idle clock.
   const courtRef = useRef<Court3DHandle>(null);
@@ -247,7 +378,7 @@ export default function BookHomeScreen() {
     }, [isOpen, open]),
   );
 
-  // The court layer: lifted 60 px and dimmed to 55 % (PITCH ease, direction-aware).
+  // The court layer: lifted 60 px at full opacity (PITCH ease, direction-aware).
   // Both GL surfaces (court, ball) carry it; the button between them does not.
   const courtLayer = useMemo(() => {
     const ease = pitchEase(direction, 0);
@@ -294,8 +425,11 @@ export default function BookHomeScreen() {
     };
   }, [courtSize, direction, progress]);
 
-  // Header: the back button fades in (0.2 → 0.5) and the title slides over;
-  // the footer line leaves with the button.
+  // Header: the back button fades in (0.2 → 0.5), the title slides over and
+  // the heading itself cross-fades on that same slice — BOOK A COURT is the
+  // court view's name, PICK A TIME is the booking view's, and the sheet no
+  // longer carries a heading of its own (owner, 2026-09-05). The footer line
+  // leaves with the button.
   //
   // The slide is a `translateX`, which is the one horizontal quantity Yoga
   // never mirrors (BaseViewProps::resolveTransform ignores the layout
@@ -309,10 +443,16 @@ export default function BookHomeScreen() {
       progress.interpolate({ ...sampleEased(range, out, undefined, 1), extrapolate: 'clamp' });
     return {
       fade: table(SPEC.back.fade, [0, 1]),
+      out: table(SPEC.back.fade, [1, 0]),
       shift: table(SPEC.back.fade, [0, logicalSign(dir) * BACK_SHIFT]),
       footer: table(SPEC.button.fade, [1, 0]),
     };
   }, [progress, dir]);
+
+  // The reading shade, and the same colour at zero for every gradient's far
+  // stop: `transparent` is black at alpha 0 on Android, which greys the ramp.
+  const courtShade = withAlpha(colors.page, SHADE_ALPHA[appearance] * FOOTER_SHADE_SCALE);
+  const clear = withAlpha(colors.page, 0);
 
   const phone = venuePhoneOf(settings.data);
   const cta = <NetCta progress={progress} hidden={sheetMounted} onPress={open} />;
@@ -324,84 +464,256 @@ export default function BookHomeScreen() {
       ? -Math.max(0, Math.round((COURT_TOP_BAND * stageBox - COURT_GAP) / (1 - COURT_TOP_BAND)))
       : 0;
   const fallbackCourtHeight = Math.max(0, layerHeight - CTA_H - space.xxl - FOOTER_SPACE);
+  // Where the court's surface sits inside the pattern, for the copy it draws
+  // behind the scene. Not memoised on purpose: Court3D reads the four numbers,
+  // not this object, so rebuilding it every render costs nothing.
+  const courtPatternBox =
+    patternRect && stageRect
+      ? {
+          width: patternRect.width,
+          height: patternRect.height,
+          offsetX: stageRect.x - patternRect.x,
+          // The court's box starts `courtTop` ABOVE the stage (negative).
+          offsetY: stageRect.y + courtTop - patternRect.y,
+        }
+      : undefined;
 
   return (
     <Screen padded={false} style={{ backgroundColor: colors.page }}>
-      {/* Header: logo + open-now pill. Above the stage in z so the lifted court passes beneath. */}
+      {/* The ground for everything below: the brand line pattern over the page
+          colour, full bleed. FIRST child and deliberately without a zIndex, so
+          it paints before every sibling — the stage, which carries no zIndex
+          either, still comes after it in document order, and the header block
+          sits above both on its own `zIndex: 1`. Absolute
+          children resolve against the padding box, so this reaches under the
+          safe-area inset the Screen pads for and the pattern runs behind the
+          status bar too. `opacity` is the one dial if it reads too loud — the
+          brand's green at full strength is a lot of green.
+
+          The court's surface is opaque and covers this from `courtTop` down —
+          it has to be, on the frame budget (Court3D's header) — so it draws the
+          SAME crop of the pattern itself, as geometry inside its scene
+          (patternBackdrop). `courtPatternBox` below is what keeps the two the
+          one continuous picture, and the wrapper here exists only to measure
+          the box this is cropped over. */}
       <View
-        style={{
-          zIndex: 1,
-          paddingStart: space.l,
-          paddingEnd: space.l,
-          paddingTop: 10,
-          paddingBottom: 6,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
+        pointerEvents="none"
+        style={StyleSheet.absoluteFill}
+        onLayout={(e) => setPatternRect(e.nativeEvent.layout)}
       >
-        <Image
-          source={
-            appearance === 'dark'
-              ? require('../../assets/logo-white.png')
-              : require('../../assets/logo.png')
-          }
-          resizeMode="contain"
-          style={{ height: LOGO_H, width: LOGO_W }}
-          accessibilityLabel={t('common.appName')}
-        />
-        <OpenNowPill settings={settings.data} />
+        <BrandPattern />
       </View>
 
-      {degraded ? (
-        <View style={{ zIndex: 1, marginTop: space.s, marginStart: space.l, marginEnd: space.l }}>
-          <DegradedBanner
-            lead={t('degraded.leadConnectionLost')}
-            // Isolated: an RTL paragraph would otherwise reorder the number groups.
-            message={t('degraded.bannerCourts', { phone: phone ? isolate(phone) : '' })}
-            phone={phone}
-          />
-        </View>
-      ) : null}
+      {/* Everything above the stage — logo, open-now pill, degraded banner,
+          heading — stands directly on the pattern, at the strength the rest of
+          the page has it. There WAS a reading shade over this whole block; it
+          is gone because it made the top of the page a different picture from
+          the bottom, which is the thing the owner kept pointing at. The one
+          string it was genuinely protecting, the open-now pill, carries its own
+          plate now (OpenNowPill) — the logo is artwork and the heading is
+          display-sized, so neither needed it.
 
-      {/* Title row: [back to the court] BOOK A COURT */}
-      <View style={{ zIndex: 1, paddingStart: space.l, paddingEnd: space.l, paddingTop: space.sm }}>
-        <Animated.View
-          pointerEvents={isOpen ? 'auto' : 'none'}
-          accessibilityElementsHidden={!isOpen}
-          importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
-          style={{ position: 'absolute', start: space.l, top: space.sm, opacity: header.fade }}
+          `zIndex: 1` still lives here, so the whole block paints over the
+          lifted court the way each row used to on its own. */}
+      <View style={{ zIndex: 1 }}>
+        {/* Header: logo + open-now pill. Above the stage in z so the lifted court passes beneath. */}
+        <View
+          style={{
+            paddingStart: space.l,
+            paddingEnd: space.l,
+            paddingTop: 10,
+            paddingBottom: 6,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('booking.backToCourt')}
-            accessibilityState={{ disabled: !isOpen || sheetBusy, busy: sheetBusy }}
-            disabled={!isOpen || sheetBusy}
-            hitSlop={8}
-            onPress={close}
-            style={({ pressed }) => ({
-              width: 34,
-              height: 34,
-              borderRadius: radius.pill,
-              backgroundColor: pressed ? colors.sub : colors.card,
-              borderWidth: 1,
-              borderColor: colors.line,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: sheetBusy ? 0.55 : 1,
-            })}
-          >
-            <BackChevronIcon size={17} color={colors.ink} strokeWidth={2.4} />
-          </Pressable>
-        </Animated.View>
-        <Animated.View style={{ transform: [{ translateX: header.shift }] }}>
-          <Title>{t('booking.title')}</Title>
-        </Animated.View>
+          <Image
+            source={
+              appearance === 'dark'
+                ? require('../../assets/logo-white.png')
+                : require('../../assets/logo.png')
+            }
+            resizeMode="contain"
+            style={{ height: LOGO_H, width: LOGO_W }}
+            accessibilityLabel={t('common.appName')}
+          />
+          <OpenNowPill settings={settings.data} />
+        </View>
+
+        {degraded ? (
+          <View style={{ marginTop: space.s, marginStart: space.l, marginEnd: space.l }}>
+            <DegradedBanner
+              lead={t('degraded.leadConnectionLost')}
+              // Isolated: an RTL paragraph would otherwise reorder the number groups.
+              message={t('degraded.bannerCourts', { phone: phone ? isolate(phone) : '' })}
+              phone={phone}
+            />
+          </View>
+        ) : null}
+
+        {/* Title row: [back to the court] BOOK A COURT ⇄ PICK A TIME */}
+        <View style={{ paddingStart: space.l, paddingEnd: space.l, paddingTop: space.sm }}>
+          <Animated.View style={{ transform: [{ translateX: header.shift }] }}>
+            {/* The two headings cross-fade in place on the back button's slice.
+                Only the words change, so the squiggle is drawn ONCE underneath
+                rather than inside each Title: two identical marks fading through
+                each other dip to ~75 % at the halfway point, and the one thing
+                that must not flicker here is the brand mark. Title's own bottom
+                margin is cancelled on the stack and re-applied under the mark,
+                so the row measures exactly as `<Title>` always did. */}
+            <View style={{ marginBottom: -space.s }}>
+              <Animated.View
+                accessibilityElementsHidden={isOpen}
+                importantForAccessibility={isOpen ? 'no-hide-descendants' : 'auto'}
+                style={{ opacity: header.out }}
+              >
+                <Title squiggle={false}>{t('booking.title')}</Title>
+              </Animated.View>
+              {/* Absolute so the outgoing heading alone sets the row's height —
+                  the two strings are different lengths and, in Arabic, different
+                  heights. */}
+              <Animated.View
+                // The capsule is faded out but still laid out when the sheet is
+                // shut, so taps must not reach the button through it — this is
+                // the guard the free-standing button carried on its own wrapper.
+                pointerEvents={isOpen ? 'auto' : 'none'}
+                accessibilityElementsHidden={!isOpen}
+                importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
+                style={{
+                  // The capsule holds the button, so it opens on the row's own
+                  // margin and the shift is all that positions it — the bleed
+                  // and clearance budget the free-standing pill needed are gone.
+                  position: 'absolute',
+                  start: -BACK_SHIFT,
+                  top: 0,
+                  opacity: header.fade,
+                }}
+              >
+                {/* PICK A TIME reads over the 3D court, where BOOK A COURT reads
+                    over the page — by the time the sheet is open the court has
+                    risen behind these words. Frosted like the sheet card: iOS
+                    blurs the court behind it, Android has no blur to sit on and
+                    carries the contrast on the tint alone.
+
+                    The back button rides INSIDE the capsule, sharing its blur
+                    and border, so the two read as one control rather than a
+                    button parked beside a plate. That is also why this layer is
+                    not `pointerEvents="none"` as the bare pill was — the button
+                    inside it has to stay pressable. */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    alignSelf: 'flex-start',
+                    paddingStart: PICK_PILL_PAD_X,
+                    paddingEnd: PICK_PILL_PAD_X + PICK_PILL_TEXT_PAD,
+                    paddingTop: PICK_PILL_PAD_Y,
+                    paddingBottom: PICK_PILL_PAD_Y,
+                    gap: PICK_PILL_PAD_X,
+                    // Bled back out so the capsule grows around the line rather
+                    // than pushing it down.
+                    marginTop: -PICK_PILL_PAD_Y,
+                  }}
+                >
+                  {/* The capsule's backdrop — blur, tint and border — on its own
+                      absolute layer so PICK_PILL_SINK can drop it off the line
+                      box's centre without moving the words. Inset by +SINK at
+                      the top and -SINK at the foot, so it shifts down while
+                      keeping its height. Clipping lives HERE rather than on the
+                      row: `overflow: hidden` up there would crop this very
+                      offset, and a BlurView escaping a rounded parent squares
+                      off at the corners. */}
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      start: 0,
+                      end: 0,
+                      top: PICK_PILL_SINK,
+                      bottom: -PICK_PILL_SINK,
+                      borderRadius: radius.pill,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {Platform.OS === 'ios' ? (
+                      <BlurView
+                        intensity={40}
+                        tint={appearance === 'dark' ? 'dark' : 'light'}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    ) : null}
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        {
+                          backgroundColor: withAlpha(
+                            colors.card,
+                            PICK_PILL_TINT[Platform.OS === 'ios' ? 'ios' : 'other'],
+                          ),
+                          borderRadius: radius.pill,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: withAlpha(colors.line, 0.6),
+                        },
+                      ]}
+                    />
+                  </View>
+                  {/* Inside the capsule the chevron needs no plate of its own —
+                      the shared backdrop is its plate. It keeps a pressed fill
+                      and the full 34 pt hit target. */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('booking.backToCourt')}
+                    accessibilityState={{ disabled: !isOpen || sheetBusy, busy: sheetBusy }}
+                    disabled={!isOpen || sheetBusy}
+                    hitSlop={8}
+                    onPress={close}
+                    style={({ pressed }) => ({
+                      width: BACK_BTN,
+                      height: BACK_BTN,
+                      borderRadius: radius.pill,
+                      backgroundColor: pressed ? withAlpha(colors.sub, 0.9) : 'transparent',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      // Rides the backdrop down, not the line box: the chevron
+                      // belongs to the capsule, so it centres on the shape the
+                      // eye sees rather than on the text's measured box.
+                      marginTop: PICK_PILL_SINK * 2,
+                      opacity: sheetBusy ? 0.55 : 1,
+                    })}
+                  >
+                    <BackChevronIcon size={17} color={colors.ink} strokeWidth={2.4} />
+                  </Pressable>
+                  {/* Title's own bottom margin is cancelled so the capsule hugs
+                      the line: the mark lives on the shared row below, not in
+                      here — a capsule round text alone is a capsule, one
+                      stretched round text AND a mark is a lozenge. */}
+                  <View style={{ marginBottom: -space.s }}>
+                    <Title squiggle={false}>{t('booking.pickTime')}</Title>
+                  </View>
+                </View>
+              </Animated.View>
+            </View>
+            {/* One mark, shared by both headings and drawn once underneath —
+                two identical marks fading through each other dip to ~75 % at
+                the halfway point, and the brand mark is the one thing here
+                that must not flicker. */}
+            <View style={{ alignItems: 'flex-start', marginBottom: space.s }}>
+              <TitleSquiggle />
+            </View>
+          </Animated.View>
+        </View>
       </View>
 
       {/* Stage: the court fills everything above the tab bar; the button sits on its net, the ball
           flies over the button (Court3D's second surface); the sheet floats over all of it. */}
-      <View style={{ flex: 1 }} onLayout={(e) => setStageHeight(e.nativeEvent.layout.height)}>
+      <View
+        style={{ flex: 1 }}
+        onLayout={(e) => {
+          setStageHeight(e.nativeEvent.layout.height);
+          setStageRect(e.nativeEvent.layout);
+        }}
+      >
         {glUnavailable ? (
           // No GL context on this device: the flat court, button underneath as before.
           <Animated.View
@@ -428,6 +740,7 @@ export default function BookHomeScreen() {
         ) : (
           <Court3D
             ref={courtRef}
+            patternBox={courtPatternBox}
             style={[stageBounds, { top: courtTop, bottom: tabBarHeight }]}
             layerStyle={courtLayer}
             progress={progress}
@@ -507,6 +820,44 @@ export default function BookHomeScreen() {
             opacity: header.footer,
           }}
         >
+          {/* This line stands on the court itself, so its shade dissolves at
+              BOTH ends and bleeds past the gutter to the screen edges: a band
+              with no edge of its own anywhere the eye can find one. Two
+              gradients back to back rather than one four-stop ramp — the pair
+              keeps a solid core between them at any height. */}
+          <LinearGradient
+            pointerEvents="none"
+            colors={[clear, courtShade]}
+            style={{
+              position: 'absolute',
+              start: -space.l,
+              end: -space.l,
+              top: -FOOTER_SHADE_TAIL,
+              height: FOOTER_SHADE_TAIL,
+            }}
+          />
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              start: -space.l,
+              end: -space.l,
+              top: 0,
+              bottom: 0,
+              backgroundColor: courtShade,
+            }}
+          />
+          <LinearGradient
+            pointerEvents="none"
+            colors={[courtShade, clear]}
+            style={{
+              position: 'absolute',
+              start: -space.l,
+              end: -space.l,
+              bottom: -FOOTER_SHADE_TAIL,
+              height: FOOTER_SHADE_TAIL,
+            }}
+          />
           <Text
             style={{
               textAlign: 'center',
@@ -530,7 +881,15 @@ export default function BookHomeScreen() {
           />
         ) : null}
 
-        {/* Reduced motion: the stage (court box included) dips through the page colour while p jumps. */}
+        {/* Reduced motion: the stage (court box included) dips through the page
+            colour while p jumps. FLAT page colour, not the pattern, even though
+            the pattern is what stands behind the stage now: this is a cover, its
+            one job is to be opaque at the top of the dip, and a second
+            BrandPattern inside it could not line up with the one at the root
+            anyway — `slice` crops to the box it is handed, and this box starts
+            at `courtTop` and ends at the tab bar, so the two crops would differ
+            and the seam would be the loudest thing on screen. 110 ms of flat page
+            colour over the stage is by far the quieter of the two. */}
         <Animated.View
           pointerEvents="none"
           style={[

@@ -67,7 +67,7 @@ export function SuggestedEditor() {
   return (
     <div>
       <h2 style={{ marginBlockStart: 0 }}>{tr('op.suggested.title')}</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(14rem, 18rem) minmax(0, 1fr)', gap: '1rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(14rem, 18rem) minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
         <div>
           <Field label={tr('op.suggested.pickItem')}>
             <Select
@@ -79,12 +79,12 @@ export function SuggestedEditor() {
               options={categories.map((c) => ({ value: c.id, label: pickName(locale, c) }))}
             />
           </Field>
-          {pickable.length === 0 && <p style={{ color: 'var(--tp-muted-fg)', fontSize: '0.9rem' }}>{tr('op.common.none')}</p>}
+          {pickable.length === 0 && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.none')}</p>}
           {pickable.map((i) => (
             <Button
               key={i.id}
               kind={i.id === itemId ? 'primary' : 'default'}
-              style={{ display: 'block', inlineSize: '100%', textAlign: 'start', marginBlockStart: '0.3rem', opacity: i.is_active ? 1 : 0.55 }}
+              style={{ display: 'block', inlineSize: '100%', textAlign: 'start', marginBlockStart: 'var(--tp-sp-1)', opacity: i.is_active ? 1 : 0.55 }}
               onClick={() => setItemId(i.id)}
             >
               {pickName(locale, i)}
@@ -147,18 +147,18 @@ function SuggestionList({
 
   return (
     <div style={card}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0 }}>
           {pickName(locale, item)} · {tr('op.suggested.suggestions')}
         </h3>
-        <span style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
           {tr('op.suggested.max', { count: SUGGESTION_CAP })} ({list.length}/{SUGGESTION_CAP})
         </span>
       </div>
       {list.length === 0 && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.suggested.none')}</p>}
       {list.map((id, index) => (
-        <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBlockStart: '0.4rem' }}>
-          <span style={{ inlineSize: '1.5rem', color: 'var(--tp-muted-fg)', fontSize: '0.85rem' }} dir="ltr">
+        <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-1-5)' }}>
+          <span style={{ inlineSize: '1.5rem', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }} dir="ltr">
             {index + 1}.
           </span>
           <span style={{ flex: 1 }}>{pickName(locale, byId.get(id)) || id}</span>
@@ -174,7 +174,7 @@ function SuggestionList({
         </div>
       ))}
 
-      <Field label={tr('op.suggested.add')} style={{ marginBlockStart: '0.8rem' }}>
+      <Field label={tr('op.suggested.add')} style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
         <input
           type="search"
           style={inputStyle}
@@ -185,7 +185,7 @@ function SuggestionList({
         />
       </Field>
       {candidates.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBlockEnd: '0.6rem' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
           {candidates.map((c) => (
             <Button key={c.id} onClick={() => add(c.id)}>
               + {pickName(locale, c)}
@@ -193,12 +193,18 @@ function SuggestionList({
           ))}
         </div>
       )}
-      <p style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)', marginBlock: '0 0.6rem' }}>{tr('op.suggested.selfHint')}</p>
-      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-        <Button disabled={!dirty} onClick={() => setList(saved)}>
+      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlock: '0 0.6rem' }}>{tr('op.suggested.selfHint')}</p>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', justifyContent: 'flex-end' }}>
+        <Button disabled={!dirty} disabledReason={tr('ws.manager.disabled.noChanges')} onClick={() => setList(saved)}>
           {tr('common.cancel')}
         </Button>
-        <Button kind="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+        <Button
+          kind="primary"
+          disabled={!dirty || save.isPending}
+          disabledReason={!dirty ? tr('ws.manager.disabled.noChanges') : undefined}
+          busy={save.isPending}
+          onClick={() => save.mutate()}
+        >
           {tr('common.save')}
         </Button>
       </div>

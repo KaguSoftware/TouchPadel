@@ -1,11 +1,39 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { openQueue, enqueue, ack, queueStatus, getCachedRef } from './queue';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import Database from 'better-sqlite3';
+import {
+  openQueue,
+  openQueueAt,
+  enqueue,
+  ack,
+  queueStatus,
+  getCachedRef,
+  putCachedRef,
+  peekNext,
+  markInflight,
+  markConflict,
+  markFailed,
+  releaseToPending,
+  resolveRow,
+  listBlockingRows,
+  getMeta,
+  setMeta,
+  setConnOnline,
+  setWorkerUnreachable,
+  QueueEncryptionUnavailableError,
+} from './queue';
+import { observePin, unlockPinOffline } from './pin-cache';
 import type { MutationEnvelope } from '../ipc-channels';
+import { __setEncryptionAvailable } from '../../test/electron-stub';
 
 // The SQLite queue is where the contract's hardest promise lives: "Every write
 // flushed to disk before the screen confirms it, so a power cut cannot lose a
 // confirmed ticket" (SOW L681-682). It had ZERO tests — the package had no test
 // script at all, so `turbo test` skipped it in silence.
+
+const STAFF = '5c9f1f1e-2b3a-4c4d-8e9f-0000000000aa';
 
 function envelope(over: Partial<MutationEnvelope> = {}): MutationEnvelope {
   return {
@@ -14,6 +42,8 @@ function envelope(over: Partial<MutationEnvelope> = {}): MutationEnvelope {
     mutationType: 'order.create',
     payload: { tabId: 'abc', lines: [] },
     createdAt: '2026-08-28T09:00:00.000Z',
+    staffId: STAFF,
+    deviceId: 'TILL1',
     ...over,
   };
 }
@@ -30,7 +60,9 @@ function unique(over: Partial<MutationEnvelope> = {}): MutationEnvelope {
 }
 
 beforeEach(() => {
-  openQueue().exec('DELETE FROM mutation_queue; DELETE FROM ref_cache; DELETE FROM pin_cache;');
+  openQueue().exec(
+    'DELETE FROM mutation_queue; DELETE FROM ref_cache; DELETE FROM pin_cache; DELETE FROM meta;',
+  );
 });
 
 describe('durability pragmas', () => {
@@ -46,8 +78,75 @@ describe('durability pragmas', () => {
   });
 });
 
+describe('schema v1 migration', () => {
+  function legacyDbFile(): string {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tp-queue-')), 'queue.db');
+    const legacy = new Database(file);
+    // The exact pre-v1 shape: no staff_id/device_id, no meta table.
+    legacy.exec(`
+      CREATE TABLE mutation_queue (
+        seq             INTEGER PRIMARY KEY AUTOINCREMENT,
+        local_id        TEXT NOT NULL UNIQUE,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        mutation_type   TEXT NOT NULL,
+        payload         TEXT NOT NULL,
+        created_at      TEXT NOT NULL,
+        state           TEXT NOT NULL DEFAULT 'pending',
+        attempts        INTEGER NOT NULL DEFAULT 0,
+        last_error      TEXT,
+        server_result   TEXT
+      );
+    `);
+    legacy
+      .prepare(
+        `INSERT INTO mutation_queue (local_id, idempotency_key, mutation_type, payload, created_at, state)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        'TILL1-01J5XCCCCCCCCCCCCCCCCCCCCC',
+        'TILL1:order.create:01J5XCCCCCCCCCCCCCCCCCCCCC',
+        'order.create',
+        '{}',
+        '2026-08-28T09:00:00.000Z',
+        'pending',
+      );
+    legacy.close();
+    return file;
+  }
+
+  it('adds staff_id/device_id + meta and stamps the current user_version', () => {
+    const d = openQueueAt(legacyDbFile());
+    const cols = (d.pragma('table_info(mutation_queue)') as { name: string }[]).map((c) => c.name);
+    expect(cols).toContain('staff_id');
+    expect(cols).toContain('device_id');
+    expect(cols).toContain('resolved_by'); // v3: manager dismiss (resolveRow)
+    expect(cols).toContain('resolved_at');
+    expect(d.pragma('user_version', { simple: true })).toBe(4);
+    expect(() => d.exec("INSERT INTO meta (key, value) VALUES ('k','v')")).not.toThrow();
+    d.close();
+  });
+
+  it('parks pre-v1 pending rows as failed — replay hard-requires staff_id', () => {
+    const d = openQueueAt(legacyDbFile());
+    const row = d
+      .prepare('SELECT state, last_error FROM mutation_queue')
+      .get() as { state: string; last_error: string };
+    expect(row.state).toBe('failed');
+    expect(row.last_error).toMatch(/staff_id/);
+    d.close();
+  });
+
+  it('is idempotent — a v1 db reopens untouched', () => {
+    const file = legacyDbFile();
+    openQueueAt(file).close();
+    const d = openQueueAt(file);
+    expect(d.pragma('user_version', { simple: true })).toBe(4);
+    d.close();
+  });
+});
+
 describe('enqueue', () => {
-  it('persists the envelope as a pending row', () => {
+  it('persists the envelope as a pending row with staff and device attribution', () => {
     const m = unique();
     expect(enqueue(m)).toEqual({ localId: m.localId, state: 'queued' });
 
@@ -58,8 +157,15 @@ describe('enqueue', () => {
     expect(row.state).toBe('pending');
     expect(row.attempts).toBe(0);
     expect(row.mutation_type).toBe('order.create');
-    expect(JSON.parse(row.payload as string)).toEqual(m.payload);
+    expect(row.staff_id).toBe(STAFF);
+    expect(row.device_id).toBe('TILL1');
     expect(row.server_result).toBeNull();
+
+    // v4/SEC-32: the payload is ENCRYPTED at rest. Read back through the queue
+    // API it is the original object; read raw off the disk it is ciphertext.
+    expect(row.payload_enc).toBe(1);
+    expect(() => JSON.parse(row.payload as string)).toThrow();
+    expect(peekNext()?.payload).toEqual(m.payload);
   });
 
   it('refuses a duplicate idempotency key', () => {
@@ -94,61 +200,220 @@ describe('enqueue', () => {
     const m = unique({ payload: null });
     enqueue(m);
     const row = openQueue()
+      .prepare('SELECT payload, payload_enc FROM mutation_queue WHERE idempotency_key = ?')
+      .get(m.idempotencyKey) as { payload: string; payload_enc: number };
+    expect(row.payload_enc).toBe(1);
+    expect(row.payload).not.toBe('');
+    expect(peekNext()?.payload).toBeNull();
+  });
+
+  /**
+   * SEC-32, and the reason the column is encrypted at all.
+   *
+   * A queued PIN-gated mutation carries the TYPED PIN — apps/operator
+   * src/lib/mutate.ts maps `p_pin: p?.pin` into the replayed args for
+   * override_price and apply_discount, because the server re-verifies it at
+   * replay. Before v4 that PIN sat in plaintext JSON in queue.db on an
+   * unmanaged Windows box, one table away from the pin_cache the salt
+   * encryption went to such lengths to protect.
+   */
+  it('a queued manager PIN is not readable in the raw database file', () => {
+    const m = unique({
+      payload: { kind: 'price_override', orderItemId: 'oi-1', newUnitPriceIqd: 1000, pin: '482913' },
+    });
+    enqueue(m);
+
+    const raw = openQueue()
       .prepare('SELECT payload FROM mutation_queue WHERE idempotency_key = ?')
       .get(m.idempotencyKey) as { payload: string };
-    expect(JSON.parse(row.payload)).toBeNull();
+    expect(raw.payload).not.toContain('482913');
+    expect(raw.payload).not.toContain('pin');
+
+    // …and it still replays correctly.
+    expect((peekNext()?.payload as { pin: string }).pin).toBe('482913');
+  });
+});
+
+describe('worker state machine', () => {
+  it('peekNext returns rows strictly by seq, one at a time', () => {
+    const a = unique();
+    const b = unique();
+    enqueue(a);
+    enqueue(b);
+    expect(peekNext()?.idempotencyKey).toBe(a.idempotencyKey);
+    ack(a.idempotencyKey, {});
+    expect(peekNext()?.idempotencyKey).toBe(b.idempotencyKey);
+  });
+
+  it('resumes an inflight row before later pendings — a crash mid-POST re-sends', () => {
+    const a = unique();
+    const b = unique();
+    enqueue(a);
+    enqueue(b);
+    markInflight(a.idempotencyKey);
+    // Worker restarts here (power cut): the interrupted row comes back first.
+    expect(peekNext()?.state).toBe('inflight');
+    expect(peekNext()?.idempotencyKey).toBe(a.idempotencyKey);
+  });
+
+  it('markInflight counts attempts; releaseToPending keeps the row replayable', () => {
+    const m = unique();
+    enqueue(m);
+    markInflight(m.idempotencyKey);
+    releaseToPending(m.idempotencyKey, 'fetch failed: ECONNREFUSED');
+    markInflight(m.idempotencyKey);
+    const row = peekNext();
+    expect(row?.attempts).toBe(2);
+    expect(row?.lastError).toMatch(/ECONNREFUSED/);
+  });
+
+  it('a failed row is terminal and skipped — a poisoned write must not wedge later sales', () => {
+    const poison = unique();
+    const good = unique();
+    enqueue(poison);
+    enqueue(good);
+    markFailed(poison.idempotencyKey, 'staff_id is not active staff');
+    expect(peekNext()?.idempotencyKey).toBe(good.idempotencyKey);
+  });
+
+  it('a conflict row leaves the replay lane but still blocks day close', () => {
+    const clash = unique();
+    const next = unique();
+    enqueue(clash);
+    enqueue(next);
+    markConflict(clash.idempotencyKey, { code: 'SLOT_TAKEN' });
+    expect(peekNext()?.idempotencyKey).toBe(next.idempotencyKey);
+    const blocking = listBlockingRows().map((r) => r.state);
+    expect(blocking).toEqual(['conflict', 'pending']);
+  });
+
+  it('listBlockingRows reports pending, inflight, conflict and failed — never acked', () => {
+    const states = [unique(), unique(), unique(), unique(), unique()];
+    states.forEach(enqueue);
+    markInflight(states[1]!.idempotencyKey);
+    markConflict(states[2]!.idempotencyKey, {});
+    markFailed(states[3]!.idempotencyKey, 'boom');
+    ack(states[4]!.idempotencyKey, {});
+    expect(listBlockingRows().map((r) => r.state)).toEqual([
+      'pending',
+      'inflight',
+      'conflict',
+      'failed',
+    ]);
+  });
+});
+
+describe('resolveRow', () => {
+  // Before this existed a 'failed' row was terminal AND blocking with no way
+  // out: one ITEM_UNAVAILABLE on an offline order held day close shut forever.
+  it('parks a failed row as resolved: it stops blocking, keeps its error, records who and when', () => {
+    const m = unique();
+    enqueue(m);
+    markFailed(m.idempotencyKey, '400: ITEM_UNAVAILABLE');
+    expect(queueStatus().blocking).toBe(1);
+
+    expect(resolveRow(m.idempotencyKey, STAFF)).toBe(true);
+
+    expect(listBlockingRows()).toEqual([]);
+    expect(queueStatus()).toMatchObject({ depth: 0, conflicts: 0, failed: 0, blocking: 0 });
+    const row = openQueue()
+      .prepare('SELECT state, last_error, resolved_by, resolved_at FROM mutation_queue WHERE idempotency_key = ?')
+      .get(m.idempotencyKey) as { state: string; last_error: string; resolved_by: string; resolved_at: string };
+    expect(row.state).toBe('resolved');
+    expect(row.last_error).toBe('400: ITEM_UNAVAILABLE'); // the audit trail survives
+    expect(row.resolved_by).toBe(STAFF);
+    expect(Number.isNaN(Date.parse(row.resolved_at))).toBe(false);
+  });
+
+  it('resolves a conflict row too, and never re-enters the replay lane', () => {
+    const m = unique();
+    enqueue(m);
+    markConflict(m.idempotencyKey, { code: 'SLOT_TAKEN' });
+    expect(resolveRow(m.idempotencyKey, null)).toBe(true);
+    expect(peekNext()).toBeUndefined();
+    expect(listBlockingRows()).toEqual([]);
+  });
+
+  it('refuses a pending, inflight or acked row — those are not the manager\'s to dismiss', () => {
+    const pending = unique();
+    const inflight = unique();
+    const acked = unique();
+    [pending, inflight, acked].forEach(enqueue);
+    markInflight(inflight.idempotencyKey);
+    ack(acked.idempotencyKey, {});
+
+    expect(resolveRow(pending.idempotencyKey, STAFF)).toBe(false);
+    expect(resolveRow(inflight.idempotencyKey, STAFF)).toBe(false);
+    expect(resolveRow(acked.idempotencyKey, STAFF)).toBe(false);
+    expect(listBlockingRows().map((r) => r.state)).toEqual(['pending', 'inflight']);
+    expect(peekNext()?.idempotencyKey).toBe(pending.idempotencyKey);
+  });
+
+  it('returns false for an unknown key rather than throwing', () => {
+    expect(resolveRow('TILL1:order.create:NOPE', STAFF)).toBe(false);
   });
 });
 
 describe('queueStatus', () => {
   it('reports zero on an empty queue', () => {
-    expect(queueStatus()).toEqual({ depth: 0, conflicts: 0, degraded: false });
+    expect(queueStatus()).toEqual({
+      depth: 0,
+      conflicts: 0,
+      failed: 0,
+      blocking: 0,
+      degraded: false,
+    });
   });
 
-  it('counts pending and inflight as depth, and conflicts separately', () => {
-    const db = openQueue();
+  it('counts pending+inflight as depth, conflicts and failed separately, all as blocking', () => {
     const pending = unique();
     const inflight = unique();
     const conflict = unique();
+    const failed = unique();
     const acked = unique();
-    [pending, inflight, conflict, acked].forEach(enqueue);
-    db.prepare("UPDATE mutation_queue SET state='inflight' WHERE idempotency_key=?").run(
-      inflight.idempotencyKey,
-    );
-    db.prepare("UPDATE mutation_queue SET state='conflict' WHERE idempotency_key=?").run(
-      conflict.idempotencyKey,
-    );
-    db.prepare("UPDATE mutation_queue SET state='acked' WHERE idempotency_key=?").run(
-      acked.idempotencyKey,
-    );
+    [pending, inflight, conflict, failed, acked].forEach(enqueue);
+    markInflight(inflight.idempotencyKey);
+    markConflict(conflict.idempotencyKey, {});
+    markFailed(failed.idempotencyKey, 'boom');
+    ack(acked.idempotencyKey, {});
 
     const s = queueStatus();
     expect(s.depth).toBe(2);
     expect(s.conflicts).toBe(1);
+    expect(s.failed).toBe(1);
+    expect(s.blocking).toBe(4);
   });
 
-  it('KNOWN GAP: degraded is hard-coded false, not derived from the heartbeat', () => {
-    // queue.ts:87 — `degraded: false, // TODO(W3)`. The banner the contract
-    // requires ("A banner states the mode and the queued count", SOW L688)
-    // therefore cannot be driven from this value yet. Locked in a test so the
-    // Wave 3 fix has something to flip.
-    const m = unique();
-    enqueue(m);
+  it('derives degraded from the renderer conn-state and the worker reachability', () => {
+    // The A2 fix for the old KNOWN GAP (degraded was hard-coded false): either
+    // witness flips it — the heartbeat's verdict pushed over touch:conn-state,
+    // or the sync worker's own consecutive transport failures.
+    expect(queueStatus().degraded).toBe(false);
+    setConnOnline(false);
+    expect(queueStatus().degraded).toBe(true);
+    setConnOnline(true);
+    expect(queueStatus().degraded).toBe(false);
+    setWorkerUnreachable(true);
+    expect(queueStatus().degraded).toBe(true);
+    setWorkerUnreachable(false);
     expect(queueStatus().degraded).toBe(false);
   });
 });
 
 describe('ack', () => {
-  it('marks the row acked and stores the server echo', () => {
+  it('marks the row acked, stores the server echo and clears the last error', () => {
     const m = unique();
     enqueue(m);
+    markInflight(m.idempotencyKey);
+    releaseToPending(m.idempotencyKey, 'transient');
     ack(m.idempotencyKey, { reservation_id: 'r-1', status: 'held' });
 
     const row = openQueue()
-      .prepare('SELECT state, server_result FROM mutation_queue WHERE idempotency_key = ?')
-      .get(m.idempotencyKey) as { state: string; server_result: string };
+      .prepare('SELECT state, server_result, last_error FROM mutation_queue WHERE idempotency_key = ?')
+      .get(m.idempotencyKey) as { state: string; server_result: string; last_error: string | null };
     expect(row.state).toBe('acked');
     expect(JSON.parse(row.server_result)).toEqual({ reservation_id: 'r-1', status: 'held' });
+    expect(row.last_error).toBeNull();
     expect(queueStatus().depth).toBe(0);
   });
 
@@ -157,18 +422,224 @@ describe('ack', () => {
   });
 });
 
-describe('getCachedRef', () => {
-  it('KNOWN GAP: always misses, because nothing populates ref_cache', () => {
-    // SOW L671-672 requires the till to keep trading "from cached reference
-    // data: menu, prices, recipes, courts, tables and today's reservations".
-    // The table exists; there is no writer anywhere in the repo.
+describe('ref_cache', () => {
+  it('misses cleanly on an empty cache', () => {
     expect(getCachedRef('menu')).toBeUndefined();
   });
 
-  it('round-trips a row once one exists', () => {
+  it('putCachedRef round-trips and stamps fetched_at (the banner shows the age)', () => {
+    // SOW L671-672: the till keeps trading "from cached reference data: menu,
+    // prices, recipes, courts, tables and today's reservations". The A2-era
+    // KNOWN GAP (no writer anywhere) closed in A4 — touch:cache-put feeds this.
+    const before = Date.now();
+    putCachedRef('menu', [{ id: 'i1' }]);
+    const hit = getCachedRef('menu');
+    expect(hit?.payload).toEqual([{ id: 'i1' }]);
+    expect(new Date(hit!.fetchedAt).getTime()).toBeGreaterThanOrEqual(before - 1000);
+  });
+
+  it('upserts — the newest payload and stamp win', () => {
+    putCachedRef('day', { id: 'd1' });
+    putCachedRef('day', { id: 'd2' });
+    expect(getCachedRef('day')?.payload).toEqual({ id: 'd2' });
+  });
+});
+
+describe('pin_cache (authorisation-token model)', () => {
+  it('observePin caches a hash and unlockPinOffline matches it in constant time', () => {
+    expect(unlockPinOffline('4321')).toBeNull();
+    observePin('4321');
+    const unlocked = unlockPinOffline('4321');
+    expect(unlocked?.role).toBe('manager');
+    expect(unlocked?.grantToken).toMatch(/^[0-9a-f]{32}$/);
+    expect(unlockPinOffline('9999')).toBeNull();
+  });
+
+  it('refuses a hash older than the 14-day TTL', () => {
+    observePin('5678');
     openQueue()
-      .prepare('INSERT INTO ref_cache (key, payload, fetched_at) VALUES (?, ?, ?)')
-      .run('menu', JSON.stringify([{ id: 'i1' }]), '2026-08-28T09:00:00.000Z');
-    expect(getCachedRef('menu')).toEqual([{ id: 'i1' }]);
+      .prepare('UPDATE pin_cache SET updated_at = ?')
+      .run(new Date(Date.now() - 15 * 86_400_000).toISOString());
+    expect(unlockPinOffline('5678')).toBeNull();
+  });
+
+  it('never stores the pin itself — only a scrypt hash under a station salt', () => {
+    observePin('2468');
+    const rows = openQueue().prepare('SELECT pin_hash FROM pin_cache').all() as {
+      pin_hash: string;
+    }[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.pin_hash).not.toContain('2468');
+      expect(row.pin_hash).toMatch(/^[0-9a-f]{64}$/);
+    }
+  });
+});
+
+describe('meta', () => {
+  it('round-trips and upserts', () => {
+    expect(getMeta('pin_salt')).toBeUndefined();
+    setMeta('pin_salt', 'aaaa');
+    setMeta('pin_salt', 'bbbb');
+    expect(getMeta('pin_salt')).toBe('bbbb');
+  });
+});
+
+/**
+ * SEC-32 — "refuse to trade offline if isEncryptionAvailable() is false".
+ *
+ * The tempting alternative is a plaintext fallback so the till keeps working.
+ * That is exactly the choice that would put staff PINs back on the disk, and it
+ * would do so silently, on the one machine nobody is watching. A refused sale is
+ * visible and recoverable — it is taken online, or on paper. A leaked manager
+ * PIN is neither.
+ */
+describe('queue encryption is mandatory (SEC-32)', () => {
+  afterEach(() => {
+    __setEncryptionAvailable(true);
+  });
+
+  it('refuses to enqueue when the machine cannot encrypt at rest', () => {
+    __setEncryptionAvailable(false);
+    const m = unique();
+    expect(() => enqueue(m)).toThrow(QueueEncryptionUnavailableError);
+  });
+
+  it('writes nothing at all when it refuses — no half-committed row', () => {
+    __setEncryptionAvailable(false);
+    const m = unique();
+    try {
+      enqueue(m);
+    } catch {
+      /* expected */
+    }
+    __setEncryptionAvailable(true);
+    const row = openQueue()
+      .prepare('SELECT * FROM mutation_queue WHERE idempotency_key = ?')
+      .get(m.idempotencyKey);
+    expect(row).toBeUndefined();
+  });
+
+  /**
+   * A row written on a machine that could encrypt, read on one that cannot (the
+   * Windows profile was recreated, or the file was copied). It must be PARKED
+   * and visible to a manager — never skipped in silence, and never replayed
+   * with a null body.
+   */
+  it('parks an unreadable row instead of wedging the queue or replaying it blank', () => {
+    const bad = unique();
+    const good = unique();
+    enqueue(bad);
+    enqueue(good);
+
+    // Corrupt the first row's ciphertext in place.
+    openQueue()
+      .prepare('UPDATE mutation_queue SET payload = ? WHERE idempotency_key = ?')
+      .run('not-decryptable', bad.idempotencyKey);
+
+    // The worker skips past it and gets the NEXT real row.
+    expect(peekNext()?.idempotencyKey).toBe(good.idempotencyKey);
+
+    const parked = openQueue()
+      .prepare('SELECT state, last_error FROM mutation_queue WHERE idempotency_key = ?')
+      .get(bad.idempotencyKey) as { state: string; last_error: string };
+    expect(parked.state).toBe('failed');
+    expect(parked.last_error).toMatch(/cannot be decrypted/i);
+
+    // …and it still blocks day close, with its contents shown as unrecoverable.
+    const blocking = listBlockingRows().find((r) => r.idempotencyKey === bad.idempotencyKey);
+    expect(blocking).toBeDefined();
+    expect(blocking?.payload).toBeNull();
+  });
+});
+
+/**
+ * The upgrade a till in service actually performs: v3 (the shipping schema) to
+ * v4 (SEC-32, payload encrypted at rest). The pre-v1 fixture above does not
+ * cover this — its rows are parked as `failed` for a missing staff_id, so it
+ * can never show whether a legitimate pending row survives.
+ *
+ * A station that closed on Friday with unsent sales in the queue must send them
+ * on Monday after an update. Losing them is lost revenue with no trace, so the
+ * claim "an existing plaintext queue keeps replaying" is worth a test rather
+ * than a comment.
+ */
+describe('v3 -> v4 upgrade (a till updated mid-service)', () => {
+  function v3DbFile(): string {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tp-queue-v3-')), 'queue.db');
+    const db = new Database(file);
+    // The v3 shape: attribution and resolve columns present, payload_enc absent.
+    db.exec(`
+      CREATE TABLE mutation_queue (
+        seq             INTEGER PRIMARY KEY AUTOINCREMENT,
+        local_id        TEXT NOT NULL UNIQUE,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        mutation_type   TEXT NOT NULL,
+        payload         TEXT NOT NULL,
+        created_at      TEXT NOT NULL,
+        state           TEXT NOT NULL DEFAULT 'pending',
+        attempts        INTEGER NOT NULL DEFAULT 0,
+        last_error      TEXT,
+        server_result   TEXT,
+        staff_id        TEXT,
+        device_id       TEXT,
+        resolved_by     TEXT,
+        resolved_at     TEXT
+      );
+    `);
+    db.prepare(
+      `INSERT INTO mutation_queue
+         (local_id, idempotency_key, mutation_type, payload, created_at, state, staff_id, device_id)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+    ).run(
+      'TILL1-01J5XDDDDDDDDDDDDDDDDDDDDD',
+      'TILL1:order.create:01J5XDDDDDDDDDDDDDDDDDDDDD',
+      'order.create',
+      JSON.stringify({ tabId: 'friday-tab', lines: [{ sku: 'tea', qty: 2 }] }),
+      '2026-08-28T09:00:00.000Z',
+      STAFF,
+      'TILL1',
+    );
+    db.pragma('user_version = 3');
+    db.close();
+    return file;
+  }
+
+  it('adds payload_enc without touching the pending row', () => {
+    const d = openQueueAt(v3DbFile());
+    expect(d.pragma('user_version', { simple: true })).toBe(4);
+    const row = d
+      .prepare('SELECT state, payload_enc, payload FROM mutation_queue')
+      .get() as { state: string; payload_enc: number; payload: string };
+    // Still sendable, still readable, and flagged as the plaintext encoding.
+    expect(row.state).toBe('pending');
+    expect(row.payload_enc).toBe(0);
+    expect(JSON.parse(row.payload)).toEqual({ tabId: 'friday-tab', lines: [{ sku: 'tea', qty: 2 }] });
+    d.close();
+  });
+
+  it('replays a pre-v4 plaintext row through peekNext', () => {
+    // Written straight into the live queue at the v4 encoding boundary: enc=0 is
+    // exactly what the ALTER TABLE default leaves on every pre-upgrade row.
+    openQueue()
+      .prepare(
+        `INSERT INTO mutation_queue
+           (local_id, idempotency_key, mutation_type, payload, payload_enc, created_at, staff_id, device_id)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+      )
+      .run(
+        'TILL1-01J5XEEEEEEEEEEEEEEEEEEEEE',
+        'TILL1:order.create:01J5XEEEEEEEEEEEEEEEEEEEEE',
+        'order.create',
+        JSON.stringify({ tabId: 'friday-tab', lines: [] }),
+        '2026-08-28T09:00:00.000Z',
+        STAFF,
+        'TILL1',
+      );
+
+    const row = peekNext();
+    expect(row?.idempotencyKey).toBe('TILL1:order.create:01J5XEEEEEEEEEEEEEEEEEEEEE');
+    // Decoded, not handed back as ciphertext or dropped as unreadable.
+    expect(row?.payload).toEqual({ tabId: 'friday-tab', lines: [] });
   });
 });

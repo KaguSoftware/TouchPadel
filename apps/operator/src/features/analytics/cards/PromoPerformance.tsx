@@ -24,7 +24,7 @@ export function PromoPerformance({ raw, state, f }: { raw: RawAnalytics | null; 
         {surfaces.map((s) => {
           const follow = s.sessions > 0 ? Math.round((s.sessionsOrdered / s.sessions) * 100) : 0;
           return (
-            <div key={s.kind} style={{ fontSize: '0.85rem' }}>
+            <div key={s.kind} style={{ fontSize: 'var(--tp-fs-sm)' }}>
               <strong>{tr(s.kind === 'featured' ? 'analytics.cards.featured' : 'analytics.cards.suggested')}</strong>
               <span style={{ ...muted, marginInlineStart: '0.4rem' }}>
                 {tr('analytics.cards.clicks')} {f.num(s.clicks)} · {tr('analytics.cards.sessions')} {f.num(s.sessions)} ·{' '}

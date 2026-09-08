@@ -6,7 +6,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { useLocale } from '../../../lib/i18n';
 import type { PeakHourRow } from '../shape';
 import type { Formatters } from '../format';
-import { BLUE, BROWN, GRID, MUTED } from './colors';
+import { AXIS, BAR_MUTED, GRID, HIGHLIGHT } from './colors';
 
 export function PeakHoursChart({ rows, f }: { rows: readonly PeakHourRow[]; f: Formatters }) {
   const { tr, dir } = useLocale();
@@ -16,16 +16,16 @@ export function PeakHoursChart({ rows, f }: { rows: readonly PeakHourRow[]; f: F
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 4 }}>
         <CartesianGrid stroke={GRID} vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 10, fill: MUTED }} stroke={GRID} interval={1} />
-        <YAxis tick={{ fontSize: 11, fill: MUTED }} stroke={GRID} tickFormatter={(v: number) => f.compact(v)} />
+        <XAxis dataKey="label" tick={{ fontSize: 10, fill: AXIS }} stroke={GRID} interval={1} />
+        <YAxis tick={{ fontSize: 11, fill: AXIS }} stroke={GRID} tickFormatter={(v: number) => f.compact(v)} />
         <Tooltip
           wrapperStyle={{ direction: dir }}
-          contentStyle={{ fontSize: '0.8rem' }}
+          contentStyle={{ fontSize: 'var(--tp-fs-sm)' }}
           formatter={(value) => [f.num(Number(value)), tr('analytics.cards.viewsSeries')] as [string, string]}
         />
         <Bar dataKey="views" name={tr('analytics.cards.viewsSeries')} radius={[2, 2, 0, 0]}>
           {data.map((d) => (
-            <Cell key={d.label} fill={d.peak ? BROWN : BLUE} />
+            <Cell key={d.label} fill={d.peak ? HIGHLIGHT : BAR_MUTED} />
           ))}
         </Bar>
       </BarChart>

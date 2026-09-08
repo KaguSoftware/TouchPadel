@@ -66,11 +66,27 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'pnpm --filter @touch/web dev',
+      // PRODUCTION BUILD when E2E_PROD_BUILD=1.
+      //
+      // Two assertions in web-security-headers.spec.ts are production-only
+      // properties: that `script-src` carries no 'unsafe-eval', and that every
+      // inline <script> carries the CSP nonce. `next dev` needs eval for HMR and
+      // does not nonce, so under `dev` those assertions SKIP — and they skipped
+      // on every machine and every CI run this project has ever had, which is
+      // the same shape of false green as the header constants that were
+      // imported and never used (see docs/security/HANDOFF-security.md §2).
+      //
+      // `reuseExistingServer` is false here on purpose: reusing a dev server
+      // already listening on :3000 is exactly how a "prod" run silently measures
+      // the dev build instead.
+      command:
+        process.env.E2E_PROD_BUILD === '1'
+          ? 'pnpm --filter @touch/web build && pnpm --filter @touch/web start'
+          : 'pnpm --filter @touch/web dev',
       url: `${WEB_URL}/en`,
       cwd: ROOT,
-      reuseExistingServer: true,
-      timeout: 300_000, // Next 16 first compile is slow
+      reuseExistingServer: process.env.E2E_PROD_BUILD !== '1',
+      timeout: 600_000, // a cold `next build` is slower than a dev compile
       env: localEnv,
     },
     {

@@ -4,9 +4,12 @@ import {
   actionFamilies,
   actionFamily,
   actorLabel,
+  auditCsv,
   diffFields,
   formatValue,
+  inPeriod,
   matchesAudit,
+  periodBounds,
   missingReason,
   reasonRequired,
   type AuditRow,
@@ -186,6 +189,37 @@ describe('actorLabel', () => {
 
   it('calls an actorless row what it is', () => {
     expect(actorLabel(null, null, names)).toBe('system');
+    // The audit log RENDERS this role name — a row written by a backend job has
+    // actor_role = 'service_role', and the till shows it as such. It is display
+    // data, not a credential, so the client-secret guard is suppressed here and
+    // nowhere else in this app.
+    // eslint-disable-next-line no-restricted-syntax -- role name shown in the audit UI, not a key
     expect(actorLabel(null, 'service_role', names)).toBe('service_role');
+  });
+});
+
+describe('periodBounds / inPeriod', () => {
+  it('turns an inclusive date range into a half-open instant range', () => {
+    const b = periodBounds({ from: '2026-09-01', to: '2026-09-03' });
+    expect(new Date(b.fromIso).getDate()).toBe(1);
+    // Exclusive upper bound is the START of the 4th, so the whole 3rd is inside.
+    expect(new Date(b.toExclusiveIso).getDate()).toBe(4);
+    expect(new Date(b.toExclusiveIso).getHours()).toBe(0);
+  });
+  it('checks a row against the bounds', () => {
+    const b = periodBounds({ from: '2026-09-01', to: '2026-09-01' });
+    expect(inPeriod({ at: new Date(2026, 8, 1, 12).toISOString() }, b)).toBe(true);
+    expect(inPeriod({ at: new Date(2026, 8, 2, 0, 0, 1).toISOString() }, b)).toBe(false);
+  });
+});
+
+describe('auditCsv', () => {
+  it('names the actor and flattens the change list into one cell', () => {
+    const names = new Map([['a0000000-0000-4000-8000-000000000001', 'Dev Owner']]);
+    const labels = { when: 'When', actor: 'Actor', role: 'Role', authoriser: 'Auth', action: 'Action', entity: 'Record', entityId: 'Id', reason: 'Reason', device: 'Station', changes: 'Changes' };
+    const { headers, rows } = auditCsv(labels, [row({ before: { sold_out: false }, after: { sold_out: true } })], names);
+    expect(headers).toHaveLength(10);
+    expect(rows[0]![1]).toBe('Dev Owner');
+    expect(rows[0]![9]).toBe('sold_out: false → true');
   });
 });

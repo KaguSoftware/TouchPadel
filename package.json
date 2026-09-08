@@ -19,7 +19,14 @@
     "db:clear-dev-till": "pnpm --filter @touch/db db:clear-dev-till",
     "e2e": "playwright test --config e2e/playwright.config.ts",
     "e2e:install": "playwright install chromium",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "fonts:sync": "node scripts/sync-fonts.mjs",
+    "fonts:check": "node scripts/sync-fonts.mjs --check",
+    "security:env-names": "node scripts/security/check-public-env-names.mjs",
+    "security:history": "node scripts/security/check-history-secrets.mjs",
+    "security:audit": "node scripts/security/check-dependency-audit.mjs",
+    "security:data": "node scripts/security/check-data-hygiene.mjs",
+    "security:web": "node scripts/security/check-web-security.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
@@ -30,10 +37,10 @@
   },
   "pnpm": {
     "overrides": {
-      "react": "19.1.0",
-      "react-dom": "19.1.0",
-      "@types/react": "19.1.10",
-      "@types/react-dom": "19.1.9"
+      "react": "19.2.3",
+      "react-dom": "19.2.3",
+      "@types/react": "19.2.18",
+      "@types/react-dom": "19.2.7"
     }
   }
 }

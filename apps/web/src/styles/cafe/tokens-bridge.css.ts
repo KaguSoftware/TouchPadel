@@ -7,7 +7,7 @@
 export const tokensBridgeCss = `
 :root { color-scheme: light; }
 /* Fallback ground if the theme attribute is ever missing (never on a real page). */
-html:not([data-theme]) { --tp-bg: #FFFFFF; --tp-fg: #1E2B45; --tp-accent: #2456B4; --tp-accent-contrast: #FFFFFF; }
+html:not([data-theme]) { --tp-bg: #FFFFFF; --tp-fg: #162A4B; --tp-accent: #3360AB; --tp-accent-contrast: #FFFFFF; }
 
 .tp-cafe, .tp-app {
   /* bean-pattern default opacities (BeanPattern can override via inline --tp-beans-opacity) */
