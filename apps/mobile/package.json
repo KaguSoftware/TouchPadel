@@ -65,7 +65,7 @@
     "eslint": "^9.15.0",
     "eslint-config-expo": "~57.0.2",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^5.0.0"
   },
   "expo": {
     "install": {
