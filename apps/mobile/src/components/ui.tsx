@@ -7,7 +7,7 @@
  * the root (src/i18n/direction.tsx) mirrors every one of them, live. The one
  * exception is `Field` — see there. Colors/fonts come exclusively from useTheme().
  */
-import { useCallback, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,29 +23,12 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Text } from '../i18n/text';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, shadows, space, useTheme } from '../theme';
 import { TitleSquiggle } from './icons';
 
 export { TitleSquiggle };
-
-// ── Navigation helpers ──────────────────────────────────────────────────────
-
-/**
- * Back that cannot dead-end. Screens are reached by deep link (verification
- * and recovery emails, push taps) with no history beneath them; `router.back()`
- * is then a silent no-op and the guest is stuck. Fall back to the tabs.
- */
-export function useSafeBack(): () => void {
-  const router = useRouter();
-  // Stable: it sits in effect dependency lists (complete-profile).
-  return useCallback(() => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)');
-  }, [router]);
-}
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 

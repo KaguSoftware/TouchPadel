@@ -19,6 +19,7 @@ import { fetchOwnProfile, updateOwnProfile } from '../src/features/profile/api';
 import { profileKeys } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { useLocale } from '../src/i18n/LocaleProvider';
+import { useBack } from '../src/navigation/back';
 import { space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, FormScreen, Hint, LinkText, Screen, Title } from '../src/components/ui';
 import { useToast } from '../src/components/overlays';
@@ -48,6 +49,7 @@ type Mode = 'signin' | 'link';
 function VerifyOtpForm({ mode, phone }: { mode: Mode; phone: string }) {
   const { t } = useLocale();
   const router = useRouter();
+  const back = useBack();
   const toast = useToast();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
@@ -177,7 +179,7 @@ function VerifyOtpForm({ mode, phone }: { mode: Mode; phone: string }) {
         />
         <LinkText
           label={t('auth.changeNumber')}
-          onPress={() => router.back()}
+          onPress={back}
           style={{ marginTop: 14, paddingStart: 4 }}
         />
       </FormScreen>
