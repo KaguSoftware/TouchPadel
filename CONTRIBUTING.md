@@ -44,3 +44,5 @@
 - Architecture truth: `docs/design/design-arch.md`.
 - Who does what, week by week: `docs/design/design-delivery.md`.
 - When docs disagree: the "Resolved design calls" table in the approved plan / `HANDOFF.md`.
+
+- Questions not covered here: open a discussion before large refactors.
