@@ -7,11 +7,12 @@
 // logical-properties rule was enforced. The operator is the ONE surface where
 // that rule matters most — it is 100% inline styles, no stylesheet, and every
 // screen must mirror in Arabic.
-import { base, react } from '@touch/config/eslint';
+import { base, react, clientSecrets, clientSecretRules } from '@touch/config/eslint';
 
 export default [
   ...base, // typescript-eslint recommended + the repo's RTL logical-property guard
   ...react, // react-hooks
+  ...clientSecrets, // service_role / sb_secret_ must never reach the renderer
   {
     name: '@touch/operator',
     rules: {
@@ -32,9 +33,14 @@ export default [
   {
     // Recharts margin props are `{ top, right, bottom, left }` by API contract —
     // they are chart geometry, not CSS, and the library has no logical variant.
+    //
+    // This drops the RTL selectors ONLY. It used to be a blanket
+    // `'no-restricted-syntax': 'off'`, which — now that the client-secret guard
+    // shares that rule name — would have quietly carved a hole where a
+    // service_role key could sit unlinted. Restate the secret rules instead.
     name: '@touch/operator/recharts-geometry',
     files: ['src/features/analytics/charts/**/*.tsx'],
-    rules: { 'no-restricted-syntax': 'off' },
+    rules: clientSecretRules,
   },
   {
     ignores: ['dist/**', 'vite.config.ts', 'eslint.config.mjs'],

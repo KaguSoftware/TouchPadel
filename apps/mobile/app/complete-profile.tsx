@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Redirect, Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
@@ -20,8 +20,8 @@ import {
   Screen,
   SegmentedControl,
   Title,
-  useSafeBack,
 } from '../src/components/ui';
+import { useBack, useBackGuard } from '../src/navigation/back';
 import { useToast } from '../src/components/overlays';
 import { ErrorState, SkeletonList } from '../src/components/states';
 
@@ -44,8 +44,7 @@ type ReturnTo = 'continue' | 'back';
 export default function CompleteProfileScreen() {
   const { t, locale, setLocale } = useLocale();
   const router = useRouter();
-  const navigation = useNavigation();
-  const safeBack = useSafeBack();
+  
   const toast = useToast();
   const { session, initializing } = useAuth();
   const params = useLocalSearchParams<{ returnTo?: string }>();
@@ -93,44 +92,24 @@ export default function CompleteProfileScreen() {
     }
   }, [returnTo, profile.data, continueAfterAuth]);
 
-  const onBack = () => {
-    if (returnTo === 'back') {
-      safeBack();
-      return;
-    }
-    // NEVER a plain pop in 'continue' mode: RequireNoSession would send an
-    // incomplete profile straight back here — a trap. Browsing stays open; the
-    // gate reappears at the next booking attempt (availability / Review).
-    clearPendingSlot();
-    router.replace('/(tabs)');
-  };
+  const back = useBack();
 
-  // The header's back item and the edge-swipe are the SYSTEM's now (the screen
-  // sits on the root stack), so the 'continue'-mode escape hatch has to block
-  // the pop rather than own a button — same approach as profile-edit. Released
-  // once the slot is cleared, then `onBack` performs the replace itself.
-  const [leaving, setLeaving] = useState(false);
-  const blockPop = returnTo === 'continue' && !leaving;
-
-  // NOT `usePreventRemove`: registering the route as prevented makes
-  // NativeStackView force `headerBackButtonMenuEnabled: false`, which
-  // react-native-screens turns into a plain UIBarButtonItem — a bordered
-  // capsule with no chevron, in the default tint. Listening to `beforeRemove`
-  // gives the same interception (it is the event that hook wraps) while the
-  // back item stays UIKit's own. See profile-edit for the full note.
-  // `onBack` is rebuilt every render, so the listener reads it through a ref —
-  // subscribing on it directly would tear down and re-add the listener on each
-  // render, and could drop the event mid-gesture.
-  const onBackRef = useRef(onBack);
-  onBackRef.current = onBack;
-  useEffect(() => {
-    if (!blockPop) return;
-    return navigation.addListener('beforeRemove', (e) => {
-      e.preventDefault();
-      setLeaving(true);
-      onBackRef.current();
-    });
-  }, [navigation, blockPop]);
+  /**
+   * 'continue' mode has no ordinary way out: a plain pop would let
+   * RequireNoSession send an incomplete profile straight back here, a trap. So
+   * the departure is intercepted and turned into a replace — browsing stays
+   * open, and the gate reappears at the next booking attempt (availability /
+   * Review). 'back' mode needs no guard; the native back item already does the
+   * right thing.
+   */
+  useBackGuard({
+    when: returnTo === 'continue',
+    onBlocked: (leave) =>
+      leave(() => {
+        clearPendingSlot();
+        router.replace('/(tabs)');
+      }),
+  });
 
   // What follows a save — the toast, and continueAfterAuth — must speak the
   // language just chosen. setLocale resolves once that language has
@@ -147,12 +126,12 @@ export default function CompleteProfileScreen() {
     setContinuation(null);
     if (continuation.to === 'back') {
       toast(t('profile.updated'));
-      safeBack();
+      back();
     } else {
       toast(t('auth.welcomeToApp'));
       continueAfterAuth();
     }
-  }, [continuation, locale, t, toast, safeBack, continueAfterAuth]);
+  }, [continuation, locale, t, toast, back, continueAfterAuth]);
 
   if (!initializing && !session) return <Redirect href="/welcome" />;
 

@@ -1,0 +1,101 @@
+# Dependabot — Security Layer 1, Block 2 "Secrets".
+#
+# check-dependency-audit.mjs is the gate: it stops a NEW vulnerable dependency
+# merging. It does nothing to clear the backlog that is already here, and a
+# waiver file with expiry dates only produces a deadline, not a patch. Dependabot
+# is the half that does the work.
+#
+# Grouping is deliberate. Ungrouped, a monorepo of this shape opens 30+ pull
+# requests in the first week, every one of them needing CI time and a human, and
+# the honest outcome is that they all get closed unread. Grouped by concern,
+# it opens a handful that a person can actually review.
+version: 2
+
+updates:
+  # ---------------------------------------------------------------------------
+  # The workspace root. pnpm workspaces are covered from here — Dependabot reads
+  # pnpm-workspace.yaml and resolves every package in it, so per-app entries
+  # would duplicate rather than add coverage.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    open-pull-requests-limit: 8
+    versioning-strategy: increase
+    labels: ['dependencies', 'security']
+    commit-message:
+      prefix: 'deps'
+      prefix-development: 'deps(dev)'
+      include: scope
+
+    groups:
+      # Anything that reaches the venue PC or a guest phone. Reviewed first and
+      # separately, because these are the only updates that change what SHIPS.
+      runtime-clients:
+        applies-to: version-updates
+        patterns:
+          - 'electron*'
+          - 'next'
+          - 'expo*'
+          - 'react'
+          - 'react-dom'
+          - 'react-native*'
+          - '@supabase/*'
+          - 'better-sqlite3'
+        update-types: ['minor', 'patch']
+
+      # Test runners, linters, type tooling, build plugins. Never shipped, so a
+      # single grouped PR per week is the right amount of attention.
+      dev-tooling:
+        applies-to: version-updates
+        dependency-type: development
+        update-types: ['minor', 'patch']
+
+      # Security fixes jump the queue and are never grouped with feature bumps —
+      # a security PR must be reviewable on its own, not buried in a 40-package
+      # version bump where the one line that matters is invisible.
+      security-patches:
+        applies-to: security-updates
+        patterns: ['*']
+
+    ignore:
+      # Major bumps are migrations, not updates: Electron 33 -> 39 re-verifies
+      # the better-sqlite3 native ABI and the whole Windows packaging path;
+      # Next, Expo and React majors each carry their own codemod. They are
+      # planned work with a person's name on them, not a weekly PR. Security
+      # advisories are NOT affected by this — `applies-to: security-updates`
+      # above still opens those, and the audit gate still fails on them.
+      - dependency-name: 'electron'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'next'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'expo'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
+        update-types: ['version-update:semver-major']
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions. A third-party action runs with access to this repo's secrets
+  # — including the ones that push migrations to the client's live database — so
+  # a compromised or abandoned action is a direct path to that database. Cheap to
+  # keep current, expensive to ignore.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    labels: ['dependencies', 'ci']
+    commit-message:
+      prefix: 'ci(deps)'
+    groups:
+      actions:
+        patterns: ['*']

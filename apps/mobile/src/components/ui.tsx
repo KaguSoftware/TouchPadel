@@ -7,7 +7,7 @@
  * the root (src/i18n/direction.tsx) mirrors every one of them, live. The one
  * exception is `Field` — see there. Colors/fonts come exclusively from useTheme().
  */
-import { useCallback, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,29 +23,12 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Text } from '../i18n/text';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, shadows, space, useTheme } from '../theme';
 import { TitleSquiggle } from './icons';
 
 export { TitleSquiggle };
-
-// ── Navigation helpers ──────────────────────────────────────────────────────
-
-/**
- * Back that cannot dead-end. Screens are reached by deep link (verification
- * and recovery emails, push taps) with no history beneath them; `router.back()`
- * is then a silent no-op and the guest is stuck. Fall back to the tabs.
- */
-export function useSafeBack(): () => void {
-  const router = useRouter();
-  // Stable: it sits in effect dependency lists (complete-profile).
-  return useCallback(() => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)');
-  }, [router]);
-}
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 
@@ -566,13 +549,23 @@ export function Button({
   labelColor,
   pressedBg,
 }: ButtonProps) {
-  const { colors, fonts, tracking } = useTheme();
+  const { colors, fonts, tracking, appearance } = useTheme();
   const visual = {
     cta: { bg: brand.green, fg: brand.greenInk, border: 'transparent' },
     primary: { bg: brand.blue, fg: brand.white, border: 'transparent' },
     secondary: { bg: colors.card, fg: colors.ink, border: colors.line },
     danger: { bg: brand.danger, fg: brand.white, border: 'transparent' },
-    dangerOutline: { bg: colors.card, fg: colors.redtext, border: colors.redline },
+    // Dark ("blue mode") needs its own outline. The light recipe is a white
+    // card with a red hairline; in dark the same recipe is `card` navy with
+    // #871A12 on it, and Cancel booking came out as a dark rectangle rather
+    // than a red action (owner, 2026-09-08). So the ground moves to the red
+    // tint and the border joins the label on the bright coral — 5.2:1 on that
+    // tint, and unmistakably red against the navy card it sits in. Both are
+    // existing dark-palette tokens; the palette stays closed.
+    dangerOutline:
+      appearance === 'dark'
+        ? { bg: colors.redtint, fg: colors.redtext, border: colors.redtext }
+        : { bg: colors.card, fg: colors.redtext, border: colors.redline },
     ghost: { bg: 'transparent', fg: colors.mut, border: 'transparent' },
   }[variant];
   const ghost = variant === 'ghost';

@@ -339,6 +339,7 @@ export type Database = {
       }
       claim_replay: { Args: { p_fn: string; p_key: string }; Returns: Json }
       clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
+      clear_table_token_secret_prev: { Args: never; Returns: Json }
       close_day: {
         Args: {
           p_card_batch_iqd?: number
@@ -431,6 +432,7 @@ export type Database = {
         Returns: Json
       }
       delete_court: { Args: { p_id: string }; Returns: Json }
+      delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
       desk_register_customer: {
         Args: {
           p_actor_id: string
@@ -536,6 +538,16 @@ export type Database = {
           role: Database["public"]["Enums"]["staff_role"]
         }[]
       }
+      llm_begin_request: { Args: never; Returns: Json }
+      llm_record_usage: {
+        Args: {
+          p_completion_tokens: number
+          p_model_calls: number
+          p_prompt_tokens: number
+        }
+        Returns: undefined
+      }
+      llm_usage_summary: { Args: never; Returns: Json }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
       log_replay: {
         Args: {
@@ -629,6 +641,7 @@ export type Database = {
       }
       phone_canon: { Args: { p_phone: string }; Returns: string }
       phone_digits: { Args: { p_phone: string }; Returns: string }
+      pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
       preview_series: {
         Args: {
           p_court_id: string
@@ -661,6 +674,7 @@ export type Database = {
         Args: { p_reason: Database["public"]["Enums"]["waiter_call_reason"] }
         Returns: Json
       }
+      reason_given: { Args: { p_reason: string }; Returns: boolean }
       receive_delivery: {
         Args: {
           p_device_id?: string
@@ -772,7 +786,11 @@ export type Database = {
       }
       resolve_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
+      revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
+      rotate_table_token_secret: { Args: never; Returns: Json }
+      safe_line: { Args: { p_text: string }; Returns: string }
+      safe_text: { Args: { p_text: string }; Returns: string }
       save_analytics_insights: {
         Args: {
           p_compare_basis: string
@@ -907,6 +925,10 @@ export type Database = {
         Args: { p_lines?: Json; p_target: string; p_target_id: string }
         Returns: number
       }
+      set_secret_value: {
+        Args: { p_name: string; p_value: string }
+        Returns: undefined
+      }
       set_staff_active: {
         Args: { p_active: boolean; p_reason_code?: string; p_staff_id: string }
         Returns: Json
@@ -1026,6 +1048,7 @@ export type Database = {
       tab_net_paid: { Args: { p_tab_id: string }; Returns: number }
       table_qr_tokens: { Args: never; Returns: Json }
       table_token_secret: { Args: never; Returns: string }
+      table_token_secret_prev: { Args: never; Returns: string }
       telegram_apply_action: {
         Args: {
           p_action: string
@@ -1039,6 +1062,8 @@ export type Database = {
       telegram_nudge: { Args: never; Returns: undefined }
       telegram_order_payload: { Args: { p_order_id: string }; Returns: Json }
       telegram_send_test: { Args: never; Returns: Json }
+      text_control_class: { Args: never; Returns: string }
+      text_control_class_multiline: { Args: never; Returns: string }
       ticket_transition: {
         Args: {
           p_actor_label?: string
@@ -1999,6 +2024,36 @@ export type Database = {
         }
         Relationships: []
       }
+      llm_usage: {
+        Row: {
+          completion_tokens: number
+          cost_micros: number
+          model_calls: number
+          prompt_tokens: number
+          requests: number
+          updated_at: string
+          usage_date: string
+        }
+        Insert: {
+          completion_tokens?: number
+          cost_micros?: number
+          model_calls?: number
+          prompt_tokens?: number
+          requests?: number
+          updated_at?: string
+          usage_date: string
+        }
+        Update: {
+          completion_tokens?: number
+          cost_micros?: number
+          model_calls?: number
+          prompt_tokens?: number
+          requests?: number
+          updated_at?: string
+          usage_date?: string
+        }
+        Relationships: []
+      }
       manager_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -2826,6 +2881,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          deleted_at: string | null
           expo_push_token: string | null
           full_name: string
           id: string
@@ -2834,6 +2890,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           expo_push_token?: string | null
           full_name: string
           id: string
@@ -2842,6 +2899,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           expo_push_token?: string | null
           full_name?: string
           id?: string
@@ -4232,14 +4290,20 @@ export type Database = {
           closed_dates: string[]
           currency: string
           expiring_soon_days: number
+          guest_items_per_order: number
+          guest_orders_per_minute: number
           heartbeat_stale_seconds: number
           hold_ttl_seconds: number
           id: boolean
+          llm_cost_micros_per_mtok: number
+          llm_daily_request_limit: number
+          llm_monthly_cost_cap_micros: number
           max_booking_horizon_days: number
           max_live_holds_per_guest: number
           opening_hours: Json
           phone: string | null
           protected_horizon_hours: number
+          tab_confirm_threshold_iqd: number
           table_token_ttl_minutes: number
           tax_inclusive: boolean
           timezone: string
@@ -4252,14 +4316,20 @@ export type Database = {
           closed_dates?: string[]
           currency?: string
           expiring_soon_days?: number
+          guest_items_per_order?: number
+          guest_orders_per_minute?: number
           heartbeat_stale_seconds?: number
           hold_ttl_seconds?: number
           id?: boolean
+          llm_cost_micros_per_mtok?: number
+          llm_daily_request_limit?: number
+          llm_monthly_cost_cap_micros?: number
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           opening_hours: Json
           phone?: string | null
           protected_horizon_hours?: number
+          tab_confirm_threshold_iqd?: number
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
@@ -4272,14 +4342,20 @@ export type Database = {
           closed_dates?: string[]
           currency?: string
           expiring_soon_days?: number
+          guest_items_per_order?: number
+          guest_orders_per_minute?: number
           heartbeat_stale_seconds?: number
           hold_ttl_seconds?: number
           id?: boolean
+          llm_cost_micros_per_mtok?: number
+          llm_daily_request_limit?: number
+          llm_monthly_cost_cap_micros?: number
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           opening_hours?: Json
           phone?: string | null
           protected_horizon_hours?: number
+          tab_confirm_threshold_iqd?: number
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string

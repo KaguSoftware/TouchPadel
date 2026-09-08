@@ -21,8 +21,8 @@ import {
   DashedDivider,
   ErrorText,
   Screen,
-  useSafeBack,
 } from '../../src/components/ui';
+import { useBack } from '../../src/navigation/back';
 import {
   DegradedBanner,
   PayAtDeskCard,
@@ -43,7 +43,7 @@ function BookingDetailScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts, tracking } = useTheme();
   const insets = useSafeAreaInsets();
-  const safeBack = useSafeBack();
+  const back = useBack();
   const { id } = useLocalSearchParams<{ id?: string }>();
   // Fetched by id (RLS-scoped) — finding it in the 100-row list made any older
   // booking opened from a push tap render "not found".
@@ -138,7 +138,7 @@ function BookingDetailScreen() {
           title={t('errors.notFound')}
           message={t('booking.notFound')}
           retryLabel={t('common.back')}
-          onRetry={safeBack}
+          onRetry={back}
         />
       ) : (
         <ScrollView
@@ -274,7 +274,9 @@ function BookingDetailScreen() {
                 label={t('booking.cancelBooking')}
                 variant="dangerOutline"
                 size="compact"
-                pressedBg={colors.redtint}
+                // No pressedBg: in dark mode the variant's own ground IS
+                // redtint now, so overriding it would delete the press state.
+                // The Button's default dim covers both themes.
                 busy={cancel.isPending}
                 onPress={() => setDialogOpen(true)}
               />
