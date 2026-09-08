@@ -93,6 +93,7 @@ const PAST_PREVIEW = 2;
  * for. On the card it lands where the eye is already going, and the list below
  * is left alone to be a list.
  */
+
 export default function BookingsScreen() {
   const { t, locale } = useLocale();
   const { colors, fonts, appearance } = useTheme();
@@ -103,6 +104,8 @@ export default function BookingsScreen() {
   const courts = useCourts();
   const settings = useVenueSettings();
   const degraded = useIsDegraded();
+  // Closed by the guest, not by a timer or a refetch — see `notice` below.
+  const [noticeClosed, setNoticeClosed] = useState(false);
   const release = useReleaseHold();
   const cleared = useHistoryClearedAt();
   const toast = useToast();
@@ -262,20 +265,31 @@ export default function BookingsScreen() {
     ) : null;
 
   const phone = venuePhoneOf(settings.data);
+
+  /**
+   * The venue notice sits in flow under the heading and stays until the guest
+   * closes it — a refetch flipping `degraded` back on must not resurrect one
+   * they have already dealt with. It rides inside the header, so it survives
+   * the screen flipping between loading, error, empty and list.
+   */
+  const notice =
+    degraded && !noticeClosed ? (
+      <View style={{ marginTop: 2, marginBottom: space.s }}>
+        <DegradedBanner
+          lead={t('degraded.leadConnectionLost')}
+          message={t('degraded.bannerBookings', { phone: phone ?? '' })}
+          phone={phone}
+          blockLead
+          onDismiss={() => setNoticeClosed(true)}
+        />
+      </View>
+    ) : null;
+
   const header = (
     <View style={{ paddingTop: space.l }}>
       <Title>{t('booking.myBookings')}</Title>
+      {notice}
       {stats}
-      {degraded ? (
-        <View style={{ marginTop: 2, marginBottom: 8 }}>
-          <DegradedBanner
-            tight
-            lead={t('degraded.leadConnectionLost')}
-            message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-            phone={phone}
-          />
-        </View>
-      ) : null}
       {heldSection}
     </View>
   );
