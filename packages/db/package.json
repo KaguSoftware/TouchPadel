@@ -34,7 +34,7 @@
     "check:analytics": "node scripts/check-analytics-payload.mjs"
   },
   "devDependencies": {
-    "@supabase/supabase-js": "^2.47.0",
+    "@supabase/supabase-js": "^2.115.0",
     "@types/node": "^20.17.0",
     "dotenv": "^16.4.7",
     "qrcode": "^1.5.4",
