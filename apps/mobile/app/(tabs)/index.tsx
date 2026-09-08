@@ -58,6 +58,18 @@ const LOGO_W = Math.round(LOGO_H * (900 / 332));
 /** The back button's touch target, and the chevron's slot inside the capsule. */
 const BACK_BTN = 34;
 /**
+ * Its outline — the one border in the capsule. A hairline: one physical pixel
+ * whatever the screen's density, so it stays the finest line the display can
+ * draw rather than a 1.5 pt rule that reads heavy against frosted glass.
+ */
+const BACK_BTN_BORDER = StyleSheet.hairlineWidth;
+/**
+ * Its fill, over the capsule's glass. Light mode stacks more of the page colour
+ * to lift the button off the plate; dark mode cannot go lighter that way (the
+ * page IS the dark), so it lays white on at a low alpha instead.
+ */
+const BACK_BTN_FILL = { dark: 0.1, light: 0.55 } as const;
+/**
  * PICK A TIME's frosted capsule. It holds the back button AND the heading, so
  * the padding is the air at the capsule's two ends; the gap between chevron and
  * words reuses PAD_X. TEXT_PAD is extra on the trailing end only — a stadium's
@@ -91,11 +103,14 @@ const PICK_PILL_SINK = 3;
  */
 const BACK_SHIFT = BACK_BTN + PICK_PILL_PAD_X * 2;
 /**
- * The plate's tint. iOS has a real blur under it, so the fill is only the
- * sheet card's 35 % veil; Android has no blur to sit on and carries the
- * contrast on the fill alone.
+ * The sheet card's glass fill, verbatim (BookingSheet's `glass`): iOS has a real
+ * blur under it so the fill is only a veil, Android has none and carries the
+ * frosting on the fill alone. Dark tints heavier than light because the court
+ * behind it is brighter than the page. The card's white edge is NOT taken —
+ * that line separates the card from the page it floats over, and the capsule
+ * has no such job over the court.
  */
-const PICK_PILL_TINT = { ios: 0.35, other: 0.82 } as const;
+const PICK_PILL_TINT = { iosDark: 0.45, iosLight: 0.35, other: 0.94 } as const;
 /** The on-net button (prototype: 16 px padding round a 16 px line, top = tape − 24). */
 const CTA_H = 48;
 /** Room under the flat fallback court for the "reserve in the app" footer line. */
@@ -301,6 +316,23 @@ function NetCta({
 export default function BookHomeScreen() {
   const { t, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
+  // The capsule behind PICK A TIME is the sheet card's material, so it takes the
+  // card's own glass formula (BookingSheet) rather than a lookalike of it.
+  const dark = appearance === 'dark';
+  const glass = withAlpha(
+    colors.bg,
+    Platform.OS === 'ios'
+      ? PICK_PILL_TINT[dark ? 'iosDark' : 'iosLight']
+      : PICK_PILL_TINT.other,
+  );
+  // The chevron's own surface: the capsule's colour, laid over the capsule, so
+  // it lightens in light mode and — over a dark `bg` — deepens in dark. Either
+  // way it separates from the glass it sits on, which a fixed tint would only
+  // manage in one theme.
+  const buttonGlass = withAlpha(
+    dark ? brand.white : colors.bg,
+    BACK_BTN_FILL[dark ? 'dark' : 'light'],
+  );
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const settings = useVenueSettings();
@@ -639,7 +671,7 @@ export default function BookHomeScreen() {
                     {Platform.OS === 'ios' ? (
                       <BlurView
                         intensity={40}
-                        tint={appearance === 'dark' ? 'dark' : 'light'}
+                        tint={dark ? 'dark' : 'light'}
                         style={StyleSheet.absoluteFill}
                       />
                     ) : null}
@@ -647,20 +679,24 @@ export default function BookHomeScreen() {
                       style={[
                         StyleSheet.absoluteFill,
                         {
-                          backgroundColor: withAlpha(
-                            colors.card,
-                            PICK_PILL_TINT[Platform.OS === 'ios' ? 'ios' : 'other'],
-                          ),
+                          // The sheet card's own glass, to the value: it is the
+                          // box the time grid sits on, and this capsule is the
+                          // same material arriving a moment earlier. `bg` and
+                          // not `card` — the card's frosting tints the page
+                          // colour. Borderless, unlike the card: the card's
+                          // white edge separates it from the page it floats
+                          // over, and this one has no such job over the court.
+                          backgroundColor: glass,
                           borderRadius: radius.pill,
-                          borderWidth: StyleSheet.hairlineWidth,
-                          borderColor: withAlpha(colors.line, 0.6),
                         },
                       ]}
                     />
                   </View>
-                  {/* Inside the capsule the chevron needs no plate of its own —
-                      the shared backdrop is its plate. It keeps a pressed fill
-                      and the full 34 pt hit target. */}
+                  {/* The chevron is the one bordered thing in the capsule: the
+                      glass has no outline, so without an edge of its own the
+                      button reads as a glyph floating in the plate rather than
+                      as something pressable. It is a hairline in `line2` — the
+                      grid's colour, drawn as fine as the screen allows. */}
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t('booking.backToCourt')}
@@ -672,7 +708,9 @@ export default function BookHomeScreen() {
                       width: BACK_BTN,
                       height: BACK_BTN,
                       borderRadius: radius.pill,
-                      backgroundColor: pressed ? withAlpha(colors.sub, 0.9) : 'transparent',
+                      backgroundColor: pressed ? withAlpha(colors.sub, 0.9) : buttonGlass,
+                      borderWidth: BACK_BTN_BORDER,
+                      borderColor: colors.line2,
                       alignItems: 'center',
                       justifyContent: 'center',
                       // Rides the backdrop down, not the line box: the chevron
