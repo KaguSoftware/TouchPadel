@@ -4,6 +4,7 @@ import {
   Animated,
   BackHandler,
   Image,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -42,6 +43,7 @@ import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { brand, radius, space, useTheme, withAlpha } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { BrandPattern } from '../../src/components/BrandPattern';
 import { DegradedBanner } from '../../src/components/booking';
 import { BackChevronIcon, TitleSquiggle } from '../../src/components/icons';
@@ -53,8 +55,47 @@ import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 /** logo.png is 900×332: a 30 pt tall wordmark is 81 pt wide (design lets height drive width). */
 const LOGO_H = 30;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
-/** The back button's width + gap: the title slides over to make room for it. */
-const BACK_SHIFT = 44;
+/** The back button's touch target, and the chevron's slot inside the capsule. */
+const BACK_BTN = 34;
+/**
+ * PICK A TIME's frosted capsule. It holds the back button AND the heading, so
+ * the padding is the air at the capsule's two ends; the gap between chevron and
+ * words reuses PAD_X. TEXT_PAD is extra on the trailing end only — a stadium's
+ * curve cuts closest where the text ends, while the chevron end is already held
+ * off by the button's own box.
+ */
+const PICK_PILL_PAD_X = 6;
+const PICK_PILL_PAD_Y = 6;
+const PICK_PILL_TEXT_PAD = 8;
+/**
+ * How far the capsule's backdrop sits BELOW the box that measures the text.
+ *
+ * The line box is 26 pt × 1.05, and all-caps Latin uses none of the descender
+ * room at its foot — the glyphs stop at the baseline. Centring the backdrop on
+ * that box therefore reads top-heavy: the air over the cap line is real, the
+ * air under the baseline is mostly empty line box. So the backdrop is pushed
+ * DOWN off the box's centre, which takes the surplus off the top and gives it
+ * back at the foot, and the caps end up optically centred.
+ *
+ * (This was a 2 pt lift before the chevron moved inside — that lift is what put
+ * the extra space above the text.) The text does not move, only the backdrop.
+ */
+const PICK_PILL_SINK = 3;
+/**
+ * The back button's width + gap: the title slides over to make room for it.
+ * The capsule now CONTAINS the button, so this doubles as the capsule's own
+ * leading offset — it opens BACK_SHIFT before the heading's margin, which lands
+ * the chevron where the free-standing button used to sit and the words back on
+ * the margin they share with BOOK A COURT. Deriving it from the parts keeps
+ * those two facts true if the padding is ever retuned.
+ */
+const BACK_SHIFT = BACK_BTN + PICK_PILL_PAD_X * 2;
+/**
+ * The plate's tint. iOS has a real blur under it, so the fill is only the
+ * sheet card's 35 % veil; Android has no blur to sit on and carries the
+ * contrast on the fill alone.
+ */
+const PICK_PILL_TINT = { ios: 0.35, other: 0.82 } as const;
 /** The on-net button (prototype: 16 px padding round a 16 px line, top = tape − 24). */
 const CTA_H = 48;
 /** Room under the flat fallback court for the "reserve in the app" footer line. */
@@ -513,34 +554,6 @@ export default function BookHomeScreen() {
 
         {/* Title row: [back to the court] BOOK A COURT ⇄ PICK A TIME */}
         <View style={{ paddingStart: space.l, paddingEnd: space.l, paddingTop: space.sm }}>
-          <Animated.View
-            pointerEvents={isOpen ? 'auto' : 'none'}
-            accessibilityElementsHidden={!isOpen}
-            importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
-            style={{ position: 'absolute', start: space.l, top: space.sm, opacity: header.fade }}
-          >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('booking.backToCourt')}
-              accessibilityState={{ disabled: !isOpen || sheetBusy, busy: sheetBusy }}
-              disabled={!isOpen || sheetBusy}
-              hitSlop={8}
-              onPress={close}
-              style={({ pressed }) => ({
-                width: 34,
-                height: 34,
-                borderRadius: radius.pill,
-                backgroundColor: pressed ? colors.sub : colors.card,
-                borderWidth: 1,
-                borderColor: colors.line,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: sheetBusy ? 0.55 : 1,
-              })}
-            >
-              <BackChevronIcon size={17} color={colors.ink} strokeWidth={2.4} />
-            </Pressable>
-          </Animated.View>
           <Animated.View style={{ transform: [{ translateX: header.shift }] }}>
             {/* The two headings cross-fade in place on the back button's slice.
                 Only the words change, so the squiggle is drawn ONCE underneath
@@ -561,14 +574,130 @@ export default function BookHomeScreen() {
                   the two strings are different lengths and, in Arabic, different
                   heights. */}
               <Animated.View
-                pointerEvents="none"
+                // The capsule is faded out but still laid out when the sheet is
+                // shut, so taps must not reach the button through it — this is
+                // the guard the free-standing button carried on its own wrapper.
+                pointerEvents={isOpen ? 'auto' : 'none'}
                 accessibilityElementsHidden={!isOpen}
                 importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
-                style={{ position: 'absolute', start: 0, end: 0, top: 0, opacity: header.fade }}
+                style={{
+                  // The capsule holds the button, so it opens on the row's own
+                  // margin and the shift is all that positions it — the bleed
+                  // and clearance budget the free-standing pill needed are gone.
+                  position: 'absolute',
+                  start: -BACK_SHIFT,
+                  top: 0,
+                  opacity: header.fade,
+                }}
               >
-                <Title squiggle={false}>{t('booking.pickTime')}</Title>
+                {/* PICK A TIME reads over the 3D court, where BOOK A COURT reads
+                    over the page — by the time the sheet is open the court has
+                    risen behind these words. Frosted like the sheet card: iOS
+                    blurs the court behind it, Android has no blur to sit on and
+                    carries the contrast on the tint alone.
+
+                    The back button rides INSIDE the capsule, sharing its blur
+                    and border, so the two read as one control rather than a
+                    button parked beside a plate. That is also why this layer is
+                    not `pointerEvents="none"` as the bare pill was — the button
+                    inside it has to stay pressable. */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    alignSelf: 'flex-start',
+                    paddingStart: PICK_PILL_PAD_X,
+                    paddingEnd: PICK_PILL_PAD_X + PICK_PILL_TEXT_PAD,
+                    paddingTop: PICK_PILL_PAD_Y,
+                    paddingBottom: PICK_PILL_PAD_Y,
+                    gap: PICK_PILL_PAD_X,
+                    // Bled back out so the capsule grows around the line rather
+                    // than pushing it down.
+                    marginTop: -PICK_PILL_PAD_Y,
+                  }}
+                >
+                  {/* The capsule's backdrop — blur, tint and border — on its own
+                      absolute layer so PICK_PILL_SINK can drop it off the line
+                      box's centre without moving the words. Inset by +SINK at
+                      the top and -SINK at the foot, so it shifts down while
+                      keeping its height. Clipping lives HERE rather than on the
+                      row: `overflow: hidden` up there would crop this very
+                      offset, and a BlurView escaping a rounded parent squares
+                      off at the corners. */}
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      start: 0,
+                      end: 0,
+                      top: PICK_PILL_SINK,
+                      bottom: -PICK_PILL_SINK,
+                      borderRadius: radius.pill,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {Platform.OS === 'ios' ? (
+                      <BlurView
+                        intensity={40}
+                        tint={appearance === 'dark' ? 'dark' : 'light'}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    ) : null}
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        {
+                          backgroundColor: withAlpha(
+                            colors.card,
+                            PICK_PILL_TINT[Platform.OS === 'ios' ? 'ios' : 'other'],
+                          ),
+                          borderRadius: radius.pill,
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor: withAlpha(colors.line, 0.6),
+                        },
+                      ]}
+                    />
+                  </View>
+                  {/* Inside the capsule the chevron needs no plate of its own —
+                      the shared backdrop is its plate. It keeps a pressed fill
+                      and the full 34 pt hit target. */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('booking.backToCourt')}
+                    accessibilityState={{ disabled: !isOpen || sheetBusy, busy: sheetBusy }}
+                    disabled={!isOpen || sheetBusy}
+                    hitSlop={8}
+                    onPress={close}
+                    style={({ pressed }) => ({
+                      width: BACK_BTN,
+                      height: BACK_BTN,
+                      borderRadius: radius.pill,
+                      backgroundColor: pressed ? withAlpha(colors.sub, 0.9) : 'transparent',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      // Rides the backdrop down, not the line box: the chevron
+                      // belongs to the capsule, so it centres on the shape the
+                      // eye sees rather than on the text's measured box.
+                      marginTop: PICK_PILL_SINK * 2,
+                      opacity: sheetBusy ? 0.55 : 1,
+                    })}
+                  >
+                    <BackChevronIcon size={17} color={colors.ink} strokeWidth={2.4} />
+                  </Pressable>
+                  {/* Title's own bottom margin is cancelled so the capsule hugs
+                      the line: the mark lives on the shared row below, not in
+                      here — a capsule round text alone is a capsule, one
+                      stretched round text AND a mark is a lozenge. */}
+                  <View style={{ marginBottom: -space.s }}>
+                    <Title squiggle={false}>{t('booking.pickTime')}</Title>
+                  </View>
+                </View>
               </Animated.View>
             </View>
+            {/* One mark, shared by both headings and drawn once underneath —
+                two identical marks fading through each other dip to ~75 % at
+                the halfway point, and the brand mark is the one thing here
+                that must not flicker. */}
             <View style={{ alignItems: 'flex-start', marginBottom: space.s }}>
               <TitleSquiggle />
             </View>
