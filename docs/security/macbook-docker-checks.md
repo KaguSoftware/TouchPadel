@@ -1,6 +1,6 @@
 # What was verified with Docker on the MacBook — 2026-09-07
 
-**Author** Kemal · **Branch** `kemal` · **Repo HEAD at time of run** `22ce202`
+**Author** Kemal · **Branch** `kemal` · **Repo HEAD at time of run** `fa0b131`
 **Purpose** A colleague ran, or will run, the same checks on **Docker Desktop**. This file records
 what was run **here**, on a different container runtime, with the exact numbers each check
 produced — so the two runs can be diffed rather than described to each other.
@@ -90,7 +90,7 @@ carefully — see §4.
 
 ## 3 · Every check that was run, and its result
 
-Run at HEAD `22ce202`. **Compare the numbers, not just the pass/fail** — several of these are
+Run at HEAD `fa0b131`. **Compare the numbers, not just the pass/fail** — several of these are
 counters that drift as the repo grows, and a differing count is more informative than a
 differing verdict.
 
