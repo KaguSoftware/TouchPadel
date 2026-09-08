@@ -16,6 +16,7 @@ import {
   CardIcon,
   ChevronIcon,
   ClockIcon,
+  CloseIcon,
   PadelBallIcon,
   TagIcon,
   WifiOffIcon,
@@ -890,20 +891,36 @@ export function PastBookingRow({
  * Amber venue notice. `lead` renders bold ("Venue connection lost."), and the
  * venue phone is bolded inside `message` when present — the design's whole
  * hierarchy for this banner, which a single flat string had lost.
+ *
+ * With `onDismiss` the notice grows a close (×) button. Nothing else retires
+ * it: the venue notice is the guest's only cue that booking has gone
+ * desk-only, so it must outlive a scroll, a re-render, or a data refresh, and
+ * leave only when the guest says so.
  */
 export function DegradedBanner({
   lead,
   message,
   phone,
   tight = false,
+  blockLead = false,
+  onDismiss,
 }: {
   lead?: string;
   message: string;
   phone?: string | null;
   /** Availability / bookings variant: 9×12 padding, 16 pt icon, top-aligned. */
   tight?: boolean;
+  /**
+   * Break after the bold lead so it keeps a line of its own and the message
+   * starts the next. Without it the two run together and a narrow banner wraps
+   * the sentence mid-phrase, which reads as one ragged paragraph.
+   */
+  blockLead?: boolean;
+  /** When given, renders the close button; the notice never self-dismisses. */
+  onDismiss?: () => void;
 }) {
   const { colors, fonts } = useTheme();
+  const { t } = useLocale();
   const bold = { fontFamily: fonts.body800 };
   const parts: ReactNode[] = [];
   if (phone && message.includes(phone)) {
@@ -941,9 +958,22 @@ export function DegradedBanner({
       <Text
         style={{ flex: 1, fontFamily: fonts.body600, fontSize: 12, lineHeight: 17, color: colors.ambtext }}
       >
-        {lead ? <Text style={bold}>{lead} </Text> : null}
+        {lead ? <Text style={bold}>{lead}{blockLead ? '\n' : ' '}</Text> : null}
         {parts}
       </Text>
+      {onDismiss ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
+          onPress={onDismiss}
+          // The glyph is 14 pt; the negative margins let a 44 pt touch target
+          // hang outside the padding without stretching the notice itself.
+          hitSlop={12}
+          style={{ marginTop: tight ? -1 : 0, marginEnd: -2, padding: 2 }}
+        >
+          <CloseIcon size={14} color={colors.ambstrong} strokeWidth={2.2} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }

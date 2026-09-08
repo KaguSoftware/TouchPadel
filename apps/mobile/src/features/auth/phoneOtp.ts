@@ -66,7 +66,7 @@ export function hasRealEmail(user: { email?: string | null } | null | undefined)
 /** Refusal reasons the send-sms-otp hook relays through GoTrue as the error message. */
 const HOOK_REASON_KEY: Record<string, MessageKey> = {
   SMS_DISABLED: 'auth.phoneSignInUnavailable',
-  PHONE_NOT_ALLOWED: 'auth.phoneInvalid',
+  PHONE_NOT_ALLOWED: 'auth.phoneOtpInvalid',
   PHONE_RATE: 'auth.otpTooMany',
   DAILY_CAP: 'auth.otpSendFailed',
   SMS_SEND_FAILED: 'auth.otpSendFailed',
@@ -105,7 +105,7 @@ export function mapOtpError(err: unknown): MessageKey {
     case 'hook_payload_over_size_limit':
       return 'auth.phoneSignInUnavailable';
     case 'validation_failed':
-      return 'auth.phoneInvalid';
+      return 'auth.phoneOtpInvalid';
     default:
       break;
   }
