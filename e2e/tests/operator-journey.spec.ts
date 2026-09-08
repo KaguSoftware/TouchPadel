@@ -416,7 +416,7 @@ test.describe('operator journeys', () => {
     await override.getByRole('button', { name: 'Change price' }).click();
     const pin = page.getByRole('dialog', { name: 'Change price' }).last();
     await pin.getByLabel('Reason').selectOption('staff_error');
-    await pin.getByLabel('Manager PIN').fill('222222');
+    await pin.getByLabel('Manager PIN').fill('380517');
     await pin.getByRole('button', { name: /Confirm|Apply|Change price/ }).last().click();
 
     await expect(async () => {
@@ -456,7 +456,7 @@ test.describe('operator journeys', () => {
     await refund.getByRole('button', { name: 'Refund', exact: true }).click();
     const refundPin = page.getByRole('dialog', { name: 'Refund' }).last();
     await refundPin.getByLabel('Reason').selectOption('quality');
-    await refundPin.getByLabel('Manager PIN').fill('222222');
+    await refundPin.getByLabel('Manager PIN').fill('380517');
     await refundPin.getByRole('button', { name: /Confirm|Apply|Refund/ }).last().click();
 
     // The audit row is the acceptance test: a refund traceable to a named

@@ -130,6 +130,16 @@ describe.skipIf(!up)('booking concurrency (contractual acceptance suite)', () =>
     const court = await createTestCourt(svc, 'C4');
     const slot = futureSlot();
 
+    // The corpse needs an OWNER since 0071 (SEC-07): a live hold with no
+    // guest_id is refused by reservations_live_hold_has_guest, because nobody
+    // could ever release it. Irrelevant to the race under test — this hold is
+    // already past its TTL and exists only to be swept — but the fixture has to
+    // be a state the product can actually produce.
+    const [corpseOwner] = await guests(1);
+    const {
+      data: { user: corpseUser },
+    } = await corpseOwner!.auth.getUser();
+
     // Plant an expired-but-not-swept hold directly (the pg_cron sweeper is off).
     const { error: plantErr } = await svc.from('reservations').insert({
       court_id: court,
@@ -138,6 +148,7 @@ describe.skipIf(!up)('booking concurrency (contractual acceptance suite)', () =>
       start_at: slot.start.toISOString(),
       end_at: slot.plus(60).toISOString(),
       source: 'mobile',
+      guest_id: corpseUser?.id,
       hold_expires_at: new Date(Date.now() - 60_000).toISOString(),
     });
     expect(plantErr).toBeNull();
@@ -184,7 +195,12 @@ describe.skipIf(!up)('booking concurrency (contractual acceptance suite)', () =>
         start_at: slot.start.toISOString(),
         end_at: slot.plus(60).toISOString(),
         source: 'mobile',
-        guest_id: null, // anonymous session has no profile; confirm passes guest_name
+        // WAS `guest_id: null` with the note "anonymous session has no profile".
+        // 0048/C1 abolished that state — app.hold_slot refuses an anonymous
+        // identity with ACCOUNT_REQUIRED — and 0071 (SEC-07) now enforces it at
+        // the table. The race under test is confirm-vs-expire, which is
+        // unaffected by who owns the hold; this just makes the fixture legal.
+        guest_id: user?.id,
         device_id: user?.id,
         hold_expires_at: new Date(Date.now() + 150).toISOString(),
       })
@@ -238,6 +254,12 @@ describe.skipIf(!up)('booking concurrency (contractual acceptance suite)', () =>
       appRpc(desk, 'extend_reservation', {
         p_reservation_id: aId,
         p_new_end_at: slot.plus(120).toISOString(),
+        // Not needed today — ensureTestRateRule prices every duration the same,
+        // so this extend does not change the price and 0071/SEC-09 stays quiet.
+        // Passed anyway: this suite is about lock ordering, and a helper change
+        // must not turn a concurrency result into a REASON_REQUIRED refusal and
+        // send someone hunting in the wrong place.
+        p_reason: 'customer_request',
       }).then(outcome),
       appRpc(desk, 'staff_create_reservation', {
         p_court_id: court,

@@ -126,9 +126,30 @@ describe('allowedMarks / isOverrideRefusal', () => {
     expect(allowedMarks('completed')).toEqual([]);
     expect(allowedMarks('pending')).toEqual([]);
   });
+  it('withholds no_show and completed before the booking starts (0071 / SEC-11)', () => {
+    // Both statuses leave the reservation exclusion set, so writing either on a
+    // future booking frees a paid slot for resale. The server refuses them with
+    // RESERVATION_NOT_STARTED; the desk must not offer the button.
+    const now = new Date('2026-09-06T12:00:00.000Z');
+    const future = '2026-09-06T18:00:00.000Z';
+    const started = '2026-09-06T11:00:00.000Z';
+
+    expect(allowedMarks('confirmed', future, now)).toEqual(['arrived']);
+    expect(allowedMarks('confirmed', started, now)).toEqual(['arrived', 'completed', 'no_show']);
+    expect(allowedMarks('arrived', future, now)).toEqual([]);
+    expect(allowedMarks('arrived', started, now)).toEqual(['completed']);
+
+    // Exactly at start_at the booking HAS started: the guard is `now < start_at`.
+    expect(allowedMarks('confirmed', now.toISOString(), now)).toEqual([
+      'arrived',
+      'completed',
+      'no_show',
+    ]);
+  });
   it('classifies rule refusals apart from failures', () => {
     expect(isOverrideRefusal('NOT_MOVABLE')).toBe(true);
     expect(isOverrideRefusal('FORBIDDEN')).toBe(true);
+    expect(isOverrideRefusal('RESERVATION_NOT_STARTED')).toBe(true);
     expect(isOverrideRefusal('SLOT_TAKEN')).toBe(false);
     expect(isOverrideRefusal(undefined)).toBe(false);
   });

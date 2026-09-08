@@ -45,7 +45,7 @@ Studio's SQL editor (local only) or run it through any Postgres client.
 ### Dev credentials (local/staging only)
 
 Seeded by `seed.sql` — password `touch-dev-password` for all:
-`owner@dev.touch.local` (PIN 111111), `manager@dev.touch.local` (PIN 222222),
+`owner@dev.touch.local` (PIN 719264), `manager@dev.touch.local` (PIN 380517),
 `cashier@dev.touch.local`, `prep@dev.touch.local`, `desk@dev.touch.local` (court_desk).
 
 ### Local auth providers (social sign-in)

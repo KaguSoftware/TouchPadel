@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import {
@@ -9,6 +12,7 @@ import {
   SMILEY_SEAM_PATHS,
   SMILEY_VIEWBOX,
 } from '../smileyMark';
+import * as paths from '../smileyPaths';
 import { parseSvgPath } from '../svgPath';
 
 const ALL = [
@@ -154,5 +158,29 @@ describe('buildSmileyShapes', () => {
     expect(SMILEY_CIRCLE.r).toBeLessThan(
       Math.hypot(SMILEY_VIEWBOX.width, SMILEY_VIEWBOX.height) / 2,
     );
+  });
+});
+
+describe('the artwork/geometry split (2026-09-08)', () => {
+  it('re-exports the very data smileyPaths holds — one source, two renderers', () => {
+    // Reference identity, so everything this file measures about the mark is
+    // measured about the strings the SVG loading screen draws too.
+    expect(SMILEY_INK_PATHS).toBe(paths.SMILEY_INK_PATHS);
+    expect(SMILEY_BALL_PATHS).toBe(paths.SMILEY_BALL_PATHS);
+    expect(SMILEY_SEAM_PATHS).toBe(paths.SMILEY_SEAM_PATHS);
+    expect(SMILEY_INK_TOP_PATHS).toBe(paths.SMILEY_INK_TOP_PATHS);
+    expect(SMILEY_CIRCLE).toBe(paths.SMILEY_CIRCLE);
+    expect(SMILEY_VIEWBOX).toBe(paths.SMILEY_VIEWBOX);
+  });
+
+  it('keeps three out of smileyPaths — it is imported by the FIRST frame', () => {
+    // BootOverlay draws this mark before anything else paints; reaching the
+    // strings through the geometry builder would put three.js in that path.
+    const src = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '../smileyPaths.ts'),
+      'utf8',
+    );
+    expect(src).not.toMatch(/from 'three'|require\('three'\)/);
+    expect(src).not.toMatch(/^import /m);
   });
 });

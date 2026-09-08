@@ -47,6 +47,10 @@ export function CategoryPills({
     const railBox = rail.getBoundingClientRect();
     const pillBox = pill.getBoundingClientRect();
     const delta = pillBox.left + pillBox.width / 2 - (railBox.left + railBox.width / 2);
+    // ScrollToOptions, not CSS: `left` is the DOM API's own option name and has
+    // no logical counterpart. `delta` is already signed by getBoundingClientRect,
+    // so it carries the correct direction under RTL with no mirroring here.
+    // eslint-disable-next-line no-restricted-syntax -- DOM scroll option, not a style property
     if (Math.abs(delta) > 1) rail.scrollBy({ left: delta, behavior: 'smooth' });
   }, [activeId]);
 

@@ -20,6 +20,7 @@ import {
   serviceClient,
   signedInClient,
   anonymousSessionClient,
+  guestClient,
   appRpc,
   testIdemKey,
   SEED_STAFF,
@@ -165,6 +166,14 @@ describe.skipIf(!up)('0053 till completeness', () => {
       const tabId = await openTab('court-hold');
       await addItem(tabId, itemA);
       const start = new Date(Date.now() + 4 * 86_400_000);
+      // A live hold needs an owner since 0071 (SEC-07): one with no guest_id
+      // blocks the court and no caller can release it, so the table refuses it.
+      // What this test asserts — that a HOLD is never charged a court fee — is
+      // about `kind`, not about who holds it.
+      const holder = await guestClient(svc, 'court-hold');
+      const {
+        data: { user: holderUser },
+      } = await holder.auth.getUser();
       const { data } = await svc
         .from('reservations')
         .insert({
@@ -172,6 +181,7 @@ describe.skipIf(!up)('0053 till completeness', () => {
           kind: 'hold',
           status: 'pending',
           source: 'desk',
+          guest_id: holderUser?.id,
           start_at: start.toISOString(),
           end_at: new Date(start.getTime() + 60 * 60_000).toISOString(),
           price_iqd: 40_000,

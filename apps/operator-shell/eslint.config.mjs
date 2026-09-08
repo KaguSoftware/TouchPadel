@@ -2,10 +2,13 @@
 // so the RTL guard in `base` is inert here, but the unused-vars /
 // consistent-type-imports / eqeqeq rules are exactly what a 350-line main
 // process with five IPC handlers needs.
-import { base } from '@touch/config/eslint';
+import { base, clientSecrets } from '@touch/config/eslint';
 
 export default [
   ...base,
+  // The preload is bundled INTO the renderer's process tree, and release/ ships
+  // to a venue PC nobody administers — a key here is a key on that disk.
+  ...clientSecrets,
   {
     name: '@touch/operator-shell',
     rules: {

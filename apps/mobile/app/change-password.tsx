@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useRouter, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useLocale } from '../src/i18n/LocaleProvider';
+import { useBack } from '../src/navigation/back';
 import { useAuth } from '../src/features/auth/context';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { supabase } from '../src/lib/supabase';
@@ -17,7 +18,7 @@ import { useToast } from '../src/components/overlays';
  */
 function ChangePasswordScreen() {
   const { t } = useLocale();
-  const router = useRouter();
+  const back = useBack();
   const { session } = useAuth();
   const toast = useToast();
 
@@ -52,7 +53,7 @@ function ChangePasswordScreen() {
       }
       await changePassword(supabase, next);
       toast(t('auth.passwordUpdated'));
-      router.back();
+      back();
     } catch (err) {
       setError(t(mapErrorToKey(err)));
     } finally {
