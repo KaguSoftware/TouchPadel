@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { LocaleDirContext } from '@react-navigation/native';
+// SDK 56+: expo-router vendors react-navigation; app code imports it from here.
+// LocaleDirContext is marked deprecated there in favour of I18nManager — which
+// this app pins LTR on purpose (see RootStack), so the context stays.
+import { LocaleDirContext } from 'expo-router/react-navigation';
+import { ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
@@ -18,11 +22,15 @@ import { addBreadcrumb, captureException } from '../src/lib/telemetry';
 import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
 import { DirectionRoot } from '../src/i18n/direction';
 import { lastKnownLocale } from '../src/i18n/lastLocale';
-import { ensureFontsLoaded, fontsFor } from '../src/theme/fonts';
+import { BRAND_FONTS } from '../src/theme/fonts';
 import { lastKnownAppearance } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
+import { useNavigationTheme } from '../src/navigation/theme';
+import { useNativeBarDirection } from '../src/navigation/headerDirection';
 import { AuthProvider } from '../src/features/auth/context';
+import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
+import { installNotificationHandler } from '../src/features/profile/push';
 import { ErrorState, OfflineBanner } from '../src/components/states';
 import { ToastProvider } from '../src/components/overlays';
 import { palettes, ThemeProvider, useTheme } from '../src/theme';
@@ -37,6 +45,11 @@ export const unstable_settings = { initialRouteName: '(tabs)' };
 // Splash stays up until boot prefs + the brand fonts are in (no flash of
 // fallback type, no light→dark flash, no en→ar flash).
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+// ...and then it CROSS-FADES into BootOverlay, which is painted in the splash's
+// own #3360AB by the time this runs. Without the fade the wordmark cuts to the
+// smiley ball on an identical ground, which reads as a glitch rather than as
+// one screen becoming the next. (iOS honours `fade`; Android ignores it.)
+SplashScreen.setOptions({ fade: true, duration: 180 });
 
 /**
  * Reveal a screen that renders INSTEAD of AppRoot.
@@ -129,10 +142,14 @@ function RootStack() {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
-  const { dir } = useLocale();
+  // The direction the NATIVE bar is told, plus the short window in which its
+  // back item is left off so UIKit rebuilds the chevron under the new
+  // mirroring. Both come from one module — see ./src/navigation/headerDirection.
+  const { direction: barDir, rebuilding } = useNativeBarDirection();
   // Real native bars on every pushed screen. The tabs draw the native tab bar
   // instead, and (auth) is a nested stack that configures its own.
-  const header = useNativeHeaderOptions();
+  const header = useNativeHeaderOptions(rebuilding);
+  const navTheme = useNavigationTheme();
   return (
     /**
      * THE NATIVE BAR'S DIRECTION.
@@ -146,32 +163,46 @@ function RootStack() {
      * LTR — so it is provided here from the app's own direction instead. It
      * updates live with the language, like everything under DirectionRoot.
      */
-    <LocaleDirContext.Provider value={dir}>
-      <Stack screenOptions={header}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        {/* Formerly the (auth) group. Flattened for the same reason as (gated):
+    <LocaleDirContext.Provider value={barDir}>
+      {/**
+       * THE NATIVE BAR'S INTERFACE STYLE.
+       *
+       * react-navigation's own theme, which expo-router's container fixes at
+       * `DefaultTheme` (`dark: false`). Its `dark` flag reaches UIKit as the
+       * navigation bar's `overrideUserInterfaceStyle`, and that is what decides
+       * how the back item's CHEVRON and LABEL are drawn — `headerTintColor`
+       * only colours them. Left at the default, dark mode drew a light bar's
+       * chevron (invisible on our ground) and a black title. Provided here from
+       * the app's own appearance, like the direction above it.
+       */}
+      <NavigationThemeProvider value={navTheme}>
+        <Stack screenOptions={header}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {/* Formerly the (auth) group. Flattened for the same reason as (gated):
           a screen pushed from the tabs was the first entry of a nested stack,
           so UIKit drew no back item and a JS stand-in had to fill in. Each
           screen carries `RequireNoSession` in place of the layout's redirect. */}
-        <Stack.Screen name="welcome" options={{ headerShown: false }} />
-        <Stack.Screen name="verify-email" options={{ headerShown: false }} />
-        <Stack.Screen name="verify-result" options={{ headerShown: false }} />
-        <Stack.Screen name="sign-in" />
-        <Stack.Screen name="sign-up" />
-        <Stack.Screen name="forgot-password" />
-        <Stack.Screen name="availability" />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="profile-edit" />
-        <Stack.Screen name="change-password" />
-        {/* Formerly the (gated) group, flattened onto the root stack so that
+          <Stack.Screen name="welcome" options={{ headerShown: false }} />
+          <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+          <Stack.Screen name="verify-result" options={{ headerShown: false }} />
+          <Stack.Screen name="sign-in" />
+          <Stack.Screen name="sign-up" />
+          <Stack.Screen name="forgot-password" />
+          <Stack.Screen name="availability" />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="profile-edit" />
+          <Stack.Screen name="change-password" />
+          {/* Formerly the (gated) group, flattened onto the root stack so that
           every push leaves real history behind it and UIKit draws its OWN back
           item — the same one, animated, on every screen. Each carries its own
           `RequireSession` in place of the group layout's guard. */}
-        <Stack.Screen name="review" />
-        <Stack.Screen name="booking/[id]" />
-        <Stack.Screen name="success" options={{ headerShown: false }} />
-        <Stack.Screen name="reset-password" />
-      </Stack>
+          <Stack.Screen name="review" />
+          <Stack.Screen name="booking/[id]" />
+          <Stack.Screen name="booking-history" />
+          <Stack.Screen name="success" options={{ headerShown: false }} />
+          <Stack.Screen name="reset-password" />
+        </Stack>
+      </NavigationThemeProvider>
     </LocaleDirContext.Provider>
   );
 }
@@ -222,9 +253,10 @@ export default function RootLayout() {
 }
 
 function AppRoot({ prefs }: { prefs: BootPrefs }) {
-  // Only the active script blocks first paint (8 Latin faces or 5 Cairo); the
-  // other loads in the background so a language switch has its faces ready.
-  const [fontsLoaded, fontsError] = useFonts(fontsFor(prefs.locale));
+  // One family covers both scripts, so this is every face the app renders in:
+  // there is nothing left to load in the background and a language switch can
+  // never wait on a face.
+  const [fontsLoaded, fontsError] = useFonts(BRAND_FONTS);
 
   // Token refresh follows the foreground lifecycle; query focus follows it too.
   useEffect(() => {
@@ -237,19 +269,25 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
     };
   }, [prefs.locale, prefs.appearance]);
 
-  useEffect(() => {
-    if (fontsLoaded || fontsError) {
-      // A failed font download must not hold the splash forever — the theme
-      // falls back to system faces and the app still works.
-      if (fontsError) captureException(fontsError, { scope: 'fonts.load' });
-      void SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [fontsLoaded, fontsError]);
+  // Push: foreground display, the Android channel, and "tap opens the booking".
+  // Once per app life — it does not depend on language or theme. The booking
+  // screen carries its own RequireSession, so a tap while signed out lands on
+  // the sign-in it redirects to.
+  useEffect(
+    () =>
+      installNotificationHandler({
+        onOpenReservation: (id) => router.push({ pathname: '/booking/[id]', params: { id } }),
+      }),
+    [],
+  );
 
+  // A face that fails to register must not hold the splash forever — the theme
+  // falls back to system faces and the app still works. The REVEAL itself is
+  // BootOverlay's (features/boot/splash.ts): hiding the splash here uncovered
+  // the Book tab mid-build, which is the whole reason the loading screen exists.
   useEffect(() => {
-    if (!fontsLoaded) return;
-    void ensureFontsLoaded(prefs.locale === 'ar' ? 'en' : 'ar');
-  }, [fontsLoaded, prefs.locale]);
+    if (fontsError) captureException(fontsError, { scope: 'fonts.load' });
+  }, [fontsError]);
 
   if (!fontsLoaded && !fontsError) return null; // splash is still covering us
 
@@ -271,6 +309,9 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
                   <ConnectivityBanner />
                 </ToastProvider>
               </AuthProvider>
+              {/* Over the navigator and the native tab bar, outside every
+                  route: the loading screen, and the hand on the splash. */}
+              <BootOverlay />
             </DirectionRoot>
           </ThemeProvider>
         </LocaleProvider>

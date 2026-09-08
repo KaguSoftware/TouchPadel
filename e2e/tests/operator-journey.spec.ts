@@ -67,6 +67,8 @@ test.describe('operator journeys', () => {
     page,
   }) => {
     await signIn(page, SEED_STAFF.court_desk);
+    // Spec §04: the desk lands on Today's board; the calendar is one click away.
+    await page.goto(`${OPERATOR_URL}/desk`);
     await expect(page.getByRole('heading', { name: 'Desk calendar' })).toBeVisible({
       timeout: 30_000,
     });
@@ -132,11 +134,23 @@ test.describe('operator journeys', () => {
     await capp.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(capp).toBeHidden();
 
-    // ---- item 2: Turkish Coffee ------------------------------------------
+    // ---- item 2: Turkish Coffee (two sizes → the sheet still opens) -------
     await page.getByRole('button', { name: /^Turkish Coffee/ }).click();
     const turk = page.getByRole('dialog', { name: 'Turkish Coffee' });
     await turk.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(turk).toBeHidden();
+
+    // ---- quick-add: Kunafa (one size, no modifiers) skips the sheet, and
+    // the new basket ± controls bump and remove the line ---------------------
+    await page.getByRole('button', { name: /Desserts/ }).click();
+    await page.getByRole('button', { name: /^Kunafa/ }).click();
+    await expect(page.getByText('1× Kunafa (Regular)')).toBeVisible();
+    await page.getByRole('button', { name: '+1' }).last().click();
+    await expect(page.getByText('2× Kunafa (Regular)')).toBeVisible();
+    await page.getByRole('button', { name: '−1' }).last().click();
+    await page.getByRole('button', { name: '−1' }).last().click();
+    await expect(page.getByText(/× Kunafa/)).toHaveCount(0);
+    await page.getByRole('button', { name: /Hot Drinks/ }).click();
 
     // ---- send to kitchen --------------------------------------------------
     // Basket: (4,000 + 1,000) + 3,000 = 8,000
@@ -144,23 +158,23 @@ test.describe('operator journeys', () => {
     await page.getByRole('button', { name: 'Send to kitchen' }).click();
     await expect(page.getByText('Basket is empty — pick items from the grid.')).toBeVisible();
     await expect(page.getByText('Subtotal')).toBeVisible();
-    await expect(page.getByText('IQD 8,000').first()).toBeVisible();
+    await expect(page.getByText('8,000 IQD').first()).toBeVisible();
 
     // ---- settle cash: tendered 10,000 -> change 2,000 ---------------------
     await page.getByRole('button', { name: 'Cash', exact: true }).click();
     const cash = page.getByRole('dialog', { name: 'Cash' });
     await cash.getByLabel('Tendered').fill('10000');
-    await expect(cash.getByText('IQD 2,000')).toBeVisible(); // change preview
+    await expect(cash.getByText('2,000 IQD')).toBeVisible(); // change preview
     await cash.getByRole('button', { name: 'Record payment' }).click();
     await expect(cash).toBeHidden();
 
     // ---- settled + change shown ------------------------------------------
     await expect(page.getByText('Tab settled.')).toBeVisible();
     // The change row renders <span>Change</span><span>amount</span> in one flex
-    // row — anchor on the exact label ("IQD 2,000" alone also matches the Karak
+    // row — anchor on the exact label ("2,000 IQD" alone also matches the Karak
     // Tea price tile in the menu grid).
     await expect(page.locator('div:has(> span:text-is("Change"))').last()).toContainText(
-      'IQD 2,000',
+      '2,000 IQD',
     );
   });
   test('court_desk: week view shows the whole week, and an override records a reason', async ({
@@ -175,6 +189,7 @@ test.describe('operator journeys', () => {
 
     try {
       await signIn(page, SEED_STAFF.court_desk);
+      await page.goto(`${OPERATOR_URL}/desk`);
       await expect(page.getByRole('heading', { name: 'Desk calendar' })).toBeVisible({
         timeout: 30_000,
       });
@@ -354,9 +369,9 @@ test.describe('operator journeys', () => {
       // The desk grid draws one continuous trading night: it must reach past
       // midnight rather than stopping at 24:00 with a dead 02:00-09:00 band.
       await page.goto(`${OPERATOR_URL}/desk`);
-      await expect(page.getByText('23:00').first()).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText('01:00').first()).toBeVisible();
-      await expect(page.getByText('05:00')).toHaveCount(0);
+      await expect(page.getByText('11:00 PM').first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText('1:00 AM').first()).toBeVisible();
+      await expect(page.getByText('5:00 AM')).toHaveCount(0);
     } finally {
       const manager = await signedInClient(SEED_STAFF.manager);
       try {
@@ -390,8 +405,9 @@ test.describe('operator journeys', () => {
     await page.getByRole('button', { name: /^Turkish Coffee/ }).click();
     const turk = page.getByRole('dialog', { name: 'Turkish Coffee' });
     await turk.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(turk).toBeHidden();
     await page.getByRole('button', { name: 'Send to kitchen' }).click();
-    await expect(page.getByText('IQD 3,000').first()).toBeVisible();
+    await expect(page.getByText('3,000 IQD').first()).toBeVisible();
 
     // ---- price override (L450-451): PIN + reason, same as a discount -----
     await page.getByRole('button', { name: 'Change price' }).first().click();
@@ -400,7 +416,7 @@ test.describe('operator journeys', () => {
     await override.getByRole('button', { name: 'Change price' }).click();
     const pin = page.getByRole('dialog', { name: 'Change price' }).last();
     await pin.getByLabel('Reason').selectOption('staff_error');
-    await pin.getByLabel('Manager PIN').fill('222222');
+    await pin.getByLabel('Manager PIN').fill('380517');
     await pin.getByRole('button', { name: /Confirm|Apply|Change price/ }).last().click();
 
     await expect(async () => {
@@ -420,8 +436,10 @@ test.describe('operator journeys', () => {
     await page.getByRole('button', { name: 'Bill', exact: true }).click();
     const bill = page.getByRole('dialog', { name: 'Bill' });
     await expect(bill).toContainText('Turkish Coffee');
-    await expect(bill).toContainText('IQD 2,500');
-    await bill.getByRole('button', { name: 'Close' }).click();
+    await expect(bill).toContainText('2,500 IQD');
+    // The dialog chrome has its own icon button named "Close" (shell Modal);
+    // the footer button is the last one.
+    await bill.getByRole('button', { name: 'Close' }).last().click();
 
     // ---- settle, then refund with the item going back to stock (L453) ----
     await page.getByRole('button', { name: 'Cash', exact: true }).click();
@@ -438,7 +456,7 @@ test.describe('operator journeys', () => {
     await refund.getByRole('button', { name: 'Refund', exact: true }).click();
     const refundPin = page.getByRole('dialog', { name: 'Refund' }).last();
     await refundPin.getByLabel('Reason').selectOption('quality');
-    await refundPin.getByLabel('Manager PIN').fill('222222');
+    await refundPin.getByLabel('Manager PIN').fill('380517');
     await refundPin.getByRole('button', { name: /Confirm|Apply|Refund/ }).last().click();
 
     // The audit row is the acceptance test: a refund traceable to a named

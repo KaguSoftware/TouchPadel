@@ -66,6 +66,78 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_limits: {
+        Row: {
+          allowed_prefixes: string[]
+          daily_total: number
+          enabled: boolean
+          id: boolean
+          per_phone_per_day: number
+          updated_at: string
+        }
+        Insert: {
+          allowed_prefixes?: string[]
+          daily_total?: number
+          enabled?: boolean
+          id?: boolean
+          per_phone_per_day?: number
+          updated_at?: string
+        }
+        Update: {
+          allowed_prefixes?: string[]
+          daily_total?: number
+          enabled?: boolean
+          id?: boolean
+          per_phone_per_day?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sms_sends: {
+        Row: {
+          channel: string
+          cost_iqd: number | null
+          created_at: string
+          id: number
+          phone_canon: string
+          phone_e164: string
+          provider: string | null
+          provider_msg_id: string | null
+          purpose: string
+          reason: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          channel?: string
+          cost_iqd?: number | null
+          created_at?: string
+          id?: never
+          phone_canon: string
+          phone_e164: string
+          provider?: string | null
+          provider_msg_id?: string | null
+          purpose?: string
+          reason?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          channel?: string
+          cost_iqd?: number | null
+          created_at?: string
+          id?: never
+          phone_canon?: string
+          phone_e164?: string
+          provider?: string | null
+          provider_msg_id?: string | null
+          purpose?: string
+          reason?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -73,6 +145,10 @@ export type Database = {
     Functions: {
       ack_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       acknowledge_alert: { Args: { p_alert_id: string }; Returns: undefined }
+      add_customer_note: {
+        Args: { p_body: string; p_customer_id: string }
+        Returns: string
+      }
       add_order_items: {
         Args: { p_items: Json; p_order_id: string }
         Returns: number
@@ -152,6 +228,15 @@ export type Database = {
         Args: { p_basis?: string; p_from: string; p_to: string }
         Returns: Json
       }
+      apply_best_promotion: {
+        Args: {
+          p_code?: string
+          p_device_id?: string
+          p_idempotency_key?: string
+          p_tab_id: string
+        }
+        Returns: Json
+      }
       apply_discount: {
         Args: {
           p_device_id?: string
@@ -176,6 +261,17 @@ export type Database = {
       assert_not_degraded_for: {
         Args: { p_start_at: string }
         Returns: undefined
+      }
+      audit_log_page: {
+        Args: {
+          p_action_prefix?: string
+          p_actor_id?: string
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_to: string
+        }
+        Returns: Json
       }
       audit_staff_password_reset: {
         Args: { p_actor_id: string; p_staff_id: string }
@@ -217,6 +313,10 @@ export type Database = {
         Args: { p_reason?: string; p_reservation_id: string }
         Returns: Json
       }
+      cancel_series: {
+        Args: { p_reason_code: string; p_scope: string; p_series_id: string }
+        Returns: Json
+      }
       claim_due_notifications: {
         Args: { p_limit?: number }
         Returns: Database["public"]["Tables"]["notification_outbox"]["Row"][]
@@ -239,6 +339,7 @@ export type Database = {
       }
       claim_replay: { Args: { p_fn: string; p_key: string }; Returns: Json }
       clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
+      clear_table_token_secret_prev: { Args: never; Returns: Json }
       close_day: {
         Args: {
           p_card_batch_iqd?: number
@@ -291,8 +392,65 @@ export type Database = {
         }
         Returns: Json
       }
+      create_series: {
+        Args: {
+          p_court_id: string
+          p_device_id?: string
+          p_duration_min: number
+          p_ends_on: string
+          p_guest_id?: string
+          p_guest_name?: string
+          p_guest_phone?: string
+          p_idempotency_key?: string
+          p_notes?: string
+          p_pattern: string
+          p_resolutions?: Json
+          p_start_time: string
+          p_starts_on: string
+          p_weekdays: number[]
+        }
+        Returns: Json
+      }
       current_open_day: { Args: never; Returns: string }
       current_open_day_locked: { Args: never; Returns: string }
+      customer_counts: { Args: { p_customer_id: string }; Returns: Json }
+      customer_flags_json: { Args: { p_customer_id: string }; Returns: Json }
+      customer_record: { Args: { p_customer_id: string }; Returns: Json }
+      customer_reservation_json: {
+        Args: {
+          c: Database["public"]["Tables"]["courts"]["Row"]
+          r: Database["public"]["Tables"]["reservations"]["Row"]
+        }
+        Returns: Json
+      }
+      customer_search: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: Json[]
+      }
+      decide_staff_request: {
+        Args: { p_approve: boolean; p_id: string; p_note?: string }
+        Returns: Json
+      }
+      delete_court: { Args: { p_id: string }; Returns: Json }
+      delete_my_account: { Args: { p_confirm?: string }; Returns: Json }
+      desk_register_customer: {
+        Args: {
+          p_actor_id: string
+          p_customer_id: string
+          p_full_name: string
+          p_phone: string
+          p_preferred_lang: string
+        }
+        Returns: Json
+      }
+      edit_customer_note: {
+        Args: { p_body: string; p_note_id: string }
+        Returns: Json
+      }
+      eligible_promotions: {
+        Args: { p_code?: string; p_tab_id: string }
+        Returns: Json
+      }
       enqueue_telegram: {
         Args: { p_kind: string; p_payload?: Json; p_ref_id: string }
         Returns: number
@@ -313,11 +471,13 @@ export type Database = {
         Args: { p_count_id: string; p_device_id?: string; p_lines?: Json }
         Returns: Json
       }
+      find_customer_by_phone: { Args: { p_phone: string }; Returns: string }
       finish_replay: {
         Args: { p_key: string; p_result: Json }
         Returns: undefined
       }
       flag_expired_batches: { Args: never; Returns: undefined }
+      generate_promo_code: { Args: { p_id: string }; Returns: string }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
       heartbeat: {
         Args: {
@@ -358,6 +518,7 @@ export type Database = {
           qty: number
         }[]
       }
+      like_escape: { Args: { p_text: string }; Returns: string }
       link_item_modifier_group: {
         Args: {
           p_group_id: string
@@ -377,6 +538,16 @@ export type Database = {
           role: Database["public"]["Enums"]["staff_role"]
         }[]
       }
+      llm_begin_request: { Args: never; Returns: Json }
+      llm_record_usage: {
+        Args: {
+          p_completion_tokens: number
+          p_model_calls: number
+          p_prompt_tokens: number
+        }
+        Returns: undefined
+      }
+      llm_usage_summary: { Args: never; Returns: Json }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
       log_replay: {
         Args: {
@@ -396,6 +567,12 @@ export type Database = {
         }
         Returns: Json
       }
+      marketing_audience_reach: { Args: { p_rule: Json }; Returns: number }
+      marketing_campaign_performance: {
+        Args: { p_campaign: string }
+        Returns: Json
+      }
+      marketing_overview: { Args: never; Returns: Json }
       menu_availability: {
         Args: never
         Returns: {
@@ -437,6 +614,7 @@ export type Database = {
         Returns: Json
       }
       open_table_session: { Args: { p_token: string }; Returns: Json }
+      ops_overview: { Args: never; Returns: Json }
       order_is_callers: { Args: { p_order_id: string }; Returns: boolean }
       order_item_bom: {
         Args: { p_order_item_id: string }
@@ -457,6 +635,25 @@ export type Database = {
         }
         Returns: Json
       }
+      panel_headline: {
+        Args: { p_compare?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      phone_canon: { Args: { p_phone: string }; Returns: string }
+      phone_digits: { Args: { p_phone: string }; Returns: string }
+      pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
+      preview_series: {
+        Args: {
+          p_court_id: string
+          p_duration_min: number
+          p_ends_on: string
+          p_pattern: string
+          p_start_time: string
+          p_starts_on: string
+          p_weekdays: number[]
+        }
+        Returns: Json
+      }
       price_slot: {
         Args: { p_court_id: string; p_duration_min: number; p_start_at: string }
         Returns: {
@@ -464,11 +661,20 @@ export type Database = {
           rule_id: string
         }[]
       }
+      promotion_amount_iqd: {
+        Args: { p_base: number; p_type: string; p_value: number }
+        Returns: number
+      }
+      promotion_base_iqd: {
+        Args: { p_scope: Json; p_tab_id: string }
+        Returns: number
+      }
       push_nudge: { Args: never; Returns: undefined }
       raise_waiter_call: {
         Args: { p_reason: Database["public"]["Enums"]["waiter_call_reason"] }
         Returns: Json
       }
+      reason_given: { Args: { p_reason: string }; Returns: boolean }
       receive_delivery: {
         Args: {
           p_device_id?: string
@@ -526,20 +732,65 @@ export type Database = {
         Args: { p_reason?: string; p_text: string }
         Returns: string
       }
-      release_hold: {
-        Args: { p_reservation_id: string }
-        Returns: Json
-      }
+      release_hold: { Args: { p_reservation_id: string }; Returns: Json }
       rename_staff: {
         Args: { p_display_name: string; p_staff_id: string }
         Returns: Json
       }
+      reorder_courts: { Args: { p_ids: string[] }; Returns: number }
       reorder_menu_categories: { Args: { p_ids: string[] }; Returns: number }
       reorder_menu_items: { Args: { p_ids: string[] }; Returns: number }
       reorder_modifiers: { Args: { p_ids: string[] }; Returns: number }
+      report_cafe: {
+        Args: { p_filters?: Json; p_from: string; p_to: string }
+        Returns: Json
+      }
+      report_courts: {
+        Args: { p_filters?: Json; p_from: string; p_to: string }
+        Returns: Json
+      }
+      report_drill: {
+        Args: { p_figure: string; p_from: string; p_key: string; p_to: string }
+        Returns: Json
+      }
+      report_revenue: {
+        Args: {
+          p_filters?: Json
+          p_from: string
+          p_group?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      report_staff_activity: {
+        Args: { p_from: string; p_staff_id?: string; p_to: string }
+        Returns: Json
+      }
+      report_stock: {
+        Args: { p_filters?: Json; p_from: string; p_to: string }
+        Returns: Json
+      }
+      reports_available_minutes: {
+        Args: { p_from: string; p_to: string }
+        Returns: number
+      }
+      reports_bucket: {
+        Args: { p_d: string; p_group: string }
+        Returns: string
+      }
+      reports_figures: { Args: { p_from: string; p_to: string }; Returns: Json }
+      reports_guard: { Args: { p_owner_only?: boolean }; Returns: undefined }
+      reports_parse_scope: {
+        Args: { p_text: string }
+        Returns: Record<string, unknown>
+      }
       resolve_waiter_call: { Args: { p_call_id: string }; Returns: Json }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
+      revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }
+      rotate_table_token_secret: { Args: never; Returns: Json }
+      safe_line: { Args: { p_text: string }; Returns: string }
+      safe_text: { Args: { p_text: string }; Returns: string }
       save_analytics_insights: {
         Args: {
           p_compare_basis: string
@@ -559,7 +810,56 @@ export type Database = {
         }
         Returns: string
       }
+      save_marketing_audience: {
+        Args: {
+          p_id: string
+          p_name_ar: string
+          p_name_en: string
+          p_rule?: Json
+        }
+        Returns: string
+      }
+      save_marketing_campaign: {
+        Args: {
+          p_audience_id?: string
+          p_body_ar?: string
+          p_body_en?: string
+          p_channel: string
+          p_ends_at?: string
+          p_id: string
+          p_name_ar: string
+          p_name_en: string
+          p_promotion_id?: string
+          p_starts_at?: string
+        }
+        Returns: string
+      }
+      search_norm: { Args: { p_text: string }; Returns: string }
       secret: { Args: { p_name: string }; Returns: string }
+      send_test_push: { Args: never; Returns: Json }
+      series_detail: { Args: { p_series_id: string }; Returns: Json }
+      series_occurrences: {
+        Args: {
+          p_duration_min: number
+          p_ends_on: string
+          p_pattern: string
+          p_start_time: string
+          p_starts_on: string
+          p_weekdays: number[]
+        }
+        Returns: {
+          end_at: string
+          occ_date: string
+          start_at: string
+        }[]
+      }
+      series_slot_conflict: {
+        Args: { p_court_id: string; p_end_at: string; p_start_at: string }
+        Returns: {
+          kind: Database["public"]["Enums"]["reservation_kind"]
+          reservation_id: string
+        }[]
+      }
       set_addon_suggestions: {
         Args: { p_item_id: string; p_suggested_item_ids: string[] }
         Returns: undefined
@@ -569,6 +869,10 @@ export type Database = {
         Returns: Json
       }
       set_cafe_settings: { Args: { p_settings: Json }; Returns: Json }
+      set_campaign_status: {
+        Args: { p_id: string; p_status: string }
+        Returns: Json
+      }
       set_category_photo: {
         Args: {
           p_category_id: string
@@ -576,6 +880,10 @@ export type Database = {
           p_photo_path: string
         }
         Returns: undefined
+      }
+      set_customer_flags: {
+        Args: { p_customer_id: string; p_flags: Json }
+        Returns: Json
       }
       set_item_availability: {
         Args: { p_available: boolean; p_item_id: string }
@@ -599,6 +907,26 @@ export type Database = {
       }
       set_opening_hours: {
         Args: { p_closed_dates?: string[]; p_opening_hours?: Json }
+        Returns: undefined
+      }
+      set_order_item_ready: {
+        Args: {
+          p_device_id?: string
+          p_order_item_id: string
+          p_ready: boolean
+        }
+        Returns: Json
+      }
+      set_promotion_enabled: {
+        Args: { p_enabled: boolean; p_id: string }
+        Returns: Json
+      }
+      set_recipe: {
+        Args: { p_lines?: Json; p_target: string; p_target_id: string }
+        Returns: number
+      }
+      set_secret_value: {
+        Args: { p_name: string; p_value: string }
         Returns: undefined
       }
       set_staff_active: {
@@ -655,6 +983,22 @@ export type Database = {
         }
         Returns: Json
       }
+      sms_send_gate: {
+        Args: { p_phone_e164: string; p_purpose?: string; p_user_id?: string }
+        Returns: Json
+      }
+      sms_send_result: {
+        Args: {
+          p_channel?: string
+          p_cost_iqd?: number
+          p_error?: string
+          p_provider?: string
+          p_provider_msg_id?: string
+          p_send_id: number
+          p_status: string
+        }
+        Returns: undefined
+      }
       split_by_item: {
         Args: { p_groups: Json; p_tab_id: string }
         Returns: number[]
@@ -680,16 +1024,31 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_requests_page: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: Json
+      }
       staff_role: {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
       }
       start_count: { Args: never; Returns: Json }
+      submit_staff_request: {
+        Args: {
+          p_amount_iqd?: number
+          p_from?: string
+          p_kind: string
+          p_note?: string
+          p_to?: string
+        }
+        Returns: string
+      }
       sweep_degraded_periods: { Args: never; Returns: undefined }
       tab_is_callers: { Args: { p_tab_id: string }; Returns: boolean }
       tab_net_paid: { Args: { p_tab_id: string }; Returns: number }
       table_qr_tokens: { Args: never; Returns: Json }
       table_token_secret: { Args: never; Returns: string }
+      table_token_secret_prev: { Args: never; Returns: string }
       telegram_apply_action: {
         Args: {
           p_action: string
@@ -703,6 +1062,8 @@ export type Database = {
       telegram_nudge: { Args: never; Returns: undefined }
       telegram_order_payload: { Args: { p_order_id: string }; Returns: Json }
       telegram_send_test: { Args: never; Returns: Json }
+      text_control_class: { Args: never; Returns: string }
+      text_control_class_multiline: { Args: never; Returns: string }
       ticket_transition: {
         Args: {
           p_actor_label?: string
@@ -739,6 +1100,40 @@ export type Database = {
           p_is_active?: boolean
           p_table_number: string
           p_zone?: string
+        }
+        Returns: string
+      }
+      upsert_court: {
+        Args: {
+          p_description_ar?: string
+          p_description_en?: string
+          p_duration_options?: number[]
+          p_id?: string
+          p_indoor: boolean
+          p_is_active?: boolean
+          p_name_ar: string
+          p_name_en: string
+          p_photo_path?: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      upsert_ingredient: {
+        Args: {
+          p_id?: string
+          p_is_active?: boolean
+          p_kind?: Database["public"]["Enums"]["ingredient_kind"]
+          p_low_stock_threshold?: number
+          p_name_ar: string
+          p_name_en: string
+          p_pack_cost_iqd?: number
+          p_pack_size?: number
+          p_par_level?: number
+          p_shelf_life_days?: number
+          p_supplier_name?: string
+          p_unit: Database["public"]["Enums"]["stock_unit"]
+          p_waste_allowance_percent?: number
+          p_yield_percent?: number
         }
         Returns: string
       }
@@ -793,6 +1188,27 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_promotion: {
+        Args: {
+          p_auto?: boolean
+          p_code_single_use?: boolean
+          p_enabled?: boolean
+          p_ends_at?: string
+          p_hour_from?: string
+          p_hour_to?: string
+          p_id?: string
+          p_limits?: Json
+          p_name_ar?: string
+          p_name_en?: string
+          p_public_code?: string
+          p_scope?: Json
+          p_starts_at?: string
+          p_type?: string
+          p_value?: number
+          p_weekdays?: number[]
+        }
+        Returns: string
+      }
       upsert_rate_rule: {
         Args: {
           p_court_id?: string
@@ -830,6 +1246,10 @@ export type Database = {
         Args: { p_device_id?: string; p_pin: string }
         Returns: string
       }
+      verify_own_pin: {
+        Args: { p_device_id?: string; p_pin: string }
+        Returns: boolean
+      }
       verify_table_token: { Args: { p_token: string }; Returns: string }
       void_after_send: {
         Args: {
@@ -859,6 +1279,7 @@ export type Database = {
         }
         Returns: Json
       }
+      withdraw_staff_request: { Args: { p_id: string }; Returns: undefined }
       write_audit: {
         Args: {
           p_action: string
@@ -1218,6 +1639,97 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_flags: {
+        Row: {
+          created_at: string
+          created_by: string
+          customer_id: string
+          label: string | null
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          customer_id: string
+          label?: string | null
+          type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          customer_id?: string
+          label?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_flags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_flags_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_notes: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          customer_id: string
+          edited_at: string | null
+          edited_by: string | null
+          id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          customer_id: string
+          edited_at?: string | null
+          edited_by?: string | null
+          id?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          customer_id?: string
+          edited_at?: string | null
+          edited_by?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_notes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_notes_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       day_sessions: {
         Row: {
           business_date: string
@@ -1512,6 +2024,36 @@ export type Database = {
         }
         Relationships: []
       }
+      llm_usage: {
+        Row: {
+          completion_tokens: number
+          cost_micros: number
+          model_calls: number
+          prompt_tokens: number
+          requests: number
+          updated_at: string
+          usage_date: string
+        }
+        Insert: {
+          completion_tokens?: number
+          cost_micros?: number
+          model_calls?: number
+          prompt_tokens?: number
+          requests?: number
+          updated_at?: string
+          usage_date: string
+        }
+        Update: {
+          completion_tokens?: number
+          cost_micros?: number
+          model_calls?: number
+          prompt_tokens?: number
+          requests?: number
+          updated_at?: string
+          usage_date?: string
+        }
+        Relationships: []
+      }
       manager_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -1543,6 +2085,155 @@ export type Database = {
             columns: ["acknowledged_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_audiences: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name_ar: string
+          name_en: string
+          rule: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name_ar: string
+          name_en: string
+          rule?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name_ar?: string
+          name_en?: string
+          rule?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_audiences_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_campaigns: {
+        Row: {
+          audience_id: string | null
+          body_ar: string
+          body_en: string
+          channel: Database["public"]["Enums"]["marketing_channel"]
+          created_at: string
+          created_by: string
+          ends_at: string | null
+          id: string
+          name_ar: string
+          name_en: string
+          promotion_id: string | null
+          starts_at: string | null
+          status: Database["public"]["Enums"]["campaign_status"]
+          updated_at: string
+        }
+        Insert: {
+          audience_id?: string | null
+          body_ar?: string
+          body_en?: string
+          channel: Database["public"]["Enums"]["marketing_channel"]
+          created_at?: string
+          created_by: string
+          ends_at?: string | null
+          id?: string
+          name_ar: string
+          name_en: string
+          promotion_id?: string | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          updated_at?: string
+        }
+        Update: {
+          audience_id?: string | null
+          body_ar?: string
+          body_en?: string
+          channel?: Database["public"]["Enums"]["marketing_channel"]
+          created_at?: string
+          created_by?: string
+          ends_at?: string | null
+          id?: string
+          name_ar?: string
+          name_en?: string
+          promotion_id?: string | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["campaign_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaigns_audience_id_fkey"
+            columns: ["audience_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_audiences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaigns_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_sends: {
+        Row: {
+          at: string
+          campaign_id: string
+          delivered: number
+          failed: number
+          id: string
+          meta: Json
+          recipients: number
+        }
+        Insert: {
+          at?: string
+          campaign_id: string
+          delivered?: number
+          failed?: number
+          id?: string
+          meta?: Json
+          recipients?: number
+        }
+        Update: {
+          at?: string
+          campaign_id?: string
+          delivered?: number
+          failed?: number
+          id?: string
+          meta?: Json
+          recipients?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
             referencedColumns: ["id"]
           },
         ]
@@ -2190,6 +2881,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          deleted_at: string | null
           expo_push_token: string | null
           full_name: string
           id: string
@@ -2198,6 +2890,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           expo_push_token?: string | null
           full_name: string
           id: string
@@ -2206,6 +2899,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           expo_push_token?: string | null
           full_name?: string
           id?: string
@@ -2213,6 +2907,162 @@ export type Database = {
           preferred_lang?: string
         }
         Relationships: []
+      }
+      promotion_redemptions: {
+        Row: {
+          adjustment_id: string
+          amount_iqd: number
+          code_used: string | null
+          customer_id: string | null
+          id: string
+          idempotency_key: string | null
+          promotion_id: string
+          redeemed_at: string
+          redeemed_by: string
+          tab_id: string
+        }
+        Insert: {
+          adjustment_id: string
+          amount_iqd: number
+          code_used?: string | null
+          customer_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          promotion_id: string
+          redeemed_at?: string
+          redeemed_by: string
+          tab_id: string
+        }
+        Update: {
+          adjustment_id?: string
+          amount_iqd?: number
+          code_used?: string | null
+          customer_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          promotion_id?: string
+          redeemed_at?: string
+          redeemed_by?: string
+          tab_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_redemptions_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "tab_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_redemptions_adjustment_id_fkey"
+            columns: ["adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "v_day_close_adjustments"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "promotion_redemptions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_redemptions_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_redemptions_redeemed_by_fkey"
+            columns: ["redeemed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_redemptions_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotions: {
+        Row: {
+          auto: boolean
+          code_single_use: boolean
+          created_at: string
+          created_by: string
+          enabled: boolean
+          ends_at: string | null
+          hour_from: string | null
+          hour_to: string | null
+          id: string
+          limits: Json
+          name_ar: string
+          name_en: string
+          public_code: string | null
+          scope: Json
+          starts_at: string | null
+          type: string
+          updated_at: string
+          value: number
+          weekdays: number[]
+        }
+        Insert: {
+          auto?: boolean
+          code_single_use?: boolean
+          created_at?: string
+          created_by: string
+          enabled?: boolean
+          ends_at?: string | null
+          hour_from?: string | null
+          hour_to?: string | null
+          id?: string
+          limits?: Json
+          name_ar: string
+          name_en: string
+          public_code?: string | null
+          scope?: Json
+          starts_at?: string | null
+          type: string
+          updated_at?: string
+          value: number
+          weekdays?: number[]
+        }
+        Update: {
+          auto?: boolean
+          code_single_use?: boolean
+          created_at?: string
+          created_by?: string
+          enabled?: boolean
+          ends_at?: string | null
+          hour_from?: string | null
+          hour_to?: string | null
+          id?: string
+          limits?: Json
+          name_ar?: string
+          name_en?: string
+          public_code?: string | null
+          scope?: Json
+          starts_at?: string | null
+          type?: string
+          updated_at?: string
+          value?: number
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rate_rule_prices: {
         Row: {
@@ -2446,6 +3296,88 @@ export type Database = {
           },
         ]
       }
+      reservation_series: {
+        Row: {
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          court_id: string
+          created_at: string
+          created_by_staff_id: string | null
+          duration_min: number
+          ends_on: string
+          guest_id: string | null
+          guest_name: string | null
+          guest_phone: string | null
+          id: string
+          idempotency_key: string | null
+          notes: string | null
+          pattern: string
+          start_time: string
+          starts_on: string
+          weekdays: number[]
+        }
+        Insert: {
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          court_id: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          duration_min: number
+          ends_on: string
+          guest_id?: string | null
+          guest_name?: string | null
+          guest_phone?: string | null
+          id?: string
+          idempotency_key?: string | null
+          notes?: string | null
+          pattern: string
+          start_time: string
+          starts_on: string
+          weekdays?: number[]
+        }
+        Update: {
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          court_id?: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          duration_min?: number
+          ends_on?: string
+          guest_id?: string | null
+          guest_name?: string | null
+          guest_phone?: string | null
+          id?: string
+          idempotency_key?: string | null
+          notes?: string | null
+          pattern?: string
+          start_time?: string
+          starts_on?: string
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_series_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_series_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservation_series_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservations: {
         Row: {
           cancellation_reason: string | null
@@ -2467,6 +3399,7 @@ export type Database = {
           period: unknown
           price_iqd: number | null
           rate_rule_id: string | null
+          series_id: string | null
           source: Database["public"]["Enums"]["reservation_source"]
           start_at: string
           status: Database["public"]["Enums"]["reservation_status"]
@@ -2491,6 +3424,7 @@ export type Database = {
           period?: unknown
           price_iqd?: number | null
           rate_rule_id?: string | null
+          series_id?: string | null
           source: Database["public"]["Enums"]["reservation_source"]
           start_at: string
           status?: Database["public"]["Enums"]["reservation_status"]
@@ -2515,6 +3449,7 @@ export type Database = {
           period?: unknown
           price_iqd?: number | null
           rate_rule_id?: string | null
+          series_id?: string | null
           source?: Database["public"]["Enums"]["reservation_source"]
           start_at?: string
           status?: Database["public"]["Enums"]["reservation_status"]
@@ -2546,6 +3481,13 @@ export type Database = {
             columns: ["rate_rule_id"]
             isOneToOne: false
             referencedRelation: "rate_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "reservation_series"
             referencedColumns: ["id"]
           },
         ]
@@ -2582,6 +3524,66 @@ export type Database = {
           {
             foreignKeyName: "staff_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_requests: {
+        Row: {
+          amount_iqd: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          from_date: string | null
+          id: string
+          kind: Database["public"]["Enums"]["staff_request_kind"]
+          note: string
+          staff_id: string
+          status: Database["public"]["Enums"]["staff_request_status"]
+          to_date: string | null
+        }
+        Insert: {
+          amount_iqd?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          from_date?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["staff_request_kind"]
+          note?: string
+          staff_id: string
+          status?: Database["public"]["Enums"]["staff_request_status"]
+          to_date?: string | null
+        }
+        Update: {
+          amount_iqd?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          from_date?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["staff_request_kind"]
+          note?: string
+          staff_id?: string
+          status?: Database["public"]["Enums"]["staff_request_status"]
+          to_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requests_staff_id_fkey"
+            columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
@@ -2900,6 +3902,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["adjustment_kind"]
           order_item_id: string | null
+          promotion_id: string | null
           reason_code: string
           tab_id: string
           value: number
@@ -2912,6 +3915,7 @@ export type Database = {
           id?: string
           kind: Database["public"]["Enums"]["adjustment_kind"]
           order_item_id?: string | null
+          promotion_id?: string | null
           reason_code: string
           tab_id: string
           value: number
@@ -2924,6 +3928,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["adjustment_kind"]
           order_item_id?: string | null
+          promotion_id?: string | null
           reason_code?: string
           tab_id?: string
           value?: number
@@ -2948,6 +3953,13 @@ export type Database = {
             columns: ["order_item_id"]
             isOneToOne: false
             referencedRelation: "order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tab_adjustments_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
             referencedColumns: ["id"]
           },
           {
@@ -3278,14 +4290,20 @@ export type Database = {
           closed_dates: string[]
           currency: string
           expiring_soon_days: number
+          guest_items_per_order: number
+          guest_orders_per_minute: number
           heartbeat_stale_seconds: number
           hold_ttl_seconds: number
           id: boolean
+          llm_cost_micros_per_mtok: number
+          llm_daily_request_limit: number
+          llm_monthly_cost_cap_micros: number
           max_booking_horizon_days: number
           max_live_holds_per_guest: number
           opening_hours: Json
           phone: string | null
           protected_horizon_hours: number
+          tab_confirm_threshold_iqd: number
           table_token_ttl_minutes: number
           tax_inclusive: boolean
           timezone: string
@@ -3298,14 +4316,20 @@ export type Database = {
           closed_dates?: string[]
           currency?: string
           expiring_soon_days?: number
+          guest_items_per_order?: number
+          guest_orders_per_minute?: number
           heartbeat_stale_seconds?: number
           hold_ttl_seconds?: number
           id?: boolean
+          llm_cost_micros_per_mtok?: number
+          llm_daily_request_limit?: number
+          llm_monthly_cost_cap_micros?: number
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           opening_hours: Json
           phone?: string | null
           protected_horizon_hours?: number
+          tab_confirm_threshold_iqd?: number
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
@@ -3318,14 +4342,20 @@ export type Database = {
           closed_dates?: string[]
           currency?: string
           expiring_soon_days?: number
+          guest_items_per_order?: number
+          guest_orders_per_minute?: number
           heartbeat_stale_seconds?: number
           hold_ttl_seconds?: number
           id?: boolean
+          llm_cost_micros_per_mtok?: number
+          llm_daily_request_limit?: number
+          llm_monthly_cost_cap_micros?: number
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           opening_hours?: Json
           phone?: string | null
           protected_horizon_hours?: number
+          tab_confirm_threshold_iqd?: number
           table_token_ttl_minutes?: number
           tax_inclusive?: boolean
           timezone?: string
@@ -3736,8 +4766,10 @@ export type Database = {
         | "low_stock"
         | "expiring_soon"
         | "replay_conflict"
+      campaign_status: "draft" | "scheduled" | "live" | "ended" | "cancelled"
       day_status: "open" | "closing" | "closed"
       ingredient_kind: "purchased" | "prepared"
+      marketing_channel: "telegram" | "guest_site" | "in_venue"
       movement_type:
         | "goods_in"
         | "production_in"
@@ -3762,6 +4794,8 @@ export type Database = {
         | "cancelled"
         | "no_show"
         | "expired"
+      staff_request_kind: "leave" | "shift_swap" | "advance" | "correction"
+      staff_request_status: "pending" | "approved" | "rejected" | "withdrawn"
       staff_role: "cashier" | "prep" | "court_desk" | "manager" | "owner"
       stock_unit: "g" | "ml" | "pc"
       tab_status: "open" | "awaiting_payment" | "settled" | "void"
@@ -3909,8 +4943,10 @@ export const Constants = {
         "expiring_soon",
         "replay_conflict",
       ],
+      campaign_status: ["draft", "scheduled", "live", "ended", "cancelled"],
       day_status: ["open", "closing", "closed"],
       ingredient_kind: ["purchased", "prepared"],
+      marketing_channel: ["telegram", "guest_site", "in_venue"],
       movement_type: [
         "goods_in",
         "production_in",
@@ -3937,6 +4973,8 @@ export const Constants = {
         "no_show",
         "expired",
       ],
+      staff_request_kind: ["leave", "shift_swap", "advance", "correction"],
+      staff_request_status: ["pending", "approved", "rejected", "withdrawn"],
       staff_role: ["cashier", "prep", "court_desk", "manager", "owner"],
       stock_unit: ["g", "ml", "pc"],
       tab_status: ["open", "awaiting_payment", "settled", "void"],

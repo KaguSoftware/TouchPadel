@@ -110,7 +110,7 @@ export function CategoryForm({
   const valid = nameEn.trim() !== '' && nameAr.trim() !== '' && taxGroupId !== '';
 
   return (
-    <div style={{ ...card, marginBlockStart: '0.5rem' }}>
+    <div style={{ ...card, marginBlockStart: 'var(--tp-sp-2)' }}>
       <h4 style={{ marginBlockStart: 0 }}>
         {category ? pickName(locale, category) : tr('op.menu.newCategory')}
       </h4>
@@ -139,15 +139,15 @@ export function CategoryForm({
         aspect="16:9"
         disabled={photoMutation.isPending}
       />
-      <p style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)', marginBlock: '0 0.6rem' }}>
+      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlock: '0 0.6rem' }}>
         {tr('op.categories.photoHint')}
       </p>
-      <label style={{ display: 'flex', gap: '0.4rem', marginBlockEnd: '0.6rem', alignItems: 'center' }}>
+      <label style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', marginBlockEnd: 'var(--tp-sp-2-5)', alignItems: 'center' }}>
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
         {tr('op.categories.active')}
       </label>
       <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', justifyContent: 'flex-end' }}>
         <Button onClick={cancel}>{tr('common.cancel')}</Button>
         <Button kind="primary" disabled={save.isPending || !valid} onClick={() => save.mutate()}>
           {tr('common.save')}
@@ -205,7 +205,7 @@ export function CategoryEditor() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBlockEnd: '0.6rem',
+          marginBlockEnd: 'var(--tp-sp-2-5)',
         }}
       >
         <h2 style={{ margin: 0 }}>{tr('op.categories.title')}</h2>
@@ -213,7 +213,7 @@ export function CategoryEditor() {
           {tr('op.menu.newCategory')}
         </Button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(16rem, 24rem) 1fr', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(16rem, 24rem) 1fr', gap: 'var(--tp-sp-4)' }}>
         <div>
           {categories.map((c, index) => (
             <div
@@ -222,8 +222,8 @@ export function CategoryEditor() {
                 ...card,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                marginBlockEnd: '0.4rem',
+                gap: 'var(--tp-sp-2)',
+                marginBlockEnd: 'var(--tp-sp-1-5)',
                 opacity: c.is_active ? 1 : 0.55,
                 borderColor: editing === c.id ? 'var(--tp-accent)' : 'var(--tp-border)',
               }}

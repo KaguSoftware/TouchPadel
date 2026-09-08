@@ -1,4 +1,13 @@
-import type { MutationEnvelope, PrintJob } from '../ipc-channels';
+import type {
+  AuthState,
+  DiscoverRequest,
+  MutationEnvelope,
+  PrintJob,
+  ResolveQueueRowRequest,
+  StationMode,
+  StationSetupRequest,
+} from '../ipc-channels';
+import { ipv4Regex, isPrivateIpv4 } from './lan-net';
 
 /**
  * Runtime validation for everything crossing the IPC boundary.
@@ -65,10 +74,13 @@ export const MUTATION_TYPES = [
 
 const MUTATION_TYPE_ALT = MUTATION_TYPES.map((t) => t.replace(/\./g, '\\.')).join('|');
 
+export const stationRegex = new RegExp(`^${STATION_SRC}$`);
 export const clientRefRegex = new RegExp(`^${STATION_SRC}-${ULID_SRC}$`);
 export const idempotencyKeyRegex = new RegExp(
   `^${STATION_SRC}:(?:${MUTATION_TYPE_ALT}):${ULID_SRC}$`,
 );
+/** RFC 4122 textual form, either case — matches zod's uuid() acceptance closely enough. */
+const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 /** Comfortably above any real ticket; far below anything that could wedge SQLite. */
 export const MAX_PAYLOAD_BYTES = 256 * 1024;
@@ -98,10 +110,16 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
   const [keyStation, keyType] = idempotencyKey.split(':');
   if (keyType !== mutationType) fail('idempotencyKey does not match mutationType');
 
-  // localId is "{station}-{ulid}" and the station itself may contain hyphens,
-  // so compare by suffix rather than by splitting on the first '-'.
-  if (!localId.startsWith(`${keyStation}-`)) {
-    fail('localId and idempotencyKey disagree on the station');
+  const staffId = requireString(raw.staffId, 'staffId', 64);
+  if (!uuidRegex.test(staffId)) fail('staffId must be a uuid');
+
+  // The queue OWNER mints the key: its station segment must equal deviceId, and the
+  // replay function 400s on the same mismatch. localId's station may legitimately
+  // differ — the till enqueues status updates on the KDS's behalf (single writer).
+  const deviceId = requireString(raw.deviceId, 'deviceId', 32);
+  if (!stationRegex.test(deviceId)) fail('deviceId must be a station id like TILL-01');
+  if (keyStation !== deviceId) {
+    fail('idempotencyKey and deviceId disagree on the station');
   }
 
   const createdAt = requireString(raw.createdAt, 'createdAt', 64);
@@ -116,10 +134,21 @@ export function validateMutationEnvelope(value: unknown): MutationEnvelope {
   if (serialized === undefined) fail('payload is not JSON-serialisable');
   if (Buffer.byteLength(serialized, 'utf8') > MAX_PAYLOAD_BYTES) fail('payload is too large');
 
-  return { localId, idempotencyKey, mutationType, payload: raw.payload ?? null, createdAt };
+  return {
+    localId,
+    idempotencyKey,
+    mutationType,
+    payload: raw.payload ?? null,
+    createdAt,
+    staffId,
+    deviceId,
+  };
 }
 
-/** Cache keys are a closed set (design-arch.md §2.3), not free-form strings. */
+/** Cache keys are a closed set (design-arch.md §2.3), not free-form strings.
+ *  'day' joined the set on day 14: the till's "no business day is open" gate
+ *  must not fire just because the network died. 'staff_pins' is vestigial —
+ *  superseded by the pin_cache authorisation-token model (pin-cache.ts). */
 export const REF_KEYS = [
   'menu',
   'prices',
@@ -130,8 +159,31 @@ export const REF_KEYS = [
   'staff_pins',
   'reservations',
   'open_tabs',
+  'day',
 ] as const;
 export type RefKey = (typeof REF_KEYS)[number];
+
+/** Ref payloads are whole menus/reservation days — far above MAX_PAYLOAD_BYTES. */
+export const MAX_REF_PAYLOAD_BYTES = 2 * 1024 * 1024;
+
+export function validateCachePut(value: unknown): { key: RefKey; payload: unknown } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('cachePut must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const key = validateRefKey(raw.key);
+  let serialized: string | undefined;
+  try {
+    serialized = JSON.stringify(raw.payload ?? null);
+  } catch {
+    fail('cachePut payload is not JSON-serialisable');
+  }
+  if (serialized === undefined) fail('cachePut payload is not JSON-serialisable');
+  if (Buffer.byteLength(serialized, 'utf8') > MAX_REF_PAYLOAD_BYTES) {
+    fail('cachePut payload is too large');
+  }
+  return { key, payload: raw.payload ?? null };
+}
 
 export function validateRefKey(value: unknown): RefKey {
   const key = requireString(value, 'refKey', 32);
@@ -140,6 +192,8 @@ export function validateRefKey(value: unknown): RefKey {
 }
 
 const PRINT_KINDS = ['receipt', 'kitchen', 'reprint'] as const;
+/** A receipt's HTML — generous, but bounded (a runaway DOM string is a bug). */
+export const MAX_PRINT_HTML_BYTES = 512 * 1024;
 
 export function validatePrintJob(value: unknown): PrintJob {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -148,7 +202,51 @@ export function validatePrintJob(value: unknown): PrintJob {
   const raw = value as Record<string, unknown>;
   const kind = requireString(raw.kind, 'kind', 16);
   if (!(PRINT_KINDS as readonly string[]).includes(kind)) fail(`unknown print kind '${kind}'`);
+  // receipt/reprint carry { html } for the rendered-image pipeline.
+  const data = raw.data as Record<string, unknown> | null | undefined;
+  if (data && typeof data === 'object' && 'html' in data) {
+    const html = requireString(data.html, 'data.html', MAX_PRINT_HTML_BYTES);
+    return { kind: kind as PrintJob['kind'], data: { html } };
+  }
   return { kind: kind as PrintJob['kind'], data: raw.data ?? null };
+}
+
+/**
+ * Auth state pushed by the renderer for the sync worker. `null` clears it
+ * (sign-out). The token is opaque here — the server verifies it; this only
+ * refuses junk shapes, and like the PIN the token must never reach a log line.
+ */
+export function validateAuthState(value: unknown): AuthState | null {
+  if (value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) fail('authState must be an object or null');
+  const raw = value as Record<string, unknown>;
+  const accessToken = requireString(raw.accessToken, 'accessToken', 8192);
+  const staffId = requireString(raw.staffId, 'staffId', 64);
+  if (!uuidRegex.test(staffId)) fail('staffId must be a uuid');
+  const supabaseUrl = requireString(raw.supabaseUrl, 'supabaseUrl', 512);
+  if (!/^https?:\/\//.test(supabaseUrl)) fail('supabaseUrl must be http(s)');
+  const anonKey = requireString(raw.anonKey, 'anonKey', 8192);
+  return { accessToken, staffId, supabaseUrl: supabaseUrl.replace(/\/+$/, ''), anonKey };
+}
+
+export function validateConnState(value: unknown): boolean {
+  if (typeof value !== 'boolean') fail('connState must be a boolean');
+  return value;
+}
+
+/** A KDS renderer's bump, bound for the till over the LAN. kdsStation is
+ *  stamped by main from station.json — never trusted from the renderer. */
+export function validateLanStatus(value: unknown): { ref: string; status: 'preparing' | 'ready' | 'completed' } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('lanStatus must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const ref = requireString(raw.ref, 'ref', 128);
+  const status = requireString(raw.status, 'status', 16);
+  if (status !== 'preparing' && status !== 'ready' && status !== 'completed') {
+    fail(`unknown lan status '${status}'`);
+  }
+  return { ref, status };
 }
 
 /**
@@ -162,4 +260,79 @@ export function validatePin(value: unknown): string {
   const pin = value as string;
   if (!/^\d{4,12}$/.test(pin)) fail('pin must be 4-12 digits');
   return pin;
+}
+
+/**
+ * A manager dismissing a conflict/failed queue row from the day-close screen.
+ * The key must look like one the queue owner could have minted; the PIN rides
+ * along unlogged (validatePin) and is re-checked against the offline cache.
+ */
+export function validateResolveQueueRow(value: unknown): ResolveQueueRowRequest {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('resolveQueueRow must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const idempotencyKey = requireString(raw.idempotencyKey, 'idempotencyKey', 128);
+  if (!idempotencyKeyRegex.test(idempotencyKey)) {
+    fail('idempotencyKey must be {STATION}:{mutation_type}:{ULID}');
+  }
+  return { idempotencyKey, pin: validatePin(raw.pin) };
+}
+
+// --- first-run station setup + kitchen-screen pairing --------------------------
+
+/** Mirror of @touch/core/pairing/pairingCode — drift-tested in pairing-code.test.ts. */
+export const pairingCodeRegex = /^[0-9A-HJKMNP-TV-Z]{10}$/;
+const STATION_MODES = ['till', 'desk', 'kds'] as const;
+
+/**
+ * The pairing code IS the LAN secret, so like the PIN it is never echoed in
+ * an error message. Accepts only the canonical (normalised) form: the renderer
+ * normalises what staff type before it crosses the bridge.
+ */
+export function validatePairingCode(value: unknown): string {
+  if (typeof value !== 'string') fail('pairingCode must be a string');
+  const code = value as string;
+  if (!pairingCodeRegex.test(code)) fail('pairingCode must be 10 Crockford-base32 characters');
+  return code;
+}
+
+function validatePrivateHost(value: unknown, field: string): string {
+  const host = requireString(value, field, 15);
+  if (!ipv4Regex.test(host)) fail(`${field} must be an IPv4 address`);
+  if (!isPrivateIpv4(host)) fail(`${field} must be a private (LAN) address`);
+  return host;
+}
+
+/**
+ * What the first-run screen sends. Till and desk carry only id + mode (a till
+ * mints its own PSK in main); a kitchen screen must bring the till it found
+ * and the code that opened it. Extras are dropped, as everywhere here.
+ */
+export function validateStationSetup(value: unknown): StationSetupRequest {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('station setup must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const stationId = requireString(raw.stationId, 'stationId', 32);
+  if (!stationRegex.test(stationId)) fail('stationId must look like TILL-01');
+  const mode = requireString(raw.mode, 'mode', 8);
+  if (!(STATION_MODES as readonly string[]).includes(mode)) fail(`unknown station mode '${mode}'`);
+  if (mode !== 'kds') return { stationId, mode: mode as StationMode };
+  return {
+    stationId,
+    mode: 'kds',
+    tillHost: validatePrivateHost(raw.tillHost, 'tillHost'),
+    pairingCode: validatePairingCode(raw.pairingCode),
+  };
+}
+
+export function validateDiscoverRequest(value: unknown): DiscoverRequest {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    fail('discover request must be an object');
+  }
+  const raw = value as Record<string, unknown>;
+  const code = validatePairingCode(raw.code);
+  if (raw.host === undefined || raw.host === null || raw.host === '') return { code };
+  return { code, host: validatePrivateHost(raw.host, 'host') };
 }

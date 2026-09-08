@@ -26,10 +26,9 @@
  * On a short phone the card caps itself to the stage and the grid shrinks
  * (min 96 pt) instead of the card overflowing under the title or tab bar.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Animated,
-  type LayoutChangeEvent,
   Platform,
   ScrollView,
   StyleSheet,
@@ -60,7 +59,7 @@ import {
   type Dir,
   type Range,
 } from '../features/courtTransition/spec';
-import { brand, shadows, space, useTheme } from '../theme';
+import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, ErrorText, SegmentedControl } from './ui';
 import { DayChip, SlotCell } from './booking';
 import { SkeletonList } from './states';
@@ -70,13 +69,18 @@ import { NoticeSheet } from './overlays';
 const CARD_MAX_W = 268;
 const CARD_RADIUS = 22;
 /**
- * Four compact rows show (40 + 6 gap each) plus a peek at the fifth, the rest
+ * Four compact rows show (46 + 6 gap each) plus a peek at the fifth, the rest
  * scroll. The "assigned at the desk" footer used to sit under this and now
  * does not: the grid took its ~42 pt, so the card is the same height with more
  * of the night on screen. That line still runs under the standalone
  * Availability screen's grid, which has the room for it.
+ *
+ * Grown with the cells (owner, 2026-09-05: bigger, bolder options): the taller
+ * rows would otherwise have shown three and a half. Most of it is the ~26 pt
+ * the in-card heading gave back when it moved up to the screen title, so the
+ * card is barely taller than it was.
  */
-const GRID_H = 192;
+const GRID_H = 216;
 const PAD = 10;
 /** The card's hairline. Edge fades stop just inside it so the border stays crisp. */
 const CARD_BORDER = 1;
@@ -96,14 +100,6 @@ const fadeInk = (color: string, alpha: number) => {
   const [s0, s1, s2, s3, s4] = FADE_STOPS;
   return [ink(s0), ink(s1), ink(s2), ink(s3), ink(s4)] as const;
 };
-
-/** `#RRGGBB` + alpha → `#RRGGBBAA` (RN accepts 8-digit hex; the tab bar tint is one). */
-const withAlpha = (hex: string, alpha: number): string =>
-  hex.slice(0, 7) +
-  Math.round(alpha * 255)
-    .toString(16)
-    .padStart(2, '0')
-    .toUpperCase();
 
 interface Entrance {
   opacity: Animated.AnimatedInterpolation<number>;
@@ -213,25 +209,12 @@ export function BookingSheet({
   const pillsAtStart = pillsScrolledIn !== dir;
   const [gridAtTop, setGridAtTop] = useState(true);
 
-  // The grid opens on the first time that has not started yet (a.openRow), so a
-  // 21:00 guest does not scroll 09:00 → 21:00 to reach tonight. Rows are not a
-  // fixed height (a capacity line makes one taller), so the target row reports
-  // its own y through onLayout rather than the offset being multiplied out.
-  // `key` remounts the list per day/duration — a fresh ScrollView starts at 0
-  // and always lays its rows out, so the homing runs exactly once per list and
-  // never fights a scroll the guest is in the middle of.
-  const gridRef = useRef<ScrollView>(null);
+  // The grid's first row IS tonight's first bookable time — the hook drops every
+  // hour that has already started — so a fresh ScrollView per day/duration opens
+  // at the top with nothing above it to scroll back to. `key` does the remount,
+  // and a list that starts at 0 keeps the leading fade off until the guest
+  // scrolls.
   const gridKey = `${a.date}|${a.durationMin}`;
-  const homedFor = useRef<string | null>(null);
-  const homeGrid = (r: number) => (e: LayoutChangeEvent) => {
-    if (r !== a.openRow || homedFor.current === gridKey) return;
-    homedFor.current = gridKey;
-    const { y } = e.nativeEvent.layout;
-    if (y > 0) gridRef.current?.scrollTo({ y, animated: false });
-    // A programmatic scroll does not reliably emit onScroll on Android, and the
-    // flag outlives the remount either way — say where the list landed.
-    setGridAtTop(y <= 0);
-  };
 
   // Sheet: direction-aware PITCH ease (remapped inside its 0.25 → 1 slice).
   const sheet = useMemo(() => {
@@ -384,7 +367,6 @@ export function BookingSheet({
     grid = (
       <ScrollView
         key={gridKey}
-        ref={gridRef}
         showsVerticalScrollIndicator={false}
         onScroll={onGridScroll}
         scrollEventThrottle={32}
@@ -395,7 +377,6 @@ export function BookingSheet({
           return (
             <Animated.View
               key={row[0]?.startAt.toISOString() ?? r}
-              onLayout={homeGrid(r)}
               style={{
                 flexDirection: 'row',
                 gap: 6,
@@ -479,24 +460,13 @@ export function BookingSheet({
                 ]}
               />
 
-              <Text
-                accessibilityRole="header"
-                style={{
-                  paddingStart: 12,
-                  paddingEnd: 12,
-                  paddingTop: 10,
-                  paddingBottom: 0,
-                  fontFamily: fonts.display900,
-                  fontSize: 15,
-                  lineHeight: 16,
-                  textTransform: 'uppercase',
-                  color: colors.ink,
-                }}
-              >
-                {t('booking.pickTime')}
-              </Text>
+              {/* No heading inside the card: the screen title above it turns
+                  from BOOK A COURT into PICK A TIME as the sheet opens (owner,
+                  2026-09-05), so a second copy of the same words in the card
+                  would only repeat it — and screen readers would read it twice.
+                  The ~26 pt it used to cost went to the grid. */}
 
-              {/* Day pills (one = one trading night), ~6 visible, the rest scroll */}
+              {/* Day pills (one = one trading night), ~5 visible, the rest scroll */}
               <View>
                 <ScrollView
                   key={dir}
@@ -514,7 +484,9 @@ export function BookingSheet({
                     gap: 4,
                     paddingStart: PAD,
                     paddingEnd: PAD,
-                    paddingTop: 5,
+                    // The heading used to open the card; the pills do now, so
+                    // they carry its top breathing room instead of 5 pt.
+                    paddingTop: 10,
                   }}
                 >
                   {a.tzDates.map((d, i) => {
@@ -608,7 +580,6 @@ export function BookingSheet({
                   inset={CARD_BORDER}
                 />
               </View>
-
             </Animated.View>
           </View>
         </Animated.View>

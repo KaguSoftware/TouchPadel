@@ -10,7 +10,8 @@ import { useLocale } from '../../../lib/i18n';
 import { overviewCopy } from '../copy';
 import type { Derived } from '../derive';
 import type { Formatters } from '../format';
-import { CardShell, Chip, muted, type CardState } from './CardShell';
+import { CardShell, muted, type CardState } from './CardShell';
+import { StatusBadge, type Tone } from '../../../components/kit';
 
 const TONE_KEY: Record<OverviewTone, MessageKey> = {
   good: 'analytics.overview.toneStrong',
@@ -19,11 +20,12 @@ const TONE_KEY: Record<OverviewTone, MessageKey> = {
   weak: 'analytics.overview.toneWatch',
 };
 
-const TONE_CHIP: Record<OverviewTone, 'good' | 'neutral' | 'warn' | 'bad'> = {
-  good: 'good',
+/** The card's own tone words mapped onto the system's status vocabulary (10.6). */
+const TONE_CHIP: Record<OverviewTone, Tone> = {
+  good: 'success',
   neutral: 'neutral',
   mixed: 'warn',
-  weak: 'bad',
+  weak: 'danger',
 };
 
 export function OverviewCard({
@@ -82,11 +84,11 @@ export function OverviewCard({
       title={tr('analytics.overview.title')}
       state={state === 'ready' && (overview === null || empty) ? 'empty' : state}
       emptyKey="analytics.overview.noData"
-      actions={overview && <Chip tone={TONE_CHIP[overview.tone]}>{tr(TONE_KEY[overview.tone])}</Chip>}
+      actions={overview && <StatusBadge size="sm" tone={TONE_CHIP[overview.tone]} label={tr(TONE_KEY[overview.tone])} />}
     >
       {overview && (
         <div style={{ display: 'grid', gap: '0.6rem' }}>
-          <p style={{ margin: 0, fontSize: '0.95rem' }}>{overview.headline}</p>
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-md)' }}>{overview.headline}</p>
           <Group titleKey="analytics.overview.strengths" lines={overview.strengths} />
           <Group titleKey="analytics.overview.push" lines={overview.push} />
           <Group titleKey="analytics.overview.watch" lines={overview.watch} />
@@ -102,7 +104,7 @@ function Group({ titleKey, lines }: { titleKey: MessageKey; lines: readonly stri
   return (
     <div>
       <span style={{ ...muted, display: 'block', fontWeight: 700 }}>{tr(titleKey)}</span>
-      <ul style={{ margin: '0.2rem 0 0', paddingInlineStart: '1.1rem', fontSize: '0.85rem', display: 'grid', gap: '0.2rem' }}>
+      <ul style={{ margin: '0.2rem 0 0', paddingInlineStart: '1.1rem', fontSize: 'var(--tp-fs-sm)', display: 'grid', gap: '0.2rem' }}>
         {lines.map((line, i) => (
           <li key={`${i}-${line}`}>{line}</li>
         ))}

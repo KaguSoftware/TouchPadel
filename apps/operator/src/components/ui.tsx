@@ -1,54 +1,88 @@
 /**
- * Tiny shared UI kit for the operator app. Inline styles, CSS LOGICAL
- * PROPERTIES ONLY (RTL flips via dir on <html>), theme tokens from @touch/ui.
+ * Shared UI kit for the operator app. Inline styles, CSS LOGICAL PROPERTIES
+ * ONLY (RTL flips via dir on <html>), theme tokens from @touch/ui. Interaction
+ * states live in GlobalStyles (class hooks: tp-btn, tp-tile, tp-row, tp-table).
+ *
+ * Every action control accepts `busy` (spec R10) and is non-actionable while
+ * true. Nothing in here decides whether an action is permitted.
  */
 import {
+  cloneElement,
+  isValidElement,
   useEffect,
+  useId,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
   type ReactNode,
 } from 'react';
 import { useLocale } from '../lib/i18n';
 import { errorToMessageKey } from '../lib/errors';
+import { Icon, type IconName } from './icons';
+import { BrandBall } from './brand';
 
 export const card: CSSProperties = {
   background: 'var(--tp-surface)',
   border: '1px solid var(--tp-border)',
-  borderRadius: '0.5rem',
-  paddingBlock: '0.75rem',
-  paddingInline: '0.75rem',
+  borderRadius: 'var(--tp-radius-panel)',
+  // 0.85rem was on no rung of the 4px scale, so a card's inline inset never
+  // lined up with the gaps the screens around it are laid out on.
+  paddingBlock: 'var(--tp-sp-3)',
+  paddingInline: 'var(--tp-sp-3)',
+};
+
+/** A quieter panel for toolbars and secondary groups. */
+export const panelMuted: CSSProperties = {
+  background: 'var(--tp-surface-2)',
+  border: '1px solid var(--tp-border)',
+  borderRadius: 'var(--tp-radius-panel)',
+  paddingBlock: 'var(--tp-sp-3)',
+  paddingInline: 'var(--tp-sp-3)',
 };
 
 export const inputStyle: CSSProperties = {
   paddingBlock: '0.45rem',
-  paddingInline: '0.6rem',
-  border: '1px solid var(--tp-border)',
-  borderRadius: '0.35rem',
-  fontSize: '1rem',
+  paddingInline: '0.65rem',
+  border: '1px solid var(--tp-border-strong)',
+  borderRadius: 'var(--tp-radius-ctl)',
+  fontSize: 'var(--tp-fs-md)',
+  lineHeight: 1.35,
   inlineSize: '100%',
+  // The same floor a table row stands on, so a form control and a row of data
+  // are the same height on screen. 2.25rem drifted with the reading root.
+  minBlockSize: 'var(--tp-row-h)',
   boxSizing: 'border-box',
-  background: 'var(--tp-bg)',
+  background: 'var(--tp-surface)',
   color: 'var(--tp-fg)',
 };
 
-export function Button({
-  children,
-  onClick,
-  kind = 'default',
-  disabled,
-  type = 'button',
-  style,
-  autoFocus,
-  title,
-  'aria-label': ariaLabel,
-  'aria-pressed': ariaPressed,
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  kind?: 'default' | 'primary' | 'danger' | 'ghost';
+export type ButtonKind = 'default' | 'primary' | 'danger' | 'ghost' | 'soft';
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
+
+interface ButtonProps {
+  children?: ReactNode;
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
+  /** Prefetch hooks (the till's tab rail warms the detail query on hover). */
+  onMouseEnter?: () => void;
+  onFocus?: () => void;
+  kind?: ButtonKind;
+  size?: ButtonSize;
+  icon?: IconName;
+  iconEnd?: IconName;
   disabled?: boolean;
+  /** Spec R10: non-actionable while true; shows a spinner in place of the icon. */
+  busy?: boolean;
+  /**
+   * Why this control cannot be used right now — rulebook 4.3: a disabled
+   * control is never a dead end. Rendered as a visible line beneath the button
+   * and tied to it with aria-describedby, because `title` is the only channel
+   * the app had and a tooltip reaches neither a keyboard nor a finger.
+   * Purely presentational: it never decides whether anything is disabled.
+   */
+  disabledReason?: string;
   type?: 'button' | 'submit';
   style?: CSSProperties;
   autoFocus?: boolean;
@@ -56,69 +90,230 @@ export function Button({
   'aria-label'?: string;
   /** For toggle-group buttons (range presets): exposes which one is active. */
   'aria-pressed'?: boolean;
-}) {
-  const base: CSSProperties = {
-    paddingBlock: '0.45rem',
-    paddingInline: '0.9rem',
-    borderRadius: '0.4rem',
-    border: '1px solid var(--tp-border)',
-    background: 'var(--tp-bg)',
-    color: 'var(--tp-fg)',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.5 : 1,
-    fontSize: '0.95rem',
-  };
-  if (kind === 'primary') {
-    base.background = 'var(--tp-accent)';
-    base.color = 'var(--tp-accent-contrast)';
-    base.border = '1px solid var(--tp-accent)';
-  } else if (kind === 'danger') {
-    base.background = 'var(--tp-danger)';
-    base.color = 'var(--tp-danger-contrast)';
-    base.border = '1px solid var(--tp-danger)';
-  } else if (kind === 'ghost') {
-    base.background = 'transparent';
-    base.border = '1px solid transparent';
-  }
-  return (
+  'data-testid'?: string;
+}
+
+export function Button(props: ButtonProps) {
+  const {
+    children,
+    onClick,
+    onMouseEnter,
+    onFocus,
+    kind = 'default',
+    size = 'md',
+    icon,
+    iconEnd,
+    disabled,
+    busy,
+    disabledReason,
+    type = 'button',
+    style,
+    autoFocus,
+    title,
+    'aria-label': ariaLabel,
+    'aria-pressed': ariaPressed,
+    'data-testid': testId,
+  } = props;
+  const iconSize = size === 'sm' ? 14 : size === 'lg' ? 20 : size === 'xl' ? 22 : 16;
+  const reasonId = useId();
+  const showReason = disabledReason !== undefined && disabled === true;
+
+  /*
+   * The start slot used to be `busy ? <Spinner/> : icon ? <Icon/> : null`, so a
+   * button with no icon grew a 14px glyph plus a 0.45rem gap the instant it was
+   * clicked and its label slid sideways — rulebook 11.5, on the controls that
+   * are pressed most often in the building.
+   *
+   * The slot is present whenever this button can ever hold a glyph, and the
+   * test is `'busy' in props` rather than `busy !== undefined`: 64 call sites
+   * pass `busy={busy}` from an optional prop that reads `undefined` at rest and
+   * `true` while the RPC runs, and testing the value would reserve the space
+   * only once it was already too late to matter.
+   */
+  const hasGlyphSlot = icon !== undefined || 'busy' in props;
+  // No transition. `busy` flips true on the operator's own click, so a fade
+  // here would animate the press itself — the exact case the motion rule
+  // excludes, on the highest-frequency control in the building. The reserved
+  // slot below is what fixes the label jump; the cross-fade never was.
+  const glyphFade: CSSProperties = { opacity: busy ? 0 : 1 };
+
+  const button = (
     <button
       type={type}
+      className={`tp-btn${!children ? ' tp-iconbtn' : ''}`}
+      data-kind={kind}
+      data-size={size}
+      data-busy={busy ? 'true' : undefined}
       onClick={onClick}
-      disabled={disabled}
-      style={{ ...base, ...style }}
+      onMouseEnter={onMouseEnter}
+      onFocus={onFocus}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      aria-describedby={showReason ? reasonId : undefined}
+      style={style}
       autoFocus={autoFocus}
       title={title}
       aria-label={ariaLabel}
       aria-pressed={ariaPressed}
+      data-testid={testId}
     >
+      {hasGlyphSlot && (
+        <span
+          style={{
+            position: 'relative',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            inlineSize: `${iconSize}px`,
+            blockSize: `${iconSize}px`,
+            flex: '0 0 auto',
+          }}
+        >
+          {/* Beneath the icon, revealed as the icon clears: one box, two
+              occupants, nothing in the layout moves between them. */}
+          {busy && <Spinner size="xs" style={{ position: 'absolute', inlineSize: '100%', blockSize: '100%' }} />}
+          {icon && <Icon name={icon} size={iconSize} style={glyphFade} />}
+        </span>
+      )}
       {children}
+      {/* Stays mounted while busy for the same reason: dropping it narrowed the
+          button mid-press and pulled the label with it. */}
+      {iconEnd && <Icon name={iconEnd} size={iconSize} style={glyphFade} />}
     </button>
+  );
+
+  if (!showReason) return button;
+  return (
+    <span style={{ display: 'grid', justifyItems: 'start', rowGap: 'var(--tp-sp-1)' }}>
+      {button}
+      <span
+        id={reasonId}
+        style={{
+          fontSize: 'var(--tp-fs-xs)',
+          color: 'var(--tp-muted-fg)',
+          lineHeight: 1.3,
+          textAlign: 'start',
+        }}
+      >
+        {disabledReason}
+      </span>
+    </span>
   );
 }
 
+/**
+ * A labelled control. The `<label>` wraps ONLY its own text and the control:
+ * hint and error are siblings, because everything inside a wrapping label
+ * becomes part of the control's accessible name (a "Qty" field with a "g" hint
+ * answered to "Qty g", and every exact label query missed it). The asterisk is
+ * decorative — `required` on the control itself is what carries the meaning.
+ *
+ * The hint and the error are also ANNOUNCED, not merely coloured: both get an
+ * id and the single child is cloned with `aria-describedby` (and `aria-invalid`
+ * while an error stands). Before this a screen-reader user heard the label and
+ * nothing else — the failure was carried by a red line the control never
+ * pointed at.
+ */
 export function Field({
   label,
   children,
+  hint,
+  error,
+  required,
+  optional,
   style,
 }: {
   label: string;
   children: ReactNode;
+  hint?: ReactNode;
+  error?: ReactNode;
+  required?: boolean;
+  /**
+   * Rulebook 7.4: where most fields are required, mark the few that are not.
+   * The marker is a sibling of the label TEXT and aria-hidden, so it never
+   * joins the accessible name — screens that concatenate "(optional)" into the
+   * label string rename the control and break every exact label query.
+   */
+  optional?: boolean;
   style?: CSSProperties;
 }) {
+  const { tr } = useLocale();
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const errorId = `${id}-error`;
+  // The hint is replaced by the error, never stacked with it, so exactly one
+  // of the two is ever on screen to describe the control.
+  const describedBy = error ? errorId : hint ? hintId : undefined;
+
+  let control = children;
+  if (isValidElement(children) && describedBy !== undefined) {
+    const child = children as ReactElement<Record<string, unknown>>;
+    control = cloneElement(child, {
+      // A control that already names its own description keeps it; ours is appended.
+      'aria-describedby': [child.props['aria-describedby'], describedBy].filter(Boolean).join(' '),
+      'aria-invalid': error ? true : child.props['aria-invalid'],
+    });
+  }
+
   return (
-    <label style={{ display: 'block', marginBlockEnd: '0.6rem', ...style }}>
-      <span
-        style={{
-          display: 'block',
-          fontSize: '0.8rem',
-          color: 'var(--tp-muted-fg)',
-          marginBlockEnd: '0.2rem',
-        }}
-      >
-        {label}
-      </span>
-      {children}
-    </label>
+    <div style={{ marginBlockEnd: 'var(--tp-sp-4)', ...style }}>
+      <label style={{ display: 'block' }}>
+        <span
+          // The required marker is a CSS pseudo-element, not a character: an
+          // asterisk in the label's text becomes part of the control's name.
+          className={required ? 'tp-req' : undefined}
+          style={{
+            display: 'block',
+            fontSize: 'var(--tp-fs-sm)',
+            fontWeight: 600,
+            color: 'var(--tp-fg)',
+            marginBlockEnd: 'var(--tp-sp-2)',
+          }}
+        >
+          {label}
+          {optional && (
+            <span
+              aria-hidden="true"
+              style={{
+                marginInlineStart: 'var(--tp-sp-1)',
+                fontWeight: 400,
+                color: 'var(--tp-muted-fg)',
+              }}
+            >
+              {tr('ws.kit.common.optional')}
+            </span>
+          )}
+        </span>
+        {control}
+      </label>
+      {hint && !error && (
+        <span
+          id={hintId}
+          style={{
+            display: 'block',
+            fontSize: 'var(--tp-fs-xs)',
+            color: 'var(--tp-muted-fg)',
+            marginBlockStart: 'var(--tp-sp-1)',
+          }}
+        >
+          {hint}
+        </span>
+      )}
+      {error && (
+        <span
+          id={errorId}
+          role="alert"
+          style={{
+            display: 'block',
+            fontSize: 'var(--tp-fs-xs)',
+            color: 'var(--tp-danger-fg)',
+            marginBlockStart: 'var(--tp-sp-1)',
+          }}
+        >
+          {error}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -126,8 +321,14 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
   'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Keep Tab / Shift+Tab cycling inside the panel (dialog focus trap). */
-function trapTab(e: KeyboardEvent<HTMLElement>, panel: HTMLElement | null) {
+/**
+ * Keep Tab / Shift+Tab cycling inside the panel (dialog focus trap).
+ *
+ * Exported because the shell's idle lock needs the same behaviour: a second
+ * hand-rolled trap is a second set of edge cases (the empty-panel branch, the
+ * `active === panel` case the first Shift+Tab lands on) to keep in step.
+ */
+export function trapTab(e: KeyboardEvent<HTMLElement>, panel: HTMLElement | null) {
   if (!panel) return;
   const nodes = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
   if (nodes.length === 0) {
@@ -155,15 +356,30 @@ export function Modal({
   onClose,
   children,
   wide,
+  size,
+  subtitle,
+  footer,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  subtitle?: ReactNode;
+  footer?: ReactNode;
 }) {
+  const { tr } = useLocale();
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  /*
+   * Where the press STARTED. A mousedown inside the panel and a mouseup outside
+   * it dispatch their click on the common ancestor — the backdrop — so dragging
+   * a selection across a PIN or a reason field and releasing a few pixels past
+   * the edge closed the dialog and discarded everything typed. The panel's
+   * stopPropagation could not help: the click was never dispatched on the panel.
+   */
+  const pressedBackdrop = useRef(false);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -184,35 +400,60 @@ export function Modal({
     }
   }
 
+  /*
+   * `wide` predates `size` and the two overlapped: the old ternary tested
+   * `size === 'lg' || wide` BEFORE `size === 'xl'`, so a dialog asking for xl
+   * and wide together silently rendered lg. Resolve `wide` to the size it
+   * always meant and let an explicit `size` win, so one prop decides.
+   */
+  const resolvedSize = size ?? (wide ? 'lg' : 'md');
+  const width =
+    resolvedSize === 'sm'
+      ? 'min(24rem, 94vw)'
+      : resolvedSize === 'lg'
+        ? 'min(56rem, 94vw)'
+        : resolvedSize === 'xl'
+          ? 'min(72rem, 96vw)'
+          : 'min(32rem, 94vw)';
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      className="tp-fade"
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.45)',
+        background: 'var(--tp-overlay)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 100,
+        zIndex: 'var(--tp-z-overlay)',
+        padding: 'var(--tp-sp-4)',
       }}
-      onClick={onClose}
+      onMouseDown={(e) => {
+        pressedBackdrop.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && pressedBackdrop.current) onClose();
+      }}
       onKeyDown={onKeyDown}
     >
       <div
         ref={panelRef}
         tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
+        className="tp-rise"
         style={{
-          background: 'var(--tp-bg)',
+          background: 'var(--tp-surface)',
           color: 'var(--tp-fg)',
-          borderRadius: '0.6rem',
-          padding: '1rem',
-          inlineSize: wide ? 'min(56rem, 94vw)' : 'min(30rem, 94vw)',
-          maxBlockSize: '90vh',
-          overflowY: 'auto',
+          borderRadius: 'var(--tp-radius-dialog)',
+          boxShadow: 'var(--tp-shadow-dialog)',
+          border: '1px solid var(--tp-border)',
+          inlineSize: width,
+          maxBlockSize: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
           outline: 'none',
         }}
       >
@@ -220,68 +461,141 @@ export function Modal({
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBlockEnd: '0.8rem',
+            alignItems: 'flex-start',
+            gap: 'var(--tp-sp-4)',
+            paddingBlock: 'var(--tp-sp-4) var(--tp-sp-2)',
+            paddingInline: 'var(--tp-sp-4)',
           }}
         >
-          <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{title}</h2>
-          <Button kind="ghost" onClick={onClose}>
-            ✕
-          </Button>
+          <div style={{ minInlineSize: 0 }}>
+            <h2 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700 }}>{title}</h2>
+            {subtitle && (
+              <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockStart: 'var(--tp-sp-0)' }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
+          <Button kind="ghost" size="sm" icon="x" onClick={onClose} aria-label={tr('common.close')} />
         </div>
-        {children}
+        <div
+          style={{
+            paddingInline: 'var(--tp-sp-4)',
+            paddingBlockEnd: footer ? 'var(--tp-sp-2)' : 'var(--tp-sp-4)',
+            overflowY: 'auto',
+            minBlockSize: 0,
+          }}
+        >
+          {children}
+        </div>
+        {footer && (
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--tp-sp-2)',
+              justifyContent: 'flex-end',
+              paddingBlock: 'var(--tp-sp-3)',
+              paddingInline: 'var(--tp-sp-4)',
+              borderBlockStart: '1px solid var(--tp-border)',
+              background: 'var(--tp-surface-2)',
+              borderEndStartRadius: 'var(--tp-radius-dialog)',
+              borderEndEndRadius: 'var(--tp-radius-dialog)',
+            }}
+          >
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 /** Localized error line for a caught RPC/network error; renders nothing when error is null. */
-export function ErrorText({ error }: { error: unknown }) {
+export function ErrorText({ error, style }: { error: unknown; style?: CSSProperties }) {
   const { tr } = useLocale();
   if (error == null) return null;
   return (
     <p
       role="alert"
-      style={{ color: 'var(--tp-danger)', fontSize: '0.9rem', marginBlock: '0.4rem' }}
+      style={{
+        display: 'flex',
+        gap: '0.4rem',
+        alignItems: 'flex-start',
+        color: 'var(--tp-danger-fg)',
+        background: 'var(--tp-danger-soft)',
+        borderRadius: 'var(--tp-radius-ctl)',
+        paddingBlock: '0.45rem',
+        paddingInline: '0.6rem',
+        fontSize: 'var(--tp-fs-sm)',
+        marginBlock: '0.5rem',
+        ...style,
+      }}
     >
-      {tr(errorToMessageKey(error))}
+      <Icon name="alert" size={16} style={{ marginBlockStart: '0.1rem' }} />
+      <span>{tr(errorToMessageKey(error))}</span>
     </p>
   );
 }
 
-/** Cash amount pad — appends digits / 000, backspace, clear. */
+/** Cash amount pad — appends digits / 000, backspace, clear. Keyboard-operable. */
 export function AmountPad({
   value,
   onChange,
+  onConfirm,
+  disabled,
 }: {
   value: number;
   onChange: (next: number) => void;
+  onConfirm?: () => void;
+  disabled?: boolean;
 }) {
+  const { tr } = useLocale();
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', '⌫'];
+  function press(k: string) {
+    if (k === '⌫') onChange(Math.floor(value / 10));
+    else {
+      const next = Number(`${value}${k}`);
+      if (Number.isSafeInteger(next)) onChange(next);
+    }
+  }
   return (
     <div
+      role="group"
+      aria-label={tr('ws.kit.keypad.confirm')}
+      onKeyDown={(e) => {
+        if (disabled) return;
+        if (/^[0-9]$/.test(e.key)) {
+          e.preventDefault();
+          press(e.key);
+        } else if (e.key === 'Backspace') {
+          e.preventDefault();
+          press('⌫');
+        } else if (e.key === 'Enter' && onConfirm) {
+          e.preventDefault();
+          onConfirm();
+        }
+      }}
       style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '0.35rem',
-        inlineSize: '14rem',
+        gap: '0.4rem',
+        inlineSize: '15rem',
       }}
     >
       {keys.map((k) => (
         <Button
           key={k}
-          onClick={() => {
-            if (k === '⌫') onChange(Math.floor(value / 10));
-            else {
-              const next = Number(`${value}${k}`);
-              if (Number.isSafeInteger(next)) onChange(next);
-            }
-          }}
-          style={{ paddingBlock: '0.8rem', fontSize: '1.1rem' }}
+          size="lg"
+          disabled={disabled}
+          aria-label={k === '⌫' ? tr('ws.kit.keypad.backspace') : k}
+          onClick={() => press(k)}
+          style={{ fontSize: 'var(--tp-fs-xl)', minBlockSize: '3.25rem' }}
         >
-          {k}
+          {k === '⌫' ? <Icon name="undo" size={20} /> : k}
         </Button>
       ))}
+      <Button kind="ghost" size="sm" disabled={disabled} onClick={() => onChange(0)} style={{ gridColumn: '1 / -1' }}>
+        {tr('ws.kit.keypad.clear')}
+      </Button>
     </div>
   );
 }
@@ -296,6 +610,7 @@ export const REASON_CODES = [
   'duplicate',
   'comp',
   'weather',
+  'expired',
   'other',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
@@ -325,14 +640,23 @@ export function PinReasonModal({
   const [pin, setPin] = useState('');
   const [reason, setReason] = useState<ReasonCode>(reasons[0] ?? 'other');
   return (
-    <Modal title={title} onClose={onClose}>
+    <Modal
+      title={title}
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>
+            {tr('common.cancel')}
+          </Button>
+          <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => onSubmit(pin, reason)}>
+            {tr('common.confirm')}
+          </Button>
+        </>
+      }
+    >
       {children}
       <Field label={tr('op.common.reason')}>
-        <select
-          style={inputStyle}
-          value={reason}
-          onChange={(e) => setReason(e.target.value as ReasonCode)}
-        >
+        <select style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value as ReasonCode)}>
           {reasons.map((r) => (
             <option key={r} value={r}>
               {tr(`op.reasons.${r}`)}
@@ -352,35 +676,37 @@ export function PinReasonModal({
         />
       </Field>
       <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-        <Button onClick={onClose}>{tr('common.cancel')}</Button>
-        <Button
-          kind="primary"
-          disabled={busy || pin.length < 4}
-          onClick={() => onSubmit(pin, reason)}
-        >
-          {tr('common.confirm')}
-        </Button>
-      </div>
     </Modal>
   );
 }
 
-/* ---------- W0 foundation primitives (operator-slice.md §2) ---------- */
+/* ---------- foundation primitives ---------- */
 
-const SPINNER_PX: Record<'xs' | 'sm' | 'md', string> = {
-  xs: '0.8rem',
+const SPINNER_PX: Record<'xs' | 'sm' | 'md' | 'lg', string> = {
+  xs: '0.9rem',
   sm: '1.1rem',
   md: '1.6rem',
+  lg: '2.4rem',
 };
 
-/** Inline spinner; `tpSpin` keyframes come from <GlobalStyles/>. */
+/**
+ * The waiting state — the one place inside a tool where the identity belongs.
+ *
+ * At `md` and `lg` this is the brand ball, turning. At `xs` and `sm` it stays
+ * a neutral arc on purpose: `xs` is what every `<Button busy>` renders, and
+ * three felt segments plus two seams mush at 13px — putting the mark inside
+ * the highest-frequency control in the product, which PRODUCT.md rules out.
+ *
+ * The `role="status"` wrapper is load-bearing: BrandBall draws its own <svg>
+ * with its own aria handling, so it goes INSIDE the wrapper with no `title`,
+ * never in place of it, or every busy button loses its announcement.
+ */
 export function Spinner({
   size = 'sm',
   label,
   style,
 }: {
-  size?: 'xs' | 'sm' | 'md';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   label?: string;
   style?: CSSProperties;
 }) {
@@ -390,35 +716,25 @@ export function Spinner({
     <span
       role="status"
       aria-label={label ?? tr('common.loading')}
-      style={{
-        display: 'inline-block',
-        inlineSize: px,
-        blockSize: px,
-        verticalAlign: 'middle',
-        ...style,
-      }}
+      style={{ display: 'inline-block', inlineSize: px, blockSize: px, verticalAlign: 'middle', ...style }}
     >
-      <svg
-        viewBox="0 0 24 24"
-        width="100%"
-        height="100%"
-        aria-hidden="true"
-        style={{ animation: 'tpSpin 0.8s linear infinite', display: 'block' }}
-      >
-        <circle cx="12" cy="12" r="9" fill="none" stroke="var(--tp-border)" strokeWidth="3" />
-        <path
-          d="M21 12a9 9 0 0 0-9-9"
-          fill="none"
-          stroke="var(--tp-accent)"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
+      {size === 'md' || size === 'lg' ? (
+        <BrandBall spin size="100%" style={{ inlineSize: '100%', blockSize: '100%' }} />
+      ) : (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true" className="tp-spin" style={{ display: 'block' }}>
+          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" />
+          <path d="M21 12a9 9 0 0 0-9-9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      )}
     </span>
   );
 }
 
-/** Shimmer placeholder blocks while a list/card loads (`tpPulse` keyframes). */
+/**
+ * Placeholder blocks while a list or card loads. The ground is --tp-skeleton
+ * rather than --tp-surface-3, which measured 1.09:1 against the panel it sits
+ * on — a skeleton you cannot see reads as an empty panel, not as pending.
+ */
 export function Skeleton({
   lines = 3,
   blockSize = '0.9rem',
@@ -429,16 +745,15 @@ export function Skeleton({
   style?: CSSProperties;
 }) {
   return (
-    <div aria-hidden="true" style={{ display: 'grid', gap: '0.5rem', ...style }}>
+    <div aria-hidden="true" style={{ display: 'grid', gap: '0.55rem', ...style }}>
       {Array.from({ length: Math.max(1, lines) }, (_, i) => (
         <div
           key={i}
+          className="tp-skel"
           style={{
             blockSize,
             inlineSize: i === lines - 1 && lines > 1 ? '60%' : '100%',
-            borderRadius: '0.3rem',
-            background: 'var(--tp-border)',
-            animation: 'tpPulse 1.4s ease-in-out infinite',
+            borderRadius: 'var(--tp-radius-sm)',
             animationDelay: `${i * 0.12}s`,
           }}
         />
@@ -451,6 +766,7 @@ export interface TabItem<T extends string> {
   id: T;
   label: string;
   disabled?: boolean;
+  count?: number;
 }
 
 /** In-section tab strip (`role="tablist"`); arrow keys move, dir-aware. */
@@ -489,7 +805,7 @@ export function Tabs<T extends string>({
         display: 'flex',
         gap: '0.25rem',
         borderBlockEnd: '1px solid var(--tp-border)',
-        marginBlockEnd: '0.8rem',
+        marginBlockEnd: '0.9rem',
         overflowX: 'auto',
         ...style,
       }}
@@ -506,21 +822,46 @@ export function Tabs<T extends string>({
             disabled={item.disabled}
             onClick={() => onChange(item.id)}
             style={{
-              paddingBlock: '0.5rem',
-              paddingInline: '0.9rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              paddingBlock: '0.55rem',
+              paddingInline: '0.85rem',
               border: 'none',
               borderBlockEnd: selected ? '2px solid var(--tp-accent)' : '2px solid transparent',
               marginBlockEnd: '-1px',
               background: 'transparent',
               color: selected ? 'var(--tp-fg)' : 'var(--tp-muted-fg)',
-              fontWeight: selected ? 700 : 400,
-              fontSize: '0.95rem',
+              fontWeight: selected ? 700 : 500,
+              fontSize: 'var(--tp-fs-md)',
               cursor: item.disabled ? 'not-allowed' : 'pointer',
-              opacity: item.disabled ? 0.5 : 1,
+              opacity: item.disabled ? 'var(--tp-opacity-disabled)' : 1,
               whiteSpace: 'nowrap',
+              // border-color rides with the colour: without it the 2px
+              // underline teleported to the new tab while the label was still
+              // half-way through fading, and the two read as separate events.
+              transition:
+                // Tab selection is a click, so the underline lands on its frame;
+                // only the label colour eases, the same way .tp-btn dropped
+                // `transform` from its transition list.
+                'color var(--tp-dur-fast) var(--tp-ease-out)',
             }}
           >
             {item.label}
+            {item.count !== undefined && (
+              <span
+                style={{
+                  fontSize: 'var(--tp-fs-xs)',
+                  background: selected ? 'var(--tp-accent-soft)' : 'var(--tp-surface-3)',
+                  color: selected ? 'var(--tp-accent-soft-fg)' : 'var(--tp-muted-fg)',
+                  borderRadius: 'var(--tp-radius-pill)',
+                  paddingInline: '0.4rem',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {item.count}
+              </span>
+            )}
           </button>
         );
       })}
@@ -543,6 +884,7 @@ export function Select<T extends string>({
   disabled,
   id,
   style,
+  'aria-label': ariaLabel,
 }: {
   value: T | '';
   onChange: (next: T) => void;
@@ -551,12 +893,14 @@ export function Select<T extends string>({
   disabled?: boolean;
   id?: string;
   style?: CSSProperties;
+  'aria-label'?: string;
 }) {
   return (
     <select
       id={id}
       value={value}
       disabled={disabled}
+      aria-label={ariaLabel}
       onChange={(e) => onChange(e.target.value as T)}
       style={{ ...inputStyle, ...style }}
     >

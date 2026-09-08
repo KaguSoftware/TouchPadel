@@ -1,0 +1,186 @@
+/**
+ * Workspace shell strings (spec §05): boot, sign-in, switcher, lock, rail.
+ * Owned by the shell lane. Mirrored key-for-key in shell.ar.ts.
+ */
+export const shellEn = {
+  boot: {
+    title: 'Starting up',
+    body: 'Loading your session, permissions and venue settings.',
+    failed: 'The app could not start.',
+    retry: 'Try again',
+  },
+  signIn: {
+    title: 'Staff sign-in',
+    lead: 'Sign in with your staff account.',
+    submit: 'Sign in',
+    invalid: 'Email or password is incorrect.',
+    disabled: 'This account has been disabled. Ask the owner.',
+    network: 'The server could not be reached. Check the connection and try again.',
+    tagline: 'More than a game',
+  },
+  switcher: {
+    title: 'Choose a workspace',
+    lead: 'Your account holds more than one role. Pick where to work; you can switch any time.',
+    current: 'Current',
+    open: 'Open',
+  },
+  // The healthy rung of the connectivity strip (rulebook 9.6). The other three
+  // read op.status.*; only "normal" had no string at all, because the banner
+  // used to render nothing when everything was fine.
+  status: {
+    ok: 'Connected — nothing waiting to sync.',
+  },
+  // Named so RequireRole can hand the shared PermissionRefusedNotice a subject
+  // instead of forking its own sentence. Reads as "{action} needs the {role}
+  // role"; a verbal noun, so the Arabic template agrees with it.
+  forbidden: {
+    action: 'Opening this screen',
+  },
+  lock: {
+    title: 'Station locked',
+    hint: 'Signed in as {name}. Unlock to continue where you left off.',
+    pin: 'Your PIN',
+    unlock: 'Unlock',
+    usePassword: 'Use password instead',
+    switchUser: 'Switch user',
+  },
+  workspace: {
+    courtDesk: 'Court desk',
+    cashier: 'Till',
+    prep: 'The pass',
+    manager: 'Operations',
+    owner: 'Management',
+  },
+  // A section of a workspace with its own landing screen and its own rail
+  // (lib/workspaces.ts). Management shows one button per section instead of
+  // spilling all fourteen destinations into its own column.
+  section: {
+    financial: 'Financial',
+    observation: 'Observation',
+    setup: 'Setup',
+  },
+  sectionLead: {
+    financial: 'Money in, money out, and whether the cash agrees',
+    observation: 'The floor now, the pattern behind it, and what is waiting on you',
+    setup: 'Staff, courts, tables and how the venue is configured',
+  },
+  workspaceLead: {
+    courtDesk: 'Bookings, arrivals and customers',
+    cashier: 'Orders, tabs and payment',
+    prep: 'Kitchen display',
+    manager: 'Floor, stock, day close and reports',
+    owner: 'The whole business in one place',
+  },
+  nav: {
+    today: 'Today',
+    calendar: 'Calendar',
+    customers: 'Customers',
+    newSeries: 'New series',
+    blockCourt: 'Block court',
+    till: 'Till',
+    openTabs: 'Open tabs',
+    cashDrawer: 'Cash drawer',
+    overview: 'Overview',
+    bookings: 'Bookings',
+    tills: 'Tills',
+    dayClose: 'Day close',
+    menu: 'Menu',
+    rates: 'Rates',
+    promotions: 'Promotions',
+    stock: 'Stock',
+    reports: 'Reports',
+    audit: 'Audit log',
+    panel: 'Management panel',
+    analytics: 'Cafe analytics',
+    staff: 'Staff',
+    courts: 'Courts',
+    tables: 'Tables & QR',
+    settings: 'Venue settings',
+    guestSite: 'Guest site',
+    // Financial section rows. 'revenue'/'stockValue' are distinct from the old
+    // 'reports'/'stock': the row names the FIGURE the owner came for, not the
+    // screen that happens to show it.
+    revenue: 'Revenue',
+    courtIncome: 'Court income',
+    cafeSales: 'Cafe sales',
+    menuPrices: 'Menu prices',
+    stockValue: 'Stock value',
+    // Observation section rows.
+    floorNow: 'Floor now',
+    patterns: 'Patterns',
+    staffActivity: 'Staff activity',
+    requests: 'Requests',
+    marketing: 'Marketing',
+    telegram: 'Telegram',
+    groupOperations: 'Operations',
+    groupSetup: 'Setup',
+    // The way out of a section rail, back to the workspace's own.
+    backTo: 'Back to {workspace}',
+    // The owner's rail puts 17 links and four controls before the routed
+    // screen; without this every navigation costs up to 21 Tab presses.
+    skipToMain: 'Skip to main content',
+    switchWorkspace: 'Switch workspace',
+    language: 'العربية',
+    languageAlt: 'English',
+    signOut: 'Sign out',
+    station: 'Station {id}',
+    quit: 'Quit to desktop',
+    kitchenNoNav: 'Kitchen display',
+    version: 'Version {version}',
+    pairKitchen: 'Pair a kitchen screen',
+    updateReady: 'Update ready',
+    restartToUpdate: 'Restart to update to {version}',
+  },
+  // First-run station setup (main/first-run.ts): shown once per machine,
+  // before sign-in, when station.json does not exist yet.
+  setup: {
+    title: 'Set up this station',
+    lead: 'Choose what this machine does. Done once; to change it later, remove station.json and restart.',
+    mode: {
+      till: 'Till',
+      desk: 'Desk',
+      kds: 'Kitchen screen',
+    },
+    modeLead: {
+      till: 'Orders, tabs, payment and the receipt printer. Kitchen screens pair to it.',
+      desk: 'Bookings, arrivals, customers and the office.',
+      kds: 'The wall-mounted kitchen board. Pairs to the till with a code.',
+    },
+    stationId: 'Station id',
+    stationIdHint: 'Capitals, digits and dashes, e.g. TILL-01',
+    stationIdInvalid: 'Use capitals, digits and dashes, starting with a letter.',
+    code: 'Pairing code from the till',
+    codeHint: 'On the till: sidebar, Pair a kitchen screen.',
+    codeInvalid: 'The code is 10 letters and digits.',
+    advanced: 'Advanced: till address',
+    advancedHint: 'Only if the till is not found automatically. Its LAN address, e.g. 192.168.1.10',
+    hostInvalid: 'Enter a LAN address like 192.168.1.10.',
+    scanning: 'Looking for the till on this network…',
+    choose: 'More than one till answered. Pick the one for this kitchen.',
+    notFound: {
+      none: 'No till was found on this network. Make sure the till is running and on the same network, or enter its address under Advanced.',
+      badCode: 'A till answered but did not accept that code. Check it on the till and try again.',
+      noLan: 'This machine has no local network address. Connect it to the venue network and try again.',
+      unreachable: 'The till at {host} did not answer.',
+    },
+    saveAnyway: 'Save anyway',
+    confirm: 'Finish setup',
+    saving: 'Saving and restarting…',
+    failed: 'The station could not be saved.',
+    alreadyConfigured: 'This station is already set up. Restart the app.',
+    configError: 'station.json could not be read: {error}',
+    back: 'Back',
+    retry: 'Try again',
+  },
+  // The till's pairing card (behind the manager PIN).
+  pair: {
+    title: 'Pair a kitchen screen',
+    lead: 'On the kitchen screen, choose Kitchen screen and type this code.',
+    code: 'Pairing code',
+    host: 'Till address {host}, port {port}',
+    noHost: 'This till has no local network address yet; kitchen screens will find it once it is on the venue network.',
+    customPsk: 'This till was set up with a custom key from the command line. Pair kitchen screens with the same --lan-psk flag.',
+    notTill: 'Only a till can pair kitchen screens.',
+    noPsk: 'This till has no pairing key. Remove station.json and set the station up again.',
+  },
+} as const;

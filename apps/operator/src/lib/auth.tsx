@@ -13,7 +13,9 @@ import {
   type ReactNode,
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
+import { touch } from '../ipc/bridge';
+import { setMutateStaffId } from './mutate';
 
 export type StaffRole = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
 
@@ -57,6 +59,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function applySession(next: Session | null) {
       if (cancelled) return;
       setSession(next);
+      // The main-process sync worker replays the durable queue AS this staff
+      // session (design-arch §2.2). Every auth change flows through here —
+      // SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT — so the pushed token is always
+      // the freshest one. No-op in browser mode.
+      touch.pushAuthState(
+        next
+          ? {
+              accessToken: next.access_token,
+              staffId: next.user.id,
+              supabaseUrl,
+              anonKey: supabaseAnonKey,
+            }
+          : null,
+      );
+      setMutateStaffId(next?.user.id ?? null);
       if (next) {
         // Private realtime channels (kds/floor/courts) need realtime auth.
         supabase.realtime.setAuth(next.access_token);
@@ -113,12 +130,31 @@ export function useAuth(): AuthContextValue {
 export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   '/till': ['cashier', 'manager', 'owner'],
   '/desk': ['court_desk', 'manager', 'owner'],
+  // Customers are shared between the desk and the till (spec 06.8: attach to booking OR tab).
+  '/desk/customers': ['court_desk', 'cashier', 'manager', 'owner'],
+  '/desk/customers/new': ['court_desk', 'manager', 'owner'],
   '/kds': ['prep', 'manager', 'owner'],
   '/stock': ['manager', 'owner'],
   '/admin': ['manager', 'owner'],
   '/admin/telegram': ['owner'],
   '/admin/staff': ['owner'],
   '/analytics': ['owner'],
+  '/ops': ['manager', 'owner'],
+  '/panel': ['owner'],
+  '/reports': ['manager', 'owner'],
+  '/reports/revenue': ['owner'],
+  // The Setup section's landing screen. Its destinations are all under
+  // /admin, which manager shares; the section itself is the owner's.
+  '/setup': ['owner'],
+  // Management's other two sections. Same shape as /setup: the landing screen
+  // is the owner's even where individual destinations (day close, bookings,
+  // the audit log) are shared with the manager through their own keys.
+  '/financial': ['owner'],
+  '/observation': ['owner'],
+  // Campaigns move money and speak to guests in the venue's name, so this is
+  // the owner's alone — not manager, the way /admin/telegram already is.
+  '/marketing': ['owner'],
+  '/workspaces': ['manager', 'owner'],
 };
 
 /** Every known sub-route per layout prefix — drives the admin sub-nav. */
@@ -130,13 +166,26 @@ export const SUB_ROUTES = {
     '/admin/suggested',
     '/admin/hero',
     '/admin/qr',
+    '/admin/courts',
     '/admin/rates',
     '/admin/hours',
+    '/admin/promotions',
     '/admin/day-close',
     '/admin/telegram',
     '/admin/settings',
     '/admin/staff',
     '/admin/audit',
+  ],
+  '/stock': [
+    '/stock/ingredients',
+    '/stock/receive',
+    '/stock/waste',
+    '/stock/recipes',
+    '/stock/counts',
+    '/stock/variance',
+    '/stock/margins',
+    '/stock/alerts',
+    '/stock/expiry',
   ],
 } as const satisfies Record<string, readonly string[]>;
 export type SubRoutePrefix = keyof typeof SUB_ROUTES;
@@ -209,7 +258,7 @@ export function can(role: StaffRole | undefined, capability: Capability): boolea
   return (CAPABILITY_ROLES[capability] as readonly StaffRole[]).includes(role);
 }
 
-/** The screen a freshly signed-in staff member lands on. */
+/** The screen a freshly signed-in staff member lands on (spec §04 workspace map). */
 export function homeRoute(role: StaffRole): string {
   switch (role) {
     case 'cashier':
@@ -217,8 +266,77 @@ export function homeRoute(role: StaffRole): string {
     case 'prep':
       return '/kds';
     case 'court_desk':
-      return '/desk';
-    default:
-      return '/desk';
+      return '/desk/today';
+    case 'manager':
+      return '/ops';
+    case 'owner':
+      return '/panel';
   }
+}
+
+/**
+ * Spec §03 `Permissions` — the `can.*` map every screen receives. Screens
+ * render a refused control with PermissionRefusedNotice instead of hiding it
+ * (R9); they never compare roles themselves. UX only, like ROUTE_ROLES: the
+ * RPCs re-check every one of these server-side.
+ */
+export interface Permissions {
+  takePayment: boolean;
+  discount: boolean;
+  override: boolean;
+  void: boolean;
+  refund: boolean;
+  adjustStock: boolean;
+  closeDay: boolean;
+  editMenu: boolean;
+  editRates: boolean;
+  editPromotions: boolean;
+  manageStaff: boolean;
+  viewReports: boolean;
+  viewFinancials: boolean;
+}
+
+const MANAGEMENT: readonly StaffRole[] = ['manager', 'owner'];
+const CASHIER_UP: readonly StaffRole[] = ['cashier', 'manager', 'owner'];
+
+export function permissionsFor(role: StaffRole | undefined): Permissions {
+  const is = (roles: readonly StaffRole[]) => role !== undefined && roles.includes(role);
+  return {
+    takePayment: is(CASHIER_UP),
+    // A cashier may START a discount; the manager PIN prompt authorises it.
+    discount: is(CASHIER_UP),
+    override: is(CASHIER_UP),
+    void: is(CASHIER_UP),
+    refund: is(MANAGEMENT),
+    adjustStock: is(MANAGEMENT),
+    closeDay: is(MANAGEMENT),
+    editMenu: is(MANAGEMENT),
+    editRates: is(MANAGEMENT),
+    editPromotions: is(MANAGEMENT),
+    manageStaff: is(['owner']),
+    viewReports: is(MANAGEMENT),
+    viewFinancials: is(['owner']),
+  };
+}
+
+/** The role a refused permission needs — for PermissionRefusedNotice copy. */
+export function requiredRoleFor(permission: keyof Permissions): StaffRole {
+  switch (permission) {
+    case 'manageStaff':
+    case 'viewFinancials':
+      return 'owner';
+    case 'takePayment':
+    case 'discount':
+    case 'override':
+    case 'void':
+      return 'cashier';
+    default:
+      return 'manager';
+  }
+}
+
+/** Convenience hook: the signed-in role's permission map. */
+export function usePermissions(): Permissions {
+  const { staff } = useAuth();
+  return useMemo(() => permissionsFor(staff?.role), [staff?.role]);
 }

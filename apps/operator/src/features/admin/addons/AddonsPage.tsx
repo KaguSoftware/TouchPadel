@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, ErrorText, Skeleton } from '../../../components/ui';
+import { EmptyState, PageHeader, ResultCount } from '../../../components/kit';
 import { partitionGroups } from './addonsLogic';
 import { GroupEditor } from './GroupEditor';
 import { OptionsEditor } from './OptionsEditor';
@@ -14,7 +15,7 @@ import { useAddons, type GroupRow } from './useAddons';
 type Selection = { kind: 'group'; id: string } | { kind: 'new'; sub: boolean } | null;
 
 export function AddonsPage() {
-  const { tr, locale } = useLocale();
+  const { tr } = useLocale();
   const addons = useAddons();
   const [selection, setSelection] = useState<Selection>(null);
 
@@ -32,56 +33,29 @@ export function AddonsPage() {
   const linkCount = (g: GroupRow) => new Set(data.links.filter((l) => l.group_id === g.id).map((l) => l.item_id)).size;
   const optionCount = (g: GroupRow) => data.modifiers.filter((m) => m.group_id === g.id).length;
 
-  function GroupList({ title, hint, groups, emptyAction }: { title: string; hint?: string; groups: GroupRow[]; emptyAction: React.ReactNode }) {
-    return (
-      <section style={{ marginBlockEnd: '1rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-          <h3 style={{ margin: 0 }}>{title}</h3>
-          {emptyAction}
-        </div>
-        {hint && <p style={{ margin: 0, marginBlockStart: '0.2rem', fontSize: '0.8rem', color: 'var(--tp-muted-fg)' }}>{hint}</p>}
-        {groups.length === 0 && (
-          <p style={{ color: 'var(--tp-muted-fg)', fontSize: '0.9rem' }}>{tr('op.common.none')}</p>
-        )}
-        {groups.map((g) => {
-          const active = selection?.kind === 'group' && selection.id === g.id;
-          return (
-            <Button
-              key={g.id}
-              kind={active ? 'primary' : 'default'}
-              style={{ display: 'flex', inlineSize: '100%', justifyContent: 'space-between', gap: '0.5rem', textAlign: 'start', marginBlockStart: '0.3rem' }}
-              onClick={() => setSelection({ kind: 'group', id: g.id })}
-            >
-              <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{pickName(locale, g)}</span>
-              <span dir="ltr" style={{ fontSize: '0.75rem', opacity: 0.8, whiteSpace: 'nowrap' }}>
-                {g.min_select}–{g.max_select} · {optionCount(g)} · {linkCount(g)}
-              </span>
-            </Button>
-          );
-        })}
-      </section>
-    );
-  }
-
   return (
     <div>
-      <h2 style={{ marginBlockStart: 0 }}>{tr('op.adminNav.addons')}</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(16rem, 20rem) minmax(0, 1fr)', gap: '1rem', alignItems: 'start' }}>
+      <PageHeader title={tr('op.adminNav.addons')} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(16rem, 20rem) minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
         <div>
           <GroupList
             title={tr('op.addons.groups')}
             groups={itemGroups}
-            emptyAction={
-              <Button onClick={() => setSelection({ kind: 'new', sub: false })}>{tr('op.addons.newGroup')}</Button>
-            }
+            selectedId={selection?.kind === 'group' ? selection.id : null}
+            onSelect={(id) => setSelection({ kind: 'group', id })}
+            optionCount={optionCount}
+            linkCount={linkCount}
+            action={<Button icon="plus" onClick={() => setSelection({ kind: 'new', sub: false })}>{tr('op.addons.newGroup')}</Button>}
           />
           <GroupList
             title={tr('op.addons.subGroups')}
             hint={tr('op.addons.subGroupsHint')}
             groups={subGroups}
-            emptyAction={
-              <Button onClick={() => setSelection({ kind: 'new', sub: true })}>{tr('op.addons.newSubGroup')}</Button>
-            }
+            selectedId={selection?.kind === 'group' ? selection.id : null}
+            onSelect={(id) => setSelection({ kind: 'group', id })}
+            optionCount={optionCount}
+            linkCount={linkCount}
+            action={<Button icon="plus" onClick={() => setSelection({ kind: 'new', sub: true })}>{tr('op.addons.newSubGroup')}</Button>}
           />
         </div>
         <div style={{ minInlineSize: 0 }}>
@@ -111,5 +85,62 @@ export function AddonsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Declared at module scope on purpose. It used to be a closure inside
+ * AddonsPage, so React saw a NEW component type on every render and threw the
+ * whole list away and rebuilt it — losing focus mid-keyboard-navigation. Every
+ * value it needs arrives as a prop.
+ */
+function GroupList({
+  title,
+  hint,
+  groups,
+  selectedId,
+  onSelect,
+  optionCount,
+  linkCount,
+  action,
+}: {
+  title: string;
+  hint?: string;
+  groups: GroupRow[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  optionCount: (g: GroupRow) => number;
+  linkCount: (g: GroupRow) => number;
+  action: React.ReactNode;
+}) {
+  const { tr, locale } = useLocale();
+  return (
+    <section style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+        <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-lg)' }}>{title}</h3>
+        {action}
+      </div>
+      {hint && <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{hint}</p>}
+      <ResultCount shown={groups.length} total={groups.length} style={{ display: 'block', marginBlockStart: 'var(--tp-sp-1)' }} />
+      {groups.length === 0 ? (
+        // "None" in muted body text was indistinguishable from a value; the
+        // empty state teaches the action beside it instead (rulebook 9.2).
+        <EmptyState compact titleAs="h4" kind="initial" icon="plus" title={tr('op.common.none')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />
+      ) : (
+        groups.map((g) => (
+          <Button
+            key={g.id}
+            kind={selectedId === g.id ? 'primary' : 'default'}
+            style={{ display: 'flex', inlineSize: '100%', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', textAlign: 'start', marginBlockStart: 'var(--tp-sp-1)' }}
+            onClick={() => onSelect(g.id)}
+          >
+            <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{pickName(locale, g)}</span>
+            <span dir="ltr" style={{ fontSize: 'var(--tp-fs-xs)', opacity: 0.8, whiteSpace: 'nowrap' }}>
+              {g.min_select}–{g.max_select} · {optionCount(g)} · {linkCount(g)}
+            </span>
+          </Button>
+        ))
+      )}
+    </section>
   );
 }

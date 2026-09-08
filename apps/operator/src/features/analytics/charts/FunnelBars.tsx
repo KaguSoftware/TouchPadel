@@ -26,7 +26,7 @@ export function FunnelBars({ steps, f }: { steps: readonly FunnelStep[]; f: Form
         const drop = i > 0 && prev > 0 ? Math.round(((prev - step.sessions) / prev) * 100) : null;
         return (
           <div key={step.step}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBlockEnd: '0.15rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: '0.15rem' }}>
               <span>{STEP_KEYS[step.step] ? tr(STEP_KEYS[step.step]!) : step.step}</span>
               <span style={{ color: 'var(--tp-muted-fg)' }}>
                 {f.num(step.sessions)}

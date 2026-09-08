@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { iqd } from '@touch/core';
 import type { CourtSlots, Slot } from '@touch/core';
 import {
-  firstUpcomingIndex,
+  upcomingOnly,
   hasAnySlots,
   mergeAcrossCourts,
   openNowInfo,
@@ -336,32 +336,38 @@ describe('mergeAcrossCourts with a clock', () => {
   });
 });
 
-describe('firstUpcomingIndex', () => {
-  const cell = (state: MergedCell['state']): MergedCell => ({
-    startAt: new Date(T10),
+describe('upcomingOnly', () => {
+  const cell = (iso: string, state: MergedCell['state']): MergedCell => ({
+    startAt: new Date(iso),
     state,
     freeCount: 0,
     capacity: 2,
     priceIqd: null,
     courtId: null,
   });
+  const at = (h: number) => `2026-09-01T${String(h).padStart(2, '0')}:00:00.000Z`;
+  const times = (cells: MergedCell[]) => cells.map((c) => c.startAt.toISOString());
 
-  it('skips the run of started times so the grid can open on tonight', () => {
-    expect(firstUpcomingIndex([cell('past'), cell('past'), cell('free')])).toBe(2);
+  it('drops the run of started times so the grid opens on tonight', () => {
+    const cells = [cell(at(7), 'past'), cell(at(8), 'past'), cell(at(9), 'free')];
+    expect(times(upcomingOnly(cells, new Date(at(9))))).toEqual([at(9)]);
   });
 
-  it('stops at a booked or blocked hour — those still explain the night', () => {
-    expect(firstUpcomingIndex([cell('past'), cell('booked'), cell('free')])).toBe(1);
-    expect(firstUpcomingIndex([cell('past'), cell('horizon')])).toBe(1);
+  it('drops a started booked or blocked hour too — it cannot be booked either', () => {
+    const cells = [cell(at(7), 'booked'), cell(at(8), 'blocked'), cell(at(9), 'free')];
+    expect(times(upcomingOnly(cells, new Date(at(9))))).toEqual([at(9)]);
   });
 
-  it('is 0 on a day with nothing past (a future chip opens at the top)', () => {
-    expect(firstUpcomingIndex([cell('free'), cell('free')])).toBe(0);
+  it('keeps a cell starting exactly now (same boundary as mergeAcrossCourts)', () => {
+    const cells = [cell(at(9), 'free'), cell(at(10), 'free')];
+    expect(times(upcomingOnly(cells, new Date(at(9))))).toEqual([at(9), at(10)]);
   });
 
-  it('is 0 when the whole night has run out, and when there are no cells', () => {
-    expect(firstUpcomingIndex([cell('past'), cell('past')])).toBe(0);
-    expect(firstUpcomingIndex([])).toBe(0);
+  it('keeps everything on a future day, and is empty once the night has run out', () => {
+    const cells = [cell(at(9), 'free'), cell(at(10), 'free')];
+    expect(upcomingOnly(cells, new Date(at(8)))).toHaveLength(2);
+    expect(upcomingOnly(cells, new Date(at(11)))).toEqual([]);
+    expect(upcomingOnly([], new Date(at(11)))).toEqual([]);
   });
 });
 

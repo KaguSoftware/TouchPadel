@@ -539,7 +539,7 @@ Full gate: `pnpm typecheck` (turbo, includes db types drift) · `pnpm test` · `
 1. **DB/edge contract drift** — every **[DB-CONTRACT]** above (RPC names/arg shapes, `cafe_settings` keys, error codes, `locale` on insight tables, `menu` broadcast coverage, gross vs net sales) must be reconciled with the DB slice before W2/W3/W5 start; `lib/rpcNames.ts` localises renames.
 2. **`AppFunctionName` typing** blocks compilation until `types.gen.ts` is regenerated — sequence W2+ after the DB migration commit.
 3. **Autoplay**: browser dev/e2e still needs the Start-shift gesture; Electron flag removes it on stations. Test both paths.
-4. **Print fidelity**: Chromium honours `@page size: A6` only when the user leaves "Default" paper in the dialog; document in `op.qr.printHint`. Fonts on cards are the generic sans stack until brand fonts land (swap point kept).
+4. **Print fidelity**: Chromium honours `@page size: A6` only when the user leaves "Default" paper in the dialog; document in `op.qr.printHint`. Fonts on cards are the brand family, inherited from the theme like every other operator surface (`themeCss` carries the `@font-face` rules) — no separate stack for print.
 5. **Recharts bundle** (~150 KB gz) — lazy route keeps it off till/KDS; verify with `vite build` chunk report.
 6. **PostHog absent at launch** (decision 11) — the whole analytics page must render in sales-only mode; e2e (e) enforces it.
 7. **Groq/locale**: bilingual findings double model calls if both locales are generated; recommend generating in the requesting locale only and storing per locale.

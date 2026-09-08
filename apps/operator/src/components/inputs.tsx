@@ -1,11 +1,12 @@
 /**
  * Form inputs shared by admin screens: integer IQD money, percent,
- * paired EN/AR fields, and ▲▼ reorder buttons. Inline styles, logical
- * properties only; numeric inputs are always `dir="ltr"`.
+ * paired EN/AR fields, and move-up / move-down reorder buttons. Inline styles,
+ * logical properties only; numeric inputs are always `dir="ltr"`.
  */
 import { useEffect, useState, type CSSProperties } from 'react';
 import { formatIQD } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
+import { Icon } from './icons';
 import { Button, Field, inputStyle } from './ui';
 
 const numericStyle: CSSProperties = { ...inputStyle, fontVariantNumeric: 'tabular-nums' };
@@ -78,7 +79,7 @@ export function MoneyInput({
       {value !== null && (
         <span
           dir="ltr"
-          style={{ fontSize: '0.8rem', color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap' }}
+          style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap' }}
         >
           {formatIQD(value, locale)}
         </span>
@@ -105,6 +106,7 @@ export function PercentInput({
   id?: string;
   style?: CSSProperties;
 }) {
+  const { tr } = useLocale();
   const [text, setText] = useState(String(value));
   useEffect(() => {
     if (Number(text === '' ? NaN : text) !== value) setText(String(value));
@@ -132,7 +134,10 @@ export function PercentInput({
         }}
         onBlur={() => setText(String(value))}
       />
-      <span style={{ color: 'var(--tp-muted-fg)' }}>%</span>
+      {/* Arabic writes the percent sign as U+066A, so the unit is a catalog
+          string like every other word on the screen — a literal '%' left half
+          of a localised figure in Latin. */}
+      <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.kit.common.percent')}</span>
     </span>
   );
 }
@@ -223,7 +228,13 @@ export function BilingualFields({
   );
 }
 
-/** ▲ ▼ ghost buttons for swap-with-neighbour reordering (no drag lib). */
+/**
+ * Move-up / move-down ghost buttons for swap-with-neighbour reordering (no drag
+ * lib). They drew literal ▲ / ▼ characters in an app whose icon module opens
+ * with "no emoji as icons": a different family, a different stroke weight and a
+ * different vertical metric from every other glyph in the row. One chevron with
+ * a rotate, the same trick DataTable's sort indicator uses.
+ */
 export function SortButtons({
   onUp,
   onDown,
@@ -253,7 +264,7 @@ export function SortButtons({
         title={tr('op.common.moveUp')}
         style={compact}
       >
-        ▲
+        <Icon name="chevronDown" size={14} style={{ transform: 'rotate(180deg)' }} />
       </Button>
       <Button
         kind="ghost"
@@ -263,7 +274,7 @@ export function SortButtons({
         title={tr('op.common.moveDown')}
         style={compact}
       >
-        ▼
+        <Icon name="chevronDown" size={14} />
       </Button>
     </span>
   );

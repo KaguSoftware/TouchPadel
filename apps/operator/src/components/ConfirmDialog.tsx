@@ -40,18 +40,36 @@ export function ConfirmDialog({
     if (!busy) onCancel();
   };
   return (
-    <Modal title={title} onClose={close}>
-      {body !== undefined && body !== null && (
-        <div style={{ marginBlockEnd: '1rem', lineHeight: 1.5 }}>{body}</div>
-      )}
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-        <Button onClick={close} disabled={busy} autoFocus={kind === 'danger'}>
-          {cancelLabel ?? tr('common.cancel')}
-        </Button>
-        <Button kind={kind} onClick={onConfirm} disabled={busy} autoFocus={kind !== 'danger'}>
-          {confirmLabel ?? tr('common.confirm')}
-        </Button>
-      </div>
+    <Modal
+      title={title}
+      onClose={close}
+      // This was the only dialog in the app rendering its action row inside the
+      // Modal BODY while PinPromptOverlay, ReasonCodePrompt, PinReasonModal and
+      // DrillThroughPanel all used the footer slot — so the one prompt every
+      // screen shares was the one that did not look like the others.
+      footer={
+        <>
+          <Button onClick={close} disabled={busy} autoFocus={kind === 'danger'}>
+            {cancelLabel ?? tr('common.cancel')}
+          </Button>
+          <Button
+            kind={kind}
+            // `disabled={busy}` showed a dead grey button with no spinner while
+            // a slow confirmation was in flight; `busy` is what every other
+            // prompt passes and it is already non-actionable.
+            busy={busy}
+            onClick={onConfirm}
+            autoFocus={kind !== 'danger'}
+            // Rulebook 7.8: a destructive confirm must not sit half a step from
+            // Cancel. The auto margin eats the free space between them.
+            style={kind === 'danger' ? { marginInlineStart: 'auto' } : undefined}
+          >
+            {confirmLabel ?? tr('common.confirm')}
+          </Button>
+        </>
+      }
+    >
+      {body !== undefined && body !== null ? <div style={{ lineHeight: 1.5 }}>{body}</div> : null}
     </Modal>
   );
 }

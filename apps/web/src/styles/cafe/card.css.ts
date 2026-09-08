@@ -43,7 +43,13 @@ export const cardCss = `
 .tp-menu-item__body { flex: 1; min-inline-size: 0; }
 .tp-menu-item__head { display: flex; align-items: center; gap: 5px 8px; flex-wrap: wrap; }
 .tp-menu-item__name { flex: 1 0 100%; font-weight: 700; font-size: 21px; line-height: 1.2; color: var(--tp-cafe-ink); }
-/* Latin item names (V60, Kit Kat) are set in the Latin face even in Arabic. */
+/* A Latin item name (V60, Kit Kat) inside an Arabic menu names the Latin token
+   instead of inheriting the Arabic one the document sets on [dir='rtl']. One
+   family draws both scripts and both stacks carry the same tail behind it, so
+   the rule is a no-op — kept for the reason packages/ui/src/theme.ts keeps its
+   equivalent: the two stacks' FALLBACK tails are allowed to diverge again, and
+   the day they do, this is the only thing keeping "Kit Kat" off whatever face
+   an unpainted Arabic frame reaches for. */
 .tp-menu-item__name[data-latin='true'] { font-family: var(--tp-font-display); }
 /* The row's serve-temp chips scale with its 21px name. Scoped, because the
    same .tp-temp also draws the section badge, which keeps its own size. */

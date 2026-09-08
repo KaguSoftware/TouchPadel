@@ -16,9 +16,69 @@
  * a bill that disagrees with the amount charged is worse than no bill.
  */
 import { formatIQD, formatTime } from '@touch/i18n';
+import { BRAND_FAMILY, fontFaceCssFrom } from '@touch/ui';
+// The two faces the receipt sets, carried as base64 rather than as a path — see
+// buildReceiptDoc for why a path cannot work there. Imported from the canonical
+// copies in packages/ui, not from this app's public/ mirror, because Vite refuses
+// to import out of publicDir and because the mirror is a build artefact.
+import lamaRegularSrc from '../../../../../packages/ui/fonts/lama/woff2/LamaSans-Regular.woff2?inline';
+import lamaBoldSrc from '../../../../../packages/ui/fonts/lama/woff2/LamaSans-Bold.woff2?inline';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Modal } from '../../components/ui';
+import { touch } from '../../ipc/bridge';
+import { isElectron } from '../../lib/mutate';
+import { captureException } from '../../lib/telemetry';
 import type { TabTotals } from './tabTotals';
+
+/**
+ * THE FONT CANNOT BE A PATH HERE. Main loads this document as
+ * `data:text/html;charset=utf-8,…` (operator-shell print-receipt.ts), and a
+ * `data:` URL has an opaque origin with no base to resolve against, so
+ * `url('/fonts/lama/…')` — the form every other surface uses — resolves to
+ * nothing and the receipt silently prints in Segoe UI. The bytes have to travel
+ * inside the document, which is what the `?inline` imports above are for. Do not
+ * "tidy" these back into paths.
+ *
+ * Two faces only. The bill sets 400 for lines and 700 for the totals row and the
+ * venue name, nothing else, and each face costs ~60KB of base64 in a string that
+ * is then percent-encoded into the URL.
+ */
+const RECEIPT_FACE_SRC: Readonly<Record<string, string>> = {
+  'LamaSans-Regular': lamaRegularSrc,
+  'LamaSans-Bold': lamaBoldSrc,
+};
+
+/**
+ * `fontFaceCssFrom` walks all seven shipped faces; the five this document does
+ * not carry are dropped by the sentinel rather than emitted with a dead `src`.
+ * If that helper ever stops separating its rules with a blank line the filter
+ * misses and those five ship pointing at `about:invalid` — inert, because the
+ * receipt never selects a weight they would match.
+ */
+const UNCARRIED = 'about:invalid';
+const receiptFontCss = fontFaceCssFrom((face) => RECEIPT_FACE_SRC[face.file] ?? UNCARRIED)
+  .split('\n\n')
+  .filter((rule) => !rule.includes(UNCARRIED))
+  .join('\n');
+
+/**
+ * Wrap the on-screen bill markup as a self-contained document for the thermal
+ * pipeline (main renders it at 576px in an offscreen window). The CSS vars the
+ * screen styles lean on don't exist there — define the two that matter, on
+ * paper-white with ink-black text. dir carries the Arabic layout, and the brand
+ * family shapes it: the printer only ever receives pixels, so whatever Chromium
+ * composes here is literally what the guest is handed.
+ */
+export function buildReceiptDoc(billHtml: string, dir: 'ltr' | 'rtl'): string {
+  return `<!doctype html><html dir="${dir}"><head><meta charset="utf-8"><style>
+    ${receiptFontCss}
+    :root { --tp-muted-fg: #444; --tp-border: #000; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+    body { font-family: '${BRAND_FAMILY}', system-ui, 'Segoe UI', Tahoma, sans-serif; font-size: 26px;
+           padding: 12px 16px; }
+    table { inline-size: 100%; }
+  </style></head><body>${billHtml}</body></html>`;
+}
 
 export interface BillLine {
   id: string;
@@ -58,10 +118,30 @@ export function BillView({
   taxInclusive: boolean;
   onClose(): void;
 }) {
-  const { tr, locale } = useLocale();
+  const { tr, locale, dir } = useLocale();
   const lines = orders
     .filter((o) => o.status !== 'voided')
     .flatMap((o) => o.order_items.filter((i) => !i.voided));
+
+  // Thermal first (SOW L425-433: Arabic as a rendered image), browser print as
+  // the standing fallback — no printer configured, print failure, or dev.
+  async function printBill() {
+    if (isElectron()) {
+      const node = document.querySelector('[data-bill]');
+      if (node) {
+        try {
+          const res = await touch.print({
+            kind: 'receipt',
+            data: { html: buildReceiptDoc(node.outerHTML, dir) },
+          });
+          if (res.ok) return;
+        } catch (error) {
+          captureException(error, { label: 'print.receipt' });
+        }
+      }
+    }
+    window.print();
+  }
 
   return (
     <Modal title={tr('op.till.bill')} onClose={onClose}>
@@ -139,7 +219,7 @@ export function BillView({
 
       <div data-no-print style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
         <Button onClick={onClose}>{tr('common.close')}</Button>
-        <Button kind="primary" onClick={() => window.print()}>
+        <Button kind="primary" onClick={() => void printBill()}>
           {tr('op.till.printBill')}
         </Button>
       </div>

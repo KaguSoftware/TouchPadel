@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { pickLocale } from '@touch/core';
 import { Button } from '../../components/ui';
+import { PageHeader } from '../../components/kit';
 import { useLocale } from '../../lib/i18n';
 import { ControlDeck } from './ControlDeck';
 import { Zone, ZoneGrid, ZONES } from './Zone';
@@ -83,7 +84,15 @@ export function AnalyticsPage() {
   });
 
   return (
-    <div style={{ minInlineSize: '1024px', paddingInline: '1rem', paddingBlockEnd: '3rem' }}>
+    <div style={{ minInlineSize: '1024px', paddingInline: 'var(--tp-sp-4)', paddingBlockEnd: 'var(--tp-sp-6)' }}>
+      {/*
+        This page had no title and no h1 at all: the only "Analytics" on it was a
+        micro-label inside the control deck, so heading navigation opened on
+        "Pulse" and the active rail item agreed with nothing (3.4, 3.6). The
+        header scrolls away and the deck below it stays sticky, which is the
+        order the owner reads them in.
+      */}
+      <PageHeader title={tr('analytics.title')} subtitle={f.dateRange(data.range.from, data.range.to)} />
       <ControlDeck search={search} setSearch={setSearch} data={data} menu={raw?.menu ?? []} />
 
       {/* ---------------- 01 Pulse ---------------- */}
@@ -285,7 +294,7 @@ function Notices({ data }: { data: ReturnType<typeof useAnalyticsData> }) {
         </span>
       ))}
       {state.salesError != null && (
-        <Button onClick={data.refetchAll} style={{ fontSize: '0.8rem', paddingBlock: '0.25rem' }}>
+        <Button onClick={data.refetchAll} style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: 'var(--tp-sp-1)' }}>
           {tr('common.retry')}
         </Button>
       )}

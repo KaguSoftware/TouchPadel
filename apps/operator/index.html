@@ -4,6 +4,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <!-- The brand faces are registered by themeCss, which ThemeProvider injects once React
+         mounts, so the boot frame would otherwise paint in the system tail and reflow under
+         the cashier's hands. Body and headings only — the other five faces are below the
+         fold everywhere. crossorigin is what makes the dev server reuse these instead of
+         fetching each face twice: over http a font is fetched in CORS mode, and a preload
+         only warms a request whose mode it matches. The build strips it again
+         (vite.config.ts) — the packaged window is opened with loadFile, where the font fetch
+         is not CORS mode and the attribute is the thing that breaks the match. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/lama/LamaSans-Regular.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/lama/LamaSans-Bold.woff2" crossorigin />
     <title>Touch Padel Operator</title>
   </head>
   <body>

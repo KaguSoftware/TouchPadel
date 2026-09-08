@@ -24,7 +24,7 @@ const config = getDefaultConfig(projectRoot);
 
 // ADD to Expo's defaults rather than replacing them — `expo-doctor` checks for
 // exactly this, and overwriting drops entries Expo needs (it seeds watchFolders
-// itself in SDK 54).
+// itself since SDK 54).
 config.watchFolders = [...new Set([...(config.watchFolders ?? []), workspaceRoot])];
 
 config.resolver.nodeModulesPaths = [

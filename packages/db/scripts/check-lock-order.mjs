@@ -211,6 +211,7 @@ const STATUS_ONLY_RESERVATION_WRITERS = new Set([
   'release_hold',         // -> expired:   leaves it (0058, guest hand-back)
   'mark_reservation',     // -> arrived / no_show / completed
   'confirm_booking',      // pending -> confirmed: same period, same court
+  'cancel_series',        // -> cancelled, one app.cancel_reservation per row (0066): leaves it
 ]);
 
 const violations = [];

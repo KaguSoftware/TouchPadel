@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { isDegradedRefusal, mapErrorToKey, rpcErrorCode } from '../errors';
 import {
   canCancel,
+  endedNotice,
   isLiveHold,
   parseHoldResult,
+  playedCount,
   secondsUntil,
   splitBookings,
+  startProximity,
+  visiblePast,
   type BookingRow,
 } from '../logic';
 
@@ -195,5 +199,87 @@ describe('canCancel', () => {
     expect(canCancel(row({}), 24, now)).toBe(false);
     // terminal status -> never
     expect(canCancel(row({ status: 'cancelled' }), 12, now)).toBe(false);
+  });
+});
+
+describe('startProximity', () => {
+  const now = new Date('2026-09-01T12:00:00Z');
+  const at = (start: string, end = '2026-12-01T00:00:00Z') =>
+    startProximity(row({ start_at: start, end_at: end }), now);
+
+  it('counts down in minutes, then hours, then days', () => {
+    expect(at('2026-09-01T12:20:00Z')).toEqual({ unit: 'minutes', value: 20 });
+    expect(at('2026-09-01T15:00:00Z')).toEqual({ unit: 'hours', value: 3 });
+    expect(at('2026-09-04T12:00:00Z')).toEqual({ unit: 'days', value: 3 });
+  });
+
+  it('hands off between steps with no gap', () => {
+    // 59'40" rounds to 60 minutes, which is an hour — never "In 60 min".
+    expect(at('2026-09-01T12:59:40Z')).toEqual({ unit: 'hours', value: 1 });
+    // 23h50m rounds to 24 hours, which is a day — never "In 24 h".
+    expect(at('2026-09-02T11:50:00Z')).toEqual({ unit: 'days', value: 1 });
+  });
+
+  it('is "now" inside the last minute and "live" once it has started', () => {
+    expect(at('2026-09-01T12:00:30Z')).toEqual({ unit: 'now' });
+    expect(at('2026-09-01T11:30:00Z', '2026-09-01T13:00:00Z')).toEqual({ unit: 'live' });
+    expect(at('not-a-date')).toEqual({ unit: 'live' });
+  });
+});
+
+describe('playedCount', () => {
+  it('counts only bookings the guest turned up for', () => {
+    expect(
+      playedCount([
+        row({ status: 'completed' }),
+        row({ status: 'arrived' }),
+        row({ status: 'cancelled' }),
+        row({ status: 'no_show' }),
+        row({ status: 'expired' }),
+      ]),
+    ).toBe(2);
+  });
+});
+
+describe('endedNotice', () => {
+  it('explains every ending the guest did not ask for', () => {
+    expect(endedNotice('cancelled')).toBe('booking.cancelledNotice');
+    // The two that used to render nothing at all.
+    expect(endedNotice('no_show')).toBe('booking.noShowNotice');
+    expect(endedNotice('expired')).toBe('booking.expiredNotice');
+  });
+
+  it('says nothing about a booking that is still live, or one that was played', () => {
+    for (const status of ['pending', 'confirmed', 'arrived', 'completed']) {
+      expect(endedNotice(status)).toBeNull();
+    }
+  });
+});
+
+describe('visiblePast (Clear history)', () => {
+  const rows = [
+    row({ id: 'after', end_at: '2026-09-02T11:00:00Z' }),
+    row({ id: 'boundary', end_at: '2026-09-01T12:00:00Z' }),
+    row({ id: 'before', end_at: '2026-08-20T11:00:00Z' }),
+  ];
+
+  it('shows everything when history has never been cleared', () => {
+    expect(visiblePast(rows, null).map((r) => r.id)).toEqual(['after', 'boundary', 'before']);
+  });
+
+  it('hides games that had already ENDED when history was cleared', () => {
+    // The boundary goes: a game that ended exactly at the cut is history.
+    expect(visiblePast(rows, '2026-09-01T12:00:00Z').map((r) => r.id)).toEqual(['after']);
+  });
+
+  it('falls back to showing everything on an unreadable cut', () => {
+    // A corrupted storage value must not blank the list.
+    expect(visiblePast(rows, 'not-a-date')).toHaveLength(3);
+  });
+
+  it('never mutates the list it was given', () => {
+    const original = [...rows];
+    visiblePast(rows, '2026-09-01T12:00:00Z');
+    expect(rows).toEqual(original);
   });
 });

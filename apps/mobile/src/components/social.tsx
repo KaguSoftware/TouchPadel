@@ -10,8 +10,9 @@
  * colour "G" mark, fill/stroke/text colours and light/dark themes follow Google's
  * branding guidelines exactly; the mark is never recoloured or mirrored.
  *
- * Deliberately NOT the app's `Button`: that one uppercases its label (Archivo)
- * and has no icon slot — these are third-party brand buttons, not app CTAs.
+ * Deliberately NOT the app's `Button`: that one uppercases its label in the
+ * brand display face and has no icon slot — these are third-party brand
+ * buttons, not app CTAs.
  */
 import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '../i18n/text';

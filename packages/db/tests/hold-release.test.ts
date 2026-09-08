@@ -1,5 +1,5 @@
 /**
- * 0058 — app.release_hold, and the device bug that asked for it.
+ * 0060 (né 0058) — app.release_hold, and the device bug that asked for it.
  *
  * REPRO (mobile, 2026-09-01). Tap three different times on Availability and
  * back out of Review each time: three live holds. The 0048/C1 cap
@@ -29,7 +29,7 @@ import {
 
 const up = await stackAvailable();
 
-describe.skipIf(!up)('0058 release_hold', () => {
+describe.skipIf(!up)('0060 release_hold', () => {
   let svc: SupabaseClient;
   let courtId: string;
 

@@ -106,6 +106,31 @@ export function splitBookings(
 }
 
 /**
+ * The line that explains why a booking is over — or null while it is still
+ * live. Detail rendered it for `cancelled` only, so the two endings the guest
+ * did NOT ask for said nothing at all: a no-show closed by the desk (0075) and
+ * a hold that lapsed before it was confirmed both left a booking that had
+ * quietly stopped meaning anything, with no way to tell that from a booking
+ * still standing.
+ *
+ * `completed` gets no notice: the guest played, and there is nothing to say.
+ */
+export function endedNotice(
+  status: string,
+): 'booking.cancelledNotice' | 'booking.noShowNotice' | 'booking.expiredNotice' | null {
+  switch (status) {
+    case 'cancelled':
+      return 'booking.cancelledNotice';
+    case 'no_show':
+      return 'booking.noShowNotice';
+    case 'expired':
+      return 'booking.expiredNotice';
+    default:
+      return null;
+  }
+}
+
+/**
  * Guest-side cancellability mirror of app.cancel_reservation's policy: live
  * status and outside the cancellation window. The RPC remains the authority.
  */
@@ -122,4 +147,68 @@ export function canCancel(row: BookingRow, cancellationWindowHours: number, now:
  */
 export function displayRef(reservationId: string): string {
   return `TP-${reservationId.replace(/-/g, '').slice(0, 4).toUpperCase()}`;
+}
+
+/**
+ * How close the next booking's start is, for the "next up" hero on My bookings.
+ *
+ * Deliberately unit-based and NOT calendar-based: "Tomorrow" is a venue-timezone
+ * day boundary, and every cheap way to compute it here (device midnight, a
+ * 24-hour offset) is wrong for someone travelling or booking near midnight.
+ * Elapsed time has no such trap, so the hero counts down in minutes, hours and
+ * days and never claims a day name it cannot prove.
+ *
+ * The steps hand off exactly — 60 rounded minutes becomes 1 hour, 24 rounded
+ * hours becomes 1 day — so no gap between them can render an empty chip.
+ */
+export type StartProximity =
+  /** Started already and not yet ended: the guest is on court. */
+  | { unit: 'live' }
+  | { unit: 'now' }
+  | { unit: 'minutes'; value: number }
+  | { unit: 'hours'; value: number }
+  | { unit: 'days'; value: number };
+
+export function startProximity(row: BookingRow, now: Date): StartProximity {
+  const ms = new Date(row.start_at).getTime() - now.getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return { unit: 'live' };
+  const minutes = Math.round(ms / 60_000);
+  if (minutes <= 1) return { unit: 'now' };
+  if (minutes < 60) return { unit: 'minutes', value: minutes };
+  const hours = Math.round(ms / 3_600_000);
+  if (hours < 24) return { unit: 'hours', value: hours };
+  return { unit: 'days', value: Math.max(1, Math.round(ms / 86_400_000)) };
+}
+
+/**
+ * Past bookings the guest actually turned up for — the "N played" chip under
+ * the title. Cancellations, no-shows and expiries are history but not games,
+ * and counting them would inflate the one number on the screen that is a small
+ * point of pride.
+ */
+export function playedCount(past: readonly BookingRow[]): number {
+  return past.filter((r) => r.status === 'completed' || r.status === 'arrived').length;
+}
+
+/**
+ * Past games still visible after "Clear history" (Booking history panel).
+ *
+ * Clearing hides, it does not delete: a reservation is the VENUE's record too,
+ * so the app has no business destroying one to tidy a list. The cut is stored
+ * per user on the device (features/booking/history.ts) and applied here, so a
+ * cleared game is gone from every derived number as well as the list — the
+ * "N played" chip included, which would otherwise keep counting games the guest
+ * has just asked to stop seeing.
+ *
+ * The comparison is on `end_at` for the same reason the split is: a game that
+ * had not finished when history was cleared is not history yet.
+ */
+export function visiblePast(
+  past: readonly BookingRow[],
+  clearedAt: string | null,
+): BookingRow[] {
+  if (!clearedAt) return [...past];
+  const cutoff = new Date(clearedAt).getTime();
+  if (!Number.isFinite(cutoff)) return [...past];
+  return past.filter((r) => new Date(r.end_at).getTime() > cutoff);
 }

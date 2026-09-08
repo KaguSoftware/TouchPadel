@@ -72,11 +72,63 @@ enable_anonymous_sign_ins = true
 # too low for a venue where many phones share one WAN IP — and it throttles the
 # concurrency test suite. Revisit before production handover (SEC gate 5).
 anonymous_users = 300
+# Phone OTP (dormant scaffold, see [auth.sms]): SMS sends per hour, project-wide.
+# Per-IP throttling of the OTP endpoints is GoTrue's sign_in_sign_ups default;
+# per-PHONE and per-day caps live in app.sms_limits (0069), enforced by the hook.
+sms_sent = 30
 
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = true
+
+# Phone OTP -- VENDOR ADDITION SCAFFOLD 2026-09-05, DORMANT (SOW L259-260
+# excludes phone/SMS login; the owner asked for the base so activation is
+# configuration, not code -- docs/design/phone-otp-2026-09-05.md, runbook
+# docs/client/phone-otp-activation.md). This file governs `supabase start`
+# ONLY; the HOSTED project keeps the Phone provider and the Send SMS hook OFF
+# until the runbook is executed. Three independent switches, all off by default:
+#   1. mobile: EXPO_PUBLIC_PHONE_OTP=on shows the "Continue with phone" entry;
+#   2. hosted GoTrue: Phone provider + Send SMS hook (dashboard);
+#   3. database: app.sms_limits.enabled (0069) -- the hook refuses every send
+#      while false, so an early dashboard flip still spends nothing.
+# Locally the flow works END TO END with no vendor: the test_otp number below
+# accepts its fixed code and never invokes the hook. The hook block stays
+# disabled here; enable it to exercise functions/send-sms-otp against the
+# `log` provider (needs `supabase functions serve` and the SAME secret in
+# supabase/functions/.env -- the committed value is local-only, not a secret).
+[auth.sms]
+enable_signup = true
+enable_confirmations = true
+# Used only when no hook is enabled (GoTrue's own send path); the hook renders
+# its own bilingual text (functions/send-sms-otp/otp.ts, <= 70 UTF-16 units).
+template = "Touch Padel: {{ .Code }}"
+max_frequency = "60s"
+
+[auth.sms.test_otp]
+# Local dev, vitest and store review: GoTrue accepts this code for this number
+# without sending anything. Keys are E.164 digits WITHOUT the '+'.
+9647700000001 = "123456"
+
+# The CLI turns phone login OFF at `supabase start` ("WARN: no SMS provider is
+# enabled. Disabling phone login") unless a provider block is enabled — the
+# send_sms hook above does NOT count. Without this block every signInWithOtp
+# fails with "Unsupported phone provider" (CI db job, 2026-09-07). These are
+# placeholders, not credentials: GoTrue resolves [auth.sms.test_otp] numbers
+# BEFORE any provider send, so vitest and dev never reach Twilio; a real number
+# locally fails by design. Hosted is dashboard-managed; this file is never pushed.
+[auth.sms.twilio]
+enabled = true
+account_sid = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+message_service_sid = "MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+auth_token = "local-placeholder-not-a-secret"
+
+[auth.hook.send_sms]
+enabled = false
+uri = "http://host.docker.internal:54321/functions/v1/send-sms-otp"
+# Standard-Webhooks secret: "v1,whsec_<base64>". LOCAL-ONLY placeholder value;
+# the hosted secret is generated in the dashboard and set via `supabase secrets set`.
+secrets = "v1,whsec_dG91Y2gtbG9jYWwtZGV2LXNlbmQtc21zLWhvb2stc2VjcmV0LW5vdC1yZWFsISE="
 
 # Social sign-in -- VENDOR ADDITION 2026-09-01 (SOW L259-260 excludes it; the
 # owner chose to add it; email/password stays the contractual path). The mobile
@@ -136,3 +188,9 @@ verify_jwt = true                           # staff session JWT; the body then r
 verify_jwt = true                           # cron/pg_net posts with the service-role JWT
 [functions.staff-admin]
 verify_jwt = true                           # owner session JWT; the body re-checks the staff row
+[functions.desk-customer-create]
+verify_jwt = true                           # desk session JWT; the body re-checks the staff row (court_desk/manager/owner)
+[functions.apple-revoke]
+verify_jwt = true                           # the guest's own session JWT; the body re-checks the caller
+[functions.send-sms-otp]
+verify_jwt = false                          # GoTrue's Send SMS hook carries no JWT; the Standard-Webhooks HMAC (SEND_SMS_HOOK_SECRET) is the auth

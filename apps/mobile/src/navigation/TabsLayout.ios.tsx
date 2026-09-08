@@ -1,6 +1,10 @@
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, useTheme } from '../theme';
+
+// SDK 57 expo-router: `Icon` / `Label` are no longer top-level exports; they hang
+// off the trigger.
+const { Icon, Label } = NativeTabs.Trigger;
 
 /**
  * iOS bottom tabs backed by the real `UITabBar`, via expo-router's own
@@ -10,8 +14,11 @@ import { brand, useTheme } from '../theme';
  *
  * The system draws the bar, so it picks up the native material (Liquid Glass on
  * iOS 26), scroll-edge behavior, RTL mirroring and iPad layout. Labels still
- * take the design's Archivo face, and the selected tab tints its icon with the
- * design's green; the 14x3 green active dot has no UIKit equivalent and is
+ * take the design's display face, and the selected tab tints its icon with the
+ * design's green. The selected LABEL takes that same `brand.green` rather than
+ * `colors.blue`, which is #3360AB in light but #FFFFFF in blue mode — the
+ * selected tab has to read as one colour in both themes, and light's is the
+ * one that is right. The 14x3 green active dot has no UIKit equivalent and is
  * dropped here. Android keeps the custom bar in
  * `TabsLayout.android.tsx` — that platform split is deliberate.
  */
@@ -25,7 +32,7 @@ export default function TabsLayoutIOS() {
       minimizeBehavior="onScrollDown"
       labelStyle={{
         default: { fontFamily: fonts.display600, fontSize: 10, color: colors.fnt2 },
-        selected: { fontFamily: fonts.display800, fontSize: 10, color: colors.blue },
+        selected: { fontFamily: fonts.display800, fontSize: 10, color: brand.green },
       }}
       iconColor={{ default: colors.fnt2, selected: brand.green }}
     >

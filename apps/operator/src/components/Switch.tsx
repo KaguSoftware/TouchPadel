@@ -94,9 +94,9 @@ export function Switch({
           display: 'inline-block',
           inlineSize: '2.4rem',
           blockSize: '1.35rem',
-          borderRadius: '999px',
+          borderRadius: 'var(--tp-radius-pill)',
           background: value ? onColor : 'var(--tp-muted)',
-          transition: 'background 0.15s',
+          transition: 'background var(--tp-dur-fast) var(--tp-ease-out)',
           flexShrink: 0,
         }}
       >
@@ -104,13 +104,19 @@ export function Switch({
           style={{
             position: 'absolute',
             insetBlockStart: '0.15rem',
-            insetInlineStart: value ? '1.2rem' : '0.15rem',
+            // The thumb used to TRANSITION `inset-inline-start`, forcing layout
+            // on every frame of every toggle — and these sit inside admin table
+            // rows that are hit dozens of times a shift. It travels on a
+            // transform now, mirrored in Arabic by --tp-dir-sign (the same
+            // mechanism tpMarquee uses; see packages/ui/src/theme.ts).
+            insetInlineStart: '0.15rem',
+            transform: value ? 'translateX(calc(1.05rem * var(--tp-dir-sign, 1)))' : 'none',
             inlineSize: '1.05rem',
             blockSize: '1.05rem',
             borderRadius: '50%',
-            background: '#fff',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
-            transition: 'inset-inline-start 0.15s',
+            background: 'var(--tp-surface)',
+            boxShadow: 'var(--tp-shadow-raised)',
+            transition: 'transform var(--tp-dur-fast) var(--tp-ease-out)',
           }}
         />
       </span>

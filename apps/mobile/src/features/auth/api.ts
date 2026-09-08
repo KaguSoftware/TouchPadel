@@ -6,6 +6,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
 import type { Locale } from '@touch/i18n';
 
+import { clearPushToken } from '../profile/api';
+
 type Client = SupabaseClient<Database>;
 
 /**
@@ -89,7 +91,23 @@ export async function updatePassword(client: Client, newPassword: string) {
   if (error) throw error;
 }
 
+/**
+ * SEC-21 — the push token is cleared BEFORE the session goes.
+ *
+ * The update needs the guest's own JWT (profiles_update_own is
+ * `id = auth.uid()`), so it cannot be done after signOut(). It is also best
+ * effort: clearPushToken swallows its own failures, because a network hiccup
+ * must not leave somebody unable to sign out of a shared phone.
+ *
+ * Without this the row keeps a live capability to push notifications to a
+ * handset the guest has walked away from, and the next person to use it goes on
+ * receiving the previous guest's booking reminders.
+ */
 export async function signOut(client: Client) {
+  const { data } = await client.auth.getUser();
+  const uid = data.user?.id;
+  if (uid) await clearPushToken(client, uid);
+
   const { error } = await client.auth.signOut();
   if (error) throw error;
 }
@@ -149,5 +167,50 @@ export async function signInWithIdToken(
 /** Mirror a provider-supplied name into user metadata as well as profiles (Apple sends it once). */
 export async function setUserMetadata(client: Client, data: { full_name: string }) {
   const { error } = await client.auth.updateUser({ data });
+  if (error) throw error;
+}
+
+// ── Phone OTP (dormant vendor-addition scaffold 2026-09-05) ─────────────────
+// GoTrue-native: the session these return is the same object the email path
+// stores. Delivery goes through GoTrue's Send SMS hook (functions/send-sms-otp),
+// which refuses every send until app.sms_limits.enabled (0069) is flipped —
+// so calling these against a project that has not been activated fails
+// cleanly with a message features/auth/phoneOtp.ts maps to copy.
+
+/** Sign in or sign up by phone: GoTrue creates the user on first use and sends a code. */
+export async function sendPhoneOtp(client: Client, phoneE164: string) {
+  const { error } = await client.auth.signInWithOtp({ phone: phoneE164 });
+  if (error) throw error;
+}
+
+export async function verifyPhoneOtp(client: Client, phoneE164: string, code: string) {
+  const { data, error } = await client.auth.verifyOtp({ phone: phoneE164, token: code, type: 'sms' });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Link a verified phone to an EXISTING (email / social) account so a later
+ * phone sign-in lands on the same user instead of minting a second one. GoTrue
+ * sends the code to the new number; verifyPhoneLink confirms it.
+ */
+export async function startPhoneLink(client: Client, phoneE164: string) {
+  const { error } = await client.auth.updateUser({ phone: phoneE164 });
+  if (error) throw error;
+}
+
+export async function verifyPhoneLink(client: Client, phoneE164: string, code: string) {
+  const { data, error } = await client.auth.verifyOtp({
+    phone: phoneE164,
+    token: code,
+    type: 'phone_change',
+  });
+  if (error) throw error;
+  return data;
+}
+
+/** Resend for the link flow (a sign-in resend is simply sendPhoneOtp again). */
+export async function resendPhoneLink(client: Client, phoneE164: string) {
+  const { error } = await client.auth.resend({ type: 'phone_change', phone: phoneE164 });
   if (error) throw error;
 }

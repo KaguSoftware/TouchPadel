@@ -44,21 +44,21 @@ export function Kpi({
           : 'var(--tp-muted-fg)';
   return (
     <div style={{ ...card, minInlineSize: 0 }}>
-      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {label}
       </span>
       {loading ? (
         <Skeleton lines={1} blockSize="1.5rem" style={{ marginBlock: '0.35rem' }} />
       ) : (
-        <strong style={{ display: 'block', fontSize: '1.35rem', lineHeight: 1.3 }}>
+        <strong style={{ display: 'block', fontSize: 'var(--tp-fs-2xl)', lineHeight: 1.3 }}>
           {estimated && !unavailable && <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 400 }}>~</span>}
           {unavailable ? '—' : value}
         </strong>
       )}
-      <span style={{ display: 'block', fontSize: '0.75rem', color: tone }}>
+      <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: tone }}>
         {shownDelta == null ? (unavailable ? '' : (reason ?? '')) : `${f.signedPct(shownDelta)} ${vsLabel ?? ''}`}
       </span>
-      {note && <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--tp-muted-fg)' }}>{note}</span>}
+      {note && <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{note}</span>}
     </div>
   );
 }

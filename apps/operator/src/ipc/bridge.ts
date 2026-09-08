@@ -11,7 +11,7 @@ export type Unsub = () => void;
 export interface MutationEnvelope {
   /** Client entity ref: '{station}-{ulid}', e.g. 'TILL1-01J5X...' (plan override #2). */
   localId: string;
-  /** '{station}:{mutation_type}:{ulid}' (plan override #2). */
+  /** '{station}:{mutation_type}:{ulid}' — station segment MUST equal deviceId. */
   idempotencyKey: string;
   /** 'order.create' | 'order.add_items' | 'ticket.status' | 'payment.record' | 'reservation.create' | ... */
   mutationType: string;
@@ -19,22 +19,74 @@ export interface MutationEnvelope {
   payload: unknown;
   /** Station clock, informational. */
   createdAt: string;
+  /** The staff member the write is attributed to — replay 400s without it. */
+  staffId: string;
+  /** The station that owns the durable queue, e.g. 'TILL-01'. */
+  deviceId: string;
 }
 
 export interface QueueStatus {
+  /** pending + inflight — what is still travelling. */
   depth: number;
   degraded: boolean;
   conflicts: number;
+  failed: number;
+  /** Everything non-acked — what day close refuses on and the heartbeat reports. */
+  blocking: number;
 }
 
-export interface KitchenTicket {
-  clientRef: string;
-  status: string;
-  payload: unknown;
+/** The staff session + backend config the main-process sync worker replays with. */
+export interface AuthState {
+  accessToken: string;
+  staffId: string;
+  supabaseUrl: string;
+  anonKey: string;
 }
+
+/** A queued mutation's terminal outcome, pushed as it lands. */
+export interface MutationResult {
+  localId: string;
+  idempotencyKey: string;
+  mutationType: string;
+  state: 'acked' | 'conflict' | 'failed';
+  serverResult?: unknown;
+  error?: string;
+}
+
+/** A non-acked queue row (payload deliberately omitted — PINs ride in payloads). */
+export interface QueueRowInfo {
+  seq: number;
+  localId: string;
+  idempotencyKey: string;
+  mutationType: string;
+  state: 'pending' | 'inflight' | 'conflict' | 'failed';
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+}
+
+/** A LAN-delivered kitchen ticket — identified by the order envelope's key. */
+export interface KitchenTicket {
+  ref: string;
+  tabLabel: string | null;
+  items: {
+    variantId: string;
+    qty: number;
+    notes?: string;
+    modifiers: { modifierId: string; qty: number }[];
+  }[];
+  createdAt: string;
+  status: 'queued' | 'preparing' | 'ready' | 'completed';
+}
+
+export type LanFrame =
+  | { type: 'ticket.new'; data: KitchenTicket }
+  | { type: 'ticket.snapshot'; data: KitchenTicket[] }
+  | { type: 'status.update'; data: { ref: string; status: KitchenTicket['status'] } };
 
 // Cached reference data keys (design-arch.md §2.3). Payload types tighten when
-// @touch/db types.gen.ts exists.
+// @touch/db types.gen.ts exists. 'day' joined on day 14 — the till's
+// "no business day is open" gate must not fire just because the network died.
 export interface RefData {
   menu: unknown;
   prices: unknown;
@@ -45,8 +97,15 @@ export interface RefData {
   staff_pins: unknown;
   reservations: unknown;
   open_tabs: unknown;
+  day: unknown;
 }
 export type RefKey = keyof RefData;
+
+/** A cached row: payload + when it was fetched (the degraded banner shows the age). */
+export interface CachedRef {
+  payload: unknown;
+  fetchedAt: string;
+}
 
 export interface PrintJob {
   kind: 'receipt' | 'kitchen' | 'reprint';
@@ -60,20 +119,106 @@ export interface PrintResult {
 
 export type Role = 'cashier' | 'prep' | 'court_desk' | 'manager' | 'owner';
 
+export type StationMode = 'till' | 'desk' | 'kds';
+
 export interface StationInfo {
   stationId: string; // e.g. 'TILL1'
-  mode: 'till' | 'desk' | 'kds';
+  mode: StationMode;
   tillHost?: string;
+  /** false ⇔ station.json does not exist yet: first run, show the setup screen. */
+  configured: boolean;
+  /** station.json exists but could not be read; the shell runs on dev defaults. */
+  configError?: string;
+  /** The shell build (app.getVersion()) — what auto-update replaces. */
+  appVersion: string;
 }
+
+/** What the first-run setup screen sends. Only accepted while unconfigured. */
+export interface StationSetupRequest {
+  stationId: string;
+  mode: StationMode;
+  /** kds only: the till's private IPv4 (discovered, or typed under Advanced). */
+  tillHost?: string;
+  /** kds only: the NORMALISED 10-char pairing code from the till. */
+  pairingCode?: string;
+}
+
+export type StationSetupResult =
+  | { ok: true }
+  | { ok: false; error: 'already-configured' | 'write-failed' };
+
+export type PairingInfoResult =
+  | { ok: true; stationId: string; host: string | null; port: number; code: string }
+  | { ok: false; error: 'pin not recognised' | 'not-a-till' | 'no-psk' | 'custom-psk' };
+
+export interface DiscoverRequest {
+  code: string;
+  /** Advanced path: confirm this one host instead of sweeping the subnet. */
+  host?: string;
+}
+
+export type DiscoverResult =
+  | { status: 'found'; tills: string[] }
+  | { status: 'bad-code'; candidates: string[] }
+  | { status: 'none' }
+  | { status: 'no-lan' };
+
+export interface UpdateReadyInfo {
+  version: string;
+}
+
+/** A validation refusal from main — every invoke may answer with this instead. */
+export interface IpcRefusal {
+  error: string;
+}
+
+/** A manager dismissing a conflict/failed queue row (day-close screen). */
+export interface ResolveQueueRowRequest {
+  idempotencyKey: string;
+  pin: string;
+}
+
+export type ResolveQueueRowResult =
+  | { ok: true }
+  | { ok: false; error: 'pin not recognised' | 'not-resolvable' };
 
 export interface TouchBridge {
   enqueue(m: MutationEnvelope): Promise<{ localId: string; state: 'queued' }>;
   onQueueUpdate(cb: (s: QueueStatus) => void): Unsub;
-  onLanTicket(cb: (t: KitchenTicket) => void): Unsub;
-  getCachedRef<K extends RefKey>(key: K): Promise<RefData[K]>;
+  onLanTicket(cb: (frame: LanFrame) => void): Unsub;
+  /** KDS stations only: carry a bump to the till over the LAN when the cloud is down. */
+  sendLanStatus(update: { ref: string; status: 'preparing' | 'ready' | 'completed' }): void;
+  getCachedRef(key: RefKey): Promise<CachedRef | undefined>;
   print(job: PrintJob): Promise<PrintResult>;
-  unlockPin(pin: string): Promise<{ staffId: string; role: Role; grantToken: string } | null>;
+  /** OFFLINE pin check only (authorisation-token cache, 14-day TTL) — online
+   *  verification lives inside the PIN-gated RPCs as always. */
+  unlockPin(pin: string): Promise<{ staffId?: string; role: Role; grantToken: string } | null>;
   getStation(): StationInfo;
+  /** Push the staff session (or null on sign-out) for the main-process sync worker. */
+  pushAuthState(s: AuthState | null): void;
+  /** Push the heartbeat's server-reachability verdict after every beat. */
+  pushConnState(online: boolean): void;
+  /** Store a fresh reference-data payload for offline trading (fetched_at stamped in main). */
+  cachePut(key: RefKey, payload: unknown): void;
+  /** A PIN just succeeded server-side — cache its hash for offline unlock. */
+  pinObserved(pin: string): void;
+  onMutationResult(cb: (r: MutationResult) => void): Unsub;
+  getQueueRows(): Promise<QueueRowInfo[]>;
+  /** Manager PIN: park a conflict/failed row as resolved so it stops blocking day close.
+   *  The row is kept with who and when; the write it carried is NOT applied. */
+  resolveQueueRow(req: ResolveQueueRowRequest): Promise<ResolveQueueRowResult | IpcRefusal>;
+  /** Manager-PIN quit — the only way a production kiosk window closes. */
+  quitApp(pin: string): Promise<{ ok: boolean; error?: string }>;
+  /** First run only: write station.json and relaunch. */
+  saveStation(req: StationSetupRequest): Promise<StationSetupResult | IpcRefusal>;
+  /** Till only, behind the manager PIN: what a kitchen screen needs to pair. */
+  getPairingInfo(pin: string): Promise<PairingInfoResult | IpcRefusal>;
+  /** Unconfigured kitchen screen: find the till that accepts this code. */
+  discoverTill(req: DiscoverRequest): Promise<DiscoverResult | IpcRefusal>;
+  /** Fires (also on subscribe, if already the case) once an update has downloaded. */
+  onUpdateReady(cb: (info: UpdateReadyInfo) => void): Unsub;
+  /** Restart into the downloaded update. */
+  installUpdate(): Promise<{ ok: boolean }>;
 }
 
 declare global {
@@ -91,16 +236,40 @@ const mock: TouchBridge = {
     return { localId: m.localId, state: 'queued' };
   },
   onQueueUpdate(cb) {
-    cb({ depth: 0, degraded: false, conflicts: 0 });
+    cb({ depth: 0, degraded: false, conflicts: 0, failed: 0, blocking: 0 });
     return () => {};
   },
   onLanTicket() {
     return () => {};
   },
+  sendLanStatus() {
+    // Browser mode has no LAN peer.
+  },
+  pushAuthState() {
+    // Browser mode has no main process; writes go straight to the network.
+  },
+  pushConnState() {},
+  onMutationResult() {
+    return () => {};
+  },
+  async getQueueRows() {
+    return [];
+  },
+  async resolveQueueRow() {
+    // Browser mode has no queue, so there is never a row to dismiss.
+    return { ok: false, error: 'not-resolvable' };
+  },
+  async quitApp() {
+    return { ok: false, error: 'not-in-electron' };
+  },
   async getCachedRef(key) {
     console.warn('[touch:mock] getCachedRef miss:', key);
     return undefined;
   },
+  cachePut() {
+    // Browser mode has no durable cache; reads simply stay online.
+  },
+  pinObserved() {},
   async print(job) {
     console.warn('[touch:mock] print skipped:', job.kind);
     return { ok: false, error: 'not-in-electron' };
@@ -110,7 +279,25 @@ const mock: TouchBridge = {
     return null;
   },
   getStation() {
-    return { stationId: 'DEV1', mode: 'till' };
+    // `configured: true` keeps the first-run screen out of browser mode and the
+    // e2e suite; there is no station.json to write outside Electron.
+    return { stationId: 'DEV1', mode: 'till', configured: true, appVersion: import.meta.env.VITE_APP_VERSION ?? 'dev' };
+  },
+  async saveStation() {
+    console.warn('[touch:mock] saveStation: no station.json outside Electron');
+    return { ok: false, error: 'write-failed' };
+  },
+  async getPairingInfo() {
+    return { ok: false, error: 'not-a-till' };
+  },
+  async discoverTill() {
+    return { status: 'no-lan' };
+  },
+  onUpdateReady() {
+    return () => {};
+  },
+  async installUpdate() {
+    return { ok: false };
   },
 };
 

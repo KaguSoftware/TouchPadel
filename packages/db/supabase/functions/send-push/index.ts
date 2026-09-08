@@ -39,6 +39,18 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
       title: 'Booking cancelled',
       body: (court, when) => `${court} — ${when} was cancelled.`,
     },
+    // Deliberately not worded as a cancellation, and deliberately not
+    // accusatory: the guest may well have been there and the desk may well
+    // have got it wrong, so it says what happened and where to take it.
+    booking_no_show: {
+      title: 'Booking closed',
+      body: (court, when) => `${court} — ${when} was closed as a no-show. Speak to the desk if that is wrong.`,
+    },
+    // Settings > "Send a test notification" (app.send_test_push, migration 0070).
+    test: {
+      title: 'Test notification',
+      body: () => 'Push notifications are working on this phone.',
+    },
   },
   ar: {
     booking_confirmed: {
@@ -52,6 +64,14 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     booking_cancelled: {
       title: 'تم إلغاء الحجز',
       body: (court, when) => `${court} — ${when} تم إلغاؤه.`,
+    },
+    booking_no_show: {
+      title: 'تم إغلاق الحجز',
+      body: (court, when) => `${court} — ${when} أُغلق لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
+    },
+    test: {
+      title: 'إشعار تجريبي',
+      body: () => 'الإشعارات تعمل على هذا الهاتف.',
     },
   },
 };
@@ -70,13 +90,15 @@ function formatWhen(iso: string, lang: Lang): string {
 interface OutboxRow {
   id: number;
   profile_id: string;
-  kind: 'booking_confirmed' | 'booking_reminder' | 'booking_cancelled';
+  kind: 'booking_confirmed' | 'booking_reminder' | 'booking_cancelled' | 'booking_no_show' | 'test';
+  /** Reservation snapshot for the booking kinds; `{ source }` only for `test`. */
   payload: {
-    reservation_id: string;
-    court_id: string;
-    start_at: string;
-    end_at: string;
-    price_iqd: number | null;
+    reservation_id?: string;
+    court_id?: string;
+    start_at?: string;
+    end_at?: string;
+    price_iqd?: number | null;
+    source?: string;
   };
   attempts: number;
 }
@@ -98,7 +120,7 @@ Deno.serve(async (req) => {
 
   // Resolve current tokens/langs and court names in two batch reads.
   const profileIds = [...new Set(rows.map((r) => r.profile_id))];
-  const courtIds = [...new Set(rows.map((r) => r.payload.court_id).filter(Boolean))];
+  const courtIds = [...new Set(rows.map((r) => r.payload.court_id).filter((id): id is string => !!id))];
   const [profilesRes, courtsRes] = await Promise.all([
     db.from('profiles').select('id, expo_push_token, preferred_lang').in('id', profileIds),
     db.from('courts').select('id, name_en, name_ar').in('id', courtIds),
@@ -126,17 +148,30 @@ Deno.serve(async (req) => {
       continue;
     }
     const lang: Lang = profile.preferred_lang === 'ar' ? 'ar' : 'en';
-    const court = courts.get(row.payload.court_id);
-    const courtName = (lang === 'ar' ? court?.name_ar : court?.name_en) ?? 'Padel';
     const s = STRINGS[lang][row.kind];
+    if (!s) {
+      // A kind this build does not know: terminal, never retried.
+      failed++;
+      await db
+        .from('notification_outbox')
+        .update({ last_error: `UNKNOWN_KIND:${row.kind}`, attempts: RETRY_CAP })
+        .eq('id', row.id);
+      continue;
+    }
+    // `test` carries no reservation: no court, no time, nothing to deep-link.
+    const court = row.payload.court_id ? courts.get(row.payload.court_id) : undefined;
+    const courtName = (lang === 'ar' ? court?.name_ar : court?.name_en) ?? 'Padel';
+    const when = row.payload.start_at ? formatWhen(row.payload.start_at, lang) : '';
+    const data: Record<string, string> = { kind: row.kind };
+    if (row.payload.reservation_id) data.reservation_id = row.payload.reservation_id;
     prepared.push({
       row,
       message: {
         to: token,
         title: s.title,
-        body: s.body(courtName, formatWhen(row.payload.start_at, lang)),
+        body: s.body(courtName, when),
         sound: 'default',
-        data: { kind: row.kind, reservation_id: row.payload.reservation_id },
+        data,
       },
     });
   }
