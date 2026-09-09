@@ -124,15 +124,30 @@ export interface ActiveTableRow {
   table_number: string;
 }
 
+/**
+ * `table_number` is TEXT ('9', 'T12' — it is printed on the QR card), so
+ * Postgres' `order by` is lexical: 1, 10, 11, 12, 2. The cashier reads the
+ * picker as a numbered list of tables, so it has to count like one. A numeric
+ * collator is what `app.table_qr_tokens()` approximates server-side with
+ * `order by length(table_number), table_number`, and it also puts 'T2' before
+ * 'T10' — which the length trick only manages while every prefix is equal.
+ */
+const tableCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+export function compareTableNumbers(a: string, b: string): number {
+  return tableCollator.compare(a, b) || a.localeCompare(b);
+}
+
 /** Tables a guest could actually be seated at — the till's picker. */
 export async function fetchActiveCafeTables(): Promise<ActiveTableRow[]> {
   return cachedQuery('tables', async () => {
     const { data, error } = await supabase
       .from('cafe_tables')
       .select('id, table_number')
-      .eq('is_active', true)
-      .order('table_number');
+      .eq('is_active', true);
     if (error) throw error;
-    return data as ActiveTableRow[];
+    return (data as ActiveTableRow[])
+      .slice()
+      .sort((x, y) => compareTableNumbers(x.table_number, y.table_number));
   });
 }

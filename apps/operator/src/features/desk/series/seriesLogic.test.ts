@@ -38,6 +38,14 @@ describe('draftProblem', () => {
     expect(draftProblem({ ...base, endMode: 'date', endsOn: '2026-09-06' })).toBe('end');
     expect(draftProblem({ ...base, startTime: '7pm' })).toBe('time');
   });
+  it('refuses a first date the venue has already been through', () => {
+    expect(draftProblem(base, '2026-09-07')).toBe('past');
+    expect(draftProblem(base, '2026-09-06')).toBeNull(); // today itself is bookable
+    expect(draftProblem(base, '2026-09-05')).toBeNull();
+  });
+  it('does not judge the date at all without a venue today', () => {
+    expect(draftProblem({ ...base, startsOn: '2001-01-01' })).toBeNull();
+  });
 });
 
 describe('resolvedEndsOn / seriesRpcArgs', () => {

@@ -292,11 +292,19 @@ describe('ticket.status payload', () => {
 });
 
 describe('tab.open payload', () => {
-  it('needs at least a table, a label or a reservation', () => {
+  it('needs a table or a reservation — a seat, not just a name', () => {
     expect(tabOpenPayloadSchema.safeParse({ tableId: UUID_A }).success).toBe(true);
-    expect(tabOpenPayloadSchema.safeParse({ label: 'Walk-in' }).success).toBe(true);
     expect(tabOpenPayloadSchema.safeParse({ reservationId: UUID_B }).success).toBe(true);
+    expect(tabOpenPayloadSchema.safeParse({ tableId: UUID_A, label: 'Walk-in' }).success).toBe(true);
+    expect(tabOpenPayloadSchema.safeParse({ label: 'Walk-in' }).success).toBe(false);
     expect(tabOpenPayloadSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('does not accept whitespace as a label', () => {
+    expect(tabOpenPayloadSchema.safeParse({ tableId: UUID_A, label: '   ' }).success).toBe(false);
+    // …and a label that survives is stored trimmed.
+    const parsed = tabOpenPayloadSchema.safeParse({ tableId: UUID_A, label: '  Ali  ' });
+    expect(parsed.success && parsed.data.label).toBe('Ali');
   });
 });
 

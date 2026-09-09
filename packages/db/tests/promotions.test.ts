@@ -30,6 +30,7 @@ import {
   ensureOpenDay,
   ensureTillFresh,
   futureSlot,
+  createTestCafeTable,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -93,6 +94,8 @@ describe.skipIf(!up)('0067 promotions', () => {
 
   async function openTab(label: string): Promise<string> {
     const res = await appRpc(cashier, 'open_tab', {
+      // 0084: a tab is anchored to a seat; the label is only its name.
+      p_table_id: await createTestCafeTable(svc, 'promo'),
       p_label: label,
       p_idempotency_key: testIdemKey('tab.open'),
     });
