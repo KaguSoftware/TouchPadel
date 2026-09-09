@@ -174,8 +174,20 @@ export const OPEN_TABS_QUERY = {
 };
 
 /**
- * True when a tab can simply be removed rather than settled — the mirror of
- * app.cancel_tab's guard (migration 0085).
+ * WHY a tab cannot simply be removed, or null when it can — the mirror of
+ * app.cancel_tab's guard (migration 0085/0086).
+ *
+ * This used to answer a bare yes/no, and the board turned every no into the
+ * one sentence it had: "a payment is to be made for this table". Four of the
+ * five ways a tab is held are not payments — an order, a discount, a booking's
+ * court fee, a tab already being settled — so the till told the cashier to
+ * look for money that was not there, and the fix for the tab they were
+ * actually holding went unnamed. The server has always said which branch
+ * fired (`detail` on TAB_NOT_EMPTY); this is the same answer, computed early,
+ * so the board can say it before the press as well as after.
+ *
+ * The order of the tests matches app.cancel_tab's, so the reason shown before
+ * the press is the reason the server would give after it.
  *
  * The server is the authority and re-checks all of this under the tab's row
  * lock; this decides only whether the board OFFERS the control, so it must be
@@ -189,17 +201,25 @@ export const OPEN_TABS_QUERY = {
  * may predate an embed; `(tab.orders ?? []).length === 0` would read a MISSING
  * orders array as an empty one and offer to remove a tab that has a bill on
  * it. Absent evidence is not evidence of absence — an embed we cannot see
- * keeps the tab.
+ * keeps the tab, under 'unknown': the honest answer is that this copy of the
+ * row cannot tell, not that some particular thing is owed.
  */
+export type TabRemovalBlocker = 'settling' | 'orders' | 'payments' | 'adjustments' | 'reservation' | 'unknown';
+
+export function tabRemovalBlocker(tab: TabListRow): TabRemovalBlocker | null {
+  const seen = (rows: unknown): rows is unknown[] => Array.isArray(rows);
+  if (tab.status !== 'open') return 'settling';
+  if (!seen(tab.orders) || !seen(tab.payments) || !seen(tab.tab_adjustments)) return 'unknown';
+  if (tab.orders.length > 0) return 'orders';
+  if (tab.payments.length > 0) return 'payments';
+  if (tab.tab_adjustments.length > 0) return 'adjustments';
+  if (tab.reservation) return 'reservation';
+  return null;
+}
+
+/** True when a tab can simply be removed rather than settled. */
 export function tabIsRemovable(tab: TabListRow): boolean {
-  const empty = (rows: unknown): boolean => Array.isArray(rows) && rows.length === 0;
-  return (
-    tab.status === 'open' &&
-    empty(tab.orders) &&
-    empty(tab.payments) &&
-    empty(tab.tab_adjustments) &&
-    !tab.reservation
-  );
+  return tabRemovalBlocker(tab) === null;
 }
 
 /** True when any order on the tab arrived from the guest web menu. */

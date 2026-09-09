@@ -763,11 +763,22 @@ function IdleLock() {
           </Field>
         )}
         <ErrorText error={error} />
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        {/*
+         * Both the row AND the pair inside it wrap. `.tp-btn` is
+         * `white-space: nowrap`, so a button is as wide as its longest label
+         * and never shrinks; a flex item is also floored at its own
+         * min-content unless it is told otherwise. In Arabic
+         * ('استخدم كلمة المرور بدلًا من ذلك' beside 'فتح القفل')
+         * that pair is wider than the card, so with a rigid span the primary
+         * button hung off the card's inline-end edge — the left, under RTL.
+         * minInlineSize 0 lets the span narrow to the card and its own
+         * flexWrap drops the buttons onto a second line instead of overflowing.
+         */}
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
           <Button kind="ghost" icon="users" onClick={() => void signOut()} disabled={busy}>
             {tr('ws.shell.lock.switchUser')}
           </Button>
-          <span style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
+          <span style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', justifyContent: 'flex-end', flex: '1 1 auto', minInlineSize: 0 }}>
             {!usePassword && (
               <Button kind="ghost" onClick={() => setUsePassword(true)} disabled={busy}>
                 {tr('ws.shell.lock.usePassword')}

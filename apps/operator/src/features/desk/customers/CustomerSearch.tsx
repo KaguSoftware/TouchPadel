@@ -67,13 +67,17 @@ export function CustomerSearchScreen() {
   }
 
   const createLink = (
-    <Link to="/desk/customers/new" className="tp-btn" data-kind="primary" data-size="md">
-      <Icon name="userPlus" size={16} /> {tr('ws.courtDesk.customers.create')}
+    <Link to="/desk/customers/new" className="tp-btn" data-kind="primary" data-size="lg">
+      <Icon name="userPlus" size={20} /> {tr('ws.courtDesk.customers.create')}
     </Link>
   );
 
   return (
-    <div style={{ maxInlineSize: 'var(--tp-measure-wide)' }}>
+    /* The desk runs this screen on a wide till monitor: capping it at
+       --tp-measure-wide left half the glass empty while the result rows —
+       the things actually being aimed at — stayed narrow. Prose measure is
+       for reading; this is a targeting surface, so it takes the width. */
+    <div style={{ inlineSize: '100%' }}>
       <PageHeader
         title={tr('ws.courtDesk.customers.title')}
         subtitle={
@@ -129,7 +133,7 @@ export function CustomerSearchScreen() {
       />
 
       {status === 'idle' && <EmptyState icon="search" title={tr('ws.courtDesk.customers.idle')} body={tr('ws.courtDesk.customers.idleBody')} compact />}
-      {status === 'searching' && <Skeleton lines={4} blockSize="2.6rem" />}
+      {status === 'searching' && <Skeleton lines={5} blockSize="4.1rem" />}
       {(status === 'ready' || status === 'empty' || status === 'error') && (
         <AsyncStateWrapper
           status={status}
@@ -197,39 +201,46 @@ export function CustomerResultRow({
           onSelect();
         }
       }}
-      style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBlock: '0.55rem', paddingInline: '0.85rem', borderBlockEnd: '1px solid var(--tp-border)', minBlockSize: '3rem' }}
+      /* Three zones rather than one stretched line: who they are, how often
+         they come, and what you can do about it. On the width this screen now
+         gets, the counts and the actions stay parked where the eye already
+         learned to find them instead of drifting apart per row; the wrap
+         keeps the same row usable on a narrow tablet. */
+      style={{ display: 'flex', alignItems: 'center', gap: '1rem', rowGap: '0.5rem', flexWrap: 'wrap', paddingBlock: '0.7rem', paddingInline: '1.1rem', borderBlockEnd: '1px solid var(--tp-border)', minBlockSize: '3.75rem' }}
     >
-      <span style={{ display: 'inline-flex', inlineSize: '2rem', blockSize: '2rem', borderRadius: '50%', background: 'var(--tp-accent-soft)', color: 'var(--tp-accent-soft-fg)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon name="user" size={16} />
+      <span style={{ display: 'inline-flex', inlineSize: '2.5rem', blockSize: '2.5rem', borderRadius: '50%', background: 'var(--tp-accent-soft)', color: 'var(--tp-accent-soft-fg)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon name="user" size={20} />
       </span>
-      <div style={{ minInlineSize: 0, flex: 1 }}>
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <strong>
+      <div style={{ minInlineSize: 0, flex: '1 1 18rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: 'var(--tp-fs-lg)' }}>
             <bdi>{c.full_name}</bdi>
           </strong>
           {(c.flags ?? []).map((f, i) => (
-            <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
+            <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
           ))}
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.15rem' }}>
+        <div style={{ display: 'flex', gap: '0.9rem', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.2rem' }}>
           {c.phone && (
             <bdi dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {c.phone}
             </bdi>
           )}
           {c.email && <bdi dir="ltr">{c.email}</bdi>}
-          <span>{tr('ws.courtDesk.customers.counts.bookings', { count: formatNumber(counts.bookings, locale) })}</span>
-          <span>{tr('ws.courtDesk.customers.counts.cancellations', { count: formatNumber(counts.cancellations, locale) })}</span>
-          <span>{tr('ws.courtDesk.customers.counts.noShows', { count: formatNumber(counts.noShows, locale) })}</span>
         </div>
       </div>
-      <span style={{ display: 'inline-flex', gap: '0.3rem' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <div style={{ display: 'flex', gap: '1.1rem', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', flex: '0 1 auto' }}>
+        <span>{tr('ws.courtDesk.customers.counts.bookings', { count: formatNumber(counts.bookings, locale) })}</span>
+        <span>{tr('ws.courtDesk.customers.counts.cancellations', { count: formatNumber(counts.cancellations, locale) })}</span>
+        <span>{tr('ws.courtDesk.customers.counts.noShows', { count: formatNumber(counts.noShows, locale) })}</span>
+      </div>
+      <span style={{ display: 'inline-flex', gap: '0.5rem', marginInlineStart: 'auto', flexShrink: 0 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         {attachLabel && (
-          <Button size="sm" kind="primary" icon="userPlus" onClick={onAttach}>
+          <Button size="lg" kind="primary" icon="userPlus" onClick={onAttach}>
             {attachLabel}
           </Button>
         )}
-        <Button size="sm" kind="ghost" iconEnd="chevronEnd" onClick={onSelect}>
+        <Button size="lg" kind="soft" iconEnd="chevronEnd" onClick={onSelect}>
           {tr('ws.courtDesk.customers.open')}
         </Button>
       </span>

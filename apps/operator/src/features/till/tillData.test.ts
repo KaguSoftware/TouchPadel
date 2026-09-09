@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tabIsRemovable, type TabListRow } from './tillData';
+import { tabIsRemovable, tabRemovalBlocker, type TabListRow } from './tillData';
 
 /** A tab as the board sees it: opened, never touched. */
 const bare: TabListRow = {
@@ -25,6 +25,26 @@ describe('tabIsRemovable — the mirror of app.cancel_tab', () => {
     expect(tabIsRemovable({ ...bare, orders: [{ source: 'till', status: 'sent', order_items: [] }] })).toBe(false);
     expect(tabIsRemovable({ ...bare, payments: [{ amount_iqd: 5000 }] })).toBe(false);
     expect(tabIsRemovable({ ...bare, tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 500 }] })).toBe(false);
+  });
+
+  it('names WHICH thing holds the tab, not just that something does', () => {
+    // The board renders one sentence per cause; a tab held by an order used to
+    // be described as owing a payment, which is a different thing to go and do.
+    expect(tabRemovalBlocker(bare)).toBeNull();
+    expect(tabRemovalBlocker({ ...bare, status: 'awaiting_payment' })).toBe('settling');
+    expect(tabRemovalBlocker({ ...bare, orders: [{ source: 'till', status: 'sent', order_items: [] }] })).toBe('orders');
+    expect(tabRemovalBlocker({ ...bare, payments: [{ amount_iqd: 5000 }] })).toBe('payments');
+    expect(tabRemovalBlocker({ ...bare, tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 500 }] })).toBe('adjustments');
+    expect(tabRemovalBlocker({ ...bare, reservation: { guest_name: 'Ali', court: null } })).toBe('reservation');
+    expect(tabRemovalBlocker({ ...bare, orders: undefined } as unknown as TabListRow)).toBe('unknown');
+  });
+
+  it('answers in app.cancel_tab’s own order, so the board and the server agree', () => {
+    // A tab with both an order and a payment is refused for the ORDER by the
+    // server (its first branch); the board has to name the same one, or the
+    // sentence changes when the press lands.
+    const both = { ...bare, orders: [{ source: 'till', status: 'sent', order_items: [] }], payments: [{ amount_iqd: 5000 }] };
+    expect(tabRemovalBlocker(both)).toBe('orders');
   });
 
   it('a voided order still keeps it — the server counts rows, not live lines', () => {

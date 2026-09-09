@@ -317,7 +317,10 @@ export type Database = {
         Args: { p_reason_code: string; p_scope: string; p_series_id: string }
         Returns: Json
       }
-      cancel_tab: { Args: { p_tab_id: string }; Returns: Json }
+      cancel_tab: {
+        Args: { p_reason_code?: string; p_tab_id: string }
+        Returns: Json
+      }
       claim_due_notifications: {
         Args: { p_limit?: number }
         Returns: Database["public"]["Tables"]["notification_outbox"]["Row"][]

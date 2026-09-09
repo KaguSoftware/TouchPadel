@@ -19,7 +19,7 @@ const rows: BoardRow[] = [
     total: 8000,
     stamped: false,
     web: false,
-    removable: true,
+    blocker: null,
   },
   {
     id: 'b',
@@ -32,7 +32,7 @@ const rows: BoardRow[] = [
     total: 25000,
     stamped: false,
     web: true,
-    removable: false,
+    blocker: 'settling',
   },
 ];
 
@@ -50,6 +50,7 @@ function renderBoard(over: Partial<Parameters<typeof OpenTabsBoard>[0]>) {
     onOpenTab: vi.fn(),
     onRetry: vi.fn(),
     onRemoveTab: vi.fn(),
+    onDismissRemoveError: vi.fn(),
     ...over,
   };
   render(
@@ -114,15 +115,44 @@ describe('removing an empty tab from the status badge', () => {
   /** The badge doubles as the control, so it is addressed by its status text. */
   const badge = (name: RegExp) => screen.getByRole('button', { name });
 
-  it('arms on the first press and emits the id on confirm', async () => {
+  it('arms on the first press, then asks WHY before it emits the id', async () => {
     const user = userEvent.setup();
     const props = renderBoard({});
     expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
 
     await user.click(badge(/^Open —/));
     await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
+    // The confirm opens the reason picker; nothing has been removed yet.
+    expect(props.onRemoveTab).not.toHaveBeenCalled();
+    expect(screen.getByText('Reason required')).toBeTruthy();
+    // …and it names what is about to happen to THIS tab.
+    expect(screen.getByText(/Table T8 will be closed as cancelled/)).toBeTruthy();
+
+    await user.click(screen.getByRole('radio', { name: 'Duplicate entry' }));
+    await user.type(screen.getByLabelText('Note (optional)'), 'opened on the wrong table');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
     expect(props.onRemoveTab).toHaveBeenCalledOnce();
-    expect(props.onRemoveTab).toHaveBeenCalledWith('a');
+    expect(props.onRemoveTab).toHaveBeenCalledWith('a', 'duplicate: opened on the wrong table');
+  });
+
+  it('the reason is the code alone when no note is typed', async () => {
+    const user = userEvent.setup();
+    const props = renderBoard({});
+    await user.click(badge(/^Open —/));
+    await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(props.onRemoveTab).toHaveBeenCalledWith('a', 'staff_error');
+  });
+
+  it('backing out of the reason keeps the tab and the confirm', async () => {
+    const user = userEvent.setup();
+    const props = renderBoard({});
+    await user.click(badge(/^Open —/));
+    await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText('Reason required')).toBeNull();
+    expect(props.onRemoveTab).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Yes, remove' })).toBeTruthy();
   });
 
   it('does not remove anything until the confirm is pressed', async () => {
@@ -148,9 +178,36 @@ describe('removing an empty tab from the status badge', () => {
     const user = userEvent.setup();
     const props = renderBoard({});
     await user.click(badge(/^Awaiting payment —/));
-    expect(screen.getByText('A payment is to be made for this table.')).toBeTruthy();
+    expect(screen.getByText('This tab is being settled — finish taking the payment instead.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
     expect(props.onRemoveTab).not.toHaveBeenCalled();
+  });
+
+  it('names the thing that actually holds the tab, one sentence per cause', async () => {
+    // The whole set used to collapse into "a payment is to be made", which is
+    // wrong for four of the five and sends the cashier after money that is not
+    // owed.
+    const user = userEvent.setup();
+    const held: BoardRow[] = (['orders', 'adjustments', 'reservation'] as const).map((blocker, i) => ({
+      ...rows[0]!,
+      id: `held-${blocker}`,
+      label: `Table H${i}`,
+      table: `H${i}`,
+      blocker,
+    }));
+    renderBoard({ rows: held });
+    // Arm each in turn; each names its own cause and offers no confirm.
+    const expected = [
+      'Something has been ordered on this tab. Settle it, or void the lines first.',
+      'A discount or charge is recorded on this tab. Settle it instead.',
+      'This tab belongs to a booking, and the court fee is owed on it. Settle it instead.',
+    ];
+    const badges = screen.getAllByRole('button', { name: /^Open —/ });
+    for (const [i, sentence] of expected.entries()) {
+      await user.click(badges[i]!);
+      expect(screen.getByText(sentence)).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
+    }
   });
 
   it('arming a second row disarms the first', async () => {
@@ -165,8 +222,37 @@ describe('removing an empty tab from the status badge', () => {
   it('a server refusal lands on the row it belongs to', () => {
     // The board's rows are a cached read, so a tab can gain an order between
     // the render and the press; the answer must appear where the press was.
-    renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_NOT_EMPTY', 'TAB_NOT_EMPTY') } });
-    expect(screen.getByText('There is a payment to be made on this tab, so it cannot be removed. Settle it instead.')).toBeTruthy();
+    renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_NOT_EMPTY', 'TAB_NOT_EMPTY', undefined, 'orders') } });
+    // …and it is the server's OWN branch that is named: `detail` says which of
+    // the four guards fired, so the answer after the press matches the one the
+    // board gives before it.
+    expect(screen.getByText('Something has been ordered on this tab. Settle it, or void the lines first.')).toBeTruthy();
+  });
+
+  it('a refusal with no detail still says something true', () => {
+    renderBoard({ removeError: { id: 'a', error: new AppRpcError('NO_OPEN_DAY', 'NO_OPEN_DAY') } });
+    expect(screen.getByText('No business day is open.')).toBeTruthy();
+  });
+
+  it('arming a row drops a refusal that belonged to an earlier press', async () => {
+    // A refusal answers one press against one snapshot. Left standing it read
+    // as the board's permanent opinion of the tab.
+    const user = userEvent.setup();
+    const props = renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_NOT_EMPTY', 'TAB_NOT_EMPTY') } });
+    await user.click(badge(/^Open —/));
+    expect(props.onDismissRemoveError).toHaveBeenCalled();
+  });
+
+  it('a refusal is still visible on the row that is mid-confirm', async () => {
+    // The state a refusal is ACTUALLY seen in: the press leaves the row armed
+    // and removable, so the confirm branch is what re-renders — and it used to
+    // drop the message, which is why a refused removal looked like a dead
+    // button.
+    const user = userEvent.setup();
+    renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_DAY_MISMATCH', 'TAB_DAY_MISMATCH') } });
+    await user.click(badge(/^Open —/));
+    expect(screen.getByRole('button', { name: 'Yes, remove' })).toBeTruthy();
+    expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
   });
 });
 

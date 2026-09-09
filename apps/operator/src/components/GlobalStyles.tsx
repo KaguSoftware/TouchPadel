@@ -105,7 +105,13 @@ input:disabled, select:disabled, textarea:disabled {
 /* --tp-accent-active existed in the token file and was used by zero rules. */
 .tp-btn[data-kind='primary']:active:not(:disabled) { background: var(--tp-accent-active); border-color: var(--tp-accent-active); }
 .tp-btn[data-kind='danger'] { background: var(--tp-danger); border-color: var(--tp-danger); color: var(--tp-danger-contrast); }
-.tp-btn[data-kind='danger']:hover:not(:disabled) { filter: brightness(0.92); }
+/* The background is RE-DECLARED, not merely darkened. The plain hover rule above
+   scores one pseudo-class higher than the bare [data-kind='danger'] attribute, so
+   on hover it repainted a danger button in --tp-surface-2 while
+   --tp-danger-contrast (white) stayed on the label — the destructive control went
+   unreadable at the exact moment a finger was on it. Every other kind already
+   restates its own ground here; danger was the one that only asked for a filter. */
+.tp-btn[data-kind='danger']:hover:not(:disabled) { background: var(--tp-danger); border-color: var(--tp-danger); filter: brightness(0.92); }
 .tp-btn[data-kind='ghost'] { background: transparent; border-color: transparent; }
 .tp-btn[data-kind='ghost']:hover:not(:disabled) { background: var(--tp-surface-3); border-color: transparent; }
 .tp-btn[data-kind='soft'] { background: var(--tp-accent-soft); border-color: transparent; color: var(--tp-accent-soft-fg); }

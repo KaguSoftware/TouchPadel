@@ -25,6 +25,7 @@ export function Basket({
   canSend,
   blockedReason,
   onBump,
+  onNote,
   onRemove,
   onClear,
   onSend,
@@ -36,6 +37,8 @@ export function Basket({
   /** Why Send cannot be pressed right now — rulebook 4.3. Presentation only. */
   blockedReason?: string;
   onBump: (key: string, delta: number) => void;
+  /** Open the note dialog for one line — the only place an unsent line's note is edited. */
+  onNote: (key: string) => void;
   onRemove: (key: string) => void;
   onClear: () => void;
   onSend: () => void;
@@ -100,6 +103,20 @@ export function Basket({
                   <span style={{ ...numeric, marginInlineEnd: 'var(--tp-sp-1)' }}>
                     <bdi>{formatIQD(basketLineEstimate(l), locale)}</bdi>
                   </span>
+                  {/* The note lives with the line, not in a screen the cashier
+                      has to go back to: this is the only chance to say "extra
+                      shot" before F2 sends the line to the kitchen. Set notes
+                      tint the glyph AND rename the button, so the state is not
+                      carried by colour alone (rulebook 6.4). */}
+                  <Button
+                    kind="ghost"
+                    icon="note"
+                    aria-label={l.notes ? tr('ws.cashier.till.note.edit') : tr('ws.cashier.till.note.add')}
+                    title={l.notes ? l.notes : tr('ws.cashier.till.note.add')}
+                    disabled={sending}
+                    onClick={() => onNote(l.key)}
+                    style={l.notes ? { color: 'var(--tp-accent)' } : undefined}
+                  />
                   <Button kind="ghost" icon="minus" aria-label="−1" disabled={sending} onClick={() => onBump(l.key, -1)} />
                   <Button kind="ghost" icon="plus" aria-label="+1" disabled={sending} onClick={() => onBump(l.key, 1)} />
                   <Button kind="ghost" icon="x" aria-label={tr('ws.cashier.till.basket.remove')} disabled={sending} onClick={() => onRemove(l.key)} />

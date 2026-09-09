@@ -90,6 +90,7 @@ export function Panel({
   children,
   muted,
   padded = true,
+  fill,
   level = 2,
   className,
   bodyClassName,
@@ -101,6 +102,13 @@ export function Panel({
   children: ReactNode;
   muted?: boolean;
   padded?: boolean;
+  /**
+   * Hand the panel the height it was given, and its body on to the one thing
+   * inside. A panel is otherwise as tall as its contents — right for a form,
+   * wrong for a log that owns a column of the page: a three-row table left the
+   * rest of that column as bare page background.
+   */
+  fill?: boolean;
   /** For the grid hooks in GlobalStyles — spanning a row needs a media query. */
   className?: string;
   /** On the padded body, not the section: `tp-cq` makes it the container the
@@ -125,6 +133,7 @@ export function Panel({
         border: '1px solid var(--tp-border)',
         borderRadius: 'var(--tp-radius-panel)',
         overflow: 'hidden',
+        ...(fill ? { display: 'flex', flexDirection: 'column', minBlockSize: 0 } : null),
         ...style,
       }}
     >
@@ -144,7 +153,13 @@ export function Panel({
           {actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>}
         </div>
       )}
-      <div className={bodyClassName} style={padded ? { paddingBlock: '0.75rem', paddingInline: '0.85rem' } : undefined}>
+      <div
+        className={bodyClassName}
+        style={{
+          ...(padded ? { paddingBlock: '0.75rem', paddingInline: '0.85rem' } : null),
+          ...(fill ? { flex: 1, minBlockSize: 0, display: 'flex', flexDirection: 'column' } : null),
+        }}
+      >
         {children}
       </div>
     </section>
@@ -557,6 +572,7 @@ export function DataTable<T>({
   selectedKey,
   emptyContent,
   dense,
+  fill,
   maxBlockSize,
   footer,
   'aria-label': ariaLabel,
@@ -570,6 +586,8 @@ export function DataTable<T>({
   selectedKey?: string | null;
   emptyContent?: ReactNode;
   dense?: boolean;
+  /** Take the whole height of a `fill` Panel (or any flex column) and scroll inside it. */
+  fill?: boolean;
   /** Scroll inside the table instead of the page. */
   maxBlockSize?: string;
   footer?: ReactNode;
@@ -584,6 +602,7 @@ export function DataTable<T>({
         overflow: 'auto',
         maxBlockSize,
         background: 'var(--tp-surface)',
+        ...(fill ? { flex: 1, minBlockSize: 0 } : null),
       }}
     >
       <table className="tp-table" data-dense={dense ? 'true' : undefined} aria-label={ariaLabel}>
