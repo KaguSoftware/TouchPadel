@@ -535,21 +535,21 @@ RPC coverage ratcheted **138/141 → 141/144**; the 3 uncovered are the document
    stashed it fails identically, and with those stashed AND migrations 0086/0087 removed from a fresh
    `db:reset` it fails identically again. The cause is on `main` at `bb77c04`. Somebody who owns the
    operator lane needs to look at it; the traces are under `test-results/`.
-6. ⛔ **This branch is on PRE-REWRITE history and must be rebased before any PR.**
-   `git rev-list --left-right --count origin/main...HEAD` -> **`181  181`**, and 180 of the 181 subjects
-   on each side are IDENTICAL: these are the same commits with rewritten hashes (origin/main's tip is
-   literally `docs: repo-wide rule, no AI co-authors on commits`). The merge base is `5640ffa`, 2026-08-30.
-   The only genuinely new local commit is `bb77c04`.
-   Three consequences, all of which bite at PR time and none of which is visible from `git status`:
-   - a PR from `kemal` into `main` would show **181 phantom commits**;
-   - **`check:migrations` would FAIL that PR.** It scopes itself to migrations changed since the merge
-     base; with the base back at 2026-08-30 that is **33 files**, including historical ones with
-     non-CONCURRENT indexes and `ADD CONSTRAINT` without `NOT VALID` (0067, 0075). It passes cleanly
-     when scoped to the two migrations session 4 actually adds (`--base=HEAD` with them staged);
-   - merging it would re-introduce the pre-rewrite history the rewrite existed to remove.
-   ⚠ Note the trap: **before `git fetch`, `origin/main` was a stale ref and the count read `0  0`** —
-   the divergence is invisible until you fetch. Rebasing is a history operation on somebody's branch,
-   so it is recorded here rather than done.
+6. ✅ **RESOLVED — the branch was replayed onto the rewritten `main`.**
+   `kemal` had been cut before the repo-wide history rewrite, so it and `main` shared no usable
+   ancestry: 181 commits on each side, 180 with identical subjects — the same work under different
+   hashes. That was not cosmetic. It would have shown 181 phantom commits on a PR, it made
+   `check:migrations` scope itself back to 2026-08-30 and judge **33** historical migration files
+   (failing on 0067/0075), and — the serious one — three of those pre-rewrite commits still carried
+   the AI co-author trailers the rewrite existed to strip, so pushing the branch would have put them
+   back into the repository.
+   Fixed by replaying the branch's three real commits onto `origin/main` and discarding the 181
+   duplicates. **The resulting tree hash is unchanged** (`f05dd13…`), so nothing was lost — verified
+   against the pre-cleanup tip before and after.
+   ⚠ Note the trap for next time: **before `git fetch`, `origin/main` was a stale ref and the count
+   read `0  0`.** The divergence is invisible from `git status` and from an unfetched `git log`.
+   A branch cut before the rewrite must be replayed, never merged — merging re-imports the very
+   commits the rewrite removed.
 
 5. **The 250 ms PIN floor is a constant, not a `venue_setting`.** Deliberate — a tunable security floor
    is one somebody eventually tunes to zero — but it is a decision, so it is recorded rather than buried.

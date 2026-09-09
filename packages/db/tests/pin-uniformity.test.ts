@@ -48,6 +48,35 @@ async function timed<T>(run: () => PromiseLike<T>): Promise<{ ms: number; result
   return { ms: performance.now() - t0, result };
 }
 
+/**
+ * The highest `audit_log.id` right now — a monotonic watermark.
+ *
+ * Every audit assertion below used to scope itself with
+ * `.gte('at', new Date().toISOString())`: a HOST timestamp compared against a
+ * column defaulted to the DATABASE's `now()`. Those are not the same clock —
+ * Postgres runs in a container — and they drift tens of milliseconds either
+ * way. When the database is behind, a row written moments after the mark
+ * carries an EARLIER timestamp and is filtered straight back out.
+ *
+ * It failed both ways, and the second way is the worse one:
+ *   - "lets a manager clear a lockout" failed ~1 run in 2, because the clear is
+ *     fast and never outruns the skew (the lockout cases survived only because
+ *     five padded 250 ms calls sit between the mark and the assertion);
+ *   - "does not log a lockout" asserts ZERO rows, so skew made it pass FOR
+ *     FREE — a vacuous test that would not have noticed the row it forbids.
+ *
+ * `audit_log.id` is a bigint sequence. It needs no clock, so there is no skew
+ * to race.
+ */
+async function auditWatermark(svc: SupabaseClient): Promise<number> {
+  const { data } = await svc
+    .from('audit_log')
+    .select('id')
+    .order('id', { ascending: false })
+    .limit(1);
+  return ((data ?? [])[0] as { id: number } | undefined)?.id ?? 0;
+}
+
 /** Median of several runs — one sample on a loaded machine says nothing. */
 function median(xs: number[]): number {
   const s = [...xs].sort((a, b) => a - b);
@@ -177,7 +206,7 @@ describe.skipIf(!up)('0086 PIN failure uniformity (SEC-13)', () => {
   // ── the audit ─────────────────────────────────────────────────────────────
 
   it('writes ONE staff.pin_locked row at the failure that reaches the threshold', async () => {
-    const before = new Date().toISOString();
+    const mark = await auditWatermark(svc);
     for (let i = 0; i < 5; i++) {
       await appRpc(manager, 'verify_manager_pin', { p_pin: '473829', p_device_id: `A${i}` });
     }
@@ -185,7 +214,7 @@ describe.skipIf(!up)('0086 PIN failure uniformity (SEC-13)', () => {
       .from('audit_log')
       .select('action, entity_id, after')
       .eq('action', 'staff.pin_locked')
-      .gte('at', before);
+      .gt('id', mark);
     const rows = (data ?? []) as {
       action: string;
       entity_id: string;
@@ -204,7 +233,7 @@ describe.skipIf(!up)('0086 PIN failure uniformity (SEC-13)', () => {
   });
 
   it('writes the audit row for the SELF-scope limiter too', async () => {
-    const before = new Date().toISOString();
+    const mark = await auditWatermark(svc);
     for (let i = 0; i < 5; i++) {
       await appRpc(cashier, 'verify_own_pin', { p_pin: '473829', p_device_id: `S${i}` });
     }
@@ -212,7 +241,7 @@ describe.skipIf(!up)('0086 PIN failure uniformity (SEC-13)', () => {
       .from('audit_log')
       .select('after')
       .eq('action', 'staff.pin_locked')
-      .gte('at', before);
+      .gt('id', mark);
     const rows = (data ?? []) as { after: Record<string, unknown> }[];
     // The cashier has no PIN set in the seed, so this exercises NO_PIN_SET
     // rather than a wrong-PIN lockout; either way the limiter must not log a
@@ -221,7 +250,7 @@ describe.skipIf(!up)('0086 PIN failure uniformity (SEC-13)', () => {
   });
 
   it('does not log a lockout for a failure that does not reach the threshold', async () => {
-    const before = new Date().toISOString();
+    const mark = await auditWatermark(svc);
     for (let i = 0; i < 3; i++) {
       await appRpc(manager, 'verify_manager_pin', { p_pin: '473829', p_device_id: `N${i}` });
     }
@@ -229,7 +258,7 @@ describe.skipIf(!up)('0086 PIN failure uniformity (SEC-13)', () => {
       .from('audit_log')
       .select('id')
       .eq('action', 'staff.pin_locked')
-      .gte('at', before);
+      .gt('id', mark);
     expect(data ?? []).toHaveLength(0);
   });
 
@@ -244,7 +273,7 @@ describe.skipIf(!up)('0086 PIN failure uniformity (SEC-13)', () => {
     );
     expect(locked.errorMessage).toContain('PIN_LOCKED');
 
-    const before = new Date().toISOString();
+    const mark = await auditWatermark(svc);
     const cleared = await appRpc(manager, 'clear_pin_lockout', {
       p_staff_id: SEED_STAFF_IDS.owner,
     });
@@ -263,7 +292,7 @@ describe.skipIf(!up)('0086 PIN failure uniformity (SEC-13)', () => {
       .from('audit_log')
       .select('action, entity_id, before')
       .eq('action', 'staff.pin_lockout_cleared')
-      .gte('at', before);
+      .gt('id', mark);
     const rows = (data ?? []) as { entity_id: string; before: Record<string, unknown> }[];
     expect(rows).toHaveLength(1);
     expect(rows[0]?.entity_id).toBe(SEED_STAFF_IDS.owner);
