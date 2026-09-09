@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { InteractionManager } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
@@ -76,6 +77,33 @@ export interface DayGrid {
 /** Epoch: with this as `now` no slot is past and no hold is expired at build time. */
 const NO_CLOCK = new Date(0);
 
+/**
+ * Assembled trading nights, keyed by date and validated by REFERENCE against
+ * the five queries that build them.
+ *
+ * `assembleTradingNight` is pure but not cheap: two `buildSlotGrid` passes with
+ * a rate lookup per slot per court, and every one of those resolves the venue's
+ * wall clock through Intl — a few hundred `formatToParts` calls per date. The
+ * `useMemo` below only ever holds the LAST date, so moving between day chips
+ * rebuilt from scratch every time, synchronously, on the tap — including for
+ * dates whose rows were already sitting in the react-query cache. On the Book
+ * tab that lands on the same JS thread the 3D court draws its rally from, and
+ * the court visibly hitches (owner, 2026-09-08: picking between dates
+ * "glitches and is not running smoothly").
+ *
+ * react-query hands back a stable reference until data actually changes, so
+ * identity across all five inputs is a sound key: a refetch that returns new
+ * rows misses and rebuilds, one that changes nothing hits. Module-level, so the
+ * Book tab's sheet and the standalone Availability screen share one copy, and
+ * capped at a little over one entry per day chip on the strip.
+ */
+const GRID_CACHE_MAX = 8;
+interface GridCacheEntry {
+  inputs: readonly unknown[];
+  grid: CourtSlots[];
+}
+const gridCache = new Map<string, GridCacheEntry>();
+
 /** Assembled, priced grid for one venue-local trading night. */
 export function useDayGrid(date: string): DayGrid {
   const settings = useVenueSettings();
@@ -96,7 +124,16 @@ export function useDayGrid(date: string): DayGrid {
     if (!settings.data || !courts.data || !rules.data || !prices.data || !availability.data) {
       return [];
     }
-    return assembleTradingNight({
+    const inputs = [
+      settings.data,
+      courts.data,
+      rules.data,
+      prices.data,
+      availability.data,
+    ] as const;
+    const cached = gridCache.get(date);
+    if (cached && inputs.every((input, i) => cached.inputs[i] === input)) return cached.grid;
+    const built = assembleTradingNight({
       date,
       settings: settings.data,
       courts: courts.data,
@@ -105,6 +142,16 @@ export function useDayGrid(date: string): DayGrid {
       prices: prices.data,
       now: NO_CLOCK,
     });
+    // Delete before set so insertion order stays a true least-recently-BUILT
+    // order and the eviction below takes the right entry.
+    gridCache.delete(date);
+    gridCache.set(date, { inputs, grid: built });
+    while (gridCache.size > GRID_CACHE_MAX) {
+      const oldest = gridCache.keys().next().value;
+      if (oldest === undefined) break;
+      gridCache.delete(oldest);
+    }
+    return built;
   }, [date, settings.data, courts.data, rules.data, prices.data, availability.data]);
 
   const queries = [settings, courts, rules, prices, availability];
@@ -122,6 +169,62 @@ export function useDayGrid(date: string): DayGrid {
       void Promise.all(queries.map((q) => q.refetch()));
     },
   };
+}
+
+/**
+ * Warm the day chips either side of the selection, so tapping one is a cache
+ * read instead of a round trip.
+ *
+ * Only ever `prefetchQuery` on the SAME key `useDayGrid` reads, so a tap that
+ * lands mid-flight joins the in-flight request rather than starting a second
+ * one, and a warm date never refetches (staleTime is respected).
+ *
+ * Deferred behind `InteractionManager`: on the Book tab this shares its JS
+ * thread with the court's GL loop, and a prefetch fired during the sheet's
+ * opening spring costs exactly the frames the animation needs. `runAfterInteractions`
+ * puts the fetch after the transition instead of inside it.
+ *
+ * Neighbours only (± PREFETCH_RADIUS), not the whole strip: seven dates at once
+ * is seven queries and seven assemblies for chips most guests never tap, and the
+ * strip re-derives every minute — the tick would re-arm the whole fan-out.
+ */
+const PREFETCH_RADIUS = 1;
+
+export function usePrefetchAdjacentDays(dates: readonly string[], date: string): void {
+  const queryClient = useQueryClient();
+  const settings = useVenueSettings();
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
+  const ready = settings.isSuccess;
+  const index = dates.indexOf(date);
+  // Derive the neighbours as a STRING, so the effect below re-runs when the
+  // dates to warm actually change and not on every minute tick that hands back
+  // an equal-but-new `dates` array.
+  const neighbours =
+    index === -1
+      ? ''
+      : dates
+          .slice(Math.max(0, index - PREFETCH_RADIUS), index + PREFETCH_RADIUS + 1)
+          .filter((d) => d !== date)
+          .join(',');
+
+  useEffect(() => {
+    if (!ready || neighbours === '') return;
+    let cancelled = false;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      for (const d of neighbours.split(',')) {
+        void queryClient.prefetchQuery({
+          queryKey: availabilityKeys.day(d),
+          queryFn: () => fetchDayAvailability(supabase, d, tz),
+          staleTime: 15_000,
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+      handle.cancel();
+    };
+  }, [neighbours, ready, tz, queryClient]);
 }
 
 /** The one live 'courts' channel, shared by every mounted consumer (see useCourtsBroadcast). */

@@ -23,6 +23,25 @@ let current: AppearancePreference = 'light';
  * nothing (`null` before the first native read, and on platforms with no
  * scheme at all) — the app's own default, so an unknown device scheme looks
  * like a fresh install rather than a dark flash.
+ *
+ * A PURE READ. It used to release the app's pin first
+ * (`setColorScheme('unspecified')`) so it could see past an override, and that
+ * is exactly what broke the live flip: on iOS `setColorScheme` writes
+ * `window.overrideUserInterfaceStyle`, which fires the OS's own
+ * userInterfaceStyle-did-change notification, and RCTAppearance answers it by
+ * updating its `_currentColorScheme` and emitting `appearanceChanged` ONLY when
+ * that value actually changed. Releasing the pin on every read therefore kept
+ * moving the native module's idea of "current" underneath us — so when the real
+ * flip arrived, `_currentColorScheme` already equalled the new scheme, the
+ * inequality guard suppressed the event, and the app's listener never fired at
+ * all. A read that mutates the thing it is reading cannot be called from a
+ * listener, a lifecycle handler, or a render, which is everywhere this is used.
+ *
+ * The pin is not something to work around here: the provider only pins under an
+ * EXPLICIT 'light' / 'dark' preference, and under those the device scheme is
+ * irrelevant — `resolveAppearance` returns the preference without asking. Under
+ * 'automatic' the provider hands the scheme back to the OS once, on commit, so
+ * there is no pin in place and `getColorScheme()` already reports the device.
  */
 export function deviceAppearance(): AppearanceName {
   try {

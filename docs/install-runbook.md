@@ -83,6 +83,11 @@ moves. To re-do setup on a machine, delete `station.json` and relaunch.
   **Quit to desktop**, which takes a manager PIN. (Online it verifies against
   the server; during an outage it accepts a manager PIN that has been used
   successfully on this station in the last 14 days.)
+- The same **Quit to desktop** sits in the top corner of the sign-in screen, so
+  a station that is signed out can still be closed. Signed out there is no
+  server to check against, so it accepts only a manager PIN used successfully
+  on this station in the last 14 days — on a machine that has never been signed
+  in, close it from Task Manager instead.
 - Launch-on-boot registers itself on every packaged start
   (`app.setLoginItemSettings`); no Task Scheduler entry needed.
 

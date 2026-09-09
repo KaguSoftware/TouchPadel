@@ -29,7 +29,7 @@ import {
   StatusPill,
   SummaryGrid,
 } from '../../src/components/booking';
-import { ConfirmationDialog, useToast } from '../../src/components/overlays';
+import { ConfirmAlert, useToast } from '../../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 
@@ -92,18 +92,16 @@ function BookingDetailScreen() {
   const windowEnd =
     start && windowHours > 0 ? new Date(start.getTime() - windowHours * 3_600_000) : null;
 
+  // The native alert dismisses itself as soon as a button is tapped, so the
+  // open flag closes here rather than on the result; the pending write shows as
+  // the Cancel booking button's own spinner (busy={cancel.isPending}).
   const onCancelConfirm = () => {
     if (!booking) return;
     setError(null);
+    setDialogOpen(false);
     cancel.mutate(booking.id, {
-      onSuccess: () => {
-        setDialogOpen(false);
-        toast(t('booking.cancelledToast'), 'info');
-      },
-      onError: (err) => {
-        setDialogOpen(false);
-        setError(t(mapErrorToKey(err)));
-      },
+      onSuccess: () => toast(t('booking.cancelledToast'), 'info'),
+      onError: (err) => setError(t(mapErrorToKey(err))),
     });
   };
 
@@ -371,15 +369,20 @@ function BookingDetailScreen() {
         </ScrollView>
       )}
 
-      <ConfirmationDialog
+      <ConfirmAlert
         visible={dialogOpen}
         title={t('booking.cancelDialogTitle')}
         body={t('booking.cancelDialogBody', {
           when: start ? formatDateTime(start, locale) : '',
         })}
-        confirmLabel={cancel.isPending ? t('booking.cancelling') : t('booking.cancelBooking')}
-        busy={cancel.isPending}
-        danger
+        // Short labels on purpose: iOS puts two alert buttons side by side only
+        // when both fit one row, and stacks them otherwise — "Cancel booking"
+        // was long enough to force the stack. The title carries the noun.
+        confirmLabel={t('booking.cancelDialogConfirm')}
+        // "Keep it", not "Cancel" — next to a cancel-the-booking button, a
+        // Cancel button is ambiguous about which cancellation it means.
+        cancelLabel={t('common.keepIt')}
+        destructive
         onConfirm={onCancelConfirm}
         onDismiss={() => setDialogOpen(false)}
       />

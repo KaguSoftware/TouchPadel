@@ -174,6 +174,7 @@ Normal operation: KDS subscribes to Supabase Realtime for tickets. Fallback subs
 ### 2.5 Kiosk behavior
 
 - `app.requestSingleInstanceLock()`; `autoHideMenuBar`, `kiosk: true` on till/KDS, frame off; `closable: false` except via manager PIN → `Quit to desktop` menu action.
+  `Quit to desktop` sits in the workspace rail AND on the sign-in screen (the corner a window control would occupy) — a station nobody has signed into is otherwise a window nobody can close. Signed out there is no `verify_manager_pin` to call (it is granted to `authenticated`), so that placement rests on main's offline PIN cache alone.
 - Launch on boot: electron-builder NSIS `runAfterFinish` + `HKCU\...\Run` registry entry set by a first-run step; `app.setLoginItemSettings` as belt-and-braces.
 - Crash recovery: `webContents` `render-process-gone` → reload; main-process crash → NSSM-free approach: a tiny watchdog via Windows Task Scheduler task "restart if not running" (documented in runbook).
 - **Auto-update:** electron-updater against GitHub Releases, `autoDownload: true`, but `quitAndInstall` only when: queue empty, no open day, and between 03:00–06:00 or manager-initiated. Never mid-trading.
