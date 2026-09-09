@@ -301,6 +301,41 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-swoosh-in {
   animation: tpSwooshIn var(--tp-dur-ceremony) var(--tp-ease-settle) 90ms both;
 }
+/* ---- form grids ---- */
+/*
+ * repeat(auto-fit, minmax(N, 1fr)) fits as many columns as the width allows.
+ * That is right for a list of unknown length and wrong for a FORM, which knows
+ * exactly how many columns it wants: two panels on a 1400px desk were handed a
+ * THREE-column track and sat squeezed against an empty third. Only the width at
+ * which a form gives its columns up is responsive, and that needs a query no
+ * inline style can carry — hence class hooks rather than more style props.
+ */
+
+/* The page-level split of two panels side by side. Driven by the WINDOW. */
+.tp-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 64rem) { .tp-split { grid-template-columns: minmax(0, 1fr); } }
+/* A panel that runs under both halves of the split. */
+.tp-split-full { grid-column: 1 / -1; }
+
+/*
+ * A row of fields inside a panel. Driven by the PANEL, not the window: the
+ * panel is half the page inside a split and the whole of it once the split
+ * collapses, so a viewport query gets this exactly backwards — it stacked
+ * date/time/duration into three full-width boxes at the precise moment they
+ * had the most room they would ever have. The tp-cq class marks what they
+ * measure themselves against. (No backticks in here: this sheet is a template
+ * literal, and one would end it.)
+ * Scoped to the elements that ask for it: container-type also turns an element
+ * into a containing block for absolutely positioned children, which is not
+ * something to hand every panel in the app.
+ */
+.tp-cq { container-type: inline-size; }
+.tp-grid { display: grid; }
+.tp-grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tp-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@container (max-width: 30rem) { .tp-grid[data-cols="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 22rem) { .tp-grid[data-cols="2"], .tp-grid[data-cols="3"] { grid-template-columns: minmax(0, 1fr); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   /*

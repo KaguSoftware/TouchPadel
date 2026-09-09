@@ -102,6 +102,11 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     count: '{count} مفتوح',
     guest: 'الضيف',
     court: 'الملعب',
+    removeArm: 'حذف هذا الحساب',
+    removeAsk: 'حذف؟',
+    removeConfirm: 'نعم، احذف',
+    removeKeep: 'إبقاء',
+    removeBlocked: 'على هذه الطاولة مبلغ مستحق.',
   },
 
   detail: {
@@ -276,6 +281,7 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     fromBooking: 'مرتبط بحجز',
     fromBookingHint: 'يُفتح هذا الحساب للحجز المختار من المكتب؛ تُضاف رسوم الملعب عند التسوية.',
     bookingMissing: 'هذا الحجز غير متاح لفتح حساب عليه (له حساب بالفعل، أو ليس اليوم).',
-    needAnchor: 'اختر طاولة، أو اكتب اسمًا، أو اختر حجزًا.',
+    needAnchor: 'اختر طاولة، أو اختر حجزًا.',
+    nameHint: 'يظهر على الحساب بدلًا من رقم الطاولة. لا يفتح حسابًا بمفرده.',
   },
 };

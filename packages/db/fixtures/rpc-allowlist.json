@@ -58,6 +58,7 @@
     "apply_discount",
     "audit_log_page",
     "cancel_series",
+    "cancel_tab",
     "clear_staff_pin",
     "close_day",
     "create_series",

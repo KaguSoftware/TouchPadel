@@ -40,12 +40,19 @@ export function useCustomerSearch(query: string, limit = 8) {
 export function CustomerPicker({
   value,
   onChange,
+  onQueryChange,
   label,
   disabled,
   showCreateLink = true,
 }: {
   value: PickedCustomer | null;
   onChange: (next: PickedCustomer | null) => void;
+  /**
+   * Every keystroke of the search box. A desk that searches for a name and
+   * finds no account is looking at a walk-in, and used to have to type that
+   * same name a second time into the name field — the form can carry it over.
+   */
+  onQueryChange?: (query: string) => void;
   label?: string;
   disabled?: boolean;
   showCreateLink?: boolean;
@@ -53,6 +60,10 @@ export function CustomerPicker({
   const { tr } = useLocale();
   const [query, setQuery] = useState('');
   const search = useCustomerSearch(query);
+  const setQueryAndReport = (next: string) => {
+    setQuery(next);
+    onQueryChange?.(next);
+  };
 
   if (value) {
     return (
@@ -84,7 +95,7 @@ export function CustomerPicker({
       </span>
       <SearchField
         value={query}
-        onChange={setQuery}
+        onChange={setQueryAndReport}
         placeholder={tr('ws.courtDesk.create.searchPlaceholder')}
         aria-label={tr('ws.courtDesk.create.customer')}
         busy={search.isFetching}
