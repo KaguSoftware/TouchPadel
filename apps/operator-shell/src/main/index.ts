@@ -142,9 +142,10 @@ function createWindow(): BrowserWindow {
     kiosk: !relaxed && (station.mode === 'till' || station.mode === 'kds'),
     autoHideMenuBar: true,
     frame: relaxed,
-    // Production: the window closes only through the manager-PIN quit
-    // (touch:quit-app below) — a till someone can casually X out of is a till
-    // that silently stops heartbeating and degrades the whole venue.
+    // Production: the window closes only through Quit to desktop
+    // (touch:quit-app below), so there is no OS titlebar X on a till — but
+    // that action no longer asks for a PIN, so what stops a casual exit is
+    // its confirmation dialog, not a credential.
     closable: relaxed,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -277,8 +278,8 @@ if (gotTheLock) {
     // A manager dismissing a row the worker will never deliver (409 conflict /
     // deterministic 4xx). Until this existed, one ITEM_UNAVAILABLE on an
     // offline order held day close shut forever: 'failed' is terminal, blocks
-    // close, and nothing could clear it. Same offline PIN gate as quitApp; the
-    // renderer verifies server-side first when online.
+    // close, and nothing could clear it. Manager PIN against the offline
+    // cache; the renderer verifies server-side first when online.
     ipcMain.handle(IPC.resolveQueueRow, (_e, v: unknown) =>
       guardIpc('resolveQueueRow', () => {
         const req = validateResolveQueueRow(v);
@@ -352,14 +353,13 @@ if (gotTheLock) {
       });
     });
 
-    // Manager-PIN quit (design-arch §2.5): the ONLY way a production window
-    // closes. The renderer verifies the pin server-side first when online
-    // (verify_manager_pin) and pushes it to the offline cache; this handler
-    // re-checks against that cache so a random keypress can never kill a till.
-    ipcMain.handle(IPC.quitApp, (_e, pin: unknown) =>
+    // Quit to desktop (design-arch §2.5): the ONLY way a production window
+    // closes. This took a manager PIN and re-checked it against the offline
+    // cache here, so a compromised renderer could not end service on its own.
+    // That gate is gone by request — main now exits on the renderer's word,
+    // and the renderer's confirmation dialog is the only thing in the way.
+    ipcMain.handle(IPC.quitApp, () =>
       guardIpc('quitApp', () => {
-        const unlocked = unlockPinOffline(validatePin(pin));
-        if (!unlocked) return { ok: false as const, error: 'pin not recognised' };
         setTimeout(() => {
           // A downloaded update installs on the way out. app.exit() skips
           // will-quit, so autoInstallOnAppQuit alone would never fire here.
@@ -386,9 +386,10 @@ if (gotTheLock) {
       guardIpc('saveStation', () => completeFirstRun(validateStationSetup(v))),
     );
 
-    // The till's pairing card: behind the same offline PIN gate as quitApp
-    // (the renderer verifies server-side first when online). The code is the
-    // LAN secret, so it only ever crosses the bridge after a manager PIN.
+    // The till's pairing card: behind the offline PIN gate (the renderer
+    // verifies server-side first when online). The code is the LAN secret, so
+    // it only ever crosses the bridge after a manager PIN — unlike quitApp,
+    // which no longer asks for one.
     ipcMain.handle(IPC.getPairingInfo, (_e, pin: unknown) =>
       guardIpc('getPairingInfo', () => {
         if (!unlockPinOffline(validatePin(pin))) return { ok: false as const, error: 'pin not recognised' as const };

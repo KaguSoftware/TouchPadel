@@ -207,8 +207,8 @@ export interface TouchBridge {
   /** Manager PIN: park a conflict/failed row as resolved so it stops blocking day close.
    *  The row is kept with who and when; the write it carried is NOT applied. */
   resolveQueueRow(req: ResolveQueueRowRequest): Promise<ResolveQueueRowResult | IpcRefusal>;
-  /** Manager-PIN quit — the only way a production kiosk window closes. */
-  quitApp(pin: string): Promise<{ ok: boolean; error?: string }>;
+  /** Quit to desktop — the only way a production kiosk window closes. No PIN. */
+  quitApp(): Promise<{ ok: boolean; error?: string }>;
   /** First run only: write station.json and relaunch. */
   saveStation(req: StationSetupRequest): Promise<StationSetupResult | IpcRefusal>;
   /** Till only, behind the manager PIN: what a kitchen screen needs to pair. */

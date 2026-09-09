@@ -125,6 +125,7 @@ export const shellEn = {
     signOut: 'Sign out',
     station: 'Station {id}',
     quit: 'Quit to desktop',
+    quitConfirm: 'This ends service on this station. Orders stop and the venue sees it go offline.',
     kitchenNoNav: 'Kitchen display',
     version: 'Version {version}',
     pairKitchen: 'Pair a kitchen screen',
