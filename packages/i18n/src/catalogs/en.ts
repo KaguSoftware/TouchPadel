@@ -639,6 +639,20 @@ export const en = {
     confirmNewPassword: 'Confirm new password',
     updatePassword: 'Update password',
     fillAllFields: 'Fill in all three fields.',
+    // SEC-16 — in-app account deletion. Both stores require a path to this from
+    // INSIDE the app; a support email or a web form does not satisfy either.
+    deleteAccount: 'Delete account',
+    deleteHeading: 'This cannot be undone.',
+    // Says what SURVIVES as well as what goes. app.delete_my_account (0077)
+    // anonymises the bookings rather than removing them, because the venue's
+    // books have to keep adding up — a guest who is told "everything is
+    // deleted" and later sees the court still reserved has been misled.
+    deleteBody:
+      'Your account, your name and your phone number are deleted immediately, and you are signed out everywhere. Bookings you have already made stay in the venue\u2019s records with no name attached to them, because the venue has to keep its own accounts.',
+    deleteTypePrompt: 'Type {word} below to confirm.',
+    // The word the guest types. LOCALISED, and deliberately not the RPC's
+    // p_confirm token — see features/profile/deletion.ts.
+    deleteConfirmWord: 'DELETE',
   },
   settings: {
     title: 'Settings',

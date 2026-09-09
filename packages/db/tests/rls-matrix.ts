@@ -2213,6 +2213,17 @@ export const matrix: MatrixRule[] = [
 
   // ── owner only: staff administration ──────────────────────────────────────
   { kind: 'rpc', schema: 'app', name: 'clear_staff_pin', args: { p_staff_id: NIL_UUID }, expect: OWNER_ONLY, drop: 7 },
+  {
+    // 0086/SEC-13. Releases a staff member locked out by five failed PIN
+    // attempts. MANAGER_UP, not OWNER_ONLY: the lockout happens mid-service and
+    // the owner is not always on the floor — an unclearable lock is why the
+    // shift lead ends up sharing a PIN, which is the outcome the whole PIN
+    // regime exists to prevent. It is audited, which is what makes delegating
+    // it safe. Probed with NIL_UUID: every principal that passes the role guard
+    // then meets STAFF_NOT_FOUND, which counts as 'execute'.
+    kind: 'rpc', schema: 'app', name: 'clear_pin_lockout',
+    args: { p_staff_id: NIL_UUID }, expect: MANAGER_UP, drop: 8,
+  },
   { kind: 'rpc', schema: 'app', name: 'rename_staff', args: { p_staff_id: NIL_UUID, p_display_name: 'matrix probe' }, expect: OWNER_ONLY, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'set_staff_active', args: { p_staff_id: NIL_UUID, p_active: false }, expect: OWNER_ONLY, drop: 7 },
   {
@@ -2356,6 +2367,14 @@ export const matrix: MatrixRule[] = [
   },
   { kind: 'rpc', schema: 'app', name: 'menu_availability', args: {}, expect: SELF_ANON_OK, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'staff_role', args: {}, expect: SELF_ANON_OK, drop: 7 },
+  {
+    // 0087/SEC-34. Self-answering, like staff_role beside it: no argument, so
+    // every principal may call it and each learns one boolean about itself.
+    // anon and both guest shapes get a plain `false` rather than a refusal —
+    // there is nothing to refuse when the answer is about the caller.
+    kind: 'rpc', schema: 'app', name: 'has_own_pin',
+    args: {}, expect: SELF_ANON_OK, drop: 8,
+  },
   { kind: 'rpc', schema: 'app', name: 'is_own_session', args: { p_session_id: NIL_UUID }, expect: SELF_AUTHED, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'item_active_groups', args: { p_item_id: NIL_UUID, p_chosen_modifier_ids: [] }, expect: SELF_AUTHED, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'order_is_callers', args: { p_order_id: NIL_UUID }, expect: SELF_AUTHED, drop: 7 },

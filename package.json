@@ -26,7 +26,8 @@
     "security:history": "node scripts/security/check-history-secrets.mjs",
     "security:audit": "node scripts/security/check-dependency-audit.mjs",
     "security:data": "node scripts/security/check-data-hygiene.mjs",
-    "security:web": "node scripts/security/check-web-security.mjs"
+    "security:web": "node scripts/security/check-web-security.mjs",
+    "security:quiet-errors": "node scripts/security/check-quiet-errors.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

@@ -12,7 +12,7 @@ import {
   resolveRow,
   setConnOnline,
 } from './queue';
-import { loadStation, writeStation } from './station';
+import { canTrade, loadStation, writeStation } from './station';
 import { completeFirstRun } from './first-run';
 import { isPairingCode } from './pairing-code';
 import { LAN_KDS_PORT, pickLanBind, startLanKdsServer, type LanKdsServer } from './lan-kds-server';
@@ -226,6 +226,17 @@ if (gotTheLock) {
 
     ipcMain.handle(IPC.enqueue, (_e, m: unknown) =>
       guardIpc('enqueue', () => {
+        // SEC-32: a machine that does not know which station it is must not
+        // take a sale. The renderer already refuses (it shows the setup or
+        // broken-install screen instead of the till), so reaching here means
+        // something bypassed the shell UI — a stale window, a replayed IPC
+        // message. Every queued row carries station_id into the idempotency
+        // key, the audit trail and the day's reconciliation, so accepting one
+        // from an unidentified machine is worse than dropping it: it is a sale
+        // filed under somebody else's till.
+        if (!canTrade(station)) {
+          throw new Error('station is not configured — refusing to queue a mutation');
+        }
         const envelope = validateMutationEnvelope(m);
         const result = enqueue(envelope);
         // The insert is fsynced; replay immediately — online, the round trip
@@ -240,6 +251,10 @@ if (gotTheLock) {
 
     ipcMain.on(IPC.lanStatus, (_e, v: unknown) => {
       guardIpc('lanStatus', () => {
+        // Same rule (SEC-32): an unidentified machine does not announce itself
+        // on the venue LAN. kdsStation is how a till labels which kitchen
+        // screen acknowledged a ticket.
+        if (!canTrade(station)) return null;
         const update = validateLanStatus(v);
         lanClient?.sendStatus({ ...update, kdsStation: station.stationId });
         return null;
@@ -308,6 +323,9 @@ if (gotTheLock) {
       }
       const html = (validated.data as { html?: string } | null)?.html;
       if (!html) return { ok: false, error: 'no-html' };
+      // SEC-32. A receipt is a financial document naming the station that
+      // issued it; an unidentified machine must not print one.
+      if (!canTrade(station)) return { ok: false, error: 'no-printer' };
       if (!station.printer) {
         // No printer configured — the renderer falls back to window.print();
         // the on-screen bill satisfies SOW L456 meanwhile.

@@ -18,7 +18,7 @@ import { callPhone } from '../../src/lib/phone';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
-import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon } from '../../src/components/icons';
+import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon, TrashIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 
@@ -304,6 +304,16 @@ export default function ProfileScreen() {
               label={t('profile.callVenue')}
               onPress={onCallVenue}
               disabled={settings.isLoading}
+            />
+            {/* SEC-16. Last in the list and rendered in the error colour: both
+              stores require account deletion to be reachable from inside the
+              app, and this row is the path. It pushes a screen with a typed
+              confirmation rather than opening a dialog — the act is not
+              undoable, and an Alert is what a mis-tap dismisses by habit. */}
+            <MenuRow
+              icon={<TrashIcon size={15} color={colors.redtext} />}
+              label={t('profile.deleteAccount')}
+              onPress={() => router.push('/delete-account')}
               last
             />
           </View>

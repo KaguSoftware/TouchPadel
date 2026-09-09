@@ -1,6 +1,6 @@
 {
   "_readme": "Authorization-coverage ratchet for check-rpc-registry.mjs. Raise it by covering more RPCs in tests/rls-matrix.ts and re-running with --update-floor. Never lower it by hand: that is the one edit this file exists to make visible in review.",
-  "covered": 138,
-  "total": 141,
-  "updated": "2026-09-07"
+  "covered": 141,
+  "total": 144,
+  "updated": "2026-09-09"
 }

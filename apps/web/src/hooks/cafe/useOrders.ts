@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { MessageKey } from '@touch/i18n';
 import type { BrowserSupabase } from '@/lib/supabase/client';
+import { rpcErrorKey } from '@/lib/appRpc';
 import {
   mergeStatus,
   ordersPartition,
@@ -18,8 +20,18 @@ import {
 const PARTITION_TICK_MS = 60_000;
 
 export interface UseOrders {
-  /** last reload failure, if the list on screen may be stale */
-  loadError: string | null;
+  /**
+   * Last reload failure, if the list on screen may be stale — as a MESSAGE KEY,
+   * never the server's own words (SEC-36).
+   *
+   * This used to be the raw `error.message`. Nothing rendered it yet, which is
+   * exactly why it was worth fixing: the type invited the first component that
+   * wanted to show "could not refresh" to put a PostgREST string — a table
+   * name, a constraint, a policy violation — on a guest's phone, and it would
+   * have looked like ordinary error handling in review. A MessageKey cannot be
+   * rendered raw: it has to go through `tr()`.
+   */
+  loadError: MessageKey | null;
   orders: GuestOrder[];
   live: GuestOrder[];
   earlier: GuestOrder[];
@@ -30,7 +42,7 @@ export interface UseOrders {
 
 export function useOrders(supabase: BrowserSupabase | null, sessionId: string | null): UseOrders {
   const [orders, setOrders] = useState<GuestOrder[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<MessageKey | null>(null);
   // The 10-minute "served" rule needs a clock, not just new data.
   const [tick, setTick] = useState(() => Date.now());
 
@@ -53,7 +65,10 @@ export function useOrders(supabase: BrowserSupabase | null, sessionId: string | 
     // `if (!data) return` silently kept whatever was on screen, so a guest
     // whose reload failed saw a stale list with no hint anything was wrong.
     if (error) {
-      setLoadError(error.message);
+      // Mapped here, at the boundary, rather than trusting every future caller
+      // to remember. rpcErrorKey falls back to 'errors.generic' for anything it
+      // does not recognise, which is every genuine Postgres failure.
+      setLoadError(rpcErrorKey(error));
       return;
     }
     setLoadError(null);

@@ -606,6 +606,44 @@ function IdleLock() {
 
   const enabled = !!staff && timeoutS > 0;
 
+  /**
+   * SEC-34, the self-unlock gap. Does THIS person have an unlock PIN?
+   *
+   * PINs are only ever set on manager and owner accounts — a PIN is the manager
+   * AUTHORISATION on the money paths, so nobody has had a reason to give the
+   * cashier who actually works this till one. Until 0087 the screen could not
+   * know that, so it showed everybody a PIN box and only offered the password
+   * AFTER a wrong guess. A cashier had to fail at a credential they were never
+   * issued, in front of a queue, before being shown the one they have. That is
+   * how a lock becomes a nuisance and a shared manager PIN becomes the fix.
+   *
+   * `null` = not yet known. The screen renders the PIN field meanwhile, because
+   * the answer arrives in one round trip and flipping a field out from under
+   * somebody who has already started typing is worse than a brief default. The
+   * NO_PIN_SET fallback in `unlock()` stays as the backstop for exactly that
+   * race — and for an account whose PIN is cleared while the till sits locked.
+   */
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!locked || hasPin !== null) return;
+    let cancelled = false;
+    void appRpc<boolean>('has_own_pin', {})
+      .then((v) => {
+        if (cancelled) return;
+        setHasPin(v);
+        // Only switch TO the password. Never switch away from it: if the person
+        // has already chosen "Use password instead", this answer must not yank
+        // the field back to a PIN box mid-typing.
+        if (!v) setUsePassword(true);
+      })
+      // A failed probe is not an answer. Leaving hasPin null keeps the PIN
+      // field and the NO_PIN_SET fallback, which is exactly the old behaviour.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [locked, hasPin]);
+
   useEffect(() => {
     if (!enabled) return;
     const bump = () => {
@@ -626,7 +664,10 @@ function IdleLock() {
     setLocked(false);
     setPin('');
     setPassword('');
-    setUsePassword(false);
+    // SEC-34: an account with NO pin stays on the password field. Resetting to
+    // the PIN box would put the cashier back in front of the credential they do
+    // not have on the very next idle timeout, which is the whole gap.
+    setUsePassword(hasPin === false);
     setError(null);
     lastActivity.current = Date.now();
   }
@@ -733,7 +774,11 @@ function IdleLock() {
           <h2 style={{ fontSize: 'var(--tp-fs-xl)' }}>{tr('ws.shell.lock.title')}</h2>
         </div>
         <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)' }}>
-          {tr('ws.shell.lock.hint', { name: staff.displayName })}
+          {/* SEC-34: say WHY the password is being asked for, so a cashier with
+              no PIN is not left wondering what they have forgotten. */}
+          {hasPin === false && usePassword
+            ? tr('ws.shell.lock.hintPassword', { name: staff.displayName })
+            : tr('ws.shell.lock.hint', { name: staff.displayName })}
         </p>
         {usePassword ? (
           <Field label={tr('auth.passwordLabel')}>
@@ -768,7 +813,11 @@ function IdleLock() {
             {tr('ws.shell.lock.switchUser')}
           </Button>
           <span style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
-            {!usePassword && (
+            {/* Offered only to somebody who HAS a PIN and is being asked for it.
+                For a cashier with none, "Use password instead" is the only
+                route, and presenting it as the alternative implies a PIN they
+                could have used. */}
+            {!usePassword && hasPin !== false && (
               <Button kind="ghost" onClick={() => setUsePassword(true)} disabled={busy}>
                 {tr('ws.shell.lock.usePassword')}
               </Button>

@@ -43,6 +43,10 @@ const PUBLIC_BY_DESIGN = new Set([
   // Tell-me-about-myself helpers; they leak only the caller's own standing.
   'is_staff', 'staff_role', 'is_own_session', 'order_is_callers', 'tab_is_callers',
   'touch_guest_session',
+  // 0087/SEC-34. Whether the CALLER's own account has an idle-lock PIN. Takes
+  // no argument at all, so it cannot be pointed at another account, and it
+  // answers `false` for anyone who is not active staff — which is every guest.
+  'has_own_pin',
   // Guest ordering surface — guarded by guest_sessions ownership, not by role.
   'create_guest_order', 'raise_waiter_call',
   // Booking surface — any signed-in ACCOUNT, by design. hold_slot is NOT here:

@@ -92,6 +92,13 @@ jobs:
       - name: Web hardening lock
         run: pnpm security:web
 
+      # SEC-36, the quiet-error rule. A guest must never see a stack trace, a
+      # raw Postgres error or a constraint name. The mappers are correct today;
+      # this exists because `catch (e) { setError(e.message) }` is one line, in
+      # one new screen, that reads as diligence in review and turns no test red.
+      - name: Quiet-error rule (guest surfaces)
+        run: pnpm security:quiet-errors
+
       # Electron: sandbox / contextIsolation / nodeIntegration and the navigation
       # guards. A pure regression lock — it passes today and exists so a
       # debugging session cannot quietly undo the hardening on the venue PC.

@@ -39,6 +39,10 @@ export const shellEn = {
   lock: {
     title: 'Station locked',
     hint: 'Signed in as {name}. Unlock to continue where you left off.',
+    // SEC-34. Shown when the account has no unlock PIN — most cashiers. Says
+    // WHY the password is being asked for, so nobody thinks they have
+    // forgotten a PIN they were never given.
+    hintPassword: 'Signed in as {name}. This account has no unlock PIN, so enter your password.',
     pin: 'Your PIN',
     unlock: 'Unlock',
     usePassword: 'Use password instead',

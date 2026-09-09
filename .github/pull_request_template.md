@@ -67,7 +67,8 @@ unticked and unexplained is the review signal.
 
 - [ ] No secret in a `NEXT_PUBLIC_*` / `VITE_*` / `EXPO_PUBLIC_*` name.
 - [ ] Errors reaching a guest carry no stack trace, no raw Postgres error and no
-      constraint name.
+      constraint name (SEC-36, `pnpm security:quiet-errors`). Map with
+      `mapErrorToKey` / `rpcErrorKey`; send the original to the tracker.
 - [ ] A KDS/floor broadcast payload names only what the screen needs — never a
       price, a total or a guest field (`check:broadcast`).
 
