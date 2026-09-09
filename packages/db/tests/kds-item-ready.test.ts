@@ -15,6 +15,7 @@ import {
   createTestMenuItem,
   ensureOpenDay,
   ensureTillFresh,
+  createTestCafeTable,
 } from './helpers';
 
 const up = await stackAvailable();
@@ -43,6 +44,8 @@ describe.skipIf(!up)('0061 kds item ready', () => {
 
   async function makeTicket(): Promise<{ ticketId: string; itemIds: string[] }> {
     const tab = await appRpc(cashier, 'open_tab', {
+      // 0084: a tab is anchored to a seat; the label is only its name.
+      p_table_id: await createTestCafeTable(svc, 'kds-ready'),
       p_label: `kds-ready-${Date.now()}`,
       p_idempotency_key: testIdemKey('tab.open'),
     });

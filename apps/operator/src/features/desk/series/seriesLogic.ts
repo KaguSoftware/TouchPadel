@@ -19,13 +19,21 @@ export interface SeriesDraft {
   endsOn: string; // YYYY-MM-DD
 }
 
-export type DraftProblem = 'weekdays' | 'weeks' | 'end' | 'court' | 'time' | null;
+export type DraftProblem = 'weekdays' | 'weeks' | 'end' | 'court' | 'time' | 'past' | null;
 
-/** The first thing wrong with a draft, or null when it can be previewed. */
-export function draftProblem(d: SeriesDraft): DraftProblem {
+/**
+ * The first thing wrong with a draft, or null when it can be previewed.
+ *
+ * `today` is the venue's own date (todayInTz), not the machine's: a series is
+ * weeks of courts and there is nothing to book in a week that has been and
+ * gone. Optional, because the check is only as good as the caller's clock —
+ * omit it and the date is not judged at all.
+ */
+export function draftProblem(d: SeriesDraft, today?: string): DraftProblem {
   if (!d.courtId) return 'court';
   if (!/^\d{2}:\d{2}$/.test(d.startTime)) return 'time';
   if (d.pattern === 'weekdays' && d.weekdays.length === 0) return 'weekdays';
+  if (today !== undefined && d.startsOn < today) return 'past';
   if (d.endMode === 'weeks' && (!Number.isInteger(d.weeks) || d.weeks < 1)) return 'weeks';
   if (d.endMode === 'date' && d.endsOn <= d.startsOn) return 'end';
   return null;
