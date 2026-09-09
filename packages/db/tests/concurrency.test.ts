@@ -415,6 +415,8 @@ describe.skipIf(!up)('cafe concurrency (contractual cases 8-9, drops 2/3)', () =
     await addRecipeLine(svc, { variantId: menu.variantId }, ingredient, 100);
 
     const tab = await appRpc(cashier, 'open_tab', {
+      // 0084: a tab is anchored to a seat; the label is only its name.
+      p_table_id: await createTestCafeTable(svc, 'C9'),
       p_label: `طاولة تجربة السحب ${Date.now()}`,
       p_idempotency_key: testIdemKey('tab.open'),
     }).then(outcome);

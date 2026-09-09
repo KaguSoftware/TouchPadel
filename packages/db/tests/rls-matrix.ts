@@ -2296,6 +2296,8 @@ export const matrix: MatrixRule[] = [
 
   // ── cashier + manager + owner: the till surface ───────────────────────────
   { kind: 'rpc', schema: 'app', name: 'merge_tabs', args: { p_donor_tab_id: NIL_UUID, p_survivor_tab_id: NIL_UUID }, expect: CASHIER_UP, drop: 7 },
+  // Nil tab stops at NO_OPEN_DAY/TAB_NOT_FOUND past the guard — nothing is voided.
+  { kind: 'rpc', schema: 'app', name: 'cancel_tab', args: { p_tab_id: NIL_UUID }, expect: CASHIER_UP, drop: 7 },
   {
     kind: 'rpc', schema: 'app', name: 'override_price',
     // The CORRECT manager PIN on purpose. A wrong one writes a failed row to
