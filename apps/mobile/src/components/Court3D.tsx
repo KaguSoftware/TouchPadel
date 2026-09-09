@@ -177,9 +177,22 @@ function withoutWebGL1Warning<T>(gl: ExpoWebGLRenderingContext, build: () => T):
   }
 }
 
+export interface WakeOptions {
+  /**
+   * Restart the frame loop as well as the idle clock. Default true.
+   *
+   * `false` is the Android-behind-the-sheet case: the touch counts as activity —
+   * so the rally does not idle out from under the card and is playing the moment
+   * the sheet closes — but the loop stays stopped, because a day chip tap needs
+   * the JS thread for the grid build, not for two GL surfaces (see the caller in
+   * app/(tabs)/index.tsx).
+   */
+  resumeLoop?: boolean;
+}
+
 export interface Court3DHandle {
   /** Activity elsewhere (a touch in the sheet): restart the idle clock and play on if held. */
-  wake: () => void;
+  wake: (options?: WakeOptions) => void;
 }
 
 export interface Court3DProps {
@@ -531,17 +544,25 @@ export function Court3D({
   }, [boxWidth, boxHeight, boxOffsetX, boxOffsetY, requestOnce]);
 
   /** Activity: note the time, and if the rally is held, play on from that frame. */
-  const wake = useCallback(() => {
-    const now = performance.now();
-    lastActive.current = now;
-    holdAt.current = null;
-    if (frozenT.current !== null) {
-      start.current = now - frozenT.current * 1000;
-      frozenT.current = null;
-      setPaused(false);
-    }
-    if (running.current && !reduce.current) startLoop();
-  }, [startLoop]);
+  const wake = useCallback(
+    ({ resumeLoop = true }: WakeOptions = {}) => {
+      const now = performance.now();
+      lastActive.current = now;
+      holdAt.current = null;
+      // Un-freezing without resuming the loop would leave the rally's clock
+      // running against a surface nobody is drawing: the next frame that IS
+      // drawn would jump forward by however long the sheet stayed open. Held
+      // stays held until someone asks for the loop back.
+      if (!resumeLoop) return;
+      if (frozenT.current !== null) {
+        start.current = now - frozenT.current * 1000;
+        frozenT.current = null;
+        setPaused(false);
+      }
+      if (running.current && !reduce.current) startLoop();
+    },
+    [startLoop],
+  );
   useImperativeHandle(ref, () => ({ wake }), [wake]);
 
   const detach = useCallback((kind: Kind) => {
@@ -899,7 +920,9 @@ export function Court3D({
         // claims nothing from anyone.
         <View
           style={StyleSheet.absoluteFill}
-          onTouchStart={wake}
+          // Wrapped, not passed directly: `wake` takes options, and handing it
+          // the touch event would make the event object the options bag.
+          onTouchStart={() => wake()}
           onStartShouldSetResponder={() => false}
           accessible={false}
           importantForAccessibility="no"
