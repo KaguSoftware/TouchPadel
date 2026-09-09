@@ -798,9 +798,18 @@ function IdleLock() {
  * action to a destructive one. The rule lives here rather than in the rail so
  * that in browser mode, where this component renders nothing, it leaves no
  * stray line behind (rulebook 4.4).
+ *
+ * TWO PLACEMENTS, ONE GATE. The rail is only reachable once someone is signed
+ * in, so a kiosk sitting at sign-in — powered on by mistake, or signed out at
+ * the end of the night — had no way out of a frameless, non-closable window at
+ * all. `variant="signIn"` puts the same control where that window's own close
+ * button would be. It carries its own placement for the same reason the rail
+ * variant carries its own separator: browser mode then renders nothing rather
+ * than an empty corner box.
  */
-function QuitToDesktop() {
+function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
   const { tr } = useLocale();
+  const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [pin, setPin] = useState('');
   const [error, setError] = useState<unknown>(null);
@@ -811,16 +820,30 @@ function QuitToDesktop() {
     setBusy(true);
     setError(null);
     try {
-      try {
-        await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
-        touch.pinObserved(pin);
-      } catch (e) {
-        // Offline: fall through to the cache check in main. A server REFUSAL
-        // (PIN_INVALID / PIN_LOCKED) still surfaces — do not quit around it.
-        if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
+      // verify_manager_pin is granted to `authenticated` only (migration 0004),
+      // so at sign-in there is no server check to make: main's offline cache is
+      // the whole gate there, and asking anyway would stall the dialog for a
+      // network timeout to be told what the grant already says.
+      if (session) {
+        try {
+          await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
+          touch.pinObserved(pin);
+        } catch (e) {
+          // Offline: fall through to the cache check in main. A server REFUSAL
+          // (PIN_INVALID / PIN_LOCKED) still surfaces — do not quit around it.
+          if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
+        }
       }
       const res = await touch.quitApp(pin);
-      if (!res.ok) throw new Error(res.error ?? 'refused');
+      // Main's refusal is the same fact the server states as PIN_INVALID, so it
+      // is raised under that code and reads as "Incorrect PIN." rather than
+      // errors.generic. It matters most at sign-in, where the cache is the only
+      // check that ran and nothing else would ever name what went wrong.
+      if (!res.ok) {
+        throw res.error === 'pin not recognised'
+          ? new AppRpcError('PIN_INVALID', res.error)
+          : new Error(res.error ?? 'refused');
+      }
     } catch (e) {
       setError(e);
     } finally {
@@ -830,17 +853,29 @@ function QuitToDesktop() {
 
   return (
     <>
-      <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-rail-border)' }}>
-        <button
-          type="button"
-          className="tp-nav-item"
+      {variant === 'rail' ? (
+        <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-rail-border)' }}>
+          <button
+            type="button"
+            className="tp-nav-item"
+            onClick={() => setOpen(true)}
+            style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)', fontWeight: 500 }}
+          >
+            <Icon name="x" size={16} />
+            <span>{tr('ws.shell.nav.quit')}</span>
+          </button>
+        </div>
+      ) : (
+        <Button
+          kind="ghost"
+          size="sm"
+          icon="x"
           onClick={() => setOpen(true)}
-          style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)', fontWeight: 500 }}
+          style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)', color: 'var(--tp-muted-fg)' }}
         >
-          <Icon name="x" size={16} />
-          <span>{tr('ws.shell.nav.quit')}</span>
-        </button>
-      </div>
+          {tr('ws.shell.nav.quit')}
+        </Button>
+      )}
       {/*
         * This was a bare fixed <div>: no Escape, no focus trap, no click
         * outside, no focus return to the control that opened it, and no
@@ -1057,7 +1092,13 @@ function SignInScreen() {
           {tr('ws.shell.signIn.tagline')}
         </p>
       </aside>
-      <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
+      <div style={{ position: 'relative', display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
+        {/* A till and a kitchen screen run frameless and non-closable, and the
+            rail — the only other way out — is behind a sign-in. A station
+            powered on by mistake, or signed out at the end of the night, was
+            therefore a machine nobody could close. Same manager-PIN gate as
+            the rail's; only the placement is the window control's. */}
+        <QuitToDesktop variant="signIn" />
         <form onSubmit={(e) => void submit(e)} className="tp-rise" style={{ inlineSize: 'min(22rem, 100%)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <h1 style={{ fontSize: 'var(--tp-fs-2xl)', marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.signIn.title')}</h1>
           <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)' }}>{tr('ws.shell.signIn.lead')}</p>
