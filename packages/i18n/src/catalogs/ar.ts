@@ -618,10 +618,6 @@ export const ar: Messages = {
     confirmNewPassword: 'تأكيد كلمة المرور الجديدة',
     updatePassword: 'تحديث كلمة المرور',
     fillAllFields: 'املأ الحقول الثلاثة جميعها.',
-    discardTitle: 'تجاهل التغييرات؟',
-    discardBody: 'لم تُحفظ تعديلاتك.',
-    discard: 'تجاهل',
-    keepEditing: 'متابعة التعديل',
   },
   settings: {
     title: 'الإعدادات',
