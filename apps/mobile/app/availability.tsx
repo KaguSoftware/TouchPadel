@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
@@ -46,6 +46,10 @@ export default function AvailabilityScreen() {
   // React reconcile; the sheet on the Book tab does the same, and has the
   // longer note on why.
   const gridKey = `${a.date}|${a.durationMin}`;
+  const gridRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    gridRef.current?.scrollTo({ y: 0, animated: false });
+  }, [gridKey]);
 
   // The venue notice floats over the grid and leaves only when the guest
   // closes it — a refetch flipping `degraded` back on must not resurrect it.
