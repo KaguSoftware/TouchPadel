@@ -299,6 +299,20 @@ jobs:
       # properties; this is the lock so the next migration cannot forget.
       - name: Database invariants (views + search_path)
         run: pnpm --filter @touch/db check:invariants
+      # SEC-28. What a kitchen screen receives. Prep needs what to cook and how
+      # long it has waited — never what it sold for or who the guest is. Lives
+      # in THIS job, not the secret gates: it reads pg_proc, so a payload added
+      # by a migration nobody reviewed for this is still seen — and that costs a
+      # running database. Under the secret gates it had no stack to read and
+      # `docker exec` failed on a missing container every single run.
+      - name: Broadcast payloads (SEC-28)
+        run: pnpm --filter @touch/db check:broadcast
+      # SEC-29. Analytics output is POSTed to Groq, a third-party LLM outside the
+      # venue. A guest id in an aggregate is a guest record sent to a processor
+      # the privacy notice does not cover. Reads the catalog for the same reason,
+      # so it belongs to the same job.
+      - name: Analytics payload (SEC-29)
+        run: pnpm --filter @touch/db check:analytics
       # Runs the @touch/db test suite — includes the RLS matrix and the reservation
       # concurrency suite, which only make sense with the stack up (hence this job).
       - name: DB tests (RLS + concurrency)

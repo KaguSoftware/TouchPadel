@@ -11,6 +11,8 @@ import { mapErrorToKey } from '../src/features/booking/errors';
 import { radius, space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/ui';
 import { useBackGuard } from '../src/navigation/back';
+import { PhoneField } from '../src/components/phone';
+import { composePhone, DEFAULT_ISO, parsePhone, validatePhone } from '../src/features/profile/phone';
 import { ConfirmationDialog, useToast } from '../src/components/overlays';
 import { SkeletonList } from '../src/components/states';
 
@@ -31,7 +33,11 @@ function EditProfileScreen() {
   const toast = useToast();
 
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  // The phone is EDITED as country + national digits and STORED as E.164; the
+  // dirty check compares the composed value, so merely opening the picker and
+  // re-choosing the same country does not arm the unsaved-changes guard.
+  const [iso, setIso] = useState(DEFAULT_ISO);
+  const [national, setNational] = useState('');
   const [initial, setInitial] = useState<{ name: string; phone: string } | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -41,23 +47,36 @@ function EditProfileScreen() {
   useEffect(() => {
     if (profile.data && !initial) {
       setName(profile.data.full_name ?? '');
-      setPhone(profile.data.phone ?? '');
+      const parsed = parsePhone(profile.data.phone);
+      setIso(parsed.iso);
+      setNational(parsed.national);
       setInitial({
         name: profile.data.full_name ?? '',
-        phone: profile.data.phone ?? '',
+        // The COMPOSED baseline, not the raw column. A number stored in an
+        // older shape (`00964…`, or with spaces) round-trips through the
+        // picker as normalized E.164 — comparing against the raw string would
+        // mark the form dirty the instant it loaded, and every back press
+        // would offer to discard edits the guest never made.
+        phone: composePhone(parsed.iso, parsed.national),
       });
     }
   }, [profile.data, initial]);
 
+  const phone = composePhone(iso, national);
   const dirty = initial !== null && (name !== initial.name || phone !== initial.phone);
 
   /**
    * Unsaved edits ask before leaving (spec `dirty` state). The guard covers the
-   * native back item, the edge-swipe and Android back alike; `leave` replays
-   * whichever one was blocked.
+   * native back item and Android's back gesture; `leave` replays whichever one
+   * was blocked.
+   *
+   * The iOS edge-swipe is NOT caught here: UIKit commits that transition before
+   * `beforeRemove` fires, so `preventDefault()` cannot put the screen back. It
+   * is disabled outright while the guard is armed — see `gestureEnabled` below.
    */
+  const blockPop = dirty && !update.isPending;
   const leave = useBackGuard({
-    when: dirty && !update.isPending,
+    when: blockPop,
     onBlocked: () => setDiscardOpen(true),
   });
 
@@ -68,9 +87,11 @@ function EditProfileScreen() {
     if (!name.trim()) return setNameError(t('auth.nameRequired'));
     // Required from day one (spec 05.3): the desk calls it about bookings, and
     // the booking path refuses without it — so it cannot be cleared here.
-    if (!phone.trim()) return setPhoneError(t('auth.phoneRequired'));
+    const badPhone = validatePhone(iso, national);
+    if (badPhone === 'PHONE_REQUIRED') return setPhoneError(t('auth.phoneRequired'));
+    if (badPhone) return setPhoneError(t('auth.phoneInvalid'));
     update.mutate(
-      { full_name: name.trim(), phone: phone.trim() },
+      { full_name: name.trim(), phone },
       {
         onSuccess: () => {
           toast(t('profile.updated'));
@@ -86,7 +107,23 @@ function EditProfileScreen() {
 
   return (
     <Screen edges={[]}>
-      <Stack.Screen options={{ title: t('profile.editProfile') }} />
+      {/*
+       * `gestureEnabled: false` while the guard is armed, and ONLY then.
+       *
+       * The iOS interactive pop gesture is driven by UIKit inside
+       * react-native-screens, not by JS. By the time `beforeRemove` runs for an
+       * edge-swipe, UIKit has already committed the transition: the screen is
+       * detached, so `e.preventDefault()` cannot put it back. The dialog then
+       * rendered over the PREVIOUS screen and confirming replayed a pop that
+       * had already happened — the form was gone either way, discarding the
+       * edits without ever really asking.
+       *
+       * Turning the gesture off leaves the native back item as the only way
+       * out, and THAT is a JS-side dispatch the listener can genuinely cancel.
+       * It is re-enabled the moment the form is clean (or is saving/leaving),
+       * so the swipe still works on a screen with nothing to lose.
+       */}
+      <Stack.Screen options={{ title: t('profile.editProfile'), gestureEnabled: !blockPop }} />
       {profile.isLoading && !initial ? (
         <SkeletonList rows={3} height={64} />
       ) : (
@@ -99,12 +136,12 @@ function EditProfileScreen() {
             dense
             error={nameError}
           />
-          <Field
+          <PhoneField
             label={t('auth.phoneLabel')}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            autoComplete="tel"
+            iso={iso}
+            onChangeIso={setIso}
+            national={national}
+            onChangeNational={setNational}
             dense
             error={phoneError}
           />
