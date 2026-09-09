@@ -266,8 +266,18 @@ function NetCta({
           justifyContent: 'center',
           paddingStart: space.l,
           paddingEnd: space.l,
-          boxShadow: pressed ? `0 0 0 ${brand.navy}` : `0 8px 0 ${brand.navy}`,
-          transform: [{ translateY: pressed ? 8 : 0 }],
+          // Pressing drops the button the 8 px onto its own shadow. `hidden`
+          // holds it DOWN from there: the tap that opens the sheet disables
+          // this Pressable in the same commit, so `pressed` fell back to false
+          // and the button snapped up 8 px in one frame — while its fade and
+          // its 24 px slide were already under way. That one-frame kick up,
+          // immediately reversed, is what read as the button shaking as the
+          // sheet opened (owner, 2026-09-08). It now stays on the shadow and
+          // simply fades from there. Coming back, `hidden` clears at
+          // p ≤ SHEET_GONE, where SPEC.button.fade has the button at zero
+          // opacity, so the lift back up is never on screen.
+          boxShadow: pressed || hidden ? `0 0 0 ${brand.navy}` : `0 8px 0 ${brand.navy}`,
+          transform: [{ translateY: pressed || hidden ? 8 : 0 }],
         })}
       >
         {/* No lineHeight: a 16 pt box on a 14 pt face cropped the label's

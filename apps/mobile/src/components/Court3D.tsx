@@ -32,6 +32,9 @@
  *
  * Runtime shape:
  *   · `p` arrives through a native-driven Animated.Value listener (per frame).
+ *   · The whole stage is held at opacity 0 until the court's FIRST frame has
+ *     been drawn, then cross-fades in over REVEAL_MS — the scene takes a few
+ *     hundred ms to build and used to appear in one frame (see REVEAL_MS).
  *   · The rally loops on a wall clock; the frame loop only runs while the tab
  *     is focused and the app is active (expo-router keeps tab screens mounted).
  *   · Reduced motion: the rally freezes on a rest frame and the scene renders
@@ -84,6 +87,7 @@ import {
 import {
   Animated,
   AppState,
+  Easing,
   PixelRatio,
   Platform,
   StyleSheet,
@@ -230,6 +234,36 @@ const STALE_FADE_MS = 180;
  * Only a device that fails this many times running is really without GL.
  */
 const MAX_INIT_ATTEMPTS = 3;
+/**
+ * How long the stage cross-fades in once the court's FIRST frame has actually
+ * been drawn.
+ *
+ * expo-gl creates its context asynchronously and `buildCourtScene` then builds
+ * the whole cage, net, rackets and backdrop in one synchronous go, so a few
+ * hundred milliseconds pass between this view being laid out — an empty
+ * surface, page colour showing through — and the first `endFrameEXP`. At that
+ * moment the finished court appeared in a single frame, which is a hard cut
+ * and not an entrance (owner, 2026-09-08: "the court spawns instantly, it's
+ * not smooth").
+ *
+ * The fix is not to draw sooner, because the scene build IS the cost; it is to
+ * stop the first frame being a cut. `reveal` holds the stage at zero until the
+ * court has something on it and then fades. It runs under Reduce Motion too —
+ * a cross-fade is what that setting asks for INSTEAD of movement, and the
+ * alternative here is the pop it exists to prevent.
+ *
+ * Re-armed for every court context, not just the first: a surface Android
+ * destroys and recreates (leaving the tab, backgrounding) has nothing on it
+ * either, so it comes back the same way rather than snapping in.
+ */
+const REVEAL_MS = 260;
+/**
+ * Insurance only. Every real path either draws within a frame of `attach` or
+ * gives up through `onUnavailable`, and the caller then swaps in the flat
+ * court — but the stage also carries the caller's "check availability" button,
+ * and no GL edge case may leave that permanently invisible.
+ */
+const REVEAL_FALLBACK_MS = 1500;
 
 const hexToInt = (hex: string): number => parseInt(hex.slice(1, 7), 16);
 
@@ -363,6 +397,35 @@ export function Court3D({
   unavailableCb.current = onUnavailable;
   ease.current = pitchEase(direction, 0);
 
+  /** 0 until the court's first frame lands, then REVEAL_MS to 1 (see above). */
+  const reveal = useRef(new Animated.Value(0)).current;
+  const revealed = useRef(false);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearRevealTimer = useCallback(() => {
+    if (revealTimer.current === null) return;
+    clearTimeout(revealTimer.current);
+    revealTimer.current = null;
+  }, []);
+  const showStage = useCallback(() => {
+    clearRevealTimer();
+    if (revealed.current) return;
+    revealed.current = true;
+    Animated.timing(reveal, {
+      toValue: 1,
+      duration: REVEAL_MS,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [reveal, clearRevealTimer]);
+  /** Hide the stage again until the surface that is coming up has drawn. */
+  const armReveal = useCallback(() => {
+    revealed.current = false;
+    reveal.stopAnimation(); // a re-arm mid-fade must not be overwritten by it
+    reveal.setValue(0);
+    clearRevealTimer();
+    revealTimer.current = setTimeout(showStage, REVEAL_FALLBACK_MS);
+  }, [reveal, showStage, clearRevealTimer]);
+
   const stopLoop = useCallback(() => {
     if (loop.current !== null) {
       cancelAnimationFrame(loop.current);
@@ -419,22 +482,9 @@ export function Court3D({
     scene.update(t, value, ease.current(value));
     main.renderer.render(scene.scene, scene.camera);
     main.gl.endFrameEXP();
-    // A frame has gone out — but "gone out" only counts while the app is ACTIVE.
-    // `endFrameEXP` funnels into expo-gl's `flush`, which returns immediately
-    // while `_appIsBackgrounded` is set (EXGLContext.mm observes
-    // `UIApplicationWillResignActive`, i.e. the Control Center shade opening).
-    // So under the shade this code runs, the draw calls are issued, and NOTHING
-    // reaches the screen. Clearing the flag here regardless is what took the
-    // cover down over a framebuffer still cleared to the old palette — the
-    // white court band on a dark page, for the whole time the shade was up and
-    // a beat after it closed.
-    //
-    // Read from a ref, not the `appState` state value: this runs inside the
-    // render loop, which must not be rebuilt on every lifecycle change.
-    if (frameRepaints({ repaintPending: repaint.current, appState: appStateRef.current })) {
-      repaint.current = false;
-      setStale(false);
-    }
+    // There is a court on the surface now: let the stage fade up (no-op after
+    // the first frame). The ball's surface follows in the same fade.
+    showStage();
     // The ball's surface shares the camera: same bounds, same picture, stacked above the button.
     const ball = surfaces.current.ball;
     if (ball) {
@@ -442,7 +492,7 @@ export function Court3D({
       ball.renderer.render(scene.overlay, scene.camera);
       ball.gl.endFrameEXP();
     }
-  }, [stopLoop]);
+  }, [stopLoop, showStage]);
 
   const startLoop = useCallback(() => {
     if (loop.current !== null) return;
@@ -512,6 +562,9 @@ export function Court3D({
   const attach = useCallback(
     (kind: Kind, gl: ExpoWebGLRenderingContext) => {
       detach(kind); // Android hands us a fresh context after the surface is recreated
+      // A brand-new surface has nothing drawn on it: hold the stage down until
+      // it does, exactly as on the first mount.
+      if (kind === 'court') armReveal();
       try {
         // three wants a canvas-shaped object; the context is expo-gl's.
         const w = gl.drawingBufferWidth;
@@ -594,11 +647,11 @@ export function Court3D({
         unavailableCb.current?.();
       }
     },
-    // `pushViewport` seeds a freshly built scene and `ink` is pushed on every
-    // attach (see above), so the identity churn they add here costs a new
+    // `pushViewport`, `ink` and `armReveal` only seed a freshly built scene or a
+    // freshly arrived surface, so the identity churn they add here costs a new
     // onContextCreate prop and nothing else — expo-gl calls it once, when the
     // context is born.
-    [detach, teardown, requestOnce, quality, ink, pushViewport],
+    [detach, teardown, requestOnce, quality, ink, pushViewport, armReveal],
   );
   const onCourtContext = useCallback(
     (gl: ExpoWebGLRenderingContext) => attach('court', gl),
@@ -638,6 +691,13 @@ export function Court3D({
     });
     return () => sub.remove();
   }, []);
+
+  // Arm the reveal for the first surface, and take its backstop timer down with
+  // the component.
+  useEffect(() => {
+    armReveal();
+    return clearRevealTimer;
+  }, [armReveal, clearRevealTimer]);
 
   // Stale binary (no ExponentGLObjectManager): tell the caller once, on mount —
   // the same path an attach() failure takes — and render nothing meanwhile.
@@ -817,25 +877,13 @@ export function Court3D({
   const msaa = quality === 'full' ? 4 : 2;
 
   return (
-    <View
+    // The reveal rides the ROOT, not the surfaces: the on-net button
+    // (`children`) is positioned from the same camera as the court and belongs
+    // to the same picture, so the two arrive together rather than the button
+    // sitting alone over the page colour while the scene builds.
+    <Animated.View
       pointerEvents="box-none"
-      /**
-       * THE PAGE COLOUR, PAINTED IN REACT as well as as the GL clear colour.
-       *
-       * The clear colour only reaches the screen when a frame is RENDERED, and
-       * the court surface is opaque, so a stale framebuffer hides whatever sits
-       * behind it. Together those mean the band behind the court can normally
-       * only change by drawing — and a theme flip from Control Center is exactly
-       * when drawing is impossible: iOS pauses the display link as the shade
-       * comes down, so the requested redraw is queued and runs on DISMISSAL.
-       * That late frame is the reported symptom.
-       *
-       * It is also the ground the cover dissolves onto (see the `stale` flag):
-       * both are plain React, so both carry the new page colour on the commit
-       * itself, with no GL frame involved — which is the only way the band can
-       * be right while the shade is down.
-       */
-      style={[{ backgroundColor: colors.page }, style]}
+      style={[style, { opacity: reveal }]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         if (width <= 0 || height <= 0) return;
@@ -911,6 +959,6 @@ export function Court3D({
           {pausedNote}
         </Animated.View>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
