@@ -639,11 +639,6 @@ export const en = {
     confirmNewPassword: 'Confirm new password',
     updatePassword: 'Update password',
     fillAllFields: 'Fill in all three fields.',
-    // Unsaved-changes prompt on back (spec 05.18 `dirty`).
-    discardTitle: 'Discard changes?',
-    discardBody: "Your edits haven't been saved.",
-    discard: 'Discard',
-    keepEditing: 'Keep editing',
   },
   settings: {
     title: 'Settings',

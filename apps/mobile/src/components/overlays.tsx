@@ -1,16 +1,31 @@
 /**
- * Overlay primitives (design 2026-08-31): the bottom notice sheet (blocked /
- * desk-only slots), the confirmation dialog (spec R7 — no write without one),
- * and the transient toast. Every Modal carries onRequestClose so the Android
- * hardware back button is never trapped (the availability-modal lesson), and
- * statusBarTranslucent so the scrim covers the status bar under edge-to-edge.
+ * Overlay primitives (design 2026-08-31; alerts made native 2026-09-09): the
+ * booking notices (blocked / desk-only slots), the error alert, the
+ * confirmation before a write (spec R7 — no write without one), and the
+ * transient toast.
  *
- * A Modal's content is hosted in a window of its own (Android) or a presented
- * controller (iOS), outside the root view's hierarchy, so each modal root
- * restates the layout direction rather than trusting it to inherit, and
- * blocks its own input while a language switch is applying (the cover in
- * DirectionRoot never reaches a Modal — defensive: no screen offers a
- * language control while one is open; close the Modal before switching).
+ * EVERY ALERT IS THE PLATFORM'S OWN — `UIAlertController` on iOS, a Material
+ * dialog on Android — raised through `Alert.alert`. The custom card dialog this
+ * file used to carry is gone: a confirmation is a system affordance, and users
+ * read one faster in the chrome the OS uses everywhere else.
+ *
+ * That choice costs three things, all of them deliberate:
+ *   • No styling. `Alert.alert` exposes default / cancel / destructive and no
+ *     colour API, so the brand blue #3360AB cannot reach an alert button.
+ *   • System direction. An alert follows the DEVICE language, not the app's, so
+ *     an Arabic app on an English phone shows an LTR alert. Copy still comes
+ *     from `t()`.
+ *   • No busy state. An alert is gone the instant it is answered, so a caller
+ *     shows a pending write on its own button, never on the alert.
+ *
+ * All three share one shape: imperative, so they render nothing and fire from
+ * an effect; presented once per open, guarded by a ref against a re-render
+ * stacking a second copy; and every dismissal path — buttons, Android back,
+ * tap-outside — reports back, so a caller's state cannot be left open with
+ * nothing on screen. Their buttons read handlers from a ref, because the alert
+ * outlives the render that raised it.
+ *
+ * The toast below is still ours: it is not an alert, and has no system analogue.
  */
 import {
   createContext,
@@ -22,12 +37,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Alert, Modal, View, type AlertButton } from 'react-native';
+import { Alert, View, type AlertButton } from 'react-native';
 import { Text } from '../i18n/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocale, useLocaleSwitch } from '../i18n/LocaleProvider';
+import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, shadows, space, useTheme } from '../theme';
-import { Button } from './ui';
 
 // ── Notice alert ────────────────────────────────────────────────────────────
 
@@ -209,112 +223,6 @@ export function ConfirmAlert({
   }, [visible, title, body, confirmLabel, cancelLabel, destructive, t]);
 
   return null;
-}
-
-// ── Confirmation dialog (spec R7) ───────────────────────────────────────────
-
-export function ConfirmationDialog({
-  visible,
-  title,
-  body,
-  confirmLabel,
-  cancelLabel,
-  busy,
-  danger,
-  onConfirm,
-  onDismiss,
-}: {
-  visible: boolean;
-  title: string;
-  body: string;
-  /** Caller swaps in the busy label ("Reserving…") while busy. */
-  confirmLabel: string;
-  /** Dismiss label (spec: required prop). Defaults to "Keep it" — right for cancelling, wrong for reserving. */
-  cancelLabel?: string;
-  busy?: boolean;
-  danger?: boolean;
-  onConfirm: () => void;
-  onDismiss: () => void;
-}) {
-  const { colors, fonts } = useTheme();
-  const { t, dir } = useLocale();
-  const { switching } = useLocaleSwitch();
-  const dismissUnlessBusy = () => {
-    if (!busy) onDismiss();
-  };
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={dismissUnlessBusy}
-    >
-      <View
-        style={{
-          flex: 1,
-          direction: dir,
-          pointerEvents: switching ? 'none' : 'auto',
-          backgroundColor: brand.scrimStrong,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingStart: 28,
-          paddingEnd: 28,
-        }}
-      >
-        <View
-          style={{
-            alignSelf: 'stretch',
-            backgroundColor: colors.card,
-            borderRadius: 18,
-            padding: space.xl,
-            boxShadow: shadows.dialog,
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: fonts.display900,
-              fontSize: 17,
-              textTransform: 'uppercase',
-              color: colors.ink,
-            }}
-          >
-            {title}
-          </Text>
-          <Text
-            style={{
-              fontFamily: fonts.body400,
-              fontSize: 13,
-              lineHeight: 21,
-              color: colors.mut2,
-              marginTop: space.s,
-            }}
-          >
-            {body}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 9, marginTop: 18 }}>
-            <Button
-              label={cancelLabel ?? t('common.keepIt')}
-              onPress={dismissUnlessBusy}
-              disabled={busy}
-              variant="secondary"
-              size="compact"
-              labelColor={colors.mut2}
-              style={{ flex: 1, backgroundColor: colors.sub, borderWidth: 0 }}
-            />
-            <Button
-              label={confirmLabel}
-              onPress={onConfirm}
-              busy={busy}
-              variant={danger ? 'danger' : 'cta'}
-              size="compact"
-              style={{ flex: 1.4 }}
-            />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
 }
 
 // ── Toast ───────────────────────────────────────────────────────────────────
