@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
+import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../src/features/availability/useAvailabilityBooking';
 import { mapErrorToKey } from '../src/features/booking/errors';
@@ -37,9 +37,19 @@ export default function AvailabilityScreen() {
   const a = useAvailabilityBooking({ origin: 'screen' });
 
   // The list starts at tonight's first bookable time — the hook drops every hour
-  // that has already started — so a fresh ScrollView per day/duration opens
-  // where it should with no homing scroll. `key` does the remount.
+  // that has already started — so every day/duration opens where it should with
+  // no homing scroll.
+  //
+  // This was a `key` on the ScrollView, which threw the scroller away and
+  // rebuilt it — RefreshControl included — on every day chip and every duration
+  // tap, to buy the offset back at 0. Reset the offset by hand instead and let
+  // React reconcile; the sheet on the Book tab does the same, and has the
+  // longer note on why.
   const gridKey = `${a.date}|${a.durationMin}`;
+  const gridRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    gridRef.current?.scrollTo({ y: 0, animated: false });
+  }, [gridKey]);
 
   // The venue notice floats over the grid and leaves only when the guest
   // closes it — a refetch flipping `degraded` back on must not resurrect it.
@@ -171,7 +181,7 @@ export default function AvailabilityScreen() {
         </View>
       ) : (
         <ScrollView
-          key={gridKey}
+          ref={gridRef}
           style={{ flex: 1 }}
           refreshControl={
             <RefreshControl
@@ -235,7 +245,10 @@ export default function AvailabilityScreen() {
           a.notice === 'horizon' ? t('booking.deskOnlyTitle') : t('booking.slotUnavailableTitle')
         }
         body={a.notice === 'horizon' ? t('booking.deskOnlyBody') : t('booking.blockedBody')}
-        callLabel={a.phone ? t('booking.callPhone', { phone: isolate(a.phone) }) : null}
+        // Just "Call" — the number itself is noise in a two-button alert, and an
+        // isolated Latin number inside an Arabic label reads badly next to a
+        // verb. The dialler shows the number the moment the button is tapped.
+        callLabel={a.phone ? t('common.call') : null}
         onCall={a.onCall}
         onClose={a.dismissNotice}
       />
