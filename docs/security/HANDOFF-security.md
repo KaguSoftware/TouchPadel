@@ -1,6 +1,6 @@
 # Security programme — handoff
 
-**Written** 2026-09-07 · **Updated** 2026-09-07 (session 3) · **Branch** `kemal` · **HEAD** `6c33b12` + uncommitted work
+**Written** 2026-09-07 · **Updated** 2026-09-07 (session 3) · **Branch** `kemal` · **HEAD** `33d89fd` + uncommitted work
 **Read this first in any new session that touches the security lane.** It exists so the state of
 the work survives a lost conversation. It is a pointer file: it records **what is true now, who
 is blocked on what, and what to do next** — not the checklists themselves.
@@ -347,21 +347,13 @@ Branch `kemal` is **6 commits ahead of `origin/main`** and **level with `origin/
 **staged but NOT COMMITTED** — 49 files, ~5550 insertions. `git status --short` is the authority.
 
 ```
-6c33b12  Docker file and handoff
-70f3d1b  docs(security): handoff file so the programme survives a lost session
-49db96b  docs(security): record what the MacBook Docker run actually verified
-fa0b131  e2e: the printed QR URL is exchanged, not preserved
+33d89fd  Docker file and handoff
+4666bd2  docs(security): handoff file so the programme survives a lost session
+9a8bba5  docs(security): record what the MacBook Docker run actually verified
+22ce202  e2e: the printed QR URL is exchanged, not preserved
 b8689e4  Merge branch 'main' ... into kemal
 25d84af  security: fix headers never shipping, two migration bugs found by first run
 ```
-
-> **These SHAs changed on 2026-09-08.** The last 13 commits of `main` and `kemal` were rewritten to
-> strip an auto-added `Co-Authored-By: Claude` trailer, then force-pushed. Commit messages only —
-> every tree is byte-identical and no file changed. Notes written before that date cite the
-> pre-rewrite SHAs; the mapping is `33d89fd`->`6c33b12`, `4666bd2`->`70f3d1b`,
-> `9a8bba5`->`49db96b`, `22ce202`->`fa0b131`. `b8689e4` and `25d84af` predate the rewrite and are
-> unchanged. The pre-rewrite commits survive only as the local tags
-> `backup/pre-claude-strip/{main,kemal}` in Kemal's clone.
 
 **There is nothing to push yet.** The work exists only in the index. A push today is a no-op.
 
