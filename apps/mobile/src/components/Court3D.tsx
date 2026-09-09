@@ -126,39 +126,50 @@ const GLView: typeof GLViewComponent | null = (() => {
 })();
 
 /**
- * Make three see expo-gl's context for the WebGL2 context it is.
+ * Silence three's WebGL1 deprecation warning on a context that is WebGL2.
  *
- * three has no capability probe: it name-matches `gl.constructor.name` against
- * 'WebGL2RenderingContext'. expo-gl's native context answers with its own
- * name, so three drops to WebGL1 and warns. Correcting the name is the whole
- * fix — the context's WebGL2 entry points (`createVertexArray`,
- * `vertexAttribDivisor`) are there either way, which is what the check below
- * confirms before touching anything.
+ * three's check is `_gl instanceof WebGLRenderingContext` (WebGLRenderer,
+ * r153+). That is wrong for any spec-compliant implementation: the WebGL spec
+ * has WebGL2RenderingContext INHERIT from WebGLRenderingContext, so a real
+ * WebGL2 context is `instanceof` both. expo-gl implements that inheritance
+ * deliberately (common/EXWebGLRenderer.cpp — "gives `instanceof
+ * WebGLRenderingContext` the right answer for WebGL2 instances"), so the
+ * warning fires on a context that is genuinely WebGL2 and nothing about the
+ * context object can suppress it.
  *
- * Web is left alone: GLView.web.js hands back a real browser context that
- * three already classifies correctly.
+ * Note this is only the WARNING. three's separate capability probe reads
+ * `gl.constructor.name`, and expo-gl already names the constructor
+ * 'WebGL2RenderingContext' on a WebGL2 device, so the fast paths (VAOs,
+ * instancing) were never lost — there is no rendering bug hiding under this.
  *
- * Idempotent per context class, and never throws: `defineProperty` fails on a
- * frozen or non-configurable constructor, and the only cost of that is the
- * WebGL1 path three would have taken regardless.
+ * So the fix is to stop three's constructor from seeing itself as WebGL1,
+ * by hiding the global for the duration of the `new WebGLRenderer` call.
+ * `instanceof` against `undefined` is skipped by three's own `typeof` guard on
+ * the same line, so the warning is bypassed with no other behaviour touched:
+ * three does not use this global anywhere else, and the context's real
+ * prototype chain is untouched. Restored in a `finally` so nothing else in
+ * the app ever observes the gap.
+ *
+ * Scoped to the WebGL2 case on purpose: an actual WebGL1 device keeps the
+ * warning, because there the deprecation is real and worth hearing.
  */
-function markContextAsWebGL2(gl: ExpoWebGLRenderingContext): void {
-  if (Platform.OS === 'web') return;
+function withoutWebGL1Warning<T>(gl: ExpoWebGLRenderingContext, build: () => T): T {
+  const g = globalThis as Record<string, unknown>;
+  const isWebGL2 =
+    (gl as unknown as { supportsWebGL2?: boolean }).supportsWebGL2 === true ||
+    gl.constructor?.name === 'WebGL2RenderingContext';
+  if (Platform.OS === 'web' || !isWebGL2 || !('WebGLRenderingContext' in g)) {
+    return build();
+  }
+  const saved = g.WebGLRenderingContext;
+  // `delete` rather than `= undefined`: three guards with `typeof ... !==
+  // 'undefined'`, which both satisfy, but this leaves no own property behind
+  // if the restore below were ever to be skipped.
+  delete g.WebGLRenderingContext;
   try {
-    const ctor = (gl as unknown as { constructor?: { name?: string } }).constructor;
-    if (!ctor || ctor.name === 'WebGL2RenderingContext') return;
-    // Only claim WebGL2 if the WebGL2-only API is actually present, so a
-    // future expo-gl on a GLES2 device keeps the honest WebGL1 fallback
-    // instead of three calling entry points that are not there.
-    const ctx = gl as unknown as Record<string, unknown>;
-    if (typeof ctx.createVertexArray !== 'function') return;
-    if (typeof ctx.vertexAttribDivisor !== 'function') return;
-    Object.defineProperty(ctor, 'name', {
-      value: 'WebGL2RenderingContext',
-      configurable: true,
-    });
-  } catch {
-    // Non-configurable `name`: three keeps its WebGL1 path. Nothing breaks.
+    return build();
+  } finally {
+    g.WebGLRenderingContext = saved;
   }
 }
 
@@ -502,23 +513,6 @@ export function Court3D({
     (kind: Kind, gl: ExpoWebGLRenderingContext) => {
       detach(kind); // Android hands us a fresh context after the surface is recreated
       try {
-        // three decides WebGL1-vs-2 by NAME — `gl.constructor.name ===
-        // 'WebGL2RenderingContext'` (WebGLCapabilities) — and warns when the
-        // context is `instanceof WebGLRenderingContext` (WebGLRenderer,
-        // r153+). expo-gl's context IS WebGL2 (its own types declare
-        // `extends WebGL2RenderingContext`) but it is a native object whose
-        // constructor carries expo's name, so three fails both probes: it
-        // logs the "WebGL 1 support was deprecated" warning AND quietly takes
-        // its WebGL1 paths — no VAOs, no instancing, extension-gated float
-        // textures — on a context that supports all three.
-        //
-        // Renaming the constructor is what three actually reads, so this is a
-        // one-line correction of a misdetection, not a shim: every capability
-        // three then enables is genuinely present. Guarded because the
-        // constructor is shared per context class and may be frozen; a failure
-        // here only costs us the WebGL1 fallback we already had.
-        markContextAsWebGL2(gl);
-
         // three wants a canvas-shaped object; the context is expo-gl's.
         const w = gl.drawingBufferWidth;
         const h = gl.drawingBufferHeight;
@@ -532,16 +526,20 @@ export function Court3D({
           removeEventListener: () => {},
           getContext: () => gl,
         } as unknown as HTMLCanvasElement;
-        const renderer = new THREE.WebGLRenderer({
-          canvas,
-          context: gl,
-          antialias: true,
-          // Informational only: three reads `alpha` off the CONTEXT when one is
-          // passed (WebGLRenderer, r160), and expo-gl's getContextAttributes
-          // hardcodes alpha: true. The clear alpha below is what actually
-          // decides whether a surface composites over what is behind it.
-          alpha: kind === 'ball',
-        });
+        const renderer = withoutWebGL1Warning(
+          gl,
+          () =>
+            new THREE.WebGLRenderer({
+              canvas,
+              context: gl,
+              antialias: true,
+              // Informational only: three reads `alpha` off the CONTEXT when one is
+              // passed (WebGLRenderer, r160), and expo-gl's getContextAttributes
+              // hardcodes alpha: true. The clear alpha below is what actually
+              // decides whether a surface composites over what is behind it.
+              alpha: kind === 'ball',
+            }),
+        );
         renderer.setPixelRatio(1); // drawingBuffer* are already device pixels
         renderer.setSize(w, h, false);
         if (kind === 'court') {
