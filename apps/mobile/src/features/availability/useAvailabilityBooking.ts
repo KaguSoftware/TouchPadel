@@ -23,6 +23,7 @@ import {
   useCourtsBroadcast,
   useDayGrid,
   useIsDegraded,
+  usePrefetchAdjacentDays,
   useVenueSettings,
   type DayGrid,
 } from './hooks';
@@ -137,6 +138,9 @@ export function useAvailabilityBooking(
 
   const [durationMin, setDurationMin] = useState(60);
   const day = useDayGrid(date);
+  // Warm the chips either side, so the usual next tap paints from cache instead
+  // of waiting on a round trip.
+  usePrefetchAdjacentDays(tzDates, date);
   useCourtsBroadcast(); // live slot_changed -> availability invalidation
 
   const [notice, setNotice] = useState<AvailabilityNotice>(null);

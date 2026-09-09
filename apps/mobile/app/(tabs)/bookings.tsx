@@ -476,7 +476,13 @@ export default function BookingsScreen() {
                 icon={section.key === 'past' ? ClockIcon : CalendarIcon}
                 label={section.title}
                 count={section.key === 'past' ? history.length : section.data.length}
-                style={{ marginTop: section.key === 'past' ? 22 : 6 }}
+                style={
+                  section.key === 'past'
+                    ? // The past rail's first node sits flush with the card top,
+                      // so the heading needs its own breathing room below it.
+                      { marginTop: 22, marginBottom: 10 }
+                    : { marginTop: 6 }
+                }
               />
             ) : null
           }
