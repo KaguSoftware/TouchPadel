@@ -596,6 +596,11 @@ export const en = {
     payAtDeskShort: 'Pay at the desk. No online payment — settle at reception on arrival.',
     cancelDialogTitle: 'Cancel this booking?',
     cancelDialogBody: "Your slot on {when} goes back on the grid. This can't be undone in the app.",
+    // The confirm button INSIDE the alert, deliberately shorter than the
+    // screen's "Cancel booking": iOS only lays two alert buttons out side by
+    // side when both labels fit one row, and stacks them otherwise. The title
+    // already says what is being cancelled, so the button need not repeat it.
+    cancelDialogConfirm: 'Cancel it',
     cancelledToast: 'Booking cancelled — slot released',
     notFound: 'This booking could not be found.',
     // Held slots (0058): a hold the guest has not confirmed yet.
@@ -653,8 +658,8 @@ export const en = {
     appearance: 'Appearance',
     light: 'Light',
     dark: 'Dark',
-    automatic: 'Auto',
-    automaticNote: 'Auto follows your device\u2019s appearance setting.',
+    automatic: 'System',
+    automaticNote: 'System follows your device\u2019s appearance setting.',
     languageNote: 'Switching to العربية flips the whole app right-to-left, instantly.',
     notifBody: 'Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.',
     notifGranted: 'Enabled — booking confirmations, reminders and cancellations.',

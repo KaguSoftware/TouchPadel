@@ -139,6 +139,78 @@ export function ErrorAlert({ message, onDismiss }: { message: string | null; onD
   return null;
 }
 
+// ── Native confirmation alert ───────────────────────────────────────────────
+
+/**
+ * A confirmation as the PLATFORM's own alert — `UIAlertController` on iOS, a
+ * Material dialog on Android — for the destructive actions that read better in
+ * system chrome than in a card of ours (clearing booking history). Same
+ * imperative shape as `NoticeSheet`: renders nothing, presents once per open,
+ * and every dismissal path reports back so the caller cannot be left with its
+ * state open and nothing on screen.
+ *
+ * `destructive` gets the red button on iOS; Android has no such style, so the
+ * label carries the weight there. Cancel is listed FIRST because iOS pins a
+ * `cancel` button to the bottom regardless, while Android reads the array
+ * left-to-right and wants the dismissive action on the left.
+ *
+ * Like the sign-out alert, this follows the SYSTEM language's direction, not
+ * the app's: an Arabic app on an English phone shows an LTR alert.
+ */
+export function ConfirmAlert({
+  visible,
+  title,
+  body,
+  confirmLabel,
+  cancelLabel,
+  destructive,
+  onConfirm,
+  onDismiss,
+}: {
+  visible: boolean;
+  title: string;
+  body: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  destructive?: boolean;
+  onConfirm: () => void;
+  onDismiss: () => void;
+}) {
+  const { t } = useLocale();
+  const shown = useRef(false);
+  // The alert outlives the render that raised it, so its buttons read the
+  // handlers from a ref rather than closing over stale props.
+  const handlers = useRef({ onConfirm, onDismiss });
+  useEffect(() => {
+    handlers.current = { onConfirm, onDismiss };
+  }, [onConfirm, onDismiss]);
+
+  useEffect(() => {
+    if (!visible) {
+      shown.current = false;
+      return;
+    }
+    if (shown.current) return;
+    shown.current = true;
+
+    Alert.alert(
+      title,
+      body,
+      [
+        { text: cancelLabel ?? t('common.cancel'), style: 'cancel', onPress: () => handlers.current.onDismiss() },
+        {
+          text: confirmLabel,
+          style: destructive ? 'destructive' : 'default',
+          onPress: () => handlers.current.onConfirm(),
+        },
+      ],
+      { cancelable: true, onDismiss: () => handlers.current.onDismiss() },
+    );
+  }, [visible, title, body, confirmLabel, cancelLabel, destructive, t]);
+
+  return null;
+}
+
 // ── Confirmation dialog (spec R7) ───────────────────────────────────────────
 
 export function ConfirmationDialog({

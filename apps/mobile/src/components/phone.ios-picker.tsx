@@ -131,6 +131,14 @@ export function CountryPickerNative({
               // Setting it here mirrors the in-app language switch, which is
               // as close as a native surface gets to the JS sheet's behaviour.
               environment({ key: 'locale', value: locale }),
+              // The app's appearance, for the same reason and by the same
+              // route. `colorScheme` on the OUTER `Host` cannot reach here:
+              // `BottomSheet` presents through SwiftUI's `.sheet`, which hosts
+              // its content in a separate controller that does NOT inherit the
+              // presenting view's environment. Without this the rows fall back
+              // to the SYSTEM appearance, so a dark-mode guest on a light
+              // phone got black text on the sheet's dark ground.
+              environment({ key: 'colorScheme', value: dark ? 'dark' : 'light' }),
             ]}
           >
             <Section>
