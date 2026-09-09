@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { QK } from './queries';
+import { QK, compareTableNumbers } from './queries';
 import { TABLE_QR_QUERY_KEY, TABLES_QUERY_KEY } from '../features/admin/qr/queries';
 
 // Three keys were shared by two features each with different filters and column
@@ -41,5 +41,22 @@ describe('shared query keys', () => {
   it('does not collide with the feature-owned QR token key', () => {
     const all = Object.values(QK).map(serialize);
     expect(all).not.toContain(serialize(TABLE_QR_QUERY_KEY as readonly unknown[]));
+  });
+});
+
+describe('compareTableNumbers', () => {
+  it('counts, so the till picker is not ordered 1, 10, 11, 12, 2', () => {
+    const sorted = ['2', '10', '1', '12', '11', '3'].sort(compareTableNumbers);
+    expect(sorted).toEqual(['1', '2', '3', '10', '11', '12']);
+  });
+
+  it('keeps prefixed numbers in numeric order too', () => {
+    expect(['T10', 'T2', 'T1'].sort(compareTableNumbers)).toEqual(['T1', 'T2', 'T10']);
+  });
+
+  it('is a total order — case-only differences never compare equal', () => {
+    // A 'base' collator calls 'a' and 'A' equal, which would make the sort
+    // unstable across engines; the localeCompare fallback breaks that tie.
+    expect(compareTableNumbers('a1', 'A1')).not.toBe(0);
   });
 });

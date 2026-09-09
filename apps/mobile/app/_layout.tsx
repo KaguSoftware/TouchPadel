@@ -6,6 +6,7 @@ import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as SplashScreen from 'expo-splash-screen';
+import { isRunningInExpoGo } from 'expo';
 import { useFonts } from 'expo-font';
 // SDK 56+: expo-router vendors react-navigation; app code imports it from here.
 // LocaleDirContext is marked deprecated there in favour of I18nManager — which
@@ -23,7 +24,7 @@ import { LocaleProvider, useLocale } from '../src/i18n/LocaleProvider';
 import { DirectionRoot } from '../src/i18n/direction';
 import { lastKnownLocale } from '../src/i18n/lastLocale';
 import { BRAND_FONTS } from '../src/theme/fonts';
-import { lastKnownAppearance } from '../src/theme/lastAppearance';
+import { lastKnownPreference } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { useNavigationTheme } from '../src/navigation/theme';
 import { useNativeBarDirection } from '../src/navigation/headerDirection';
@@ -49,7 +50,15 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 // own #3360AB by the time this runs. Without the fade the wordmark cuts to the
 // smiley ball on an identical ground, which reads as a glitch rather than as
 // one screen becoming the next. (iOS honours `fade`; Android ignores it.)
-SplashScreen.setOptions({ fade: true, duration: 180 });
+//
+// Expo Go serves its OWN splash from a prebuilt binary, so `setOptions` cannot
+// reach it: the call is a no-op that only logs a warning. Skipping it there
+// costs nothing — the fade was never going to happen in Expo Go either way —
+// and keeps the dev console clean. Dev clients and release builds are
+// unaffected and still cross-fade.
+if (!isRunningInExpoGo()) {
+  SplashScreen.setOptions({ fade: true, duration: 180 });
+}
 
 /**
  * Reveal a screen that renders INSTEAD of AppRoot.
@@ -80,7 +89,7 @@ function FallbackShell({ children }: { children: React.ReactNode }) {
   const locale = lastKnownLocale();
   return (
     <LocaleProvider key={locale} initialLocale={locale}>
-      <ThemeProvider initialAppearance={lastKnownAppearance()}>
+      <ThemeProvider initialAppearance={lastKnownPreference()}>
         <DirectionRoot>{children}</DirectionRoot>
       </ThemeProvider>
     </LocaleProvider>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Image, ScrollView, View } from 'react-native';
+import { Alert, Image, ScrollView, View } from 'react-native';
 import { Text } from '../../src/i18n/text';
 import { useRouter } from 'expo-router';
 import { useTabBarHeight } from '../../src/components/useTabBarHeight';
-import { isolate } from '@touch/i18n';
+import { isolate, isolateLtr } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
@@ -20,7 +20,7 @@ import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui'
 import { MenuRow } from '../../src/components/booking';
 import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
-import { ConfirmationDialog, useToast } from '../../src/components/overlays';
+import { useToast } from '../../src/components/overlays';
 
 const LOGO_H = 40;
 const LOGO_W = Math.round(LOGO_H * (900 / 332));
@@ -58,24 +58,24 @@ export default function ProfileScreen() {
     setSigningOut(true);
     try {
       await signOut(supabase);
-      setSignOutOpen(false);
       router.replace('/(tabs)');
     } catch (err) {
-      setSignOutOpen(false);
       setError(t(mapErrorToKey(err)));
     } finally {
       setSigningOut(false);
     }
   };
 
-  // The app's own dialog (spec R7 shape: Cancel, then the destructive Sign
-  // out), not Alert.alert: a native alert follows the SYSTEM language's
-  // direction, so an Arabic app on an English phone got an LTR alert with
-  // English button order.
-  const [signOutOpen, setSignOutOpen] = useState(false);
+  // Native UIAlertController (Alert.alert) for the sign-out confirmation:
+  // same copy and buttons as the in-app dialog, default iOS chrome. Note it
+  // follows the SYSTEM language's direction, so an Arabic app on an English
+  // phone shows an LTR alert with English button order.
   const confirmSignOut = () => {
     if (signingOut) return;
-    setSignOutOpen(true);
+    Alert.alert(t('auth.signOut'), t('auth.signOutConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('auth.signOut'), style: 'destructive', onPress: () => void onSignOut() },
+    ]);
   };
 
   const header = (
@@ -149,14 +149,15 @@ export default function ProfileScreen() {
       .toUpperCase() ||
     email.slice(0, 1).toUpperCase() ||
     '•';
-  const langLabel =
-    profile.data?.preferred_lang === 'ar' ? t('settings.arabic') : t('settings.english');
-  // The phone is Latin digits sitting next to an Arabic label around a '·'
-  // separator: without an isolate the bidi algorithm reorders the number
-  // against the separator in RTL. Same reason the email is isolated below.
-  const detailLine = [profile.data?.phone ? isolate(profile.data.phone) : null, langLabel]
-    .filter(Boolean)
-    .join(' · ');
+  // The whole identity card is LTR in BOTH locales: avatar on the left, then the
+  // text column. `direction: 'ltr'` on the row stops RN's RTL layout mirroring it
+  // in Arabic; LRI + writingDirection keep the values themselves LTR, since a "+"
+  // prefix and an email are structurally left-to-right whatever the UI language.
+  // `auto` rather than a physical 'left' (the RTL guard forbids those outside
+  // ui.tsx): with writingDirection ltr it already resolves to left, which is
+  // what main's version of this card used at these same three spots.
+  const idStyle = { textAlign: 'auto', writingDirection: 'ltr' } as const;
+  const detailLine = profile.data?.phone ? isolateLtr(profile.data.phone) : '';
 
   return (
     <Screen>
@@ -176,7 +177,7 @@ export default function ProfileScreen() {
           contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}
           showsVerticalScrollIndicator={false}
         >
-          <Card style={{ flexDirection: 'row', gap: 13, alignItems: 'center' }}>
+          <Card style={{ flexDirection: 'row', direction: 'ltr', gap: 13, alignItems: 'center' }}>
             <View
               style={{
                 width: 50,
@@ -193,36 +194,52 @@ export default function ProfileScreen() {
                 {initials}
               </Text>
             </View>
-            {/* alignItems shrink-wraps each line to the LEADING edge. Natural text
-                alignment on iOS follows the first strong character, so the email
-                (Latin) and a Latin-script name would otherwise sit on the trailing
-                edge in Arabic; Android already puts them at the start edge. */}
-            <View style={{ flex: 1, minWidth: 0, alignItems: 'flex-start' }}>
+            {/* 'stretch' (not 'flex-start') so each line spans the full column and
+                textAlign decides the edge; shrink-wrapping left the three lines at
+                ragged widths instead of flush against the avatar. `gap` spaces the
+                three evenly — with an explicit lineHeight on each, so the 16px name
+                does not add extra leading and make its gap read wider than the
+                12px lines' gap. */}
+            <View style={{ flex: 1, minWidth: 0, alignItems: 'stretch', gap: 1 }}>
               <Text
                 numberOfLines={1}
-                style={{ fontFamily: fonts.display800, fontSize: 16, color: colors.ink, textAlign: 'auto' }}
+                style={{
+                  fontFamily: fonts.display800,
+                  fontSize: 16,
+                  lineHeight: 20,
+                  color: colors.ink,
+                  ...idStyle,
+                }}
               >
-                {isolate(name)}
+                {isolateLtr(name)}
               </Text>
               <Text
                 style={{
                   fontFamily: fonts.body400,
                   fontSize: 12,
+                  lineHeight: 16,
                   color: colors.mut,
-                  marginTop: 2,
-                  textAlign: 'auto',
+                  ...idStyle,
                 }}
                 numberOfLines={1}
               >
-                {isolate(email)}
+                {isolateLtr(email)}
               </Text>
-              {/* Design: "{phone} · {language}" on the third line. */}
-              <Text
-                numberOfLines={1}
-                style={{ fontFamily: fonts.body400, fontSize: 12, color: colors.mut, textAlign: 'auto' }}
-              >
-                {detailLine}
-              </Text>
+              {/* Design: "{phone}" on the third line, dropped when unset. */}
+              {detailLine ? (
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: fonts.body400,
+                    fontSize: 12,
+                    lineHeight: 16,
+                    color: colors.mut,
+                    ...idStyle,
+                  }}
+                >
+                  {detailLine}
+                </Text>
+              ) : null}
             </View>
           </Card>
 
@@ -303,17 +320,6 @@ export default function ProfileScreen() {
           />
         </ScrollView>
       )}
-      <ConfirmationDialog
-        visible={signOutOpen}
-        title={t('auth.signOut')}
-        body={t('auth.signOutConfirm')}
-        confirmLabel={t('auth.signOut')}
-        cancelLabel={t('common.cancel')}
-        busy={signingOut}
-        danger
-        onConfirm={() => void onSignOut()}
-        onDismiss={() => setSignOutOpen(false)}
-      />
     </Screen>
   );
 }

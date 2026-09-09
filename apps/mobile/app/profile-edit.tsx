@@ -10,8 +10,10 @@ import { useOwnProfile, useUpdateProfile } from '../src/features/profile/hooks';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { radius, space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/ui';
-import { useBackGuard } from '../src/navigation/back';
-import { ConfirmationDialog, useToast } from '../src/components/overlays';
+import { useBack } from '../src/navigation/back';
+import { PhoneField } from '../src/components/phone';
+import { composePhone, DEFAULT_ISO, parsePhone, validatePhone } from '../src/features/profile/phone';
+import { useToast } from '../src/components/overlays';
 import { SkeletonList } from '../src/components/states';
 
 /**
@@ -20,7 +22,7 @@ import { SkeletonList } from '../src/components/states';
  * NOT offered here either: it lives in Settings alone, where the switch owns
  * the whole screen (overlay + reload) instead of hiding inside a form whose
  * Save would flip the app's direction as a side effect.
- * Unsaved edits prompt before leaving (spec `dirty` state).
+ * Leaving does not prompt: back drops unsaved edits (owner, 2026-09-09).
  */
 function EditProfileScreen() {
   const { t } = useLocale();
@@ -31,35 +33,37 @@ function EditProfileScreen() {
   const toast = useToast();
 
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  // The phone is EDITED as country + national digits and STORED as E.164.
+  const [iso, setIso] = useState(DEFAULT_ISO);
+  const [national, setNational] = useState('');
   const [initial, setInitial] = useState<{ name: string; phone: string } | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [discardOpen, setDiscardOpen] = useState(false);
 
   useEffect(() => {
     if (profile.data && !initial) {
       setName(profile.data.full_name ?? '');
-      setPhone(profile.data.phone ?? '');
+      const parsed = parsePhone(profile.data.phone);
+      setIso(parsed.iso);
+      setNational(parsed.national);
       setInitial({
         name: profile.data.full_name ?? '',
-        phone: profile.data.phone ?? '',
+        // The COMPOSED baseline, not the raw column: a number stored in an
+        // older shape (`00964…`, or with spaces) round-trips through the
+        // picker as normalized E.164.
+        phone: composePhone(parsed.iso, parsed.national),
       });
     }
   }, [profile.data, initial]);
 
-  const dirty = initial !== null && (name !== initial.name || phone !== initial.phone);
+  const phone = composePhone(iso, national);
 
-  /**
-   * Unsaved edits ask before leaving (spec `dirty` state). The guard covers the
-   * native back item, the edge-swipe and Android back alike; `leave` replays
-   * whichever one was blocked.
-   */
-  const leave = useBackGuard({
-    when: dirty && !update.isPending,
-    onBlocked: () => setDiscardOpen(true),
-  });
+  // Leaving does NOT ask about unsaved edits (owner, 2026-09-09): back pops
+  // straight to Profile and pending changes are dropped. This drops the spec's
+  // `dirty` state for this screen — and with nothing left to hold the screen
+  // open, the iOS edge-swipe needs no special handling either.
+  const back = useBack();
 
   const onSave = () => {
     setError(null);
@@ -68,16 +72,15 @@ function EditProfileScreen() {
     if (!name.trim()) return setNameError(t('auth.nameRequired'));
     // Required from day one (spec 05.3): the desk calls it about bookings, and
     // the booking path refuses without it — so it cannot be cleared here.
-    if (!phone.trim()) return setPhoneError(t('auth.phoneRequired'));
+    const badPhone = validatePhone(iso, national);
+    if (badPhone === 'PHONE_REQUIRED') return setPhoneError(t('auth.phoneRequired'));
+    if (badPhone) return setPhoneError(t('auth.phoneInvalid'));
     update.mutate(
-      { full_name: name.trim(), phone: phone.trim() },
+      { full_name: name.trim(), phone },
       {
         onSuccess: () => {
           toast(t('profile.updated'));
-          // `leave` rather than a plain back: the form is still "dirty"
-          // against the captured `initial`, so the pop would otherwise be
-          // intercepted and offer to discard changes that were just saved.
-          leave();
+          back();
         },
         onError: (err) => setError(t(mapErrorToKey(err))),
       },
@@ -86,6 +89,12 @@ function EditProfileScreen() {
 
   return (
     <Screen edges={[]}>
+      {/*
+       * The edge-swipe stays ON. It used to be disabled on a dirty form,
+       * because UIKit commits that transition before `beforeRemove` fires and
+       * no JS guard can cancel it; with nothing guarding the exit any more, the
+       * swipe is just the pop it always was.
+       */}
       <Stack.Screen options={{ title: t('profile.editProfile') }} />
       {profile.isLoading && !initial ? (
         <SkeletonList rows={3} height={64} />
@@ -99,12 +108,12 @@ function EditProfileScreen() {
             dense
             error={nameError}
           />
-          <Field
+          <PhoneField
             label={t('auth.phoneLabel')}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            autoComplete="tel"
+            iso={iso}
+            onChangeIso={setIso}
+            national={national}
+            onChangeNational={setNational}
             dense
             error={phoneError}
           />
@@ -143,19 +152,6 @@ function EditProfileScreen() {
         </FormScreen>
       )}
 
-      <ConfirmationDialog
-        visible={discardOpen}
-        title={t('profile.discardTitle')}
-        body={t('profile.discardBody')}
-        confirmLabel={t('profile.discard')}
-        cancelLabel={t('profile.keepEditing')}
-        danger
-        onConfirm={() => {
-          setDiscardOpen(false);
-          leave();
-        }}
-        onDismiss={() => setDiscardOpen(false)}
-      />
     </Screen>
   );
 }

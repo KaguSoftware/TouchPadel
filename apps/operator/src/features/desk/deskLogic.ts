@@ -164,3 +164,64 @@ export const OVERRIDE_REFUSAL_CODES: ReadonlySet<string> = new Set([
 export function isOverrideRefusal(code: string | undefined): boolean {
   return code !== undefined && OVERRIDE_REFUSAL_CODES.has(code);
 }
+
+/*
+ * A phone box takes numbers. Letters used to type straight into it and came
+ * back only as a server INVALID_PHONE at the end of a long form; they are now
+ * not typeable at all. Arabic-Indic and Persian digits are folded to the ASCII
+ * the API stores, so an Arabic keyboard needs no second thought — the low
+ * nibble of each of those code points IS the digit.
+ */
+const PHONE_STRIP = /[^\d+()\-\s]/g;
+const EASTERN_DIGITS = /[\u0660-\u0669\u06F0-\u06F9]/g;
+
+/** The typeable subset of a phone number: digits and the punctuation around them. */
+export function sanitizePhone(raw: string): string {
+  return raw.replace(EASTERN_DIGITS, (d) => String(d.charCodeAt(0) & 0xf)).replace(PHONE_STRIP, '');
+}
+
+/** How many actual digits a phone box holds — what "too short to be a number" is measured on. */
+export function phoneDigitCount(raw: string): number {
+  return raw.replace(/\D/g, '').length;
+}
+
+/*
+ * The mirror image of the rule above, on the box beside it: a name is not a
+ * number. Digits landed in the name field either by a slip of the hand one key
+ * to the left, or by a phone typed into the wrong box entirely — and the name
+ * is what the desk calls out at the court, so it is the one field where a
+ * stray "0770" is silent damage. Every digit the two keyboards can produce.
+ */
+const NAME_DIGITS = /[\d٠-٩۰-۹]/g;
+
+/** A name with the digits taken out. Letters, spaces and punctuation are untouched. */
+export function sanitizeName(raw: string): string {
+  return raw.replace(NAME_DIGITS, '');
+}
+
+/*
+ * The customer search takes a name OR a number, and the walk-in form has a box
+ * for each, so a query that finds no account is split between them rather than
+ * retyped. Sanitizing alone is not enough to decide which box a query belongs
+ * in: the hyphen in "Al-Rawi" is legal phone punctuation and survived into the
+ * phone box, and the spaces in "0770 123 4567" survived into the name box. A
+ * half is only carried across if it actually contains one — a letter, a digit.
+ */
+const HAS_LETTER = /\p{L}/u;
+const HAS_DIGIT = /[\d٠-٩۰-۹]/;
+
+/** The name half of a search query, or '' if it holds no name. */
+export function nameFromQuery(query: string): string {
+  const name = sanitizeName(query).trim();
+  return HAS_LETTER.test(name) ? name : '';
+}
+
+/** The phone half of a search query, or '' if it holds no number. */
+export function phoneFromQuery(query: string): string {
+  if (!HAS_DIGIT.test(query)) return '';
+  // Punctuation stranded by the letters around it goes with them. A leading
+  // "+" is the one mark that belongs to the number rather than to the name.
+  return sanitizePhone(query)
+    .replace(/^[^\d+]+/, '')
+    .replace(/\D+$/, '');
+}

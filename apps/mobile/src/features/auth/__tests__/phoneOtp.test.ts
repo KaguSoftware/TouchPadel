@@ -76,12 +76,12 @@ describe('mapOtpError', () => {
     expect(mapOtpError({ code: 'phone_provider_disabled', message: 'x' })).toBe('auth.phoneSignInUnavailable');
     expect(mapOtpError({ code: 'otp_disabled', message: 'x' })).toBe('auth.phoneSignInUnavailable');
     expect(mapOtpError({ code: 'hook_timeout', message: 'x' })).toBe('auth.phoneSignInUnavailable');
-    expect(mapOtpError({ code: 'validation_failed', message: 'x' })).toBe('auth.phoneInvalid');
+    expect(mapOtpError({ code: 'validation_failed', message: 'x' })).toBe('auth.phoneOtpInvalid');
   });
 
   it('maps the refusal reasons the send-sms-otp hook relays as the message', () => {
     expect(mapOtpError(new Error('SMS_DISABLED'))).toBe('auth.phoneSignInUnavailable');
-    expect(mapOtpError(new Error('PHONE_NOT_ALLOWED'))).toBe('auth.phoneInvalid');
+    expect(mapOtpError(new Error('PHONE_NOT_ALLOWED'))).toBe('auth.phoneOtpInvalid');
     expect(mapOtpError(new Error('PHONE_RATE'))).toBe('auth.otpTooMany');
     expect(mapOtpError(new Error('DAILY_CAP'))).toBe('auth.otpSendFailed');
     expect(mapOtpError(new Error('SMS_SEND_FAILED'))).toBe('auth.otpSendFailed');

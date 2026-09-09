@@ -20,13 +20,13 @@ import { useOwnProfile } from '../src/features/profile/hooks';
 import { brand, radius, space, useTheme } from '../src/theme';
 import { Button, Card, DashedDivider, ErrorText, LinkText, Screen } from '../src/components/ui';
 import { PayAtDeskCard, SummaryGrid } from '../src/components/booking';
-import { ConfirmationDialog } from '../src/components/overlays';
+import { ConfirmAlert } from '../src/components/overlays';
 import { CalendarIcon, ClockIcon, StopwatchIcon, TagIcon } from '../src/components/icons';
 
 /**
  * Review & confirm (design 2026-08-31): navy hold card with live countdown and
  * progress bar, summary grid, the pay-at-desk card (spec: never optional), the
- * cancellation policy line, and a ConfirmationDialog before the write (R7).
+ * cancellation policy line, and a native confirmation alert before the write (R7).
  * Distinct full-screen states for hold-expired and slot-taken.
  *
  * Back is a plain pop: there is no app.release_hold() yet (HANDOFF gotcha —
@@ -155,12 +155,15 @@ function ReviewScreen() {
   const whenLine = startAt ? formatDateTime(startAt, locale) : '';
   const windowHours = settings.data?.cancellation_window_hours ?? null;
 
+  // The native alert dismisses itself the moment a button is tapped, so the
+  // open flag closes here rather than on each result; the write in flight shows
+  // as the Reserve court CTA's own spinner.
   const onConfirm = () => {
     setError(null);
+    setDialogOpen(false);
     confirm.mutate(holdId, {
       onSuccess: (result) => {
         keepHoldRef.current = true; // this hold is a booking now — never release it
-        setDialogOpen(false);
         const id = result.reservation_id ?? holdId;
         router.replace({
           pathname: '/success',
@@ -175,7 +178,6 @@ function ReviewScreen() {
         });
       },
       onError: (err) => {
-        setDialogOpen(false);
         const message = err instanceof Error ? err.message : null;
         const code = rpcErrorCode(message);
         if (isDegradedRefusal(message)) {
@@ -500,12 +502,16 @@ function ReviewScreen() {
           label={t('booking.reserveCta')}
           onPress={() => setDialogOpen(true)}
           variant="cta"
+          // Carries the write's spinner now that the confirmation is a system
+          // alert: the alert is gone the instant it is answered, so it can no
+          // longer show "Reserving…" itself.
+          busy={confirm.isPending}
           disabled={!holdId || profileGate === 'incomplete'}
           style={{ paddingTop: 16, paddingBottom: 16 }}
         />
       </LinearGradient>
 
-      <ConfirmationDialog
+      <ConfirmAlert
         visible={dialogOpen}
         title={t('booking.reserveDialogTitle')}
         body={t('booking.reserveDialogBody', {
@@ -516,9 +522,8 @@ function ReviewScreen() {
           when: whenLine,
           price: Number.isInteger(price) ? formatIQD(price, locale) : '',
         })}
-        confirmLabel={confirm.isPending ? t('booking.reserving') : t('booking.reserveCta')}
+        confirmLabel={t('booking.reserveCta')}
         cancelLabel={t('common.notYet')}
-        busy={confirm.isPending}
         onConfirm={onConfirm}
         onDismiss={() => setDialogOpen(false)}
       />

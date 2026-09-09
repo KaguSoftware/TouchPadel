@@ -23,6 +23,7 @@ import {
   useCourtsBroadcast,
   useDayGrid,
   useIsDegraded,
+  usePrefetchAdjacentDays,
   useVenueSettings,
   type DayGrid,
 } from './hooks';
@@ -74,6 +75,8 @@ export interface AvailabilityBooking {
   courtCount: number;
   notice: AvailabilityNotice;
   dismissNotice: () => void;
+  /** Clear the booking error once its alert has been dismissed. */
+  dismissError: () => void;
   /** Hold refusal, already translated. */
   error: string | null;
   holdPending: boolean;
@@ -135,6 +138,9 @@ export function useAvailabilityBooking(
 
   const [durationMin, setDurationMin] = useState(60);
   const day = useDayGrid(date);
+  // Warm the chips either side, so the usual next tap paints from cache instead
+  // of waiting on a round trip.
+  usePrefetchAdjacentDays(tzDates, date);
   useCourtsBroadcast(); // live slot_changed -> availability invalidation
 
   const [notice, setNotice] = useState<AvailabilityNotice>(null);
@@ -263,7 +269,12 @@ export function useAvailabilityBooking(
   const subFor = (cell: MergedCell): string => {
     switch (cell.state) {
       case 'free':
-        return formatPrice(cell.priceIqd, locale) ?? t('booking.noRate');
+        // A free slot with no price cannot be taken online, but the desk can
+        // still book it — so the card says so rather than "Unavailable", which
+        // would read as gone. `noRate`'s full sentence is written for the ERROR
+        // path (NO_RATE) and truncated to "This slot cannot be..." here, where
+        // the sibling states are all short labels.
+        return formatPrice(cell.priceIqd, locale) ?? t('booking.callOnly');
       case 'booked':
         return t('booking.stateBooked');
       case 'held':
@@ -312,6 +323,7 @@ export function useAvailabilityBooking(
     courtCount: courts.data?.length ?? 2,
     notice,
     dismissNotice: () => setNotice(null),
+    dismissError: () => setError(null),
     error,
     holdPending: hold.isPending,
     onTapCell,

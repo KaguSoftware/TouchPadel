@@ -213,6 +213,13 @@ export function Button(props: ButtonProps) {
  * while an error stands). Before this a screen-reader user heard the label and
  * nothing else — the failure was carried by a red line the control never
  * pointed at.
+ *
+ * `group` is for a field whose control is a SET of controls — a weekday picker,
+ * a segmented control. A `<label>` around those is not merely imprecise, it is
+ * wrong at the pointer: an implicit label forwards both :hover and the click to
+ * the FIRST labelable descendant, so the empty space beside "Weekdays" lit up
+ * Sunday and selected it. With `group` the wrapper is a plain div and the label
+ * text is tied to the group by id instead.
  */
 export function Field({
   label,
@@ -221,6 +228,7 @@ export function Field({
   error,
   required,
   optional,
+  group,
   style,
 }: {
   label: string;
@@ -235,30 +243,42 @@ export function Field({
    * label string rename the control and break every exact label query.
    */
   optional?: boolean;
+  /** The control is a group of controls, not one — see the note above. */
+  group?: boolean;
   style?: CSSProperties;
 }) {
   const { tr } = useLocale();
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
+  const labelId = `${id}-label`;
   // The hint is replaced by the error, never stacked with it, so exactly one
   // of the two is ever on screen to describe the control.
   const describedBy = error ? errorId : hint ? hintId : undefined;
 
   let control = children;
-  if (isValidElement(children) && describedBy !== undefined) {
+  if (isValidElement(children) && (describedBy !== undefined || group)) {
     const child = children as ReactElement<Record<string, unknown>>;
     control = cloneElement(child, {
       // A control that already names its own description keeps it; ours is appended.
-      'aria-describedby': [child.props['aria-describedby'], describedBy].filter(Boolean).join(' '),
-      'aria-invalid': error ? true : child.props['aria-invalid'],
+      ...(describedBy !== undefined
+        ? {
+            'aria-describedby': [child.props['aria-describedby'], describedBy].filter(Boolean).join(' '),
+            'aria-invalid': error ? true : child.props['aria-invalid'],
+          }
+        : null),
+      // The group carries the name the <label> can no longer give it.
+      ...(group ? { 'aria-labelledby': labelId } : null),
     });
   }
 
+  const Wrapper = group ? 'div' : 'label';
+
   return (
     <div style={{ marginBlockEnd: 'var(--tp-sp-4)', ...style }}>
-      <label style={{ display: 'block' }}>
+      <Wrapper style={{ display: 'block' }}>
         <span
+          id={group ? labelId : undefined}
           // The required marker is a CSS pseudo-element, not a character: an
           // asterisk in the label's text becomes part of the control's name.
           className={required ? 'tp-req' : undefined}
@@ -285,7 +305,7 @@ export function Field({
           )}
         </span>
         {control}
-      </label>
+      </Wrapper>
       {hint && !error && (
         <span
           id={hintId}

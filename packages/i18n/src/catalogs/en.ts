@@ -68,6 +68,12 @@ export const en = {
     nameRequired: 'Enter your full name.',
     emailInvalid: 'Enter a valid email address.',
     phoneRequired: 'Enter your phone number.',
+    phoneInvalid: "That doesn't look like a phone number.",
+    // Country-code picker on every phone field. Iraq is the default (the venue's
+    // own country) — the guest changes it here.
+    countryCode: 'Country code',
+    countryCodeSearch: 'Search country or code',
+    countryCodeNoResults: 'No country matches that.',
     // Verification body is three lines with the address in bold (design).
     checkEmailLead: 'We sent a verification link to',
     checkEmailTail: 'Open it to activate your account.',
@@ -132,7 +138,7 @@ export const en = {
     phoneSignInBody: "We'll text you a 6-digit code. No password needed.",
     phoneLinkBody: "We'll text a 6-digit code to confirm this number is yours.",
     phoneNationalPlaceholder: '0770 123 4567',
-    phoneInvalid: 'Enter an Iraqi mobile number, like 0770 123 4567.',
+    phoneOtpInvalid: 'Enter an Iraqi mobile number, like 0770 123 4567.',
     sendCode: 'Send code',
     otpTitle: 'Enter the code',
     otpBody: 'We sent a 6-digit code to {phone}.',
@@ -497,6 +503,7 @@ export const en = {
     stateHeld: 'Held',
     stateBooked: 'Booked',
     stateBlocked: 'Unavailable',
+    callOnly: 'Call only',
     statusPending: 'Pending',
     statusConfirmed: 'Confirmed',
     statusArrived: 'Arrived',
@@ -589,6 +596,11 @@ export const en = {
     payAtDeskShort: 'Pay at the desk. No online payment — settle at reception on arrival.',
     cancelDialogTitle: 'Cancel this booking?',
     cancelDialogBody: "Your slot on {when} goes back on the grid. This can't be undone in the app.",
+    // The confirm button INSIDE the alert, deliberately shorter than the
+    // screen's "Cancel booking": iOS only lays two alert buttons out side by
+    // side when both labels fit one row, and stacks them otherwise. The title
+    // already says what is being cancelled, so the button need not repeat it.
+    cancelDialogConfirm: 'Cancel it',
     cancelledToast: 'Booking cancelled — slot released',
     notFound: 'This booking could not be found.',
     // Held slots (0058): a hold the guest has not confirmed yet.
@@ -627,11 +639,6 @@ export const en = {
     confirmNewPassword: 'Confirm new password',
     updatePassword: 'Update password',
     fillAllFields: 'Fill in all three fields.',
-    // Unsaved-changes prompt on back (spec 05.18 `dirty`).
-    discardTitle: 'Discard changes?',
-    discardBody: "Your edits haven't been saved.",
-    discard: 'Discard',
-    keepEditing: 'Keep editing',
   },
   settings: {
     title: 'Settings',
@@ -646,6 +653,8 @@ export const en = {
     appearance: 'Appearance',
     light: 'Light',
     dark: 'Dark',
+    automatic: 'System',
+    automaticNote: 'System follows your device\u2019s appearance setting.',
     languageNote: 'Switching to العربية flips the whole app right-to-left, instantly.',
     notifBody: 'Get a confirmation when you book, a reminder before your slot, and a heads-up if anything is cancelled.',
     notifGranted: 'Enabled — booking confirmations, reminders and cancellations.',
@@ -816,6 +825,7 @@ export const en = {
     tableTitle: 'Your table — Touch Cafe',
   },
   errors: {
+    title: 'Something went wrong',
     generic: 'Something went wrong. Please try again.',
     network: 'No connection. Check your internet and try again.',
     notFound: 'We could not find what you were looking for.',
@@ -848,7 +858,7 @@ export const en = {
     // The bold lead sentence renders separately (DegradedBanner `lead`).
     leadConnectionLost: 'Venue connection lost.',
     leadDeskOnly: 'Desk-only period.',
-    bannerCourts: 'Booking for today & tomorrow is desk-only for now. Call {phone}.',
+    bannerCourts: 'Booking for today & tomorrow is desk-only for now.',
     bannerAvailability: 'Today & tomorrow can only be booked at the desk · {phone}',
     bannerBookings: 'Your bookings are shown as last known. Call {phone} for changes.',
   },
@@ -1684,6 +1694,8 @@ export const en = {
       TAB_NOT_OPEN: 'This tab is not open.',
       TAB_NOT_FOUND: 'Tab not found.',
       TAB_MERGED: 'This tab was merged into another tab.',
+      TAB_NOT_EMPTY: 'There is a payment to be made on this tab, so it cannot be removed. Settle it instead.',
+      TAB_DAY_MISMATCH: 'This tab belongs to a different business day.',
       TENDER_SHORT: 'Tendered amount is less than the amount due.',
       ALREADY_PAID: 'This tab is already fully paid.',
       QUEUE_ROW_NOT_RESOLVABLE: 'This write cannot be dismissed: it is still travelling or has already synced.',
@@ -1735,7 +1747,7 @@ export const en = {
       SLOT_IN_PAST: 'That slot is in the past.',
       COURT_NOT_FOUND: 'Court not found.',
       TABLE_NOT_FOUND: 'Table not found.',
-      TAB_ANCHOR_REQUIRED: 'A tab needs a table, a name, or a reservation.',
+      TAB_ANCHOR_REQUIRED: 'A tab needs a table or a booking. A name on its own is not enough.',
       NOT_MOVABLE: 'This reservation can no longer be moved.',
       NOT_EXTENDABLE: 'This reservation can no longer be extended.',
       NOT_CANCELLABLE: 'This reservation can no longer be cancelled.',
