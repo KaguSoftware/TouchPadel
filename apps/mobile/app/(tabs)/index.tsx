@@ -368,8 +368,23 @@ export default function BookHomeScreen() {
   const [stageRect, setStageRect] = useState<LayoutRectangle | null>(null);
   const [glUnavailable, setGlUnavailable] = useState(false);
   // Touches in the sheet count as watching: the rally behind it plays on / restarts its idle clock.
+  //
+  // ANDROID, sheet open: keep the idle clock fresh but do NOT restart the frame
+  // loop. A day chip or duration tap arrives on the same JS thread that is about
+  // to assemble the new trading night, and restarting two GL surfaces at 60 fps
+  // on that frame is what made changing dates stall the whole phone (owner,
+  // 2026-09-09). expo-gl's endFrameEXP back-pressures JS when the GPU falls
+  // behind (Court3D's header), so the woken loop and the grid build starve each
+  // other. Behind a near-opaque card the rally is barely visible anyway — the
+  // court plays on the moment the sheet closes, because closing MOVES p and
+  // `wake` is called with the sheet already shut. iOS keeps the old behaviour:
+  // its blur makes the court legible through the card and it has the headroom.
   const courtRef = useRef<Court3DHandle>(null);
-  const wakeCourt = useCallback(() => courtRef.current?.wake(), []);
+  const holdRallyForSheet = Platform.OS === 'android';
+  const wakeCourt = useCallback(
+    () => courtRef.current?.wake({ resumeLoop: !(holdRallyForSheet && isOpen) }),
+    [holdRallyForSheet, isOpen],
+  );
   const [sheetBusy, setSheetBusy] = useState(false);
   const onUnavailable = useCallback(() => setGlUnavailable(true), []);
   const onCourtSize = useCallback((size: { width: number; height: number }) => {

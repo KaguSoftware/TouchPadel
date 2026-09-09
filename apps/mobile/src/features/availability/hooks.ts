@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { InteractionManager } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
@@ -168,6 +169,62 @@ export function useDayGrid(date: string): DayGrid {
       void Promise.all(queries.map((q) => q.refetch()));
     },
   };
+}
+
+/**
+ * Warm the day chips either side of the selection, so tapping one is a cache
+ * read instead of a round trip.
+ *
+ * Only ever `prefetchQuery` on the SAME key `useDayGrid` reads, so a tap that
+ * lands mid-flight joins the in-flight request rather than starting a second
+ * one, and a warm date never refetches (staleTime is respected).
+ *
+ * Deferred behind `InteractionManager`: on the Book tab this shares its JS
+ * thread with the court's GL loop, and a prefetch fired during the sheet's
+ * opening spring costs exactly the frames the animation needs. `runAfterInteractions`
+ * puts the fetch after the transition instead of inside it.
+ *
+ * Neighbours only (± PREFETCH_RADIUS), not the whole strip: seven dates at once
+ * is seven queries and seven assemblies for chips most guests never tap, and the
+ * strip re-derives every minute — the tick would re-arm the whole fan-out.
+ */
+const PREFETCH_RADIUS = 1;
+
+export function usePrefetchAdjacentDays(dates: readonly string[], date: string): void {
+  const queryClient = useQueryClient();
+  const settings = useVenueSettings();
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
+  const ready = settings.isSuccess;
+  const index = dates.indexOf(date);
+  // Derive the neighbours as a STRING, so the effect below re-runs when the
+  // dates to warm actually change and not on every minute tick that hands back
+  // an equal-but-new `dates` array.
+  const neighbours =
+    index === -1
+      ? ''
+      : dates
+          .slice(Math.max(0, index - PREFETCH_RADIUS), index + PREFETCH_RADIUS + 1)
+          .filter((d) => d !== date)
+          .join(',');
+
+  useEffect(() => {
+    if (!ready || neighbours === '') return;
+    let cancelled = false;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      for (const d of neighbours.split(',')) {
+        void queryClient.prefetchQuery({
+          queryKey: availabilityKeys.day(d),
+          queryFn: () => fetchDayAvailability(supabase, d, tz),
+          staleTime: 15_000,
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+      handle.cancel();
+    };
+  }, [neighbours, ready, tz, queryClient]);
 }
 
 /** The one live 'courts' channel, shared by every mounted consumer (see useCourtsBroadcast). */
