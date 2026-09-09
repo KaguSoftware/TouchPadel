@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
@@ -37,9 +37,19 @@ export default function AvailabilityScreen() {
   const a = useAvailabilityBooking({ origin: 'screen' });
 
   // The list starts at tonight's first bookable time — the hook drops every hour
-  // that has already started — so a fresh ScrollView per day/duration opens
-  // where it should with no homing scroll. `key` does the remount.
+  // that has already started — so every day/duration opens where it should with
+  // no homing scroll.
+  //
+  // This was a `key` on the ScrollView, which threw the scroller away and
+  // rebuilt it — RefreshControl included — on every day chip and every duration
+  // tap, to buy the offset back at 0. Reset the offset by hand instead and let
+  // React reconcile; the sheet on the Book tab does the same, and has the
+  // longer note on why.
   const gridKey = `${a.date}|${a.durationMin}`;
+  const gridRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    gridRef.current?.scrollTo({ y: 0, animated: false });
+  }, [gridKey]);
 
   // The venue notice floats over the grid and leaves only when the guest
   // closes it — a refetch flipping `degraded` back on must not resurrect it.
@@ -171,7 +181,7 @@ export default function AvailabilityScreen() {
         </View>
       ) : (
         <ScrollView
-          key={gridKey}
+          ref={gridRef}
           style={{ flex: 1 }}
           refreshControl={
             <RefreshControl
