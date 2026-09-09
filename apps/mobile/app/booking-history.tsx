@@ -17,7 +17,7 @@ import { Button, Hint, Screen } from '../src/components/ui';
 import { ListHeading, PastBookingRow } from '../src/components/booking';
 import { ClockIcon } from '../src/components/icons';
 import { EmptyState, ErrorState, SkeletonList } from '../src/components/states';
-import { ConfirmationDialog, useToast } from '../src/components/overlays';
+import { ConfirmAlert, useToast } from '../src/components/overlays';
 
 /**
  * Booking history (owner, 2026-09-08) — every previous game, and the only place
@@ -32,7 +32,9 @@ import { ConfirmationDialog, useToast } from '../src/components/overlays';
  * CLEAR HISTORY HIDES; IT DOES NOT DELETE. A reservation is the venue's record
  * too, so the app has no business destroying one to tidy a list — the cut is an
  * ISO timestamp on this device (features/booking/history.ts), the rows stay on
- * the account, and the dialog says so before anything happens.
+ * the account, and the confirmation says so before anything happens — as the
+ * platform's own alert (UIAlertController / Material dialog), so a destructive
+ * action wears the chrome the OS uses for one.
  */
 function BookingHistoryScreen() {
   const { t, locale } = useLocale();
@@ -61,17 +63,16 @@ function BookingHistoryScreen() {
     return m;
   }, [courts.data, locale]);
 
-  const onClear = () =>
+  // The native alert dismisses itself the moment a button is tapped, so the
+  // open flag closes here rather than on the result — the pending write shows
+  // as the footer button's spinner, not as a dialog held open over it.
+  const onClear = () => {
+    setDialogOpen(false);
     clear.mutate(undefined, {
-      onSuccess: () => {
-        setDialogOpen(false);
-        toast(t('booking.historyClearedToast'), 'info');
-      },
-      onError: (err) => {
-        setDialogOpen(false);
-        toast(t(mapErrorToKey(err)), 'error');
-      },
+      onSuccess: () => toast(t('booking.historyClearedToast'), 'info'),
+      onError: (err) => toast(t(mapErrorToKey(err)), 'error'),
     });
+  };
 
   const header = <Stack.Screen options={{ title: t('booking.historyTitle') }} />;
 
@@ -162,14 +163,13 @@ function BookingHistoryScreen() {
         }
       />
 
-      <ConfirmationDialog
+      <ConfirmAlert
         visible={dialogOpen}
-        danger
+        destructive
         title={t('booking.clearHistoryPrompt')}
         body={t('booking.clearHistoryBody')}
         confirmLabel={t('booking.clearHistory')}
         cancelLabel={t('common.cancel')}
-        busy={clear.isPending}
         onConfirm={onClear}
         onDismiss={() => setDialogOpen(false)}
       />
