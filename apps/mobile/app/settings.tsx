@@ -27,8 +27,8 @@ import { BellIcon, GlobeIcon, MoonIcon, PhoneIcon } from '../src/components/icon
 import { useToast } from '../src/components/overlays';
 
 /**
- * Settings (design 2026-08-31): Appearance (Auto/Light/Dark — app-driven theme,
- * Auto following the device),
+ * Settings (design 2026-08-31): Appearance (System/Light/Dark — app-driven
+ * theme, System following the device),
  * Language (segmented; the switch applies in place), Notifications (the three
  * permission states render differently), the venue call card, and the version
  * footer. Public route; reached from the signed-in Profile.
@@ -154,7 +154,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Appearance. Bound to the PREFERENCE, not the resolved scheme: under
-            Auto on a dark device the control has to read Auto, not Dark. */}
+            System on a dark device the control has to read System, not Dark. */}
         <Card style={{ padding: space.m }}>
           {groupLabel(<MoonIcon size={13} color={colors.gstrong} />, t('settings.appearance'))}
           <View style={{ marginTop: 8 }}>
@@ -168,7 +168,7 @@ export default function SettingsScreen() {
               onChange={setAppearance}
             />
           </View>
-          {/* Only under Auto: what it follows is not obvious, and a permanent
+          {/* Only under System: what it follows is not obvious, and a permanent
               line of explanation under a control the user already understands
               is noise. Matches the language card's note. */}
           {preference === 'automatic' ? (

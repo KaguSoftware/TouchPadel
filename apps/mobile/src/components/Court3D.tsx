@@ -98,6 +98,8 @@ import type { CourtQuality } from '../features/courtTransition/quality';
 import { buildCourtScene, type CourtScene } from '../features/courtTransition/scene';
 import { LOOP_SECONDS, nextLegStart } from '../features/courtTransition/rally';
 import { pitchEase, type Dir } from '../features/courtTransition/spec';
+import { canAnimate, canDraw } from '../features/courtTransition/surfaceState';
+import { frameRepaints } from '../features/courtTransition/staleCover';
 import { addBreadcrumb, captureException, captureMessage, describeError } from '../lib/telemetry';
 import { brand, useTheme } from '../theme';
 import { PATTERN_DEFAULT_OPACITY, patternInk } from '../theme/brandPattern';
@@ -165,6 +167,12 @@ const REST_T = 0;
 const IDLE_AFTER_MS = 3 * LOOP_SECONDS * 1000;
 const NOTE_FADE_MS = 220;
 /**
+ * The stale-frame cover's dissolve. Matched to the theme crossfade's fade-in
+ * (FADE_IN_MS in theme/ThemeProvider.tsx) so the court arrives on the same beat
+ * as the rest of the app rather than as a second, later transition.
+ */
+const STALE_FADE_MS = 180;
+/**
  * A context can arrive already dead: `onContextCreate` is async, so navigating
  * away mid-create (or Android recreating the surface) hands attach() a handle
  * whose native side is gone. three then throws reading capabilities off it
@@ -223,6 +231,44 @@ export function Court3D({
   const once = useRef<number | null>(null);
   const reduce = useRef(reduceMotion);
   const running = useRef(false);
+  /** A theme flip landed with no frame drawn since: the court is a stale picture. */
+  const repaint = useRef(false);
+  /**
+   * THE STALE-FRAME COVER, in the NEW page colour, over the court surfaces.
+   *
+   * The problem it solves: the court surface clears OPAQUE — a frame-budget
+   * decision the header explains at length (a translucent full-screen GL layer
+   * froze the court on device) — so what is on screen is whatever was last
+   * RENDERED into the framebuffer, and nothing the React tree paints behind it
+   * shows through. The page colour inverts between palettes (#FFFFFF ⇄
+   * #172C4F), so after a theme flip the surface is not slightly wrong, it is
+   * the opposite colour.
+   *
+   * And a flip from Control Center is exactly when no frame can be rendered:
+   * iOS pauses the display link as the shade comes down, so the redraw the
+   * theme effect requests is QUEUED and only executes on dismissal. That late
+   * frame is the reported symptom — the court rendering once Control Center
+   * closes, after the rest of the app has already flipped.
+   *
+   * Blanking the surfaces was the obvious lever and is the wrong one: the court
+   * is most of the Book tab, so it would vanish to a flat rectangle for the
+   * whole time the shade is down. Instead a cover in the INCOMING page colour
+   * is laid over them for exactly as long as the framebuffer disagrees, and
+   * faded away on the frame that repaints it. That is the same device the theme
+   * provider uses app-wide (theme/ThemeProvider.tsx): the band reads as flipped
+   * immediately, under the shade, and the court dissolves back in already in
+   * the right palette rather than snapping.
+   */
+  const [stale, setStale] = useState(false);
+  const staleCover = useRef(new Animated.Value(0)).current;
+  /**
+   * The cover is MOUNTED. Held past `stale` so the dissolve has something to
+   * fade, and dropped only when it finishes — an always-mounted cover at
+   * opacity 0 is a full-screen view the compositor still has to consider over
+   * two GL surfaces every frame, which is exactly the budget the opaque-clear
+   * decision (see the header) exists to protect.
+   */
+  const [covering, setCovering] = useState(false);
   /** Wall time of the last touch / `p` movement / return to the tab. */
   const lastActive = useRef(0);
   /** Rally time the idle hold will land on (a leg start), once idle has elapsed. */
@@ -242,7 +288,27 @@ export function Court3D({
   const initFailures = useRef(0);
   /** Bumped to remount both GLViews and ask the platform for fresh contexts. */
   const [glGeneration, setGlGeneration] = useState(0);
-  const [active, setActive] = useState(AppState.currentState === 'active');
+  /**
+   * The raw lifecycle state, kept WHOLE rather than reduced to an `active`
+   * boolean — 'active', 'inactive' and 'background' are three different answers
+   * here, and collapsing the first two is what left the court stale.
+   *
+   * iOS reports 'inactive' while the Control Center shade is down, but the app
+   * is still composited on screen and rAF is still serviced; frames stop at
+   * 'background'. The rally should still pause under the shade, but the surface
+   * must stay DRAWABLE — because opening Control Center is exactly how the
+   * system theme gets flipped, so that is precisely when the court needs to
+   * repaint. `canAnimate` / `canDraw` in features/courtTransition/surfaceState.ts
+   * make the distinction; theme/appearanceEvents.ts makes the same one a layer up.
+   */
+  const [appState, setAppState] = useState<string>(AppState.currentState);
+  /**
+   * The lifecycle, for the render loop to read without being rebuilt. expo-gl
+   * silently drops every present while the app is not active, so a frame only
+   * counts as having reached the screen when this says 'active'.
+   */
+  const appStateRef = useRef<string>(AppState.currentState);
+
 
   sizeCb.current = onSize;
   unavailableCb.current = onUnavailable;
@@ -304,6 +370,22 @@ export function Court3D({
     scene.update(t, value, ease.current(value));
     main.renderer.render(scene.scene, scene.camera);
     main.gl.endFrameEXP();
+    // A frame has gone out — but "gone out" only counts while the app is ACTIVE.
+    // `endFrameEXP` funnels into expo-gl's `flush`, which returns immediately
+    // while `_appIsBackgrounded` is set (EXGLContext.mm observes
+    // `UIApplicationWillResignActive`, i.e. the Control Center shade opening).
+    // So under the shade this code runs, the draw calls are issued, and NOTHING
+    // reaches the screen. Clearing the flag here regardless is what took the
+    // cover down over a framebuffer still cleared to the old palette — the
+    // white court band on a dark page, for the whole time the shade was up and
+    // a beat after it closed.
+    //
+    // Read from a ref, not the `appState` state value: this runs inside the
+    // render loop, which must not be rebuilt on every lifecycle change.
+    if (frameRepaints({ repaintPending: repaint.current, appState: appStateRef.current })) {
+      repaint.current = false;
+      setStale(false);
+    }
     // The ball's surface shares the camera: same bounds, same picture, stacked above the button.
     const ball = surfaces.current.ball;
     if (ball) {
@@ -416,9 +498,16 @@ export function Court3D({
         }
         if (!court.current) {
           court.current = buildCourtScene(quality);
-          court.current.setBackdropInk(ink);
           pushViewport();
         }
+        // Outside the branch above: Android destroys the surface while the app
+        // is backgrounded and hands back a NEW context, but the scene object
+        // survives. A theme flip during that excursion updated `ink` with no
+        // scene to push it to (setBackdropInk ran against the old surface's
+        // scene, or the effect's redraw never fired), so setting this only on
+        // first build brought the court back with the previous theme's pattern
+        // baked in. Idempotent, and the value is always the current one.
+        court.current.setBackdropInk(ink);
         surfaces.current[kind] = { gl, renderer, width: w, height: h };
         if (start.current === 0) {
           start.current = performance.now();
@@ -452,9 +541,10 @@ export function Court3D({
         unavailableCb.current?.();
       }
     },
-    // `pushViewport` and `ink` only seed a freshly built scene, so the identity
-    // churn they add here costs a new onContextCreate prop and nothing else —
-    // expo-gl calls it once, when the context is born.
+    // `pushViewport` seeds a freshly built scene and `ink` is pushed on every
+    // attach (see above), so the identity churn they add here costs a new
+    // onContextCreate prop and nothing else — expo-gl calls it once, when the
+    // context is born.
     [detach, teardown, requestOnce, quality, ink, pushViewport],
   );
   const onCourtContext = useCallback(
@@ -489,7 +579,10 @@ export function Court3D({
     }, []),
   );
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (s) => setActive(s === 'active'));
+    const sub = AppState.addEventListener('change', (s) => {
+      appStateRef.current = s;
+      setAppState(s);
+    });
     return () => sub.remove();
   }, []);
 
@@ -503,7 +596,14 @@ export function Court3D({
 
   // Run the loop only while visible (coming back counts as activity, so a held
   // rally plays on); reduced motion draws on demand instead and never holds.
-  const live = ready && focused && active;
+  const live = canAnimate({ ready, focused, appState });
+  /**
+   * May a single frame be drawn right now? Same as `live` but tolerating
+   * 'inactive', so a theme flip under the Control Center shade can repaint the
+   * framebuffer instead of waiting for dismissal. Deliberately NOT used to run
+   * the loop — only to honour one-shot redraws.
+   */
+  const drawable = canDraw({ ready, focused, appState });
   useEffect(() => {
     running.current = live;
     reduce.current = reduceMotion;
@@ -520,8 +620,37 @@ export function Court3D({
     } else {
       wake();
     }
+    // Returning from the background with a theme flip that never got a frame:
+    // draw one now. `wake()` above restarts the loop and would repaint on its
+    // own, but not while the rally is held idle — and the request is cheap and
+    // idempotent (requestOnce no-ops if a frame is already queued), so it costs
+    // nothing on the paths that were already going to draw.
+    if (repaint.current) requestOnce();
     return stopLoop;
   }, [live, reduceMotion, wake, stopLoop, requestOnce]);
+
+  // The same redraw, keyed on the COLOURS rather than on the lifecycle, because
+  // the two listeners race. This component watches AppState for `active` and
+  // the theme provider watches it to reconcile the scheme on return; whichever
+  // registered first runs first. If this one wins, `live` lifts while the theme
+  // is still the old one and `repaint` is still false, so the effect above
+  // draws a frame in the OLD colours and the provider's commit lands after it
+  // with the loop possibly held idle again — the stale court, one race later.
+  // Keying on `colors.page` means the commit ITSELF schedules the frame, in
+  // whichever order the two arrive.
+  // Redraw whenever the surface is stale AND something has changed that might
+  // let a frame actually land: the colours (the flip itself) or the lifecycle.
+  //
+  // `appState` is in the deps, not just `drawable`, and that is the whole point
+  // on the Control Center path. `drawable` is already true under the shade, so
+  // it does not change on the way back to 'active' — the effect would not
+  // re-run, and the only frame that can present would never be requested. The
+  // court would sit under its cover until the rally or a touch happened to draw
+  // one. Keying on the raw lifecycle means the return itself schedules it.
+  useEffect(() => {
+    if (!drawable || !repaint.current) return;
+    requestOnce();
+  }, [drawable, appState, colors.page, requestOnce]);
 
   useEffect(() => {
     Animated.timing(noteOpacity, {
@@ -534,12 +663,79 @@ export function Court3D({
   // Theme flips repaint the page colour behind the court, and re-weight the
   // brand pattern drawn on it — the page's copy carries a different alpha in
   // each appearance, so this one has to follow or the seam shows.
+  //
+  // The redraw is gated on a SURFACE existing, not on the loop running. A held
+  // rally (idle, or Reduce Motion) has stopped the loop, and the new colours
+  // only reach the framebuffer when something draws — so gating on
+  // `running.current` left the court on the old theme until the next thing to
+  // wake it, which on the Book tab is the idle hold's own touch-to-resume: the
+  // page around it flipped instantly and the court followed seconds later.
+  // `requestOnce` is one frame on demand and does not restart the loop, so a
+  // held rally stays held; it is exactly what the Reduce Motion path uses.
   useEffect(() => {
     clear.current = hexToInt(colors.page);
     surfaces.current.court?.renderer.setClearColor(clear.current, 1);
     court.current?.setBackdropInk(ink);
-    if (running.current) requestOnce();
-  }, [colors.page, ink, requestOnce]);
+    // Staged, and only cleared once a frame has actually gone out with these
+    // colours.
+    //
+    // WHERE THE FLIP ACTUALLY ARRIVES, and why no frame can answer it.
+    //
+    // Changing the system appearance means Control Center, which puts the app at
+    // 'inactive' — and expo-gl stops presenting there. `EXGLContext.mm` observes
+    // `UIApplicationWillResignActive`, sets `_appIsBackgrounded = YES` and
+    // `glFinish()`es; from then until `DidBecomeActive` its `flush` returns
+    // immediately, doing nothing. So the GL surface CANNOT be updated while the
+    // shade is down, at any cost: the request below is real and necessary, but
+    // it does not reach the screen until dismissal, and that late frame — after
+    // the rest of the app has already flipped — is the reported symptom.
+    //
+    // The cover below is what makes that not matter. It is a plain React view,
+    // so it flips on this commit like everything else, and it hides the surface
+    // until the surface can agree.
+    repaint.current = true;
+    // Opaque AT ONCE, not faded up: the commit that flips the palette is the
+    // same one that makes the framebuffer wrong, so there is no moment where a
+    // gradual cover would be hiding anything but the error.
+    staleCover.setValue(1);
+    setStale(true);
+    setCovering(true);
+    // No surface to redraw (GL unavailable, or not attached yet) means no frame
+    // will ever clear the flag, so do not raise a cover nothing can take down —
+    // the caller is showing the flat SVG court in that case anyway.
+    if (surfaces.current.court) requestOnce();
+    else {
+      staleCover.setValue(0);
+      setStale(false);
+      setCovering(false);
+    }
+  }, [colors.page, ink, requestOnce, staleCover]);
+
+  /**
+   * Take the cover away once the surface has repainted. A short dissolve, not a
+   * cut: on the Control Center path the frame lands as the shade is dismissed,
+   * and cutting there would put a hard edge exactly where the user is looking.
+   * `stale` only clears from inside renderFrame, so this cannot fade the cover
+   * off a framebuffer that is still wrong.
+   */
+  useEffect(() => {
+    // `covering` gates the mount case: with no cover up there is nothing to
+    // dissolve, and starting a fade on first render would fire the completion
+    // callback for a transition that never happened.
+    if (stale || !covering) return;
+    const fade = Animated.timing(staleCover, {
+      toValue: 0,
+      duration: STALE_FADE_MS,
+      useNativeDriver: true,
+    });
+    fade.start(({ finished }) => {
+      // Only on a real finish: an interrupted fade means another flip arrived
+      // and raised the cover again, and unmounting then would expose the stale
+      // surface it is holding back.
+      if (finished) setCovering(false);
+    });
+    return () => fade.stop();
+  }, [stale, covering, staleCover]);
 
   // The caller's measurements land after this view's own, and change again on
   // a rotation, so the push cannot hang off onLayout alone.
@@ -570,7 +766,23 @@ export function Court3D({
   return (
     <View
       pointerEvents="box-none"
-      style={style}
+      /**
+       * THE PAGE COLOUR, PAINTED IN REACT as well as as the GL clear colour.
+       *
+       * The clear colour only reaches the screen when a frame is RENDERED, and
+       * the court surface is opaque, so a stale framebuffer hides whatever sits
+       * behind it. Together those mean the band behind the court can normally
+       * only change by drawing — and a theme flip from Control Center is exactly
+       * when drawing is impossible: iOS pauses the display link as the shade
+       * comes down, so the requested redraw is queued and runs on DISMISSAL.
+       * That late frame is the reported symptom.
+       *
+       * It is also the ground the cover dissolves onto (see the `stale` flag):
+       * both are plain React, so both carry the new page colour on the commit
+       * itself, with no GL frame involved — which is the only way the band can
+       * be right while the shade is down.
+       */
+      style={[{ backgroundColor: colors.page }, style]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         if (width <= 0 || height <= 0) return;
@@ -609,6 +821,33 @@ export function Court3D({
           onContextCreate={onBallContext}
         />
       </Animated.View>
+      {/* The stale-frame cover: over BOTH GL surfaces (so the rackets and ball
+          do not hang in front of it) and under the paused note, which is React
+          and already carries the new palette. Painted in the CURRENT page
+          colour, which is the colour the surface will clear to once it draws —
+          so the dissolve lands on a matching ground and shows no seam. */}
+      {stale || covering ? (
+        <Animated.View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          // `layerStyle` too, so the cover travels with what it is covering: the
+          // caller lifts and dims both GL surfaces through it during the court
+          // transition (translateY + opacity, index.tsx `courtLayer`), and a
+          // cover left at rest would slide off the surface it is hiding and
+          // expose the stale picture along one edge.
+          //
+          // Its `opacity` multiplies with the cover's own, which is what we
+          // want: as the layer dims, so does the cover, exactly in step with the
+          // surface beneath. `staleCover` therefore stays the LAST opacity in
+          // the array so it composes rather than being overwritten.
+          style={[
+            StyleSheet.absoluteFill,
+            layerStyle,
+            { backgroundColor: colors.page, opacity: staleCover },
+          ]}
+        />
+      ) : null}
       {pausedNote ? (
         <Animated.View
           pointerEvents="none"

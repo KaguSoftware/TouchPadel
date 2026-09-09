@@ -4,7 +4,7 @@ import { Text } from '../src/i18n/text';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
+import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../src/features/availability/useAvailabilityBooking';
 import { mapErrorToKey } from '../src/features/booking/errors';
@@ -235,7 +235,10 @@ export default function AvailabilityScreen() {
           a.notice === 'horizon' ? t('booking.deskOnlyTitle') : t('booking.slotUnavailableTitle')
         }
         body={a.notice === 'horizon' ? t('booking.deskOnlyBody') : t('booking.blockedBody')}
-        callLabel={a.phone ? t('booking.callPhone', { phone: isolate(a.phone) }) : null}
+        // Just "Call" — the number itself is noise in a two-button alert, and an
+        // isolated Latin number inside an Arabic label reads badly next to a
+        // verb. The dialler shows the number the moment the button is tapped.
+        callLabel={a.phone ? t('common.call') : null}
         onCall={a.onCall}
         onClose={a.dismissNotice}
       />
