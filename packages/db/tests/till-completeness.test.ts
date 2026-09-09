@@ -490,7 +490,7 @@ describe.skipIf(!up)('0053 till completeness', () => {
 
     it('voids an untouched tab, and does not pretend it was merged', async () => {
       const tabId = await openTab('cancel-clean');
-      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'staff_error' });
       expect(res.error?.message, res.error?.message).toBeUndefined();
 
       const row = await statusOf(tabId);
@@ -501,27 +501,45 @@ describe.skipIf(!up)('0053 till completeness', () => {
       expect(Number(row.total_iqd)).toBe(0);
     });
 
-    it('writes an audit row naming who did it', async () => {
+    it('writes an audit row naming who did it and why', async () => {
       const tabId = await openTab('cancel-audited');
-      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      // The note rides on the code as 'code: note', the shape the reason
+      // prompt already hands app.cancel_reservation.
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'staff_error: opened on T4, meant T6' });
       if (res.error) throw new Error(res.error.message);
       const { data } = await svc
         .from('audit_log')
-        .select('action, entity_id, actor_id, before, after')
+        .select('action, entity_id, actor_id, before, after, reason_code')
         .eq('action', 'tab.cancel')
         .eq('entity_id', tabId)
         .single();
-      const row = data as { actor_id: string | null; before: { status: string }; after: { status: string } };
+      const row = data as { actor_id: string | null; before: { status: string }; after: { status: string }; reason_code: string | null };
       expect(row.actor_id).not.toBeNull();
       expect(row.before.status).toBe('open');
       expect(row.after.status).toBe('void');
+      // 0086: a cancelled tab used to be the one destructive act in the till
+      // whose audit row could not say why.
+      expect(row.reason_code).toBe('staff_error: opened on T4, meant T6');
     });
 
-    it('refuses a tab that has an order on it', async () => {
+    it('refuses a cancellation with no reason, and leaves the tab open', async () => {
+      const tabId = await openTab('cancel-no-reason');
+      const blank = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId, p_reason_code: '   ' });
+      expect(blank.error?.message).toBe('REASON_REQUIRED');
+      const missing = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      expect(missing.error?.message).toBe('REASON_REQUIRED');
+      expect((await statusOf(tabId)).status).toBe('open');
+    });
+
+    it('refuses a tab that has an order on it, and names the branch that fired', async () => {
       const tabId = await openTab('cancel-with-order');
       await addItem(tabId, itemA);
-      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'staff_error' });
       expect(res.error?.message).toBe('TAB_NOT_EMPTY');
+      // The till renders one sentence per cause and picks it from `detail`, so
+      // this has to survive the trip out through PostgREST — four different
+      // things hold a tab and only one of them is a payment.
+      expect(res.error?.details).toBe('orders');
       expect((await statusOf(tabId)).status).toBe('open');
     });
 
@@ -533,7 +551,7 @@ describe.skipIf(!up)('0053 till completeness', () => {
       await addItem(tabId, itemA);
       const { error } = await svc.from('orders').update({ status: 'voided' }).eq('tab_id', tabId);
       if (error) throw new Error(`seed voided order: ${error.message}`);
-      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'staff_error' });
       expect(res.error?.message).toBe('TAB_NOT_EMPTY');
     });
 
@@ -550,8 +568,9 @@ describe.skipIf(!up)('0053 till completeness', () => {
         recorded_by: SEED_STAFF_IDS.cashier,
       });
       if (error) throw new Error(`seed payment: ${error.message}`);
-      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'staff_error' });
       expect(res.error?.message).toBe('TAB_NOT_EMPTY');
+      expect(res.error?.details).toBe('payments');
     });
 
     it('refuses a tab bound to a booking, whose court fee is owed with nothing ordered', async () => {
@@ -580,23 +599,24 @@ describe.skipIf(!up)('0053 till completeness', () => {
       if (opened.error) throw new Error(`open_tab: ${opened.error.message}`);
       const tabId = (opened.data as { tab_id: string }).tab_id;
 
-      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      const res = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'staff_error' });
       expect(res.error?.message).toBe('TAB_NOT_EMPTY');
+      expect(res.error?.details).toBe('reservation');
       expect((await statusOf(tabId)).status).toBe('open');
     });
 
     it('is not a second way to void an already-cancelled tab', async () => {
       const tabId = await openTab('cancel-twice');
-      const first = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      const first = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'staff_error' });
       if (first.error) throw new Error(first.error.message);
-      const second = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId });
+      const second = await appRpc(cashier, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'staff_error' });
       expect(second.error?.message).toBe('TAB_NOT_OPEN');
     });
 
     it('is refused for an anonymous guest', async () => {
       const tabId = await openTab('cancel-guest');
       const guest = await anonymousSessionClient();
-      const res = await appRpc(guest, 'cancel_tab', { p_tab_id: tabId });
+      const res = await appRpc(guest, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'staff_error' });
       expect(res.error?.message).toBe('FORBIDDEN');
       expect((await statusOf(tabId)).status).toBe('open');
     });

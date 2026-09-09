@@ -17,6 +17,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
 import { ConflictNotice, MessagePresenter } from '../../components/kit';
 import { CustomerPicker, type PickedCustomer } from './customers/CustomerPicker';
+import { nameFromQuery, phoneFromQuery, sanitizeName, sanitizePhone } from './deskLogic';
 
 export type CreateKind = 'booking' | 'maintenance';
 
@@ -44,6 +45,16 @@ export function CreateReservationDialog({
   const [guestPhone, setGuestPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
+  /*
+   * Whether each box below holds something the operator typed into it. While
+   * one does not, the customer search mirrors every keystroke into it: a search
+   * that turns out to have no account IS the walk-in, and the desk used to have
+   * to type the whole thing a second time to book it. The search takes either a
+   * name or a number, so each box takes the half of the query that belongs to
+   * it — letters to one, digits to the other. Same rule as the series builder.
+   */
+  const [nameTouched, setNameTouched] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [conflict, setConflict] = useState(false);
@@ -131,18 +142,47 @@ export function CreateReservationDialog({
           <CustomerPicker
             value={customer}
             disabled={busy}
+            onQueryChange={(q) => {
+              if (!nameTouched) setGuestName(nameFromQuery(q));
+              if (!phoneTouched) setGuestPhone(phoneFromQuery(q));
+            }}
             onChange={(next) => {
               setCustomer(next);
-              if (next && !guestName) setGuestName(next.name);
-              if (next && !guestPhone && next.phone) setGuestPhone(next.phone);
+              if (next) {
+                // What the account says outranks what was searched for.
+                if (!nameTouched || guestName.trim() === '') setGuestName(sanitizeName(next.name));
+                if (next.phone && (!phoneTouched || guestPhone.trim() === '')) setGuestPhone(sanitizePhone(next.phone));
+              }
             }}
           />
           <MessagePresenter tone="info" message={tr('ws.courtDesk.create.noCustomerNote')} style={{ marginBlockEnd: '0.85rem' }} />
           <Field label={tr('op.desk.guestName')} required={customer === null}>
-            <input style={inputStyle} value={guestName} disabled={busy} onChange={(e) => setGuestName(e.target.value)} autoFocus />
+            <input
+              style={inputStyle}
+              value={guestName}
+              disabled={busy}
+              maxLength={200}
+              onChange={(e) => {
+                setNameTouched(true);
+                setGuestName(sanitizeName(e.target.value));
+              }}
+              autoFocus
+            />
           </Field>
           <Field label={tr('op.desk.guestPhone')}>
-            <input style={inputStyle} dir="ltr" inputMode="tel" value={guestPhone} disabled={busy} onChange={(e) => setGuestPhone(e.target.value)} />
+            <input
+              style={inputStyle}
+              dir="ltr"
+              inputMode="tel"
+              autoComplete="off"
+              maxLength={30}
+              value={guestPhone}
+              disabled={busy}
+              onChange={(e) => {
+                setPhoneTouched(true);
+                setGuestPhone(sanitizePhone(e.target.value));
+              }}
+            />
           </Field>
         </>
       )}

@@ -14,21 +14,23 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatTime } from '@touch/i18n';
+import { formatTime, type MessageKey } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
+import { AppRpcError } from '../../lib/appRpc';
 import { errorToMessageKey } from '../../lib/errors';
 import { compareTableNumbers } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
 import { useLocale, pickName } from '../../lib/i18n';
-import { Button } from '../../components/ui';
+import { Button, type ReasonCode } from '../../components/ui';
 import {
   AsyncStateWrapper,
   DataTable,
   EmptyState,
   Money,
   PageHeader,
+  ReasonCodePrompt,
   SearchField,
   SegmentedControl,
   StatusBadge,
@@ -43,7 +45,7 @@ import { WaiterCallsPanel } from './WaiterCallsPanel';
 import { NewTabDialog } from './NewTabDialog';
 import { MergeTabsDialog } from './ManagerActions';
 import { computeTabTotals } from './tabTotals';
-import { OPEN_TABS_QUERY, TILL_MENU_QUERY, tabAnchorLabel, tabHasWebOrder, tabIsRemovable, type TabListRow } from './tillData';
+import { OPEN_TABS_QUERY, TILL_MENU_QUERY, tabAnchorLabel, tabHasWebOrder, tabRemovalBlocker, type TabListRow, type TabRemovalBlocker } from './tillData';
 import { muted } from './tillStyles';
 
 export type TabsFilter = 'table' | 'court' | 'name';
@@ -60,8 +62,26 @@ export interface BoardRow {
   total: number;
   stamped: boolean;
   web: boolean;
-  /** Nothing to reconcile — the status badge offers to remove it (0085). */
-  removable: boolean;
+  /**
+   * What holds this tab, or null when nothing does and the status badge may
+   * offer to remove it (0085). Named rather than boolean so the board can say
+   * WHICH thing holds it — see tabRemovalBlocker.
+   */
+  blocker: TabRemovalBlocker | null;
+}
+
+/**
+ * The message for a refused removal. A TAB_NOT_EMPTY carries the branch that
+ * fired in `detail`, so the answer after the press is the same sentence the
+ * board would have shown before it; anything else falls through to the shared
+ * code-to-message map.
+ */
+export function removalErrorKey(error: unknown): MessageKey {
+  if (error instanceof AppRpcError && error.code === 'TAB_NOT_EMPTY') {
+    const detail = error.details === 'reservation' ? 'reservation' : error.details === 'payments' ? 'payments' : error.details === 'adjustments' ? 'adjustments' : error.details === 'orders' ? 'orders' : null;
+    if (detail) return `ws.cashier.tabs.removeBlocked.${detail}` as MessageKey;
+  }
+  return errorToMessageKey(error);
 }
 
 /** Elapsed label for a server timestamp — display only. */
@@ -105,12 +125,21 @@ export function filterBoardRows(rows: readonly BoardRow[], filter: TabsFilter, q
  * and no dialog: this is the screen a cashier uses standing up.
  *
  * The blocked case is deliberately reachable rather than dead. A badge that
- * simply does not respond teaches nothing, so pressing a tab that owes money
- * answers the question instead — one red line, in the cell, saying that the
- * table has a payment to be made. That is also where a server refusal lands:
+ * simply does not respond teaches nothing, so pressing a held tab answers the
+ * question instead — one red line, in the cell, naming the thing that holds it
+ * (tabRemovalBlocker) and the move that clears it. That is also where a server
+ * refusal lands, in the same words for the same cause:
  * the board's copy of a tab is a cached read, so a waiter's order can arrive
  * between the render and the press, and the answer to that race must appear in
  * exactly the same place as the answer to the ordinary case.
+ *
+ * The refusal is rendered by BOTH branches, and that is the whole point. It
+ * used to hang off the resting branch alone, which is the one state a refusal
+ * can never be seen in: a refused removal leaves the row armed and removable,
+ * so the confirm branch re-rendered and the message the server sent — a stale
+ * day session, a tab that gained an order a second ago — was dropped on the
+ * floor. The cashier pressed "Yes, remove", the tab stayed, and the till said
+ * nothing at all.
  */
 function TabStatusCell({
   row,
@@ -139,16 +168,26 @@ function TabStatusCell({
     textWrap: 'balance',
   };
 
-  if (armed && row.removable) {
+  const refusal = error != null && (
+    <span role="alert" style={warn}>
+      <Icon name="alert" size={12} style={{ marginBlockStart: '0.15rem', flexShrink: 0 }} />
+      {tr(removalErrorKey(error))}
+    </span>
+  );
+
+  if (armed && row.blocker === null) {
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-        <StatusBadge tone="danger" icon="trash" size="sm" label={tr('ws.cashier.tabs.removeAsk')} />
-        <Button size="sm" kind="danger" busy={busy} onClick={onConfirm}>
-          {tr('ws.cashier.tabs.removeConfirm')}
-        </Button>
-        <Button size="sm" disabled={busy} onClick={() => onArm(false)}>
-          {tr('ws.cashier.tabs.removeKeep')}
-        </Button>
+      <span style={{ display: 'grid', justifyItems: 'start', gap: '0.3rem' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+          <StatusBadge tone="danger" icon="trash" size="sm" label={tr('ws.cashier.tabs.removeAsk')} />
+          <Button size="sm" kind="danger" busy={busy} onClick={onConfirm}>
+            {tr('ws.cashier.tabs.removeConfirm')}
+          </Button>
+          <Button size="sm" disabled={busy} onClick={() => onArm(false)}>
+            {tr('ws.cashier.tabs.removeKeep')}
+          </Button>
+        </span>
+        {refusal}
       </span>
     );
   }
@@ -166,21 +205,24 @@ function TabStatusCell({
         <TabStatusIndicator status={row.status} size="sm" />
         <span className="tp-sr-only"> — {tr('ws.cashier.tabs.removeArm')}</span>
       </button>
-      {armed && !row.removable && (
+      {armed && row.blocker !== null && (
         <span role="alert" style={warn}>
           <Icon name="alert" size={12} style={{ marginBlockStart: '0.15rem', flexShrink: 0 }} />
-          {tr('ws.cashier.tabs.removeBlocked')}
+          {tr(`ws.cashier.tabs.removeBlocked.${row.blocker}`)}
         </span>
       )}
-      {error != null && (
-        <span role="alert" style={warn}>
-          <Icon name="alert" size={12} style={{ marginBlockStart: '0.15rem', flexShrink: 0 }} />
-          {tr(errorToMessageKey(error))}
-        </span>
-      )}
+      {refusal}
     </span>
   );
 }
+
+/**
+ * Why a tab is being taken back. The same picker a cancelled booking goes
+ * through (CANCEL_REASONS on the court desk), minus the weather — a tab is
+ * opened indoors and no rain ever cancelled one — and plus `changed_mind`,
+ * which is the guest who sat down, read the menu and left.
+ */
+const TAB_REMOVE_REASONS = ['staff_error', 'duplicate', 'changed_mind', 'customer_request', 'other'] as const satisfies readonly ReasonCode[];
 
 export function OpenTabsBoard({
   status,
@@ -198,6 +240,7 @@ export function OpenTabsBoard({
   onRemoveTab,
   removingId,
   removeError,
+  onDismissRemoveError,
 }: {
   status: AsyncStatus;
   rows: readonly BoardRow[];
@@ -211,12 +254,25 @@ export function OpenTabsBoard({
   onMerge: (survivorId: string) => void;
   onOpenTab: () => void;
   onRetry: () => void;
-  /** Confirmed removal of an empty tab (0085). */
-  onRemoveTab: (id: string) => void;
+  /**
+   * Confirmed removal of an empty tab (0085), with the reason the cashier
+   * chose (0086) — 'code' or 'code: note', the shape the audit log already
+   * takes from a cancelled booking.
+   */
+  onRemoveTab: (id: string, reason: string) => void;
   /** The tab whose cancel_tab call is in flight. */
   removingId?: string | null;
   /** A refusal from the server, against the row it belongs to. */
   removeError?: { id: string; error: unknown } | null;
+  /**
+   * Drop a refusal that is no longer being answered. A refusal describes ONE
+   * press against ONE snapshot of a tab; without this it outlived both, so a
+   * tab refused once wore the message for the rest of the shift — through
+   * Keep, through arming another row, through every 30-second refetch — and
+   * read as the board's permanent opinion of that tab rather than as the
+   * answer to something the cashier just did.
+   */
+  onDismissRemoveError: () => void;
 }) {
   const { tr, locale } = useLocale();
   const visible = useMemo(() => filterBoardRows(rows, filter, query), [rows, filter, query]);
@@ -226,13 +282,37 @@ export function OpenTabsBoard({
    * clearest possible way to say they are done with the first.
    */
   const [armedId, setArmedId] = useState<string | null>(null);
-  // Escape backs out of the confirm, the way it backs out of every dialog here.
+  /*
+   * The tab whose reason is being asked for. Confirming the row does not
+   * remove it — it opens the same reason picker a cancelled booking goes
+   * through, because a tab that vanishes from the board with no recorded
+   * reason is the one destructive act in the till the audit log could not
+   * explain the next morning.
+   */
+  const [reasonFor, setReasonFor] = useState<string | null>(null);
+  // Escape backs out of the confirm, the way it backs out of every dialog
+  // here. Not while the reason prompt is up: that dialog owns its own Escape,
+  // and disarming the row underneath it would pull the ground out from under
+  // the thing being answered.
   useEffect(() => {
-    if (armedId === null) return;
+    if (armedId === null || reasonFor !== null) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setArmedId(null);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [armedId]);
+  }, [armedId, reasonFor]);
+  /*
+   * The tab leaving the board IS the acknowledgement — the query refetches
+   * after the RPC and a voided tab is not in the open-tabs select. Closing on
+   * that rather than on the call resolving keeps the prompt busy until the
+   * board actually agrees the tab is gone, and leaves it open (with the
+   * server's message inside it) when the removal was refused.
+   */
+  useEffect(() => {
+    if (reasonFor !== null && !rows.some((r) => r.id === reasonFor)) {
+      setReasonFor(null);
+      setArmedId(null);
+    }
+  }, [rows, reasonFor]);
 
   const columns: Column<BoardRow>[] = [
     {
@@ -269,8 +349,12 @@ export function OpenTabsBoard({
           armed={armedId === r.id}
           busy={removingId === r.id}
           error={removeError?.id === r.id ? removeError.error : null}
-          onArm={(next) => setArmedId(next ? r.id : null)}
-          onConfirm={() => onRemoveTab(r.id)}
+          onArm={(next) => {
+            setArmedId(next ? r.id : null);
+            setReasonFor(null);
+            onDismissRemoveError();
+          }}
+          onConfirm={() => setReasonFor(r.id)}
         />
       ),
     },
@@ -376,6 +460,22 @@ export function OpenTabsBoard({
         />
         <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.tabs.runningTotal')}</p>
       </AsyncStateWrapper>
+
+      {reasonFor !== null && (
+        <ReasonCodePrompt
+          action={tr('ws.cashier.tabs.removeAction')}
+          reasonCodes={TAB_REMOVE_REASONS}
+          busy={removingId === reasonFor}
+          error={removeError?.id === reasonFor ? removeError.error : undefined}
+          onSubmit={(code, note) => onRemoveTab(reasonFor, note ? `${code}: ${note}` : code)}
+          onCancel={() => setReasonFor(null)}
+        >
+          {/* Rulebook: the consequence is stated BEFORE the act, not after. */}
+          <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
+            {tr('ws.cashier.tabs.removeConsequence', { name: rows.find((r) => r.id === reasonFor)?.label ?? '' })}
+          </p>
+        </ReasonCodePrompt>
+      )}
     </div>
   );
 }
@@ -441,7 +541,7 @@ export function OpenTabsScreen() {
         // running figure, not a settled one, and must not render as stamped.
         stamped: t.total_iqd != null,
         web: tabHasWebOrder(t),
-        removable: tabIsRemovable(t),
+        blocker: tabRemovalBlocker(t),
       })),
     [tabsQ.data, taxCtx, tr, locale],
   );
@@ -456,11 +556,15 @@ export function OpenTabsScreen() {
    * minutes later cannot do meaningfully) and it takes the same direct-RPC
    * route as merge_tabs, the other tab-shape change on this screen.
    */
-  async function removeTab(id: string) {
+  async function removeTab(id: string, reason: string) {
     setRemovingId(id);
     setRemoveError(null);
     try {
-      await appRpc('cancel_tab', { p_tab_id: id });
+      await appRpc('cancel_tab', { p_tab_id: id, p_reason_code: reason });
+      // Awaited on purpose: ['tabs'] is mounted here, so this resolves only
+      // once the board has refetched without the cancelled tab — which is the
+      // signal the reason prompt closes on, and the reason `removingId` must
+      // still be set while it happens.
       await queryClient.invalidateQueries({ queryKey: ['tabs'] });
     } catch (e) {
       // Refusals belong in the row, not in a toast: the cashier is looking at
@@ -486,9 +590,10 @@ export function OpenTabsScreen() {
         onMerge={(id) => setMergeSurvivor((tabsQ.data ?? []).find((t) => t.id === id) ?? null)}
         onOpenTab={() => setNewTab(true)}
         onRetry={() => void tabsQ.refetch()}
-        onRemoveTab={(id) => void removeTab(id)}
+        onRemoveTab={(id, reason) => void removeTab(id, reason)}
         removingId={removingId}
         removeError={removeError}
+        onDismissRemoveError={() => setRemoveError(null)}
       />
       <aside style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <StartShiftBanner />
