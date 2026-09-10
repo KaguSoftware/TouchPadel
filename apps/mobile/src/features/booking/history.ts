@@ -18,8 +18,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { captureException } from '../../lib/telemetry';
 import { useAuth } from '../auth/context';
+// Defined in a pure module: the SEC-16 deletion purge must name this key too,
+// and cannot import this file (react-query / AsyncStorage). Re-exported so
+// every existing call site is unchanged.
+import { historyClearedKey } from './historyKeys';
 
-export const historyClearedKey = (userId: string) => `tp.historyClearedAt.${userId}`;
+export { historyClearedKey };
+
 
 export const historyKeys = {
   clearedAt: (userId: string) => ['history-cleared-at', userId] as const,

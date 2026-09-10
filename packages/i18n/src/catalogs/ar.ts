@@ -151,7 +151,6 @@ export const ar: Messages = {
     openNow: 'مفتوح الآن · {hours}',
     closedNow: 'مغلق حاليًا',
     reserveFooter: 'احجز من التطبيق · وادفع عند الاستقبال لدى وصولك',
-    rallyPaused: 'لا يوجد جمهور، فتوقّفت المباراة. المس الشاشة للمتابعة.',
     courtPhoto: 'صورة الملعب',
     fromPrice: 'ابتداءً من {price}',
     perHour: '{price} / ساعة',
@@ -618,6 +617,13 @@ export const ar: Messages = {
     confirmNewPassword: 'تأكيد كلمة المرور الجديدة',
     updatePassword: 'تحديث كلمة المرور',
     fillAllFields: 'املأ الحقول الثلاثة جميعها.',
+    // SEC-16 — حذف الحساب من داخل التطبيق.
+    deleteAccount: 'حذف الحساب',
+    deleteHeading: 'لا يمكن التراجع عن هذا.',
+    deleteBody:
+      'سيُحذف حسابك واسمك ورقم هاتفك فوراً، وسيتم تسجيل خروجك من كل الأجهزة. أما الحجوزات التي قمت بها فتبقى في سجلات النادي بدون أي اسم مرتبط بها، لأن النادي ملزم بالاحتفاظ بحساباته.',
+    deleteTypePrompt: 'اكتب {word} أدناه للتأكيد.',
+    deleteConfirmWord: 'حذف',
   },
   settings: {
     title: 'الإعدادات',

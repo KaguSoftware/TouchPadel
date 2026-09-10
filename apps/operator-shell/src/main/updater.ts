@@ -5,7 +5,7 @@ import type { UpdateReadyInfo } from '../ipc-channels';
  * Auto-update (design-arch.md §2.5, §8) — the plain electron-updater loop,
  * without the scheduling machinery that was cut from phase 1: check, download
  * silently, and wait. Installing is a human's call: the rail's "Restart to
- * update" control, or the manager-PIN quit (index.ts swaps app.exit for
+ * update" control, or Quit to desktop (index.ts swaps app.exit for
  * quitAndInstall when something is ready). `autoInstallOnAppQuit` covers the
  * one remaining exit — an OS shutdown that quits the app gracefully.
  *
@@ -22,7 +22,7 @@ export interface UpdaterHandle {
   checkNow(): void;
   /** quitAndInstall when a download is waiting; false (and nothing happens) otherwise. */
   installNow(): boolean;
-  /** Install silently without relaunching — for the manager-PIN quit path. */
+  /** Install silently without relaunching — for the Quit to desktop path. */
   installOnQuit(): boolean;
   ready(): UpdateReadyInfo | null;
   stop(): void;

@@ -114,6 +114,13 @@ export const BackChevronIcon = (p: IconProps) => <StrokeIcon d={['M15 6l-6 6 6 6
 export const PencilIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 20l1.2-4.2L16.5 4.5a2.05 2.05 0 012.9 2.9L8.2 18.8 4 20z']} {...p} />
 );
+/**
+ * SEC-16 — the delete-account row. Not directional, so no `flip`: a bin is the
+ * same shape in both reading orders.
+ */
+export const TrashIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 7h16M10 4h4M9.5 11v6M14.5 11v6M6 7l1 12.5h10L18 7']} {...p} />
+);
 export const LockIcon = (p: IconProps) => (
   <StrokeIcon d={['M8 10.5V8a4 4 0 018 0v2.5M5.5 10.5h13V20h-13v-9.5z']} {...p} />
 );

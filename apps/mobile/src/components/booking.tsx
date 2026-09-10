@@ -4,7 +4,7 @@
  * pay-at-desk card, degraded banners, day chips and merged slot cells.
  * Stateless — all data arrives as props (spec §06).
  */
-import type { ComponentType, ReactNode } from 'react';
+import { memo, type ComponentType, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '../i18n/text';
 import { formatDayNumber, formatMonthShort, isolate, type MessageKey } from '@touch/i18n';
@@ -1070,7 +1070,22 @@ export function DayChip({
  * (each `flex: 1`); a wrapping row with `flexGrow` stretched an odd last cell
  * to the full width, which the design's `repeat(2, 1fr)` never does.
  */
-export function SlotCell({
+/**
+ * MEMOISED, and its `onPress` takes the cell rather than closing over it.
+ *
+ * A trading night is up to ~34 of these, and every re-render of the surface
+ * around them — the day strip's selection moving, the minute tick, a refetch
+ * flag flipping — used to re-run all ~34 component bodies for a picture that
+ * had not changed. On the Book tab that is the JS thread the court's rally is
+ * drawn from, so it was frames off the animation for nothing.
+ *
+ * `memo` only earns that back if the props are shallow-equal, which is why the
+ * handler is `(cell) => void` and not `() => void`: an `onPress={() => tap(cell)}`
+ * at the call site is a new function on every render and would defeat it on its
+ * own. The other props are the cell (a stable object off the memoised grid) and
+ * three strings, which compare by value.
+ */
+export const SlotCell = memo(function SlotCell({
   cell,
   time,
   sub,
@@ -1085,7 +1100,8 @@ export function SlotCell({
   sub: string;
   /** "2 courts free" / "1 court left" — empty when not free. */
   capacityLine: string;
-  onPress?: () => void;
+  /** Handed the cell it was pressed on — see the note above on why. */
+  onPress?: (cell: MergedCell) => void;
   /**
    * The booking sheet's cell (court → booking transition, 2026-09-01): min
    * height 46, radius 12, 8×4 padding, a 2 pt border and 15 / 11 / 9.5 pt in
@@ -1104,7 +1120,7 @@ export function SlotCell({
       accessibilityRole="button"
       accessibilityState={{ disabled: !tappable }}
       disabled={!tappable}
-      onPress={onPress}
+      onPress={onPress ? () => onPress(cell) : undefined}
       style={({ pressed }) => ({
         flex: 1,
         alignItems: 'center',
@@ -1157,7 +1173,7 @@ export function SlotCell({
       ) : null}
     </Pressable>
   );
-}
+});
 
 // ── List row (profile menu rows) ────────────────────────────────────────────
 

@@ -39,6 +39,10 @@ export const shellEn = {
   lock: {
     title: 'Station locked',
     hint: 'Signed in as {name}. Unlock to continue where you left off.',
+    // SEC-34. Shown when the account has no unlock PIN — most cashiers. Says
+    // WHY the password is being asked for, so nobody thinks they have
+    // forgotten a PIN they were never given.
+    hintPassword: 'Signed in as {name}. This account has no unlock PIN, so enter your password.',
     pin: 'Your PIN',
     unlock: 'Unlock',
     usePassword: 'Use password instead',
@@ -125,6 +129,7 @@ export const shellEn = {
     signOut: 'Sign out',
     station: 'Station {id}',
     quit: 'Quit to desktop',
+    quitConfirm: 'This ends service on this station. Orders stop and the venue sees it go offline.',
     kitchenNoNav: 'Kitchen display',
     version: 'Version {version}',
     pairKitchen: 'Pair a kitchen screen',

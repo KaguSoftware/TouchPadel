@@ -339,6 +339,7 @@ export type Database = {
         }
       }
       claim_replay: { Args: { p_fn: string; p_key: string }; Returns: Json }
+      clear_pin_lockout: { Args: { p_staff_id: string }; Returns: Json }
       clear_staff_pin: { Args: { p_staff_id: string }; Returns: undefined }
       clear_table_token_secret_prev: { Args: never; Returns: Json }
       close_day: {
@@ -480,6 +481,7 @@ export type Database = {
       flag_expired_batches: { Args: never; Returns: undefined }
       generate_promo_code: { Args: { p_id: string }; Returns: string }
       generate_table_token: { Args: { p_table_id: string }; Returns: string }
+      has_own_pin: { Args: never; Returns: boolean }
       heartbeat: {
         Args: {
           p_app_version?: string
@@ -642,7 +644,9 @@ export type Database = {
       }
       phone_canon: { Args: { p_phone: string }; Returns: string }
       phone_digits: { Args: { p_phone: string }; Returns: string }
+      pin_delay_floor: { Args: never; Returns: string }
       pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
+      pin_pad_to_floor: { Args: { p_started: string }; Returns: undefined }
       preview_series: {
         Args: {
           p_court_id: string

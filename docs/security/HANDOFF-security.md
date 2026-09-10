@@ -1,6 +1,10 @@
 # Security programme — handoff
 
-**Written** 2026-09-07 · **Updated** 2026-09-07 (session 3) · **Branch** `kemal` · **HEAD** `33d89fd` + uncommitted work
+**Written** 2026-09-07 · **Updated** 2026-09-09 (session 4) · **Branch** `kemal`
+
+> **Session 4 corrected three things this file said.** Read §9 first if you are picking up mid-stream:
+> sessions 2-3's work IS committed and merged (`97b356c`), `E2E_PROD_BUILD=1` IS wired into CI, and the
+> pure-code queue in §5 is now empty.
 **Read this first in any new session that touches the security lane.** It exists so the state of
 the work survives a lost conversation. It is a pointer file: it records **what is true now, who
 is blocked on what, and what to do next** — not the checklists themselves.
@@ -90,7 +94,7 @@ Measured 2026-09-07 (session 2) by counting checkboxes, after reconciling `secur
 | | done | open | ticked |
 |---|---|---|---|
 | `security-layer-1.md` | 34 | 25 | **58%** |
-| `security-general.md` | 78 | 88 | **47%** |
+| `security-general.md` | **83** | **83** | **50%** — session 4 moved six boxes |
 
 Session 2 moved `security-general.md` from **45 to 78 done**. Roughly half of that was BUILDING and half
 was RECONCILING — Phase 5 in particular read 2/22 and was actually 15/22, because the desktop lane was
@@ -204,6 +208,9 @@ use.**
 
 ### The pure code that is genuinely LEFT
 
+**NONE. Session 4 emptied this queue** — all six items below are done; see §9. The list is kept because
+each entry records the reasoning that produced the work, and item 4's warning still stands as written.
+
 Ordered by value. None is blocked on anybody.
 
 1. **The in-app deletion SCREEN** (SEC-16, ★). `deleteAccount()` exists in
@@ -245,10 +252,9 @@ Ordered by value. None is blocked on anybody.
 
 Recorded rather than silently closed:
 
-1. **`E2E_PROD_BUILD=1` is set nowhere, including CI.** Two assertions in
-   `e2e/tests/web-security-headers.spec.ts` — the absence of `unsafe-eval` and the inline-script
-   nonce — are production-build properties and have therefore **never executed on any machine**.
-   CI must run that suite against `next build && next start`.
+1. ~~**`E2E_PROD_BUILD=1` is set nowhere, including CI.**~~ **CLOSED — it is set**, at
+   `.github/workflows/ci.yml:418`. This entry was already stale when it was written; verified
+   2026-09-09. The two production-build assertions in `e2e/tests/web-security-headers.spec.ts` do run.
 2. **`Cache-Control: no-store` does not survive on the rendered `/{locale}/t` page.** Next stamps
    its own `no-cache, must-revalidate` over both `headers()` and `NextResponse.next()`. Measured.
    Defence-in-depth, not access control — the session is gated by the HttpOnly cookie.
@@ -433,4 +439,119 @@ nothing here is even committed yet.
 
 ---
 
-*Kagu Web Studio · Touch Padel Phase 1 · 2026-09-07*
+---
+
+## 9 · Session 4 (2026-09-09) — the pure-code queue, emptied
+
+### What this file got wrong, and now says correctly
+
+1. **§8 said "nothing is committed" and "there is nothing to push yet".** Both were true when written
+   and are not now. Sessions 2-3's 49 files are committed and **merged into `main`** as `97b356c`
+   ("Security Full code implementation , verified rotating left"). Migrations 0077-0083 are on `main`.
+   A session picking this up must not go looking for lost work.
+2. **§6.1 said `E2E_PROD_BUILD=1` is set nowhere.** It is set, `ci.yml:418`.
+3. **The migration count moved on.** 0084 (`tab_seat_anchor`) and 0085 (`cancel_empty_tab`) arrived from
+   another lane; the client-callable RPC total went 141 → 143 before session 4 added two of its own.
+
+### Built
+
+| | |
+|---|---|
+| **SEC-16** in-app deletion screen | `app/delete-account.tsx` + `features/profile/{deletion,localPurge,purgeKeys}.ts` + `lib/authStorageKey.ts`. 21 tests. |
+| **SEC-36** quiet-error gate | `scripts/security/check-quiet-errors.mjs`, CI-wired, mutation-tested both ways. One real fix in `useOrders.loadError`. |
+| **SEC-13** PIN uniformity | migration **0086** + `pin-uniformity.test.ts` (12) + a new `check:invariants` lock. |
+| **SEC-35** client half | `lib/roleResolution.ts` + `auth.tsx`. 16 tests, 3 mutants caught. |
+| **SEC-32** station identity | `main/station.ts` `canTrade()`, guards on enqueue/lanStatus/print. 14 tests. |
+| **SEC-34** self-unlock gap | migration **0087** `app.has_own_pin()` + the lock screen. 6 tests. |
+
+### Bugs found by writing the tests, not by reading the code
+
+The programme's premise again: **the tests found things review did not.**
+
+1. **The lockout audit row silently disabled the lockout.** `audit_log.entity_id` is NOT NULL; the first
+   version of 0086 passed `null` there, so the whole transaction aborted — taking the `pin_attempts`
+   INSERT with it. The fifth failure was never recorded and `PIN_LOCKED` never engaged. This is the 0011
+   failure mode wearing a different hat, and it was green on inspection.
+2. **`verify_manager_pin` answered a CORRECT pin faster than a wrong one**, because only the second of
+   its two bcrypt scans could stop early. Real, and the direction that matters.
+3. **`idle-lock.test.ts`'s cleanup had never run**, for the life of the suite. `svc.from('pin_attempts')`
+   resolves to `public.pin_attempts`, which does not exist (the table is in `app`); PostgREST returned
+   PGRST205 and the error was never checked. It now asserts the delete landed.
+4. **A `station.json` with no `station_id` reported `configured: true` and traded as TILL1** with no
+   error anywhere. The missing-FILE path was handled; the incomplete-file path was not.
+5. **The SEC-36 gate's own first pattern missed the cast form** — `setError((err as Error).message)`,
+   which is the shape that actually occurs in TypeScript. Found by mutating it, not by reading it. A gate
+   that has only ever been seen to pass is indistinguishable from one that matches nothing.
+
+### Deliberate behaviour changes someone should sign off
+
+1. **Every manager authorisation now takes ≥250 ms** (0086's delay floor), on the money path — a
+   discount, a void, a refund — and holds its connection for that time. It is what makes match and
+   mismatch indistinguishable regardless of the bcrypt cost factor.
+2. **A machine with an incomplete `station.json` now refuses to queue a sale, print, or announce itself
+   on the LAN.** Previously it traded as TILL1. It still BOOTS — the setup screen that fixes it is
+   rendered by that same window.
+3. **The operator re-reads the staff role every 60 seconds** and drops its Realtime channels on a
+   definite revocation. A transient failure explicitly changes nothing.
+4. **A staff member with no PIN now sees the password field immediately** on the idle lock, and stays on
+   it. `verify_own_pin`'s `NO_PIN_SET` fallback remains as the backstop.
+
+### Verified 2026-09-09, executed not assumed
+
+Container runtime up (OrbStack), `pnpm db:reset && pnpm db:fixtures` from scratch — **0086 and 0087
+apply cleanly on a virgin database**, which is the check migration 0069 exists to remind everyone of.
+
+**770** DB tests · **601** operator · **516** mobile · **183** web · **25** i18n · **189/190**
+operator-shell. `pnpm e2e` is red for reasons predating this work — see item 5 below.
+All 8 DB gates + `check:electron` PASS — `check:migrations` scoped to the two new files
+(`--base=HEAD` with them staged); it is red against a freshly-fetched `origin/main` for the branch
+reason in item 6, not for anything in these migrations. Six of seven `scripts/security/*.mjs` PASS.
+RPC coverage ratcheted **138/141 → 141/144**; the 3 uncovered are the documented exclusions.
+
+### Open, and NOT mine to have closed
+
+1. ⛔ **`check-dependency-audit.mjs` FAILS — 5 un-waived advisories at high or above, including TWO
+   CRITICAL unauthenticated-RCE Next.js issues** (GHSA-p293-qw3h-jr36 windows-hosted RCE, and
+   GHSA-2xp9-vwfh-vxw4 RCE in the Image Optimization API when AVIF files are used — `apps/web` serves
+   menu media). Installed `next@16.3.2`; **both are fixed in 16.3.3**, a patch bump. Also HIGH: `sharp`
+   (via next), `extract-zip` (via electron), `js-yaml` (via expo). This is pre-existing and NEW since
+   2026-09-07 — freshly published advisories, not a dependency change. It is deliberately NOT bundled
+   into this change set: a dependency bump on the guest-facing app deserves its own PR and its own
+   verification. **It is the most urgent thing in this file.**
+2. ⛔ **`pnpm turbo lint` is RED on `main`** and not because of the security lane:
+   `apps/mobile/src/components/Court3D.tsx:107` imports `frameRepaints` and never uses it
+   (`@typescript-eslint/no-unused-vars`, an error not a warning). Introduced by `2829d14`. One line.
+   Left for that lane's owner rather than edited from here.
+3. **`better-sqlite3` is ABI-flipped to NODE** on this machine (`pnpm --filter @touch/operator-shell
+   native:node`) so the shell suite can run. `pnpm dist` and the release workflow flip it back. The
+   package's own README field documents this; it is not a change, just state to know about.
+4. **`lan-discover.test.ts > sweeps many hosts` times out at 10s on this machine.** It does a real TCP
+   sweep of the local /24 and imports nothing session 4 touched. Environment-dependent, pre-existing.
+5. ⛔ **`pnpm e2e` is RED: 12 operator specs fail, 32 pass, 4 do not run.** (Session 3 recorded 48/48.)
+   `operator-stock.spec.ts:88` fails as `ingredients` never reaching the database after the UI reports
+   "Saved." — the write does not land — and the other eleven are the same family across
+   `operator-journey` and `operator-cafe-admin`.
+   **PROVEN NOT to be the security lane**, by two controlled runs: with session 4's two operator files
+   stashed it fails identically, and with those stashed AND migrations 0086/0087 removed from a fresh
+   `db:reset` it fails identically again. The cause is on `main` at `bb77c04`. Somebody who owns the
+   operator lane needs to look at it; the traces are under `test-results/`.
+6. ✅ **RESOLVED — the branch was replayed onto the rewritten `main`.**
+   `kemal` had been cut before the repo-wide history rewrite, so it and `main` shared no usable
+   ancestry: 181 commits on each side, 180 with identical subjects — the same work under different
+   hashes. That was not cosmetic. It would have shown 181 phantom commits on a PR, it made
+   `check:migrations` scope itself back to 2026-08-30 and judge **33** historical migration files
+   (failing on 0067/0075), and — the serious one — three of those pre-rewrite commits still carried
+   the AI co-author trailers the rewrite existed to strip, so pushing the branch would have put them
+   back into the repository.
+   Fixed by replaying the branch's three real commits onto `origin/main` and discarding the 181
+   duplicates. **The resulting tree hash is unchanged** (`f05dd13…`), so nothing was lost — verified
+   against the pre-cleanup tip before and after.
+   ⚠ Note the trap for next time: **before `git fetch`, `origin/main` was a stale ref and the count
+   read `0  0`.** The divergence is invisible from `git status` and from an unfetched `git log`.
+   A branch cut before the rewrite must be replayed, never merged — merging re-imports the very
+   commits the rewrite removed.
+
+5. **The 250 ms PIN floor is a constant, not a `venue_setting`.** Deliberate — a tunable security floor
+   is one somebody eventually tunes to zero — but it is a decision, so it is recorded rather than buried.
+
+*Kagu Web Studio · Touch Padel Phase 1 · 2026-09-09*

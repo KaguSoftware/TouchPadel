@@ -162,3 +162,36 @@ export function installNotificationHandler(opts: {
     remove?.();
   };
 }
+
+/**
+ * SEC-16 — surrender this device's push token, locally.
+ *
+ * app.delete_my_account already nulls `profiles.expo_push_token`, so the SERVER
+ * can no longer address the handset. This is the other half: Expo's push
+ * service still holds a live token minted for this installation, and the OS
+ * still has the app registered for remote notifications. Neither is reachable
+ * from SQL.
+ *
+ * `unregisterForNotificationsAsync` invalidates the token with APNs/FCM, which
+ * is what makes a notification queued in the seconds before deletion fail to
+ * deliver instead of landing on a phone whose owner just deleted their account.
+ *
+ * Never throws, and returns false rather than reporting a problem: this runs
+ * inside a deletion the server has ALREADY committed. Nothing here can be
+ * retried by the user, so an error has no action attached to it — the only
+ * honest outcomes are "done" and "could not, and it changes nothing you can
+ * act on". Expo Go, simulators and web all take the false path.
+ */
+export async function unregisterPushTokenLocally(): Promise<boolean> {
+  try {
+    if (isRunningInExpoGo()) return false;
+    const Device = await import('expo-device');
+    if (!Device.isDevice) return false;
+    const Notifications = await import('expo-notifications');
+    await Notifications.unregisterForNotificationsAsync();
+    addBreadcrumb('push.unregistered');
+    return true;
+  } catch {
+    return false;
+  }
+}

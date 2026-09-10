@@ -45,11 +45,10 @@ export default function AvailabilityScreen() {
   // tap, to buy the offset back at 0. Reset the offset by hand instead and let
   // React reconcile; the sheet on the Book tab does the same, and has the
   // longer note on why.
-  const gridKey = `${a.date}|${a.durationMin}`;
   const gridRef = useRef<ScrollView>(null);
   useEffect(() => {
     gridRef.current?.scrollTo({ y: 0, animated: false });
-  }, [gridKey]);
+  }, [a.gridKey]);
 
   // The venue notice floats over the grid and leaves only when the guest
   // closes it — a refetch flipping `degraded` back on must not resurrect it.
@@ -202,19 +201,20 @@ export default function AvailabilityScreen() {
             <Hint>{t('booking.noSlots')}</Hint>
           ) : (
             <>
+              {/* Keyed by POSITION: the cells are an interchangeable ladder with
+                  no state of their own, so a day change reuses the rows in place
+                  instead of unmounting every cell and building a new one (the
+                  sheet's copy carries the long note). */}
               {a.rows.map((row, i) => (
-                <View
-                  key={row[0]?.startAt.toISOString() ?? i}
-                  style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}
-                >
-                  {row.map((cell) => (
+                <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                  {row.map((cell, c) => (
                     <SlotCell
-                      key={cell.startAt.toISOString()}
+                      key={c}
                       cell={cell}
                       time={formatTime(cell.startAt, locale, a.tz)}
                       sub={a.subFor(cell)}
                       capacityLine={a.capacityLineFor(cell)}
-                      onPress={() => a.onTapCell(cell)}
+                      onPress={a.onTapCell}
                     />
                   ))}
                   {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
