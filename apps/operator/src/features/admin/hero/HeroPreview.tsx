@@ -132,7 +132,14 @@ export function HeroPreview(p: HeroPreviewProps) {
 
       {p.mode === 'featured' && <FeaturedCard {...p} label={label} badge={badge} />}
 
-      <div style={{ paddingBlock: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-2)' }}>
+      <div
+        style={{
+          paddingBlock: 'var(--tp-sp-3)',
+          paddingInline: 'var(--tp-sp-4)',
+          display: 'grid',
+          gap: 'var(--tp-sp-2)',
+        }}
+      >
         {[0, 1, 2].map((i) => (
           <div
             key={i}
@@ -177,7 +184,9 @@ function FeaturedCard({
   const name = item ? (locale === 'ar' ? item.name_ar : item.name_en) : tr('op.hero.itemRequired');
   const list = item?.price_iqd ?? null;
   const discounted =
-    list !== null && discountPct > 0 && discountPct < 100 ? applyPctDiscountIqd(list, discountPct) : null;
+    list !== null && discountPct > 0 && discountPct < 100
+      ? applyPctDiscountIqd(list, discountPct)
+      : null;
 
   return (
     <div
@@ -218,18 +227,38 @@ function FeaturedCard({
       </div>
       <div style={{ paddingBlock: 'var(--tp-sp-2-5)', paddingInline: 'var(--tp-sp-3)' }}>
         {label && (
-          <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-accent)' }}>
+          <div
+            style={{
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              fontSize: 'var(--tp-fs-xs)',
+              color: 'var(--tp-accent)',
+            }}
+          >
             <span style={{ display: 'inline-block', animation: 'tpMarquee 10s linear infinite' }}>
               {label}
             </span>
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            gap: 'var(--tp-sp-2)',
+          }}
+        >
           <strong style={{ fontSize: 'var(--tp-fs-lg)' }}>{name}</strong>
           {list !== null && (
             <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
               {discounted !== null && (
-                <s style={{ color: 'var(--tp-muted-fg)', marginInlineEnd: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)' }}>
+                <s
+                  style={{
+                    color: 'var(--tp-muted-fg)',
+                    marginInlineEnd: 'var(--tp-sp-1-5)',
+                    fontSize: 'var(--tp-fs-sm)',
+                  }}
+                >
                   {formatIQD(list, locale)}
                 </s>
               )}

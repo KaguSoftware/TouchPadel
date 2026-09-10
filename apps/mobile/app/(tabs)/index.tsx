@@ -17,10 +17,7 @@ import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { logicalSign } from '../../src/i18n/direction';
 import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
-import {
-  openNowInfo,
-  type VenueSettingsPublic,
-} from '../../src/features/availability/assemble';
+import { openNowInfo, type VenueSettingsPublic } from '../../src/features/availability/assemble';
 import { useAuth } from '../../src/features/auth/context';
 import { registerPushToken } from '../../src/features/profile/push';
 import { useCourtTransition } from '../../src/features/courtTransition/useCourtTransition';
@@ -330,9 +327,7 @@ export default function BookHomeScreen() {
   const dark = appearance === 'dark';
   const glass = withAlpha(
     colors.bg,
-    Platform.OS === 'ios'
-      ? PICK_PILL_TINT[dark ? 'iosDark' : 'iosLight']
-      : PICK_PILL_TINT.other,
+    Platform.OS === 'ios' ? PICK_PILL_TINT[dark ? 'iosDark' : 'iosLight'] : PICK_PILL_TINT.other,
   );
   // The chevron's own surface: the capsule's colour, laid over the capsule, so
   // it lightens in light mode and — over a dark `bg` — deepens in dark. Either

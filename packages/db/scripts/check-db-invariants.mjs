@@ -62,7 +62,12 @@ function query(sql) {
     console.error(`      container: ${CONTAINER}`);
     console.error('      Start the stack first:  pnpm db:start');
     console.error('');
-    console.error(String(err.stderr ?? err.message).split('\n').slice(0, 3).join('\n'));
+    console.error(
+      String(err.stderr ?? err.message)
+        .split('\n')
+        .slice(0, 3)
+        .join('\n'),
+    );
     process.exit(1);
   }
 }
@@ -137,7 +142,7 @@ if (unexpectedOff.length > 0) {
       unexpectedOff.map((v) => `        ${v.qualified}`).join('\n') +
       '\n\n' +
       '      Such a view reads past the RLS policies of whoever queries it. If that is\n' +
-      "      deliberate, add its name to AUDITED_OWNER_RIGHTS_VIEWS in this script — that\n" +
+      '      deliberate, add its name to AUDITED_OWNER_RIGHTS_VIEWS in this script — that\n' +
       "      edit asserts the view's own WHERE clause is the complete access control for\n" +
       '      every row it can return. Otherwise:  alter view … set (security_invoker = on);',
   );

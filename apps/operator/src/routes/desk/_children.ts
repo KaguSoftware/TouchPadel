@@ -9,15 +9,42 @@ import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { deskRoute } from '../desk';
 import { RoutePending, guarded } from '../admin/_shared';
 
-const DeskCalendar = lazyRouteComponent(() => import('../../features/desk/DeskCalendar'), 'DeskCalendar');
-const TodaysBoard = lazyRouteComponent(() => import('../../features/desk/TodaysBoard'), 'TodaysBoardScreen');
-const BookingDetail = lazyRouteComponent(() => import('../../features/desk/BookingDetail'), 'BookingDetailScreen');
-const CourtBlock = lazyRouteComponent(() => import('../../features/desk/CourtBlock'), 'CourtBlockScreen');
-const SeriesCreate = lazyRouteComponent(() => import('../../features/desk/series/SeriesCreate'), 'RecurringSeriesCreateScreen');
-const SeriesDetail = lazyRouteComponent(() => import('../../features/desk/series/SeriesDetail'), 'SeriesDetailScreen');
-const CustomerSearch = lazyRouteComponent(() => import('../../features/desk/customers/CustomerSearch'), 'CustomerSearchScreen');
-const CustomerCreate = lazyRouteComponent(() => import('../../features/desk/customers/CustomerCreate'), 'CustomerCreateScreen');
-const CustomerRecord = lazyRouteComponent(() => import('../../features/desk/customers/CustomerRecord'), 'CustomerRecordScreen');
+const DeskCalendar = lazyRouteComponent(
+  () => import('../../features/desk/DeskCalendar'),
+  'DeskCalendar',
+);
+const TodaysBoard = lazyRouteComponent(
+  () => import('../../features/desk/TodaysBoard'),
+  'TodaysBoardScreen',
+);
+const BookingDetail = lazyRouteComponent(
+  () => import('../../features/desk/BookingDetail'),
+  'BookingDetailScreen',
+);
+const CourtBlock = lazyRouteComponent(
+  () => import('../../features/desk/CourtBlock'),
+  'CourtBlockScreen',
+);
+const SeriesCreate = lazyRouteComponent(
+  () => import('../../features/desk/series/SeriesCreate'),
+  'RecurringSeriesCreateScreen',
+);
+const SeriesDetail = lazyRouteComponent(
+  () => import('../../features/desk/series/SeriesDetail'),
+  'SeriesDetailScreen',
+);
+const CustomerSearch = lazyRouteComponent(
+  () => import('../../features/desk/customers/CustomerSearch'),
+  'CustomerSearchScreen',
+);
+const CustomerCreate = lazyRouteComponent(
+  () => import('../../features/desk/customers/CustomerCreate'),
+  'CustomerCreateScreen',
+);
+const CustomerRecord = lazyRouteComponent(
+  () => import('../../features/desk/customers/CustomerRecord'),
+  'CustomerRecordScreen',
+);
 
 // Kept here (not imported from the feature) so the route module stays a thin
 // shell that does not pull the lazy chunk in eagerly.
@@ -38,7 +65,11 @@ function validateBookingSearch(raw: Record<string, unknown>): { customer?: strin
   return typeof raw.customer === 'string' ? { customer: raw.customer } : {};
 }
 
-const child = <P extends string>(path: P, guardRoute: string, Component: Parameters<typeof guarded>[1]) =>
+const child = <P extends string>(
+  path: P,
+  guardRoute: string,
+  Component: Parameters<typeof guarded>[1],
+) =>
   createRoute({
     getParentRoute: () => deskRoute,
     path,

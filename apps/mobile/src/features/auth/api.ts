@@ -79,7 +79,11 @@ export async function resendVerification(
   if (error) throw error;
 }
 
-export async function sendPasswordReset(client: Client, email: string, redirectTo = RESET_REDIRECT) {
+export async function sendPasswordReset(
+  client: Client,
+  email: string,
+  redirectTo = RESET_REDIRECT,
+) {
   const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
     redirectTo,
   });
@@ -184,7 +188,11 @@ export async function sendPhoneOtp(client: Client, phoneE164: string) {
 }
 
 export async function verifyPhoneOtp(client: Client, phoneE164: string, code: string) {
-  const { data, error } = await client.auth.verifyOtp({ phone: phoneE164, token: code, type: 'sms' });
+  const { data, error } = await client.auth.verifyOtp({
+    phone: phoneE164,
+    token: code,
+    type: 'sms',
+  });
   if (error) throw error;
   return data;
 }

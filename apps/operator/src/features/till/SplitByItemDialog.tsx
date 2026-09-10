@@ -53,7 +53,9 @@ export function SplitByItemPanel({
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
 
-  const unassigned = live.filter((l) => assignment[l.id] === undefined || assignment[l.id]! >= parts);
+  const unassigned = live.filter(
+    (l) => assignment[l.id] === undefined || assignment[l.id]! >= parts,
+  );
   const ready = live.length > 0 && unassigned.length === 0;
 
   async function compute() {
@@ -81,7 +83,11 @@ export function SplitByItemPanel({
     setShares(null);
     // Anything assigned to a part that no longer exists becomes unallocated
     // again, so reducing the count can never leave the split silently wrong.
-    setAssignment((prev) => Object.fromEntries(Object.entries(prev).map(([id, p]) => [id, p !== undefined && p >= n ? undefined : p])));
+    setAssignment((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).map(([id, p]) => [id, p !== undefined && p >= n ? undefined : p]),
+      ),
+    );
   }
 
   return (
@@ -99,7 +105,14 @@ export function SplitByItemPanel({
         />
       </Field>
 
-      <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', maxBlockSize: '16rem', overflowY: 'auto' }}>
+      <div
+        style={{
+          border: '1px solid var(--tp-border)',
+          borderRadius: 'var(--tp-radius-panel)',
+          maxBlockSize: '16rem',
+          overflowY: 'auto',
+        }}
+      >
         {live.map((l) => {
           const name = `${l.qty}× ${pickName(locale, l.menu_item)}${l.variant ? ` (${pickName(locale, l.variant)})` : ''}`;
           const current = assignment[l.id];
@@ -108,7 +121,15 @@ export function SplitByItemPanel({
               key={l.id}
               className="tp-row"
               data-selected={current === undefined ? undefined : 'true'}
-              style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-touch)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', borderBlockEnd: '1px solid var(--tp-border)' }}
+              style={{
+                display: 'flex',
+                gap: 'var(--tp-sp-2)',
+                alignItems: 'center',
+                minBlockSize: 'var(--tp-touch)',
+                paddingBlock: 'var(--tp-sp-1-5)',
+                paddingInline: 'var(--tp-sp-2-5)',
+                borderBlockEnd: '1px solid var(--tp-border)',
+              }}
             >
               <span style={{ flex: 1, minInlineSize: 0 }}>
                 <bdi>{name}</bdi>
@@ -136,7 +157,15 @@ export function SplitByItemPanel({
       </div>
 
       {unassigned.length > 0 && (
-        <MessagePresenter tone="refused" message={<>{tr('ws.cashier.split.unallocated', { count: unassigned.length })} {tr('ws.cashier.split.unallocatedHint')}</>} />
+        <MessagePresenter
+          tone="refused"
+          message={
+            <>
+              {tr('ws.cashier.split.unallocated', { count: unassigned.length })}{' '}
+              {tr('ws.cashier.split.unallocatedHint')}
+            </>
+          }
+        />
       )}
 
       <ErrorText error={error} />
@@ -156,12 +185,18 @@ export function SplitByItemPanel({
               <span>
                 {tr('ws.cashier.split.share', { index: i + 1 })}: <Money amount={s} strong />
               </span>
-              <Button icon="banknote" disabled={busy || due <= 0 || s > due} onClick={() => onSettleShare(s)}>
+              <Button
+                icon="banknote"
+                disabled={busy || due <= 0 || s > due}
+                onClick={() => onSettleShare(s)}
+              >
                 {tr('ws.cashier.split.settleShare')}
               </Button>
             </div>
           ))}
-          <p style={muted}>{tr('ws.cashier.split.remaining', { amount: formatIQD(due, locale) })}</p>
+          <p style={muted}>
+            {tr('ws.cashier.split.remaining', { amount: formatIQD(due, locale) })}
+          </p>
         </div>
       )}
     </div>

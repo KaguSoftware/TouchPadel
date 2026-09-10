@@ -3,7 +3,10 @@ import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { observationRoute, observationIndexRoute } from '../observation';
 import { RoutePending, guarded } from '../admin/_shared';
 
-const StaffRequests = lazyRouteComponent(() => import('../../features/observation/StaffRequests'), 'StaffRequestsScreen');
+const StaffRequests = lazyRouteComponent(
+  () => import('../../features/observation/StaffRequests'),
+  'StaffRequestsScreen',
+);
 
 export const observationChildren = [
   observationIndexRoute,

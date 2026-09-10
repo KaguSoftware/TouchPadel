@@ -11,7 +11,13 @@
  *
  * Secrets: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM.
  */
-import { SmsProviderError, type SmsChannel, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
+import {
+  SmsProviderError,
+  type SmsChannel,
+  type SmsProvider,
+  type SmsSendArgs,
+  type SmsSendResult,
+} from './types.ts';
 
 export function twilioProvider(env: {
   accountSid: string;
@@ -35,9 +41,17 @@ export function twilioProvider(env: {
           body: form,
         },
       );
-      const data = (await res.json().catch(() => ({}))) as { sid?: string; message?: string; code?: number };
+      const data = (await res.json().catch(() => ({}))) as {
+        sid?: string;
+        message?: string;
+        code?: number;
+      };
       if (!res.ok) {
-        throw new SmsProviderError('twilio', `twilio ${res.status}${data.code ? ` (${data.code})` : ''}: ${data.message ?? 'send failed'}`, res.status);
+        throw new SmsProviderError(
+          'twilio',
+          `twilio ${res.status}${data.code ? ` (${data.code})` : ''}: ${data.message ?? 'send failed'}`,
+          res.status,
+        );
       }
       return { id: data.sid, channel };
     },

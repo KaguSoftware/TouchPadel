@@ -104,7 +104,6 @@ import { buildCourtScene, type CourtScene } from '../features/courtTransition/sc
 import { LOOP_SECONDS, nextLegStart } from '../features/courtTransition/rally';
 import { pitchEase, type Dir } from '../features/courtTransition/spec';
 import { canAnimate, canDraw } from '../features/courtTransition/surfaceState';
-import { frameRepaints } from '../features/courtTransition/staleCover';
 import { addBreadcrumb, captureException, captureMessage, describeError } from '../lib/telemetry';
 import { brand, useTheme } from '../theme';
 import { PATTERN_DEFAULT_OPACITY, patternInk } from '../theme/brandPattern';
@@ -404,7 +403,6 @@ export function Court3D({
    * counts as having reached the screen when this says 'active'.
    */
   const appStateRef = useRef<string>(AppState.currentState);
-
 
   sizeCb.current = onSize;
   unavailableCb.current = onUnavailable;

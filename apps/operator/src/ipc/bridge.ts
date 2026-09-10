@@ -144,8 +144,7 @@ export interface StationSetupRequest {
 }
 
 export type StationSetupResult =
-  | { ok: true }
-  | { ok: false; error: 'already-configured' | 'write-failed' };
+  { ok: true } | { ok: false; error: 'already-configured' | 'write-failed' };
 
 export type PairingInfoResult =
   | { ok: true; stationId: string; host: string | null; port: number; code: string }
@@ -179,8 +178,7 @@ export interface ResolveQueueRowRequest {
 }
 
 export type ResolveQueueRowResult =
-  | { ok: true }
-  | { ok: false; error: 'pin not recognised' | 'not-resolvable' };
+  { ok: true } | { ok: false; error: 'pin not recognised' | 'not-resolvable' };
 
 export interface TouchBridge {
   enqueue(m: MutationEnvelope): Promise<{ localId: string; state: 'queued' }>;
@@ -281,7 +279,12 @@ const mock: TouchBridge = {
   getStation() {
     // `configured: true` keeps the first-run screen out of browser mode and the
     // e2e suite; there is no station.json to write outside Electron.
-    return { stationId: 'DEV1', mode: 'till', configured: true, appVersion: import.meta.env.VITE_APP_VERSION ?? 'dev' };
+    return {
+      stationId: 'DEV1',
+      mode: 'till',
+      configured: true,
+      appVersion: import.meta.env.VITE_APP_VERSION ?? 'dev',
+    };
   },
   async saveStation() {
     console.warn('[touch:mock] saveStation: no station.json outside Electron');
@@ -301,4 +304,5 @@ const mock: TouchBridge = {
   },
 };
 
-export const touch: TouchBridge = typeof window !== 'undefined' && window.touch ? window.touch : mock;
+export const touch: TouchBridge =
+  typeof window !== 'undefined' && window.touch ? window.touch : mock;

@@ -3,7 +3,16 @@
  * popularity). Long item names get a wide category axis; the value formatter is
  * injected so money and counts read the same as everywhere else on the page.
  */
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { useLocale } from '../../../lib/i18n';
 import { AXIS, BAR_MUTED, GRID, HIGHLIGHT } from './colors';
 
@@ -28,10 +37,26 @@ export function HBarChart({
   const { dir } = useLocale();
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={[...rows]} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 4 }}>
+      <BarChart
+        data={[...rows]}
+        layout="vertical"
+        margin={{ top: 4, right: 16, bottom: 4, left: 4 }}
+      >
         <CartesianGrid stroke={GRID} horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 11, fill: AXIS }} stroke={GRID} tickFormatter={format} />
-        <YAxis type="category" dataKey="label" width={axisWidth} tick={{ fontSize: 11, fill: AXIS }} stroke={GRID} interval={0} />
+        <XAxis
+          type="number"
+          tick={{ fontSize: 11, fill: AXIS }}
+          stroke={GRID}
+          tickFormatter={format}
+        />
+        <YAxis
+          type="category"
+          dataKey="label"
+          width={axisWidth}
+          tick={{ fontSize: 11, fill: AXIS }}
+          stroke={GRID}
+          interval={0}
+        />
         <Tooltip
           wrapperStyle={{ direction: dir }}
           contentStyle={{ fontSize: 'var(--tp-fs-sm)' }}

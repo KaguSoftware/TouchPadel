@@ -86,8 +86,24 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     const props = renderView({
       reservations: [
         row({ id: 'r1', guest_id: 'g1' }),
-        row({ id: 'r2', court_id: 'c2', status: 'arrived', start_at: '2026-09-03T14:00:00.000Z', end_at: '2026-09-03T15:00:00.000Z', guest_name: 'Omar' }),
-        row({ id: 'm1', kind: 'maintenance', court_id: 'c2', start_at: '2026-09-03T18:00:00.000Z', end_at: '2026-09-03T19:00:00.000Z', guest_name: null, notes: 'Net repair', price_iqd: null }),
+        row({
+          id: 'r2',
+          court_id: 'c2',
+          status: 'arrived',
+          start_at: '2026-09-03T14:00:00.000Z',
+          end_at: '2026-09-03T15:00:00.000Z',
+          guest_name: 'Omar',
+        }),
+        row({
+          id: 'm1',
+          kind: 'maintenance',
+          court_id: 'c2',
+          start_at: '2026-09-03T18:00:00.000Z',
+          end_at: '2026-09-03T19:00:00.000Z',
+          guest_name: null,
+          notes: 'Net repair',
+          price_iqd: null,
+        }),
       ],
       tabLinks: [{ reservation_id: 'r1', status: 'settled' }],
       flagsByGuest: new Map([['g1', [{ type: 'vip', label: null }]]]),

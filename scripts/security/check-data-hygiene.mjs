@@ -32,11 +32,7 @@ import { readFileSync } from 'node:fs';
 
 /** Where committed data lives. Source code is scanned too — a hardcoded number
  *  in a test helper is the same leak with a different file extension. */
-const DATA_GLOBS = [
-  'packages/db/fixtures/',
-  'packages/db/seeds/',
-  'packages/db/client-data/',
-];
+const DATA_GLOBS = ['packages/db/fixtures/', 'packages/db/seeds/', 'packages/db/client-data/'];
 
 /**
  * Iraqi mobile, in every shape people actually write it:
@@ -99,7 +95,10 @@ const PII_PATTERNS = [
   },
 ];
 
-const tracked = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 })
+const tracked = execFileSync('git', ['ls-files', '-z'], {
+  encoding: 'utf8',
+  maxBuffer: 128 * 1024 * 1024,
+})
   .split('\0')
   .filter(Boolean);
 
@@ -173,7 +172,9 @@ if (grandfathered.size > 0) {
 }
 
 if (findings.length === 0) {
-  console.log('PASS  no NEW real-format phone number and no NEW personal data in committed fixtures, seeds or intake packs.');
+  console.log(
+    'PASS  no NEW real-format phone number and no NEW personal data in committed fixtures, seeds or intake packs.',
+  );
   process.exit(0);
 }
 
@@ -185,6 +186,6 @@ for (const f of findings) {
   console.error('');
 }
 console.error('Fixtures are loaded into whatever database is to hand — and there is only one');
-console.error('Supabase project (D1), the venue\'s live one. A plausible number here becomes a');
+console.error("Supabase project (D1), the venue's live one. A plausible number here becomes a");
 console.error('row in profiles, then a backup, then an SMS to a stranger.');
 process.exit(1);

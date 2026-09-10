@@ -105,7 +105,9 @@ describe('sheet drag wiring', () => {
       });
 
       it('uses the single drag hook', () => {
-        expect(src).toMatch(/import \{ useSheetDrag \} from '(\.\.\/)?ItemSheet\/drag'|from '\.\/drag'/);
+        expect(src).toMatch(
+          /import \{ useSheetDrag \} from '(\.\.\/)?ItemSheet\/drag'|from '\.\/drag'/,
+        );
         expect(src).not.toContain("from '@/hooks/cafe/useSheetDrag'");
       });
 
@@ -130,7 +132,9 @@ describe('sheet drag wiring', () => {
       });
 
       it('arms the drag on the header only', () => {
-        expect(src).toMatch(/className="tp-sheet__header[^"]*" *\n? *(data-[^\n]*\n *)*ref=\{headerRef\}|ref=\{headerRef\}/);
+        expect(src).toMatch(
+          /className="tp-sheet__header[^"]*" *\n? *(data-[^\n]*\n *)*ref=\{headerRef\}|ref=\{headerRef\}/,
+        );
         expect(src).toContain('tp-sheet__grip');
       });
     });
@@ -140,7 +144,9 @@ describe('sheet drag wiring', () => {
 describe('sheet header css', () => {
   it('keeps touch-action:none on the drag header', () => {
     // without it the browser scrolls instead of letting the gesture through
-    expect(read('styles/cafe/sheet.css.ts')).toMatch(/\.tp-sheet__header \{[^}]*touch-action: none/);
+    expect(read('styles/cafe/sheet.css.ts')).toMatch(
+      /\.tp-sheet__header \{[^}]*touch-action: none/,
+    );
   });
 
   it('gives a dragged close its own exit', () => {

@@ -16,7 +16,11 @@ import { DRAG_CLOSE_PX, DRAG_FADE_PX, DRAG_INTENT_PX } from './constants';
 export type DragIntent = 'pending' | 'vertical' | 'horizontal';
 
 /** Which axis the gesture committed to, once it has travelled far enough. */
-export function resolveIntent(dx: number, dy: number, intentPx: number = DRAG_INTENT_PX): DragIntent {
+export function resolveIntent(
+  dx: number,
+  dy: number,
+  intentPx: number = DRAG_INTENT_PX,
+): DragIntent {
   if (Math.abs(dx) < intentPx && Math.abs(dy) < intentPx) return 'pending';
   return Math.abs(dy) > Math.abs(dx) ? 'vertical' : 'horizontal';
 }

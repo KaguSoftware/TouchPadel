@@ -134,7 +134,10 @@ export function isDirty(a: PromotionDraft, b: PromotionDraft): boolean {
 export type PromotionLifecycle = 'disabled' | 'scheduled' | 'live' | 'expired';
 
 /** Lifecycle from the row's own dates against the station clock — a label, not a pricing decision. */
-export function lifecycle(row: Pick<PromotionRow, 'enabled' | 'starts_at' | 'ends_at'>, now = new Date()): PromotionLifecycle {
+export function lifecycle(
+  row: Pick<PromotionRow, 'enabled' | 'starts_at' | 'ends_at'>,
+  now = new Date(),
+): PromotionLifecycle {
   if (row.ends_at && new Date(row.ends_at).getTime() < now.getTime()) return 'expired';
   if (!row.enabled) return 'disabled';
   if (row.starts_at && new Date(row.starts_at).getTime() > now.getTime()) return 'scheduled';
@@ -151,5 +154,7 @@ export function toggleId(list: readonly string[], id: string): string[] {
 }
 
 export function toggleWeekday(list: readonly number[], day: number): number[] {
-  return (list.includes(day) ? list.filter((d) => d !== day) : [...list, day]).sort((a, b) => a - b);
+  return (list.includes(day) ? list.filter((d) => d !== day) : [...list, day]).sort(
+    (a, b) => a - b,
+  );
 }

@@ -43,9 +43,9 @@ together.
   `699390054618`, no organization — under `parsaxavier@gmail.com` (Parsa's personal account, not the
   dedicated Kagu account the plan asked for: a handover item, `API.md` §8); Google Auth Platform configured
   (External, no scopes, no logo, app-domain URLs empty, User Data Policy accepted); publishing status
-  **Testing**. **Publish app was disabled** with *"Your app's OAuth configuration is incomplete. You must
+  **Testing**. **Publish app was disabled** with _"Your app's OAuth configuration is incomplete. You must
   enter the missing information to proceed. Please visit the Branding page to finish configuring your
-  app."* — Google requires a home-page URL, a privacy-policy URL and an authorized domain to publish an
+  app."_ — Google requires a home-page URL, a privacy-policy URL and an authorized domain to publish an
   External app (Branding help: "required for all external production apps"), so the plan's "click Publish
   app" step was wrong. **Decision 2026-09-01: stay in Testing with test users until the privacy page
   exists; publish in release week (Prompt D Task 2).** Web + iOS clients **created 2026-09-01** (Prompt A′): Web `699390054618-egm0m36515stvli0dah67htvge6j88nh.apps.googleusercontent.com` (secret present, console only, never used), iOS `699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq.apps.googleusercontent.com` → URL scheme `com.googleusercontent.apps.699390054618-hdmsl0sn76i09b9esp7tae2t8ktj77sq` (equals what `app.config.ts` derives). Test users: `parsaxavier@gmail.com` only (1/100) — add every device-test Gmail. Values are in `eas.json` (three profiles), `.env` and `config.toml`. Android client still waits for the EAS SHA-1.
@@ -88,19 +88,19 @@ set **before** the first `eas init`, or the EAS project binds to whoever runs th
 
 ## The order (steps 1–11)
 
-| # | Step | Who | Needs |
-|---|---|---|---|
-| 1 | `npm i -g eas-cli` → `eas login` → `eas whoami`; set `owner` in `app.config.ts`; `eas init` → paste `projectId`; `eas credentials --platform android` → development → generate keystore → **copy the SHA-1** | owner terminal + Claude | (c) |
-| 2 | **Prompt A — Google Cloud**: project, consent screen (**Testing** + test users — production needs the privacy page, step 10), Web + iOS clients, Android client (SHA-1 from 1). *Ran 2026-09-01, interrupted → finish with Prompt A′* | Claude in Chrome | (b), 1 |
-| 3 | **Prompt C — Supabase**: Apple + Google providers (change), URL config / sign-up / anonymous / captcha / rate limits (report) | Claude in Chrome | 2 |
-| 4 | Code is in the repo; paste the `.env` + `eas.json` values from Prompt A (Web + iOS client ids); push 0058 + 0059 to hosted **before** step 5 | Claude + owner | 2 |
-| 5 | `eas build --profile development --platform android` → install APK → **first Google test on Android** | owner terminal | 1, 2, 4 |
-| 6 | Apple membership active → accept the Program License Agreement | owner | (a) |
-| 7 | `eas device:create` → `eas build --profile development --platform ios` (EAS creates the App ID, syncs Sign in with Apple, ad-hoc profile; owner signs in with 2FA) → **first Google test on iOS; Apple against the real bundle id** | owner terminal | 4, 6 |
-| 8 | **Prompt B — Apple Developer** (report-only; `CREATE IT: no` unless step 7 failed): enrolment type, Team ID, expiry, App ID + capability, no Services IDs / keys, ASC record | Claude in Chrome | 6 (best after 7) |
-| 9 | Device verification matrix (below) | owner + Claude | 5, 7 |
-| 10 | **Prompt D** (before the first Play upload): Play App Signing SHA-1 → second Android client; **publish the consent screen to production** (needs the privacy + home-page URLs on an authorized domain — until then only listed test users can use Google); Supabase re-check | Claude in Chrome | Play Console, privacy page |
-| 11 | Week of 2026-09-14: remove `host.exp.Exponent` from the Supabase Apple Client IDs (Prompt D Task 4 with `RELEASE WEEK: yes`); verify the `production` profile env in `eas.json` | Claude in Chrome / owner | store build |
+| #   | Step                                                                                                                                                                                                                                                                         | Who                      | Needs                      |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | -------------------------- |
+| 1   | `npm i -g eas-cli` → `eas login` → `eas whoami`; set `owner` in `app.config.ts`; `eas init` → paste `projectId`; `eas credentials --platform android` → development → generate keystore → **copy the SHA-1**                                                                 | owner terminal + Claude  | (c)                        |
+| 2   | **Prompt A — Google Cloud**: project, consent screen (**Testing** + test users — production needs the privacy page, step 10), Web + iOS clients, Android client (SHA-1 from 1). _Ran 2026-09-01, interrupted → finish with Prompt A′_                                        | Claude in Chrome         | (b), 1                     |
+| 3   | **Prompt C — Supabase**: Apple + Google providers (change), URL config / sign-up / anonymous / captcha / rate limits (report)                                                                                                                                                | Claude in Chrome         | 2                          |
+| 4   | Code is in the repo; paste the `.env` + `eas.json` values from Prompt A (Web + iOS client ids); push 0058 + 0059 to hosted **before** step 5                                                                                                                                 | Claude + owner           | 2                          |
+| 5   | `eas build --profile development --platform android` → install APK → **first Google test on Android**                                                                                                                                                                        | owner terminal           | 1, 2, 4                    |
+| 6   | Apple membership active → accept the Program License Agreement                                                                                                                                                                                                               | owner                    | (a)                        |
+| 7   | `eas device:create` → `eas build --profile development --platform ios` (EAS creates the App ID, syncs Sign in with Apple, ad-hoc profile; owner signs in with 2FA) → **first Google test on iOS; Apple against the real bundle id**                                          | owner terminal           | 4, 6                       |
+| 8   | **Prompt B — Apple Developer** (report-only; `CREATE IT: no` unless step 7 failed): enrolment type, Team ID, expiry, App ID + capability, no Services IDs / keys, ASC record                                                                                                 | Claude in Chrome         | 6 (best after 7)           |
+| 9   | Device verification matrix (below)                                                                                                                                                                                                                                           | owner + Claude           | 5, 7                       |
+| 10  | **Prompt D** (before the first Play upload): Play App Signing SHA-1 → second Android client; **publish the consent screen to production** (needs the privacy + home-page URLs on an authorized domain — until then only listed test users can use Google); Supabase re-check | Claude in Chrome         | Play Console, privacy page |
+| 11  | Week of 2026-09-14: remove `host.exp.Exponent` from the Supabase Apple Client IDs (Prompt D Task 4 with `RELEASE WEEK: yes`); verify the `production` profile env in `eas.json`                                                                                              | Claude in Chrome / owner | store build                |
 
 Apple is testable **in Expo Go on the iPhone right after step 3** (the Apple Client IDs list carries
 `host.exp.Exponent`). Google only from step 5 (Android) / step 7 (iOS). Store submission is Wed
@@ -187,6 +187,7 @@ avatar first; if a different account is active, stop and tell me — create noth
 This is Google CLOUD Console — NOT Google Play Console, NOT Firebase.
 
 ## Ground rules
+
 - **Never invent a value.** If a page does not show something, say so.
 - If a site needs a login, 2FA code, phone confirmation, payment card or identity verification — **stop,
   tell me exactly what you need, and wait**.
@@ -196,23 +197,28 @@ This is Google CLOUD Console — NOT Google Play Console, NOT Firebase.
 - Final report, exactly this shape:
 
   ## COLLECTED
-  NAME = value            (one per line, real values, no placeholders)
+
+  NAME = value (one per line, real values, no placeholders)
+
   ## BLOCKED
   - <task> — <precisely what stopped you and what you need from me>
+
   ## DONE IN-BROWSER
   - <what you created or changed>
 
 ## Task 1 — project
+
 1. https://console.cloud.google.com → project picker → **New project**. Name `Touch Padel`; organization:
    whatever the account offers (`No organization` is fine). Create, then switch to it. If a project named
    `Touch Padel` already exists, use it and say so.
-2. From the Dashboard's *Project info* card record `GOOGLE_CLOUD_PROJECT_ID` and `GOOGLE_CLOUD_PROJECT_NUMBER`,
+2. From the Dashboard's _Project info_ card record `GOOGLE_CLOUD_PROJECT_ID` and `GOOGLE_CLOUD_PROJECT_NUMBER`,
    and `GOOGLE_ACCOUNT_USED`.
 
-## Task 2 — consent screen (*APIs & Services → OAuth consent screen* or *Google Auth Platform* → Branding / Audience)
+## Task 2 — consent screen (_APIs & Services → OAuth consent screen_ or _Google Auth Platform_ → Branding / Audience)
+
 1. App name `Touch Padel`; User support email = the signed-in account; Audience / User type **External**;
    Developer contact email = the same address.
-2. Branding → App domain: leave *home page*, *Privacy policy* and *Terms* EMPTY (no privacy URL exists yet —
+2. Branding → App domain: leave _home page_, _Privacy policy_ and _Terms_ EMPTY (no privacy URL exists yet —
    known follow-up; these links are what gates publishing, see step 4). Report that they are empty.
 3. Scopes / Data access: add NOTHING. If a scope list is shown, report it verbatim (expected none, or only
    `openid`, `…/auth/userinfo.email`, `…/auth/userinfo.profile`).
@@ -225,28 +231,34 @@ This is Google CLOUD Console — NOT Google Play Console, NOT Firebase.
    `CONSENT_USER_TYPE` and `CONSENT_TEST_USERS`.
 
 ## Task 3 — Web client (its id is also the audience of Android id tokens)
-*Clients* (or *Credentials → Create credentials → OAuth client ID*):
+
+_Clients_ (or _Credentials → Create credentials → OAuth client ID_):
+
 1. Application type **Web application**; Name `Touch Padel — Supabase (web)`; Authorised JavaScript origins: none;
    Authorised redirect URIs: `https://lczijabnorujcgmbuqlw.supabase.co/auth/v1/callback`.
 2. Create. Record `GOOGLE_WEB_CLIENT_ID` (ends `.apps.googleusercontent.com`). Do NOT download the JSON, do NOT
    copy the secret anywhere. Record `GOOGLE_WEB_CLIENT_SECRET = present (console only)`.
 
 ## Task 4 — iOS client
+
 1. Create credentials → OAuth client ID → **iOS**; Name `Touch Padel — iOS`; Bundle ID `com.kagu.touchpadel`
    (exactly); App Store ID and Team ID empty.
 2. Create; open the client's detail page. Record `GOOGLE_IOS_CLIENT_ID` and the **iOS URL scheme** shown there
    (`com.googleusercontent.apps.…`) as `GOOGLE_IOS_URL_SCHEME`. Both verbatim.
 
 ## Task 5 — Android client(s) — ONLY if fingerprints are pasted below; otherwise skip and list under BLOCKED as
+
 "waiting for SHA-1 from eas credentials"
 SHA-1 fingerprints (label: value):
+
 - EAS keystore: `<paste or 'none'>`
-For EACH fingerprint: Create credentials → OAuth client ID → **Android**; Name `Touch Padel — Android (<label>)`;
-Package name `com.kagu.touchpadel`; SHA-1 exactly as pasted. Create. Record `GOOGLE_ANDROID_CLIENT_ID_<LABEL>`.
-(Android client ids are used nowhere in the app or Supabase — they only have to EXIST in this project.) If
-Google refuses with "already in use", the package + fingerprint pair belongs to another project — report verbatim.
+  For EACH fingerprint: Create credentials → OAuth client ID → **Android**; Name `Touch Padel — Android (<label>)`;
+  Package name `com.kagu.touchpadel`; SHA-1 exactly as pasted. Create. Record `GOOGLE_ANDROID_CLIENT_ID_<LABEL>`.
+  (Android client ids are used nowhere in the app or Supabase — they only have to EXIST in this project.) If
+  Google refuses with "already in use", the package + fingerprint pair belongs to another project — report verbatim.
 
 ## Final report
+
 COLLECTED expected: GOOGLE_ACCOUNT_USED, GOOGLE_CLOUD_PROJECT_ID, GOOGLE_CLOUD_PROJECT_NUMBER, CONSENT_USER_TYPE,
 CONSENT_PUBLISHING_STATUS, CONSENT_TEST_USERS, GOOGLE_WEB_CLIENT_ID, GOOGLE_WEB_CLIENT_SECRET = present (console only),
 GOOGLE_IOS_CLIENT_ID, GOOGLE_IOS_URL_SCHEME, GOOGLE_ANDROID_CLIENT_ID_* (if any). Then BLOCKED and DONE IN-BROWSER.
@@ -283,6 +295,7 @@ audience External, no scopes, no logo, app-domain URLs empty, User Data Policy a
 privacy-policy URL and an authorized domain, none of which exist yet (a release-week task).
 
 ## Ground rules
+
 - **Never invent a value.** If a page does not show something, say so.
 - Login / 2FA / payment / identity prompts: **stop, tell me exactly what you need, and wait**.
 - Do NOT enable billing or any API, do NOT create service accounts or API keys, do NOT upload a logo, do NOT
@@ -292,43 +305,54 @@ privacy-policy URL and an authorized domain, none of which exist yet (a release-
 - Final report, exactly this shape:
 
   ## COLLECTED
-  NAME = value            (one per line, real values, no placeholders)
+
+  NAME = value (one per line, real values, no placeholders)
+
   ## BLOCKED
   - <task> — <precisely what stopped you and what you need from me>
+
   ## DONE IN-BROWSER
   - <what you created or changed>
 
 ## Task 1 — test users (Google Auth Platform → Audience → Test users → Add users)
+
 Add exactly these accounts, one per line, then Save:
+
 - `parsaxavier@gmail.com`
 - <TEST_USER_EMAILS — one Gmail per line, or 'none'>
-Record `CONSENT_TEST_USERS` (the list the page shows afterwards) and `CONSENT_PUBLISHING_STATUS` (expected
-`Testing`). Change nothing else on the Audience or Branding pages.
+  Record `CONSENT_TEST_USERS` (the list the page shows afterwards) and `CONSENT_PUBLISHING_STATUS` (expected
+  `Testing`). Change nothing else on the Audience or Branding pages.
 
 ## Task 2 — Web client (its id is also the audience of Android id tokens)
+
 Google Auth Platform → Clients → **Create client** (or APIs & Services → Credentials → Create credentials → OAuth
 client ID). First look at the existing client list: if a client named `Touch Padel — Supabase (web)` already
 exists from the dropped session, use it and say so — create no duplicate.
+
 1. Application type **Web application**; Name `Touch Padel — Supabase (web)`; Authorised JavaScript origins:
    none; Authorised redirect URIs: `https://lczijabnorujcgmbuqlw.supabase.co/auth/v1/callback`.
 2. Create. Record `GOOGLE_WEB_CLIENT_ID` (ends `.apps.googleusercontent.com`). Do NOT download the JSON, do NOT
    copy the secret anywhere. Record `GOOGLE_WEB_CLIENT_SECRET = present (console only)`.
 
 ## Task 3 — iOS client
+
 1. Create client → **iOS**; Name `Touch Padel — iOS`; Bundle ID `com.kagu.touchpadel` (exactly); App Store ID
    and Team ID empty.
 2. Create; open the client's detail page. Record `GOOGLE_IOS_CLIENT_ID` and the **iOS URL scheme** shown there
    (`com.googleusercontent.apps.…`) as `GOOGLE_IOS_URL_SCHEME`. Both verbatim.
 
 ## Task 4 — Android client — ONLY if a fingerprint is pasted below; otherwise skip and list under BLOCKED as
+
 "waiting for SHA-1 from eas credentials"
+
 - EAS keystore SHA-1: `<paste or 'none'>`
-Create client → **Android**; Name `Touch Padel — Android (EAS keystore)`; Package name `com.kagu.touchpadel`;
-SHA-1 exactly as pasted. Create. Record `GOOGLE_ANDROID_CLIENT_ID_EAS`. (Android client ids are used nowhere in
-the app or Supabase — they only have to EXIST in this project.) "Already in use" ⇒ the package + fingerprint pair
-belongs to another project — report verbatim.
+  Create client → **Android**; Name `Touch Padel — Android (EAS keystore)`; Package name `com.kagu.touchpadel`;
+  SHA-1 exactly as pasted. Create. Record `GOOGLE_ANDROID_CLIENT_ID_EAS`. (Android client ids are used nowhere in
+  the app or Supabase — they only have to EXIST in this project.) "Already in use" ⇒ the package + fingerprint pair
+  belongs to another project — report verbatim.
 
 ## Final report
+
 COLLECTED expected: CONSENT_PUBLISHING_STATUS, CONSENT_TEST_USERS, GOOGLE_WEB_CLIENT_ID,
 GOOGLE_WEB_CLIENT_SECRET = present (console only), GOOGLE_IOS_CLIENT_ID, GOOGLE_IOS_URL_SCHEME,
 GOOGLE_ANDROID_CLIENT_ID_EAS (if any). Then BLOCKED and DONE IN-BROWSER.
@@ -349,6 +373,7 @@ browser. Apple's sites always require a login with a two-factor code: when you r
 and wait** — never type codes yourself. This is developer.apple.com — NOT iCloud; App Store Connect only in Task 4.
 
 ## Ground rules
+
 - **Never invent a value.** Report exactly what the page shows.
 - Do NOT create Services IDs, Keys (.p8), certificates, provisioning profiles or devices. Do NOT purchase, renew,
   enrol or accept agreements — tell me if one is pending. An App ID cannot be renamed or deleted once used.
@@ -357,6 +382,7 @@ and wait** — never type codes yourself. This is developer.apple.com — NOT iC
   (<anything changed, or "nothing">).
 
 ## Task 1 — enrolment status (report only)
+
 1. https://developer.apple.com/account → **Membership details**. Record `APPLE_ID_USED` (email top right),
    `APPLE_ENROLLMENT_TYPE` (Individual | Organization), `APPLE_TEAM_NAME`, `APPLE_TEAM_ID` (10 characters),
    `APPLE_MEMBERSHIP_EXPIRES`.
@@ -366,7 +392,9 @@ and wait** — never type codes yourself. This is developer.apple.com — NOT iC
    `APPLE_AGREEMENT_PENDING` — an unaccepted agreement blocks our build service.
 
 ## Task 2 — App ID `com.kagu.touchpadel`
+
 https://developer.apple.com/account/resources/identifiers/list → filter **App IDs**.
+
 1. If it EXISTS: open it; record `APPLE_APP_ID_EXISTS = yes`, `APPLE_APP_ID_SIWA = <yes/no>` (Sign in with Apple
    ticked, "Enable as a primary App ID"), `APPLE_APP_ID_PUSH = <yes/no>`. Change nothing.
 2. If it does NOT exist: record `APPLE_APP_ID_EXISTS = no` and STOP without creating it — our build service
@@ -376,16 +404,19 @@ https://developer.apple.com/account/resources/identifiers/list → filter **App 
    CREATE IT: `no`
 
 ## Task 3 — Sign in with Apple prerequisites (report only)
+
 1. Identifiers → filter **Services IDs**: record `APPLE_SERVICES_IDS = none` or the names (expected none —
    native-only needs no Services ID).
 2. https://developer.apple.com/account/resources/authkeys/list: record `APPLE_SIWA_KEYS = none` or names of keys
    with Sign in with Apple enabled (expected none). Create nothing.
 
 ## Task 4 — App Store Connect (report only)
+
 https://appstoreconnect.apple.com → Apps. Record `ASC_APP_RECORD = none` or the numeric Apple ID of the
 `Touch Padel` / `com.kagu.touchpadel` app (App Information → General). Do NOT create an app record.
 
 ## Final report
+
 COLLECTED expected: APPLE_ID_USED, APPLE_ENROLLMENT_TYPE, APPLE_TEAM_NAME, APPLE_TEAM_ID, APPLE_MEMBERSHIP_EXPIRES,
 APPLE_AGREEMENT_PENDING, APPLE_APP_ID_EXISTS, APPLE_APP_ID_SIWA, APPLE_APP_ID_PUSH, APPLE_SERVICES_IDS,
 APPLE_SIWA_KEYS, ASC_APP_RECORD.
@@ -412,10 +443,12 @@ https://supabase.com/dashboard/project/lczijabnorujcgmbuqlw. **This is the clien
 change only the two provider forms in Tasks 1–2; everything else is report-only.
 
 Values from the Google Cloud step:
+
 - `GOOGLE_WEB_CLIENT_ID = <paste>`
 - `GOOGLE_IOS_CLIENT_ID = <paste>`
 
 ## Ground rules
+
 - **Never invent a value.** If a field or toggle is not there, say so.
 - If the dashboard asks for a login or 2FA — stop and wait for me.
 - For every field you change, report the value BEFORE and AFTER, quoted verbatim.
@@ -423,18 +456,22 @@ Values from the Google Cloud step:
 - Final report: ## COLLECTED / ## BLOCKED / ## DONE IN-BROWSER (exact settings changed, before → after).
 
 ## Task 1 — Apple provider (CHANGE)
+
 Authentication → Sign In / Providers → **Apple**.
+
 1. Report the current state (enabled?, Client IDs, Secret Key present?).
 2. Turn **Enable Sign in with Apple** ON.
 3. **Client IDs**: `com.kagu.touchpadel,host.exp.Exponent` — exactly, comma-separated, no spaces
    (`host.exp.Exponent` is the Expo Go development client; removing it before store release is a known follow-up).
 4. **Secret Key (for OAuth)**: leave EMPTY — native sign-in does not use it. If the form refuses to save without
    it, do NOT invent one: STOP, report the exact validation message, leave the provider OFF.
-5. If a *Skip nonce checks* toggle exists here, leave it OFF and report that it exists.
+5. If a _Skip nonce checks_ toggle exists here, leave it OFF and report that it exists.
 6. Save. Report the saved values.
 
 ## Task 2 — Google provider (CHANGE)
+
 Same page → **Google**.
+
 1. Report the current state.
 2. Turn **Enable Sign in with Google** ON.
 3. **Client IDs**: `<GOOGLE_WEB_CLIENT_ID>,<GOOGLE_IOS_CLIENT_ID>` — Web first, then iOS, comma, no spaces.
@@ -446,26 +483,31 @@ Same page → **Google**.
    `https://lczijabnorujcgmbuqlw.supabase.co/auth/v1/callback`).
 
 ## Task 3 — URL configuration (REPORT ONLY)
+
 Authentication → URL Configuration. Record `SUPABASE_SITE_URL` and every **Redirect URL** verbatim as
 `SUPABASE_REDIRECT_URLS`. Expected to include `touchpadel://verify-email` and `touchpadel://reset-password`;
 report any that are missing — do not add anything.
 
 ## Task 4 — sign-up, anonymous and captcha settings (REPORT ONLY)
-1. Sign In / Providers → *User Signups*: **Allow new users to sign up** → `SIGNUPS_ALLOWED` (expected ON);
+
+1. Sign In / Providers → _User Signups_: **Allow new users to sign up** → `SIGNUPS_ALLOWED` (expected ON);
    **Allow anonymous sign-ins** → `ANON_SIGNINS` (expected ON — the cafe's guest sessions depend on it).
 2. Email provider → **Confirm email** → `CONFIRM_EMAIL`.
 3. Authentication → Attack Protection (or Settings → Bot and Abuse Protection): **Enable Captcha protection** →
    `CAPTCHA` (expected OFF; if ON also record the provider — native sign-in would then need a captcha token).
 
 ## Task 5 — rate limits (REPORT ONLY)
+
 Authentication → Rate Limits — record verbatim with units: `RATE_LIMIT_TOKEN_VERIFICATIONS`,
 `RATE_LIMIT_SIGNUPS_SIGNINS`, `RATE_LIMIT_ANONYMOUS_USERS`, `RATE_LIMIT_TOKEN_REFRESHES`. Change nothing.
 
 ## Task 6 — proof of a new identity (REPORT ONLY; only if I give an email)
+
 Authentication → Users → search `<TEST_EMAIL or 'skip'>`. Report the **Providers** column (expected `apple` or
-`google`) and whether *Last sign in* is set. Delete nothing.
+`google`) and whether _Last sign in_ is set. Delete nothing.
 
 ## Final report
+
 COLLECTED expected: APPLE_PROVIDER = enabled, client ids "<…>", secret = <empty|present>; GOOGLE_PROVIDER =
 enabled, client ids "<…>", secret = <empty|present>, skip_nonce = off; GOOGLE_CALLBACK_URL; SUPABASE_SITE_URL;
 SUPABASE_REDIRECT_URLS; SIGNUPS_ALLOWED; ANON_SIGNINS; CONFIRM_EMAIL; CAPTCHA; the four RATE_LIMIT_* values;
@@ -497,11 +539,13 @@ and the existing Google Cloud project `<GOOGLE_CLOUD_PROJECT_ID>`. Then verify �
 Google provider, and (Task 4, release week only) tidy the Apple provider.
 
 SHA-1 fingerprints to register (label: value; each becomes its own client):
+
 - EAS keystore: `<SHA-1 or 'already done'>`
-- Play App Signing key: `<SHA-1 or 'not yet'>`   (Play Console → Test and release → Setup → App signing → "App signing key certificate")
+- Play App Signing key: `<SHA-1 or 'not yet'>` (Play Console → Test and release → Setup → App signing → "App signing key certificate")
 - Local debug keystore: `<SHA-1 or 'skip'>`
 
 ## Ground rules
+
 - **Never invent a value.** Stop at any login/2FA and wait for me.
 - Create Android OAuth clients only; the ONLY other changes are Task 2's Branding links + Publish app (when its
   URL lines are filled) and Task 4's Supabase hygiene (release week). No billing, no APIs, no other client
@@ -510,39 +554,44 @@ SHA-1 fingerprints to register (label: value; each becomes its own client):
 - Final report: ## COLLECTED / ## BLOCKED / ## DONE IN-BROWSER.
 
 ## Task 1 — Android OAuth clients (Google Cloud → Google Auth Platform → Clients / Credentials)
+
 1. List the EXISTING Android clients (name + last 4 hex pairs of their SHA-1) as `GOOGLE_ANDROID_CLIENTS_EXISTING`.
 2. For EACH fingerprint above not already registered: Create client → **Android** → Name
    `Touch Padel — Android (<label>)` → Package `com.kagu.touchpadel` → SHA-1 exactly as given. Create. Record
    `GOOGLE_ANDROID_CLIENT_ID_<LABEL>`. "Already in use" ⇒ the pair belongs to another project — report verbatim.
 
 ## Task 2 — consent screen → production (CHANGE only if both URL lines are filled; otherwise REPORT ONLY)
+
 - Home page URL: `<HOME_URL or 'not yet'>`
 - Privacy policy URL: `<PRIVACY_URL or 'not yet'>`
 - Terms of service URL: `<TERMS_URL, or 'same' to reuse the privacy URL>`
-If both are filled: Google Auth Platform → **Branding** → App domain → enter the three links; **Authorized
-domains** → add the domain of those URLs (if Google refuses because the domain is not verified in Search
-Console, STOP and report the exact message); Save. Then **Audience** → **Publish app** → confirm. If Google
-demands verification, STOP — do not submit — report the message. Record `CONSENT_PUBLISHING_STATUS` (expected
-`In production` afterwards) and the three URLs exactly as saved. If not filled: record
-`CONSENT_PUBLISHING_STATUS` (expected `Testing`) and list this task under BLOCKED as "waiting for the privacy
-page".
+  If both are filled: Google Auth Platform → **Branding** → App domain → enter the three links; **Authorized
+  domains** → add the domain of those URLs (if Google refuses because the domain is not verified in Search
+  Console, STOP and report the exact message); Save. Then **Audience** → **Publish app** → confirm. If Google
+  demands verification, STOP — do not submit — report the message. Record `CONSENT_PUBLISHING_STATUS` (expected
+  `In production` afterwards) and the three URLs exactly as saved. If not filled: record
+  `CONSENT_PUBLISHING_STATUS` (expected `Testing`) and list this task under BLOCKED as "waiting for the privacy
+  page".
 
 ## Task 3 — Supabase Google provider (REPORT ONLY)
+
 https://supabase.com/dashboard/project/lczijabnorujcgmbuqlw/auth/providers → Google: enabled?, the full
 **Client IDs** value (expected to still contain the Web and iOS client ids — nothing is added for Android),
 **Skip nonce checks** (expected OFF; if ON someone used the documented fallback — report, do not change).
 
 ## Task 4 — release hygiene (ONLY if the line below says yes)
+
 1. Same page → Apple → Client IDs: change `com.kagu.touchpadel,host.exp.Exponent` to exactly `com.kagu.touchpadel`.
 2. Authentication → URL Configuration: set **Site URL** to `<SITE_URL>` (it read `http://localhost:3000` on
    2026-09-01); in **Redirect URLs** remove `https://localhost:3000` and **every `exp://…` entry** (Expo Go
    LAN entries — the dev-machine IP changes, so more than one may have accumulated; dev builds no longer
    need them); keep `touchpadel://verify-email` and `touchpadel://reset-password`; add nothing else.
-Report every field before → after.
-RELEASE WEEK: `no`
-SITE_URL: `<https://… the public site, or 'skip'>`
+   Report every field before → after.
+   RELEASE WEEK: `no`
+   SITE_URL: `<https://… the public site, or 'skip'>`
 
 ## Final report
+
 COLLECTED expected: GOOGLE_ANDROID_CLIENTS_EXISTING, GOOGLE_ANDROID_CLIENT_ID_* (new), CONSENT_PUBLISHING_STATUS
 (+ the three Branding URLs if Task 2 changed them), SUPABASE_GOOGLE_CLIENT_IDS, SUPABASE_GOOGLE_SKIP_NONCE, and
 Task 4 before → after if run.
@@ -569,9 +618,11 @@ You are updating the email-redirect allow-list on the Supabase project of **Touc
 Task 2 — the Site URL and everything else is report-only.
 
 Current Expo dev-server URL(s), from the Metro output (one per line; each becomes `exp://<host:port>/--/*`):
+
 - `<EXPO_LAN_URLS — e.g. exp://192.168.175.73:8081, one per line>`
 
 ## Ground rules
+
 - **Never invent a value.** If a field or button is not there, say so.
 - If the dashboard asks for a login or 2FA — stop and wait for me.
 - For every field you change, report the value BEFORE and AFTER, quoted verbatim.
@@ -579,10 +630,12 @@ Current Expo dev-server URL(s), from the Metro output (one per line; each become
 - Final report: ## COLLECTED / ## BLOCKED / ## DONE IN-BROWSER (exact settings changed, before → after).
 
 ## Task 1 — current state (REPORT ONLY)
+
 Authentication → URL Configuration. Record `SUPABASE_SITE_URL` and every **Redirect URL** verbatim as
 `SUPABASE_REDIRECT_URLS_BEFORE`.
 
 ## Task 2 — Redirect URLs (CHANGE — this list only)
+
 1. Remove every entry starting `exp://` whose host is NOT in the pasted list above (on 2026-09-01 the
    list held one stale entry, `exp://192.168.1.108:8081/--/*` — an old dev-machine LAN IP).
 2. For each pasted URL not already present, add `exp://<host:port>/--/*` (append `/--/*` exactly).
@@ -590,9 +643,11 @@ Authentication → URL Configuration. Record `SUPABASE_SITE_URL` and every **Red
    untouched. Do NOT touch the **Site URL**. Add nothing else. Save.
 
 ## Task 3 — proof (REPORT ONLY)
+
 Re-read the page after saving. Record every Redirect URL verbatim as `SUPABASE_REDIRECT_URLS_AFTER`.
 
 ## Final report
+
 COLLECTED expected: SUPABASE_SITE_URL, SUPABASE_REDIRECT_URLS_BEFORE, SUPABASE_REDIRECT_URLS_AFTER, plus
 one `REMOVED = …` / `ADDED = …` line per change. Then BLOCKED and DONE IN-BROWSER.
 
@@ -605,15 +660,15 @@ instructions. Every test identity below is a **real row on the client's producti
 (the `development` profile targets `lczijabnorujcgmbuqlw`): use throwaway Apple IDs / Google accounts
 and delete them afterwards.
 
-| Surface | Prerequisite | What to check | Failure reads as |
-|---|---|---|---|
-| **Expo Go, iPhone** | step 3 (Prompt C) | Only the **Apple** button + the "or continue with email" divider render (Google hidden; one dev `console.info` from `providers/google.ts`). Cancel the Apple sheet → nothing shown. Fresh Apple ID with **Hide My Email** → session → **complete-profile** with the name prefilled from Apple (not the relay local part), phone empty → empty phone shows `auth.phoneRequired` → save → toast → tabs. **Pending-slot path**: signed out → tap a slot → Welcome → Sign in → Apple → (complete-profile →) hold → Review with the countdown, no tabs flash. **Returning user**: Apple sends no name; straight to "Welcome back". SQL: `select full_name, phone, preferred_lang from profiles where id = '<uid>'` and `select provider from auth.identities where user_id = '<uid>'`. To make Apple resend the name: Settings → Apple ID → Sign-In & Security → revoke the app. | The Expo Go token's audience is `host.exp.Exponent`; an `Unacceptable audience` error means the Apple Client IDs list lacks it. Expo Go and the real build create **different** Supabase users (Apple `sub` is per team). |
-| **EAS dev build, iOS** | step 7 | The Google sheet opens and **returns** to the app (URL scheme from `app.config.ts`); session with "Skip nonce check" OFF. Apple works against the real bundle id. Sign out → the next Google tap shows the **picker** again (no auto-select — `googleSignOut()` on `SIGNED_OUT`). **Dark mode**: Apple button WHITE, Google `#131314` fill with a visible `#8E918F` stroke. **Arabic**: the Google row mirrors (mark on the right), Arabic label / divider / complete-profile copy, the phone field stays LTR; the Apple label follows the **device** language (system control — accepted). | `Unacceptable audience in id_token` ⇒ the iOS client id is missing from the Supabase Google Client IDs. A **nonce** error ⇒ a hashing mismatch between `providers/nonce.ts` and GoTrue — **stop and hand to SEC** before considering the documented "Skip nonce check" fallback. A Google button that opens the sheet and never comes back ⇒ the URL scheme is missing (the build was made without `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` — `app.config.ts` is meant to make that impossible). |
-| **EAS dev build, Android** | step 5 | No Apple button. The **Credential Manager** sheet (or the explicit picker after "no saved credential") → session → profile name from Google → the phone gate → book. Phone without Play services → `auth.googlePlayServices` copy, email still works. | `DEVELOPER_ERROR` / a picker that closes instantly ⇒ no Android OAuth client for this APK's SHA-1, a package-name mismatch, or the Google account on the phone not in the consent screen's **test users** (it stays in Testing until release week): compare `keytool -printcert -jarfile <apk>` with the registered client. **Status 16** ⇒ Play services cooldown after repeated cancels, not code — wait, do not debug. A **cancel right after choosing an account** is usually the same missing-SHA-1 fault in disguise (Credential Manager conflates dismissal and misconfiguration): `providers/google.ts` logs every Android cancel as `auth.google.cancelled` (warning, with the cascade step) in the dev console / telemetry — a spike there is the signal; look before blaming the guest. |
-| **Write-path gates** | either dev build, or Expo Go via Apple | `update profiles set phone = null where id = '<test uid>'` → signed in, tap a slot → complete-profile (`returnTo=continue`) → save → hold → Review. Null the phone again → open Review: **Reserve disabled + amber notice** → "Add phone number" (`returnTo=back`) → Reserve enabled, countdown intact. Profile → Edit refuses an empty phone. With 0059 on hosted: a `confirm_booking` while the gate read 'unknown' → `PHONE_REQUIRED` → routes to complete-profile. Profile tab shows the nudge card while the phone is blank. | A guest stranded on the tabs after a social sign-in with a pending slot ⇒ the `(auth)` layout redirect raced the continuation — check `pendingSlot` is still set until the hold settles. |
-| **Identity linking** | any build | An existing email/password guest signs in with Google using the **same** email → one uid, two rows in `auth.identities`, phone intact, **no** complete-profile gate. A Google-only user tries email/password → generic "Invalid login credentials" → forgot-password → reset → password now works (one account). | A second account for the same person ⇒ the emails differ (an Apple relay address never matches) — expected, documented in the design note. |
-| **Regression** | any build | Email/password sign-in and sign-up, verify-email → verify-result → Continue, forgot / reset deep links; staff sign-in in the operator app; the anonymous cafe web flow (an anonymous session still has **no** profiles row). | — |
-| **Cleanup** | after every session | Delete every test user in Authentication → Users. **A user who booked cannot be deleted** (the `reservations.guest_id` FK — HANDOFF gotcha): cancel/void their bookings at the desk first or leave them and record the uid. Check the Supabase Auth logs for `provider is not enabled` / `Unacceptable audience` — those are configuration faults that must show up in telemetry as such, never as "no internet". | — |
+| Surface                    | Prerequisite                           | What to check                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Failure reads as                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Expo Go, iPhone**        | step 3 (Prompt C)                      | Only the **Apple** button + the "or continue with email" divider render (Google hidden; one dev `console.info` from `providers/google.ts`). Cancel the Apple sheet → nothing shown. Fresh Apple ID with **Hide My Email** → session → **complete-profile** with the name prefilled from Apple (not the relay local part), phone empty → empty phone shows `auth.phoneRequired` → save → toast → tabs. **Pending-slot path**: signed out → tap a slot → Welcome → Sign in → Apple → (complete-profile →) hold → Review with the countdown, no tabs flash. **Returning user**: Apple sends no name; straight to "Welcome back". SQL: `select full_name, phone, preferred_lang from profiles where id = '<uid>'` and `select provider from auth.identities where user_id = '<uid>'`. To make Apple resend the name: Settings → Apple ID → Sign-In & Security → revoke the app. | The Expo Go token's audience is `host.exp.Exponent`; an `Unacceptable audience` error means the Apple Client IDs list lacks it. Expo Go and the real build create **different** Supabase users (Apple `sub` is per team).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **EAS dev build, iOS**     | step 7                                 | The Google sheet opens and **returns** to the app (URL scheme from `app.config.ts`); session with "Skip nonce check" OFF. Apple works against the real bundle id. Sign out → the next Google tap shows the **picker** again (no auto-select — `googleSignOut()` on `SIGNED_OUT`). **Dark mode**: Apple button WHITE, Google `#131314` fill with a visible `#8E918F` stroke. **Arabic**: the Google row mirrors (mark on the right), Arabic label / divider / complete-profile copy, the phone field stays LTR; the Apple label follows the **device** language (system control — accepted).                                                                                                                                                                                                                                                                                 | `Unacceptable audience in id_token` ⇒ the iOS client id is missing from the Supabase Google Client IDs. A **nonce** error ⇒ a hashing mismatch between `providers/nonce.ts` and GoTrue — **stop and hand to SEC** before considering the documented "Skip nonce check" fallback. A Google button that opens the sheet and never comes back ⇒ the URL scheme is missing (the build was made without `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` — `app.config.ts` is meant to make that impossible).                                                                                                                                                                                                                                                                                                         |
+| **EAS dev build, Android** | step 5                                 | No Apple button. The **Credential Manager** sheet (or the explicit picker after "no saved credential") → session → profile name from Google → the phone gate → book. Phone without Play services → `auth.googlePlayServices` copy, email still works.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `DEVELOPER_ERROR` / a picker that closes instantly ⇒ no Android OAuth client for this APK's SHA-1, a package-name mismatch, or the Google account on the phone not in the consent screen's **test users** (it stays in Testing until release week): compare `keytool -printcert -jarfile <apk>` with the registered client. **Status 16** ⇒ Play services cooldown after repeated cancels, not code — wait, do not debug. A **cancel right after choosing an account** is usually the same missing-SHA-1 fault in disguise (Credential Manager conflates dismissal and misconfiguration): `providers/google.ts` logs every Android cancel as `auth.google.cancelled` (warning, with the cascade step) in the dev console / telemetry — a spike there is the signal; look before blaming the guest. |
+| **Write-path gates**       | either dev build, or Expo Go via Apple | `update profiles set phone = null where id = '<test uid>'` → signed in, tap a slot → complete-profile (`returnTo=continue`) → save → hold → Review. Null the phone again → open Review: **Reserve disabled + amber notice** → "Add phone number" (`returnTo=back`) → Reserve enabled, countdown intact. Profile → Edit refuses an empty phone. With 0059 on hosted: a `confirm_booking` while the gate read 'unknown' → `PHONE_REQUIRED` → routes to complete-profile. Profile tab shows the nudge card while the phone is blank.                                                                                                                                                                                                                                                                                                                                           | A guest stranded on the tabs after a social sign-in with a pending slot ⇒ the `(auth)` layout redirect raced the continuation — check `pendingSlot` is still set until the hold settles.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Identity linking**       | any build                              | An existing email/password guest signs in with Google using the **same** email → one uid, two rows in `auth.identities`, phone intact, **no** complete-profile gate. A Google-only user tries email/password → generic "Invalid login credentials" → forgot-password → reset → password now works (one account).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | A second account for the same person ⇒ the emails differ (an Apple relay address never matches) — expected, documented in the design note.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Regression**             | any build                              | Email/password sign-in and sign-up, verify-email → verify-result → Continue, forgot / reset deep links; staff sign-in in the operator app; the anonymous cafe web flow (an anonymous session still has **no** profiles row).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Cleanup**                | after every session                    | Delete every test user in Authentication → Users. **A user who booked cannot be deleted** (the `reservations.guest_id` FK — HANDOFF gotcha): cancel/void their bookings at the desk first or leave them and record the uid. Check the Supabase Auth logs for `provider is not enabled` / `Unacceptable audience` — those are configuration faults that must show up in telemetry as such, never as "no internet".                                                                                                                                                                                                                                                                                                                                                                                                                                                           | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 Record the outcome of each row in HANDOFF (Day 11 or later) with the date; nothing above has run as of
 2026-09-01.

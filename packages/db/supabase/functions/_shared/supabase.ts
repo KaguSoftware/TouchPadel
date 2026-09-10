@@ -65,7 +65,10 @@ export function jwtRole(token: string): string | null {
  * verified the signature when verify_jwt is on). Returns null for the bare
  * anon/service keys or an unresolvable token.
  */
-export async function getCallerUserId(req: Request, service: SupabaseClient): Promise<string | null> {
+export async function getCallerUserId(
+  req: Request,
+  service: SupabaseClient,
+): Promise<string | null> {
   const auth = req.headers.get('Authorization') ?? '';
   if (!auth.startsWith('Bearer ')) return null;
   const jwt = auth.slice('Bearer '.length);

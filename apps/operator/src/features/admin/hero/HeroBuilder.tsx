@@ -108,8 +108,10 @@ export function diffHero(saved: CafeSettings, draft: Draft): SetCafeSettingInput
   if (draft.featured_discount_pct !== saved.featured_discount_pct) {
     out.push({ key: 'featured_discount_pct', value: draft.featured_discount_pct });
   }
-  if (!sameStringArray(ticker_en, saved.ticker_en)) out.push({ key: 'ticker_en', value: ticker_en });
-  if (!sameStringArray(ticker_ar, saved.ticker_ar)) out.push({ key: 'ticker_ar', value: ticker_ar });
+  if (!sameStringArray(ticker_en, saved.ticker_en))
+    out.push({ key: 'ticker_en', value: ticker_en });
+  if (!sameStringArray(ticker_ar, saved.ticker_ar))
+    out.push({ key: 'ticker_ar', value: ticker_ar });
   if (draft.bell_tutorial_enabled !== saved.bell_tutorial_enabled) {
     out.push({ key: 'bell_tutorial_enabled', value: draft.bell_tutorial_enabled });
   }
@@ -141,7 +143,10 @@ export function HeroBuilder() {
           )
           .eq('is_active', true)
           .order('sort_order'),
-        supabase.from('menu_categories').select('id, name_en, name_ar, sort_order').order('sort_order'),
+        supabase
+          .from('menu_categories')
+          .select('id, name_en, name_ar, sort_order')
+          .order('sort_order'),
       ]);
       if (items.error) throw items.error;
       if (cats.error) throw cats.error;
@@ -166,7 +171,12 @@ export function HeroBuilder() {
     if (!row) return null;
     const variants = [...row.menu_item_variants].sort((a, b) => a.sort_order - b.sort_order);
     const price = (variants.find((v) => v.is_default) ?? variants[0])?.price_iqd ?? null;
-    return { name_en: row.name_en, name_ar: row.name_ar, photo_path: row.photo_path, price_iqd: price };
+    return {
+      name_en: row.name_en,
+      name_ar: row.name_ar,
+      photo_path: row.photo_path,
+      price_iqd: price,
+    };
   }, [menuQ.data, draft?.featured_item_id]);
 
   if (!draft) return <Skeleton lines={6} />;
@@ -190,7 +200,8 @@ export function HeroBuilder() {
       // One transaction. This was a `for … await` loop with no rollback, so a
       // failure part-way left the guest hero half-configured.
       await setSettings.mutateAsync(writes);
-      if (previousMedia && previousMedia !== draft!.hero_media_path) void removeMedia(previousMedia);
+      if (previousMedia && previousMedia !== draft!.hero_media_path)
+        void removeMedia(previousMedia);
       toast.ok(tr('op.toast.saved'));
     } catch (e) {
       toast.err(e);
@@ -206,13 +217,18 @@ export function HeroBuilder() {
   ];
 
   return (
-    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+    <div
+      style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}
+    >
       <div style={{ flex: '1 1 26rem', minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
         <h2 style={{ margin: 0 }}>{tr('op.hero.title')}</h2>
 
         <section style={card}>
           <Field label={tr('op.hero.mode')}>
-            <div role="radiogroup" style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+            <div
+              role="radiogroup"
+              style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}
+            >
               {modes.map((m) => (
                 <Button
                   key={m.id}
@@ -272,7 +288,9 @@ export function HeroBuilder() {
             </select>
           </Field>
           {menuQ.isSuccess && grouped.length === 0 && (
-            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.hero.noItems')}</p>
+            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+              {tr('op.hero.noItems')}
+            </p>
           )}
           <BilingualFields
             labelEn={`${tr('op.hero.label')} (EN)`}
@@ -302,7 +320,14 @@ export function HeroBuilder() {
 
         <section style={card}>
           <Field label={tr('op.hero.ticker')}>
-            <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
+            <span
+              style={{
+                display: 'block',
+                fontSize: 'var(--tp-fs-sm)',
+                color: 'var(--tp-muted-fg)',
+                marginBlockEnd: 'var(--tp-sp-1-5)',
+              }}
+            >
               {tr('op.hero.tickerHint')}
             </span>
           </Field>
@@ -320,7 +345,14 @@ export function HeroBuilder() {
             onChange={(next) => patch({ bell_tutorial_enabled: next })}
             label={tr('op.hero.bellTutorial')}
           />
-          <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          <p
+            style={{
+              margin: 0,
+              marginBlockStart: 'var(--tp-sp-1)',
+              fontSize: 'var(--tp-fs-sm)',
+              color: 'var(--tp-muted-fg)',
+            }}
+          >
             {tr('op.hero.bellTutorialHint')}
           </p>
         </section>
@@ -329,12 +361,26 @@ export function HeroBuilder() {
           <Button kind="primary" disabled={!canSave} onClick={() => void save()}>
             {tr('common.save')}
           </Button>
-          {modeProblem && <span style={{ color: 'var(--tp-danger)', fontSize: 'var(--tp-fs-sm)' }}>{modeProblem}</span>}
+          {modeProblem && (
+            <span style={{ color: 'var(--tp-danger)', fontSize: 'var(--tp-fs-sm)' }}>
+              {modeProblem}
+            </span>
+          )}
         </div>
       </div>
 
-      <aside data-no-print style={{ flex: '0 0 auto', position: 'sticky', insetBlockStart: 'var(--tp-sp-4)' }}>
-        <p style={{ margin: 0, marginBlockEnd: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+      <aside
+        data-no-print
+        style={{ flex: '0 0 auto', position: 'sticky', insetBlockStart: 'var(--tp-sp-4)' }}
+      >
+        <p
+          style={{
+            margin: 0,
+            marginBlockEnd: 'var(--tp-sp-1-5)',
+            fontSize: 'var(--tp-fs-sm)',
+            color: 'var(--tp-muted-fg)',
+          }}
+        >
           {tr('op.hero.preview')}
         </p>
         <HeroPreview

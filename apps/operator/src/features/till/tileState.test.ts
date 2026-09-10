@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { deriveTileState, localIsoDate, tileInteractive } from './tileState';
 
 const TODAY = '2026-09-03';
-const base = { orderable: true, soldOut: false, unavailableOn: null, hasActiveTab: true, today: TODAY };
+const base = {
+  orderable: true,
+  soldOut: false,
+  unavailableOn: null,
+  hasActiveTab: true,
+  today: TODAY,
+};
 
 describe('deriveTileState', () => {
   it('is ready when orderable and a tab is active', () => {
@@ -22,7 +28,9 @@ describe('deriveTileState', () => {
   });
 
   it('is staff-marked unavailable when paused for today', () => {
-    expect(deriveTileState({ ...base, orderable: false, unavailableOn: TODAY })).toBe('unavailable');
+    expect(deriveTileState({ ...base, orderable: false, unavailableOn: TODAY })).toBe(
+      'unavailable',
+    );
   });
 
   it('is blocked by stock when not orderable and no staff column explains it', () => {
@@ -30,7 +38,9 @@ describe('deriveTileState', () => {
   });
 
   it('does not credit a stale pause from another day to staff', () => {
-    expect(deriveTileState({ ...base, orderable: false, unavailableOn: '2026-09-01' })).toBe('blockedByStock');
+    expect(deriveTileState({ ...base, orderable: false, unavailableOn: '2026-09-01' })).toBe(
+      'blockedByStock',
+    );
   });
 
   it('never lets the staff columns override an orderable verdict', () => {
@@ -39,7 +49,9 @@ describe('deriveTileState', () => {
   });
 
   it('the disabled states win over the missing-tab state', () => {
-    expect(deriveTileState({ ...base, orderable: false, soldOut: true, hasActiveTab: false })).toBe('unavailable');
+    expect(deriveTileState({ ...base, orderable: false, soldOut: true, hasActiveTab: false })).toBe(
+      'unavailable',
+    );
   });
 });
 

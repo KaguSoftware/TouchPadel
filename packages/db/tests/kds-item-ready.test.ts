@@ -147,10 +147,7 @@ describe.skipIf(!up)('0061 kds item ready', () => {
   it('a ticket bumped to ready marks every live item ready (unchanged 0015 behaviour)', async () => {
     const { ticketId, itemIds } = await makeTicket();
     await appRpc(cashier, 'set_ticket_status', { p_ticket_id: ticketId, p_status: 'ready' });
-    const { data } = await svc
-      .from('order_items')
-      .select('id, ready_at')
-      .in('id', itemIds);
+    const { data } = await svc.from('order_items').select('id, ready_at').in('id', itemIds);
     for (const row of data as { ready_at: string | null }[]) {
       expect(row.ready_at).not.toBeNull();
     }

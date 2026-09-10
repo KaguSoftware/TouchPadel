@@ -49,7 +49,8 @@ export default [
               // instead, and is the only module that may take Text from here.
               name: 'react-native',
               importNames: ['Text'],
-              message: "Import Text from src/i18n/text: it carries the paragraph's writing direction.",
+              message:
+                "Import Text from src/i18n/text: it carries the paragraph's writing direction.",
             },
             {
               name: 'expo-updates',
@@ -108,6 +109,15 @@ export default [
   {
     // scripts/ holds Node build tooling (make-icons.mjs uses Buffer) — not app
     // code, and the RN globals set has no Buffer. Same carve-out operator-shell makes.
-    ignores: ['.expo/**', 'expo-env.d.ts', 'android/**', 'ios/**', 'dist/**', 'babel.config.js', 'metro.config.js', 'scripts/**'],
+    ignores: [
+      '.expo/**',
+      'expo-env.d.ts',
+      'android/**',
+      'ios/**',
+      'dist/**',
+      'babel.config.js',
+      'metro.config.js',
+      'scripts/**',
+    ],
   },
 ];

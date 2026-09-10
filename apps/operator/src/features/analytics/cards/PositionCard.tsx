@@ -25,10 +25,19 @@ function strengthKey(rho: number, significant: boolean): MessageKey {
   return 'analytics.position.strength.weak';
 }
 
-export function PositionCard({ derived, state, f }: { derived: Derived | null; state: CardState; f: Formatters }) {
+export function PositionCard({
+  derived,
+  state,
+  f,
+}: {
+  derived: Derived | null;
+  state: CardState;
+  f: Formatters;
+}) {
   const { tr, locale } = useLocale();
   const pos = derived?.menuPosition ?? null;
-  const name = (r: { nameEn: string; nameAr: string; id: string }) => pickLocale({ en: r.nameEn, ar: r.nameAr }, locale) || r.id;
+  const name = (r: { nameEn: string; nameAr: string; id: string }) =>
+    pickLocale({ en: r.nameEn, ar: r.nameAr }, locale) || r.id;
 
   return (
     <CardShell
@@ -38,41 +47,69 @@ export function PositionCard({ derived, state, f }: { derived: Derived | null; s
       note={
         pos && pos.hasData ? (
           <>
-            {tr('analytics.position.asOf', { date: f.date(pos.positionAsOf, true) })} · {tr('analytics.position.assumption')}
+            {tr('analytics.position.asOf', { date: f.date(pos.positionAsOf, true) })} ·{' '}
+            {tr('analytics.position.assumption')}
           </>
         ) : undefined
       }
-      actions={pos && pos.hasData ? <StatusBadge size="sm" tone="neutral" dot={false} label={tr(strengthKey(pos.overallRho, pos.significant))} /> : undefined}
+      actions={
+        pos && pos.hasData ? (
+          <StatusBadge
+            size="sm"
+            tone="neutral"
+            dot={false}
+            label={tr(strengthKey(pos.overallRho, pos.significant))}
+          />
+        ) : undefined
+      }
     >
       {pos && (
         <div style={{ display: 'grid', gap: '0.6rem' }}>
-          <p style={{ margin: 0, fontSize: 'var(--tp-fs-md)' }}>{tr(VERDICT[pos.direction] ?? 'analytics.position.verdictNone')}</p>
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-md)' }}>
+            {tr(VERDICT[pos.direction] ?? 'analytics.position.verdictNone')}
+          </p>
           <Bucket
             title={tr('analytics.position.buried')}
             hint={tr('analytics.position.buriedHint')}
-            rows={pos.buriedWinners.slice(0, 4).map((i) => ({ id: i.id, label: name(i), gap: i.rankGap }))}
+            rows={pos.buriedWinners
+              .slice(0, 4)
+              .map((i) => ({ id: i.id, label: name(i), gap: i.rankGap }))}
             f={f}
           />
           <Bucket
             title={tr('analytics.position.squatters')}
             hint={tr('analytics.position.squattersHint')}
-            rows={pos.squatters.slice(0, 4).map((i) => ({ id: i.id, label: name(i), gap: i.rankGap }))}
+            rows={pos.squatters
+              .slice(0, 4)
+              .map((i) => ({ id: i.id, label: name(i), gap: i.rankGap }))}
             f={f}
           />
           <details>
-            <summary style={{ ...muted, cursor: 'pointer' }}>{tr('analytics.position.showLadder')}</summary>
+            <summary style={{ ...muted, cursor: 'pointer' }}>
+              {tr('analytics.position.showLadder')}
+            </summary>
             <div style={{ display: 'grid', gap: '0.4rem', marginBlockStart: '0.4rem' }}>
               {pos.categories.map((cat) => (
                 <div key={cat.categoryId ?? 'none'}>
                   <strong style={{ fontSize: 'var(--tp-fs-sm)' }}>
                     {pickLocale({ en: cat.categoryNameEn, ar: cat.categoryNameAr }, locale)}
                   </strong>
-                  <ol style={{ margin: '0.15rem 0 0', paddingInlineStart: '1.4rem', fontSize: 'var(--tp-fs-xs)' }}>
+                  <ol
+                    style={{
+                      margin: '0.15rem 0 0',
+                      paddingInlineStart: '1.4rem',
+                      fontSize: 'var(--tp-fs-xs)',
+                    }}
+                  >
                     {cat.items.map((i) => (
                       <li key={i.id}>
                         {name(i)} — {f.num(i.qty)}
                         {i.rankGap !== 0 && (
-                          <span style={{ color: i.rankGap > 0 ? 'var(--tp-accent)' : 'var(--tp-muted-fg)' }}>
+                          <span
+                            style={{
+                              color: i.rankGap > 0 ? 'var(--tp-accent)' : 'var(--tp-muted-fg)',
+                            }}
+                          >
                             {' '}
                             ({tr('analytics.position.rankGap')} {i.rankGap > 0 ? '+' : ''}
                             {f.num(i.rankGap)})
@@ -110,7 +147,13 @@ function Bucket({
       {rows.length === 0 ? (
         <p style={muted}>{tr('analytics.empty.generic')}</p>
       ) : (
-        <ul style={{ margin: '0.15rem 0 0', paddingInlineStart: '1.1rem', fontSize: 'var(--tp-fs-sm)' }}>
+        <ul
+          style={{
+            margin: '0.15rem 0 0',
+            paddingInlineStart: '1.1rem',
+            fontSize: 'var(--tp-fs-sm)',
+          }}
+        >
           {rows.map((r) => (
             <li key={r.id}>
               {r.label} <span style={{ color: 'var(--tp-muted-fg)' }}>({f.num(r.gap)})</span>

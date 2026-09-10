@@ -78,12 +78,16 @@ export function AiInsightsCard({
         range_from: raw.range.from,
         range_to: raw.range.to,
         compare_basis: raw.compareBasis,
-        data: buildInsightsData(raw, derived, locale, { priorInsights: prior, rejections: rejectedTexts }),
+        data: buildInsightsData(raw, derived, locale, {
+          priorInsights: prior,
+          rejections: rejectedTexts,
+        }),
       });
       setDegraded(res.degraded);
       setLive(res.insights);
       await save(res.insights);
-      if (mode === 'replace_rejected' && res.insights.length === 0) toast.info(tr('analytics.insights.noReplacement'));
+      if (mode === 'replace_rejected' && res.insights.length === 0)
+        toast.info(tr('analytics.insights.noReplacement'));
     } catch (err) {
       setError(err);
     } finally {
@@ -121,7 +125,10 @@ export function AiInsightsCard({
       toast.ok(tr('analytics.insights.rejected'));
       const remaining = shown.filter((i) => i.text !== insight.text);
       setLive(remaining);
-      await run('replace_rejected', remaining.map((i) => i.text));
+      await run(
+        'replace_rejected',
+        remaining.map((i) => i.text),
+      );
     } catch (err) {
       setError(err);
     }
@@ -154,7 +161,12 @@ export function AiInsightsCard({
           </Button>
           <Button
             disabled={!ready || busy !== null || shown.length === 0}
-            onClick={() => void run('revalidate', shown.map((i) => i.text))}
+            onClick={() =>
+              void run(
+                'revalidate',
+                shown.map((i) => i.text),
+              )
+            }
             style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}
           >
             {tr('analytics.insights.recheck')}
@@ -163,22 +175,38 @@ export function AiInsightsCard({
       }
     >
       <div style={{ display: 'grid', gap: '0.5rem' }}>
-        {degraded && <p style={{ ...muted, color: 'var(--tp-danger)' }}>{tr('analytics.insights.degraded')}</p>}
+        {degraded && (
+          <p style={{ ...muted, color: 'var(--tp-danger)' }}>{tr('analytics.insights.degraded')}</p>
+        )}
         {busy === 'replace' && <p style={muted}>{tr('analytics.insights.replacing')}</p>}
         <ErrorText error={error} />
         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '0.45rem' }}>
           {shown.map((insight, i) => (
-            <li key={`${i}-${insight.text}`} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+            <li
+              key={`${i}-${insight.text}`}
+              style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}
+            >
               <StatusBadge
                 size="sm"
-                tone={insight.confidence === 'high' ? 'success' : insight.confidence === 'low' ? 'warn' : 'neutral'}
+                tone={
+                  insight.confidence === 'high'
+                    ? 'success'
+                    : insight.confidence === 'low'
+                      ? 'warn'
+                      : 'neutral'
+                }
                 label={tr(`analytics.patterns.confidence.${insight.confidence}`)}
               />
               <span style={{ flex: 1, fontSize: 'var(--tp-fs-md)' }}>
                 {insight.text}
                 {insight.status === 'ongoing' && (
                   <span style={{ marginInlineStart: '0.4rem' }}>
-                    <StatusBadge size="sm" tone="neutral" dot={false} label={tr('analytics.insights.ongoing')} />
+                    <StatusBadge
+                      size="sm"
+                      tone="neutral"
+                      dot={false}
+                      label={tr('analytics.insights.ongoing')}
+                    />
                   </span>
                 )}
               </span>
@@ -197,12 +225,24 @@ export function AiInsightsCard({
         </ul>
         {stored.insights.length > 1 && (
           <details>
-            <summary style={{ ...muted, cursor: 'pointer' }}>{tr('analytics.insights.history')}</summary>
+            <summary style={{ ...muted, cursor: 'pointer' }}>
+              {tr('analytics.insights.history')}
+            </summary>
             <div style={{ display: 'grid', gap: '0.4rem', marginBlockStart: '0.4rem' }}>
               {stored.insights.slice(1).map((row) => (
                 <div key={row.id}>
-                  <span style={muted}>{tr('analytics.insights.generatedAt', { date: f.date(row.created_at.slice(0, 10), true) })}</span>
-                  <ul style={{ margin: '0.15rem 0 0', paddingInlineStart: '1.1rem', fontSize: 'var(--tp-fs-sm)' }}>
+                  <span style={muted}>
+                    {tr('analytics.insights.generatedAt', {
+                      date: f.date(row.created_at.slice(0, 10), true),
+                    })}
+                  </span>
+                  <ul
+                    style={{
+                      margin: '0.15rem 0 0',
+                      paddingInlineStart: '1.1rem',
+                      fontSize: 'var(--tp-fs-sm)',
+                    }}
+                  >
                     {row.insights.map((i) => (
                       <li key={i.text}>{i.text}</li>
                     ))}

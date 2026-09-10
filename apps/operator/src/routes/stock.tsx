@@ -74,7 +74,12 @@ function StockShell() {
     label: tr(`op.stockNav.${group.label}` as const),
     items: group.items
       .filter((item) => visible.has(item.to))
-      .map((item) => ({ to: item.to, label: tr(`op.stockNav.${item.key}` as const), icon: item.icon, exact: item.exact })),
+      .map((item) => ({
+        to: item.to,
+        label: tr(`op.stockNav.${item.key}` as const),
+        icon: item.icon,
+        exact: item.exact,
+      })),
   }));
 
   return (

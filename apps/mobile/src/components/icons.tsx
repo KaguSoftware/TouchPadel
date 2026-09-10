@@ -56,7 +56,10 @@ export const ClockIcon = (p: IconProps) => (
   <StrokeIcon d={['M12 7v5l3 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z']} {...p} />
 );
 export const StopwatchIcon = (p: IconProps) => (
-  <StrokeIcon d={['M12 9v4l2.5 2M12 5.5a7.5 7.5 0 107.5 7.5A7.5 7.5 0 0012 5.5zM10 2.5h4']} {...p} />
+  <StrokeIcon
+    d={['M12 9v4l2.5 2M12 5.5a7.5 7.5 0 107.5 7.5A7.5 7.5 0 0012 5.5zM10 2.5h4']}
+    {...p}
+  />
 );
 export const TagIcon = (p: IconProps) => (
   <StrokeIcon
@@ -68,7 +71,10 @@ export const WifiOffIcon = (p: IconProps) => (
   <StrokeIcon d={['M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0M12 19.3h.01M4 4l16 16']} {...p} />
 );
 export const BellIcon = (p: IconProps) => (
-  <StrokeIcon d={['M12 4a6 6 0 00-6 6c0 5-1.5 6-2 7h16c-.5-1-2-2-2-7a6 6 0 00-6-6zM10 20a2 2 0 004 0']} {...p} />
+  <StrokeIcon
+    d={['M12 4a6 6 0 00-6 6c0 5-1.5 6-2 7h16c-.5-1-2-2-2-7a6 6 0 00-6-6zM10 20a2 2 0 004 0']}
+    {...p}
+  />
 );
 export const GlobeIcon = (p: IconProps) => (
   <StrokeIcon
@@ -89,7 +95,9 @@ export const SunIcon = (p: IconProps) => (
 );
 export const PhoneIcon = (p: IconProps) => (
   <StrokeIcon
-    d={['M8 3h8a1.5 1.5 0 011.5 1.5v15A1.5 1.5 0 0116 21H8a1.5 1.5 0 01-1.5-1.5v-15A1.5 1.5 0 018 3zM10.5 17.8h3']}
+    d={[
+      'M8 3h8a1.5 1.5 0 011.5 1.5v15A1.5 1.5 0 0116 21H8a1.5 1.5 0 01-1.5-1.5v-15A1.5 1.5 0 018 3zM10.5 17.8h3',
+    ]}
     {...p}
   />
 );
@@ -146,9 +154,20 @@ export function PadelBallIcon({
   opacity?: number;
 }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none" opacity={opacity} accessible={false}>
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      fill="none"
+      opacity={opacity}
+      accessible={false}
+    >
       <Circle cx={24} cy={24} r={21} fill={fill} />
-      <Path d="M10 7.5c7.5 9 7.5 24 0 33M38 7.5c-7.5 9-7.5 24 0 33" stroke={stroke} strokeWidth={strokeWidth} />
+      <Path
+        d="M10 7.5c7.5 9 7.5 24 0 33M38 7.5c-7.5 9-7.5 24 0 33"
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+      />
     </Svg>
   );
 }
@@ -172,7 +191,12 @@ export const TabBookingsIcon = ({ size = 21, color }: TabIconProps) => (
 export const TabProfileIcon = ({ size = 21, color }: TabIconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
     <Circle cx={12} cy={8.5} r={3.5} stroke={color} strokeWidth={2} />
-    <Path d="M5 19.5c1.5-3.2 4-4.5 7-4.5s5.5 1.3 7 4.5" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    <Path
+      d="M5 19.5c1.5-3.2 4-4.5 7-4.5s5.5 1.3 7 4.5"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+    />
   </Svg>
 );
 
@@ -189,7 +213,12 @@ export function TitleSquiggle({ width = 76 }: { width?: number }) {
       accessible={false}
       style={[{ marginTop: 4 }, mirror(dir)]}
     >
-      <Path d="M2 6C22 1 50 1 74 4.5" stroke={brand.green} strokeWidth={3.5} strokeLinecap="round" />
+      <Path
+        d="M2 6C22 1 50 1 74 4.5"
+        stroke={brand.green}
+        strokeWidth={3.5}
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }

@@ -2,12 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BrowserSupabase } from '@/lib/supabase/client';
-import {
-  mergeStatus,
-  ordersPartition,
-  type GuestOrder,
-  type GuestOrderStatus,
-} from './orders';
+import { mergeStatus, ordersPartition, type GuestOrder, type GuestOrderStatus } from './orders';
 
 /**
  * The session's own orders (RLS lets a guest read only their own — 0015).
@@ -106,8 +101,7 @@ export function useOrders(supabase: BrowserSupabase | null, sessionId: string | 
           return {
             ...o,
             status: merged,
-            served_at:
-              merged === 'served' ? (o.served_at ?? new Date().toISOString()) : null,
+            served_at: merged === 'served' ? (o.served_at ?? new Date().toISOString()) : null,
           };
         });
       });

@@ -45,20 +45,41 @@ describe('buildItemConversion', () => {
     );
     expect(rows.map((r) => r.id)).toEqual(['e002', 'e001', 'e999']);
     const espresso = rows.find((r) => r.id === 'e001')!;
-    expect(espresso).toMatchObject({ nameEn: 'Espresso', nameAr: 'إسبريسو', views: 15, carts: 3, sold: 6, convPct: 40 });
+    expect(espresso).toMatchObject({
+      nameEn: 'Espresso',
+      nameAr: 'إسبريسو',
+      views: 15,
+      carts: 3,
+      sold: 6,
+      convPct: 40,
+    });
     expect(rows.find((r) => r.id === 'e002')!.convPct).toBe(20);
     // Unknown id (deleted item) keeps its row with empty names and convPct 0 (no views).
-    expect(rows.find((r) => r.id === 'e999')).toMatchObject({ nameEn: '', nameAr: '', views: 0, sold: 2, convPct: 0 });
+    expect(rows.find((r) => r.id === 'e999')).toMatchObject({
+      nameEn: '',
+      nameAr: '',
+      views: 0,
+      sold: 2,
+      convPct: 0,
+    });
   });
 
   it('can exceed 100 % and respects the limit', () => {
-    const rows = buildItemConversion([{ id: 'e001', count: 4 }], [], [{ id: 'e001', qty: 10 }], names, 1);
+    const rows = buildItemConversion(
+      [{ id: 'e001', count: 4 }],
+      [],
+      [{ id: 'e001', qty: 10 }],
+      names,
+      1,
+    );
     expect(rows).toHaveLength(1);
     expect(rows[0]!.convPct).toBe(250);
   });
 
   it('rejects non-integer counts', () => {
-    expect(() => buildItemConversion([{ id: 'e001', count: 1.5 }], [], [], names)).toThrow(RangeError);
+    expect(() => buildItemConversion([{ id: 'e001', count: 1.5 }], [], [], names)).toThrow(
+      RangeError,
+    );
     expect(() => buildItemConversion([], [], [{ id: 'e001', qty: -1 }], names)).toThrow(RangeError);
   });
 });
@@ -128,7 +149,13 @@ describe('itemMomentum', () => {
   const now = engagementWindow(range, null);
 
   it('is not comparable when the windows differ in tracked length', () => {
-    const r = itemMomentum([{ id: 'e001', count: 30 }], [{ id: 'e001', count: 5 }], now, engagementWindow(prev, '2026-09-04'), names);
+    const r = itemMomentum(
+      [{ id: 'e001', count: 30 }],
+      [{ id: 'e001', count: 5 }],
+      now,
+      engagementWindow(prev, '2026-09-04'),
+      names,
+    );
     expect(r.comparable).toBe(false);
     expect(r.rising).toEqual([]);
     expect(r.currentDays).toBe(7);
@@ -136,7 +163,10 @@ describe('itemMomentum', () => {
   });
 
   it('is not comparable when the previous window has no views', () => {
-    expect(itemMomentum([{ id: 'e001', count: 30 }], [], now, engagementWindow(prev, null), names).comparable).toBe(false);
+    expect(
+      itemMomentum([{ id: 'e001', count: 30 }], [], now, engagementWindow(prev, null), names)
+        .comparable,
+    ).toBe(false);
   });
 
   it('lists rising (incl. new) and fading (incl. vanished) items', () => {
@@ -162,7 +192,9 @@ describe('itemMomentum', () => {
       ['e002', null, true],
       ['e001', 200, false],
     ]);
-    expect(r.fading.map((i) => [i.id, i.current, i.previous, i.deltaPct])).toEqual([['gone', 0, 12, -100]]);
+    expect(r.fading.map((i) => [i.id, i.current, i.previous, i.deltaPct])).toEqual([
+      ['gone', 0, 12, -100],
+    ]);
     expect(r.rising[0]).toMatchObject({ nameEn: 'Cappuccino' });
   });
 });
@@ -188,6 +220,8 @@ describe('salesVsEngagement', () => {
   });
 
   it('rejects fractional money', () => {
-    expect(() => salesVsEngagement([{ date: '2026-09-02', revenueIqd: 10.5, tabs: 1 }], [])).toThrow(MoneyError);
+    expect(() =>
+      salesVsEngagement([{ date: '2026-09-02', revenueIqd: 10.5, tabs: 1 }], []),
+    ).toThrow(MoneyError);
   });
 });

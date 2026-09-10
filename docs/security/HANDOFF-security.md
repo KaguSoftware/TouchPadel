@@ -9,15 +9,15 @@ is blocked on what, and what to do next** — not the checklists themselves.
 
 ## 0 · Read in this order
 
-| File | What it is |
-|---|---|
-| **this file** | current state, decisions, next steps |
-| `docs/security/macbook-docker-checks.md` | **what has actually been EXECUTED**, with numbers. The most load-bearing file here. |
-| `docs/security/security-layer-1.md` | the foundation slice — 60 boxes |
-| `docs/security/security-general.md` | the full programme — phases 0–9 |
-| `docs/security/layer-1-rules-and-decisions.md` | the boxes that are RULES, not code. **§1, §5 and §6 are binding.** |
-| `docs/security/security-advisor-waiver-2026-09-06.md` | the four accepted `security_definer_view` findings |
-| `docs/security/eas-update-signing.md` | the OTA signing runbook |
+| File                                                  | What it is                                                                          |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **this file**                                         | current state, decisions, next steps                                                |
+| `docs/security/macbook-docker-checks.md`              | **what has actually been EXECUTED**, with numbers. The most load-bearing file here. |
+| `docs/security/security-layer-1.md`                   | the foundation slice — 60 boxes                                                     |
+| `docs/security/security-general.md`                   | the full programme — phases 0–9                                                     |
+| `docs/security/layer-1-rules-and-decisions.md`        | the boxes that are RULES, not code. **§1, §5 and §6 are binding.**                  |
+| `docs/security/security-advisor-waiver-2026-09-06.md` | the four accepted `security_definer_view` findings                                  |
+| `docs/security/eas-update-signing.md`                 | the OTA signing runbook                                                             |
 
 ---
 
@@ -73,7 +73,7 @@ which is the point: the premises were wrong in the direction of "this is smaller
   guest's name on their bookings.
 - **SEC-21's box said the `profiles` read was already "guest-only". It was not.** `0004:160` is a bare
   `grant select on profiles to authenticated`, so every court-desk session could read every guest's
-  `expo_push_token`. The box recorded the *intent*, not the migration.
+  `expo_push_token`. The box recorded the _intent_, not the migration.
 - **`packages/db/src/types.gen.ts` was stale**, missing `reason_given` from migration 0071. Nothing
   regenerates it in CI, so it drifts silently.
 
@@ -87,10 +87,10 @@ other document's word for a premise. Full detail in `macbook-docker-checks.md` �
 Measured 2026-09-07 (session 2) by counting checkboxes, after reconciling `security-general.md`
 §04/§05/§07/§10/§15 against what is actually in the tree.
 
-| | done | open | ticked |
-|---|---|---|---|
-| `security-layer-1.md` | 34 | 25 | **58%** |
-| `security-general.md` | 78 | 88 | **47%** |
+|                       | done | open | ticked  |
+| --------------------- | ---- | ---- | ------- |
+| `security-layer-1.md` | 34   | 25   | **58%** |
+| `security-general.md` | 78   | 88   | **47%** |
 
 Session 2 moved `security-general.md` from **45 to 78 done**. Roughly half of that was BUILDING and half
 was RECONCILING — Phase 5 in particular read 2/22 and was actually 15/22, because the desktop lane was
@@ -121,19 +121,19 @@ spend cap (its only "budget" is a 25-second per-request timeout).
 
 Recounted 2026-09-07 (session 2), directly from the file:
 
-| Phase | Open | ★ open | Note |
-|---|---|---|---|
-| 01 Contract | 1 | — | D1, needs a signature |
-| 04 Phase 0 | 11 | 4 | **9 of the 11 need a dashboard or the client** |
-| 05 Phase 1 | 5 | 2 | |
-| 06 Phase 2 | 1 | 0 | |
-| 07 Phase 3 | 8 | **0** | reconciled; the ★ authz sweep is closed |
-| **08 Phase 4 — store lane** | **17** | **7** | **deadline 2026-09-16** — was 22/9 |
-| 09 Phase 5 — desktop/offline | 21 | 3 | the largest untouched block |
-| 10 Phase 6 — web/QR | 7 | 2 | |
-| 11 Phase 7 — privacy/retention | 5 | — | |
-| 12 Phase 8 — drills | 11 | 3 | |
-| 13 Phase 9 — handover | 9 | — | |
+| Phase                          | Open   | ★ open | Note                                           |
+| ------------------------------ | ------ | ------ | ---------------------------------------------- |
+| 01 Contract                    | 1      | —      | D1, needs a signature                          |
+| 04 Phase 0                     | 11     | 4      | **9 of the 11 need a dashboard or the client** |
+| 05 Phase 1                     | 5      | 2      |                                                |
+| 06 Phase 2                     | 1      | 0      |                                                |
+| 07 Phase 3                     | 8      | **0**  | reconciled; the ★ authz sweep is closed        |
+| **08 Phase 4 — store lane**    | **17** | **7**  | **deadline 2026-09-16** — was 22/9             |
+| 09 Phase 5 — desktop/offline   | 21     | 3      | the largest untouched block                    |
+| 10 Phase 6 — web/QR            | 7      | 2      |                                                |
+| 11 Phase 7 — privacy/retention | 5      | —      |                                                |
+| 12 Phase 8 — drills            | 11     | 3      |                                                |
+| 13 Phase 9 — handover          | 9      | —      |                                                |
 
 §15 and §16 are cross-references to items above, not new work.
 
@@ -149,15 +149,15 @@ store forms themselves, universal links, and Apple's `/auth/revoke` (needs the `
 None of this can be written into the repository. Each needs somebody signed in, or a purchase.
 Full list: `layer-1-rules-and-decisions.md` §8.
 
-| Item | Lead time | Blocks |
-|---|---|---|
-| **Domain + DNS delegation** | days–weeks, **client-gated** | web deletion page, privacy URL, universal links, auth redirect allowlist, HSTS preload, printing QR cards |
-| **OV/EV code-signing certificate** | days (identity verification) | the signed **Windows** installer for `operator-shell` and the update-verification gate. ⚠ **Nothing to do with Apple** — separate platform, separate CA, separate purchase. |
-| **Sign in with Apple `.p8` key** | days (Apple Developer enrolment) | Apple's `/auth/revoke` call, which account deletion **requires**. A store blocker hiding behind an account signup. |
-| MFA org-wide, registrar lock, Supabase member roles | ~1 hour | SEC-40, SEC-37 |
-| Branch protection + "Require review from Code Owners" + the `@KaguSoftware/tech-leads` team | ~1 hour | **`.github/CODEOWNERS` enforces NOTHING without these.** GitHub silently ignores an owner it cannot resolve. |
-| CAPTCHA, redirect allowlist, leaked-password protection, JWT 30 min | ~1 hour | best done once the domain exists |
-| PITR on the Supabase tier | ~1 hour | SOW promises it; if the tier lacks it that is a contract gap |
+| Item                                                                                        | Lead time                        | Blocks                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Domain + DNS delegation**                                                                 | days–weeks, **client-gated**     | web deletion page, privacy URL, universal links, auth redirect allowlist, HSTS preload, printing QR cards                                                                   |
+| **OV/EV code-signing certificate**                                                          | days (identity verification)     | the signed **Windows** installer for `operator-shell` and the update-verification gate. ⚠ **Nothing to do with Apple** — separate platform, separate CA, separate purchase. |
+| **Sign in with Apple `.p8` key**                                                            | days (Apple Developer enrolment) | Apple's `/auth/revoke` call, which account deletion **requires**. A store blocker hiding behind an account signup.                                                          |
+| MFA org-wide, registrar lock, Supabase member roles                                         | ~1 hour                          | SEC-40, SEC-37                                                                                                                                                              |
+| Branch protection + "Require review from Code Owners" + the `@KaguSoftware/tech-leads` team | ~1 hour                          | **`.github/CODEOWNERS` enforces NOTHING without these.** GitHub silently ignores an owner it cannot resolve.                                                                |
+| CAPTCHA, redirect allowlist, leaked-password protection, JWT 30 min                         | ~1 hour                          | best done once the domain exists                                                                                                                                            |
+| PITR on the Supabase tier                                                                   | ~1 hour                          | SOW promises it; if the tier lacks it that is a contract gap                                                                                                                |
 
 **Known live settings, read 2026-09-01:** CAPTCHA **OFF**, leaked-password protection **OFF**, and
 `localhost` + `exp://` still in the redirect allowlist — while anonymous sign-in is ON. That is the
@@ -183,15 +183,15 @@ use.**
 
 ### Migrations added in session 2 (all LOCAL ONLY — see §8)
 
-| | |
-|---|---|
-| `0077_account_deletion` | FK surgery + `app.delete_my_account` + `profiles` grant narrowed |
-| `0078_pin_strength` | PIN 4→6 digits, `app.pin_is_weak`; **seeded dev PINs changed** to 719264 / 380517 |
-| `0079_llm_spend_cap` | day quota + monthly cap + `llm_usage`; gate wired into `analytics-insights` |
-| `0080_guest_text_sanitising` | `app.safe_line` / `safe_text` + triggers; strips bidi and control bytes |
-| `0081_staff_global_signout` | `app.revoke_user_sessions`, called by `set_staff_active(false)` |
-| `0082_cafe_abuse_limits` | orders/minute and items/order per guest session, as triggers |
-| `0083_table_token_prev_secret` | dual-key verify + `rotate_table_token_secret` / `clear_..._prev` |
+|                                |                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| `0077_account_deletion`        | FK surgery + `app.delete_my_account` + `profiles` grant narrowed                  |
+| `0078_pin_strength`            | PIN 4→6 digits, `app.pin_is_weak`; **seeded dev PINs changed** to 719264 / 380517 |
+| `0079_llm_spend_cap`           | day quota + monthly cap + `llm_usage`; gate wired into `analytics-insights`       |
+| `0080_guest_text_sanitising`   | `app.safe_line` / `safe_text` + triggers; strips bidi and control bytes           |
+| `0081_staff_global_signout`    | `app.revoke_user_sessions`, called by `set_staff_active(false)`                   |
+| `0082_cafe_abuse_limits`       | orders/minute and items/order per guest session, as triggers                      |
+| `0083_table_token_prev_secret` | dual-key verify + `rotate_table_token_secret` / `clear_..._prev`                  |
 
 ### New gates — all wired into `.github/workflows/ci.yml`
 
@@ -271,7 +271,7 @@ Added session 2 (2026-09-07):
 
 8. **`types.gen.ts` is not regenerated in CI**, so it drifts. It was stale by one migration (0071's
    `reason_given`) until this session regenerated it. Nothing detects this; a `db:types` + `git diff
-   --exit-code` step would.
+--exit-code` step would.
 9. **The `apple-revoke` tripwire does not fail the suite today.** Deliberate, decided in session — a
    permanently red gate gets weakened or deleted, which `check-migrations.mjs` argues in its own header.
    It is armed on the `APPLE_*` secrets instead. If you would rather it were hard-red, that is a
@@ -397,11 +397,11 @@ Not bugs — choices, each of which changes how the venue operates:
 
 Verified by reading the `on:` block of every workflow:
 
-| Action | `ci.yml` | `db-migrate.yml` | Touches the client's live DB |
-|---|---|---|---|
-| Push branch `kemal` | no | no | **no** |
-| Open a PR into `main` | **yes** | no | **no** |
-| Merge to `main` | yes | **yes** (paths: `migrations/**`) | **YES** |
+| Action                | `ci.yml` | `db-migrate.yml`                 | Touches the client's live DB |
+| --------------------- | -------- | -------------------------------- | ---------------------------- |
+| Push branch `kemal`   | no       | no                               | **no**                       |
+| Open a PR into `main` | **yes**  | no                               | **no**                       |
+| Merge to `main`       | yes      | **yes** (paths: `migrations/**`) | **YES**                      |
 
 `ci.yml` runs on `pull_request` and pushes to `main`. `db-migrate.yml` runs on `workflow_dispatch` and
 pushes to `main` that touch `packages/db/supabase/migrations/**`.
@@ -433,4 +433,4 @@ nothing here is even committed yet.
 
 ---
 
-*Kagu Web Studio · Touch Padel Phase 1 · 2026-09-07*
+_Kagu Web Studio · Touch Padel Phase 1 · 2026-09-07_

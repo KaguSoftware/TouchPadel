@@ -145,7 +145,9 @@ export function normalizeOverview(raw: unknown): OpsOverview {
       upcoming: num(bookings.upcoming),
       noShows: num(bookings.noShows),
       nextArrivalAt: next ? (str(next.startAt) ?? str(next.start_at)) : str(bookings.nextArrivalAt),
-      nextArrivalLabel: next ? (str(next.guestName) ?? str(next.guest_name) ?? str(next.label)) : null,
+      nextArrivalLabel: next
+        ? (str(next.guestName) ?? str(next.guest_name) ?? str(next.label))
+        : null,
     },
     cafe: {
       openTabs: num(cafe.openTabs),
@@ -217,11 +219,31 @@ export function tillTabHref(tabId: string): string {
  * they belong to the stock cluster, where there is room to read them.
  */
 export const OPS_ALERTS = [
-  { key: 'ticketsLate', severity: 'danger', href: '/till/tabs', count: (o: OpsOverview) => o.cafe.ticketsLate },
-  { key: 'expired', severity: 'danger', href: '/stock', count: (o: OpsOverview) => o.stock.expired },
+  {
+    key: 'ticketsLate',
+    severity: 'danger',
+    href: '/till/tabs',
+    count: (o: OpsOverview) => o.cafe.ticketsLate,
+  },
+  {
+    key: 'expired',
+    severity: 'danger',
+    href: '/stock',
+    count: (o: OpsOverview) => o.stock.expired,
+  },
   { key: 'low', severity: 'danger', href: '/stock', count: (o: OpsOverview) => o.stock.low },
-  { key: 'noShows', severity: 'danger', href: '/desk', count: (o: OpsOverview) => o.bookings.noShows },
-  { key: 'waiterCalls', severity: 'warn', href: '/till/tabs', count: (o: OpsOverview) => o.cafe.waiterCallsOpen },
+  {
+    key: 'noShows',
+    severity: 'danger',
+    href: '/desk',
+    count: (o: OpsOverview) => o.bookings.noShows,
+  },
+  {
+    key: 'waiterCalls',
+    severity: 'warn',
+    href: '/till/tabs',
+    count: (o: OpsOverview) => o.cafe.waiterCallsOpen,
+  },
 ] as const;
 
 export type OpsAlertKey = (typeof OPS_ALERTS)[number]['key'];
@@ -236,7 +258,12 @@ export interface OpsAlert {
 
 /** The non-zero alarms, worst first. Table order IS the order; nothing is sorted by value. */
 export function alertsFor(o: OpsOverview): OpsAlert[] {
-  return OPS_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: a.count(o) })).filter((a) => a.count > 0);
+  return OPS_ALERTS.map((a) => ({
+    key: a.key,
+    severity: a.severity,
+    href: a.href,
+    count: a.count(o),
+  })).filter((a) => a.count > 0);
 }
 
 /** The loudest severity present, for the band's own ground. */
@@ -278,8 +305,13 @@ export const DAY_CLOSE_TONE: Record<DayCloseState, 'neutral' | 'danger' | 'warn'
  * 3 on the same scale, which is not a comparison of anything. `null` means the
  * bars have no basis at all (every figure is zero) and none should be drawn.
  */
-export function exceptionBasis(figures: readonly OpsCount[]): { by: 'amount' | 'count'; max: number } | null {
+export function exceptionBasis(
+  figures: readonly OpsCount[],
+): { by: 'amount' | 'count'; max: number } | null {
   const by = figures.every((f) => f.amountIqd !== null) ? 'amount' : 'count';
-  const max = figures.reduce((m, f) => Math.max(m, (by === 'amount' ? f.amountIqd : f.count) ?? 0), 0);
+  const max = figures.reduce(
+    (m, f) => Math.max(m, (by === 'amount' ? f.amountIqd : f.count) ?? 0),
+    0,
+  );
   return max > 0 ? { by, max } : null;
 }

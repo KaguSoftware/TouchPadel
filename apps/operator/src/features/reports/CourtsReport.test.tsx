@@ -48,7 +48,9 @@ const READY = {
 
 beforeEach(() => {
   rpc.mockReset();
-  vi.mocked(fetchActiveCourts).mockResolvedValue([{ id: 'c1', name_en: 'Court 1', name_ar: 'ملعب ١', duration_options: [60], sort_order: 1 }]);
+  vi.mocked(fetchActiveCourts).mockResolvedValue([
+    { id: 'c1', name_en: 'Court 1', name_ar: 'ملعب ١', duration_options: [60], sort_order: 1 },
+  ]);
   vi.mocked(appRpc).mockResolvedValue([]);
 });
 
@@ -59,7 +61,13 @@ describe('CourtsReportScreen — four states', () => {
     expect(screen.getByRole('heading', { name: 'Courts' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Export CSV' })).toHaveProperty('disabled', true);
     // 0068: report_courts takes (p_from, p_to, p_filters) — no p_group (that is report_revenue's alone).
-    expect(rpc).toHaveBeenCalledWith('report_courts', expect.objectContaining({ p_from: expect.any(String), p_filters: expect.objectContaining({ view: 'byCourt' }) }));
+    expect(rpc).toHaveBeenCalledWith(
+      'report_courts',
+      expect.objectContaining({
+        p_from: expect.any(String),
+        p_filters: expect.objectContaining({ view: 'byCourt' }),
+      }),
+    );
     expect(rpc.mock.calls[0]?.[1]).not.toHaveProperty('p_group');
   });
 
@@ -78,12 +86,21 @@ describe('CourtsReportScreen — four states', () => {
 
   it('ready: a row click drills through with the contract key', async () => {
     const user = userEvent.setup();
-    rpc.mockImplementation(async (fn) => (fn === 'report_courts' ? READY : { transactions: [{ id: 't1', at: '2026-09-01T10:00:00Z', amount_iqd: 50000 }] }));
+    rpc.mockImplementation(async (fn) =>
+      fn === 'report_courts'
+        ? READY
+        : { transactions: [{ id: 't1', at: '2026-09-01T10:00:00Z', amount_iqd: 50000 }] },
+    );
     renderReport();
     // Scoped to the table: the court filter lists "Court 1" as an <option> too.
     const table = await screen.findByRole('table', { name: 'Courts' });
     await user.click(await within(table).findByText('Court 1'));
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'court:c1', p_key: null })));
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith(
+        'report_drill',
+        expect.objectContaining({ p_figure: 'court:c1', p_key: null }),
+      ),
+    );
     expect(await screen.findByText('50,000 IQD')).toBeTruthy();
     expect(screen.getByRole('dialog').getAttribute('aria-label')).toContain('Court 1');
   });
@@ -97,8 +114,27 @@ describe('CourtsReportScreen — four states', () => {
   it('shows the declared column set, and the rest one click away', async () => {
     const user = userEvent.setup();
     rpc.mockResolvedValue({
-      columns: ['court', 'occupancy_pct', 'booked_hours', 'available_hours', 'revenue_iqd', 'revenue_per_hour_iqd', 'ledger_ref'],
-      rows: [{ court_id: 'c1', court: 'Court 1', occupancy_pct: 50, booked_hours: 4, available_hours: 8, revenue_iqd: 1000, revenue_per_hour_iqd: 125, ledger_ref: 'L-1' }],
+      columns: [
+        'court',
+        'occupancy_pct',
+        'booked_hours',
+        'available_hours',
+        'revenue_iqd',
+        'revenue_per_hour_iqd',
+        'ledger_ref',
+      ],
+      rows: [
+        {
+          court_id: 'c1',
+          court: 'Court 1',
+          occupancy_pct: 50,
+          booked_hours: 4,
+          available_hours: 8,
+          revenue_iqd: 1000,
+          revenue_per_hour_iqd: 125,
+          ledger_ref: 'L-1',
+        },
+      ],
     });
     renderReport();
     await screen.findByText('Court 1');
@@ -115,8 +151,17 @@ describe('CourtsReportScreen — four states', () => {
     // many that is (rulebook 6.10). Paging it would need page state, which the
     // desk lane declined on /desk/customers for the same reason — see the
     // follow-ups. This test exists to keep the two screens agreeing.
-    const rows = Array.from({ length: 30 }, (_, i) => ({ court_id: `c${i}`, court: `Court ${i}`, occupancy_pct: i, revenue_iqd: i * 1000 }));
-    rpc.mockResolvedValue({ columns: ['court', 'occupancy_pct', 'revenue_iqd'], rows, totals: null });
+    const rows = Array.from({ length: 30 }, (_, i) => ({
+      court_id: `c${i}`,
+      court: `Court ${i}`,
+      occupancy_pct: i,
+      revenue_iqd: i * 1000,
+    }));
+    rpc.mockResolvedValue({
+      columns: ['court', 'occupancy_pct', 'revenue_iqd'],
+      rows,
+      totals: null,
+    });
     renderReport();
     const table = await screen.findByRole('table', { name: 'Courts' });
     expect(screen.getByText('30 of 30')).toBeTruthy();
@@ -137,7 +182,9 @@ describe('CourtsReportScreen — four states', () => {
 
   it('error: shows the failure and a retry that calls the RPC again', async () => {
     const user = userEvent.setup();
-    rpc.mockRejectedValueOnce(new Error('UNKNOWN')).mockResolvedValue({ columns: ['court'], rows: [{ court: 'Court 9' }] });
+    rpc
+      .mockRejectedValueOnce(new Error('UNKNOWN'))
+      .mockResolvedValue({ columns: ['court'], rows: [{ court: 'Court 9' }] });
     renderReport();
     const alerts = await screen.findAllByRole('alert');
     expect(alerts.some((a) => a.textContent?.includes('This could not be loaded.'))).toBe(true);

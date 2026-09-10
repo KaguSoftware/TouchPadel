@@ -74,7 +74,8 @@ export function CreateReservationDialog({
     }
   }
 
-  const canSubmit = !busy && (kind === 'maintenance' || guestName.trim().length > 0 || customer !== null);
+  const canSubmit =
+    !busy && (kind === 'maintenance' || guestName.trim().length > 0 || customer !== null);
 
   return (
     <Modal
@@ -118,7 +119,12 @@ export function CreateReservationDialog({
         />
       </Field>
       <Field label={tr('op.desk.duration')} hint={tr('ws.courtDesk.create.priced')}>
-        <select style={inputStyle} value={duration} disabled={busy} onChange={(e) => setDuration(Number(e.target.value))}>
+        <select
+          style={inputStyle}
+          value={duration}
+          disabled={busy}
+          onChange={(e) => setDuration(Number(e.target.value))}
+        >
           {durations.map((d) => (
             <option key={d} value={d}>
               {tr('op.common.minutesShort', { minutes: d })}
@@ -137,17 +143,40 @@ export function CreateReservationDialog({
               if (next && !guestPhone && next.phone) setGuestPhone(next.phone);
             }}
           />
-          <MessagePresenter tone="info" message={tr('ws.courtDesk.create.noCustomerNote')} style={{ marginBlockEnd: '0.85rem' }} />
+          <MessagePresenter
+            tone="info"
+            message={tr('ws.courtDesk.create.noCustomerNote')}
+            style={{ marginBlockEnd: '0.85rem' }}
+          />
           <Field label={tr('op.desk.guestName')} required={customer === null}>
-            <input style={inputStyle} value={guestName} disabled={busy} onChange={(e) => setGuestName(e.target.value)} autoFocus />
+            <input
+              style={inputStyle}
+              value={guestName}
+              disabled={busy}
+              onChange={(e) => setGuestName(e.target.value)}
+              autoFocus
+            />
           </Field>
           <Field label={tr('op.desk.guestPhone')}>
-            <input style={inputStyle} dir="ltr" inputMode="tel" value={guestPhone} disabled={busy} onChange={(e) => setGuestPhone(e.target.value)} />
+            <input
+              style={inputStyle}
+              dir="ltr"
+              inputMode="tel"
+              value={guestPhone}
+              disabled={busy}
+              onChange={(e) => setGuestPhone(e.target.value)}
+            />
           </Field>
         </>
       )}
       <Field label={tr('op.common.notes')}>
-        <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
+        <input
+          style={inputStyle}
+          value={notes}
+          disabled={busy}
+          maxLength={1000}
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </Field>
       <ErrorText error={error} />
     </Modal>

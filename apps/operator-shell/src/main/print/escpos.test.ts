@@ -66,11 +66,7 @@ describe('bgraToMonochrome', () => {
   });
 
   it('anti-aliased grey lands by luminance against the threshold', () => {
-    const mono = bgraToMonochrome(
-      Buffer.from([...px(100, 100, 100), ...px(200, 200, 200)]),
-      2,
-      1,
-    );
+    const mono = bgraToMonochrome(Buffer.from([...px(100, 100, 100), ...px(200, 200, 200)]), 2, 1);
     expect(mono.bits[0]).toBe(0b10000000); // 100 < 160 ink, 200 ≥ 160 paper
   });
 });

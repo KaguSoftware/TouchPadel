@@ -24,7 +24,8 @@ export const FIGURE_KEYS = [
 export type FigureKey = (typeof FIGURE_KEYS)[number];
 
 export type FigureGroup = 'headline' | 'padel' | 'cafe';
-export type ReportPath = '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff';
+export type ReportPath =
+  '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff';
 
 export interface FigureMeta {
   key: FigureKey;
@@ -41,12 +42,30 @@ export const FIGURES: Record<FigureKey, FigureMeta> = {
   card: { key: 'card', kind: 'money', report: '/reports/revenue', group: 'headline' },
   padelRevenue: { key: 'padelRevenue', kind: 'money', report: '/reports/courts', group: 'padel' },
   bookings: { key: 'bookings', kind: 'count', report: '/reports/courts', group: 'padel' },
-  noShows: { key: 'noShows', kind: 'count', invert: true, report: '/reports/courts', group: 'padel' },
+  noShows: {
+    key: 'noShows',
+    kind: 'count',
+    invert: true,
+    report: '/reports/courts',
+    group: 'padel',
+  },
   cafeRevenue: { key: 'cafeRevenue', kind: 'money', report: '/reports/cafe', group: 'cafe' },
   orders: { key: 'orders', kind: 'count', report: '/reports/cafe', group: 'cafe' },
   avgOrderValue: { key: 'avgOrderValue', kind: 'money', report: '/reports/cafe', group: 'cafe' },
-  discounts: { key: 'discounts', kind: 'money', invert: true, report: '/reports/revenue', group: 'cafe' },
-  refunds: { key: 'refunds', kind: 'money', invert: true, report: '/reports/revenue', group: 'cafe' },
+  discounts: {
+    key: 'discounts',
+    kind: 'money',
+    invert: true,
+    report: '/reports/revenue',
+    group: 'cafe',
+  },
+  refunds: {
+    key: 'refunds',
+    kind: 'money',
+    invert: true,
+    report: '/reports/revenue',
+    group: 'cafe',
+  },
   waste: { key: 'waste', kind: 'money', invert: true, report: '/reports/stock', group: 'cafe' },
 };
 
@@ -73,7 +92,9 @@ export function isFigureKey(key: string): key is FigureKey {
 }
 
 /** Known figures from the result, by key. Unknown keys are dropped; a missing figure is simply absent. */
-export function mapFigures(result: PanelHeadline | null | undefined): Map<FigureKey, HeadlineFigureRow> {
+export function mapFigures(
+  result: PanelHeadline | null | undefined,
+): Map<FigureKey, HeadlineFigureRow> {
   const out = new Map<FigureKey, HeadlineFigureRow>();
   for (const f of result?.figures ?? []) {
     if (f && typeof f.key === 'string' && isFigureKey(f.key)) out.set(f.key, f);
@@ -89,12 +110,21 @@ export function panelIsEmpty(result: PanelHeadline | null | undefined): boolean 
 }
 
 /** One CSV row per known figure, raw numbers, in panel order. */
-export function figuresToCsvRows(figures: ReadonlyMap<FigureKey, HeadlineFigureRow>, labelOf: (key: FigureKey) => string): CsvCell[][] {
+export function figuresToCsvRows(
+  figures: ReadonlyMap<FigureKey, HeadlineFigureRow>,
+  labelOf: (key: FigureKey) => string,
+): CsvCell[][] {
   const rows: CsvCell[][] = [];
   for (const key of FIGURE_KEYS) {
     const f = figures.get(key);
     if (!f) continue;
-    rows.push([labelOf(key), f.value ?? null, f.previous ?? null, f.changeAbs ?? null, f.changePct ?? null]);
+    rows.push([
+      labelOf(key),
+      f.value ?? null,
+      f.previous ?? null,
+      f.changeAbs ?? null,
+      f.changePct ?? null,
+    ]);
   }
   return rows;
 }

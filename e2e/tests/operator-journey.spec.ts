@@ -63,9 +63,7 @@ test.describe('operator journeys', () => {
     await voidOpenTabsForTable(svc, TILL_TABLE);
   });
 
-  test('court_desk: calendar renders courts; walk-in booking create + cancel', async ({
-    page,
-  }) => {
+  test('court_desk: calendar renders courts; walk-in booking create + cancel', async ({ page }) => {
     await signIn(page, SEED_STAFF.court_desk);
     // Spec §04: the desk lands on Today's board; the calendar is one click away.
     await page.goto(`${OPERATOR_URL}/desk`);
@@ -225,7 +223,10 @@ test.describe('operator journeys', () => {
 
       // Open it from the week grid — the SAME detail modal, so move, shorten,
       // extend and cancel all work here without a second code path.
-      await page.getByRole('button', { name: new RegExp(name) }).first().click();
+      await page
+        .getByRole('button', { name: new RegExp(name) })
+        .first()
+        .click();
       const actions = page.getByRole('dialog', { name });
       await expect(actions).toBeVisible();
 
@@ -274,10 +275,7 @@ test.describe('operator journeys', () => {
     // `assert_bookable` refuses bookings on those days and the desk greys them
     // out — but nothing could WRITE the list, so closing for Eid meant running
     // SQL against the client's production database.
-    const { data: before } = await svc
-      .from('venue_settings')
-      .select('closed_dates')
-      .single();
+    const { data: before } = await svc.from('venue_settings').select('closed_dates').single();
     const original = (before as { closed_dates: string[] | null }).closed_dates ?? [];
 
     // A date far enough out that no other suite is booking on it.
@@ -295,10 +293,7 @@ test.describe('operator journeys', () => {
       await page.getByRole('button', { name: /Save/ }).click();
 
       await expect(async () => {
-        const { data } = await svc
-          .from('venue_settings')
-          .select('closed_dates')
-          .single();
+        const { data } = await svc.from('venue_settings').select('closed_dates').single();
         expect((data as { closed_dates: string[] }).closed_dates).toContain(target);
       }).toPass({ timeout: 20_000 });
 
@@ -351,8 +346,7 @@ test.describe('operator journeys', () => {
       // Both windows still present in the database, on every day.
       await expect(async () => {
         const { data } = await svc.from('venue_settings').select('opening_hours').single();
-        const hours = (data as { opening_hours: Record<string, [string, string][]> })
-          .opening_hours;
+        const hours = (data as { opening_hours: Record<string, [string, string][]> }).opening_hours;
         for (const day of ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']) {
           expect(hours[day]).toEqual([
             ['00:00', '02:00'],
@@ -417,7 +411,10 @@ test.describe('operator journeys', () => {
     const pin = page.getByRole('dialog', { name: 'Change price' }).last();
     await pin.getByLabel('Reason').selectOption('staff_error');
     await pin.getByLabel('Manager PIN').fill('380517');
-    await pin.getByRole('button', { name: /Confirm|Apply|Change price/ }).last().click();
+    await pin
+      .getByRole('button', { name: /Confirm|Apply|Change price/ })
+      .last()
+      .click();
 
     await expect(async () => {
       const { data } = await svc
@@ -457,7 +454,10 @@ test.describe('operator journeys', () => {
     const refundPin = page.getByRole('dialog', { name: 'Refund' }).last();
     await refundPin.getByLabel('Reason').selectOption('quality');
     await refundPin.getByLabel('Manager PIN').fill('380517');
-    await refundPin.getByRole('button', { name: /Confirm|Apply|Refund/ }).last().click();
+    await refundPin
+      .getByRole('button', { name: /Confirm|Apply|Refund/ })
+      .last()
+      .click();
 
     // The audit row is the acceptance test: a refund traceable to a named
     // actor, with a reason.

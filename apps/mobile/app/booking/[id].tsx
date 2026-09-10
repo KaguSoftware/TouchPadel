@@ -10,18 +10,17 @@ import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
 import { canCancel, displayRef, endedNotice } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useCourts, useCourtsBroadcast, useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
+import {
+  useCourts,
+  useCourtsBroadcast,
+  useIsDegraded,
+  useVenueSettings,
+} from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { callPhone } from '../../src/lib/phone';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
-import {
-  Button,
-  Card,
-  DashedDivider,
-  ErrorText,
-  Screen,
-} from '../../src/components/ui';
+import { Button, Card, DashedDivider, ErrorText, Screen } from '../../src/components/ui';
 import { useBack } from '../../src/navigation/back';
 import {
   DegradedBanner,
@@ -194,11 +193,17 @@ function BookingDetailScreen() {
               rows={[
                 ...(start
                   ? [
-                      { icon: CalendarIcon, label: t('booking.date'), value: formatDate(start, locale) },
+                      {
+                        icon: CalendarIcon,
+                        label: t('booking.date'),
+                        value: formatDate(start, locale),
+                      },
                       {
                         icon: ClockIcon,
                         label: t('booking.time'),
-                        value: end ? formatTimeRange(start, end, locale) : formatDateTime(start, locale),
+                        value: end
+                          ? formatTimeRange(start, end, locale)
+                          : formatDateTime(start, locale),
                       },
                     ]
                   : []),
@@ -243,7 +248,12 @@ function BookingDetailScreen() {
               }}
             >
               <Text
-                style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut2 }}
+                style={{
+                  fontFamily: fonts.body400,
+                  fontSize: 12.5,
+                  lineHeight: 19,
+                  color: colors.mut2,
+                }}
               >
                 <Text style={{ fontFamily: fonts.body800 }}>↻ {t('booking.weeklySeries')}. </Text>
                 {t('booking.seriesNotice')}
@@ -354,7 +364,12 @@ function BookingDetailScreen() {
               }}
             >
               <Text
-                style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.mut }}
+                style={{
+                  fontFamily: fonts.body400,
+                  fontSize: 12.5,
+                  lineHeight: 19,
+                  color: colors.mut,
+                }}
               >
                 {t(endedNoticeKey)}
               </Text>
@@ -362,7 +377,10 @@ function BookingDetailScreen() {
           ) : null}
 
           <View style={{ marginTop: 10 }}>
-            <PayAtDeskCard lead={`${t('booking.payAtDeskTitle')}.`} body={t('booking.payAtDeskShort')} />
+            <PayAtDeskCard
+              lead={`${t('booking.payAtDeskTitle')}.`}
+              body={t('booking.payAtDeskShort')}
+            />
           </View>
 
           <ErrorText>{error}</ErrorText>

@@ -59,12 +59,11 @@ describe.skipIf(!up)('0050 operator atomic writes', () => {
     }
 
     async function sortOrders(ids: string[]): Promise<number[]> {
-      const { data, error } = await svc
-        .from('menu_items')
-        .select('id, sort_order')
-        .in('id', ids);
+      const { data, error } = await svc.from('menu_items').select('id, sort_order').in('id', ids);
       if (error) throw new Error(error.message);
-      const byId = new Map((data as { id: string; sort_order: number }[]).map((r) => [r.id, r.sort_order]));
+      const byId = new Map(
+        (data as { id: string; sort_order: number }[]).map((r) => [r.id, r.sort_order]),
+      );
       return ids.map((id) => byId.get(id) as number);
     }
 
@@ -192,9 +191,7 @@ describe.skipIf(!up)('0050 operator atomic writes', () => {
         .from('menu_categories')
         .select('id, sort_order, name_en, name_ar, is_active')
         .in('id', [a.categoryId, b.categoryId]);
-      const byId = new Map(
-        (rows as { id: string; sort_order: number }[]).map((r) => [r.id, r]),
-      );
+      const byId = new Map((rows as { id: string; sort_order: number }[]).map((r) => [r.id, r]));
       expect(byId.get(b.categoryId)?.sort_order).toBe(0);
       expect(byId.get(a.categoryId)?.sort_order).toBe(1);
 
@@ -231,8 +228,20 @@ describe.skipIf(!up)('0050 operator atomic writes', () => {
       const { data, error } = await svc
         .from('modifiers')
         .insert([
-          { group_id: groupId, name_en: 'Opt B', name_ar: 'ب', price_delta_iqd: 250, is_active: true },
-          { group_id: groupId, name_en: 'Opt C', name_ar: 'ج', price_delta_iqd: 750, is_active: true },
+          {
+            group_id: groupId,
+            name_en: 'Opt B',
+            name_ar: 'ب',
+            price_delta_iqd: 250,
+            is_active: true,
+          },
+          {
+            group_id: groupId,
+            name_en: 'Opt C',
+            name_ar: 'ج',
+            price_delta_iqd: 750,
+            is_active: true,
+          },
         ])
         .select('id');
       if (error) throw new Error(error.message);
@@ -246,10 +255,7 @@ describe.skipIf(!up)('0050 operator atomic writes', () => {
       expect(res.error).toBeNull();
       expect(res.data).toBe(3);
 
-      const { data } = await svc
-        .from('modifiers')
-        .select('id, sort_order')
-        .in('id', ids);
+      const { data } = await svc.from('modifiers').select('id, sort_order').in('id', ids);
       const byId = new Map(
         (data as { id: string; sort_order: number }[]).map((r) => [r.id, r.sort_order]),
       );
@@ -262,7 +268,10 @@ describe.skipIf(!up)('0050 operator atomic writes', () => {
       // The old client re-sent the whole modifier row from its own cache, so
       // reordering options could silently revert a colleague's PRICE change.
       const { ids } = await threeOptions();
-      const { error: uErr } = await svc.from('modifiers').update({ price_delta_iqd: 1234 }).eq('id', ids[0]!);
+      const { error: uErr } = await svc
+        .from('modifiers')
+        .update({ price_delta_iqd: 1234 })
+        .eq('id', ids[0]!);
       expect(uErr).toBeNull();
 
       const res = await appRpc(manager, 'reorder_modifiers', { p_ids: [ids[1], ids[2], ids[0]] });

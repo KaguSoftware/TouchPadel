@@ -130,7 +130,14 @@ export function RatioMeter({
   const pct = limit > 0 ? Math.max(0, Math.min(1, value / limit)) * 100 : 0;
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 'var(--tp-sp-2)',
+          marginBlockEnd: 'var(--tp-sp-1-5)',
+        }}
+      >
         <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{label}</span>
         <span style={{ marginInlineStart: 'auto', fontVariantNumeric: 'tabular-nums' }}>
           <strong>{formatNumber(value, locale)}</strong>
@@ -139,7 +146,12 @@ export function RatioMeter({
       </div>
       <div
         aria-hidden="true"
-        style={{ blockSize: METER_BLOCK, background: trackFor(fill), borderRadius: 'var(--tp-radius-sm)', overflow: 'hidden' }}
+        style={{
+          blockSize: METER_BLOCK,
+          background: trackFor(fill),
+          borderRadius: 'var(--tp-radius-sm)',
+          overflow: 'hidden',
+        }}
       >
         {pct > 0 && (
           <div
@@ -159,12 +171,25 @@ export function RatioMeter({
 }
 
 /** The track + fill both the ladder and the drill list draw. */
-function Bar({ fraction, tone, block = BAR_BLOCK }: { fraction: number; tone: MarkTone; block?: string }) {
+function Bar({
+  fraction,
+  tone,
+  block = BAR_BLOCK,
+}: {
+  fraction: number;
+  tone: MarkTone;
+  block?: string;
+}) {
   const pct = Math.max(0, Math.min(1, fraction)) * 100;
   return (
     <div
       aria-hidden="true"
-      style={{ blockSize: block, background: 'var(--tp-surface-2)', borderRadius: 'var(--tp-radius-sm)', overflow: 'hidden' }}
+      style={{
+        blockSize: block,
+        background: 'var(--tp-surface-2)',
+        borderRadius: 'var(--tp-radius-sm)',
+        overflow: 'hidden',
+      }}
     >
       {pct > 0 && (
         <div
@@ -210,39 +235,63 @@ export interface LadderRow {
  * colour entirely and shows an empty track, so colour appears on this panel
  * only where there is actually something to do.
  */
-export function SeverityLadder({ rows, caption }: { rows: readonly LadderRow[]; caption?: string }) {
+export function SeverityLadder({
+  rows,
+  caption,
+}: {
+  rows: readonly LadderRow[];
+  caption?: string;
+}) {
   const { locale } = useLocale();
   const max = rows.reduce((m, r) => Math.max(m, r.value ?? 0), 0);
   return (
     <div>
       {caption && (
-        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-2)' }}>{caption}</p>
+        <p
+          style={{
+            fontSize: 'var(--tp-fs-sm)',
+            color: 'var(--tp-muted-fg)',
+            fontWeight: 600,
+            marginBlockEnd: 'var(--tp-sp-2)',
+          }}
+        >
+          {caption}
+        </p>
       )}
       <dl style={{ margin: 0, display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
-      {rows.map((r) => {
-        const clear = r.value === null || r.value === 0;
-        return (
-          <div key={r.key} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)' }}>
-              <dt style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {r.label}
-              </dt>
-              <dd
-                style={{
-                  margin: 0,
-                  marginInlineStart: 'auto',
-                  fontWeight: 700,
-                  fontVariantNumeric: 'tabular-nums',
-                  color: clear ? 'var(--tp-muted-fg)' : MARK_FG[r.tone],
-                }}
-              >
-                {r.value === null ? '—' : formatNumber(r.value, locale)}
-              </dd>
+        {rows.map((r) => {
+          const clear = r.value === null || r.value === 0;
+          return (
+            <div key={r.key} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)' }}>
+                <dt
+                  style={{
+                    fontSize: 'var(--tp-fs-sm)',
+                    color: 'var(--tp-muted-fg)',
+                    minInlineSize: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {r.label}
+                </dt>
+                <dd
+                  style={{
+                    margin: 0,
+                    marginInlineStart: 'auto',
+                    fontWeight: 700,
+                    fontVariantNumeric: 'tabular-nums',
+                    color: clear ? 'var(--tp-muted-fg)' : MARK_FG[r.tone],
+                  }}
+                >
+                  {r.value === null ? '—' : formatNumber(r.value, locale)}
+                </dd>
+              </div>
+              <Bar fraction={clear || max === 0 ? 0 : (r.value ?? 0) / max} tone={r.tone} />
             </div>
-            <Bar fraction={clear || max === 0 ? 0 : (r.value ?? 0) / max} tone={r.tone} />
-          </div>
-        );
-      })}
+          );
+        })}
       </dl>
     </div>
   );
@@ -318,11 +367,25 @@ export function DrillBarList<K extends string>({
             }}
           >
             <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)' }}>
-              <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{r.label}</span>
-              <span style={{ marginInlineStart: 'auto', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{r.value}</span>
+              <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                {r.label}
+              </span>
+              <span
+                style={{
+                  marginInlineStart: 'auto',
+                  fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {r.value}
+              </span>
             </span>
             <Bar fraction={r.fraction} tone="accent" />
-            {r.hint && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{r.hint}</span>}
+            {r.hint && (
+              <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+                {r.hint}
+              </span>
+            )}
           </button>
         </li>
       ))}
@@ -349,16 +412,33 @@ export interface GateRow {
 export function GateList({ gates }: { gates: readonly GateRow[] }) {
   const { locale } = useLocale();
   return (
-    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+    <ul
+      style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}
+    >
       {gates.map((g) => {
         const clear = g.count === 0;
         const tone: MarkTone = clear ? 'success' : g.tone;
         const icon: IconName = clear ? 'checkCircle' : 'alert';
         return (
-          <li key={g.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)' }}>
+          <li
+            key={g.key}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--tp-sp-2)',
+              fontSize: 'var(--tp-fs-sm)',
+            }}
+          >
             <Icon name={icon} size={15} style={{ color: MARK[tone], flex: '0 0 auto' }} />
             <span style={{ color: 'var(--tp-muted-fg)', minInlineSize: 0 }}>{g.label}</span>
-            <span style={{ marginInlineStart: 'auto', fontWeight: 700, color: MARK_FG[tone], fontVariantNumeric: 'tabular-nums' }}>
+            <span
+              style={{
+                marginInlineStart: 'auto',
+                fontWeight: 700,
+                color: MARK_FG[tone],
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
               {clear ? g.clearLabel : formatNumber(g.count, locale)}
             </span>
           </li>
@@ -376,10 +456,20 @@ export function GateList({ gates }: { gates: readonly GateRow[] }) {
  * the container and this is just the largest text in it — which is the whole
  * mechanism by which a cluster has a lead rather than five equals.
  */
-export function LeadFigure({ label, value, tone = 'neutral' }: { label: string; value: ReactNode; tone?: MarkTone }) {
+export function LeadFigure({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  label: string;
+  value: ReactNode;
+  tone?: MarkTone;
+}) {
   return (
     <div>
-      <div style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>
+        {label}
+      </div>
       <div
         style={{
           // 2xl, not 3xl: four of these must out-weigh everything inside their

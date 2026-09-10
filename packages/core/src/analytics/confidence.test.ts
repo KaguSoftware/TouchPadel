@@ -15,7 +15,14 @@ describe('buildDataBasis', () => {
     const basis = buildDataBasis({
       range: { from: '2026-09-01', to: '2026-09-30' },
       // Fridays: 09-04, 09-11, 09-18, 09-25; Sunday 09-06 twice (deduped)
-      salesDates: ['2026-09-04', '2026-09-11', '2026-09-18', '2026-09-25', '2026-09-06', '2026-09-06'],
+      salesDates: [
+        '2026-09-04',
+        '2026-09-11',
+        '2026-09-18',
+        '2026-09-25',
+        '2026-09-06',
+        '2026-09-06',
+      ],
       sessions: 412,
       engagementDays: 20,
       itemsWithSales: 38,
@@ -63,6 +70,8 @@ describe('describeBasis', () => {
       itemsWithSales: 38,
     });
     expect(describeBasis(full)).toBe('16/30 days with sales · 1,412 sessions · 38 items');
-    expect(describeBasis({ ...full, sessions: 0, itemsWithSales: 0 })).toBe('16/30 days with sales');
+    expect(describeBasis({ ...full, sessions: 0, itemsWithSales: 0 })).toBe(
+      '16/30 days with sales',
+    );
   });
 });

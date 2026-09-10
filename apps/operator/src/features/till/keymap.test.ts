@@ -24,7 +24,9 @@ describe('resolveTillKey', () => {
   });
 
   it('Enter in the filter is the quick-add; other keys there are typing', () => {
-    expect(resolveTillKey(ctx({ key: 'Enter', inFilter: true, inField: true }))).toBe('quickAddFromFilter');
+    expect(resolveTillKey(ctx({ key: 'Enter', inFilter: true, inField: true }))).toBe(
+      'quickAddFromFilter',
+    );
     expect(resolveTillKey(ctx({ key: 'a', inFilter: true, inField: true }))).toBeNull();
     expect(resolveTillKey(ctx({ key: '3', inFilter: true, inField: true }))).toBeNull();
   });
@@ -62,7 +64,18 @@ describe('resolveTillKey', () => {
 describe('TILL_KEYMAP', () => {
   it('documents every hotkey the resolver handles', () => {
     const documented = new Set(TILL_KEYMAP.map((r) => r.labelKey));
-    for (const k of ['send', 'cash', 'card', 'newTab', 'filter', 'categories', 'help', 'escape', 'rail', 'grid']) {
+    for (const k of [
+      'send',
+      'cash',
+      'card',
+      'newTab',
+      'filter',
+      'categories',
+      'help',
+      'escape',
+      'rail',
+      'grid',
+    ]) {
       expect(documented.has(k)).toBe(true);
     }
   });

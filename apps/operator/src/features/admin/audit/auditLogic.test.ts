@@ -216,8 +216,23 @@ describe('periodBounds / inPeriod', () => {
 describe('auditCsv', () => {
   it('names the actor and flattens the change list into one cell', () => {
     const names = new Map([['a0000000-0000-4000-8000-000000000001', 'Dev Owner']]);
-    const labels = { when: 'When', actor: 'Actor', role: 'Role', authoriser: 'Auth', action: 'Action', entity: 'Record', entityId: 'Id', reason: 'Reason', device: 'Station', changes: 'Changes' };
-    const { headers, rows } = auditCsv(labels, [row({ before: { sold_out: false }, after: { sold_out: true } })], names);
+    const labels = {
+      when: 'When',
+      actor: 'Actor',
+      role: 'Role',
+      authoriser: 'Auth',
+      action: 'Action',
+      entity: 'Record',
+      entityId: 'Id',
+      reason: 'Reason',
+      device: 'Station',
+      changes: 'Changes',
+    };
+    const { headers, rows } = auditCsv(
+      labels,
+      [row({ before: { sold_out: false }, after: { sold_out: true } })],
+      names,
+    );
     expect(headers).toHaveLength(10);
     expect(rows[0]![1]).toBe('Dev Owner');
     expect(rows[0]![9]).toBe('sold_out: false → true');

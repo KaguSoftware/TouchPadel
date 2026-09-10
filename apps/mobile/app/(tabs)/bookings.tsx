@@ -191,9 +191,7 @@ export default function BookingsScreen() {
         courtName: courtNames.get(row.court_id) ?? '',
         startAt: row.start_at,
         durationMin: String(
-          Math.round(
-            (new Date(row.end_at).getTime() - new Date(row.start_at).getTime()) / 60_000,
-          ),
+          Math.round((new Date(row.end_at).getTime() - new Date(row.start_at).getTime()) / 60_000),
         ),
       },
     });
@@ -376,8 +374,7 @@ export default function BookingsScreen() {
     }
   };
 
-  const openBooking = (id: string) =>
-    router.push({ pathname: '/booking/[id]', params: { id } });
+  const openBooking = (id: string) => router.push({ pathname: '/booking/[id]', params: { id } });
 
   const durationLabel = (row: BookingRow) =>
     t('booking.durationMinutes', {

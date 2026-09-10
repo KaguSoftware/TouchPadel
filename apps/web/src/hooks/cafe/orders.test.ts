@@ -88,8 +88,26 @@ describe('orderTotal', () => {
     const o = order({
       id: 'o',
       items: [
-        { id: '1', qty: 1, line_total_iqd: 1_000, voided: false, name_en: '', name_ar: '', variant_en: '', variant_ar: '' },
-        { id: '2', qty: 2, line_total_iqd: 4_000, voided: true, name_en: '', name_ar: '', variant_en: '', variant_ar: '' },
+        {
+          id: '1',
+          qty: 1,
+          line_total_iqd: 1_000,
+          voided: false,
+          name_en: '',
+          name_ar: '',
+          variant_en: '',
+          variant_ar: '',
+        },
+        {
+          id: '2',
+          qty: 2,
+          line_total_iqd: 4_000,
+          voided: true,
+          name_en: '',
+          name_ar: '',
+          variant_en: '',
+          variant_ar: '',
+        },
       ],
     });
     expect(orderTotal(o)).toBe(1_000);

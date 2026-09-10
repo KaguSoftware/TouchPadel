@@ -216,7 +216,10 @@ export function useSetCafeSettings() {
       if (previous) {
         const next = { ...previous } as Record<string, unknown>;
         for (const w of writes) next[w.key] = w.value;
-        queryClient.setQueryData<CafeSettings>(CAFE_SETTINGS_QUERY_KEY, next as unknown as CafeSettings);
+        queryClient.setQueryData<CafeSettings>(
+          CAFE_SETTINGS_QUERY_KEY,
+          next as unknown as CafeSettings,
+        );
       }
       return { previous };
     },

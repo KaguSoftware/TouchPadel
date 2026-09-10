@@ -73,7 +73,11 @@ export interface StockBlock {
  * ingredients are out. `todayIso` is the station's calendar date used only to
  * read the off-today flag the way the view does.
  */
-export function stockBlockFor(item: ItemAvailabilityInput, data: StockBlockData | undefined, todayIso: string): StockBlock {
+export function stockBlockFor(
+  item: ItemAvailabilityInput,
+  data: StockBlockData | undefined,
+  todayIso: string,
+): StockBlock {
   if (!data) return { blocked: false, ingredients: [] };
   const row = data.availability.find((a) => a.item_id === item.id);
   const explainedByFlags = !item.is_active || item.sold_out || item.unavailable_on === todayIso;
@@ -81,7 +85,11 @@ export function stockBlockFor(item: ItemAvailabilityInput, data: StockBlockData 
   if (!blocked) return { blocked: false, ingredients: [] };
 
   const variantIds = new Set(item.menu_item_variants.map((v) => v.id));
-  const required = new Set(data.recipeLines.filter((l) => l.variant_id && variantIds.has(l.variant_id)).map((l) => l.ingredient_id));
+  const required = new Set(
+    data.recipeLines
+      .filter((l) => l.variant_id && variantIds.has(l.variant_id))
+      .map((l) => l.ingredient_id),
+  );
   const ingredients = data.onHand
     .filter((o) => required.has(o.ingredient_id) && o.on_hand <= 0)
     .map((o) => ({ ingredient_id: o.ingredient_id, name_en: o.name_en, name_ar: o.name_ar }));

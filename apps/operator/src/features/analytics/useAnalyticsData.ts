@@ -94,7 +94,9 @@ export function useStoredNumber(key: string, fallback: number, accept: (n: numbe
 
 /** `document.hidden`, so auto-refresh can stop while the tab is in the background. */
 function usePageVisible(): boolean {
-  const [visible, setVisible] = useState(() => (typeof document === 'undefined' ? true : !document.hidden));
+  const [visible, setVisible] = useState(() =>
+    typeof document === 'undefined' ? true : !document.hidden,
+  );
   useEffect(() => {
     const onChange = () => setVisible(!document.hidden);
     document.addEventListener('visibilitychange', onChange);
@@ -253,7 +255,10 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   const range = resolved.range;
   const preset = resolved.preset;
   const compareBasis: CompareBasis = search.cmp ?? 'prev';
-  const compareRange = useMemo(() => resolveCompare(compareBasis, range).range, [compareBasis, range]);
+  const compareRange = useMemo(
+    () => resolveCompare(compareBasis, range).range,
+    [compareBasis, range],
+  );
   const live = isLiveRange(range, todayISO);
 
   const autoRefreshActive = ready && live && refreshMinutes > 0 && visible;
@@ -265,7 +270,10 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
 
   const sqlSpecs: { key: (string | number)[]; fn: () => Promise<Json> }[] = [
     { key: ['dailySales', from, to], fn: () => analyticsRpc.dailySales(from, to) },
-    { key: ['dailySalesPrev', prevFrom, prevTo], fn: () => analyticsRpc.dailySales(prevFrom, prevTo) },
+    {
+      key: ['dailySalesPrev', prevFrom, prevTo],
+      fn: () => analyticsRpc.dailySales(prevFrom, prevTo),
+    },
     { key: ['soldItems', from, to], fn: () => analyticsRpc.soldItems(from, to) },
     { key: ['bestSellers', from, to], fn: () => analyticsRpc.bestSellers(from, to, 20) },
     { key: ['boughtTogether', from, to], fn: () => analyticsRpc.boughtTogether(from, to) },
@@ -336,7 +344,9 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   let engagement: EngagementStatus = 'loading';
   if (posthog.isError) {
     engagement =
-      posthog.error instanceof EdgeError && posthog.error.code === 'NOT_CONFIGURED' ? 'unconfigured' : 'error';
+      posthog.error instanceof EdgeError && posthog.error.code === 'NOT_CONFIGURED'
+        ? 'unconfigured'
+        : 'error';
   } else if (posthog.data) {
     engagement = posthog.data.configured ? 'ready' : 'unconfigured';
   }

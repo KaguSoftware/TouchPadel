@@ -41,7 +41,10 @@ try {
   throw error;
 }
 try {
-  const page = await browser.newPage({ viewport: { width: SIZE, height: SIZE }, deviceScaleFactor: 1 });
+  const page = await browser.newPage({
+    viewport: { width: SIZE, height: SIZE },
+    deviceScaleFactor: 1,
+  });
   await page.setContent(html, { waitUntil: 'networkidle' });
   await page.screenshot({
     path: OUT,

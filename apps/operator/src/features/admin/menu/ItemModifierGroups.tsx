@@ -42,7 +42,8 @@ export function ItemModifierGroups({
   });
 
   const sorted = [...groups].sort(
-    (a, b) => Number(linked.has(b.id)) - Number(linked.has(a.id)) || a.name_en.localeCompare(b.name_en),
+    (a, b) =>
+      Number(linked.has(b.id)) - Number(linked.has(a.id)) || a.name_en.localeCompare(b.name_en),
   );
 
   return (
@@ -54,7 +55,9 @@ export function ItemModifierGroups({
         </Link>
       </div>
       {sorted.length === 0 && (
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.none')}</p>
+        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>
+          {tr('op.common.none')}
+        </p>
       )}
       {sorted.map((g) => {
         const isLinked = linked.has(g.id);
@@ -71,7 +74,10 @@ export function ItemModifierGroups({
               </Button>
               <span style={{ flex: 1 }}>
                 {pickName(locale, g)}{' '}
-                <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }} dir="ltr">
+                <span
+                  style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}
+                  dir="ltr"
+                >
                   ({g.min_select}–{g.max_select})
                 </span>
               </span>

@@ -128,9 +128,10 @@ describe('schema v1 migration', () => {
 
   it('parks pre-v1 pending rows as failed — replay hard-requires staff_id', () => {
     const d = openQueueAt(legacyDbFile());
-    const row = d
-      .prepare('SELECT state, last_error FROM mutation_queue')
-      .get() as { state: string; last_error: string };
+    const row = d.prepare('SELECT state, last_error FROM mutation_queue').get() as {
+      state: string;
+      last_error: string;
+    };
     expect(row.state).toBe('failed');
     expect(row.last_error).toMatch(/staff_id/);
     d.close();
@@ -219,7 +220,12 @@ describe('enqueue', () => {
    */
   it('a queued manager PIN is not readable in the raw database file', () => {
     const m = unique({
-      payload: { kind: 'price_override', orderItemId: 'oi-1', newUnitPriceIqd: 1000, pin: '482913' },
+      payload: {
+        kind: 'price_override',
+        orderItemId: 'oi-1',
+        newUnitPriceIqd: 1000,
+        pin: '482913',
+      },
     });
     enqueue(m);
 
@@ -317,8 +323,15 @@ describe('resolveRow', () => {
     expect(listBlockingRows()).toEqual([]);
     expect(queueStatus()).toMatchObject({ depth: 0, conflicts: 0, failed: 0, blocking: 0 });
     const row = openQueue()
-      .prepare('SELECT state, last_error, resolved_by, resolved_at FROM mutation_queue WHERE idempotency_key = ?')
-      .get(m.idempotencyKey) as { state: string; last_error: string; resolved_by: string; resolved_at: string };
+      .prepare(
+        'SELECT state, last_error, resolved_by, resolved_at FROM mutation_queue WHERE idempotency_key = ?',
+      )
+      .get(m.idempotencyKey) as {
+      state: string;
+      last_error: string;
+      resolved_by: string;
+      resolved_at: string;
+    };
     expect(row.state).toBe('resolved');
     expect(row.last_error).toBe('400: ITEM_UNAVAILABLE'); // the audit trail survives
     expect(row.resolved_by).toBe(STAFF);
@@ -334,7 +347,7 @@ describe('resolveRow', () => {
     expect(listBlockingRows()).toEqual([]);
   });
 
-  it('refuses a pending, inflight or acked row — those are not the manager\'s to dismiss', () => {
+  it("refuses a pending, inflight or acked row — those are not the manager's to dismiss", () => {
     const pending = unique();
     const inflight = unique();
     const acked = unique();
@@ -409,7 +422,9 @@ describe('ack', () => {
     ack(m.idempotencyKey, { reservation_id: 'r-1', status: 'held' });
 
     const row = openQueue()
-      .prepare('SELECT state, server_result, last_error FROM mutation_queue WHERE idempotency_key = ?')
+      .prepare(
+        'SELECT state, server_result, last_error FROM mutation_queue WHERE idempotency_key = ?',
+      )
       .get(m.idempotencyKey) as { state: string; server_result: string; last_error: string | null };
     expect(row.state).toBe('acked');
     expect(JSON.parse(row.server_result)).toEqual({ reservation_id: 'r-1', status: 'held' });
@@ -608,13 +623,18 @@ describe('v3 -> v4 upgrade (a till updated mid-service)', () => {
   it('adds payload_enc without touching the pending row', () => {
     const d = openQueueAt(v3DbFile());
     expect(d.pragma('user_version', { simple: true })).toBe(4);
-    const row = d
-      .prepare('SELECT state, payload_enc, payload FROM mutation_queue')
-      .get() as { state: string; payload_enc: number; payload: string };
+    const row = d.prepare('SELECT state, payload_enc, payload FROM mutation_queue').get() as {
+      state: string;
+      payload_enc: number;
+      payload: string;
+    };
     // Still sendable, still readable, and flagged as the plaintext encoding.
     expect(row.state).toBe('pending');
     expect(row.payload_enc).toBe(0);
-    expect(JSON.parse(row.payload)).toEqual({ tabId: 'friday-tab', lines: [{ sku: 'tea', qty: 2 }] });
+    expect(JSON.parse(row.payload)).toEqual({
+      tabId: 'friday-tab',
+      lines: [{ sku: 'tea', qty: 2 }],
+    });
     d.close();
   });
 

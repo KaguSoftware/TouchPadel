@@ -43,7 +43,11 @@ export function ImageLayers({
   const hasBlur = Boolean(blur && blur.startsWith('data:'));
 
   return (
-    <div className="tp-itemsheet__media" data-placeholder={src ? undefined : 'true'} data-tone={src ? undefined : (art?.tone ?? 'blue')}>
+    <div
+      className="tp-itemsheet__media"
+      data-placeholder={src ? undefined : 'true'}
+      data-tone={src ? undefined : (art?.tone ?? 'blue')}
+    >
       {!src && art && (
         <span className="tp-itemsheet__placeholder" aria-hidden="true">
           <CategoryIcon art={art} className="tp-itemsheet__placeholder-icon" />

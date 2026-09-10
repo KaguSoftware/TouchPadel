@@ -8,7 +8,15 @@ import type { RawAnalytics } from '../derive';
 import type { Formatters } from '../format';
 import { CardShell, muted, type CardState } from './CardShell';
 
-export function PromoPerformance({ raw, state, f }: { raw: RawAnalytics | null; state: CardState; f: Formatters }) {
+export function PromoPerformance({
+  raw,
+  state,
+  f,
+}: {
+  raw: RawAnalytics | null;
+  state: CardState;
+  f: Formatters;
+}) {
   const { tr } = useLocale();
   const surfaces = raw?.posthog?.promo ?? [];
   const sales = raw?.promoSales ?? null;
@@ -25,10 +33,14 @@ export function PromoPerformance({ raw, state, f }: { raw: RawAnalytics | null; 
           const follow = s.sessions > 0 ? Math.round((s.sessionsOrdered / s.sessions) * 100) : 0;
           return (
             <div key={s.kind} style={{ fontSize: 'var(--tp-fs-sm)' }}>
-              <strong>{tr(s.kind === 'featured' ? 'analytics.cards.featured' : 'analytics.cards.suggested')}</strong>
+              <strong>
+                {tr(
+                  s.kind === 'featured' ? 'analytics.cards.featured' : 'analytics.cards.suggested',
+                )}
+              </strong>
               <span style={{ ...muted, marginInlineStart: '0.4rem' }}>
-                {tr('analytics.cards.clicks')} {f.num(s.clicks)} · {tr('analytics.cards.sessions')} {f.num(s.sessions)} ·{' '}
-                {tr('analytics.cards.followThrough')} {f.pct(follow)}
+                {tr('analytics.cards.clicks')} {f.num(s.clicks)} · {tr('analytics.cards.sessions')}{' '}
+                {f.num(s.sessions)} · {tr('analytics.cards.followThrough')} {f.pct(follow)}
               </span>
             </div>
           );

@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+} from 'react';
 import { formatIQD, makeT } from '@touch/i18n';
 import { CloseIcon, Loader } from '../brand';
 import { SheetShell } from '../ItemSheet/SheetShell';
@@ -212,45 +220,45 @@ export function BasketSheet(props: BasketSheetProps): JSX.Element | null {
             ))}
 
             <div className="tp-basket-tail" data-emptying={emptying ? 'true' : undefined}>
-            <div className="tp-sheet__group">
-              <h3>{tr('cafe.orderNote')}</h3>
-              <textarea
-                className="tp-textarea"
-                placeholder={tr('cafe.orderNotePlaceholder')}
-                value={note}
-                maxLength={ORDER_NOTE_MAX}
-                rows={2}
-                onChange={(e) => onSetNote(e.target.value.slice(0, ORDER_NOTE_MAX))}
-              />
-              <p className="tp-counter">
-                {tr('cafe.notesCounter', { count: note.length, max: ORDER_NOTE_MAX })}
-              </p>
-            </div>
-
-            <div className="tp-basket-totals">
-              <div className="tp-basket-totals__row">
-                <span>{tr('common.subtotal')}</span>
-                <span>{formatIQD(subtotal, locale)}</span>
+              <div className="tp-sheet__group">
+                <h3>{tr('cafe.orderNote')}</h3>
+                <textarea
+                  className="tp-textarea"
+                  placeholder={tr('cafe.orderNotePlaceholder')}
+                  value={note}
+                  maxLength={ORDER_NOTE_MAX}
+                  rows={2}
+                  onChange={(e) => onSetNote(e.target.value.slice(0, ORDER_NOTE_MAX))}
+                />
+                <p className="tp-counter">
+                  {tr('cafe.notesCounter', { count: note.length, max: ORDER_NOTE_MAX })}
+                </p>
               </div>
-              {discountTotal > 0 && (
-                <div className="tp-basket-totals__row tp-basket-totals__row--promo">
-                  <span>{tr('cafe.featuredDiscount', { pct: discountPct })}</span>
-                  <span>−{formatIQD(discountTotal, locale)}</span>
+
+              <div className="tp-basket-totals">
+                <div className="tp-basket-totals__row">
+                  <span>{tr('common.subtotal')}</span>
+                  <span>{formatIQD(subtotal, locale)}</span>
                 </div>
-              )}
-              <div className="tp-basket-totals__row tp-basket-totals__row--total">
-                <span>{tr('common.total')}</span>
-                <span>{formatIQD(total, locale)}</span>
+                {discountTotal > 0 && (
+                  <div className="tp-basket-totals__row tp-basket-totals__row--promo">
+                    <span>{tr('cafe.featuredDiscount', { pct: discountPct })}</span>
+                    <span>−{formatIQD(discountTotal, locale)}</span>
+                  </div>
+                )}
+                <div className="tp-basket-totals__row tp-basket-totals__row--total">
+                  <span>{tr('common.total')}</span>
+                  <span>{formatIQD(total, locale)}</span>
+                </div>
               </div>
-            </div>
 
-            {degraded && (
-              <p className="tp-banner tp-banner--warn" role="status">
-                {tr('degraded.orderingRefused')}
-              </p>
-            )}
-            {/* SOW module 3/6: ordering is NOT paying. */}
-            <p className="tp-banner tp-banner--info">{tr('cafe.payAtDesk')}</p>
+              {degraded && (
+                <p className="tp-banner tp-banner--warn" role="status">
+                  {tr('degraded.orderingRefused')}
+                </p>
+              )}
+              {/* SOW module 3/6: ordering is NOT paying. */}
+              <p className="tp-banner tp-banner--info">{tr('cafe.payAtDesk')}</p>
             </div>
           </>
         )}

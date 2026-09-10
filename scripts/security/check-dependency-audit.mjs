@@ -49,13 +49,18 @@ try {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'ignore'],
+    // pnpm is `pnpm.cmd` on Windows; without a shell execFile cannot find it and
+    // the gate reports "no output" on every developer PC. CI (Linux) is unaffected.
+    shell: process.platform === 'win32',
   });
 } catch (err) {
   raw = err.stdout ?? '';
 }
 if (!raw.trim()) {
   console.error('FAIL  `pnpm audit --json` produced no output — the registry may be unreachable.');
-  console.error('      Treating this as a failure on purpose: an audit that did not run is not a pass.');
+  console.error(
+    '      Treating this as a failure on purpose: an audit that did not run is not a pass.',
+  );
   process.exit(1);
 }
 
@@ -67,7 +72,9 @@ try {
   process.exit(1);
 }
 
-const advisories = Object.values(report.advisories ?? {}).filter((a) => ORDER.indexOf(a.severity) >= MIN);
+const advisories = Object.values(report.advisories ?? {}).filter(
+  (a) => ORDER.indexOf(a.severity) >= MIN,
+);
 
 const waiverDoc = existsSync(WAIVERS) ? JSON.parse(readFileSync(WAIVERS, 'utf8')) : { waivers: [] };
 const waivers = new Map((waiverDoc.waivers ?? []).map((w) => [w.id, w]));
@@ -97,8 +104,7 @@ const stale = [...waivers.values()].filter((w) => !matched.has(w.id));
 
 const counts = report.metadata?.vulnerabilities ?? {};
 console.log(
-  `Dependency audit (level=${LEVEL}+): ` +
-    ORDER.map((s) => `${counts[s] ?? 0} ${s}`).join(', '),
+  `Dependency audit (level=${LEVEL}+): ` + ORDER.map((s) => `${counts[s] ?? 0} ${s}`).join(', '),
 );
 console.log(
   `  ${advisories.length} at or above ${LEVEL} — ${blocking.length} blocking, ` +
@@ -120,15 +126,21 @@ if (expired.length > 0) {
   console.error(`FAIL  ${expired.length} waiver(s) have EXPIRED:\n`);
   for (const { advisory, waiver } of expired) {
     console.error(describe(advisory));
-    console.error(`           waiver expired ${waiver.expires}, owner: ${waiver.owner ?? 'unassigned'}`);
+    console.error(
+      `           waiver expired ${waiver.expires}, owner: ${waiver.owner ?? 'unassigned'}`,
+    );
     console.error(`           reason was: ${waiver.reason}`);
     console.error('');
   }
-  console.error('Either do the upgrade, or extend the waiver with a new date and a fresh justification.');
+  console.error(
+    'Either do the upgrade, or extend the waiver with a new date and a fresh justification.',
+  );
 }
 
 if (blocking.length > 0) {
-  console.error(`FAIL  ${blocking.length} un-waived advisor${blocking.length === 1 ? 'y' : 'ies'} at ${LEVEL} or above:\n`);
+  console.error(
+    `FAIL  ${blocking.length} un-waived advisor${blocking.length === 1 ? 'y' : 'ies'} at ${LEVEL} or above:\n`,
+  );
   for (const a of blocking) {
     console.error(describe(a));
     const paths = (a.findings ?? []).flatMap((f) => f.paths ?? []).slice(0, 3);

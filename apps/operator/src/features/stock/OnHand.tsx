@@ -88,16 +88,42 @@ export function OnHand() {
       key: 'ingredient',
       header: tr('op.stock.ingredient'),
       render: (r) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            gap: 'var(--tp-sp-1-5)',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
           <bdi>{pickName(locale, r)}</bdi>
-          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>({r.unit})</span>
-          {r.kind === 'prepared' && <StatusBadge size="sm" tone="neutral" dot={false} label={tr('op.stock.prepared')} />}
+          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
+            ({r.unit})
+          </span>
+          {r.kind === 'prepared' && (
+            <StatusBadge size="sm" tone="neutral" dot={false} label={tr('op.stock.prepared')} />
+          )}
         </span>
       ),
     },
-    { key: 'onHand', header: tr('op.stock.onHand'), numeric: true, render: (r) => <span style={{ fontWeight: 700 }}>{r.on_hand}</span> },
-    { key: 'theoretical', header: tr('op.stock.theoretical'), numeric: true, render: (r) => <span style={{ color: 'var(--tp-muted-fg)' }}>{r.theoretical}</span> },
-    { key: 'par', header: tr('op.stock.par'), numeric: true, render: (r) => <span style={{ color: 'var(--tp-muted-fg)' }}>{r.par_level ?? '—'}</span> },
+    {
+      key: 'onHand',
+      header: tr('op.stock.onHand'),
+      numeric: true,
+      render: (r) => <span style={{ fontWeight: 700 }}>{r.on_hand}</span>,
+    },
+    {
+      key: 'theoretical',
+      header: tr('op.stock.theoretical'),
+      numeric: true,
+      render: (r) => <span style={{ color: 'var(--tp-muted-fg)' }}>{r.theoretical}</span>,
+    },
+    {
+      key: 'par',
+      header: tr('op.stock.par'),
+      numeric: true,
+      render: (r) => <span style={{ color: 'var(--tp-muted-fg)' }}>{r.par_level ?? '—'}</span>,
+    },
     {
       key: 'status',
       header: tr('ws.manager.stock.overview.status'),
@@ -144,7 +170,14 @@ export function OnHand() {
         <ResultCount shown={rows.length} total={active.length} />
       </PageHeader>
 
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', marginBlockEnd: 'var(--tp-sp-4)' }}>
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--tp-sp-3)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))',
+          marginBlockEnd: 'var(--tp-sp-4)',
+        }}
+      >
         <HeadlineFigure
           label={tr('ws.manager.stock.overview.low')}
           value={formatNumber(lowRows.length, locale)}
@@ -177,7 +210,11 @@ export function OnHand() {
           drillable
           onDrill={() => go('/stock/expiry')}
         />
-        <HeadlineFigure label={tr('ws.manager.stock.overview.value')} value="—" hint={tr('ws.manager.stock.overview.valueUnavailable')} />
+        <HeadlineFigure
+          label={tr('ws.manager.stock.overview.value')}
+          value="—"
+          hint={tr('ws.manager.stock.overview.valueUnavailable')}
+        />
         <HeadlineFigure
           label={tr('ws.manager.stock.overview.lastCount')}
           value={
@@ -212,14 +249,25 @@ export function OnHand() {
         error={onHandQ.error}
         onRetry={() => void onHandQ.refetch()}
         skeleton={<TableSkeleton columns={columns} />}
-        emptyContent={<EmptyState icon="box" title={tr('op.stock.empty')} body={tr('ws.manager.stock.overview.emptyBody')} />}
+        emptyContent={
+          <EmptyState
+            icon="box"
+            title={tr('op.stock.empty')}
+            body={tr('ws.manager.stock.overview.emptyBody')}
+          />
+        }
       >
         {rows.length === 0 ? (
           // The cupboard is not empty — the segment above narrowed it to
           // nothing, so the way out is that filter (rulebook 9.2).
           <EmptyState kind="filtered" onClearFilters={() => setFilter('all')} />
         ) : (
-          <DataTable columns={columns} rows={rows} rowKey={(r) => r.ingredient_id} aria-label={tr('op.stock.onHandTitle')} />
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey={(r) => r.ingredient_id}
+            aria-label={tr('op.stock.onHandTitle')}
+          />
         )}
       </AsyncStateWrapper>
 

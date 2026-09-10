@@ -7,13 +7,13 @@ Client decision (pack 2026-08-30, `touch-padel.domain.name`): **`touch-padel.com
 
 `touch-padel.com` is **already registered**:
 
-| Fact | Value |
-|---|---|
-| Registrar | Hostinger operations, UAB |
-| Created | 2025-08-03 |
-| Expiry on record | 2027-08-03 |
-| Status | `clientTransferProhibited` |
-| Nameservers | `dns-expired.com` (registrar's expired-domain parking) |
+| Fact             | Value                                                  |
+| ---------------- | ------------------------------------------------------ |
+| Registrar        | Hostinger operations, UAB                              |
+| Created          | 2025-08-03                                             |
+| Expiry on record | 2027-08-03                                             |
+| Status           | `clientTransferProhibited`                             |
+| Nameservers      | `dns-expired.com` (registrar's expired-domain parking) |
 
 Reading: registered 2025-08-03 — **a year before this project existed** — and the parking
 nameservers plus the "help" answer strongly suggest **someone at Touch registered it and it
@@ -53,7 +53,7 @@ In the Vercel dashboard, project `touch-padel-web` (account: see `API.md` §8):
 2. Vercel shows the records to create. In the registrar's DNS panel (Hostinger → DNS zone):
    - `A` record, host `@`, value `76.76.21.21`
    - `CNAME`, host `www`, value `cname.vercel-dns.com`
-   (Use the exact values Vercel displays — they are authoritative if they differ.)
+     (Use the exact values Vercel displays — they are authoritative if they differ.)
 3. Wait for the domain to show **Valid Configuration**; certificates are automatic.
 
 ## Step 3 — tell the system its own address

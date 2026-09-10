@@ -429,14 +429,15 @@ export function putCachedRef(key: string, payload: unknown): void {
 
 export function getMeta(key: string): string | undefined {
   const row = openQueue().prepare('SELECT value FROM meta WHERE key = ?').get(key) as
-    | { value: string }
-    | undefined;
+    { value: string } | undefined;
   return row?.value;
 }
 
 export function setMeta(key: string, value: string): void {
   openQueue()
-    .prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+    .prepare(
+      'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    )
     .run(key, value);
 }
 

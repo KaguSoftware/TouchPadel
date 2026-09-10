@@ -61,7 +61,9 @@ const everyFace = [...new Set(byFormat.flatMap(([, , stems]) => [...stems]))].so
 for (const [subdir, ext, stems] of byFormat) {
   for (const stem of everyFace) {
     if (stems.has(stem)) continue;
-    drift.push(`${relative(ROOT, join(SRC, subdir, stem + ext))} is missing — ${stem} exists in another format`);
+    drift.push(
+      `${relative(ROOT, join(SRC, subdir, stem + ext))} is missing — ${stem} exists in another format`,
+    );
   }
 }
 
@@ -87,7 +89,9 @@ for (const [subdir, ext, destDirs] of ROUTES) {
       const have = await readFile(to).catch(() => null);
       if (have && digest(have) === digest(want)) continue;
       if (check) {
-        drift.push(`${relative(ROOT, to)} ${have ? 'differs from' : 'is missing next to'} ${relative(ROOT, from)}`);
+        drift.push(
+          `${relative(ROOT, to)} ${have ? 'differs from' : 'is missing next to'} ${relative(ROOT, from)}`,
+        );
         continue;
       }
       await writeFile(to, want);
@@ -95,7 +99,9 @@ for (const [subdir, ext, destDirs] of ROUTES) {
     }
 
     for (const stale of present) {
-      drift.push(`${relative(ROOT, join(absDest, stale))} is not in ${relative(ROOT, srcDir)} — delete it`);
+      drift.push(
+        `${relative(ROOT, join(absDest, stale))} is not in ${relative(ROOT, srcDir)} — delete it`,
+      );
     }
   }
 }

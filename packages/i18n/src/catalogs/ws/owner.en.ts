@@ -51,10 +51,13 @@ export const ownerEn = {
     lead: 'How the venue is configured. These screens are opened rarely and changed deliberately; every change is recorded in the audit log.',
     cards: {
       staff: 'Who can sign in, the role each of them holds and which accounts are retired.',
-      courts: 'The courts themselves — names, order on the calendar and whether they can be booked.',
+      courts:
+        'The courts themselves — names, order on the calendar and whether they can be booked.',
       tables: 'Cafe tables and the QR card on each one. Rotate a code when a card is lost.',
-      settings: 'Opening hours, closed days, trading rules, tax and the contact details guests see.',
-      guestSite: 'What guests meet before they arrive: the home screen, table QR codes and Telegram.',
+      settings:
+        'Opening hours, closed days, trading rules, tax and the contact details guests see.',
+      guestSite:
+        'What guests meet before they arrive: the home screen, table QR codes and Telegram.',
     },
   },
   settings: {
@@ -73,23 +76,28 @@ export const ownerEn = {
       taxGroup: 'Item group',
       taxRate: 'Rate',
       taxInactive: 'Retired',
-      taxReadOnly: 'Tax groups are read here only. There is no screen action that changes a rate; ask for a migration.',
+      taxReadOnly:
+        'Tax groups are read here only. There is no screen action that changes a rate; ask for a migration.',
       taxInclusive: 'Prices include tax',
       taxNone: 'No tax groups are defined.',
       policyTitle: 'Booking policy',
       cancellationWindow: 'Cancellation window',
-      cancellationWindowHint: 'A guest may cancel without charge until this many hours before the start.',
+      cancellationWindowHint:
+        'A guest may cancel without charge until this many hours before the start.',
       holdTtl: 'Slot hold duration',
       holdTtlHint: 'How long an unconfirmed hold keeps a slot before it is released.',
       protectedHorizon: 'Protected horizon',
-      protectedHorizonHint: 'While the server cannot be reached, bookings inside this window are locked.',
+      protectedHorizonHint:
+        'While the server cannot be reached, bookings inside this window are locked.',
       bookingHorizon: 'Booking horizon',
       bookingHorizonHint: 'How far ahead a guest may hold a slot. 0 means no limit.',
       maxHolds: 'Live holds per guest',
       maxHoldsHint: 'Unexpired holds one guest may keep at once. 0 disables the cap.',
       noShow: 'No-show handling',
-      noShowBody: 'The desk marks a no-show on the booking itself; there is no automatic rule. The count appears in the courts report.',
-      readOnlyNote: 'These values are read from venue settings. No screen action writes them yet — changing one needs a migration.',
+      noShowBody:
+        'The desk marks a no-show on the booking itself; there is no automatic rule. The count appears in the courts report.',
+      readOnlyNote:
+        'These values are read from venue settings. No screen action writes them yet — changing one needs a migration.',
       hours: '{count} h',
       minutes: '{count} min',
       days: '{count} days',
@@ -100,7 +108,8 @@ export const ownerEn = {
       phone: 'Phone',
       phoneNone: 'No phone number on file.',
       timezone: 'Timezone',
-      readOnlyNote: 'Contact details are shown on the guest site and in the degraded-mode message. No screen action writes them yet.',
+      readOnlyNote:
+        'Contact details are shown on the guest site and in the degraded-mode message. No screen action writes them yet.',
     },
     cafe: {
       lead: 'Guest-app and till behaviour. Owner-only items say so.',
@@ -127,14 +136,17 @@ export const ownerEn = {
       newTitle: 'New account',
       name: 'Name',
       email: 'Email',
-      emailNote: 'The sign-in email is held by the authentication system and is not shown here. To change it, create a new account and remove this one.',
+      emailNote:
+        'The sign-in email is held by the authentication system and is not shown here. To change it, create a new account and remove this one.',
       role: 'Role',
       roleNote: 'Five roles and no others. Changing the role takes effect at the next sign-in.',
       pin: 'Authorisation PIN',
-      pinNote: 'Managers and owners authorise discounts, voids and price overrides with a PIN at the till.',
+      pinNote:
+        'Managers and owners authorise discounts, voids and price overrides with a PIN at the till.',
       pinNotApplicable: 'Only managers and owners hold a PIN.',
       enabled: 'Enabled',
-      enabledNote: 'A removed account cannot sign in. Its past work stays in the records under this name.',
+      enabledNote:
+        'A removed account cannot sign in. Its past work stays in the records under this name.',
       selfNote: 'This is your own account. Role and access are changed by another owner.',
       unsaved: 'Unsaved changes',
       close: 'Close',
@@ -163,13 +175,15 @@ export const ownerEn = {
     // been booked keeps its name in the reports, so it is deactivated instead.
     deleteInUse:
       '{court} cannot be deleted: {bookings} bookings, {series} repeat bookings and {rules} price rules still refer to it.',
-    deleteInUseFix: 'Deactivate it instead — it leaves the calendar and the guest app, and the reports keep its name.',
+    deleteInUseFix:
+      'Deactivate it instead — it leaves the calendar and the guest app, and the reports keep its name.',
     deactivate: 'Deactivate instead',
     deleted: 'Court deleted',
   },
   tables: {
     lead: 'Each table carries a signed code on its printed card. Rotate a code when a card has been photographed or lost.',
-    rotateNote: 'Rotating a code retires the printed card in the room at once. Reprint and replace the card before the next service.',
+    rotateNote:
+      'Rotating a code retires the printed card in the room at once. Reprint and replace the card before the next service.',
     refusedRotate: 'Rotating table codes',
     printOne: 'Print this card',
     printAll: 'Print all cards',
@@ -197,11 +211,15 @@ export const ownerEn = {
     lead: 'Every figure here is money that moved. Nothing on this screen is an estimate, and nothing here is editable — the prices that produce these figures are set further down the list.',
     cards: {
       revenue: 'Everything taken over a period, split by what produced it and how it was paid.',
-      courtIncome: 'Court bookings as money: hours sold, the rate each was sold at and what went uncollected.',
-      cafeSales: 'The cafe on its own — items sold, discounts given and what each category returned.',
-      cashDrawer: 'Every time the drawer opened and why. The physical trail behind the cash figure.',
+      courtIncome:
+        'Court bookings as money: hours sold, the rate each was sold at and what went uncollected.',
+      cafeSales:
+        'The cafe on its own — items sold, discounts given and what each category returned.',
+      cashDrawer:
+        'Every time the drawer opened and why. The physical trail behind the cash figure.',
       dayClose: 'Expected against counted, and the variance on each closed day.',
-      rates: 'What an hour on a court costs, by day and time. Changes apply to future bookings only.',
+      rates:
+        'What an hour on a court costs, by day and time. Changes apply to future bookings only.',
       menuPrices: 'Cafe prices. A change here moves tomorrow’s cafe revenue, not today’s.',
       stockValue: 'What is sitting on the shelves, what it cost and what waste removed.',
     },
@@ -265,8 +283,10 @@ export const ownerEn = {
     decline: 'Decline',
     approveTitle: 'Approve this request?',
     declineTitle: 'Decline this request?',
-    approveBody: '{name} asked for {kind}. Approving is recorded against your name and cannot be undone.',
-    declineBody: '{name} asked for {kind}. A declined request has to say why — the person will read this.',
+    approveBody:
+      '{name} asked for {kind}. Approving is recorded against your name and cannot be undone.',
+    declineBody:
+      '{name} asked for {kind}. A declined request has to say why — the person will read this.',
     noteLabel: 'Note',
     noteOptional: 'Note (optional)',
     reasonLabel: 'Reason for declining',
@@ -308,7 +328,8 @@ export const ownerEn = {
       revenue: 'Revenue on redeeming tabs',
     },
     notAttributable: 'Not measurable',
-    notAttributableHint: 'This campaign hands out no promotion, so nothing links a sale back to it. Attach a promotion to measure it.',
+    notAttributableHint:
+      'This campaign hands out no promotion, so nothing links a sale back to it. Attach a promotion to measure it.',
     noAudience: 'Everyone',
     openPromotions: 'Promotions',
     openTelegram: 'Telegram',
@@ -349,6 +370,7 @@ export const ownerEn = {
     },
     lockedHint: 'A campaign that has gone live cannot be edited — its message is already out.',
     emptyTitle: 'No campaigns yet',
-    emptyBody: 'A campaign ties an audience, a message and a promotion together so you can tell whether it worked.',
+    emptyBody:
+      'A campaign ties an audience, a message and a promotion together so you can tell whether it worked.',
   },
 } as const;

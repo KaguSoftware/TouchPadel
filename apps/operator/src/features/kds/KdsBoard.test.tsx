@@ -54,10 +54,14 @@ vi.mock('../../lib/supabase', () => ({
   },
 }));
 vi.mock('../../lib/mutate', () => ({
-  mutate: vi.fn(async (_type: string, payload: { ticketId: string; status: TicketRow['status'] }) => {
-    serverRows = serverRows.map((r) => (r.id === payload.ticketId ? { ...r, status: payload.status } : r));
-    return { queued: false, localId: '', idempotencyKey: '', result: null };
-  }),
+  mutate: vi.fn(
+    async (_type: string, payload: { ticketId: string; status: TicketRow['status'] }) => {
+      serverRows = serverRows.map((r) =>
+        r.id === payload.ticketId ? { ...r, status: payload.status } : r,
+      );
+      return { queued: false, localId: '', idempotencyKey: '', result: null };
+    },
+  ),
   isElectron: () => false,
 }));
 vi.mock('../../lib/appRpc', () => ({ appRpc: vi.fn(async () => null) }));

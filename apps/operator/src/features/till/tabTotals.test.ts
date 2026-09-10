@@ -78,7 +78,9 @@ describe('computeTabTotals', () => {
   it('charges nothing for an untaxed category', () => {
     const t = computeTabTotals(
       tab({
-        orders: [{ status: 'sent', order_items: [line(10_000, { menu_item: { category_id: 'drink' } })] }],
+        orders: [
+          { status: 'sent', order_items: [line(10_000, { menu_item: { category_id: 'drink' } })] },
+        ],
       }),
       TEN_PCT,
     );
@@ -192,7 +194,10 @@ describe('discountBreakdown', () => {
   });
 
   it('treats a missing reason as a manager discount', () => {
-    expect(discountBreakdown([{ kind: 'discount_amount', amount_iqd: 300 }])).toEqual({ manager: 300, promotion: 0 });
+    expect(discountBreakdown([{ kind: 'discount_amount', amount_iqd: 300 }])).toEqual({
+      manager: 300,
+      promotion: 0,
+    });
   });
 
   it('is zero for no adjustments', () => {

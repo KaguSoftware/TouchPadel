@@ -8,7 +8,15 @@ import type { Derived } from '../derive';
 import type { Formatters } from '../format';
 import { CardShell, muted, type CardState } from './CardShell';
 
-export function HiddenGems({ derived, state, f }: { derived: Derived | null; state: CardState; f: Formatters }) {
+export function HiddenGems({
+  derived,
+  state,
+  f,
+}: {
+  derived: Derived | null;
+  state: CardState;
+  f: Formatters;
+}) {
   const { tr, locale } = useLocale();
   const gems = derived?.hiddenGems ?? [];
   return (
@@ -20,7 +28,15 @@ export function HiddenGems({ derived, state, f }: { derived: Derived | null; sta
     >
       <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '0.25rem' }}>
         {gems.map((g) => (
-          <li key={g.id} style={{ fontSize: 'var(--tp-fs-sm)', display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+          <li
+            key={g.id}
+            style={{
+              fontSize: 'var(--tp-fs-sm)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: '0.5rem',
+            }}
+          >
             <span>{pickLocale({ en: g.nameEn, ar: g.nameAr }, locale) || g.id}</span>
             <span style={muted}>
               {f.pct(g.convPct)} · {f.num(g.views)} / {f.num(g.sold)}

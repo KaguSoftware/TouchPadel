@@ -70,7 +70,8 @@ export function CategoryForm({
     if (category) {
       photoMutation.mutate({ next, previous });
     } else {
-      if (pendingPhoto.current && pendingPhoto.current !== next) void removeMedia(pendingPhoto.current);
+      if (pendingPhoto.current && pendingPhoto.current !== next)
+        void removeMedia(pendingPhoto.current);
       pendingPhoto.current = next;
     }
   }
@@ -139,10 +140,23 @@ export function CategoryForm({
         aspect="16:9"
         disabled={photoMutation.isPending}
       />
-      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlock: '0 0.6rem' }}>
+      <p
+        style={{
+          fontSize: 'var(--tp-fs-sm)',
+          color: 'var(--tp-muted-fg)',
+          marginBlock: '0 0.6rem',
+        }}
+      >
         {tr('op.categories.photoHint')}
       </p>
-      <label style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', marginBlockEnd: 'var(--tp-sp-2-5)', alignItems: 'center' }}>
+      <label
+        style={{
+          display: 'flex',
+          gap: 'var(--tp-sp-1-5)',
+          marginBlockEnd: 'var(--tp-sp-2-5)',
+          alignItems: 'center',
+        }}
+      >
         <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
         {tr('op.categories.active')}
       </label>
@@ -196,7 +210,8 @@ export function CategoryEditor() {
   if (isPending) return <Skeleton lines={5} />;
   if (error) return <ErrorText error={error} />;
   const categories = sortRows(data.categories);
-  const editingRow = editing && editing !== 'new' ? categories.find((c) => c.id === editing) ?? null : null;
+  const editingRow =
+    editing && editing !== 'new' ? (categories.find((c) => c.id === editing) ?? null) : null;
 
   return (
     <div>
@@ -213,7 +228,13 @@ export function CategoryEditor() {
           {tr('op.menu.newCategory')}
         </Button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(16rem, 24rem) 1fr', gap: 'var(--tp-sp-4)' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(16rem, 24rem) 1fr',
+          gap: 'var(--tp-sp-4)',
+        }}
+      >
         <div>
           {categories.map((c, index) => (
             <div

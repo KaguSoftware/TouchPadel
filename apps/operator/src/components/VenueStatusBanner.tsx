@@ -35,10 +35,7 @@ import { Icon, type IconName } from './icons';
 /** conflict+failed rows — writes a person must look at (day close lists them). */
 function useAttentionCount(): number {
   const [count, setCount] = useState(0);
-  useEffect(
-    () => touch.onQueueUpdate((s) => setCount((s.conflicts ?? 0) + (s.failed ?? 0))),
-    [],
-  );
+  useEffect(() => touch.onQueueUpdate((s) => setCount((s.conflicts ?? 0) + (s.failed ?? 0))), []);
   return count;
 }
 
@@ -135,7 +132,12 @@ export function VenueStatusBanner({ state }: { state: HeartbeatState | null }) {
           back. The full sentence stays reachable through the title. */}
       <span
         title={message}
-        style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        style={{
+          minInlineSize: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
       >
         {message}
       </span>

@@ -16,8 +16,7 @@ function subscribe(onChange: () => void): () => void {
   };
 }
 
-const getSnapshot = (): boolean =>
-  typeof navigator === 'undefined' || navigator.onLine !== false;
+const getSnapshot = (): boolean => typeof navigator === 'undefined' || navigator.onLine !== false;
 
 export function useOnline(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, () => true);

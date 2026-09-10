@@ -38,13 +38,43 @@ export interface NavItem {
   to: string;
   /** i18n key under ws.shell.nav */
   labelKey:
-    | 'today' | 'calendar' | 'customers' | 'newSeries' | 'blockCourt'
-    | 'till' | 'openTabs' | 'cashDrawer'
-    | 'overview' | 'bookings' | 'tills' | 'dayClose' | 'menu' | 'rates' | 'promotions' | 'stock' | 'reports' | 'audit'
-    | 'panel' | 'analytics' | 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite'
+    | 'today'
+    | 'calendar'
+    | 'customers'
+    | 'newSeries'
+    | 'blockCourt'
+    | 'till'
+    | 'openTabs'
+    | 'cashDrawer'
+    | 'overview'
+    | 'bookings'
+    | 'tills'
+    | 'dayClose'
+    | 'menu'
+    | 'rates'
+    | 'promotions'
+    | 'stock'
+    | 'reports'
+    | 'audit'
+    | 'panel'
+    | 'analytics'
+    | 'staff'
+    | 'courts'
+    | 'tables'
+    | 'settings'
+    | 'guestSite'
     // Management's Financial / Observation sections (see the header note).
-    | 'revenue' | 'courtIncome' | 'cafeSales' | 'menuPrices' | 'stockValue'
-    | 'floorNow' | 'patterns' | 'staffActivity' | 'requests' | 'marketing' | 'telegram';
+    | 'revenue'
+    | 'courtIncome'
+    | 'cafeSales'
+    | 'menuPrices'
+    | 'stockValue'
+    | 'floorNow'
+    | 'patterns'
+    | 'staffActivity'
+    | 'requests'
+    | 'marketing'
+    | 'telegram';
   icon: IconName;
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
@@ -129,9 +159,7 @@ const MANAGER_SETUP: readonly NavItem[] = [
  * sections that own the question they answer (revenue → Financial, patterns
  * → Observation) rather than sitting above the split as loose peers.
  */
-const OWNER_PRIMARY: readonly NavItem[] = [
-  { to: '/panel', labelKey: 'panel', icon: 'dashboard' },
-];
+const OWNER_PRIMARY: readonly NavItem[] = [{ to: '/panel', labelKey: 'panel', icon: 'dashboard' }];
 
 /**
  * FINANCIAL — money in, money out, and the two places it is counted.
@@ -191,7 +219,12 @@ const OWNER_SETUP: readonly NavItem[] = [
   { to: '/admin/staff', labelKey: 'staff', icon: 'shield' },
   { to: '/admin/courts', labelKey: 'courts', icon: 'court' },
   { to: '/admin/qr', labelKey: 'tables', icon: 'qr' },
-  { to: '/admin/settings', labelKey: 'settings', icon: 'settings', activePrefix: '/admin/settings' },
+  {
+    to: '/admin/settings',
+    labelKey: 'settings',
+    icon: 'settings',
+    activePrefix: '/admin/settings',
+  },
   { to: '/admin/hero', labelKey: 'guestSite', icon: 'globe', activePrefix: '/admin/hero' },
 ];
 
@@ -202,8 +235,18 @@ const OWNER_SECTIONS: readonly NavSection[] = [
 ];
 
 export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
-  courtDesk: { key: 'courtDesk', home: '/desk/today', icon: 'calendar', groups: [{ labelKey: null, items: COURT_DESK }] },
-  cashier: { key: 'cashier', home: '/till', icon: 'grid', groups: [{ labelKey: null, items: CASHIER }] },
+  courtDesk: {
+    key: 'courtDesk',
+    home: '/desk/today',
+    icon: 'calendar',
+    groups: [{ labelKey: null, items: COURT_DESK }],
+  },
+  cashier: {
+    key: 'cashier',
+    home: '/till',
+    icon: 'grid',
+    groups: [{ labelKey: null, items: CASHIER }],
+  },
   prep: { key: 'prep', home: '/kds', icon: 'flame', groups: [] },
   manager: {
     key: 'manager',
@@ -281,11 +324,13 @@ export function saveWorkspace(key: WorkspaceKey): void {
  */
 export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/kds') return 'prep';
-  if (path === '/panel' || path.startsWith('/reports/revenue') || path === '/analytics') return 'owner';
+  if (path === '/panel' || path.startsWith('/reports/revenue') || path === '/analytics')
+    return 'owner';
   if (path === '/setup' || path.startsWith('/setup/')) return 'owner';
   // The section homes. /observation/requests is owner-only too, so the whole
   // subtree resolves here rather than only its landing screen.
-  if (path === '/financial' || path === '/observation' || path.startsWith('/observation/')) return 'owner';
+  if (path === '/financial' || path === '/observation' || path.startsWith('/observation/'))
+    return 'owner';
   if (path === '/marketing' || path.startsWith('/marketing/')) return 'owner';
   if (path === '/ops') return 'manager';
   return null;

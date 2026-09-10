@@ -88,13 +88,28 @@ export function ReservationPicker({
   const visible = useMemo(() => rows.filter((r) => reservationMatches(r, query)), [rows, query]);
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-      <SearchField value={query} onChange={setQuery} placeholder={tr('ws.cashier.charge.searchPlaceholder')} aria-label={tr('ws.cashier.charge.search')} busy={busy} />
+      <SearchField
+        value={query}
+        onChange={setQuery}
+        placeholder={tr('ws.cashier.charge.searchPlaceholder')}
+        aria-label={tr('ws.cashier.charge.search')}
+        busy={busy}
+      />
       {rows.length === 0 ? (
         <p style={muted}>{tr('ws.cashier.charge.noBookings')}</p>
       ) : visible.length === 0 ? (
         <p style={muted}>{tr('ws.cashier.charge.noMatches')}</p>
       ) : (
-        <div role="listbox" aria-label={tr('ws.cashier.charge.search')} style={{ display: 'grid', gap: 'var(--tp-sp-1)', maxBlockSize: '14rem', overflowY: 'auto' }}>
+        <div
+          role="listbox"
+          aria-label={tr('ws.cashier.charge.search')}
+          style={{
+            display: 'grid',
+            gap: 'var(--tp-sp-1)',
+            maxBlockSize: '14rem',
+            overflowY: 'auto',
+          }}
+        >
           {visible.map((r) => {
             const selected = r.id === selectedId;
             return (
@@ -152,7 +167,9 @@ export function NewTabDialog({
   const reservationsQ = useTodaysOpenReservations();
   const reservations = reservationsQ.data ?? [];
   const preboundMissing =
-    Boolean(initialReservationId) && reservationsQ.isSuccess && !reservations.some((r) => r.id === initialReservationId);
+    Boolean(initialReservationId) &&
+    reservationsQ.isSuccess &&
+    !reservations.some((r) => r.id === initialReservationId);
 
   // Whitespace is not an anchor. Untrimmed, a single space in "By name" both
   // satisfied the anchor gate here and passed app.open_tab's
@@ -232,7 +249,8 @@ export function NewTabDialog({
           style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
           message={
             <>
-              <strong>{tr('ws.cashier.newTab.fromBooking')}</strong> — <bdi>{reservationOptionLabel(tr, locale, bound)}</bdi>
+              <strong>{tr('ws.cashier.newTab.fromBooking')}</strong> —{' '}
+              <bdi>{reservationOptionLabel(tr, locale, bound)}</bdi>
               <br />
               {tr('ws.cashier.newTab.fromBookingHint')}
             </>
@@ -240,10 +258,19 @@ export function NewTabDialog({
         />
       )}
       {preboundMissing && (
-        <MessagePresenter tone="refused" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} message={tr('ws.cashier.newTab.bookingMissing')} />
+        <MessagePresenter
+          tone="refused"
+          style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
+          message={tr('ws.cashier.newTab.bookingMissing')}
+        />
       )}
       <Field label={tr('op.till.table')} required={!reservationId}>
-        <select style={inputStyle} value={tableId} onChange={(e) => setTableId(e.target.value)} autoFocus>
+        <select
+          style={inputStyle}
+          value={tableId}
+          onChange={(e) => setTableId(e.target.value)}
+          autoFocus
+        >
           <option value="">{tr('op.till.chooseTable')}</option>
           {(tablesQ.data ?? []).map((t) => (
             <option key={t.id} value={t.id}>
@@ -253,10 +280,19 @@ export function NewTabDialog({
         </select>
       </Field>
       <Field label={tr('op.till.byName')} optional hint={tr('ws.cashier.newTab.nameHint')}>
-        <input style={inputStyle} value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} />
+        <input
+          style={inputStyle}
+          value={label}
+          maxLength={60}
+          onChange={(e) => setLabel(e.target.value)}
+        />
       </Field>
       <Field label={tr('op.till.reservationLabel')}>
-        <select style={inputStyle} value={reservationId} onChange={(e) => setReservationId(e.target.value)}>
+        <select
+          style={inputStyle}
+          value={reservationId}
+          onChange={(e) => setReservationId(e.target.value)}
+        >
           <option value="">{tr('op.till.noReservation')}</option>
           {reservations.map((r) => (
             <option key={r.id} value={r.id}>

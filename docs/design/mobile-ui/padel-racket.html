@@ -1,494 +1,657 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Padel Racket — 3D</title>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
-    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
-    "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
-    "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
-  },
-  "integrity": {
-    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
-    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
-    "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
-    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
-    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
-  }
-}
-</script>
-<style>
-  html,body{margin:0;height:100%;background:#f4f1ea}
-  three-d-stage:not(:defined){visibility:hidden}
-  three-d-stage{display:block;width:100vw;height:100vh}
-</style>
-</head>
-<body>
-<three-d-stage name="padel-racket" background="#f4f1ea"></three-d-stage>
-<script src="./three-d-stage.js"></script>
-<script type="module">
-const stage = document.querySelector('three-d-stage');
-const { THREE } = await stage.ready;
-
-const mat = (name, color, roughness, metalness = 0.05) => {
-  const m = new THREE.MeshStandardMaterial({ color, roughness, metalness });
-  m.name = name; return m;
-};
-const frameBlue = mat('frame_blue', 0x2b4f94, 0.5);
-const faceBlue  = mat('face_blue',  0x3e63ad, 0.6);
-const skyBlue   = mat('sky_blue',   0x6ec6ea, 0.45);
-const gripGreen = mat('grip_green', 0x8fc65b, 0.85, 0);
-const navy      = mat('navy',       0x1f3a70, 0.5);
-
-const rad = d => d * Math.PI / 180;
-const HEAD = { x: 0, y: 0.32, r: 0.13 };     // head centre / outer radius (m)
-const T = 0.038;                             // frame thickness
-const model = new THREE.Group(); model.name = 'body';
-
-// ---- Frame: outer teardrop outline with face opening + throat window ----
-const outer = new THREE.Shape();
-// teardrop: round crown, sides run tangentially down into the neck
-const A = 20; // degrees below horizontal where the crown meets the straight sides
-const px = HEAD.r * Math.cos(rad(A)), py = HEAD.y - HEAD.r * Math.sin(rad(A));
-outer.absarc(HEAD.x, HEAD.y, HEAD.r, rad(-A), rad(180 + A), false);
-const NW = 0.018; // half-width of the neck/handle core (≈ frame half-thickness → near-round section)
-outer.bezierCurveTo(-0.098, 0.205, -NW, 0.165, -NW, 0.125);
-outer.lineTo(-NW, 0.108);
-outer.lineTo(NW, 0.108);
-outer.lineTo(NW, 0.125);
-outer.bezierCurveTo(NW, 0.165, 0.098, 0.205, px, py);
-outer.closePath();
-
-// face opening: matching teardrop, closed above the throat window
-function teardrop(r, a, bottomY, neckW) {
-  const p = new THREE.Path();
-  const lx = -r * Math.cos(rad(a)), ly = HEAD.y - r * Math.sin(rad(a));
-  p.absarc(HEAD.x, HEAD.y, r, rad(-a), rad(180 + a), false);
-  p.bezierCurveTo(lx + 0.02, ly - 0.045, -neckW, bottomY, 0, bottomY);
-  p.bezierCurveTo(neckW, bottomY, -lx - 0.02, ly - 0.045, -lx, ly);
-  p.closePath();
-  return p;
-}
-const faceOpening = teardrop(0.116, 25, 0.204, 0.05);
-outer.holes.push(faceOpening);
-
-const throat = new THREE.Path();
-throat.moveTo(-0.046, 0.188);
-throat.lineTo(0.046, 0.188);
-throat.quadraticCurveTo(0.016, 0.168, 0, 0.156);
-throat.quadraticCurveTo(-0.016, 0.168, -0.046, 0.188);
-throat.closePath();
-outer.holes.push(throat);
-
-const frameGeo = new THREE.ExtrudeGeometry(outer, {
-  depth: T - 0.008, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelOffset: -0.004, bevelSegments: 4, curveSegments: 48
-});
-frameGeo.translate(0, 0, -(T - 0.008) / 2);
-const frame = new THREE.Mesh(frameGeo, frameBlue); frame.name = 'frame';
-model.add(frame);
-
-// ---- Face plate with perforations ----
-const face = new THREE.Shape();
-const fp = teardrop(0.1195, 25, 0.200, 0.05);
-face.curves = fp.curves; face.autoClose = true;
-const HOLE_R = 0.0065;
-const FACE_SEG = 24;  // the plate's tessellation — the outline's, and every hole's
-
-// Thirty holes in six rows of 4, 5, 6, 6, 5, 4 — the owner's own count ("first row 4 then
-// 5 then 6 then 6 then 5 then 4 and thats it no more rows", 2026-09-05), written down
-// rather than derived, because it is the spec and not what a clipped lattice happens to
-// leave. NOT the sticker sheet: docs/brand/stickers-5cm.pdf p8 draws 32 dots in rows of
-// 4, 5, 6, 6, 6, 5 with its rows further apart than its columns, so checking this pattern
-// against that page will disagree, and the page is not the authority. 30 mm across a row, 26 mm
-// between rows (30 · sin 60°), and the six straddle the sweet spot at ± 13, 39 and 65 mm
-// rather than one sitting on it: an even count is what makes the pattern mirror. It also
-// forces the stagger — rows of 4 and 6 need the half-step to stay centred on x = 0 and
-// rows of 5 do not — so it runs half, none, half | half, none, half, and the two 6-rows
-// sit directly above one another instead of interleaving.
-const ROWS = [4, 5, 6, 6, 5, 4];
-const HOLES = [];
-ROWS.forEach((n, i) => {
-  const y = HEAD.y + (i - 2.5) * 0.026;
-  for (let j = 0; j < n; j++) HOLES.push([HEAD.x + (j - (n - 1) / 2) * 0.03, y]);
-});
-// Cut, not filled: the plate is drilled and the background shows through. apps/mobile's
-// port plugs the same thirty with white instead — on the court a hole would show turf, and
-// the brand's flat racket draws its dots white. Same lattice, the other technique.
-for (const [x, y] of HOLES) {
-  const h = new THREE.Path();
-  h.absarc(x, y, HOLE_R, 0, Math.PI * 2, true);
-  face.holes.push(h);
-}
-const FT = T - 0.006;
-const faceGeo = new THREE.ExtrudeGeometry(face, {
-  depth: FT - 0.002, bevelEnabled: true, bevelThickness: 0.001, bevelSize: 0.001, bevelOffset: -0.001, bevelSegments: 2, curveSegments: FACE_SEG
-});
-faceGeo.translate(0, 0, -(FT - 0.002) / 2);
-const facePlate = new THREE.Mesh(faceGeo, faceBlue); facePlate.name = 'face';
-model.add(facePlate);
-
-// ---- Brand mark, decalled on the face ----
-// THE SMILEY BALL, not the Touch Padel lockup: "instead of the logo, have it be the smiley
-// face ball" (owner, 2026-09-05). Verbatim brand vectors, docs/brand/stickers-5cm.pdf p11,
-// in that extraction's own 109.952 × 110.868 frame with SVG's y pointing DOWN — absolute
-// M, L, C and Z only, never a redraw. The parse, the nesting and the flip below are
-// apps/mobile's smileyMark.ts and svgPath.ts inlined, this page being standalone by design.
-// Checked against them rather than assumed: the same 12 shapes with 11 counters, and 0.0
-// apart over 16,104 sampled points.
-//
-// The PDF page holds 36 paths and only 12 are here: the first 24 are the die-cut sticker's
-// white halo, the same twelve shapes stroke-expanded and painted underneath, and a racket
-// face is not a sticker.
-//
-// PAINT ORDER IN THREE LAYERS, NOT TWELVE. The navy is ONE disc with the felt's ten windows
-// cut out of it; the greens and creams are painted into those windows, and one eye is
-// painted back over the felt. Measured rather than assumed: paths 25-33 each cover part of
-// the navy and none touches another, 34 touches nothing, and only 35 lands on a green.
-const SMILEY_VIEWBOX = { width: 109.952, height: 110.868 };
-const SMILEY_CIRCLE = { cx: 54.329, cy: 55.674, r: 56.524 };  // enclosing circle, artwork units
-const MARK_R = 0.06714;  // the radius of the circle the ink fills, model metres — 60% of the
-                         // 0.1119 it landed at first: "too big, make it 40% smaller" (owner)
-const DECAL_Z = 0.0161;  // 0.1 mm proud of the plate's front face, which sits at 0.016
-// The three paint layers OVERLAP — the felt and the seams are painted into the navy's
-// windows, the left eye back over the felt — so they cannot share a z or they will fight
-// for the depth buffer, which reads as the mark flickering as the racket swings. Each is
-// lifted this much over the one beneath, and the topmost still sits under the plugs the
-// port stands in its holes (0.0165) as well as under this file's own frame.
-const DECAL_LAYER = 0.0001;
-// The mark's beziers are short, so tessellation buys chord error here, not arc smoothness.
-// 8 is the port's `full` tier and this page is that tier throughout: 24 where `lite` runs 12.
-const LOGO_SEG = 8;
-const SMILEY_INK_PATHS = [
-  // the navy line work: the ring, both eyes, the smile and every seam edge
-  'M 28.2 78.65 C 28.2 78.56 28.12 78.48 28.03 78.48 C 27.93 78.48 27.85 78.56 27.85 78.65 C 27.85 78.75 27.93 78.83 28.03 78.83 C 28.12 78.83 28.2 78.75 28.2 78.65 M 48.91 106.23 C 53.41 106.81 57.74 106.53 62.19 106.16 C 65.96 105.84 69.31 104.81 72.79 103.48 C 75.07 102.62 77.13 101.77 79.26 100.52 C 81.87 98.98 84.52 97.66 86.78 95.57 C 91.64 91.1 96.68 86.41 99 80.03 C 99.85 77.68 100.72 75.4 101.73 73.11 C 102.14 72.16 102.81 71.25 102.51 70.15 L 95.91 70.01 L 88.86 69.06 C 87.31 73.03 84.67 76.04 82.27 79.36 C 78.86 84.1 74.76 87.57 69.69 90.35 C 67.1 91.78 64.85 93.07 61.68 93.16 L 52.64 93.4 C 46.07 93.58 35.77 86.5 31.08 81.84 C 30.14 80.91 29.67 79.56 28.34 79.04 C 28.99 81.31 30.2 82.96 30.91 84.99 C 32.38 89.23 33.59 96.8 32.88 101.24 C 35.75 103.15 45.78 105.84 48.91 106.23 M 23.46 94.72 C 23.23 92.22 22.77 90.3 22.08 88.3 C 20.93 85.9 20.33 83.28 18.75 81.13 L 16.88 78.59 C 14.03 74.73 10.37 71.59 6.05 69.06 C 6.34 71.2 7.41 72.64 7.99 74.48 C 10.4 80.97 14.77 88.13 20.35 92.3 C 21.38 93.15 22.1 94.27 23.46 94.72 M 92.3 68.06 C 91.67 67.55 91.1 66.71 90.28 66.25 C 89.87 66.18 89.42 67.35 89.74 67.62 C 90.45 68.2 91.4 68.1 92.3 68.06 M 20.2 68.15 L 18.11 63.02 C 17.35 64.03 17.14 64.56 16.34 65.23 Z M 103.42 68.8 C 103.5 66.52 104.82 64.13 104.55 62.36 C 100.84 62.44 97.41 62.4 93.86 62.1 C 94.07 64.37 94.33 66.28 93.74 68.25 C 95.77 68.87 100.89 68.85 103.42 68.8 M 31.49 100.61 C 31.92 99.32 31.58 98.26 31.55 97.11 C 31.44 93.47 31.15 89.84 29.82 86.43 C 28.71 83.57 27.82 80.7 26.14 78.13 C 23.16 73.6 19.19 68.71 14.71 65.66 L 11.39 63.39 C 9.37 62.01 7.21 61.16 4.89 60.06 C 4.46 62.32 4.25 64.5 5.07 66.68 C 7.29 68.22 9.71 69.46 11.74 71.28 L 14.96 74.17 C 16.02 75.12 16.85 76.29 17.77 77.41 C 22.17 82.73 24.46 89.23 25.03 96.1 C 27.01 97.9 28.95 99.5 31.49 100.61 M 92.82 59.55 C 92.83 59.86 93.05 60.28 93.19 60.5 C 93.45 60.87 103.42 61.22 104.87 60.88 C 105.88 56.87 105.1 44.64 103.65 41.28 L 101.17 35.53 C 100.23 33.34 99.32 31.21 98.08 29.21 L 95.01 24.25 C 93.25 21.43 87 14.69 83.95 12.86 C 83.3 12.48 82.39 12.32 81.77 11.71 C 79.28 9.24 77.22 9.07 73.66 7.87 C 72.51 7.48 71.1 6.28 69.88 7.01 C 67.64 8.37 64.67 13.82 63.85 16.73 C 61.98 23.35 62.31 30.24 64.16 36.93 L 64.5 29.14 C 64.58 27.31 66.15 25.48 67.44 24.26 C 68.42 24.02 70 24 70.86 24.34 C 72.14 24.85 74.22 28.93 74.26 30.29 C 74.34 33.37 74.44 36.39 74.34 39.5 C 74.27 41.74 72.81 47.23 70.41 48.41 C 71.2 49.88 72.53 50.4 73.57 51.46 C 77.19 55.15 81.78 57.55 86.74 58.99 C 87.39 57.71 86.2 53.87 87 53.25 C 89.49 51.37 92.65 56.9 92.82 59.55 M 86.58 60.81 C 85.76 60.18 84.49 59.78 83.61 59.45 C 74.09 55.85 70.55 50.11 68.95 49.04 C 66.3 47.27 65.35 45.17 64.44 42.22 C 62.92 37.35 61.35 32.71 61.26 27.47 C 61.16 21.76 61.83 16.16 64.68 11.15 C 65.7 9.35 67.14 7.98 68.35 6.11 C 65.82 6.18 61.43 3.62 60.84 5.92 C 58.73 9.19 55.94 15.24 55.83 19.23 C 53.94 29.02 55.52 38.82 60.32 47.57 C 65.51 57.02 74.67 63.74 85.14 66.51 C 85.73 66.11 87.38 61.43 86.58 60.81 M 47.57 87.2 C 51.94 88.26 53.68 88.03 57.73 87.9 C 62.71 87.74 65.83 87.76 69.66 84.76 L 73.83 81.49 C 77.17 78.87 80.06 75.81 82.16 72.06 C 82.91 70.73 84.07 69.73 84.53 68.01 C 79.6 66.42 72.76 63.47 69.01 60.13 L 65.51 57.01 C 64.51 56.11 63.71 54.96 62.83 53.95 C 59 49.56 55.46 41.77 54.54 36.04 C 54.45 35.46 54.01 34.81 53.99 34.35 L 53.69 28.03 C 53.43 22.31 53.69 16.57 56.22 11.46 L 59.48 4.87 C 58.65 4.45 57.82 4.33 57 4.34 C 45.41 4.41 50.62 3.39 39.37 6.61 C 35.63 7.68 32.46 9.33 29.19 11.28 C 26.12 13.11 23.09 14.88 20.81 17.63 C 19.1 19.67 17.21 21.42 15.72 23.6 C 12.63 28.14 7.9 38.25 6.32 43.48 C 4.4 49.8 4.46 51.66 4.8 58.01 C 4.84 58.71 6.26 58.94 6.76 59.16 C 7.8 59.62 8.66 60.21 9.62 60.73 L 13.8 62.98 C 13.78 57.85 16.46 52.67 21.78 53.09 C 21.21 55.93 20.8 58.75 21.83 61.25 C 22.97 63.97 24.18 66.64 26.02 68.88 L 30.52 74.36 C 34.71 79.46 40.75 85.54 47.57 87.2 M 63.84 110.27 C 51.61 111.79 41.77 110.51 30.59 105.24 C 24.96 102.59 20.1 99.11 15.67 94.76 C 14.07 93.19 12.55 91.89 11.3 89.97 C 10.44 88.67 9.44 87.44 8.41 86.19 C 5.94 81.93 4.27 77.35 2.69 72.66 C -0.22 63.98 -0.27 60.64 0.25 51.57 L 0.52 46.85 C 0.68 44.05 3.69 35.67 5.01 33.03 C 6.78 29.48 8.26 25.88 10.73 22.76 L 14.04 18.58 L 16.23 16.1 C 19.25 12.66 22.29 9.56 26.36 7.44 L 31.79 4.61 C 36.74 2.04 42.06 0.7 47.64 0.61 C 50.07 -0.05 52.41 0.04 54.92 0.01 C 59.76 -0.06 64.6 0.26 69.22 1.71 C 72.35 2.69 80.68 5.39 83 6.98 C 87.56 10.11 92.07 13.21 95.74 17.38 C 101.91 24.4 106.16 32.67 108.76 41.52 C 108.82 44.05 109.28 46.19 109.52 48.61 L 109.76 51.09 C 110.34 56.9 109.53 64.32 108.12 70 C 107.78 71.37 107.16 72.7 106.67 74.05 C 105.16 78.16 103.25 82.04 101.17 85.88 C 101.02 86.18 97.25 91.43 96.75 92.07 C 93.17 96.64 84.92 103.8 79.69 105.74 L 75.82 107.17 C 71.83 108.66 68.08 109.75 63.84 110.27',
-];
-
-const SMILEY_BALL_PATHS = [
-  // the felt, the big left field — the left eye punched out of it
-  'M 37.47 48.12 C 39.42 49.26 41.16 48.11 42.12 46.48 C 44.05 43.24 44.99 39.84 44.53 36.05 C 43.98 31.42 44.6 26.78 38.61 24.32 C 35.75 24.37 34.3 30.18 34.29 31.9 L 34.25 39.64 C 34.23 42.15 35.41 46.91 37.47 48.12 M 47.57 87.2 C 40.75 85.54 34.71 79.46 30.52 74.36 L 26.02 68.88 C 24.18 66.64 22.97 63.97 21.83 61.25 C 20.8 58.75 21.21 55.93 21.78 53.09 C 16.46 52.67 13.78 57.85 13.8 62.99 L 9.63 60.73 C 8.66 60.21 7.8 59.62 6.76 59.16 C 6.26 58.94 4.84 58.71 4.8 58.01 C 4.46 51.66 4.4 49.8 6.32 43.48 C 7.9 38.25 12.63 28.14 15.72 23.6 C 17.21 21.42 19.1 19.67 20.81 17.63 C 23.1 14.88 26.12 13.11 29.19 11.28 C 32.46 9.33 35.63 7.68 39.37 6.61 C 50.63 3.39 45.41 4.41 57 4.34 C 57.82 4.33 58.65 4.45 59.48 4.87 L 56.22 11.46 C 53.69 16.56 53.43 22.31 53.69 28.03 L 53.99 34.35 C 54.01 34.81 54.45 35.46 54.54 36.04 C 55.46 41.77 59 49.56 62.83 53.95 C 63.71 54.97 64.51 56.11 65.51 57.01 L 69.01 60.13 C 72.76 63.47 79.6 66.42 84.53 68.01 C 84.07 69.73 82.91 70.73 82.16 72.06 C 80.06 75.81 77.17 78.87 73.83 81.49 L 69.66 84.76 C 65.83 87.76 62.71 87.74 57.73 87.9 C 53.68 88.03 51.94 88.26 47.57 87.2',
-  // the felt, upper right, notched round the right eye
-  'M 92.82 59.55 C 92.65 56.9 89.49 51.36 87 53.25 C 86.2 53.87 87.39 57.71 86.74 58.99 C 81.78 57.55 77.19 55.15 73.57 51.46 C 72.53 50.4 71.2 49.88 70.41 48.41 C 72.81 47.23 74.27 41.74 74.34 39.5 C 74.44 36.39 74.34 33.37 74.26 30.29 C 74.22 28.93 72.14 24.85 70.86 24.34 C 70 24 68.42 24.02 67.44 24.26 C 66.15 25.48 64.58 27.31 64.5 29.14 L 64.16 36.93 C 62.31 30.24 61.98 23.35 63.85 16.73 C 64.67 13.82 67.64 8.37 69.88 7.01 C 71.1 6.28 72.51 7.48 73.66 7.87 C 77.22 9.07 79.28 9.24 81.77 11.71 C 82.39 12.32 83.3 12.48 83.95 12.86 C 87 14.69 93.25 21.43 95.01 24.26 L 98.08 29.21 C 99.32 31.21 100.23 33.34 101.17 35.53 L 103.65 41.28 C 105.1 44.64 105.88 56.87 104.87 60.88 C 103.42 61.22 93.45 60.88 93.19 60.5 C 93.05 60.28 92.83 59.86 92.82 59.55',
-  // the felt, the band below the smile
-  'M 48.91 106.23 C 45.78 105.84 35.75 103.15 32.88 101.24 C 33.59 96.8 32.38 89.23 30.91 84.99 C 30.2 82.96 28.99 81.31 28.34 79.04 C 29.67 79.56 30.14 80.91 31.08 81.84 C 35.77 86.5 46.07 93.58 52.64 93.4 L 61.68 93.16 C 64.85 93.07 67.1 91.78 69.69 90.35 C 74.76 87.57 78.86 84.1 82.27 79.36 C 84.67 76.04 87.31 73.03 88.86 69.06 L 95.91 70.01 L 102.51 70.15 C 102.81 71.25 102.14 72.16 101.73 73.11 C 100.72 75.4 99.85 77.68 99 80.03 C 96.68 86.41 91.64 91.1 86.78 95.57 C 84.52 97.66 81.87 98.98 79.26 100.52 C 77.13 101.76 75.07 102.62 72.79 103.48 C 69.31 104.81 65.96 105.84 62.19 106.16 C 57.74 106.53 53.41 106.81 48.91 106.23',
-  // the felt, the wedge inside the lower-left seam
-  'M 23.46 94.72 C 22.1 94.27 21.38 93.15 20.35 92.3 C 14.77 88.13 10.4 80.97 7.99 74.48 C 7.41 72.65 6.34 71.2 6.05 69.06 C 10.37 71.59 14.03 74.73 16.88 78.59 L 18.75 81.13 C 20.33 83.28 20.93 85.9 22.08 88.3 C 22.77 90.3 23.23 92.22 23.46 94.72',
-  // the felt, a sliver at the lower-left seam's end (the PDF's deeper green)
-  'M 20.2 68.16 L 16.34 65.23 C 17.14 64.56 17.35 64.03 18.11 63.02',
-  // the felt, a 6-pixel speck — kept because the extraction is verbatim
-  'M 28.2 78.65 C 28.2 78.75 28.12 78.83 28.03 78.83 C 27.93 78.83 27.85 78.75 27.85 78.65 C 27.85 78.56 27.93 78.48 28.03 78.48 C 28.12 78.48 28.2 78.56 28.2 78.65',
-];
-
-const SMILEY_SEAM_PATHS = [
-  // the seam, the long right sweep
-  'M 86.58 60.81 C 87.38 61.43 85.73 66.12 85.14 66.51 C 74.67 63.74 65.51 57.02 60.32 47.57 C 55.52 38.82 53.94 29.02 55.83 19.23 C 55.94 15.24 58.73 9.19 60.84 5.93 C 61.43 3.62 65.82 6.18 68.35 6.11 C 67.14 7.98 65.7 9.35 64.68 11.15 C 61.83 16.16 61.16 21.76 61.26 27.47 C 61.35 32.7 62.92 37.35 64.44 42.22 C 65.35 45.17 66.3 47.27 68.95 49.04 C 70.55 50.11 74.09 55.85 83.61 59.45 C 84.49 59.78 85.76 60.18 86.58 60.81',
-  // the seam, the lower-left hook
-  'M 31.49 100.61 C 28.95 99.5 27.01 97.9 25.03 96.1 C 24.46 89.23 22.17 82.73 17.77 77.41 C 16.85 76.29 16.02 75.12 14.96 74.17 L 11.74 71.28 C 9.71 69.46 7.29 68.22 5.07 66.68 C 4.25 64.5 4.46 62.32 4.89 60.06 C 7.21 61.16 9.37 62.01 11.39 63.39 L 14.71 65.66 C 19.19 68.71 23.16 73.6 26.14 78.14 C 27.82 80.7 28.71 83.57 29.82 86.43 C 31.15 89.84 31.44 93.47 31.55 97.11 C 31.58 98.26 31.92 99.32 31.49 100.61',
-  // the seam, a chip at the smile's right tip
-  'M 103.42 68.8 C 100.89 68.85 95.77 68.87 93.74 68.25 C 94.33 66.28 94.07 64.37 93.86 62.1 C 97.41 62.41 100.84 62.44 104.55 62.36 C 104.82 64.13 103.5 66.52 103.42 68.8',
-  // the seam, a speck below the smile's right tip
-  'M 92.3 68.06 C 91.4 68.1 90.45 68.2 89.74 67.62 C 89.42 67.35 89.87 66.18 90.28 66.25 C 91.1 66.71 91.67 67.55 92.3 68.06',
-];
-
-const SMILEY_INK_TOP_PATHS = [
-  // the left eye, painted back over the felt
-  'M 37.47 48.12 C 35.41 46.91 34.23 42.15 34.25 39.64 L 34.29 31.9 C 34.3 30.18 35.75 24.37 38.61 24.32 C 44.6 26.78 43.98 31.42 44.53 36.05 C 44.99 39.84 44.05 43.24 42.12 46.48 C 41.16 48.11 39.42 49.26 37.47 48.12',
-];
-
-// One THREE.Path per subpath. Not a general SVG parser on purpose: the extraction holds
-// only the absolute M, L, C and Z, so anything else means the artwork was re-exported and
-// is an error, not something to approximate. Two of the strings end on a lone trailing M —
-// a moveto that draws nothing — which is dropped rather than emitted as an empty path.
-function parseSvgPath(d) {
-  const t = d.match(/[A-Za-z]|-?\d*\.?\d+/g) ?? [];
-  const paths = [];
-  let p = null, i = 0;
-  const n = () => parseFloat(t[i++]);
-  const num = () => i < t.length && !/[A-Za-z]/.test(t[i]);
-  const flush = () => { if (p && p.curves.length) paths.push(p); p = null; };
-  while (i < t.length) {
-    const c = t[i++];
-    if (c === 'M') { flush(); p = new THREE.Path(); p.moveTo(n(), n()); while (num()) p.lineTo(n(), n()); }
-    else if (c === 'L') { do p.lineTo(n(), n()); while (num()); }
-    else if (c === 'C') { do p.bezierCurveTo(n(), n(), n(), n(), n(), n()); while (num()); }
-    // three leaves the pen where the last curve ended; SVG puts it back on the start
-    else if (c === 'Z') { p.closePath(); p.currentPoint.copy(p.curves[0].getPoint(0)); }
-    else throw new Error('padel-racket: unsupported path command "' + c + '"');
-  }
-  flush();
-  return paths;
-}
-
-// Subpaths → filled shapes by CONTAINMENT DEPTH: even depth is ink and becomes a Shape,
-// odd is a counter and becomes a hole of its smallest container one level up. This artwork
-// has exactly two — inside the bowl of the "d" and the loop of the "P" — which fill in as
-// blobs without it. Containment is VOTED over a whole flattened outline rather than sampled
-// at a point: the letters are drawn as unions of overlapping outlines (the stem of the "u"
-// laid across its bowl), so a lone sample lands inside a neighbour that does not contain
-// it. A true counter scores 1.000 here, the worst overlap 0.232.
-function groupSubpaths(subpaths) {
-  const polys = subpaths.map(p => p.getPoints(16));
-  const inside = (q, poly) => {
-    let hit = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const a = poly[i], b = poly[j];
-      if ((a.y > q.y) !== (b.y > q.y) && q.x < (b.x - a.x) * (q.y - a.y) / (b.y - a.y) + a.x) hit = !hit;
-    }
-    return hit;
-  };
-  const within = (inner, outer) => inner.filter(q => inside(q, outer)).length > inner.length / 2;
-  const area = poly => {
-    let s = 0;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) s += poly[j].x * poly[i].y - poly[i].x * poly[j].y;
-    return Math.abs(s) / 2;
-  };
-  const owners = polys.map((_, i) => polys.map((_p, j) => j).filter(j => j !== i && within(polys[i], polys[j])));
-  const depth = owners.map(o => o.length);
-  const shapes = new Map();
-  subpaths.forEach((p, i) => {
-    if (depth[i] % 2) return;
-    const s = new THREE.Shape();
-    s.curves = p.curves.slice(); s.currentPoint.copy(p.currentPoint);
-    shapes.set(i, s);
-  });
-  subpaths.forEach((p, i) => {
-    if (!(depth[i] % 2)) return;
-    const host = owners[i].filter(j => depth[j] === depth[i] - 1).sort((a, b) => area(polys[a]) - area(polys[b]))[0];
-    shapes.get(host).holes.push(p);
-  });
-  return [...shapes.values()];
-}
-
-// SVG space → three's: centred on the ink's own enclosing circle and y-flipped, which
-// stands the mark upright and puts that circle on (0, 0) at once, then scaled to MARK_R.
-// Rebuilt curve for curve, so the beziers survive the move and LOGO_SEG still owns the
-// smoothness.
-function placeMark(paths, radius) {
-  const k = radius / SMILEY_CIRCLE.r;
-  const f = p => new THREE.Vector2((p.x - SMILEY_CIRCLE.cx) * k, (SMILEY_CIRCLE.cy - p.y) * k);
-  return paths.map(path => {
-    const out = new THREE.Path();
-    for (const c of path.curves) {
-      if (c instanceof THREE.CubicBezierCurve) out.curves.push(new THREE.CubicBezierCurve(f(c.v0), f(c.v1), f(c.v2), f(c.v3)));
-      else if (c instanceof THREE.LineCurve) out.curves.push(new THREE.LineCurve(f(c.v1), f(c.v2)));
-      else throw new Error('padel-racket: cannot move a ' + c.type);
-    }
-    out.currentPoint.copy(f(path.currentPoint));
-    return out;
-  });
-}
-
-// THE DOTS GO OVER THE MARK, AND HERE A DOT IS A HOLE. The port stands a white plug in each
-// perforation and puts the decal 0.4 mm behind the caps; a void cannot be put behind
-// anything, so this file drills the sheet instead — the lattice punches through the mark
-// exactly as it punches through the plate, and you see the background through it. Same read
-// as the port's, reached this file's own way.
-//
-// It went the other way for exactly one day, when the mark was the wordmark: 13 of the 30
-// holes have their rims on ink at the size it was drawn, and a word read through 13 holes is
-// not a word ("the racket dots don't pierce through the logo", owner, 2026-09-05). The
-// smiley needs no such protection and was chosen partly because of it — "we could have the
-// dots piercing this no problem" — so drilling is back, which is all a drilled printed plate
-// ever does.
-//
-// Each triangle of the decal is clipped against the same 24-gon the extruder cuts the plate
-// with (FACE_SEG), so the two rims are one polygon and no ink overhangs a hole. Subtracting
-// a convex region from a convex piece goes an edge at a time: what falls outside edge i is
-// finished, what falls inside carries on to i + 1, and what survives all 24 was inside the
-// hole and is dropped. Pieces stay convex, so a fan triangulates them.
-function drill(geo, centres, r, sides) {
-  const pos = geo.getAttribute('position');
-  const index = geo.getIndex();
-  const z = pos.getZ(0);  // the decal is flat: one z carries the whole sheet
-  const ring = [];
-  for (let i = 0; i <= sides; i++) ring.push([Math.cos(i / sides * Math.PI * 2) * r, Math.sin(i / sides * Math.PI * 2) * r]);
-  const side = (ax, ay, bx, by, x, y) => (bx - ax) * (y - ay) - (by - ay) * (x - ax);
-  const out = [];
-  for (let k = 0; k < index.count; k += 3) {
-    const a = index.getX(k), b = index.getX(k + 1), c = index.getX(k + 2);
-    let pieces = [[pos.getX(a), pos.getY(a), pos.getX(b), pos.getY(b), pos.getX(c), pos.getY(c)]];
-    for (const [cx, cy] of centres) {
-      const next = [];
-      for (const piece of pieces) {
-        // one edge of the hole with the whole piece behind it separates the two:
-        // pass that piece through WHOLE rather than shattering it on 24 lines
-        let clear = false;
-        for (let i = 0; i < sides && !clear; i++) {
-          const ax = cx + ring[i][0], ay = cy + ring[i][1], bx = cx + ring[i + 1][0], by = cy + ring[i + 1][1];
-          clear = true;
-          for (let v = 0; v < piece.length && clear; v += 2) clear = side(ax, ay, bx, by, piece[v], piece[v + 1]) <= 0;
-        }
-        if (clear) { next.push(piece); continue; }
-        let rest = piece;
-        for (let i = 0; i < sides && rest.length >= 6; i++) {
-          const ax = cx + ring[i][0], ay = cy + ring[i][1], bx = cx + ring[i + 1][0], by = cy + ring[i + 1][1];
-          const keep = [], carry = [];
-          for (let v = 0; v < rest.length; v += 2) {
-            const w = (v + 2) % rest.length;
-            const s0 = side(ax, ay, bx, by, rest[v], rest[v + 1]), s1 = side(ax, ay, bx, by, rest[w], rest[w + 1]);
-            (s0 > 0 ? carry : keep).push(rest[v], rest[v + 1]);
-            if ((s0 > 0) !== (s1 > 0)) {
-              const t = s0 / (s0 - s1);
-              const x = rest[v] + (rest[w] - rest[v]) * t, y = rest[v + 1] + (rest[w + 1] - rest[v + 1]) * t;
-              keep.push(x, y); carry.push(x, y);
-            }
-          }
-          if (keep.length >= 6) next.push(keep);
-          rest = carry;
+  <head>
+    <meta charset="utf-8" />
+    <title>Padel Racket — 3D</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+          "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+          "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+          "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+        },
+        "integrity": {
+          "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+          "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+          "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+          "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+          "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
         }
       }
-      pieces = next;
-    }
-    for (const piece of pieces)
-      for (let i = 4; i < piece.length; i += 2)
-        out.push(piece[0], piece[1], z, piece[i - 2], piece[i - 1], z, piece[i], piece[i + 1], z);
-  }
-  const nrm = new Float32Array(out.length);
-  for (let i = 2; i < nrm.length; i += 3) nrm[i] = 1;  // a flat sheet, facing the camera
-  geo.setIndex(null);
-  geo.deleteAttribute('uv');  // nothing on this racket samples a texture
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
-  return geo;
-}
+    </script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #f4f1ea;
+      }
+      three-d-stage:not(:defined) {
+        visibility: hidden;
+      }
+      three-d-stage {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <three-d-stage name="padel-racket" background="#f4f1ea"></three-d-stage>
+    <script src="./three-d-stage.js"></script>
+    <script type="module">
+      const stage = document.querySelector('three-d-stage');
+      const { THREE } = await stage.ready;
 
-function decal(paths, material, name, layer) {
-  const g = new THREE.ShapeGeometry(groupSubpaths(placeMark(paths.flatMap(parseSvgPath), MARK_R)), LOGO_SEG);
-  // ShapeGeometry emits one group per shape, each with its own materialIndex, and the mesh
-  // carries a single material: the felt's 6 shapes cost a draw call each and buy nothing.
-  // Clearing them is also what makes the drill safe — those ranges would otherwise index a
-  // buffer that no longer exists.
-  g.clearGroups();
-  g.translate(HEAD.x, HEAD.y, DECAL_Z + layer * DECAL_LAYER);
-  const m = new THREE.Mesh(drill(g, HOLES, HOLE_R, FACE_SEG), material);
-  m.name = name; model.add(m);
-}
-// THREE COLOURS THE RACKET ALREADY WEARS.
-//
-// The sticker is drawn navy, felt green and cream on white paper. Two of those survive as
-// themselves and one cannot: the artwork's navy is (53, 78, 168) and a racket plate is a
-// blue of about the same weight, so taken literally the ring, the eyes and the smile would
-// dissolve into the face and the mark would read as a green blob. The ink is therefore each
-// file's own darkest blue — `navy` here, the FRAME's colour in the port, which is darker
-// still because the two files keep different palettes and always have.
-//
-// The felt is the grip's green, a shade off the artwork's own, and the seams are white:
-// both the paper the brand prints this ball on and the colour of the dots now punched
-// through it. That collision sank the wordmark this mark replaced — mark and lattice fused
-// into one white mass — and is right here, because a tennis ball's seams ARE white and the
-// navy outlines them either way.
-//
-// The order is the artwork's, and it is not decoration: the navy is a disc with the felt's
-// windows cut out of it, so it goes down FIRST and everything else is painted into it.
-const logoWhite = mat('logo_white', 0xffffff, 0.6);
-decal(SMILEY_INK_PATHS, navy, 'mark_ink', 0);
-decal(SMILEY_BALL_PATHS, gripGreen, 'mark_ball', 1);
-// Felt and seams never touch each other — only the navy under both — so they share a layer.
-decal(SMILEY_SEAM_PATHS, logoWhite, 'mark_seam', 1);
-decal(SMILEY_INK_TOP_PATHS, navy, 'mark_ink_top', 2);
+      const mat = (name, color, roughness, metalness = 0.05) => {
+        const m = new THREE.MeshStandardMaterial({ color, roughness, metalness });
+        m.name = name;
+        return m;
+      };
+      const frameBlue = mat('frame_blue', 0x2b4f94, 0.5);
+      const faceBlue = mat('face_blue', 0x3e63ad, 0.6);
+      const skyBlue = mat('sky_blue', 0x6ec6ea, 0.45);
+      const gripGreen = mat('grip_green', 0x8fc65b, 0.85, 0);
+      const navy = mat('navy', 0x1f3a70, 0.5);
 
-// ---- Cartoon highlight bands on the rim (front + back) ----
-function arcBand(name, a0, a1, rIn, rOut, z) {
-  const s = new THREE.Shape();
-  s.absarc(HEAD.x, HEAD.y, rOut, rad(a0), rad(a1), false);
-  s.absarc(HEAD.x, HEAD.y, rIn, rad(a1), rad(a0), true);
-  s.closePath();
-  const g = new THREE.ExtrudeGeometry(s, { depth: 0.0012, bevelEnabled: false, curveSegments: 40 });
-  g.translate(0, 0, z);
-  const m = new THREE.Mesh(g, skyBlue); m.name = name; return m;
-}
-const zFront = T / 2 + 0.0003, zBack = -T / 2 - 0.0015;
-model.add(arcBand('highlight_front', 100, 160, 0.1205, 0.1255, zFront));
-model.add(arcBand('highlight_back', 20, 80, 0.1205, 0.1255, zBack));
+      const rad = (d) => (d * Math.PI) / 180;
+      const HEAD = { x: 0, y: 0.32, r: 0.13 }; // head centre / outer radius (m)
+      const T = 0.038; // frame thickness
+      const model = new THREE.Group();
+      model.name = 'body';
 
-// ---- Handle: lofted collar morphs the slab section into a circle, then a round grip ----
-const R = 0.0195; // grip radius
-function loft(name, material, yTop, yBot, top, bot, around = 64, along = 24) {
-  const pos = [], idx = [];
-  const smooth = t => t * t * (3 - 2 * t);
-  for (let i = 0; i <= along; i++) {
-    const t = smooth(i / along), y = yTop + (yBot - yTop) * (i / along);
-    const a = top.a + (bot.a - top.a) * t, b = top.b + (bot.b - top.b) * t, n = top.n + (bot.n - top.n) * t;
-    for (let j = 0; j <= around; j++) {
-      const th = j / around * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
-      pos.push(a * Math.sign(c) * Math.pow(Math.abs(c), 2 / n), y, b * Math.sign(s) * Math.pow(Math.abs(s), 2 / n));
-    }
-  }
-  for (let i = 0; i < along; i++) for (let j = 0; j < around; j++) {
-    const p = i * (around + 1) + j, q = p + around + 1;
-    idx.push(p, q, p + 1, q, q + 1, p + 1);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setIndex(idx); g.computeVertexNormals();
-  const m = new THREE.Mesh(g, material); m.name = name; return m;
-}
-// top section hugs the beveled slab (18 × 19 mm half-sizes), bottom is a true circle
-model.add(loft('collar', navy, 0.13, 0.10, { a: NW + 0.0005, b: T / 2 + 0.0005, n: 10 }, { a: R, b: R, n: 2 }));
-const grip = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.09, 48), gripGreen);
-grip.name = 'grip'; grip.position.y = 0.012 + 0.045; model.add(grip);
-for (let i = 0; i < 4; i++) {
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.0015, 0.0034, 14, 48), gripGreen);
-  ring.name = 'grip_wrap_' + (i + 1);
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.028 + i * 0.022;
-  model.add(ring);
-}
-const cap = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.0015, R + 0.0005, 0.012, 48), navy);
-cap.name = 'butt_cap'; cap.position.y = 0.007; model.add(cap);
-const capEnd = new THREE.Mesh(new THREE.SphereGeometry(R + 0.0015, 48, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), navy);
-capEnd.name = 'butt_cap_end'; capEnd.scale.y = 0.3; capEnd.position.y = 0.0064; model.add(capEnd);
+      // ---- Frame: outer teardrop outline with face opening + throat window ----
+      const outer = new THREE.Shape();
+      // teardrop: round crown, sides run tangentially down into the neck
+      const A = 20; // degrees below horizontal where the crown meets the straight sides
+      const px = HEAD.r * Math.cos(rad(A)),
+        py = HEAD.y - HEAD.r * Math.sin(rad(A));
+      outer.absarc(HEAD.x, HEAD.y, HEAD.r, rad(-A), rad(180 + A), false);
+      const NW = 0.018; // half-width of the neck/handle core (≈ frame half-thickness → near-round section)
+      outer.bezierCurveTo(-0.098, 0.205, -NW, 0.165, -NW, 0.125);
+      outer.lineTo(-NW, 0.108);
+      outer.lineTo(NW, 0.108);
+      outer.lineTo(NW, 0.125);
+      outer.bezierCurveTo(NW, 0.165, 0.098, 0.205, px, py);
+      outer.closePath();
 
-// ---- Hierarchy: root > swing_pivot (animated, origin at the grip) > body ----
-const PIVOT_Y = 0.05;
-model.position.y = -PIVOT_Y;
-// one-handed forehand hold: handle points to the player's side (+X), head out to -X,
-// slightly above horizontal, face leaning a touch forward
-const hold = new THREE.Group(); hold.name = 'hand_hold';
-hold.rotation.set(-0.08, 0, 0.75, 'YXZ');
-hold.add(model);
-const pivot = new THREE.Group(); pivot.name = 'swing_pivot'; pivot.add(hold);
-const root = new THREE.Group(); root.name = 'padel_racket'; root.position.y = PIVOT_Y + 0.15; root.add(pivot);
+      // face opening: matching teardrop, closed above the throat window
+      function teardrop(r, a, bottomY, neckW) {
+        const p = new THREE.Path();
+        const lx = -r * Math.cos(rad(a)),
+          ly = HEAD.y - r * Math.sin(rad(a));
+        p.absarc(HEAD.x, HEAD.y, r, rad(-a), rad(180 + a), false);
+        p.bezierCurveTo(lx + 0.02, ly - 0.045, -neckW, bottomY, 0, bottomY);
+        p.bezierCurveTo(neckW, bottomY, -lx - 0.02, ly - 0.045, -lx, ly);
+        p.closePath();
+        return p;
+      }
+      const faceOpening = teardrop(0.116, 25, 0.204, 0.05);
+      outer.holes.push(faceOpening);
 
-// ---- Swing clip: rest → backswing → contact → follow-through → rest (loops) ----
-// keys: [time, tiltX, turnY, liftZ, posX, posY, posZ]
-// The hand travels on a forehand arc around the player (behind-right → forward-left),
-// -Z is forward. turnY sweeps the head around the body; liftZ goes low-to-high through contact.
-const keys = [
-  [0.00,  0.03, -0.35, -0.06,  0.10, 0.00,  0.16],
-  [0.45,  0.05, -0.55, -0.14,  0.14, 0.02,  0.26],
-  [0.62,  0.05, -0.52, -0.14,  0.13, 0.01,  0.26],
-  [0.78,  0.02, -0.25, -0.06,  0.06, 0.00,  0.08],
-  [0.90,  0.00,  0.05,  0.04, -0.02, 0.02, -0.10],
-  [1.10, -0.04,  0.35,  0.16, -0.10, 0.08, -0.26],
-  [1.35, -0.04,  0.40,  0.20, -0.12, 0.11, -0.30],
-  [1.80,  0.00,  0.05,  0.08, -0.03, 0.05, -0.10],
-  [2.20,  0.03, -0.35, -0.06,  0.10, 0.00,  0.16],
-];
-const times = [], quats = [], pos = [], q = new THREE.Quaternion(), e = new THREE.Euler();
-for (const [t, x, y0, z, px0, py_, pz_] of keys) {
-  const y = -y0, px_ = -px0; // mirrored: path sweeps to the right
-  times.push(t); q.setFromEuler(e.set(x, y, z, 'YXZ')); quats.push(q.x, q.y, q.z, q.w); pos.push(px_, py_, pz_);
-}
-const rotTrack = new THREE.QuaternionKeyframeTrack('swing_pivot.quaternion', times, quats);
-const posTrack = new THREE.VectorKeyframeTrack('swing_pivot.position', times, pos, THREE.InterpolateSmooth);
-const swing = new THREE.AnimationClip('swing', 2.2, [rotTrack, posTrack]);
-root.animations = [swing];
+      const throat = new THREE.Path();
+      throat.moveTo(-0.046, 0.188);
+      throat.lineTo(0.046, 0.188);
+      throat.quadraticCurveTo(0.016, 0.168, 0, 0.156);
+      throat.quadraticCurveTo(-0.016, 0.168, -0.046, 0.188);
+      throat.closePath();
+      outer.holes.push(throat);
 
-// ---- Preview the clip in the stage ----
-const mixer = new THREE.AnimationMixer(root);
-mixer.clipAction(swing).play();
-const timer = new THREE.Timer();
-const baseLoop = stage._loop;
-stage._loop = () => { timer.update(); mixer.update(timer.getDelta()); baseLoop(); };
-stage._renderer.setAnimationLoop(stage._loop);
+      const frameGeo = new THREE.ExtrudeGeometry(outer, {
+        depth: T - 0.008,
+        bevelEnabled: true,
+        bevelThickness: 0.004,
+        bevelSize: 0.004,
+        bevelOffset: -0.004,
+        bevelSegments: 4,
+        curveSegments: 48,
+      });
+      frameGeo.translate(0, 0, -(T - 0.008) / 2);
+      const frame = new THREE.Mesh(frameGeo, frameBlue);
+      frame.name = 'frame';
+      model.add(frame);
 
-stage.setObject(root);
-// widen the framing so the travelling swing stays in view
-stage._camera.position.sub(stage._controls.target).multiplyScalar(1.6).add(stage._controls.target);
-stage._controls.update();
-</script>
-</body>
+      // ---- Face plate with perforations ----
+      const face = new THREE.Shape();
+      const fp = teardrop(0.1195, 25, 0.2, 0.05);
+      face.curves = fp.curves;
+      face.autoClose = true;
+      const HOLE_R = 0.0065;
+      const FACE_SEG = 24; // the plate's tessellation — the outline's, and every hole's
+
+      // Thirty holes in six rows of 4, 5, 6, 6, 5, 4 — the owner's own count ("first row 4 then
+      // 5 then 6 then 6 then 5 then 4 and thats it no more rows", 2026-09-05), written down
+      // rather than derived, because it is the spec and not what a clipped lattice happens to
+      // leave. NOT the sticker sheet: docs/brand/stickers-5cm.pdf p8 draws 32 dots in rows of
+      // 4, 5, 6, 6, 6, 5 with its rows further apart than its columns, so checking this pattern
+      // against that page will disagree, and the page is not the authority. 30 mm across a row, 26 mm
+      // between rows (30 · sin 60°), and the six straddle the sweet spot at ± 13, 39 and 65 mm
+      // rather than one sitting on it: an even count is what makes the pattern mirror. It also
+      // forces the stagger — rows of 4 and 6 need the half-step to stay centred on x = 0 and
+      // rows of 5 do not — so it runs half, none, half | half, none, half, and the two 6-rows
+      // sit directly above one another instead of interleaving.
+      const ROWS = [4, 5, 6, 6, 5, 4];
+      const HOLES = [];
+      ROWS.forEach((n, i) => {
+        const y = HEAD.y + (i - 2.5) * 0.026;
+        for (let j = 0; j < n; j++) HOLES.push([HEAD.x + (j - (n - 1) / 2) * 0.03, y]);
+      });
+      // Cut, not filled: the plate is drilled and the background shows through. apps/mobile's
+      // port plugs the same thirty with white instead — on the court a hole would show turf, and
+      // the brand's flat racket draws its dots white. Same lattice, the other technique.
+      for (const [x, y] of HOLES) {
+        const h = new THREE.Path();
+        h.absarc(x, y, HOLE_R, 0, Math.PI * 2, true);
+        face.holes.push(h);
+      }
+      const FT = T - 0.006;
+      const faceGeo = new THREE.ExtrudeGeometry(face, {
+        depth: FT - 0.002,
+        bevelEnabled: true,
+        bevelThickness: 0.001,
+        bevelSize: 0.001,
+        bevelOffset: -0.001,
+        bevelSegments: 2,
+        curveSegments: FACE_SEG,
+      });
+      faceGeo.translate(0, 0, -(FT - 0.002) / 2);
+      const facePlate = new THREE.Mesh(faceGeo, faceBlue);
+      facePlate.name = 'face';
+      model.add(facePlate);
+
+      // ---- Brand mark, decalled on the face ----
+      // THE SMILEY BALL, not the Touch Padel lockup: "instead of the logo, have it be the smiley
+      // face ball" (owner, 2026-09-05). Verbatim brand vectors, docs/brand/stickers-5cm.pdf p11,
+      // in that extraction's own 109.952 × 110.868 frame with SVG's y pointing DOWN — absolute
+      // M, L, C and Z only, never a redraw. The parse, the nesting and the flip below are
+      // apps/mobile's smileyMark.ts and svgPath.ts inlined, this page being standalone by design.
+      // Checked against them rather than assumed: the same 12 shapes with 11 counters, and 0.0
+      // apart over 16,104 sampled points.
+      //
+      // The PDF page holds 36 paths and only 12 are here: the first 24 are the die-cut sticker's
+      // white halo, the same twelve shapes stroke-expanded and painted underneath, and a racket
+      // face is not a sticker.
+      //
+      // PAINT ORDER IN THREE LAYERS, NOT TWELVE. The navy is ONE disc with the felt's ten windows
+      // cut out of it; the greens and creams are painted into those windows, and one eye is
+      // painted back over the felt. Measured rather than assumed: paths 25-33 each cover part of
+      // the navy and none touches another, 34 touches nothing, and only 35 lands on a green.
+      const SMILEY_VIEWBOX = { width: 109.952, height: 110.868 };
+      const SMILEY_CIRCLE = { cx: 54.329, cy: 55.674, r: 56.524 }; // enclosing circle, artwork units
+      const MARK_R = 0.06714; // the radius of the circle the ink fills, model metres — 60% of the
+      // 0.1119 it landed at first: "too big, make it 40% smaller" (owner)
+      const DECAL_Z = 0.0161; // 0.1 mm proud of the plate's front face, which sits at 0.016
+      // The three paint layers OVERLAP — the felt and the seams are painted into the navy's
+      // windows, the left eye back over the felt — so they cannot share a z or they will fight
+      // for the depth buffer, which reads as the mark flickering as the racket swings. Each is
+      // lifted this much over the one beneath, and the topmost still sits under the plugs the
+      // port stands in its holes (0.0165) as well as under this file's own frame.
+      const DECAL_LAYER = 0.0001;
+      // The mark's beziers are short, so tessellation buys chord error here, not arc smoothness.
+      // 8 is the port's `full` tier and this page is that tier throughout: 24 where `lite` runs 12.
+      const LOGO_SEG = 8;
+      const SMILEY_INK_PATHS = [
+        // the navy line work: the ring, both eyes, the smile and every seam edge
+        'M 28.2 78.65 C 28.2 78.56 28.12 78.48 28.03 78.48 C 27.93 78.48 27.85 78.56 27.85 78.65 C 27.85 78.75 27.93 78.83 28.03 78.83 C 28.12 78.83 28.2 78.75 28.2 78.65 M 48.91 106.23 C 53.41 106.81 57.74 106.53 62.19 106.16 C 65.96 105.84 69.31 104.81 72.79 103.48 C 75.07 102.62 77.13 101.77 79.26 100.52 C 81.87 98.98 84.52 97.66 86.78 95.57 C 91.64 91.1 96.68 86.41 99 80.03 C 99.85 77.68 100.72 75.4 101.73 73.11 C 102.14 72.16 102.81 71.25 102.51 70.15 L 95.91 70.01 L 88.86 69.06 C 87.31 73.03 84.67 76.04 82.27 79.36 C 78.86 84.1 74.76 87.57 69.69 90.35 C 67.1 91.78 64.85 93.07 61.68 93.16 L 52.64 93.4 C 46.07 93.58 35.77 86.5 31.08 81.84 C 30.14 80.91 29.67 79.56 28.34 79.04 C 28.99 81.31 30.2 82.96 30.91 84.99 C 32.38 89.23 33.59 96.8 32.88 101.24 C 35.75 103.15 45.78 105.84 48.91 106.23 M 23.46 94.72 C 23.23 92.22 22.77 90.3 22.08 88.3 C 20.93 85.9 20.33 83.28 18.75 81.13 L 16.88 78.59 C 14.03 74.73 10.37 71.59 6.05 69.06 C 6.34 71.2 7.41 72.64 7.99 74.48 C 10.4 80.97 14.77 88.13 20.35 92.3 C 21.38 93.15 22.1 94.27 23.46 94.72 M 92.3 68.06 C 91.67 67.55 91.1 66.71 90.28 66.25 C 89.87 66.18 89.42 67.35 89.74 67.62 C 90.45 68.2 91.4 68.1 92.3 68.06 M 20.2 68.15 L 18.11 63.02 C 17.35 64.03 17.14 64.56 16.34 65.23 Z M 103.42 68.8 C 103.5 66.52 104.82 64.13 104.55 62.36 C 100.84 62.44 97.41 62.4 93.86 62.1 C 94.07 64.37 94.33 66.28 93.74 68.25 C 95.77 68.87 100.89 68.85 103.42 68.8 M 31.49 100.61 C 31.92 99.32 31.58 98.26 31.55 97.11 C 31.44 93.47 31.15 89.84 29.82 86.43 C 28.71 83.57 27.82 80.7 26.14 78.13 C 23.16 73.6 19.19 68.71 14.71 65.66 L 11.39 63.39 C 9.37 62.01 7.21 61.16 4.89 60.06 C 4.46 62.32 4.25 64.5 5.07 66.68 C 7.29 68.22 9.71 69.46 11.74 71.28 L 14.96 74.17 C 16.02 75.12 16.85 76.29 17.77 77.41 C 22.17 82.73 24.46 89.23 25.03 96.1 C 27.01 97.9 28.95 99.5 31.49 100.61 M 92.82 59.55 C 92.83 59.86 93.05 60.28 93.19 60.5 C 93.45 60.87 103.42 61.22 104.87 60.88 C 105.88 56.87 105.1 44.64 103.65 41.28 L 101.17 35.53 C 100.23 33.34 99.32 31.21 98.08 29.21 L 95.01 24.25 C 93.25 21.43 87 14.69 83.95 12.86 C 83.3 12.48 82.39 12.32 81.77 11.71 C 79.28 9.24 77.22 9.07 73.66 7.87 C 72.51 7.48 71.1 6.28 69.88 7.01 C 67.64 8.37 64.67 13.82 63.85 16.73 C 61.98 23.35 62.31 30.24 64.16 36.93 L 64.5 29.14 C 64.58 27.31 66.15 25.48 67.44 24.26 C 68.42 24.02 70 24 70.86 24.34 C 72.14 24.85 74.22 28.93 74.26 30.29 C 74.34 33.37 74.44 36.39 74.34 39.5 C 74.27 41.74 72.81 47.23 70.41 48.41 C 71.2 49.88 72.53 50.4 73.57 51.46 C 77.19 55.15 81.78 57.55 86.74 58.99 C 87.39 57.71 86.2 53.87 87 53.25 C 89.49 51.37 92.65 56.9 92.82 59.55 M 86.58 60.81 C 85.76 60.18 84.49 59.78 83.61 59.45 C 74.09 55.85 70.55 50.11 68.95 49.04 C 66.3 47.27 65.35 45.17 64.44 42.22 C 62.92 37.35 61.35 32.71 61.26 27.47 C 61.16 21.76 61.83 16.16 64.68 11.15 C 65.7 9.35 67.14 7.98 68.35 6.11 C 65.82 6.18 61.43 3.62 60.84 5.92 C 58.73 9.19 55.94 15.24 55.83 19.23 C 53.94 29.02 55.52 38.82 60.32 47.57 C 65.51 57.02 74.67 63.74 85.14 66.51 C 85.73 66.11 87.38 61.43 86.58 60.81 M 47.57 87.2 C 51.94 88.26 53.68 88.03 57.73 87.9 C 62.71 87.74 65.83 87.76 69.66 84.76 L 73.83 81.49 C 77.17 78.87 80.06 75.81 82.16 72.06 C 82.91 70.73 84.07 69.73 84.53 68.01 C 79.6 66.42 72.76 63.47 69.01 60.13 L 65.51 57.01 C 64.51 56.11 63.71 54.96 62.83 53.95 C 59 49.56 55.46 41.77 54.54 36.04 C 54.45 35.46 54.01 34.81 53.99 34.35 L 53.69 28.03 C 53.43 22.31 53.69 16.57 56.22 11.46 L 59.48 4.87 C 58.65 4.45 57.82 4.33 57 4.34 C 45.41 4.41 50.62 3.39 39.37 6.61 C 35.63 7.68 32.46 9.33 29.19 11.28 C 26.12 13.11 23.09 14.88 20.81 17.63 C 19.1 19.67 17.21 21.42 15.72 23.6 C 12.63 28.14 7.9 38.25 6.32 43.48 C 4.4 49.8 4.46 51.66 4.8 58.01 C 4.84 58.71 6.26 58.94 6.76 59.16 C 7.8 59.62 8.66 60.21 9.62 60.73 L 13.8 62.98 C 13.78 57.85 16.46 52.67 21.78 53.09 C 21.21 55.93 20.8 58.75 21.83 61.25 C 22.97 63.97 24.18 66.64 26.02 68.88 L 30.52 74.36 C 34.71 79.46 40.75 85.54 47.57 87.2 M 63.84 110.27 C 51.61 111.79 41.77 110.51 30.59 105.24 C 24.96 102.59 20.1 99.11 15.67 94.76 C 14.07 93.19 12.55 91.89 11.3 89.97 C 10.44 88.67 9.44 87.44 8.41 86.19 C 5.94 81.93 4.27 77.35 2.69 72.66 C -0.22 63.98 -0.27 60.64 0.25 51.57 L 0.52 46.85 C 0.68 44.05 3.69 35.67 5.01 33.03 C 6.78 29.48 8.26 25.88 10.73 22.76 L 14.04 18.58 L 16.23 16.1 C 19.25 12.66 22.29 9.56 26.36 7.44 L 31.79 4.61 C 36.74 2.04 42.06 0.7 47.64 0.61 C 50.07 -0.05 52.41 0.04 54.92 0.01 C 59.76 -0.06 64.6 0.26 69.22 1.71 C 72.35 2.69 80.68 5.39 83 6.98 C 87.56 10.11 92.07 13.21 95.74 17.38 C 101.91 24.4 106.16 32.67 108.76 41.52 C 108.82 44.05 109.28 46.19 109.52 48.61 L 109.76 51.09 C 110.34 56.9 109.53 64.32 108.12 70 C 107.78 71.37 107.16 72.7 106.67 74.05 C 105.16 78.16 103.25 82.04 101.17 85.88 C 101.02 86.18 97.25 91.43 96.75 92.07 C 93.17 96.64 84.92 103.8 79.69 105.74 L 75.82 107.17 C 71.83 108.66 68.08 109.75 63.84 110.27',
+      ];
+
+      const SMILEY_BALL_PATHS = [
+        // the felt, the big left field — the left eye punched out of it
+        'M 37.47 48.12 C 39.42 49.26 41.16 48.11 42.12 46.48 C 44.05 43.24 44.99 39.84 44.53 36.05 C 43.98 31.42 44.6 26.78 38.61 24.32 C 35.75 24.37 34.3 30.18 34.29 31.9 L 34.25 39.64 C 34.23 42.15 35.41 46.91 37.47 48.12 M 47.57 87.2 C 40.75 85.54 34.71 79.46 30.52 74.36 L 26.02 68.88 C 24.18 66.64 22.97 63.97 21.83 61.25 C 20.8 58.75 21.21 55.93 21.78 53.09 C 16.46 52.67 13.78 57.85 13.8 62.99 L 9.63 60.73 C 8.66 60.21 7.8 59.62 6.76 59.16 C 6.26 58.94 4.84 58.71 4.8 58.01 C 4.46 51.66 4.4 49.8 6.32 43.48 C 7.9 38.25 12.63 28.14 15.72 23.6 C 17.21 21.42 19.1 19.67 20.81 17.63 C 23.1 14.88 26.12 13.11 29.19 11.28 C 32.46 9.33 35.63 7.68 39.37 6.61 C 50.63 3.39 45.41 4.41 57 4.34 C 57.82 4.33 58.65 4.45 59.48 4.87 L 56.22 11.46 C 53.69 16.56 53.43 22.31 53.69 28.03 L 53.99 34.35 C 54.01 34.81 54.45 35.46 54.54 36.04 C 55.46 41.77 59 49.56 62.83 53.95 C 63.71 54.97 64.51 56.11 65.51 57.01 L 69.01 60.13 C 72.76 63.47 79.6 66.42 84.53 68.01 C 84.07 69.73 82.91 70.73 82.16 72.06 C 80.06 75.81 77.17 78.87 73.83 81.49 L 69.66 84.76 C 65.83 87.76 62.71 87.74 57.73 87.9 C 53.68 88.03 51.94 88.26 47.57 87.2',
+        // the felt, upper right, notched round the right eye
+        'M 92.82 59.55 C 92.65 56.9 89.49 51.36 87 53.25 C 86.2 53.87 87.39 57.71 86.74 58.99 C 81.78 57.55 77.19 55.15 73.57 51.46 C 72.53 50.4 71.2 49.88 70.41 48.41 C 72.81 47.23 74.27 41.74 74.34 39.5 C 74.44 36.39 74.34 33.37 74.26 30.29 C 74.22 28.93 72.14 24.85 70.86 24.34 C 70 24 68.42 24.02 67.44 24.26 C 66.15 25.48 64.58 27.31 64.5 29.14 L 64.16 36.93 C 62.31 30.24 61.98 23.35 63.85 16.73 C 64.67 13.82 67.64 8.37 69.88 7.01 C 71.1 6.28 72.51 7.48 73.66 7.87 C 77.22 9.07 79.28 9.24 81.77 11.71 C 82.39 12.32 83.3 12.48 83.95 12.86 C 87 14.69 93.25 21.43 95.01 24.26 L 98.08 29.21 C 99.32 31.21 100.23 33.34 101.17 35.53 L 103.65 41.28 C 105.1 44.64 105.88 56.87 104.87 60.88 C 103.42 61.22 93.45 60.88 93.19 60.5 C 93.05 60.28 92.83 59.86 92.82 59.55',
+        // the felt, the band below the smile
+        'M 48.91 106.23 C 45.78 105.84 35.75 103.15 32.88 101.24 C 33.59 96.8 32.38 89.23 30.91 84.99 C 30.2 82.96 28.99 81.31 28.34 79.04 C 29.67 79.56 30.14 80.91 31.08 81.84 C 35.77 86.5 46.07 93.58 52.64 93.4 L 61.68 93.16 C 64.85 93.07 67.1 91.78 69.69 90.35 C 74.76 87.57 78.86 84.1 82.27 79.36 C 84.67 76.04 87.31 73.03 88.86 69.06 L 95.91 70.01 L 102.51 70.15 C 102.81 71.25 102.14 72.16 101.73 73.11 C 100.72 75.4 99.85 77.68 99 80.03 C 96.68 86.41 91.64 91.1 86.78 95.57 C 84.52 97.66 81.87 98.98 79.26 100.52 C 77.13 101.76 75.07 102.62 72.79 103.48 C 69.31 104.81 65.96 105.84 62.19 106.16 C 57.74 106.53 53.41 106.81 48.91 106.23',
+        // the felt, the wedge inside the lower-left seam
+        'M 23.46 94.72 C 22.1 94.27 21.38 93.15 20.35 92.3 C 14.77 88.13 10.4 80.97 7.99 74.48 C 7.41 72.65 6.34 71.2 6.05 69.06 C 10.37 71.59 14.03 74.73 16.88 78.59 L 18.75 81.13 C 20.33 83.28 20.93 85.9 22.08 88.3 C 22.77 90.3 23.23 92.22 23.46 94.72',
+        // the felt, a sliver at the lower-left seam's end (the PDF's deeper green)
+        'M 20.2 68.16 L 16.34 65.23 C 17.14 64.56 17.35 64.03 18.11 63.02',
+        // the felt, a 6-pixel speck — kept because the extraction is verbatim
+        'M 28.2 78.65 C 28.2 78.75 28.12 78.83 28.03 78.83 C 27.93 78.83 27.85 78.75 27.85 78.65 C 27.85 78.56 27.93 78.48 28.03 78.48 C 28.12 78.48 28.2 78.56 28.2 78.65',
+      ];
+
+      const SMILEY_SEAM_PATHS = [
+        // the seam, the long right sweep
+        'M 86.58 60.81 C 87.38 61.43 85.73 66.12 85.14 66.51 C 74.67 63.74 65.51 57.02 60.32 47.57 C 55.52 38.82 53.94 29.02 55.83 19.23 C 55.94 15.24 58.73 9.19 60.84 5.93 C 61.43 3.62 65.82 6.18 68.35 6.11 C 67.14 7.98 65.7 9.35 64.68 11.15 C 61.83 16.16 61.16 21.76 61.26 27.47 C 61.35 32.7 62.92 37.35 64.44 42.22 C 65.35 45.17 66.3 47.27 68.95 49.04 C 70.55 50.11 74.09 55.85 83.61 59.45 C 84.49 59.78 85.76 60.18 86.58 60.81',
+        // the seam, the lower-left hook
+        'M 31.49 100.61 C 28.95 99.5 27.01 97.9 25.03 96.1 C 24.46 89.23 22.17 82.73 17.77 77.41 C 16.85 76.29 16.02 75.12 14.96 74.17 L 11.74 71.28 C 9.71 69.46 7.29 68.22 5.07 66.68 C 4.25 64.5 4.46 62.32 4.89 60.06 C 7.21 61.16 9.37 62.01 11.39 63.39 L 14.71 65.66 C 19.19 68.71 23.16 73.6 26.14 78.14 C 27.82 80.7 28.71 83.57 29.82 86.43 C 31.15 89.84 31.44 93.47 31.55 97.11 C 31.58 98.26 31.92 99.32 31.49 100.61',
+        // the seam, a chip at the smile's right tip
+        'M 103.42 68.8 C 100.89 68.85 95.77 68.87 93.74 68.25 C 94.33 66.28 94.07 64.37 93.86 62.1 C 97.41 62.41 100.84 62.44 104.55 62.36 C 104.82 64.13 103.5 66.52 103.42 68.8',
+        // the seam, a speck below the smile's right tip
+        'M 92.3 68.06 C 91.4 68.1 90.45 68.2 89.74 67.62 C 89.42 67.35 89.87 66.18 90.28 66.25 C 91.1 66.71 91.67 67.55 92.3 68.06',
+      ];
+
+      const SMILEY_INK_TOP_PATHS = [
+        // the left eye, painted back over the felt
+        'M 37.47 48.12 C 35.41 46.91 34.23 42.15 34.25 39.64 L 34.29 31.9 C 34.3 30.18 35.75 24.37 38.61 24.32 C 44.6 26.78 43.98 31.42 44.53 36.05 C 44.99 39.84 44.05 43.24 42.12 46.48 C 41.16 48.11 39.42 49.26 37.47 48.12',
+      ];
+
+      // One THREE.Path per subpath. Not a general SVG parser on purpose: the extraction holds
+      // only the absolute M, L, C and Z, so anything else means the artwork was re-exported and
+      // is an error, not something to approximate. Two of the strings end on a lone trailing M —
+      // a moveto that draws nothing — which is dropped rather than emitted as an empty path.
+      function parseSvgPath(d) {
+        const t = d.match(/[A-Za-z]|-?\d*\.?\d+/g) ?? [];
+        const paths = [];
+        let p = null,
+          i = 0;
+        const n = () => parseFloat(t[i++]);
+        const num = () => i < t.length && !/[A-Za-z]/.test(t[i]);
+        const flush = () => {
+          if (p && p.curves.length) paths.push(p);
+          p = null;
+        };
+        while (i < t.length) {
+          const c = t[i++];
+          if (c === 'M') {
+            flush();
+            p = new THREE.Path();
+            p.moveTo(n(), n());
+            while (num()) p.lineTo(n(), n());
+          } else if (c === 'L') {
+            do p.lineTo(n(), n());
+            while (num());
+          } else if (c === 'C') {
+            do p.bezierCurveTo(n(), n(), n(), n(), n(), n());
+            while (num());
+          }
+          // three leaves the pen where the last curve ended; SVG puts it back on the start
+          else if (c === 'Z') {
+            p.closePath();
+            p.currentPoint.copy(p.curves[0].getPoint(0));
+          } else throw new Error('padel-racket: unsupported path command "' + c + '"');
+        }
+        flush();
+        return paths;
+      }
+
+      // Subpaths → filled shapes by CONTAINMENT DEPTH: even depth is ink and becomes a Shape,
+      // odd is a counter and becomes a hole of its smallest container one level up. This artwork
+      // has exactly two — inside the bowl of the "d" and the loop of the "P" — which fill in as
+      // blobs without it. Containment is VOTED over a whole flattened outline rather than sampled
+      // at a point: the letters are drawn as unions of overlapping outlines (the stem of the "u"
+      // laid across its bowl), so a lone sample lands inside a neighbour that does not contain
+      // it. A true counter scores 1.000 here, the worst overlap 0.232.
+      function groupSubpaths(subpaths) {
+        const polys = subpaths.map((p) => p.getPoints(16));
+        const inside = (q, poly) => {
+          let hit = false;
+          for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const a = poly[i],
+              b = poly[j];
+            if (a.y > q.y !== b.y > q.y && q.x < ((b.x - a.x) * (q.y - a.y)) / (b.y - a.y) + a.x)
+              hit = !hit;
+          }
+          return hit;
+        };
+        const within = (inner, outer) =>
+          inner.filter((q) => inside(q, outer)).length > inner.length / 2;
+        const area = (poly) => {
+          let s = 0;
+          for (let i = 0, j = poly.length - 1; i < poly.length; j = i++)
+            s += poly[j].x * poly[i].y - poly[i].x * poly[j].y;
+          return Math.abs(s) / 2;
+        };
+        const owners = polys.map((_, i) =>
+          polys.map((_p, j) => j).filter((j) => j !== i && within(polys[i], polys[j])),
+        );
+        const depth = owners.map((o) => o.length);
+        const shapes = new Map();
+        subpaths.forEach((p, i) => {
+          if (depth[i] % 2) return;
+          const s = new THREE.Shape();
+          s.curves = p.curves.slice();
+          s.currentPoint.copy(p.currentPoint);
+          shapes.set(i, s);
+        });
+        subpaths.forEach((p, i) => {
+          if (!(depth[i] % 2)) return;
+          const host = owners[i]
+            .filter((j) => depth[j] === depth[i] - 1)
+            .sort((a, b) => area(polys[a]) - area(polys[b]))[0];
+          shapes.get(host).holes.push(p);
+        });
+        return [...shapes.values()];
+      }
+
+      // SVG space → three's: centred on the ink's own enclosing circle and y-flipped, which
+      // stands the mark upright and puts that circle on (0, 0) at once, then scaled to MARK_R.
+      // Rebuilt curve for curve, so the beziers survive the move and LOGO_SEG still owns the
+      // smoothness.
+      function placeMark(paths, radius) {
+        const k = radius / SMILEY_CIRCLE.r;
+        const f = (p) =>
+          new THREE.Vector2((p.x - SMILEY_CIRCLE.cx) * k, (SMILEY_CIRCLE.cy - p.y) * k);
+        return paths.map((path) => {
+          const out = new THREE.Path();
+          for (const c of path.curves) {
+            if (c instanceof THREE.CubicBezierCurve)
+              out.curves.push(new THREE.CubicBezierCurve(f(c.v0), f(c.v1), f(c.v2), f(c.v3)));
+            else if (c instanceof THREE.LineCurve)
+              out.curves.push(new THREE.LineCurve(f(c.v1), f(c.v2)));
+            else throw new Error('padel-racket: cannot move a ' + c.type);
+          }
+          out.currentPoint.copy(f(path.currentPoint));
+          return out;
+        });
+      }
+
+      // THE DOTS GO OVER THE MARK, AND HERE A DOT IS A HOLE. The port stands a white plug in each
+      // perforation and puts the decal 0.4 mm behind the caps; a void cannot be put behind
+      // anything, so this file drills the sheet instead — the lattice punches through the mark
+      // exactly as it punches through the plate, and you see the background through it. Same read
+      // as the port's, reached this file's own way.
+      //
+      // It went the other way for exactly one day, when the mark was the wordmark: 13 of the 30
+      // holes have their rims on ink at the size it was drawn, and a word read through 13 holes is
+      // not a word ("the racket dots don't pierce through the logo", owner, 2026-09-05). The
+      // smiley needs no such protection and was chosen partly because of it — "we could have the
+      // dots piercing this no problem" — so drilling is back, which is all a drilled printed plate
+      // ever does.
+      //
+      // Each triangle of the decal is clipped against the same 24-gon the extruder cuts the plate
+      // with (FACE_SEG), so the two rims are one polygon and no ink overhangs a hole. Subtracting
+      // a convex region from a convex piece goes an edge at a time: what falls outside edge i is
+      // finished, what falls inside carries on to i + 1, and what survives all 24 was inside the
+      // hole and is dropped. Pieces stay convex, so a fan triangulates them.
+      function drill(geo, centres, r, sides) {
+        const pos = geo.getAttribute('position');
+        const index = geo.getIndex();
+        const z = pos.getZ(0); // the decal is flat: one z carries the whole sheet
+        const ring = [];
+        for (let i = 0; i <= sides; i++)
+          ring.push([
+            Math.cos((i / sides) * Math.PI * 2) * r,
+            Math.sin((i / sides) * Math.PI * 2) * r,
+          ]);
+        const side = (ax, ay, bx, by, x, y) => (bx - ax) * (y - ay) - (by - ay) * (x - ax);
+        const out = [];
+        for (let k = 0; k < index.count; k += 3) {
+          const a = index.getX(k),
+            b = index.getX(k + 1),
+            c = index.getX(k + 2);
+          let pieces = [
+            [pos.getX(a), pos.getY(a), pos.getX(b), pos.getY(b), pos.getX(c), pos.getY(c)],
+          ];
+          for (const [cx, cy] of centres) {
+            const next = [];
+            for (const piece of pieces) {
+              // one edge of the hole with the whole piece behind it separates the two:
+              // pass that piece through WHOLE rather than shattering it on 24 lines
+              let clear = false;
+              for (let i = 0; i < sides && !clear; i++) {
+                const ax = cx + ring[i][0],
+                  ay = cy + ring[i][1],
+                  bx = cx + ring[i + 1][0],
+                  by = cy + ring[i + 1][1];
+                clear = true;
+                for (let v = 0; v < piece.length && clear; v += 2)
+                  clear = side(ax, ay, bx, by, piece[v], piece[v + 1]) <= 0;
+              }
+              if (clear) {
+                next.push(piece);
+                continue;
+              }
+              let rest = piece;
+              for (let i = 0; i < sides && rest.length >= 6; i++) {
+                const ax = cx + ring[i][0],
+                  ay = cy + ring[i][1],
+                  bx = cx + ring[i + 1][0],
+                  by = cy + ring[i + 1][1];
+                const keep = [],
+                  carry = [];
+                for (let v = 0; v < rest.length; v += 2) {
+                  const w = (v + 2) % rest.length;
+                  const s0 = side(ax, ay, bx, by, rest[v], rest[v + 1]),
+                    s1 = side(ax, ay, bx, by, rest[w], rest[w + 1]);
+                  (s0 > 0 ? carry : keep).push(rest[v], rest[v + 1]);
+                  if (s0 > 0 !== s1 > 0) {
+                    const t = s0 / (s0 - s1);
+                    const x = rest[v] + (rest[w] - rest[v]) * t,
+                      y = rest[v + 1] + (rest[w + 1] - rest[v + 1]) * t;
+                    keep.push(x, y);
+                    carry.push(x, y);
+                  }
+                }
+                if (keep.length >= 6) next.push(keep);
+                rest = carry;
+              }
+            }
+            pieces = next;
+          }
+          for (const piece of pieces)
+            for (let i = 4; i < piece.length; i += 2)
+              out.push(
+                piece[0],
+                piece[1],
+                z,
+                piece[i - 2],
+                piece[i - 1],
+                z,
+                piece[i],
+                piece[i + 1],
+                z,
+              );
+        }
+        const nrm = new Float32Array(out.length);
+        for (let i = 2; i < nrm.length; i += 3) nrm[i] = 1; // a flat sheet, facing the camera
+        geo.setIndex(null);
+        geo.deleteAttribute('uv'); // nothing on this racket samples a texture
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+        geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+        return geo;
+      }
+
+      function decal(paths, material, name, layer) {
+        const g = new THREE.ShapeGeometry(
+          groupSubpaths(placeMark(paths.flatMap(parseSvgPath), MARK_R)),
+          LOGO_SEG,
+        );
+        // ShapeGeometry emits one group per shape, each with its own materialIndex, and the mesh
+        // carries a single material: the felt's 6 shapes cost a draw call each and buy nothing.
+        // Clearing them is also what makes the drill safe — those ranges would otherwise index a
+        // buffer that no longer exists.
+        g.clearGroups();
+        g.translate(HEAD.x, HEAD.y, DECAL_Z + layer * DECAL_LAYER);
+        const m = new THREE.Mesh(drill(g, HOLES, HOLE_R, FACE_SEG), material);
+        m.name = name;
+        model.add(m);
+      }
+      // THREE COLOURS THE RACKET ALREADY WEARS.
+      //
+      // The sticker is drawn navy, felt green and cream on white paper. Two of those survive as
+      // themselves and one cannot: the artwork's navy is (53, 78, 168) and a racket plate is a
+      // blue of about the same weight, so taken literally the ring, the eyes and the smile would
+      // dissolve into the face and the mark would read as a green blob. The ink is therefore each
+      // file's own darkest blue — `navy` here, the FRAME's colour in the port, which is darker
+      // still because the two files keep different palettes and always have.
+      //
+      // The felt is the grip's green, a shade off the artwork's own, and the seams are white:
+      // both the paper the brand prints this ball on and the colour of the dots now punched
+      // through it. That collision sank the wordmark this mark replaced — mark and lattice fused
+      // into one white mass — and is right here, because a tennis ball's seams ARE white and the
+      // navy outlines them either way.
+      //
+      // The order is the artwork's, and it is not decoration: the navy is a disc with the felt's
+      // windows cut out of it, so it goes down FIRST and everything else is painted into it.
+      const logoWhite = mat('logo_white', 0xffffff, 0.6);
+      decal(SMILEY_INK_PATHS, navy, 'mark_ink', 0);
+      decal(SMILEY_BALL_PATHS, gripGreen, 'mark_ball', 1);
+      // Felt and seams never touch each other — only the navy under both — so they share a layer.
+      decal(SMILEY_SEAM_PATHS, logoWhite, 'mark_seam', 1);
+      decal(SMILEY_INK_TOP_PATHS, navy, 'mark_ink_top', 2);
+
+      // ---- Cartoon highlight bands on the rim (front + back) ----
+      function arcBand(name, a0, a1, rIn, rOut, z) {
+        const s = new THREE.Shape();
+        s.absarc(HEAD.x, HEAD.y, rOut, rad(a0), rad(a1), false);
+        s.absarc(HEAD.x, HEAD.y, rIn, rad(a1), rad(a0), true);
+        s.closePath();
+        const g = new THREE.ExtrudeGeometry(s, {
+          depth: 0.0012,
+          bevelEnabled: false,
+          curveSegments: 40,
+        });
+        g.translate(0, 0, z);
+        const m = new THREE.Mesh(g, skyBlue);
+        m.name = name;
+        return m;
+      }
+      const zFront = T / 2 + 0.0003,
+        zBack = -T / 2 - 0.0015;
+      model.add(arcBand('highlight_front', 100, 160, 0.1205, 0.1255, zFront));
+      model.add(arcBand('highlight_back', 20, 80, 0.1205, 0.1255, zBack));
+
+      // ---- Handle: lofted collar morphs the slab section into a circle, then a round grip ----
+      const R = 0.0195; // grip radius
+      function loft(name, material, yTop, yBot, top, bot, around = 64, along = 24) {
+        const pos = [],
+          idx = [];
+        const smooth = (t) => t * t * (3 - 2 * t);
+        for (let i = 0; i <= along; i++) {
+          const t = smooth(i / along),
+            y = yTop + (yBot - yTop) * (i / along);
+          const a = top.a + (bot.a - top.a) * t,
+            b = top.b + (bot.b - top.b) * t,
+            n = top.n + (bot.n - top.n) * t;
+          for (let j = 0; j <= around; j++) {
+            const th = (j / around) * Math.PI * 2,
+              c = Math.cos(th),
+              s = Math.sin(th);
+            pos.push(
+              a * Math.sign(c) * Math.pow(Math.abs(c), 2 / n),
+              y,
+              b * Math.sign(s) * Math.pow(Math.abs(s), 2 / n),
+            );
+          }
+        }
+        for (let i = 0; i < along; i++)
+          for (let j = 0; j < around; j++) {
+            const p = i * (around + 1) + j,
+              q = p + around + 1;
+            idx.push(p, q, p + 1, q, q + 1, p + 1);
+          }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.setIndex(idx);
+        g.computeVertexNormals();
+        const m = new THREE.Mesh(g, material);
+        m.name = name;
+        return m;
+      }
+      // top section hugs the beveled slab (18 × 19 mm half-sizes), bottom is a true circle
+      model.add(
+        loft(
+          'collar',
+          navy,
+          0.13,
+          0.1,
+          { a: NW + 0.0005, b: T / 2 + 0.0005, n: 10 },
+          { a: R, b: R, n: 2 },
+        ),
+      );
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.09, 48), gripGreen);
+      grip.name = 'grip';
+      grip.position.y = 0.012 + 0.045;
+      model.add(grip);
+      for (let i = 0; i < 4; i++) {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.0015, 0.0034, 14, 48), gripGreen);
+        ring.name = 'grip_wrap_' + (i + 1);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 0.028 + i * 0.022;
+        model.add(ring);
+      }
+      const cap = new THREE.Mesh(
+        new THREE.CylinderGeometry(R + 0.0015, R + 0.0005, 0.012, 48),
+        navy,
+      );
+      cap.name = 'butt_cap';
+      cap.position.y = 0.007;
+      model.add(cap);
+      const capEnd = new THREE.Mesh(
+        new THREE.SphereGeometry(R + 0.0015, 48, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+        navy,
+      );
+      capEnd.name = 'butt_cap_end';
+      capEnd.scale.y = 0.3;
+      capEnd.position.y = 0.0064;
+      model.add(capEnd);
+
+      // ---- Hierarchy: root > swing_pivot (animated, origin at the grip) > body ----
+      const PIVOT_Y = 0.05;
+      model.position.y = -PIVOT_Y;
+      // one-handed forehand hold: handle points to the player's side (+X), head out to -X,
+      // slightly above horizontal, face leaning a touch forward
+      const hold = new THREE.Group();
+      hold.name = 'hand_hold';
+      hold.rotation.set(-0.08, 0, 0.75, 'YXZ');
+      hold.add(model);
+      const pivot = new THREE.Group();
+      pivot.name = 'swing_pivot';
+      pivot.add(hold);
+      const root = new THREE.Group();
+      root.name = 'padel_racket';
+      root.position.y = PIVOT_Y + 0.15;
+      root.add(pivot);
+
+      // ---- Swing clip: rest → backswing → contact → follow-through → rest (loops) ----
+      // keys: [time, tiltX, turnY, liftZ, posX, posY, posZ]
+      // The hand travels on a forehand arc around the player (behind-right → forward-left),
+      // -Z is forward. turnY sweeps the head around the body; liftZ goes low-to-high through contact.
+      const keys = [
+        [0.0, 0.03, -0.35, -0.06, 0.1, 0.0, 0.16],
+        [0.45, 0.05, -0.55, -0.14, 0.14, 0.02, 0.26],
+        [0.62, 0.05, -0.52, -0.14, 0.13, 0.01, 0.26],
+        [0.78, 0.02, -0.25, -0.06, 0.06, 0.0, 0.08],
+        [0.9, 0.0, 0.05, 0.04, -0.02, 0.02, -0.1],
+        [1.1, -0.04, 0.35, 0.16, -0.1, 0.08, -0.26],
+        [1.35, -0.04, 0.4, 0.2, -0.12, 0.11, -0.3],
+        [1.8, 0.0, 0.05, 0.08, -0.03, 0.05, -0.1],
+        [2.2, 0.03, -0.35, -0.06, 0.1, 0.0, 0.16],
+      ];
+      const times = [],
+        quats = [],
+        pos = [],
+        q = new THREE.Quaternion(),
+        e = new THREE.Euler();
+      for (const [t, x, y0, z, px0, py_, pz_] of keys) {
+        const y = -y0,
+          px_ = -px0; // mirrored: path sweeps to the right
+        times.push(t);
+        q.setFromEuler(e.set(x, y, z, 'YXZ'));
+        quats.push(q.x, q.y, q.z, q.w);
+        pos.push(px_, py_, pz_);
+      }
+      const rotTrack = new THREE.QuaternionKeyframeTrack('swing_pivot.quaternion', times, quats);
+      const posTrack = new THREE.VectorKeyframeTrack(
+        'swing_pivot.position',
+        times,
+        pos,
+        THREE.InterpolateSmooth,
+      );
+      const swing = new THREE.AnimationClip('swing', 2.2, [rotTrack, posTrack]);
+      root.animations = [swing];
+
+      // ---- Preview the clip in the stage ----
+      const mixer = new THREE.AnimationMixer(root);
+      mixer.clipAction(swing).play();
+      const timer = new THREE.Timer();
+      const baseLoop = stage._loop;
+      stage._loop = () => {
+        timer.update();
+        mixer.update(timer.getDelta());
+        baseLoop();
+      };
+      stage._renderer.setAnimationLoop(stage._loop);
+
+      stage.setObject(root);
+      // widen the framing so the travelling swing stays in view
+      stage._camera.position
+        .sub(stage._controls.target)
+        .multiplyScalar(1.6)
+        .add(stage._controls.target);
+      stage._controls.update();
+    </script>
+  </body>
 </html>

@@ -88,7 +88,9 @@ const config = {
             // electron-updater only verifies a downloaded installer's signature
             // when app-update.yml carries publisherName. Set it once the cert
             // exists (must equal the CN exactly).
-            ...(env('WIN_SIGN_PUBLISHER_NAME') ? { publisherName: env('WIN_SIGN_PUBLISHER_NAME') } : {}),
+            ...(env('WIN_SIGN_PUBLISHER_NAME')
+              ? { publisherName: env('WIN_SIGN_PUBLISHER_NAME') }
+              : {}),
           },
         }
       : {}),

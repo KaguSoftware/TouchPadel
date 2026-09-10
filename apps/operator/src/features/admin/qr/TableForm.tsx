@@ -89,7 +89,10 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
             max={99}
             value={draft.capacity ?? ''}
             onChange={(e) =>
-              setDraft({ ...draft, capacity: e.target.value === '' ? null : Number(e.target.value) })
+              setDraft({
+                ...draft,
+                capacity: e.target.value === '' ? null : Number(e.target.value),
+              })
             }
           />
         </Field>
@@ -105,7 +108,11 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
           <Button onClick={onClose} disabled={save.isPending}>
             {tr('common.cancel')}
           </Button>
-          <Button type="submit" kind="primary" disabled={save.isPending || !draft.table_number.trim()}>
+          <Button
+            type="submit"
+            kind="primary"
+            disabled={save.isPending || !draft.table_number.trim()}
+          >
             {tr('common.save')}
           </Button>
         </div>

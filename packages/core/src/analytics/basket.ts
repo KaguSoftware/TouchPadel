@@ -55,7 +55,13 @@ export function rankPairs(raw: readonly RawPair[], limit = 8): ItemPair[] {
     });
   }
   return out
-    .sort((p, q) => q.count - p.count || q.confidencePct - p.confidencePct || p.a.localeCompare(q.a) || p.b.localeCompare(q.b))
+    .sort(
+      (p, q) =>
+        q.count - p.count ||
+        q.confidencePct - p.confidencePct ||
+        p.a.localeCompare(q.a) ||
+        p.b.localeCompare(q.b),
+    )
     .slice(0, limit);
 }
 

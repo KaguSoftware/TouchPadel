@@ -71,9 +71,9 @@ test.describe('live menu updates', () => {
 
       const phrase = `Live check ${Date.now()}`;
       await appRpc(owner, 'set_cafe_setting', { p_key: 'featured_label_en', p_value: phrase });
-      await expect(
-        page.locator('.tp-hero__marquee-item', { hasText: phrase }).first(),
-      ).toBeVisible({ timeout: 20_000 });
+      await expect(page.locator('.tp-hero__marquee-item', { hasText: phrase }).first()).toBeVisible(
+        { timeout: 20_000 },
+      );
     } finally {
       // Restore the fixture label.
       await appRpc(owner, 'set_cafe_setting', {

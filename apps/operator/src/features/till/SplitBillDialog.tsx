@@ -34,7 +34,12 @@ export function SplitBillDialog({
   const { tr } = useLocale();
   const [mode, setMode] = useState<SplitMode>('even');
   return (
-    <Modal title={tr('ws.cashier.split.title')} onClose={onClose} size="lg" footer={<Button onClick={onClose}>{tr('common.close')}</Button>}>
+    <Modal
+      title={tr('ws.cashier.split.title')}
+      onClose={onClose}
+      size="lg"
+      footer={<Button onClick={onClose}>{tr('common.close')}</Button>}
+    >
       <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
         <SegmentedControl<SplitMode>
           value={mode}
@@ -49,7 +54,13 @@ export function SplitBillDialog({
       {mode === 'even' ? (
         <SplitEvenlyPanel tabId={tabId} due={due} busy={busy} onSettleShare={onSettleShare} />
       ) : (
-        <SplitByItemPanel tabId={tabId} lines={lines} due={due} busy={busy} onSettleShare={onSettleShare} />
+        <SplitByItemPanel
+          tabId={tabId}
+          lines={lines}
+          due={due}
+          busy={busy}
+          onSettleShare={onSettleShare}
+        />
       )}
     </Modal>
   );
@@ -124,14 +135,18 @@ function SplitEvenlyPanel({
               <Button
                 icon="banknote"
                 disabled={busy || due <= 0 || s > due}
-                disabledReason={!busy && s > due && due > 0 ? tr('ws.cashier.split.shareOverDue') : undefined}
+                disabledReason={
+                  !busy && s > due && due > 0 ? tr('ws.cashier.split.shareOverDue') : undefined
+                }
                 onClick={() => onSettleShare(s)}
               >
                 {tr('ws.cashier.split.settleShare')}
               </Button>
             </div>
           ))}
-          <p style={muted}>{tr('ws.cashier.split.remaining', { amount: formatIQD(due, locale) })}</p>
+          <p style={muted}>
+            {tr('ws.cashier.split.remaining', { amount: formatIQD(due, locale) })}
+          </p>
         </div>
       )}
     </div>

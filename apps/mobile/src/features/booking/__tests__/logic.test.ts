@@ -145,7 +145,13 @@ describe('splitBookings', () => {
    */
   it('surfaces every live hold, soonest first, and nothing that is spent', () => {
     const hold = (id: string, over: Partial<BookingRow>) =>
-      row({ id, kind: 'hold', status: 'pending', hold_expires_at: '2026-09-01T12:05:00Z', ...over });
+      row({
+        id,
+        kind: 'hold',
+        status: 'pending',
+        hold_expires_at: '2026-09-01T12:05:00Z',
+        ...over,
+      });
     const rows = [
       hold('h2', { start_at: '2026-09-02T14:00:00Z', end_at: '2026-09-02T15:00:00Z' }),
       hold('h1', { start_at: '2026-09-02T10:00:00Z', end_at: '2026-09-02T11:00:00Z' }),
@@ -165,8 +171,18 @@ describe('splitBookings', () => {
     const rows = [
       row({ id: 'b', start_at: '2026-09-03T10:00:00Z', end_at: '2026-09-03T11:00:00Z' }),
       row({ id: 'a', start_at: '2026-09-02T10:00:00Z', end_at: '2026-09-02T11:00:00Z' }),
-      row({ id: 'old1', status: 'completed', start_at: '2026-08-01T10:00:00Z', end_at: '2026-08-01T11:00:00Z' }),
-      row({ id: 'old2', status: 'completed', start_at: '2026-08-15T10:00:00Z', end_at: '2026-08-15T11:00:00Z' }),
+      row({
+        id: 'old1',
+        status: 'completed',
+        start_at: '2026-08-01T10:00:00Z',
+        end_at: '2026-08-01T11:00:00Z',
+      }),
+      row({
+        id: 'old2',
+        status: 'completed',
+        start_at: '2026-08-15T10:00:00Z',
+        end_at: '2026-08-15T11:00:00Z',
+      }),
     ];
     const { upcoming, past } = splitBookings(rows, now);
     expect(upcoming.map((r) => r.id)).toEqual(['a', 'b']);

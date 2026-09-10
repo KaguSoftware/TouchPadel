@@ -42,10 +42,13 @@ describe.skipIf(!up)('0082 cafe abuse limits (SEC-25)', () => {
   });
 
   afterAll(async () => {
-    await svc.from('venue_settings').update({
-      guest_orders_per_minute: 6,
-      guest_items_per_order: 40,
-    }).not('id', 'is', null);
+    await svc
+      .from('venue_settings')
+      .update({
+        guest_orders_per_minute: 6,
+        guest_items_per_order: 40,
+      })
+      .not('id', 'is', null);
     // Leave no tables behind: they show up in the operator's table dropdown and
     // an e2e case that expects exactly one match starts finding several.
     for (const id of madeTables) {
@@ -161,7 +164,9 @@ describe.skipIf(!up)('0082 cafe abuse limits (SEC-25)', () => {
       .select('tab_confirm_threshold_iqd')
       .limit(1)
       .single();
-    expect((data as { tab_confirm_threshold_iqd: number }).tab_confirm_threshold_iqd).toBeGreaterThan(0);
+    expect(
+      (data as { tab_confirm_threshold_iqd: number }).tab_confirm_threshold_iqd,
+    ).toBeGreaterThan(0);
     // Advisory on purpose: a genuine large tab must never be blocked by the
     // database mid-service. The operator UI reads this and asks staff to confirm.
   });

@@ -25,7 +25,10 @@ type Lang = 'en' | 'ar';
 // Notification copy, EN/AR. SOURCE OF TRUTH: packages/i18n (@touch/i18n) —
 // edge functions bundle standalone, so the few push strings are duplicated
 // here; keep in sync with the `push.*` keys there when they change.
-const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string, when: string) => string }>> = {
+const STRINGS: Record<
+  Lang,
+  Record<string, { title: string; body: (court: string, when: string) => string }>
+> = {
   en: {
     booking_confirmed: {
       title: 'Booking confirmed',
@@ -44,7 +47,8 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     // have got it wrong, so it says what happened and where to take it.
     booking_no_show: {
       title: 'Booking closed',
-      body: (court, when) => `${court} — ${when} was closed as a no-show. Speak to the desk if that is wrong.`,
+      body: (court, when) =>
+        `${court} — ${when} was closed as a no-show. Speak to the desk if that is wrong.`,
     },
     // Settings > "Send a test notification" (app.send_test_push, migration 0070).
     test: {
@@ -67,7 +71,8 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     },
     booking_no_show: {
       title: 'تم إغلاق الحجز',
-      body: (court, when) => `${court} — ${when} أُغلق لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
+      body: (court, when) =>
+        `${court} — ${when} أُغلق لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
     },
     test: {
       title: 'إشعار تجريبي',
@@ -120,7 +125,9 @@ Deno.serve(async (req) => {
 
   // Resolve current tokens/langs and court names in two batch reads.
   const profileIds = [...new Set(rows.map((r) => r.profile_id))];
-  const courtIds = [...new Set(rows.map((r) => r.payload.court_id).filter((id): id is string => !!id))];
+  const courtIds = [
+    ...new Set(rows.map((r) => r.payload.court_id).filter((id): id is string => !!id)),
+  ];
   const [profilesRes, courtsRes] = await Promise.all([
     db.from('profiles').select('id, expo_push_token, preferred_lang').in('id', profileIds),
     db.from('courts').select('id, name_en, name_ar').in('id', courtIds),
@@ -195,7 +202,10 @@ Deno.serve(async (req) => {
       await db
         .from('notification_outbox')
         .update({ last_error: msg })
-        .in('id', chunk.map((p) => p.row.id));
+        .in(
+          'id',
+          chunk.map((p) => p.row.id),
+        );
       continue;
     }
 

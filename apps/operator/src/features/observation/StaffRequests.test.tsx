@@ -17,7 +17,9 @@ vi.mock('../../lib/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAuth: () => ({ staff: { id: OWNER_ID, displayName: 'Owner', role: 'owner' } }),
 }));
-vi.mock('../../components/toast', () => ({ useToast: () => ({ ok: vi.fn(), info: vi.fn(), err: vi.fn() }) }));
+vi.mock('../../components/toast', () => ({
+  useToast: () => ({ ok: vi.fn(), info: vi.fn(), err: vi.fn() }),
+}));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   appRpc: vi.fn(),
@@ -47,7 +49,11 @@ const row = (over: Partial<StaffRequestRow> = {}): StaffRequestRow => ({
 });
 
 function page(requests: StaffRequestRow[]): StaffRequestsPage {
-  return { requests, total: requests.length, pending: requests.filter((r) => r.status === 'pending').length };
+  return {
+    requests,
+    total: requests.length,
+    pending: requests.filter((r) => r.status === 'pending').length,
+  };
 }
 
 function renderScreen() {

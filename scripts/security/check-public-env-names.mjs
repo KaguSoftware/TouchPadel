@@ -34,17 +34,26 @@ const ALLOWED = new Map([
   ['EXPO_PUBLIC_SUPABASE_ANON_KEY', 'Supabase anon key — public by design; RLS is the control.'],
   // The successor format for the same thing. "Publishable" is Supabase's own
   // word for "safe in a browser".
-  ['NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'Supabase publishable key — the client half of the new key format.'],
+  [
+    'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    'Supabase publishable key — the client half of the new key format.',
+  ],
   // PostHog's project API key is a write-only ingest identifier; it cannot read
   // any analytics data back. NOTE: whether PostHog belongs on the guest cafe app
   // at all is an open contract question (SOW Module 6 excludes analytics) —
   // that is tracked separately and is not what this gate decides.
-  ['NEXT_PUBLIC_POSTHOG_KEY', 'PostHog project API key — write-only ingest identifier, not a read credential.'],
+  [
+    'NEXT_PUBLIC_POSTHOG_KEY',
+    'PostHog project API key — write-only ingest identifier, not a read credential.',
+  ],
 ]);
 
 // Track the whole repo as git sees it, so build output, node_modules and
 // untracked local .env files are excluded without maintaining a path list.
-const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+const files = execFileSync('git', ['ls-files', '-z'], {
+  encoding: 'utf8',
+  maxBuffer: 256 * 1024 * 1024,
+})
   .split('\0')
   .filter(Boolean)
   // Lockfiles and this script itself both legitimately contain the strings.

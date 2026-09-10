@@ -16,7 +16,14 @@ const base: OverviewInput = {
     views: 4000,
     basketConversionPct: 35,
   },
-  deltas: { totalSales: null, avgSpendPerCover: null, totalCovers: null, basketConversion: null, views: null, sessions: null },
+  deltas: {
+    totalSales: null,
+    avgSpendPerCover: null,
+    totalCovers: null,
+    basketConversion: null,
+    views: null,
+    sessions: null,
+  },
   itemConversion: [],
   abandonedViews: [],
   bestSellers: [],
@@ -33,21 +40,31 @@ describe('buildOverview — tone', () => {
   });
 
   it('is good with two or more rising metrics and nothing falling', () => {
-    const o = buildOverview({ ...base, deltas: { ...nullDeltas, totalSales: 12, views: 8, sessions: 3 } });
+    const o = buildOverview({
+      ...base,
+      deltas: { ...nullDeltas, totalSales: 12, views: 8, sessions: 3 },
+    });
     expect(o.tone).toBe('good');
     expect(o.strengths).toEqual(['Sales up 12%.', 'Menu views up 8%.']);
     expect(o.headline).toMatch(/^Things look good in the last 30 days/);
   });
 
   it('is weak with two falling metrics', () => {
-    const o = buildOverview({ ...base, preset: '7d', deltas: { ...nullDeltas, totalSales: -10, totalCovers: -6 } });
+    const o = buildOverview({
+      ...base,
+      preset: '7d',
+      deltas: { ...nullDeltas, totalSales: -10, totalCovers: -6 },
+    });
     expect(o.tone).toBe('weak');
     expect(o.watch).toEqual(['Sales down 10%.', 'Covers down 6%.']);
     expect(o.headline).toMatch(/^In the last 7 days some indicators slipped/);
   });
 
   it('is mixed on one up and one down, and small moves are ignored', () => {
-    const o = buildOverview({ ...base, deltas: { ...nullDeltas, totalSales: 5, views: -5, sessions: 4 } });
+    const o = buildOverview({
+      ...base,
+      deltas: { ...nullDeltas, totalSales: 5, views: -5, sessions: 4 },
+    });
     expect(o.tone).toBe('mixed');
     expect(o.strengths).toEqual(['Sales up 5%.']);
     expect(o.watch).toEqual(['Menu views down 5%.']);
@@ -88,7 +105,9 @@ describe('buildOverview — profit lines', () => {
     expect(o.push[0]).toMatch(/^Burger earns [\d,]+ IQD per unit but sells little \(20\)/);
     // The best-seller push line is a fact and always appears (even when the plowhorse line
     // already names the item); the dedupe only guards the derived item lines.
-    expect(o.push[1]).toBe('Espresso sells strongly — keep it featured on the menu and in suggestions.');
+    expect(o.push[1]).toBe(
+      'Espresso sells strongly — keep it featured on the menu and in suggestions.',
+    );
     expect(o.push).toHaveLength(2);
   });
 
@@ -100,13 +119,22 @@ describe('buildOverview — profit lines', () => {
       ],
       costed,
     );
-    const o = buildOverview({ ...base, deltas: { ...nullDeltas, totalSales: 12, views: 8 }, menuEngineering: withLoss });
+    const o = buildOverview({
+      ...base,
+      deltas: { ...nullDeltas, totalSales: 12, views: 8 },
+      menuEngineering: withLoss,
+    });
     expect(o.tone).toBe('mixed');
-    expect(o.watch[0]).toBe('Loss Leader sells below cost (-500 IQD per unit) — 5,000 IQD lost over the period; fix the price or portion cost now.');
+    expect(o.watch[0]).toBe(
+      'Loss Leader sells below cost (-500 IQD per unit) — 5,000 IQD lost over the period; fix the price or portion cost now.',
+    );
   });
 
   it('says nothing about margin without cost data', () => {
-    const o = buildOverview({ ...base, menuEngineering: buildMenuEngineering([{ id: 'x', qty: 1, revenueIqd: 1000 }], costed) });
+    const o = buildOverview({
+      ...base,
+      menuEngineering: buildMenuEngineering([{ id: 'x', qty: 1, revenueIqd: 1000 }], costed),
+    });
     expect(o.strengths.join(' ')).not.toMatch(/margin/i);
   });
 });
@@ -145,7 +173,11 @@ describe('buildOverview — items and copy', () => {
   });
 
   it('does not judge "never sold" when the period has no item sales at all', () => {
-    const o = buildOverview({ ...input, bestSellers: [], itemConversion: input.itemConversion.map((r) => ({ ...r, sold: 0, convPct: 0 })) });
+    const o = buildOverview({
+      ...input,
+      bestSellers: [],
+      itemConversion: input.itemConversion.map((r) => ({ ...r, sold: 0, convPct: 0 })),
+    });
     expect(o.watch.some((l) => l.includes('never sold'))).toBe(false);
   });
 });

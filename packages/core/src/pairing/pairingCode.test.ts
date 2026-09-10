@@ -51,7 +51,9 @@ describe('formatPairingCode', () => {
 
 describe('mintPairingCode', () => {
   it('maps bytes through the alphabet with & 31', () => {
-    expect(mintPairingCode(() => Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))).toBe('0123456789');
+    expect(mintPairingCode(() => Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))).toBe(
+      '0123456789',
+    );
     expect(mintPairingCode(() => Uint8Array.from(new Array(10).fill(255)))).toBe('ZZZZZZZZZZ');
     expect(mintPairingCode(() => Uint8Array.from(new Array(10).fill(32)))).toBe('0000000000');
   });

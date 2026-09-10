@@ -15,7 +15,7 @@ import {
 } from '../phone';
 
 describe('country table', () => {
-  it('defaults to Iraq — the venue\'s country', () => {
+  it("defaults to Iraq — the venue's country", () => {
     expect(DEFAULT_ISO).toBe('IQ');
     expect(defaultCountry()).toMatchObject({ iso: 'IQ', dial: '964' });
   });
@@ -168,7 +168,7 @@ describe('input helpers', () => {
     expect(formatNational('IQ', '7701234567')).toBe('770 123 4567');
   });
 
-  it('uses each country\'s own grouping', () => {
+  it("uses each country's own grouping", () => {
     expect(formatNational('TR', '5551234567')).toBe('(555) 123 45 67');
     expect(formatNational('US', '4155550123')).toBe('(415) 555 0123');
     expect(formatNational('GB', '7700900123')).toBe('7700 900123');
@@ -217,7 +217,7 @@ describe('input helpers', () => {
     expect(formatNational('KW', '123456789012')).toBe('1234 5678 9012');
   });
 
-  it('caps input at the country\'s own length', () => {
+  it("caps input at the country's own length", () => {
     // Turkish mobiles are 10 national digits: the 11th is simply not accepted.
     expect(sanitizeNationalInput('55512345678', 'TR')).toBe('5551234567');
     expect(sanitizeNationalInput('7701234567', 'IQ')).toBe('7701234567');

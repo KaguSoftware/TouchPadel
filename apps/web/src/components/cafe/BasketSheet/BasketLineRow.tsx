@@ -149,7 +149,13 @@ export function BasketLineRow({
               onClick={() => onSetQty(line.key, Math.max(QTY_MIN, line.qty - 1))}
             >
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
-                <path d="M6 12h12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                <path
+                  d="M6 12h12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
             <span className="tp-qty__value">{line.qty}</span>
@@ -161,7 +167,13 @@ export function BasketLineRow({
               onClick={() => onSetQty(line.key, Math.min(QTY_MAX, line.qty + 1))}
             >
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
-                <path d="M12 6v12M6 12h12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                <path
+                  d="M12 6v12M6 12h12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
           </div>
@@ -182,8 +194,18 @@ export function BasketLineRow({
           aria-label={removeLabel}
           title={removeLabel}
         >
-          <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true" focusable="false"
-            fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            aria-hidden="true"
+            focusable="false"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M4 7h16" />
             <path d="M10 4h4a1 1 0 0 1 1 1v2H9V5a1 1 0 0 1 1-1z" />
             <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />

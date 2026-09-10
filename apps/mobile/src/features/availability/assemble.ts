@@ -392,7 +392,11 @@ export function mergeAcrossCourts(
   for (const { startAt, options } of byStart.values()) {
     const free = options
       .filter((o) => o.state === 'free')
-      .sort((a, b) => (a.slot.priceIqd ?? Number.MAX_SAFE_INTEGER) - (b.slot.priceIqd ?? Number.MAX_SAFE_INTEGER));
+      .sort(
+        (a, b) =>
+          (a.slot.priceIqd ?? Number.MAX_SAFE_INTEGER) -
+          (b.slot.priceIqd ?? Number.MAX_SAFE_INTEGER),
+      );
     const cheapest = free[0] ?? null;
     let state: MergedState;
     if (cheapest) state = 'free';

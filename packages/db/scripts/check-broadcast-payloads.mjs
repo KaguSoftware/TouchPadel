@@ -50,10 +50,25 @@ const STAFF_TOPICS = ['kds', 'floor'];
  * explicitly instead.
  */
 const FORBIDDEN = [
-  /price/i, /total/i, /subtotal/i, /amount/i, /_iqd\b/i, /\biqd\b/i,
-  /cost/i, /discount/i, /refund/i, /payment/i, /paid/i,
-  /guest_name/i, /guest_phone/i, /customer/i, /\bphone\b/i, /email/i,
-  /full_name/i, /profile_id/i, /guest_id/i,
+  /price/i,
+  /total/i,
+  /subtotal/i,
+  /amount/i,
+  /_iqd\b/i,
+  /\biqd\b/i,
+  /cost/i,
+  /discount/i,
+  /refund/i,
+  /payment/i,
+  /paid/i,
+  /guest_name/i,
+  /guest_phone/i,
+  /customer/i,
+  /\bphone\b/i,
+  /email/i,
+  /full_name/i,
+  /profile_id/i,
+  /guest_id/i,
 ];
 
 /** Split on top-level commas, respecting nesting and quotes. */
@@ -66,14 +81,28 @@ function splitArgs(s) {
     const ch = s[i];
     if (quoted) {
       cur += ch;
-      if (ch === "'" && s[i + 1] === "'") { cur += s[++i]; continue; }
+      if (ch === "'" && s[i + 1] === "'") {
+        cur += s[++i];
+        continue;
+      }
       if (ch === "'") quoted = false;
       continue;
     }
-    if (ch === "'") { quoted = true; cur += ch; continue; }
+    if (ch === "'") {
+      quoted = true;
+      cur += ch;
+      continue;
+    }
     if (ch === '(') depth++;
-    if (ch === ')') { if (depth === 0) break; depth--; }
-    if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; continue; }
+    if (ch === ')') {
+      if (depth === 0) break;
+      depth--;
+    }
+    if (ch === ',' && depth === 0) {
+      out.push(cur.trim());
+      cur = '';
+      continue;
+    }
     cur += ch;
   }
   if (cur.trim()) out.push(cur.trim());
@@ -106,7 +135,9 @@ for (const s of sends) {
   //    the table happens to hold today AND whatever a later migration adds.
   if (/\b(to_jsonb|row_to_json)\s*\(\s*(new|old)\b/i.test(flat)) {
     findings.push({
-      fn: s.fn, topic: s.topic, kind: 'whole-row',
+      fn: s.fn,
+      topic: s.topic,
+      kind: 'whole-row',
       detail: 'payload is a whole row; a column added later ships automatically',
       snippet: flat.slice(0, 120),
     });
@@ -114,7 +145,9 @@ for (const s of sends) {
   }
   if (!/jsonb_build_object\s*\(/i.test(flat)) {
     findings.push({
-      fn: s.fn, topic: s.topic, kind: 'not-explicit',
+      fn: s.fn,
+      topic: s.topic,
+      kind: 'not-explicit',
       detail: 'payload is not a jsonb_build_object literal, so its keys cannot be checked here',
       snippet: flat.slice(0, 120),
     });
@@ -130,7 +163,9 @@ for (const s of sends) {
     const hit = FORBIDDEN.find((r) => r.test(key));
     if (hit) {
       findings.push({
-        fn: s.fn, topic: s.topic, kind: 'forbidden-key',
+        fn: s.fn,
+        topic: s.topic,
+        kind: 'forbidden-key',
         detail: `'${key}' on a staff topic — prep does not need it and the kitchen screen is the least secure display in the building`,
         snippet: flat.slice(0, 120),
       });
@@ -147,7 +182,9 @@ for (const s of sends) {
 }
 
 if (sends.length === 0) {
-  console.error('\nFAIL  no realtime.send call sites found at all — the parser or the schema moved.');
+  console.error(
+    '\nFAIL  no realtime.send call sites found at all — the parser or the schema moved.',
+  );
   process.exit(1);
 }
 

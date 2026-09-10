@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { __resetAnalyticsForTests, capture, isDisabled, isEnabled, registerSuperProps } from './posthog';
+import {
+  __resetAnalyticsForTests,
+  capture,
+  isDisabled,
+  isEnabled,
+  registerSuperProps,
+} from './posthog';
 
 /**
  * These guard the two promises the guest app makes about analytics:

@@ -62,7 +62,10 @@ function ReviewScreen() {
   // A blank name counts as missing, so the bilingual fallback still applies.
   const courtNameEn = typeof params.courtNameEn === 'string' ? params.courtNameEn : '';
   const courtNameAr = typeof params.courtNameAr === 'string' ? params.courtNameAr : '';
-  const courtName = pickLocale({ en: courtNameEn || undefined, ar: courtNameAr || undefined }, locale);
+  const courtName = pickLocale(
+    { en: courtNameEn || undefined, ar: courtNameAr || undefined },
+    locale,
+  );
 
   const navigation = useNavigation();
   const settings = useVenueSettings();
@@ -388,39 +391,39 @@ function ReviewScreen() {
             rows={[
               ...(startAt
                 ? [
-                  {
-                    icon: CalendarIcon,
-                    label: t('booking.date'),
-                    value: formatDate(startAt, locale),
-                  },
-                  {
-                    icon: ClockIcon,
-                    label: t('booking.time'),
-                    value: endAt
-                      ? formatTimeRange(startAt, endAt, locale)
-                      : formatDateTime(startAt, locale),
-                  },
-                ]
+                    {
+                      icon: CalendarIcon,
+                      label: t('booking.date'),
+                      value: formatDate(startAt, locale),
+                    },
+                    {
+                      icon: ClockIcon,
+                      label: t('booking.time'),
+                      value: endAt
+                        ? formatTimeRange(startAt, endAt, locale)
+                        : formatDateTime(startAt, locale),
+                    },
+                  ]
                 : []),
               ...(durationMin
                 ? [
-                  {
-                    icon: StopwatchIcon,
-                    label: t('booking.duration'),
-                    value: t('booking.durationMinutes', { minutes: durationMin }),
-                  },
-                ]
+                    {
+                      icon: StopwatchIcon,
+                      label: t('booking.duration'),
+                      value: t('booking.durationMinutes', { minutes: durationMin }),
+                    },
+                  ]
                 : []),
               ...(Number.isInteger(price)
                 ? [
-                  {
-                    icon: TagIcon,
-                    label: t('booking.price'),
-                    value: formatIQD(price, locale),
-                    valueColor: colors.gtext,
-                    emphasis: true,
-                  },
-                ]
+                    {
+                      icon: TagIcon,
+                      label: t('booking.price'),
+                      value: formatIQD(price, locale),
+                      valueColor: colors.gtext,
+                      emphasis: true,
+                    },
+                  ]
                 : []),
             ]}
           />

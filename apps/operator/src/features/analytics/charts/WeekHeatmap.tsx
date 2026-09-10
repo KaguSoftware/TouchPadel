@@ -19,15 +19,36 @@ export function WeekHeatmap({ cells, f }: { cells: readonly HeatCell[]; f: Forma
 
   return (
     <div dir="ltr" style={{ overflowX: 'auto' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: `3rem repeat(24, minmax(0, 1fr))`, gap: '1px', minInlineSize: '42rem' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `3rem repeat(24, minmax(0, 1fr))`,
+          gap: '1px',
+          minInlineSize: '42rem',
+        }}
+      >
         <span />
         {HOURS.map((h) => (
-          <span key={h} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', textAlign: 'center' }}>
+          <span
+            key={h}
+            style={{
+              fontSize: 'var(--tp-fs-xs)',
+              color: 'var(--tp-muted-fg)',
+              textAlign: 'center',
+            }}
+          >
             {h % 3 === 0 ? h : ''}
           </span>
         ))}
         {DOWS.map((dow) => (
-          <Row key={dow} dow={dow} label={weekdayName(tr, dow).slice(0, 3)} byKey={byKey} max={max} f={f} />
+          <Row
+            key={dow}
+            dow={dow}
+            label={weekdayName(tr, dow).slice(0, 3)}
+            byKey={byKey}
+            max={max}
+            f={f}
+          />
         ))}
       </div>
     </div>
@@ -49,7 +70,11 @@ function Row({
 }) {
   return (
     <>
-      <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', lineHeight: '1.1rem' }}>{label}</span>
+      <span
+        style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', lineHeight: '1.1rem' }}
+      >
+        {label}
+      </span>
       {HOURS.map((hour) => {
         const views = byKey.get(`${dow}:${hour}`) ?? 0;
         const peak = max > 0 && views === max;
@@ -62,7 +87,9 @@ function Row({
               // The peak is the ramp's own darkest step, not a second hue: a sequential
               // encoding says 'most' by depth, and a different colour there would read
               // as a different category.
-              background: peak ? HEAT_RAMP[HEAT_RAMP.length - 1] : heatColor(max > 0 ? views / max : 0),
+              background: peak
+                ? HEAT_RAMP[HEAT_RAMP.length - 1]
+                : heatColor(max > 0 ? views / max : 0),
               border: `1px solid ${GRID}`,
               borderRadius: '2px',
             }}

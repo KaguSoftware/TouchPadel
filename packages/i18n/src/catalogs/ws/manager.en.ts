@@ -87,10 +87,12 @@ export const managerEn = {
       blockedByUnsyncedQueue: 'Blocked by unsynced writes',
       closed: 'Day closed',
     },
-    openTabsLead: 'The day cannot close while a tab is still open on the floor. Settle or void each one at the till.',
+    openTabsLead:
+      'The day cannot close while a tab is still open on the floor. Settle or void each one at the till.',
     openTab: 'Open at the till',
     tabTable: 'Table {number}',
-    unsyncedLead: '{count} writes are still queued on this station. The day cannot close until they have synced.',
+    unsyncedLead:
+      '{count} writes are still queued on this station. The day cannot close until they have synced.',
     cashTitle: 'Cash',
     cardTitle: 'Card',
     cashPayments: 'Cash payments today',
@@ -160,7 +162,8 @@ export const managerEn = {
       service: 'Service',
       analytics: 'Analytics',
     },
-    analyticsLead: 'What the analytics screens count, and from when. Nothing here changes what is sold or charged.',
+    analyticsLead:
+      'What the analytics screens count, and from when. Nothing here changes what is sold or charged.',
     noChanges: 'This is already the saved value.',
     cooldownInvalid: 'Enter a whole number of seconds between 30 and 600.',
     stationOnly: 'This station only',
@@ -172,8 +175,10 @@ export const managerEn = {
       chatIdInvalid: 'Enter a group chat ID like -1001234567890.',
       testDisabled: 'Switch notifications on and save a group chat ID first.',
       testRunning: 'A test message is already on its way.',
-      enabledHint: 'On: new orders and waiter calls are posted to the group below. Off: nothing is sent and nothing is queued.',
-      langHint: 'The language every message is written in, whatever language the staff use in this app.',
+      enabledHint:
+        'On: new orders and waiter calls are posted to the group below. Off: nothing is sent and nothing is queued.',
+      langHint:
+        'The language every message is written in, whatever language the staff use in this app.',
       outboxLead: 'The last 20 messages, newest first.',
       outboxEmptyBody: 'Send a test message to check the bot is wired up.',
       retryDisabled: 'This message has not been attempted yet.',
@@ -183,7 +188,8 @@ export const managerEn = {
   promotions: {
     title: 'Promotions',
     lead: 'Every promotion, active and inactive. Promotions are switched off, never deleted, so history stays intact.',
-    bestOnly: 'Where two promotions could apply to the same bill, the server applies the single best one. There is no stacking.',
+    bestOnly:
+      'Where two promotions could apply to the same bill, the server applies the single best one. There is no stacking.',
     create: 'New promotion',
     name: 'Name',
     value: 'Value',
@@ -203,7 +209,8 @@ export const managerEn = {
     expired: 'Expired',
     disabled: 'Off',
     empty: 'No promotions yet.',
-    emptyBody: 'Create one to offer a percentage or fixed amount off, limited by date, weekday, hour, court, category or item.',
+    emptyBody:
+      'Create one to offer a percentage or fixed amount off, limited by date, weekday, hour, court, category or item.',
     editor: {
       newTitle: 'New promotion',
       basics: 'What it offers',
@@ -218,7 +225,8 @@ export const managerEn = {
       amountValue: 'Amount (IQD)',
       starts: 'Starts',
       ends: 'Ends',
-      endsHint: 'Leave blank for no expiry. A dated promotion stops applying after its end automatically.',
+      endsHint:
+        'Leave blank for no expiry. A dated promotion stops applying after its end automatically.',
       expiresIn: 'Expires automatically on {date}.',
       expiredOn: 'Expired on {date}. It no longer applies to any bill.',
       weekdays: 'Weekdays',
@@ -271,7 +279,8 @@ export const managerEn = {
     active: 'Active',
     search: 'Search items',
     emptyCategory: 'No items in this category yet.',
-    emptyCategoryBody: 'Add the first item; it appears on the till and the website as soon as it is saved.',
+    emptyCategoryBody:
+      'Add the first item; it appears on the till and the website as soon as it is saved.',
     noMatch: 'No items match the search.',
     noCategories: 'No categories yet.',
     noCategoriesBody: 'Create a category first; items live inside categories.',
@@ -296,9 +305,11 @@ export const managerEn = {
       markOff: 'Mark off for today',
       restore: 'Restore now',
       blockedTitle: 'Blocked by stock',
-      blockedBody: 'The kitchen is out of an ingredient this item needs, so the till and website will not sell it. This is not a toggle: it clears when stock is received or counted.',
+      blockedBody:
+        'The kitchen is out of an ingredient this item needs, so the till and website will not sell it. This is not a toggle: it clears when stock is received or counted.',
       blockedIngredients: 'Out of stock: {names}',
-      blockedUnknown: 'The blocking ingredient could not be named from this station. Check On hand under Stock.',
+      blockedUnknown:
+        'The blocking ingredient could not be named from this station. Check On hand under Stock.',
       saveFirst: 'Save the item to manage sizes, modifiers and availability.',
     },
   },
@@ -306,7 +317,8 @@ export const managerEn = {
   rates: {
     title: 'Court rates',
     lead: 'Rate rules by weekday, time window and court. Changing a rule never changes a historical price: every booking stores the rule that priced it.',
-    nonDestructive: 'Saving this rule affects new bookings only. Past bookings keep the price and the rule they were made with.',
+    nonDestructive:
+      'Saving this rule affects new bookings only. Past bookings keep the price and the rule they were made with.',
     rule: 'Rule',
     court: 'Court',
     allCourts: 'All courts',
@@ -319,9 +331,11 @@ export const managerEn = {
     active: 'Active',
     inactive: 'Inactive',
     empty: 'No rate rules yet.',
-    emptyBody: 'Without a rule no slot can be priced. Add one covering every court, every day, all opening hours first, then add peak rules on top.',
+    emptyBody:
+      'Without a rule no slot can be priced. Add one covering every court, every day, all opening hours first, then add peak rules on top.',
     overlapTitle: 'Overlapping rules',
-    overlapLead: 'These rules share a court, a weekday and part of a time window. The server picks a court-specific rule over an all-courts rule, then the higher priority. This is a warning only; the server decides.',
+    overlapLead:
+      'These rules share a court, a weekday and part of a time window. The server picks a court-specific rule over an all-courts rule, then the higher priority. This is a warning only; the server decides.',
     overlapWith: 'Overlaps {name}',
     overlapBadge: 'Overlap',
     overlapChip: '{count} overlapping',
@@ -340,7 +354,8 @@ export const managerEn = {
     period: 'Period',
     source: {
       server: 'Served by the audit page function.',
-      fallback: 'The audit page function is not available on this server yet; reading the table directly (latest {count}).',
+      fallback:
+        'The audit page function is not available on this server yet; reading the table directly (latest {count}).',
     },
     readOnly: 'Read-only',
     export: 'Export CSV',
@@ -396,19 +411,22 @@ export const managerEn = {
     },
     recipes: {
       matrixTitle: 'Sizes of this item',
-      matrixLead: 'Each size carries its own quantities. A size without a recipe deducts nothing and produces variance noise.',
+      matrixLead:
+        'Each size carries its own quantities. A size without a recipe deducts nothing and produces variance noise.',
       complete: 'Recipe set',
       incomplete: 'Incomplete',
       lines: '{count} lines',
       noLines: 'No lines',
       selectSize: 'Edit',
       editing: 'Editing',
-      modifierHint: 'A modifier recipe is added on top of the size it is ordered with. Oat milk deducts oat milk; a double shot deducts the coffee twice.',
+      modifierHint:
+        'A modifier recipe is added on top of the size it is ordered with. Oat milk deducts oat milk; a double shot deducts the coffee twice.',
     },
     goodsIn: {
       lead: 'One delivery per submit. Cost is per base unit. Expiry is captured per received batch; several batches of one ingredient stay separate.',
       shortTitle: 'Short delivery',
-      shortLead: '{count} lines arrived short. The received quantity is what enters stock; the shortfall is recorded against the delivery.',
+      shortLead:
+        '{count} lines arrived short. The received quantity is what enters stock; the shortfall is recorded against the delivery.',
       expiryHint: 'Leave blank to calculate from the ingredient shelf life.',
       removeLine: 'Remove line',
       lines: 'Lines',
@@ -455,7 +473,8 @@ export const managerEn = {
       expiredOn: 'Expired',
       noneExpired: 'Nothing has expired.',
       noneExpiring: 'Nothing expires in this window.',
-      writeOffLead: 'Writes the whole remaining quantity off with the expired reason. Kept separate from spill and spoilage.',
+      writeOffLead:
+        'Writes the whole remaining quantity off with the expired reason. Kept separate from spill and spoilage.',
     },
     ledger: {
       lead: 'Every movement, newest first.',

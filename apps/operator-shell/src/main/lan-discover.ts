@@ -26,7 +26,12 @@ export const SCAN_HANDSHAKE_TIMEOUT_MS = 1_500;
 /** Sweeping more than this many /24s means the machine is not on a venue LAN. */
 export const SCAN_MAX_SUBNETS = 4;
 
-export function probeTcp(host: string, port: number, timeoutMs: number, signal?: AbortSignal): Promise<boolean> {
+export function probeTcp(
+  host: string,
+  port: number,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<boolean> {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve(false);
     const socket = net.connect({ host, port });
@@ -53,7 +58,12 @@ export type ConfirmOutcome = 'ok' | 'bad-code' | 'unreachable';
  * bearer, so `open` fires for a wrong code too; the verdict is the FIRST
  * FRAME (the snapshot, sent right after auth) versus a close with 4401.
  */
-export function confirmTill(host: string, port: number, code: string, timeoutMs: number): Promise<ConfirmOutcome> {
+export function confirmTill(
+  host: string,
+  port: number,
+  code: string,
+  timeoutMs: number,
+): Promise<ConfirmOutcome> {
   return new Promise((resolve) => {
     let settled = false;
     const ws = new WebSocket(`ws://${host}:${port}`, {

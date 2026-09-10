@@ -104,11 +104,7 @@ describe('the recorded sequence: flip under the shade, then dismiss', () => {
 
   it('shows the new page colour for the whole time the shade is down', () => {
     const seen = replay();
-    expect(seen.slice(0, 3)).toEqual([
-      'new-page-colour',
-      'new-page-colour',
-      'new-page-colour',
-    ]);
+    expect(seen.slice(0, 3)).toEqual(['new-page-colour', 'new-page-colour', 'new-page-colour']);
   });
 
   it('keeps the cover up until a frame has actually presented', () => {

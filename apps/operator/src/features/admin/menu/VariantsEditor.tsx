@@ -143,8 +143,19 @@ function VariantRowEditor({
       }}
     >
       <span style={{ flex: 1, minInlineSize: '6rem' }}>{pickName(locale, variant)}</span>
-      <MoneyInput value={price} onChange={(n) => setPrice(n ?? 0)} style={{ inlineSize: '12rem' }} />
-      <label style={{ display: 'flex', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', alignItems: 'center' }}>
+      <MoneyInput
+        value={price}
+        onChange={(n) => setPrice(n ?? 0)}
+        style={{ inlineSize: '12rem' }}
+      />
+      <label
+        style={{
+          display: 'flex',
+          gap: 'var(--tp-sp-1)',
+          fontSize: 'var(--tp-fs-sm)',
+          alignItems: 'center',
+        }}
+      >
         <input
           type="checkbox"
           checked={isDefault}

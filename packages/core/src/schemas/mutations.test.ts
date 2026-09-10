@@ -259,12 +259,12 @@ describe('order.add_items payload', () => {
       true,
     );
     expect(orderAddItemsPayloadSchema.safeParse(rest).success).toBe(false);
-    expect(
-      orderAddItemsPayloadSchema.safeParse({ ...valid(), tabIdemKey: idemKey }).success,
-    ).toBe(false);
-    expect(
-      tabSettlePayloadSchema.safeParse({ tabIdemKey: idemKey, method: 'card' }).success,
-    ).toBe(true);
+    expect(orderAddItemsPayloadSchema.safeParse({ ...valid(), tabIdemKey: idemKey }).success).toBe(
+      false,
+    );
+    expect(tabSettlePayloadSchema.safeParse({ tabIdemKey: idemKey, method: 'card' }).success).toBe(
+      true,
+    );
   });
 });
 
@@ -273,9 +273,9 @@ describe('ticket.status payload', () => {
     for (const status of ['queued', 'preparing', 'ready', 'completed', 'voided'] as const) {
       expect(ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, status }).success).toBe(true);
     }
-    expect(
-      ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, status: 'burnt' }).success,
-    ).toBe(false);
+    expect(ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, status: 'burnt' }).success).toBe(
+      false,
+    );
   });
 
   it('takes exactly one of ticketId / ticketIdemKey — the LAN bump reference', () => {
@@ -285,8 +285,11 @@ describe('ticket.status payload', () => {
     ).toBe(true);
     expect(ticketStatusPayloadSchema.safeParse({ status: 'ready' }).success).toBe(false);
     expect(
-      ticketStatusPayloadSchema.safeParse({ ticketId: UUID_A, ticketIdemKey: orderKey, status: 'ready' })
-        .success,
+      ticketStatusPayloadSchema.safeParse({
+        ticketId: UUID_A,
+        ticketIdemKey: orderKey,
+        status: 'ready',
+      }).success,
     ).toBe(false);
   });
 });
@@ -295,7 +298,9 @@ describe('tab.open payload', () => {
   it('needs a table or a reservation — a seat, not just a name', () => {
     expect(tabOpenPayloadSchema.safeParse({ tableId: UUID_A }).success).toBe(true);
     expect(tabOpenPayloadSchema.safeParse({ reservationId: UUID_B }).success).toBe(true);
-    expect(tabOpenPayloadSchema.safeParse({ tableId: UUID_A, label: 'Walk-in' }).success).toBe(true);
+    expect(tabOpenPayloadSchema.safeParse({ tableId: UUID_A, label: 'Walk-in' }).success).toBe(
+      true,
+    );
     expect(tabOpenPayloadSchema.safeParse({ label: 'Walk-in' }).success).toBe(false);
     expect(tabOpenPayloadSchema.safeParse({}).success).toBe(false);
   });
@@ -310,9 +315,7 @@ describe('tab.open payload', () => {
 
 describe('tab.settle payload', () => {
   it('card settles cannot carry a cash tender', () => {
-    expect(
-      tabSettlePayloadSchema.safeParse({ tabId: UUID_A, method: 'card' }).success,
-    ).toBe(true);
+    expect(tabSettlePayloadSchema.safeParse({ tabId: UUID_A, method: 'card' }).success).toBe(true);
     expect(
       tabSettlePayloadSchema.safeParse({ tabId: UUID_A, method: 'card', tenderedIqd: 1000 })
         .success,
@@ -422,9 +425,9 @@ describe('reservation.create payload', () => {
   });
 
   it('refuses price/rate fields — the server prices the slot', () => {
-    expect(
-      reservationCreatePayloadSchema.safeParse({ ...valid(), priceIqd: 1 }).success,
-    ).toBe(false);
+    expect(reservationCreatePayloadSchema.safeParse({ ...valid(), priceIqd: 1 }).success).toBe(
+      false,
+    );
     expect(
       reservationCreatePayloadSchema.safeParse({ ...valid(), rateRuleId: UUID_B }).success,
     ).toBe(false);

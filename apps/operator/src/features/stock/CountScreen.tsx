@@ -18,7 +18,18 @@ import { usePermissions, requiredRoleFor } from '../../lib/auth';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, inputStyle } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, PageHeader, Panel, PermissionRefusedNotice, StatusBadge, asyncStatus, type Column } from '../../components/kit';
+import {
+  AsyncStateWrapper,
+  DataTable,
+  EmptyState,
+  MessagePresenter,
+  PageHeader,
+  Panel,
+  PermissionRefusedNotice,
+  StatusBadge,
+  asyncStatus,
+  type Column,
+} from '../../components/kit';
 import { SK, fetchIngredients, type IngredientRow } from './stockKeys';
 
 interface OpenCount {
@@ -57,7 +68,11 @@ export function CountScreen() {
   const openQ = useQuery({
     queryKey: SK.openCount,
     queryFn: async (): Promise<OpenCount | null> => {
-      const { data, error: err } = await supabase.from('stock_counts').select('id, started_at').is('finalized_at', null).maybeSingle();
+      const { data, error: err } = await supabase
+        .from('stock_counts')
+        .select('id, started_at')
+        .is('finalized_at', null)
+        .maybeSingle();
       if (err) throw err;
       return data as OpenCount | null;
     },
@@ -68,7 +83,10 @@ export function CountScreen() {
     queryKey: ['stock', 'countLines', open?.id],
     enabled: !!open,
     queryFn: async (): Promise<CountLine[]> => {
-      const { data, error: err } = await supabase.from('stock_count_lines').select('ingredient_id, theoretical_qty').eq('count_id', open!.id);
+      const { data, error: err } = await supabase
+        .from('stock_count_lines')
+        .select('ingredient_id, theoretical_qty')
+        .eq('count_id', open!.id);
       if (err) throw err;
       return data as CountLine[];
     },
@@ -154,13 +172,24 @@ export function CountScreen() {
         return (
           <span>
             <bdi>{ing ? pickName(locale, ing) : l.ingredient_id.slice(0, 8)}</bdi>{' '}
-            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>({ing?.unit})</span>
+            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
+              ({ing?.unit})
+            </span>
           </span>
         );
       },
     },
     ...(showTheoretical
-      ? [{ key: 'theoretical', header: tr('op.stock.theoretical'), numeric: true, render: (l: CountLine) => <span style={{ color: 'var(--tp-muted-fg)' }}>{l.theoretical_qty}</span> } satisfies Column<CountLine>]
+      ? [
+          {
+            key: 'theoretical',
+            header: tr('op.stock.theoretical'),
+            numeric: true,
+            render: (l: CountLine) => (
+              <span style={{ color: 'var(--tp-muted-fg)' }}>{l.theoretical_qty}</span>
+            ),
+          } satisfies Column<CountLine>,
+        ]
       : []),
     {
       key: 'counted',
@@ -187,14 +216,30 @@ export function CountScreen() {
   return (
     <div style={{ maxInlineSize: '48rem' }}>
       <PageHeader
-        title={open ? tr('op.stock.countOpenSince', { time: formatTime(new Date(open.started_at), locale) }) : tr('op.stock.countsTitle')}
+        title={
+          open
+            ? tr('op.stock.countOpenSince', { time: formatTime(new Date(open.started_at), locale) })
+            : tr('op.stock.countsTitle')
+        }
         subtitle={tr('ws.manager.stock.count.lead')}
         actions={
           open ? (
             <>
               <StatusBadge tone="accent" label={tr('ws.manager.stock.count.inProgress')} />
-              <StatusBadge tone="neutral" label={tr('ws.manager.stock.count.entered', { entered: formatNumber(enteredCount, locale), total: formatNumber(lines.length, locale) })} />
-              <Button kind={showTheoretical ? 'primary' : 'default'} size="sm" icon={showTheoretical ? 'eyeOff' : 'eye'} aria-pressed={showTheoretical} onClick={() => setShowTheoretical((v) => !v)}>
+              <StatusBadge
+                tone="neutral"
+                label={tr('ws.manager.stock.count.entered', {
+                  entered: formatNumber(enteredCount, locale),
+                  total: formatNumber(lines.length, locale),
+                })}
+              />
+              <Button
+                kind={showTheoretical ? 'primary' : 'default'}
+                size="sm"
+                icon={showTheoretical ? 'eyeOff' : 'eye'}
+                aria-pressed={showTheoretical}
+                onClick={() => setShowTheoretical((v) => !v)}
+              >
                 {tr('op.stock.showExpected')}
               </Button>
             </>
@@ -208,8 +253,13 @@ export function CountScreen() {
             tone="success"
             message={
               <>
-                <strong>{tr('ws.manager.stock.count.submitted')}</strong> {tr('ws.manager.stock.count.submittedLead')}{' '}
-                <Button size="sm" kind="soft" onClick={() => void navigate({ to: '/stock/variance' })}>
+                <strong>{tr('ws.manager.stock.count.submitted')}</strong>{' '}
+                {tr('ws.manager.stock.count.submittedLead')}{' '}
+                <Button
+                  size="sm"
+                  kind="soft"
+                  onClick={() => void navigate({ to: '/stock/variance' })}
+                >
                   {tr('ws.manager.stock.count.openVariance')}
                 </Button>
               </>
@@ -225,8 +275,20 @@ export function CountScreen() {
               body={tr('op.stock.noOpenCount')}
               action={
                 <>
-                  {!can.adjustStock && <PermissionRefusedNotice action={tr('op.stock.startCount')} requiredRole={requiredRoleFor('adjustStock')} style={{ marginBlockEnd: 'var(--tp-sp-2)' }} />}
-                  <Button kind="primary" icon="scale" busy={busy} disabled={!can.adjustStock} onClick={() => void start()}>
+                  {!can.adjustStock && (
+                    <PermissionRefusedNotice
+                      action={tr('op.stock.startCount')}
+                      requiredRole={requiredRoleFor('adjustStock')}
+                      style={{ marginBlockEnd: 'var(--tp-sp-2)' }}
+                    />
+                  )}
+                  <Button
+                    kind="primary"
+                    icon="scale"
+                    busy={busy}
+                    disabled={!can.adjustStock}
+                    onClick={() => void start()}
+                  >
                     {tr('op.stock.startCount')}
                   </Button>
                 </>
@@ -236,17 +298,62 @@ export function CountScreen() {
           </Panel>
         ) : (
           <Panel padded={false}>
-            <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+            <p
+              style={{
+                paddingBlock: 'var(--tp-sp-2)',
+                paddingInline: 'var(--tp-sp-3)',
+                fontSize: 'var(--tp-fs-sm)',
+                color: 'var(--tp-muted-fg)',
+              }}
+            >
               {tr('op.stock.blindHint')} {tr('ws.manager.stock.count.draftSaved')}
             </p>
             <ErrorText error={linesQ.error} />
-            <DataTable columns={columns} rows={lines} rowKey={(l) => l.ingredient_id} aria-label={tr('op.stock.countsTitle')} />
-            <div style={{ paddingBlock: 'var(--tp-sp-3)', paddingInline: 'var(--tp-sp-3)', borderBlockStart: '1px solid var(--tp-border)' }}>
+            <DataTable
+              columns={columns}
+              rows={lines}
+              rowKey={(l) => l.ingredient_id}
+              aria-label={tr('op.stock.countsTitle')}
+            />
+            <div
+              style={{
+                paddingBlock: 'var(--tp-sp-3)',
+                paddingInline: 'var(--tp-sp-3)',
+                borderBlockStart: '1px solid var(--tp-border)',
+              }}
+            >
               <ErrorText error={error} />
-              {!can.adjustStock && <PermissionRefusedNotice action={tr('op.stock.finalizeBtn')} requiredRole={requiredRoleFor('adjustStock')} style={{ marginBlockEnd: 'var(--tp-sp-2)' }} />}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
-                <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>{tr('ws.manager.stock.count.untouched')}</span>
-                <Button kind="danger" icon="check" busy={busy} disabled={!can.adjustStock} onClick={() => void finalize()}>
+              {!can.adjustStock && (
+                <PermissionRefusedNotice
+                  action={tr('op.stock.finalizeBtn')}
+                  requiredRole={requiredRoleFor('adjustStock')}
+                  style={{ marginBlockEnd: 'var(--tp-sp-2)' }}
+                />
+              )}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: 'var(--tp-sp-2)',
+                  alignItems: 'center',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 'var(--tp-fs-xs)',
+                    color: 'var(--tp-muted-fg)',
+                    marginInlineEnd: 'auto',
+                  }}
+                >
+                  {tr('ws.manager.stock.count.untouched')}
+                </span>
+                <Button
+                  kind="danger"
+                  icon="check"
+                  busy={busy}
+                  disabled={!can.adjustStock}
+                  onClick={() => void finalize()}
+                >
                   {tr('op.stock.finalizeBtn')}
                 </Button>
               </div>

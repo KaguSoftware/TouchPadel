@@ -26,7 +26,11 @@ const head: CSSProperties = {
 };
 
 export const cardTitle: CSSProperties = { margin: 0, fontSize: 'var(--tp-fs-md)', fontWeight: 700 };
-export const muted: CSSProperties = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 };
+export const muted: CSSProperties = {
+  color: 'var(--tp-muted-fg)',
+  fontSize: 'var(--tp-fs-sm)',
+  margin: 0,
+};
 
 export function CardShell({
   title,
@@ -58,7 +62,11 @@ export function CardShell({
     <div style={{ ...card, ...style }}>
       <div style={head}>
         <h3 style={cardTitle}>{title}</h3>
-        {actions && <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>{actions}</div>}
+        {actions && (
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
+            {actions}
+          </div>
+        )}
       </div>
       {note && <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{note}</p>}
       {state === 'loading' && <Skeleton lines={skeletonLines} />}
@@ -76,7 +84,10 @@ export function CardShell({
             <ErrorText error={error} />
           )}
           {onRetry && (
-            <Button onClick={onRetry} style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: 'var(--tp-sp-1-5)' }}>
+            <Button
+              onClick={onRetry}
+              style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: 'var(--tp-sp-1-5)' }}
+            >
               {tr('common.retry')}
             </Button>
           )}

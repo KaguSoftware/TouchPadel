@@ -95,9 +95,24 @@ describe('assembleDayGrid', () => {
 
   it('marks booked / held / blocked from court_availability rows', () => {
     const availability: AvailabilityRow[] = [
-      { court_id: 'court-1', start_at: baghdad('09:00').toISOString(), end_at: baghdad('10:00').toISOString(), kind: 'booking' },
-      { court_id: 'court-1', start_at: baghdad('10:00').toISOString(), end_at: baghdad('11:00').toISOString(), kind: 'hold' },
-      { court_id: 'court-1', start_at: baghdad('11:00').toISOString(), end_at: baghdad('12:00').toISOString(), kind: 'maintenance' },
+      {
+        court_id: 'court-1',
+        start_at: baghdad('09:00').toISOString(),
+        end_at: baghdad('10:00').toISOString(),
+        kind: 'booking',
+      },
+      {
+        court_id: 'court-1',
+        start_at: baghdad('10:00').toISOString(),
+        end_at: baghdad('11:00').toISOString(),
+        kind: 'hold',
+      },
+      {
+        court_id: 'court-1',
+        start_at: baghdad('11:00').toISOString(),
+        end_at: baghdad('12:00').toISOString(),
+        kind: 'maintenance',
+      },
     ];
     const grid = assembleDayGrid({
       date: DATE,
@@ -155,7 +170,12 @@ describe('groupByStart', () => {
       availability: [
         // 90-min slots starting 09:00 are blocked by a booking 10:00-10:30;
         // the 60-min 09:00 slot stays free.
-        { court_id: 'court-1', start_at: baghdad('10:00').toISOString(), end_at: baghdad('10:30').toISOString(), kind: 'booking' },
+        {
+          court_id: 'court-1',
+          start_at: baghdad('10:00').toISOString(),
+          end_at: baghdad('10:30').toISOString(),
+          kind: 'booking',
+        },
       ],
       rules,
       prices,
@@ -178,7 +198,12 @@ describe('listBookableDates', () => {
   });
 });
 
-function slot(startIso: string, durationMin: number, state: Slot['state'], priceIqd: number | null): Slot {
+function slot(
+  startIso: string,
+  durationMin: number,
+  state: Slot['state'],
+  priceIqd: number | null,
+): Slot {
   const startAt = new Date(startIso);
   return {
     startAt,
@@ -201,7 +226,13 @@ describe('mergeAcrossCourts', () => {
   it('counts free courts and targets the cheapest one', () => {
     const cells = mergeAcrossCourts(twoCourts, 60);
     expect(cells).toHaveLength(2);
-    expect(cells[0]).toMatchObject({ state: 'free', freeCount: 2, capacity: 2, courtId: 'c2', priceIqd: 25_000 });
+    expect(cells[0]).toMatchObject({
+      state: 'free',
+      freeCount: 2,
+      capacity: 2,
+      courtId: 'c2',
+      priceIqd: 25_000,
+    });
   });
 
   it('resolves a fully-busy start to the most explanatory state', () => {
@@ -215,7 +246,11 @@ describe('mergeAcrossCourts', () => {
       { courtId: 'c1', slots: [slot(T10, 60, 'blocked', null)] },
       { courtId: 'c2', slots: [slot(T10, 60, 'free', 25_000)] },
     ];
-    expect(mergeAcrossCourts(grid, 60)[0]).toMatchObject({ state: 'free', freeCount: 1, courtId: 'c2' });
+    expect(mergeAcrossCourts(grid, 60)[0]).toMatchObject({
+      state: 'free',
+      freeCount: 1,
+      courtId: 'c2',
+    });
   });
 
   it('filters to the selected duration only', () => {
@@ -270,9 +305,9 @@ describe('protectedHorizonEnd', () => {
     const slotStart = new Date('2026-09-04T10:00:00Z');
     const oldRule = new Date('2026-09-04T00:00:00Z'); // midnight after tomorrow
     expect(slotStart.getTime() < oldRule.getTime()).toBe(false);
-    expect(slotStart.getTime() < protectedHorizonEnd(now, { protected_horizon_hours: 48 }).getTime()).toBe(
-      true,
-    );
+    expect(
+      slotStart.getTime() < protectedHorizonEnd(now, { protected_horizon_hours: 48 }).getTime(),
+    ).toBe(true);
   });
 });
 
@@ -281,8 +316,14 @@ describe('openNowInfo', () => {
     timezone: TZ,
     // Trades 09:00 -> 02:00: the tail lives on the NEXT calendar day.
     opening_hours: {
-      tue: [['00:00', '02:00'], ['09:00', '24:00']],
-      wed: [['00:00', '02:00'], ['09:00', '24:00']],
+      tue: [
+        ['00:00', '02:00'],
+        ['09:00', '24:00'],
+      ],
+      wed: [
+        ['00:00', '02:00'],
+        ['09:00', '24:00'],
+      ],
     },
     closed_dates: [] as string[],
   };
@@ -375,7 +416,12 @@ describe('hasAnySlots', () => {
   it('is about slots, not courts', () => {
     // The closed-day check used to test grid.length (= number of courts), so a
     // duration with no priced slots read as "Venue closed".
-    expect(hasAnySlots([{ courtId: 'c1', slots: [] }, { courtId: 'c2', slots: [] }])).toBe(false);
+    expect(
+      hasAnySlots([
+        { courtId: 'c1', slots: [] },
+        { courtId: 'c2', slots: [] },
+      ]),
+    ).toBe(false);
     expect(hasAnySlots([{ courtId: 'c1', slots: [slot(T10, 60, 'free', 1)] }])).toBe(true);
     expect(hasAnySlots([])).toBe(false);
   });
@@ -387,9 +433,18 @@ const OVERNIGHT = {
   timezone: TZ,
   // Trades 09:00 -> 02:00, stored as two windows on adjacent days (HANDOFF).
   opening_hours: {
-    mon: [['00:00', '02:00'], ['09:00', '24:00']],
-    tue: [['00:00', '02:00'], ['09:00', '24:00']],
-    wed: [['00:00', '02:00'], ['09:00', '24:00']],
+    mon: [
+      ['00:00', '02:00'],
+      ['09:00', '24:00'],
+    ],
+    tue: [
+      ['00:00', '02:00'],
+      ['09:00', '24:00'],
+    ],
+    wed: [
+      ['00:00', '02:00'],
+      ['09:00', '24:00'],
+    ],
   },
   closed_dates: [] as string[],
 };
@@ -397,7 +452,15 @@ const wedBaghdad = (hhmm: string) => new Date(`2026-09-02T${hhmm}:00+03:00`);
 
 describe('assembleTradingNight', () => {
   const build = (settings = OVERNIGHT, availability: AvailabilityRow[] = []) =>
-    assembleTradingNight({ date: DATE, settings, courts: [court], availability, rules, prices, now: NOW });
+    assembleTradingNight({
+      date: DATE,
+      settings,
+      courts: [court],
+      availability,
+      rules,
+      prices,
+      now: NOW,
+    });
   const starts60 = (grid: CourtSlots[]) =>
     grid[0]!.slots.filter((s) => s.durationMin === 60).map((s) => s.startAt.toISOString());
 
@@ -416,7 +479,12 @@ describe('assembleTradingNight', () => {
 
   it('prices and marks tail slots like any other (rows on the next date apply)', () => {
     const grid = build(OVERNIGHT, [
-      { court_id: 'court-1', start_at: wedBaghdad('00:00').toISOString(), end_at: wedBaghdad('01:00').toISOString(), kind: 'booking' },
+      {
+        court_id: 'court-1',
+        start_at: wedBaghdad('00:00').toISOString(),
+        end_at: wedBaghdad('01:00').toISOString(),
+        kind: 'booking',
+      },
     ]);
     const at = (d: Date, dur: number) =>
       grid[0]!.slots.find((s) => s.durationMin === dur && s.startAt.getTime() === d.getTime());
@@ -430,7 +498,15 @@ describe('assembleTradingNight', () => {
   });
 
   it('is exactly the day grid for same-day hours', () => {
-    const args = { date: DATE, settings, courts: [court], availability: [], rules, prices, now: NOW };
+    const args = {
+      date: DATE,
+      settings,
+      courts: [court],
+      availability: [],
+      rules,
+      prices,
+      now: NOW,
+    };
     expect(assembleTradingNight(args)).toEqual(assembleDayGrid(args));
   });
 });
@@ -448,8 +524,12 @@ describe('listBookableDates while last night is still trading', () => {
   });
 
   it('does not lead with a closed yesterday, nor when today is closed', () => {
-    expect(listBookableDates(at0030Wed, TZ, 6, { ...OVERNIGHT, closed_dates: ['2026-09-01'] })[0]).toBe('2026-09-02');
-    expect(listBookableDates(at0030Wed, TZ, 6, { ...OVERNIGHT, closed_dates: ['2026-09-02'] })[0]).toBe('2026-09-02');
+    expect(
+      listBookableDates(at0030Wed, TZ, 6, { ...OVERNIGHT, closed_dates: ['2026-09-01'] })[0],
+    ).toBe('2026-09-02');
+    expect(
+      listBookableDates(at0030Wed, TZ, 6, { ...OVERNIGHT, closed_dates: ['2026-09-02'] })[0],
+    ).toBe('2026-09-02');
   });
 
   it('is unchanged without venue settings', () => {

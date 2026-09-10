@@ -9,7 +9,12 @@ import { minePatterns, type PatternCandidate, type PatternLevel } from '@touch/c
 import type { Locale, MessageKey } from '@touch/i18n';
 import { Button, ErrorText, Spinner } from '../../../components/ui';
 import { useLocale } from '../../../lib/i18n';
-import { analyticsRpc, insights as callInsights, type JudgedPattern, type PatternCandidateWire } from '../../../lib/analyticsApi';
+import {
+  analyticsRpc,
+  insights as callInsights,
+  type JudgedPattern,
+  type PatternCandidateWire,
+} from '../../../lib/analyticsApi';
 import { patternsCopy } from '../copy';
 import type { Derived, RawAnalytics } from '../derive';
 import type { Formatters } from '../format';
@@ -61,10 +66,17 @@ export function PatternsCard({
   const candidates = useMemo<PatternCandidate[]>(() => {
     if (!raw || !derived) return [];
     const costs = new Map<string, { priceIqd: number; costIqd: number }>();
-    for (const m of raw.menu) if (m.costIqd !== null && m.priceIqd > 0) costs.set(m.id, { priceIqd: m.priceIqd, costIqd: m.costIqd });
+    for (const m of raw.menu)
+      if (m.costIqd !== null && m.priceIqd > 0)
+        costs.set(m.id, { priceIqd: m.priceIqd, costIqd: m.costIqd });
     return minePatterns(
       {
-        soldByDay: raw.soldByDay.map((r) => ({ id: r.id, date: r.date, qty: r.qty, revenueIqd: r.revenueIqd })),
+        soldByDay: raw.soldByDay.map((r) => ({
+          id: r.id,
+          date: r.date,
+          qty: r.qty,
+          revenueIqd: r.revenueIqd,
+        })),
         recordedDays: raw.daily.map((d) => d.date),
         priceBands: derived.priceBands,
         locales: raw.posthog?.localePreferences.map((l) => ({
@@ -83,7 +95,10 @@ export function PatternsCard({
 
   const storedRows = stored.patterns?.patterns ?? [];
   const byId = new Map((judged ?? storedRows).map((p) => [p.id, p]));
-  const rows = candidates.map((c) => ({ candidate: c, text: byId.get(c.id)?.text ?? c.fallbackText }));
+  const rows = candidates.map((c) => ({
+    candidate: c,
+    text: byId.get(c.id)?.text ?? c.fallbackText,
+  }));
 
   async function judge() {
     if (!raw || candidates.length === 0) return;
@@ -112,7 +127,12 @@ export function PatternsCard({
       const out = res.patterns ?? [];
       setJudged(out);
       if (out.length > 0) {
-        await analyticsRpc.savePatterns({ from: raw.range.from, to: raw.range.to, locale: locale as Locale, patterns: out });
+        await analyticsRpc.savePatterns({
+          from: raw.range.from,
+          to: raw.range.to,
+          locale: locale as Locale,
+          patterns: out,
+        });
         stored.reload();
       }
     } catch (err) {
@@ -151,12 +171,36 @@ export function PatternsCard({
       <div style={{ display: 'grid', gap: '0.5rem' }}>
         <ErrorText error={error} />
         {rows.map(({ candidate, text }) => (
-          <div key={candidate.id} style={{ borderInlineStart: '1px solid var(--tp-border)', paddingInlineStart: '0.55rem' }}>
-            <div style={{ display: 'flex', gap: '0.3rem', marginBlockEnd: '0.15rem', flexWrap: 'wrap' }}>
-              <StatusBadge size="sm" tone="accent" dot={false} label={KIND_KEY[candidate.kind] ? tr(KIND_KEY[candidate.kind]!) : candidate.kind} />
+          <div
+            key={candidate.id}
+            style={{
+              borderInlineStart: '1px solid var(--tp-border)',
+              paddingInlineStart: '0.55rem',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.3rem',
+                marginBlockEnd: '0.15rem',
+                flexWrap: 'wrap',
+              }}
+            >
               <StatusBadge
                 size="sm"
-                tone={candidate.confidence === 'high' ? 'success' : candidate.confidence === 'low' ? 'warn' : 'neutral'}
+                tone="accent"
+                dot={false}
+                label={KIND_KEY[candidate.kind] ? tr(KIND_KEY[candidate.kind]!) : candidate.kind}
+              />
+              <StatusBadge
+                size="sm"
+                tone={
+                  candidate.confidence === 'high'
+                    ? 'success'
+                    : candidate.confidence === 'low'
+                      ? 'warn'
+                      : 'neutral'
+                }
                 label={tr(`analytics.patterns.confidence.${candidate.confidence}`)}
               />
               <span style={muted}>{candidate.sampleLabel}</span>

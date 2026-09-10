@@ -43,18 +43,32 @@ let fetch = null;
 for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt++) {
   fetch = spawnSync(
     process.execPath,
-    [prebuildInstall, '--runtime', runtime, '--target', target, '--arch', arch, '--force', '--verbose'],
+    [
+      prebuildInstall,
+      '--runtime',
+      runtime,
+      '--target',
+      target,
+      '--arch',
+      arch,
+      '--force',
+      '--verbose',
+    ],
     { cwd: pkgDir, stdio: 'inherit', env: { ...process.env, ELECTRON_RUN_AS_NODE: undefined } },
   );
   if (fetch.status === 0) break;
   if (attempt < FETCH_ATTEMPTS) {
     const wait = 15 * attempt;
-    console.warn(`[native-abi] prebuild-install failed (attempt ${attempt}/${FETCH_ATTEMPTS}); retrying in ${wait}s`);
+    console.warn(
+      `[native-abi] prebuild-install failed (attempt ${attempt}/${FETCH_ATTEMPTS}); retrying in ${wait}s`,
+    );
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait * 1000);
   }
 }
 if (fetch.status !== 0) {
-  console.error('[native-abi] prebuild-install failed — no binary for this runtime/arch, or the download host is down');
+  console.error(
+    '[native-abi] prebuild-install failed — no binary for this runtime/arch, or the download host is down',
+  );
   process.exit(fetch.status ?? 1);
 }
 
@@ -75,6 +89,8 @@ if (runtime === 'electron') env.ELECTRON_RUN_AS_NODE = '1';
 else delete env.ELECTRON_RUN_AS_NODE;
 const check = spawnSync(bin, ['-e', probe], { env, stdio: 'inherit' });
 if (check.status !== 0) {
-  console.error(`[native-abi] better-sqlite3 does NOT load under ${runtime} — refusing to continue`);
+  console.error(
+    `[native-abi] better-sqlite3 does NOT load under ${runtime} — refusing to continue`,
+  );
   process.exit(1);
 }

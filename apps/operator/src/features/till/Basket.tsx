@@ -57,7 +57,15 @@ export function Basket({
       {/* Reserved: "Clear basket" only exists while there are lines, and
           without a floor under the row the list below it started 0.6rem
           higher on an empty basket than on a full one. */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)', minBlockSize: 'var(--tp-sp-6)' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-2)',
+          minBlockSize: 'var(--tp-sp-6)',
+        }}
+      >
         <h3 style={sectionTitle}>
           {tr('ws.cashier.till.basket.title')}
           {lines.length > 0 && (
@@ -77,7 +85,15 @@ export function Basket({
         {lines.length === 0 ? (
           <p style={muted}>{tr('op.till.emptyBasket')}</p>
         ) : (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <ul
+            style={{
+              listStyle: 'none',
+              margin: 0,
+              padding: 0,
+              display: 'grid',
+              gap: 'var(--tp-sp-1)',
+            }}
+          >
             {lines.map((l) => (
               <li key={l.key} style={{ ...kvRow, alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
                 <span style={{ minInlineSize: 0, flex: 1 }}>
@@ -96,13 +112,38 @@ export function Basket({
                     </span>
                   )}
                 </span>
-                <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-0)', alignItems: 'center', flexShrink: 0 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    gap: 'var(--tp-sp-0)',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                  }}
+                >
                   <span style={{ ...numeric, marginInlineEnd: 'var(--tp-sp-1)' }}>
                     <bdi>{formatIQD(basketLineEstimate(l), locale)}</bdi>
                   </span>
-                  <Button kind="ghost" icon="minus" aria-label="−1" disabled={sending} onClick={() => onBump(l.key, -1)} />
-                  <Button kind="ghost" icon="plus" aria-label="+1" disabled={sending} onClick={() => onBump(l.key, 1)} />
-                  <Button kind="ghost" icon="x" aria-label={tr('ws.cashier.till.basket.remove')} disabled={sending} onClick={() => onRemove(l.key)} />
+                  <Button
+                    kind="ghost"
+                    icon="minus"
+                    aria-label="−1"
+                    disabled={sending}
+                    onClick={() => onBump(l.key, -1)}
+                  />
+                  <Button
+                    kind="ghost"
+                    icon="plus"
+                    aria-label="+1"
+                    disabled={sending}
+                    onClick={() => onBump(l.key, 1)}
+                  />
+                  <Button
+                    kind="ghost"
+                    icon="x"
+                    aria-label={tr('ws.cashier.till.basket.remove')}
+                    disabled={sending}
+                    onClick={() => onRemove(l.key)}
+                  />
                 </span>
               </li>
             ))}
@@ -119,7 +160,15 @@ export function Basket({
         {error != null ? (
           <ErrorText error={error} style={{ marginBlock: 0 }} />
         ) : sending ? (
-          <span role="status" style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+          <span
+            role="status"
+            style={{
+              ...muted,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--tp-sp-1)',
+            }}
+          >
             <Icon name="refresh" size={13} /> {tr('ws.cashier.till.basket.sending')}
           </span>
         ) : !canSend && blockedReason ? (
@@ -130,12 +179,21 @@ export function Basket({
       {/* The Send target is mounted whether or not there is anything to send:
           it is the second-most-pressed control on the till and it must be in
           the same place at the start of a line as at the end of one. */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-2)',
+        }}
+      >
         <span>
           <strong style={numeric}>
             <bdi>{formatIQD(total, locale)}</bdi>
           </strong>
-          <span style={{ display: 'block', ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.till.basket.estimate')}</span>
+          <span style={{ display: 'block', ...muted, fontSize: 'var(--tp-fs-xs)' }}>
+            {tr('ws.cashier.till.basket.estimate')}
+          </span>
         </span>
         <Button
           kind="primary"

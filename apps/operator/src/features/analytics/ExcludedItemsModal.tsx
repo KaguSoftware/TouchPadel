@@ -29,7 +29,10 @@ export function ExcludedItemsModal({
   const rows = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     return menu
-      .map((m) => ({ id: m.id, name: pickLocale({ en: m.nameEn, ar: m.nameAr }, locale) || m.nameEn }))
+      .map((m) => ({
+        id: m.id,
+        name: pickLocale({ en: m.nameEn, ar: m.nameAr }, locale) || m.nameEn,
+      }))
       .filter((m) => needle === '' || m.name.toLowerCase().includes(needle))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [menu, filter, locale]);
@@ -63,15 +66,32 @@ export function ExcludedItemsModal({
       />
       <div style={{ maxBlockSize: '50vh', overflowY: 'auto', display: 'grid', gap: '0.15rem' }}>
         {rows.map((row) => (
-          <label key={row.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: 'var(--tp-fs-md)' }}>
+          <label
+            key={row.id}
+            style={{
+              display: 'flex',
+              gap: '0.5rem',
+              alignItems: 'center',
+              fontSize: 'var(--tp-fs-md)',
+            }}
+          >
             <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggle(row.id)} />
             <span>{row.name}</span>
           </label>
         ))}
-        {rows.length === 0 && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('analytics.empty.generic')}</p>}
+        {rows.length === 0 && (
+          <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('analytics.empty.generic')}</p>
+        )}
       </div>
       <ErrorText error={setSetting.error} />
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginBlockStart: '0.8rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.5rem',
+          justifyContent: 'flex-end',
+          marginBlockStart: '0.8rem',
+        }}
+      >
         <Button onClick={onClose}>{tr('common.cancel')}</Button>
         <Button kind="primary" disabled={setSetting.isPending} onClick={() => void save()}>
           {tr('common.save')}

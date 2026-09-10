@@ -26,8 +26,14 @@ import { Icon } from '../../components/icons';
 import { REQUESTS_QUERY_KEY, type StaffRequestsPage } from './requestTypes';
 
 type CardKey =
-  | 'floorNow' | 'patterns' | 'bookings' | 'tills'
-  | 'staffActivity' | 'requests' | 'marketing' | 'audit';
+  | 'floorNow'
+  | 'patterns'
+  | 'bookings'
+  | 'tills'
+  | 'staffActivity'
+  | 'requests'
+  | 'marketing'
+  | 'audit';
 
 export function ObservationHomeScreen() {
   const { tr, locale } = useLocale();
@@ -35,7 +41,12 @@ export function ObservationHomeScreen() {
 
   const pendingQ = useQuery({
     queryKey: [...REQUESTS_QUERY_KEY, 'pending-count'],
-    queryFn: () => appRpc<StaffRequestsPage>('staff_requests_page', { p_status: 'pending', p_limit: 1, p_offset: 0 }),
+    queryFn: () =>
+      appRpc<StaffRequestsPage>('staff_requests_page', {
+        p_status: 'pending',
+        p_limit: 1,
+        p_offset: 0,
+      }),
     refetchInterval: 60_000,
   });
   const pending = pendingQ.data?.pending ?? 0;
@@ -48,7 +59,9 @@ export function ObservationHomeScreen() {
       card={(key) => tr(`ws.owner.observationHome.cards.${key as CardKey}`)}
     >
       <Panel title={tr('ws.owner.observationHome.waiting.title')}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}
+        >
           <span
             style={{
               display: 'inline-flex',
@@ -76,7 +89,11 @@ export function ObservationHomeScreen() {
                   )}
           </span>
           {pending > 0 && (
-            <Button size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/observation/requests' })}>
+            <Button
+              size="sm"
+              iconEnd="arrowUpRight"
+              onClick={() => void navigate({ to: '/observation/requests' })}
+            >
               {tr('ws.owner.observationHome.waiting.open')}
             </Button>
           )}

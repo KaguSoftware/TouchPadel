@@ -13,12 +13,7 @@ function mod(id: string, delta = 0, reveals: MenuModifierGroup[] = []): MenuModi
   return { id, name_en: id, name_ar: id, price_delta_iqd: delta, sort_order: 0, reveals };
 }
 
-function group(
-  id: string,
-  min: number,
-  max: number,
-  modifiers: MenuModifier[],
-): MenuModifierGroup {
+function group(id: string, min: number, max: number, modifiers: MenuModifier[]): MenuModifierGroup {
   return {
     id,
     name_en: id,
@@ -92,7 +87,12 @@ describe('modifier selection reducer', () => {
   });
 
   it('switching the parent radio also clears the revealed picks', () => {
-    const withStyle = toggleModifier(item, oatStyle, 'creamy', toggleModifier(item, milk, 'oat', []));
+    const withStyle = toggleModifier(
+      item,
+      oatStyle,
+      'creamy',
+      toggleModifier(item, milk, 'oat', []),
+    );
     expect(toggleModifier(item, milk, 'whole', withStyle)).toEqual(['whole']);
   });
 

@@ -122,10 +122,7 @@ describe.skipIf(!up)('0081 staff deactivation revokes sessions (SEC-35)', () => 
 
   it('still clears the authorisation PIN — the 0051 behaviour is intact', async () => {
     const l = await leaver('pin');
-    await svc
-      .from('staff')
-      .update({ role: 'manager' })
-      .eq('id', l.id);
+    await svc.from('staff').update({ role: 'manager' }).eq('id', l.id);
     await appRpc(owner, 'set_staff_pin', { p_staff_id: l.id, p_pin: '482913' });
 
     const { data: before } = await svc.from('staff').select('pin_hash').eq('id', l.id).single();

@@ -165,8 +165,14 @@ describe('removing an empty tab from the status badge', () => {
   it('a server refusal lands on the row it belongs to', () => {
     // The board's rows are a cached read, so a tab can gain an order between
     // the render and the press; the answer must appear where the press was.
-    renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_NOT_EMPTY', 'TAB_NOT_EMPTY') } });
-    expect(screen.getByText('There is a payment to be made on this tab, so it cannot be removed. Settle it instead.')).toBeTruthy();
+    renderBoard({
+      removeError: { id: 'a', error: new AppRpcError('TAB_NOT_EMPTY', 'TAB_NOT_EMPTY') },
+    });
+    expect(
+      screen.getByText(
+        'There is a payment to be made on this tab, so it cannot be removed. Settle it instead.',
+      ),
+    ).toBeTruthy();
   });
 });
 
@@ -189,7 +195,15 @@ describe('filterBoardRows', () => {
       label: `Table ${table}`,
       openedAt: new Date(NOW - i * 60_000).toISOString(),
     }));
-    expect(filterBoardRows(numbered, 'table', '').map((r) => r.table)).toEqual(['1', '2', '10', '11', '12', 'T2', 'T10']);
+    expect(filterBoardRows(numbered, 'table', '').map((r) => r.table)).toEqual([
+      '1',
+      '2',
+      '10',
+      '11',
+      '12',
+      'T2',
+      'T10',
+    ]);
   });
 });
 
@@ -197,7 +211,11 @@ describe('ageLabel', () => {
   const tr = (k: string, p?: Record<string, string | number>) => `${k}:${JSON.stringify(p ?? {})}`;
   it('renders now / minutes / hours', () => {
     expect(ageLabel(new Date(NOW - 20_000).toISOString(), NOW, tr as never)).toContain('ageNow');
-    expect(ageLabel(new Date(NOW - 5 * 60_000).toISOString(), NOW, tr as never)).toContain('"minutes":5');
-    expect(ageLabel(new Date(NOW - 125 * 60_000).toISOString(), NOW, tr as never)).toContain('"hours":2,"minutes":5');
+    expect(ageLabel(new Date(NOW - 5 * 60_000).toISOString(), NOW, tr as never)).toContain(
+      '"minutes":5',
+    );
+    expect(ageLabel(new Date(NOW - 125 * 60_000).toISOString(), NOW, tr as never)).toContain(
+      '"hours":2,"minutes":5',
+    );
   });
 });

@@ -42,13 +42,18 @@ export function IngredientsAdmin() {
 
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
   const onHandQ = useQuery({ queryKey: SK.onHand, queryFn: fetchOnHand });
-  const onHandOf = useMemo(() => new Map((onHandQ.data ?? []).map((r) => [r.ingredient_id, r])), [onHandQ.data]);
+  const onHandOf = useMemo(
+    () => new Map((onHandQ.data ?? []).map((r) => [r.ingredient_id, r])),
+    [onHandQ.data],
+  );
 
   const q = search.trim().toLowerCase();
   const all = ingredientsQ.data ?? [];
   const rows = all
     .filter((r) => showInactive || r.is_active)
-    .filter((r) => q === '' || r.name_en.toLowerCase().includes(q) || r.name_ar.includes(search.trim()));
+    .filter(
+      (r) => q === '' || r.name_en.toLowerCase().includes(q) || r.name_ar.includes(search.trim()),
+    );
   const status = asyncStatus(ingredientsQ, (d) => d.length === 0);
   const filtering = search.trim() !== '' || showInactive;
   function clearFilters() {
@@ -58,30 +63,58 @@ export function IngredientsAdmin() {
   // Rulebook 6.6: both filters live in controls at the top of the screen, and a
   // manager who left "show inactive" on last week had no way to see that from
   // the rows themselves.
-  const chips: FilterChip[] = ([
-    search.trim()
-      ? { id: 'search', label: <bdi>{tr('ws.manager.filters.search', { value: search.trim() })}</bdi>, text: tr('ws.manager.filters.search', { value: search.trim() }), onRemove: () => setSearch('') }
-      : null,
-    showInactive
-      ? { id: 'inactive', label: tr('ws.manager.filters.includeInactive'), text: tr('ws.manager.filters.includeInactive'), onRemove: () => setShowInactive(false) }
-      : null,
-  ] as (FilterChip | null)[]).filter((c): c is FilterChip => c !== null);
+  const chips: FilterChip[] = (
+    [
+      search.trim()
+        ? {
+            id: 'search',
+            label: <bdi>{tr('ws.manager.filters.search', { value: search.trim() })}</bdi>,
+            text: tr('ws.manager.filters.search', { value: search.trim() }),
+            onRemove: () => setSearch(''),
+          }
+        : null,
+      showInactive
+        ? {
+            id: 'inactive',
+            label: tr('ws.manager.filters.includeInactive'),
+            text: tr('ws.manager.filters.includeInactive'),
+            onRemove: () => setShowInactive(false),
+          }
+        : null,
+    ] as (FilterChip | null)[]
+  ).filter((c): c is FilterChip => c !== null);
 
   const columns: Column<IngredientRow>[] = [
     {
       key: 'name',
       header: tr('op.stock.ingredient'),
       render: (r) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap', opacity: r.is_active ? 1 : 0.6 }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            gap: 'var(--tp-sp-1-5)',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            opacity: r.is_active ? 1 : 0.6,
+          }}
+        >
           <strong>
             <bdi>{pickName(locale, r)}</bdi>
           </strong>
-          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>({r.unit})</span>
-          {r.kind === 'prepared' && <StatusBadge size="sm" tone="neutral" dot={false} label={tr('op.stock.prepared')} />}
+          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
+            ({r.unit})
+          </span>
+          {r.kind === 'prepared' && (
+            <StatusBadge size="sm" tone="neutral" dot={false} label={tr('op.stock.prepared')} />
+          )}
         </span>
       ),
     },
-    { key: 'supplier', header: tr('ws.manager.stock.ingredients.supplier'), render: (r) => <bdi>{r.supplier_name ?? '—'}</bdi> },
+    {
+      key: 'supplier',
+      header: tr('ws.manager.stock.ingredients.supplier'),
+      render: (r) => <bdi>{r.supplier_name ?? '—'}</bdi>,
+    },
     {
       key: 'pack',
       header: tr('ws.manager.stock.ingredients.pack'),
@@ -94,12 +127,28 @@ export function IngredientsAdmin() {
           '—'
         ),
     },
-    { key: 'onHand', header: tr('op.stock.onHand'), numeric: true, render: (r) => onHandOf.get(r.id)?.on_hand ?? '—' },
-    { key: 'par', header: tr('ws.manager.stock.ingredients.par'), numeric: true, render: (r) => r.par_level ?? '—' },
+    {
+      key: 'onHand',
+      header: tr('op.stock.onHand'),
+      numeric: true,
+      render: (r) => onHandOf.get(r.id)?.on_hand ?? '—',
+    },
+    {
+      key: 'par',
+      header: tr('ws.manager.stock.ingredients.par'),
+      numeric: true,
+      render: (r) => r.par_level ?? '—',
+    },
     {
       key: 'status',
       header: tr('ws.manager.stock.ingredients.status'),
-      render: (r) => <StatusBadge size="sm" tone={r.is_active ? 'success' : 'neutral'} label={r.is_active ? tr('op.courts.active') : tr('op.courts.inactive')} />,
+      render: (r) => (
+        <StatusBadge
+          size="sm"
+          tone={r.is_active ? 'success' : 'neutral'}
+          label={r.is_active ? tr('op.courts.active') : tr('op.courts.inactive')}
+        />
+      ),
     },
     {
       key: 'edit',
@@ -127,15 +176,36 @@ export function IngredientsAdmin() {
         <ResultCount shown={rows.length} total={all.length} />
       </PageHeader>
       <Toolbar
-        end={<Switch checked={showInactive} onChange={setShowInactive} label={tr('ws.manager.stock.ingredients.inactiveShown')} />}
+        end={
+          <Switch
+            checked={showInactive}
+            onChange={setShowInactive}
+            label={tr('ws.manager.stock.ingredients.inactiveShown')}
+          />
+        }
       >
         <span style={{ inlineSize: '16rem' }}>
-          <SearchField value={search} onChange={setSearch} placeholder={tr('ws.manager.stock.ingredients.search')} />
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder={tr('ws.manager.stock.ingredients.search')}
+          />
         </span>
       </Toolbar>
-      <FilterChips chips={chips} onClearAll={clearFilters} style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }} />
+      <FilterChips
+        chips={chips}
+        onClearAll={clearFilters}
+        style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }}
+      />
 
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: editing ? 'minmax(0, 1.3fr) minmax(22rem, 1fr)' : '1fr', alignItems: 'start' }}>
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--tp-sp-4)',
+          gridTemplateColumns: editing ? 'minmax(0, 1.3fr) minmax(22rem, 1fr)' : '1fr',
+          alignItems: 'start',
+        }}
+      >
         <AsyncStateWrapper
           status={status}
           error={ingredientsQ.error}
@@ -159,14 +229,14 @@ export function IngredientsAdmin() {
             // and the way out is the filters (rulebook 9.2).
             <EmptyState kind="filtered" onClearFilters={filtering ? clearFilters : undefined} />
           ) : (
-          <DataTable
-            columns={columns}
-            rows={rows}
-            rowKey={(r) => r.id}
-            selectedKey={editing && editing !== 'new' ? editing.id : null}
-            onRowClick={(r) => setEditing(r)}
-            aria-label={tr('op.stock.ingredientsTitle')}
-          />
+            <DataTable
+              columns={columns}
+              rows={rows}
+              rowKey={(r) => r.id}
+              selectedKey={editing && editing !== 'new' ? editing.id : null}
+              onRowClick={(r) => setEditing(r)}
+              aria-label={tr('op.stock.ingredientsTitle')}
+            />
           )}
         </AsyncStateWrapper>
 
@@ -271,59 +341,157 @@ function IngredientForm({
   return (
     <Panel
       title={row ? tr('op.stock.editIngredient') : tr('op.stock.newIngredient')}
-      actions={dirty ? <StatusBadge size="sm" tone="warn" label={tr('ws.kit.actions.unsaved')} /> : undefined}
+      actions={
+        dirty ? (
+          <StatusBadge size="sm" tone="warn" label={tr('ws.kit.actions.unsaved')} />
+        ) : undefined
+      }
     >
       {row && (
         <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
-          <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('ws.manager.stock.ingredients.onHandReadOnly')}</span>
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }} dir="ltr">
+          <span
+            style={{
+              display: 'block',
+              fontSize: 'var(--tp-fs-sm)',
+              fontWeight: 600,
+              marginBlockEnd: 'var(--tp-sp-1)',
+            }}
+          >
+            {tr('ws.manager.stock.ingredients.onHandReadOnly')}
+          </span>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--tp-sp-2-5)',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <span
+              style={{
+                fontSize: 'var(--tp-fs-2xl)',
+                fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+              dir="ltr"
+            >
               {onHand ? `${onHand.on_hand} ${row.unit}` : '—'}
             </span>
-            <StatusBadge size="sm" tone="neutral" icon="lock" label={tr('ws.kit.common.readOnly')} />
+            <StatusBadge
+              size="sm"
+              tone="neutral"
+              icon="lock"
+              label={tr('ws.kit.common.readOnly')}
+            />
           </div>
-          <MessagePresenter tone="info" icon="scale" message={tr('ws.manager.stock.ingredients.onHandHint')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />
+          <MessagePresenter
+            tone="info"
+            icon="scale"
+            message={tr('ws.manager.stock.ingredients.onHandHint')}
+            style={{ marginBlockStart: 'var(--tp-sp-2)' }}
+          />
         </div>
       )}
-      <BilingualFields labelEn={tr('op.courts.nameEn')} labelAr={tr('op.courts.nameAr')} en={nameEn} ar={nameAr} onEn={setNameEn} onAr={setNameAr} />
+      <BilingualFields
+        labelEn={tr('op.courts.nameEn')}
+        labelAr={tr('op.courts.nameAr')}
+        en={nameEn}
+        ar={nameAr}
+        onEn={setNameEn}
+        onAr={setNameAr}
+      />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
         <Field label={tr('op.stock.unit')}>
           {/* Locked server-side once the ledger has movements (UNIT_LOCKED). */}
-          <select style={inputStyle} value={unit} onChange={(e) => setUnit(e.target.value as typeof unit)}>
+          <select
+            style={inputStyle}
+            value={unit}
+            onChange={(e) => setUnit(e.target.value as typeof unit)}
+          >
             <option value="g">g</option>
             <option value="ml">ml</option>
             <option value="pc">pc</option>
           </select>
         </Field>
         <Field label={tr('op.stock.kind')}>
-          <select style={inputStyle} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+          <select
+            style={inputStyle}
+            value={kind}
+            onChange={(e) => setKind(e.target.value as typeof kind)}
+          >
             <option value="purchased">{tr('op.stock.purchased')}</option>
             <option value="prepared">{tr('op.stock.prepared')}</option>
           </select>
         </Field>
         <Field label={tr('op.stock.packSize')}>
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={packSize} onChange={(e) => setPackSize(e.target.value)} />
+          <input
+            style={inputStyle}
+            dir="ltr"
+            inputMode="decimal"
+            value={packSize}
+            onChange={(e) => setPackSize(e.target.value)}
+          />
         </Field>
         <Field label={tr('op.stock.packCost')}>
-          <input style={inputStyle} dir="ltr" inputMode="numeric" value={packCost} onChange={(e) => setPackCost(e.target.value)} />
+          <input
+            style={inputStyle}
+            dir="ltr"
+            inputMode="numeric"
+            value={packCost}
+            onChange={(e) => setPackCost(e.target.value)}
+          />
         </Field>
         <Field label={tr('op.stock.supplier')}>
-          <input style={inputStyle} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+          <input
+            style={inputStyle}
+            value={supplier}
+            onChange={(e) => setSupplier(e.target.value)}
+          />
         </Field>
         <Field label={tr('op.stock.shelfLife')}>
-          <input style={inputStyle} dir="ltr" inputMode="numeric" value={shelfLife} onChange={(e) => setShelfLife(e.target.value)} />
+          <input
+            style={inputStyle}
+            dir="ltr"
+            inputMode="numeric"
+            value={shelfLife}
+            onChange={(e) => setShelfLife(e.target.value)}
+          />
         </Field>
         <Field label={tr('op.stock.yieldPct')}>
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={yieldPct} onChange={(e) => setYieldPct(e.target.value)} />
+          <input
+            style={inputStyle}
+            dir="ltr"
+            inputMode="decimal"
+            value={yieldPct}
+            onChange={(e) => setYieldPct(e.target.value)}
+          />
         </Field>
         <Field label={tr('op.stock.wastePct')}>
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={wastePct} onChange={(e) => setWastePct(e.target.value)} />
+          <input
+            style={inputStyle}
+            dir="ltr"
+            inputMode="decimal"
+            value={wastePct}
+            onChange={(e) => setWastePct(e.target.value)}
+          />
         </Field>
         <Field label={tr('op.stock.parLevel')}>
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={par} onChange={(e) => setPar(e.target.value)} />
+          <input
+            style={inputStyle}
+            dir="ltr"
+            inputMode="decimal"
+            value={par}
+            onChange={(e) => setPar(e.target.value)}
+          />
         </Field>
         <Field label={tr('op.stock.lowThreshold')}>
-          <input style={inputStyle} dir="ltr" inputMode="decimal" value={lowStock} onChange={(e) => setLowStock(e.target.value)} />
+          <input
+            style={inputStyle}
+            dir="ltr"
+            inputMode="decimal"
+            value={lowStock}
+            onChange={(e) => setLowStock(e.target.value)}
+          />
         </Field>
       </div>
       <div style={{ marginBlock: 'var(--tp-sp-2)' }}>

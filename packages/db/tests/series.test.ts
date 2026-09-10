@@ -130,7 +130,12 @@ describe.skipIf(!up)('0066 reservation series', () => {
   });
 
   /** A confirmed desk booking planted directly (service role): the blocker. */
-  async function plantBooking(courtId: string, date: string, time: string, extra: Record<string, unknown> = {}) {
+  async function plantBooking(
+    courtId: string,
+    date: string,
+    time: string,
+    extra: Record<string, unknown> = {},
+  ) {
     const start = localToUtc(date, time);
     const { data, error } = await svc
       .from('reservations')
@@ -187,10 +192,16 @@ describe.skipIf(!up)('0066 reservation series', () => {
     expect((weekdays.data as Preview).occurrences.map((o) => o.date)).toEqual(expected);
 
     // Validation, by name.
-    const badPattern = outcome(await appRpc(desk, 'preview_series', { ...WEEKLY(court), p_pattern: 'monthly' }));
+    const badPattern = outcome(
+      await appRpc(desk, 'preview_series', { ...WEEKLY(court), p_pattern: 'monthly' }),
+    );
     expect(badPattern.errorMessage).toContain('INVALID_PATTERN');
     const badDays = outcome(
-      await appRpc(desk, 'preview_series', { ...WEEKLY(court), p_pattern: 'weekdays', p_weekdays: [7] }),
+      await appRpc(desk, 'preview_series', {
+        ...WEEKLY(court),
+        p_pattern: 'weekdays',
+        p_weekdays: [7],
+      }),
     );
     expect(badDays.errorMessage).toContain('INVALID_WEEKDAYS');
     const tooLong = outcome(
@@ -268,16 +279,26 @@ describe.skipIf(!up)('0066 reservation series', () => {
 
     const { data: rows } = await svc
       .from('reservations')
-      .select('id, court_id, kind, status, series_id, idempotency_key, guest_name, price_iqd, start_at')
+      .select(
+        'id, court_id, kind, status, series_id, idempotency_key, guest_name, price_iqd, start_at',
+      )
       .eq('series_id', c.seriesId)
       .order('start_at');
     const r = rows as {
-      id: string; court_id: string; kind: string; status: string; idempotency_key: string;
-      guest_name: string; price_iqd: number; start_at: string;
+      id: string;
+      court_id: string;
+      kind: string;
+      status: string;
+      idempotency_key: string;
+      guest_name: string;
+      price_iqd: number;
+      start_at: string;
     }[];
     expect(r).toHaveLength(3);
     expect(r.map((x) => x.id).sort()).toEqual([...c.created].sort());
-    expect(r.every((x) => x.court_id === court && x.kind === 'booking' && x.status === 'confirmed')).toBe(true);
+    expect(
+      r.every((x) => x.court_id === court && x.kind === 'booking' && x.status === 'confirmed'),
+    ).toBe(true);
     expect(r.every((x) => x.guest_name === 'Series Skip' && x.price_iqd > 0)).toBe(true);
     expect(r.map((x) => x.idempotency_key)).toEqual(
       [0, 14, 21].map((n) => `${key}:${addDays(BASE, n)}`),
@@ -286,7 +307,11 @@ describe.skipIf(!up)('0066 reservation series', () => {
       [0, 14, 21].map((n) => localToUtc(addDays(BASE, n), '10:00').toISOString()),
     );
 
-    const { data: series } = await svc.from('reservation_series').select('*').eq('id', c.seriesId).single();
+    const { data: series } = await svc
+      .from('reservation_series')
+      .select('*')
+      .eq('id', c.seriesId)
+      .single();
     expect(series).toMatchObject({
       court_id: court,
       pattern: 'weekly',
@@ -305,7 +330,9 @@ describe.skipIf(!up)('0066 reservation series', () => {
       .eq('entity_id', c.seriesId);
     expect(audit).toHaveLength(1);
     expect(audit![0]).toMatchObject({ action: 'series.create', device_id: 'TEST-DESK' });
-    expect((audit![0] as { after: { skipped: string[] } }).after.skipped).toEqual([addDays(BASE, 7)]);
+    expect((audit![0] as { after: { skipped: string[] } }).after.skipped).toEqual([
+      addDays(BASE, 7),
+    ]);
 
     // Same key, same caller: the same series, nothing new written.
     const replay = await appRpc(desk, 'create_series', args);
@@ -332,11 +359,15 @@ describe.skipIf(!up)('0066 reservation series', () => {
     const spare = await createTestCourt(svc, 'S66-move-spare');
     await plantBooking(court, addDays(BASE, 7), '10:00');
 
-    const res = await appRpc(desk, 'create_series', WEEKLY(court, '10:00', {
-      p_guest_id: guestId,
-      p_resolutions: [{ date: addDays(BASE, 7), action: 'moveCourt', courtId: spare }],
-      p_idempotency_key: testIdemKey('series.create'),
-    }));
+    const res = await appRpc(
+      desk,
+      'create_series',
+      WEEKLY(court, '10:00', {
+        p_guest_id: guestId,
+        p_resolutions: [{ date: addDays(BASE, 7), action: 'moveCourt', courtId: spare }],
+        p_idempotency_key: testIdemKey('series.create'),
+      }),
+    );
     expect(res.error, res.error?.message).toBeNull();
     const c = res.data as Created;
     expect(c.created).toHaveLength(4);
@@ -361,10 +392,16 @@ describe.skipIf(!up)('0066 reservation series', () => {
     expect(moved).toEqual({ series_id: c.seriesId, guest_id: guestId });
 
     // A resolution naming a nonsense court is refused before anything is written.
-    const bad = outcome(await appRpc(desk, 'create_series', WEEKLY(court, '12:00', {
-      p_guest_name: 'x',
-      p_resolutions: [{ date: BASE, action: 'moveCourt', courtId: 'not-a-uuid' }],
-    })));
+    const bad = outcome(
+      await appRpc(
+        desk,
+        'create_series',
+        WEEKLY(court, '12:00', {
+          p_guest_name: 'x',
+          p_resolutions: [{ date: BASE, action: 'moveCourt', courtId: 'not-a-uuid' }],
+        }),
+      ),
+    );
     expect(bad.errorMessage).toContain('INVALID_RESOLUTION');
   });
 
@@ -373,41 +410,63 @@ describe.skipIf(!up)('0066 reservation series', () => {
     const blocker = await plantBooking(court, addDays(BASE, 14), '10:00');
     const key = testIdemKey('series.create');
 
-    const res = await appRpc(desk, 'create_series', WEEKLY(court, '10:00', {
-      p_guest_name: 'No Resolution',
-      p_idempotency_key: key,
-    }));
+    const res = await appRpc(
+      desk,
+      'create_series',
+      WEEKLY(court, '10:00', {
+        p_guest_name: 'No Resolution',
+        p_idempotency_key: key,
+      }),
+    );
     expect(res.error?.message).toContain('SERIES_UNRESOLVED_CONFLICTS');
     expect(res.error?.details).toBe(addDays(BASE, 14));
     expect(res.error?.hint).toContain('SLOT_TAKEN');
 
     // Occurrences BEFORE the clash (BASE, BASE+7) were inserted inside the
     // transaction; the rollback took them with it.
-    const { data: series } = await svc.from('reservation_series').select('id').eq('idempotency_key', key);
+    const { data: series } = await svc
+      .from('reservation_series')
+      .select('id')
+      .eq('idempotency_key', key);
     expect(series).toEqual([]);
-    const { data: byKey } = await svc.from('reservations').select('id').like('idempotency_key', `${key}:%`);
+    const { data: byKey } = await svc
+      .from('reservations')
+      .select('id')
+      .like('idempotency_key', `${key}:%`);
     expect(byKey).toEqual([]);
     const { data: onCourt } = await svc.from('reservations').select('id').eq('court_id', court);
     expect((onCourt as { id: string }[]).map((r) => r.id)).toEqual([blocker]);
-    const { data: audit } = await svc.from('audit_log').select('id').eq('action', 'series.create').eq('device_id', key);
+    const { data: audit } = await svc
+      .from('audit_log')
+      .select('id')
+      .eq('action', 'series.create')
+      .eq('device_id', key);
     expect(audit).toEqual([]);
 
     // Resolving it makes the identical call succeed.
-    const ok = await appRpc(desk, 'create_series', WEEKLY(court, '10:00', {
-      p_guest_name: 'No Resolution',
-      p_idempotency_key: key,
-      p_resolutions: [{ date: addDays(BASE, 14), action: 'skip' }],
-    }));
+    const ok = await appRpc(
+      desk,
+      'create_series',
+      WEEKLY(court, '10:00', {
+        p_guest_name: 'No Resolution',
+        p_idempotency_key: key,
+        p_resolutions: [{ date: addDays(BASE, 14), action: 'skip' }],
+      }),
+    );
     expect(ok.error, ok.error?.message).toBeNull();
     expect((ok.data as Created).created).toHaveLength(3);
   });
 
   it("cancel 'future' leaves a played occurrence untouched and audits every cancelled row with the reason", async () => {
     const court = await createTestCourt(svc, 'S66-cancel');
-    const res = await appRpc(desk, 'create_series', WEEKLY(court, '10:00', {
-      p_guest_name: 'Cancel Me',
-      p_idempotency_key: testIdemKey('series.create'),
-    }));
+    const res = await appRpc(
+      desk,
+      'create_series',
+      WEEKLY(court, '10:00', {
+        p_guest_name: 'Cancel Me',
+        p_idempotency_key: testIdemKey('series.create'),
+      }),
+    );
     expect(res.error, res.error?.message).toBeNull();
     const c = res.data as Created;
 
@@ -439,11 +498,19 @@ describe.skipIf(!up)('0066 reservation series', () => {
     expect((before.data as Detail).occurrences.filter((o) => o.played)).toHaveLength(1);
 
     const noReason = outcome(
-      await appRpc(desk, 'cancel_series', { p_series_id: c.seriesId, p_scope: 'future', p_reason_code: '  ' }),
+      await appRpc(desk, 'cancel_series', {
+        p_series_id: c.seriesId,
+        p_scope: 'future',
+        p_reason_code: '  ',
+      }),
     );
     expect(noReason.errorMessage).toContain('REASON_REQUIRED');
     const badScope = outcome(
-      await appRpc(desk, 'cancel_series', { p_series_id: c.seriesId, p_scope: 'past', p_reason_code: 'guest_request' }),
+      await appRpc(desk, 'cancel_series', {
+        p_series_id: c.seriesId,
+        p_scope: 'past',
+        p_reason_code: 'guest_request',
+      }),
     );
     expect(badScope.errorMessage).toContain('INVALID_SCOPE');
 
@@ -453,7 +520,8 @@ describe.skipIf(!up)('0066 reservation series', () => {
       p_reason_code: 'guest_request',
     });
     expect(cancel.error, cancel.error?.message).toBeNull();
-    const cancelled = (cancel.data as { cancelled: string[]; seriesCancelledAt: string | null }).cancelled;
+    const cancelled = (cancel.data as { cancelled: string[]; seriesCancelledAt: string | null })
+      .cancelled;
     expect([...cancelled].sort()).toEqual([...c.created].sort());
     expect(cancelled).not.toContain(playedId);
 
@@ -461,10 +529,18 @@ describe.skipIf(!up)('0066 reservation series', () => {
       .from('reservations')
       .select('id, status, cancellation_reason')
       .eq('series_id', c.seriesId);
-    const byId = new Map((rows as { id: string; status: string; cancellation_reason: string | null }[]).map((r) => [r.id, r]));
+    const byId = new Map(
+      (rows as { id: string; status: string; cancellation_reason: string | null }[]).map((r) => [
+        r.id,
+        r,
+      ]),
+    );
     expect(byId.get(playedId)).toMatchObject({ status: 'confirmed', cancellation_reason: null });
     for (const id of c.created) {
-      expect(byId.get(id)).toMatchObject({ status: 'cancelled', cancellation_reason: 'guest_request' });
+      expect(byId.get(id)).toMatchObject({
+        status: 'cancelled',
+        cancellation_reason: 'guest_request',
+      });
     }
 
     const { data: audit } = await svc
@@ -500,7 +576,11 @@ describe.skipIf(!up)('0066 reservation series', () => {
     });
     expect(again.error).toBeNull();
     expect((again.data as { cancelled: string[] }).cancelled).toEqual([]);
-    const { data: stillPlayed } = await svc.from('reservations').select('status').eq('id', playedId).single();
+    const { data: stillPlayed } = await svc
+      .from('reservations')
+      .select('status')
+      .eq('id', playedId)
+      .single();
     expect(stillPlayed).toEqual({ status: 'confirmed' });
   });
 
@@ -510,19 +590,29 @@ describe.skipIf(!up)('0066 reservation series', () => {
     for (const c of [cashier, guest]) {
       const preview = outcome(await appRpc(c, 'preview_series', WEEKLY(court)));
       expect(preview.errorMessage).toContain('FORBIDDEN');
-      const create = outcome(await appRpc(c, 'create_series', WEEKLY(court, '10:00', { p_guest_name: 'x' })));
+      const create = outcome(
+        await appRpc(c, 'create_series', WEEKLY(court, '10:00', { p_guest_name: 'x' })),
+      );
       expect(create.errorMessage).toContain('FORBIDDEN');
       const cancel = outcome(
-        await appRpc(c, 'cancel_series', { p_series_id: court, p_scope: 'future', p_reason_code: 'x' }),
+        await appRpc(c, 'cancel_series', {
+          p_series_id: court,
+          p_scope: 'future',
+          p_reason_code: 'x',
+        }),
       );
       expect(cancel.errorMessage).toContain('FORBIDDEN');
     }
 
     // Owned by the guest: the desk creates it against the guest's account.
-    const res = await appRpc(desk, 'create_series', WEEKLY(court, '10:00', {
-      p_guest_id: guestId,
-      p_idempotency_key: testIdemKey('series.create'),
-    }));
+    const res = await appRpc(
+      desk,
+      'create_series',
+      WEEKLY(court, '10:00', {
+        p_guest_id: guestId,
+        p_idempotency_key: testIdemKey('series.create'),
+      }),
+    );
     expect(res.error, res.error?.message).toBeNull();
     const seriesId = (res.data as Created).seriesId;
 
@@ -561,7 +651,10 @@ describe.skipIf(!up)('0066 reservation series', () => {
       guest_name: 'x',
     });
     expect(direct.error).not.toBeNull();
-    const tag = await desk.from('reservations').update({ series_id: null }).eq('series_id', seriesId);
+    const tag = await desk
+      .from('reservations')
+      .update({ series_id: null })
+      .eq('series_id', seriesId);
     expect(tag.error).not.toBeNull();
   });
 });

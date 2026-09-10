@@ -21,11 +21,29 @@ import { useLocale, pickName } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field } from '../../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, PageHeader, Panel, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
+import {
+  AsyncStateWrapper,
+  DataTable,
+  EmptyState,
+  MessagePresenter,
+  PageHeader,
+  Panel,
+  ResultCount,
+  StatusBadge,
+  TableSkeleton,
+  asyncStatus,
+  type Column,
+} from '../../../components/kit';
 import { BilingualFields, SortButtons } from '../../../components/inputs';
 import { Switch } from '../../../components/Switch';
 import { ImageField } from '../../../components/ImageField';
-import { DURATION_CHOICES, courtUsageFromError, durationsValid, toggleDuration, type CourtUsage } from './courtsLogic';
+import {
+  DURATION_CHOICES,
+  courtUsageFromError,
+  durationsValid,
+  toggleDuration,
+  type CourtUsage,
+} from './courtsLogic';
 
 interface CourtAdminRow {
   id: string;
@@ -46,7 +64,9 @@ const ALL_COURTS_KEY = ['courts', 'all'] as const;
 async function fetchAllCourts(): Promise<CourtAdminRow[]> {
   const { data, error } = await supabase
     .from('courts')
-    .select('id, name_en, name_ar, description_en, description_ar, indoor, photo_path, duration_options, sort_order, is_active')
+    .select(
+      'id, name_en, name_ar, description_en, description_ar, indoor, photo_path, duration_options, sort_order, is_active',
+    )
     .order('sort_order');
   if (error) throw error;
   return data as CourtAdminRow[];
@@ -80,7 +100,8 @@ export function CourtsAdmin() {
     reorder.mutate(ids);
   }
 
-  const durationsText = (c: CourtAdminRow) => c.duration_options.map((d) => tr('op.common.minutesShort', { minutes: d })).join(' / ');
+  const durationsText = (c: CourtAdminRow) =>
+    c.duration_options.map((d) => tr('op.common.minutesShort', { minutes: d })).join(' / ');
 
   const columns: Column<CourtAdminRow>[] = [
     {
@@ -89,7 +110,14 @@ export function CourtsAdmin() {
       width: '5.5rem',
       render: (c) => {
         const i = rows.indexOf(c);
-        return <SortButtons onUp={() => move(c.id, -1)} onDown={() => move(c.id, 1)} disabledUp={i === 0 || reorder.isPending} disabledDown={i === rows.length - 1 || reorder.isPending} />;
+        return (
+          <SortButtons
+            onUp={() => move(c.id, -1)}
+            onDown={() => move(c.id, 1)}
+            disabledUp={i === 0 || reorder.isPending}
+            disabledDown={i === rows.length - 1 || reorder.isPending}
+          />
+        );
       },
     },
     {
@@ -99,18 +127,35 @@ export function CourtsAdmin() {
         <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
           <bdi style={{ fontWeight: 600 }}>{pickName(locale, c)}</bdi>
           {(c.description_en || c.description_ar) && (
-            <bdi style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{locale === 'ar' ? c.description_ar || c.description_en : c.description_en || c.description_ar}</bdi>
+            <bdi style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+              {locale === 'ar'
+                ? c.description_ar || c.description_en
+                : c.description_en || c.description_ar}
+            </bdi>
           )}
         </span>
       ),
     },
-    { key: 'type', header: tr('ws.owner.courts.columns.type'), render: (c) => tr(c.indoor ? 'op.courts.indoor' : 'op.courts.outdoor') },
-    { key: 'durations', header: tr('ws.owner.courts.columns.durations'), render: (c) => <span dir="ltr">{durationsText(c)}</span> },
+    {
+      key: 'type',
+      header: tr('ws.owner.courts.columns.type'),
+      render: (c) => tr(c.indoor ? 'op.courts.indoor' : 'op.courts.outdoor'),
+    },
+    {
+      key: 'durations',
+      header: tr('ws.owner.courts.columns.durations'),
+      render: (c) => <span dir="ltr">{durationsText(c)}</span>,
+    },
     {
       key: 'status',
       header: tr('ws.owner.courts.columns.status'),
       width: '7rem',
-      render: (c) => (c.is_active ? <StatusBadge tone="success" size="sm" label={tr('op.courts.active')} /> : <StatusBadge tone="neutral" size="sm" label={tr('op.courts.inactive')} />),
+      render: (c) =>
+        c.is_active ? (
+          <StatusBadge tone="success" size="sm" label={tr('op.courts.active')} />
+        ) : (
+          <StatusBadge tone="neutral" size="sm" label={tr('op.courts.inactive')} />
+        ),
     },
     {
       key: 'actions',
@@ -143,10 +188,25 @@ export function CourtsAdmin() {
         onRetry={() => void courtsQ.refetch()}
         skeleton={<TableSkeleton columns={columns} />}
         emptyContent={
-          <EmptyState icon="court" title={tr('ws.owner.courts.emptyTitle')} body={tr('ws.owner.courts.emptyBody')} action={<Button kind="primary" onClick={() => setEditing('new')}>{tr('op.common.add')}</Button>} />
+          <EmptyState
+            icon="court"
+            title={tr('ws.owner.courts.emptyTitle')}
+            body={tr('ws.owner.courts.emptyBody')}
+            action={
+              <Button kind="primary" onClick={() => setEditing('new')}>
+                {tr('op.common.add')}
+              </Button>
+            }
+          />
         }
       >
-        <DataTable columns={columns} rows={rows} rowKey={(c) => c.id} selectedKey={editing && editing !== 'new' ? editing.id : null} aria-label={tr('op.courts.title')} />
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(c) => c.id}
+          selectedKey={editing && editing !== 'new' ? editing.id : null}
+          aria-label={tr('op.courts.title')}
+        />
       </AsyncStateWrapper>
 
       {editing && (
@@ -164,7 +224,15 @@ export function CourtsAdmin() {
   );
 }
 
-function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; onDone: () => void; onCancel: () => void }) {
+function CourtForm({
+  court,
+  onDone,
+  onCancel,
+}: {
+  court: CourtAdminRow | null;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
   const { tr, locale } = useLocale();
   const toast = useToast();
   const confirm = useConfirm();
@@ -282,29 +350,94 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
       style={{ marginBlockStart: 'var(--tp-sp-4)' }}
       data-testid="court-editor"
     >
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 13rem', gap: 'var(--tp-sp-5)', alignItems: 'start' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) 13rem',
+          gap: 'var(--tp-sp-5)',
+          alignItems: 'start',
+        }}
+      >
         <div>
           {/* Labels stay "Name (English)" / "Name (Arabic)": the e2e suite and the
               desk staff both know them by those names. */}
-          <BilingualFields labelEn={tr('op.courts.nameEn')} labelAr={tr('op.courts.nameAr')} en={nameEn} ar={nameAr} onEn={setNameEn} onAr={setNameAr} disabled={busy} maxLength={60} />
-          <BilingualFields labelEn={tr('op.courts.descEn')} labelAr={tr('op.courts.descAr')} en={descEn} ar={descAr} onEn={setDescEn} onAr={setDescAr} disabled={busy} multiline maxLength={300} />
+          <BilingualFields
+            labelEn={tr('op.courts.nameEn')}
+            labelAr={tr('op.courts.nameAr')}
+            en={nameEn}
+            ar={nameAr}
+            onEn={setNameEn}
+            onAr={setNameAr}
+            disabled={busy}
+            maxLength={60}
+          />
+          <BilingualFields
+            labelEn={tr('op.courts.descEn')}
+            labelAr={tr('op.courts.descAr')}
+            en={descEn}
+            ar={descAr}
+            onEn={setDescEn}
+            onAr={setDescAr}
+            disabled={busy}
+            multiline
+            maxLength={300}
+          />
 
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-5)', marginBlock: 'var(--tp-sp-2) var(--tp-sp-3)', flexWrap: 'wrap' }}>
-            <Switch checked={indoor} onChange={setIndoor} label={tr('op.courts.indoor')} disabled={busy} />
-            <Switch checked={active} onChange={setActive} label={tr('op.courts.active')} disabled={busy} />
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--tp-sp-5)',
+              marginBlock: 'var(--tp-sp-2) var(--tp-sp-3)',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Switch
+              checked={indoor}
+              onChange={setIndoor}
+              label={tr('op.courts.indoor')}
+              disabled={busy}
+            />
+            <Switch
+              checked={active}
+              onChange={setActive}
+              label={tr('op.courts.active')}
+              disabled={busy}
+            />
           </div>
 
-          <Field label={tr('op.courts.durations')} error={durationsValid(durations) ? undefined : tr('ws.kit.common.required')}>
-            <div role="group" aria-label={tr('op.courts.durations')} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
+          <Field
+            label={tr('op.courts.durations')}
+            error={durationsValid(durations) ? undefined : tr('ws.kit.common.required')}
+          >
+            <div
+              role="group"
+              aria-label={tr('op.courts.durations')}
+              style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}
+            >
               {DURATION_CHOICES.map((d) => (
-                <Button key={d} size="sm" kind={durations.includes(d) ? 'primary' : 'default'} aria-pressed={durations.includes(d)} disabled={busy} onClick={() => setDurations((prev) => toggleDuration(prev, d))}>
+                <Button
+                  key={d}
+                  size="sm"
+                  kind={durations.includes(d) ? 'primary' : 'default'}
+                  aria-pressed={durations.includes(d)}
+                  disabled={busy}
+                  onClick={() => setDurations((prev) => toggleDuration(prev, d))}
+                >
                   {tr('op.common.minutesShort', { minutes: d })}
                 </Button>
               ))}
             </div>
           </Field>
         </div>
-        <ImageField label={tr('op.courts.photo')} value={photo} onChange={setPhoto} folder="courts" ownerId={court?.id ?? 'new'} aspect="16:9" disabled={busy} />
+        <ImageField
+          label={tr('op.courts.photo')}
+          value={photo}
+          onChange={setPhoto}
+          folder="courts"
+          ownerId={court?.id ?? 'new'}
+          aspect="16:9"
+          disabled={busy}
+        />
       </div>
 
       <ErrorText error={error} />
@@ -312,7 +445,12 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
         <MessagePresenter
           tone="refused"
           rise
-          style={{ marginBlockEnd: 'var(--tp-sp-3)', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--tp-sp-2)' }}
+          style={{
+            marginBlockEnd: 'var(--tp-sp-3)',
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            gap: 'var(--tp-sp-2)',
+          }}
           message={
             <>
               <p>
@@ -323,9 +461,17 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
                   rules: inUse.rate_rules,
                 })}
               </p>
-              <p style={{ marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.owner.courts.deleteInUseFix')}</p>
+              <p style={{ marginBlockStart: 'var(--tp-sp-1)' }}>
+                {tr('ws.owner.courts.deleteInUseFix')}
+              </p>
               <div style={{ marginBlockStart: 'var(--tp-sp-2)' }}>
-                <Button size="sm" icon="check" busy={deleting} disabled={busy} onClick={() => void deactivate()}>
+                <Button
+                  size="sm"
+                  icon="check"
+                  busy={deleting}
+                  disabled={busy}
+                  onClick={() => void deactivate()}
+                >
                   {tr('ws.owner.courts.deactivate')}
                 </Button>
               </div>

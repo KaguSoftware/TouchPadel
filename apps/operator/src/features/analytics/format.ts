@@ -79,7 +79,9 @@ export function makeFormatters(locale: Locale): Formatters {
     },
     date: (iso, withYear = false) => (withYear ? dayMonthYear : dayMonth).format(parseIso(iso)),
     dateRange: (from, to) =>
-      from === to ? dayMonth.format(parseIso(from)) : `${dayMonth.format(parseIso(from))} – ${dayMonth.format(parseIso(to))}`,
+      from === to
+        ? dayMonth.format(parseIso(from))
+        : `${dayMonth.format(parseIso(from))} – ${dayMonth.format(parseIso(to))}`,
     duration: (seconds) => {
       const s = Math.max(0, Math.round(seconds));
       const m = Math.floor(s / 60);
@@ -90,7 +92,7 @@ export function makeFormatters(locale: Locale): Formatters {
       return `${m}${unitM} ${String(rest).padStart(2, '0')}${unitS}`;
     },
     hour: (h) => `${String(h).padStart(2, '0')}:00`,
-    weekday: (dow) => weekdayNf.format(new Date(Date.UTC(2024, 8, 1 + ((dow % 7) + 7) % 7))), // 2024-09-01 is a Sunday
+    weekday: (dow) => weekdayNf.format(new Date(Date.UTC(2024, 8, 1 + (((dow % 7) + 7) % 7)))), // 2024-09-01 is a Sunday
   };
   cache.set(locale, f);
   return f;

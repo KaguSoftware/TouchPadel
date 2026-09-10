@@ -42,7 +42,11 @@ describe('courtUsageFromError', () => {
     // the numbers; throwing here would show them neither.
     const zero = { reservations: 0, series: 0, rate_rules: 0 };
     expect(courtUsageFromError(new AppRpcError('COURT_IN_USE', 'COURT_IN_USE'))).toEqual(zero);
-    expect(courtUsageFromError(new AppRpcError('COURT_IN_USE', 'x', undefined, 'not json'))).toEqual(zero);
-    expect(courtUsageFromError(new AppRpcError('COURT_IN_USE', 'x', undefined, '{"reservations":"?"}'))).toEqual(zero);
+    expect(
+      courtUsageFromError(new AppRpcError('COURT_IN_USE', 'x', undefined, 'not json')),
+    ).toEqual(zero);
+    expect(
+      courtUsageFromError(new AppRpcError('COURT_IN_USE', 'x', undefined, '{"reservations":"?"}')),
+    ).toEqual(zero);
   });
 });

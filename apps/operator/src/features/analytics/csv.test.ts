@@ -21,8 +21,6 @@ describe('toCsv', () => {
     expect(toCsv(['a'], [['=1+1']]).slice(1)).toBe("a\r\n'=1+1\r\n");
   });
   it('keeps Arabic text intact', () => {
-    expect(toCsv(['الصنف'], [['قهوة']]).slice(1)).toBe(
-      'الصنف\r\nقهوة\r\n',
-    );
+    expect(toCsv(['الصنف'], [['قهوة']]).slice(1)).toBe('الصنف\r\nقهوة\r\n');
   });
 });

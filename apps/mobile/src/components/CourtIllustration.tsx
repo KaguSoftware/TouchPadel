@@ -22,19 +22,44 @@ const VBH = 396;
 const TURF = { x: 26, y: 8, w: 268, h: 380, r: 5 };
 
 // Keyframes traced from the design's @keyframes tpball / tpshade (6.6s loop).
-const T = [0, 0.09, 0.15, 0.21, 0.25, 0.34, 0.4, 0.46, 0.5, 0.59, 0.65, 0.71, 0.75, 0.84, 0.9, 0.96, 1];
-const BX = [102.4, 102.4, 102.4, 102.4, 102.4, 165.8, 203.8, 217.6, 217.6, 217.6, 217.6, 217.6, 217.6, 154.2, 116.2, 102.4, 102.4];
-const BY = [92, 208.6, 278.6, 304, 304, 187.4, 117.4, 92, 92, 208.6, 278.6, 304, 304, 187.4, 117.4, 92, 92];
+const T = [
+  0, 0.09, 0.15, 0.21, 0.25, 0.34, 0.4, 0.46, 0.5, 0.59, 0.65, 0.71, 0.75, 0.84, 0.9, 0.96, 1,
+];
+const BX = [
+  102.4, 102.4, 102.4, 102.4, 102.4, 165.8, 203.8, 217.6, 217.6, 217.6, 217.6, 217.6, 217.6, 154.2,
+  116.2, 102.4, 102.4,
+];
+const BY = [
+  92, 208.6, 278.6, 304, 304, 187.4, 117.4, 92, 92, 208.6, 278.6, 304, 304, 187.4, 117.4, 92, 92,
+];
 const BS = [1, 1.3, 1.07, 1, 1, 1.4, 1.07, 1, 1, 1.3, 1.07, 1, 1, 1.4, 1.07, 1, 1];
 const SHS = [1, 0.58, 0.92, 1, 1, 0.58, 0.92, 1, 1, 0.58, 0.92, 1, 1, 0.58, 0.92, 1, 1];
-const SHO = [0.3, 0.12, 0.26, 0.3, 0.3, 0.12, 0.26, 0.3, 0.3, 0.12, 0.26, 0.3, 0.3, 0.12, 0.26, 0.3, 0.3];
+const SHO = [
+  0.3, 0.12, 0.26, 0.3, 0.3, 0.12, 0.26, 0.3, 0.3, 0.12, 0.26, 0.3, 0.3, 0.12, 0.26, 0.3, 0.3,
+];
 
 // Racket sway loops (design tpp1..tpp4): per-racket [t, dx, dy] keyframes.
 const SWAY: [number[], number[], number[]][] = [
-  [[0, 0.08, 0.46, 0.75, 0.92, 1], [0, -3, 6, 2, -4, 0], [0, -2, 10, 4, -1, 0]],
-  [[0, 0.25, 0.46, 0.62, 1], [2, 6, -2, 4, 2], [2, -4, -1, -8, 2]],
-  [[0, 0.21, 0.5, 0.71, 1], [0, -6, -2, -4, 0], [0, 9, 3, -2, 0]],
-  [[0, 0.17, 0.25, 0.58, 1], [-2, -8, -5, 3, -2], [0, -3, -1, 5, 0]],
+  [
+    [0, 0.08, 0.46, 0.75, 0.92, 1],
+    [0, -3, 6, 2, -4, 0],
+    [0, -2, 10, 4, -1, 0],
+  ],
+  [
+    [0, 0.25, 0.46, 0.62, 1],
+    [2, 6, -2, 4, 2],
+    [2, -4, -1, -8, 2],
+  ],
+  [
+    [0, 0.21, 0.5, 0.71, 1],
+    [0, -6, -2, -4, 0],
+    [0, 9, 3, -2, 0],
+  ],
+  [
+    [0, 0.17, 0.25, 0.58, 1],
+    [-2, -8, -5, 3, -2],
+    [0, -3, -1, 5, 0],
+  ],
 ];
 
 const RACKETS = [
@@ -54,7 +79,15 @@ function Racket({ green, rotate, up }: { green?: boolean; rotate: number; up?: b
   return (
     <Svg width={44} height={58} viewBox="-14 -22 28 44">
       <G rotation={rotate}>
-        <Ellipse cx={0} cy={-3 * dir} rx={7.2} ry={8.4} fill={face} stroke={edge} strokeWidth={1.6} />
+        <Ellipse
+          cx={0}
+          cy={-3 * dir}
+          rx={7.2}
+          ry={8.4}
+          fill={face}
+          stroke={edge}
+          strokeWidth={1.6}
+        />
         <Circle cx={-2.7} cy={-5.4 * dir} r={0.9} fill={dots} opacity={dotOpacity} />
         <Circle cx={2.7} cy={-5.4 * dir} r={0.9} fill={dots} opacity={dotOpacity} />
         <Circle cx={0} cy={-2.4 * dir} r={0.9} fill={dots} opacity={dotOpacity} />
@@ -192,8 +225,18 @@ function CourtIllustrationImpl({ maxHeight }: { maxHeight?: number }) {
               strokeWidth={1.6}
               opacity={0.9}
             />
-            <Path d="M40 108h240M40 288h240" stroke={colors.crtLine} strokeWidth={1.4} opacity={0.7} />
-            <Path d="M160 22v86M160 288v86" stroke={colors.crtLine} strokeWidth={1.4} opacity={0.7} />
+            <Path
+              d="M40 108h240M40 288h240"
+              stroke={colors.crtLine}
+              strokeWidth={1.4}
+              opacity={0.7}
+            />
+            <Path
+              d="M160 22v86M160 288v86"
+              stroke={colors.crtLine}
+              strokeWidth={1.4}
+              opacity={0.7}
+            />
             {/* net */}
             <Path d="M20 198h280" stroke={brand.green} strokeWidth={2.6} opacity={0.95} />
             <Path
@@ -244,7 +287,10 @@ function CourtIllustrationImpl({ maxHeight }: { maxHeight?: number }) {
               backgroundColor: colors.crtShadow,
               opacity: still ? 0.3 : anim.shO,
               transform: still
-                ? [{ translateX: BX[0]! * k - shW / 2 }, { translateY: (BY[0]! + 7.1) * k - shH / 2 }]
+                ? [
+                    { translateX: BX[0]! * k - shW / 2 },
+                    { translateY: (BY[0]! + 7.1) * k - shH / 2 },
+                  ]
                 : [{ translateX: anim.shX }, { translateY: anim.shY }, { scale: anim.shS }],
             }}
           />
@@ -260,7 +306,10 @@ function CourtIllustrationImpl({ maxHeight }: { maxHeight?: number }) {
               backgroundColor: brand.ballFill,
               opacity: 0.28,
               transform: still
-                ? [{ translateX: BX[0]! * k - glowSize / 2 }, { translateY: BY[0]! * k - glowSize / 2 }]
+                ? [
+                    { translateX: BX[0]! * k - glowSize / 2 },
+                    { translateY: BY[0]! * k - glowSize / 2 },
+                  ]
                 : [{ translateX: anim.glowX }, { translateY: anim.glowY }, { scale: 1.6 }],
             }}
           />

@@ -43,8 +43,7 @@ async function lastAudit(svc: SupabaseClient, reservationId: string) {
     .order('at', { ascending: false }) // audit_log's timestamp column is `at` (0005), not created_at
     .limit(1);
   return (data ?? [])[0] as
-    | { action: string; reason_code: string | null; after: Record<string, unknown> }
-    | undefined;
+    { action: string; reason_code: string | null; after: Record<string, unknown> } | undefined;
 }
 
 describe.skipIf(!up)('0071 booking integrity (SEC-07 / 09 / 10 / 11)', () => {
@@ -180,10 +179,7 @@ describe.skipIf(!up)('0071 booking integrity (SEC-07 / 09 / 10 / 11)', () => {
 
       // The constraint is evaluated on UPDATE as well as INSERT, so a repair
       // script cannot orphan a live hold either.
-      const { error } = await svc
-        .from('reservations')
-        .update({ guest_id: null })
-        .eq('id', holdId);
+      const { error } = await svc.from('reservations').update({ guest_id: null }).eq('id', holdId);
       expect(error).not.toBeNull();
       expect(error?.message).toMatch(/reservations_live_hold_has_guest/);
     });

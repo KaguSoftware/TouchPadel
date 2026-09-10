@@ -23,7 +23,11 @@ import {
   type SetupState,
 } from './stationSetup';
 
-const MODE_ICON: Record<StationMode, IconName> = { till: 'receipt', desk: 'calendar', kds: 'flame' };
+const MODE_ICON: Record<StationMode, IconName> = {
+  till: 'receipt',
+  desk: 'calendar',
+  kds: 'flame',
+};
 
 /** The PIN-field treatment (kit.tsx PinPromptOverlay), minus the masking. */
 const codeInputStyle = {
@@ -68,12 +72,23 @@ export function StationSetupScreen({ state, appVersion, dispatch }: StationSetup
           <BrandSwoosh opacity={0.5} />
         </div>
         <BrandLockup size={40} tone="onDark" style={{ position: 'relative' }} />
-        <p style={{ position: 'relative', fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, lineHeight: 1.1, maxInlineSize: '11ch' }}>
+        <p
+          style={{
+            position: 'relative',
+            fontSize: 'var(--tp-fs-3xl)',
+            fontWeight: 700,
+            lineHeight: 1.1,
+            maxInlineSize: '11ch',
+          }}
+        >
           {tr('ws.shell.setup.title')}
         </p>
       </aside>
       <div style={{ display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
-        <div className="tp-rise" style={{ inlineSize: 'min(36rem, 100%)', display: 'grid', gap: 'var(--tp-sp-2)' }}>
+        <div
+          className="tp-rise"
+          style={{ inlineSize: 'min(36rem, 100%)', display: 'grid', gap: 'var(--tp-sp-2)' }}
+        >
           <Step state={state} dispatch={dispatch} />
           <footer
             style={{
@@ -132,7 +147,12 @@ function Step({ state, dispatch }: { state: SetupState; dispatch: (a: SetupActio
         </StepFrame>
       );
     case 'notFound': {
-      const key = { none: 'none', 'bad-code': 'badCode', 'no-lan': 'noLan', unreachable: 'unreachable' } as const;
+      const key = {
+        none: 'none',
+        'bad-code': 'badCode',
+        'no-lan': 'noLan',
+        unreachable: 'unreachable',
+      } as const;
       return (
         <StepFrame title={tr('ws.shell.setup.mode.kds')}>
           <p role="alert" style={alertStyle}>
@@ -141,7 +161,9 @@ function Step({ state, dispatch }: { state: SetupState; dispatch: (a: SetupActio
           <Actions>
             <Button onClick={() => dispatch({ type: 'back' })}>{tr('ws.shell.setup.back')}</Button>
             {canSaveAnyway(state) && (
-              <Button onClick={() => dispatch({ type: 'saveAnyway' })}>{tr('ws.shell.setup.saveAnyway')}</Button>
+              <Button onClick={() => dispatch({ type: 'saveAnyway' })}>
+                {tr('ws.shell.setup.saveAnyway')}
+              </Button>
             )}
             <Button kind="primary" onClick={() => dispatch({ type: 'retry' })}>
               {tr('ws.shell.setup.retry')}
@@ -163,7 +185,9 @@ function Step({ state, dispatch }: { state: SetupState; dispatch: (a: SetupActio
       return (
         <StepFrame title={tr(`ws.shell.setup.mode.${state.details.mode}`)}>
           <p role="alert" style={alertStyle}>
-            {state.error === 'already-configured' ? tr('ws.shell.setup.alreadyConfigured') : tr('ws.shell.setup.failed')}
+            {state.error === 'already-configured'
+              ? tr('ws.shell.setup.alreadyConfigured')
+              : tr('ws.shell.setup.failed')}
           </p>
           <Actions>
             <Button onClick={() => dispatch({ type: 'back' })}>{tr('ws.shell.setup.back')}</Button>
@@ -196,7 +220,14 @@ function StepFrame({ title, children }: { title: string; children: ReactNode }) 
 
 function Actions({ children }: { children: ReactNode }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)' }}>
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: 'var(--tp-sp-2)',
+        marginBlockStart: 'var(--tp-sp-2)',
+      }}
+    >
       {children}
     </div>
   );
@@ -207,7 +238,13 @@ function ModeStep({ dispatch }: { dispatch: (a: SetupAction) => void }) {
   return (
     <StepFrame title={tr('ws.shell.setup.title')}>
       <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.setup.lead')}</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))',
+          gap: 'var(--tp-sp-3)',
+        }}
+      >
         {STATION_MODES.map((mode) => (
           <button
             key={mode}
@@ -240,7 +277,9 @@ function ModeStep({ dispatch }: { dispatch: (a: SetupAction) => void }) {
             >
               <Icon name={MODE_ICON[mode]} size={18} />
             </span>
-            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-lg)' }}>{tr(`ws.shell.setup.mode.${mode}`)}</span>
+            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-lg)' }}>
+              {tr(`ws.shell.setup.mode.${mode}`)}
+            </span>
             <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
               {tr(`ws.shell.setup.modeLead.${mode}`)}
             </span>
@@ -300,7 +339,12 @@ function DetailsStep({ d, dispatch }: { d: DetailsState; dispatch: (a: SetupActi
               />
             </Field>
             <div>
-              <Button kind="ghost" size="sm" aria-expanded={d.showAdvanced} onClick={() => dispatch({ type: 'toggleAdvanced' })}>
+              <Button
+                kind="ghost"
+                size="sm"
+                aria-expanded={d.showAdvanced}
+                onClick={() => dispatch({ type: 'toggleAdvanced' })}
+              >
                 {tr('ws.shell.setup.advanced')}
               </Button>
             </div>

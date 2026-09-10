@@ -31,21 +31,12 @@
   ],
   "timezone": "Asia/Baghdad",
   "utcOffsetHours": 3,
-  "courtRefs": [
-    "a",
-    "b"
-  ],
+  "courtRefs": ["a", "b"],
   "rules": [
     {
       "id": "g_offpeak",
       "courtRef": null,
-      "daysOfWeek": [
-        0,
-        1,
-        2,
-        3,
-        4
-      ],
+      "daysOfWeek": [0, 1, 2, 3, 4],
       "startTime": "09:00",
       "endTime": "17:00",
       "priority": 100,
@@ -61,13 +52,7 @@
     {
       "id": "g_peak",
       "courtRef": null,
-      "daysOfWeek": [
-        0,
-        1,
-        2,
-        3,
-        4
-      ],
+      "daysOfWeek": [0, 1, 2, 3, 4],
       "startTime": "17:00",
       "endTime": "23:00",
       "priority": 110,
@@ -83,10 +68,7 @@
     {
       "id": "g_weekend",
       "courtRef": null,
-      "daysOfWeek": [
-        5,
-        6
-      ],
+      "daysOfWeek": [5, 6],
       "startTime": "09:00",
       "endTime": "23:00",
       "priority": 105,
@@ -102,13 +84,7 @@
     {
       "id": "g_wd_late",
       "courtRef": null,
-      "daysOfWeek": [
-        0,
-        1,
-        2,
-        3,
-        4
-      ],
+      "daysOfWeek": [0, 1, 2, 3, 4],
       "startTime": "23:00",
       "endTime": "24:00",
       "priority": 110,
@@ -124,13 +100,7 @@
     {
       "id": "g_wd_tail",
       "courtRef": null,
-      "daysOfWeek": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
+      "daysOfWeek": [1, 2, 3, 4, 5],
       "startTime": "00:00",
       "endTime": "02:00",
       "priority": 110,
@@ -146,10 +116,7 @@
     {
       "id": "g_we_late",
       "courtRef": null,
-      "daysOfWeek": [
-        5,
-        6
-      ],
+      "daysOfWeek": [5, 6],
       "startTime": "23:00",
       "endTime": "24:00",
       "priority": 105,
@@ -165,10 +132,7 @@
     {
       "id": "g_we_tail",
       "courtRef": null,
-      "daysOfWeek": [
-        6,
-        0
-      ],
+      "daysOfWeek": [6, 0],
       "startTime": "00:00",
       "endTime": "02:00",
       "priority": 105,
@@ -184,15 +148,7 @@
     {
       "id": "g_court_a",
       "courtRef": "a",
-      "daysOfWeek": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
+      "daysOfWeek": [0, 1, 2, 3, 4, 5, 6],
       "startTime": "09:00",
       "endTime": "23:00",
       "priority": 50,
@@ -208,15 +164,7 @@
     {
       "id": "g_promo",
       "courtRef": "b",
-      "daysOfWeek": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
+      "daysOfWeek": [0, 1, 2, 3, 4, 5, 6],
       "startTime": "09:00",
       "endTime": "23:00",
       "priority": 999,
@@ -230,15 +178,7 @@
     {
       "id": "g_retired",
       "courtRef": "b",
-      "daysOfWeek": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
+      "daysOfWeek": [0, 1, 2, 3, 4, 5, 6],
       "startTime": "00:00",
       "endTime": "23:59",
       "priority": 9999,

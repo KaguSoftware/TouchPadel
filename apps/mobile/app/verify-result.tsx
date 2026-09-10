@@ -41,9 +41,9 @@ export default function VerifyResultScreen() {
     : '';
   // Design bolds the slot label inside the sentence; split the translated
   // template around a placeholder so the bold span sits where the language puts it.
-  const [pendingLead = '', pendingTail = ''] = t('auth.verifiedPending', { label: LABEL_SLOT }).split(
-    LABEL_SLOT,
-  );
+  const [pendingLead = '', pendingTail = ''] = t('auth.verifiedPending', {
+    label: LABEL_SLOT,
+  }).split(LABEL_SLOT);
 
   return (
     <Screen padded={false} edges={['top', 'bottom']}>
@@ -96,7 +96,9 @@ export default function VerifyResultScreen() {
             <>
               {' '}
               {pendingLead}
-              <Text style={{ fontFamily: fonts.body800, color: colors.ink }}>{isolate(pendingLabel)}</Text>
+              <Text style={{ fontFamily: fonts.body800, color: colors.ink }}>
+                {isolate(pendingLabel)}
+              </Text>
               {pendingTail}
             </>
           ) : null}

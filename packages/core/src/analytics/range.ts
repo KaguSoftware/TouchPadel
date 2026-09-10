@@ -124,7 +124,8 @@ export function resolveRange(
   todayISO: string,
 ): { preset: RangePreset; range: DateRange } {
   if (params.range === 'custom' && isIsoDate(params.from) && isIsoDate(params.to)) {
-    const [from, to] = params.from <= params.to ? [params.from, params.to] : [params.to, params.from];
+    const [from, to] =
+      params.from <= params.to ? [params.from, params.to] : [params.to, params.from];
     return { preset: 'custom', range: { from, to } };
   }
   const preset: Exclude<RangePreset, 'custom'> =
@@ -145,7 +146,8 @@ export function resolveCompare(
   const basis: CompareBasis = cmp === '4w' || cmp === '52w' ? cmp : 'prev';
   return {
     basis,
-    range: basis === 'prev' ? previousRange(range) : shiftRange(range, COMPARE_BASIS_SHIFT_DAYS[basis]),
+    range:
+      basis === 'prev' ? previousRange(range) : shiftRange(range, COMPARE_BASIS_SHIFT_DAYS[basis]),
   };
 }
 

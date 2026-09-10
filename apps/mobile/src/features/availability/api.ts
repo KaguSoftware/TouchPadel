@@ -59,7 +59,9 @@ export async function fetchDayAvailability(
 export async function fetchRateRules(client: Client): Promise<RateRuleRow[]> {
   const { data, error } = await client
     .from('rate_rules')
-    .select('id, court_id, days_of_week, start_time, end_time, priority, valid_from, valid_to, is_active')
+    .select(
+      'id, court_id, days_of_week, start_time, end_time, priority, valid_from, valid_to, is_active',
+    )
     .eq('is_active', true);
   if (error) throw error;
   return (data ?? []) as RateRuleRow[];

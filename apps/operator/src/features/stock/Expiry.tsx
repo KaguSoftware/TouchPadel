@@ -15,7 +15,20 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { usePermissions, requiredRoleFor } from '../../lib/auth';
 import { useToast } from '../../components/toast';
 import { Button, PinReasonModal } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, Money, PageHeader, Panel, PermissionRefusedNotice, SegmentedControl, StatusBadge, asyncStatus, type Column } from '../../components/kit';
+import {
+  AsyncStateWrapper,
+  DataTable,
+  EmptyState,
+  ExportButton,
+  Money,
+  PageHeader,
+  Panel,
+  PermissionRefusedNotice,
+  SegmentedControl,
+  StatusBadge,
+  asyncStatus,
+  type Column,
+} from '../../components/kit';
 import { downloadCsv, toCsv } from '../analytics/csv';
 import { SK } from './stockKeys';
 
@@ -47,7 +60,10 @@ export function Expiry() {
   const expiringQ = useQuery({
     queryKey: SK.expiring,
     queryFn: async (): Promise<BatchRow[]> => {
-      const { data, error: err } = await supabase.from('v_expiring_soon').select('*').order('expiry_date');
+      const { data, error: err } = await supabase
+        .from('v_expiring_soon')
+        .select('*')
+        .order('expiry_date');
       if (err) throw err;
       return data as BatchRow[];
     },
@@ -55,7 +71,10 @@ export function Expiry() {
   const expiredQ = useQuery({
     queryKey: SK.expired,
     queryFn: async (): Promise<BatchRow[]> => {
-      const { data, error: err } = await supabase.from('v_expired').select('*').order('expiry_date');
+      const { data, error: err } = await supabase
+        .from('v_expired')
+        .select('*')
+        .order('expiry_date');
       if (err) throw err;
       return data as BatchRow[];
     },
@@ -66,7 +85,11 @@ export function Expiry() {
     setBusy(true);
     setError(null);
     try {
-      await appRpc('write_off_expired', { p_batch_id: writeOff.batch_id, p_pin: pin, p_reason_code: reasonCode });
+      await appRpc('write_off_expired', {
+        p_batch_id: writeOff.batch_id,
+        p_pin: pin,
+        p_reason_code: reasonCode,
+      });
       toast.ok(tr('op.toast.saved'));
       setWriteOff(null);
       void queryClient.invalidateQueries({ queryKey: ['stock'] });
@@ -77,14 +100,40 @@ export function Expiry() {
     }
   }
 
-  const expiring = (expiringQ.data ?? []).filter((b) => window === 'all' || (b.days_left ?? 0) <= Number(window));
+  const expiring = (expiringQ.data ?? []).filter(
+    (b) => window === 'all' || (b.days_left ?? 0) <= Number(window),
+  );
   const expired = expiredQ.data ?? [];
 
   function exportCsv() {
-    const headers = [tr('op.stock.ingredient'), tr('ws.manager.stock.expiry.batch'), tr('ws.manager.stock.expiry.remaining'), tr('op.stock.unit'), tr('ws.manager.stock.expiry.unitCost'), tr('op.stock.expiry'), tr('ws.manager.stock.overview.status')];
+    const headers = [
+      tr('op.stock.ingredient'),
+      tr('ws.manager.stock.expiry.batch'),
+      tr('ws.manager.stock.expiry.remaining'),
+      tr('op.stock.unit'),
+      tr('ws.manager.stock.expiry.unitCost'),
+      tr('op.stock.expiry'),
+      tr('ws.manager.stock.overview.status'),
+    ];
     const rows = [
-      ...expired.map((b) => [b.name_en, b.batch_id, b.qty_remaining, b.unit, b.unit_cost_iqd, b.expiry_date, 'expired']),
-      ...expiring.map((b) => [b.name_en, b.batch_id, b.qty_remaining, b.unit, b.unit_cost_iqd, b.expiry_date, 'expiring']),
+      ...expired.map((b) => [
+        b.name_en,
+        b.batch_id,
+        b.qty_remaining,
+        b.unit,
+        b.unit_cost_iqd,
+        b.expiry_date,
+        'expired',
+      ]),
+      ...expiring.map((b) => [
+        b.name_en,
+        b.batch_id,
+        b.qty_remaining,
+        b.unit,
+        b.unit_cost_iqd,
+        b.expiry_date,
+        'expiring',
+      ]),
     ];
     downloadCsv('expiry.csv', toCsv(headers, rows));
   }
@@ -104,18 +153,39 @@ export function Expiry() {
         </span>
       ),
     },
-    { key: 'remaining', header: tr('ws.manager.stock.expiry.remaining'), numeric: true, render: (b) => <span dir="ltr">{b.qty_remaining} {b.unit}</span> },
-    { key: 'cost', header: tr('ws.manager.stock.expiry.unitCost'), numeric: true, render: (b) => <Money amount={b.unit_cost_iqd} /> },
+    {
+      key: 'remaining',
+      header: tr('ws.manager.stock.expiry.remaining'),
+      numeric: true,
+      render: (b) => (
+        <span dir="ltr">
+          {b.qty_remaining} {b.unit}
+        </span>
+      ),
+    },
+    {
+      key: 'cost',
+      header: tr('ws.manager.stock.expiry.unitCost'),
+      numeric: true,
+      render: (b) => <Money amount={b.unit_cost_iqd} />,
+    },
     {
       key: 'expiry',
-      header: tone === 'danger' ? tr('ws.manager.stock.expiry.expiredOn') : tr('ws.manager.stock.expiry.expiresOn'),
+      header:
+        tone === 'danger'
+          ? tr('ws.manager.stock.expiry.expiredOn')
+          : tr('ws.manager.stock.expiry.expiresOn'),
       render: (b) => (
         <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
           <bdi>{formatDate(new Date(`${b.expiry_date}T00:00:00`), locale)}</bdi>
           <StatusBadge
             size="sm"
             tone={tone}
-            label={tone === 'danger' ? tr('op.stock.daysExpired', { days: formatNumber(b.days_expired ?? 0, locale) }) : tr('op.stock.daysLeft', { days: formatNumber(b.days_left ?? 0, locale) })}
+            label={
+              tone === 'danger'
+                ? tr('op.stock.daysExpired', { days: formatNumber(b.days_expired ?? 0, locale) })
+                : tr('op.stock.daysLeft', { days: formatNumber(b.days_left ?? 0, locale) })
+            }
           />
         </span>
       ),
@@ -129,7 +199,13 @@ export function Expiry() {
       header: '',
       align: 'end',
       render: (b) => (
-        <Button kind="danger" size="sm" icon="ban" disabled={busy || !can.adjustStock} onClick={() => setWriteOff(b)}>
+        <Button
+          kind="danger"
+          size="sm"
+          icon="ban"
+          disabled={busy || !can.adjustStock}
+          onClick={() => setWriteOff(b)}
+        >
           {tr('op.stock.writeOff')}
         </Button>
       ),
@@ -141,14 +217,40 @@ export function Expiry() {
       <PageHeader
         title={tr('op.stockNav.expiry')}
         subtitle={tr('ws.manager.stock.expiry.lead')}
-        actions={<ExportButton onExport={exportCsv} disabled={expired.length + expiring.length === 0} />}
+        actions={
+          <ExportButton onExport={exportCsv} disabled={expired.length + expiring.length === 0} />
+        }
       >
-        {!can.adjustStock && <PermissionRefusedNotice action={tr('op.stock.writeOff')} requiredRole={requiredRoleFor('adjustStock')} />}
+        {!can.adjustStock && (
+          <PermissionRefusedNotice
+            action={tr('op.stock.writeOff')}
+            requiredRole={requiredRoleFor('adjustStock')}
+          />
+        )}
       </PageHeader>
 
       <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-        <Panel title={tr('op.stock.expiredTitle')} padded={false} actions={<StatusBadge size="sm" tone={expired.length > 0 ? 'danger' : 'neutral'} label={formatNumber(expired.length, locale)} />}>
-          <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.expiry.writeOffLead')}</p>
+        <Panel
+          title={tr('op.stock.expiredTitle')}
+          padded={false}
+          actions={
+            <StatusBadge
+              size="sm"
+              tone={expired.length > 0 ? 'danger' : 'neutral'}
+              label={formatNumber(expired.length, locale)}
+            />
+          }
+        >
+          <p
+            style={{
+              paddingBlock: 'var(--tp-sp-2)',
+              paddingInline: 'var(--tp-sp-3)',
+              fontSize: 'var(--tp-fs-sm)',
+              color: 'var(--tp-muted-fg)',
+            }}
+          >
+            {tr('ws.manager.stock.expiry.writeOffLead')}
+          </p>
           <AsyncStateWrapper
             compact
             status={asyncStatus(expiredQ, (d) => d.length === 0)}
@@ -156,11 +258,20 @@ export function Expiry() {
             onRetry={() => void expiredQ.refetch()}
             emptyContent={
               <div style={{ padding: 'var(--tp-sp-3)' }}>
-                <EmptyState compact icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpired')} />
+                <EmptyState
+                  compact
+                  icon="checkCircle"
+                  title={tr('ws.manager.stock.expiry.noneExpired')}
+                />
               </div>
             }
           >
-            <DataTable columns={expiredColumns} rows={expired} rowKey={(b) => b.batch_id} aria-label={tr('op.stock.expiredTitle')} />
+            <DataTable
+              columns={expiredColumns}
+              rows={expired}
+              rowKey={(b) => b.batch_id}
+              aria-label={tr('op.stock.expiredTitle')}
+            />
           </AsyncStateWrapper>
         </Panel>
 
@@ -169,7 +280,9 @@ export function Expiry() {
           padded={false}
           actions={
             <>
-              <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.expiry.window')}</span>
+              <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+                {tr('ws.manager.stock.expiry.window')}
+              </span>
               <SegmentedControl<Window>
                 size="sm"
                 value={window}
@@ -186,16 +299,29 @@ export function Expiry() {
         >
           <AsyncStateWrapper
             compact
-            status={expiringQ.data && expiring.length === 0 ? 'empty' : asyncStatus(expiringQ, (d) => d.length === 0)}
+            status={
+              expiringQ.data && expiring.length === 0
+                ? 'empty'
+                : asyncStatus(expiringQ, (d) => d.length === 0)
+            }
             error={expiringQ.error}
             onRetry={() => void expiringQ.refetch()}
             emptyContent={
               <div style={{ padding: 'var(--tp-sp-3)' }}>
-                <EmptyState compact icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpiring')} />
+                <EmptyState
+                  compact
+                  icon="checkCircle"
+                  title={tr('ws.manager.stock.expiry.noneExpiring')}
+                />
               </div>
             }
           >
-            <DataTable columns={baseColumns('warn')} rows={expiring} rowKey={(b) => b.batch_id} aria-label={tr('op.stock.expiringTitle')} />
+            <DataTable
+              columns={baseColumns('warn')}
+              rows={expiring}
+              rowKey={(b) => b.batch_id}
+              aria-label={tr('op.stock.expiringTitle')}
+            />
           </AsyncStateWrapper>
         </Panel>
       </div>
@@ -212,9 +338,16 @@ export function Expiry() {
             setError(null);
           }}
         >
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
+          <p
+            style={{
+              fontSize: 'var(--tp-fs-sm)',
+              color: 'var(--tp-muted-fg)',
+              marginBlockEnd: 'var(--tp-sp-2-5)',
+            }}
+          >
             <bdi>
-              {writeOff.qty_remaining} {writeOff.unit} · {formatDate(new Date(`${writeOff.expiry_date}T00:00:00`), locale)}
+              {writeOff.qty_remaining} {writeOff.unit} ·{' '}
+              {formatDate(new Date(`${writeOff.expiry_date}T00:00:00`), locale)}
             </bdi>
           </p>
         </PinReasonModal>

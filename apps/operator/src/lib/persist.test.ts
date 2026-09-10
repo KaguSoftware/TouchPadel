@@ -13,7 +13,13 @@ describe('shouldPersistQuery', () => {
   });
 
   it('never persists money detail, tickets, analytics or audit', () => {
-    for (const key of [['tab', 'uuid-1'], ['tickets'], ['analytics', 'overview'], ['auditLog'], ['waiterCalls']]) {
+    for (const key of [
+      ['tab', 'uuid-1'],
+      ['tickets'],
+      ['analytics', 'overview'],
+      ['auditLog'],
+      ['waiterCalls'],
+    ]) {
       expect(shouldPersistQuery(fakeQuery(key)), key.join()).toBe(false);
     }
   });

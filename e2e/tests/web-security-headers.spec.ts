@@ -44,7 +44,7 @@ test.describe('web security headers', () => {
     }
   });
 
-  test("the CSP uses a nonce and refuses unsafe-inline for scripts", async ({ page }) => {
+  test('the CSP uses a nonce and refuses unsafe-inline for scripts', async ({ page }) => {
     const res = await page.goto('/en');
     const csp = res!.headers()['content-security-policy'];
 
@@ -67,9 +67,10 @@ test.describe('web security headers', () => {
      * docs/security/security-general.md.
      */
     if (process.env.E2E_PROD_BUILD === '1') {
-      expect(scriptSrc, "script-src must not allow 'unsafe-eval' in a production build").not.toContain(
-        'unsafe-eval',
-      );
+      expect(
+        scriptSrc,
+        "script-src must not allow 'unsafe-eval' in a production build",
+      ).not.toContain('unsafe-eval');
     } else {
       expect(scriptSrc, "dev still must not be worse than 'unsafe-eval'").toContain('unsafe-eval');
     }
@@ -161,9 +162,10 @@ test.describe('web security headers', () => {
      */
     const qr = await request.get(`/t/${token}`, { maxRedirects: 0 });
     expect(qr.headers()['referrer-policy']).toMatch(/no-referrer/i);
-    expect(qr.headers()['cache-control'], 'the QR request carries the token — never store it').toMatch(
-      /no-store/i,
-    );
+    expect(
+      qr.headers()['cache-control'],
+      'the QR request carries the token — never store it',
+    ).toMatch(/no-store/i);
 
     /**
      * The landing page is a different story, measured on the wire 2026-09-07:

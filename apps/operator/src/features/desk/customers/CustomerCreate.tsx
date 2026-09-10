@@ -35,10 +35,12 @@ const DESK_CUSTOMER_CREATE = 'desk-customer-create' as EdgeFunctionName;
 export function fieldErrorOf(e: unknown): FieldError | null {
   if (!(e instanceof EdgeError)) return null;
   for (const candidate of [e.detail, e.message]) {
-    if (candidate && (FIELD_ERRORS as readonly string[]).includes(candidate)) return candidate as FieldError;
+    if (candidate && (FIELD_ERRORS as readonly string[]).includes(candidate))
+      return candidate as FieldError;
   }
   const msg = e.message.toLowerCase();
-  if (e.status === 409) return msg.includes('email') && !msg.includes('phone') ? 'DUPLICATE_EMAIL' : 'DUPLICATE_PHONE';
+  if (e.status === 409)
+    return msg.includes('email') && !msg.includes('phone') ? 'DUPLICATE_EMAIL' : 'DUPLICATE_PHONE';
   if (e.status === 400 && msg.includes('phone')) return 'INVALID_PHONE';
   return null;
 }
@@ -67,8 +69,15 @@ export function CustomerCreateScreen() {
     setError(null);
     setFieldError(null);
     try {
-      const body: CreateBody = { fullName: fullName.trim(), phone: phone.trim(), preferredLang: lang, ...(email.trim() ? { email: email.trim() } : {}) };
-      const res = await callEdge<CreateBody, { id: string }>(DESK_CUSTOMER_CREATE, body, { ttlMs: 0 });
+      const body: CreateBody = {
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        preferredLang: lang,
+        ...(email.trim() ? { email: email.trim() } : {}),
+      };
+      const res = await callEdge<CreateBody, { id: string }>(DESK_CUSTOMER_CREATE, body, {
+        ttlMs: 0,
+      });
       toast.ok(tr('ws.courtDesk.createCustomer.created'));
       void navigate({ to: '/desk/customers/$id', params: { id: res.id } });
     } catch (e) {
@@ -82,7 +91,10 @@ export function CustomerCreateScreen() {
 
   return (
     <div style={{ maxInlineSize: 'var(--tp-measure-form)' }}>
-      <PageHeader title={tr('ws.courtDesk.createCustomer.title')} subtitle={tr('ws.courtDesk.createCustomer.lead')} />
+      <PageHeader
+        title={tr('ws.courtDesk.createCustomer.title')}
+        subtitle={tr('ws.courtDesk.createCustomer.lead')}
+      />
       <Panel>
         <form
           onSubmit={(e) => {
@@ -90,8 +102,23 @@ export function CustomerCreateScreen() {
             void submit();
           }}
         >
-          <Field label={tr('ws.courtDesk.createCustomer.name')} required error={touched && nameMissing ? tr('ws.courtDesk.createCustomer.errors.nameRequired') : undefined}>
-            <input style={inputStyle} value={fullName} disabled={busy} autoFocus maxLength={200} onChange={(e) => setFullName(e.target.value)} />
+          <Field
+            label={tr('ws.courtDesk.createCustomer.name')}
+            required
+            error={
+              touched && nameMissing
+                ? tr('ws.courtDesk.createCustomer.errors.nameRequired')
+                : undefined
+            }
+          >
+            <input
+              style={inputStyle}
+              value={fullName}
+              disabled={busy}
+              autoFocus
+              maxLength={200}
+              onChange={(e) => setFullName(e.target.value)}
+            />
           </Field>
           <Field
             label={tr('ws.courtDesk.createCustomer.phone')}
@@ -115,11 +142,19 @@ export function CustomerCreateScreen() {
               maxLength={30}
               onChange={(e) => {
                 setPhone(e.target.value);
-                if (fieldError === 'DUPLICATE_PHONE' || fieldError === 'INVALID_PHONE') setFieldError(null);
+                if (fieldError === 'DUPLICATE_PHONE' || fieldError === 'INVALID_PHONE')
+                  setFieldError(null);
               }}
             />
           </Field>
-          <Field label={tr('ws.courtDesk.createCustomer.email')} error={fieldError === 'DUPLICATE_EMAIL' ? tr('ws.courtDesk.createCustomer.errors.DUPLICATE_EMAIL') : undefined}>
+          <Field
+            label={tr('ws.courtDesk.createCustomer.email')}
+            error={
+              fieldError === 'DUPLICATE_EMAIL'
+                ? tr('ws.courtDesk.createCustomer.errors.DUPLICATE_EMAIL')
+                : undefined
+            }
+          >
             <input
               style={inputStyle}
               dir="ltr"

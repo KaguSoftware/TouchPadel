@@ -51,7 +51,8 @@ if (!nextConfig) {
    * A gate that greps for a name proves the name was typed. It has to look at
    * the RETURNED value, which is the only thing Next actually serves.
    */
-  const headersBody = nextConfig.match(/async\s+headers\s*\(\s*\)\s*\{([\s\S]*?)\n  \},/)?.[1] ?? '';
+  const headersBody =
+    nextConfig.match(/async\s+headers\s*\(\s*\)\s*\{([\s\S]*?)\n  \},/)?.[1] ?? '';
   require_(
     'next.config.ts ships security headers',
     /async\s+headers\s*\(/.test(nextConfig) && /STATIC_SECURITY_HEADERS/.test(headersBody),
@@ -64,8 +65,8 @@ if (!nextConfig) {
     'image optimizer is not a wildcard proxy',
     !/hostname:\s*['"`]\*\./.test(nextConfig),
     'a wildcard remotePattern lets anyone pass /_next/image?url=https://<their>.supabase.co/…\n' +
-      '      and have this origin fetch, resize and serve their bytes under the venue\'s own domain\n' +
-      '      and TLS certificate — a free CDN, billed here, laundering the content\'s origin.',
+      "      and have this origin fetch, resize and serve their bytes under the venue's own domain\n" +
+      "      and TLS certificate — a free CDN, billed here, laundering the content's origin.",
   );
   require_(
     'table routes carry their own stricter headers',
@@ -84,7 +85,7 @@ if (!proxy) {
     'CSP is set per request with a nonce',
     /buildCsp\(/.test(proxy) && /content-security-policy/i.test(proxy),
     'the nonce must be unguessable and single-use, so the CSP cannot be a static header.\n' +
-      '      Without it the only way to allow Next\'s inline bootstrap scripts is unsafe-inline,\n' +
+      "      Without it the only way to allow Next's inline bootstrap scripts is unsafe-inline,\n" +
       '      which disables script CSP entirely.',
   );
   require_(
@@ -96,7 +97,7 @@ if (!proxy) {
   require_(
     'the table token is exchanged for a cookie',
     /exchangeTableToken/.test(proxy) && /TABLE_COOKIE/.test(proxy),
-    'without the exchange the table\'s bearer credential sits in the address bar for the whole\n' +
+    "without the exchange the table's bearer credential sits in the address bar for the whole\n" +
       '      session — sent in Referer to every third party, captured as $current_url, and left in\n' +
       '      browser history.',
   );
@@ -105,7 +106,10 @@ if (!proxy) {
 // ── CSP content ───────────────────────────────────────────────────────────────
 const headersTs = read('src/lib/security/headers.ts');
 if (!headersTs) {
-  failures.push({ label: 'src/lib/security/headers.ts present', why: 'the policy definition is gone' });
+  failures.push({
+    label: 'src/lib/security/headers.ts present',
+    why: 'the policy definition is gone',
+  });
 } else {
   // 'unsafe-inline' is tolerated for style-src and nowhere else. Strip the
   // style-src directive before looking, so a genuine script-src regression
@@ -121,7 +125,7 @@ if (!headersTs) {
     "frame-ancestors is 'none'",
     /'frame-ancestors':\s*\["'none'"\]/.test(headersTs.replace(/\s+/g, ' ').replace(/\[ /g, '[')) ||
       /frame-ancestors[\s\S]{0,40}'none'/.test(headersTs),
-    'clickjacking: without it the menu can be framed invisibly over an attacker\'s page.',
+    "clickjacking: without it the menu can be framed invisibly over an attacker's page.",
   );
   require_(
     'HSTS includes subdomains',
@@ -131,7 +135,7 @@ if (!headersTs) {
   require_(
     'the table cookie is HttpOnly + SameSite',
     /httpOnly:\s*true/.test(headersTs) && /sameSite:\s*'lax'/.test(headersTs),
-    'the cookie holds the table\'s bearer credential; HttpOnly keeps document.cookie away from it\n' +
+    "the cookie holds the table's bearer credential; HttpOnly keeps document.cookie away from it\n" +
       '      and SameSite=Lax survives the cross-site arrival a QR scan from a messaging app produces.',
   );
 }
@@ -163,7 +167,8 @@ if (swFiles.length === 0 && swPlugins.length === 0) {
 } else {
   // A service worker MAY exist — but it must exclude the table route.
   const swText = swFiles.map((f) => read(f) ?? '').join('\n') + '\n' + (nextConfig ?? '');
-  const excludesTableRoute = /\/t\b[\s\S]{0,120}(exclude|denylist|navigateFallbackDenylist|skip)/i.test(swText) ||
+  const excludesTableRoute =
+    /\/t\b[\s\S]{0,120}(exclude|denylist|navigateFallbackDenylist|skip)/i.test(swText) ||
     /(exclude|denylist|navigateFallbackDenylist|skip)[\s\S]{0,120}\/t\b/i.test(swText);
   require_(
     'service worker excludes /t from caching',
@@ -171,7 +176,7 @@ if (swFiles.length === 0 && swPlugins.length === 0) {
     'A service worker now exists (' +
       [...swFiles, ...swPlugins.map((p) => p.what)].join(', ') +
       ')\n' +
-      '      but nothing shows /t being excluded from it. A cached table page is one guest\'s\n' +
+      "      but nothing shows /t being excluded from it. A cached table page is one guest's\n" +
       '      session served to the next person who opens the app on that phone, and a cached\n' +
       '      /t/{token} puts the credential in Cache Storage, where page script CAN read it —\n' +
       '      undoing the HttpOnly cookie entirely.\n' +

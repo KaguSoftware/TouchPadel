@@ -10,13 +10,7 @@ export {
   fontVars,
 } from './tokens/typography';
 export type { FontVars } from './tokens/typography';
-export {
-  FONT_BASE,
-  FONT_FACES,
-  PRELOAD_FACES,
-  fontFaceCss,
-  fontFaceCssFrom,
-} from './fontFace';
+export { FONT_BASE, FONT_FACES, PRELOAD_FACES, fontFaceCss, fontFaceCssFrom } from './fontFace';
 export type { FontFaceSpec } from './fontFace';
 export {
   statusVars,

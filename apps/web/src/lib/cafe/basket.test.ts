@@ -36,8 +36,22 @@ const syrupGroup: MenuModifierGroup = {
   max_select: 1,
   sort_order: 1,
   modifiers: [
-    { id: 'm-vanilla', name_en: 'Vanilla', name_ar: 'فانيلا', price_delta_iqd: 500, sort_order: 1, reveals: [] },
-    { id: 'm-caramel', name_en: 'Caramel', name_ar: 'كراميل', price_delta_iqd: 500, sort_order: 2, reveals: [] },
+    {
+      id: 'm-vanilla',
+      name_en: 'Vanilla',
+      name_ar: 'فانيلا',
+      price_delta_iqd: 500,
+      sort_order: 1,
+      reveals: [],
+    },
+    {
+      id: 'm-caramel',
+      name_en: 'Caramel',
+      name_ar: 'كراميل',
+      price_delta_iqd: 500,
+      sort_order: 2,
+      reveals: [],
+    },
   ],
 };
 
@@ -62,8 +76,22 @@ const item: MenuItem = {
   discountPct: 0,
   suggestedItemIds: [],
   variants: [
-    { id: 'v-s', name_en: 'Small', name_ar: 'صغير', price_iqd: 4000, is_default: true, sort_order: 1 },
-    { id: 'v-l', name_en: 'Large', name_ar: 'كبير', price_iqd: 5500, is_default: false, sort_order: 2 },
+    {
+      id: 'v-s',
+      name_en: 'Small',
+      name_ar: 'صغير',
+      price_iqd: 4000,
+      is_default: true,
+      sort_order: 1,
+    },
+    {
+      id: 'v-l',
+      name_en: 'Large',
+      name_ar: 'كبير',
+      price_iqd: 5500,
+      is_default: false,
+      sort_order: 2,
+    },
   ],
   allergens: [],
   modifierGroups: [
@@ -75,8 +103,22 @@ const item: MenuItem = {
       max_select: 1,
       sort_order: 1,
       modifiers: [
-        { id: 'm-whole', name_en: 'Whole', name_ar: 'كامل', price_delta_iqd: 0, sort_order: 1, reveals: [] },
-        { id: 'm-oat', name_en: 'Oat', name_ar: 'شوفان', price_delta_iqd: 1000, sort_order: 2, reveals: [syrupGroup] },
+        {
+          id: 'm-whole',
+          name_en: 'Whole',
+          name_ar: 'كامل',
+          price_delta_iqd: 0,
+          sort_order: 1,
+          reveals: [],
+        },
+        {
+          id: 'm-oat',
+          name_en: 'Oat',
+          name_ar: 'شوفان',
+          price_delta_iqd: 1000,
+          sort_order: 2,
+          reveals: [syrupGroup],
+        },
       ],
     },
     {
@@ -87,7 +129,14 @@ const item: MenuItem = {
       max_select: 2,
       sort_order: 2,
       modifiers: [
-        { id: 'm-shot', name_en: 'Extra Shot', name_ar: 'جرعة', price_delta_iqd: 1000, sort_order: 1, reveals: [] },
+        {
+          id: 'm-shot',
+          name_en: 'Extra Shot',
+          name_ar: 'جرعة',
+          price_delta_iqd: 1000,
+          sort_order: 1,
+          reveals: [],
+        },
       ],
     },
   ],
@@ -155,9 +204,9 @@ describe('buildLine / lineTotal', () => {
   });
 
   it('rejects a modifier from a group that has not been revealed (server: MODIFIER_INVALID)', () => {
-    expect(() =>
-      buildLine(item, 'v-s', 1, [{ modifierId: 'm-vanilla', qty: 1 }], null),
-    ).toThrow(/not active/);
+    expect(() => buildLine(item, 'v-s', 1, [{ modifierId: 'm-vanilla', qty: 1 }], null)).toThrow(
+      /not active/,
+    );
     // revealed by Oat → accepted
     const ok = buildLine(
       item,
@@ -258,7 +307,13 @@ describe('subtreeModifierIds', () => {
 
 describe('toOrderPayload', () => {
   it('carries ids and quantities only — never prices', () => {
-    const line = buildLine(withPrice(5500, 15), 'v-s', 1, [{ modifierId: 'm-shot', qty: 2 }], 'no sugar');
+    const line = buildLine(
+      withPrice(5500, 15),
+      'v-s',
+      1,
+      [{ modifierId: 'm-shot', qty: 2 }],
+      'no sugar',
+    );
     const payload = (toOrderPayload([line]) as Record<string, unknown>[])[0]!;
     expect(payload).toEqual({
       variant_id: 'v-s',
@@ -340,7 +395,11 @@ describe('reconcile', () => {
     const { lines, removed, repriced } = reconcile([line], fresh);
     expect(removed).toEqual([]);
     expect(repriced).toEqual([line.key]);
-    expect(lines[0]).toMatchObject({ list_unit_price_iqd: 4000, discount_pct: 15, unit_price_iqd: 3400 });
+    expect(lines[0]).toMatchObject({
+      list_unit_price_iqd: 4000,
+      discount_pct: 15,
+      unit_price_iqd: 3400,
+    });
   });
 
   it('applies settings when given explicitly (undecorated menu)', () => {
@@ -358,10 +417,14 @@ describe('reconcile', () => {
     const a = buildLine(item, 'v-s', 1, [], null);
     const b = buildLine(item, 'v-l', 1, [], null);
     const c = buildLine(item, 'v-s', 1, [{ modifierId: 'm-oat', qty: 1 }], null);
-    const soldOut: MenuCategory[] = [{ ...menu[0]!, items: [{ ...item, sold_out: true, orderable: false }] }];
+    const soldOut: MenuCategory[] = [
+      { ...menu[0]!, items: [{ ...item, sold_out: true, orderable: false }] },
+    ];
     expect(reconcile([a], soldOut).removed).toEqual([a.key]);
 
-    const noLarge: MenuCategory[] = [{ ...menu[0]!, items: [{ ...item, variants: [item.variants[0]!] }] }];
+    const noLarge: MenuCategory[] = [
+      { ...menu[0]!, items: [{ ...item, variants: [item.variants[0]!] }] },
+    ];
     const r = reconcile([a, b], noLarge);
     expect(r.removed).toEqual([b.key]);
     expect(r.lines.map((l) => l.key)).toEqual([a.key]);
@@ -420,18 +483,26 @@ describe('basketFingerprint / fingerprintHash (idempotency key input)', () => {
     expect(basketFingerprint([line()], 'note')).not.toBe(base);
     expect(
       basketFingerprint(
-        [line({ modifiers: [{ modifierId: 'm1', qty: 1, name_en: '', name_ar: '', price_delta_iqd: 0 }] })],
+        [
+          line({
+            modifiers: [{ modifierId: 'm1', qty: 1, name_en: '', name_ar: '', price_delta_iqd: 0 }],
+          }),
+        ],
         '',
       ),
     ).not.toBe(base);
     // A second line is a different basket — this is the case that used to be
     // silently swallowed as a "duplicate" of the first order.
-    expect(basketFingerprint([line({ key: 'a' }), line({ key: 'b', variantId: 'v2' })], '')).not.toBe(base);
+    expect(
+      basketFingerprint([line({ key: 'a' }), line({ key: 'b', variantId: 'v2' })], ''),
+    ).not.toBe(base);
   });
 
   it('ignores display-only fields the server re-snapshots anyway', () => {
     const base = basketFingerprint([line()], '');
-    expect(basketFingerprint([line({ item_name_en: 'Tea', unit_price_iqd: 9_999 })], '')).toBe(base);
+    expect(basketFingerprint([line({ item_name_en: 'Tea', unit_price_iqd: 9_999 })], '')).toBe(
+      base,
+    );
   });
 
   it('hashes to a compact stable string', () => {

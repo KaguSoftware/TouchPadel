@@ -28,7 +28,10 @@ describe('commandForKey', () => {
     expect(commandForKey(key('1', 'Digit1'), 'ltr')).toEqual({ type: 'select', index: 0 });
     expect(commandForKey(key('9', 'Numpad9'), 'ltr')).toEqual({ type: 'select', index: 8 });
     expect(commandForKey(key('3'), 'ltr')).toEqual({ type: 'select', index: 2 });
-    expect(commandForKey(key('٢'), 'ar' === 'ar' ? 'rtl' : 'ltr')).toEqual({ type: 'select', index: 1 });
+    expect(commandForKey(key('٢'), 'ar' === 'ar' ? 'rtl' : 'ltr')).toEqual({
+      type: 'select',
+      index: 1,
+    });
     expect(commandForKey(key('0', 'Digit0'), 'ltr')).toBeNull();
   });
 
@@ -70,7 +73,11 @@ describe('reduceSelection', () => {
     expect(first.ticketId).toBe('a');
     expect(reduceSelection(noSelection, { type: 'move', delta: -1 }, tickets).ticketId).toBe('c');
     expect(reduceSelection(first, { type: 'move', delta: -1 }, tickets)).toBe(first);
-    const second = reduceSelection({ ticketId: 'a', itemIndex: 1 }, { type: 'move', delta: 1 }, tickets);
+    const second = reduceSelection(
+      { ticketId: 'a', itemIndex: 1 },
+      { type: 'move', delta: 1 },
+      tickets,
+    );
     expect(second).toEqual({ ticketId: 'b', itemIndex: null }); // item cursor resets
   });
 
@@ -83,7 +90,10 @@ describe('reduceSelection', () => {
     expect(reduceSelection(i1, { type: 'moveItem', delta: 1 }, tickets)).toBe(i1);
     expect(reduceSelection(sel, { type: 'moveItem', delta: -1 }, tickets).itemIndex).toBe(1);
     // A ticket with no lines has no item cursor.
-    expect(reduceSelection({ ticketId: 'b', itemIndex: null }, { type: 'moveItem', delta: 1 }, tickets).itemIndex).toBeNull();
+    expect(
+      reduceSelection({ ticketId: 'b', itemIndex: null }, { type: 'moveItem', delta: 1 }, tickets)
+        .itemIndex,
+    ).toBeNull();
     // No ticket selected: nothing to move within.
     expect(reduceSelection(noSelection, { type: 'moveItem', delta: 1 }, tickets)).toBe(noSelection);
   });
@@ -112,19 +122,27 @@ describe('actionForCommand', () => {
       ticketId: 'c',
       status: 'completed',
     });
-    expect(actionForCommand(noSelection, { type: 'status', status: 'preparing' }, tickets)).toBeNull();
+    expect(
+      actionForCommand(noSelection, { type: 'status', status: 'preparing' }, tickets),
+    ).toBeNull();
   });
 
   it('toggles the item under the cursor only where marks are server-backed', () => {
-    expect(actionForCommand({ ticketId: 'a', itemIndex: 1 }, { type: 'toggleItem' }, tickets)).toEqual({
+    expect(
+      actionForCommand({ ticketId: 'a', itemIndex: 1 }, { type: 'toggleItem' }, tickets),
+    ).toEqual({
       kind: 'item',
       ticketId: 'a',
       itemIndex: 1,
     });
     // Space with no cursor moves the cursor (reduceSelection) but marks nothing.
-    expect(actionForCommand({ ticketId: 'a', itemIndex: null }, { type: 'toggleItem' }, tickets)).toBeNull();
+    expect(
+      actionForCommand({ ticketId: 'a', itemIndex: null }, { type: 'toggleItem' }, tickets),
+    ).toBeNull();
     // LAN tickets carry no item marks.
-    expect(actionForCommand({ ticketId: 'c', itemIndex: 0 }, { type: 'toggleItem' }, tickets)).toBeNull();
+    expect(
+      actionForCommand({ ticketId: 'c', itemIndex: 0 }, { type: 'toggleItem' }, tickets),
+    ).toBeNull();
   });
 });
 

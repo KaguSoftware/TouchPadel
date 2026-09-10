@@ -62,9 +62,13 @@ export async function hmacSha256Base64(key: Uint8Array, message: string): Promis
   // A fresh ArrayBuffer copy: typed identically under Deno's lib.dom and
   // @types/node (no BufferSource name in the ES2022 lib the db package uses).
   const raw = key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) as ArrayBuffer;
-  const cryptoKey = await crypto.subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, [
-    'sign',
-  ]);
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    raw,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
   const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message));
   return base64Encode(new Uint8Array(sig));
 }
@@ -74,15 +78,13 @@ export async function hmacSha256Base64(key: Uint8Array, message: string): Promis
  * malformed secret — a hook that "works" because nobody configured a secret is
  * an open SMS relay.
  */
-export async function verifyStandardWebhook(
-  args: {
-    secret: string | null | undefined;
-    headers: StandardWebhookHeaders;
-    body: string;
-    nowS?: number;
-    toleranceS?: number;
-  },
-): Promise<VerifyOutcome> {
+export async function verifyStandardWebhook(args: {
+  secret: string | null | undefined;
+  headers: StandardWebhookHeaders;
+  body: string;
+  nowS?: number;
+  toleranceS?: number;
+}): Promise<VerifyOutcome> {
   if (!args.secret) return { ok: false, reason: 'NO_SECRET' };
   const key = secretKeyBytes(args.secret);
   if (!key || key.length === 0) return { ok: false, reason: 'BAD_SECRET' };
@@ -91,7 +93,8 @@ export async function verifyStandardWebhook(
   if (!id || !timestamp || !signature) return { ok: false, reason: 'MISSING_HEADERS' };
 
   const ts = Number(timestamp);
-  if (!Number.isFinite(ts) || !/^\d+$/.test(timestamp)) return { ok: false, reason: 'BAD_TIMESTAMP' };
+  if (!Number.isFinite(ts) || !/^\d+$/.test(timestamp))
+    return { ok: false, reason: 'BAD_TIMESTAMP' };
   const now = args.nowS ?? Math.floor(Date.now() / 1000);
   const tolerance = args.toleranceS ?? DEFAULT_TOLERANCE_S;
   if (Math.abs(now - ts) > tolerance) return { ok: false, reason: 'STALE_TIMESTAMP' };

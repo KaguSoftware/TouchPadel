@@ -154,8 +154,7 @@ export async function ensureFixtureStock(svc: SupabaseClient, min = 100): Promis
   if (error) throw new Error(`ensureFixtureStock probe failed: ${error.message}`);
   const low = (data as { ingredient_id: string; on_hand: number; kind: string }[]).filter(
     // uuid columns refuse `like` — filter the fixture prefix client-side.
-    (r) =>
-      r.ingredient_id.startsWith('f1f7') && r.kind === 'purchased' && Number(r.on_hand) < min,
+    (r) => r.ingredient_id.startsWith('f1f7') && r.kind === 'purchased' && Number(r.on_hand) < min,
   );
   if (low.length === 0) return;
 
@@ -178,7 +177,9 @@ export async function ensureFixtureStock(svc: SupabaseClient, min = 100): Promis
   // menu_changed broadcast). A page served inside that window still stamps the
   // item sold out. This waits the window out — and only runs on the rare pass
   // where something was actually restocked; steady-state runs skip it.
-  console.log(`[e2e] restocked ${low.length} fixture ingredient(s); waiting out the 60s menu cache`);
+  console.log(
+    `[e2e] restocked ${low.length} fixture ingredient(s); waiting out the 60s menu cache`,
+  );
   await new Promise((resolve) => setTimeout(resolve, 61_000));
 }
 

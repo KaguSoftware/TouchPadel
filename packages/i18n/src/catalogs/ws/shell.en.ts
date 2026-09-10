@@ -160,7 +160,8 @@ export const shellEn = {
     notFound: {
       none: 'No till was found on this network. Make sure the till is running and on the same network, or enter its address under Advanced.',
       badCode: 'A till answered but did not accept that code. Check it on the till and try again.',
-      noLan: 'This machine has no local network address. Connect it to the venue network and try again.',
+      noLan:
+        'This machine has no local network address. Connect it to the venue network and try again.',
       unreachable: 'The till at {host} did not answer.',
     },
     saveAnyway: 'Save anyway',
@@ -178,8 +179,10 @@ export const shellEn = {
     lead: 'On the kitchen screen, choose Kitchen screen and type this code.',
     code: 'Pairing code',
     host: 'Till address {host}, port {port}',
-    noHost: 'This till has no local network address yet; kitchen screens will find it once it is on the venue network.',
-    customPsk: 'This till was set up with a custom key from the command line. Pair kitchen screens with the same --lan-psk flag.',
+    noHost:
+      'This till has no local network address yet; kitchen screens will find it once it is on the venue network.',
+    customPsk:
+      'This till was set up with a custom key from the command line. Pair kitchen screens with the same --lan-psk flag.',
     notTill: 'Only a till can pair kitchen screens.',
     noPsk: 'This till has no pairing key. Remove station.json and set the station up again.',
   },

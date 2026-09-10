@@ -171,7 +171,12 @@ export function Button(props: ButtonProps) {
         >
           {/* Beneath the icon, revealed as the icon clears: one box, two
               occupants, nothing in the layout moves between them. */}
-          {busy && <Spinner size="xs" style={{ position: 'absolute', inlineSize: '100%', blockSize: '100%' }} />}
+          {busy && (
+            <Spinner
+              size="xs"
+              style={{ position: 'absolute', inlineSize: '100%', blockSize: '100%' }}
+            />
+          )}
           {icon && <Icon name={icon} size={iconSize} style={glyphFade} />}
         </span>
       )}
@@ -263,7 +268,9 @@ export function Field({
       // A control that already names its own description keeps it; ours is appended.
       ...(describedBy !== undefined
         ? {
-            'aria-describedby': [child.props['aria-describedby'], describedBy].filter(Boolean).join(' '),
+            'aria-describedby': [child.props['aria-describedby'], describedBy]
+              .filter(Boolean)
+              .join(' '),
             'aria-invalid': error ? true : child.props['aria-invalid'],
           }
         : null),
@@ -490,12 +497,24 @@ export function Modal({
           <div style={{ minInlineSize: 0 }}>
             <h2 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700 }}>{title}</h2>
             {subtitle && (
-              <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockStart: 'var(--tp-sp-0)' }}>
+              <p
+                style={{
+                  color: 'var(--tp-muted-fg)',
+                  fontSize: 'var(--tp-fs-sm)',
+                  marginBlockStart: 'var(--tp-sp-0)',
+                }}
+              >
                 {subtitle}
               </p>
             )}
           </div>
-          <Button kind="ghost" size="sm" icon="x" onClick={onClose} aria-label={tr('common.close')} />
+          <Button
+            kind="ghost"
+            size="sm"
+            icon="x"
+            onClick={onClose}
+            aria-label={tr('common.close')}
+          />
         </div>
         <div
           style={{
@@ -613,7 +632,13 @@ export function AmountPad({
           {k === '⌫' ? <Icon name="undo" size={20} /> : k}
         </Button>
       ))}
-      <Button kind="ghost" size="sm" disabled={disabled} onClick={() => onChange(0)} style={{ gridColumn: '1 / -1' }}>
+      <Button
+        kind="ghost"
+        size="sm"
+        disabled={disabled}
+        onClick={() => onChange(0)}
+        style={{ gridColumn: '1 / -1' }}
+      >
         {tr('ws.kit.keypad.clear')}
       </Button>
     </div>
@@ -668,7 +693,12 @@ export function PinReasonModal({
           <Button onClick={onClose} disabled={busy}>
             {tr('common.cancel')}
           </Button>
-          <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => onSubmit(pin, reason)}>
+          <Button
+            kind="primary"
+            busy={busy}
+            disabled={pin.length < 4}
+            onClick={() => onSubmit(pin, reason)}
+          >
             {tr('common.confirm')}
           </Button>
         </>
@@ -676,7 +706,11 @@ export function PinReasonModal({
     >
       {children}
       <Field label={tr('op.common.reason')}>
-        <select style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value as ReasonCode)}>
+        <select
+          style={inputStyle}
+          value={reason}
+          onChange={(e) => setReason(e.target.value as ReasonCode)}
+        >
           {reasons.map((r) => (
             <option key={r} value={r}>
               {tr(`op.reasons.${r}`)}
@@ -736,14 +770,41 @@ export function Spinner({
     <span
       role="status"
       aria-label={label ?? tr('common.loading')}
-      style={{ display: 'inline-block', inlineSize: px, blockSize: px, verticalAlign: 'middle', ...style }}
+      style={{
+        display: 'inline-block',
+        inlineSize: px,
+        blockSize: px,
+        verticalAlign: 'middle',
+        ...style,
+      }}
     >
       {size === 'md' || size === 'lg' ? (
         <BrandBall spin size="100%" style={{ inlineSize: '100%', blockSize: '100%' }} />
       ) : (
-        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true" className="tp-spin" style={{ display: 'block' }}>
-          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" />
-          <path d="M21 12a9 9 0 0 0-9-9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        <svg
+          viewBox="0 0 24 24"
+          width="100%"
+          height="100%"
+          aria-hidden="true"
+          className="tp-spin"
+          style={{ display: 'block' }}
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="9"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.2"
+            strokeWidth="3"
+          />
+          <path
+            d="M21 12a9 9 0 0 0-9-9"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
         </svg>
       )}
     </span>

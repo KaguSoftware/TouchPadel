@@ -40,7 +40,10 @@ export function validateTicker(rows: readonly TickerRow[]): TickerProblem | null
 }
 
 /** Split rows back into the two stored arrays. */
-export function splitTicker(rows: readonly TickerRow[]): { ticker_en: string[]; ticker_ar: string[] } {
+export function splitTicker(rows: readonly TickerRow[]): {
+  ticker_en: string[];
+  ticker_ar: string[];
+} {
   return { ticker_en: rows.map((r) => r.en), ticker_ar: rows.map((r) => r.ar) };
 }
 

@@ -22,7 +22,6 @@
  * Usage:  node scripts/check-rpc-authz.mjs      (exit 1 on any unrefused RPC)
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 const URL_BASE = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const ANON =
@@ -38,20 +37,34 @@ const CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel';
  */
 const PUBLIC_BY_DESIGN = new Set([
   // The guest menu app, pre-identity.
-  'open_table_session', 'verify_table_token', 'menu_availability', 'venue_mode',
-  'is_degraded', 'price_slot', 'item_active_groups', 'business_date',
+  'open_table_session',
+  'verify_table_token',
+  'menu_availability',
+  'venue_mode',
+  'is_degraded',
+  'price_slot',
+  'item_active_groups',
+  'business_date',
   // Tell-me-about-myself helpers; they leak only the caller's own standing.
-  'is_staff', 'staff_role', 'is_own_session', 'order_is_callers', 'tab_is_callers',
+  'is_staff',
+  'staff_role',
+  'is_own_session',
+  'order_is_callers',
+  'tab_is_callers',
   'touch_guest_session',
   // Guest ordering surface — guarded by guest_sessions ownership, not by role.
-  'create_guest_order', 'raise_waiter_call',
+  'create_guest_order',
+  'raise_waiter_call',
   // Booking surface — any signed-in ACCOUNT, by design. hold_slot is NOT here:
   // since 0048 (C1) it refuses an anonymous session with ACCOUNT_REQUIRED, so the
   // sweep above proves it rather than exempting it. confirm/cancel are ownership-
   // guarded, not role-guarded, so the OWNERSHIP stage below is what covers them.
-  'confirm_booking', 'cancel_reservation', 'expire_stale_holds',
+  'confirm_booking',
+  'cancel_reservation',
+  'expire_stale_holds',
   // Device telemetry from the till/guest app.
-  'heartbeat', 'log_replay',
+  'heartbeat',
+  'log_replay',
   // Settings > "Send a test notification" (0070): any signed-in session, by
   // design — it can only ever push to auth.uid()'s own token, and a guest
   // without one is turned away with NO_PUSH_TOKEN.
@@ -98,7 +111,8 @@ const token = (await res.json()).access_token;
 if (!token) throw new Error('could not obtain an anonymous guest token — is the stack up?');
 
 /** Any of these means a guard turned the call away, which is the pass condition. */
-const REFUSED = /FORBIDDEN|AUTH_REQUIRED|ACCOUNT_REQUIRED|permission denied|SESSION_EXPIRED|DEGRADED_LOCKOUT/i;
+const REFUSED =
+  /FORBIDDEN|AUTH_REQUIRED|ACCOUNT_REQUIRED|permission denied|SESSION_EXPIRED|DEGRADED_LOCKOUT/i;
 
 const unrefused = [];
 let refused = 0;
@@ -119,7 +133,11 @@ for (const f of fns.sort((a, b) => a.name.localeCompare(b.name))) {
   const text = await r.text();
   if (REFUSED.test(text)) refused++;
   else if (!PUBLIC_BY_DESIGN.has(f.name)) {
-    unrefused.push({ name: f.name, status: r.status, body: text.slice(0, 200).replace(/\s+/g, ' ') });
+    unrefused.push({
+      name: f.name,
+      status: r.status,
+      body: text.slice(0, 200).replace(/\s+/g, ' '),
+    });
   }
 }
 
@@ -132,9 +150,9 @@ if (unrefused.length) {
   for (const u of unrefused) console.error(`  ${u.name.padEnd(28)} HTTP ${u.status}  ${u.body}`);
   console.error(
     '\nA café guest holds `authenticated`, exactly as staff do, so an RPC without\n' +
-    'its own guard is open to anyone who scans a table QR. Add the role check as\n' +
-    "the function's FIRST statement — or, if this is deliberate, add the name to\n" +
-    'PUBLIC_BY_DESIGN in this script and say why.',
+      'its own guard is open to anyone who scans a table QR. Add the role check as\n' +
+      "the function's FIRST statement — or, if this is deliberate, add the name to\n" +
+      'PUBLIC_BY_DESIGN in this script and say why.',
   );
   process.exit(1);
 }
@@ -167,8 +185,17 @@ async function account(tag) {
   const password = 'touch-dev-password';
   const mk = await fetch(`${URL_BASE}/auth/v1/admin/users`, {
     method: 'POST',
-    headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { full_name: `AuthZ ${tag}` } }),
+    headers: {
+      apikey: SERVICE,
+      Authorization: `Bearer ${SERVICE}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: `AuthZ ${tag}` },
+    }),
   });
   if (!mk.ok) throw new Error(`admin createUser failed: ${await mk.text()}`);
   const si = await fetch(`${URL_BASE}/auth/v1/token?grant_type=password`, {
@@ -215,7 +242,9 @@ const startAt = psql(`
    where extract(dow from d) between 0 and 4 limit 1;`).trim();
 
 if (!court || !startAt) {
-  console.error('\nownership stage SKIPPED: no active court (run `pnpm --filter @touch/db db:fixtures`)');
+  console.error(
+    '\nownership stage SKIPPED: no active court (run `pnpm --filter @touch/db db:fixtures`)',
+  );
   process.exit(1);
 }
 
@@ -226,7 +255,10 @@ const SHARED_KEY = `AUTHZ:reservation.hold:${Date.now()}`;
 
 // A holds, using an idempotency key B will try to replay.
 const held = await rpc(tokenA, 'hold_slot', {
-  p_court_id: court, p_start_at: startAt, p_duration_min: 60, p_idempotency_key: SHARED_KEY,
+  p_court_id: court,
+  p_start_at: startAt,
+  p_duration_min: 60,
+  p_idempotency_key: SHARED_KEY,
 });
 if (held.status !== 200) {
   console.error(`\nownership stage could not arrange a hold: HTTP ${held.status} ${held.text}`);
@@ -236,15 +268,28 @@ const holdId = JSON.parse(held.text).reservation_id;
 
 // C1: an anonymous session must not be able to hold at all.
 const anonHold = await rpc(token, 'hold_slot', {
-  p_court_id: court, p_start_at: startAt, p_duration_min: 90,
+  p_court_id: court,
+  p_start_at: startAt,
+  p_duration_min: 90,
 });
-check('C1  anonymous session refused by hold_slot', /ACCOUNT_REQUIRED/.test(anonHold.text), anonHold.text);
+check(
+  'C1  anonymous session refused by hold_slot',
+  /ACCOUNT_REQUIRED/.test(anonHold.text),
+  anonHold.text,
+);
 
 // H3: B replaying A's key must be refused, and must learn nothing.
 const replay = await rpc(tokenB, 'hold_slot', {
-  p_court_id: court, p_start_at: startAt, p_duration_min: 120, p_idempotency_key: SHARED_KEY,
+  p_court_id: court,
+  p_start_at: startAt,
+  p_duration_min: 120,
+  p_idempotency_key: SHARED_KEY,
 });
-check('H3  cross-principal idempotency replay refused', /IDEMPOTENCY_CONFLICT/.test(replay.text), replay.text);
+check(
+  'H3  cross-principal idempotency replay refused',
+  /IDEMPOTENCY_CONFLICT/.test(replay.text),
+  replay.text,
+);
 check('H3  replay response leaks no reservation id', !replay.text.includes(holdId), replay.text);
 
 // Ownership on the rest of the booking surface.
@@ -268,8 +313,8 @@ if (ownershipFailures.length) {
   for (const f of ownershipFailures) console.error(`  ${f.name}\n    ${f.detail.slice(0, 300)}`);
   console.error(
     '\nRole guards are not enough on the booking surface: these RPCs are callable by\n' +
-    'every signed-in customer, so ownership is the only boundary. A failure here is\n' +
-    'the C1/H3 class returning.',
+      'every signed-in customer, so ownership is the only boundary. A failure here is\n' +
+      'the C1/H3 class returning.',
   );
   process.exit(1);
 }

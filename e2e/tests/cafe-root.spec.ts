@@ -36,7 +36,9 @@ test.describe('cafe at the site root', () => {
   });
 
   test('/ follows Accept-Language when it names a supported locale', async ({ browser }) => {
-    const ctx = await browser.newContext({ extraHTTPHeaders: { 'accept-language': 'en-GB,en;q=0.9' } });
+    const ctx = await browser.newContext({
+      extraHTTPHeaders: { 'accept-language': 'en-GB,en;q=0.9' },
+    });
     const page = await ctx.newPage();
     await page.goto('/');
     expect(new URL(page.url()).pathname).toBe('/en');
@@ -58,14 +60,18 @@ test.describe('cafe at the site root', () => {
     const ctx = await browser.newContext({ javaScriptEnabled: false, viewport: MOBILE });
     const page = await ctx.newPage();
     await page.goto('/ar');
-    await expect(page.getByText('كابتشينو', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('كابتشينو', { exact: true }).first()).toBeVisible({
+      timeout: 60_000,
+    });
     await expect(page.getByText('مشروبات ساخنة').first()).toBeVisible();
     await ctx.close();
   });
 
   test('EN root renders the fixture menu and the pay-at-desk notice', async ({ page }) => {
     await page.goto('/en');
-    await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({
+      timeout: 60_000,
+    });
     for (const cat of ['Hot Drinks', 'Cold Drinks', 'Breakfast', 'Desserts']) {
       await expect(page.getByRole('button', { name: cat, exact: true }).first()).toBeVisible();
     }
@@ -74,9 +80,14 @@ test.describe('cafe at the site root', () => {
 
   test('no table: sending the basket asks for the QR instead of ordering', async ({ page }) => {
     await page.goto('/en');
-    await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({
+      timeout: 60_000,
+    });
 
-    await page.getByRole('button', { name: /Cappuccino/ }).first().click();
+    await page
+      .getByRole('button', { name: /Cappuccino/ })
+      .first()
+      .click();
     const sheet = page.getByRole('dialog', { name: 'Cappuccino' });
     await expect(sheet).toBeVisible();
     await sheet.getByRole('button', { name: /Add to order/ }).click();
@@ -94,7 +105,9 @@ test.describe('cafe at the site root', () => {
 
   test('no table: the bell is gated the same way', async ({ page }) => {
     await page.goto('/en');
-    await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({
+      timeout: 60_000,
+    });
     await page.getByRole('button', { name: 'Call a waiter' }).click();
     await expect(page.getByRole('dialog', { name: 'Scan the QR on your table' })).toBeVisible();
   });
@@ -105,8 +118,13 @@ test.describe('cafe at the site root', () => {
       if (/posthog\.com/i.test(r.url())) posthogHits.push(r.url());
     });
     await page.goto('/en');
-    await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
-    await page.getByRole('button', { name: /Cappuccino/ }).first().click();
+    await expect(page.getByText('Cappuccino', { exact: true }).first()).toBeVisible({
+      timeout: 60_000,
+    });
+    await page
+      .getByRole('button', { name: /Cappuccino/ })
+      .first()
+      .click();
     await page.waitForTimeout(3_000); // past the idle-load window
     expect(posthogHits, 'unconfigured analytics must not phone home').toEqual([]);
   });
@@ -120,7 +138,9 @@ test.describe('cafe at the site root (AR) @ar', () => {
     const html = page.locator('html');
     await expect(html).toHaveAttribute('dir', 'rtl');
     await expect(html).toHaveAttribute('lang', 'ar');
-    await expect(page.getByText('كابتشينو', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('كابتشينو', { exact: true }).first()).toBeVisible({
+      timeout: 60_000,
+    });
     // Featured hero (fixture: Kahi at −15%).
     await expect(page.locator('.tp-hero__discount, .tp-hero__badge').first()).toBeVisible();
     await assertNoHorizontalScroll(page);
@@ -128,7 +148,9 @@ test.describe('cafe at the site root (AR) @ar', () => {
 
   test('the locale switcher keeps you on the cafe app', async ({ page }) => {
     await page.goto('/ar');
-    await expect(page.getByText('كابتشينو', { exact: true }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('كابتشينو', { exact: true }).first()).toBeVisible({
+      timeout: 60_000,
+    });
     await page.getByRole('link', { name: 'English' }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     expect(new URL(page.url()).pathname).toBe('/en');

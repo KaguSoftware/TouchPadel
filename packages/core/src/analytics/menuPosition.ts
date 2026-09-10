@@ -215,7 +215,10 @@ export function buildMenuSlots(items: readonly MenuSnapshotItem[]): MenuSlot[] {
   }
   const slots: MenuSlot[] = [];
   for (const rows of byCat.values()) {
-    rows.sort((a, b) => a.sortOrder - b.sortOrder || a.nameEn.localeCompare(b.nameEn) || a.id.localeCompare(b.id));
+    rows.sort(
+      (a, b) =>
+        a.sortOrder - b.sortOrder || a.nameEn.localeCompare(b.nameEn) || a.id.localeCompare(b.id),
+    );
     rows.forEach((r, i) => {
       slots.push({
         id: r.id,
@@ -249,7 +252,13 @@ const EMPTY: MenuPositionAnalysis = {
   buriedWinners: [],
   squatters: [],
   positionAsOf: '',
-  coverage: { matchedItems: 0, soldItems: 0, usableCategories: 0, revenueRatio: 0, reliable: false },
+  coverage: {
+    matchedItems: 0,
+    soldItems: 0,
+    usableCategories: 0,
+    revenueRatio: 0,
+    reliable: false,
+  },
   hasData: false,
 };
 

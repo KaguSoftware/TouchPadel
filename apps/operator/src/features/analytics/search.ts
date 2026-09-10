@@ -24,7 +24,9 @@ export function validateSearch(raw: Record<string, unknown>): AnalyticsSearch {
   const to = str(raw.to);
   const cmpRaw = str(raw.cmp);
 
-  let range: RangePreset = PRESETS.includes(rangeRaw as RangePreset) ? (rangeRaw as RangePreset) : '30d';
+  let range: RangePreset = PRESETS.includes(rangeRaw as RangePreset)
+    ? (rangeRaw as RangePreset)
+    : '30d';
   const out: AnalyticsSearch = { range };
 
   if (range === 'custom') {

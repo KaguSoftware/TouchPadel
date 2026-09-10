@@ -29,14 +29,22 @@ export function AddonsPage() {
   subGroups.sort(byName);
 
   const selectedGroup =
-    selection?.kind === 'group' ? data.groups.find((g) => g.id === selection.id) ?? null : null;
-  const linkCount = (g: GroupRow) => new Set(data.links.filter((l) => l.group_id === g.id).map((l) => l.item_id)).size;
+    selection?.kind === 'group' ? (data.groups.find((g) => g.id === selection.id) ?? null) : null;
+  const linkCount = (g: GroupRow) =>
+    new Set(data.links.filter((l) => l.group_id === g.id).map((l) => l.item_id)).size;
   const optionCount = (g: GroupRow) => data.modifiers.filter((m) => m.group_id === g.id).length;
 
   return (
     <div>
       <PageHeader title={tr('op.adminNav.addons')} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(16rem, 20rem) minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(16rem, 20rem) minmax(0, 1fr)',
+          gap: 'var(--tp-sp-4)',
+          alignItems: 'start',
+        }}
+      >
         <div>
           <GroupList
             title={tr('op.addons.groups')}
@@ -45,7 +53,11 @@ export function AddonsPage() {
             onSelect={(id) => setSelection({ kind: 'group', id })}
             optionCount={optionCount}
             linkCount={linkCount}
-            action={<Button icon="plus" onClick={() => setSelection({ kind: 'new', sub: false })}>{tr('op.addons.newGroup')}</Button>}
+            action={
+              <Button icon="plus" onClick={() => setSelection({ kind: 'new', sub: false })}>
+                {tr('op.addons.newGroup')}
+              </Button>
+            }
           />
           <GroupList
             title={tr('op.addons.subGroups')}
@@ -55,7 +67,11 @@ export function AddonsPage() {
             onSelect={(id) => setSelection({ kind: 'group', id })}
             optionCount={optionCount}
             linkCount={linkCount}
-            action={<Button icon="plus" onClick={() => setSelection({ kind: 'new', sub: true })}>{tr('op.addons.newSubGroup')}</Button>}
+            action={
+              <Button icon="plus" onClick={() => setSelection({ kind: 'new', sub: true })}>
+                {tr('op.addons.newSubGroup')}
+              </Button>
+            }
           />
         </div>
         <div style={{ minInlineSize: 0 }}>
@@ -116,26 +132,67 @@ function GroupList({
   const { tr, locale } = useLocale();
   return (
     <section style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-2)',
+        }}
+      >
         <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-lg)' }}>{title}</h3>
         {action}
       </div>
-      {hint && <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{hint}</p>}
-      <ResultCount shown={groups.length} total={groups.length} style={{ display: 'block', marginBlockStart: 'var(--tp-sp-1)' }} />
+      {hint && (
+        <p
+          style={{
+            margin: 0,
+            marginBlockStart: 'var(--tp-sp-1)',
+            fontSize: 'var(--tp-fs-sm)',
+            color: 'var(--tp-muted-fg)',
+          }}
+        >
+          {hint}
+        </p>
+      )}
+      <ResultCount
+        shown={groups.length}
+        total={groups.length}
+        style={{ display: 'block', marginBlockStart: 'var(--tp-sp-1)' }}
+      />
       {groups.length === 0 ? (
         // "None" in muted body text was indistinguishable from a value; the
         // empty state teaches the action beside it instead (rulebook 9.2).
-        <EmptyState compact titleAs="h4" kind="initial" icon="plus" title={tr('op.common.none')} style={{ marginBlockStart: 'var(--tp-sp-2)' }} />
+        <EmptyState
+          compact
+          titleAs="h4"
+          kind="initial"
+          icon="plus"
+          title={tr('op.common.none')}
+          style={{ marginBlockStart: 'var(--tp-sp-2)' }}
+        />
       ) : (
         groups.map((g) => (
           <Button
             key={g.id}
             kind={selectedId === g.id ? 'primary' : 'default'}
-            style={{ display: 'flex', inlineSize: '100%', justifyContent: 'space-between', gap: 'var(--tp-sp-2)', textAlign: 'start', marginBlockStart: 'var(--tp-sp-1)' }}
+            style={{
+              display: 'flex',
+              inlineSize: '100%',
+              justifyContent: 'space-between',
+              gap: 'var(--tp-sp-2)',
+              textAlign: 'start',
+              marginBlockStart: 'var(--tp-sp-1)',
+            }}
             onClick={() => onSelect(g.id)}
           >
-            <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{pickName(locale, g)}</span>
-            <span dir="ltr" style={{ fontSize: 'var(--tp-fs-xs)', opacity: 0.8, whiteSpace: 'nowrap' }}>
+            <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {pickName(locale, g)}
+            </span>
+            <span
+              dir="ltr"
+              style={{ fontSize: 'var(--tp-fs-xs)', opacity: 0.8, whiteSpace: 'nowrap' }}
+            >
               {g.min_select}–{g.max_select} · {optionCount(g)} · {linkCount(g)}
             </span>
           </Button>

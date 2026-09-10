@@ -135,7 +135,10 @@ describe('decorateFeatured', () => {
 });
 
 describe('activeGroups', () => {
-  const map = resolveReveals([{ modifier_id: 'm-oat', group_id: 'g-syrup', sort_order: 1 }], groups);
+  const map = resolveReveals(
+    [{ modifier_id: 'm-oat', group_id: 'g-syrup', sort_order: 1 }],
+    groups,
+  );
   const linked = groups.slice(0, 1).map((g, i) => ({
     ...g,
     sort_order: i + 1,

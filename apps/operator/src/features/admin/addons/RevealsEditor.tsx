@@ -29,10 +29,21 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
 
   const saved = revealedGroupIds(modifier.id, data.reveals);
   const [selected, setSelected] = useState<string[]>(saved);
-  const [draft, setDraft] = useState<{ nameEn: string; nameAr: string; min: number; max: number } | null>(null);
+  const [draft, setDraft] = useState<{
+    nameEn: string;
+    nameAr: string;
+    min: number;
+    max: number;
+  } | null>(null);
 
   const byId = new Map(data.groups.map((g) => [g.id, g]));
-  const eligible = eligibleRevealGroups(modifier, data.groups, data.links, data.reveals, data.modifiers);
+  const eligible = eligibleRevealGroups(
+    modifier,
+    data.groups,
+    data.links,
+    data.reveals,
+    data.modifiers,
+  );
   const ownGroupIsTarget = data.reveals.some((r) => r.group_id === modifier.group_id);
   const available = eligible.filter((g) => !selected.includes(g.id));
   const dirty = !sameOrder(saved, selected);
@@ -89,20 +100,43 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
         borderRadius: 'var(--tp-radius-ctl)',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-2)',
+        }}
+      >
         <strong style={{ fontSize: 'var(--tp-fs-md)' }}>{tr('op.addons.reveals')}</strong>
-        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.addons.revealsHint')}</span>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          {tr('op.addons.revealsHint')}
+        </span>
       </div>
 
       {ownGroupIsTarget && (
-        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlock: 'var(--tp-sp-1)' }}>
+        <p
+          style={{
+            fontSize: 'var(--tp-fs-sm)',
+            color: 'var(--tp-muted-fg)',
+            marginBlock: 'var(--tp-sp-1)',
+          }}
+        >
           {tr('op.errors.REVEAL_DEPTH')}
         </p>
       )}
 
       {/* ordered, selected */}
       {selected.map((id, index) => (
-        <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-1)' }}>
+        <div
+          key={id}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--tp-sp-1-5)',
+            marginBlockStart: 'var(--tp-sp-1)',
+          }}
+        >
           <input
             type="checkbox"
             checked
@@ -121,8 +155,20 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
 
       {/* available to add */}
       {available.map((g) => (
-        <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-1)' }}>
-          <input type="checkbox" checked={false} onChange={() => setSelected([...selected, g.id])} />
+        <label
+          key={g.id}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--tp-sp-1-5)',
+            marginBlockStart: 'var(--tp-sp-1)',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={false}
+            onChange={() => setSelected([...selected, g.id])}
+          />
           <span style={{ flex: 1, color: 'var(--tp-muted-fg)' }}>
             {pickName(locale, g)}{' '}
             <span dir="ltr" style={{ fontSize: 'var(--tp-fs-sm)' }}>
@@ -132,14 +178,26 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
         </label>
       ))}
       {!ownGroupIsTarget && selected.length === 0 && available.length === 0 && (
-        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlock: 'var(--tp-sp-1)' }}>
+        <p
+          style={{
+            fontSize: 'var(--tp-fs-sm)',
+            color: 'var(--tp-muted-fg)',
+            marginBlock: 'var(--tp-sp-1)',
+          }}
+        >
           {tr('op.addons.noSubGroups')}
         </p>
       )}
 
       {/* new sub-group inline */}
       {draft ? (
-        <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-2)', borderBlockStart: '1px solid var(--tp-border)' }}>
+        <div
+          style={{
+            marginBlockStart: 'var(--tp-sp-2)',
+            paddingBlockStart: 'var(--tp-sp-2)',
+            borderBlockStart: '1px solid var(--tp-border)',
+          }}
+        >
           <BilingualFields
             labelEn={tr('op.menu.nameEn')}
             labelAr={tr('op.menu.nameAr')}
@@ -149,16 +207,30 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
             onAr={(v) => setDraft({ ...draft, nameAr: v })}
             maxLength={80}
           />
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.addons.minMax')}</span>
-            <span dir="ltr" style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--tp-sp-2)',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+              {tr('op.addons.minMax')}
+            </span>
+            <span
+              dir="ltr"
+              style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}
+            >
               <input
                 style={numStyle}
                 type="number"
                 min={0}
                 value={draft.min}
                 aria-label={tr('op.menu.minSelect')}
-                onChange={(e) => setDraft({ ...draft, min: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                onChange={(e) =>
+                  setDraft({ ...draft, min: Math.max(0, Math.floor(Number(e.target.value) || 0)) })
+                }
               />
               /
               <input
@@ -167,14 +239,21 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
                 min={1}
                 value={draft.max}
                 aria-label={tr('op.menu.maxSelect')}
-                onChange={(e) => setDraft({ ...draft, max: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                onChange={(e) =>
+                  setDraft({ ...draft, max: Math.max(0, Math.floor(Number(e.target.value) || 0)) })
+                }
               />
             </span>
             <span style={{ flex: 1 }} />
             <Button onClick={() => setDraft(null)}>{tr('common.cancel')}</Button>
             <Button
               kind="primary"
-              disabled={createSub.isPending || !draft.nameEn.trim() || !draft.nameAr.trim() || draftErr !== null}
+              disabled={
+                createSub.isPending ||
+                !draft.nameEn.trim() ||
+                !draft.nameAr.trim() ||
+                draftErr !== null
+              }
               onClick={() => createSub.mutate()}
             >
               {tr('common.save')}
@@ -182,7 +261,14 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2)', alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--tp-sp-1-5)',
+            marginBlockStart: 'var(--tp-sp-2)',
+            alignItems: 'center',
+          }}
+        >
           <Button
             kind="ghost"
             disabled={ownGroupIsTarget}
@@ -196,7 +282,11 @@ export function RevealsEditor({ modifier, data }: { modifier: ModifierRow; data:
               {tr('op.common.remove')}
             </Button>
           )}
-          <Button kind="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate(selected)}>
+          <Button
+            kind="primary"
+            disabled={!dirty || save.isPending}
+            onClick={() => save.mutate(selected)}
+          >
             {tr('common.save')}
           </Button>
         </div>

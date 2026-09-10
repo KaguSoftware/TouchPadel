@@ -121,7 +121,10 @@ describe.skipIf(!up)('0067 promotions', () => {
   }
 
   async function eligible(tabId: string, code?: string): Promise<Eligible[]> {
-    const res = await appRpc(cashier, 'eligible_promotions', { p_tab_id: tabId, p_code: code ?? null });
+    const res = await appRpc(cashier, 'eligible_promotions', {
+      p_tab_id: tabId,
+      p_code: code ?? null,
+    });
     if (res.error) throw new Error(`eligible_promotions: ${res.error.message}`);
     return res.data as Eligible[];
   }
@@ -138,7 +141,9 @@ describe.skipIf(!up)('0067 promotions', () => {
   async function totals(tabId: string) {
     const { data, error } = await svc.schema('app').rpc('compute_tab_totals', { p_tab_id: tabId });
     if (error) throw new Error(error.message);
-    return (data as { subtotal_iqd: number; discount_iqd: number; court_iqd: number; total_iqd: number }[])[0]!;
+    return (
+      data as { subtotal_iqd: number; discount_iqd: number; court_iqd: number; total_iqd: number }[]
+    )[0]!;
   }
 
   async function promoRows(tabId: string) {
@@ -148,20 +153,34 @@ describe.skipIf(!up)('0067 promotions', () => {
       .eq('tab_id', tabId)
       .not('promotion_id', 'is', null);
     return (data ?? []) as {
-      id: string; kind: string; value: number; amount_iqd: number; applied_by: string;
-      authorized_by: string; reason_code: string; promotion_id: string;
+      id: string;
+      kind: string;
+      value: number;
+      amount_iqd: number;
+      applied_by: string;
+      authorized_by: string;
+      reason_code: string;
+      promotion_id: string;
     }[];
   }
 
   async function redemptions(tabId: string) {
     const { data } = await svc.from('promotion_redemptions').select('*').eq('tab_id', tabId);
-    return (data ?? []) as { promotion_id: string; amount_iqd: number; code_used: string | null; customer_id: string | null }[];
+    return (data ?? []) as {
+      promotion_id: string;
+      amount_iqd: number;
+      code_used: string | null;
+      customer_id: string | null;
+    }[];
   }
 
   /** Local wall-clock in the venue timezone: hour (0-23) and dow (0 = Sunday). */
   function venueNow(): { hour: number; dow: number } {
     const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz, hour: 'numeric', hour12: false, weekday: 'short',
+      timeZone: tz,
+      hour: 'numeric',
+      hour12: false,
+      weekday: 'short',
     }).formatToParts(new Date());
     const hour = Number(parts.find((p) => p.type === 'hour')!.value) % 24;
     const wd = parts.find((p) => p.type === 'weekday')!.value;
@@ -231,7 +250,10 @@ describe.skipIf(!up)('0067 promotions', () => {
   // -------------------------------------------------------------------------
   describe('app.upsert_promotion', () => {
     it('creates with canonical defaults, audited with before/after', async () => {
-      const id = await mk({ p_scope: { itemIds: [itemA.itemId], courtIds: [] }, p_limits: { total: 5, minSpendIqd: null } });
+      const id = await mk({
+        p_scope: { itemIds: [itemA.itemId], courtIds: [] },
+        p_limits: { total: 5, minSpendIqd: null },
+      });
       const { data } = await svc.from('promotions').select('*').eq('id', id).single();
       const row = data as Record<string, unknown>;
       expect(row.type).toBe('percent');
@@ -245,10 +267,18 @@ describe.skipIf(!up)('0067 promotions', () => {
       expect(row.limits).toEqual({ total: 5 });
 
       const upd = await appRpc(manager, 'upsert_promotion', {
-        p_id: id, p_name_en: 'Renamed', p_name_ar: 'أُعيدت تسميته', p_type: 'amount', p_value: 2500,
+        p_id: id,
+        p_name_en: 'Renamed',
+        p_name_ar: 'أُعيدت تسميته',
+        p_type: 'amount',
+        p_value: 2500,
       });
       expect(upd.error).toBeNull();
-      const { data: after } = await svc.from('promotions').select('name_en, type, value, scope').eq('id', id).single();
+      const { data: after } = await svc
+        .from('promotions')
+        .select('name_en, type, value, scope')
+        .eq('id', id)
+        .single();
       expect(after).toEqual({ name_en: 'Renamed', type: 'amount', value: 2500, scope: {} });
 
       const { data: audit } = await svc
@@ -257,7 +287,11 @@ describe.skipIf(!up)('0067 promotions', () => {
         .eq('entity', 'promotions')
         .eq('entity_id', id)
         .order('id', { ascending: true });
-      const rows = audit as { action: string; before: Record<string, unknown> | null; after: Record<string, unknown> }[];
+      const rows = audit as {
+        action: string;
+        before: Record<string, unknown> | null;
+        after: Record<string, unknown>;
+      }[];
       expect(rows.map((r) => r.action)).toEqual(['promotion.upsert', 'promotion.upsert']);
       expect(rows[0]!.before).toBeNull();
       expect(rows[1]!.before?.type).toBe('percent');
@@ -266,28 +300,40 @@ describe.skipIf(!up)('0067 promotions', () => {
 
     it('validates by name', async () => {
       const err = async (args: PromoArgs) =>
-        outcome(await appRpc(manager, 'upsert_promotion', {
-          p_name_en: 'V', p_name_ar: 'ت', p_type: 'percent', p_value: 10, ...args,
-        })).errorMessage;
+        outcome(
+          await appRpc(manager, 'upsert_promotion', {
+            p_name_en: 'V',
+            p_name_ar: 'ت',
+            p_type: 'percent',
+            p_value: 10,
+            ...args,
+          }),
+        ).errorMessage;
 
       expect(await err({ p_name_ar: '  ' })).toBe('NAME_REQUIRED');
       expect(await err({ p_type: 'bogo' })).toBe('INVALID_VALUE');
       expect(await err({ p_value: 0 })).toBe('INVALID_VALUE');
       expect(await err({ p_value: 100 })).toBe('INVALID_VALUE');
       expect(await err({ p_type: 'amount', p_value: 0 })).toBe('INVALID_VALUE');
-      expect(await err({ p_starts_at: '2030-01-02T00:00:00Z', p_ends_at: '2030-01-01T00:00:00Z' })).toBe('INVALID_RANGE');
+      expect(
+        await err({ p_starts_at: '2030-01-02T00:00:00Z', p_ends_at: '2030-01-01T00:00:00Z' }),
+      ).toBe('INVALID_RANGE');
       expect(await err({ p_hour_from: '10:00' })).toBe('INVALID_RANGE');
       expect(await err({ p_hour_from: '10:00', p_hour_to: '10:00' })).toBe('INVALID_RANGE');
       expect(await err({ p_weekdays: [7] })).toBe('INVALID_WEEKDAYS');
       expect(await err({ p_weekdays: [1, 1] })).toBe('INVALID_WEEKDAYS');
-      expect(await err({ p_scope: { itemIds: ['00000000-0000-4000-8000-000000000000'] } })).toBe('INVALID_VALUE');
+      expect(await err({ p_scope: { itemIds: ['00000000-0000-4000-8000-000000000000'] } })).toBe(
+        'INVALID_VALUE',
+      );
       expect(await err({ p_scope: { tables: [] } })).toBe('INVALID_VALUE');
       expect(await err({ p_scope: { itemIds: ['not-a-uuid'] } })).toBe('INVALID_VALUE');
       expect(await err({ p_limits: { total: 0 } })).toBe('INVALID_VALUE');
       expect(await err({ p_limits: { perCustomer: 1.5 } })).toBe('INVALID_VALUE');
       expect(await err({ p_limits: { stacking: true } })).toBe('INVALID_VALUE');
       expect(await err({ p_public_code: 'ab' })).toBe('INVALID_VALUE');
-      expect(await err({ p_id: '00000000-0000-4000-8000-000000000000' })).toBe('PROMOTION_NOT_FOUND');
+      expect(await err({ p_id: '00000000-0000-4000-8000-000000000000' })).toBe(
+        'PROMOTION_NOT_FOUND',
+      );
     });
 
     it('normalises codes, refuses a taken one, keeps on null and clears on empty', async () => {
@@ -296,14 +342,24 @@ describe.skipIf(!up)('0067 promotions', () => {
       const { data: r1 } = await svc.from('promotions').select('public_code').eq('id', a).single();
       expect((r1 as { public_code: string }).public_code).toBe(code);
 
-      const taken = outcome(await appRpc(manager, 'upsert_promotion', {
-        p_name_en: 'B', p_name_ar: 'ب', p_type: 'percent', p_value: 5, p_public_code: code,
-      }));
+      const taken = outcome(
+        await appRpc(manager, 'upsert_promotion', {
+          p_name_en: 'B',
+          p_name_ar: 'ب',
+          p_type: 'percent',
+          p_value: 5,
+          p_public_code: code,
+        }),
+      );
       expect(taken.errorMessage).toBe('CODE_TAKEN');
 
       // null keeps
       const keep = await appRpc(manager, 'upsert_promotion', {
-        p_id: a, p_name_en: 'A2', p_name_ar: 'أ٢', p_type: 'percent', p_value: 10,
+        p_id: a,
+        p_name_en: 'A2',
+        p_name_ar: 'أ٢',
+        p_type: 'percent',
+        p_value: 10,
       });
       expect(keep.error).toBeNull();
       const { data: r2 } = await svc.from('promotions').select('public_code').eq('id', a).single();
@@ -311,7 +367,12 @@ describe.skipIf(!up)('0067 promotions', () => {
 
       // '' clears
       const clear = await appRpc(manager, 'upsert_promotion', {
-        p_id: a, p_name_en: 'A3', p_name_ar: 'أ٣', p_type: 'percent', p_value: 10, p_public_code: '',
+        p_id: a,
+        p_name_en: 'A3',
+        p_name_ar: 'أ٣',
+        p_type: 'percent',
+        p_value: 10,
+        p_public_code: '',
       });
       expect(clear.error).toBeNull();
       const { data: r3 } = await svc.from('promotions').select('public_code').eq('id', a).single();
@@ -320,7 +381,9 @@ describe.skipIf(!up)('0067 promotions', () => {
 
     it('is manager/owner only; a cashier, prep and a guest are refused by the guard', async () => {
       const args = { p_name_en: 'X', p_name_ar: 'س', p_type: 'percent', p_value: 10 };
-      expect(outcome(await appRpc(cashier, 'upsert_promotion', args)).errorMessage).toBe('FORBIDDEN');
+      expect(outcome(await appRpc(cashier, 'upsert_promotion', args)).errorMessage).toBe(
+        'FORBIDDEN',
+      );
       expect(outcome(await appRpc(prep, 'upsert_promotion', args)).errorMessage).toBe('FORBIDDEN');
       const guest = await anonymousSessionClient();
       expect(outcome(await appRpc(guest, 'upsert_promotion', args)).errorMessage).toBe('FORBIDDEN');
@@ -343,10 +406,18 @@ describe.skipIf(!up)('0067 promotions', () => {
         .eq('action', 'promotion.set_enabled');
       expect(audit).toHaveLength(1);
 
-      expect(outcome(await appRpc(cashier, 'set_promotion_enabled', { p_id: id, p_enabled: true })).errorMessage).toBe('FORBIDDEN');
-      expect(outcome(await appRpc(manager, 'set_promotion_enabled', {
-        p_id: '00000000-0000-4000-8000-000000000000', p_enabled: true,
-      })).errorMessage).toBe('PROMOTION_NOT_FOUND');
+      expect(
+        outcome(await appRpc(cashier, 'set_promotion_enabled', { p_id: id, p_enabled: true }))
+          .errorMessage,
+      ).toBe('FORBIDDEN');
+      expect(
+        outcome(
+          await appRpc(manager, 'set_promotion_enabled', {
+            p_id: '00000000-0000-4000-8000-000000000000',
+            p_enabled: true,
+          }),
+        ).errorMessage,
+      ).toBe('PROMOTION_NOT_FOUND');
     });
 
     it('generates an 8-character unambiguous code, stored and audited; manager only', async () => {
@@ -357,7 +428,11 @@ describe.skipIf(!up)('0067 promotions', () => {
       expect(code).toHaveLength(8);
       for (const ch of code) expect(CODE_ALPHABET).toContain(ch);
 
-      const { data: row } = await svc.from('promotions').select('public_code').eq('id', id).single();
+      const { data: row } = await svc
+        .from('promotions')
+        .select('public_code')
+        .eq('id', id)
+        .single();
       expect((row as { public_code: string }).public_code).toBe(code);
 
       // Regenerating replaces the code.
@@ -371,7 +446,9 @@ describe.skipIf(!up)('0067 promotions', () => {
         .eq('action', 'promotion.generate_code');
       expect(audit).toHaveLength(2);
 
-      expect(outcome(await appRpc(cashier, 'generate_promo_code', { p_id: id })).errorMessage).toBe('FORBIDDEN');
+      expect(outcome(await appRpc(cashier, 'generate_promo_code', { p_id: id })).errorMessage).toBe(
+        'FORBIDDEN',
+      );
     });
   });
 
@@ -382,15 +459,21 @@ describe.skipIf(!up)('0067 promotions', () => {
     for (const base of [0, 1, 15, 999, 1_250, 6_000, 10_000, 1_000_000]) {
       for (const pct of [1, 7, 10, 15, 33, 50, 99]) {
         const { data, error } = await svc.schema('app').rpc('promotion_amount_iqd', {
-          p_base: base, p_type: 'percent', p_value: pct,
+          p_base: base,
+          p_type: 'percent',
+          p_value: pct,
         });
         expect(error, `${base} @ ${pct}%`).toBeNull();
         expect(Number(data)).toBe(pctDiscountRef(base, pct));
       }
     }
-    const capped = await svc.schema('app').rpc('promotion_amount_iqd', { p_base: 1_000, p_type: 'amount', p_value: 1_500 });
+    const capped = await svc
+      .schema('app')
+      .rpc('promotion_amount_iqd', { p_base: 1_000, p_type: 'amount', p_value: 1_500 });
     expect(Number(capped.data)).toBe(1_000);
-    const bad = await svc.schema('app').rpc('promotion_amount_iqd', { p_base: 1_000, p_type: 'percent', p_value: 100 });
+    const bad = await svc
+      .schema('app')
+      .rpc('promotion_amount_iqd', { p_base: 1_000, p_type: 'percent', p_value: 100 });
     expect(bad.error?.message).toBe('INVALID_PCT');
   });
 
@@ -403,7 +486,11 @@ describe.skipIf(!up)('0067 promotions', () => {
       const tabId = await tabAB('elig-basic');
       const list = await eligible(tabId);
       expect(list.map((e) => e.promotionId)).toEqual([id]);
-      expect(list[0]).toMatchObject({ type: 'percent', value: 15, amountIqd: pctDiscountRef(10_000, 15) });
+      expect(list[0]).toMatchObject({
+        type: 'percent',
+        value: 15,
+        amountIqd: pctDiscountRef(10_000, 15),
+      });
       expect(list[0]!.name_ar).toMatch(/^عرض/);
     });
 
@@ -412,7 +499,10 @@ describe.skipIf(!up)('0067 promotions', () => {
       const future = new Date(Date.now() + 86_400_000).toISOString();
       const past = new Date(Date.now() - 86_400_000).toISOString();
       const notYet = await mk({ p_starts_at: future });
-      const expired = await mk({ p_starts_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), p_ends_at: past });
+      const expired = await mk({
+        p_starts_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+        p_ends_at: past,
+      });
       const off = await mk({ p_enabled: false });
       const live = await mk({ p_starts_at: past, p_ends_at: future });
       const ids = (await eligible(tabId)).map((e) => e.promotionId);
@@ -440,10 +530,10 @@ describe.skipIf(!up)('0067 promotions', () => {
 
     it('restricts the base to scoped items / categories, and never below 1 IQD', async () => {
       const tabId = await tabAB('elig-scope');
-      const onA = await mk({ p_scope: { itemIds: [itemA.itemId] } });          // base 6,000
+      const onA = await mk({ p_scope: { itemIds: [itemA.itemId] } }); // base 6,000
       const onCatB = await mk({ p_scope: { categoryIds: [itemB.categoryId] } }); // base 4,000
       const third = await createTestMenuItem(svc, 'promo-c', 1000);
-      const onC = await mk({ p_scope: { itemIds: [third.itemId] } });          // base 0 -> not eligible
+      const onC = await mk({ p_scope: { itemIds: [third.itemId] } }); // base 0 -> not eligible
       const list = await eligible(tabId);
       const by = Object.fromEntries(list.map((e) => [e.promotionId, e.amountIqd]));
       expect(by[onA]).toBe(pctDiscountRef(6_000, 10));
@@ -489,19 +579,32 @@ describe.skipIf(!up)('0067 promotions', () => {
       const id = await mk({ p_auto: false });
       const code = (await appRpc(manager, 'generate_promo_code', { p_id: id })).data as string;
       expect((await eligible(tabId)).map((e) => e.promotionId)).toEqual([]);
-      expect((await eligible(tabId, ` ${code.toLowerCase()} `)).map((e) => e.promotionId)).toEqual([id]);
-      const bad = await appRpc(cashier, 'eligible_promotions', { p_tab_id: tabId, p_code: 'NOPE9999' });
+      expect((await eligible(tabId, ` ${code.toLowerCase()} `)).map((e) => e.promotionId)).toEqual([
+        id,
+      ]);
+      const bad = await appRpc(cashier, 'eligible_promotions', {
+        p_tab_id: tabId,
+        p_code: 'NOPE9999',
+      });
       expect(bad.error?.message).toBe('CODE_INVALID');
     });
 
     it('is till-only: prep and a guest are refused; a missing tab is named', async () => {
       const tabId = await tabAB('elig-guard');
-      expect(outcome(await appRpc(prep, 'eligible_promotions', { p_tab_id: tabId })).errorMessage).toBe('FORBIDDEN');
+      expect(
+        outcome(await appRpc(prep, 'eligible_promotions', { p_tab_id: tabId })).errorMessage,
+      ).toBe('FORBIDDEN');
       const guest = await anonymousSessionClient();
-      expect(outcome(await appRpc(guest, 'eligible_promotions', { p_tab_id: tabId })).errorMessage).toBe('FORBIDDEN');
-      expect(outcome(await appRpc(cashier, 'eligible_promotions', {
-        p_tab_id: '00000000-0000-4000-8000-000000000000',
-      })).errorMessage).toBe('TAB_NOT_FOUND');
+      expect(
+        outcome(await appRpc(guest, 'eligible_promotions', { p_tab_id: tabId })).errorMessage,
+      ).toBe('FORBIDDEN');
+      expect(
+        outcome(
+          await appRpc(cashier, 'eligible_promotions', {
+            p_tab_id: '00000000-0000-4000-8000-000000000000',
+          }),
+        ).errorMessage,
+      ).toBe('TAB_NOT_FOUND');
     });
   });
 
@@ -510,7 +613,7 @@ describe.skipIf(!up)('0067 promotions', () => {
   // -------------------------------------------------------------------------
   describe('app.apply_best_promotion', () => {
     it('applies the single best of two, as a promotion adjustment authorised by the configuring manager', async () => {
-      const tenPct = await mk({ p_value: 10 });                       // 1,000
+      const tenPct = await mk({ p_value: 10 }); // 1,000
       const fifteenHundred = await mk({ p_type: 'amount', p_value: 1500 }); // 1,500
       const tabId = await tabAB('apply-best');
 
@@ -520,7 +623,12 @@ describe.skipIf(!up)('0067 promotions', () => {
 
       const res = await apply(tabId);
       expect(res.error).toBeNull();
-      expect(res.data).toMatchObject({ promotionId: fifteenHundred, amountIqd: 1500, unchanged: false, replacedPromotionId: null });
+      expect(res.data).toMatchObject({
+        promotionId: fifteenHundred,
+        amountIqd: 1500,
+        unchanged: false,
+        replacedPromotionId: null,
+      });
 
       const rows = await promoRows(tabId);
       expect(rows).toHaveLength(1);
@@ -535,7 +643,11 @@ describe.skipIf(!up)('0067 promotions', () => {
       });
       const reds = await redemptions(tabId);
       expect(reds).toHaveLength(1);
-      expect(reds[0]).toMatchObject({ promotion_id: fifteenHundred, amount_iqd: 1500, code_used: null });
+      expect(reds[0]).toMatchObject({
+        promotion_id: fifteenHundred,
+        amount_iqd: 1500,
+        code_used: null,
+      });
 
       const { data: audit } = await svc
         .from('audit_log')
@@ -543,7 +655,11 @@ describe.skipIf(!up)('0067 promotions', () => {
         .eq('entity_id', (res.data as Applied).adjustmentId)
         .eq('action', 'promotion.apply')
         .single();
-      expect(audit).toMatchObject({ reason_code: 'promotion', authorizer_id: SEED_STAFF_IDS.manager, device_id: 'TILL-TEST' });
+      expect(audit).toMatchObject({
+        reason_code: 'promotion',
+        authorizer_id: SEED_STAFF_IDS.manager,
+        device_id: 'TILL-TEST',
+      });
     });
 
     it('reaches the bill: compute_tab_totals, settle_tab and the stamped tab agree', async () => {
@@ -554,11 +670,23 @@ describe.skipIf(!up)('0067 promotions', () => {
       expect(t).toMatchObject({ subtotal_iqd: 10_000, discount_iqd: 2_000, total_iqd: 8_000 });
 
       const settled = await appRpc(cashier, 'settle_tab', {
-        p_tab_id: tabId, p_method: 'cash', p_tendered_iqd: 10_000, p_idempotency_key: testIdemKey('payment.record'),
+        p_tab_id: tabId,
+        p_method: 'cash',
+        p_tendered_iqd: 10_000,
+        p_idempotency_key: testIdemKey('payment.record'),
       });
       expect(settled.error).toBeNull();
-      expect(settled.data).toMatchObject({ status: 'settled', discount_iqd: 2_000, total_iqd: 8_000, change_iqd: 2_000 });
-      const { data: tab } = await svc.from('tabs').select('discount_iqd, total_iqd').eq('id', tabId).single();
+      expect(settled.data).toMatchObject({
+        status: 'settled',
+        discount_iqd: 2_000,
+        total_iqd: 8_000,
+        change_iqd: 2_000,
+      });
+      const { data: tab } = await svc
+        .from('tabs')
+        .select('discount_iqd, total_iqd')
+        .eq('id', tabId)
+        .single();
       expect(tab).toEqual({ discount_iqd: 2_000, total_iqd: 8_000 });
 
       // A settled tab takes no promotion.
@@ -569,7 +697,11 @@ describe.skipIf(!up)('0067 promotions', () => {
       await mk({ p_value: 7 });
       const tabId = await tabAB('apply-bp');
       await apply(tabId);
-      expect((await promoRows(tabId))[0]).toMatchObject({ kind: 'discount_percent', value: 700, amount_iqd: pctDiscountRef(10_000, 7) });
+      expect((await promoRows(tabId))[0]).toMatchObject({
+        kind: 'discount_percent',
+        value: 700,
+        amount_iqd: pctDiscountRef(10_000, 7),
+      });
     });
 
     it('re-apply replaces: one promotion per tab, the replacement audited; same promotion is a no-op', async () => {
@@ -580,16 +712,29 @@ describe.skipIf(!up)('0067 promotions', () => {
 
       // Same best, same amount: nothing rewritten.
       const same = (await apply(tabId)).data as Applied;
-      expect(same).toMatchObject({ promotionId: first, adjustmentId: r1.adjustmentId, unchanged: true });
+      expect(same).toMatchObject({
+        promotionId: first,
+        adjustmentId: r1.adjustmentId,
+        unchanged: true,
+      });
 
       // The bill grows: the same promotion is worth more, so it IS rewritten.
       await addItem(tabId, itemA); // goods now 16,000
       const grown = (await apply(tabId)).data as Applied;
-      expect(grown).toMatchObject({ promotionId: first, amountIqd: pctDiscountRef(16_000, 10), unchanged: false, replacedPromotionId: first });
+      expect(grown).toMatchObject({
+        promotionId: first,
+        amountIqd: pctDiscountRef(16_000, 10),
+        unchanged: false,
+        replacedPromotionId: first,
+      });
 
       const better = await mk({ p_type: 'amount', p_value: 3000 });
       const r2 = (await apply(tabId)).data as Applied;
-      expect(r2).toMatchObject({ promotionId: better, amountIqd: 3000, replacedPromotionId: first });
+      expect(r2).toMatchObject({
+        promotionId: better,
+        amountIqd: 3000,
+        replacedPromotionId: first,
+      });
 
       const rows = await promoRows(tabId);
       expect(rows).toHaveLength(1);
@@ -603,8 +748,9 @@ describe.skipIf(!up)('0067 promotions', () => {
         .eq('action', 'promotion.replace')
         .in('entity_id', [r1.adjustmentId, grown.adjustmentId]);
       expect(audit).toHaveLength(2);
-      const replaced = (audit as { entity_id: string; before: { promotion_id: string; redemption: unknown } }[])
-        .find((a) => a.entity_id === grown.adjustmentId)!;
+      const replaced = (
+        audit as { entity_id: string; before: { promotion_id: string; redemption: unknown } }[]
+      ).find((a) => a.entity_id === grown.adjustmentId)!;
       expect(replaced.before.promotion_id).toBe(first);
       expect(replaced.before.redemption).toBeTruthy();
     });
@@ -615,9 +761,15 @@ describe.skipIf(!up)('0067 promotions', () => {
       const key = testIdemKey('promotion.apply');
       const a = (await apply(tabId, undefined, key)).data as Applied;
       const b = (await apply(tabId, undefined, key)).data as Applied;
-      expect(b).toMatchObject({ promotionId: a.promotionId, amountIqd: a.amountIqd, duplicate: true });
+      expect(b).toMatchObject({
+        promotionId: a.promotionId,
+        amountIqd: a.amountIqd,
+        duplicate: true,
+      });
       expect(await redemptions(tabId)).toHaveLength(1);
-      expect(outcome(await apply(tabId, undefined, key, manager)).errorMessage).toBe('IDEMPOTENCY_CONFLICT');
+      expect(outcome(await apply(tabId, undefined, key, manager)).errorMessage).toBe(
+        'IDEMPOTENCY_CONFLICT',
+      );
     });
 
     it('raises NO_ELIGIBLE_PROMOTION when nothing applies, and a disabled promotion never applies', async () => {
@@ -686,10 +838,16 @@ describe.skipIf(!up)('0067 promotions', () => {
     it('cashier can apply; prep and a guest cannot; nothing is written for a missing tab', async () => {
       await mk();
       const tabId = await tabAB('apply-guard');
-      expect(outcome(await apply(tabId, undefined, undefined, prep)).errorMessage).toBe('FORBIDDEN');
+      expect(outcome(await apply(tabId, undefined, undefined, prep)).errorMessage).toBe(
+        'FORBIDDEN',
+      );
       const guest = await anonymousSessionClient();
-      expect(outcome(await apply(tabId, undefined, undefined, guest)).errorMessage).toBe('FORBIDDEN');
-      expect(outcome(await apply('00000000-0000-4000-8000-000000000000')).errorMessage).toBe('TAB_NOT_FOUND');
+      expect(outcome(await apply(tabId, undefined, undefined, guest)).errorMessage).toBe(
+        'FORBIDDEN',
+      );
+      expect(outcome(await apply('00000000-0000-4000-8000-000000000000')).errorMessage).toBe(
+        'TAB_NOT_FOUND',
+      );
       expect((await apply(tabId)).error).toBeNull();
     });
 
@@ -700,7 +858,10 @@ describe.skipIf(!up)('0067 promotions', () => {
       const d = (await apply(donor)).data as Applied;
       const s = (await apply(survivor)).data as Applied;
 
-      const merged = await appRpc(cashier, 'merge_tabs', { p_donor_tab_id: donor, p_survivor_tab_id: survivor });
+      const merged = await appRpc(cashier, 'merge_tabs', {
+        p_donor_tab_id: donor,
+        p_survivor_tab_id: survivor,
+      });
       expect(merged.error).toBeNull();
 
       const rows = await promoRows(survivor);
@@ -730,10 +891,16 @@ describe.skipIf(!up)('0067 promotions', () => {
     const tabId = await tabAB('dayclose');
     const applied = (await apply(tabId)).data as Applied;
     await appRpc(cashier, 'settle_tab', {
-      p_tab_id: tabId, p_method: 'card', p_idempotency_key: testIdemKey('payment.record'),
+      p_tab_id: tabId,
+      p_method: 'card',
+      p_idempotency_key: testIdemKey('payment.record'),
     });
 
-    const { data: staffRow } = await svc.from('staff').select('display_name').eq('id', SEED_STAFF_IDS.manager).single();
+    const { data: staffRow } = await svc
+      .from('staff')
+      .select('display_name')
+      .eq('id', SEED_STAFF_IDS.manager)
+      .single();
     const managerName = (staffRow as { display_name: string }).display_name;
 
     const { data: summary, error } = await manager
@@ -742,7 +909,11 @@ describe.skipIf(!up)('0067 promotions', () => {
       .eq('day_session_id', dayId)
       .single();
     expect(error).toBeNull();
-    const s = summary as { discounts_iqd: number; adjustment_count: number; authorizer_names: string[] };
+    const s = summary as {
+      discounts_iqd: number;
+      adjustment_count: number;
+      authorizer_names: string[];
+    };
     expect(Number(s.discounts_iqd)).toBeGreaterThanOrEqual(1234);
     expect(s.adjustment_count).toBeGreaterThanOrEqual(1);
     expect(s.authorizer_names).toContain(managerName);
@@ -753,7 +924,10 @@ describe.skipIf(!up)('0067 promotions', () => {
       .eq('adjustment_id', applied.adjustmentId)
       .single();
     expect(drill).toMatchObject({
-      kind: 'discount_amount', amount_iqd: 1234, reason_code: 'promotion', authorized_by_name: managerName,
+      kind: 'discount_amount',
+      amount_iqd: 1234,
+      reason_code: 'promotion',
+      authorized_by_name: managerName,
     });
   });
 
@@ -767,7 +941,10 @@ describe.skipIf(!up)('0067 promotions', () => {
     const { data: asGuest, error: guestErr } = await guest.from('promotions').select('id').limit(1);
     expect(guestErr).toBeNull();
     expect(asGuest).toHaveLength(0);
-    const { data: guestReds, error: guestRedErr } = await guest.from('promotion_redemptions').select('id').limit(1);
+    const { data: guestReds, error: guestRedErr } = await guest
+      .from('promotion_redemptions')
+      .select('id')
+      .limit(1);
     expect(guestRedErr).toBeNull();
     expect(guestReds).toHaveLength(0);
 
@@ -775,10 +952,17 @@ describe.skipIf(!up)('0067 promotions', () => {
     expect(anonErr).not.toBeNull();
 
     const { error: ins } = await manager.from('promotions').insert({
-      name_en: 'x', name_ar: 'س', type: 'percent', value: 1, created_by: SEED_STAFF_IDS.manager,
+      name_en: 'x',
+      name_ar: 'س',
+      type: 'percent',
+      value: 1,
+      created_by: SEED_STAFF_IDS.manager,
     });
     expect(ins).not.toBeNull();
-    const { error: upd } = await manager.from('promotions').update({ enabled: false }).eq('id', made[0]!);
+    const { error: upd } = await manager
+      .from('promotions')
+      .update({ enabled: false })
+      .eq('id', made[0]!);
     expect(upd).not.toBeNull();
     const { error: del } = await manager.from('promotions').delete().eq('id', made[0]!);
     expect(del).not.toBeNull();

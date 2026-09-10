@@ -52,7 +52,10 @@ describe('startUpdater', () => {
     stub.failNextCheck = new Error('getaddrinfo ENOTFOUND github.com');
     handle!.checkNow();
     await vi.advanceTimersByTimeAsync(0);
-    expect(error).toHaveBeenCalledWith('[updater] check failed:', 'getaddrinfo ENOTFOUND github.com');
+    expect(error).toHaveBeenCalledWith(
+      '[updater] check failed:',
+      'getaddrinfo ENOTFOUND github.com',
+    );
     stub.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
     expect(error).toHaveBeenCalledWith('[updater]', 'net::ERR_INTERNET_DISCONNECTED');
   });

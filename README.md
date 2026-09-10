@@ -7,17 +7,17 @@ everywhere. The signed SOW in `docs/scope/` is the contract.
 
 ## Layout
 
-| Path | Package | What it is |
-|---|---|---|
-| `apps/mobile` | `@touch/mobile` | Guest app, React Native + Expo (padel booking only) |
-| `apps/web` | `@touch/web` | Public site + cafe QR ordering, Next.js on Vercel |
-| `apps/operator` | `@touch/operator` | Operator SPA (till, calendar, KDS, stock, admin), Vite + React |
-| `apps/operator-shell` | `@touch/operator-shell` | Electron shell: SQLite queue, LAN KDS, ESC/POS printing, auto-update |
-| `packages/db` | `@touch/db` | Supabase migrations, generated types, seeds, DB tests and safety checks |
-| `packages/core` | `@touch/core` | Shared domain logic (money, splits, idempotency, time) |
-| `packages/ui` | `@touch/ui` | Shared UI tokens/components (logical properties only) |
-| `packages/i18n` | `@touch/i18n` | EN/AR messages and locale utilities |
-| `packages/config` | `@touch/config` | Shared tsconfig/eslint/prettier presets |
+| Path                  | Package                 | What it is                                                              |
+| --------------------- | ----------------------- | ----------------------------------------------------------------------- |
+| `apps/mobile`         | `@touch/mobile`         | Guest app, React Native + Expo (padel booking only)                     |
+| `apps/web`            | `@touch/web`            | Public site + cafe QR ordering, Next.js on Vercel                       |
+| `apps/operator`       | `@touch/operator`       | Operator SPA (till, calendar, KDS, stock, admin), Vite + React          |
+| `apps/operator-shell` | `@touch/operator-shell` | Electron shell: SQLite queue, LAN KDS, ESC/POS printing, auto-update    |
+| `packages/db`         | `@touch/db`             | Supabase migrations, generated types, seeds, DB tests and safety checks |
+| `packages/core`       | `@touch/core`           | Shared domain logic (money, splits, idempotency, time)                  |
+| `packages/ui`         | `@touch/ui`             | Shared UI tokens/components (logical properties only)                   |
+| `packages/i18n`       | `@touch/i18n`           | EN/AR messages and locale utilities                                     |
+| `packages/config`     | `@touch/config`         | Shared tsconfig/eslint/prettier presets                                 |
 
 ## Quickstart
 
@@ -39,12 +39,12 @@ pnpm e2e:install && pnpm e2e     # optional: Playwright browser tests
 Each app reads its own env file. Copy the example, fill in values, never commit the result
 (`.gitignore` blocks every `.env*` except `.env.example`).
 
-| Example | Copy to | Read by |
-|---|---|---|
-| `apps/web/.env.example` | `apps/web/.env.local` | Next.js (`NEXT_PUBLIC_*`) |
-| `apps/mobile/.env.example` | `apps/mobile/.env` | Expo (`EXPO_PUBLIC_*`) |
-| `apps/operator/.env.example` | `apps/operator/.env.local` | Vite (`VITE_*`) |
-| `packages/db/.env.example` | `packages/db/.env` | dotenv in DB tests and scripts |
+| Example                      | Copy to                    | Read by                        |
+| ---------------------------- | -------------------------- | ------------------------------ |
+| `apps/web/.env.example`      | `apps/web/.env.local`      | Next.js (`NEXT_PUBLIC_*`)      |
+| `apps/mobile/.env.example`   | `apps/mobile/.env`         | Expo (`EXPO_PUBLIC_*`)         |
+| `apps/operator/.env.example` | `apps/operator/.env.local` | Vite (`VITE_*`)                |
+| `packages/db/.env.example`   | `packages/db/.env`         | dotenv in DB tests and scripts |
 
 `NEXT_PUBLIC_`, `EXPO_PUBLIC_` and `VITE_` values are inlined into shipped client bundles,
 so nothing secret may sit behind those names. `pnpm security:env-names` enforces this in CI.
@@ -52,12 +52,12 @@ The service-role key lives only in `packages/db/.env` and GitHub Environment sec
 
 ## Scripts (repo root)
 
-| Group | Scripts |
-|---|---|
-| Turbo | `build`, `dev`, `lint`, `typecheck`, `test` |
-| Database | `db:start`, `db:stop`, `db:reset`, `db:types`, `db:fixtures`, `db:clear-dev-till` |
-| Quality | `format`, `fonts:sync`, `fonts:check`, `e2e`, `e2e:install` |
-| Security | `security:env-names`, `security:history`, `security:audit`, `security:data`, `security:web` |
+| Group    | Scripts                                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Turbo    | `build`, `dev`, `lint`, `typecheck`, `test`                                                                                                                              |
+| Database | `db:start`, `db:stop`, `db:reset`, `db:types`, `db:fixtures`, `db:clear-dev-till`                                                                                        |
+| Quality  | `format`, `fonts:sync`, `fonts:check`, `e2e`, `e2e:install`                                                                                                              |
+| Security | `security` runs every Docker-free CI secrets gate in one go; or `security:env-names`, `security:history`, `security:audit`, `security:data`, `security:web` individually |
 
 Run `supabase` CLI commands from `packages/db`, not the repo root. Never run `eas` or `expo`
 from the root either; the real config lives in `apps/mobile/`.

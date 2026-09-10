@@ -20,7 +20,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { mutate } from '../../lib/mutate';
-import { LOCAL_TAB_PREFIX, appendOfflineLines, listOfflineTabs, subscribeOfflineTabs } from '../../lib/offlineTabs';
+import {
+  LOCAL_TAB_PREFIX,
+  appendOfflineLines,
+  listOfflineTabs,
+  subscribeOfflineTabs,
+} from '../../lib/offlineTabs';
 import { QK, fetchOpenDay } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { chime, StartShiftBanner } from '../../lib/audio';
@@ -40,7 +45,14 @@ import { KeymapHelp } from './KeymapHelp';
 import { mergeQuickLine, quickVariant } from './quickAdd';
 import { resolveTillKey } from './keymap';
 import { localIsoDate, deriveTileState, tileInteractive } from './tileState';
-import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, type BasketLine, type ItemRow } from './tillData';
+import {
+  OPEN_TABS_QUERY,
+  TILL_MENU_QUERY,
+  basketLineEstimate,
+  fetchTabDetail,
+  type BasketLine,
+  type ItemRow,
+} from './tillData';
 import type { TillSearch } from './tillSearch';
 import { BASKET_BLOCK_SIZE, muted } from './tillStyles';
 
@@ -79,7 +91,12 @@ export function TillScreen() {
   const menuQ = useQuery({ ...TILL_MENU_QUERY });
   const tabsQ = useQuery({ ...OPEN_TABS_QUERY });
 
-  useBroadcast({ topic: 'menu', isPrivate: false, events: ['menu_changed'], invalidateKeys: [['menu']] });
+  useBroadcast({
+    topic: 'menu',
+    isPrivate: false,
+    events: ['menu_changed'],
+    invalidateKeys: [['menu']],
+  });
   const { status: floorStatus } = useBroadcast({
     topic: 'floor',
     isPrivate: true,
@@ -89,19 +106,29 @@ export function TillScreen() {
     onEvent: (_e, p) => (p as { status?: string } | null)?.status === 'raised' && chime('call'),
   });
 
-  const categories = useMemo(() => (menuQ.data?.categories ?? []).filter((c) => c.is_active), [menuQ.data]);
+  const categories = useMemo(
+    () => (menuQ.data?.categories ?? []).filter((c) => c.is_active),
+    [menuQ.data],
+  );
   const activeCategory = categoryId ?? categories[0]?.id ?? null;
 
   const visibleItems = useMemo(() => {
     const items = (menuQ.data?.items ?? []).filter((i) => i.is_active);
     const q = filter.trim().toLowerCase();
-    if (q) return items.filter((i) => i.name_en.toLowerCase().includes(q) || i.name_ar.includes(filter.trim()));
+    if (q)
+      return items.filter(
+        (i) => i.name_en.toLowerCase().includes(q) || i.name_ar.includes(filter.trim()),
+      );
     return items.filter((i) => i.category_id === activeCategory);
   }, [menuQ.data, filter, activeCategory]);
 
   const prefetchTab = useCallback(
     (id: string) => {
-      void queryClient.prefetchQuery({ queryKey: ['tab', id], queryFn: () => fetchTabDetail(id), staleTime: 10_000 });
+      void queryClient.prefetchQuery({
+        queryKey: ['tab', id],
+        queryFn: () => fetchTabDetail(id),
+        staleTime: 10_000,
+      });
     },
     [queryClient],
   );
@@ -166,7 +193,9 @@ export function TillScreen() {
   }
 
   function bumpBasketQty(key: string, delta: number) {
-    setBasket((b) => b.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0));
+    setBasket((b) =>
+      b.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0),
+    );
   }
 
   // ---- send basket ----------------------------------------------------------
@@ -187,7 +216,11 @@ export function TillScreen() {
         await mutate('order.add_items', { tabIdemKey: idemKey, items });
         appendOfflineLines(
           idemKey,
-          basket.map((l) => ({ name: `${l.itemName} (${l.variantName})`, qty: l.qty, priceIqd: basketLineEstimate(l) / l.qty })),
+          basket.map((l) => ({
+            name: `${l.itemName} (${l.variantName})`,
+            qty: l.qty,
+            priceIqd: basketLineEstimate(l) / l.qty,
+          })),
         );
       } else {
         await mutate('order.add_items', { tabId: selectedTabId, items });
@@ -209,7 +242,12 @@ export function TillScreen() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
-      const inField = Boolean(target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT'));
+      const inField = Boolean(
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT'),
+      );
       const action = resolveTillKey({
         key: e.key,
         inField,
@@ -218,7 +256,12 @@ export function TillScreen() {
         modifier: e.ctrlKey || e.metaKey || e.altKey,
       });
       if (action === null) return;
-      const { visibleItems: visible, categories: cats, sendBasket: send, addOrOpen: add } = latest.current;
+      const {
+        visibleItems: visible,
+        categories: cats,
+        sendBasket: send,
+        addOrOpen: add,
+      } = latest.current;
       if (typeof action === 'object') {
         const cat = cats[action.index];
         if (cat) {
@@ -273,7 +316,11 @@ export function TillScreen() {
   if (dayQ.isSuccess && !dayQ.data) {
     return (
       <div style={{ maxInlineSize: 'var(--tp-measure-form)' }}>
-        <h1 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('till.title')}</h1>
+        <h1
+          style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-3)' }}
+        >
+          {tr('till.title')}
+        </h1>
         <EmptyState icon="sun" title={tr('op.till.noOpenDay')} />
       </div>
     );
@@ -299,7 +346,18 @@ export function TillScreen() {
       }}
     >
       {/* ---- inline-start: waiter calls + rail ---- */}
-      <aside style={{ minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', paddingInlineEnd: 'var(--tp-sp-1)' }}>
+      <aside
+        style={{
+          minBlockSize: 0,
+          minInlineSize: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          display: 'grid',
+          gap: 'var(--tp-sp-3)',
+          alignContent: 'start',
+          paddingInlineEnd: 'var(--tp-sp-1)',
+        }}
+      >
         <StartShiftBanner />
         <WaiterCallsPanel status={floorStatus} />
         <TabRail
@@ -314,7 +372,16 @@ export function TillScreen() {
       </aside>
 
       {/* ---- centre: filter, categories, grid, basket ---- */}
-      <section aria-label={tr('ws.cashier.till.regionMenu')} style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2-5)' }}>
+      <section
+        aria-label={tr('ws.cashier.till.regionMenu')}
+        style={{
+          minBlockSize: 0,
+          minInlineSize: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--tp-sp-2-5)',
+        }}
+      >
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}>
           <input
             ref={filterRef}
@@ -330,7 +397,13 @@ export function TillScreen() {
               }
             }}
           />
-          <Button icon="keyboard" onClick={() => setHelpOpen(true)} aria-label={tr('ws.cashier.till.help.open')} title={tr('ws.cashier.till.help.open')} style={{ minBlockSize: 'var(--tp-touch)' }}>
+          <Button
+            icon="keyboard"
+            onClick={() => setHelpOpen(true)}
+            aria-label={tr('ws.cashier.till.help.open')}
+            title={tr('ws.cashier.till.help.open')}
+            style={{ minBlockSize: 'var(--tp-touch)' }}
+          >
             <Kbd>?</Kbd>
           </Button>
         </div>
@@ -345,7 +418,13 @@ export function TillScreen() {
               {/* The skeleton stands on the same two physical tokens the real
                   strip and tiles do, so the menu does not resize on arrival. */}
               <Skeleton lines={1} blockSize="var(--tp-touch)" />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: 'var(--tp-sp-1-5)' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))',
+                  gap: 'var(--tp-sp-1-5)',
+                }}
+              >
                 {Array.from({ length: 8 }, (_, i) => (
                   <Skeleton key={i} lines={1} blockSize="var(--tp-tile-min-block)" />
                 ))}
@@ -370,7 +449,11 @@ export function TillScreen() {
               today={today}
               onPick={addOrOpen}
               onOpenSheet={setSheetItem}
-              emptyText={filtering ? tr('ws.cashier.till.noMatches', { query: filter.trim() }) : tr('ws.cashier.till.noItems')}
+              emptyText={
+                filtering
+                  ? tr('ws.cashier.till.noMatches', { query: filter.trim() })
+                  : tr('ws.cashier.till.noItems')
+              }
             />
             <TileLegend />
           </div>
@@ -445,7 +528,10 @@ export function TillScreen() {
         )}
         {selectedTabId && selectedIsOffline && (
           <div style={{ minBlockSize: 0, overflowY: 'auto' }}>
-            <OfflineTabPanel idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)} onSettled={() => setSelectedTabId(null)} />
+            <OfflineTabPanel
+              idemKey={selectedTabId.slice(LOCAL_TAB_PREFIX.length)}
+              onSettled={() => setSelectedTabId(null)}
+            />
           </div>
         )}
       </aside>

@@ -19,7 +19,8 @@ export function BeanPattern({
   className?: string;
   children?: ReactNode;
 }) {
-  const style = opacity != null ? ({ '--tp-beans-opacity': String(opacity) } as CSSProperties) : undefined;
+  const style =
+    opacity != null ? ({ '--tp-beans-opacity': String(opacity) } as CSSProperties) : undefined;
   return (
     <div
       className={['tp-beans', className].filter(Boolean).join(' ')}

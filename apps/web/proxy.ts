@@ -136,7 +136,9 @@ export function proxy(req: NextRequest) {
   const table = pathname.match(TABLE_URL);
   if (table) {
     const [, localeInPath, token] = table;
-    return withSecurity(exchangeTableToken(req, token as string, localeInPath ?? negotiateLocale(req)));
+    return withSecurity(
+      exchangeTableToken(req, token as string, localeInPath ?? negotiateLocale(req)),
+    );
   }
 
   const hasLocale = LOCALES.some((l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`));

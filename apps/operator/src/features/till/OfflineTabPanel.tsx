@@ -13,7 +13,13 @@ import { ChangeDueDisplay, MessagePresenter } from '../../components/kit';
 import { computeChange } from './change';
 import { kvRow, muted, numeric } from './tillStyles';
 
-export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSettled: () => void }) {
+export function OfflineTabPanel({
+  idemKey,
+  onSettled,
+}: {
+  idemKey: string;
+  onSettled: () => void;
+}) {
   const { tr, locale } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -45,9 +51,19 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
   }
 
   return (
-    <section aria-label={tr('ws.cashier.till.regionTab')} style={{ display: 'grid', gap: 'var(--tp-sp-2-5)', alignContent: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
+    <section
+      aria-label={tr('ws.cashier.till.regionTab')}
+      style={{
+        display: 'grid',
+        gap: 'var(--tp-sp-2-5)',
+        alignContent: 'start',
+        paddingBlock: 'var(--tp-sp-3)',
+      }}
+    >
       <h2 style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700 }}>
-        <bdi>{tab.tableNumber ? `${tr('op.till.table')} ${tab.tableNumber}` : (tab.label ?? '—')}</bdi>
+        <bdi>
+          {tab.tableNumber ? `${tr('op.till.table')} ${tab.tableNumber}` : (tab.label ?? '—')}
+        </bdi>
       </h2>
       <MessagePresenter tone="info" icon="wifiOff" message={tr('op.till.offlineTab')} />
       {tab.lines.map((l, i) => (
@@ -69,10 +85,21 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
       <ErrorText error={error} />
       {tab.lines.length > 0 && !cashOpen && (
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)' }}>
-          <Button kind="primary" size="lg" icon="banknote" disabled={busy} onClick={() => setCashOpen(true)}>
+          <Button
+            kind="primary"
+            size="lg"
+            icon="banknote"
+            disabled={busy}
+            onClick={() => setCashOpen(true)}
+          >
             {tr('op.till.payCash')}
           </Button>
-          <Button size="lg" icon="card" busy={busy} onClick={() => void settleOffline('card', null)}>
+          <Button
+            size="lg"
+            icon="card"
+            busy={busy}
+            onClick={() => void settleOffline('card', null)}
+          >
             {tr('op.till.payCard')}
           </Button>
         </div>
@@ -91,9 +118,22 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <AmountPad value={tendered} onChange={setTendered} disabled={busy} />
           </div>
-          <ChangeDueDisplay due={total} tendered={tendered} change={change.sufficient ? change.changeIqd : null} short={change.sufficient ? null : change.shortByIqd} />
+          <ChangeDueDisplay
+            due={total}
+            tendered={tendered}
+            change={change.sufficient ? change.changeIqd : null}
+            short={change.sufficient ? null : change.shortByIqd}
+          />
           <p style={muted}>{tr('ws.cashier.payment.queued')}</p>
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', alignItems: 'flex-start', minBlockSize: '4rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--tp-sp-2)',
+              justifyContent: 'flex-end',
+              alignItems: 'flex-start',
+              minBlockSize: '4rem',
+            }}
+          >
             <Button onClick={() => setCashOpen(false)} disabled={busy}>
               {tr('common.back')}
             </Button>
@@ -101,7 +141,9 @@ export function OfflineTabPanel({ idemKey, onSettled }: { idemKey: string; onSet
               kind="primary"
               busy={busy}
               disabled={!change.sufficient}
-              disabledReason={change.sufficient ? undefined : tr('ws.cashier.payment.shortTendered')}
+              disabledReason={
+                change.sufficient ? undefined : tr('ws.cashier.payment.shortTendered')
+              }
               onClick={() => void settleOffline('cash', tendered)}
             >
               {tr('op.till.recordPayment')}

@@ -12,7 +12,12 @@ import { radius, space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
 import { PhoneField } from '../src/components/phone';
-import { composePhone, DEFAULT_ISO, parsePhone, validatePhone } from '../src/features/profile/phone';
+import {
+  composePhone,
+  DEFAULT_ISO,
+  parsePhone,
+  validatePhone,
+} from '../src/features/profile/phone';
 import { useToast } from '../src/components/overlays';
 import { SkeletonList } from '../src/components/states';
 
@@ -151,7 +156,6 @@ function EditProfileScreen() {
           />
         </FormScreen>
       )}
-
     </Screen>
   );
 }

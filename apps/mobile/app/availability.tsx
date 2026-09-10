@@ -137,7 +137,6 @@ export default function AvailabilityScreen() {
         />
       </View>
 
-
       {a.day.isLoading ? (
         <View
           style={{ flex: 1, marginTop: space.l, paddingStart: GRID_INSET, paddingEnd: GRID_INSET }}

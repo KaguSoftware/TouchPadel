@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { clockIntervals, coversEveryDay, findOverlaps, overlapsFor, rulesOverlap, validityMeets, type RateRuleLike } from './rateRuleLogic';
+import {
+  clockIntervals,
+  coversEveryDay,
+  findOverlaps,
+  overlapsFor,
+  rulesOverlap,
+  validityMeets,
+  type RateRuleLike,
+} from './rateRuleLogic';
 
 // Overlap is a WARNING for the manager; app.price_slot decides. The helper must
 // find every pair that competes for a slot and stay quiet for pairs that
@@ -60,7 +68,9 @@ describe('rulesOverlap', () => {
     expect(rulesOverlap(night, early)).toBe(0);
   });
   it('ignores disjoint weekdays, inactive rules and disjoint validity', () => {
-    expect(rulesOverlap(rule({ id: 'a', days_of_week: [1] }), rule({ id: 'b', days_of_week: [2] }))).toBeNull();
+    expect(
+      rulesOverlap(rule({ id: 'a', days_of_week: [1] }), rule({ id: 'b', days_of_week: [2] })),
+    ).toBeNull();
     expect(rulesOverlap(base, rule({ id: 'off', is_active: false }))).toBeNull();
     const summer = rule({ id: 's', valid_from: '2026-06-01', valid_to: '2026-08-31' });
     const winter = rule({ id: 'w', valid_from: '2026-12-01', valid_to: null });
@@ -74,10 +84,21 @@ describe('rulesOverlap', () => {
 
 describe('findOverlaps / overlapsFor', () => {
   it('lists both directions so each row can show its own warning', () => {
-    const rules = [rule({ id: 'base' }), rule({ id: 'peak', start_time: '18:00', end_time: '22:00' }), rule({ id: 'sat', days_of_week: [6], start_time: '06:00', end_time: '10:00' })];
+    const rules = [
+      rule({ id: 'base' }),
+      rule({ id: 'peak', start_time: '18:00', end_time: '22:00' }),
+      rule({ id: 'sat', days_of_week: [6], start_time: '06:00', end_time: '10:00' }),
+    ];
     const all = findOverlaps(rules);
-    expect(all.map((o) => `${o.ruleId}>${o.otherId}`).sort()).toEqual(['base>peak', 'base>sat', 'peak>base', 'sat>base']);
-    expect(overlapsFor(all, 'peak')).toEqual([{ ruleId: 'peak', otherId: 'base', otherName: 'base', weekday: 0 }]);
+    expect(all.map((o) => `${o.ruleId}>${o.otherId}`).sort()).toEqual([
+      'base>peak',
+      'base>sat',
+      'peak>base',
+      'sat>base',
+    ]);
+    expect(overlapsFor(all, 'peak')).toEqual([
+      { ruleId: 'peak', otherId: 'base', otherName: 'base', weekday: 0 },
+    ]);
   });
 });
 

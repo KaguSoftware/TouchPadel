@@ -189,11 +189,16 @@ export function KitchenDisplayScreen({
         />
       </div>
 
-      <div style={{ flex: 1, minBlockSize: 0, overflow: 'auto', paddingBlockStart: 'var(--tp-sp-2-5)' }}>
+      <div
+        style={{
+          flex: 1,
+          minBlockSize: 0,
+          overflow: 'auto',
+          paddingBlockStart: 'var(--tp-sp-2-5)',
+        }}
+      >
         {status === 'loading' && <KdsSkeleton />}
-        {status === 'error' && (
-          <KdsErrorPanel error={error} onRetry={onRetry} />
-        )}
+        {status === 'error' && <KdsErrorPanel error={error} onRetry={onRetry} />}
         {status === 'empty' && (
           <KdsEmpty
             title={degraded ? tr('op.kds.lanEmpty') : tr('ws.prep.empty.title')}
@@ -374,7 +379,15 @@ function KdsEmpty({ title, body }: { title: string; body: string | null }) {
       </span>
       <p style={{ fontSize: 'var(--tp-fs-kds-lg)', fontWeight: 700, lineHeight: 1.2 }}>{title}</p>
       {body && (
-        <p style={{ fontSize: 'var(--tp-fs-kds)', color: 'var(--tp-kds-muted)', maxInlineSize: '46ch' }}>{body}</p>
+        <p
+          style={{
+            fontSize: 'var(--tp-fs-kds)',
+            color: 'var(--tp-kds-muted)',
+            maxInlineSize: '46ch',
+          }}
+        >
+          {body}
+        </p>
       )}
     </div>
   );
@@ -410,9 +423,16 @@ function KdsErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () => voi
       </p>
       <ErrorText
         error={error}
-        style={{ marginBlock: 0, background: 'var(--tp-kds-card-2)', color: 'var(--tp-kds-fg)', fontSize: 'var(--tp-fs-kds)' }}
+        style={{
+          marginBlock: 0,
+          background: 'var(--tp-kds-card-2)',
+          color: 'var(--tp-kds-fg)',
+          fontSize: 'var(--tp-fs-kds)',
+        }}
       />
-      <p style={{ fontSize: 'var(--tp-fs-kds)', color: 'var(--tp-kds-muted)' }}>{tr('ws.prep.error.hint')}</p>
+      <p style={{ fontSize: 'var(--tp-fs-kds)', color: 'var(--tp-kds-muted)' }}>
+        {tr('ws.prep.error.hint')}
+      </p>
       {onRetry && (
         <Button size="xl" kind="primary" icon="refresh" onClick={onRetry}>
           {tr('ws.kit.async.retry')}
@@ -462,7 +482,14 @@ function KeyLegend({ dir }: { dir: 'ltr' | 'rtl' }) {
         flexShrink: 0,
       }}
     >
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontWeight: 700 }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-1-5)',
+          fontWeight: 700,
+        }}
+      >
         <Icon name="keyboard" size={20} />
         {tr('ws.prep.keys.legend')}
       </span>

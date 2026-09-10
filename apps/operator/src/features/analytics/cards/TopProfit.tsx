@@ -8,9 +8,20 @@ import type { Derived } from '../derive';
 import type { Formatters } from '../format';
 import { CardShell, muted, type CardState } from './CardShell';
 
-export function TopProfit({ derived, state, f }: { derived: Derived | null; state: CardState; f: Formatters }) {
+export function TopProfit({
+  derived,
+  state,
+  f,
+}: {
+  derived: Derived | null;
+  state: CardState;
+  f: Formatters;
+}) {
   const { tr, locale } = useLocale();
-  const items = (derived?.menuEngineering.items ?? []).slice().sort((a, b) => b.profitIqd - a.profitIqd).slice(0, 8);
+  const items = (derived?.menuEngineering.items ?? [])
+    .slice()
+    .sort((a, b) => b.profitIqd - a.profitIqd)
+    .slice(0, 8);
 
   return (
     <CardShell

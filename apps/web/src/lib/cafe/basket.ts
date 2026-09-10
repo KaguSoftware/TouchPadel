@@ -307,7 +307,11 @@ function isLineLike(l: unknown): l is Record<string, unknown> {
 /** Accept a v1 line (no list/discount fields) or a v2 line; normalise to v2. */
 function normaliseLine(raw: unknown): BasketLine | null {
   if (!isLineLike(raw)) return null;
-  const l = raw as unknown as Partial<BasketLine> & { itemId: string; variantId: string; qty: number };
+  const l = raw as unknown as Partial<BasketLine> & {
+    itemId: string;
+    variantId: string;
+    qty: number;
+  };
   const unit = typeof l.unit_price_iqd === 'number' ? l.unit_price_iqd : 0;
   const list = typeof l.list_unit_price_iqd === 'number' ? l.list_unit_price_iqd : unit;
   const pct =
@@ -377,7 +381,12 @@ export function saveDraft(tableId: string | null | undefined, draft: BasketDraft
     } else {
       window.localStorage.setItem(
         key,
-        JSON.stringify({ v: DRAFT_VERSION, lines: draft.lines, note: draft.note, idemKey: draft.idemKey }),
+        JSON.stringify({
+          v: DRAFT_VERSION,
+          lines: draft.lines,
+          note: draft.note,
+          idemKey: draft.idemKey,
+        }),
       );
     }
   } catch {

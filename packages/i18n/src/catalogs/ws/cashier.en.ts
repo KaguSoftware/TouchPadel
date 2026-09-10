@@ -13,7 +13,8 @@ export const cashierEn = {
     regionMenu: 'Menu',
     regionTab: 'Active tab',
     noActiveTab: 'No tab selected',
-    noActiveTabBody: 'Open a tab (F6) or pick one from the rail. The grid stays visible but stays inert until a tab is active.',
+    noActiveTabBody:
+      'Open a tab (F6) or pick one from the rail. The grid stays visible but stays inert until a tab is active.',
     filterLabel: 'Filter items',
     filterPlaceholder: 'Type to filter… ( / to focus, 1–9 for a category)',
     categories: 'Categories',
@@ -27,9 +28,11 @@ export const cashierEn = {
       ready: 'Available',
       noTab: 'Pick a tab first',
       unavailable: 'Unavailable — set by staff',
-      unavailableHint: 'A manager marked this item sold out or paused it for today. It comes back when they clear it (or tomorrow).',
+      unavailableHint:
+        'A manager marked this item sold out or paused it for today. It comes back when they clear it (or tomorrow).',
       blockedByStock: 'Out of stock',
-      blockedByStockHint: 'A required ingredient has run out. Clears itself when stock is received or counted back in.',
+      blockedByStockHint:
+        'A required ingredient has run out. Clears itself when stock is received or counted back in.',
       quick: 'Adds straight to the basket',
       sheet: 'Opens size and extras',
       from: 'from',
@@ -59,7 +62,8 @@ export const cashierEn = {
     help: {
       open: 'Keyboard shortcuts',
       title: 'Keyboard shortcuts',
-      intro: 'Every action on the till is reachable from the keyboard. Money is only ever confirmed by a click or Enter inside the payment dialog.',
+      intro:
+        'Every action on the till is reachable from the keyboard. Money is only ever confirmed by a click or Enter inside the payment dialog.',
       send: 'Send the basket to the kitchen',
       cash: 'Open the cash payment pane',
       card: 'Open the card payment pane',
@@ -117,11 +121,14 @@ export const cashierEn = {
     linesTitle: 'Lines',
     unsent: 'Unsent',
     sent: 'Sent',
-    sentHint: 'Sent lines are on a kitchen ticket. Voiding one records the item as waste — it is never deleted.',
+    sentHint:
+      'Sent lines are on a kitchen ticket. Voiding one records the item as waste — it is never deleted.',
     voidLine: 'Void',
     voidAction: 'void a sent line',
-    voidConsequence: 'This line has already been sent to the kitchen. Voiding it records the item as WASTE in the stock ledger and the audit log, with your name and the reason. The line stays on the tab, struck through — it is not deleted.',
-    voidRefused: 'This tab has payments, so a sent line cannot be voided now. Refund first, then void.',
+    voidConsequence:
+      'This line has already been sent to the kitchen. Voiding it records the item as WASTE in the stock ledger and the audit log, with your name and the reason. The line stays on the tab, struck through — it is not deleted.',
+    voidRefused:
+      'This tab has payments, so a sent line cannot be voided now. Refund first, then void.',
     voided: 'Voided',
     noLines: 'Nothing on this tab yet — pick items from the grid.',
     totalsTitle: 'Totals',
@@ -134,7 +141,8 @@ export const cashierEn = {
     paid: 'Paid',
     due: 'Due',
     change: 'Change',
-    serverFigureHint: 'The server re-stamps every figure at payment; this preview uses the same rules.',
+    serverFigureHint:
+      'The server re-stamps every figure at payment; this preview uses the same rules.',
     promoTitle: 'Promotion',
     promoApply: 'Apply promotion',
     promoCode: 'Promo code (optional)',
@@ -142,7 +150,8 @@ export const cashierEn = {
     promoApplied: 'Promotion applied — {amount} off.',
     promoNone: 'No promotion applies to this tab right now.',
     promoCodeInvalid: 'That code is not a promotion code. Check it with the guest and try again.',
-    promoHint: 'The server picks the single best eligible offer. One promotion per tab; applying again replaces it.',
+    promoHint:
+      'The server picks the single best eligible offer. One promotion per tab; applying again replaces it.',
     promoAppliedRow: 'Promotion (server-applied)',
     managerDiscount: 'Manager discount',
     actionsTitle: 'Actions',
@@ -167,12 +176,14 @@ export const cashierEn = {
     title: 'Payment',
     cash: 'Cash',
     card: 'Card',
-    cardNote: 'The card terminal works on its own. Enter the amount it approved — nothing is processed here, only recorded.',
+    cardNote:
+      'The card terminal works on its own. Enter the amount it approved — nothing is processed here, only recorded.',
     tendered: 'Tendered',
     amount: 'Amount',
     fullAmount: 'Full amount',
     partial: 'Part payment',
-    partialHint: 'Record less than the amount due to take a part payment. The server reports what remains.',
+    partialHint:
+      'Record less than the amount due to take a part payment. The server reports what remains.',
     remaining: 'Remaining {amount}',
     partiallyPaid: 'Partly paid — {amount} still due.',
     settled: 'Tab settled.',
@@ -206,8 +217,10 @@ export const cashierEn = {
     unallocated: '{count} line(s) not assigned to anyone.',
     unallocatedHint: 'Every line must belong to a person before the shares can be computed.',
     remaining: 'Remaining {amount}',
-    evenHint: 'The server splits the bill into equal shares and gives any rounding remainder to the first shares.',
-    itemHint: 'Assign each line to a person. Discounts, tax and any court fee are spread pro-rata by the server.',
+    evenHint:
+      'The server splits the bill into equal shares and gives any rounding remainder to the first shares.',
+    itemHint:
+      'Assign each line to a person. Discounts, tax and any court fee are spread pro-rata by the server.',
     assignTo: 'Assign {name}',
   },
 
@@ -229,17 +242,20 @@ export const cashierEn = {
     noBookings: 'No bookings today without a tab.',
     noMatches: 'No bookings match.',
     selected: 'Selected booking',
-    consequence: 'A tab bound to the booking is opened and this tab’s lines, orders and payments move onto it. The court fee is stamped by the server at settlement.',
+    consequence:
+      'A tab bound to the booking is opened and this tab’s lines, orders and payments move onto it. The court fee is stamped by the server at settlement.',
     confirm: 'Charge to this booking',
     pickBooking: 'Pick a booking from the list first.',
-    partialFailure: 'The booking tab was opened but the merge was refused — this tab is untouched. Merge it by hand from Open tabs.',
+    partialFailure:
+      'The booking tab was opened but the merge was refused — this tab is untouched. Merge it by hand from Open tabs.',
     option: '{time} · {court} · {guest}',
   },
 
   refund: {
     title: 'Refund',
     refusedAction: 'refund a payment',
-    consequence: 'Money goes back to the guest. Every item named below returns to stock — the ledger reverses its sale. A money-only refund leaves the ledger claiming the items were consumed.',
+    consequence:
+      'Money goes back to the guest. Every item named below returns to stock — the ledger reverses its sale. A money-only refund leaves the ledger claiming the items were consumed.',
     payment: 'Refund which payment',
     amount: 'Amount to refund',
     max: 'At most {amount}.',
@@ -253,7 +269,8 @@ export const cashierEn = {
     title: 'Cash drawer',
     lead: 'Opening float and what the drawer did this shift.',
     float: 'Opening float',
-    floatHint: 'Set when the manager opens the day. To change it, close and reopen the day from Day close.',
+    floatHint:
+      'Set when the manager opens the day. To change it, close and reopen the day from Day close.',
     dayOpenedAt: 'Day opened {time}',
     noDay: 'No business day is open, so there is no float.',
     noDayBody: 'A manager opens the day (and sets the float) from Day close.',
@@ -282,8 +299,10 @@ export const cashierEn = {
   newTab: {
     title: 'New tab',
     fromBooking: 'Bound to booking',
-    fromBookingHint: 'This tab is opened for the booking chosen on the desk; the court fee is added at settlement.',
-    bookingMissing: 'That booking is not available to open a tab on (already has a tab, or not today).',
+    fromBookingHint:
+      'This tab is opened for the booking chosen on the desk; the court fee is added at settlement.',
+    bookingMissing:
+      'That booking is not available to open a tab on (already has a tab, or not today).',
     needAnchor: 'Pick a table, or choose a booking.',
     nameHint: 'Shown on the tab instead of the table number. It does not open a tab on its own.',
   },

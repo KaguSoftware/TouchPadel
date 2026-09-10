@@ -16,7 +16,10 @@ describe('devSafeIdentity', () => {
 
   it('leaves a packaged build untouched', () => {
     expect(devSafeIdentity('TILL1', true, false)).toEqual({ deviceId: 'TILL1', isTill: true });
-    expect(devSafeIdentity('DESK-01', false, false)).toEqual({ deviceId: 'DESK-01', isTill: false });
+    expect(devSafeIdentity('DESK-01', false, false)).toEqual({
+      deviceId: 'DESK-01',
+      isTill: false,
+    });
   });
 
   it('neither half of the is_degraded till test matches a dev identity', () => {

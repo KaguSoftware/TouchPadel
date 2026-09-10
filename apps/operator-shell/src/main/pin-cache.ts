@@ -112,9 +112,11 @@ export function unlockPinOffline(pin: string): PinUnlockResult | null {
   // online path, which is the correct degraded behaviour.
   if (!candidate) return null;
   const cutoff = Date.now() - MAX_AGE_MS;
-  const rows = openQueue()
-    .prepare('SELECT pin_hash, role, updated_at FROM pin_cache')
-    .all() as { pin_hash: string; role: string; updated_at: string }[];
+  const rows = openQueue().prepare('SELECT pin_hash, role, updated_at FROM pin_cache').all() as {
+    pin_hash: string;
+    role: string;
+    updated_at: string;
+  }[];
   for (const row of rows) {
     const stored = Buffer.from(row.pin_hash, 'hex');
     // Equal-length scrypt outputs — constant-time compare, no early exit.

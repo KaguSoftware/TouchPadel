@@ -15,7 +15,17 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../../../lib/i18n';
 import { Button, Skeleton } from '../../../components/ui';
-import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, FilterChips, MessagePresenter, PageHeader, ResultCount, SearchField, type AsyncStatus } from '../../../components/kit';
+import {
+  AsyncStateWrapper,
+  CustomerFlagBadge,
+  EmptyState,
+  FilterChips,
+  MessagePresenter,
+  PageHeader,
+  ResultCount,
+  SearchField,
+  type AsyncStatus,
+} from '../../../components/kit';
 import { Icon } from '../../../components/icons';
 import type { CustomerSearchRow } from '../deskTypes';
 import { CUSTOMER_SEARCH_MIN, useCustomerSearch } from './CustomerPicker';
@@ -60,7 +70,11 @@ export function CustomerSearchScreen() {
 
   function attach(c: CustomerSearchRow) {
     if (params.attach === 'booking' && params.reservation) {
-      void navigate({ to: '/desk/bookings/$id', params: { id: params.reservation }, search: { customer: c.id } as never });
+      void navigate({
+        to: '/desk/bookings/$id',
+        params: { id: params.reservation },
+        search: { customer: c.id } as never,
+      });
     } else if (params.attach === 'tab') {
       void navigate({ to: '/till', search: { tab: params.tab, customer: c.id } as never });
     }
@@ -79,7 +93,14 @@ export function CustomerSearchScreen() {
         subtitle={
           /* Rulebook 6.10: the count belongs beside the title, not only in a
              footer line the eye reaches last. */
-          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              gap: 'var(--tp-sp-2)',
+              alignItems: 'baseline',
+              flexWrap: 'wrap',
+            }}
+          >
             {tr('ws.courtDesk.customers.lead')}
             {status === 'ready' && <ResultCount shown={results.length} total={results.length} />}
           </span>
@@ -90,7 +111,11 @@ export function CustomerSearchScreen() {
         <MessagePresenter
           tone="info"
           icon="userPlus"
-          message={params.attach === 'booking' ? tr('ws.courtDesk.customers.attachingBooking') : tr('ws.courtDesk.customers.attachingTab')}
+          message={
+            params.attach === 'booking'
+              ? tr('ws.courtDesk.customers.attachingBooking')
+              : tr('ws.courtDesk.customers.attachingTab')
+          }
           style={{ marginBlockEnd: '0.75rem' }}
         />
       )}
@@ -128,7 +153,14 @@ export function CustomerSearchScreen() {
         style={{ marginBlockEnd: 'var(--tp-sp-2)' }}
       />
 
-      {status === 'idle' && <EmptyState icon="search" title={tr('ws.courtDesk.customers.idle')} body={tr('ws.courtDesk.customers.idleBody')} compact />}
+      {status === 'idle' && (
+        <EmptyState
+          icon="search"
+          title={tr('ws.courtDesk.customers.idle')}
+          body={tr('ws.courtDesk.customers.idleBody')}
+          compact
+        />
+      )}
       {status === 'searching' && <Skeleton lines={4} blockSize="2.6rem" />}
       {(status === 'ready' || status === 'empty' || status === 'error') && (
         <AsyncStateWrapper
@@ -152,21 +184,55 @@ export function CustomerSearchScreen() {
             />
           }
         >
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', background: 'var(--tp-surface)', overflow: 'hidden' }}>
+          <ul
+            style={{
+              listStyle: 'none',
+              margin: 0,
+              padding: 0,
+              border: '1px solid var(--tp-border)',
+              borderRadius: 'var(--tp-radius-panel)',
+              background: 'var(--tp-surface)',
+              overflow: 'hidden',
+            }}
+          >
             {results.map((c) => (
-              <CustomerResultRow key={c.id} customer={c} attachLabel={params.attach ? (params.attach === 'booking' ? tr('ws.courtDesk.customers.attachBooking') : tr('ws.courtDesk.customers.attachTab')) : null} onAttach={() => attach(c)} onSelect={() => void navigate({ to: '/desk/customers/$id', params: { id: c.id } })} />
+              <CustomerResultRow
+                key={c.id}
+                customer={c}
+                attachLabel={
+                  params.attach
+                    ? params.attach === 'booking'
+                      ? tr('ws.courtDesk.customers.attachBooking')
+                      : tr('ws.courtDesk.customers.attachTab')
+                    : null
+                }
+                onAttach={() => attach(c)}
+                onSelect={() => void navigate({ to: '/desk/customers/$id', params: { id: c.id } })}
+              />
             ))}
           </ul>
           {/* The RPC caps the list, so a full page is never "all of them" —
               say so rather than letting the count imply a complete answer. */}
           {results.length === CUSTOMER_SEARCH_LIMIT && (
-            <p style={{ marginBlockStart: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-              {tr('ws.courtDesk.customers.capped', { count: formatNumber(CUSTOMER_SEARCH_LIMIT, locale) })}
+            <p
+              style={{
+                marginBlockStart: 'var(--tp-sp-2)',
+                fontSize: 'var(--tp-fs-xs)',
+                color: 'var(--tp-muted-fg)',
+              }}
+            >
+              {tr('ws.courtDesk.customers.capped', {
+                count: formatNumber(CUSTOMER_SEARCH_LIMIT, locale),
+              })}
             </p>
           )}
         </AsyncStateWrapper>
       )}
-      {query.trim().length > 0 && query.trim().length < CUSTOMER_SEARCH_MIN && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.courtDesk.customers.idle')}</p>}
+      {query.trim().length > 0 && query.trim().length < CUSTOMER_SEARCH_MIN && (
+        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+          {tr('ws.courtDesk.customers.idle')}
+        </p>
+      )}
     </div>
   );
 }
@@ -197,9 +263,29 @@ export function CustomerResultRow({
           onSelect();
         }
       }}
-      style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBlock: '0.55rem', paddingInline: '0.85rem', borderBlockEnd: '1px solid var(--tp-border)', minBlockSize: '3rem' }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        paddingBlock: '0.55rem',
+        paddingInline: '0.85rem',
+        borderBlockEnd: '1px solid var(--tp-border)',
+        minBlockSize: '3rem',
+      }}
     >
-      <span style={{ display: 'inline-flex', inlineSize: '2rem', blockSize: '2rem', borderRadius: '50%', background: 'var(--tp-accent-soft)', color: 'var(--tp-accent-soft-fg)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          inlineSize: '2rem',
+          blockSize: '2rem',
+          borderRadius: '50%',
+          background: 'var(--tp-accent-soft)',
+          color: 'var(--tp-accent-soft-fg)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
         <Icon name="user" size={16} />
       </span>
       <div style={{ minInlineSize: 0, flex: 1 }}>
@@ -211,19 +297,44 @@ export function CustomerResultRow({
             <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
           ))}
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '0.15rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+            fontSize: 'var(--tp-fs-xs)',
+            color: 'var(--tp-muted-fg)',
+            marginBlockStart: '0.15rem',
+          }}
+        >
           {c.phone && (
             <bdi dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {c.phone}
             </bdi>
           )}
           {c.email && <bdi dir="ltr">{c.email}</bdi>}
-          <span>{tr('ws.courtDesk.customers.counts.bookings', { count: formatNumber(counts.bookings, locale) })}</span>
-          <span>{tr('ws.courtDesk.customers.counts.cancellations', { count: formatNumber(counts.cancellations, locale) })}</span>
-          <span>{tr('ws.courtDesk.customers.counts.noShows', { count: formatNumber(counts.noShows, locale) })}</span>
+          <span>
+            {tr('ws.courtDesk.customers.counts.bookings', {
+              count: formatNumber(counts.bookings, locale),
+            })}
+          </span>
+          <span>
+            {tr('ws.courtDesk.customers.counts.cancellations', {
+              count: formatNumber(counts.cancellations, locale),
+            })}
+          </span>
+          <span>
+            {tr('ws.courtDesk.customers.counts.noShows', {
+              count: formatNumber(counts.noShows, locale),
+            })}
+          </span>
         </div>
       </div>
-      <span style={{ display: 'inline-flex', gap: '0.3rem' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <span
+        style={{ display: 'inline-flex', gap: '0.3rem' }}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
         {attachLabel && (
           <Button size="sm" kind="primary" icon="userPlus" onClick={onAttach}>
             {attachLabel}

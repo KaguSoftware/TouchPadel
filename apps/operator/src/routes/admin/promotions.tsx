@@ -2,8 +2,14 @@ import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { adminRoute } from '../admin';
 import { RoutePending, guarded } from './_shared';
 
-const PromotionsList = lazyRouteComponent(() => import('../../features/admin/promotions/PromotionsList'), 'PromotionsListScreen');
-const PromotionEditor = lazyRouteComponent(() => import('../../features/admin/promotions/PromotionEditor'), 'PromotionEditorScreen');
+const PromotionsList = lazyRouteComponent(
+  () => import('../../features/admin/promotions/PromotionsList'),
+  'PromotionsListScreen',
+);
+const PromotionEditor = lazyRouteComponent(
+  () => import('../../features/admin/promotions/PromotionEditor'),
+  'PromotionEditorScreen',
+);
 
 /** Spec 06.26 — every promotion, active and inactive. No delete anywhere. */
 export const adminPromotionsRoute = createRoute({

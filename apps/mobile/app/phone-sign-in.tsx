@@ -64,7 +64,9 @@ function PhoneSignInForm({ mode }: { mode: Mode }) {
       <Stack.Screen options={{ title: t('auth.continueWithPhone') }} />
       <FormScreen>
         <Title plain>{t('auth.phoneSignInTitle')}</Title>
-        <Hint style={{ marginTop: 8 }}>{t(mode === 'link' ? 'auth.phoneLinkBody' : 'auth.phoneSignInBody')}</Hint>
+        <Hint style={{ marginTop: 8 }}>
+          {t(mode === 'link' ? 'auth.phoneLinkBody' : 'auth.phoneSignInBody')}
+        </Hint>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
           {/* Fixed country prefix; the field takes the national 07XX part (or +964 / 00964 — the normaliser folds them). */}
           <View
@@ -80,7 +82,14 @@ function PhoneSignInForm({ mode }: { mode: Mode }) {
               backgroundColor: colors.sub,
             }}
           >
-            <Text style={{ fontFamily: fonts.body600, fontSize: 14, color: colors.ink, writingDirection: 'ltr' }}>
+            <Text
+              style={{
+                fontFamily: fonts.body600,
+                fontSize: 14,
+                color: colors.ink,
+                writingDirection: 'ltr',
+              }}
+            >
               +964
             </Text>
           </View>

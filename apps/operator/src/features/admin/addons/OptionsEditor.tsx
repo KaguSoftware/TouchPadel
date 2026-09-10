@@ -13,7 +13,13 @@ import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/toast';
 import { reorderedIds, sortRows } from '../menu/menuLogic';
 import { RevealsEditor } from './RevealsEditor';
-import { patchCachedModifiers, useAddons, type AddonsData, type GroupRow, type ModifierRow } from './useAddons';
+import {
+  patchCachedModifiers,
+  useAddons,
+  type AddonsData,
+  type GroupRow,
+  type ModifierRow,
+} from './useAddons';
 
 function modifierArgs(m: ModifierRow, overrides: Partial<ModifierRow> = {}) {
   const r = { ...m, ...overrides };
@@ -33,7 +39,9 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
   const toast = useToast();
   const queryClient = useQueryClient();
   const { refresh } = useAddons();
-  const [draft, setDraft] = useState<{ nameEn: string; nameAr: string; delta: number } | null>(null);
+  const [draft, setDraft] = useState<{ nameEn: string; nameAr: string; delta: number } | null>(
+    null,
+  );
   const [openReveals, setOpenReveals] = useState<string | null>(null);
 
   const options = sortRows(data.modifiers.filter((m) => m.group_id === group.id));
@@ -83,7 +91,9 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
         </Button>
       </div>
       {options.length === 0 && !draft && (
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.none')}</p>
+        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>
+          {tr('op.common.none')}
+        </p>
       )}
       {options.map((m, index) => (
         <div key={m.id}>
@@ -108,7 +118,15 @@ export function OptionsEditor({ group, data }: { group: GroupRow; data: AddonsDa
         </div>
       ))}
       {draft && (
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-2)' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--tp-sp-1-5)',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            marginBlockStart: 'var(--tp-sp-2)',
+          }}
+        >
           <input
             style={{ ...inputStyle, flex: 1, minInlineSize: '8rem' }}
             dir="ltr"
@@ -178,7 +196,8 @@ function OptionRow({
   const [nameEn, setNameEn] = useState(option.name_en);
   const [nameAr, setNameAr] = useState(option.name_ar);
   const [delta, setDelta] = useState<number>(option.price_delta_iqd);
-  const dirty = nameEn !== option.name_en || nameAr !== option.name_ar || delta !== option.price_delta_iqd;
+  const dirty =
+    nameEn !== option.name_en || nameAr !== option.name_ar || delta !== option.price_delta_iqd;
 
   return (
     <div
@@ -206,7 +225,11 @@ function OptionRow({
         value={nameAr}
         onChange={(e) => setNameAr(e.target.value)}
       />
-      <MoneyInput value={delta} onChange={(n) => setDelta(n ?? 0)} style={{ inlineSize: '11rem' }} />
+      <MoneyInput
+        value={delta}
+        onChange={(n) => setDelta(n ?? 0)}
+        style={{ inlineSize: '11rem' }}
+      />
       <Switch
         checked={option.is_active}
         onChange={onActive}
@@ -220,7 +243,14 @@ function OptionRow({
       </Button>
       <Button
         disabled={!dirty || busy || !nameEn.trim() || !nameAr.trim()}
-        onClick={() => onSave({ ...option, name_en: nameEn.trim(), name_ar: nameAr.trim(), price_delta_iqd: delta })}
+        onClick={() =>
+          onSave({
+            ...option,
+            name_en: nameEn.trim(),
+            name_ar: nameAr.trim(),
+            price_delta_iqd: delta,
+          })
+        }
       >
         {tr('common.save')}
       </Button>

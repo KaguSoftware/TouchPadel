@@ -8,7 +8,18 @@ import { useQuery } from '@tanstack/react-query';
 import { formatNumber } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
-import { AsyncStateWrapper, DataTable, EmptyState, Money, PageHeader, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
+import {
+  AsyncStateWrapper,
+  DataTable,
+  EmptyState,
+  Money,
+  PageHeader,
+  ResultCount,
+  StatusBadge,
+  TableSkeleton,
+  asyncStatus,
+  type Column,
+} from '../../components/kit';
 import { SK } from './stockKeys';
 
 interface MarginRow {
@@ -29,7 +40,10 @@ export function Margins() {
   const marginsQ = useQuery({
     queryKey: SK.margins,
     queryFn: async (): Promise<MarginRow[]> => {
-      const { data, error } = await supabase.from('v_item_margin').select('*').order('margin_percent', { ascending: true, nullsFirst: false });
+      const { data, error } = await supabase
+        .from('v_item_margin')
+        .select('*')
+        .order('margin_percent', { ascending: true, nullsFirst: false });
       if (error) throw error;
       return data as MarginRow[];
     },
@@ -43,13 +57,27 @@ export function Margins() {
         <span>
           <bdi>{pickName(locale, { name_en: r.item_name_en, name_ar: r.item_name_ar })}</bdi>{' '}
           <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
-            (<bdi>{pickName(locale, { name_en: r.variant_name_en, name_ar: r.variant_name_ar })}</bdi>)
+            (
+            <bdi>
+              {pickName(locale, { name_en: r.variant_name_en, name_ar: r.variant_name_ar })}
+            </bdi>
+            )
           </span>
         </span>
       ),
     },
-    { key: 'price', header: tr('op.stock.price'), numeric: true, render: (r) => <Money amount={r.price_iqd} /> },
-    { key: 'cogs', header: tr('op.stock.cogs'), numeric: true, render: (r) => <Money amount={r.cogs_iqd} /> },
+    {
+      key: 'price',
+      header: tr('op.stock.price'),
+      numeric: true,
+      render: (r) => <Money amount={r.price_iqd} />,
+    },
+    {
+      key: 'cogs',
+      header: tr('op.stock.cogs'),
+      numeric: true,
+      render: (r) => <Money amount={r.cogs_iqd} />,
+    },
     {
       key: 'margin',
       header: tr('op.stock.margin'),
@@ -59,19 +87,40 @@ export function Margins() {
         const thin = !bad && (r.margin_percent ?? 100) < 30;
         return (
           <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
-            {bad && <StatusBadge size="sm" tone="danger" label={tr('ws.manager.stock.margins.negative')} />}
-            {thin && <StatusBadge size="sm" tone="warn" label={tr('ws.manager.stock.margins.thin')} />}
+            {bad && (
+              <StatusBadge
+                size="sm"
+                tone="danger"
+                label={tr('ws.manager.stock.margins.negative')}
+              />
+            )}
+            {thin && (
+              <StatusBadge size="sm" tone="warn" label={tr('ws.manager.stock.margins.thin')} />
+            )}
             <Money amount={r.margin_iqd} strong />
           </span>
         );
       },
     },
-    { key: 'pct', header: '%', numeric: true, render: (r) => (r.margin_percent === null ? '—' : <span dir="ltr">{formatNumber(r.margin_percent, locale)}%</span>) },
+    {
+      key: 'pct',
+      header: '%',
+      numeric: true,
+      render: (r) =>
+        r.margin_percent === null ? (
+          '—'
+        ) : (
+          <span dir="ltr">{formatNumber(r.margin_percent, locale)}%</span>
+        ),
+    },
   ];
 
   return (
     <div>
-      <PageHeader title={tr('op.stock.marginsTitle')} subtitle={tr('ws.manager.stock.margins.lead')}>
+      <PageHeader
+        title={tr('op.stock.marginsTitle')}
+        subtitle={tr('ws.manager.stock.margins.lead')}
+      >
         <ResultCount shown={marginsQ.data?.length ?? 0} total={marginsQ.data?.length ?? 0} />
       </PageHeader>
       <AsyncStateWrapper
@@ -79,9 +128,20 @@ export function Margins() {
         error={marginsQ.error}
         onRetry={() => void marginsQ.refetch()}
         skeleton={<TableSkeleton columns={columns} />}
-        emptyContent={<EmptyState icon="chart" title={tr('op.stock.noRecipes')} body={tr('ws.manager.stock.margins.lead')} />}
+        emptyContent={
+          <EmptyState
+            icon="chart"
+            title={tr('op.stock.noRecipes')}
+            body={tr('ws.manager.stock.margins.lead')}
+          />
+        }
       >
-        <DataTable columns={columns} rows={marginsQ.data ?? []} rowKey={(r) => r.variant_id} aria-label={tr('op.stock.marginsTitle')} />
+        <DataTable
+          columns={columns}
+          rows={marginsQ.data ?? []}
+          rowKey={(r) => r.variant_id}
+          aria-label={tr('op.stock.marginsTitle')}
+        />
       </AsyncStateWrapper>
     </div>
   );

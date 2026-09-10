@@ -102,12 +102,25 @@ export function SettingsRow({
       <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0, flex: '1 1 22rem' }}>
         {children}
         {description && (
-          <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)', lineHeight: 1.4, maxInlineSize: '70ch' }}>
+          <p
+            style={{
+              color: 'var(--tp-muted-fg)',
+              fontSize: 'var(--tp-fs-xs)',
+              lineHeight: 1.4,
+              maxInlineSize: '70ch',
+            }}
+          >
             {description}
           </p>
         )}
       </div>
-      {end && <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>{end}</div>}
+      {end && (
+        <div
+          style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}
+        >
+          {end}
+        </div>
+      )}
     </div>
   );
 }

@@ -34,16 +34,27 @@ export type PriceBandBounds = {
 };
 
 /** The bands an edge list defines, in display order — a band with no data still renders. */
-export function priceBandBounds(edges: readonly number[] = PRICE_BAND_EDGES_IQD): PriceBandBounds[] {
+export function priceBandBounds(
+  edges: readonly number[] = PRICE_BAND_EDGES_IQD,
+): PriceBandBounds[] {
   const out: PriceBandBounds[] = [];
   for (let i = 0; i <= edges.length; i++) {
-    out.push({ band: i, minIqd: i === 0 ? 0 : edges[i - 1]!, maxIqd: i < edges.length ? edges[i]! : null });
+    out.push({
+      band: i,
+      minIqd: i === 0 ? 0 : edges[i - 1]!,
+      maxIqd: i < edges.length ? edges[i]! : null,
+    });
   }
   return out;
 }
 
 /** One product inside a band — the drill-down behind the band's summary row. */
-export type PriceBandItem = ItemRef & { priceIqd: number; views: number; sold: number; revenueIqd: number };
+export type PriceBandItem = ItemRef & {
+  priceIqd: number;
+  views: number;
+  sold: number;
+  revenueIqd: number;
+};
 
 export type PriceBandSales = PriceBandBounds & {
   /** Distinct-session item views of every item in the band. */
@@ -77,7 +88,8 @@ export function buildPriceBands(
   const priceOf = new Map<string, number>();
   for (const [id, p] of prices) if (iqd(p) > 0) priceOf.set(id, p);
   for (const v of views) {
-    if (v.priceIqd !== null && iqd(v.priceIqd) > 0 && !priceOf.has(v.id)) priceOf.set(v.id, v.priceIqd);
+    if (v.priceIqd !== null && iqd(v.priceIqd) > 0 && !priceOf.has(v.id))
+      priceOf.set(v.id, v.priceIqd);
   }
   const soldTotals = new Map<string, { qty: number; revenue: number }>();
   for (const s of sold) {

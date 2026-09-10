@@ -13,7 +13,12 @@ import { Select } from '../../components/ui';
 import { FilterChips, SegmentedControl, type FilterChip } from '../../components/kit';
 import { QK, fetchActiveCourts } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
-import { REPORT_CATEGORIES_KEY, REPORT_STAFF_KEY, fetchReportCategories, fetchReportStaff } from './filterOptions';
+import {
+  REPORT_CATEGORIES_KEY,
+  REPORT_STAFF_KEY,
+  fetchReportCategories,
+  fetchReportStaff,
+} from './filterOptions';
 import type { PaymentMethodFilter, ReportFilters, ReportGroup } from './reportTypes';
 
 export type FilterField = 'court' | 'category' | 'staff' | 'payment' | 'group';
@@ -56,9 +61,24 @@ export function ReportFilterBar({
 }) {
   const { tr, locale } = useLocale();
   const has = (f: FilterField) => fields.includes(f);
-  const courtsQ = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts, enabled: has('court'), staleTime: 60_000 });
-  const categoriesQ = useQuery({ queryKey: REPORT_CATEGORIES_KEY, queryFn: fetchReportCategories, enabled: has('category'), staleTime: 60_000 });
-  const staffQ = useQuery({ queryKey: REPORT_STAFF_KEY, queryFn: fetchReportStaff, enabled: has('staff'), staleTime: 60_000 });
+  const courtsQ = useQuery({
+    queryKey: QK.courts,
+    queryFn: fetchActiveCourts,
+    enabled: has('court'),
+    staleTime: 60_000,
+  });
+  const categoriesQ = useQuery({
+    queryKey: REPORT_CATEGORIES_KEY,
+    queryFn: fetchReportCategories,
+    enabled: has('category'),
+    staleTime: 60_000,
+  });
+  const staffQ = useQuery({
+    queryKey: REPORT_STAFF_KEY,
+    queryFn: fetchReportStaff,
+    enabled: has('staff'),
+    staleTime: 60_000,
+  });
 
   const selectStyle = { inlineSize: 'auto', minInlineSize: '10rem' } as const;
 
@@ -94,7 +114,9 @@ export function ReportFilterBar({
     });
   }
   if (has('payment') && filters.paymentMethod) {
-    const method = tr(filters.paymentMethod === 'cash' ? 'ws.reports.filters.cash' : 'ws.reports.filters.card');
+    const method = tr(
+      filters.paymentMethod === 'cash' ? 'ws.reports.filters.cash' : 'ws.reports.filters.card',
+    );
     chips.push({
       id: 'payment',
       label: `${tr('ws.reports.filters.payment')}: ${method}`,
@@ -105,7 +127,14 @@ export function ReportFilterBar({
 
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-4)' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2) var(--tp-sp-3)', alignItems: 'center' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 'var(--tp-sp-2) var(--tp-sp-3)',
+          alignItems: 'center',
+        }}
+      >
         {views.length > 1 && (
           <SegmentedControl
             aria-label={tr('ws.reports.filters.view')}
@@ -135,7 +164,10 @@ export function ReportFilterBar({
             disabled={disabled}
             style={selectStyle}
             onChange={(v) => onChange({ ...filters, courtId: v || undefined })}
-            options={[{ value: '', label: tr('ws.reports.filters.allCourts') }, ...(courtsQ.data ?? []).map((c) => ({ value: c.id, label: pickName(locale, c) }))]}
+            options={[
+              { value: '', label: tr('ws.reports.filters.allCourts') },
+              ...(courtsQ.data ?? []).map((c) => ({ value: c.id, label: pickName(locale, c) })),
+            ]}
           />
         )}
         {has('category') && (
@@ -145,7 +177,10 @@ export function ReportFilterBar({
             disabled={disabled}
             style={selectStyle}
             onChange={(v) => onChange({ ...filters, categoryId: v || undefined })}
-            options={[{ value: '', label: tr('ws.reports.filters.allCategories') }, ...(categoriesQ.data ?? []).map((c) => ({ value: c.id, label: pickName(locale, c) }))]}
+            options={[
+              { value: '', label: tr('ws.reports.filters.allCategories') },
+              ...(categoriesQ.data ?? []).map((c) => ({ value: c.id, label: pickName(locale, c) })),
+            ]}
           />
         )}
         {has('staff') && (
@@ -155,7 +190,10 @@ export function ReportFilterBar({
             disabled={disabled}
             style={selectStyle}
             onChange={(v) => onChange({ ...filters, staffId: v || undefined })}
-            options={[{ value: '', label: tr('ws.reports.filters.allStaff') }, ...(staffQ.data ?? []).map((s) => ({ value: s.id, label: s.display_name }))]}
+            options={[
+              { value: '', label: tr('ws.reports.filters.allStaff') },
+              ...(staffQ.data ?? []).map((s) => ({ value: s.id, label: s.display_name })),
+            ]}
           />
         )}
         {has('payment') && (
@@ -174,7 +212,10 @@ export function ReportFilterBar({
         )}
       </div>
       {/* Clearing keeps the view: it is a lens on the report, not a filter on it. */}
-      <FilterChips chips={chips} onClearAll={chips.length > 0 ? () => onChange({ view: filters.view }) : undefined} />
+      <FilterChips
+        chips={chips}
+        onClearAll={chips.length > 0 ? () => onChange({ view: filters.view }) : undefined}
+      />
     </div>
   );
 }

@@ -26,7 +26,10 @@ import { describe, expect, it } from 'vitest';
 const ROOT = join(__dirname, '..', '..', '..');
 const UI = readFileSync(join(__dirname, '..', 'ui.tsx'), 'utf8');
 const TITLE = UI.slice(UI.indexOf('export function Title('), UI.indexOf('export function Card('));
-const FIELD = UI.slice(UI.indexOf('export function Field('), UI.indexOf('export function SegmentedControl'));
+const FIELD = UI.slice(
+  UI.indexOf('export function Field('),
+  UI.indexOf('export function SegmentedControl'),
+);
 
 function walk(d: string, out: string[] = []): string[] {
   for (const name of readdirSync(d)) {
@@ -99,7 +102,9 @@ describe('nothing mirrors by hand', () => {
 
   it('has no direction-keyed cross-axis alignment', () => {
     for (const f of SOURCES) {
-      expect(readFileSync(f, 'utf8'), rel(f)).not.toMatch(/\?\s*'flex-(end|start)'\s*:\s*'flex-(start|end)'/);
+      expect(readFileSync(f, 'utf8'), rel(f)).not.toMatch(
+        /\?\s*'flex-(end|start)'\s*:\s*'flex-(start|end)'/,
+      );
     }
   });
 });

@@ -42,7 +42,16 @@ import {
   type NavItem,
   type WorkspaceKey,
 } from '../lib/workspaces';
-import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
+import {
+  Button,
+  ErrorText,
+  Field,
+  Modal,
+  Spinner,
+  card,
+  inputStyle,
+  trapTab,
+} from '../components/ui';
 import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
 import { ChevronBack, ChevronForward, Icon, CourtLines } from '../components/icons';
 import { BrandLockup, BrandSwoosh } from '../components/brand';
@@ -123,7 +132,12 @@ function RootShell() {
   const station = useMemo(() => touch.getStation(), []);
   if (isElectron() && !station.configured) return <StationSetupContainer />;
   if (isElectron() && station.configError) {
-    return <AppBootScreen fullBleed error={tr('ws.shell.setup.configError', { error: station.configError })} />;
+    return (
+      <AppBootScreen
+        fullBleed
+        error={tr('ws.shell.setup.configError', { error: station.configError })}
+      />
+    );
   }
 
   if (loading) return <AppBootScreen fullBleed />;
@@ -179,7 +193,16 @@ export function AppBootScreen({
         background: 'var(--tp-bg)',
       }}
     >
-      <div className="tp-rise" style={{ display: 'grid', gap: 'var(--tp-sp-4)', justifyItems: 'center', textAlign: 'center', maxInlineSize: '24rem' }}>
+      <div
+        className="tp-rise"
+        style={{
+          display: 'grid',
+          gap: 'var(--tp-sp-4)',
+          justifyItems: 'center',
+          textAlign: 'center',
+          maxInlineSize: '24rem',
+        }}
+      >
         <BrandLockup size={36} title="Touch Padel" />
         {error ? (
           <>
@@ -201,7 +224,9 @@ export function AppBootScreen({
         ) : (
           <>
             <Spinner size="md" style={{ color: 'var(--tp-accent)' }} />
-            <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.shell.boot.body')}</p>
+            <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+              {tr('ws.shell.boot.body')}
+            </p>
           </>
         )}
       </div>
@@ -219,7 +244,9 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
 
   // A role change (re-login as someone else on the same station) re-validates.
   useEffect(() => {
-    setActiveState((cur) => ((available as readonly string[]).includes(cur) ? cur : loadWorkspace(role)));
+    setActiveState((cur) =>
+      (available as readonly string[]).includes(cur) ? cur : loadWorkspace(role),
+    );
   }, [available, role]);
 
   // Following a link into another workspace's home keeps the rail coherent:
@@ -252,13 +279,22 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
     <WorkspaceContext.Provider value={value}>
       <div
         data-workspace={active}
-        style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: noNav ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          blockSize: '100vh',
+          background: noNav ? 'var(--tp-kds-bg)' : 'var(--tp-bg)',
+        }}
       >
         <SkipToMain />
         <IdleLock />
         <VenueStatusBanner state={venue} />
         {noNav && update && (
-          <UpdateReadyControl variant="pill" version={update.version} onInstall={() => void touch.installUpdate()} />
+          <UpdateReadyControl
+            variant="pill"
+            version={update.version}
+            onInstall={() => void touch.installUpdate()}
+          />
         )}
         <div style={{ display: 'flex', flex: 1, minBlockSize: 0 }}>
           {!noNav && <WorkspaceNav workspaceKey={active} path={path} update={update} />}
@@ -372,7 +408,15 @@ function RailLink({ item, path }: { item: NavItem; path: string }) {
       aria-current={active ? 'page' : undefined}
     >
       <Icon name={item.icon} size={17} />
-      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span
+        style={{
+          flex: 1,
+          minInlineSize: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
         {tr(`ws.shell.nav.${item.labelKey}`)}
       </span>
     </Link>
@@ -405,7 +449,9 @@ function WorkspaceNav({
   return (
     <nav
       data-no-print
-      aria-label={section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
+      aria-label={
+        section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)
+      }
       style={{
         inlineSize: 'var(--tp-rail-w)',
         flexShrink: 0,
@@ -418,7 +464,15 @@ function WorkspaceNav({
       }}
     >
       {/* Rail header: the one committed brand surface. */}
-      <div style={{ position: 'relative', paddingBlock: 'var(--tp-sp-4) var(--tp-sp-3)', paddingInline: RAIL_EDGE, borderBlockEnd: '1px solid var(--tp-rail-border)', overflow: 'hidden' }}>
+      <div
+        style={{
+          position: 'relative',
+          paddingBlock: 'var(--tp-sp-4) var(--tp-sp-3)',
+          paddingInline: RAIL_EDGE,
+          borderBlockEnd: '1px solid var(--tp-rail-border)',
+          overflow: 'hidden',
+        }}
+      >
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           <CourtLines opacity={0.16} />
         </div>
@@ -443,10 +497,19 @@ function WorkspaceNav({
               to={workspace.home}
               className="tp-rail-back"
               style={{ marginBlockStart: 'var(--tp-sp-2-5)' }}
-              aria-label={tr('ws.shell.nav.backTo', { workspace: tr(`ws.shell.workspace.${workspaceKey}`) })}
+              aria-label={tr('ws.shell.nav.backTo', {
+                workspace: tr(`ws.shell.workspace.${workspaceKey}`),
+              })}
             >
               <ChevronBack size={14} />
-              <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span
+                style={{
+                  minInlineSize: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {tr(`ws.shell.workspace.${workspaceKey}`)}
               </span>
             </Link>
@@ -455,21 +518,54 @@ function WorkspaceNav({
               --tp-sp-1 so the back link read as part of the title below it;
               the back link is a bordered control now, and crowding a title
               against its edge just looks like a mistake. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--tp-sp-1-5)',
+              marginBlockStart: 'var(--tp-sp-2-5)',
+            }}
+          >
             <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
               <Icon name={section ? section.icon : workspace.icon} size={16} />
             </span>
-            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>
-              {section ? tr(`ws.shell.section.${section.key}`) : tr(`ws.shell.workspace.${workspaceKey}`)}
+            <span
+              style={{
+                fontWeight: 700,
+                fontSize: 'var(--tp-fs-md)',
+                color: 'var(--tp-brand-white)',
+              }}
+            >
+              {section
+                ? tr(`ws.shell.section.${section.key}`)
+                : tr(`ws.shell.workspace.${workspaceKey}`)}
             </span>
           </div>
-          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: 'var(--tp-sp-0)' }}>
-            {section ? tr(`ws.shell.sectionLead.${section.key}`) : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
+          <p
+            style={{
+              fontSize: 'var(--tp-fs-xs)',
+              color: 'var(--tp-rail-muted)',
+              marginBlockStart: 'var(--tp-sp-0)',
+            }}
+          >
+            {section
+              ? tr(`ws.shell.sectionLead.${section.key}`)
+              : tr(`ws.shell.workspaceLead.${workspaceKey}`)}
           </p>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-4)', alignContent: 'start' }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          paddingBlock: 'var(--tp-sp-2-5)',
+          paddingInline: RAIL_PAD,
+          display: 'grid',
+          gap: 'var(--tp-sp-4)',
+          alignContent: 'start',
+        }}
+      >
         {section ? (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
             {sectionRailItems(section)
@@ -483,7 +579,17 @@ function WorkspaceNav({
             {workspace.groups.map((group, gi) => (
               <div key={gi} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
                 {group.labelKey && (
-                  <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, paddingInline: RAIL_ITEM_PAD, marginBlockEnd: 'var(--tp-sp-1)' }}>
+                  <p
+                    style={{
+                      fontSize: 'var(--tp-fs-xs)',
+                      color: 'var(--tp-rail-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      fontWeight: 600,
+                      paddingInline: RAIL_ITEM_PAD,
+                      marginBlockEnd: 'var(--tp-sp-1)',
+                    }}
+                  >
                     {tr(`ws.shell.nav.${group.labelKey}`)}
                   </p>
                 )}
@@ -502,7 +608,15 @@ function WorkspaceNav({
                 {sections.map((sec) => (
                   <Link key={sec.key} to={sec.home} className="tp-nav-item" style={navItemStyle}>
                     <Icon name={sec.icon} size={17} />
-                    <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span
+                      style={{
+                        flex: 1,
+                        minInlineSize: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
                       {tr(`ws.shell.section.${sec.key}`)}
                     </span>
                     <ChevronForward size={14} />
@@ -514,9 +628,22 @@ function WorkspaceNav({
         )}
       </div>
 
-      <div style={{ borderBlockStart: '1px solid var(--tp-rail-border)', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-0)' }}>
+      <div
+        style={{
+          borderBlockStart: '1px solid var(--tp-rail-border)',
+          paddingBlock: 'var(--tp-sp-2-5)',
+          paddingInline: RAIL_PAD,
+          display: 'grid',
+          gap: 'var(--tp-sp-0)',
+        }}
+      >
         {canSwitch && (
-          <Link to="/workspaces" className="tp-nav-item" style={navItemStyle} data-active={path === '/workspaces' ? 'true' : undefined}>
+          <Link
+            to="/workspaces"
+            className="tp-nav-item"
+            style={navItemStyle}
+            data-active={path === '/workspaces' ? 'true' : undefined}
+          >
             <Icon name="repeat" size={16} />
             <span>{tr('ws.shell.nav.switchWorkspace')}</span>
           </Link>
@@ -525,7 +652,12 @@ function WorkspaceNav({
           <Icon name="globe" size={16} />
           <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
         </button>
-        <button type="button" className="tp-nav-item" onClick={() => void signOut()} style={navButtonStyle}>
+        <button
+          type="button"
+          className="tp-nav-item"
+          onClick={() => void signOut()}
+          style={navButtonStyle}
+        >
           <Icon name="logOut" size={16} />
           <span>{tr('auth.signOut')}</span>
         </button>
@@ -546,11 +678,33 @@ function WorkspaceNav({
             and role share a line because they answer "who is signed in"; the
             station answers "which till" and gets its own, using the
             ws.shell.nav.station key that had been sitting unused. */}
-        <div style={{ paddingInline: RAIL_ITEM_PAD, paddingBlockStart: 'var(--tp-sp-2)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+        <div
+          style={{
+            paddingInline: RAIL_ITEM_PAD,
+            paddingBlockStart: 'var(--tp-sp-2)',
+            display: 'grid',
+            gap: 'var(--tp-sp-1)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--tp-sp-2)',
+              minInlineSize: 0,
+            }}
+          >
             <bdi
               title={staff?.displayName}
-              style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-brand-white)' }}
+              style={{
+                minInlineSize: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: 'var(--tp-fs-sm)',
+                fontWeight: 600,
+                color: 'var(--tp-brand-white)',
+              }}
             >
               {staff?.displayName}
             </bdi>
@@ -563,7 +717,13 @@ function WorkspaceNav({
           </div>
           <p
             title={tr('ws.shell.nav.station', { id: station.stationId })}
-            style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            style={{
+              fontSize: 'var(--tp-fs-xs)',
+              color: 'var(--tp-rail-muted)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
           >
             {tr('ws.shell.nav.station', { id: station.stationId })}
           </p>
@@ -571,7 +731,14 @@ function WorkspaceNav({
               from the till itself and not only from device_heartbeats. */}
           <p
             dir="ltr"
-            style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'start' }}
+            style={{
+              fontSize: 'var(--tp-fs-xs)',
+              color: 'var(--tp-rail-muted)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              textAlign: 'start',
+            }}
           >
             {tr('ws.shell.nav.version', { version: station.appVersion })}
           </p>
@@ -727,12 +894,38 @@ function IdleLock() {
         tone="onDark"
         style={{ position: 'absolute', insetBlockStart: '2rem', insetInlineStart: '2rem' }}
       />
-      <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, position: 'relative', outline: 'none', inlineSize: 'min(22rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-5)', paddingInline: 'var(--tp-sp-5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className="tp-rise"
+        style={{
+          ...card,
+          position: 'relative',
+          outline: 'none',
+          inlineSize: 'min(22rem, 92vw)',
+          boxShadow: 'var(--tp-shadow-dialog)',
+          paddingBlock: 'var(--tp-sp-5)',
+          paddingInline: 'var(--tp-sp-5)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--tp-sp-2)',
+            marginBlockEnd: 'var(--tp-sp-1-5)',
+          }}
+        >
           <Icon name="lock" size={18} style={{ color: 'var(--tp-accent)' }} />
           <h2 style={{ fontSize: 'var(--tp-fs-xl)' }}>{tr('ws.shell.lock.title')}</h2>
         </div>
-        <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)' }}>
+        <p
+          style={{
+            color: 'var(--tp-muted-fg)',
+            marginBlockEnd: 'var(--tp-sp-4)',
+            fontSize: 'var(--tp-fs-sm)',
+          }}
+        >
           {tr('ws.shell.lock.hint', { name: staff.displayName })}
         </p>
         {usePassword ? (
@@ -750,7 +943,12 @@ function IdleLock() {
         ) : (
           <Field label={tr('ws.shell.lock.pin')}>
             <input
-              style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
+              style={{
+                ...inputStyle,
+                fontSize: 'var(--tp-fs-2xl)',
+                letterSpacing: '0.35em',
+                textAlign: 'center',
+              }}
               type="password"
               inputMode="numeric"
               dir="ltr"
@@ -763,7 +961,14 @@ function IdleLock() {
           </Field>
         )}
         <ErrorText error={error} />
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 'var(--tp-sp-2)',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+          }}
+        >
           <Button kind="ghost" icon="users" onClick={() => void signOut()} disabled={busy}>
             {tr('ws.shell.lock.switchUser')}
           </Button>
@@ -826,7 +1031,10 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
       // network timeout to be told what the grant already says.
       if (session) {
         try {
-          await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
+          await appRpc('verify_manager_pin', {
+            p_pin: pin,
+            p_device_id: touch.getStation().stationId,
+          });
           touch.pinObserved(pin);
         } catch (e) {
           // Offline: fall through to the cache check in main. A server REFUSAL
@@ -854,7 +1062,13 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
   return (
     <>
       {variant === 'rail' ? (
-        <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-rail-border)' }}>
+        <div
+          style={{
+            marginBlockStart: 'var(--tp-sp-2)',
+            paddingBlockStart: 'var(--tp-sp-1)',
+            borderBlockStart: '1px solid var(--tp-rail-border)',
+          }}
+        >
           <button
             type="button"
             className="tp-nav-item"
@@ -871,19 +1085,24 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
           size="sm"
           icon="x"
           onClick={() => setOpen(true)}
-          style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)', color: 'var(--tp-muted-fg)' }}
+          style={{
+            position: 'absolute',
+            insetBlockStart: 'var(--tp-sp-3)',
+            insetInlineEnd: 'var(--tp-sp-3)',
+            color: 'var(--tp-muted-fg)',
+          }}
         >
           {tr('ws.shell.nav.quit')}
         </Button>
       )}
       {/*
-        * This was a bare fixed <div>: no Escape, no focus trap, no click
-        * outside, no focus return to the control that opened it, and no
-        * autoFocus on the PIN field a cashier had opened it to type into. The
-        * shared Modal does all five, so the fork is deleted rather than
-        * repaired (rulebook 12.1) — and its z-index comes from the scale with
-        * it, replacing a hand-typed 40.
-        */}
+       * This was a bare fixed <div>: no Escape, no focus trap, no click
+       * outside, no focus return to the control that opened it, and no
+       * autoFocus on the PIN field a cashier had opened it to type into. The
+       * shared Modal does all five, so the fork is deleted rather than
+       * repaired (rulebook 12.1) — and its z-index comes from the scale with
+       * it, replacing a hand-typed 40.
+       */}
       {open && (
         <Modal
           title={tr('ws.shell.nav.quit')}
@@ -892,7 +1111,12 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
           footer={
             <>
               <Button onClick={() => setOpen(false)}>{tr('common.back')}</Button>
-              <Button kind="danger" busy={busy} disabled={pin.length < 4} onClick={() => void quit()}>
+              <Button
+                kind="danger"
+                busy={busy}
+                disabled={pin.length < 4}
+                onClick={() => void quit()}
+              >
                 {tr('ws.shell.nav.quit')}
               </Button>
             </>
@@ -929,7 +1153,9 @@ function PairKitchenScreen() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
-  const [info, setInfo] = useState<{ host: string | null; port: number; code: string } | null>(null);
+  const [info, setInfo] = useState<{ host: string | null; port: number; code: string } | null>(
+    null,
+  );
   const [refusal, setRefusal] = useState<'not-a-till' | 'no-psk' | 'custom-psk' | null>(null);
   if (!isElectron() || touch.getStation().mode !== 'till') return null;
 
@@ -946,7 +1172,10 @@ function PairKitchenScreen() {
     setError(null);
     try {
       try {
-        await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
+        await appRpc('verify_manager_pin', {
+          p_pin: pin,
+          p_device_id: touch.getStation().stationId,
+        });
         touch.pinObserved(pin);
       } catch (e) {
         // Offline: fall through to the cache check in main. A server REFUSAL
@@ -969,11 +1198,20 @@ function PairKitchenScreen() {
   }
 
   const qr = info ? qrPath(qrModules(info.code)) : null;
-  const refusalKey = { 'not-a-till': 'notTill', 'no-psk': 'noPsk', 'custom-psk': 'customPsk' } as const;
+  const refusalKey = {
+    'not-a-till': 'notTill',
+    'no-psk': 'noPsk',
+    'custom-psk': 'customPsk',
+  } as const;
 
   return (
     <>
-      <button type="button" className="tp-nav-item" onClick={() => setOpen(true)} style={navButtonStyle}>
+      <button
+        type="button"
+        className="tp-nav-item"
+        onClick={() => setOpen(true)}
+        style={navButtonStyle}
+      >
         <Icon name="qr" size={16} />
         <span>{tr('ws.shell.nav.pairKitchen')}</span>
       </button>
@@ -988,7 +1226,12 @@ function PairKitchenScreen() {
             ) : (
               <>
                 <Button onClick={close}>{tr('common.back')}</Button>
-                <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => void reveal()}>
+                <Button
+                  kind="primary"
+                  busy={busy}
+                  disabled={pin.length < 4}
+                  onClick={() => void reveal()}
+                >
                   {tr('ws.shell.pair.title')}
                 </Button>
               </>
@@ -996,12 +1239,24 @@ function PairKitchenScreen() {
           }
         >
           {info && qr ? (
-            <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'center', textAlign: 'center' }}>
+            <div
+              style={{
+                display: 'grid',
+                gap: 'var(--tp-sp-3)',
+                justifyItems: 'center',
+                textAlign: 'center',
+              }}
+            >
               <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.pair.lead')}</p>
               <p
                 dir="ltr"
                 aria-label={tr('ws.shell.pair.code')}
-                style={{ fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, letterSpacing: '0.18em', fontVariantNumeric: 'tabular-nums' }}
+                style={{
+                  fontSize: 'var(--tp-fs-3xl)',
+                  fontWeight: 700,
+                  letterSpacing: '0.18em',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
               >
                 {formatPairingCode(info.code)}
               </p>
@@ -1011,7 +1266,11 @@ function PairKitchenScreen() {
                 height="9rem"
                 role="img"
                 aria-label={tr('ws.shell.pair.code')}
-                style={{ background: 'var(--tp-brand-white)', color: '#000', borderRadius: 'var(--tp-radius-ctl)' }}
+                style={{
+                  background: 'var(--tp-brand-white)',
+                  color: '#000',
+                  borderRadius: 'var(--tp-radius-ctl)',
+                }}
               >
                 <path d={qr.d} fill="currentColor" shapeRendering="crispEdges" />
               </svg>
@@ -1072,10 +1331,26 @@ function SignInScreen() {
   }
 
   return (
-    <div style={{ minBlockSize: '100vh', display: 'grid', gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)', background: 'var(--tp-bg)' }}>
+    <div
+      style={{
+        minBlockSize: '100vh',
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)',
+        background: 'var(--tp-bg)',
+      }}
+    >
       <aside
         aria-hidden="true"
-        style={{ position: 'relative', background: 'var(--tp-rail)', color: 'var(--tp-brand-white)', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2rem' }}
+        style={{
+          position: 'relative',
+          background: 'var(--tp-rail)',
+          color: 'var(--tp-brand-white)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '2rem',
+        }}
       >
         {/* The swoosh, bleeding off the inline end the way it does across the
             brand deck's covers. It settles in behind the lockup; the ONE call
@@ -1088,20 +1363,43 @@ function SignInScreen() {
           <BrandSwoosh opacity={0.5} />
         </div>
         <BrandLockup size={40} tone="onDark" style={{ position: 'relative' }} />
-        <p style={{ position: 'relative', fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, lineHeight: 1.1, maxInlineSize: '9ch' }}>
+        <p
+          style={{
+            position: 'relative',
+            fontSize: 'var(--tp-fs-3xl)',
+            fontWeight: 700,
+            lineHeight: 1.1,
+            maxInlineSize: '9ch',
+          }}
+        >
           {tr('ws.shell.signIn.tagline')}
         </p>
       </aside>
-      <div style={{ position: 'relative', display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
+      <div
+        style={{
+          position: 'relative',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 'var(--tp-sp-6)',
+        }}
+      >
         {/* A till and a kitchen screen run frameless and non-closable, and the
             rail — the only other way out — is behind a sign-in. A station
             powered on by mistake, or signed out at the end of the night, was
             therefore a machine nobody could close. Same manager-PIN gate as
             the rail's; only the placement is the window control's. */}
         <QuitToDesktop variant="signIn" />
-        <form onSubmit={(e) => void submit(e)} className="tp-rise" style={{ inlineSize: 'min(22rem, 100%)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          <h1 style={{ fontSize: 'var(--tp-fs-2xl)', marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.signIn.title')}</h1>
-          <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)' }}>{tr('ws.shell.signIn.lead')}</p>
+        <form
+          onSubmit={(e) => void submit(e)}
+          className="tp-rise"
+          style={{ inlineSize: 'min(22rem, 100%)', display: 'grid', gap: 'var(--tp-sp-1)' }}
+        >
+          <h1 style={{ fontSize: 'var(--tp-fs-2xl)', marginBlockEnd: 'var(--tp-sp-1)' }}>
+            {tr('op.signIn.title')}
+          </h1>
+          <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)' }}>
+            {tr('ws.shell.signIn.lead')}
+          </p>
           <Field label={tr('auth.emailLabel')}>
             <input
               style={inputStyle}
@@ -1126,11 +1424,29 @@ function SignInScreen() {
             />
           </Field>
           {error && (
-            <p role="alert" style={{ color: 'var(--tp-danger-fg)', background: 'var(--tp-danger-soft)', borderRadius: 'var(--tp-radius-ctl)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-2)' }}>
+            <p
+              role="alert"
+              style={{
+                color: 'var(--tp-danger-fg)',
+                background: 'var(--tp-danger-soft)',
+                borderRadius: 'var(--tp-radius-ctl)',
+                paddingBlock: 'var(--tp-sp-1-5)',
+                paddingInline: 'var(--tp-sp-2-5)',
+                fontSize: 'var(--tp-fs-sm)',
+                marginBlockEnd: 'var(--tp-sp-2)',
+              }}
+            >
               {error === 'network' ? tr('ws.shell.signIn.network') : tr('op.signIn.failed')}
             </p>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBlockStart: 'var(--tp-sp-2)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBlockStart: 'var(--tp-sp-2)',
+            }}
+          >
             <Button kind="ghost" icon="globe" onClick={toggleLocale}>
               <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
             </Button>
@@ -1166,7 +1482,16 @@ export function RequireRole({ route, children }: { route: string; children: Reac
   const { tr } = useLocale();
   if (!canAccess(staff?.role as StaffRole | undefined, route)) {
     return (
-      <div style={{ ...card, display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', maxInlineSize: 'var(--tp-measure-form)' }} role="alert">
+      <div
+        style={{
+          ...card,
+          display: 'grid',
+          gap: 'var(--tp-sp-2)',
+          justifyItems: 'start',
+          maxInlineSize: 'var(--tp-measure-form)',
+        }}
+        role="alert"
+      >
         {/* This forked its own card with a generic sentence and never said
             which role was missing, so the operator had nothing to act on and no
             one to ask. PermissionRefusedNotice exists for exactly this and

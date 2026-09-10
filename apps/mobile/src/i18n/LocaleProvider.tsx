@@ -10,7 +10,14 @@ import {
 } from 'react';
 import { Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { dir as dirOf, makeT, type Direction, type Locale, type MessageKey, type TParams } from '@touch/i18n';
+import {
+  dir as dirOf,
+  makeT,
+  type Direction,
+  type Locale,
+  type MessageKey,
+  type TParams,
+} from '@touch/i18n';
 import { supabase } from '../lib/supabase';
 import { LOCALE_KEY } from '../lib/bootPrefs';
 import { useReduceMotion } from '../lib/useReduceMotion';
@@ -86,7 +93,10 @@ async function syncProfileLanguage(next: Locale): Promise<void> {
     const { data } = await supabase.auth.getSession();
     const uid = data.session?.user.id;
     if (!uid) return;
-    const { error } = await supabase.from('profiles').update({ preferred_lang: next }).eq('id', uid);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ preferred_lang: next })
+      .eq('id', uid);
     if (error) throw error;
   } catch (error) {
     captureException(error, { label: 'locale.profileSync', next });

@@ -22,7 +22,8 @@ export const courtDeskEn = {
     nextAt: 'next at {time}',
     markArrived: 'Mark arrived',
     emptyTitle: 'No bookings today',
-    emptyBody: 'Create a booking from the calendar, or wait for guests to book from the app — they appear here the moment they confirm.',
+    emptyBody:
+      'Create a booking from the calendar, or wait for guests to book from the app — they appear here the moment they confirm.',
     emptyAction: 'Create a booking',
     open: 'Open',
     walkIn: 'Walk-in',
@@ -94,7 +95,8 @@ export const courtDeskEn = {
     series: 'Series',
     viewSeries: 'View series',
     notes: 'Notes',
-    notesReadOnly: 'Notes are set when the booking is created; there is no server path to edit them yet.',
+    notesReadOnly:
+      'Notes are set when the booking is created; there is no server path to edit them yet.',
     noNotes: 'No notes on this booking.',
     actions: 'Actions',
     move: 'Move',
@@ -302,7 +304,8 @@ export const courtDeskEn = {
     noFlags: 'No flags.',
     editFlags: 'Edit flags',
     flagsTitle: 'Customer flags',
-    flagsLead: 'Flags surface wherever this customer appears — on bookings, tabs and search results.',
+    flagsLead:
+      'Flags surface wherever this customer appears — on bookings, tabs and search results.',
     flagLabel: 'Label (optional)',
     flagOn: 'Set',
     saveFlags: 'Save flags',

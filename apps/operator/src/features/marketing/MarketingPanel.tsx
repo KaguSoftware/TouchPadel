@@ -81,113 +81,135 @@ export function MarketingPanelScreen() {
 
   const campaigns = q.data?.campaigns ?? [];
   const counts = q.data?.counts;
-  const name = (en: string | null, ar: string | null) => (locale === 'ar' ? (ar ?? en ?? '—') : (en ?? ar ?? '—'));
+  const name = (en: string | null, ar: string | null) =>
+    locale === 'ar' ? (ar ?? en ?? '—') : (en ?? ar ?? '—');
 
   const columns: Column<CampaignRow>[] = [
-      {
-        key: 'campaign',
-        header: tr('ws.owner.marketing.cols.campaign'),
-        render: (c) => (
-          <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-            <span style={{ fontWeight: 600 }}>{name(c.name_en, c.name_ar)}</span>
+    {
+      key: 'campaign',
+      header: tr('ws.owner.marketing.cols.campaign'),
+      render: (c) => (
+        <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+          <span style={{ fontWeight: 600 }}>{name(c.name_en, c.name_ar)}</span>
+          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+            {tr(`ws.owner.marketing.channels.${c.channel}`)}
+          </span>
+        </span>
+      ),
+      truncateTitle: (c) => name(c.name_en, c.name_ar),
+    },
+    {
+      key: 'status',
+      header: tr('ws.owner.marketing.cols.status'),
+      render: (c) => (
+        <StatusBadge
+          tone={campaignTone(c.status)}
+          label={tr(`ws.owner.marketing.statuses.${c.status}`)}
+        />
+      ),
+      truncateTitle: (c) => tr(`ws.owner.marketing.statuses.${c.status}`),
+    },
+    {
+      key: 'window',
+      header: tr('ws.owner.marketing.cols.window'),
+      render: (c) =>
+        c.starts_at
+          ? `${formatDate(new Date(c.starts_at), locale)}${c.ends_at ? ` → ${formatDate(new Date(c.ends_at), locale)}` : ''}`
+          : '—',
+      truncateTitle: (c) => (c.starts_at ? formatDate(new Date(c.starts_at), locale) : '—'),
+    },
+    {
+      key: 'audience',
+      header: tr('ws.owner.marketing.cols.audience'),
+      render: (c) => (
+        <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+          <span>
+            {c.audience_id
+              ? name(c.audience_en, c.audience_ar)
+              : tr('ws.owner.marketing.noAudience')}
+          </span>
+          {c.reach != null && (
             <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-              {tr(`ws.owner.marketing.channels.${c.channel}`)}
+              {formatNumber(c.reach, locale)}
             </span>
+          )}
+        </span>
+      ),
+      truncateTitle: (c) =>
+        c.audience_id ? name(c.audience_en, c.audience_ar) : tr('ws.owner.marketing.noAudience'),
+    },
+    {
+      key: 'sent',
+      header: tr('ws.owner.marketing.cols.sent'),
+      numeric: true,
+      render: (c) => formatNumber(c.performance.sends, locale),
+      truncateTitle: (c) => String(c.performance.sends),
+    },
+    {
+      key: 'redemptions',
+      header: tr('ws.owner.marketing.cols.redemptions'),
+      numeric: true,
+      // The whole point of the screen: an unmeasurable campaign says so.
+      render: (c) =>
+        c.performance.attributable ? (
+          formatNumber(c.performance.redemptions ?? 0, locale)
+        ) : (
+          <span
+            style={{ color: 'var(--tp-muted-fg)' }}
+            title={tr('ws.owner.marketing.notAttributableHint')}
+          >
+            {tr('ws.owner.marketing.notAttributable')}
           </span>
         ),
-        truncateTitle: (c) => name(c.name_en, c.name_ar),
-      },
-      {
-        key: 'status',
-        header: tr('ws.owner.marketing.cols.status'),
-        render: (c) => (
-          <StatusBadge tone={campaignTone(c.status)} label={tr(`ws.owner.marketing.statuses.${c.status}`)} />
-        ),
-        truncateTitle: (c) => tr(`ws.owner.marketing.statuses.${c.status}`),
-      },
-      {
-        key: 'window',
-        header: tr('ws.owner.marketing.cols.window'),
-        render: (c) =>
-          c.starts_at
-            ? `${formatDate(new Date(c.starts_at), locale)}${c.ends_at ? ` → ${formatDate(new Date(c.ends_at), locale)}` : ''}`
-            : '—',
-        truncateTitle: (c) => (c.starts_at ? formatDate(new Date(c.starts_at), locale) : '—'),
-      },
-      {
-        key: 'audience',
-        header: tr('ws.owner.marketing.cols.audience'),
-        render: (c) => (
-          <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-            <span>{c.audience_id ? name(c.audience_en, c.audience_ar) : tr('ws.owner.marketing.noAudience')}</span>
-            {c.reach != null && (
-              <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                {formatNumber(c.reach, locale)}
-              </span>
-            )}
-          </span>
-        ),
-        truncateTitle: (c) => (c.audience_id ? name(c.audience_en, c.audience_ar) : tr('ws.owner.marketing.noAudience')),
-      },
-      {
-        key: 'sent',
-        header: tr('ws.owner.marketing.cols.sent'),
-        numeric: true,
-        render: (c) => formatNumber(c.performance.sends, locale),
-        truncateTitle: (c) => String(c.performance.sends),
-      },
-      {
-        key: 'redemptions',
-        header: tr('ws.owner.marketing.cols.redemptions'),
-        numeric: true,
-        // The whole point of the screen: an unmeasurable campaign says so.
-        render: (c) =>
-          c.performance.attributable ? (
-            formatNumber(c.performance.redemptions ?? 0, locale)
-          ) : (
-            <span style={{ color: 'var(--tp-muted-fg)' }} title={tr('ws.owner.marketing.notAttributableHint')}>
-              {tr('ws.owner.marketing.notAttributable')}
-            </span>
-          ),
-        truncateTitle: (c) =>
-          c.performance.attributable ? String(c.performance.redemptions ?? 0) : tr('ws.owner.marketing.notAttributable'),
-      },
-      {
-        key: 'revenue',
-        header: tr('ws.owner.marketing.cols.revenue'),
-        numeric: true,
-        render: (c) =>
-          c.performance.attributable && c.performance.revenueIqd != null
-            ? formatIQD(c.performance.revenueIqd, locale)
-            : '—',
-        truncateTitle: (c) => (c.performance.revenueIqd == null ? '—' : String(c.performance.revenueIqd)),
-      },
-      {
-        key: 'actions',
-        header: '',
-        align: 'end',
-        render: (c) => (
-          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {isEditable(c.status) && (
-              <Button size="sm" kind="ghost" onClick={() => setEditing(c)}>
-                {tr('ws.owner.marketing.editCampaign')}
-              </Button>
-            )}
-            {nextStatuses(c.status).map((next) => (
-              <Button
-                key={next}
-                size="sm"
-                kind={next === 'cancelled' ? 'ghost' : 'primary'}
-                busy={move.isPending}
-                onClick={() => move.mutate({ id: c.id, status: next })}
-              >
-                {tr(STATUS_ACTION[next] as never)}
-              </Button>
-            ))}
-          </span>
-        ),
-        truncateTitle: () => '',
-      },
+      truncateTitle: (c) =>
+        c.performance.attributable
+          ? String(c.performance.redemptions ?? 0)
+          : tr('ws.owner.marketing.notAttributable'),
+    },
+    {
+      key: 'revenue',
+      header: tr('ws.owner.marketing.cols.revenue'),
+      numeric: true,
+      render: (c) =>
+        c.performance.attributable && c.performance.revenueIqd != null
+          ? formatIQD(c.performance.revenueIqd, locale)
+          : '—',
+      truncateTitle: (c) =>
+        c.performance.revenueIqd == null ? '—' : String(c.performance.revenueIqd),
+    },
+    {
+      key: 'actions',
+      header: '',
+      align: 'end',
+      render: (c) => (
+        <span
+          style={{
+            display: 'inline-flex',
+            gap: 'var(--tp-sp-2)',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+          }}
+        >
+          {isEditable(c.status) && (
+            <Button size="sm" kind="ghost" onClick={() => setEditing(c)}>
+              {tr('ws.owner.marketing.editCampaign')}
+            </Button>
+          )}
+          {nextStatuses(c.status).map((next) => (
+            <Button
+              key={next}
+              size="sm"
+              kind={next === 'cancelled' ? 'ghost' : 'primary'}
+              busy={move.isPending}
+              onClick={() => move.mutate({ id: c.id, status: next })}
+            >
+              {tr(STATUS_ACTION[next] as never)}
+            </Button>
+          ))}
+        </span>
+      ),
+      truncateTitle: () => '',
+    },
   ];
 
   const status = asyncStatus(q, (d) => (d?.campaigns ?? []).length === 0);
@@ -202,10 +224,20 @@ export function MarketingPanelScreen() {
             <Button size="sm" icon="plus" onClick={() => setEditing('new')}>
               {tr('ws.owner.marketing.newCampaign')}
             </Button>
-            <Button size="sm" kind="ghost" icon="tag" onClick={() => void navigate({ to: '/admin/promotions' })}>
+            <Button
+              size="sm"
+              kind="ghost"
+              icon="tag"
+              onClick={() => void navigate({ to: '/admin/promotions' })}
+            >
               {tr('ws.owner.marketing.openPromotions')}
             </Button>
-            <Button size="sm" kind="ghost" icon="phone" onClick={() => void navigate({ to: '/admin/telegram' })}>
+            <Button
+              size="sm"
+              kind="ghost"
+              icon="phone"
+              onClick={() => void navigate({ to: '/admin/telegram' })}
+            >
               {tr('ws.owner.marketing.openTelegram')}
             </Button>
           </span>
@@ -214,15 +246,20 @@ export function MarketingPanelScreen() {
 
       {counts && (
         <Toolbar>
-          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)' }}>
+          <span
+            style={{ display: 'inline-flex', gap: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)' }}
+          >
             <span>
-              <strong>{formatNumber(counts.live, locale)}</strong> {tr('ws.owner.marketing.counts.live')}
+              <strong>{formatNumber(counts.live, locale)}</strong>{' '}
+              {tr('ws.owner.marketing.counts.live')}
             </span>
             <span>
-              <strong>{formatNumber(counts.scheduled, locale)}</strong> {tr('ws.owner.marketing.counts.scheduled')}
+              <strong>{formatNumber(counts.scheduled, locale)}</strong>{' '}
+              {tr('ws.owner.marketing.counts.scheduled')}
             </span>
             <span>
-              <strong>{formatNumber(counts.draft, locale)}</strong> {tr('ws.owner.marketing.counts.draft')}
+              <strong>{formatNumber(counts.draft, locale)}</strong>{' '}
+              {tr('ws.owner.marketing.counts.draft')}
             </span>
           </span>
         </Toolbar>
@@ -371,12 +408,23 @@ function CampaignEditor({
         </>
       }
     >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--tp-sp-3)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))',
+        }}
+      >
         <Field label={tr('ws.owner.marketing.form.nameEn')} required>
           <input value={nameEn} onChange={(e) => setNameEn(e.target.value)} style={dateStyle} />
         </Field>
         <Field label={tr('ws.owner.marketing.form.nameAr')} required>
-          <input value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" style={dateStyle} />
+          <input
+            value={nameAr}
+            onChange={(e) => setNameAr(e.target.value)}
+            dir="rtl"
+            style={dateStyle}
+          />
         </Field>
         <Field label={tr('ws.owner.marketing.form.channel')} required>
           <Select<MarketingChannel>
@@ -394,7 +442,10 @@ function CampaignEditor({
             onChange={setAudienceId}
             options={[
               { value: '', label: tr('ws.owner.marketing.noAudience') },
-              ...audiences.map((a) => ({ value: a.id, label: locale === 'ar' ? a.nameAr : a.nameEn })),
+              ...audiences.map((a) => ({
+                value: a.id,
+                label: locale === 'ar' ? a.nameAr : a.nameEn,
+              })),
             ]}
           />
         </Field>
@@ -415,17 +466,38 @@ function CampaignEditor({
           />
         </Field>
         <Field label={tr('ws.owner.marketing.form.startsAt')}>
-          <input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} style={dateStyle} />
+          <input
+            type="date"
+            value={startsAt}
+            onChange={(e) => setStartsAt(e.target.value)}
+            style={dateStyle}
+          />
         </Field>
         <Field label={tr('ws.owner.marketing.form.endsAt')}>
-          <input type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} style={dateStyle} />
+          <input
+            type="date"
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            style={dateStyle}
+          />
         </Field>
       </div>
       <Field label={tr('ws.owner.marketing.form.bodyEn')}>
-        <textarea value={bodyEn} onChange={(e) => setBodyEn(e.target.value)} rows={3} style={dateStyle} />
+        <textarea
+          value={bodyEn}
+          onChange={(e) => setBodyEn(e.target.value)}
+          rows={3}
+          style={dateStyle}
+        />
       </Field>
       <Field label={tr('ws.owner.marketing.form.bodyAr')}>
-        <textarea value={bodyAr} onChange={(e) => setBodyAr(e.target.value)} dir="rtl" rows={3} style={dateStyle} />
+        <textarea
+          value={bodyAr}
+          onChange={(e) => setBodyAr(e.target.value)}
+          dir="rtl"
+          rows={3}
+          style={dateStyle}
+        />
       </Field>
     </Modal>
   );

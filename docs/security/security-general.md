@@ -43,15 +43,15 @@ A phase is done when every box in it is ticked by a named person and dated. Each
 These are places where the **signed Scope of Work** and the **built system** disagree. They are not
 technical debt; they are commercial exposure. None of them appeared in v1.0.
 
-| # | SOW says | Reality | Action |
-|---|---|---|---|
-| D1 | Module 1 INCLUDED: "**Staging and production environments**" | One Supabase project, which is the client's live database. `.github/workflows/db-migrate.yml` names its job `staging` while its own comment says "the linked Supabase project is the CLIENT'S long-term production database". | Signed variation, or build staging. A risk note is not enough — this is a delivered-scope gap. (SEC-37 · SEC) |
-| D2 | Module 1 INCLUDED: "**Error tracking and uptime monitoring** on the booking and ordering paths" | Neither exists in any client. | Build both, or vary the contract. (SEC-36 · DEV) |
-| D3 | Module 1 INCLUDED: "Automated daily backups with **point-in-time recovery**" | PITR is treated as an open question. | PITR is promised. Buy the tier or get the variation signed. (SEC-38 · SEC) |
-| D4 | Module 6 NOT INCLUDED: "**Analytics**, marketing tags or advertising pixels" | PostHog is mounted on the guest cafe web app (`apps/web/src/lib/analytics/AnalyticsProvider.tsx`) — the exact surface carrying a table token in the URL. | Remove it, or get a signed variation **and** complete SEC-25. (SEC-19 · SEC) |
-| D5 | Module 1 NOT INCLUDED: "**Phone / SMS one-time-code login**" | Security Layer v1.1 §5.2 recommends phone + OTP. **2026-09-05:** a DORMANT scaffold exists (migration 0069, `functions/send-sms-otp`, flag-gated mobile screens; `docs/design/phone-otp-2026-09-05.md`) — three switches, all off; no client role can reach any of it. | **Settled by contract: email + password.** SEC-22 stays closed until the owner's written decision D4a–D4d activates the scaffold (`docs/client/phone-otp-activation.md`); the SEC checklist for that day is in the design note §5. (SEC-22 · SEC) |
-| D6 | Track A week 4: "**load test at twice peak**" | Not scheduled, not in v1.0. | Schedule it. (SEC-38 · DEV) |
-| D7 | Module 7: "the day **cannot be closed while unsynced items remain**" | Not verified; no box in v1.0. | Add the assertion and a test. (SEC-32 · DEV) |
+| #   | SOW says                                                                                        | Reality                                                                                                                                                                                                                                                                | Action                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Module 1 INCLUDED: "**Staging and production environments**"                                    | One Supabase project, which is the client's live database. `.github/workflows/db-migrate.yml` names its job `staging` while its own comment says "the linked Supabase project is the CLIENT'S long-term production database".                                          | Signed variation, or build staging. A risk note is not enough — this is a delivered-scope gap. (SEC-37 · SEC)                                                                                                                                     |
+| D2  | Module 1 INCLUDED: "**Error tracking and uptime monitoring** on the booking and ordering paths" | Neither exists in any client.                                                                                                                                                                                                                                          | Build both, or vary the contract. (SEC-36 · DEV)                                                                                                                                                                                                  |
+| D3  | Module 1 INCLUDED: "Automated daily backups with **point-in-time recovery**"                    | PITR is treated as an open question.                                                                                                                                                                                                                                   | PITR is promised. Buy the tier or get the variation signed. (SEC-38 · SEC)                                                                                                                                                                        |
+| D4  | Module 6 NOT INCLUDED: "**Analytics**, marketing tags or advertising pixels"                    | PostHog is mounted on the guest cafe web app (`apps/web/src/lib/analytics/AnalyticsProvider.tsx`) — the exact surface carrying a table token in the URL.                                                                                                               | Remove it, or get a signed variation **and** complete SEC-25. (SEC-19 · SEC)                                                                                                                                                                      |
+| D5  | Module 1 NOT INCLUDED: "**Phone / SMS one-time-code login**"                                    | Security Layer v1.1 §5.2 recommends phone + OTP. **2026-09-05:** a DORMANT scaffold exists (migration 0069, `functions/send-sms-otp`, flag-gated mobile screens; `docs/design/phone-otp-2026-09-05.md`) — three switches, all off; no client role can reach any of it. | **Settled by contract: email + password.** SEC-22 stays closed until the owner's written decision D4a–D4d activates the scaffold (`docs/client/phone-otp-activation.md`); the SEC checklist for that day is in the design note §5. (SEC-22 · SEC) |
+| D6  | Track A week 4: "**load test at twice peak**"                                                   | Not scheduled, not in v1.0.                                                                                                                                                                                                                                            | Schedule it. (SEC-38 · DEV)                                                                                                                                                                                                                       |
+| D7  | Module 7: "the day **cannot be closed while unsynced items remain**"                            | Not verified; no box in v1.0.                                                                                                                                                                                                                                          | Add the assertion and a test. (SEC-32 · DEV)                                                                                                                                                                                                      |
 
 - [ ] `[SOW]` Walk D1–D7 with the client, decide each, and record the decision in writing. Nothing below is
       trustworthy until D1 is settled, because it decides what "production" means. (SEC-37 · SEC)
@@ -64,13 +64,14 @@ Verified in the repository on 2026-08-30. **Items marked ⚠ were listed as open
 Ticking these again wastes days.
 
 ### Database and authorization
+
 - ⚠ **RLS on every table.** 55 tables, 55 `enable row level security`, 69 policies. The SOW's core promise
   ("permissions enforced by row-level security in the database") holds.
 - ⚠ **Default privileges already revoked.** `0003:22-29` — `alter default privileges for role postgres in
-  schema public revoke all on tables/sequences/functions from anon, authenticated`, plus functions in `app`.
-  v1.0 listed this as open. *Caveat: scoped to role `postgres`; an object created by another role would not inherit.*
+schema public revoke all on tables/sequences/functions from anon, authenticated`, plus functions in `app`.
+  v1.0 listed this as open. _Caveat: scoped to role `postgres`; an object created by another role would not inherit._
 - ⚠ **`app.staff_role()` already honours `is_active`.** `0003:50` — `select role from staff where id =
-  auth.uid() and is_active`. A disabled account resolves to NULL and every RPC refuses on the next call.
+auth.uid() and is_active`. A disabled account resolves to NULL and every RPC refuses on the next call.
   v1.0 listed this as an open ★ hard gate.
 - **Append-only ledgers enforced two ways.** `app.append_only()` trigger (`0003:39`), `audit_log_ao`
   (`0005:25`), and `revoke update, delete` on `stock_movements` (`0018:48`), `payments`/`refunds`
@@ -88,12 +89,14 @@ Ticking these again wastes days.
   is coverage, not a second pass.
 
 ### Booking and money — the whole Phase 2 cluster of v1.0
+
 Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2026-08-27:
+
 - ⚠ **Anonymous identities refused on the hold RPC.** `0048/C1` — `ACCOUNT_REQUIRED`, plus a per-caller
   live-hold cap (`0048:311-320`), a booking horizon, and an audit row. The "12/12 holds in 127 ms"
   reproduction v1.0 quotes as current was fixed the day it was reported.
 - ⚠ **Idempotency keys are caller-scoped.** `0048/H3` plus `0049`'s `app.rpc_replays` (`caller uuid not
-  null`) → another principal replaying your key gets `IDEMPOTENCY_CONFLICT`, never your result.
+null`) → another principal replaying your key gets `IDEMPOTENCY_CONFLICT`, never your result.
 - ⚠ **Move and extend re-price and re-check bookability.** `0048/H1` re-resolves `app.price_slot`;
   `0048/H2` calls `app.assert_bookable`. A manual price override is deliberately preserved.
 - ⚠ **`rate_rules` is constrained.** `rate_rules_time_order check (start_time < end_time)`,
@@ -117,6 +120,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
   `telegram_chat_id` + `telegram_staff`), tested at `telegram.test.ts:631,639`.
 
 ### Clients and platform
+
 - **Electron window hardening.** `contextIsolation: true`, `nodeIntegration: false`, **both** `will-navigate`
   and `will-redirect` blocked (`index.ts:77-80`), `setWindowOpenHandler` scheme-filtered and always returning
   `deny` (`:87-93`), and `will-attach-webview` refused (`:97-101`). Only `sandbox: true` and the preload
@@ -132,7 +136,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - ⚠ **Edge functions declare `verify_jwt` explicitly.** `supabase/config.toml:84-100` lists every function;
   only `telegram-callback` is `false`, authenticated by its secret-token header.
 - ⚠ **Per-table QR rotation already works.** `app.rotate_table_token` (owner, audited) plus
-  `cafe_tables.token_version` (`0014:24`). What is missing is *secret* rotation (SEC-26), not table rotation.
+  `cafe_tables.token_version` (`0014:24`). What is missing is _secret_ rotation (SEC-26), not table rotation.
 - **Push token: read isolation, provider-410 clearing and no logging all hold.** `profiles_select`
   (`0004:163`); `send-push/index.ts:182` nulls the token on an Expo `DeviceNotRegistered` ticket; the mobile
   breadcrumb records only `'registered'|'denied'|'unavailable'`, never the token.
@@ -140,10 +144,11 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
   Hardware control is contractually out of scope; what ships is `app.record_drawer_open` (`0053:343`), an
   audit write requiring a reason code and a cashier/manager/owner role.
 - **`.gitignore` covers the secret shapes.** `.env`, `.env.*`, `station.json`, `*.pem`, `*.p12`, `*.keystore`.
+
 ### Money, booking and guest-side integrity — the surface the v1.0 queue never covered
 
 - **Double-booking is structurally impossible.** `reservations_no_overlap exclude using gist (court_id with =,
-  period with &&) where (status in ('pending','confirmed','arrived'))` (`0008:43-45`), raising `SLOT_TAKEN`.
+period with &&) where (status in ('pending','confirmed','arrived'))` (`0008:43-45`), raising `SLOT_TAKEN`.
   Proven by 10 cases in `packages/db/tests/concurrency.test.ts`. This is the SOW's KEY GUARANTEE.
 - **A crafted request cannot set a price.** `order_items.unit_price_iqd` is annotated "SNAPSHOT from DB at send
   time — never client-supplied" and `line_total_iqd` "computed server-side" (`0015:80-81`); the insert at
@@ -183,9 +188,9 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
   `publicByDesign` with its reason (it takes no arguments, so it can only ever target `auth.uid()`),
   covered by a rule in `tests/rls-matrix.ts`, floor ratcheted to 61/128.
 - **`db-migrate.yml` is armed and gated.** Required reviewers were enabled on the `staging` GitHub
-  Environment **first**, then the secrets were added (`HANDOFF.md:542-546`, 2026-08-27). ⚠ *But the gate is a
+  Environment **first**, then the secrets were added (`HANDOFF.md:542-546`, 2026-08-27). ⚠ _But the gate is a
   GitHub UI setting with no repo artifact — it can be edited or deleted leaving no git trace, and the job it
-  guards pushes to the client's production database. Re-verify it, do not assume it.*
+  guards pushes to the client's production database. Re-verify it, do not assume it._
 
 ---
 
@@ -211,24 +216,24 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 ## 04 · Phase 0 — today, no code
 
-*(Full detail and ordering in `security-layer-1.md`. Summary here.)*
+_(Full detail and ordering in `security-layer-1.md`. Summary here.)_
 
 - [ ] ★ Enable MFA org-wide: GitHub, Supabase, Vercel, PostHog, Expo, Apple, Google. Recovery codes sealed to the client's owner, not a Kagu inbox. **2026-09-01:** the Expo/EAS, Apple Developer and Google Cloud accounts that social sign-in and the store release need do not exist yet (`API.md` §8 placeholders); each falls under this item the day it is created, Google Play included. (SEC-40 · CLIENT+SEC)
 - [ ] Add `.github/CODEOWNERS` routing `packages/db/supabase/migrations/` and `.github/workflows/db-migrate.yml` to the technical lead; enable "Require review from Code Owners" on `main`. **Confirmed missing.** (SEC-01 · SEC)
 - [ ] Add required reviewers to the `staging` GitHub Environment **before** the deploy secrets go in — without them the gate in `db-migrate.yml` is a no-op. (SEC-02 · DEV)
-- [x] ★ `[CI]` `gitleaks` over full history — DONE, DEV, 2026-09-04. `.gitleaks.toml` + the `secrets` job in `ci.yml` (fetch-depth 0, pinned 8.30.1 binary). 123 commits, 10 findings, **zero real leaks**, all allowlisted by exact value. *(Layer 1 Block 2 · Secrets.)* (SEC-24 · DEV)
-- [x] Rotate anything gitleaks finds — **nothing to rotate**, DEV, 2026-09-04. The hosted `service_role` key lives only in untracked `.env.local`; `git log --all -S` over the full object graph confirms it was never committed. *(Layer 1 Block 2.)* (SEC-24 · DEV)
-- [x] ★ `[CI]` Built-artifact secret grep — DONE, DEV, 2026-09-04. `scripts/security/check-artifact-secrets.mjs`, wired into the three jobs that already build each client. Fails on a JWT whose **decoded** payload claims `service_role`, any `sb_secret_*`, or a real-project token with an unexpected role — the bare-word grep in this box fires 168 times on a clean tree and is not implementable as written. **Also fails when nothing was built.** *(Layer 1 Block 2.)* `[FREEZE]` still applies to the final release builds — §16. (SEC-24 · DEV)
+- [x] ★ `[CI]` `gitleaks` over full history — DONE, DEV, 2026-09-04. `.gitleaks.toml` + the `secrets` job in `ci.yml` (fetch-depth 0, pinned 8.30.1 binary). 123 commits, 10 findings, **zero real leaks**, all allowlisted by exact value. _(Layer 1 Block 2 · Secrets.)_ (SEC-24 · DEV)
+- [x] Rotate anything gitleaks finds — **nothing to rotate**, DEV, 2026-09-04. The hosted `service_role` key lives only in untracked `.env.local`; `git log --all -S` over the full object graph confirms it was never committed. _(Layer 1 Block 2.)_ (SEC-24 · DEV)
+- [x] ★ `[CI]` Built-artifact secret grep — DONE, DEV, 2026-09-04. `scripts/security/check-artifact-secrets.mjs`, wired into the three jobs that already build each client. Fails on a JWT whose **decoded** payload claims `service_role`, any `sb_secret_*`, or a real-project token with an unexpected role — the bare-word grep in this box fires 168 times on a clean tree and is not implementable as written. **Also fails when nothing was built.** _(Layer 1 Block 2.)_ `[FREEZE]` still applies to the final release builds — §16. (SEC-24 · DEV)
 - [ ] ★ Supabase → Auth → Attack Protection: CAPTCHA on, token passed on `signInAnonymously`. **Nothing
       captcha-related exists in the repo** (0 hits); the only throttle today is `[auth.rate_limit]
-      anonymous_users = 300` (`config.toml:74`), flagged in-file as "revisit before production handover".
+    anonymous_users = 300` (`config.toml:74`), flagged in-file as "revisit before production handover".
       ⚠ **Anonymous sign-in is load-bearing for the cafe** — `apps/web/src/hooks/cafe/useTableSession.ts:57`
       is the one production call site and every table session boots through it. Do **not** disable anonymous
       sign-in; add the CAPTCHA token to that call. 0048's `ACCOUNT_REQUIRED` is scoped to `app.hold_slot`
       alone, so court booking needs a real account while table sessions do not. (SEC-05 · DEV)
 - [ ] ★ Replace the auth redirect allowlist with exact production URLs — no wildcards, no `localhost`, no `exp://*` in the hosted project. (SEC-05 · DEV) **Verified still open 2026-09-01 (Prompt C, report-only):** hosted list = `https://localhost:3000`, `touchpadel://verify-email`, `touchpadel://reset-password`, `exp://192.168.1.108:8081/--/*` — the last is a wildcard LAN entry for Expo Go email-link tests; removal + Site URL fix are scheduled for release week (`docs/client/social-auth-setup-2026-09-01.md`, Prompt D Task 4).
 - [ ] ★ Leaked-password protection on; JWT expiry 30 minutes with refresh rotation and reuse detection. (SEC-05, SEC-35 · DEV) **Verified 2026-09-01: leaked-password protection OFF and CAPTCHA OFF while anonymous sign-ins are ON** — the MAU-inflation combination Supabase's own inline warning names.
-- [ ] Set Supabase member roles: SEC and DEV Owner/Admin; FE1 and FE2 Developer with **no SQL Editor access**. With one project, access control *is* environment separation. (SEC-37 · SEC)
+- [ ] Set Supabase member roles: SEC and DEV Owner/Admin; FE1 and FE2 Developer with **no SQL Editor access**. With one project, access control _is_ environment separation. (SEC-37 · SEC)
 - [ ] Ask the client for the domain today and delegate DNS. Blocks the privacy URL, the deletion URL, auth redirects, HSTS and QR cards. (SEC-06 · CLIENT)
 - [ ] Ask the client for the PC policy in writing: BitLocker, OS auto-updates, 5-minute screen lock, no shared Windows admin account, **guest wifi on a separate VLAN from the POS**. (SEC-41 · CLIENT)
 - [ ] Ask the client to decide account ownership at handover. Longest-lead item. (SEC-42 · CLIENT)
@@ -239,26 +244,26 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 ## 05 · Phase 1 — make the one live database safe to work on
 
-- [x] ★ **Live-migration procedure** — DONE, DEV, 2026-09-04. Not a document: a rule in `check:migrations` requiring `set lock_timeout = '3s'; set statement_timeout = '60s';` at the top of every NEW migration, with `lock_timeout = 0` rejected. Written up in `layer-1-rules-and-decisions.md` §6. *(Layer 1 Block 3.)* (SEC-02 · DEV)
-- [x] ★ `[CI]` **`check:migrations`, scoped to lock-taking DDL** — DONE, DEV, 2026-09-04; **executed 2026-09-07**. Independently reproduced this section's audit (57 non-CONCURRENTLY indexes, 11 `add constraint` without `NOT VALID`, `0039:71`). Scoped to files changed against the merge base, exactly as this box demands, with `MIGRATION-RISK-ACCEPTED:` as the escape hatch. All four behaviours negative-tested. *(Layer 1 Block 2.)* (SEC-02 · DEV)
-- [x] **Ledger dump + printed `db diff`** — DONE, DEV, 2026-09-04. Both in `db-migrate.yml`; the diff goes to the **job summary**, where the person approving the environment gate actually looks. `audit_log` / `stock_ledger` / `payments` retained 30 days. Evidence, not a restore path. *(Layer 1 Block 2.)* (SEC-02 · DEV)
-- [x] **`timeout-minutes: 15` on `db-migrate`** — DONE, DEV, 2026-09-04. GitHub's default is 360 minutes. This is the outer bound; `lock_timeout = '3s'` is the real control. *(Layer 1 Block 3.)* (SEC-02 · DEV)
+- [x] ★ **Live-migration procedure** — DONE, DEV, 2026-09-04. Not a document: a rule in `check:migrations` requiring `set lock_timeout = '3s'; set statement_timeout = '60s';` at the top of every NEW migration, with `lock_timeout = 0` rejected. Written up in `layer-1-rules-and-decisions.md` §6. _(Layer 1 Block 3.)_ (SEC-02 · DEV)
+- [x] ★ `[CI]` **`check:migrations`, scoped to lock-taking DDL** — DONE, DEV, 2026-09-04; **executed 2026-09-07**. Independently reproduced this section's audit (57 non-CONCURRENTLY indexes, 11 `add constraint` without `NOT VALID`, `0039:71`). Scoped to files changed against the merge base, exactly as this box demands, with `MIGRATION-RISK-ACCEPTED:` as the escape hatch. All four behaviours negative-tested. _(Layer 1 Block 2.)_ (SEC-02 · DEV)
+- [x] **Ledger dump + printed `db diff`** — DONE, DEV, 2026-09-04. Both in `db-migrate.yml`; the diff goes to the **job summary**, where the person approving the environment gate actually looks. `audit_log` / `stock_ledger` / `payments` retained 30 days. Evidence, not a restore path. _(Layer 1 Block 2.)_ (SEC-02 · DEV)
+- [x] **`timeout-minutes: 15` on `db-migrate`** — DONE, DEV, 2026-09-04. GitHub's default is 360 minutes. This is the outer bound; `lock_timeout = '3s'` is the real control. _(Layer 1 Block 3.)_ (SEC-02 · DEV)
 - [ ] `[FREEZE]` Re-verify that required reviewers are still enabled on the `staging` GitHub Environment. It is an out-of-repo setting with no git trace, and it is the only thing between a merge to `main` and the client's production database. (SEC-02 · SEC)
 - [ ] ★ Bring the hosted project to the local migration head through that gated procedure. This has already
       bitten once: `db-migrate.yml` silently skipped from day 1 for want of secrets, and **the hosted DB drifted
       eight migrations behind** before anyone noticed (`HANDOFF.md:544-545`). Every green-gate claim about a
       drifted database is a claim about a database the venue does not use. (SEC-03 · DEV)
-- [x] ★ `[CI]` **Nightly `supabase db diff --linked`** — DONE, DEV, 2026-09-04. `.github/workflows/db-drift.yml`, 02:00 Asia/Baghdad. Two checks: `migration list` catches the hosted project being BEHIND, a non-empty `db diff` catches hand-editing. Missing secrets raise a warning annotation, not a silent pass. *(Layer 1 Block 2.)* (SEC-03 · DEV)
+- [x] ★ `[CI]` **Nightly `supabase db diff --linked`** — DONE, DEV, 2026-09-04. `.github/workflows/db-drift.yml`, 02:00 Asia/Baghdad. Two checks: `migration list` catches the hosted project being BEHIND, a non-empty `db diff` catches hand-editing. Missing secrets raise a warning annotation, not a silent pass. _(Layer 1 Block 2.)_ (SEC-03 · DEV)
 - [ ] Re-run the DB suite against the hosted project through a restricted role, never `service_role` from a laptop. (SEC-03 · DEV)
-- [x] `[CI]` **Every view is `security_invoker = on`** — DONE, DEV; **VERIFIED 2026-09-07, first execution**: 12 views · 8 invoker · 4 owner-rights, exactly the named allowlist. Any NEW invoker-off view fails. *(Layer 1 Block 2.)* (SEC-04 · DEV)
-- [x] `[CI]` **Every definer function pins `search_path`** — DONE, DEV; **VERIFIED 2026-09-07**: **215 of 215**, zero offenders. *(Layer 1 Block 2.)* (SEC-04 · DEV)
-- [x] **`btree_gist` moved into `extensions`** — DONE, DEV; **EXECUTED 2026-09-07 — and the migration was BROKEN.** Its post-check named `app.reservations`, which does not exist (the table is in `public`), so it raised 42P01 and stopped the stack booting. It had never run anywhere and would have failed identically on the hosted project. Fixed; re-run clean with the reservations exclusion constraint verified intact and the concurrency suite green. *(Layer 1 Block 3.)* (SEC-04 · DEV)
+- [x] `[CI]` **Every view is `security_invoker = on`** — DONE, DEV; **VERIFIED 2026-09-07, first execution**: 12 views · 8 invoker · 4 owner-rights, exactly the named allowlist. Any NEW invoker-off view fails. _(Layer 1 Block 2.)_ (SEC-04 · DEV)
+- [x] `[CI]` **Every definer function pins `search_path`** — DONE, DEV; **VERIFIED 2026-09-07**: **215 of 215**, zero offenders. _(Layer 1 Block 2.)_ (SEC-04 · DEV)
+- [x] **`btree_gist` moved into `extensions`** — DONE, DEV; **EXECUTED 2026-09-07 — and the migration was BROKEN.** Its post-check named `app.reservations`, which does not exist (the table is in `public`), so it raised 42P01 and stopped the stack booting. It had never run anywhere and would have failed identically on the hosted project. Fixed; re-run clean with the reservations exclusion constraint verified intact and the concurrency suite green. _(Layer 1 Block 3.)_ (SEC-04 · DEV)
 - [~] `[FREEZE]` Run the dashboard Security Advisor; file the result. **PARTIAL:** run by a colleague 2026-09-06 and waived in `security-advisor-waiver-2026-09-06.md` — 4 `security_definer_view`, all four the audited projections, each re-verified against its base table. **Not closed:** `extension_in_public` did not appear, and 0069 had never successfully run anywhere, so it cannot have been fixed — the list was almost certainly filtered by severity. Re-run unfiltered. Expect exactly two known findings: `extension_in_public` for `btree_gist` (fix it) and `security_definer_view` ×4 (accepted by design — record the waiver). "Clean" means every other lint is zero. (SEC-04 · SEC)
-- [x] `[CI]` **No real-format Iraqi phone numbers in seeds or fixtures** — DONE, DEV, 2026-09-04. `scripts/security/check-data-hygiene.mjs` DEFINES the reserved convention `+964 7XX 000000N` (Iraq has no ITU documentation range). Green. *(Layer 1 Block 2.)* (SEC-37 · DEV)
-- [x] **Production rows read only through a masked, audited definer function** — DONE, SEC, 2026-09-04. `layer-1-rules-and-decisions.md` §1, with §2 (who may reach the hosted project) as the control that enforces it — a read cannot be caught after the fact, so access is limited instead. DDL through the SQL Editor IS caught, by the nightly drift job. *(Layer 1 Block 3.)* (SEC-37 · SEC)
+- [x] `[CI]` **No real-format Iraqi phone numbers in seeds or fixtures** — DONE, DEV, 2026-09-04. `scripts/security/check-data-hygiene.mjs` DEFINES the reserved convention `+964 7XX 000000N` (Iraq has no ITU documentation range). Green. _(Layer 1 Block 2.)_ (SEC-37 · DEV)
+- [x] **Production rows read only through a masked, audited definer function** — DONE, SEC, 2026-09-04. `layer-1-rules-and-decisions.md` §1, with §2 (who may reach the hosted project) as the control that enforces it — a read cannot be caught after the fact, so access is limited instead. DDL through the SQL Editor IS caught, by the nightly drift job. _(Layer 1 Block 3.)_ (SEC-37 · SEC)
 - [ ] ★ Write down **the rule that has no exception** (Security Layer §1.1) and give it a check: never add a column, form field, note field or log line that could hold a card number. **Nothing in the repo states or enforces this today.** Add it to the PR checklist and to the guest-field allowlist test. (SEC-20 · SEC)
 - [ ] Restrict direct database connections on the hosted project so clients reach data only through the API and the pooler. No client opens a raw Postgres socket today, but the port posture is a dashboard setting nobody has checked. (SEC-04 · DEV)
-- [x] **`client-data/` intake rule** — DONE, DEV, 2026-09-04. Written up (§3 of the rules doc) and **enforced** by `check-data-hygiene.mjs`. ⚠ This section said "currently clean"; it was not — the client's own hosting-account email was already in both packs (`634462a`, `e4f2acc`). Business contact, not guest data, grandfathered explicitly. **Raise it with the client so the acceptance is theirs.** *(Layer 1 Block 3.)* (SEC-37 · DEV)
+- [x] **`client-data/` intake rule** — DONE, DEV, 2026-09-04. Written up (§3 of the rules doc) and **enforced** by `check-data-hygiene.mjs`. ⚠ This section said "currently clean"; it was not — the client's own hosting-account email was already in both packs (`634462a`, `e4f2acc`). Business contact, not guest data, grandfathered explicitly. **Raise it with the client so the acceptance is theirs.** _(Layer 1 Block 3.)_ (SEC-37 · DEV)
 - [~] **Record the residual risk in writing and have the client sign it** — **WRITTEN, AWAITING SIGNATURE.** `layer-1-rules-and-decisions.md` §5: the risk stated plainly, the six controls now reducing it and what each cannot catch, and a signature block. No control removes it — only a second project does, which is D1. Original text: — with one project, a bad migration reaches live guest data with no rehearsal. See **D1**. (SEC-37 · SEC)
 
 ---
@@ -276,13 +281,13 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 > **Running it found five things that reading it could not.** Recorded because the point of §17 is
 > that a written migration is a claim and a green suite is evidence:
 >
-> | # | Found | Where |
-> |---|---|---|
-> | 1 | **Migration 0069 was broken and stopped the stack booting.** Its post-check named `app.reservations`; that table is in `public`. `::regclass` raised 42P01, the migration aborted, and 0070/0071 never ran. It had never executed anywhere — it would have failed identically on the hosted project. | `0069`, fixed |
-> | 2 | **0075 silently reverted the SEC-11 hard gate.** Written a day later against the pre-0071 body, it re-issued `app.mark_reservation` through `CREATE OR REPLACE` and dropped the temporal guard. Nothing failed — 0075's own tests mark FUTURE bookings. | `0076`, restored |
-> | 3 | **11 client-callable RPCs shipped unclassified** (0072/0073/0074): the staff-request and marketing families, including owner-only approval and campaign writes. | registered + covered |
-> | 4 | **`ensureTestRateRule` seeded an open-ended all-courts rule**, so "no rule prices this slot" could never be asserted anywhere in the DB suite. | bounded |
-> | 5 | Three existing fixtures planted holds with `guest_id = null` — a state 0048/C1 abolished and 0071 now refuses at the table. | fixtures given owners |
+> | #   | Found                                                                                                                                                                                                                                                                                                | Where                 |
+> | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+> | 1   | **Migration 0069 was broken and stopped the stack booting.** Its post-check named `app.reservations`; that table is in `public`. `::regclass` raised 42P01, the migration aborted, and 0070/0071 never ran. It had never executed anywhere — it would have failed identically on the hosted project. | `0069`, fixed         |
+> | 2   | **0075 silently reverted the SEC-11 hard gate.** Written a day later against the pre-0071 body, it re-issued `app.mark_reservation` through `CREATE OR REPLACE` and dropped the temporal guard. Nothing failed — 0075's own tests mark FUTURE bookings.                                              | `0076`, restored      |
+> | 3   | **11 client-callable RPCs shipped unclassified** (0072/0073/0074): the staff-request and marketing families, including owner-only approval and campaign writes.                                                                                                                                      | registered + covered  |
+> | 4   | **`ensureTestRateRule` seeded an open-ended all-courts rule**, so "no rule prices this slot" could never be asserted anywhere in the DB suite.                                                                                                                                                       | bounded               |
+> | 5   | Three existing fixtures planted holds with `guest_id = null` — a state 0048/C1 abolished and 0071 now refuses at the table.                                                                                                                                                                          | fixtures given owners |
 >
 > Items 1 and 2 are the ones that mattered: both were invisible to every static check, and both would
 > have reached the venue's database.
@@ -314,12 +319,12 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       — and so a bad entry late in the price map cannot leave the rule half-repriced, since the function
       replaces prices wholesale. Both behaviours have a test. (SEC-10 · DEV)
 - [x] ~~Add a GiST exclusion constraint preventing overlapping rules~~ — **dropped, the premise is wrong.**
-      Overlap *is* the pricing model: `rate_rules.priority` (`0007:25`, "highest priority wins on overlap") is
+      Overlap _is_ the pricing model: `rate_rules.priority` (`0007:25`, "highest priority wins on overlap") is
       resolved deterministically by `app.price_slot` (`0007:63`, court-specificity → priority → id) and mirrored
       in `packages/core/src/pricing/rateRules.ts:86-91`. The DB test helper seeds a priority `-100` all-day rule
       that overlaps every fixture rule, so the constraint would make the suite unloadable — and `days_of_week`
-      is `int[]`, which has no GiST opclass without `intarray`. *If ambiguity is the worry, add an admin-UI
-      warning for two active same-priority rules instead.* (SEC-10 · DEV)
+      is `int[]`, which has no GiST opclass without `intarray`. _If ambiguity is the worry, add an admin-UI
+      warning for two active same-priority rules instead._ (SEC-10 · DEV)
 - [x] **Golden pricing fixture** — DONE, DEV, **verified 2026-09-07: 31 green in SQL AND 31 green in TypeScript, same file.**
       `packages/db/fixtures/pricing-golden.json`: 30 cases, read by
       `packages/core/src/pricing/rateRules.golden.test.ts` (31 green against the real `resolveRateRule`)
@@ -338,7 +343,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - [x] **A price change carries a reason** — DONE, DEV, **verified 2026-09-07**. 0071 §3.
       `move_reservation` and `extend_reservation` raise `REASON_REQUIRED` when the re-priced value differs
       from the stored one and no real reason was given — checked **before** the write, so a refused move
-      leaves the booking as it was rather than moved-but-unexplained. `'staff_op'` is the *absence* of a
+      leaves the booking as it was rather than moved-but-unexplained. `'staff_op'` is the _absence_ of a
       reason spelled as a default, so it is rejected alongside null and blank; the one judgement lives in
       `app.reason_given(text)` so the two paths cannot drift. The audit `after` payload gains
       `price_before` / `price_after` / `price_changed` / `rate_rule_before` / `rate_rule_after` as named
@@ -359,7 +364,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       future slot, with a reason and its cancellation window. Mirrored in the UI —
       `allowedMarks(status, startAt)` withholds the two buttons — so the desk never sees a control that
       cannot work, which is how workarounds get invented.
-      *Note: **release** needed no work. `app.release_hold` (0060) is already holds-only and owner-only.*
+      _Note: **release** needed no work. `app.release_hold` (0060) is already holds-only and owner-only._
       (SEC-11 · DEV)
 - [ ] Keep the 0048 regression suite green and named in the handover pack: anonymous refused, concurrent-hold cap, horizon, cross-caller idempotency, create-vs-move price equality. (SEC-07/08/09 · DEV)
 
@@ -376,20 +381,21 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       as all eight principals. No second sweep was built; the gap was closed in the existing one.
 
       **Three are deliberately NOT covered, and the reason is in the file:**
-      `verify_manager_pin` and `verify_own_pin` share one `app.pin_attempts` limiter (5 failures per
-      caller per 5 minutes) that `hardening.test.ts` and `idle-lock.test.ts` deliberately drive to
-      lockout and assert on — probing them from the matrix as five staff principals would make both
-      suites flaky, and both RPCs are already covered there in more depth. `start_count` takes no
-      arguments and validates nothing before its INSERT, so manager and owner cannot call it without
-      creating a real stock count; it is covered by `stock-admin.test.ts`.
+          `verify_manager_pin` and `verify_own_pin` share one `app.pin_attempts` limiter (5 failures per
+          caller per 5 minutes) that `hardening.test.ts` and `idle-lock.test.ts` deliberately drive to
+          lockout and assert on — probing them from the matrix as five staff principals would make both
+          suites flaky, and both RPCs are already covered there in more depth. `start_count` takes no
+          arguments and validates nothing before its INSERT, so manager and owner cannot call it without
+          creating a real stock count; it is covered by `stock-admin.test.ts`.
 
-      Every argument was read out of the function body so the call dies on a lookup or a validation
-      check **before** anything is written — a NIL foreign key, a blank name, a min>max range, an
-      inverted date range, a cooldown below the floor. `override_price`, `void_after_send` and
-      `write_off_expired` pass the CORRECT manager PIN on purpose: a wrong one writes a failed row to
-      the shared limiter above.
-      *(`check-rpc-authz.mjs` passes NULL for every argument by its own design — it is the blunt net, not the
-      realistic pass. It stays: it catches a NEW RPC that no one wrote a matrix rule for.)* (SEC-12 · SEC)
+          Every argument was read out of the function body so the call dies on a lookup or a validation
+          check **before** anything is written — a NIL foreign key, a blank name, a min>max range, an
+          inverted date range, a cooldown below the floor. `override_price`, `void_after_send` and
+          `write_off_expired` pass the CORRECT manager PIN on purpose: a wrong one writes a failed row to
+          the shared limiter above.
+          *(`check-rpc-authz.mjs` passes NULL for every argument by its own design — it is the blunt net, not the
+          realistic pass. It stays: it catches a NEW RPC that no one wrote a matrix rule for.)* (SEC-12 · SEC)
+
 - [x] ~~`[CI]` Track the covered/granted ratio as a number and fail the build when it regresses~~ — **already
       done** (reconciled 2026-09-07). `packages/db/fixtures/rpc-coverage-floor.json` holds
       `{covered, total}`; `scripts/check-rpc-registry.mjs` fails on any decrease and only moves up with
@@ -482,7 +488,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       guest key. Profile creation does not weaken — it never came from the FK, it comes from the
       `on_auth_user_created` trigger, still the only INSERT path.
       **A second FK blocked it and is not in the original box:** `guest_sessions.auth_user_id →
-      auth.users` is NO ACTION, so the delete failed outright for any guest who ever scanned a table QR —
+    auth.users` is NO ACTION, so the delete failed outright for any guest who ever scanned a table QR —
       and the row could not simply be removed instead, because `orders.guest_session_id` and
       `waiter_calls.guest_session_id` are NO ACTION onto it. Deleting a guest's sessions to delete the
       guest would take the café's sales history with them. Dropped too.
@@ -779,11 +785,11 @@ Nothing here is a code change. It is the evidence the sign-off rests on.
 - [ ] `[FREEZE]` Proxy test against the mobile app: book a past slot, book beyond the horizon, cancel someone else's booking, read another guest's profile. All four must fail server-side; screenshot each. (SEC-12 · SEC)
 - [ ] `[FREEZE]` `[SOW]` Backup drill. **With PITR:** restore to a timestamp into a temporary project, open the operator app against it, confirm today's bookings and the audit log, record the measured recovery time, delete the temporary project. **Without PITR:** the SOW is in breach — see D3. (SEC-38 · DEV)
 - [ ] `[SOW]` Load test at twice peak — **D6**. (SEC-38 · DEV)
-- [ ] Set up the **off-platform backup copy**: a weekly encrypted dump stored in an account that is *not* the Supabase account, so a compromised or suspended account is not also the loss of the backups. Nothing like this exists today. (SEC-38 · DEV)
+- [ ] Set up the **off-platform backup copy**: a weekly encrypted dump stored in an account that is _not_ the Supabase account, so a compromised or suspended account is not also the loss of the backups. Nothing like this exists today. (SEC-38 · DEV)
 - [ ] Write the recovery targets down and agree them with the client — how much data may be lost (target under 5 minutes via PITR) and how long recovery takes (target under 2 hours). The client should hear a number, not "we have backups". (SEC-38 · SEC)
 - [ ] ★ `[FREEZE]` Power-cut drill, **twice**, on the venue's real PC: pull the network cable mid-order, trade ten minutes across six tickets and two court arrivals, pull the power cable, restart, reconcile against a paper tally. (SEC-39 · SEC)
 - [ ] `[FREEZE]` Switching test inside the same run: staff A works four tickets, locks, staff B works four, including offline. Every replayed row must name the person who typed it, not the person who reconnected. (SEC-39 · SEC)
-- [ ] ★ `[FREEZE]` Leaver test on real machines: disable an account, confirm sessions end everywhere, record the elapsed time. *(The DB half already holds — this proves the session half.)* (SEC-35 · SEC)
+- [ ] ★ `[FREEZE]` Leaver test on real machines: disable an account, confirm sessions end everywhere, record the elapsed time. _(The DB half already holds — this proves the session half.)_ (SEC-35 · SEC)
 - [ ] ★ `[FREEZE]` From a phone on the guest wifi, attempt to reach the KDS port and the printer port. Both must fail, on the venue's real network. (SEC-31 · SEC)
 - [ ] `[FREEZE]` Re-run the artifact secret grep on the final release builds of all three clients. (SEC-24 · SEC)
 - [ ] `[FREEZE]` Demonstrate table-token rotation end to end: rotate one table, print the new card, confirm the old card is refused and the new one works. (SEC-26 · SEC)
@@ -808,33 +814,33 @@ Nothing here is a code change. It is the evidence the sign-off rests on.
 
 Re-scored against the repository on 2026-08-30. **Seven of v1.0's twenty-one are already satisfied.**
 
-| # | Gate | Status | How *you* confirm it, without reading code |
-|---|---|---|---|
-| 01 | No service key in any shipped bundle (SEC-24) | **OPEN** | Run the artifact grep yourself on the release builds. A hit is a stop-ship. |
-| 02 | `gitleaks` over full history is clean (SEC-24) | **OPEN** | Run it. It prints findings or nothing. |
-| 03 | MFA on every production account (SEC-40) | **OPEN** | Open each provider's settings and look. |
-| 04 | Hosted database is at the migration head (SEC-03) | **OPEN** | The nightly `db diff --linked` job is green. |
-| 05 | Migration safety procedure in place (SEC-02) | **OPEN** | Open a test PR with a `DROP COLUMN` and watch CI refuse it. |
-| 06 | Anonymous sessions cannot hold courts (SEC-07) | ✅ **0048/C1** | Ask for the `booking-hardening` test. It exists and is green. |
-| 07 | Idempotency keys scoped to the caller (SEC-08) | ✅ **0048/H3 + 0049** | Ask for the cross-caller test. `IDEMPOTENCY_CONFLICT`. |
-| 08 | Move and extend re-price (SEC-09) | ✅ **0048/H1+H2** | Ask for the create-vs-move price equality test. |
-| 09 | `rate_rules` constrained, pricing agrees (SEC-10) | ✅ **CLOSED 2026-09-07 (0071)** | Positive price, minute bounds, and a 30-case golden fixture asserted by BOTH pricing implementations against one file. Ask for `rateRules.golden.test.ts` and `pricing-golden.test.ts` — 31 green each. |
-| 10 | Future bookings cannot be resold (SEC-11) | ✅ **CLOSED 2026-09-07 (0071 §4 + 0076)** | Ask for `booking-integrity.test.ts` → "no_show on a future booking is refused, and the court stays taken": it marks a future booking, gets `RESERVATION_NOT_STARTED`, then tries to resell the slot and gets `SLOT_TAKEN`. ⚠ **0075 reverted this gate within a day and nothing but that test noticed.** If it is ever removed, this gate is open again. |
-| 11 | Second-pass authz sweep green (SEC-12) | **OPEN** | It is a CI job. Green or red. |
-| 12 | Account deletion works end to end (SEC-15/16) | **OPEN** | Delete your own test account on a real phone, then try to sign in. **Store blocker.** |
-| 13 | Privacy notice and web deletion page live (SEC-17) | **OPEN** | Open both URLs in Arabic and English. **Store blocker.** |
-| 14 | Password reset works on a real device (SEC-18) | **OPEN** | Do it yourself from a cold install. **Store blocker.** |
-| 15 | Auth hardening on (SEC-05) | **OPEN** — read 2026-09-01: captcha OFF, leaked-password protection OFF, `localhost` + `exp://` still in the redirect list | Dashboard toggles — look at them. |
-| 16 | Production headers and CSP live (SEC-25) | ⚠ **WAS FALSELY GREEN — fixed 2026-09-07** | The 2026-09-04 tick was wrong: the header set was written and *imported* into `next.config.ts` but never returned, so **zero** static headers shipped while the gate stayed green (it grepped for the constant's name, which an unused import satisfies). Now wired, gate strengthened and negative-tested, 6/6 e2e green. Do the third-column check yourself: `curl -I` the domain and read them. |
-| 17 | Table token is not a bearer credential in a URL (SEC-25) | **OPEN** | Scan a QR and look at the address bar. **New gate.** |
-| 18 | Table-token secret rotatable without reprinting (SEC-26) | **OPEN** | Ask for the test where a token signed with the previous secret still verifies. |
-| 19 | Guest text cannot reach the printer as commands (SEC-27) | **OPEN** | Order a note containing a drawer-kick sequence; watch the drawer stay shut. |
-| 20 | KDS and printer unreachable from guest wifi (SEC-31) | **OPEN** | Stand in the cafe with your phone and try. |
-| 21 | Degraded mode enforced server-side (SEC-33) | ✅ **0008 + 0048:309** | Ask for `degraded.test.ts`. Green. |
-| 22 | Queue survives a power cut, or an honest decision not to ship it (SEC-32) | **OPEN** | The power-cut drill passes twice — or degraded writing is switched off and the venue is told. A till that promises to trade offline and does not is worse than one that never claimed to. |
-| 23 | Disabling a staff account ends their sessions (SEC-35) | **PARTIAL** | DB half done (`0003:50`). Disable a test account and watch a live session die. |
-| 24 | The SOW deviations are settled in writing (D1–D7) | **OPEN** | Read the signed variation. **New gate.** |
-| 25 | Social provider audiences exact, `host.exp.Exponent` gone, "Skip nonce check" OFF (SEC-05) | **PARTIAL** — 2026-09-01: audiences exact and the Google toggle OFF (Prompt C); `host.exp.Exponent` still listed on purpose until release week | Open Supabase → Auth → Providers and read the two Client-ID fields and the Google toggle. **New gate 2026-09-01** — social sign-in is a vendor addition; this gate protects the whole auth surface, not just the feature. |
+| #   | Gate                                                                                       | Status                                                                                                                                         | How _you_ confirm it, without reading code                                                                                                                                                                                                                                                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | No service key in any shipped bundle (SEC-24)                                              | **OPEN**                                                                                                                                       | Run the artifact grep yourself on the release builds. A hit is a stop-ship.                                                                                                                                                                                                                                                                                                                        |
+| 02  | `gitleaks` over full history is clean (SEC-24)                                             | **OPEN**                                                                                                                                       | Run it. It prints findings or nothing.                                                                                                                                                                                                                                                                                                                                                             |
+| 03  | MFA on every production account (SEC-40)                                                   | **OPEN**                                                                                                                                       | Open each provider's settings and look.                                                                                                                                                                                                                                                                                                                                                            |
+| 04  | Hosted database is at the migration head (SEC-03)                                          | **OPEN**                                                                                                                                       | The nightly `db diff --linked` job is green.                                                                                                                                                                                                                                                                                                                                                       |
+| 05  | Migration safety procedure in place (SEC-02)                                               | **OPEN**                                                                                                                                       | Open a test PR with a `DROP COLUMN` and watch CI refuse it.                                                                                                                                                                                                                                                                                                                                        |
+| 06  | Anonymous sessions cannot hold courts (SEC-07)                                             | ✅ **0048/C1**                                                                                                                                 | Ask for the `booking-hardening` test. It exists and is green.                                                                                                                                                                                                                                                                                                                                      |
+| 07  | Idempotency keys scoped to the caller (SEC-08)                                             | ✅ **0048/H3 + 0049**                                                                                                                          | Ask for the cross-caller test. `IDEMPOTENCY_CONFLICT`.                                                                                                                                                                                                                                                                                                                                             |
+| 08  | Move and extend re-price (SEC-09)                                                          | ✅ **0048/H1+H2**                                                                                                                              | Ask for the create-vs-move price equality test.                                                                                                                                                                                                                                                                                                                                                    |
+| 09  | `rate_rules` constrained, pricing agrees (SEC-10)                                          | ✅ **CLOSED 2026-09-07 (0071)**                                                                                                                | Positive price, minute bounds, and a 30-case golden fixture asserted by BOTH pricing implementations against one file. Ask for `rateRules.golden.test.ts` and `pricing-golden.test.ts` — 31 green each.                                                                                                                                                                                            |
+| 10  | Future bookings cannot be resold (SEC-11)                                                  | ✅ **CLOSED 2026-09-07 (0071 §4 + 0076)**                                                                                                      | Ask for `booking-integrity.test.ts` → "no_show on a future booking is refused, and the court stays taken": it marks a future booking, gets `RESERVATION_NOT_STARTED`, then tries to resell the slot and gets `SLOT_TAKEN`. ⚠ **0075 reverted this gate within a day and nothing but that test noticed.** If it is ever removed, this gate is open again.                                           |
+| 11  | Second-pass authz sweep green (SEC-12)                                                     | **OPEN**                                                                                                                                       | It is a CI job. Green or red.                                                                                                                                                                                                                                                                                                                                                                      |
+| 12  | Account deletion works end to end (SEC-15/16)                                              | **OPEN**                                                                                                                                       | Delete your own test account on a real phone, then try to sign in. **Store blocker.**                                                                                                                                                                                                                                                                                                              |
+| 13  | Privacy notice and web deletion page live (SEC-17)                                         | **OPEN**                                                                                                                                       | Open both URLs in Arabic and English. **Store blocker.**                                                                                                                                                                                                                                                                                                                                           |
+| 14  | Password reset works on a real device (SEC-18)                                             | **OPEN**                                                                                                                                       | Do it yourself from a cold install. **Store blocker.**                                                                                                                                                                                                                                                                                                                                             |
+| 15  | Auth hardening on (SEC-05)                                                                 | **OPEN** — read 2026-09-01: captcha OFF, leaked-password protection OFF, `localhost` + `exp://` still in the redirect list                     | Dashboard toggles — look at them.                                                                                                                                                                                                                                                                                                                                                                  |
+| 16  | Production headers and CSP live (SEC-25)                                                   | ⚠ **WAS FALSELY GREEN — fixed 2026-09-07**                                                                                                     | The 2026-09-04 tick was wrong: the header set was written and _imported_ into `next.config.ts` but never returned, so **zero** static headers shipped while the gate stayed green (it grepped for the constant's name, which an unused import satisfies). Now wired, gate strengthened and negative-tested, 6/6 e2e green. Do the third-column check yourself: `curl -I` the domain and read them. |
+| 17  | Table token is not a bearer credential in a URL (SEC-25)                                   | **OPEN**                                                                                                                                       | Scan a QR and look at the address bar. **New gate.**                                                                                                                                                                                                                                                                                                                                               |
+| 18  | Table-token secret rotatable without reprinting (SEC-26)                                   | **OPEN**                                                                                                                                       | Ask for the test where a token signed with the previous secret still verifies.                                                                                                                                                                                                                                                                                                                     |
+| 19  | Guest text cannot reach the printer as commands (SEC-27)                                   | **OPEN**                                                                                                                                       | Order a note containing a drawer-kick sequence; watch the drawer stay shut.                                                                                                                                                                                                                                                                                                                        |
+| 20  | KDS and printer unreachable from guest wifi (SEC-31)                                       | **OPEN**                                                                                                                                       | Stand in the cafe with your phone and try.                                                                                                                                                                                                                                                                                                                                                         |
+| 21  | Degraded mode enforced server-side (SEC-33)                                                | ✅ **0008 + 0048:309**                                                                                                                         | Ask for `degraded.test.ts`. Green.                                                                                                                                                                                                                                                                                                                                                                 |
+| 22  | Queue survives a power cut, or an honest decision not to ship it (SEC-32)                  | **OPEN**                                                                                                                                       | The power-cut drill passes twice — or degraded writing is switched off and the venue is told. A till that promises to trade offline and does not is worse than one that never claimed to.                                                                                                                                                                                                          |
+| 23  | Disabling a staff account ends their sessions (SEC-35)                                     | **PARTIAL**                                                                                                                                    | DB half done (`0003:50`). Disable a test account and watch a live session die.                                                                                                                                                                                                                                                                                                                     |
+| 24  | The SOW deviations are settled in writing (D1–D7)                                          | **OPEN**                                                                                                                                       | Read the signed variation. **New gate.**                                                                                                                                                                                                                                                                                                                                                           |
+| 25  | Social provider audiences exact, `host.exp.Exponent` gone, "Skip nonce check" OFF (SEC-05) | **PARTIAL** — 2026-09-01: audiences exact and the Google toggle OFF (Prompt C); `host.exp.Exponent` still listed on purpose until release week | Open Supabase → Auth → Providers and read the two Client-ID fields and the Google toggle. **New gate 2026-09-01** — social sign-in is a vendor addition; this gate protects the whole auth surface, not just the feature.                                                                                                                                                                          |
 
 **Eighteen of these you can verify entirely by yourself, with no code reading:** 1, 2, 3, 5, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17, 19, 20, 24, 25. That is the point of the third column — pick the evidence that does not need your expertise.
 
@@ -848,12 +854,12 @@ something that works. Land these in the first week and thirteen boxes become per
 > **Four of these go red the moment they land, and that is correct — but it means you cannot land them all at
 > once.** Fix first, then fit the gate, or `main` sits red and people learn to ignore it:
 >
-> | Gate | Goes red because | Land it after |
-> |---|---|---|
-> | `check:electron` | `sandbox: false` today | the preload bundle + `sandbox: true` fix (§09) |
-> | Authz coverage counter | 50 of 121 RPCs covered | coverage is raised, or set the floor at 50 and ratchet up |
-> | Web header e2e assertions | no headers ship today | the `headers()` block (§10) |
-> | `check:migrations` | 11 legacy constraint sites, 48 non-concurrent indexes | never — scope it to changed files, as the item says |
+> | Gate                      | Goes red because                                      | Land it after                                             |
+> | ------------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
+> | `check:electron`          | `sandbox: false` today                                | the preload bundle + `sandbox: true` fix (§09)            |
+> | Authz coverage counter    | 50 of 121 RPCs covered                                | coverage is raised, or set the floor at 50 and ratchet up |
+> | Web header e2e assertions | no headers ship today                                 | the `headers()` block (§10)                               |
+> | `check:migrations`        | 11 legacy constraint sites, 48 non-concurrent indexes | never — scope it to changed files, as the item says       |
 >
 > The rest pass or fail honestly on the current repo and can land immediately.
 
@@ -891,6 +897,7 @@ Re-running the whole checklist at the end is wasted effort. These are the items 
 final artifact.
 
 **Before store submission · 2026-09-16 · mobile only · half a day**
+
 - [ ] Artifact secret grep on the exact build being submitted (SEC-24)
 - [ ] Proxy test: past slot, beyond horizon, cancel another's booking, read another's profile — all four fail server-side, screenshot each (SEC-12)
 - [ ] Account deletion on the submission build, on both platforms (SEC-16)
@@ -899,6 +906,7 @@ final artifact.
 - [ ] Privacy and deletion URLs live and reachable on the real domain (SEC-17)
 
 **Before handover · 2026-10-04 · one day**
+
 - [ ] Artifact secret grep on the final web and desktop builds (SEC-24)
 - [ ] Headers and CSP against the production domain (SEC-25)
 - [ ] Power-cut drill, twice, on the venue's own PC, with the switching test inside it (SEC-39)
@@ -979,4 +987,4 @@ claim from a document that was wrong seven times before.
 
 ---
 
-*Kagu Web Studio · Touch Padel Phase 1 · v2.0 · 2026-08-30*
+_Kagu Web Studio · Touch Padel Phase 1 · v2.0 · 2026-08-30_

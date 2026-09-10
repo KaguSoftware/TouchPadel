@@ -24,7 +24,12 @@ describe('DIRECT_RPC', () => {
       {
         tabId: UUID_A,
         items: [
-          { variantId: UUID_B, qty: 2, notes: 'no ice', modifiers: [{ modifierId: UUID_A, qty: 1 }] },
+          {
+            variantId: UUID_B,
+            qty: 2,
+            notes: 'no ice',
+            modifiers: [{ modifierId: UUID_A, qty: 1 }],
+          },
           { variantId: UUID_B, qty: 1, modifiers: [] },
         ],
       },
@@ -35,7 +40,12 @@ describe('DIRECT_RPC', () => {
     expect(call.args).toEqual({
       p_tab_id: UUID_A,
       p_items: [
-        { variant_id: UUID_B, qty: 2, notes: 'no ice', modifiers: [{ modifier_id: UUID_A, qty: 1 }] },
+        {
+          variant_id: UUID_B,
+          qty: 2,
+          notes: 'no ice',
+          modifiers: [{ modifier_id: UUID_A, qty: 1 }],
+        },
         { variant_id: UUID_B, qty: 1, modifiers: [] },
       ],
       p_idempotency_key: KEY,
@@ -72,7 +82,13 @@ describe('DIRECT_RPC', () => {
     expect(discount.fn).toBe('apply_discount');
     expect(discount.args.p_idempotency_key).toBe(KEY);
     const override = DIRECT_RPC['adjustment.apply'](
-      { kind: 'price_override', orderItemId: UUID_B, newUnitPriceIqd: 5000, pin: '1234', reasonCode: 'damage' },
+      {
+        kind: 'price_override',
+        orderItemId: UUID_B,
+        newUnitPriceIqd: 5000,
+        pin: '1234',
+        reasonCode: 'damage',
+      },
       KEY,
       DEV,
     );

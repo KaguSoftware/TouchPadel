@@ -42,7 +42,8 @@ const FLOOR_FILE = path.join(DB, 'fixtures/rpc-coverage-floor.json');
 const UPDATE_FLOOR = process.argv.includes('--update-floor');
 
 // ── the exposed surface, from the grants themselves ───────────────────────────
-const GRANT = /grant\s+execute\s+on\s+function\s+app\.([a-z0-9_]+)\s*\(([^)]*)\)\s*to\s+([a-z_,\s]+);/gi;
+const GRANT =
+  /grant\s+execute\s+on\s+function\s+app\.([a-z0-9_]+)\s*\(([^)]*)\)\s*to\s+([a-z_,\s]+);/gi;
 
 const grantedTo = new Map();
 for (const file of readdirSync(MIGRATIONS).sort()) {
@@ -50,7 +51,10 @@ for (const file of readdirSync(MIGRATIONS).sort()) {
   const sql = readFileSync(path.join(MIGRATIONS, file), 'utf8');
   for (const m of sql.matchAll(GRANT)) {
     const name = m[1].toLowerCase();
-    const roles = m[3].split(',').map((r) => r.trim().toLowerCase()).filter(Boolean);
+    const roles = m[3]
+      .split(',')
+      .map((r) => r.trim().toLowerCase())
+      .filter(Boolean);
     if (!grantedTo.has(name)) grantedTo.set(name, new Set());
     for (const r of roles) grantedTo.get(name).add(r);
   }
@@ -93,7 +97,9 @@ try {
 
 // ── report ────────────────────────────────────────────────────────────────────
 console.log('RPC registry + authorization coverage\n');
-console.log(`  client-callable RPCs   ${clientCallable.length}  (granted to anon or authenticated)`);
+console.log(
+  `  client-callable RPCs   ${clientCallable.length}  (granted to anon or authenticated)`,
+);
 console.log(`  public by design       ${Object.keys(publicByDesign).length}`);
 console.log(`  guarded                ${guarded.size}`);
 console.log(
@@ -127,8 +133,10 @@ if (reasonless.length > 0) {
   );
 }
 
-if (coveredHere.length / Math.max(clientCallable.length, 1) <
-    floor.covered / Math.max(floor.total, 1) - 1e-9) {
+if (
+  coveredHere.length / Math.max(clientCallable.length, 1) <
+  floor.covered / Math.max(floor.total, 1) - 1e-9
+) {
   problems.push(
     `authorization coverage REGRESSED: ${coveredHere.length}/${clientCallable.length} ` +
       `(was ${floor.covered}/${floor.total}).\n\n` +

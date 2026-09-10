@@ -20,16 +20,16 @@ runtime was present on this machine. It is a drop-in replacement — same `docke
 socket protocol, same images — but it is a different Linux VM and a different file-sharing
 layer, so it is exactly the kind of difference worth ruling out.
 
-| | This machine |
-|---|---|
-| Host OS | macOS 26.5.2, `Darwin arm64` (Apple Silicon) |
-| Container runtime | **OrbStack 2.2.3** (`c83556b`) — *not* Docker Desktop |
-| Docker CLI / Engine | 29.4.0 / 29.4.0 |
-| Docker context | `orbstack` → `unix:///Users/kemal/.orbstack/run/docker.sock` |
-| Docker Compose | v5.1.2 |
-| Node | v24.11.1 |
-| pnpm | 9.15.9 |
-| Supabase CLI | **v2.115.0** (v2.116.0 was available and deliberately not taken mid-run) |
+|                     | This machine                                                             |
+| ------------------- | ------------------------------------------------------------------------ |
+| Host OS             | macOS 26.5.2, `Darwin arm64` (Apple Silicon)                             |
+| Container runtime   | **OrbStack 2.2.3** (`c83556b`) — _not_ Docker Desktop                    |
+| Docker CLI / Engine | 29.4.0 / 29.4.0                                                          |
+| Docker context      | `orbstack` → `unix:///Users/kemal/.orbstack/run/docker.sock`             |
+| Docker Compose      | v5.1.2                                                                   |
+| Node                | v24.11.1                                                                 |
+| pnpm                | 9.15.9                                                                   |
+| Supabase CLI        | **v2.115.0** (v2.116.0 was available and deliberately not taken mid-run) |
 
 **Check these three first if your numbers differ from mine**: the Supabase CLI version, the
 container image tags in §2, and your CPU architecture. Everything here ran on `aarch64`; an
@@ -53,7 +53,7 @@ supabase_inbucket_touchpadel      public.ecr.aws/supabase/mailpit:v1.30.2
 ```
 
 ⚠ **The container names are lower-cased**: `supabase_db_touchpadel`, not
-`supabase_db_TouchPadel`. `docker exec supabase_db_TouchPadel …` fails with *"No such container"*
+`supabase_db_TouchPadel`. `docker exec supabase_db_TouchPadel …` fails with _"No such container"_
 even though the project directory is `TouchPadel`. Worth knowing before you conclude the stack
 did not start.
 
@@ -74,14 +74,14 @@ suite fails for a reason that has nothing to do with security. It is not in the 
 
 ### Database state after `db:reset`
 
-| | Value here |
-|---|---|
-| Postgres | `PostgreSQL 17.6 on aarch64-unknown-linux-gnu, gcc 15.2.0` |
-| Migration files on disk | **76** |
-| Rows in `supabase_migrations.schema_migrations` | **76** |
-| Migration head | `20260907000076` |
-| `btree_gist` schema | **`extensions`** (relocated by 0069 — was `public`) |
-| `reservations_no_overlap` | **present** after the relocation |
+|                                                 | Value here                                                 |
+| ----------------------------------------------- | ---------------------------------------------------------- |
+| Postgres                                        | `PostgreSQL 17.6 on aarch64-unknown-linux-gnu, gcc 15.2.0` |
+| Migration files on disk                         | **76**                                                     |
+| Rows in `supabase_migrations.schema_migrations` | **76**                                                     |
+| Migration head                                  | `20260907000076`                                           |
+| `btree_gist` schema                             | **`extensions`** (relocated by 0069 — was `public`)        |
+| `reservations_no_overlap`                       | **present** after the relocation                           |
 
 Those last two are the post-condition of migration 0069 and are the thing to compare most
 carefully — see §4.
@@ -96,43 +96,43 @@ differing verdict.
 
 ### 3.1 · Database gates — `pnpm --filter @touch/db <script>`
 
-| Check | Result | Numbers it printed |
-|---|---|---|
-| `check:locks` | **PASS** | — |
-| `check:authz` | **PASS** | probes all **139** RPCs as a live anonymous guest |
-| `check:safeupdate` | **PASS** | — |
-| `check:migrations` | **PASS** | scoped to files changed vs the merge base |
-| `check:invariants` | **PASS** | `views 12 total · 8 security_invoker=on · 4 owner-rights`<br>`definer fns 215 total · 215 with a pinned search_path` |
+| Check                | Result   | Numbers it printed                                                                                                     |
+| -------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `check:locks`        | **PASS** | —                                                                                                                      |
+| `check:authz`        | **PASS** | probes all **139** RPCs as a live anonymous guest                                                                      |
+| `check:safeupdate`   | **PASS** | —                                                                                                                      |
+| `check:migrations`   | **PASS** | scoped to files changed vs the merge base                                                                              |
+| `check:invariants`   | **PASS** | `views 12 total · 8 security_invoker=on · 4 owner-rights`<br>`definer fns 215 total · 215 with a pinned search_path`   |
 | `check:rpc-registry` | **PASS** | `public by design 20 · guarded 119` (**139** total)<br>67 RPCs still have no rls-matrix rule — reported, not a failure |
 
 ### 3.2 · Repo security scripts — `node scripts/security/<script>`
 
-| Check | Result | Note |
-|---|---|---|
-| `check-public-env-names.mjs` | **PASS** | |
-| `check-history-secrets.mjs` | **PASS** | |
-| `check-dependency-audit.mjs` | **PASS** | waivers in `.security/audit-waivers.json` all unexpired |
-| `check-data-hygiene.mjs` | **PASS** | |
-| `check-web-security.mjs` | **PASS** | ⚠ this gate was **fixed** during this run — see §4 |
-| `check-artifact-secrets.mjs --only=web` | **PASS** | |
-| `check-artifact-secrets.mjs --only=mobile` | **PASS** | |
+| Check                                       | Result      | Note                                                                                                                                                  |
+| ------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check-public-env-names.mjs`                | **PASS**    |                                                                                                                                                       |
+| `check-history-secrets.mjs`                 | **PASS**    |                                                                                                                                                       |
+| `check-dependency-audit.mjs`                | **PASS**    | waivers in `.security/audit-waivers.json` all unexpired                                                                                               |
+| `check-data-hygiene.mjs`                    | **PASS**    |                                                                                                                                                       |
+| `check-web-security.mjs`                    | **PASS**    | ⚠ this gate was **fixed** during this run — see §4                                                                                                    |
+| `check-artifact-secrets.mjs --only=web`     | **PASS**    |                                                                                                                                                       |
+| `check-artifact-secrets.mjs --only=mobile`  | **PASS**    |                                                                                                                                                       |
 | `check-artifact-secrets.mjs --only=desktop` | **NOT RUN** | needs `pnpm --filter @touch/operator-shell dist:dir`, an Electron package build. **The one gap in this run.** CI covers it in the operator-shell job. |
 
 ⚠ Running the script **bare** (`node scripts/security/check-artifact-secrets.mjs`) fails with
-*"1 of 3 clients were not built"*. That is correct behaviour, not a defect — CI invokes it three
+_"1 of 3 clients were not built"_. That is correct behaviour, not a defect — CI invokes it three
 times with `--only=<client>` inside the job that built that client. Do not read the bare failure
 as a finding.
 
 ### 3.3 · Build, lint, typecheck, unit tests
 
-| Command | Result |
-|---|---|
-| `pnpm fonts:check` | **PASS** |
-| `pnpm turbo lint typecheck test` | **19/19 tasks pass** |
-| `pnpm turbo build` | **4/4 pass** — web, operator, operator-shell, mobile |
-| `pnpm --filter @touch/db test` | **594 passed / 594**, 35 test files, ~30s |
-| `pnpm --filter @touch/operator-shell typecheck && … test` | **PASS** |
-| `pnpm --filter @touch/operator-shell check:electron` | **PASS** |
+| Command                                                   | Result                                               |
+| --------------------------------------------------------- | ---------------------------------------------------- |
+| `pnpm fonts:check`                                        | **PASS**                                             |
+| `pnpm turbo lint typecheck test`                          | **19/19 tasks pass**                                 |
+| `pnpm turbo build`                                        | **4/4 pass** — web, operator, operator-shell, mobile |
+| `pnpm --filter @touch/db test`                            | **594 passed / 594**, 35 test files, ~30s            |
+| `pnpm --filter @touch/operator-shell typecheck && … test` | **PASS**                                             |
+| `pnpm --filter @touch/operator-shell check:electron`      | **PASS**                                             |
 
 `pnpm --filter @touch/web lint` reports **0 errors, 3 warnings**. All three are pre-existing
 `react-hooks/exhaustive-deps` warnings in `CafeApp.tsx`, `ItemSheet/drag.ts` and
@@ -188,7 +188,7 @@ nosniff, no X-Frame-Options, no Referrer-Policy, no Permissions-Policy, no COOP,
 Three controls should have caught it and each missed differently:
 
 1. `pnpm --filter @touch/web lint` **did** report `'STATIC_SECURITY_HEADERS' is defined but never
-   used` — and was not re-run after the box was ticked.
+used` — and was not re-run after the box was ticked.
 2. `check-web-security.mjs` grepped `next.config.ts` for the constant **name**. An unused import
    satisfied it. The gate was green over zero shipped headers. **Now fixed** to look inside the
    body of the returned array, and negative-tested: reverting to a bare import fails it.
@@ -211,7 +211,7 @@ its own `no-cache, must-revalidate` and wins over both `headers()` and `NextResp
 
 A cache may therefore **store** that page provided it revalidates. The session is gated by the
 HttpOnly cookie rather than by the cache, so this is defence-in-depth rather than access control
-— but the earlier claim *"`Cache-Control: no-store` … verified on the live route"* was **not
+— but the earlier claim _"`Cache-Control: no-store` … verified on the live route"_ was **not
 true** and is corrected in `security-layer-1.md`.
 
 ### 4.5 · One stale e2e assertion, fixed
@@ -241,20 +241,20 @@ Say so rather than let a green table imply otherwise:
 
 ## 6 · What to do if your numbers differ
 
-| Symptom | Most likely cause |
-|---|---|
-| Stack fails to start at 0069 | You are before the 0069 fix — pull. |
-| Different definer-function or view counts | Different migration head. Compare `select max(version) from supabase_migrations.schema_migrations` first. |
-| Different RPC totals (139 / 20 / 119) | Same — new migrations grant new RPCs. The count is *supposed* to move; what must not move is a **drop** in coverage. |
-| DB tests fail on the exclusion constraint | Fixtures left behind from an earlier run. The DB persists between runs; several suites clean up by name prefix. `pnpm db:reset && pnpm db:fixtures`. |
-| e2e `TABLE_NOT_FOUND` | `pnpm db:fixtures` not run. |
-| Header assertions fail | Check `next.config.ts` `headers()` actually **returns** the constants (§4.2). |
-| `docker exec supabase_db_TouchPadel` → no such container | Name is lower-case: `supabase_db_touchpadel`. |
-| Port 3000 in use by an old dev server | `lsof -ti:3000 \| xargs kill -9` |
+| Symptom                                                  | Most likely cause                                                                                                                                    |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stack fails to start at 0069                             | You are before the 0069 fix — pull.                                                                                                                  |
+| Different definer-function or view counts                | Different migration head. Compare `select max(version) from supabase_migrations.schema_migrations` first.                                            |
+| Different RPC totals (139 / 20 / 119)                    | Same — new migrations grant new RPCs. The count is _supposed_ to move; what must not move is a **drop** in coverage.                                 |
+| DB tests fail on the exclusion constraint                | Fixtures left behind from an earlier run. The DB persists between runs; several suites clean up by name prefix. `pnpm db:reset && pnpm db:fixtures`. |
+| e2e `TABLE_NOT_FOUND`                                    | `pnpm db:fixtures` not run.                                                                                                                          |
+| Header assertions fail                                   | Check `next.config.ts` `headers()` actually **returns** the constants (§4.2).                                                                        |
+| `docker exec supabase_db_TouchPadel` → no such container | Name is lower-case: `supabase_db_touchpadel`.                                                                                                        |
+| Port 3000 in use by an old dev server                    | `lsof -ti:3000 \| xargs kill -9`                                                                                                                     |
 
 Anything not in that table is worth raising rather than working around — a difference between two
 container runtimes on the same commit is itself a finding.
 
 ---
 
-*Kagu Web Studio · Touch Padel Phase 1 · 2026-09-07*
+_Kagu Web Studio · Touch Padel Phase 1 · 2026-09-07_

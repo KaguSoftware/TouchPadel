@@ -29,10 +29,7 @@ function renderSwitch(props: Partial<Parameters<typeof Switch>[0]> = {}) {
 describe('Switch', () => {
   it('exposes the accessible switch role and state', () => {
     renderSwitch({ checked: true });
-    expect(screen.getByRole('switch', { name: 'Sold out' })).toHaveProperty(
-      'ariaChecked',
-      'true',
-    );
+    expect(screen.getByRole('switch', { name: 'Sold out' })).toHaveProperty('ariaChecked', 'true');
   });
 
   it('flips optimistically before onChange resolves', async () => {

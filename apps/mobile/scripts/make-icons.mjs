@@ -60,7 +60,10 @@ try {
   for (const [src, out, size, transparent] of JOBS) {
     const svg = await fs.readFile(path.join(BRAND, src), 'utf8');
     const dataUri = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
-    const tab = await browser.newPage({ viewport: { width: size, height: size }, deviceScaleFactor: 1 });
+    const tab = await browser.newPage({
+      viewport: { width: size, height: size },
+      deviceScaleFactor: 1,
+    });
     await tab.setContent(page(dataUri, size, transparent), { waitUntil: 'networkidle' });
     await tab.screenshot({
       path: path.join(ASSETS, out),

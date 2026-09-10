@@ -74,12 +74,29 @@ export function TabRail({
   }
 
   return (
-    <section aria-label={tr('op.till.openTabs')} style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start', minInlineSize: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-1-5)', minInlineSize: 0 }}>
+    <section
+      aria-label={tr('op.till.openTabs')}
+      style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start', minInlineSize: 0 }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-1-5)',
+          minInlineSize: 0,
+        }}
+      >
         <h2 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{tr('op.till.openTabs')}</h2>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
           <Kbd>F6</Kbd>
-          <Button kind="primary" size="lg" onClick={onNew} title={tr('ws.cashier.till.rail.newTab')} style={touchTarget}>
+          <Button
+            kind="primary"
+            size="lg"
+            onClick={onNew}
+            title={tr('ws.cashier.till.rail.newTab')}
+            style={touchTarget}
+          >
             +
           </Button>
         </span>
@@ -92,7 +109,12 @@ export function TabRail({
       )}
       {!loading && entries.length === 0 && <p style={muted}>{tr('ws.cashier.till.rail.empty')}</p>}
 
-      <div role="listbox" aria-label={tr('op.till.openTabs')} onKeyDown={onKeyDown} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+      <div
+        role="listbox"
+        aria-label={tr('op.till.openTabs')}
+        onKeyDown={onKeyDown}
+        style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}
+      >
         {entries.map((entry, i) => {
           const selected = entry.id === selectedId;
           return (
@@ -126,22 +148,51 @@ export function TabRail({
                 font: 'inherit',
               }}
             >
-              <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
-                <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 'var(--tp-sp-1-5)',
+                }}
+              >
+                <strong
+                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
                   <bdi>{entry.label}</bdi>
                 </strong>
-                {selected && <Icon name="check" size={14} label={tr('ws.cashier.till.rail.selected')} />}
+                {selected && (
+                  <Icon name="check" size={14} label={tr('ws.cashier.till.rail.selected')} />
+                )}
               </span>
               <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
                 {entry.offline ? (
-                  <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+                  <span
+                    style={{
+                      ...muted,
+                      fontSize: 'var(--tp-fs-xs)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 'var(--tp-sp-1)',
+                    }}
+                  >
                     <Icon name="wifiOff" size={12} /> {tr('ws.cashier.till.rail.offline')}
                   </span>
                 ) : (
                   <>
-                    {entry.status === 'awaiting_payment' && <TabStatusIndicator status="awaiting_payment" size="sm" />}
+                    {entry.status === 'awaiting_payment' && (
+                      <TabStatusIndicator status="awaiting_payment" size="sm" />
+                    )}
                     {entry.web && (
-                      <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+                      <span
+                        style={{
+                          ...muted,
+                          fontSize: 'var(--tp-fs-xs)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 'var(--tp-sp-1)',
+                        }}
+                      >
                         <Icon name="globe" size={12} /> {tr('ws.cashier.tabs.sourceWeb')}
                       </span>
                     )}
@@ -152,7 +203,9 @@ export function TabRail({
           );
         })}
       </div>
-      {entries.length > 1 && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.till.rail.hint')}</p>}
+      {entries.length > 1 && (
+        <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.till.rail.hint')}</p>
+      )}
     </section>
   );
 }

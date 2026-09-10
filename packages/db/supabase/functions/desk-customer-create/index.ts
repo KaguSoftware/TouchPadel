@@ -92,10 +92,13 @@ Deno.serve(async (req) => {
   const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
   const preferredLang = body?.preferredLang;
   const givenEmail =
-    typeof body?.email === 'string' && body.email.trim() !== '' ? body.email.trim().toLowerCase() : null;
+    typeof body?.email === 'string' && body.email.trim() !== ''
+      ? body.email.trim().toLowerCase()
+      : null;
 
   if (!fullName || fullName.length > 80) return badRequest('fullName must be 1-80 characters');
-  if (!LANGS.includes(preferredLang)) return badRequest(`preferredLang must be one of ${LANGS.join(', ')}`);
+  if (!LANGS.includes(preferredLang))
+    return badRequest(`preferredLang must be one of ${LANGS.join(', ')}`);
   if (!isValidPhone(phone)) {
     return json(
       {
@@ -116,7 +119,11 @@ Deno.serve(async (req) => {
   }
   if (dup.data) {
     return json(
-      { error: 'DUPLICATE_PHONE', message: 'a customer with this phone already exists', id: dup.data },
+      {
+        error: 'DUPLICATE_PHONE',
+        message: 'a customer with this phone already exists',
+        id: dup.data,
+      },
       409,
     );
   }
@@ -130,7 +137,12 @@ Deno.serve(async (req) => {
     email,
     password: randomPassword(),
     email_confirm: true,
-    user_metadata: { full_name: fullName, phone, preferred_lang: preferredLang, created_via: 'desk' },
+    user_metadata: {
+      full_name: fullName,
+      phone,
+      preferred_lang: preferredLang,
+      created_via: 'desk',
+    },
   });
   if (created.error || !created.data.user) {
     const message = created.error?.message ?? 'could not create the account';

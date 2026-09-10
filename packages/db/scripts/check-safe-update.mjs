@@ -84,7 +84,8 @@ function strip(src) {
  *     the conflicting row and which safeupdate does not object to.
  * Both are excluded by requiring a statement boundary before the verb.
  */
-const STATEMENT = /(^|;|\bbegin\b|\bthen\b|\belse\b|\bloop\b)\s*(update|delete\s+from)\s+([a-z_][a-z0-9_.]*)\b([\s\S]*?)(?=;|$)/gi;
+const STATEMENT =
+  /(^|;|\bbegin\b|\bthen\b|\belse\b|\bloop\b)\s*(update|delete\s+from)\s+([a-z_][a-z0-9_.]*)\b([\s\S]*?)(?=;|$)/gi;
 
 const violations = [];
 for (const { name, src } of rows) {

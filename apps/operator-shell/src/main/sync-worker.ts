@@ -81,7 +81,11 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
     setWorkerUnreachable(false);
   }
 
-  function emit(row: QueueRow, state: MutationResult['state'], extra: Partial<MutationResult>): void {
+  function emit(
+    row: QueueRow,
+    state: MutationResult['state'],
+    extra: Partial<MutationResult>,
+  ): void {
     opts.onResult({
       localId: row.localId,
       idempotencyKey: row.idempotencyKey,
@@ -173,7 +177,11 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
     noteTransportOk();
     const b = (body ?? {}) as Record<string, unknown>;
     const detail =
-      typeof b.code === 'string' ? b.code : typeof b.error === 'string' ? b.error : `HTTP ${res.status}`;
+      typeof b.code === 'string'
+        ? b.code
+        : typeof b.error === 'string'
+          ? b.error
+          : `HTTP ${res.status}`;
     markFailed(row.idempotencyKey, `${res.status}: ${detail}`);
     // serverResult rides along so the renderer can surface the machine code
     // (PIN_INVALID, FORBIDDEN, ...) through its normal error mapping.

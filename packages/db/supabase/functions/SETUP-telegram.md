@@ -79,11 +79,11 @@ Operator → Settings → Telegram: paste the chat id, enable, press **Send test
 the `🔔 رسالة تجريبية` message must appear in the group within a few seconds.
 Then place a fixture order from the guest menu and tap `✅ شوهد`: the toast says
 `تم ✅`, the message gains a `✅ شوهد · Seen — <name> · HH:mm` footer, and the KDS
-ticket flips to *preparing*.
+ticket flips to _preparing_.
 
 ## 8b. Allowlist the people who may drive the bot (0039 — REQUIRED)
 
-The webhook secret authenticates *Telegram*, not the person tapping. Since
+The webhook secret authenticates _Telegram_, not the person tapping. Since
 migration 0039 a tap is refused unless **both** hold:
 
 1. the message came from the chat in `cafe_settings.telegram_chat_id` (step 8), and
@@ -121,15 +121,15 @@ trail. Every call writes a `telegram.staff_set` audit entry.
 
 ## 9. Troubleshooting
 
-| Symptom | Look at |
-|---|---|
-| No message arrives | `select id, status, attempts, last_error from telegram_outbox order by id desc limit 10;` and the `telegram-send` logs. `NOT_CONFIGURED` = token secret missing; `HTTP 400: chat not found` = wrong chat id / bot not in the group; `HTTP 403` = bot kicked. Owner re-queues a row with `app.retry_telegram_outbox(id)`. |
-| Buttons do nothing | `getWebhookInfo` — a `last_error_message` with 401 means the secret differs between `setWebhook` and `TELEGRAM_WEBHOOK_SECRET`; `telegram-callback` logs show the 401s. |
-| Message lands in the wrong group | Re-read the chat id (`getUpdates`) — supergroup conversion changes it. |
-| Slow (> 10 s) | Only the cron sweep is running: Vault names `service_role_key` / `functions_base_url` missing or `pg_net` disabled (step 5). |
-| Toast `غير ممكن الآن` on every tap | The ticket/call was already moved from the till; the tap is recorded in `telegram_actions` with `result = invalid`. |
-| Toast `الطلب مدفوع — الإلغاء من الكاشير` | The tab was settled; Telegram cannot void a paid order — cancel from the till. |
-| Every tap refused, nothing changes | `select action, result, detail from telegram_actions order by id desc limit 10;` — `wrong_chat` = the message came from a chat other than `cafe_settings.telegram_chat_id` (or that setting is unset); `not_allowlisted` = the tapper is missing from `telegram_staff`; `void_not_authorized` = allowlisted but without `can_void`. See step 8b. |
+| Symptom                                  | Look at                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| No message arrives                       | `select id, status, attempts, last_error from telegram_outbox order by id desc limit 10;` and the `telegram-send` logs. `NOT_CONFIGURED` = token secret missing; `HTTP 400: chat not found` = wrong chat id / bot not in the group; `HTTP 403` = bot kicked. Owner re-queues a row with `app.retry_telegram_outbox(id)`.                         |
+| Buttons do nothing                       | `getWebhookInfo` — a `last_error_message` with 401 means the secret differs between `setWebhook` and `TELEGRAM_WEBHOOK_SECRET`; `telegram-callback` logs show the 401s.                                                                                                                                                                          |
+| Message lands in the wrong group         | Re-read the chat id (`getUpdates`) — supergroup conversion changes it.                                                                                                                                                                                                                                                                           |
+| Slow (> 10 s)                            | Only the cron sweep is running: Vault names `service_role_key` / `functions_base_url` missing or `pg_net` disabled (step 5).                                                                                                                                                                                                                     |
+| Toast `غير ممكن الآن` on every tap       | The ticket/call was already moved from the till; the tap is recorded in `telegram_actions` with `result = invalid`.                                                                                                                                                                                                                              |
+| Toast `الطلب مدفوع — الإلغاء من الكاشير` | The tab was settled; Telegram cannot void a paid order — cancel from the till.                                                                                                                                                                                                                                                                   |
+| Every tap refused, nothing changes       | `select action, result, detail from telegram_actions order by id desc limit 10;` — `wrong_chat` = the message came from a chat other than `cafe_settings.telegram_chat_id` (or that setting is unset); `not_allowlisted` = the tapper is missing from `telegram_staff`; `void_not_authorized` = allowlisted but without `can_void`. See step 8b. |
 
 ## Local development
 

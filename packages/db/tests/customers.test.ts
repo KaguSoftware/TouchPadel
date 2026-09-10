@@ -101,7 +101,14 @@ type CustomerRecord = {
   };
   flags: { type: string; label: string | null }[];
   counts: { bookings: number; cancellations: number; noShows: number };
-  upcoming: { id: string; court_name_en: string; court_name_ar: string; status: string; kind: string; price_iqd: number | null }[];
+  upcoming: {
+    id: string;
+    court_name_en: string;
+    court_name_ar: string;
+    status: string;
+    kind: string;
+    price_iqd: number | null;
+  }[];
   history: { id: string; status: string }[];
   cafeOrders: { id: string; opened_at: string; total_iqd: number | null; status: string }[];
   notes: {
@@ -188,7 +195,11 @@ describe.skipIf(!up)('0065 customers', () => {
     await ensureCafeProbeData(svc); // a closed day session (ee57…301) for the cafe tab
 
     // Hamza in the stored name; the operator will type it without.
-    arabId = await makeCustomer('أحمد الكرخي', `+964 770 ${tag.slice(-3)} 1122`, `cust-ar-${tag}@test.touch.local`);
+    arabId = await makeCustomer(
+      'أحمد الكرخي',
+      `+964 770 ${tag.slice(-3)} 1122`,
+      `cust-ar-${tag}@test.touch.local`,
+    );
     latinEmail = `cust-latin-${tag}@example.test`;
     latinId = await makeCustomer('Abdul Rahman Search', `0780${tag.slice(-3)}3344`, latinEmail);
   });
@@ -251,7 +262,10 @@ describe.skipIf(!up)('0065 customers', () => {
     const one = await appRpc(desk, 'customer_search', { p_query: 'a' });
     expect(one.error).toBeNull();
     expect(one.data).toEqual([]);
-    const limited = await appRpc(desk, 'customer_search', { p_query: 'test.touch.local', p_limit: 1 });
+    const limited = await appRpc(desk, 'customer_search', {
+      p_query: 'test.touch.local',
+      p_limit: 1,
+    });
     expect(limited.error).toBeNull();
     expect((limited.data as unknown[]).length).toBeLessThanOrEqual(1);
   });
@@ -304,7 +318,16 @@ describe.skipIf(!up)('0065 customers', () => {
     const rec = res.data as CustomerRecord;
 
     expect(Object.keys(rec).sort()).toEqual(
-      ['cafeOrders', 'counts', 'customer', 'flags', 'history', 'notes', 'series', 'upcoming'].sort(),
+      [
+        'cafeOrders',
+        'counts',
+        'customer',
+        'flags',
+        'history',
+        'notes',
+        'series',
+        'upcoming',
+      ].sort(),
     );
     expect(rec.customer).toMatchObject({
       id: arabId,
@@ -340,7 +363,9 @@ describe.skipIf(!up)('0065 customers', () => {
 
   it('customer_record refuses an unknown customer by name', async () => {
     const res = outcome(
-      await appRpc(desk, 'customer_record', { p_customer_id: '00000000-0000-4000-8000-000000000000' }),
+      await appRpc(desk, 'customer_record', {
+        p_customer_id: '00000000-0000-4000-8000-000000000000',
+      }),
     );
     expect(res.errorMessage).toContain('CUSTOMER_NOT_FOUND');
   });
@@ -355,7 +380,8 @@ describe.skipIf(!up)('0065 customers', () => {
     expect(added.error).toBeNull();
     const noteId = added.data as string;
 
-    let rec = (await appRpc(desk, 'customer_record', { p_customer_id: latinId })).data as CustomerRecord;
+    let rec = (await appRpc(desk, 'customer_record', { p_customer_id: latinId }))
+      .data as CustomerRecord;
     expect(rec.notes).toHaveLength(1);
     expect(rec.notes[0]!).toMatchObject({
       id: noteId,
@@ -367,9 +393,13 @@ describe.skipIf(!up)('0065 customers', () => {
       edited_by_name: null,
     });
 
-    const edited = await appRpc(desk, 'edit_customer_note', { p_note_id: noteId, p_body: 'Prefers court 3' });
+    const edited = await appRpc(desk, 'edit_customer_note', {
+      p_note_id: noteId,
+      p_body: 'Prefers court 3',
+    });
     expect(edited.error).toBeNull();
-    rec = (await appRpc(desk, 'customer_record', { p_customer_id: latinId })).data as CustomerRecord;
+    rec = (await appRpc(desk, 'customer_record', { p_customer_id: latinId }))
+      .data as CustomerRecord;
     expect(rec.notes[0]!).toMatchObject({
       body: 'Prefers court 3',
       edited_by: SEED_STAFF_IDS.court_desk,
@@ -389,7 +419,9 @@ describe.skipIf(!up)('0065 customers', () => {
     expect(rows[1]!.before).toMatchObject({ body: 'Prefers court 2' });
     expect(rows[1]!.after).toMatchObject({ body: 'Prefers court 3' });
 
-    const blank = outcome(await appRpc(desk, 'add_customer_note', { p_customer_id: latinId, p_body: '   ' }));
+    const blank = outcome(
+      await appRpc(desk, 'add_customer_note', { p_customer_id: latinId, p_body: '   ' }),
+    );
     expect(blank.errorMessage).toContain('NOTE_LENGTH');
     const missing = outcome(
       await appRpc(desk, 'edit_customer_note', {
@@ -401,14 +433,22 @@ describe.skipIf(!up)('0065 customers', () => {
   });
 
   it('cashier cannot write notes or flags (reads them fine)', async () => {
-    const add = outcome(await appRpc(cashier, 'add_customer_note', { p_customer_id: latinId, p_body: 'x' }));
+    const add = outcome(
+      await appRpc(cashier, 'add_customer_note', { p_customer_id: latinId, p_body: 'x' }),
+    );
     expect(add.errorMessage).toContain('FORBIDDEN');
     const flags = outcome(
-      await appRpc(cashier, 'set_customer_flags', { p_customer_id: latinId, p_flags: [{ type: 'vip' }] }),
+      await appRpc(cashier, 'set_customer_flags', {
+        p_customer_id: latinId,
+        p_flags: [{ type: 'vip' }],
+      }),
     );
     expect(flags.errorMessage).toContain('FORBIDDEN');
 
-    const { data, error } = await cashier.from('customer_notes').select('id').eq('customer_id', latinId);
+    const { data, error } = await cashier
+      .from('customer_notes')
+      .select('id')
+      .eq('customer_id', latinId);
     expect(error).toBeNull();
     expect((data ?? []).length).toBeGreaterThan(0);
   });
@@ -422,13 +462,20 @@ describe.skipIf(!up)('0065 customers', () => {
       expect(flags.error).toBeNull();
       expect(flags.data).toEqual([]);
 
-      const add = outcome(await appRpc(c, 'add_customer_note', { p_customer_id: latinId, p_body: 'x' }));
+      const add = outcome(
+        await appRpc(c, 'add_customer_note', { p_customer_id: latinId, p_body: 'x' }),
+      );
       expect(add.errorMessage).toContain('FORBIDDEN');
       const edit = outcome(
-        await appRpc(c, 'edit_customer_note', { p_note_id: '00000000-0000-4000-8000-000000000000', p_body: 'x' }),
+        await appRpc(c, 'edit_customer_note', {
+          p_note_id: '00000000-0000-4000-8000-000000000000',
+          p_body: 'x',
+        }),
       );
       expect(edit.errorMessage).toContain('FORBIDDEN');
-      const set = outcome(await appRpc(c, 'set_customer_flags', { p_customer_id: latinId, p_flags: [] }));
+      const set = outcome(
+        await appRpc(c, 'set_customer_flags', { p_customer_id: latinId, p_flags: [] }),
+      );
       expect(set.errorMessage).toContain('FORBIDDEN');
     }
     // And no direct write for anyone, staff included.
@@ -443,10 +490,7 @@ describe.skipIf(!up)('0065 customers', () => {
   it('set_customer_flags replaces the whole set, surfaces in search, and is audited', async () => {
     const first = await appRpc(desk, 'set_customer_flags', {
       p_customer_id: arabId,
-      p_flags: [
-        { type: 'vip' },
-        { type: 'birthday', label: '  12 March  ' },
-      ],
+      p_flags: [{ type: 'vip' }, { type: 'birthday', label: '  12 March  ' }],
     });
     expect(first.error).toBeNull();
     expect(first.data).toEqual([
@@ -455,7 +499,12 @@ describe.skipIf(!up)('0065 customers', () => {
     ]);
 
     const rows = await search(desk, 'الكرخي');
-    expect(rows.find((r) => r.id === arabId)!.flags.map((f) => f.type).sort()).toEqual(['birthday', 'vip']);
+    expect(
+      rows
+        .find((r) => r.id === arabId)!
+        .flags.map((f) => f.type)
+        .sort(),
+    ).toEqual(['birthday', 'vip']);
 
     const second = await appRpc(desk, 'set_customer_flags', {
       p_customer_id: arabId,
@@ -463,7 +512,8 @@ describe.skipIf(!up)('0065 customers', () => {
     });
     expect(second.error).toBeNull();
     expect(second.data).toEqual([{ type: 'payment_note', label: 'Pays by card' }]);
-    const rec = (await appRpc(desk, 'customer_record', { p_customer_id: arabId })).data as CustomerRecord;
+    const rec = (await appRpc(desk, 'customer_record', { p_customer_id: arabId }))
+      .data as CustomerRecord;
     expect(rec.flags).toEqual([{ type: 'payment_note', label: 'Pays by card' }]);
 
     // No change, no audit row.
@@ -486,7 +536,10 @@ describe.skipIf(!up)('0065 customers', () => {
 
     // Refusals leave the set untouched.
     const bad = outcome(
-      await appRpc(desk, 'set_customer_flags', { p_customer_id: arabId, p_flags: [{ type: 'banned' }] }),
+      await appRpc(desk, 'set_customer_flags', {
+        p_customer_id: arabId,
+        p_flags: [{ type: 'banned' }],
+      }),
     );
     expect(bad.errorMessage).toContain('INVALID_FLAG');
     const dup = outcome(
@@ -500,11 +553,15 @@ describe.skipIf(!up)('0065 customers', () => {
       await appRpc(desk, 'set_customer_flags', { p_customer_id: arabId, p_flags: { type: 'vip' } }),
     );
     expect(notArray.errorMessage).toContain('INVALID_FLAGS');
-    const after = (await appRpc(desk, 'customer_record', { p_customer_id: arabId })).data as CustomerRecord;
+    const after = (await appRpc(desk, 'customer_record', { p_customer_id: arabId }))
+      .data as CustomerRecord;
     expect(after.flags).toEqual([{ type: 'payment_note', label: 'Pays by card' }]);
 
     // Empty array clears.
-    const cleared = await appRpc(desk, 'set_customer_flags', { p_customer_id: arabId, p_flags: [] });
+    const cleared = await appRpc(desk, 'set_customer_flags', {
+      p_customer_id: arabId,
+      p_flags: [],
+    });
     expect(cleared.error).toBeNull();
     expect(cleared.data).toEqual([]);
   });
@@ -527,7 +584,9 @@ describe.skipIf(!up)('0065 customers', () => {
     expect(reg.errorMessage).toMatch(/permission denied/i);
 
     // Same digits, different formatting, is the same phone.
-    const found = await appRpc(svc, 'find_customer_by_phone', { p_phone: `+964 (780) ${tag.slice(-3)} 33-44` });
+    const found = await appRpc(svc, 'find_customer_by_phone', {
+      p_phone: `+964 (780) ${tag.slice(-3)} 33-44`,
+    });
     expect(found.error).toBeNull();
     expect(found.data).toBe(latinId);
     const none = await appRpc(svc, 'find_customer_by_phone', { p_phone: '0000000' });
@@ -539,7 +598,11 @@ describe.skipIf(!up)('0065 customers', () => {
       email: `${tag}9988@guest.touch.local`,
       password: DEV_PASSWORD,
       email_confirm: true,
-      user_metadata: { full_name: 'Walk In', phone: `0781 ${tag.slice(-3)} 9988`, preferred_lang: 'ar' },
+      user_metadata: {
+        full_name: 'Walk In',
+        phone: `0781 ${tag.slice(-3)} 9988`,
+        preferred_lang: 'ar',
+      },
     });
     if (cErr || !created.user) throw new Error(`createUser failed: ${cErr?.message}`);
     users.push(created.user.id);
@@ -585,10 +648,22 @@ describe.skipIf(!up)('0065 customers', () => {
       p_actor_id: SEED_STAFF_IDS.court_desk,
     });
     expect(ok.error).toBeNull();
-    expect(ok.data).toMatchObject({ id: created.user.id, full_name: 'Walk In Guest', preferred_lang: 'ar' });
+    expect(ok.data).toMatchObject({
+      id: created.user.id,
+      full_name: 'Walk In Guest',
+      preferred_lang: 'ar',
+    });
 
-    const { data: prof } = await svc.from('profiles').select('full_name, phone, preferred_lang').eq('id', created.user.id).single();
-    expect(prof).toEqual({ full_name: 'Walk In Guest', phone: `0781 ${tag.slice(-3)} 9988`, preferred_lang: 'ar' });
+    const { data: prof } = await svc
+      .from('profiles')
+      .select('full_name, phone, preferred_lang')
+      .eq('id', created.user.id)
+      .single();
+    expect(prof).toEqual({
+      full_name: 'Walk In Guest',
+      phone: `0781 ${tag.slice(-3)} 9988`,
+      preferred_lang: 'ar',
+    });
 
     const { data: audit } = await svc
       .from('audit_log')

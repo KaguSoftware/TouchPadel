@@ -62,7 +62,10 @@ export function startUpdater(opts: {
   const checkNow = () => {
     // Not checkForUpdatesAndNotify: no OS toasts on a kiosk. The renderer shows it.
     updater.checkForUpdates().catch((error: unknown) => {
-      console.error('[updater] check failed:', error instanceof Error ? error.message : String(error));
+      console.error(
+        '[updater] check failed:',
+        error instanceof Error ? error.message : String(error),
+      );
     });
   };
 

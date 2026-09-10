@@ -43,7 +43,14 @@ import { WaiterCallsPanel } from './WaiterCallsPanel';
 import { NewTabDialog } from './NewTabDialog';
 import { MergeTabsDialog } from './ManagerActions';
 import { computeTabTotals } from './tabTotals';
-import { OPEN_TABS_QUERY, TILL_MENU_QUERY, tabAnchorLabel, tabHasWebOrder, tabIsRemovable, type TabListRow } from './tillData';
+import {
+  OPEN_TABS_QUERY,
+  TILL_MENU_QUERY,
+  tabAnchorLabel,
+  tabHasWebOrder,
+  tabIsRemovable,
+  type TabListRow,
+} from './tillData';
 import { muted } from './tillStyles';
 
 export type TabsFilter = 'table' | 'court' | 'name';
@@ -65,7 +72,14 @@ export interface BoardRow {
 }
 
 /** Elapsed label for a server timestamp — display only. */
-export function ageLabel(openedAt: string, now: number, tr: (k: 'ws.cashier.tabs.age' | 'ws.cashier.tabs.ageHours' | 'ws.cashier.tabs.ageNow', p?: Record<string, string | number>) => string): string {
+export function ageLabel(
+  openedAt: string,
+  now: number,
+  tr: (
+    k: 'ws.cashier.tabs.age' | 'ws.cashier.tabs.ageHours' | 'ws.cashier.tabs.ageNow',
+    p?: Record<string, string | number>,
+  ) => string,
+): string {
   const minutes = Math.max(0, Math.floor((now - new Date(openedAt).getTime()) / 60_000));
   if (minutes < 1) return tr('ws.cashier.tabs.ageNow');
   if (minutes < 60) return tr('ws.cashier.tabs.age', { minutes });
@@ -73,9 +87,18 @@ export function ageLabel(openedAt: string, now: number, tr: (k: 'ws.cashier.tabs
 }
 
 /** Rows that match the facet + query; sorted by the facet's key. Pure, tested via the board test. */
-export function filterBoardRows(rows: readonly BoardRow[], filter: TabsFilter, query: string): BoardRow[] {
+export function filterBoardRows(
+  rows: readonly BoardRow[],
+  filter: TabsFilter,
+  query: string,
+): BoardRow[] {
   const q = query.trim().toLowerCase();
-  const facet = (r: BoardRow): string => (filter === 'table' ? (r.table ?? '') : filter === 'court' ? (r.court ?? '') : (r.guest ?? r.label));
+  const facet = (r: BoardRow): string =>
+    filter === 'table'
+      ? (r.table ?? '')
+      : filter === 'court'
+        ? (r.court ?? '')
+        : (r.guest ?? r.label);
   const matches = (r: BoardRow): boolean => {
     if (!q) return true;
     return facet(r).toLowerCase().includes(q) || r.label.toLowerCase().includes(q);
@@ -83,16 +106,15 @@ export function filterBoardRows(rows: readonly BoardRow[], filter: TabsFilter, q
   // `table_number` is text, so a plain localeCompare orders the board 1, 10,
   // 11, 12, 2 — the numeric collator counts instead. Court and guest are prose
   // and stay on the plain comparison.
-  const compare = filter === 'table' ? compareTableNumbers : (x: string, y: string) => x.localeCompare(y);
-  return rows
-    .filter(matches)
-    .sort((a, b) => {
-      const fa = facet(a);
-      const fb = facet(b);
-      if (fa && !fb) return -1;
-      if (!fa && fb) return 1;
-      return compare(fa, fb) || a.openedAt.localeCompare(b.openedAt);
-    });
+  const compare =
+    filter === 'table' ? compareTableNumbers : (x: string, y: string) => x.localeCompare(y);
+  return rows.filter(matches).sort((a, b) => {
+    const fa = facet(a);
+    const fb = facet(b);
+    if (fa && !fb) return -1;
+    if (!fa && fb) return 1;
+    return compare(fa, fb) || a.openedAt.localeCompare(b.openedAt);
+  });
 }
 
 /**
@@ -141,7 +163,14 @@ function TabStatusCell({
 
   if (armed && row.removable) {
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 'var(--tp-sp-1)',
+          flexWrap: 'wrap',
+        }}
+      >
         <StatusBadge tone="danger" icon="trash" size="sm" label={tr('ws.cashier.tabs.removeAsk')} />
         <Button size="sm" kind="danger" busy={busy} onClick={onConfirm}>
           {tr('ws.cashier.tabs.removeConfirm')}
@@ -161,7 +190,15 @@ function TabStatusCell({
         // The badge is the accessible name ("Open"); the hidden span appends
         // what pressing it does, because a control whose whole name is its
         // current state announces as a label rather than as a button.
-        style={{ border: 0, background: 'none', padding: 0, margin: 0, font: 'inherit', color: 'inherit', cursor: 'pointer' }}
+        style={{
+          border: 0,
+          background: 'none',
+          padding: 0,
+          margin: 0,
+          font: 'inherit',
+          color: 'inherit',
+          cursor: 'pointer',
+        }}
       >
         <TabStatusIndicator status={row.status} size="sm" />
         <span className="tp-sr-only"> — {tr('ws.cashier.tabs.removeArm')}</span>
@@ -278,8 +315,16 @@ export function OpenTabsBoard({
       key: 'source',
       header: tr('ws.cashier.tabs.colSource'),
       render: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: r.web ? 'var(--tp-accent)' : 'var(--tp-muted-fg)' }}>
-          <Icon name={r.web ? 'globe' : 'receipt'} size={13} /> {r.web ? tr('ws.cashier.tabs.sourceWeb') : tr('ws.cashier.tabs.sourceTill')}
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--tp-sp-1)',
+            color: r.web ? 'var(--tp-accent)' : 'var(--tp-muted-fg)',
+          }}
+        >
+          <Icon name={r.web ? 'globe' : 'receipt'} size={13} />{' '}
+          {r.web ? tr('ws.cashier.tabs.sourceWeb') : tr('ws.cashier.tabs.sourceTill')}
         </span>
       ),
     },
@@ -299,15 +344,29 @@ export function OpenTabsBoard({
       key: 'total',
       header: tr('ws.cashier.tabs.colTotal'),
       numeric: true,
-      render: (r) => <Money amount={r.total} strong={r.stamped} style={r.stamped ? undefined : { color: 'var(--tp-muted-fg)' }} />,
+      render: (r) => (
+        <Money
+          amount={r.total}
+          strong={r.stamped}
+          style={r.stamped ? undefined : { color: 'var(--tp-muted-fg)' }}
+        />
+      ),
     },
     {
       key: 'actions',
       header: '',
       align: 'end',
       render: (r) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)' }} onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" icon="merge" onClick={() => onMerge(r.id)} title={tr('ws.cashier.tabs.survivor')}>
+        <span
+          style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            size="sm"
+            icon="merge"
+            onClick={() => onMerge(r.id)}
+            title={tr('ws.cashier.tabs.survivor')}
+          >
             {tr('ws.cashier.tabs.merge')}
           </Button>
           <Button size="sm" kind="primary" iconEnd="arrowUpRight" onClick={() => onSelect(r.id)}>
@@ -346,7 +405,12 @@ export function OpenTabsBoard({
             { value: 'name', label: tr('ws.cashier.tabs.byName'), icon: 'user' },
           ]}
         />
-        <SearchField value={query} onChange={onQuery} placeholder={tr('ws.cashier.tabs.searchPlaceholder')} style={{ maxInlineSize: '20rem' }} />
+        <SearchField
+          value={query}
+          onChange={onQuery}
+          placeholder={tr('ws.cashier.tabs.searchPlaceholder')}
+          style={{ maxInlineSize: '20rem' }}
+        />
       </Toolbar>
 
       <AsyncStateWrapper
@@ -374,7 +438,9 @@ export function OpenTabsBoard({
           emptyContent={tr('ws.cashier.tabs.noMatches')}
           aria-label={tr('ws.cashier.tabs.title')}
         />
-        <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.tabs.runningTotal')}</p>
+        <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>
+          {tr('ws.cashier.tabs.runningTotal')}
+        </p>
       </AsyncStateWrapper>
     </div>
   );
@@ -404,7 +470,10 @@ export function OpenTabsScreen() {
     staleTime: 300_000,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      const { data, error } = await supabase.from('venue_settings').select('tax_inclusive').single();
+      const { data, error } = await supabase
+        .from('venue_settings')
+        .select('tax_inclusive')
+        .single();
       if (error) throw error;
       return Boolean((data as { tax_inclusive: boolean }).tax_inclusive);
     },
@@ -472,7 +541,14 @@ export function OpenTabsScreen() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(16rem, 18rem)', gap: 'var(--tp-sp-5)', alignItems: 'start' }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) minmax(16rem, 18rem)',
+        gap: 'var(--tp-sp-5)',
+        alignItems: 'start',
+      }}
+    >
       <OpenTabsBoard
         status={asyncStatus(tabsQ, (d) => d.length === 0)}
         rows={rows}
@@ -508,7 +584,11 @@ export function OpenTabsScreen() {
       {mergeSurvivor && (
         <MergeTabsDialog
           survivorTabId={mergeSurvivor.id}
-          survivorLabel={tabAnchorLabel(mergeSurvivor, tr('op.till.table'), tr('op.till.forReservation'))}
+          survivorLabel={tabAnchorLabel(
+            mergeSurvivor,
+            tr('op.till.table'),
+            tr('op.till.forReservation'),
+          )}
           onDone={() => {
             setMergeSurvivor(null);
             void queryClient.invalidateQueries({ queryKey: ['tabs'] });

@@ -34,14 +34,19 @@ export interface TaxGroupRow {
 export async function fetchVenueAdmin(): Promise<VenueAdminRow> {
   const { data, error } = await supabase
     .from('venue_settings')
-    .select('venue_name, currency, timezone, phone, tax_inclusive, cancellation_window_hours, hold_ttl_seconds, protected_horizon_hours, max_booking_horizon_days, max_live_holds_per_guest')
+    .select(
+      'venue_name, currency, timezone, phone, tax_inclusive, cancellation_window_hours, hold_ttl_seconds, protected_horizon_hours, max_booking_horizon_days, max_live_holds_per_guest',
+    )
     .single();
   if (error) throw error;
   return data as VenueAdminRow;
 }
 
 export async function fetchTaxGroups(): Promise<TaxGroupRow[]> {
-  const { data, error } = await supabase.from('tax_groups').select('id, name_en, name_ar, rate_bp, is_active').order('name_en');
+  const { data, error } = await supabase
+    .from('tax_groups')
+    .select('id, name_en, name_ar, rate_bp, is_active')
+    .order('name_en');
   if (error) throw error;
   return (data ?? []) as TaxGroupRow[];
 }

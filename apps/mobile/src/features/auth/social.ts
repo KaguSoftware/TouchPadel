@@ -81,11 +81,15 @@ export function appleDisplayName(fullName: AppleFullName | null | undefined): st
 }
 
 export type SocialErrorOutcome =
-  | { kind: 'cancelled' }
-  | { kind: 'error'; key: MessageKey; report: boolean };
+  { kind: 'cancelled' } | { kind: 'error'; key: MessageKey; report: boolean };
 
 /** Raw SDK codes a forgetful adapter might let through (Apple, Google, Android status 12501). */
-const RAW_CANCEL_CODES = new Set(['ERR_REQUEST_CANCELED', 'SIGN_IN_CANCELLED', '12501', 'IN_PROGRESS']);
+const RAW_CANCEL_CODES = new Set([
+  'ERR_REQUEST_CANCELED',
+  'SIGN_IN_CANCELLED',
+  '12501',
+  'IN_PROGRESS',
+]);
 
 function codeOf(err: unknown): string | null {
   if (err && typeof err === 'object' && 'code' in err) {

@@ -16,7 +16,16 @@ import { useConfirm } from '../../../components/ConfirmDialog';
 import { Switch } from '../../../components/Switch';
 import { printWithMode } from '../../../components/GlobalStyles';
 import { Button, ErrorText, card } from '../../../components/ui';
-import { AsyncStateWrapper, EmptyState, MessagePresenter, PageHeader, PermissionRefusedNotice, StatusBadge, Toolbar, asyncStatus } from '../../../components/kit';
+import {
+  AsyncStateWrapper,
+  EmptyState,
+  MessagePresenter,
+  PageHeader,
+  PermissionRefusedNotice,
+  StatusBadge,
+  Toolbar,
+  asyncStatus,
+} from '../../../components/kit';
 import { QrCard } from './QrCard';
 import { guestTableUrl } from './qrCardGeometry';
 import { NEW_TABLE, TableForm, type TableDraft } from './TableForm';
@@ -59,26 +68,39 @@ export function QrPage() {
   const inactiveQ = useQuery({
     queryKey: TABLES_QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await supabase.from('cafe_tables').select('id, table_number, zone, capacity, is_active').eq('is_active', false).order('table_number');
+      const { data, error } = await supabase
+        .from('cafe_tables')
+        .select('id, table_number, zone, capacity, is_active')
+        .eq('is_active', false)
+        .order('table_number');
       if (error) throw error;
       return (data ?? []) as CafeTableRow[];
     },
   });
 
-  const refetchAll = () => Promise.all([queryClient.invalidateQueries({ queryKey: TABLE_QR_QUERY_KEY }), queryClient.invalidateQueries({ queryKey: TABLES_QUERY_KEY })]);
+  const refetchAll = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: TABLE_QR_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: TABLES_QUERY_KEY }),
+    ]);
 
   const bell = useMutation({
-    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => appRpc('set_table_bell', { p_table_id: id, p_enabled: enabled }),
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      appRpc('set_table_bell', { p_table_id: id, p_enabled: enabled }),
     onMutate: async ({ id, enabled }) => {
       await queryClient.cancelQueries({ queryKey: TABLE_QR_QUERY_KEY });
-      queryClient.setQueryData<TableTokenRow[]>(TABLE_QR_QUERY_KEY, (rows) => rows?.map((r) => (r.table_id === id ? { ...r, bell_enabled: enabled } : r)));
+      queryClient.setQueryData<TableTokenRow[]>(TABLE_QR_QUERY_KEY, (rows) =>
+        rows?.map((r) => (r.table_id === id ? { ...r, bell_enabled: enabled } : r)),
+      );
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: TABLE_QR_QUERY_KEY }),
   });
 
   /** Table number for a message the operator has to act on; the id is no use to them. */
   function tableNumberOf(tableId: string): string {
-    return (tokensQ.data ?? []).find((r) => r.table_id === tableId)?.table_number ?? tableId.slice(0, 8);
+    return (
+      (tokensQ.data ?? []).find((r) => r.table_id === tableId)?.table_number ?? tableId.slice(0, 8)
+    );
   }
 
   async function rotate(ids: string[]) {
@@ -108,7 +130,10 @@ export function QrPage() {
         setRotating({ done: done + failed.length, total: ids.length });
       }
       if (failed.length === 0) toast.ok(tr('op.toast.rotated'));
-      else toast.err(tr('op.qr.rotatedPartial', { done, total: ids.length, tables: failed.join(', ') }));
+      else
+        toast.err(
+          tr('op.qr.rotatedPartial', { done, total: ids.length, tables: failed.join(', ') }),
+        );
     } finally {
       setRotating(null);
       await refetchAll();
@@ -145,8 +170,16 @@ export function QrPage() {
               <Button icon="plus" onClick={() => setEditing(NEW_TABLE)}>
                 {tr('op.qr.addTable')}
               </Button>
-              <Button kind="danger" icon="repeat" disabled={!canRotate || rows.length === 0} busy={rotateBusy} onClick={() => void rotate(rows.map((r) => r.table_id))}>
-                {rotating ? tr('op.qr.rotating', { done: rotating.done, total: rotating.total }) : tr('op.qr.rotateAll')}
+              <Button
+                kind="danger"
+                icon="repeat"
+                disabled={!canRotate || rows.length === 0}
+                busy={rotateBusy}
+                onClick={() => void rotate(rows.map((r) => r.table_id))}
+              >
+                {rotating
+                  ? tr('op.qr.rotating', { done: rotating.done, total: rotating.total })
+                  : tr('op.qr.rotateAll')}
               </Button>
               <Button
                 kind="primary"
@@ -161,11 +194,23 @@ export function QrPage() {
             </>
           }
         />
-        {!canRotate && <PermissionRefusedNotice action={tr('ws.owner.tables.refusedRotate')} requiredRole="owner" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />}
+        {!canRotate && (
+          <PermissionRefusedNotice
+            action={tr('ws.owner.tables.refusedRotate')}
+            requiredRole="owner"
+            style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
+          />
+        )}
         <Toolbar style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--tp-sp-2)' }}>
-          <MessagePresenter tone="refused" icon="alert" message={tr('ws.owner.tables.rotateNote')} />
+          <MessagePresenter
+            tone="refused"
+            icon="alert"
+            message={tr('ws.owner.tables.rotateNote')}
+          />
           {!siteUrl && <MessagePresenter tone="error" message={tr('op.qr.noSiteUrl')} />}
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.qr.printHint')}</p>
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+            {tr('op.qr.printHint')}
+          </p>
         </Toolbar>
         <ErrorText error={bell.error} />
       </div>
@@ -174,36 +219,133 @@ export function QrPage() {
         status={asyncStatus(tokensQ, (d) => d.length === 0)}
         error={tokensQ.error}
         onRetry={() => void tokensQ.refetch()}
-        emptyContent={<EmptyState icon="qr" title={tr('ws.owner.tables.emptyTitle')} body={tr('ws.owner.tables.emptyBody')} action={<Button kind="primary" onClick={() => setEditing(NEW_TABLE)}>{tr('op.qr.addTable')}</Button>} />}
+        emptyContent={
+          <EmptyState
+            icon="qr"
+            title={tr('ws.owner.tables.emptyTitle')}
+            body={tr('ws.owner.tables.emptyBody')}
+            action={
+              <Button kind="primary" onClick={() => setEditing(NEW_TABLE)}>
+                {tr('op.qr.addTable')}
+              </Button>
+            }
+          />
+        }
       >
-        <section aria-label={tr('ws.owner.tables.artworkTitle')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(15rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
+        <section
+          aria-label={tr('ws.owner.tables.artworkTitle')}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(15rem, 1fr))',
+            gap: 'var(--tp-sp-3)',
+          }}
+        >
           {rows.map((row) => {
             const url = guestTableUrl(siteUrl, row.token);
             const hidden = printTarget !== null && printTarget !== row.table_id;
             return (
-              <div key={row.table_id} data-print-page data-no-print={hidden ? 'true' : undefined} style={{ ...card, paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-2)' }}>
+              <div
+                key={row.table_id}
+                data-print-page
+                data-no-print={hidden ? 'true' : undefined}
+                style={{ ...card, paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-2)' }}
+              >
                 {url ? (
                   <QrCard tableNumber={row.table_number} url={url} />
                 ) : (
-                  <div style={{ aspectRatio: '420 / 592', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--tp-fs-3xl)', fontWeight: 800, color: 'var(--tp-muted-fg)', background: 'var(--tp-bg)', borderRadius: 'var(--tp-radius-ctl)' }}>
+                  <div
+                    style={{
+                      aspectRatio: '420 / 592',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 'var(--tp-fs-3xl)',
+                      fontWeight: 800,
+                      color: 'var(--tp-muted-fg)',
+                      background: 'var(--tp-bg)',
+                      borderRadius: 'var(--tp-radius-ctl)',
+                    }}
+                  >
                     {row.table_number}
                   </div>
                 )}
-                <div data-no-print style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
-                    <Switch checked={row.bell_enabled} label={row.bell_enabled ? tr('op.qr.bellOn') : tr('op.qr.bellOff')} onChange={(next) => bell.mutateAsync({ id: row.table_id, enabled: next }).then(() => undefined)} />
-                    <StatusBadge tone="neutral" size="sm" dot={false} label={tr('op.qr.version', { v: row.token_version })} title={tr('ws.owner.tables.columns.version')} />
+                <div
+                  data-no-print
+                  style={{
+                    display: 'grid',
+                    gap: 'var(--tp-sp-2)',
+                    marginBlockStart: 'var(--tp-sp-2)',
+                    fontSize: 'var(--tp-fs-sm)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 'var(--tp-sp-1-5)',
+                    }}
+                  >
+                    <Switch
+                      checked={row.bell_enabled}
+                      label={row.bell_enabled ? tr('op.qr.bellOn') : tr('op.qr.bellOff')}
+                      onChange={(next) =>
+                        bell.mutateAsync({ id: row.table_id, enabled: next }).then(() => undefined)
+                      }
+                    />
+                    <StatusBadge
+                      tone="neutral"
+                      size="sm"
+                      dot={false}
+                      label={tr('op.qr.version', { v: row.token_version })}
+                      title={tr('ws.owner.tables.columns.version')}
+                    />
                   </div>
-                  <div style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 'var(--tp-sp-1)',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
                     <span style={{ color: 'var(--tp-muted-fg)', marginInlineEnd: 'auto' }}>
                       <bdi>{row.zone ?? ''}</bdi>
                       {row.capacity ? <span dir="ltr"> · {row.capacity}</span> : null}
                     </span>
-                    <Button kind="ghost" size="sm" icon="note" onClick={() => setEditing({ id: row.table_id, table_number: row.table_number, zone: row.zone ?? '', capacity: row.capacity, is_active: row.is_active })}>
+                    <Button
+                      kind="ghost"
+                      size="sm"
+                      icon="note"
+                      onClick={() =>
+                        setEditing({
+                          id: row.table_id,
+                          table_number: row.table_number,
+                          zone: row.zone ?? '',
+                          capacity: row.capacity,
+                          is_active: row.is_active,
+                        })
+                      }
+                    >
                       {tr('op.common.edit')}
                     </Button>
-                    <Button kind="ghost" size="sm" icon="printer" disabled={!canPrint} onClick={() => void print(row.table_id)} title={tr('ws.owner.tables.printOne')} aria-label={tr('ws.owner.tables.printOne')} />
-                    <Button kind="ghost" size="sm" icon="repeat" disabled={!canRotate || rotateBusy} onClick={() => void rotate([row.table_id])} title={tr('ws.owner.tables.rotateNote')}>
+                    <Button
+                      kind="ghost"
+                      size="sm"
+                      icon="printer"
+                      disabled={!canPrint}
+                      onClick={() => void print(row.table_id)}
+                      title={tr('ws.owner.tables.printOne')}
+                      aria-label={tr('ws.owner.tables.printOne')}
+                    />
+                    <Button
+                      kind="ghost"
+                      size="sm"
+                      icon="repeat"
+                      disabled={!canRotate || rotateBusy}
+                      onClick={() => void rotate([row.table_id])}
+                      title={tr('ws.owner.tables.rotateNote')}
+                    >
                       {tr('op.qr.rotate')}
                     </Button>
                   </div>
@@ -216,10 +358,33 @@ export function QrPage() {
 
       {(inactiveQ.data?.length ?? 0) > 0 && (
         <section data-no-print style={{ marginBlockStart: 'var(--tp-sp-4)' }}>
-          <h2 style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1-5)' }}>{tr('op.qr.inactive')}</h2>
+          <h2
+            style={{
+              fontSize: 'var(--tp-fs-sm)',
+              color: 'var(--tp-muted-fg)',
+              fontWeight: 600,
+              marginBlockEnd: 'var(--tp-sp-1-5)',
+            }}
+          >
+            {tr('op.qr.inactive')}
+          </h2>
           <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
             {inactiveQ.data!.map((t) => (
-              <Button key={t.id} kind="ghost" size="sm" style={{ textDecoration: 'line-through', color: 'var(--tp-muted-fg)' }} onClick={() => setEditing({ id: t.id, table_number: t.table_number, zone: t.zone ?? '', capacity: t.capacity, is_active: t.is_active })}>
+              <Button
+                key={t.id}
+                kind="ghost"
+                size="sm"
+                style={{ textDecoration: 'line-through', color: 'var(--tp-muted-fg)' }}
+                onClick={() =>
+                  setEditing({
+                    id: t.id,
+                    table_number: t.table_number,
+                    zone: t.zone ?? '',
+                    capacity: t.capacity,
+                    is_active: t.is_active,
+                  })
+                }
+              >
                 {t.table_number}
               </Button>
             ))}

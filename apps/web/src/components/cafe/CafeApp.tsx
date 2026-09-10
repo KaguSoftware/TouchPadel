@@ -264,7 +264,8 @@ export function CafeApp({
         onCloseItem={() => setSheetItem(null)}
         onAddLine={actions.addLine}
         onOpenSuggested={(item) => {
-          if (sheetItem) track.suggestedItemClicked({ item_id: item.id, from_item_id: sheetItem.id });
+          if (sheetItem)
+            track.suggestedItemClicked({ item_id: item.id, from_item_id: sheetItem.id });
           actions.openItem(item, 'suggested');
         }}
         onItemViewed={actions.itemViewed}

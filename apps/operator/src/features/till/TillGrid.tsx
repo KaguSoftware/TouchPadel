@@ -71,7 +71,12 @@ export function CategoryStrip({
 
 const TILE_LOOK: Record<TileState, React.CSSProperties> = {
   ready: { background: 'var(--tp-surface)', border: '1px solid var(--tp-border)' },
-  noTab: { background: 'var(--tp-surface)', border: '1px solid var(--tp-border)', opacity: 0.6, cursor: 'not-allowed' },
+  noTab: {
+    background: 'var(--tp-surface)',
+    border: '1px solid var(--tp-border)',
+    opacity: 0.6,
+    cursor: 'not-allowed',
+  },
   unavailable: {
     background: 'var(--tp-surface)',
     border: '1px dashed var(--tp-border-strong)',
@@ -154,7 +159,8 @@ export function MenuItemGrid({
           today,
         });
         const interactive = tileInteractive(state);
-        const defVariant = item.menu_item_variants.find((v) => v.is_default) ?? item.menu_item_variants[0];
+        const defVariant =
+          item.menu_item_variants.find((v) => v.is_default) ?? item.menu_item_variants[0];
         const quick = quickVariant(item) !== null;
         const hint =
           state === 'unavailable'
@@ -202,27 +208,63 @@ export function MenuItemGrid({
               ...TILE_LOOK[state],
             }}
           >
-            <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', lineHeight: 1.25, overflowWrap: 'anywhere' }}>
+            <span
+              style={{
+                fontWeight: 700,
+                fontSize: 'var(--tp-fs-md)',
+                lineHeight: 1.25,
+                overflowWrap: 'anywhere',
+              }}
+            >
               <bdi>{pickName(locale, item)}</bdi>
             </span>
-            <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: 'var(--tp-sp-1-5)' }}>
+            <span
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'end',
+                gap: 'var(--tp-sp-1-5)',
+              }}
+            >
               {defVariant && (
                 <span style={{ ...muted, fontVariantNumeric: 'tabular-nums' }}>
-                  {item.menu_item_variants.length > 1 && <span>{tr('ws.cashier.till.tile.from')} </span>}
+                  {item.menu_item_variants.length > 1 && (
+                    <span>{tr('ws.cashier.till.tile.from')} </span>
+                  )}
                   <bdi>{formatIQD(defVariant.price_iqd, locale)}</bdi>
                 </span>
               )}
               {state === 'unavailable' && (
-                <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: 'var(--tp-warn-fg)' }}>
+                <span
+                  style={{
+                    fontSize: 'var(--tp-fs-xs)',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 'var(--tp-sp-1)',
+                    color: 'var(--tp-warn-fg)',
+                  }}
+                >
                   <Icon name="eyeOff" size={12} /> {tr('ws.cashier.till.tile.unavailable')}
                 </span>
               )}
               {state === 'blockedByStock' && (
-                <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: 'var(--tp-danger-fg)' }}>
+                <span
+                  style={{
+                    fontSize: 'var(--tp-fs-xs)',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 'var(--tp-sp-1)',
+                    color: 'var(--tp-danger-fg)',
+                  }}
+                >
                   <Icon name="package" size={12} /> {tr('ws.cashier.till.tile.blockedByStock')}
                 </span>
               )}
-              {state === 'ready' && !quick && <Icon name="more" size={14} style={{ color: 'var(--tp-muted-fg)' }} />}
+              {state === 'ready' && !quick && (
+                <Icon name="more" size={14} style={{ color: 'var(--tp-muted-fg)' }} />
+              )}
             </span>
           </button>
         );
@@ -242,14 +284,37 @@ export function TileLegend() {
     color: 'var(--tp-muted-fg)',
   };
   return (
-    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-1-5)' }} aria-hidden="true">
+    <div
+      style={{
+        display: 'flex',
+        gap: 'var(--tp-sp-4)',
+        flexWrap: 'wrap',
+        marginBlockStart: 'var(--tp-sp-1-5)',
+      }}
+      aria-hidden="true"
+    >
       <span style={sectionTitle}>{tr('ws.cashier.till.items')}</span>
       <span style={chip}>
-        <span style={{ inlineSize: 'var(--tp-sp-3)', blockSize: 'var(--tp-sp-3)', border: '1px dashed var(--tp-border-strong)', borderRadius: 'var(--tp-radius-sm)' }} />
+        <span
+          style={{
+            inlineSize: 'var(--tp-sp-3)',
+            blockSize: 'var(--tp-sp-3)',
+            border: '1px dashed var(--tp-border-strong)',
+            borderRadius: 'var(--tp-radius-sm)',
+          }}
+        />
         {tr('ws.cashier.till.tile.unavailable')}
       </span>
       <span style={chip}>
-        <span style={{ inlineSize: 'var(--tp-sp-3)', blockSize: 'var(--tp-sp-3)', background: 'var(--tp-surface-3)', border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-sm)' }} />
+        <span
+          style={{
+            inlineSize: 'var(--tp-sp-3)',
+            blockSize: 'var(--tp-sp-3)',
+            background: 'var(--tp-surface-3)',
+            border: '1px solid var(--tp-border)',
+            borderRadius: 'var(--tp-radius-sm)',
+          }}
+        />
         {tr('ws.cashier.till.tile.blockedByStock')}
       </span>
     </div>

@@ -39,10 +39,7 @@ describe.skipIf(!up)('0063 stock admin writes', () => {
     await cashier.auth.signOut();
   });
 
-  async function makeIngredient(
-    name: string,
-    over: Record<string, unknown> = {},
-  ): Promise<string> {
+  async function makeIngredient(name: string, over: Record<string, unknown> = {}): Promise<string> {
     const res = await appRpc(manager, 'upsert_ingredient', {
       p_name_en: name,
       p_name_ar: `مكوّن ${name}`,
@@ -120,11 +117,7 @@ describe.skipIf(!up)('0063 stock admin writes', () => {
   it('set_recipe replaces a variant BOM atomically and audits the line sets', async () => {
     const flour = await makeIngredient(`SC-flour-${Date.now()}`);
     const sugar = await makeIngredient(`SC-sugar-${Date.now()}`);
-    const { data: variant } = await svc
-      .from('menu_item_variants')
-      .select('id')
-      .limit(1)
-      .single();
+    const { data: variant } = await svc.from('menu_item_variants').select('id').limit(1).single();
     const variantId = (variant as { id: string }).id;
 
     const first = await appRpc(manager, 'set_recipe', {

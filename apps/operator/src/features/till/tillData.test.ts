@@ -22,9 +22,13 @@ describe('tabIsRemovable — the mirror of app.cancel_tab', () => {
 
   it('anything that has to be reconciled keeps it', () => {
     expect(tabIsRemovable({ ...bare, status: 'awaiting_payment' })).toBe(false);
-    expect(tabIsRemovable({ ...bare, orders: [{ source: 'till', status: 'sent', order_items: [] }] })).toBe(false);
+    expect(
+      tabIsRemovable({ ...bare, orders: [{ source: 'till', status: 'sent', order_items: [] }] }),
+    ).toBe(false);
     expect(tabIsRemovable({ ...bare, payments: [{ amount_iqd: 5000 }] })).toBe(false);
-    expect(tabIsRemovable({ ...bare, tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 500 }] })).toBe(false);
+    expect(
+      tabIsRemovable({ ...bare, tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 500 }] }),
+    ).toBe(false);
   });
 
   it('a voided order still keeps it — the server counts rows, not live lines', () => {
@@ -32,7 +36,11 @@ describe('tabIsRemovable — the mirror of app.cancel_tab', () => {
     // existence of any orders row. Reading `voided: true` as "empty" here
     // would offer a confirm the server then refuses.
     const voided: TabListRow['orders'] = [
-      { source: 'till', status: 'voided', order_items: [{ line_total_iqd: 4000, voided: true, menu_item: null }] },
+      {
+        source: 'till',
+        status: 'voided',
+        order_items: [{ line_total_iqd: 4000, voided: true, menu_item: null }],
+      },
     ];
     expect(tabIsRemovable({ ...bare, orders: voided })).toBe(false);
   });
@@ -40,7 +48,9 @@ describe('tabIsRemovable — the mirror of app.cancel_tab', () => {
   it('a booking keeps it: the court fee is owed with nothing ordered', () => {
     // The board's own total cannot see court_iqd, so this cannot be decided
     // from the money — only from the anchor.
-    expect(tabIsRemovable({ ...bare, reservation: { guest_name: 'Ali', court: null } })).toBe(false);
+    expect(tabIsRemovable({ ...bare, reservation: { guest_name: 'Ali', court: null } })).toBe(
+      false,
+    );
   });
 
   it('a row missing an embed keeps it — absent evidence is not evidence of absence', () => {

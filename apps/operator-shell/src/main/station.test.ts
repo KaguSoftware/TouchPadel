@@ -3,7 +3,13 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app, __calls, __resetUserData } from 'electron';
 import { RELAUNCH_DELAY_MS, completeFirstRun } from './first-run';
-import { StationExistsError, loadStation, resetStationCache, stationFilePath, writeStation } from './station';
+import {
+  StationExistsError,
+  loadStation,
+  resetStationCache,
+  stationFilePath,
+  writeStation,
+} from './station';
 
 // station.json is written exactly once per machine. These tests pin the three
 // readings (missing, valid, broken) and the one write path the first-run
@@ -22,7 +28,12 @@ describe('loadStation', () => {
   it('a missing file is first run: unconfigured, dev defaults, no error', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const s = loadStation();
-    expect(s).toMatchObject({ stationId: 'TILL1', mode: 'till', configured: false, appVersion: '0.0.0-test' });
+    expect(s).toMatchObject({
+      stationId: 'TILL1',
+      mode: 'till',
+      configured: false,
+      appVersion: '0.0.0-test',
+    });
     expect(s.configError).toBeUndefined();
     expect(warn).toHaveBeenCalled();
   });
@@ -39,7 +50,12 @@ describe('loadStation', () => {
   });
 
   it('reads a kitchen screen file back in camelCase', () => {
-    writeStation({ station_id: 'KDS-01', mode: 'kds', till_host: '192.168.4.10', lan_psk: 'ABCDEFGHJK' });
+    writeStation({
+      station_id: 'KDS-01',
+      mode: 'kds',
+      till_host: '192.168.4.10',
+      lan_psk: 'ABCDEFGHJK',
+    });
     expect(loadStation()).toMatchObject({
       stationId: 'KDS-01',
       mode: 'kds',
@@ -77,7 +93,10 @@ describe('completeFirstRun', () => {
   afterEach(() => vi.useRealTimers());
 
   it('a till mints its pairing code and relaunches', () => {
-    const result = completeFirstRun({ stationId: 'TILL-01', mode: 'till' }, { mint: () => 'ABCDEFGHJK' });
+    const result = completeFirstRun(
+      { stationId: 'TILL-01', mode: 'till' },
+      { mint: () => 'ABCDEFGHJK' },
+    );
     expect(result).toEqual({ ok: true });
     expect(JSON.parse(fs.readFileSync(stationFilePath(), 'utf8'))).toEqual({
       station_id: 'TILL-01',
@@ -105,7 +124,10 @@ describe('completeFirstRun', () => {
 
   it('a desk carries neither host nor key', () => {
     completeFirstRun({ stationId: 'DESK-01', mode: 'desk' }, { relaunch: () => {} });
-    expect(JSON.parse(fs.readFileSync(stationFilePath(), 'utf8'))).toEqual({ station_id: 'DESK-01', mode: 'desk' });
+    expect(JSON.parse(fs.readFileSync(stationFilePath(), 'utf8'))).toEqual({
+      station_id: 'DESK-01',
+      mode: 'desk',
+    });
   });
 
   it('refuses once a file exists and never relaunches', () => {

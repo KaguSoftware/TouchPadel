@@ -70,7 +70,12 @@ export function PaymentPane({
 
   const partialControl = (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', marginBlockEnd: 'var(--tp-sp-3)' }}>
-      <Switch checked={partial} onChange={(v) => setPartial(v)} label={tr('ws.cashier.payment.partial')} disabled={busy} />
+      <Switch
+        checked={partial}
+        onChange={(v) => setPartial(v)}
+        label={tr('ws.cashier.payment.partial')}
+        disabled={busy}
+      />
       {partial ? (
         <Field label={tr('ws.cashier.payment.amount')} hint={tr('ws.cashier.payment.partialHint')}>
           <input
@@ -116,14 +121,28 @@ export function PaymentPane({
           </div>
         }
       >
-        <MessagePresenter tone="info" icon="card" message={tr('ws.cashier.payment.cardNote')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
-        <div style={{ ...kvRow, fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-3)' }}>
+        <MessagePresenter
+          tone="info"
+          icon="card"
+          message={tr('ws.cashier.payment.cardNote')}
+          style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
+        />
+        <div
+          style={{
+            ...kvRow,
+            fontSize: 'var(--tp-fs-xl)',
+            fontWeight: 700,
+            marginBlockEnd: 'var(--tp-sp-3)',
+          }}
+        >
           <span>{tr('common.total')}</span>
           <Money amount={due} strong />
         </div>
         {partialControl}
         <ErrorText error={error} />
-        <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.payment.confirmByClick')}</p>
+        <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>
+          {tr('ws.cashier.payment.confirmByClick')}
+        </p>
       </Modal>
     );
   }
@@ -151,16 +170,36 @@ export function PaymentPane({
         </div>
       }
     >
-      <div style={{ ...kvRow, fontSize: 'var(--tp-fs-xl)', fontWeight: 700, marginBlockEnd: 'var(--tp-sp-2)' }}>
+      <div
+        style={{
+          ...kvRow,
+          fontSize: 'var(--tp-fs-xl)',
+          fontWeight: 700,
+          marginBlockEnd: 'var(--tp-sp-2)',
+        }}
+      >
         <span>{tr('common.total')}</span>
         <Money amount={due} strong />
       </div>
       {partialControl}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr) auto',
+          gap: 'var(--tp-sp-4)',
+          alignItems: 'start',
+        }}
+      >
         <div>
           <Field label={tr('op.till.tendered')}>
             <input
-              style={{ ...inputStyle, ...numeric, fontSize: 'var(--tp-fs-2xl)', textAlign: 'end', minBlockSize: 'var(--tp-touch)' }}
+              style={{
+                ...inputStyle,
+                ...numeric,
+                fontSize: 'var(--tp-fs-2xl)',
+                textAlign: 'end',
+                minBlockSize: 'var(--tp-touch)',
+              }}
               dir="ltr"
               inputMode="numeric"
               autoFocus
@@ -175,13 +214,27 @@ export function PaymentPane({
               }}
             />
           </Field>
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap', marginBlockEnd: 'var(--tp-sp-3)' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--tp-sp-1-5)',
+              flexWrap: 'wrap',
+              marginBlockEnd: 'var(--tp-sp-3)',
+            }}
+          >
             <Button size="sm" disabled={busy} onClick={() => setTendered(target)}>
               {tr('ws.cashier.payment.fullAmount')} · <bdi>{formatIQD(target, locale)}</bdi>
             </Button>
           </div>
         </div>
-        <AmountPad value={tendered} onChange={setTendered} disabled={busy} onConfirm={() => amountValid && change.sufficient && onSettle('cash', partial ? target : null, tendered)} />
+        <AmountPad
+          value={tendered}
+          onChange={setTendered}
+          disabled={busy}
+          onConfirm={() =>
+            amountValid && change.sufficient && onSettle('cash', partial ? target : null, tendered)
+          }
+        />
       </div>
       <ChangeDueDisplay
         due={target}
@@ -190,7 +243,9 @@ export function PaymentPane({
         short={change.sufficient ? null : change.shortByIqd}
       />
       <ErrorText error={error} />
-      <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.payment.confirmByClick')}</p>
+      <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>
+        {tr('ws.cashier.payment.confirmByClick')}
+      </p>
     </Modal>
   );
 }

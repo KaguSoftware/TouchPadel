@@ -137,11 +137,17 @@ function SuccessScreen() {
             rows={[
               ...(startAt
                 ? [
-                    { icon: CalendarIcon, label: t('booking.date'), value: formatDate(startAt, locale) },
+                    {
+                      icon: CalendarIcon,
+                      label: t('booking.date'),
+                      value: formatDate(startAt, locale),
+                    },
                     {
                       icon: ClockIcon,
                       label: t('booking.time'),
-                      value: endAt ? formatTimeRange(startAt, endAt, locale) : formatDateTime(startAt, locale),
+                      value: endAt
+                        ? formatTimeRange(startAt, endAt, locale)
+                        : formatDateTime(startAt, locale),
                     },
                   ]
                 : []),

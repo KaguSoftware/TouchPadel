@@ -6,16 +6,16 @@ Perspective: **data model + security**. All paths are in the planned monorepo at
 
 ## 0. Headline decisions (with reasons)
 
-| Decision | Choice | Why |
-|---|---|---|
-| Bilingual content | **Paired columns `name_en` / `name_ar`** (+ `description_en/_ar`), not jsonb | Contract fixes exactly two locales; columns give `NOT NULL` enforcement per language, appear as typed fields in `supabase gen types` (a missing Arabic string is a compile error, matching the scope's "column change breaks the build"), index/search trivially, and map 1:1 to the side-by-side editor in the desktop app. Kurdish is a change request; if it lands, we add `_ku` columns in one migration — cheaper than migrating everything to jsonb speculatively. Fallback (missing translation → other language) is a 3-line helper in `packages/core/src/i18n/pickLocale.ts`, not a DB concern. |
-| Role model | **`staff` table lookup via `SECURITY DEFINER` helper**, not JWT custom claims | Owner edits roles in the desktop app and they take effect on the next statement — no token refresh, no auth-hook admin API. One venue, ~10 staff rows: a `STABLE` function lookup per request is free. Shared-till short sessions make claim-staleness a real hazard. |
-| Money | `bigint` whole IQD everywhere (domain `iqd`) | Zero-decimal currency; see §2. |
-| Tax | integer basis points per tax group | `0` or `1000` (10%) or anything Touch's accountant decides; no floats. |
-| Quantities (stock) | `numeric(12,3)` in base units g / ml / pc | Money is integer; physical quantities are not. |
-| Hold expiry | Rows with `hold_expires_at` + lazy expiry inside the booking RPC + `pg_cron` sweeper | The exclusion constraint predicate cannot reference `now()`; see §1.3. |
-| Realtime | **Broadcast-from-database** (`realtime.send` in triggers) on private topics; not `postgres_changes` | Topic-level RLS on `realtime.messages` is the only clean way to give an *anonymous* guest session its own order-status stream without granting table reads; also one mechanism serves KDS, guest page, and booking grid. See §1.10. |
-| Write path for anything sensitive | **RPC (`SECURITY DEFINER`) only; no direct DML grants** | Prices, stock movements, PIN checks, degraded lockout, rate limits all live in functions in schema `app`; RLS is the backstop, functions are the front door. |
+| Decision                          | Choice                                                                                              | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bilingual content                 | **Paired columns `name_en` / `name_ar`** (+ `description_en/_ar`), not jsonb                        | Contract fixes exactly two locales; columns give `NOT NULL` enforcement per language, appear as typed fields in `supabase gen types` (a missing Arabic string is a compile error, matching the scope's "column change breaks the build"), index/search trivially, and map 1:1 to the side-by-side editor in the desktop app. Kurdish is a change request; if it lands, we add `_ku` columns in one migration — cheaper than migrating everything to jsonb speculatively. Fallback (missing translation → other language) is a 3-line helper in `packages/core/src/i18n/pickLocale.ts`, not a DB concern. |
+| Role model                        | **`staff` table lookup via `SECURITY DEFINER` helper**, not JWT custom claims                       | Owner edits roles in the desktop app and they take effect on the next statement — no token refresh, no auth-hook admin API. One venue, ~10 staff rows: a `STABLE` function lookup per request is free. Shared-till short sessions make claim-staleness a real hazard.                                                                                                                                                                                                                                                                                                                                    |
+| Money                             | `bigint` whole IQD everywhere (domain `iqd`)                                                        | Zero-decimal currency; see §2.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Tax                               | integer basis points per tax group                                                                  | `0` or `1000` (10%) or anything Touch's accountant decides; no floats.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Quantities (stock)                | `numeric(12,3)` in base units g / ml / pc                                                           | Money is integer; physical quantities are not.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Hold expiry                       | Rows with `hold_expires_at` + lazy expiry inside the booking RPC + `pg_cron` sweeper                | The exclusion constraint predicate cannot reference `now()`; see §1.3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Realtime                          | **Broadcast-from-database** (`realtime.send` in triggers) on private topics; not `postgres_changes` | Topic-level RLS on `realtime.messages` is the only clean way to give an _anonymous_ guest session its own order-status stream without granting table reads; also one mechanism serves KDS, guest page, and booking grid. See §1.10.                                                                                                                                                                                                                                                                                                                                                                      |
+| Write path for anything sensitive | **RPC (`SECURITY DEFINER`) only; no direct DML grants**                                             | Prices, stock movements, PIN checks, degraded lockout, rate limits all live in functions in schema `app`; RLS is the backstop, functions are the front door.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ---
 
@@ -189,6 +189,7 @@ alter table reservations
 ```
 
 Notes:
+
 - `completed`, `cancelled`, `no_show`, `expired` fall out of the predicate: history never blocks resale, a no-show frees the remaining slot the moment it is marked.
 - **Hold TTL**: the predicate cannot contain `now()` (not immutable), so an expired-but-not-yet-flipped hold would still block. Three-layer answer:
   1. `app.expire_stale_holds(p_court uuid, p_period tstzrange)` — `update reservations set status='expired' where kind='hold' and status='pending' and hold_expires_at < now() and court_id = p_court and period && p_period;` Called **first inside** `app.hold_slot()` and `app.staff_create_reservation()`, same transaction, so a fresh writer always clears the corpse before inserting.
@@ -281,6 +282,7 @@ select mi.id as item_id,
          ) as orderable
 from menu_items mi;
 ```
+
 `app.ingredient_on_hand(uuid)` = `sum(qty_remaining)` over active batches — cheap at one-venue scale; add a materialized cache only if profiling demands it.
 
 ### 1.5 Tables, signed tokens, anonymous sessions
@@ -309,6 +311,7 @@ create index on guest_sessions (auth_user_id) where closed_at is null;
 ```
 
 **Token design** (problem #5): the QR encodes `https://<domain>/t/<token>` where `token = base64url(table_id || '.' || version || '.' || hmac_sha256(table_id || '.' || version, secret))`. The HMAC secret lives in Supabase **Vault** (`vault.secrets`, name `table_token_secret`); `app.generate_table_token(table_id)` (owner-only, used by the QR-artwork export in the operator app) and `app.verify_table_token(token)` both read it via `vault.decrypted_secrets` inside `SECURITY DEFINER`. Flow on scan:
+
 1. Web app calls `supabase.auth.signInAnonymously()` (enable in Supabase auth config) → gets a real `auth.uid()`.
 2. Calls RPC `app.open_table_session(token)` → verifies HMAC and `version = cafe_tables.token_version`, creates/refreshes `guest_sessions` row bound to `auth.uid()`, returns `session_id`, table number, expiry.
 3. Every guest write RPC re-checks `exists(select 1 from guest_sessions where auth_user_id = auth.uid() and closed_at is null and expires_at > now())` and touches `last_activity_at`.
@@ -439,6 +442,7 @@ create table refund_items (                   -- which lines came back → stock
 ```
 
 Lifecycle rules (all enforced in `app.*` RPCs + status-transition triggers):
+
 - `send_order` snapshots prices, creates the ticket, and fires stock consumption (§4).
 - **Void before send**: item deleted (order still `draft` client-side only — drafts never hit the server; guest basket lives in the browser, till basket in Electron). Void after send: `voided=true`, ticket line struck, stock movement `void_after_send` (waste), audit row — never deleted.
 - Day close (`app.close_day`) refuses while `exists(select 1 from tabs where day_session_id=$1 and status='open')` **or** the till reports unsynced queue items (Electron passes its queue depth; server also checks no `sync_replays` in-flight for its devices). Cash expected = float + Σcash payments − Σcash refunds.
@@ -459,6 +463,7 @@ create table waiter_calls (
 -- one live call per table — the hard stop:
 create unique index waiter_calls_one_open on waiter_calls (table_id) where status = 'raised';
 ```
+
 Cooldown (soft limit) in `app.raise_waiter_call`: reject if the table's latest call was raised within `waiter_call_cooldown_seconds`. The partial unique index is the race-proof backstop; the RPC turns the constraint violation into a friendly "staff already notified".
 
 ### 1.8 Stock: ingredients, recipes/BOM, batches, ledger, counts
@@ -592,19 +597,20 @@ create table sync_replays (                   -- one row per replayed queued wri
   conflict_detail jsonb
 );
 ```
+
 `app.is_degraded()` = `not exists(select 1 from device_heartbeats where device_id like 'TILL%' and last_seen_at > now() - make_interval(secs => (select heartbeat_stale_seconds from venue_settings)))`. Every guest-facing write RPC (`hold_slot`, `create_guest_order`, `raise_waiter_call`) checks it **server-side**: reservations only blocked inside `now() + protected_horizon_hours`; cafe ordering blocked outright. A `pg_cron` job opens/closes `degraded_periods` rows on state transitions. Replay: every queued write arrives through the same RPCs with its `device_id` + `idempotency_key`; unique constraints turn re-delivery into `result='duplicate'`; an exclusion-constraint failure on a replayed booking becomes `result='conflict'` + `manager_alerts('replay_conflict')` — exactly the scope's "shows the desk a conflict rather than an overwrite".
 
 ### 1.10 Realtime channels
 
 Trigger-driven **broadcast from database** (`realtime.send`) — one migration (`0018`) creates `AFTER INSERT OR UPDATE` triggers:
 
-| Event | Topic | Consumers | Authorization (`realtime.messages` RLS) |
-|---|---|---|---|
-| ticket insert/status | `kds` | KDS view, till | `app.staff_role() in ('prep','cashier','manager','owner')` |
-| order status change | `session:{guest_session_id}` | guest's open page | topic suffix matches a live `guest_sessions` row for `auth.uid()` |
-| reservation insert/cancel/expiry | `courts` | mobile grid, desk calendar | any authenticated user (payload is slot-freed/slot-taken only — court id + range, **no guest PII**) |
-| waiter call raised/resolved | `floor` | till floor view | staff roles as above |
-| menu/availability change | `menu` | website ISR revalidate + clients | public (anon) |
+| Event                            | Topic                        | Consumers                        | Authorization (`realtime.messages` RLS)                                                             |
+| -------------------------------- | ---------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------- |
+| ticket insert/status             | `kds`                        | KDS view, till                   | `app.staff_role() in ('prep','cashier','manager','owner')`                                          |
+| order status change              | `session:{guest_session_id}` | guest's open page                | topic suffix matches a live `guest_sessions` row for `auth.uid()`                                   |
+| reservation insert/cancel/expiry | `courts`                     | mobile grid, desk calendar       | any authenticated user (payload is slot-freed/slot-taken only — court id + range, **no guest PII**) |
+| waiter call raised/resolved      | `floor`                      | till floor view                  | staff roles as above                                                                                |
+| menu/availability change         | `menu`                       | website ISR revalidate + clients | public (anon)                                                                                       |
 
 Why not `postgres_changes`: it would require granting anonymous guests SELECT on `orders`/`tickets` broadly enough for the subscription filter, and per-row RLS re-checks per subscriber. Broadcast topics carry exactly the payload we choose, authorized per topic — safer for anonymous sessions and it is the pattern Supabase now recommends. At one venue the volume is trivial either way; this choice is about the security envelope.
 
@@ -612,7 +618,7 @@ Why not `postgres_changes`: it would require granting anonymous guests SELECT on
 
 ## 2. Money: integer IQD
 
-- Every money column is `bigint` via domains `iqd` / `iqd_signed`. **No numeric, no floats, no decimals on bills.** Internal unit costs (`unit_cost_iqd numeric(14,4)`) are the one exception — cost *per gram* is fractional; every figure that reaches a bill, a report line, or the day close is rounded to integer dinars at computation time (`round()` half-up, in one place: `packages/core/src/money/`).
+- Every money column is `bigint` via domains `iqd` / `iqd_signed`. **No numeric, no floats, no decimals on bills.** Internal unit costs (`unit_cost_iqd numeric(14,4)`) are the one exception — cost _per gram_ is fractional; every figure that reaches a bill, a report line, or the day close is rounded to integer dinars at computation time (`round()` half-up, in one place: `packages/core/src/money/`).
 - Tax: `tax_iqd = round(subtotal_iqd * rate_bp / 10000.0)` per tax group per tab, half-up, computed once at settle and stamped.
 - **Even splits** (`packages/core/src/money/splitEvenly.ts`, mirrored in `app.split_evenly` for server-side settle):
   - `unit = venue_settings.cash_rounding_iqd` (default **250** — smallest note in real circulation).
@@ -637,28 +643,29 @@ language sql stable security definer set search_path = public as $$
   select app.staff_role() = any(roles)
 $$;
 ```
-Role hierarchy is expressed at call sites (`app.is_staff('manager','owner')`), not inheritance magic. `revoke execute … from anon` on nothing here — these are safe reads — but every mutating `app.*` RPC gets explicit `revoke all from public; grant execute to authenticated;` (plus `anon` only where guests genuinely call it: `open_table_session` is the single anon-executable function; guest order/waiter RPCs require the anonymous *authenticated* session).
+
+Role hierarchy is expressed at call sites (`app.is_staff('manager','owner')`), not inheritance magic. `revoke execute … from anon` on nothing here — these are safe reads — but every mutating `app.*` RPC gets explicit `revoke all from public; grant execute to authenticated;` (plus `anon` only where guests genuinely call it: `open_table_session` is the single anon-executable function; guest order/waiter RPCs require the anonymous _authenticated_ session).
 
 ### 3.2 Policy matrix (sketch per table group)
 
-| Table group | anon | guest (authenticated, incl. anonymous-session users) | cashier | prep | court_desk | manager | owner |
-|---|---|---|---|---|---|---|---|
-| `courts`, `rate_rules(+prices)`, `menu_*`, `allergens`, `tax_groups` | SELECT (active rows) | SELECT | SELECT | SELECT | SELECT | ALL via RPC | ALL via RPC |
-| `venue_settings` | SELECT of a **public view** (opening hours, horizon) only | same | SELECT | SELECT | SELECT | UPDATE via RPC | same |
-| `profiles` | — | own row (SELECT/UPDATE) | — | — | SELECT (walk-in lookup) | SELECT | SELECT |
-| `reservations` | — | SELECT own (`guest_id = auth.uid()`); INSERT/cancel **RPC-only** | — | — | ALL via RPC | ALL via RPC | ALL |
-| `guest_sessions` | — | SELECT own (`auth_user_id = auth.uid()`) | SELECT | — | — | SELECT | SELECT |
-| `tabs`, `orders`, `order_items(+modifiers)` | — | SELECT rows of own `guest_session_id`; create **RPC-only** | ALL via RPC | SELECT | SELECT | ALL | ALL |
-| `tickets` | — | SELECT own order's ticket status (via view) | SELECT/UPDATE-status via RPC | UPDATE status via RPC | — | ALL | ALL |
-| `payments`, `refunds`, `tab_adjustments` | — | — | INSERT via RPC (refunds: no) | — | — | ALL via RPC | ALL |
-| `waiter_calls` | — | INSERT via RPC + SELECT own | UPDATE ack/resolve via RPC | — | — | same | same |
-| stock tables (`ingredients`…`stock_counts`) | — | — | waste-entry RPC only | — | — | ALL via RPC | ALL |
-| `stock_movements`, `audit_log`, `sync_replays` | — | — | INSERT via definer RPC only | — | — | SELECT | SELECT |
-| `day_sessions` | — | — | SELECT | — | — | open/close via RPC | same |
-| `staff` | — | — | SELECT own row | own | own | SELECT all | ALL via RPC |
-| `manager_alerts`, `degraded_periods`, `device_heartbeats` | — | — | heartbeat UPSERT (till device runs under a staff session) | — | — | SELECT/ack | same |
+| Table group                                                          | anon                                                      | guest (authenticated, incl. anonymous-session users)             | cashier                                                   | prep                  | court_desk              | manager            | owner       |
+| -------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------- | --------------------- | ----------------------- | ------------------ | ----------- |
+| `courts`, `rate_rules(+prices)`, `menu_*`, `allergens`, `tax_groups` | SELECT (active rows)                                      | SELECT                                                           | SELECT                                                    | SELECT                | SELECT                  | ALL via RPC        | ALL via RPC |
+| `venue_settings`                                                     | SELECT of a **public view** (opening hours, horizon) only | same                                                             | SELECT                                                    | SELECT                | SELECT                  | UPDATE via RPC     | same        |
+| `profiles`                                                           | —                                                         | own row (SELECT/UPDATE)                                          | —                                                         | —                     | SELECT (walk-in lookup) | SELECT             | SELECT      |
+| `reservations`                                                       | —                                                         | SELECT own (`guest_id = auth.uid()`); INSERT/cancel **RPC-only** | —                                                         | —                     | ALL via RPC             | ALL via RPC        | ALL         |
+| `guest_sessions`                                                     | —                                                         | SELECT own (`auth_user_id = auth.uid()`)                         | SELECT                                                    | —                     | —                       | SELECT             | SELECT      |
+| `tabs`, `orders`, `order_items(+modifiers)`                          | —                                                         | SELECT rows of own `guest_session_id`; create **RPC-only**       | ALL via RPC                                               | SELECT                | SELECT                  | ALL                | ALL         |
+| `tickets`                                                            | —                                                         | SELECT own order's ticket status (via view)                      | SELECT/UPDATE-status via RPC                              | UPDATE status via RPC | —                       | ALL                | ALL         |
+| `payments`, `refunds`, `tab_adjustments`                             | —                                                         | —                                                                | INSERT via RPC (refunds: no)                              | —                     | —                       | ALL via RPC        | ALL         |
+| `waiter_calls`                                                       | —                                                         | INSERT via RPC + SELECT own                                      | UPDATE ack/resolve via RPC                                | —                     | —                       | same               | same        |
+| stock tables (`ingredients`…`stock_counts`)                          | —                                                         | —                                                                | waste-entry RPC only                                      | —                     | —                       | ALL via RPC        | ALL         |
+| `stock_movements`, `audit_log`, `sync_replays`                       | —                                                         | —                                                                | INSERT via definer RPC only                               | —                     | —                       | SELECT             | SELECT      |
+| `day_sessions`                                                       | —                                                         | —                                                                | SELECT                                                    | —                     | —                       | open/close via RPC | same        |
+| `staff`                                                              | —                                                         | —                                                                | SELECT own row                                            | own                   | own                     | SELECT all         | ALL via RPC |
+| `manager_alerts`, `degraded_periods`, `device_heartbeats`            | —                                                         | —                                                                | heartbeat UPSERT (till device runs under a staff session) | —                     | —                       | SELECT/ack         | same        |
 
-"RPC-only" means: **no INSERT/UPDATE policy exists at all** for that role on the base table; the `SECURITY DEFINER` function is the only path, and it validates session, degraded state, price integrity, rate limits, and writes audit rows atomically. RLS SELECT policies remain so Realtime-adjacent reads and the generated types stay honest. This is the single most important security posture in the system: *guests and cashiers can never write a price.*
+"RPC-only" means: **no INSERT/UPDATE policy exists at all** for that role on the base table; the `SECURITY DEFINER` function is the only path, and it validates session, degraded state, price integrity, rate limits, and writes audit rows atomically. RLS SELECT policies remain so Realtime-adjacent reads and the generated types stay honest. This is the single most important security posture in the system: _guests and cashiers can never write a price._
 
 ### 3.3 PIN escalation
 
@@ -675,7 +682,8 @@ begin
   return v_id;
 end $$;
 ```
-Sensitive RPCs — `app.apply_discount`, `app.override_price`, `app.void_after_send`, `app.refund`, `app.adjust_stock`, `app.override_reservation` — take `(…, p_pin text, p_reason_code text)`, call `verify_manager_pin`, record both `applied_by` (the logged-in cashier) and `authorized_by` (the PIN holder) plus the audit row, in one transaction. Rate-limit PIN attempts: an `app.pin_attempts` unlogged table, 5 failures / 5 minutes per device → `PIN_LOCKED`. PINs are 4–6 digits, bcrypt-hashed, set only by owner via `app.set_staff_pin`. Short-lived shared-till sessions are an auth-config + Electron concern (JWT expiry ~12h, till auto-locks to the staff-switch screen after idle), but the *PIN is what authorizes*, so a stale session alone can never discount.
+
+Sensitive RPCs — `app.apply_discount`, `app.override_price`, `app.void_after_send`, `app.refund`, `app.adjust_stock`, `app.override_reservation` — take `(…, p_pin text, p_reason_code text)`, call `verify_manager_pin`, record both `applied_by` (the logged-in cashier) and `authorized_by` (the PIN holder) plus the audit row, in one transaction. Rate-limit PIN attempts: an `app.pin_attempts` unlogged table, 5 failures / 5 minutes per device → `PIN_LOCKED`. PINs are 4–6 digits, bcrypt-hashed, set only by owner via `app.set_staff_pin`. Short-lived shared-till sessions are an auth-config + Electron concern (JWT expiry ~12h, till auto-locks to the staff-switch screen after idle), but the _PIN is what authorizes_, so a stale session alone can never discount.
 
 ### 3.4 Append-only enforcement (two independent layers)
 
@@ -689,6 +697,7 @@ create trigger audit_log_ao before update or delete on audit_log
   for each statement execute function app.forbid_mutation();
 -- same trigger on stock_movements, sync_replays, payments, refunds
 ```
+
 (`payments` corrections happen via `refunds` rows, never edits.) The security reviewer's checklist item: confirm no policy, grant, or definer function ever issues UPDATE/DELETE against these five tables.
 
 ---
@@ -735,10 +744,11 @@ end $$;
 ```
 
 Driver: `app.consume_for_order_item(order_item_id)` expands the BOM —
+
 - variant lines + modifier lines (× modifier qty: double shot = 2 × coffee line) × item qty;
 - each raw quantity is **yield-adjusted**: `required = qty / (yield_percent / 100.0)`;
-- `kind='prepared'` components consume **from their own batches FEFO** (a syrup batch made Tuesday expires before Friday's); they are *not* silently expanded to raws — production is explicit via `app.record_production(prepared_ingredient_id, qty, expiry)` which consumes component raws FEFO (`production_consume`) and creates a `production_in` batch costed at Σ component costs. If a prepared ingredient has no stock, the sale still proceeds → `negative_stock` alert (kitchen made it without booking production — a training signal, not a blocker);
-- sub-recipe *definitions* may nest one level (`output_ingredient` lines referencing another prepared ingredient) — expansion in `record_production` uses a recursive CTE with a depth-guard of 3 and a cycle check (constraint trigger at `recipe_lines` insert).
+- `kind='prepared'` components consume **from their own batches FEFO** (a syrup batch made Tuesday expires before Friday's); they are _not_ silently expanded to raws — production is explicit via `app.record_production(prepared_ingredient_id, qty, expiry)` which consumes component raws FEFO (`production_consume`) and creates a `production_in` batch costed at Σ component costs. If a prepared ingredient has no stock, the sale still proceeds → `negative_stock` alert (kitchen made it without booking production — a training signal, not a blocker);
+- sub-recipe _definitions_ may nest one level (`output_ingredient` lines referencing another prepared ingredient) — expansion in `record_production` uses a recursive CTE with a depth-guard of 3 and a cycle check (constraint trigger at `recipe_lines` insert).
 - Reversal: `app.refund` calls the same expansion with positive deltas as `refund_reversal`, restocking into the **newest live batch** (or a zero-cost synthetic batch if none) — pragmatic, documented, and visible in the ledger.
 - Expiry write-off: nightly `pg_cron` flags expired batches (`v_expired`); manager confirms via `app.write_off_expired(batch_id, p_pin, reason)` → `expired_writeoff` movement, separated from spillage/spoilage in the variance report exactly as the scope requires.
 
@@ -748,27 +758,27 @@ Driver: `app.consume_for_order_item(order_item_id)` expands the BOM —
 
 ### 5.1 Migration files (in `packages/db/supabase/migrations/`, timestamp-prefixed; logical order)
 
-| # | File | Contents |
-|---|---|---|
-| 1 | `0001_extensions.sql` | `btree_gist`, `pgcrypto`; comment noting pg_cron enabled in config |
-| 2 | `0002_enums_domains.sql` | every enum + `iqd` domains (§1.0) |
-| 3 | `0003_app_schema.sql` | `create schema app`, `forbid_mutation`, `staff_role`, `is_staff`, grants baseline (`revoke all on schema public from anon` posture, then explicit grants) |
-| 4 | `0004_profiles_staff.sql` | `profiles`, `staff`, auth trigger creating profile on signup, `set_staff_pin`, `verify_manager_pin`, `pin_attempts`; RLS |
-| 5 | `0005_audit_log.sql` | `audit_log` + append-only layers + `app.write_audit(...)` helper |
-| 6 | `0006_settings_tax.sql` | `venue_settings` (+ seed singleton), `tax_groups`, public settings view; RLS |
-| 7 | `0007_courts_rates.sql` | `courts`, `rate_rules`, `rate_rule_prices`, `app.price_slot`; RLS |
-| 8 | `0008_reservations.sql` | `reservations` + **exclusion constraint**, `expire_stale_holds`, `hold_slot`, `confirm_booking`, `staff_create_reservation`, `move/extend/cancel/mark_*` RPCs (audited), `app.is_degraded` stub check; RLS |
-| 9 | `0009_menu.sql` | categories, items, variants, modifier groups/modifiers, allergens, addon suggestions, `menu_item_availability` view; RLS (public read) |
-| 10 | `0010_tables_sessions.sql` | `cafe_tables`, `guest_sessions`, Vault secret bootstrap note, `generate_table_token`, `verify_table_token`, `open_table_session`, `rotate_table_token`; RLS |
-| 11 | `0011_tabs_orders.sql` | `day_sessions`, `tabs`, `orders`, `order_items(+modifiers)`, `tickets`, `tab_adjustments`, `payments`, `refunds(+items)`; RPCs `open_tab`, `create_guest_order`, `till_add_items`, `send_order`, `ticket_status`, `merge_tabs`, `split_evenly`, `settle_tab`, `apply_discount`, `override_price`, `void_after_send`, `refund`; append-only layers on payments/refunds; RLS |
-| 12 | `0012_waiter_calls.sql` | table + partial unique index + `raise_waiter_call`, `ack`, `resolve`; RLS |
-| 13 | `0013_stock_core.sql` | `ingredients`, `recipe_lines` (+cycle guard), `deliveries`, `delivery_lines`, `stock_batches` (+FEFO index), `receive_delivery` RPC; RLS |
-| 14 | `0014_stock_ledger_fefo.sql` | `stock_movements` (append-only), `consume_fefo`, `consume_for_order_item`, `record_production`, `record_waste`, `write_off_expired`, `manager_alerts`, low-stock trigger; wire `send_order` → consumption |
-| 15 | `0015_counts_variance.sql` | `stock_counts(+lines)`, `start_count`, `finalize_count`, views `v_ingredient_on_hand`, `v_variance_report`, `v_item_cogs`, `v_item_margin`, `v_expiring_soon` |
-| 16 | `0016_day_close.sql` | `open_day`, `close_day` (open-tab + unsynced-queue guards), day-close summary view (discounts/voids/refunds/waste with authoriser) |
-| 17 | `0017_degraded_sync.sql` | `device_heartbeats`, `degraded_periods`, `sync_replays`, `heartbeat` RPC, `is_degraded` real implementation, degraded checks patched into guest RPCs, pg_cron jobs (hold sweep, degraded transitions, expiry flagging, nightly `unavailable_on` no-op check) |
-| 18 | `0018_realtime.sql` | broadcast triggers + `realtime.messages` RLS policies per topic (§1.10) |
-| 19 | `0019_hardening.sql` | final revoke sweep, `alter default privileges`, function `search_path` audit, `security_invoker` on views, RLS enabled-everywhere assertion (`do $$` block that raises if any public table has RLS off) — **the security reviewer owns this file's checklist** |
+| #   | File                         | Contents                                                                                                                                                                                                                                                                                                                                                                   |
+| --- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `0001_extensions.sql`        | `btree_gist`, `pgcrypto`; comment noting pg_cron enabled in config                                                                                                                                                                                                                                                                                                         |
+| 2   | `0002_enums_domains.sql`     | every enum + `iqd` domains (§1.0)                                                                                                                                                                                                                                                                                                                                          |
+| 3   | `0003_app_schema.sql`        | `create schema app`, `forbid_mutation`, `staff_role`, `is_staff`, grants baseline (`revoke all on schema public from anon` posture, then explicit grants)                                                                                                                                                                                                                  |
+| 4   | `0004_profiles_staff.sql`    | `profiles`, `staff`, auth trigger creating profile on signup, `set_staff_pin`, `verify_manager_pin`, `pin_attempts`; RLS                                                                                                                                                                                                                                                   |
+| 5   | `0005_audit_log.sql`         | `audit_log` + append-only layers + `app.write_audit(...)` helper                                                                                                                                                                                                                                                                                                           |
+| 6   | `0006_settings_tax.sql`      | `venue_settings` (+ seed singleton), `tax_groups`, public settings view; RLS                                                                                                                                                                                                                                                                                               |
+| 7   | `0007_courts_rates.sql`      | `courts`, `rate_rules`, `rate_rule_prices`, `app.price_slot`; RLS                                                                                                                                                                                                                                                                                                          |
+| 8   | `0008_reservations.sql`      | `reservations` + **exclusion constraint**, `expire_stale_holds`, `hold_slot`, `confirm_booking`, `staff_create_reservation`, `move/extend/cancel/mark_*` RPCs (audited), `app.is_degraded` stub check; RLS                                                                                                                                                                 |
+| 9   | `0009_menu.sql`              | categories, items, variants, modifier groups/modifiers, allergens, addon suggestions, `menu_item_availability` view; RLS (public read)                                                                                                                                                                                                                                     |
+| 10  | `0010_tables_sessions.sql`   | `cafe_tables`, `guest_sessions`, Vault secret bootstrap note, `generate_table_token`, `verify_table_token`, `open_table_session`, `rotate_table_token`; RLS                                                                                                                                                                                                                |
+| 11  | `0011_tabs_orders.sql`       | `day_sessions`, `tabs`, `orders`, `order_items(+modifiers)`, `tickets`, `tab_adjustments`, `payments`, `refunds(+items)`; RPCs `open_tab`, `create_guest_order`, `till_add_items`, `send_order`, `ticket_status`, `merge_tabs`, `split_evenly`, `settle_tab`, `apply_discount`, `override_price`, `void_after_send`, `refund`; append-only layers on payments/refunds; RLS |
+| 12  | `0012_waiter_calls.sql`      | table + partial unique index + `raise_waiter_call`, `ack`, `resolve`; RLS                                                                                                                                                                                                                                                                                                  |
+| 13  | `0013_stock_core.sql`        | `ingredients`, `recipe_lines` (+cycle guard), `deliveries`, `delivery_lines`, `stock_batches` (+FEFO index), `receive_delivery` RPC; RLS                                                                                                                                                                                                                                   |
+| 14  | `0014_stock_ledger_fefo.sql` | `stock_movements` (append-only), `consume_fefo`, `consume_for_order_item`, `record_production`, `record_waste`, `write_off_expired`, `manager_alerts`, low-stock trigger; wire `send_order` → consumption                                                                                                                                                                  |
+| 15  | `0015_counts_variance.sql`   | `stock_counts(+lines)`, `start_count`, `finalize_count`, views `v_ingredient_on_hand`, `v_variance_report`, `v_item_cogs`, `v_item_margin`, `v_expiring_soon`                                                                                                                                                                                                              |
+| 16  | `0016_day_close.sql`         | `open_day`, `close_day` (open-tab + unsynced-queue guards), day-close summary view (discounts/voids/refunds/waste with authoriser)                                                                                                                                                                                                                                         |
+| 17  | `0017_degraded_sync.sql`     | `device_heartbeats`, `degraded_periods`, `sync_replays`, `heartbeat` RPC, `is_degraded` real implementation, degraded checks patched into guest RPCs, pg_cron jobs (hold sweep, degraded transitions, expiry flagging, nightly `unavailable_on` no-op check)                                                                                                               |
+| 18  | `0018_realtime.sql`          | broadcast triggers + `realtime.messages` RLS policies per topic (§1.10)                                                                                                                                                                                                                                                                                                    |
+| 19  | `0019_hardening.sql`         | final revoke sweep, `alter default privileges`, function `search_path` audit, `security_invoker` on views, RLS enabled-everywhere assertion (`do $$` block that raises if any public table has RLS off) — **the security reviewer owns this file's checklist**                                                                                                             |
 
 Rule: migrations only ever roll forward; local iteration uses `supabase db reset`. Client's future project links via `supabase link --project-ref <ref> && supabase db push` — nothing in any migration references a project ref, storage URL, or environment.
 
@@ -786,7 +796,7 @@ Rule: migrations only ever roll forward; local iteration uses `supabase db reset
 ### 5.3 Generated types flow
 
 - `packages/db/package.json` scripts: `db:start` (`supabase start`), `db:reset`, `db:types` = `supabase gen types typescript --local --schema public,app > src/database.types.ts`, `db:fixtures`.
-- `packages/db/src/index.ts` re-exports `Database`, typed helpers (`Tables<'reservations'>`, RPC arg types). All three apps depend on `@touchpadel/db`; `packages/core` zod schemas are *hand-written to match* and unit-tested against the generated types with `expectTypeOf` so drift breaks CI.
+- `packages/db/src/index.ts` re-exports `Database`, typed helpers (`Tables<'reservations'>`, RPC arg types). All three apps depend on `@touchpadel/db`; `packages/core` zod schemas are _hand-written to match_ and unit-tested against the generated types with `expectTypeOf` so drift breaks CI.
 - Turborepo: `db:types` is an input to every app's `typecheck`; CI job regenerates types and fails on `git diff --exit-code` — a migration merged without regenerated types cannot land.
 
 ---
@@ -814,7 +824,7 @@ pgTAP companions: constraint exists and is `USING gist`; predicate excludes each
 
 ### 6.2 RLS role-matrix tests (module 1 acceptance: "confirmed by a written role test")
 
-Vitest harness `packages/db/tests/rls-matrix.test.ts`: create 8 principals (anon, guest-with-account, anonymous-session guest, cashier, prep, court_desk, manager, owner) via GoTrue, then execute a declarative matrix — `{table/rpc} × {operation} × {principal} → expect allow/deny` — generated from a checked-in `rls-matrix.ts` file that doubles as the *written role test deliverable* (exported to markdown for Mustafa's sign-off). Named critical cases:
+Vitest harness `packages/db/tests/rls-matrix.test.ts`: create 8 principals (anon, guest-with-account, anonymous-session guest, cashier, prep, court_desk, manager, owner) via GoTrue, then execute a declarative matrix — `{table/rpc} × {operation} × {principal} → expect allow/deny` — generated from a checked-in `rls-matrix.ts` file that doubles as the _written role test deliverable_ (exported to markdown for Mustafa's sign-off). Named critical cases:
 
 - anon reads menu/courts; anon cannot read `reservations`, `tabs`, `stock_*`, `staff`, `audit_log` (expect zero rows, not error — RLS silence).
 - anonymous-session guest: can `create_guest_order` for **their own** session's table; cannot for another session id; cannot read another session's orders; cannot call `raise_waiter_call` twice inside cooldown; loses everything after `expires_at`.
@@ -833,6 +843,7 @@ Team mapping for this workstream: the user + AI agents own migrations/RPCs/tests
 ---
 
 ### Critical Files for Implementation
+
 - `packages/db/supabase/migrations/0008_reservations.sql` — exclusion constraint, holds, booking RPCs (the contractual core)
 - `packages/db/supabase/migrations/0014_stock_ledger_fefo.sql` — append-only ledger + FEFO consumption
 - `packages/db/supabase/migrations/0019_hardening.sql` — grants sweep, RLS-everywhere assertion (security reviewer's file)

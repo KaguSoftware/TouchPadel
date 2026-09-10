@@ -206,7 +206,13 @@ export function DashedDivider({ color, style }: { color?: string; style?: StyleP
 }
 
 /** Uppercase micro-label above sections/lists ("UPCOMING", "PAST"). */
-export function SectionLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
+export function SectionLabel({
+  children,
+  style,
+}: {
+  children: ReactNode;
+  style?: StyleProp<TextStyle>;
+}) {
   const { colors, fonts, tracking } = useTheme();
   const { dir } = useLocale();
   return (
@@ -230,7 +236,13 @@ export function SectionLabel({ children, style }: { children: ReactNode; style?:
 }
 
 /** Small uppercase field/group label (design `font:700 11px`, `ls .06em`). */
-export function MicroLabel({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
+export function MicroLabel({
+  children,
+  style,
+}: {
+  children: ReactNode;
+  style?: StyleProp<TextStyle>;
+}) {
   const { colors, fonts, tracking } = useTheme();
   const { dir } = useLocale();
   return (
@@ -265,7 +277,13 @@ export function Hint({ children, style }: { children: ReactNode; style?: StylePr
   return (
     <Text
       style={[
-        { fontFamily: fonts.body400, fontSize: 13, lineHeight: 19, color: colors.mut, marginTop: space.xs },
+        {
+          fontFamily: fonts.body400,
+          fontSize: 13,
+          lineHeight: 19,
+          color: colors.mut,
+          marginTop: space.xs,
+        },
         style,
       ]}
     >
@@ -280,7 +298,12 @@ export function ErrorText({ children }: { children: ReactNode }) {
   return (
     <Text
       accessibilityLiveRegion="polite"
-      style={{ fontFamily: fonts.body700, fontSize: 12.5, color: colors.redtext, marginTop: space.s }}
+      style={{
+        fontFamily: fonts.body700,
+        fontSize: 12.5,
+        color: colors.redtext,
+        marginTop: space.s,
+      }}
     >
       {children}
     </Text>
@@ -310,7 +333,9 @@ export function LinkText({
       hitSlop={LINK_HIT_SLOP}
       style={({ pressed }) => [{ alignSelf: 'flex-start', opacity: pressed ? 0.7 : 1 }, style]}
     >
-      <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: color ?? colors.blue }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: color ?? colors.blue }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -338,9 +363,15 @@ export function FooterLink({
       hitSlop={{ top: 10, bottom: 10 }}
       style={({ pressed }) => [{ alignSelf: 'center', opacity: pressed ? 0.7 : 1 }, style]}
     >
-      <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut, textAlign: 'center' }}>
-        {lead}{' '}
-        <Text style={{ fontFamily: fonts.body800, color: colors.blue }}>{label}</Text>
+      <Text
+        style={{
+          fontFamily: fonts.body400,
+          fontSize: 12.5,
+          color: colors.mut,
+          textAlign: 'center',
+        }}
+      >
+        {lead} <Text style={{ fontFamily: fonts.body800, color: colors.blue }}>{label}</Text>
       </Text>
     </Pressable>
   );
@@ -423,8 +454,7 @@ export function Field({
   // what was actually typed is Latin. Arabic input keeps the RTL direction.
   const hasLatin = /[A-Za-z0-9]/.test(value);
   const hasArabic = /[\u0600-\u06FF]/.test(value);
-  const forceLtr =
-    dir === 'rtl' && value.length > 0 && (isLatin || (hasLatin && !hasArabic));
+  const forceLtr = dir === 'rtl' && value.length > 0 && (isLatin || (hasLatin && !hasArabic));
   // With a `lead` adornment the BORDER belongs to the row that wraps both, not
   // to the input — otherwise the chip would sit outside a box drawn around the
   // text alone. The input keeps the chrome when there is no adornment.
@@ -456,55 +486,55 @@ export function Field({
         }
       >
         {lead}
-      <TextInput
-        style={[
-          {
-            ...(lead ? null : chrome),
-            // The adornment supplies the leading inset; a second one here
-            // would double the gap between the chip and the first character.
-            // With an adornment the leading inset is the gap AFTER it (the
-            // chip supplies the field's outer inset itself). It is not zero:
-            // at zero the text starts flush against the chip's divider.
-            paddingStart: lead ? LEAD_GAP : space.m,
-            paddingEnd: space.m,
-            ...(lead ? { flex: 1 } : null),
-            paddingTop: dense ? 13 : 14,
-            paddingBottom: dense ? 13 : 14,
-            fontFamily: fonts.body600,
-            fontSize: 14,
-            color: colors.ink,
-            // THE exception to the logical-alignment rule: TextInput is the one
-            // element whose textAlign stays PHYSICAL on both platforms (Fabric
-            // never feeds an input its layout direction), so it is keyed off
-            // the locale here. Placeholder and typed text share the paragraph
-            // direction through writingDirection (iOS).
+        <TextInput
+          style={[
+            {
+              ...(lead ? null : chrome),
+              // The adornment supplies the leading inset; a second one here
+              // would double the gap between the chip and the first character.
+              // With an adornment the leading inset is the gap AFTER it (the
+              // chip supplies the field's outer inset itself). It is not zero:
+              // at zero the text starts flush against the chip's divider.
+              paddingStart: lead ? LEAD_GAP : space.m,
+              paddingEnd: space.m,
+              ...(lead ? { flex: 1 } : null),
+              paddingTop: dense ? 13 : 14,
+              paddingBottom: dense ? 13 : 14,
+              fontFamily: fonts.body600,
+              fontSize: 14,
+              color: colors.ink,
+              // THE exception to the logical-alignment rule: TextInput is the one
+              // element whose textAlign stays PHYSICAL on both platforms (Fabric
+              // never feeds an input its layout direction), so it is keyed off
+              // the locale here. Placeholder and typed text share the paragraph
+              // direction through writingDirection (iOS).
+              // eslint-disable-next-line no-restricted-syntax
+              textAlign: dir === 'rtl' ? 'right' : 'left',
+              writingDirection: dir,
+            },
+            // The design's 2 px focus ring, drawn outside the border so the
+            // field does not jump when it gains focus. With an adornment the
+            // ring is on the wrapping row instead — see `chrome` above.
+            !lead && ring,
+            // Latin content (email / phone / password) anchors to the physical
+            // left even inside the RTL layout — spec §06 Forms. Deliberate
+            // exception to the logical-properties rule.
             // eslint-disable-next-line no-restricted-syntax
-            textAlign: dir === 'rtl' ? 'right' : 'left',
-            writingDirection: dir,
-          },
-          // The design's 2 px focus ring, drawn outside the border so the
-          // field does not jump when it gains focus. With an adornment the
-          // ring is on the wrapping row instead — see `chrome` above.
-          !lead && ring,
-          // Latin content (email / phone / password) anchors to the physical
-          // left even inside the RTL layout — spec §06 Forms. Deliberate
-          // exception to the logical-properties rule.
-          // eslint-disable-next-line no-restricted-syntax
-          forceLtr && { textAlign: 'left', writingDirection: 'ltr' },
-          style,
-        ]}
-        placeholderTextColor={colors.fnt2}
-        autoCapitalize="none"
-        onFocus={(e) => {
-          setFocused(true);
-          onFocus?.(e);
-        }}
-        onBlur={(e) => {
-          setFocused(false);
-          onBlur?.(e);
-        }}
-        {...inputProps}
-      />
+            forceLtr && { textAlign: 'left', writingDirection: 'ltr' },
+            style,
+          ]}
+          placeholderTextColor={colors.fnt2}
+          autoCapitalize="none"
+          onFocus={(e) => {
+            setFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            onBlur?.(e);
+          }}
+          {...inputProps}
+        />
       </View>
       <ErrorText>{error}</ErrorText>
     </View>
@@ -803,7 +833,10 @@ export interface ButtonProps {
   pressedBg?: string;
 }
 
-const SIZES: Record<ButtonSize, { radius: number; padV: number; font: number; ls: number; minH: number }> = {
+const SIZES: Record<
+  ButtonSize,
+  { radius: number; padV: number; font: number; ls: number; minH: number }
+> = {
   regular: { radius: radius.button, padV: 15, font: 13, ls: 0.65, minH: 50 },
   medium: { radius: radius.button, padV: 14, font: 12, ls: 0.6, minH: 46 },
   compact: { radius: radius.cell, padV: 13, font: 12, ls: 0.48, minH: 44 },
@@ -889,7 +922,14 @@ export function Button({
 export function Loading() {
   const { colors } = useTheme();
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.bg,
+      }}
+    >
       <ActivityIndicator color={colors.blue} size="large" />
     </View>
   );
@@ -905,7 +945,10 @@ export function Loading() {
 export function LabeledDivider({ label, style }: { label: string; style?: StyleProp<ViewStyle> }) {
   const { colors } = useTheme();
   return (
-    <View accessibilityRole="text" style={[{ flexDirection: 'row', alignItems: 'center', gap: 10 }, style]}>
+    <View
+      accessibilityRole="text"
+      style={[{ flexDirection: 'row', alignItems: 'center', gap: 10 }, style]}
+    >
       <View style={{ flex: 1, height: 1, backgroundColor: colors.line2 }} />
       {/* flexShrink: RN Text defaults to 0, which would collapse the hairlines and
           push the caption off-screen at large accessibility text sizes. */}

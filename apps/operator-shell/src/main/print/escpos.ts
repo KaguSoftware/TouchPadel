@@ -51,7 +51,9 @@ export function rasterToBands(
   const bands: Buffer[] = [];
   for (let y = 0; y < height; y += maxLines) {
     const lines = Math.min(maxLines, height - y);
-    bands.push(rasterBand(bits.subarray(y * widthBytes, (y + lines) * widthBytes), widthBytes, lines));
+    bands.push(
+      rasterBand(bits.subarray(y * widthBytes, (y + lines) * widthBytes), widthBytes, lines),
+    );
   }
   return bands;
 }

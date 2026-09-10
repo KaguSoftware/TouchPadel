@@ -23,14 +23,14 @@ CSV or Excel; we import it directly, nothing is retyped by hand.
 
 ## Columns / الأعمدة
 
-| Column | Meaning / المعنى | Example |
-|---|---|---|
-| `category_en` / `category_ar` | Menu section / القسم | `Hot Drinks` / `مشروبات ساخنة` |
-| `item_en` / `item_ar` | Item name / اسم المنتج | `Cappuccino` / `كابتشينو` |
-| `description_en` / `description_ar` | Short description (optional) / وصف قصير | `Double shot, steamed milk` |
-| `size_en` / `size_ar` | Size name / الحجم | `Large` / `كبير` |
-| `price_iqd` | Price, whole IQD / السعر بالدينار | `7000` |
-| `modifier_group_en` / `modifier_group_ar` | Option group (optional) / مجموعة الخيارات | `Milk` / `الحليب` |
-| `modifier_option_en` / `modifier_option_ar` | Option name / الخيار | `Oat milk` / `حليب الشوفان` |
-| `modifier_price_delta_iqd` | Added cost, whole IQD (0 = free) / السعر الإضافي | `1000` |
-| `allergens` | Comma-separated list / مسببات الحساسية | `dairy` |
+| Column                                      | Meaning / المعنى                                 | Example                        |
+| ------------------------------------------- | ------------------------------------------------ | ------------------------------ |
+| `category_en` / `category_ar`               | Menu section / القسم                             | `Hot Drinks` / `مشروبات ساخنة` |
+| `item_en` / `item_ar`                       | Item name / اسم المنتج                           | `Cappuccino` / `كابتشينو`      |
+| `description_en` / `description_ar`         | Short description (optional) / وصف قصير          | `Double shot, steamed milk`    |
+| `size_en` / `size_ar`                       | Size name / الحجم                                | `Large` / `كبير`               |
+| `price_iqd`                                 | Price, whole IQD / السعر بالدينار                | `7000`                         |
+| `modifier_group_en` / `modifier_group_ar`   | Option group (optional) / مجموعة الخيارات        | `Milk` / `الحليب`              |
+| `modifier_option_en` / `modifier_option_ar` | Option name / الخيار                             | `Oat milk` / `حليب الشوفان`    |
+| `modifier_price_delta_iqd`                  | Added cost, whole IQD (0 = free) / السعر الإضافي | `1000`                         |
+| `allergens`                                 | Comma-separated list / مسببات الحساسية           | `dairy`                        |

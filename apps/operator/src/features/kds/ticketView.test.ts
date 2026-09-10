@@ -64,12 +64,20 @@ describe('ticketTag', () => {
     const court = row({
       order: {
         ...row().order!,
-        tab: { id: 'tab1', label: 'x', table: null, reservation: { id: 'r1', guest_name: 'Ahmed' } },
+        tab: {
+          id: 'tab1',
+          label: 'x',
+          table: null,
+          reservation: { id: 'r1', guest_name: 'Ahmed' },
+        },
       },
     });
     expect(ticketTag(court)).toEqual({ kind: 'court', guest: 'Ahmed' });
     const named = row({
-      order: { ...row().order!, tab: { id: 'tab1', label: 'Walk-in', table: null, reservation: null } },
+      order: {
+        ...row().order!,
+        tab: { id: 'tab1', label: 'Walk-in', table: null, reservation: null },
+      },
     });
     expect(ticketTag(named)).toEqual({ kind: 'label', label: 'Walk-in' });
     expect(ticketTag(row({ order: null }))).toEqual({ kind: 'label', label: null });
@@ -107,7 +115,12 @@ describe('ticketViewFromRow', () => {
   });
 
   it('tags till orders as till', () => {
-    const v = ticketViewFromRow(row({ order: { ...row().order!, source: 'till' } }), T0, false, 'en');
+    const v = ticketViewFromRow(
+      row({ order: { ...row().order!, source: 'till' } }),
+      T0,
+      false,
+      'en',
+    );
     expect(v.source).toBe('till');
   });
 });
@@ -124,8 +137,6 @@ describe('lifecycle', () => {
   });
 
   it('counts only tickets the kitchen still owns', () => {
-    expect(
-      openCount([{ status: 'queued' }, { status: 'ready' }, { status: 'completed' }]),
-    ).toBe(2);
+    expect(openCount([{ status: 'queued' }, { status: 'ready' }, { status: 'completed' }])).toBe(2);
   });
 });

@@ -20,7 +20,6 @@ import { CHUNK_SIZE, buildManifest, parseManifest, splitChunks } from './chunk';
  * with a real (JSON) session payload.
  */
 
-
 async function clearChunks(key: string, upTo: number): Promise<void> {
   const kills: Promise<void>[] = [];
   for (let i = 0; i < upTo; i++) kills.push(SecureStore.deleteItemAsync(`${key}.${i}`));

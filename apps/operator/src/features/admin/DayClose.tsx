@@ -84,7 +84,9 @@ export function DayClose() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('tabs')
-        .select('id, status, label, table:cafe_tables(table_number), reservation:reservations(guest_name)')
+        .select(
+          'id, status, label, table:cafe_tables(table_number), reservation:reservations(guest_name)',
+        )
         .eq('day_session_id', day?.id ?? '')
         .in('status', ['open', 'awaiting_payment']);
       if (err) throw err;
@@ -116,7 +118,9 @@ export function DayClose() {
     queryFn: async (): Promise<DayAdjustmentRow[]> => {
       const { data, error: err } = await supabase
         .from('v_day_close_adjustments')
-        .select('adjustment_id, tab_id, kind, value, amount_iqd, reason_code, created_at, applied_by_name, authorized_by_name')
+        .select(
+          'adjustment_id, tab_id, kind, value, amount_iqd, reason_code, created_at, applied_by_name, authorized_by_name',
+        )
         .eq('day_session_id', daySessionId ?? '')
         .order('created_at', { ascending: false });
       if (err) throw err;
@@ -171,14 +175,20 @@ export function DayClose() {
     setDismissError(null);
     try {
       try {
-        await appRpc('verify_manager_pin', { p_pin: dismissPin, p_device_id: touch.getStation().stationId });
+        await appRpc('verify_manager_pin', {
+          p_pin: dismissPin,
+          p_device_id: touch.getStation().stationId,
+        });
         touch.pinObserved(dismissPin);
       } catch (e) {
         // Offline: fall through to the cache check in main. A server REFUSAL
         // (PIN_INVALID / PIN_LOCKED) still surfaces.
         if (e instanceof AppRpcError && e.code !== 'UNKNOWN') throw e;
       }
-      const res = await touch.resolveQueueRow({ idempotencyKey: dismissing.idempotencyKey, pin: dismissPin });
+      const res = await touch.resolveQueueRow({
+        idempotencyKey: dismissing.idempotencyKey,
+        pin: dismissPin,
+      });
       if (!('ok' in res)) throw new Error(res.error);
       if (!res.ok) {
         if (res.error === 'pin not recognised') throw new AppRpcError('PIN_INVALID', res.error);
@@ -224,7 +234,12 @@ export function DayClose() {
       // depth as it is now. Best effort: if it fails, close_day is the judge.
       try {
         const station = touch.getStation();
-        await sendHeartbeat(station.stationId, station.mode === 'till', queueRows.length, station.appVersion);
+        await sendHeartbeat(
+          station.stationId,
+          station.mode === 'till',
+          queueRows.length,
+          station.appVersion,
+        );
       } catch {
         // The close below reports its own refusal.
       }
@@ -293,11 +308,17 @@ export function DayClose() {
       case 'busy':
         return <StatusBadge tone="success" label={tr('ws.manager.dayClose.state.ready')} />;
       case 'blockedByOpenTabs':
-        return <StatusBadge tone="danger" label={tr('ws.manager.dayClose.state.blockedByOpenTabs')} />;
+        return (
+          <StatusBadge tone="danger" label={tr('ws.manager.dayClose.state.blockedByOpenTabs')} />
+        );
       case 'blockedByUnsyncedQueue':
-        return <StatusBadge tone="warn" label={tr('ws.manager.dayClose.state.blockedByUnsyncedQueue')} />;
+        return (
+          <StatusBadge tone="warn" label={tr('ws.manager.dayClose.state.blockedByUnsyncedQueue')} />
+        );
       case 'closed':
-        return <StatusBadge tone="neutral" icon="check" label={tr('ws.manager.dayClose.state.closed')} />;
+        return (
+          <StatusBadge tone="neutral" icon="check" label={tr('ws.manager.dayClose.state.closed')} />
+        );
       default:
         return null;
     }
@@ -307,7 +328,10 @@ export function DayClose() {
   if (state === 'loading') {
     return (
       <div>
-        <PageHeader title={tr('ws.manager.dayClose.title')} subtitle={tr('ws.manager.dayClose.lead')} />
+        <PageHeader
+          title={tr('ws.manager.dayClose.title')}
+          subtitle={tr('ws.manager.dayClose.lead')}
+        />
         <Panel>
           <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('common.loading')}</p>
         </Panel>
@@ -319,7 +343,10 @@ export function DayClose() {
   if (state === 'noOpenDay') {
     return (
       <div>
-        <PageHeader title={tr('ws.manager.dayClose.openDayTitle')} subtitle={tr('ws.manager.dayClose.openDayLead')} />
+        <PageHeader
+          title={tr('ws.manager.dayClose.openDayTitle')}
+          subtitle={tr('ws.manager.dayClose.openDayLead')}
+        />
         <ErrorText error={dayQ.error} />
         <Panel style={{ maxInlineSize: '28rem' }}>
           <Field label={tr('op.dayClose.openingFloat')}>
@@ -331,12 +358,34 @@ export function DayClose() {
               onChange={(e) => setOpeningFloat(Number(e.target.value.replace(/\D/g, '')) || 0)}
             />
           </Field>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
-            <AmountPad value={openingFloat} onChange={setOpeningFloat} onConfirm={() => void openDay()} disabled={busy} />
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              marginBlockEnd: 'var(--tp-sp-2-5)',
+            }}
+          >
+            <AmountPad
+              value={openingFloat}
+              onChange={setOpeningFloat}
+              onConfirm={() => void openDay()}
+              disabled={busy}
+            />
           </div>
           <ErrorText error={error} />
-          {!can.closeDay && <PermissionRefusedNotice action={tr('op.dayClose.openDayBtn')} requiredRole={requiredRoleFor('closeDay')} style={{ marginBlockEnd: 'var(--tp-sp-2)' }} />}
-          <Button kind="primary" busy={busy} disabled={!can.closeDay} onClick={() => void openDay()}>
+          {!can.closeDay && (
+            <PermissionRefusedNotice
+              action={tr('op.dayClose.openDayBtn')}
+              requiredRole={requiredRoleFor('closeDay')}
+              style={{ marginBlockEnd: 'var(--tp-sp-2)' }}
+            />
+          )}
+          <Button
+            kind="primary"
+            busy={busy}
+            disabled={!can.closeDay}
+            onClick={() => void openDay()}
+          >
             {tr('op.dayClose.openDayBtn')}
           </Button>
         </Panel>
@@ -352,7 +401,9 @@ export function DayClose() {
         title={tr('ws.manager.dayClose.title')}
         subtitle={
           state === 'closed' && businessDate
-            ? tr('ws.manager.dayClose.closedLead', { date: formatDate(new Date(`${businessDate}T00:00:00`), locale) })
+            ? tr('ws.manager.dayClose.closedLead', {
+                date: formatDate(new Date(`${businessDate}T00:00:00`), locale),
+              })
             : tr('ws.manager.dayClose.lead')
         }
         eyebrow={
@@ -368,17 +419,35 @@ export function DayClose() {
         actions={
           <>
             {stateBadge}
-            <ExportButton onExport={exportCsv} disabled={!summary && !closeResult} scope={tr('ws.manager.dayClose.export')} />
+            <ExportButton
+              onExport={exportCsv}
+              disabled={!summary && !closeResult}
+              scope={tr('ws.manager.dayClose.export')}
+            />
           </>
         }
       />
 
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'minmax(20rem, 1fr) minmax(20rem, 1fr)', alignItems: 'start' }}>
+      <div
+        style={{
+          display: 'grid',
+          gap: 'var(--tp-sp-4)',
+          gridTemplateColumns: 'minmax(20rem, 1fr) minmax(20rem, 1fr)',
+          alignItems: 'start',
+        }}
+      >
         <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           {/* Blocked: open tabs */}
           {state === 'blockedByOpenTabs' && (
             <Panel title={tr('op.dayClose.blockedTabs')} padded={false}>
-              <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)' }}>
+              <p
+                style={{
+                  paddingBlock: 'var(--tp-sp-2)',
+                  paddingInline: 'var(--tp-sp-3)',
+                  fontSize: 'var(--tp-fs-sm)',
+                  color: 'var(--tp-danger-fg)',
+                }}
+              >
                 {tr('ws.manager.dayClose.openTabsLead')}
               </p>
               <DataTable<OpenTabRow>
@@ -397,13 +466,23 @@ export function DayClose() {
                       </bdi>
                     ),
                   },
-                  { key: 'status', header: tr('ws.manager.promotions.status'), render: (t) => <TabStatusIndicator status={t.status} size="sm" /> },
+                  {
+                    key: 'status',
+                    header: tr('ws.manager.promotions.status'),
+                    render: (t) => <TabStatusIndicator status={t.status} size="sm" />,
+                  },
                   {
                     key: 'open',
                     header: '',
                     align: 'end',
                     render: (t) => (
-                      <Link to="/till" href={tillTabHref(t.id)} className="tp-btn" data-kind="soft" data-size="sm">
+                      <Link
+                        to="/till"
+                        href={tillTabHref(t.id)}
+                        className="tp-btn"
+                        data-kind="soft"
+                        data-size="sm"
+                      >
                         <Icon name="receipt" size={14} /> {tr('ws.manager.dayClose.openTab')}
                       </Link>
                     ),
@@ -417,12 +496,38 @@ export function DayClose() {
           {state === 'blockedByUnsyncedQueue' && (
             <Panel title={tr('op.dayClose.unsyncedTitle')} data-testid="day-close-queue">
               <div data-queue-rows>
-                <MessagePresenter tone="refused" message={tr('ws.manager.dayClose.unsyncedLead', { count: queueRows.length })} style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }} />
-                <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('op.dayClose.unsyncedHint')}</p>
-                <ul style={{ marginBlock: 0, paddingInlineStart: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
+                <MessagePresenter
+                  tone="refused"
+                  message={tr('ws.manager.dayClose.unsyncedLead', { count: queueRows.length })}
+                  style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }}
+                />
+                <p
+                  style={{
+                    fontSize: 'var(--tp-fs-sm)',
+                    color: 'var(--tp-muted-fg)',
+                    marginBlockEnd: 'var(--tp-sp-2)',
+                  }}
+                >
+                  {tr('op.dayClose.unsyncedHint')}
+                </p>
+                <ul
+                  style={{
+                    marginBlock: 0,
+                    paddingInlineStart: 'var(--tp-sp-4)',
+                    display: 'grid',
+                    gap: 'var(--tp-sp-1)',
+                  }}
+                >
                   {queueRows.map((row) => (
                     <li key={row.seq} style={{ fontSize: 'var(--tp-fs-sm)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 'var(--tp-sp-2)',
+                          flexWrap: 'wrap',
+                        }}
+                      >
                         <span style={{ flex: '1 1 auto' }}>
                           <code>{row.mutationType}</code> · {tr(`op.queue.state.${row.state}`)}
                           {row.lastError ? ` — ${row.lastError}` : ''}
@@ -457,14 +562,23 @@ export function DayClose() {
               onClose={closeDismiss}
               footer={
                 <>
-                  <Button onClick={closeDismiss} disabled={dismissBusy}>{tr('common.cancel')}</Button>
-                  <Button kind="danger" busy={dismissBusy} disabled={dismissPin.length < 4} onClick={() => void dismissRow()}>
+                  <Button onClick={closeDismiss} disabled={dismissBusy}>
+                    {tr('common.cancel')}
+                  </Button>
+                  <Button
+                    kind="danger"
+                    busy={dismissBusy}
+                    disabled={dismissPin.length < 4}
+                    onClick={() => void dismissRow()}
+                  >
                     {tr('op.dayClose.dismissRow')}
                   </Button>
                 </>
               }
             >
-              <p style={{ fontSize: 'var(--tp-fs-sm)', marginBlockStart: 0 }}>{tr('op.dayClose.dismissLead')}</p>
+              <p style={{ fontSize: 'var(--tp-fs-sm)', marginBlockStart: 0 }}>
+                {tr('op.dayClose.dismissLead')}
+              </p>
               <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
                 <code>{dismissing.mutationType}</code> · {tr(`op.queue.state.${dismissing.state}`)}
                 {dismissing.lastError ? ` — ${dismissing.lastError}` : ''}
@@ -492,9 +606,21 @@ export function DayClose() {
                 <DescriptionList
                   columns={3}
                   items={[
-                    { label: tr('op.dayClose.cashExpected'), value: <Money amount={closeResult.cash_expected_iqd} strong />, numeric: true },
-                    { label: tr('op.dayClose.cashCounted'), value: <Money amount={closeResult.cash_counted_iqd} strong />, numeric: true },
-                    { label: tr('op.dayClose.variance'), value: <VarianceText variance={closeResult.cash_variance_iqd} />, numeric: true },
+                    {
+                      label: tr('op.dayClose.cashExpected'),
+                      value: <Money amount={closeResult.cash_expected_iqd} strong />,
+                      numeric: true,
+                    },
+                    {
+                      label: tr('op.dayClose.cashCounted'),
+                      value: <Money amount={closeResult.cash_counted_iqd} strong />,
+                      numeric: true,
+                    },
+                    {
+                      label: tr('op.dayClose.variance'),
+                      value: <VarianceText variance={closeResult.cash_variance_iqd} />,
+                      numeric: true,
+                    },
                   ]}
                 />
               </>
@@ -504,11 +630,29 @@ export function DayClose() {
                   columns={2}
                   style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
                   items={[
-                    { label: tr('ws.manager.dayClose.openingFloat'), value: <Money amount={day?.opening_float_iqd ?? summary?.opening_float_iqd} />, numeric: true },
-                    { label: tr('ws.manager.dayClose.cashPayments'), value: <Money amount={summary?.cash_payments_iqd} />, numeric: true },
+                    {
+                      label: tr('ws.manager.dayClose.openingFloat'),
+                      value: (
+                        <Money amount={day?.opening_float_iqd ?? summary?.opening_float_iqd} />
+                      ),
+                      numeric: true,
+                    },
+                    {
+                      label: tr('ws.manager.dayClose.cashPayments'),
+                      value: <Money amount={summary?.cash_payments_iqd} />,
+                      numeric: true,
+                    },
                   ]}
                 />
-                <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>{tr('ws.manager.dayClose.expectedAtClose')}</p>
+                <p
+                  style={{
+                    fontSize: 'var(--tp-fs-xs)',
+                    color: 'var(--tp-muted-fg)',
+                    marginBlockEnd: 'var(--tp-sp-2-5)',
+                  }}
+                >
+                  {tr('ws.manager.dayClose.expectedAtClose')}
+                </p>
                 <Field label={tr('ws.manager.dayClose.countedCash')}>
                   <input
                     style={{ ...inputStyle, textAlign: 'end', fontSize: 'var(--tp-fs-xl)' }}
@@ -532,8 +676,16 @@ export function DayClose() {
               <DescriptionList
                 columns={2}
                 items={[
-                  { label: tr('op.dayClose.cardExpected'), value: <Money amount={closeResult.card_expected_iqd} strong />, numeric: true },
-                  { label: tr('op.dayClose.cardBatch'), value: <Money amount={closeResult.card_terminal_batch_iqd} strong />, numeric: true },
+                  {
+                    label: tr('op.dayClose.cardExpected'),
+                    value: <Money amount={closeResult.card_expected_iqd} strong />,
+                    numeric: true,
+                  },
+                  {
+                    label: tr('op.dayClose.cardBatch'),
+                    value: <Money amount={closeResult.card_terminal_batch_iqd} strong />,
+                    numeric: true,
+                  },
                 ]}
               />
             ) : (
@@ -541,10 +693,24 @@ export function DayClose() {
                 <DescriptionList
                   columns={1}
                   style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
-                  items={[{ label: tr('ws.manager.dayClose.cardPayments'), value: <Money amount={summary?.card_payments_iqd} />, numeric: true }]}
+                  items={[
+                    {
+                      label: tr('ws.manager.dayClose.cardPayments'),
+                      value: <Money amount={summary?.card_payments_iqd} />,
+                      numeric: true,
+                    },
+                  ]}
                 />
-                <Field label={tr('ws.manager.dayClose.cardBatch')} hint={tr('ws.manager.dayClose.cardBatchHint')}>
-                  <MoneyInput value={cardBatch} onChange={setCardBatch} allowEmpty disabled={busy} />
+                <Field
+                  label={tr('ws.manager.dayClose.cardBatch')}
+                  hint={tr('ws.manager.dayClose.cardBatchHint')}
+                >
+                  <MoneyInput
+                    value={cardBatch}
+                    onChange={setCardBatch}
+                    allowEmpty
+                    disabled={busy}
+                  />
                 </Field>
               </>
             )}
@@ -554,16 +720,31 @@ export function DayClose() {
           {!closeResult && (
             <Panel muted>
               <Field label={tr('ws.manager.dayClose.notes')}>
-                <input style={inputStyle} value={notes} disabled={busy} onChange={(e) => setNotes(e.target.value)} />
+                <input
+                  style={inputStyle}
+                  value={notes}
+                  disabled={busy}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
               </Field>
               <ErrorText error={error} />
-              {!can.closeDay && <PermissionRefusedNotice action={tr('op.dayClose.closeBtn')} requiredRole={requiredRoleFor('closeDay')} style={{ marginBlockEnd: 'var(--tp-sp-2)' }} />}
+              {!can.closeDay && (
+                <PermissionRefusedNotice
+                  action={tr('op.dayClose.closeBtn')}
+                  requiredRole={requiredRoleFor('closeDay')}
+                  style={{ marginBlockEnd: 'var(--tp-sp-2)' }}
+                />
+              )}
               <Button
                 kind="danger"
                 size="lg"
                 icon="lock"
                 busy={busy}
-                disabled={!can.closeDay || state === 'blockedByOpenTabs' || state === 'blockedByUnsyncedQueue'}
+                disabled={
+                  !can.closeDay ||
+                  state === 'blockedByOpenTabs' ||
+                  state === 'blockedByUnsyncedQueue'
+                }
                 // The blocking reason was stated at the top of the screen, which
                 // is the one place a manager scrolled past on the way down to
                 // this button (rulebook 4.3).
@@ -585,19 +766,48 @@ export function DayClose() {
         {/* Summary with authorisers */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           <Panel title={tr('ws.manager.dayClose.summaryTitle')}>
-            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.manager.dayClose.summaryLead')}</p>
+            <p
+              style={{
+                fontSize: 'var(--tp-fs-sm)',
+                color: 'var(--tp-muted-fg)',
+                marginBlockEnd: 'var(--tp-sp-3)',
+              }}
+            >
+              {tr('ws.manager.dayClose.summaryLead')}
+            </p>
             <ErrorText error={summaryQ.error} />
             {summary ? (
               <DescriptionList
                 columns={2}
                 items={[
-                  { label: tr('op.dayClose.discounts', { count: summary.adjustment_count }), value: <Money amount={summary.discounts_iqd} />, numeric: true },
-                  { label: tr('op.dayClose.voids', { count: summary.voided_line_count }), value: <Money amount={summary.voided_lines_iqd} />, numeric: true },
-                  { label: tr('op.dayClose.refunds', { count: summary.refund_count }), value: <Money amount={summary.refunds_iqd} />, numeric: true },
-                  { label: tr('op.dayClose.waste'), value: <Money amount={summary.waste_cost_iqd} />, numeric: true },
+                  {
+                    label: tr('op.dayClose.discounts', { count: summary.adjustment_count }),
+                    value: <Money amount={summary.discounts_iqd} />,
+                    numeric: true,
+                  },
+                  {
+                    label: tr('op.dayClose.voids', { count: summary.voided_line_count }),
+                    value: <Money amount={summary.voided_lines_iqd} />,
+                    numeric: true,
+                  },
+                  {
+                    label: tr('op.dayClose.refunds', { count: summary.refund_count }),
+                    value: <Money amount={summary.refunds_iqd} />,
+                    numeric: true,
+                  },
+                  {
+                    label: tr('op.dayClose.waste'),
+                    value: <Money amount={summary.waste_cost_iqd} />,
+                    numeric: true,
+                  },
                   {
                     label: tr('ws.manager.dayClose.authorisedBy'),
-                    value: (summary.authorizer_names ?? []).length > 0 ? <bdi>{joinNames(summary.authorizer_names ?? [])}</bdi> : tr('ws.manager.dayClose.noAuthoriser'),
+                    value:
+                      (summary.authorizer_names ?? []).length > 0 ? (
+                        <bdi>{joinNames(summary.authorizer_names ?? [])}</bdi>
+                      ) : (
+                        tr('ws.manager.dayClose.noAuthoriser')
+                      ),
                   },
                 ]}
               />
@@ -630,13 +840,33 @@ export function DayClose() {
 /** Route alias for the spec name. */
 export const DayCloseScreen = DayClose;
 
-function adjustmentColumns(tr: ReturnType<typeof useLocale>['tr'], locale: ReturnType<typeof useLocale>['locale']): Column<DayAdjustmentRow>[] {
+function adjustmentColumns(
+  tr: ReturnType<typeof useLocale>['tr'],
+  locale: ReturnType<typeof useLocale>['locale'],
+): Column<DayAdjustmentRow>[] {
   return [
-    { key: 'when', header: tr('op.audit.when'), render: (a) => <bdi>{formatDateTime(new Date(a.created_at), locale)}</bdi> },
+    {
+      key: 'when',
+      header: tr('op.audit.when'),
+      render: (a) => <bdi>{formatDateTime(new Date(a.created_at), locale)}</bdi>,
+    },
     { key: 'kind', header: tr('ws.manager.dayClose.kind'), render: (a) => a.kind },
-    { key: 'amount', header: tr('ws.manager.dayClose.amount'), numeric: true, render: (a) => <Money amount={a.amount_iqd} /> },
-    { key: 'reason', header: tr('ws.manager.dayClose.reason'), render: (a) => a.reason_code ?? '—' },
-    { key: 'applied', header: tr('ws.manager.dayClose.appliedBy'), render: (a) => <bdi>{a.applied_by_name ?? '—'}</bdi> },
+    {
+      key: 'amount',
+      header: tr('ws.manager.dayClose.amount'),
+      numeric: true,
+      render: (a) => <Money amount={a.amount_iqd} />,
+    },
+    {
+      key: 'reason',
+      header: tr('ws.manager.dayClose.reason'),
+      render: (a) => a.reason_code ?? '—',
+    },
+    {
+      key: 'applied',
+      header: tr('ws.manager.dayClose.appliedBy'),
+      render: (a) => <bdi>{a.applied_by_name ?? '—'}</bdi>,
+    },
     {
       key: 'authorised',
       header: tr('ws.manager.dayClose.authorisedBy'),
@@ -644,7 +874,9 @@ function adjustmentColumns(tr: ReturnType<typeof useLocale>['tr'], locale: Retur
         a.authorized_by_name ? (
           <bdi>{a.authorized_by_name}</bdi>
         ) : (
-          <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.dayClose.noAuthoriser')}</span>
+          <span style={{ color: 'var(--tp-muted-fg)' }}>
+            {tr('ws.manager.dayClose.noAuthoriser')}
+          </span>
         ),
     },
   ];
@@ -654,10 +886,24 @@ function VarianceText({ variance }: { variance: number }) {
   const { tr, locale } = useLocale();
   const sign = varianceSign(variance);
   const amount = formatIQD(varianceMagnitude(variance), locale);
-  if (sign === 'exact') return <span style={{ color: 'var(--tp-success-fg)', fontWeight: 700 }}>{tr('ws.manager.dayClose.varianceExact')}</span>;
+  if (sign === 'exact')
+    return (
+      <span style={{ color: 'var(--tp-success-fg)', fontWeight: 700 }}>
+        {tr('ws.manager.dayClose.varianceExact')}
+      </span>
+    );
   return (
-    <span style={{ color: sign === 'short' ? 'var(--tp-danger-fg)' : 'var(--tp-warn-fg)', fontWeight: 700 }}>
-      <bdi>{sign === 'short' ? tr('ws.manager.dayClose.varianceShort', { amount }) : tr('ws.manager.dayClose.varianceOver', { amount })}</bdi>
+    <span
+      style={{
+        color: sign === 'short' ? 'var(--tp-danger-fg)' : 'var(--tp-warn-fg)',
+        fontWeight: 700,
+      }}
+    >
+      <bdi>
+        {sign === 'short'
+          ? tr('ws.manager.dayClose.varianceShort', { amount })
+          : tr('ws.manager.dayClose.varianceOver', { amount })}
+      </bdi>
     </span>
   );
 }

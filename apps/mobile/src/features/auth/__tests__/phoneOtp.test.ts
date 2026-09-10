@@ -30,7 +30,13 @@ describe('parsePhoneOtpFlag', () => {
 
 describe('validatePhoneInput', () => {
   it('accepts an Iraqi mobile in any written shape and returns E.164', () => {
-    for (const raw of ['07701234567', '0770 123 4567', '+964 770 123 4567', '009647701234567', '٠٧٧٠١٢٣٤٥٦٧']) {
+    for (const raw of [
+      '07701234567',
+      '0770 123 4567',
+      '+964 770 123 4567',
+      '009647701234567',
+      '٠٧٧٠١٢٣٤٥٦٧',
+    ]) {
       expect(validatePhoneInput(raw)).toEqual({ e164: '+9647701234567', error: null });
     }
   });
@@ -67,13 +73,19 @@ describe('hasRealEmail', () => {
 
 describe('mapOtpError', () => {
   it('maps GoTrue codes', () => {
-    expect(mapOtpError({ name: 'AuthApiError', code: 'otp_expired', message: 'Token has expired or is invalid' })).toBe(
-      'auth.otpInvalid',
-    );
+    expect(
+      mapOtpError({
+        name: 'AuthApiError',
+        code: 'otp_expired',
+        message: 'Token has expired or is invalid',
+      }),
+    ).toBe('auth.otpInvalid');
     expect(mapOtpError({ code: 'over_sms_send_rate_limit', message: 'x' })).toBe('auth.otpTooMany');
     expect(mapOtpError({ code: 'over_request_rate_limit', message: 'x' })).toBe('auth.otpTooMany');
     expect(mapOtpError({ code: 'sms_send_failed', message: 'x' })).toBe('auth.otpSendFailed');
-    expect(mapOtpError({ code: 'phone_provider_disabled', message: 'x' })).toBe('auth.phoneSignInUnavailable');
+    expect(mapOtpError({ code: 'phone_provider_disabled', message: 'x' })).toBe(
+      'auth.phoneSignInUnavailable',
+    );
     expect(mapOtpError({ code: 'otp_disabled', message: 'x' })).toBe('auth.phoneSignInUnavailable');
     expect(mapOtpError({ code: 'hook_timeout', message: 'x' })).toBe('auth.phoneSignInUnavailable');
     expect(mapOtpError({ code: 'validation_failed', message: 'x' })).toBe('auth.phoneOtpInvalid');
@@ -91,7 +103,9 @@ describe('mapOtpError', () => {
   it('falls back to the message when GoTrue sends no code', () => {
     expect(mapOtpError(new Error('Token has expired or is invalid'))).toBe('auth.otpInvalid');
     expect(mapOtpError(new Error('Request rate limit reached'))).toBe('auth.otpTooMany');
-    expect(mapOtpError(new Error('Unsupported phone provider'))).toBe('auth.phoneSignInUnavailable');
+    expect(mapOtpError(new Error('Unsupported phone provider'))).toBe(
+      'auth.phoneSignInUnavailable',
+    );
   });
 
   it('keeps transport failures as "no connection"', () => {

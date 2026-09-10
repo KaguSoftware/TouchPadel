@@ -11,19 +11,19 @@ installed on 2026-09-07 and every gate ran for the first time. The four "written
 are closed — and running them found that **two of them were wrong**, which is the entire argument for
 never ticking a box you have not executed:
 
-| | |
-|---|---|
-| Migration **0069** (`btree_gist`) | **was broken** — post-check named `app.reservations`, a relation that does not exist. Aborted with 42P01 and stopped the stack booting. Would have failed identically on the client's live database. |
-| **Web security headers** (Block 4) | **were never shipping** — written, exported, imported into `next.config.ts`, and never returned. Zero static headers, while the gate stayed green and this file said DONE. |
-| `check:invariants` | passed on the first run: 12 views / 8 invoker / 4 audited, 215 of 215 definer functions pin `search_path`. |
-| Header e2e | 6/6 green on the first run — and it is what found the headers above. |
+|                                    |                                                                                                                                                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration **0069** (`btree_gist`)  | **was broken** — post-check named `app.reservations`, a relation that does not exist. Aborted with 42P01 and stopped the stack booting. Would have failed identically on the client's live database. |
+| **Web security headers** (Block 4) | **were never shipping** — written, exported, imported into `next.config.ts`, and never returned. Zero static headers, while the gate stayed green and this file said DONE.                           |
+| `check:invariants`                 | passed on the first run: 12 views / 8 invoker / 4 audited, 215 of 215 definer functions pin `search_path`.                                                                                           |
+| Header e2e                         | 6/6 green on the first run — and it is what found the headers above.                                                                                                                                 |
 
-| Why the other 25 are open | Count |
-|---|---|
-| Needs a **dashboard/account** (GitHub, Supabase, Vercel, Expo, Apple, registrar) | 12 |
-| Needs the **client** (D1, domain, venue-PC policy, signatures, account ownership) | 7 |
-| Needs a **purchase** (OV/EV code-signing certificate) | 1 |
-| **Deliberately incomplete**, with the reasoning in the box | 5 |
+| Why the other 25 are open                                                         | Count |
+| --------------------------------------------------------------------------------- | ----- |
+| Needs a **dashboard/account** (GitHub, Supabase, Vercel, Expo, Apple, registrar)  | 12    |
+| Needs the **client** (D1, domain, venue-PC policy, signatures, account ownership) | 7     |
+| Needs a **purchase** (OV/EV code-signing certificate)                             | 1     |
+| **Deliberately incomplete**, with the reasoning in the box                        | 5     |
 
 **Nothing is left that only needed a machine to run it.** What remains needs a person with an account,
 a signature, or a credit card.
@@ -37,7 +37,7 @@ Gates, all green as of 2026-09-07: `check:migrations` · `check:rpc-registry` ·
 > ⚠ **Re-verify each box against the code before working it.** This file was written at migration 55;
 > the repo is at **76**. Several boxes' premises were already stale when written — `sandbox: true` and
 > the preload bundle were done before the box was read, and `lan-kds-server.ts` did not exist. Two more
-> were found to be *false* on 2026-09-07 (above). Do not trust a box's premise; open the file it names.
+> were found to be _false_ on 2026-09-07 (above). Do not trust a box's premise; open the file it names.
 
 ## What Layer 1 is
 
@@ -64,17 +64,17 @@ universal links, the privacy URL and printing QR cards).
 The repository is at migration 55 with 21 DB test suites. A great deal of Layer 1 is already done, and the
 previous audit (v1.0, 2026-08-29) was wrong about most of it. Do not start by rebuilding these:
 
-| Already true | Where |
-|---|---|
-| **RLS on every table** — 55 of 55, 69 policies | every migration |
-| **Default privileges revoked** from `anon`/`authenticated` on future tables, sequences and functions | `0003:22-29` |
-| **`app.staff_role()` returns NULL for a disabled account** | `0003:50` |
-| **Append-only ledgers** — trigger + revoked `UPDATE`/`DELETE` on audit log, stock, payments | `0003:39`, `0005:25`, `0018:48`, `0015:1342` |
-| **`search_path` pinned — 159 of 159 functions, zero offenders** across 235 definer statements | migrations |
-| **Views already correct** — 12 views, 8 `security_invoker = on`, 4 deliberate audited projections | `0019`, `0020`, `0006`, `0029`, `0013`, `0008` |
-| **`pgcrypto` already in `extensions`, `pg_cron` in `cron`** — only `btree_gist` is unpinned | `0009`; `0001:5` |
-| **A realistic-argument, multi-principal authz pass already runs in CI** — `tests/rls-matrix.ts`, 8 principals, 50 RPC rules | `.github/workflows/ci.yml` |
-| **`verify_jwt` declared per edge function** | `config.toml:84-100` |
+| Already true                                                                                                                | Where                                          |
+| --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **RLS on every table** — 55 of 55, 69 policies                                                                              | every migration                                |
+| **Default privileges revoked** from `anon`/`authenticated` on future tables, sequences and functions                        | `0003:22-29`                                   |
+| **`app.staff_role()` returns NULL for a disabled account**                                                                  | `0003:50`                                      |
+| **Append-only ledgers** — trigger + revoked `UPDATE`/`DELETE` on audit log, stock, payments                                 | `0003:39`, `0005:25`, `0018:48`, `0015:1342`   |
+| **`search_path` pinned — 159 of 159 functions, zero offenders** across 235 definer statements                               | migrations                                     |
+| **Views already correct** — 12 views, 8 `security_invoker = on`, 4 deliberate audited projections                           | `0019`, `0020`, `0006`, `0029`, `0013`, `0008` |
+| **`pgcrypto` already in `extensions`, `pg_cron` in `cron`** — only `btree_gist` is unpinned                                 | `0009`; `0001:5`                               |
+| **A realistic-argument, multi-principal authz pass already runs in CI** — `tests/rls-matrix.ts`, 8 principals, 50 RPC rules | `.github/workflows/ci.yml`                     |
+| **`verify_jwt` declared per edge function**                                                                                 | `config.toml:84-100`                           |
 
 Three CI gates also already exist and work — `check:authz`, `check:locks`, `check:safeupdate` in
 `.github/workflows/ci.yml`. Everything in Block 2 below extends that pattern; you are not inventing it.
@@ -111,16 +111,16 @@ each changes the code around it, so answering them while already halfway through
 Decide them first; the boxes then become ordinary tasks.
 
 - [x] **The table token in the URL — SETTLED 2026-09-04: exchange for a cookie.** Implemented and
-      verified; see the Block 4 · Web box. *(Box in Block 4 · Web.)*
+      verified; see the Block 4 · Web box. _(Box in Block 4 · Web.)_
 - [ ] **PostHog — technical mitigation DONE, contract question OPEN.** Kept and fully mitigated rather
       than deleted on our own judgement; the signed variation is still required and is SEC's call.
-      *(Box in Block 4 · Web.)*
+      _(Box in Block 4 · Web.)_
 - [x] **`pin_cache` — SETTLED 2026-09-04: encrypt via `safeStorage`, fail closed.** Implemented and
-      tested. *(Box in Block 4 · Desktop.)*
+      tested. _(Box in Block 4 · Desktop.)_
 - [ ] **Who accepts the risk of bringing the hosted project to head.** The write itself is routine; the
       context is not — it lands on the client's live database, over real guest data, with no staging
       rehearsal. Name the person who accepts that the venue may not trade if it goes wrong, and pick a time
-      outside service. *(Box in Block 3.)*
+      outside service. _(Box in Block 3.)_
 
 ---
 
@@ -131,7 +131,7 @@ Decide them first; the boxes then become ordinary tasks.
 - [ ] **Registrar lock** on the domain once it exists. Losing the domain is losing the venue's front door.
       (SEC-40 · SEC)
 - [ ] **Supabase member roles**: SEC and DEV as Owner/Admin; FE1 and FE2 as Developer with **no SQL Editor
-      access to the hosted project**. With one project, access control *is* environment separation.
+      access to the hosted project**. With one project, access control _is_ environment separation.
       (SEC-37 · SEC)
 - [ ] **`.github/CODEOWNERS`** — **FILE WRITTEN; INERT UNTIL TWO GITHUB SETTINGS EXIST.**
       Routes the migrations directory, `db-migrate.yml`, `ci.yml`, `CODEOWNERS` itself and the security
@@ -159,16 +159,17 @@ have to make on every pull request forever.
 > **Four of these go red the moment they land, and that is correct — but it means you cannot land them all
 > at once.** Fix first, then fit the gate, or `main` sits red and people learn to ignore it:
 >
-> | Gate | Goes red because | Land it after |
-> |---|---|---|
-> | `check:electron` | `sandbox: false` today | the preload bundle + `sandbox: true` fix in Block 4 |
-> | Authz coverage counter | 50 of 121 RPCs covered | you have raised coverage, or set the initial floor at 50 and ratchet up |
-> | Web header e2e assertions | no headers ship today | the `headers()` block in Block 4 |
-> | `check:migrations` | 11 legacy constraint sites, 48 non-concurrent indexes | never — scope it to changed files instead (see below) |
+> | Gate                      | Goes red because                                      | Land it after                                                           |
+> | ------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
+> | `check:electron`          | `sandbox: false` today                                | the preload bundle + `sandbox: true` fix in Block 4                     |
+> | Authz coverage counter    | 50 of 121 RPCs covered                                | you have raised coverage, or set the initial floor at 50 and ratchet up |
+> | Web header e2e assertions | no headers ship today                                 | the `headers()` block in Block 4                                        |
+> | `check:migrations`        | 11 legacy constraint sites, 48 non-concurrent indexes | never — scope it to changed files instead (see below)                   |
 >
 > The other thirteen pass or fail honestly on the current repo and can land immediately.
 
 ### Secrets
+
 - [x] ★ **`gitleaks` over full history** — DONE, DEV, 2026-09-04. `.gitleaks.toml` + the `secrets` job in
       `ci.yml` (`fetch-depth: 0`, pinned 8.30.1 binary — the official ACTION needs a paid licence for
       org-owned repos and would have failed on licensing rather than on secrets). Baseline run: 123 commits,
@@ -201,7 +202,7 @@ have to make on every pull request forever.
       rather than merging it, and both the RTL guard and this rule use that rule name. The two pre-existing
       `'no-restricted-syntax': 'off'` exemptions (operator recharts geometry, mobile court art) would have
       silently opened holes where a key could sit unlinted, so both now restate the secret rules explicitly.
-      One true-negative suppressed with a reason: the audit-log test asserting how the till *renders* the
+      One true-negative suppressed with a reason: the audit-log test asserting how the till _renders_ the
       role name `service_role`. (SEC-24 · DEV)
 - [x] **`pnpm audit --audit-level=high` + Dependabot** — DONE, DEV, 2026-09-04.
       ⚠ Bare `pnpm audit --audit-level=high` goes **red on arrival** (14 high, 2 critical, all transitive),
@@ -235,6 +236,7 @@ have to make on every pull request forever.
       formats exist to hold a private key, so there is no benign version to admit.
 
 ### Migrations
+
 - [x] ★ **`check:migrations`, scoped to lock-taking DDL** — DONE — DEV, 2026-09-04.
       `packages/db/scripts/check-migrations.mjs`. Independently reproduced this file's audit:
       **57 non-CONCURRENTLY indexes, 11 `add constraint` without `NOT VALID`, and `0039:71`** — the exact
@@ -256,7 +258,9 @@ have to make on every pull request forever.
       approving the environment gate actually looks. The ledger dump (`audit_log`, `stock_ledger`,
       `payments` — the three with UPDATE/DELETE revoked) is retained 30 days: with no PITR rehearsal and no
       staging, it is the only "before" that will exist. It is evidence, not a restore path. (SEC-02 · DEV)
+
 ### Database invariants
+
 - [x] **Every view is `security_invoker = on`** — DONE — DEV, **VERIFIED 2026-09-07**.
       First execution: **12 views · 8 `security_invoker=on` · 4 owner-rights**, exactly the four named
       in the allowlist and waived in `security-advisor-waiver-2026-09-06.md`. The gate passes and the
@@ -270,7 +274,7 @@ have to make on every pull request forever.
 - [x] **RPC registry — moved out of code and into data** — DONE — DEV, 2026-09-04.
       ⚠ **This gate fired in anger on 2026-09-06 and it was right.** Migration 0070 (`send_test_push`,
       2026-09-06) granted execute to `authenticated` with no registry entry, and branch `kemal` was red:
-      *"1 RPC callable by a guest and in NO registry entry"* plus a coverage regression 60/127 → 60/128.
+      _"1 RPC callable by a guest and in NO registry entry"_ plus a coverage regression 60/127 → 60/128.
       Under the old hardcoded-`Set` design that RPC would have shipped in no list at all, unguarded by
       default, with nothing to say so — which is the exact scenario this box was written for. Closed the
       same day: classified `publicByDesign` with its reason (it takes **no arguments**, so it can only ever
@@ -302,7 +306,9 @@ have to make on every pull request forever.
 - [x] **No real-format Iraqi phone numbers in seeds or fixtures** — DONE — DEV, 2026-09-04.
       `scripts/security/check-data-hygiene.mjs`. Iraq has no ITU documentation range, so the script DEFINES
       the reserved convention: `+964 7XX 000000N`. Currently clean. (SEC-37 · DEV)
+
 ### Clients
+
 - [x] **`check:electron`** — DONE — DEV, 2026-09-04.
       `apps/operator-shell/scripts/check-electron.mjs`. ⚠ **This file's premise is stale**: `sandbox: true`
       and the single-file preload bundle both landed already (`src/main/index.ts:107-112`), so the gate
@@ -316,19 +322,20 @@ have to make on every pull request forever.
       at all.** Four other things had to be fixed before it could pass, none of which was a security
       defect but each of which had kept the suite from ever going green:
       • `pnpm db:fixtures` is an unstated prerequisite — `db:reset` alone leaves no fixture cafe tables,
-        so `generate_table_token` returned `TABLE_NOT_FOUND`;
+      so `generate_table_token` returned `TABLE_NOT_FOUND`;
       • the token-leak assertion compared origins against `page.url()`, which is `about:blank` on the
-        first navigation, so it flagged **its own opening request** and the venue's own Supabase backend
-        as third-party leaks — it could not have passed on a correct system. Now checks a fixed
-        first-party list, and still checks `Referer` on **every** request, which is the property that
-        matters (`layer-1-rules-and-decisions.md` §7);
+      first navigation, so it flagged **its own opening request** and the venue's own Supabase backend
+      as third-party leaks — it could not have passed on a correct system. Now checks a fixed
+      first-party list, and still checks `Referer` on **every** request, which is the property that
+      matters (`layer-1-rules-and-decisions.md` §7);
       • `unsafe-eval` and the inline-script nonce are **production-build** properties; the suite's
-        webServer runs `next dev`, which needs eval for HMR and injects un-nonced overlay scripts. Both
-        are now behind `E2E_PROD_BUILD=1` rather than deleted. ⚠ **Nothing sets that flag yet — CI must
-        run this suite against `next build && next start` or those two assertions never execute anywhere.**
-        Tracked in `security-general.md` §10.
+      webServer runs `next dev`, which needs eval for HMR and injects un-nonced overlay scripts. Both
+      are now behind `E2E_PROD_BUILD=1` rather than deleted. ⚠ **Nothing sets that flag yet — CI must
+      run this suite against `next build && next start` or those two assertions never execute anywhere.**
+      Tracked in `security-general.md` §10.
       The nonce, freshness, header-presence, cookie-exchange, no-referrer and token-leak assertions all
       run in both modes and are green. (SEC-25 · FE2)
+
 ---
 
 ## Block 3 · The database floor
@@ -382,16 +389,17 @@ have to make on every pull request forever.
       nothing. It is a business contact rather than guest or staff data, so it is grandfathered explicitly
       with that reasoning; **raise it with the client so the acceptance is theirs.** (SEC-37 · DEV)
 - [~] `[FREEZE]` **Security Advisor run and filed** — run by a colleague 2026-09-06, waiver recorded in
-      `docs/security/security-advisor-waiver-2026-09-06.md`. **4 findings, all `security_definer_view`,
-      all accepted** — exactly the four in the `check:invariants` allowlist, each re-verified against its
-      base table (notably `court_availability` withholds `guest_id`/`guest_name`/`guest_phone`/`price_iqd`).
-      ⚠ **NOT closed:** the expected `extension_in_public` for `btree_gist` did **not** appear. Either the
-      list was filtered to CRITICAL, or the hosted DB differs from the repo — which would be drift, a
-      bigger finding than the four. Re-run unfiltered before ticking. (SEC-04 · SEC)
+  `docs/security/security-advisor-waiver-2026-09-06.md`. **4 findings, all `security_definer_view`,
+  all accepted** — exactly the four in the `check:invariants` allowlist, each re-verified against its
+  base table (notably `court_availability` withholds `guest_id`/`guest_name`/`guest_phone`/`price_iqd`).
+  ⚠ **NOT closed:** the expected `extension_in_public` for `btree_gist` did **not** appear. Either the
+  list was filtered to CRITICAL, or the hosted DB differs from the repo — which would be drift, a
+  bigger finding than the four. Re-run unfiltered before ticking. (SEC-04 · SEC)
 - [ ] **One-project residual risk** — **WRITTEN, AWAITING SIGNATURE.**
       `docs/security/layer-1-rules-and-decisions.md` §5: the risk stated plainly, a table of the six
       controls now reducing it and what each cannot catch, and a signature block. **No control removes it —
       only a second project does, which is D1.** (SEC-37 · SEC)
+
 ---
 
 ## Block 4 · The client floor
@@ -399,9 +407,10 @@ have to make on every pull request forever.
 The baseline each of the three clients needs before feature work stacks on top.
 
 ### Auth configuration — Supabase dashboard
+
 - [ ] ★ **CAPTCHA on** under Auth → Attack Protection, with the token passed on `signInAnonymously`.
       Nothing captcha-related exists in the repo; the only throttle is `[auth.rate_limit] anonymous_users =
-      300` (`config.toml:74`), flagged in-file as "revisit before production handover".
+    300` (`config.toml:74`), flagged in-file as "revisit before production handover".
       ⚠ **Do not disable anonymous sign-in.** It is the cafe's guest identity — every table session boots
       through `apps/web/src/hooks/cafe/useTableSession.ts:57`. Add the CAPTCHA token to that one call site.
       0048's `ACCOUNT_REQUIRED` is scoped to `app.hold_slot` alone, so court booking needs a real account
@@ -413,6 +422,7 @@ The baseline each of the three clients needs before feature work stacks on top.
       This is what makes the leaver promise achievable. (SEC-05, SEC-35 · DEV)
 
 ### Web — `apps/web`
+
 > The least-defended surface in the system and the only one with no login. It ships **zero security
 > headers**, has **no `middleware.ts`**, and has **no lint script**.
 
@@ -423,13 +433,10 @@ The baseline each of the three clients needs before feature work stacks on top.
       nothing used them.** The `headers()` block returned a single font `Cache-Control` rule. So no
       HSTS, no nosniff, no X-Frame-Options, no Referrer-Policy, no Permissions-Policy, no COOP, and no
       `no-referrer` on the table route. Measured with `curl`, not inferred.
-      **Three things should have caught it, and each failed differently — this is the interesting part:**
-      1. `pnpm --filter @touch/web lint` **did** catch it and said so plainly —
-         `'STATIC_SECURITY_HEADERS' is defined but never used` — and was not re-run after the box was ticked.
-      2. `check-web-security.mjs` grepped `next.config.ts` for the constant NAME. **An unused import
-         satisfied it**, so the gate stayed green over zero shipped headers. Now fixed to look inside the
-         RETURNED array, and negative-tested: reverting to a bare import fails the gate.
-      3. The e2e that asserts headers on a live response had never executed — no container runtime.
+      **Three things should have caught it, and each failed differently — this is the interesting part:** 1. `pnpm --filter @touch/web lint` **did** catch it and said so plainly —
+      `'STATIC_SECURITY_HEADERS' is defined but never used` — and was not re-run after the box was ticked. 2. `check-web-security.mjs` grepped `next.config.ts` for the constant NAME. **An unused import
+      satisfied it**, so the gate stayed green over zero shipped headers. Now fixed to look inside the
+      RETURNED array, and negative-tested: reverting to a bare import fails the gate. 3. The e2e that asserts headers on a live response had never executed — no container runtime.
       The CSP nonce was genuinely fine throughout; it comes from `proxy.ts`, which is why the
       2026-09-04 spot-check of `script-src` looked right and the rest was never looked at.
       **Now:** wired into `headers()` for `/:path*`, plus `TABLE_ROUTE_HEADERS` on `/t/:path*` AND on
@@ -495,6 +502,7 @@ The baseline each of the three clients needs before feature work stacks on top.
       **Zero client-secret violations** — that is the security result. (SEC-24 · FE2)
 
 ### Desktop — `apps/operator-shell`
+
 - [x] **Preload bundled + `sandbox: true`** — **ALREADY DONE before this pass**; verified 2026-09-04.
       `src/main/index.ts:107-112`. This file's `TODO(W3)` is stale. Now locked by `check:electron` so it
       cannot regress. (SEC-30 · DEV)
@@ -517,7 +525,9 @@ The baseline each of the three clients needs before feature work stacks on top.
       items this file says cannot fit in a week. Start it today.** Days of identity verification; key in a
       cloud HSM, not a laptop. Blocks the signed installer and the update-verification gate.
       (SEC-14 · DEV)
+
 ### Mobile — `apps/mobile`
+
 - [ ] ★ **Universal / app links** — **CONFIGURED; BLOCKED ON THE DOMAIN.**
       Done: `ios.associatedDomains` and `android.intentFilters` with `autoVerify: true`
       (`app.config.ts`), and both association files served from `apps/web` —
@@ -538,6 +548,7 @@ The baseline each of the three clients needs before feature work stacks on top.
       ⚠ **Signing protects a device only once that device runs a binary containing the certificate**, so
       this must ship in a store release before it protects anyone. Until then the Expo account password is
       still load-bearing. (SEC-23 · FE1)
+
 ---
 
 ## Exit criteria — Layer 1 is done when
@@ -564,4 +575,4 @@ submission lane, the offline queue, the QR surface, privacy and retention, the d
 
 ---
 
-*Kagu Web Studio · Touch Padel Phase 1 · Security Layer 1 v1.0 · 2026-08-30*
+_Kagu Web Studio · Touch Padel Phase 1 · Security Layer 1 v1.0 · 2026-08-30_

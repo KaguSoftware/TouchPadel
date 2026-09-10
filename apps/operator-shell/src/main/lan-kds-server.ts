@@ -51,7 +51,12 @@ export function pickLanBind(override?: string): string {
 function ticketFromEnvelope(m: MutationEnvelope): LanTicket | null {
   if (m.mutationType !== 'order.create' && m.mutationType !== 'order.add_items') return null;
   const p = m.payload as {
-    items?: { variantId?: string; qty?: number; notes?: string; modifiers?: { modifierId?: string; qty?: number }[] }[];
+    items?: {
+      variantId?: string;
+      qty?: number;
+      notes?: string;
+      modifiers?: { modifierId?: string; qty?: number }[];
+    }[];
     tabIdemKey?: string;
   } | null;
   const items: LanTicketItem[] = (p?.items ?? []).map((it) => ({
@@ -127,7 +132,9 @@ export function startLanKdsServer(
       // till's signed-in staff, ordered strictly AFTER the order it bumps.
       const staffId = getAuthState()?.staffId;
       if (!staffId) {
-        socket.send(JSON.stringify({ type: 'error', data: { reason: 'till has no staff session' } }));
+        socket.send(
+          JSON.stringify({ type: 'error', data: { reason: 'till has no staff session' } }),
+        );
         return;
       }
       try {

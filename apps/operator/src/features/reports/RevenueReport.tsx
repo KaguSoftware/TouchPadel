@@ -22,7 +22,11 @@ export function RevenueReportScreen() {
       enabled={can.viewFinancials}
       notice={
         can.viewFinancials ? null : (
-          <PermissionRefusedNotice action={tr('ws.reports.refusedRevenue')} requiredRole={requiredRoleFor('viewFinancials')} style={{ marginBlockEnd: 'var(--tp-sp-4)' }} />
+          <PermissionRefusedNotice
+            action={tr('ws.reports.refusedRevenue')}
+            requiredRole={requiredRoleFor('viewFinancials')}
+            style={{ marginBlockEnd: 'var(--tp-sp-4)' }}
+          />
         )
       }
       views={[

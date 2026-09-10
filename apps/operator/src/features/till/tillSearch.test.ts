@@ -14,6 +14,9 @@ describe('validateTillSearch', () => {
   it('keeps valid ids, lower-cased', () => {
     expect(validateTillSearch({ tab: ID.toUpperCase() })).toEqual({ tab: ID });
     expect(validateTillSearch({ reservation: ID })).toEqual({ reservation: ID });
-    expect(validateTillSearch({ tab: ID, reservation: ID, junk: 'x' })).toEqual({ tab: ID, reservation: ID });
+    expect(validateTillSearch({ tab: ID, reservation: ID, junk: 'x' })).toEqual({
+      tab: ID,
+      reservation: ID,
+    });
   });
 });

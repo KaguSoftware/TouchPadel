@@ -101,9 +101,21 @@ const REQUIRED = [
 
 /** Navigation handlers that must remain wired. */
 const NAV_GUARDS = [
-  { id: "will-navigate", re: /['"`]will-navigate['"`]/, why: 'stops the top-level frame moving to remote content with the preload attached' },
-  { id: 'setWindowOpenHandler', re: /\bsetWindowOpenHandler\b/, why: 'filters what is handed to the OS protocol handler via shell.openExternal' },
-  { id: 'will-attach-webview', re: /['"`]will-attach-webview['"`]/, why: 'a <webview> carries its own preload and its own privileges' },
+  {
+    id: 'will-navigate',
+    re: /['"`]will-navigate['"`]/,
+    why: 'stops the top-level frame moving to remote content with the preload attached',
+  },
+  {
+    id: 'setWindowOpenHandler',
+    re: /\bsetWindowOpenHandler\b/,
+    why: 'filters what is handed to the OS protocol handler via shell.openExternal',
+  },
+  {
+    id: 'will-attach-webview',
+    re: /['"`]will-attach-webview['"`]/,
+    why: 'a <webview> carries its own preload and its own privileges',
+  },
 ];
 
 function* walk(dir) {
@@ -117,7 +129,9 @@ function* walk(dir) {
 const files = [...walk(SRC)].filter((f) => !/\.test\.[cm]?tsx?$/.test(f));
 const sources = files.map((f) => ({ file: path.relative(APP, f), text: readFileSync(f, 'utf8') }));
 // The BrowserWindow config lives in main/; preload and renderer never set it.
-const mainSources = sources.filter((s) => s.file.includes(`main${path.sep}`) || s.file.includes('main/'));
+const mainSources = sources.filter(
+  (s) => s.file.includes(`main${path.sep}`) || s.file.includes('main/'),
+);
 const joined = mainSources.map((s) => s.text).join('\n');
 
 const violations = [];
@@ -127,7 +141,8 @@ for (const { file, text } of sources) {
     for (const [i, line] of lines.entries()) {
       // A rule name inside a comment is documentation, not configuration.
       if (/^\s*(\/\/|\*|\/\*)/.test(line)) continue;
-      if (rule.re.test(line)) violations.push({ kind: 'forbidden', rule, file, line: i + 1, text: line.trim() });
+      if (rule.re.test(line))
+        violations.push({ kind: 'forbidden', rule, file, line: i + 1, text: line.trim() });
     }
   }
 }
@@ -137,7 +152,9 @@ for (const rule of [...REQUIRED, ...NAV_GUARDS]) {
   if (!rule.re.test(joined)) missing.push(rule);
 }
 
-console.log(`Electron hardening lock — ${sources.length} source files, ${mainSources.length} in main/`);
+console.log(
+  `Electron hardening lock — ${sources.length} source files, ${mainSources.length} in main/`,
+);
 console.log('');
 
 if (violations.length === 0 && missing.length === 0) {

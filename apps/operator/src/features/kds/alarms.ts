@@ -19,7 +19,10 @@ export interface AlarmConfig {
   repeatMs: number;
 }
 export const KDS_ALARM_CONFIG: AlarmConfig = { staleSecs: STALE_SECS, repeatMs: STALE_REPEAT_MS };
-export const CALL_ALARM_CONFIG: AlarmConfig = { staleSecs: CALL_STALE_SECS, repeatMs: CALL_REPEAT_MS };
+export const CALL_ALARM_CONFIG: AlarmConfig = {
+  staleSecs: CALL_STALE_SECS,
+  repeatMs: CALL_REPEAT_MS,
+};
 
 /** Minimal shape both tickets and waiter calls satisfy. */
 export interface AlarmSubject {
@@ -44,7 +47,11 @@ export type Effect =
 
 export const initialAlarmState: AlarmState = { stale: new Set(), unseen: 0 };
 
-export function isStale(s: AlarmSubject, nowMs: number, cfg: AlarmConfig = KDS_ALARM_CONFIG): boolean {
+export function isStale(
+  s: AlarmSubject,
+  nowMs: number,
+  cfg: AlarmConfig = KDS_ALARM_CONFIG,
+): boolean {
   return s.pending && (nowMs - s.createdMs) / 1000 >= cfg.staleSecs;
 }
 
@@ -81,7 +88,10 @@ export function reconcile(
 }
 
 /** A new item arrived over broadcast. Always chimes; counts as unseen when the window is not visible/focused. */
-export function onCreated(prev: AlarmState, visible: boolean): { next: AlarmState; effects: Effect[] } {
+export function onCreated(
+  prev: AlarmState,
+  visible: boolean,
+): { next: AlarmState; effects: Effect[] } {
   return {
     next: visible ? prev : { ...prev, unseen: prev.unseen + 1 },
     effects: [{ type: 'chime' }],

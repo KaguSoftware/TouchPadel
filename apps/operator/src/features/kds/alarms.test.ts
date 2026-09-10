@@ -59,8 +59,12 @@ describe('reconcile', () => {
   });
 
   it('is parameterised for waiter calls (5 min / 60 s)', () => {
-    expect(reconcile([sub('c', 299)], T0, initialAlarmState, CALL_ALARM_CONFIG).next.stale.size).toBe(0);
-    expect(reconcile([sub('c', 300)], T0, initialAlarmState, CALL_ALARM_CONFIG).next.stale.size).toBe(1);
+    expect(
+      reconcile([sub('c', 299)], T0, initialAlarmState, CALL_ALARM_CONFIG).next.stale.size,
+    ).toBe(0);
+    expect(
+      reconcile([sub('c', 300)], T0, initialAlarmState, CALL_ALARM_CONFIG).next.stale.size,
+    ).toBe(1);
     expect(CALL_ALARM_CONFIG.repeatMs).toBe(60_000);
   });
 });

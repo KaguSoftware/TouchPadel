@@ -52,7 +52,10 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
 
   afterAll(async () => {
     if (madeReservations.length > 0) {
-      await svc.from('notification_outbox').delete().in('payload->>reservation_id', madeReservations);
+      await svc
+        .from('notification_outbox')
+        .delete()
+        .in('payload->>reservation_id', madeReservations);
       await svc.from('reservations').delete().in('id', madeReservations);
     }
     if (madeProfiles.length > 0) {
@@ -72,7 +75,10 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
     const { data: me } = await guest.auth.getUser();
     const guestId = me.user!.id;
     madeProfiles.push(guestId);
-    await svc.from('profiles').update({ expo_push_token: `ExponentPushToken[t-${tag}]` }).eq('id', guestId);
+    await svc
+      .from('profiles')
+      .update({ expo_push_token: `ExponentPushToken[t-${tag}]` })
+      .eq('id', guestId);
 
     // futureSlot() walks forward day by day, so every booking here is well
     // over 3 hours out and confirm_booking always schedules a reminder — which
@@ -94,7 +100,10 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
   }
 
   const outboxOf = async (id: string, kind?: string) => {
-    let q = svc.from('notification_outbox').select('kind, sent_at').eq('payload->>reservation_id', id);
+    let q = svc
+      .from('notification_outbox')
+      .select('kind, sent_at')
+      .eq('payload->>reservation_id', id);
     if (kind) q = q.eq('kind', kind);
     const { data } = await q;
     return (data ?? []) as { kind: string; sent_at: string | null }[];
@@ -186,7 +195,11 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
     // confirm_booking scheduled it, because the slot is more than 3h out.
     expect((await outboxOf(b.id, 'booking_reminder')).length).toBe(1);
 
-    await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'no_show', p_reason: 'guest_no_show' });
+    await appRpc(desk, 'mark_reservation', {
+      p_reservation_id: b.id,
+      p_status: 'no_show',
+      p_reason: 'guest_no_show',
+    });
 
     const reminders = await outboxOf(b.id, 'booking_reminder');
     expect(reminders.filter((r) => r.sent_at === null)).toEqual([]);
@@ -194,7 +207,11 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
 
   it('tells the guest, so the booking does not just change meaning on their phone', async () => {
     const b = await started(await confirmedBooking('ns-push'));
-    await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'no_show', p_reason: 'guest_no_show' });
+    await appRpc(desk, 'mark_reservation', {
+      p_reservation_id: b.id,
+      p_status: 'no_show',
+      p_reason: 'guest_no_show',
+    });
 
     const notices = await outboxOf(b.id, 'booking_no_show');
     expect(notices.length).toBe(1);
@@ -203,7 +220,11 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
 
   it('frees the slot the moment it is marked', async () => {
     const b = await started(await confirmedBooking('ns-slot'));
-    await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'no_show', p_reason: 'guest_no_show' });
+    await appRpc(desk, 'mark_reservation', {
+      p_reservation_id: b.id,
+      p_status: 'no_show',
+      p_reason: 'guest_no_show',
+    });
 
     // The desk rebooks the same court and time immediately: a no-show that
     // still held the exclusion range would raise here.
@@ -226,7 +247,11 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
 
   it('completed also ends the booking, but explains nothing — there is nothing to explain', async () => {
     const b = await started(await confirmedBooking('ns-completed'));
-    await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'completed', p_reason: 'staff_op' });
+    await appRpc(desk, 'mark_reservation', {
+      p_reservation_id: b.id,
+      p_status: 'completed',
+      p_reason: 'staff_op',
+    });
 
     const after = await rowOf(b.id);
     expect(after.status).toBe('completed');
@@ -238,7 +263,11 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
 
   it('arrived is not an ending and stamps nothing', async () => {
     const b = await confirmedBooking('ns-arrived');
-    await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'arrived', p_reason: 'staff_op' });
+    await appRpc(desk, 'mark_reservation', {
+      p_reservation_id: b.id,
+      p_status: 'arrived',
+      p_reason: 'staff_op',
+    });
 
     const after = await rowOf(b.id);
     expect(after.status).toBe('arrived');
@@ -249,10 +278,18 @@ describe.skipIf(!up)('0075 no-show terminates the booking', () => {
 
   it('a no-show cannot be marked twice, and the transition set is unchanged', async () => {
     const b = await started(await confirmedBooking('ns-twice'));
-    await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'no_show', p_reason: 'guest_no_show' });
+    await appRpc(desk, 'mark_reservation', {
+      p_reservation_id: b.id,
+      p_status: 'no_show',
+      p_reason: 'guest_no_show',
+    });
 
     const again = outcome(
-      await appRpc(desk, 'mark_reservation', { p_reservation_id: b.id, p_status: 'no_show', p_reason: 'guest_no_show' }),
+      await appRpc(desk, 'mark_reservation', {
+        p_reservation_id: b.id,
+        p_status: 'no_show',
+        p_reason: 'guest_no_show',
+      }),
     );
     expect(again.errorMessage).toContain('INVALID_TRANSITION');
 

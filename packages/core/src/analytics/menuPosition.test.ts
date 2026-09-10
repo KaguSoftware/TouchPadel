@@ -42,7 +42,12 @@ describe('spearmanP', () => {
   });
 });
 
-const snapshot = (id: string, categoryId: string, sortOrder: number, priceIqd = 5000): MenuSnapshotItem => ({
+const snapshot = (
+  id: string,
+  categoryId: string,
+  sortOrder: number,
+  priceIqd = 5000,
+): MenuSnapshotItem => ({
   id,
   nameEn: id,
   nameAr: id,
@@ -76,11 +81,21 @@ describe('buildMenuSlots', () => {
 describe('analyzeMenuPosition', () => {
   const asOf = '2026-09-14';
   // 10 coffees in slot order; sales decline neatly with slot (with one tie).
-  const coffee = Array.from({ length: 10 }, (_, i) => snapshot(`c${i + 1}`, 'coffee', (i + 1) * 10));
-  const coffeeSales = coffee.map((c, i) => ({ id: c.id, qty: [90, 80, 70, 60, 50, 40, 40, 20, 10, 5][i]!, revenueIqd: 5000 * [90, 80, 70, 60, 50, 40, 40, 20, 10, 5][i]! }));
+  const coffee = Array.from({ length: 10 }, (_, i) =>
+    snapshot(`c${i + 1}`, 'coffee', (i + 1) * 10),
+  );
+  const coffeeSales = coffee.map((c, i) => ({
+    id: c.id,
+    qty: [90, 80, 70, 60, 50, 40, 40, 20, 10, 5][i]!,
+    revenueIqd: 5000 * [90, 80, 70, 60, 50, 40, 40, 20, 10, 5][i]!,
+  }));
 
   it('reports no data below the pooled minimum', () => {
-    const r = analyzeMenuPosition(buildMenuSlots(coffee.slice(0, 5)), coffeeSales.slice(0, 5), asOf);
+    const r = analyzeMenuPosition(
+      buildMenuSlots(coffee.slice(0, 5)),
+      coffeeSales.slice(0, 5),
+      asOf,
+    );
     expect(r.hasData).toBe(false);
     expect(r.positionAsOf).toBe(asOf);
     expect(r.coverage.matchedItems).toBe(5);
@@ -101,7 +116,13 @@ describe('analyzeMenuPosition', () => {
     expect(cat.items[0]!.vsCategoryMedian).toBeCloseTo(90 / 45);
     expect(r.direction).toBe('top-sells');
     expect(r.significant).toBe(true);
-    expect(r.coverage).toMatchObject({ matchedItems: 10, soldItems: 10, usableCategories: 1, revenueRatio: 1, reliable: true });
+    expect(r.coverage).toMatchObject({
+      matchedItems: 10,
+      soldItems: 10,
+      usableCategories: 1,
+      revenueRatio: 1,
+      reliable: true,
+    });
     expect(r.buriedWinners).toEqual([]);
     expect(r.squatters).toEqual([]);
   });
@@ -117,8 +138,21 @@ describe('analyzeMenuPosition', () => {
   });
 
   it('leaves unmatched menu items out and small categories un-correlated', () => {
-    const slots = buildMenuSlots([...coffee, snapshot('f1', 'food', 1), snapshot('f2', 'food', 2), snapshot('f3', 'food', 3)]);
-    const r = analyzeMenuPosition(slots, [...coffeeSales, { id: 'f1', qty: 9, revenueIqd: 45000 }, { id: 'f2', qty: 3, revenueIqd: 15000 }], asOf);
+    const slots = buildMenuSlots([
+      ...coffee,
+      snapshot('f1', 'food', 1),
+      snapshot('f2', 'food', 2),
+      snapshot('f3', 'food', 3),
+    ]);
+    const r = analyzeMenuPosition(
+      slots,
+      [
+        ...coffeeSales,
+        { id: 'f1', qty: 9, revenueIqd: 45000 },
+        { id: 'f2', qty: 3, revenueIqd: 15000 },
+      ],
+      asOf,
+    );
     expect(r.coverage.matchedItems).toBe(12);
     expect(r.coverage.usableCategories).toBe(1); // food has 2 matched items < 4
     expect(r.categories[0]!.categoryId).toBe('coffee');

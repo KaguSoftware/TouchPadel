@@ -26,7 +26,11 @@ function intlLocale(locale: Locale): string {
  */
 const dtfCache = new Map<string, Intl.DateTimeFormat>();
 
-function dtf(locale: Locale, timeZone: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+function dtf(
+  locale: Locale,
+  timeZone: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
   const key = `${locale}|${timeZone}|${JSON.stringify(options)}`;
   let f = dtfCache.get(key);
   if (!f) {
@@ -71,7 +75,11 @@ export function formatTimeRange(
 }
 
 /** Short weekday for the day strip: "Tue" / "ثلاثاء". */
-export function formatWeekdayShort(date: Date, locale: Locale, timeZone: string = VENUE_TZ): string {
+export function formatWeekdayShort(
+  date: Date,
+  locale: Locale,
+  timeZone: string = VENUE_TZ,
+): string {
   return dtf(locale, timeZone, { weekday: 'short' }).format(date);
 }
 
@@ -116,7 +124,10 @@ export function formatIQD(amount: number, locale: Locale): string {
   if (typeof fmt.formatToParts !== 'function') return `${formatNumber(amount, locale)} IQD`;
   try {
     const parts = fmt.formatToParts(amount);
-    const currency = parts.filter((p) => p.type === 'currency').map((p) => p.value).join('');
+    const currency = parts
+      .filter((p) => p.type === 'currency')
+      .map((p) => p.value)
+      .join('');
     const number = parts
       .filter((p) => p.type !== 'currency' && p.type !== 'literal')
       .map((p) => p.value)

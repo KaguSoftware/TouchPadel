@@ -73,7 +73,10 @@ export type PatternsInput = {
   /** From `buildPriceBands`; omit when engagement data is absent. */
   priceBands?: readonly PriceBandSales[];
   /** Views → real sales for discounted vs full-price items; omit when unknown. */
-  discount?: { discounted: { views: number; sold: number }; regular: { views: number; sold: number } } | null;
+  discount?: {
+    discounted: { views: number; sold: number };
+    regular: { views: number; sold: number };
+  } | null;
   /** Two (or more) menu-language audiences; the two largest are compared. */
   locales?: readonly LocaleAudience[];
   /** Only items WITH a cost; an empty/absent map mines no margin patterns. */
@@ -101,15 +104,48 @@ export type PatternsCopy = {
     coMoveTogether: (a: string, b: string, corr: number, days: number) => string;
     coMoveInverse: (a: string, b: string, corr: number, days: number) => string;
     basket: (a: string, b: string, confidencePct: number, lift: number, count: number) => string;
-    weekdaySkew: (item: string, weekday: string, itemDayPct: number, houseDayPct: number, index: number, days: number) => string;
-    priceCliff: (bestBand: string, bestPerView: number, worstBand: string, worstPerView: number) => string;
+    weekdaySkew: (
+      item: string,
+      weekday: string,
+      itemDayPct: number,
+      houseDayPct: number,
+      index: number,
+      days: number,
+    ) => string;
+    priceCliff: (
+      bestBand: string,
+      bestPerView: number,
+      worstBand: string,
+      worstPerView: number,
+    ) => string;
     discountLift: (discountedPct: number, regularPct: number) => string;
     discountNoLift: (discountedPct: number, regularPct: number) => string;
-    localeSplit: (aLabel: string, aItem: string, aPct: number, bLabel: string, bItem: string, bPct: number) => string;
+    localeSplit: (
+      aLabel: string,
+      aItem: string,
+      aPct: number,
+      bLabel: string,
+      bItem: string,
+      bPct: number,
+    ) => string;
     marginUp: (earlyPct: number, latePct: number, days: number, driver: string | null) => string;
     marginDown: (earlyPct: number, latePct: number, days: number, driver: string | null) => string;
-    marginWeekdayBusiest: (worstDay: string, worstPct: number, bestDay: string, bestPct: number, worstDays: number) => string;
-    marginWeekday: (worstDay: string, worstPct: number, bestDay: string, bestPct: number, worstDays: number, bestDays: number, gap: number) => string;
+    marginWeekdayBusiest: (
+      worstDay: string,
+      worstPct: number,
+      bestDay: string,
+      bestPct: number,
+      worstDays: number,
+    ) => string;
+    marginWeekday: (
+      worstDay: string,
+      worstPct: number,
+      bestDay: string,
+      bestPct: number,
+      worstDays: number,
+      bestDays: number,
+      gap: number,
+    ) => string;
   };
 };
 
@@ -120,7 +156,9 @@ export const DEFAULT_PATTERNS_COPY_EN: PatternsCopy = {
   locale: 'en',
   weekday: (d) => EN_WEEKDAYS[d] ?? String(d),
   bandLabel: (b) =>
-    b.maxIqd === null ? `${enNum.format(b.minIqd)}+ IQD` : `${enNum.format(b.minIqd)}–${enNum.format(b.maxIqd - 1)} IQD`,
+    b.maxIqd === null
+      ? `${enNum.format(b.minIqd)}+ IQD`
+      : `${enNum.format(b.minIqd)}–${enNum.format(b.maxIqd - 1)} IQD`,
   localeLabel: (l) => (l === 'ar' ? 'Arabic' : l === 'en' ? 'English' : l),
   discountSubject: 'Discounts',
   marginSubject: 'Gross margin',
@@ -193,9 +231,42 @@ type Thresholds = {
  * looser floors. Every level keeps a real significance floor — loosening never means inventing.
  */
 const LEVELS: readonly Thresholds[] = [
-  { minDays: 8, minItemDays: 4, minItemQty: 12, minShareCorr: 0.55, minBasketSupport: 5, minLift: 1.6, minWeekdayQty: 8, minWeekdayIndex: 1.7, minWeekdayDays: 5, minSegmentViews: 30 },
-  { minDays: 6, minItemDays: 3, minItemQty: 8, minShareCorr: 0.5, minBasketSupport: 4, minLift: 1.45, minWeekdayQty: 6, minWeekdayIndex: 1.55, minWeekdayDays: 3, minSegmentViews: 20 },
-  { minDays: 5, minItemDays: 3, minItemQty: 6, minShareCorr: 0.45, minBasketSupport: 3, minLift: 1.35, minWeekdayQty: 5, minWeekdayIndex: 1.45, minWeekdayDays: 2, minSegmentViews: 14 },
+  {
+    minDays: 8,
+    minItemDays: 4,
+    minItemQty: 12,
+    minShareCorr: 0.55,
+    minBasketSupport: 5,
+    minLift: 1.6,
+    minWeekdayQty: 8,
+    minWeekdayIndex: 1.7,
+    minWeekdayDays: 5,
+    minSegmentViews: 30,
+  },
+  {
+    minDays: 6,
+    minItemDays: 3,
+    minItemQty: 8,
+    minShareCorr: 0.5,
+    minBasketSupport: 4,
+    minLift: 1.45,
+    minWeekdayQty: 6,
+    minWeekdayIndex: 1.55,
+    minWeekdayDays: 3,
+    minSegmentViews: 20,
+  },
+  {
+    minDays: 5,
+    minItemDays: 3,
+    minItemQty: 6,
+    minShareCorr: 0.45,
+    minBasketSupport: 3,
+    minLift: 1.35,
+    minWeekdayQty: 5,
+    minWeekdayIndex: 1.45,
+    minWeekdayDays: 2,
+    minSegmentViews: 14,
+  },
 ];
 
 export const MAX_PATTERN_LEVEL = LEVELS.length;
@@ -251,14 +322,16 @@ export function pearson(xs: readonly number[], ys: readonly number[]): number {
     sxx += dx * dx;
     syy += dy * dy;
   }
-  const noise = (ss: number, mean: number) => ss <= n * (1e-9 * Math.max(Math.abs(mean), 1e-9)) ** 2;
+  const noise = (ss: number, mean: number) =>
+    ss <= n * (1e-9 * Math.max(Math.abs(mean), 1e-9)) ** 2;
   if (noise(sxx, mx) || noise(syy, my)) return 0;
   return Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy)));
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const pct = (n: number) => Math.round(n * 100);
-const idKey = (kind: PatternKind, parts: readonly string[]) => `${kind}:${[...parts].sort().join('|')}`;
+const idKey = (kind: PatternKind, parts: readonly string[]) =>
+  `${kind}:${[...parts].sort().join('|')}`;
 
 type Ctx = {
   t: Thresholds;
@@ -268,7 +341,11 @@ type Ctx = {
 
 // ---------- family 1: item co-movement (busy-day-controlled) ----------
 
-function mineCoMovement(sold: readonly SoldByDayRow[], recordedDays: readonly string[], c: Ctx): PatternCandidate[] {
+function mineCoMovement(
+  sold: readonly SoldByDayRow[],
+  recordedDays: readonly string[],
+  c: Ctx,
+): PatternCandidate[] {
   const { t, copy } = c;
   if (recordedDays.length < t.minDays) return [];
   const dayIndex = new Map(recordedDays.map((d, i) => [d, i] as const));
@@ -293,7 +370,9 @@ function mineCoMovement(sold: readonly SoldByDayRow[], recordedDays: readonly st
   }
 
   const items = [...qtyByItem.keys()]
-    .filter((id) => (daysActive.get(id) ?? 0) >= t.minItemDays && (totalQty.get(id) ?? 0) >= t.minItemQty)
+    .filter(
+      (id) => (daysActive.get(id) ?? 0) >= t.minItemDays && (totalQty.get(id) ?? 0) >= t.minItemQty,
+    )
     .sort();
   const shareByItem = new Map<string, number[]>();
   for (const id of items) {
@@ -350,7 +429,11 @@ function mineCoMovement(sold: readonly SoldByDayRow[], recordedDays: readonly st
 
 // ---------- family 2: market-basket lift ----------
 
-function mineBasketLift(baskets: readonly (readonly string[])[], keep: (id: string) => boolean, c: Ctx): PatternCandidate[] {
+function mineBasketLift(
+  baskets: readonly (readonly string[])[],
+  keep: (id: string) => boolean,
+  c: Ctx,
+): PatternCandidate[] {
   const { t, copy } = c;
   const tally = tallyBaskets(baskets, keep);
   if (tally.orders < 4) return [];
@@ -370,9 +453,17 @@ function mineBasketLift(baskets: readonly (readonly string[])[], keep: (id: stri
       kind: 'basket',
       subjects: [an, bn],
       subjectIds: [a, b],
-      metrics: { lift: round1(lift), support: p.count, confidencePct: pct(confidence), orders: tally.orders },
+      metrics: {
+        lift: round1(lift),
+        support: p.count,
+        confidencePct: pct(confidence),
+        orders: tally.orders,
+      },
       sampleSize: p.count,
-      confidence: weakest(tier(p.count, ...SAMPLE_TIERS.basketSupport), tier(tally.orders, ...SAMPLE_TIERS.basketOrders)),
+      confidence: weakest(
+        tier(p.count, ...SAMPLE_TIERS.basketSupport),
+        tier(tally.orders, ...SAMPLE_TIERS.basketOrders),
+      ),
       sampleLabel: copy.sample.coOrders(p.count, tally.orders),
       strength,
       score: strength * Math.log2(p.count + 2),
@@ -392,7 +483,11 @@ function mineBasketLift(baskets: readonly (readonly string[])[], keep: (id: stri
  * Items that sell disproportionately on a weekday RELATIVE TO the house's own weekday rhythm —
  * otherwise every item "over-indexes" on the busiest day just because that day is busy.
  */
-function mineWeekdaySkew(sold: readonly SoldByDayRow[], recordedDays: readonly string[], c: Ctx): PatternCandidate[] {
+function mineWeekdaySkew(
+  sold: readonly SoldByDayRow[],
+  recordedDays: readonly string[],
+  c: Ctx,
+): PatternCandidate[] {
   const { t, copy } = c;
   const weekdayCount = new Array<number>(7).fill(0);
   for (const d of recordedDays) weekdayCount[dayOfWeekOfDate(d)]! += 1;
@@ -450,7 +545,14 @@ function mineWeekdaySkew(sold: readonly SoldByDayRow[], recordedDays: readonly s
           `${rec.total} units sell on ${EN_WEEKDAYS[wd]}, vs ${pct(baselineShare)}% of ALL sales on that day — ` +
           `${round1(index)}× the house level (${weekdayCount[wd]} such days). The busy-day effect is already ` +
           `removed by baselining against the house weekday mix.`,
-        fallbackText: copy.fallback.weekdaySkew(name, wdName, pct(observedShare), pct(baselineShare), round1(index), weekdayCount[wd]!),
+        fallbackText: copy.fallback.weekdaySkew(
+          name,
+          wdName,
+          pct(observedShare),
+          pct(baselineShare),
+          round1(index),
+          weekdayCount[wd]!,
+        ),
       });
     }
   }
@@ -459,7 +561,11 @@ function mineWeekdaySkew(sold: readonly SoldByDayRow[], recordedDays: readonly s
 
 // ---------- family 4: segment skews (price band / discount / locale) ----------
 
-function mineSegmentSkews(input: PatternsInput, keep: (id: string) => boolean, c: Ctx): PatternCandidate[] {
+function mineSegmentSkews(
+  input: PatternsInput,
+  keep: (id: string) => boolean,
+  c: Ctx,
+): PatternCandidate[] {
   const { t, copy } = c;
   const out: PatternCandidate[] = [];
   const conv = (v: { views: number; sold: number }) => (v.views > 0 ? v.sold / v.views : 0);
@@ -502,7 +608,12 @@ function mineSegmentSkews(input: PatternsInput, keep: (id: string) => boolean, c
           `"${worstLabel}" sells ${round1(conv(worst))} (${worst.sold} sold, ${worst.views} views). Views are QR ` +
           `sessions that opened the item, sold is every unit including guests who never scanned; a value above 1× ` +
           `means the band is ordered WITHOUT being browsed. Phrase it as "N sales per view" or "N×", never "N%".`,
-        fallbackText: copy.fallback.priceCliff(bestLabel, round1(conv(best)), worstLabel, round1(conv(worst))),
+        fallbackText: copy.fallback.priceCliff(
+          bestLabel,
+          round1(conv(best)),
+          worstLabel,
+          round1(conv(worst)),
+        ),
       });
     }
   }
@@ -510,14 +621,23 @@ function mineSegmentSkews(input: PatternsInput, keep: (id: string) => boolean, c
   // Discount lift: does a discount actually SELL more?
   const disc = input.discount?.discounted;
   const reg = input.discount?.regular;
-  if (disc && reg && disc.views >= t.minSegmentViews && reg.views >= t.minSegmentViews && disc.sold + reg.sold > 0) {
+  if (
+    disc &&
+    reg &&
+    disc.views >= t.minSegmentViews &&
+    reg.views >= t.minSegmentViews &&
+    disc.sold + reg.sold > 0
+  ) {
     const dc = conv(disc);
     const rc = conv(reg);
     const ratio = rc > 0 ? dc / rc : Infinity;
     if (ratio >= 1.4 || ratio <= 0.7) {
       const better = ratio >= 1.4;
       const sample = disc.views + reg.views;
-      const strength = Math.min(1, Math.abs(Math.log2(Number.isFinite(ratio) && ratio > 0 ? ratio : 2)));
+      const strength = Math.min(
+        1,
+        Math.abs(Math.log2(Number.isFinite(ratio) && ratio > 0 ? ratio : 2)),
+      );
       out.push({
         id: idKey('segment', ['discount']),
         kind: 'segment',
@@ -539,7 +659,9 @@ function mineSegmentSkews(input: PatternsInput, keep: (id: string) => boolean, c
           `Discounted items turn ${pct(dc)}% of views into real SALES (${disc.sold} sold on ${disc.views} views) vs ` +
           `${pct(rc)}% for full-price (${reg.sold} sold on ${reg.views} views) — discounts ` +
           `${better ? 'clearly lift' : 'do NOT lift (and may hurt)'} actual sales.`,
-        fallbackText: better ? copy.fallback.discountLift(pct(dc), pct(rc)) : copy.fallback.discountNoLift(pct(dc), pct(rc)),
+        fallbackText: better
+          ? copy.fallback.discountLift(pct(dc), pct(rc))
+          : copy.fallback.discountNoLift(pct(dc), pct(rc)),
       });
     }
   }
@@ -551,8 +673,12 @@ function mineSegmentSkews(input: PatternsInput, keep: (id: string) => boolean, c
   if (A && B && A.sessions >= MIN_LOCALE_SESSIONS && B.sessions >= MIN_LOCALE_SESSIONS) {
     const bTop = new Set(B.topItems.map((i) => i.id));
     const aTop = new Set(A.topItems.map((i) => i.id));
-    const onlyA = A.topItems.find((i) => keep(i.id) && i.rate >= MIN_LOCALE_RATE && !bTop.has(i.id));
-    const onlyB = B.topItems.find((i) => keep(i.id) && i.rate >= MIN_LOCALE_RATE && !aTop.has(i.id));
+    const onlyA = A.topItems.find(
+      (i) => keep(i.id) && i.rate >= MIN_LOCALE_RATE && !bTop.has(i.id),
+    );
+    const onlyB = B.topItems.find(
+      (i) => keep(i.id) && i.rate >= MIN_LOCALE_RATE && !aTop.has(i.id),
+    );
     if (onlyA && onlyB) {
       const strength = Math.min(1, (onlyA.rate + onlyB.rate) / 2 + 0.2);
       const sample = A.sessions + B.sessions;
@@ -624,7 +750,10 @@ function marginSeries(
     perDay.set(row.date, (perDay.get(row.date) ?? 0) + profit);
     profitByItemDay.set(row.id, perDay);
   }
-  return { days: [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date)), profitByItemDay };
+  return {
+    days: [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    profitByItemDay,
+  };
 }
 
 function mineMarginPatterns(
@@ -659,7 +788,9 @@ function mineMarginPatterns(
     const earlyDays = new Set(days.slice(0, mid).map((d) => d.date));
     let driver: string | null = null;
     let driverDelta = 0;
-    for (const [id, perDay] of [...profitByItemDay.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    for (const [id, perDay] of [...profitByItemDay.entries()].sort(([a], [b]) =>
+      a.localeCompare(b),
+    )) {
       let e = 0;
       let l = 0;
       for (const [date, profit] of perDay) {
@@ -698,7 +829,9 @@ function mineMarginPatterns(
         `Gross margin on the costed part of the menu moved from ${round1(early.pct)}% in the first half of the ` +
         `period to ${round1(late.pct)}% in the second (${round1(shift)} points over ${days.length} recorded days). ` +
         `Revenue is NOT the driver — this is the sales MIX rotating toward ${up ? 'higher' : 'lower'}-margin items.` +
-        (driverName ? ` Largest single mover: "${driverName}", ${pct(Math.abs(driverDelta))}% ${up ? 'more' : 'less'} of total profit.` : ''),
+        (driverName
+          ? ` Largest single mover: "${driverName}", ${pct(Math.abs(driverDelta))}% ${up ? 'more' : 'less'} of total profit.`
+          : ''),
       fallbackText: up
         ? copy.fallback.marginUp(round1(early.pct), round1(late.pct), days.length, driverName)
         : copy.fallback.marginDown(round1(early.pct), round1(late.pct), days.length, driverName),
@@ -725,7 +858,9 @@ function mineMarginPatterns(
     const worst = usable.reduce((m, x) => (rate(x) < rate(m) ? x : m));
     const gap = rate(best) - rate(worst);
     if (best[0] !== worst[0] && gap >= MIN_MARGIN_SHIFT_POINTS) {
-      const busiest = usable.reduce((m, x) => (x[1].revenue / x[1].days > m[1].revenue / m[1].days ? x : m));
+      const busiest = usable.reduce((m, x) =>
+        x[1].revenue / x[1].days > m[1].revenue / m[1].days ? x : m,
+      );
       const worstIsBusiest = busiest[0] === worst[0];
       const sample = Math.min(best[1].days, worst[1].days);
       const strength = Math.min(1, gap / 10);
@@ -755,8 +890,22 @@ function mineMarginPatterns(
           `(${worst[1].days} such days) — a ${round1(gap)}-point gap on the same menu.` +
           (worstIsBusiest ? ` The thin day is also the BUSIEST day by revenue.` : ''),
         fallbackText: worstIsBusiest
-          ? copy.fallback.marginWeekdayBusiest(worstName, round1(rate(worst)), bestName, round1(rate(best)), worst[1].days)
-          : copy.fallback.marginWeekday(worstName, round1(rate(worst)), bestName, round1(rate(best)), worst[1].days, best[1].days, round1(gap)),
+          ? copy.fallback.marginWeekdayBusiest(
+              worstName,
+              round1(rate(worst)),
+              bestName,
+              round1(rate(best)),
+              worst[1].days,
+            )
+          : copy.fallback.marginWeekday(
+              worstName,
+              round1(rate(worst)),
+              bestName,
+              round1(rate(best)),
+              worst[1].days,
+              best[1].days,
+              round1(gap),
+            ),
       });
     }
   }
@@ -802,6 +951,9 @@ export function minePatterns(
   const byId = new Map<string, PatternCandidate>();
   for (const cand of all) if (!byId.has(cand.id)) byId.set(cand.id, cand);
   return [...byId.values()].sort(
-    (a, b) => TIER_RANK[b.confidence] - TIER_RANK[a.confidence] || b.score - a.score || a.id.localeCompare(b.id),
+    (a, b) =>
+      TIER_RANK[b.confidence] - TIER_RANK[a.confidence] ||
+      b.score - a.score ||
+      a.id.localeCompare(b.id),
   );
 }

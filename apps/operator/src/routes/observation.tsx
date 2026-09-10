@@ -7,7 +7,10 @@ import { rootRoute, RequireRole } from './__root';
 import { RoutePending, guarded } from './admin/_shared';
 import { lazyRouteComponent } from '@tanstack/react-router';
 
-const ObservationHome = lazyRouteComponent(() => import('../features/observation/ObservationHome'), 'ObservationHomeScreen');
+const ObservationHome = lazyRouteComponent(
+  () => import('../features/observation/ObservationHome'),
+  'ObservationHomeScreen',
+);
 
 export const observationRoute = createRoute({
   getParentRoute: () => rootRoute,

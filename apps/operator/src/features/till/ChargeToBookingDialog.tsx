@@ -17,7 +17,11 @@ import { mutate } from '../../lib/mutate';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText, Modal } from '../../components/ui';
 import { AsyncStateWrapper, MessagePresenter, asyncStatus } from '../../components/kit';
-import { ReservationPicker, reservationOptionLabel, useTodaysOpenReservations } from './NewTabDialog';
+import {
+  ReservationPicker,
+  reservationOptionLabel,
+  useTodaysOpenReservations,
+} from './NewTabDialog';
 import { muted, reasonedFooter } from './tillStyles';
 
 export function ChargeToBookingDialog({
@@ -101,7 +105,12 @@ export function ChargeToBookingDialog({
         compact
         emptyContent={<p style={muted}>{tr('ws.cashier.charge.noBookings')}</p>}
       >
-        <ReservationPicker rows={rows} selectedId={selectedId} onSelect={setSelectedId} busy={busy} />
+        <ReservationPicker
+          rows={rows}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          busy={busy}
+        />
       </AsyncStateWrapper>
       {selected && (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-3)' }}>
@@ -115,7 +124,13 @@ export function ChargeToBookingDialog({
           <MessagePresenter tone="info" icon="info" message={tr('ws.cashier.charge.consequence')} />
         </div>
       )}
-      {partialFailure && <MessagePresenter tone="refused" style={{ marginBlockStart: 'var(--tp-sp-2)' }} message={tr('ws.cashier.charge.partialFailure')} />}
+      {partialFailure && (
+        <MessagePresenter
+          tone="refused"
+          style={{ marginBlockStart: 'var(--tp-sp-2)' }}
+          message={tr('ws.cashier.charge.partialFailure')}
+        />
+      )}
       <ErrorText error={error} />
     </Modal>
   );

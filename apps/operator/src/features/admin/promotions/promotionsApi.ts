@@ -47,8 +47,14 @@ const PROMOTION_COLUMNS =
 
 type LooseFrom = (table: string) => {
   select: (columns: string) => {
-    order: (column: string, opts?: { ascending?: boolean }) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
-    eq: (column: string, value: string) => { maybeSingle: () => PromiseLike<{ data: unknown; error: { message: string } | null }> };
+    order: (
+      column: string,
+      opts?: { ascending?: boolean },
+    ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+    eq: (
+      column: string,
+      value: string,
+    ) => { maybeSingle: () => PromiseLike<{ data: unknown; error: { message: string } | null }> };
   };
 };
 

@@ -13,7 +13,13 @@
  * e2e selectors kept: heading 'Desk calendar', buttons '‹' '›' 'Today' 'Day'
  * 'Week', block buttons named by guest name, closed-day text, time labels.
  */
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { tradingSpan, wallTimeToUtc, type DayKey } from '@touch/core';
@@ -100,11 +106,25 @@ export function DeskCalendar() {
   const [moveConflict, setMoveConflict] = useState<PendingMove | null>(null);
 
   const night = useTradingNight(date);
-  const { tz, settingsQ, courtsQ, reservationsQ, courts, openMin, rowCount, rows, dayStart, closed } = night;
+  const {
+    tz,
+    settingsQ,
+    courtsQ,
+    reservationsQ,
+    courts,
+    openMin,
+    rowCount,
+    rows,
+    dayStart,
+    closed,
+  } = night;
 
   // The week grid spans days with different hours: the widest trading night wins.
   const weekSpans = DAY_KEYS.map((k, i) =>
-    tradingSpan(settingsQ.data?.opening_hours?.[k] ?? [], settingsQ.data?.opening_hours?.[DAY_KEYS[(i + 1) % 7] as DayKey] ?? []),
+    tradingSpan(
+      settingsQ.data?.opening_hours?.[k] ?? [],
+      settingsQ.data?.opening_hours?.[DAY_KEYS[(i + 1) % 7] as DayKey] ?? [],
+    ),
   ).filter((sp) => sp.endMin > sp.startMin);
   const weekOpenMin = weekSpans.length ? Math.min(...weekSpans.map((sp) => sp.startMin)) : 0;
   const weekCloseMin = weekSpans.length ? Math.max(...weekSpans.map((sp) => sp.endMin)) : 0;
@@ -138,14 +158,22 @@ export function DeskCalendar() {
   });
 
   const now = Date.now();
-  const reservations = useMemo(() => night.reservations.filter((r) => isVisible(r, now)), [night.reservations, now]);
+  const reservations = useMemo(
+    () => night.reservations.filter((r) => isVisible(r, now)),
+    [night.reservations, now],
+  );
 
   function rowIndexOf(iso: string): number {
     const min = (new Date(iso).getTime() - dayStart.getTime()) / 60_000;
     return Math.floor((min - openMin) / SLOT_MIN);
   }
   function spanOf(r: ReservationRow): number {
-    return Math.max(1, Math.round((new Date(r.end_at).getTime() - new Date(r.start_at).getTime()) / 60_000 / SLOT_MIN));
+    return Math.max(
+      1,
+      Math.round(
+        (new Date(r.end_at).getTime() - new Date(r.start_at).getTime()) / 60_000 / SLOT_MIN,
+      ),
+    );
   }
 
   const dialogOpen = createAt !== null || selected !== null || pendingMove !== null;
@@ -158,7 +186,14 @@ export function DeskCalendar() {
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (
+        t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'SELECT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.isContentEditable)
+      )
+        return;
       const forward = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
       const backward = dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
       if (e.key === forward) {
@@ -193,7 +228,11 @@ export function DeskCalendar() {
       const start = dragStart.current;
       if (!start) return;
       if (!dragRef.current) {
-        if (Math.abs(e.clientX - start.x) < DRAG_THRESHOLD_PX && Math.abs(e.clientY - start.y) < DRAG_THRESHOLD_PX) return;
+        if (
+          Math.abs(e.clientX - start.x) < DRAG_THRESHOLD_PX &&
+          Math.abs(e.clientY - start.y) < DRAG_THRESHOLD_PX
+        )
+          return;
         suppressClick.current = true;
       }
       setDrag({ id: start.id, target: slotUnderPointer(e.clientX, e.clientY) });
@@ -208,7 +247,11 @@ export function DeskCalendar() {
       const r = reservations.find((x) => x.id === start.id);
       if (!target || !r) return;
       const startAt = wallTimeToUtc(date, target.min, tz);
-      if (target.courtId === r.court_id && startAt.toISOString() === new Date(r.start_at).toISOString()) return;
+      if (
+        target.courtId === r.court_id &&
+        startAt.toISOString() === new Date(r.start_at).toISOString()
+      )
+        return;
       setMoveError(null);
       setMoveConflict(null);
       setPendingMove({ reservation: r, courtId: target.courtId, startAt });
@@ -256,9 +299,20 @@ export function DeskCalendar() {
     }
   }
 
-  const courtName = (id: string) => pickName(locale, courts.find((c) => c.id === id));
+  const courtName = (id: string) =>
+    pickName(
+      locale,
+      courts.find((c) => c.id === id),
+    );
   const gridStatus = asyncStatus(courtsQ, (c) => c.length === 0);
-  const dayStatus = settingsQ.isError && !settingsQ.data ? 'error' : reservationsQ.isError && !reservationsQ.data ? 'error' : settingsQ.data && reservationsQ.data ? 'ready' : 'loading';
+  const dayStatus =
+    settingsQ.isError && !settingsQ.data
+      ? 'error'
+      : reservationsQ.isError && !reservationsQ.data
+        ? 'error'
+        : settingsQ.data && reservationsQ.data
+          ? 'ready'
+          : 'loading';
 
   return (
     /*
@@ -281,7 +335,11 @@ export function DeskCalendar() {
             <Link to="/desk/block" className="tp-btn" data-kind="default" data-size="md">
               <Icon name="ban" size={16} /> {tr('ws.courtDesk.calendar.block')}
             </Link>
-            <Button kind="ghost" icon="refresh" onClick={() => void queryClient.invalidateQueries({ queryKey: ['reservations'] })}>
+            <Button
+              kind="ghost"
+              icon="refresh"
+              onClick={() => void queryClient.invalidateQueries({ queryKey: ['reservations'] })}
+            >
               {tr('op.common.refresh')}
             </Button>
           </>
@@ -290,13 +348,26 @@ export function DeskCalendar() {
         <Toolbar
           style={{ marginBlockEnd: 0 }}
           end={
-            <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                gap: '0.4rem',
+                alignItems: 'center',
+                color: 'var(--tp-muted-fg)',
+                fontSize: 'var(--tp-fs-xs)',
+              }}
+            >
               <Kbd>←</Kbd>
-              <Kbd>→</Kbd> {tr('ws.courtDesk.calendar.keys')} · <Kbd>D</Kbd> {tr('ws.courtDesk.calendar.keyDay')} · <Kbd>W</Kbd> {tr('ws.courtDesk.calendar.keyWeek')}
+              <Kbd>→</Kbd> {tr('ws.courtDesk.calendar.keys')} · <Kbd>D</Kbd>{' '}
+              {tr('ws.courtDesk.calendar.keyDay')} · <Kbd>W</Kbd>{' '}
+              {tr('ws.courtDesk.calendar.keyWeek')}
             </span>
           }
         >
-          <Button onClick={() => setDate(shiftIsoDate(date, -step))} title={tr('ws.courtDesk.calendar.prev')}>
+          <Button
+            onClick={() => setDate(shiftIsoDate(date, -step))}
+            title={tr('ws.courtDesk.calendar.prev')}
+          >
             ‹
           </Button>
           <input
@@ -306,11 +377,20 @@ export function DeskCalendar() {
             onChange={(e) => e.target.value && setDate(e.target.value)}
             style={{ ...inputStyle, inlineSize: 'auto' }}
           />
-          <Button onClick={() => setDate(shiftIsoDate(date, step))} title={tr('ws.courtDesk.calendar.next')}>
+          <Button
+            onClick={() => setDate(shiftIsoDate(date, step))}
+            title={tr('ws.courtDesk.calendar.next')}
+          >
             ›
           </Button>
           <Button onClick={() => setDate(todayInTz(tz))}>{tr('common.today')}</Button>
-          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginInlineStart: '0.25rem' }}>
+          <span
+            style={{
+              color: 'var(--tp-muted-fg)',
+              fontSize: 'var(--tp-fs-sm)',
+              marginInlineStart: '0.25rem',
+            }}
+          >
             <bdi>{formatDate(new Date(`${date}T12:00:00Z`), locale, 'UTC')}</bdi>
           </span>
           <SegmentedControl<View>
@@ -333,13 +413,26 @@ export function DeskCalendar() {
         >
           <p style={{ fontSize: 'var(--tp-fs-sm)' }}>
             <bdi>{moveConflict.reservation.guest_name ?? tr('op.desk.walkIn')}</bdi> ·{' '}
-            {tr('ws.courtDesk.calendar.moveTo', { court: courtName(moveConflict.courtId), time: formatTime(moveConflict.startAt, locale, tz) })}
+            {tr('ws.courtDesk.calendar.moveTo', {
+              court: courtName(moveConflict.courtId),
+              time: formatTime(moveConflict.startAt, locale, tz),
+            })}
           </p>
         </ConflictNotice>
       )}
 
       {view === 'week' ? (
-        <AsyncStateWrapper status={weekQ.isError && !weekQ.data ? 'error' : weekQ.data && settingsQ.data ? 'ready' : 'loading'} error={weekQ.error} onRetry={() => void weekQ.refetch()}>
+        <AsyncStateWrapper
+          status={
+            weekQ.isError && !weekQ.data
+              ? 'error'
+              : weekQ.data && settingsQ.data
+                ? 'ready'
+                : 'loading'
+          }
+          error={weekQ.error}
+          onRetry={() => void weekQ.refetch()}
+        >
           <WeekGrid
             date={date}
             timeZone={tz}
@@ -364,9 +457,19 @@ export function DeskCalendar() {
             void reservationsQ.refetch();
           }}
           skeleton={
-            <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', gridTemplateColumns: '4.5rem repeat(3, 1fr)' }}>
+            <div
+              style={{
+                display: 'grid',
+                gap: 'var(--tp-sp-0)',
+                gridTemplateColumns: '4.5rem repeat(3, 1fr)',
+              }}
+            >
               {Array.from({ length: 24 }, (_, i) => (
-                <div key={i} className="tp-skel" style={{ blockSize: '2.4rem', borderRadius: 'var(--tp-radius-sm)' }} />
+                <div
+                  key={i}
+                  className="tp-skel"
+                  style={{ blockSize: '2.4rem', borderRadius: 'var(--tp-radius-sm)' }}
+                />
               ))}
             </div>
           }
@@ -385,16 +488,42 @@ export function DeskCalendar() {
                 }}
               >
                 {/* Above both sticky axes, or the time labels slide out from under it. */}
-                <div style={{ ...STICKY_HEAD, insetInlineStart: 0, zIndex: 'var(--tp-z-sticky)' }} />
+                <div
+                  style={{ ...STICKY_HEAD, insetInlineStart: 0, zIndex: 'var(--tp-z-sticky)' }}
+                />
                 {courts.map((c) => (
-                  <div key={c.id} style={{ ...STICKY_HEAD, fontWeight: 700, paddingBlock: 'var(--tp-sp-1)', textAlign: 'center', borderBlockEnd: '2px solid var(--tp-border)' }}>
+                  <div
+                    key={c.id}
+                    style={{
+                      ...STICKY_HEAD,
+                      fontWeight: 700,
+                      paddingBlock: 'var(--tp-sp-1)',
+                      textAlign: 'center',
+                      borderBlockEnd: '2px solid var(--tp-border)',
+                    }}
+                  >
                     {pickName(locale, c)}
                   </div>
                 ))}
 
-                <div style={{ ...STICKY_TIME, display: 'grid', gridTemplateRows: `repeat(${rowCount}, 2.4rem)`, rowGap: 'var(--tp-sp-0)' }}>
+                <div
+                  style={{
+                    ...STICKY_TIME,
+                    display: 'grid',
+                    gridTemplateRows: `repeat(${rowCount}, 2.4rem)`,
+                    rowGap: 'var(--tp-sp-0)',
+                  }}
+                >
                   {rows.map((min) => (
-                    <div key={min} style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums', paddingBlockStart: 'var(--tp-sp-0)' }}>
+                    <div
+                      key={min}
+                      style={{
+                        fontSize: 'var(--tp-fs-xs)',
+                        color: 'var(--tp-muted-fg)',
+                        fontVariantNumeric: 'tabular-nums',
+                        paddingBlockStart: 'var(--tp-sp-0)',
+                      }}
+                    >
                       {formatTime(wallTimeToUtc(date, min, tz), locale, tz)}
                     </div>
                   ))}
@@ -406,10 +535,19 @@ export function DeskCalendar() {
                   for (const r of courtRes) {
                     if (!BLOCKING_STATUSES.has(r.status)) continue;
                     const from = Math.max(0, rowIndexOf(r.start_at));
-                    for (let i = from; i < Math.min(rowCount, from + spanOf(r)); i++) blockedRows.add(i);
+                    for (let i = from; i < Math.min(rowCount, from + spanOf(r)); i++)
+                      blockedRows.add(i);
                   }
                   return (
-                    <div key={c.id} style={{ display: 'grid', gridTemplateRows: `repeat(${rowCount}, 2.4rem)`, rowGap: 'var(--tp-sp-0)', position: 'relative' }}>
+                    <div
+                      key={c.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateRows: `repeat(${rowCount}, 2.4rem)`,
+                        rowGap: 'var(--tp-sp-0)',
+                        position: 'relative',
+                      }}
+                    >
                       {rows.map((min, i) => {
                         const startAt = wallTimeToUtc(date, min, tz);
                         const past = startAt.getTime() < now;
@@ -419,7 +557,16 @@ export function DeskCalendar() {
                           'data-slot-min': min,
                         } as const;
                         if (blockedRows.has(i)) {
-                          return <div key={min} {...common} style={{ outline: isTarget ? '2px solid var(--tp-accent)' : undefined, borderRadius: 'var(--tp-radius-sm)' }} />;
+                          return (
+                            <div
+                              key={min}
+                              {...common}
+                              style={{
+                                outline: isTarget ? '2px solid var(--tp-accent)' : undefined,
+                                borderRadius: 'var(--tp-radius-sm)',
+                              }}
+                            />
+                          );
                         }
                         return (
                           <button
@@ -434,9 +581,15 @@ export function DeskCalendar() {
                             title={past ? tr('ws.courtDesk.calendar.pastSlot') : tr('op.desk.free')}
                             aria-label={`${pickName(locale, c)} ${formatTime(startAt, locale, tz)} · ${past ? tr('ws.courtDesk.calendar.pastSlot') : tr('ws.courtDesk.calendar.freeSlot')}`}
                             style={{
-                              border: isTarget ? '2px solid var(--tp-accent)' : '1px dashed var(--tp-border)',
+                              border: isTarget
+                                ? '2px solid var(--tp-accent)'
+                                : '1px dashed var(--tp-border)',
                               borderRadius: 'var(--tp-radius-sm)',
-                              background: isTarget ? 'var(--tp-accent-soft)' : past ? 'var(--tp-surface)' : 'var(--tp-bg)',
+                              background: isTarget
+                                ? 'var(--tp-accent-soft)'
+                                : past
+                                  ? 'var(--tp-surface)'
+                                  : 'var(--tp-bg)',
                               cursor: past ? 'default' : 'pointer',
                               opacity: past && !isTarget ? 'var(--tp-opacity-disabled)' : 1,
                               padding: 0,
@@ -450,7 +603,12 @@ export function DeskCalendar() {
                         const tone = reservationTone(r);
                         const dragging = drag?.id === r.id;
                         const draggable = r.kind === 'booking' && isLive(r.status);
-                        const name = r.kind === 'maintenance' ? (r.notes ?? tr('op.desk.maintenance')) : r.kind === 'hold' ? tr('op.desk.hold') : (r.guest_name ?? tr('op.desk.walkIn'));
+                        const name =
+                          r.kind === 'maintenance'
+                            ? (r.notes ?? tr('op.desk.maintenance'))
+                            : r.kind === 'hold'
+                              ? tr('op.desk.hold')
+                              : (r.guest_name ?? tr('op.desk.walkIn'));
                         return (
                           <button
                             key={r.id}
@@ -490,11 +648,32 @@ export function DeskCalendar() {
                               font: 'inherit',
                             }}
                           >
-                            <strong style={{ fontSize: 'var(--tp-fs-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <strong
+                              style={{
+                                fontSize: 'var(--tp-fs-sm)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
                               <bdi>{name}</bdi>
                             </strong>
-                            <span style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                              <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
+                            <span
+                              style={{
+                                display: 'flex',
+                                gap: '0.35rem',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {formatTimeRange(
+                                  new Date(r.start_at),
+                                  new Date(r.end_at),
+                                  locale,
+                                  tz,
+                                )}
+                              </bdi>
                               <ReservationBadge reservation={r} size="sm" />
                             </span>
                           </button>
@@ -551,7 +730,10 @@ export function DeskCalendar() {
               <bdi>{pendingMove.reservation.guest_name ?? tr('op.desk.walkIn')}</bdi>
             </strong>
             <br />
-            {tr('ws.courtDesk.calendar.moveTo', { court: courtName(pendingMove.courtId), time: formatTime(pendingMove.startAt, locale, tz) })}
+            {tr('ws.courtDesk.calendar.moveTo', {
+              court: courtName(pendingMove.courtId),
+              time: formatTime(pendingMove.startAt, locale, tz),
+            })}
           </p>
         </ReasonCodePrompt>
       )}

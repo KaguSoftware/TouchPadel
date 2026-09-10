@@ -71,9 +71,9 @@ describe('noSessionGate — signed-out only screens', () => {
 
   it('never bounces a guest, pending slot or not', () => {
     for (const hasPendingSlot of [true, false]) {
-      expect(
-        noSessionGate({ initializing: false, hasSession: false, hasPendingSlot }),
-      ).toBe('allow');
+      expect(noSessionGate({ initializing: false, hasSession: false, hasPendingSlot })).toBe(
+        'allow',
+      );
     }
   });
 });
@@ -123,9 +123,9 @@ describe('noSessionGate — where a bounced user actually lands', () => {
   it('defaults to the tabs when no profile state is supplied', () => {
     // An errored query maps to 'complete' at the call site: fail open, the
     // booking path re-checks the phone anyway.
-    expect(
-      noSessionGate({ initializing: false, hasSession: true, hasPendingSlot: false }),
-    ).toBe('redirect');
+    expect(noSessionGate({ initializing: false, hasSession: true, hasPendingSlot: false })).toBe(
+      'redirect',
+    );
   });
 
   it('still exempts a pending slot before consulting the profile', () => {

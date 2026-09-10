@@ -140,8 +140,7 @@ export function installNotificationHandler(opts: {
 
       const open = (response: ExpoNotifications.NotificationResponse | null) => {
         const data = response?.notification.request.content.data as
-          | { kind?: unknown; reservation_id?: unknown }
-          | undefined;
+          { kind?: unknown; reservation_id?: unknown } | undefined;
         addBreadcrumb('push.open', { kind: data?.kind });
         const id = data?.reservation_id;
         if (typeof id === 'string' && id) opts.onOpenReservation(id);

@@ -193,13 +193,25 @@ describe.skipIf(!up)('0077 delete_my_account', () => {
       await manager.auth.signOut();
 
       // Customer history, a push token, and a queued notification.
-      await svc.from('profiles').update({ expo_push_token: 'ExponentPushToken[del]' }).eq('id', uid);
+      await svc
+        .from('profiles')
+        .update({ expo_push_token: 'ExponentPushToken[del]' })
+        .eq('id', uid);
       await svc
         .from('customer_notes')
-        .insert({ customer_id: uid, body: 'asks for court 3', author_id: SEED_STAFF_IDS.court_desk });
+        .insert({
+          customer_id: uid,
+          body: 'asks for court 3',
+          author_id: SEED_STAFF_IDS.court_desk,
+        });
       await svc
         .from('customer_flags')
-        .insert({ customer_id: uid, type: 'vip', label: 'regular', created_by: SEED_STAFF_IDS.court_desk });
+        .insert({
+          customer_id: uid,
+          type: 'vip',
+          label: 'regular',
+          created_by: SEED_STAFF_IDS.court_desk,
+        });
       await svc.from('notification_outbox').insert({
         profile_id: uid,
         kind: 'reservation_reminder',
@@ -251,7 +263,7 @@ describe.skipIf(!up)('0077 delete_my_account', () => {
       };
       expect(row.full_name).toBe('Deleted account');
       expect(row.phone).toBeNull();
-      expect(row.expo_push_token).toBeNull();   // SEC-21: cleared on deletion
+      expect(row.expo_push_token).toBeNull(); // SEC-21: cleared on deletion
       expect(row.deleted_at).not.toBeNull();
     });
 
@@ -265,7 +277,7 @@ describe.skipIf(!up)('0077 delete_my_account', () => {
         .eq('id', reservationId)
         .single();
       const row = data as { guest_id: string; status: string; price_iqd: number | null };
-      expect(row.guest_id).toBe(uid);          // still parented by the tombstone
+      expect(row.guest_id).toBe(uid); // still parented by the tombstone
       expect(row.status).toBe('confirmed');
       expect(row.price_iqd).toBeGreaterThan(0);
     });
@@ -296,7 +308,10 @@ describe.skipIf(!up)('0077 delete_my_account', () => {
      * sessions to delete the guest would take the cafe's sales history too.
      */
     it('keeps the table session, so the cafe keeps its order history', async () => {
-      const { data } = await svc.from('guest_sessions').select('id, auth_user_id').eq('id', sessionId);
+      const { data } = await svc
+        .from('guest_sessions')
+        .select('id, auth_user_id')
+        .eq('id', sessionId);
       expect(data).toHaveLength(1);
     });
 
@@ -321,7 +336,11 @@ describe.skipIf(!up)('0077 delete_my_account', () => {
       };
       expect(row.actor_id).toBe(uid);
       expect(row.reason_code).toBe('guest_request');
-      expect(row.before).toEqual({ had_phone: true, had_push_token: true, created_at: expect.any(String) });
+      expect(row.before).toEqual({
+        had_phone: true,
+        had_push_token: true,
+        created_at: expect.any(String),
+      });
       expect(row.after.reservations_anonymised).toBe(1);
       expect(row.after.customer_notes_deleted).toBe(1);
       expect(row.after.apple_revoke_pending).toBe(false);
@@ -416,7 +435,7 @@ describe.skipIf(!up)('0077 delete_my_account', () => {
       expect(error!.message).toMatch(/permission denied/i);
     });
 
-    it('court_desk cannot read another guest\'s token', async () => {
+    it("court_desk cannot read another guest's token", async () => {
       const desk = await signedInClient(SEED_STAFF.court_desk);
       const { error } = await desk.from('profiles').select('id, expo_push_token');
       expect(error).not.toBeNull();
@@ -443,8 +462,14 @@ describe.skipIf(!up)('0077 delete_my_account', () => {
       expect((data as { id: string }).id).toBe(uid);
 
       // The service role (send-push) still reads it back.
-      const { data: svcRow } = await svc.from('profiles').select('expo_push_token').eq('id', uid).single();
-      expect((svcRow as { expo_push_token: string }).expo_push_token).toBe('ExponentPushToken[write]');
+      const { data: svcRow } = await svc
+        .from('profiles')
+        .select('expo_push_token')
+        .eq('id', uid)
+        .single();
+      expect((svcRow as { expo_push_token: string }).expo_push_token).toBe(
+        'ExponentPushToken[write]',
+      );
     });
   });
 

@@ -42,7 +42,7 @@ const LINK_DOMAIN = process.env.EXPO_PUBLIC_LINK_DOMAIN ?? 'touchpadel.invalid';
 if (process.env.EAS_BUILD === 'true' && !googleIosUrlScheme) {
   throw new Error(
     'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is unset or still a placeholder for this EAS profile — put the real ' +
-    'iOS OAuth client id (<project-number>-<hash>.apps.googleusercontent.com) in the eas.json env block',
+      'iOS OAuth client id (<project-number>-<hash>.apps.googleusercontent.com) in the eas.json env block',
   );
 }
 if (!googleIosUrlScheme) {

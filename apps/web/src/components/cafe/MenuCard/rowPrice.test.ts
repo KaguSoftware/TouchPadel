@@ -8,7 +8,12 @@ import { rowPrice, rowVariant } from './rowPrice';
  * operator-added second variant reopening the old price grid.
  */
 
-const variant = (name_en: string, price: number, sort: number, is_default = sort === 1): MenuVariant => ({
+const variant = (
+  name_en: string,
+  price: number,
+  sort: number,
+  is_default = sort === 1,
+): MenuVariant => ({
   id: `${name_en}-${price}`,
   name_en,
   name_ar: name_en,

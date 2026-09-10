@@ -129,7 +129,13 @@ export function WeekGrid({
               {/* A closed day is stated, not just empty: an empty column and a
                   shut venue look identical otherwise. */}
               {closed && (
-                <div style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 400, color: 'var(--tp-muted-fg)' }}>
+                <div
+                  style={{
+                    fontSize: 'var(--tp-fs-xs)',
+                    fontWeight: 400,
+                    color: 'var(--tp-muted-fg)',
+                  }}
+                >
                   {tr('op.hours.closedDay')}
                 </div>
               )}
@@ -248,14 +254,32 @@ function FragmentRow({
                     paddingInline: 'var(--tp-sp-1-5)',
                   }}
                 >
-                  <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <strong
+                    style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
                     <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>
                       {formatTime(new Date(r.start_at), locale, timeZone)}
                     </bdi>{' '}
                     <bdi>{name}</bdi>
                   </strong>
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-1)' }}>
-                    <bdi style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{court}</bdi>
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 'var(--tp-sp-1)',
+                    }}
+                  >
+                    <bdi
+                      style={{
+                        minInlineSize: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {court}
+                    </bdi>
                     <ReservationBadge reservation={r} size="sm" />
                   </span>
                 </button>

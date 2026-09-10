@@ -216,7 +216,18 @@ export function auditCsv(
   rows: readonly AuditRow[],
   names: ReadonlyMap<string, string>,
 ): { headers: string[]; rows: (string | number | null)[][] } {
-  const headers = [labels.when, labels.actor, labels.role, labels.authoriser, labels.action, labels.entity, labels.entityId, labels.reason, labels.device, labels.changes];
+  const headers = [
+    labels.when,
+    labels.actor,
+    labels.role,
+    labels.authoriser,
+    labels.action,
+    labels.entity,
+    labels.entityId,
+    labels.reason,
+    labels.device,
+    labels.changes,
+  ];
   const out = rows.map((r) => [
     r.at,
     actorLabel(r.actor_id, r.actor_role, names),

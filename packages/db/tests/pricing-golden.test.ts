@@ -84,7 +84,10 @@ describe.skipIf(!up)('golden pricing cases (shared with @touch/core)', () => {
       await svc
         .from('rate_rules')
         .delete()
-        .in('id', (stale as { id: string }[]).map((r) => r.id));
+        .in(
+          'id',
+          (stale as { id: string }[]).map((r) => r.id),
+        );
     }
 
     courtIdByRef.set('a', await createTestCourt(svc, 'GOLDEN-A'));

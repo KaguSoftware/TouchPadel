@@ -29,7 +29,6 @@ import {
   matrix,
   PRINCIPALS,
   type Principal,
-  type MatrixRule,
   type SelectRule,
   type WriteRule,
   type RpcRule,
@@ -45,7 +44,9 @@ function isPermissionDenied(error: PgError): boolean {
 function isGuarded(error: PgError): boolean {
   // SESSION_EXPIRED joins in drop 2: guest-session-bound RPCs refuse callers
   // without a live table session at the guard layer (0014 touch_guest_session).
-  return !!error && /(FORBIDDEN|AUTH_REQUIRED|ACCOUNT_REQUIRED|SESSION_EXPIRED)/.test(error.message);
+  return (
+    !!error && /(FORBIDDEN|AUTH_REQUIRED|ACCOUNT_REQUIRED|SESSION_EXPIRED)/.test(error.message)
+  );
 }
 
 /** update/delete need a PostgREST filter; harmless per-table primary-key filters. */
@@ -148,11 +149,7 @@ describe.skipIf(!up)('RLS role matrix (drops 1-7: the whole granted RPC surface 
   async function runRpc(rule: RpcRule, p: Principal): Promise<string | null> {
     const { error } = await appRpc(clients[p], rule.name, rule.args);
     const want = rule.expect[p];
-    const got = isPermissionDenied(error)
-      ? 'denied'
-      : isGuarded(error)
-        ? 'guarded'
-        : 'execute'; // ok, or a business-validation error past the guard layer
+    const got = isPermissionDenied(error) ? 'denied' : isGuarded(error) ? 'guarded' : 'execute'; // ok, or a business-validation error past the guard layer
     return got === want
       ? null
       : `rpc app.${rule.name} as ${p}: want ${want}, got ${got}` +
@@ -237,10 +234,7 @@ describe.skipIf(!up)('RLS role matrix (drops 1-7: the whole granted RPC surface 
     const resId = (held.data as { reservation_id: string }).reservation_id;
 
     // The holder sees their own row…
-    const own = await clients.guest_account
-      .from('reservations')
-      .select('id')
-      .eq('id', resId);
+    const own = await clients.guest_account.from('reservations').select('id').eq('id', resId);
     expect(own.error).toBeNull();
     expect(own.data).toHaveLength(1);
 

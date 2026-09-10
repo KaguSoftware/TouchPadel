@@ -33,10 +33,7 @@ export interface OnHandRow {
 }
 
 export async function fetchOnHand(): Promise<OnHandRow[]> {
-  const { data, error } = await supabase
-    .from('v_ingredient_on_hand')
-    .select('*')
-    .order('name_en');
+  const { data, error } = await supabase.from('v_ingredient_on_hand').select('*').order('name_en');
   if (error) throw error;
   return data as OnHandRow[];
 }
@@ -81,7 +78,9 @@ export const LEDGER_PAGE = 50;
 export async function fetchLedger(ingredientId: string, page = 0): Promise<MovementRow[]> {
   const { data, error } = await supabase
     .from('stock_movements')
-    .select('id, at, movement_type, qty_delta, unit_cost_iqd, reason_code, order_item_id, delivery_line_id, count_id')
+    .select(
+      'id, at, movement_type, qty_delta, unit_cost_iqd, reason_code, order_item_id, delivery_line_id, count_id',
+    )
     .eq('ingredient_id', ingredientId)
     .order('at', { ascending: false })
     .range(page * LEDGER_PAGE, (page + 1) * LEDGER_PAGE - 1);

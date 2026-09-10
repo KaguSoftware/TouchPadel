@@ -29,7 +29,16 @@ export function ChartCard({
   onRetry?: () => void;
 }) {
   return (
-    <CardShell title={title} state={state} note={note} actions={actions} emptyKey={emptyKey} error={error} onRetry={onRetry} skeletonLines={5}>
+    <CardShell
+      title={title}
+      state={state}
+      note={note}
+      actions={actions}
+      emptyKey={emptyKey}
+      error={error}
+      onRetry={onRetry}
+      skeletonLines={5}
+    >
       <div dir="ltr" style={{ blockSize: `${height}px`, inlineSize: '100%' }}>
         {children}
       </div>

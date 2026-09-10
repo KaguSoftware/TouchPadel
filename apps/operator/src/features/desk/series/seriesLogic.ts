@@ -4,7 +4,12 @@
  * shapes a draft into RPC arguments and tracks the desk's resolutions.
  */
 import { shiftIsoDate } from '../weekLogic';
-import type { SeriesOccurrence, SeriesOccurrencePreview, SeriesPattern, SeriesResolution } from '../deskTypes';
+import type {
+  SeriesOccurrence,
+  SeriesOccurrencePreview,
+  SeriesPattern,
+  SeriesResolution,
+} from '../deskTypes';
 
 export interface SeriesDraft {
   courtId: string;
@@ -84,8 +89,13 @@ export interface ResolutionMap {
 }
 
 /** Dates that clash and have no resolution yet — submission must stay disabled while any remain. */
-export function unresolvedDates(occurrences: readonly SeriesOccurrencePreview[], resolutions: ResolutionMap): string[] {
-  return occurrences.filter((o) => o.conflict !== null && resolutions[o.date] === undefined).map((o) => o.date);
+export function unresolvedDates(
+  occurrences: readonly SeriesOccurrencePreview[],
+  resolutions: ResolutionMap,
+): string[] {
+  return occurrences
+    .filter((o) => o.conflict !== null && resolutions[o.date] === undefined)
+    .map((o) => o.date);
 }
 
 export function conflictCount(occurrences: readonly SeriesOccurrencePreview[]): number {
@@ -93,7 +103,10 @@ export function conflictCount(occurrences: readonly SeriesOccurrencePreview[]): 
 }
 
 /** Resolutions as the RPC wants them, only for dates that still clash. */
-export function resolutionsForRpc(occurrences: readonly SeriesOccurrencePreview[], resolutions: ResolutionMap): SeriesResolution[] {
+export function resolutionsForRpc(
+  occurrences: readonly SeriesOccurrencePreview[],
+  resolutions: ResolutionMap,
+): SeriesResolution[] {
   return occurrences
     .filter((o) => o.conflict !== null)
     .map((o) => resolutions[o.date])
@@ -101,7 +114,10 @@ export function resolutionsForRpc(occurrences: readonly SeriesOccurrencePreview[
 }
 
 /** Drop resolutions for dates the new preview no longer lists as clashes. */
-export function pruneResolutions(occurrences: readonly SeriesOccurrencePreview[], resolutions: ResolutionMap): ResolutionMap {
+export function pruneResolutions(
+  occurrences: readonly SeriesOccurrencePreview[],
+  resolutions: ResolutionMap,
+): ResolutionMap {
   const clashing = new Set(occurrences.filter((o) => o.conflict !== null).map((o) => o.date));
   const next: ResolutionMap = {};
   for (const [date, r] of Object.entries(resolutions)) if (clashing.has(date)) next[date] = r;
@@ -122,7 +138,8 @@ export function summarizeOccurrences(occ: readonly SeriesOccurrence[]): Occurren
   let upcoming = 0;
   for (const o of occ) {
     if (o.played) played += 1;
-    else if (o.status === 'cancelled' || o.status === 'no_show' || o.status === 'expired') cancelled += 1;
+    else if (o.status === 'cancelled' || o.status === 'no_show' || o.status === 'expired')
+      cancelled += 1;
     else upcoming += 1;
   }
   return { total: occ.length, played, upcoming, cancelled };
@@ -130,11 +147,17 @@ export function summarizeOccurrences(occ: readonly SeriesOccurrence[]): Occurren
 
 /** A played occurrence is untouchable; so is one already cancelled. */
 export function occurrenceEditable(o: SeriesOccurrence): boolean {
-  return !o.played && (o.status === 'pending' || o.status === 'confirmed' || o.status === 'arrived');
+  return (
+    !o.played && (o.status === 'pending' || o.status === 'confirmed' || o.status === 'arrived')
+  );
 }
 
 /** How many occurrences a cancel with this scope would touch (never the played ones). */
-export function cancelScopeCount(occ: readonly SeriesOccurrence[], scope: 'future' | 'all', nowIso: string): number {
+export function cancelScopeCount(
+  occ: readonly SeriesOccurrence[],
+  scope: 'future' | 'all',
+  nowIso: string,
+): number {
   return occ.filter((o) => {
     if (!occurrenceEditable(o)) return false;
     if (scope === 'all') return true;

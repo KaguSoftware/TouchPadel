@@ -170,9 +170,9 @@ export async function ensureTestRateRule(svc: SupabaseClient): Promise<void> {
     .single();
   if (error) throw new Error(`ensureTestRateRule failed: ${error.message}`);
   const ruleId = (rule as { id: string }).id;
-  const { error: pErr } = await svc.from('rate_rule_prices').insert(
-    [60, 90, 120].map((d) => ({ rule_id: ruleId, duration_min: d, price_iqd: 40_000 })),
-  );
+  const { error: pErr } = await svc
+    .from('rate_rule_prices')
+    .insert([60, 90, 120].map((d) => ({ rule_id: ruleId, duration_min: d, price_iqd: 40_000 })));
   if (pErr) throw new Error(`ensureTestRateRule prices failed: ${pErr.message}`);
 }
 
@@ -301,7 +301,12 @@ export async function addModifierToItem(
   const n = cafeCounter++;
   const { data: grp, error: gErr } = await svc
     .from('modifier_groups')
-    .insert({ name_en: `Test Group ${n}`, name_ar: `مجموعة اختيارات ${n}`, min_select: 0, max_select: 2 })
+    .insert({
+      name_en: `Test Group ${n}`,
+      name_ar: `مجموعة اختيارات ${n}`,
+      min_select: 0,
+      max_select: 2,
+    })
     .select('id')
     .single();
   if (gErr) throw new Error(`addModifierToItem group failed: ${gErr.message}`);
@@ -335,7 +340,13 @@ export async function createTestIngredient(
   const n = cafeCounter++;
   const { data, error } = await svc
     .from('ingredients')
-    .insert({ kind: 'purchased', name_en: `Test Ingredient ${n}`, name_ar: nameAr, unit, is_active: true })
+    .insert({
+      kind: 'purchased',
+      name_en: `Test Ingredient ${n}`,
+      name_ar: nameAr,
+      unit,
+      is_active: true,
+    })
     .select('id')
     .single();
   if (error) throw new Error(`createTestIngredient failed: ${error.message}`);
@@ -510,28 +521,48 @@ export async function ensureCafeProbeData(svc: SupabaseClient): Promise<void> {
 
   // Menu surface (active rows so anon 'rows' expectations hold).
   await up('menu_categories', {
-    id: probeId('101'), name_en: 'Probe Drinks', name_ar: 'مشروبات الفحص',
-    tax_group_id: SEED_TAX_GROUP_STANDARD, is_active: true,
+    id: probeId('101'),
+    name_en: 'Probe Drinks',
+    name_ar: 'مشروبات الفحص',
+    tax_group_id: SEED_TAX_GROUP_STANDARD,
+    is_active: true,
   });
   await up('menu_items', {
-    id: probeId('102'), category_id: probeId('101'),
-    name_en: 'Probe Tea', name_ar: 'شاي الفحص', is_active: true,
+    id: probeId('102'),
+    category_id: probeId('101'),
+    name_en: 'Probe Tea',
+    name_ar: 'شاي الفحص',
+    is_active: true,
   });
   await up('menu_item_variants', {
-    id: probeId('103'), item_id: probeId('102'),
-    name_en: 'Regular', name_ar: 'عادي', price_iqd: 2000, is_default: true,
+    id: probeId('103'),
+    item_id: probeId('102'),
+    name_en: 'Regular',
+    name_ar: 'عادي',
+    price_iqd: 2000,
+    is_default: true,
   });
   await up('menu_item_variants', {
-    id: probeId('104'), item_id: probeId('102'),
-    name_en: 'Large', name_ar: 'كبير', price_iqd: 3000,
+    id: probeId('104'),
+    item_id: probeId('102'),
+    name_en: 'Large',
+    name_ar: 'كبير',
+    price_iqd: 3000,
   });
   await up('modifier_groups', {
-    id: probeId('105'), name_en: 'Probe Extras', name_ar: 'إضافات الفحص',
-    min_select: 0, max_select: 1,
+    id: probeId('105'),
+    name_en: 'Probe Extras',
+    name_ar: 'إضافات الفحص',
+    min_select: 0,
+    max_select: 1,
   });
   await up('modifiers', {
-    id: probeId('106'), group_id: probeId('105'),
-    name_en: 'Extra Mint', name_ar: 'نعناع إضافي', price_delta_iqd: 500, is_active: true,
+    id: probeId('106'),
+    group_id: probeId('105'),
+    name_en: 'Extra Mint',
+    name_ar: 'نعناع إضافي',
+    price_delta_iqd: 500,
+    is_active: true,
   });
   await up(
     'menu_item_modifier_groups',
@@ -542,31 +573,59 @@ export async function ensureCafeProbeData(svc: SupabaseClient): Promise<void> {
   // Table + a CLOSED guest session (a live one would give staff principals a
   // working guest context and change RPC guard outcomes).
   await up('cafe_tables', {
-    id: probeId('201'), table_number: 'PROBE-1', zone: 'فحص', is_active: true,
+    id: probeId('201'),
+    table_number: 'PROBE-1',
+    zone: 'فحص',
+    is_active: true,
   });
   await up('guest_sessions', {
-    id: probeId('202'), table_id: probeId('201'), auth_user_id: SEED_STAFF_IDS.owner,
-    created_at: past, last_activity_at: past, expires_at: past, closed_at: past,
+    id: probeId('202'),
+    table_id: probeId('201'),
+    auth_user_id: SEED_STAFF_IDS.owner,
+    created_at: past,
+    last_activity_at: past,
+    expires_at: past,
+    closed_at: past,
   });
 
   // Closed historical day + settled tab + till order/items/ticket + money rows.
   await up('day_sessions', {
-    id: probeId('301'), business_date: '2001-01-01', status: 'closed',
-    opened_at: past, opened_by: SEED_STAFF_IDS.manager, opening_float_iqd: 0,
-    closed_at: past, closed_by: SEED_STAFF_IDS.manager,
+    id: probeId('301'),
+    business_date: '2001-01-01',
+    status: 'closed',
+    opened_at: past,
+    opened_by: SEED_STAFF_IDS.manager,
+    opening_float_iqd: 0,
+    closed_at: past,
+    closed_by: SEED_STAFF_IDS.manager,
   });
   await up('tabs', {
-    id: probeId('302'), day_session_id: probeId('301'), status: 'settled',
-    label: 'طاولة فحص الصلاحيات', opened_by_staff_id: SEED_STAFF_IDS.cashier,
-    subtotal_iqd: 2500, tax_iqd: 0, discount_iqd: 0, total_iqd: 2500, settled_at: past,
+    id: probeId('302'),
+    day_session_id: probeId('301'),
+    status: 'settled',
+    label: 'طاولة فحص الصلاحيات',
+    opened_by_staff_id: SEED_STAFF_IDS.cashier,
+    subtotal_iqd: 2500,
+    tax_iqd: 0,
+    discount_iqd: 0,
+    total_iqd: 2500,
+    settled_at: past,
   });
   await up('orders', {
-    id: probeId('303'), tab_id: probeId('302'), source: 'till',
-    placed_by_staff_id: SEED_STAFF_IDS.cashier, status: 'served',
+    id: probeId('303'),
+    tab_id: probeId('302'),
+    source: 'till',
+    placed_by_staff_id: SEED_STAFF_IDS.cashier,
+    status: 'served',
   });
   await up('order_items', {
-    id: probeId('304'), order_id: probeId('303'), menu_item_id: probeId('102'),
-    variant_id: probeId('103'), qty: 1, unit_price_iqd: 2000, line_total_iqd: 2500,
+    id: probeId('304'),
+    order_id: probeId('303'),
+    menu_item_id: probeId('102'),
+    variant_id: probeId('103'),
+    qty: 1,
+    unit_price_iqd: 2000,
+    line_total_iqd: 2500,
   });
   await up(
     'order_item_modifiers',
@@ -574,45 +633,77 @@ export async function ensureCafeProbeData(svc: SupabaseClient): Promise<void> {
     'order_item_id,modifier_id',
   );
   await up('tickets', {
-    id: probeId('305'), order_id: probeId('303'), status: 'completed',
-    completed_at: past, actual_prep_seconds: 60,
+    id: probeId('305'),
+    order_id: probeId('303'),
+    status: 'completed',
+    completed_at: past,
+    actual_prep_seconds: 60,
   });
   await up('payments', {
-    id: probeId('306'), tab_id: probeId('302'), day_session_id: probeId('301'),
-    method: 'cash', amount_iqd: 2500, tendered_iqd: 5000, change_iqd: 2500,
+    id: probeId('306'),
+    tab_id: probeId('302'),
+    day_session_id: probeId('301'),
+    method: 'cash',
+    amount_iqd: 2500,
+    tendered_iqd: 5000,
+    change_iqd: 2500,
     recorded_by: SEED_STAFF_IDS.cashier,
   });
   await up('refunds', {
-    id: probeId('307'), payment_id: probeId('306'), amount_iqd: 500,
-    reason_code: 'probe', refunded_by: SEED_STAFF_IDS.manager,
+    id: probeId('307'),
+    payment_id: probeId('306'),
+    amount_iqd: 500,
+    reason_code: 'probe',
+    refunded_by: SEED_STAFF_IDS.manager,
   });
   await up('tab_adjustments', {
-    id: probeId('308'), tab_id: probeId('302'), kind: 'discount_amount', value: 500,
-    amount_iqd: 500, applied_by: SEED_STAFF_IDS.cashier,
-    authorized_by: SEED_STAFF_IDS.manager, reason_code: 'probe',
+    id: probeId('308'),
+    tab_id: probeId('302'),
+    kind: 'discount_amount',
+    value: 500,
+    amount_iqd: 500,
+    applied_by: SEED_STAFF_IDS.cashier,
+    authorized_by: SEED_STAFF_IDS.manager,
+    reason_code: 'probe',
   });
 
   // Resolved waiter call (resolved: never blocks the one-open-per-table index).
   await up('waiter_calls', {
-    id: probeId('401'), table_id: probeId('201'), guest_session_id: probeId('202'),
-    reason: 'water', status: 'resolved', raised_at: past,
-    resolved_at: past, resolved_by: SEED_STAFF_IDS.manager,
+    id: probeId('401'),
+    table_id: probeId('201'),
+    guest_session_id: probeId('202'),
+    reason: 'water',
+    status: 'resolved',
+    raised_at: past,
+    resolved_at: past,
+    resolved_by: SEED_STAFF_IDS.manager,
   });
 
   // Stock surface (recipe on the UNUSED variant so the probe ticket consumes nothing).
   await up('ingredients', {
-    id: probeId('501'), kind: 'purchased', name_en: 'Probe Beans',
-    name_ar: 'حبوب الفحص', unit: 'g', is_active: true,
+    id: probeId('501'),
+    kind: 'purchased',
+    name_en: 'Probe Beans',
+    name_ar: 'حبوب الفحص',
+    unit: 'g',
+    is_active: true,
   });
   await up('recipe_lines', {
-    id: probeId('502'), variant_id: probeId('104'), ingredient_id: probeId('501'), qty: 10,
+    id: probeId('502'),
+    variant_id: probeId('104'),
+    ingredient_id: probeId('501'),
+    qty: 10,
   });
   await up('stock_batches', {
-    id: probeId('503'), ingredient_id: probeId('501'),
-    qty_received: 1000, qty_remaining: 1000, unit_cost_iqd: 5,
+    id: probeId('503'),
+    ingredient_id: probeId('501'),
+    qty_received: 1000,
+    qty_remaining: 1000,
+    unit_cost_iqd: 5,
   });
   await up('manager_alerts', {
-    id: probeId('504'), kind: 'low_stock',
+    id: probeId('504'),
+    kind: 'low_stock',
     payload: { ingredient_id: probeId('501'), probe: true },
   });
 
@@ -673,11 +764,18 @@ export async function setCafeSetting(
  * suites that only want to undo their own edits should prefer
  * snapshotCafeSettings().
  */
-export async function resetCafeSettings(svc: SupabaseClient, owner?: SupabaseClient): Promise<void> {
+export async function resetCafeSettings(
+  svc: SupabaseClient,
+  owner?: SupabaseClient,
+): Promise<void> {
   const { data, error } = await svc.schema('app').rpc('cafe_setting_specs', {});
   if (error) throw new Error(`cafe_setting_specs failed: ${error.message}`);
   const specs = data as { key: string; is_public: boolean; default_value: unknown }[];
-  await writeCafeSettingRows(svc, specs.map((s) => ({ key: s.key, value: s.default_value, is_public: s.is_public })), owner);
+  await writeCafeSettingRows(
+    svc,
+    specs.map((s) => ({ key: s.key, value: s.default_value, is_public: s.is_public })),
+    owner,
+  );
 }
 
 /**
@@ -710,9 +808,10 @@ async function writeCafeSettingRows(
   const nonNull = rows.filter((r) => r.value !== null && r.value !== undefined);
   const nulls = rows.filter((r) => r.value === null || r.value === undefined);
   if (nonNull.length > 0) {
-    const { error } = await svc
-      .from('cafe_settings')
-      .upsert(nonNull.map((r) => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'key' });
+    const { error } = await svc.from('cafe_settings').upsert(
+      nonNull.map((r) => ({ ...r, updated_at: new Date().toISOString() })),
+      { onConflict: 'key' },
+    );
     if (error) throw new Error(`restore cafe_settings failed: ${error.message}`);
   }
   for (const r of nulls) {
@@ -793,12 +892,19 @@ export async function ensureCafeProbeDataDrop4(svc: SupabaseClient): Promise<voi
   // Probe reveal: choosing 'Extra Mint' (106) reveals group 107 (min 0 so the
   // probe item stays orderable without it).
   await up('modifier_groups', {
-    id: probeId('107'), name_en: 'Probe Revealed', name_ar: 'مكشوفة الفحص',
-    min_select: 0, max_select: 1,
+    id: probeId('107'),
+    name_en: 'Probe Revealed',
+    name_ar: 'مكشوفة الفحص',
+    min_select: 0,
+    max_select: 1,
   });
   await up('modifiers', {
-    id: probeId('108'), group_id: probeId('107'),
-    name_en: 'Probe Reveal Option', name_ar: 'خيار مكشوف', price_delta_iqd: 0, is_active: true,
+    id: probeId('108'),
+    group_id: probeId('107'),
+    name_en: 'Probe Reveal Option',
+    name_ar: 'خيار مكشوف',
+    price_delta_iqd: 0,
+    is_active: true,
   });
   await up(
     'modifier_reveals',
@@ -867,18 +973,31 @@ export async function ensureCafeProbeDataDrop4(svc: SupabaseClient): Promise<voi
 
   // LLM tables (owner-only reads).
   await up('analytics_insights', {
-    id: probeId('601'), range_from: '2001-01-01', range_to: '2001-01-07',
-    compare_basis: 'prev', locale: 'ar',
+    id: probeId('601'),
+    range_from: '2001-01-01',
+    range_to: '2001-01-07',
+    compare_basis: 'prev',
+    locale: 'ar',
     insights: [{ text: 'probe', kind: 'probe', subjects: [], metrics: {}, confidence: 'low' }],
-    created_by: SEED_STAFF_IDS.owner, created_at: past,
+    created_by: SEED_STAFF_IDS.owner,
+    created_at: past,
   });
   await up('analytics_patterns', {
-    id: probeId('602'), range_from: '2001-01-01', range_to: '2001-01-07', locale: 'ar',
-    patterns: [{ text: 'probe' }], created_by: SEED_STAFF_IDS.owner, created_at: past,
+    id: probeId('602'),
+    range_from: '2001-01-01',
+    range_to: '2001-01-07',
+    locale: 'ar',
+    patterns: [{ text: 'probe' }],
+    created_by: SEED_STAFF_IDS.owner,
+    created_at: past,
   });
   await up('analytics_insight_rejections', {
-    id: probeId('603'), text: 'ee57 probe rejection', text_key: 'ee57 probe rejection',
-    reason: 'probe', created_by: SEED_STAFF_IDS.owner, created_at: past,
+    id: probeId('603'),
+    text: 'ee57 probe rejection',
+    text_key: 'ee57 probe rejection',
+    reason: 'probe',
+    created_by: SEED_STAFF_IDS.owner,
+    created_at: past,
   });
 }
 
@@ -955,18 +1074,36 @@ export async function ensurePromotionProbeData(svc: SupabaseClient): Promise<voi
   const past = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
 
   await up('promotions', {
-    id: probeId('701'), name_en: 'Probe Promotion', name_ar: 'عرض الفحص',
-    type: 'amount', value: 500, enabled: false, auto: true,
-    created_by: SEED_STAFF_IDS.manager, created_at: past, updated_at: past,
+    id: probeId('701'),
+    name_en: 'Probe Promotion',
+    name_ar: 'عرض الفحص',
+    type: 'amount',
+    value: 500,
+    enabled: false,
+    auto: true,
+    created_by: SEED_STAFF_IDS.manager,
+    created_at: past,
+    updated_at: past,
   });
   await up('tab_adjustments', {
-    id: probeId('703'), tab_id: probeId('302'), kind: 'discount_amount', value: 500, amount_iqd: 500,
-    applied_by: SEED_STAFF_IDS.cashier, authorized_by: SEED_STAFF_IDS.manager,
-    reason_code: 'promotion', promotion_id: probeId('701'), created_at: past,
+    id: probeId('703'),
+    tab_id: probeId('302'),
+    kind: 'discount_amount',
+    value: 500,
+    amount_iqd: 500,
+    applied_by: SEED_STAFF_IDS.cashier,
+    authorized_by: SEED_STAFF_IDS.manager,
+    reason_code: 'promotion',
+    promotion_id: probeId('701'),
+    created_at: past,
   });
   await up('promotion_redemptions', {
-    id: probeId('702'), promotion_id: probeId('701'), tab_id: probeId('302'),
-    adjustment_id: probeId('703'), amount_iqd: 500, redeemed_by: SEED_STAFF_IDS.cashier,
+    id: probeId('702'),
+    promotion_id: probeId('701'),
+    tab_id: probeId('302'),
+    adjustment_id: probeId('703'),
+    amount_iqd: 500,
+    redeemed_by: SEED_STAFF_IDS.cashier,
     redeemed_at: past,
   });
 }

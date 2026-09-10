@@ -35,9 +35,7 @@ export interface UseTableSession {
 }
 
 type BootResult =
-  | { name: 'invalid' }
-  | { name: 'error' }
-  | { name: 'bound'; session: TableSession };
+  { name: 'invalid' } | { name: 'error' } | { name: 'bound'; session: TableSession };
 
 /**
  * One shared boot per token (module scope). React StrictMode double-mounts the

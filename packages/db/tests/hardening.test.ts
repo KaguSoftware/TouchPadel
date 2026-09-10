@@ -22,7 +22,6 @@ import {
   stackAvailable,
   serviceClient,
   signedInClient,
-  anonymousSessionClient,
   guestClient,
   appRpc,
   createTestCourt,
@@ -384,10 +383,7 @@ describe.skipIf(!up)('hardening fixes (0026)', () => {
     expect((pay.data as { status: string }).status).toBe('awaiting_payment');
     const paymentId = (pay.data as { payment_id: string }).payment_id;
 
-    const { data: items } = await svc
-      .from('order_items')
-      .select('id')
-      .eq('order_id', orderId);
+    const { data: items } = await svc.from('order_items').select('id').eq('order_id', orderId);
     expect(items).toHaveLength(2);
     const itemId = (items![0] as { id: string }).id;
 

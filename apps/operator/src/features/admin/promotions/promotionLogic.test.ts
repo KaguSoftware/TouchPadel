@@ -48,8 +48,22 @@ describe('fromRow / toRpcArgs', () => {
     const args = toRpcArgs(fromRow(row), 'p1');
     expect(Object.keys(args).sort()).toEqual(
       [
-        'p_auto', 'p_code_single_use', 'p_enabled', 'p_ends_at', 'p_hour_from', 'p_hour_to', 'p_id', 'p_limits',
-        'p_name_ar', 'p_name_en', 'p_public_code', 'p_scope', 'p_starts_at', 'p_type', 'p_value', 'p_weekdays',
+        'p_auto',
+        'p_code_single_use',
+        'p_enabled',
+        'p_ends_at',
+        'p_hour_from',
+        'p_hour_to',
+        'p_id',
+        'p_limits',
+        'p_name_ar',
+        'p_name_en',
+        'p_public_code',
+        'p_scope',
+        'p_starts_at',
+        'p_type',
+        'p_value',
+        'p_weekdays',
       ].sort(),
     );
     expect(args.p_id).toBe('p1');
@@ -98,7 +112,9 @@ describe('validateDraft', () => {
     expect(validateDraft({ ...ok, type: 'amount', value: 150 })).toEqual([]);
   });
   it('refuses an end before the start and an hour window that ends first', () => {
-    expect(validateDraft({ ...ok, startsOn: '2026-09-10', endsOn: '2026-09-01' })).toContain('dates');
+    expect(validateDraft({ ...ok, startsOn: '2026-09-10', endsOn: '2026-09-01' })).toContain(
+      'dates',
+    );
     expect(validateDraft({ ...ok, hourFrom: '19:00', hourTo: '16:00' })).toContain('hours');
   });
 });
@@ -116,7 +132,9 @@ describe('lifecycle', () => {
   });
   it('is off when disabled, unless it already expired', () => {
     expect(lifecycle({ ...row, enabled: false }, now)).toBe('disabled');
-    expect(lifecycle({ ...row, enabled: false, ends_at: '2026-09-01T00:00:00Z' }, now)).toBe('expired');
+    expect(lifecycle({ ...row, enabled: false, ends_at: '2026-09-01T00:00:00Z' }, now)).toBe(
+      'expired',
+    );
   });
   it('is live with no dates at all', () => {
     expect(lifecycle({ enabled: true, starts_at: null, ends_at: null }, now)).toBe('live');

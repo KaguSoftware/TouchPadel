@@ -75,7 +75,12 @@ export function BellTutorial({
   if (!spot) return null;
 
   return (
-    <div className="tp-tutorial" style={spot} role="dialog" aria-label={tr('cafe.bellTutorial.title')}>
+    <div
+      className="tp-tutorial"
+      style={spot}
+      role="dialog"
+      aria-label={tr('cafe.bellTutorial.title')}
+    >
       <div className="tp-tutorial__scrim" onClick={onDismiss} />
       <svg className="tp-tutorial__arrow" viewBox="0 0 100 80" aria-hidden="true" focusable="false">
         <path d="M92 8 C 60 10, 26 28, 14 62" />

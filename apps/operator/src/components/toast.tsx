@@ -102,9 +102,15 @@ export function useToast(): ToastApi {
  * alone (rulebook 5.3 and 13).
  */
 const TONE: Record<ToastKind, { style: CSSProperties; icon: IconName }> = {
-  ok: { style: { background: 'var(--tp-success-soft)', color: 'var(--tp-success-fg)' }, icon: 'checkCircle' },
+  ok: {
+    style: { background: 'var(--tp-success-soft)', color: 'var(--tp-success-fg)' },
+    icon: 'checkCircle',
+  },
   info: { style: { background: 'var(--tp-info-soft)', color: 'var(--tp-info-fg)' }, icon: 'info' },
-  err: { style: { background: 'var(--tp-danger-soft)', color: 'var(--tp-danger-fg)' }, icon: 'alert' },
+  err: {
+    style: { background: 'var(--tp-danger-soft)', color: 'var(--tp-danger-fg)' },
+    icon: 'alert',
+  },
 };
 
 function ToastViewport({
@@ -156,7 +162,11 @@ function ToastViewport({
               pointerEvents: 'auto',
             }}
           >
-            <Icon name={tone.icon} size={17} style={{ marginBlockStart: '0.1rem', flexShrink: 0 }} />
+            <Icon
+              name={tone.icon}
+              size={17}
+              style={{ marginBlockStart: '0.1rem', flexShrink: 0 }}
+            />
             <span style={{ flex: 1, minInlineSize: 0 }}>{item.message}</span>
             {/* Dismissal used to be an onClick on a bare div: no role, no
                 tabIndex, no keyboard path at all. */}

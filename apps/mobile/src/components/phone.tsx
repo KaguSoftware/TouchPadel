@@ -85,9 +85,7 @@ export function PhoneField({
   // `undefined` means "leave the caret alone" — the state after the guest has
   // moved it themselves. It is only forced to the end on the render that
   // follows a keystroke, which is the render that reformats the value.
-  const [selection, setSelection] = useState<{ start: number; end: number } | undefined>(
-    undefined,
-  );
+  const [selection, setSelection] = useState<{ start: number; end: number } | undefined>(undefined);
   const onType = useCallback(
     (next: string) => {
       // Capped to the country's own length: past it the digits are dropped, so
@@ -602,7 +600,6 @@ function CountryPickerJS({
   );
 }
 
-
 /**
  * The sheet's open/close motion, standing in for `animationType="slide"` —
  * whose single sliding layer carried the scrim up together with the drawer.
@@ -672,18 +669,15 @@ function useSheetTransition(
   // Only ever touched inside callbacks — never read during render, which is
   // the case the react-hooks rule is about.
   const dragHeight = useRef(0);
-  const onSheetLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const h = e.nativeEvent.layout.height;
-      if (h > 0) {
-        // The drag reads this synchronously on every move, so it is kept on a
-        // ref as well as in state — state would be a render behind the finger.
-        dragHeight.current = h;
-        setTravel((prev) => (prev === h ? prev : h));
-      }
-    },
-    [],
-  );
+  const onSheetLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) {
+      // The drag reads this synchronously on every move, so it is kept on a
+      // ref as well as in state — state would be a render behind the finger.
+      dragHeight.current = h;
+      setTravel((prev) => (prev === h ? prev : h));
+    }
+  }, []);
 
   // Drag-to-dismiss. The sheet has no Close button (owner's call,
   // 2026-09-06): it goes away by a downward drag, by a tap on the backdrop, or
@@ -709,26 +703,25 @@ function useSheetTransition(
      read inside a gesture callback, which fires on touch and never during a
      render; the lazy initializer holding it runs outside the render phase too.
      The rule sees only the closure and cannot tell either apart. */
-  const [pan] = useState(
-    () =>
-      PanResponder.create({
-        // Claimed only once the drag is clearly vertical, so a tap on the handle
-        // still reads as a tap and a sideways swipe is left alone.
-        onMoveShouldSetPanResponder: (_e, g) => g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
-        onPanResponderMove: (_e, g) => {
-          const h = dragHeight.current || Dimensions.get('window').height;
-          // Downward only: dragging up would carry the sheet past its resting
-          // place and open a gap beneath it.
-          if (g.dy > 0) p.setValue(Math.max(0, 1 - g.dy / h));
-        },
-        onPanResponderRelease: (_e, g) => {
-          const h = dragHeight.current || Dimensions.get('window').height;
-          // Past a third of the way down, or thrown downward fast enough, the
-          // release completes the dismissal; anything short of that springs back.
-          if (g.dy > h * 0.33 || g.vy > 0.6) dismissRef.current?.();
-          else Animated.spring(p, { toValue: 1, ...SHEET_SPRING, useNativeDriver: true }).start();
-        },
-      }),
+  const [pan] = useState(() =>
+    PanResponder.create({
+      // Claimed only once the drag is clearly vertical, so a tap on the handle
+      // still reads as a tap and a sideways swipe is left alone.
+      onMoveShouldSetPanResponder: (_e, g) => g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_e, g) => {
+        const h = dragHeight.current || Dimensions.get('window').height;
+        // Downward only: dragging up would carry the sheet past its resting
+        // place and open a gap beneath it.
+        if (g.dy > 0) p.setValue(Math.max(0, 1 - g.dy / h));
+      },
+      onPanResponderRelease: (_e, g) => {
+        const h = dragHeight.current || Dimensions.get('window').height;
+        // Past a third of the way down, or thrown downward fast enough, the
+        // release completes the dismissal; anything short of that springs back.
+        if (g.dy > h * 0.33 || g.vy > 0.6) dismissRef.current?.();
+        else Animated.spring(p, { toValue: 1, ...SHEET_SPRING, useNativeDriver: true }).start();
+      },
+    }),
   );
   /* eslint-enable react-hooks/refs */
 

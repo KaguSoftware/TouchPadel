@@ -128,8 +128,8 @@ describe.skipIf(!up)('0083 table token secret rotation (SEC-26)', () => {
    */
   it('a card two rotations old never verifies — the overlap is one deep', async () => {
     const ancientCard = await mint();
-    await rotate();          // ancientCard now signed by `prev`
-    await rotate();          // …and now by nothing that is still live
+    await rotate(); // ancientCard now signed by `prev`
+    await rotate(); // …and now by nothing that is still live
 
     const res = await verify(ancientCard);
     expect(res.data).toBeNull();
@@ -157,7 +157,7 @@ describe.skipIf(!up)('0083 table token secret rotation (SEC-26)', () => {
       .order('at', { ascending: false })
       .limit(1);
 
-    expect((after.count ?? 0)).toBeGreaterThan(before.count ?? 0);
+    expect(after.count ?? 0).toBeGreaterThan(before.count ?? 0);
     const row = (after.data ?? [])[0] as { entity_id: string; reason_code: string };
     expect(row.entity_id).toBe(tableId);
     expect(row.reason_code).toBe('rotation_overlap');
@@ -170,12 +170,13 @@ describe.skipIf(!up)('0083 table token secret rotation (SEC-26)', () => {
   it('clearing prev reports how many scans still arrived on the old key', async () => {
     const oldCard = await mint();
     await rotate();
-    await verify(oldCard);                    // one scan on the old key
+    await verify(oldCard); // one scan on the old key
 
     const res = await clearPrev();
     expect(res.ok, res.errorMessage).toBe(true);
-    expect((res.data as { accepted_on_prev_last_7d: number }).accepted_on_prev_last_7d)
-      .toBeGreaterThan(0);
+    expect(
+      (res.data as { accepted_on_prev_last_7d: number }).accepted_on_prev_last_7d,
+    ).toBeGreaterThan(0);
   });
 
   it('a card accepted under the CURRENT secret writes no rotation audit row', async () => {

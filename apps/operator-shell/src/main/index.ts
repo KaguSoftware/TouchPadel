@@ -100,17 +100,24 @@ function reportFatalStartup(error: unknown): void {
   let logFile = '';
   try {
     logFile = path.join(app.getPath('userData'), 'startup-error.log');
-    fs.appendFileSync(logFile, `${new Date().toISOString()} ${detail}
+    fs.appendFileSync(
+      logFile,
+      `${new Date().toISOString()} ${detail}
 
-`);
+`,
+    );
   } catch {
     logFile = ''; // userData unwritable — the dialog still carries the message
   }
   dialog.showErrorBox(
     'Touch Padel Operator could not start',
-    `${detail}${logFile ? `
+    `${detail}${
+      logFile
+        ? `
 
-Saved to ${logFile}` : ''}`,
+Saved to ${logFile}`
+        : ''
+    }`,
   );
   app.exit(1);
 }
@@ -211,283 +218,298 @@ function createWindow(): BrowserWindow {
 }
 
 if (gotTheLock) {
-  app.whenReady().then(() => {
-    bootstrapStationFromArgv();
-    const station = loadStation();
-    openQueue();
+  app
+    .whenReady()
+    .then(() => {
+      bootstrapStationFromArgv();
+      const station = loadStation();
+      openQueue();
 
-    // Launch on boot (design-arch §2.5): registered on every packaged start so
-    // an install moved between accounts heals itself; the NSIS runAfterFinish
-    // covers only the very first session.
-    if (app.isPackaged) {
-      app.setLoginItemSettings({ openAtLogin: true });
-    }
-
-    ipcMain.handle(IPC.enqueue, (_e, m: unknown) =>
-      guardIpc('enqueue', () => {
-        const envelope = validateMutationEnvelope(m);
-        const result = enqueue(envelope);
-        // The insert is fsynced; replay immediately — online, the round trip
-        // lands sub-second and the "one write path" costs nothing perceptible.
-        worker?.kick();
-        // Kitchen-bound rows also go out over the LAN so a KDS keeps receiving
-        // tickets while the cloud path is down (design-arch §2.4).
-        lanServer?.onEnqueued(envelope);
-        return result;
-      }),
-    );
-
-    ipcMain.on(IPC.lanStatus, (_e, v: unknown) => {
-      guardIpc('lanStatus', () => {
-        const update = validateLanStatus(v);
-        lanClient?.sendStatus({ ...update, kdsStation: station.stationId });
-        return null;
-      });
-    });
-
-    ipcMain.on(IPC.authState, (_e, s: unknown) => {
-      guardIpc('authState', () => {
-        setAuthState(validateAuthState(s));
-        return null;
-      });
-    });
-
-    ipcMain.on(IPC.connState, (_e, v: unknown) => {
-      guardIpc('connState', () => {
-        setConnOnline(validateConnState(v));
-        return null;
-      });
-    });
-
-    ipcMain.handle(IPC.queueRows, () =>
-      guardIpc('queueRows', () =>
-        listBlockingRows().map((r) => ({
-          seq: r.seq,
-          localId: r.localId,
-          idempotencyKey: r.idempotencyKey,
-          mutationType: r.mutationType,
-          state: r.state as Exclude<typeof r.state, 'acked' | 'resolved'>,
-          attempts: r.attempts,
-          lastError: r.lastError,
-          createdAt: r.createdAt,
-        })),
-      ),
-    );
-
-    // A manager dismissing a row the worker will never deliver (409 conflict /
-    // deterministic 4xx). Until this existed, one ITEM_UNAVAILABLE on an
-    // offline order held day close shut forever: 'failed' is terminal, blocks
-    // close, and nothing could clear it. Same offline PIN gate as quitApp; the
-    // renderer verifies server-side first when online.
-    ipcMain.handle(IPC.resolveQueueRow, (_e, v: unknown) =>
-      guardIpc('resolveQueueRow', () => {
-        const req = validateResolveQueueRow(v);
-        if (!unlockPinOffline(req.pin)) return { ok: false as const, error: 'pin not recognised' as const };
-        if (!resolveRow(req.idempotencyKey, getAuthState()?.staffId ?? null)) {
-          return { ok: false as const, error: 'not-resolvable' as const };
-        }
-        pushStatus(); // the banner count and the heartbeat's depth drop now, not in 2s
-        return { ok: true as const };
-      }),
-    );
-    ipcMain.handle(IPC.getCachedRef, (_e, key: unknown) =>
-      guardIpc('getCachedRef', () => getCachedRef(validateRefKey(key))),
-    );
-    ipcMain.handle(IPC.print, async (_e, job: unknown): Promise<PrintResult | { error: string }> => {
-      // async handler: guardIpc is sync, so validate inside a try of our own.
-      let validated;
-      try {
-        validated = validatePrintJob(job);
-      } catch (error) {
-        if (error instanceof IpcValidationError) {
-          console.error('[ipc:print]', error.message);
-          return { error: error.message };
-        }
-        throw error;
+      // Launch on boot (design-arch §2.5): registered on every packaged start so
+      // an install moved between accounts heals itself; the NSIS runAfterFinish
+      // covers only the very first session.
+      if (app.isPackaged) {
+        app.setLoginItemSettings({ openAtLogin: true });
       }
-      const html = (validated.data as { html?: string } | null)?.html;
-      if (!html) return { ok: false, error: 'no-html' };
-      if (!station.printer) {
-        // No printer configured — the renderer falls back to window.print();
-        // the on-screen bill satisfies SOW L456 meanwhile.
-        return { ok: false, error: 'no-printer' };
-      }
-      try {
-        await printReceiptHtml(html, station.printer);
-        return { ok: true };
-      } catch (error) {
-        // One retry: thermal printers drop the first connection after idling.
-        try {
-          await printReceiptHtml(html, station.printer);
-          return { ok: true };
-        } catch {
-          console.error('[print]', error);
-          return { ok: false, error: String(error) };
-        }
-      }
-      // NO cash-drawer kick — cut from phase 1 (plan cut #7).
-    });
-    ipcMain.handle(IPC.unlockPin, (_e, pin: unknown) =>
-      guardIpc('unlockPin', () => {
-        // Purely the OFFLINE check (pin-cache.ts): scrypt of pins that
-        // succeeded server-side recently, constant-time compare, 14-day TTL.
-        // Online verification stays where it always was — inside the PIN-gated
-        // RPCs themselves. The renderer decides which path applies.
-        return unlockPinOffline(validatePin(pin));
-      }),
-    );
 
-    ipcMain.on(IPC.cachePut, (_e, v: unknown) => {
-      guardIpc('cachePut', () => {
-        const { key, payload } = validateCachePut(v);
-        putCachedRef(key, payload);
-        return null;
+      ipcMain.handle(IPC.enqueue, (_e, m: unknown) =>
+        guardIpc('enqueue', () => {
+          const envelope = validateMutationEnvelope(m);
+          const result = enqueue(envelope);
+          // The insert is fsynced; replay immediately — online, the round trip
+          // lands sub-second and the "one write path" costs nothing perceptible.
+          worker?.kick();
+          // Kitchen-bound rows also go out over the LAN so a KDS keeps receiving
+          // tickets while the cloud path is down (design-arch §2.4).
+          lanServer?.onEnqueued(envelope);
+          return result;
+        }),
+      );
+
+      ipcMain.on(IPC.lanStatus, (_e, v: unknown) => {
+        guardIpc('lanStatus', () => {
+          const update = validateLanStatus(v);
+          lanClient?.sendStatus({ ...update, kdsStation: station.stationId });
+          return null;
+        });
       });
-    });
 
-    ipcMain.on(IPC.pinObserved, (_e, pin: unknown) => {
-      guardIpc('pinObserved', () => {
-        observePin(validatePin(pin));
-        return null;
+      ipcMain.on(IPC.authState, (_e, s: unknown) => {
+        guardIpc('authState', () => {
+          setAuthState(validateAuthState(s));
+          return null;
+        });
       });
-    });
 
-    // Manager-PIN quit (design-arch §2.5): the ONLY way a production window
-    // closes. The renderer verifies the pin server-side first when online
-    // (verify_manager_pin) and pushes it to the offline cache; this handler
-    // re-checks against that cache so a random keypress can never kill a till.
-    ipcMain.handle(IPC.quitApp, (_e, pin: unknown) =>
-      guardIpc('quitApp', () => {
-        const unlocked = unlockPinOffline(validatePin(pin));
-        if (!unlocked) return { ok: false as const, error: 'pin not recognised' };
-        setTimeout(() => {
-          // A downloaded update installs on the way out. app.exit() skips
-          // will-quit, so autoInstallOnAppQuit alone would never fire here.
-          if (!updater?.installOnQuit()) app.exit(0);
-        }, 50); // let the reply reach the renderer
-        return { ok: true as const };
-      }),
-    );
-    ipcMain.on(IPC.getStation, (e) => {
-      e.returnValue = {
-        stationId: station.stationId,
-        mode: station.mode,
-        tillHost: station.tillHost,
-        configured: station.configured,
-        ...(station.configError ? { configError: station.configError } : {}),
-        appVersion: app.getVersion(),
-      };
-    });
+      ipcMain.on(IPC.connState, (_e, v: unknown) => {
+        guardIpc('connState', () => {
+          setConnOnline(validateConnState(v));
+          return null;
+        });
+      });
 
-    // First-run setup (design-arch §2.1 station identity): the renderer's
-    // answer becomes station.json and the process relaunches. Refused once a
-    // file exists — a configured station is never re-pointed from the renderer.
-    ipcMain.handle(IPC.saveStation, (_e, v: unknown) =>
-      guardIpc('saveStation', () => completeFirstRun(validateStationSetup(v))),
-    );
+      ipcMain.handle(IPC.queueRows, () =>
+        guardIpc('queueRows', () =>
+          listBlockingRows().map((r) => ({
+            seq: r.seq,
+            localId: r.localId,
+            idempotencyKey: r.idempotencyKey,
+            mutationType: r.mutationType,
+            state: r.state as Exclude<typeof r.state, 'acked' | 'resolved'>,
+            attempts: r.attempts,
+            lastError: r.lastError,
+            createdAt: r.createdAt,
+          })),
+        ),
+      );
 
-    // The till's pairing card: behind the same offline PIN gate as quitApp
-    // (the renderer verifies server-side first when online). The code is the
-    // LAN secret, so it only ever crosses the bridge after a manager PIN.
-    ipcMain.handle(IPC.getPairingInfo, (_e, pin: unknown) =>
-      guardIpc('getPairingInfo', () => {
-        if (!unlockPinOffline(validatePin(pin))) return { ok: false as const, error: 'pin not recognised' as const };
-        if (station.mode !== 'till') return { ok: false as const, error: 'not-a-till' as const };
-        if (!station.lanPsk) return { ok: false as const, error: 'no-psk' as const };
-        // A hex PSK from the CLI flags is not typeable on the kitchen screen's form.
-        if (!isPairingCode(station.lanPsk)) return { ok: false as const, error: 'custom-psk' as const };
-        const bind = pickLanBind(station.lanBind);
-        return {
-          ok: true as const,
+      // A manager dismissing a row the worker will never deliver (409 conflict /
+      // deterministic 4xx). Until this existed, one ITEM_UNAVAILABLE on an
+      // offline order held day close shut forever: 'failed' is terminal, blocks
+      // close, and nothing could clear it. Same offline PIN gate as quitApp; the
+      // renderer verifies server-side first when online.
+      ipcMain.handle(IPC.resolveQueueRow, (_e, v: unknown) =>
+        guardIpc('resolveQueueRow', () => {
+          const req = validateResolveQueueRow(v);
+          if (!unlockPinOffline(req.pin))
+            return { ok: false as const, error: 'pin not recognised' as const };
+          if (!resolveRow(req.idempotencyKey, getAuthState()?.staffId ?? null)) {
+            return { ok: false as const, error: 'not-resolvable' as const };
+          }
+          pushStatus(); // the banner count and the heartbeat's depth drop now, not in 2s
+          return { ok: true as const };
+        }),
+      );
+      ipcMain.handle(IPC.getCachedRef, (_e, key: unknown) =>
+        guardIpc('getCachedRef', () => getCachedRef(validateRefKey(key))),
+      );
+      ipcMain.handle(
+        IPC.print,
+        async (_e, job: unknown): Promise<PrintResult | { error: string }> => {
+          // async handler: guardIpc is sync, so validate inside a try of our own.
+          let validated;
+          try {
+            validated = validatePrintJob(job);
+          } catch (error) {
+            if (error instanceof IpcValidationError) {
+              console.error('[ipc:print]', error.message);
+              return { error: error.message };
+            }
+            throw error;
+          }
+          const html = (validated.data as { html?: string } | null)?.html;
+          if (!html) return { ok: false, error: 'no-html' };
+          if (!station.printer) {
+            // No printer configured — the renderer falls back to window.print();
+            // the on-screen bill satisfies SOW L456 meanwhile.
+            return { ok: false, error: 'no-printer' };
+          }
+          try {
+            await printReceiptHtml(html, station.printer);
+            return { ok: true };
+          } catch (error) {
+            // One retry: thermal printers drop the first connection after idling.
+            try {
+              await printReceiptHtml(html, station.printer);
+              return { ok: true };
+            } catch {
+              console.error('[print]', error);
+              return { ok: false, error: String(error) };
+            }
+          }
+          // NO cash-drawer kick — cut from phase 1 (plan cut #7).
+        },
+      );
+      ipcMain.handle(IPC.unlockPin, (_e, pin: unknown) =>
+        guardIpc('unlockPin', () => {
+          // Purely the OFFLINE check (pin-cache.ts): scrypt of pins that
+          // succeeded server-side recently, constant-time compare, 14-day TTL.
+          // Online verification stays where it always was — inside the PIN-gated
+          // RPCs themselves. The renderer decides which path applies.
+          return unlockPinOffline(validatePin(pin));
+        }),
+      );
+
+      ipcMain.on(IPC.cachePut, (_e, v: unknown) => {
+        guardIpc('cachePut', () => {
+          const { key, payload } = validateCachePut(v);
+          putCachedRef(key, payload);
+          return null;
+        });
+      });
+
+      ipcMain.on(IPC.pinObserved, (_e, pin: unknown) => {
+        guardIpc('pinObserved', () => {
+          observePin(validatePin(pin));
+          return null;
+        });
+      });
+
+      // Manager-PIN quit (design-arch §2.5): the ONLY way a production window
+      // closes. The renderer verifies the pin server-side first when online
+      // (verify_manager_pin) and pushes it to the offline cache; this handler
+      // re-checks against that cache so a random keypress can never kill a till.
+      ipcMain.handle(IPC.quitApp, (_e, pin: unknown) =>
+        guardIpc('quitApp', () => {
+          const unlocked = unlockPinOffline(validatePin(pin));
+          if (!unlocked) return { ok: false as const, error: 'pin not recognised' };
+          setTimeout(() => {
+            // A downloaded update installs on the way out. app.exit() skips
+            // will-quit, so autoInstallOnAppQuit alone would never fire here.
+            if (!updater?.installOnQuit()) app.exit(0);
+          }, 50); // let the reply reach the renderer
+          return { ok: true as const };
+        }),
+      );
+      ipcMain.on(IPC.getStation, (e) => {
+        e.returnValue = {
           stationId: station.stationId,
-          host: bind === '127.0.0.1' ? null : bind,
-          port: LAN_KDS_PORT,
-          code: station.lanPsk,
+          mode: station.mode,
+          tillHost: station.tillHost,
+          configured: station.configured,
+          ...(station.configError ? { configError: station.configError } : {}),
+          appVersion: app.getVersion(),
         };
-      }),
-    );
+      });
 
-    // An unconfigured kitchen screen looking for its till. First-run only.
-    ipcMain.handle(IPC.discoverTill, async (_e, v: unknown) => {
-      let req;
-      try {
-        req = validateDiscoverRequest(v);
-      } catch (error) {
-        if (error instanceof IpcValidationError) {
-          console.error('[ipc:discoverTill]', error.message);
-          return { error: error.message };
+      // First-run setup (design-arch §2.1 station identity): the renderer's
+      // answer becomes station.json and the process relaunches. Refused once a
+      // file exists — a configured station is never re-pointed from the renderer.
+      ipcMain.handle(IPC.saveStation, (_e, v: unknown) =>
+        guardIpc('saveStation', () => completeFirstRun(validateStationSetup(v))),
+      );
+
+      // The till's pairing card: behind the same offline PIN gate as quitApp
+      // (the renderer verifies server-side first when online). The code is the
+      // LAN secret, so it only ever crosses the bridge after a manager PIN.
+      ipcMain.handle(IPC.getPairingInfo, (_e, pin: unknown) =>
+        guardIpc('getPairingInfo', () => {
+          if (!unlockPinOffline(validatePin(pin)))
+            return { ok: false as const, error: 'pin not recognised' as const };
+          if (station.mode !== 'till') return { ok: false as const, error: 'not-a-till' as const };
+          if (!station.lanPsk) return { ok: false as const, error: 'no-psk' as const };
+          // A hex PSK from the CLI flags is not typeable on the kitchen screen's form.
+          if (!isPairingCode(station.lanPsk))
+            return { ok: false as const, error: 'custom-psk' as const };
+          const bind = pickLanBind(station.lanBind);
+          return {
+            ok: true as const,
+            stationId: station.stationId,
+            host: bind === '127.0.0.1' ? null : bind,
+            port: LAN_KDS_PORT,
+            code: station.lanPsk,
+          };
+        }),
+      );
+
+      // An unconfigured kitchen screen looking for its till. First-run only.
+      ipcMain.handle(IPC.discoverTill, async (_e, v: unknown) => {
+        let req;
+        try {
+          req = validateDiscoverRequest(v);
+        } catch (error) {
+          if (error instanceof IpcValidationError) {
+            console.error('[ipc:discoverTill]', error.message);
+            return { error: error.message };
+          }
+          throw error;
         }
-        throw error;
-      }
-      if (station.configured) return { status: 'none' as const };
-      discoverAbort?.abort();
-      discoverAbort = new AbortController();
-      if (req.host) {
-        const outcome = await confirmTill(req.host, LAN_KDS_PORT, req.code, SCAN_HANDSHAKE_TIMEOUT_MS);
-        if (outcome === 'ok') return { status: 'found' as const, tills: [req.host] };
-        if (outcome === 'bad-code') return { status: 'bad-code' as const, candidates: [req.host] };
-        return { status: 'none' as const };
-      }
-      return discoverTill(req.code, { signal: discoverAbort.signal });
-    });
+        if (station.configured) return { status: 'none' as const };
+        discoverAbort?.abort();
+        discoverAbort = new AbortController();
+        if (req.host) {
+          const outcome = await confirmTill(
+            req.host,
+            LAN_KDS_PORT,
+            req.code,
+            SCAN_HANDSHAKE_TIMEOUT_MS,
+          );
+          if (outcome === 'ok') return { status: 'found' as const, tills: [req.host] };
+          if (outcome === 'bad-code')
+            return { status: 'bad-code' as const, candidates: [req.host] };
+          return { status: 'none' as const };
+        }
+        return discoverTill(req.code, { signal: discoverAbort.signal });
+      });
 
-    ipcMain.handle(IPC.updateState, () => updater?.ready() ?? null);
-    ipcMain.handle(IPC.installUpdate, () => ({ ok: updater?.installNow() ?? false }));
+      ipcMain.handle(IPC.updateState, () => updater?.ready() ?? null);
+      ipcMain.handle(IPC.installUpdate, () => ({ ok: updater?.installNow() ?? false }));
 
-    const win = createWindow();
+      const win = createWindow();
 
-    // Auto-update: silent download, human-triggered install (updater.ts).
-    updater = startUpdater({
-      enabled: app.isPackaged,
-      onReady: (info) => {
-        if (!win.isDestroyed()) win.webContents.send(IPC.updateReady, info);
-      },
-    });
+      // Auto-update: silent download, human-triggered install (updater.ts).
+      updater = startUpdater({
+        enabled: app.isPackaged,
+        onReady: (info) => {
+          if (!win.isDestroyed()) win.webContents.send(IPC.updateReady, info);
+        },
+      });
 
-    // A second launch should surface the station that is already trading, not
-    // silently do nothing. (Previously there was no handler at all.)
-    app.on('second-instance', () => {
-      if (win.isDestroyed()) return;
-      if (win.isMinimized()) win.restore();
-      win.focus();
-    });
+      // A second launch should surface the station that is already trading, not
+      // silently do nothing. (Previously there was no handler at all.)
+      app.on('second-instance', () => {
+        if (win.isDestroyed()) return;
+        if (win.isMinimized()) win.restore();
+        win.focus();
+      });
 
-    const pushStatus = () => {
-      if (!win.isDestroyed()) win.webContents.send(IPC.queueUpdate, queueStatus());
-    };
+      const pushStatus = () => {
+        if (!win.isDestroyed()) win.webContents.send(IPC.queueUpdate, queueStatus());
+      };
 
-    worker = startSyncWorker({
-      onResult: (result) => {
-        if (!win.isDestroyed()) win.webContents.send(IPC.mutationResult, result);
-      },
-      onActivity: pushStatus,
-    });
+      worker = startSyncWorker({
+        onResult: (result) => {
+          if (!win.isDestroyed()) win.webContents.send(IPC.mutationResult, result);
+        },
+        onActivity: pushStatus,
+      });
 
-    // Push queue status (depth / degraded / conflicts) to the renderer — the
-    // 2s timer is the floor; the worker pushes eagerly on every state change.
-    const statusTimer = setInterval(pushStatus, 2_000);
-    win.on('closed', () => {
-      clearInterval(statusTimer);
-      worker?.stop();
-    });
+      // Push queue status (depth / degraded / conflicts) to the renderer — the
+      // 2s timer is the floor; the worker pushes eagerly on every state change.
+      const statusTimer = setInterval(pushStatus, 2_000);
+      win.on('closed', () => {
+        clearInterval(statusTimer);
+        worker?.stop();
+      });
 
-    lanServer = startLanKdsServer(station, {
-      onQueueChanged: () => {
-        pushStatus();
-        worker?.kick(); // a KDS bump entered the till's queue — replay it
-      },
-    });
-    lanClient = startLanKdsClient(station, (frame) => {
-      if (!win.isDestroyed()) win.webContents.send(IPC.lanTicket, frame);
-    });
-    win.on('closed', () => {
-      lanServer?.close();
-      lanClient?.close();
-      updater?.stop();
-      discoverAbort?.abort();
-    });
-    startHeartbeat(station);
-  }).catch(reportFatalStartup);
+      lanServer = startLanKdsServer(station, {
+        onQueueChanged: () => {
+          pushStatus();
+          worker?.kick(); // a KDS bump entered the till's queue — replay it
+        },
+      });
+      lanClient = startLanKdsClient(station, (frame) => {
+        if (!win.isDestroyed()) win.webContents.send(IPC.lanTicket, frame);
+      });
+      win.on('closed', () => {
+        lanServer?.close();
+        lanClient?.close();
+        updater?.stop();
+        discoverAbort?.abort();
+      });
+      startHeartbeat(station);
+    })
+    .catch(reportFatalStartup);
 }
 
 app.on('window-all-closed', () => {

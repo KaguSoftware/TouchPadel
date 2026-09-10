@@ -26,7 +26,13 @@ function WorkspaceSwitcherScreen() {
   return (
     <div style={{ maxInlineSize: '64rem' }}>
       <PageHeader title={tr('ws.shell.switcher.title')} subtitle={tr('ws.shell.switcher.lead')} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(15rem, 1fr))', gap: '0.75rem' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(15rem, 1fr))',
+          gap: '0.75rem',
+        }}
+      >
         {available.map((key) => {
           const ws = WORKSPACES[key];
           const current = key === active;
@@ -51,14 +57,33 @@ function WorkspaceSwitcherScreen() {
                 minBlockSize: '8rem',
               }}
             >
-              <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ display: 'inline-flex', inlineSize: '2.25rem', blockSize: '2.25rem', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'var(--tp-rail)', color: 'var(--tp-rail-green)' }}>
+              <span
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    inlineSize: '2.25rem',
+                    blockSize: '2.25rem',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                    background: 'var(--tp-rail)',
+                    color: 'var(--tp-rail-green)',
+                  }}
+                >
                   <Icon name={ws.icon} size={18} />
                 </span>
-                {current && <StatusBadge tone="accent" label={tr('ws.shell.switcher.current')} size="sm" />}
+                {current && (
+                  <StatusBadge tone="accent" label={tr('ws.shell.switcher.current')} size="sm" />
+                )}
               </span>
-              <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-lg)' }}>{tr(`ws.shell.workspace.${key}`)}</span>
-              <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr(`ws.shell.workspaceLead.${key}`)}</span>
+              <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-lg)' }}>
+                {tr(`ws.shell.workspace.${key}`)}
+              </span>
+              <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+                {tr(`ws.shell.workspaceLead.${key}`)}
+              </span>
             </button>
           );
         })}

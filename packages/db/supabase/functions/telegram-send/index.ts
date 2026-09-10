@@ -63,7 +63,10 @@ async function sendMessage(token: string, body: Record<string, unknown>): Promis
       body: JSON.stringify(body),
     });
   } catch (e) {
-    return { kind: 'transient', description: `fetch: ${e instanceof Error ? e.message : String(e)}` };
+    return {
+      kind: 'transient',
+      description: `fetch: ${e instanceof Error ? e.message : String(e)}`,
+    };
   }
   let data: TgResponse | null = null;
   try {
@@ -100,7 +103,14 @@ Deno.serve(async (req) => {
       .rpc('claim_due_telegram', { p_limit: CLAIM_LIMIT });
     if (claimErr) {
       console.error('claim_due_telegram failed:', claimErr.message);
-      return json({ ok: false, error: claimErr.message, claimed: 0, sent: 0, failed: 0, skipped: 0 });
+      return json({
+        ok: false,
+        error: claimErr.message,
+        claimed: 0,
+        sent: 0,
+        failed: 0,
+        skipped: 0,
+      });
     }
     const rows = (claimed ?? []) as OutboxRow[];
 
@@ -109,18 +119,32 @@ Deno.serve(async (req) => {
         const { error } = await db
           .from('telegram_outbox')
           .update({ status: 'skipped', last_error: 'NOT_CONFIGURED' })
-          .in('id', rows.map((r) => r.id));
+          .in(
+            'id',
+            rows.map((r) => r.id),
+          );
         if (error) console.error('skip stamp failed:', error.message);
       }
-      return json({ configured: false, claimed: rows.length, sent: 0, failed: 0, skipped: rows.length });
+      return json({
+        configured: false,
+        claimed: rows.length,
+        sent: 0,
+        failed: 0,
+        skipped: rows.length,
+      });
     }
-    if (rows.length === 0) return json({ configured: true, claimed: 0, sent: 0, failed: 0, skipped: 0 });
+    if (rows.length === 0)
+      return json({ configured: true, claimed: 0, sent: 0, failed: 0, skipped: 0 });
 
     // Language: payload wins if present (not today, per 0032), else one settings read.
     let settingLang: Lang | null = null;
     const needsSetting = rows.some((r) => !(r.payload?.lang === 'ar' || r.payload?.lang === 'en'));
     if (needsSetting) {
-      const { data: s } = await db.from('cafe_settings').select('value').eq('key', 'telegram_lang').maybeSingle();
+      const { data: s } = await db
+        .from('cafe_settings')
+        .select('value')
+        .eq('key', 'telegram_lang')
+        .maybeSingle();
       settingLang = s?.value === 'en' ? 'en' : 'ar';
     }
 
@@ -129,7 +153,12 @@ Deno.serve(async (req) => {
     let skipped = 0;
 
     for (const row of rows) {
-      const lang: Lang = row.payload?.lang === 'en' ? 'en' : row.payload?.lang === 'ar' ? 'ar' : (settingLang ?? 'ar');
+      const lang: Lang =
+        row.payload?.lang === 'en'
+          ? 'en'
+          : row.payload?.lang === 'ar'
+            ? 'ar'
+            : (settingLang ?? 'ar');
 
       let text: string;
       let replyMarkup: unknown;
@@ -141,7 +170,10 @@ Deno.serve(async (req) => {
         failed++;
         await db
           .from('telegram_outbox')
-          .update({ status: 'failed', last_error: `RENDER: ${e instanceof Error ? e.message : String(e)}` })
+          .update({
+            status: 'failed',
+            last_error: `RENDER: ${e instanceof Error ? e.message : String(e)}`,
+          })
           .eq('id', row.id);
         continue;
       }

@@ -92,12 +92,29 @@ export function QrCard({
       style={{ display: 'block', inlineSize: '100%', blockSize: 'auto', ...style }}
     >
       <rect width={layout.width} height={layout.height} fill={PANEL_BG} />
-      <rect x="10" y="10" width="400" height="572" rx="18" fill={WHITE} stroke={HAIRLINE} strokeWidth="2" />
+      <rect
+        x="10"
+        y="10"
+        width="400"
+        height="572"
+        rx="18"
+        fill={WHITE}
+        stroke={HAIRLINE}
+        strokeWidth="2"
+      />
 
       {/* header band */}
       <path d="M10 28a18 18 0 0 1 18-18h364a18 18 0 0 1 18 18v70H10z" fill={BLUE} />
       <TouchCafeWordmark />
-      <text x="210" y="86" textAnchor="middle" fill={WHITE} fontFamily={SANS} fontSize="17" opacity="0.9">
+      <text
+        x="210"
+        y="86"
+        textAnchor="middle"
+        fill={WHITE}
+        fontFamily={SANS}
+        fontSize="17"
+        opacity="0.9"
+      >
         {tr('op.qr.brandLine')}
       </text>
 
@@ -134,7 +151,14 @@ export function QrCard({
         module edge to some decoders, and the quiet zone is what the plate is
         for.
       */}
-      <rect x={qrX - 12} y={qrY - 12} width={qrBox + 24} height={qrBox + 24} rx="12" fill={QR_PAPER} />
+      <rect
+        x={qrX - 12}
+        y={qrY - 12}
+        width={qrBox + 24}
+        height={qrBox + 24}
+        rx="12"
+        fill={QR_PAPER}
+      />
       <g transform={`translate(${qrX + quiet * scale} ${qrY + quiet * scale}) scale(${scale})`}>
         <path d={d} fill={QR_INK} shapeRendering="crispEdges" />
       </g>

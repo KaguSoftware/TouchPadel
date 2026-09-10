@@ -207,7 +207,9 @@ if (failures.length > 0) {
 
 if (present.length === 0) {
   console.error('FAIL  no built artifacts found — this scan proved nothing.');
-  console.error('      Run `pnpm turbo build` first, or pass --allow-missing if that is deliberate.');
+  console.error(
+    '      Run `pnpm turbo build` first, or pass --allow-missing if that is deliberate.',
+  );
   process.exit(1);
 }
 
@@ -220,5 +222,7 @@ if (missing.length > 0 && !ALLOW_MISSING) {
   process.exit(1);
 }
 
-console.log(`PASS  no service_role JWT, sb_secret_* key, or unexpected project token in any built artifact.`);
+console.log(
+  `PASS  no service_role JWT, sb_secret_* key, or unexpected project token in any built artifact.`,
+);
 process.exit(0);

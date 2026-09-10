@@ -32,7 +32,11 @@ function walk(dir: string, out: string[] = []): string[] {
 const routeFiles = walk(APP);
 
 /** APP-relative, '/'-separated regardless of platform (join() emits '\' on Windows). */
-const rel = (f: string): string => f.slice(APP.length + 1).split(sep).join('/');
+const rel = (f: string): string =>
+  f
+    .slice(APP.length + 1)
+    .split(sep)
+    .join('/');
 
 describe('route layout', () => {
   it('keeps no route group except (tabs)', () => {
@@ -60,7 +64,9 @@ describe('navigation targets', () => {
   const targets = new Set<string>();
   for (const f of sources) {
     const text = readFileSync(f, 'utf8');
-    for (const m of text.matchAll(/router\.(?:push|replace|navigate)\(\s*\{?\s*(?:pathname:\s*)?'([^']+)'/g)) {
+    for (const m of text.matchAll(
+      /router\.(?:push|replace|navigate)\(\s*\{?\s*(?:pathname:\s*)?'([^']+)'/g,
+    )) {
       const path = m[1];
       if (path && path.startsWith('/')) targets.add(path);
     }

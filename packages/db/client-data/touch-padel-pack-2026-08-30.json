@@ -631,10 +631,7 @@
           "required": false
         }
       ],
-      "rows": [
-        {},
-        {}
-      ]
+      "rows": [{}, {}]
     }
   ],
   "outstanding": [

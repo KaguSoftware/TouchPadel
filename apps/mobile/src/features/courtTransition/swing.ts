@@ -106,25 +106,18 @@ export const SWING_TRAVEL = 2.0;
  * The first and last keys are the same pose, so a racket that is not swinging
  * simply sits on key 0 — the rest stance every player holds between strokes.
  */
-const DESIGN_KEYS: readonly (readonly [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-])[] = [
-  [0.0, 0.03, 0.35, -0.06, -0.1, 0.0, 0.16],
-  [0.45, 0.05, 0.55, -0.14, -0.14, 0.02, 0.26],
-  [0.62, 0.05, 0.52, -0.14, -0.13, 0.01, 0.26],
-  [0.78, 0.02, 0.25, -0.06, -0.06, 0.0, 0.08],
-  [0.9, 0.0, -0.05, 0.04, 0.02, 0.02, -0.1],
-  [1.1, -0.04, -0.35, 0.16, 0.1, 0.08, -0.26],
-  [1.35, -0.04, -0.4, 0.2, 0.12, 0.11, -0.3],
-  [1.8, 0.0, -0.05, 0.08, 0.03, 0.05, -0.1],
-  [2.2, 0.03, 0.35, -0.06, -0.1, 0.0, 0.16],
-] as const;
+const DESIGN_KEYS: readonly (readonly [number, number, number, number, number, number, number])[] =
+  [
+    [0.0, 0.03, 0.35, -0.06, -0.1, 0.0, 0.16],
+    [0.45, 0.05, 0.55, -0.14, -0.14, 0.02, 0.26],
+    [0.62, 0.05, 0.52, -0.14, -0.13, 0.01, 0.26],
+    [0.78, 0.02, 0.25, -0.06, -0.06, 0.0, 0.08],
+    [0.9, 0.0, -0.05, 0.04, 0.02, 0.02, -0.1],
+    [1.1, -0.04, -0.35, 0.16, 0.1, 0.08, -0.26],
+    [1.35, -0.04, -0.4, 0.2, 0.12, 0.11, -0.3],
+    [1.8, 0.0, -0.05, 0.08, 0.03, 0.05, -0.1],
+    [2.2, 0.03, 0.35, -0.06, -0.1, 0.0, 0.16],
+  ] as const;
 
 /**
  * The clip, with its travel reversed along z — and this is a CORRECTION, not a
@@ -152,9 +145,7 @@ export const SWING_KEYS: readonly (readonly [
   number,
   number,
   number,
-])[] = DESIGN_KEYS.map(
-  ([t, rx, ry, rz, px, py, pz]) => [t, -rx, -ry, rz, px, py, -pz] as const,
-);
+])[] = DESIGN_KEYS.map(([t, rx, ry, rz, px, py, pz]) => [t, -rx, -ry, rz, px, py, -pz] as const);
 
 /** The clip's length (AnimationClip('swing', 2.2, …)). */
 export const SWING_DURATION = 2.2;

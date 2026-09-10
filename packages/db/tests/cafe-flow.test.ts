@@ -131,7 +131,12 @@ describe.skipIf(!up)('cafe flow (QR -> order -> KDS -> stock -> settle -> day cl
     expect(res.ok, res.errorMessage).toBe(true);
     expect(res.duplicate).toBe(false);
 
-    const d = res.data as { order_id: string; tab_id: string; ticket_id: string; total_iqd: number };
+    const d = res.data as {
+      order_id: string;
+      tab_id: string;
+      ticket_id: string;
+      total_iqd: number;
+    };
     orderId = d.order_id;
     tabId = d.tab_id;
     ticketId = d.ticket_id;
@@ -140,7 +145,9 @@ describe.skipIf(!up)('cafe flow (QR -> order -> KDS -> stock -> settle -> day cl
 
     const { data: items } = await svc
       .from('order_items')
-      .select('id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd, list_price_iqd, discount_pct')
+      .select(
+        'id, menu_item_id, variant_id, qty, unit_price_iqd, line_total_iqd, list_price_iqd, discount_pct',
+      )
       .eq('order_id', orderId);
     expect(items).toHaveLength(2);
     type Item = {
@@ -209,7 +216,12 @@ describe.skipIf(!up)('cafe flow (QR -> order -> KDS -> stock -> settle -> day cl
       .select('status, ready_at, completed_at, actual_prep_seconds')
       .eq('id', ticketId)
       .single();
-    const tt = t as { status: string; ready_at: string; completed_at: string; actual_prep_seconds: number };
+    const tt = t as {
+      status: string;
+      ready_at: string;
+      completed_at: string;
+      actual_prep_seconds: number;
+    };
     expect(tt.status).toBe('completed');
     expect(tt.ready_at).not.toBeNull();
     expect(tt.completed_at).not.toBeNull();
@@ -248,7 +260,10 @@ describe.skipIf(!up)('cafe flow (QR -> order -> KDS -> stock -> settle -> day cl
       .select('id, qty_remaining')
       .in('id', [milkBatchA, milkBatchB]);
     const remaining = Object.fromEntries(
-      (batches as { id: string; qty_remaining: number }[]).map((b) => [b.id, Number(b.qty_remaining)]),
+      (batches as { id: string; qty_remaining: number }[]).map((b) => [
+        b.id,
+        Number(b.qty_remaining),
+      ]),
     );
     expect(remaining[milkBatchA]).toBe(0);
     expect(remaining[milkBatchB]).toBe(950);
@@ -287,13 +302,22 @@ describe.skipIf(!up)('cafe flow (QR -> order -> KDS -> stock -> settle -> day cl
       .select('method, amount_iqd, tendered_iqd, change_iqd, day_session_id')
       .eq('id', s.payment_id)
       .single();
-    const p = pay as { method: string; amount_iqd: number; change_iqd: number; day_session_id: string };
+    const p = pay as {
+      method: string;
+      amount_iqd: number;
+      change_iqd: number;
+      day_session_id: string;
+    };
     expect(p.method).toBe('cash');
     expect(p.amount_iqd).toBe(12_000);
     expect(p.change_iqd).toBe(8_000);
     expect(p.day_session_id).toBe(dayId);
 
-    const { data: tab } = await svc.from('tabs').select('status, settled_at').eq('id', tabId).single();
+    const { data: tab } = await svc
+      .from('tabs')
+      .select('status, settled_at')
+      .eq('id', tabId)
+      .single();
     expect((tab as { status: string }).status).toBe('settled');
     expect((tab as { settled_at: string }).settled_at).not.toBeNull();
 

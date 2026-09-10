@@ -51,9 +51,7 @@ export function OrderCard({ locale, order }: { locale: Locale; order: GuestOrder
       {voided && <div className="tp-order__lines">{tr('cafe.orders.cancelledHint')}</div>}
       {lines.length > 0 && (
         <div className="tp-order__lines">
-          {lines
-            .map((i) => `${i.qty} × ${ar ? i.name_ar : i.name_en}`)
-            .join(ar ? '، ' : ', ')}
+          {lines.map((i) => `${i.qty} × ${ar ? i.name_ar : i.name_en}`).join(ar ? '، ' : ', ')}
         </div>
       )}
     </article>

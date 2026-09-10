@@ -17,7 +17,9 @@ describe('validateSearch', () => {
       to: '2026-08-10',
     });
     expect(validateSearch({ range: 'custom', from: '2026-08-01' })).toEqual({ range: '30d' });
-    expect(validateSearch({ range: 'custom', from: '2026-02-30', to: '2026-03-01' })).toEqual({ range: '30d' });
+    expect(validateSearch({ range: 'custom', from: '2026-02-30', to: '2026-03-01' })).toEqual({
+      range: '30d',
+    });
   });
   it('ignores non-string params', () => {
     expect(validateSearch({ range: 7, from: 1, cmp: ['prev'] })).toEqual({ range: '30d' });

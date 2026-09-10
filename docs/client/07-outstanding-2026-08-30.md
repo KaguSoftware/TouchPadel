@@ -29,8 +29,8 @@ One row per price rule: which days, which time window, which duration, the price
 (template: `04-courts-template.csv`). Prices that run past midnight: just tell us the price — we
 split the two rows correctly ourselves.
 
-**And one clarification from your own notes.** You wrote: *"court times aren't always the exact
-same, different across courts."* The system supports all of these — we just need to know which one
+**And one clarification from your own notes.** You wrote: _"court times aren't always the exact
+same, different across courts."_ The system supports all of these — we just need to know which one
 you mean:
 
 1. **Different playable durations** — e.g. Court 1 sells 60 min, Court 2 sells 60 and 90 min.
@@ -47,12 +47,12 @@ occurrences already passed (June–August 2026), so **no closure falls before op
 ones are in summer 2027. Rather than ask you to look them up, here is what the calendar gives —
 **one word per row confirms or corrects it**:
 
-| Closure / المناسبة | Our proposed date (2027) | Confirm? |
-|---|---|---|
-| 9 Muharram / ٩ محرم | Monday **2027-06-14** | ☐ |
-| 10 Muharram (Ashura) / عاشوراء | Tuesday **2027-06-15** | ☐ |
-| Arbaeen (20 Safar) / الأربعين | Saturday **2027-07-24** | ☐ |
-| Wafat al-Rasool (28 Safar) / وفاة الرسول | Sunday **2027-08-01** | ☐ |
+| Closure / المناسبة                       | Our proposed date (2027) | Confirm? |
+| ---------------------------------------- | ------------------------ | -------- |
+| 9 Muharram / ٩ محرم                      | Monday **2027-06-14**    | ☐        |
+| 10 Muharram (Ashura) / عاشوراء           | Tuesday **2027-06-15**   | ☐        |
+| Arbaeen (20 Safar) / الأربعين            | Saturday **2027-07-24**  | ☐        |
+| Wafat al-Rasool (28 Safar) / وفاة الرسول | Sunday **2027-08-01**    | ☐        |
 
 These follow the Hijri calendar on local sighting, so they may shift by a day — which is exactly
 why we will not enter them without your confirmation. Also tell us: whole day, or part of the day?
@@ -84,8 +84,8 @@ delivered, and no dish can be costed.
 
 الجداول الأربعة ما زالت فارغة. العقد يسمّي الوصفات المقاسة **أكبر خطر في هذه المرحلة**.
 
-**And about the storage:** your notes say the stock *"should be sorted in a certain way — per
-Hussain's request."* We want to build it the way Hussain wants it. Two questions: **who is Hussain**
+**And about the storage:** your notes say the stock _"should be sorted in a certain way — per
+Hussain's request."_ We want to build it the way Hussain wants it. Two questions: **who is Hussain**
 (so we can put him on the staff list with the right role), and what does "sorted" mean —
 
 1. storage **locations/categories** in the stock lists (fridge, freezer, dry store…)?
@@ -147,27 +147,27 @@ instead of your staff. (Hussain, from the note above, presumably belongs on this
 
 ## 4. Decisions and paperwork
 
-| Item / البند | Status |
-|---|---|
-| **Domain** / النطاق | You chose `touch-padel.com` and asked for help. **We checked: it is already registered — created 3 August 2025 through Hostinger, and it appears to have lapsed and be sitting in the renewal-grace window.** First question: **did you, or anyone at Touch, register it?** If yes — tell us the Hostinger account email and we will walk you through renewing it (a normal renewal fee, ~$15). If no — it is held by someone else and we should watch for it to drop, or pick a variant. Full steps: `domain-setup-2026-08-30.md`. Until a domain is live we cannot print the table QR cards. |
-| **Backups** / النسخ الاحتياطي | **Decided 2026-08-30: daily automated backups; point-in-time recovery not enabled.** One thing to put on record: the signed Scope of Work (section on hosting) promises point-in-time recovery, so this choice is a small written deviation from it — daily backups mean that in the worst case up to one day of data since the last backup could be lost, in exchange for avoiding the ~$100/month add-on. **Please reply "confirmed" to this line** so the record is complete. / تقرر: نسخ احتياطي يومي بدون استرجاع زمني. هذا انحراف بسيط عن العقد الموقّع، والفرق أنه في أسوأ الحالات قد يُفقد ما دوّن بعد آخر نسخة يومية. يرجى الرد بكلمة **"مؤكد"**. |
-| **Phone number** / رقم الهاتف | Third time asking, because it matters: `00995419010203` reads as **+995 (Georgia)**, not **+964 (Iraq)**. This number is shown to guests on the website and whenever the till loses connection. Please send the number exactly as a guest should dial it. / الرقم المسجّل يبدأ بمفتاح جورجيا لا العراق، وهو الرقم الذي يظهر للضيوف. أرسلوه كما يجب أن يُطلب. |
-| **Fonts** / الخطوط | You have the files and sent them by WhatsApp — good. Two things remain: (1) get the **files themselves** to Parsa so they enter the build (WhatsApp compresses and loses originals — a Drive link or email is safer), and (2) the **licence** for Next Art and Frutiger LT Arabic (a receipt or licence PDF), because we cannot ship a commercial font without it. |
-| **Logo, colours, photos** / الشعار والألوان والصور | Same route: they were sent on WhatsApp, but they are **not yet in the build**. Please re-send to the project email or a Drive link so they are on the record. |
-| **Training** / التدريب | Agreed — thank you. We will schedule it for Week 5–6 by role (till, kitchen, manager), in Arabic, recorded. |
-| **Static IP question** / السؤال عن العنوان الثابت | You answered "who?" — fair. See "The router" above: we handle it on install day; you only provide the router password. Closed. |
+| Item / البند                                       | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Domain** / النطاق                                | You chose `touch-padel.com` and asked for help. **We checked: it is already registered — created 3 August 2025 through Hostinger, and it appears to have lapsed and be sitting in the renewal-grace window.** First question: **did you, or anyone at Touch, register it?** If yes — tell us the Hostinger account email and we will walk you through renewing it (a normal renewal fee, ~$15). If no — it is held by someone else and we should watch for it to drop, or pick a variant. Full steps: `domain-setup-2026-08-30.md`. Until a domain is live we cannot print the table QR cards.                                                             |
+| **Backups** / النسخ الاحتياطي                      | **Decided 2026-08-30: daily automated backups; point-in-time recovery not enabled.** One thing to put on record: the signed Scope of Work (section on hosting) promises point-in-time recovery, so this choice is a small written deviation from it — daily backups mean that in the worst case up to one day of data since the last backup could be lost, in exchange for avoiding the ~$100/month add-on. **Please reply "confirmed" to this line** so the record is complete. / تقرر: نسخ احتياطي يومي بدون استرجاع زمني. هذا انحراف بسيط عن العقد الموقّع، والفرق أنه في أسوأ الحالات قد يُفقد ما دوّن بعد آخر نسخة يومية. يرجى الرد بكلمة **"مؤكد"**. |
+| **Phone number** / رقم الهاتف                      | Third time asking, because it matters: `00995419010203` reads as **+995 (Georgia)**, not **+964 (Iraq)**. This number is shown to guests on the website and whenever the till loses connection. Please send the number exactly as a guest should dial it. / الرقم المسجّل يبدأ بمفتاح جورجيا لا العراق، وهو الرقم الذي يظهر للضيوف. أرسلوه كما يجب أن يُطلب.                                                                                                                                                                                                                                                                                               |
+| **Fonts** / الخطوط                                 | You have the files and sent them by WhatsApp — good. Two things remain: (1) get the **files themselves** to Parsa so they enter the build (WhatsApp compresses and loses originals — a Drive link or email is safer), and (2) the **licence** for Next Art and Frutiger LT Arabic (a receipt or licence PDF), because we cannot ship a commercial font without it.                                                                                                                                                                                                                                                                                         |
+| **Logo, colours, photos** / الشعار والألوان والصور | Same route: they were sent on WhatsApp, but they are **not yet in the build**. Please re-send to the project email or a Drive link so they are on the record.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Training** / التدريب                             | Agreed — thank you. We will schedule it for Week 5–6 by role (till, kitchen, manager), in Arabic, recorded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Static IP question** / السؤال عن العنوان الثابت  | You answered "who?" — fair. See "The router" above: we handle it on install day; you only provide the router password. Closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ---
 
 ## What we did with what you sent / ما تم تنفيذه
 
-| Your answer | Now in the system |
-|---|---|
-| Every first-pack answer, unchanged | Locked in — hours, 4-hour cancellation, IQD, zero tax, the two courts are now doubly confirmed |
-| Domain: `touch-padel.com`, help requested | Researched (see above) — recovery path identified, setup guide written |
-| Backups decision | Recorded, delivery plan updated; awaiting your one-word confirmation of the deviation |
-| Floor count: 12 | Recorded; awaiting zones, seats and numbering |
-| Printer arrived, UPS in hand | Recorded; awaiting the printer model check |
-| Training: yes | Scheduled into Weeks 5–6 |
-| Approver Mustafa + contact + hosting email | On record for sign-offs and the hosting account |
+| Your answer                                                        | Now in the system                                                                                    |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Every first-pack answer, unchanged                                 | Locked in — hours, 4-hour cancellation, IQD, zero tax, the two courts are now doubly confirmed       |
+| Domain: `touch-padel.com`, help requested                          | Researched (see above) — recovery path identified, setup guide written                               |
+| Backups decision                                                   | Recorded, delivery plan updated; awaiting your one-word confirmation of the deviation                |
+| Floor count: 12                                                    | Recorded; awaiting zones, seats and numbering                                                        |
+| Printer arrived, UPS in hand                                       | Recorded; awaiting the printer model check                                                           |
+| Training: yes                                                      | Scheduled into Weeks 5–6                                                                             |
+| Approver Mustafa + contact + hosting email                         | On record for sign-offs and the hosting account                                                      |
 | Your four notes (router, stock sorting, court times, cancellation) | Each one turned into a concrete question above — the cancellation note matched what is already built |

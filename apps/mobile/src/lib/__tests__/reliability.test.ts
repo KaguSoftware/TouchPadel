@@ -186,7 +186,9 @@ describe('social sign-in library boundary', () => {
   });
 
   it('reads EXPO_PUBLIC_PHONE_OTP in features/auth/phoneOtp.ts only', () => {
-    expect(importers('process.env.EXPO_PUBLIC_PHONE_OTP')).toEqual(['src/features/auth/phoneOtp.ts']);
+    expect(importers('process.env.EXPO_PUBLIC_PHONE_OTP')).toEqual([
+      'src/features/auth/phoneOtp.ts',
+    ]);
   });
 });
 

@@ -5,8 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (p: string) => readFileSync(join(__dirname, '..', '..', '..', p), 'utf8');
 
 /** Comments name the throwing hook to explain it, so assert against code only. */
-const stripComments = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
 const HOOK = stripComments(read('src/components/useTabBarHeight.ts'));
 const SCREENS = ['app/(tabs)/index.tsx', 'app/(tabs)/bookings.tsx', 'app/(tabs)/profile.tsx'];

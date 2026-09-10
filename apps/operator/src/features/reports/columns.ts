@@ -4,7 +4,14 @@
  */
 import type { Locale, MessageKey, TParams } from '@touch/i18n';
 import type { Column } from '../../components/kit';
-import { formatCell, humanizeKey, isColumnLabelKey, isNumericKind, type NormalizedColumn, type ReportRow } from './reportTypes';
+import {
+  formatCell,
+  humanizeKey,
+  isColumnLabelKey,
+  isNumericKind,
+  type NormalizedColumn,
+  type ReportRow,
+} from './reportTypes';
 
 export type Tr = (key: MessageKey, params?: TParams) => string;
 

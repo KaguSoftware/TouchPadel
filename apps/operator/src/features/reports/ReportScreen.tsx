@@ -64,7 +64,11 @@ export type ReportRpc = Extract<AppFunctionName, `report_${string}`>;
  * totals row stays on screen with the figures it totals.
  */
 
-const REPORT_TABS: readonly { id: ReportName; path: '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff' }[] = [
+const REPORT_TABS: readonly {
+  id: ReportName;
+  path:
+    '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff';
+}[] = [
   { id: 'revenue', path: '/reports/revenue' },
   { id: 'courts', path: '/reports/courts' },
   { id: 'cafe', path: '/reports/cafe' },
@@ -84,12 +88,27 @@ export interface ReportScreenProps {
   intro?: ReactNode;
   sortable?: boolean;
   defaultSort?: SortState | null;
-  rowExtra?: (ctx: { filters: ReportFilters; period: Period }) => { header: ReactNode; render: (row: ReportRow) => ReactNode } | undefined;
+  rowExtra?: (ctx: {
+    filters: ReportFilters;
+    period: Period;
+  }) => { header: ReactNode; render: (row: ReportRow) => ReactNode } | undefined;
   /** Extra controls beside the filter bar, given the current filters. */
   extraControls?: (ctx: { filters: ReportFilters; period: Period }) => ReactNode;
 }
 
-export function ReportScreen({ name, rpc, views, fields, enabled = true, notice, intro, sortable = true, defaultSort, rowExtra, extraControls }: ReportScreenProps) {
+export function ReportScreen({
+  name,
+  rpc,
+  views,
+  fields,
+  enabled = true,
+  notice,
+  intro,
+  sortable = true,
+  defaultSort,
+  rowExtra,
+  extraControls,
+}: ReportScreenProps) {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const [period, setPeriodState] = useState<Period>(() => presetPeriod('thisMonth'));
@@ -122,7 +141,9 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
       staffId: filters.staffId ?? null,
       paymentMethod: filters.paymentMethod ?? null,
     };
-    return rpc === 'report_revenue' ? { ...base, p_group: group, p_filters } : { ...base, p_filters };
+    return rpc === 'report_revenue'
+      ? { ...base, p_group: group, p_filters }
+      : { ...base, p_filters };
   }, [rpc, period, group, filters, compare]);
 
   const reportQ = useQuery({
@@ -132,7 +153,10 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
     refetchInterval: 120_000,
   });
   const rows: ReportRow[] = useMemo(() => reportQ.data?.rows ?? [], [reportQ.data]);
-  const columns = useMemo(() => normalizeColumns(reportQ.data?.columns, rows), [reportQ.data, rows]);
+  const columns = useMemo(
+    () => normalizeColumns(reportQ.data?.columns, rows),
+    [reportQ.data, rows],
+  );
   const status = enabled ? asyncStatus(reportQ, (d) => (d?.rows ?? []).length === 0) : 'ready';
   const view = views.find((v) => v.id === filters.view);
 
@@ -147,7 +171,9 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
     const declared = view?.columns;
     if (!declared || allColumns) return columns;
     const byKey = new Map(columns.map((c) => [c.key, c] as const));
-    const picked = declared.map((k) => byKey.get(k)).filter((c): c is NormalizedColumn => c !== undefined);
+    const picked = declared
+      .map((k) => byKey.get(k))
+      .filter((c): c is NormalizedColumn => c !== undefined);
     return picked.length >= 2 ? picked : columns;
   }, [columns, view, allColumns]);
   const columnsHidden = columns.length - visibleColumns.length;
@@ -161,7 +187,12 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
   const skeletonColumns = useMemo(() => {
     const declared = view?.columns;
     if (!declared) return null;
-    const shape: NormalizedColumn[] = declared.map((key) => ({ key, kind: inferKind(key, null, undefined), labelEn: null, labelAr: null }));
+    const shape: NormalizedColumn[] = declared.map((key) => ({
+      key,
+      kind: inferKind(key, null, undefined),
+      labelEn: null,
+      labelAr: null,
+    }));
     return toDataColumns(shape, locale, tr);
   }, [view, locale, tr]);
 
@@ -170,11 +201,20 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
   const drillQ = useQuery({
     queryKey: ['reports', 'drill', name, drill?.key, period.from, period.to],
     // A row drill is scoped by its own key ('court:<id>' | 'item:<id>' | 'staff:<id>'); that IS the figure argument.
-    queryFn: () => appRpc<DrillResult>('report_drill', { p_figure: drill?.key, p_key: null, p_from: period.from, p_to: period.to }),
+    queryFn: () =>
+      appRpc<DrillResult>('report_drill', {
+        p_figure: drill?.key,
+        p_key: null,
+        p_from: period.from,
+        p_to: period.to,
+      }),
     enabled: drill !== null,
   });
   const transactions: ReportRow[] = useMemo(() => drillQ.data?.transactions ?? [], [drillQ.data]);
-  const drillColumns = useMemo(() => toDataColumns(normalizeColumns(null, transactions), locale, tr), [transactions, locale, tr]);
+  const drillColumns = useMemo(
+    () => toDataColumns(normalizeColumns(null, transactions), locale, tr),
+    [transactions, locale, tr],
+  );
 
   function onDrill(row: ReportRow) {
     const key = drillKeyFor(row);
@@ -185,7 +225,13 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
   function exportCsv() {
     // The full column set, always: hiding a column is a reading decision on
     // this screen, not a decision about what the manager may take away.
-    const csv = reportCsv(columns, rows, reportQ.data?.totals, (c) => columnLabel(c, locale, tr), tr('ws.reports.totals'));
+    const csv = reportCsv(
+      columns,
+      rows,
+      reportQ.data?.totals,
+      (c) => columnLabel(c, locale, tr),
+      tr('ws.reports.totals'),
+    );
     downloadCsv(
       reportFilename(tr(`ws.reports.export.${name}`), period, {
         view: views.length > 1 ? filters.view : undefined,
@@ -201,7 +247,12 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
 
   const ctx = { filters, period };
   const extra = rowExtra?.(ctx);
-  const activeFilters = [filters.courtId, filters.categoryId, filters.staffId, filters.paymentMethod].filter(Boolean).length;
+  const activeFilters = [
+    filters.courtId,
+    filters.categoryId,
+    filters.staffId,
+    filters.paymentMethod,
+  ].filter(Boolean).length;
 
   return (
     <div>
@@ -234,40 +285,81 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
         end={
           <>
             {canToggleColumns && (
-              <Button size="sm" icon="layers" aria-pressed={allColumns} onClick={() => setAllColumns((v) => !v)}>
-                {allColumns ? tr('ws.reports.columnSet.showKey') : tr('ws.reports.columnSet.showAll')}
+              <Button
+                size="sm"
+                icon="layers"
+                aria-pressed={allColumns}
+                onClick={() => setAllColumns((v) => !v)}
+              >
+                {allColumns
+                  ? tr('ws.reports.columnSet.showKey')
+                  : tr('ws.reports.columnSet.showAll')}
               </Button>
             )}
-            <ComparisonControl mode={compare} onChange={setCompare} disabled={!enabled || reportQ.isFetching} />
+            <ComparisonControl
+              mode={compare}
+              onChange={setCompare}
+              disabled={!enabled || reportQ.isFetching}
+            />
           </>
         }
       >
-        <DateRangeControl period={period} onChange={setPeriod} disabled={!enabled || reportQ.isFetching} />
+        <DateRangeControl
+          period={period}
+          onChange={setPeriod}
+          disabled={!enabled || reportQ.isFetching}
+        />
       </Toolbar>
-      <ReportFilterBar fields={fields} filters={filters} onChange={setFilters} group={group} onGroup={setGroup} views={views} disabled={!enabled} />
+      <ReportFilterBar
+        fields={fields}
+        filters={filters}
+        onChange={setFilters}
+        group={group}
+        onGroup={setGroup}
+        views={views}
+        disabled={!enabled}
+      />
       {extraControls?.(ctx)}
       {intro}
       <AsyncStateWrapper
         status={status}
         error={reportQ.error}
         onRetry={() => void reportQ.refetch()}
-        skeleton={skeletonColumns ? <TableSkeleton columns={skeletonColumns} rows={8} dense /> : undefined}
+        skeleton={
+          skeletonColumns ? <TableSkeleton columns={skeletonColumns} rows={8} dense /> : undefined
+        }
         emptyContent={
           /* Rulebook 9.2, three different situations and three sentences: a
              filter that matched nothing offers the way back out of it, a view
              that lists exceptions says so positively, and only a genuinely
              empty range says there is nothing to report. */
           activeFilters > 0 ? (
-            <EmptyState kind="filtered" body={tr('ws.reports.emptyBody')} onClearFilters={() => setFilters({ view: filters.view })} />
+            <EmptyState
+              kind="filtered"
+              body={tr('ws.reports.emptyBody')}
+              onClearFilters={() => setFilters({ view: filters.view })}
+            />
           ) : view?.emptyKind === 'nothingToDo' ? (
             <EmptyState kind="nothingToDo" />
           ) : (
-            <EmptyState icon="chart" title={tr('ws.reports.emptyTitle')} body={tr('ws.reports.emptyBody')} />
+            <EmptyState
+              icon="chart"
+              title={tr('ws.reports.emptyTitle')}
+              body={tr('ws.reports.emptyBody')}
+            />
           )
         }
       >
         {/* The bars summarise the whole result; the table below pages it. */}
-        {view?.bars && <HourBars rows={rows} labelKey={view.bars.labelKey} valueKey={view.bars.valueKey} columns={columns} title={tr('ws.reports.bars.label')} />}
+        {view?.bars && (
+          <HourBars
+            rows={rows}
+            labelKey={view.bars.labelKey}
+            valueKey={view.bars.valueKey}
+            columns={columns}
+            title={tr('ws.reports.bars.label')}
+          />
+        )}
         <ReportTable
           aria-label={tr(`ws.reports.nav.${name}`)}
           columns={visibleColumns}

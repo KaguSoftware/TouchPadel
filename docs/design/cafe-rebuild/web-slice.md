@@ -9,29 +9,29 @@ non-revealed modifiers as `MODIFIER_INVALID`, discount helper is `applyPctDiscou
 
 ## 0. Key decisions
 
-| Topic | Decision | Why |
-|---|---|---|
-| Routing file | Rename `apps/web/middleware.ts` → `apps/web/proxy.ts` (`export function proxy`) | Next 16 deprecates the `middleware` convention (`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`); codemod `npx @next/codemod@canary middleware-to-proxy .` |
-| Default locale | `ar`; `Accept-Language` first supported wins; optional `tp-locale` cookie (set by the switcher) beats the header | Owner decision; cookie so a guest who chose English keeps it on a re-scan of the locale-less printed URL |
-| Token → cookie exchange in proxy | **Not now.** Keep client-side `signInAnonymously` + `open_table_session` in the background; the menu is server-rendered before that | The HMAC secret lives only in `app.secrets`/Vault; anonymous auth must happen in the browser anyway to get the `sb-*` cookie RLS/realtime rely on. The "blank until RPC" seam is solved by SSR of the menu |
-| Server vs client | Menu + settings server-rendered (ISR 60 s + `unstable_cache` tag `menu`); table binding, basket, orders, realtime, analytics client-only | Instant paint + SEO for `/{locale}`; `/t/{token}` is dynamic per param but shares the cached read model |
-| Styling | Keep the inline CSS-string approach; split into per-feature `*.css.ts` modules concatenated into `cafeCss`; add a vitest regex guard for physical properties | No build step in `@touch/ui`, inline `<style>` = zero render-blocking CSS request, Tailwind would add a toolchain plus physical utilities the ESLint guard cannot see |
-| Images | `next/image` with `remotePatterns` for the Supabase public bucket, `qualities: [40, 75]`, `minimumCacheTTL` 30 d; `unoptimized` fallback for the `http://127.0.0.1:54321` local stack | Vercel optimizer does resize/WebP; `qualities` is mandatory in Next 16 when passing non-default quality |
-| PostHog | `posthog-js`, lazy `import()` on idle, no autocapture, no session recording, `persistence: 'localStorage'`, one kill switch | Must no-op without key |
-| Service worker | No. Manifest only + `OfflineBanner` | App is useless offline; SW would serve stale prices/menus and stale JS across deploys |
-| Featured discount | Applies to the **variant base price only**, half-up to 1 IQD, modifiers not discounted; TS mirrors SQL integer formula via `applyPctDiscountIqd` | Must match `add_order_items` snapshot exactly (parity test) |
+| Topic                            | Decision                                                                                                                                                                              | Why                                                                                                                                                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Routing file                     | Rename `apps/web/middleware.ts` → `apps/web/proxy.ts` (`export function proxy`)                                                                                                       | Next 16 deprecates the `middleware` convention (`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`); codemod `npx @next/codemod@canary middleware-to-proxy .`              |
+| Default locale                   | `ar`; `Accept-Language` first supported wins; optional `tp-locale` cookie (set by the switcher) beats the header                                                                      | Owner decision; cookie so a guest who chose English keeps it on a re-scan of the locale-less printed URL                                                                                                   |
+| Token → cookie exchange in proxy | **Not now.** Keep client-side `signInAnonymously` + `open_table_session` in the background; the menu is server-rendered before that                                                   | The HMAC secret lives only in `app.secrets`/Vault; anonymous auth must happen in the browser anyway to get the `sb-*` cookie RLS/realtime rely on. The "blank until RPC" seam is solved by SSR of the menu |
+| Server vs client                 | Menu + settings server-rendered (ISR 60 s + `unstable_cache` tag `menu`); table binding, basket, orders, realtime, analytics client-only                                              | Instant paint + SEO for `/{locale}`; `/t/{token}` is dynamic per param but shares the cached read model                                                                                                    |
+| Styling                          | Keep the inline CSS-string approach; split into per-feature `*.css.ts` modules concatenated into `cafeCss`; add a vitest regex guard for physical properties                          | No build step in `@touch/ui`, inline `<style>` = zero render-blocking CSS request, Tailwind would add a toolchain plus physical utilities the ESLint guard cannot see                                      |
+| Images                           | `next/image` with `remotePatterns` for the Supabase public bucket, `qualities: [40, 75]`, `minimumCacheTTL` 30 d; `unoptimized` fallback for the `http://127.0.0.1:54321` local stack | Vercel optimizer does resize/WebP; `qualities` is mandatory in Next 16 when passing non-default quality                                                                                                    |
+| PostHog                          | `posthog-js`, lazy `import()` on idle, no autocapture, no session recording, `persistence: 'localStorage'`, one kill switch                                                           | Must no-op without key                                                                                                                                                                                     |
+| Service worker                   | No. Manifest only + `OfflineBanner`                                                                                                                                                   | App is useless offline; SW would serve stale prices/menus and stale JS across deploys                                                                                                                      |
+| Featured discount                | Applies to the **variant base price only**, half-up to 1 IQD, modifiers not discounted; TS mirrors SQL integer formula via `applyPctDiscountIqd`                                      | Must match `add_order_items` snapshot exactly (parity test)                                                                                                                                                |
 
 ## 1. Routing
 
-| URL (browser) | Proxy action | Rendered by | Rendering | Index |
-|---|---|---|---|---|
-| `/` | 307 redirect → `/{negotiated}` | — | — | canonical is `/ar` |
-| `/{locale}` | pass | `app/[locale]/page.tsx` (NEW: the cafe app, no table) | static + ISR `revalidate = 60`; `generateStaticParams` en/ar | yes |
-| `/{locale}/menu` | — | `next.config.ts` `redirects()`: `/:locale(en|ar)/menu` → `/:locale` (308) | — | alias only |
-| `/t/{token}` (printed) | **rewrite** → `/{negotiated}/t/{token}` (URL stays verbatim) | `app/[locale]/t/[token]/page.tsx` (MODIFY) | dynamic (param) but menu/settings from the shared cache | noindex |
-| `/{locale}/t/{token}` | pass | same | same | noindex |
-| anything else without locale | 307 redirect to `/{locale}{path}` | — | — | — |
-| `/manifest.webmanifest`, `/robots.txt` | excluded by matcher | `app/manifest.ts`, `app/robots.ts` | static | — |
+| URL (browser)                          | Proxy action                                                 | Rendered by                                           | Rendering                                                    | Index              |
+| -------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------ | ------------------ |
+| `/`                                    | 307 redirect → `/{negotiated}`                               | —                                                     | —                                                            | canonical is `/ar` |
+| `/{locale}`                            | pass                                                         | `app/[locale]/page.tsx` (NEW: the cafe app, no table) | static + ISR `revalidate = 60`; `generateStaticParams` en/ar | yes                |
+| `/{locale}/menu`                       | —                                                            | `next.config.ts` `redirects()`: `/:locale(en          | ar)/menu`→`/:locale` (308)                                   | —                  | alias only |
+| `/t/{token}` (printed)                 | **rewrite** → `/{negotiated}/t/{token}` (URL stays verbatim) | `app/[locale]/t/[token]/page.tsx` (MODIFY)            | dynamic (param) but menu/settings from the shared cache      | noindex            |
+| `/{locale}/t/{token}`                  | pass                                                         | same                                                  | same                                                         | noindex            |
+| anything else without locale           | 307 redirect to `/{locale}{path}`                            | —                                                     | —                                                            | —                  |
+| `/manifest.webmanifest`, `/robots.txt` | excluded by matcher                                          | `app/manifest.ts`, `app/robots.ts`                    | static                                                       | —                  |
 
 Proxy (`apps/web/proxy.ts`): keep the current matcher; `DEFAULT_LOCALE='ar'`; precedence = path
 prefix → `tp-locale` cookie → `Accept-Language` → `ar`. `src/lib/locales.ts`: `DEFAULT_LOCALE='ar'`,
@@ -46,17 +46,20 @@ self-hosted and `themeCss` carries the `@font-face` rules, so no font `<link>` a
 viewportFit: 'cover', width: 'device-width', initialScale: 1 }`, metadata "Touch Cafe — Menu", icons
 `/brand/cafe/*`, OG image, `alternates.languages` en/ar + `x-default: /ar`). MODIFY `app/manifest.ts`
 (name "Touch Cafe", `lang: 'ar'`, `dir: 'auto'`, `start_url: '/'`, standalone, cafe icons 192/512 any
-+ 512 maskable, `background_color: --tp-bg`, `theme_color: --tp-accent`). Icons: source
-`packages/ui/src/brand/cafe-mark.svg` rendered by a Playwright-based script into
-`apps/web/public/brand/cafe/{favicon.svg, icon-192.png, icon-512.png, icon-512-maskable.png,
+
+- 512 maskable, `background_color: --tp-bg`, `theme_color: --tp-accent`). Icons: source
+  `packages/ui/src/brand/cafe-mark.svg` rendered by a Playwright-based script into
+  `apps/web/public/brand/cafe/{favicon.svg, icon-192.png, icon-512.png, icon-512-maskable.png,
 apple-icon-180.png, og-1200x630.png}`; padel PNGs stay. Swap point: overwrite the SVG when Touch
-supplies the official mark.
+  supplies the official mark.
 
 Page composition: both pages do
+
 ```
 const [menuResult, settings] = await Promise.all([getCachedMenu(), getCachedCafeSettings()]);
 return <CafeApp locale token={token|null} initialMenu={menuResult.categories} menuStatus={menuResult.status /* ok|empty|error */} settings={settings} />;
 ```
+
 `CafeApp` renders the full menu from props in the SSR HTML, starts `useTableSession` only when `token`
 is set, keeps "Send to waiter"/bell disabled/QR-required until `bound`. `menuStatus !== 'ok'` renders
 `MenuUnavailable` (never a silent blank) with a client-side retry.
@@ -112,6 +115,7 @@ Existing files: `CafeApp.tsx`, `ItemSheet.tsx`, `BasketSheet.tsx`, `WaiterSheet.
 → REPLACED by `src/styles/cafe/index.ts` (+ modules); `middleware.ts` → `proxy.ts`.
 
 ### Hooks (`apps/web/src/hooks/cafe/`)
+
 ```ts
 useSupabase(): BrowserSupabase | null
 useTableSession(token: string | null): { state: 'none'|'binding'|'bound'|'invalid'|'expired'|'error';
@@ -132,6 +136,7 @@ useSheetDrag(headerRef, onClose, { threshold: 80, intent: 8 }): { style }   // p
 useOnline(): boolean
 useItemDwell(item, onAbandon)                  // analytics dwell
 ```
+
 Overlay state (`sheetItem`, `basketOpen`, `waiterOpen`, `ordersOpen`, `qrRequired: {reason}|null`,
 `lightbox`) lives in `CafeApp`; presentational components take data + callbacks only.
 
@@ -211,24 +216,25 @@ NEXT_PUBLIC_POSTHOG_HOST ?? 'https://eu.i.posthog.com'`, `autocapture: false`,
 locale, has_table, table_number? })` re-registered on bind. `AnalyticsProvider.tsx` mounted only
 inside `CafeApp`. `track.ts` `capture()` swallows errors, no-ops until loaded.
 
-| Event | Properties | Fired from |
-|---|---|---|
-| `item_viewed` | `item_id, item_name, category_id, price_iqd, discount_pct, source: 'list'|'featured'|'suggested', has_photo` | opening ItemSheet |
-| `item_view_abandoned` | `item_id, item_name, dwell_ms` | close without add and dwell ≥ 5000 ms; also `visibilitychange→hidden` with sendBeacon |
-| `item_added_to_basket` | `item_id, item_name, variant_id, price_iqd, qty, modifiers_count, has_note, discount_pct` | ItemSheet CTA |
-| `item_removed_from_basket` | `item_id, item_name, qty` | BasketSheet |
-| `category_selected` | `category_id, category_name_en` | CategoryPills tap |
-| `basket_opened` | `item_count, total_iqd, has_table` | BasketButton |
-| `featured_item_clicked` | `item_id` | HeroFeatured |
-| `suggested_item_clicked` | `item_id, from_item_id` | SuggestionsRail |
-| `waiter_called` | `kind: 'order'|'bill'|'water'|'assistance', source: 'fab'` | WaiterSheet after RPC success |
-| `order_submitted` | `order_id, total_iqd, subtotal_iqd, discount_total_iqd, item_count, line_count, has_note` | after `create_guest_order` success |
-| `order_failed` | `error_type` | RPC error |
-| `qr_required_shown` | `action: 'order'|'waiter'` | QrRequiredSheet |
+| Event                      | Properties                                                                                | Fired from                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `item_viewed`              | `item_id, item_name, category_id, price_iqd, discount_pct, source: 'list'                 | 'featured'                                                                            | 'suggested', has_photo` | opening ItemSheet            |
+| `item_view_abandoned`      | `item_id, item_name, dwell_ms`                                                            | close without add and dwell ≥ 5000 ms; also `visibilitychange→hidden` with sendBeacon |
+| `item_added_to_basket`     | `item_id, item_name, variant_id, price_iqd, qty, modifiers_count, has_note, discount_pct` | ItemSheet CTA                                                                         |
+| `item_removed_from_basket` | `item_id, item_name, qty`                                                                 | BasketSheet                                                                           |
+| `category_selected`        | `category_id, category_name_en`                                                           | CategoryPills tap                                                                     |
+| `basket_opened`            | `item_count, total_iqd, has_table`                                                        | BasketButton                                                                          |
+| `featured_item_clicked`    | `item_id`                                                                                 | HeroFeatured                                                                          |
+| `suggested_item_clicked`   | `item_id, from_item_id`                                                                   | SuggestionsRail                                                                       |
+| `waiter_called`            | `kind: 'order'                                                                            | 'bill'                                                                                | 'water'                 | 'assistance', source: 'fab'` | WaiterSheet after RPC success |
+| `order_submitted`          | `order_id, total_iqd, subtotal_iqd, discount_total_iqd, item_count, line_count, has_note` | after `create_guest_order` success                                                    |
+| `order_failed`             | `error_type`                                                                              | RPC error                                                                             |
+| `qr_required_shown`        | `action: 'order'                                                                          | 'waiter'`                                                                             | QrRequiredSheet         |
 
 ## 6. Data flow
 
 ### 6.0 DB contract (from `db-slice.md`)
+
 `menu_items.hook_en/hook_ar`, `highlight ('none'|'blue'|'brown')`, `sold_out`, `photo_path`,
 `photo_blur`; `menu_categories.photo_path/photo_blur`; `modifier_reveals(modifier_id, group_id,
 sort_order)`; public bucket `menu-media`; view `cafe_settings_public(key, value)` with keys
@@ -241,6 +247,7 @@ discount as `(list*(100-pct)+50)/100` and rejects modifiers from non-revealed gr
 `MODIFIER_INVALID`; new codes `BELL_DISABLED`; sold-out → `ITEM_UNAVAILABLE`.
 
 ### 6.1 `src/lib/menu.ts` (MODIFY) + `src/lib/menu.server.ts` (NEW) + `src/lib/media.ts` (NEW)
+
 Types: `MenuModifier.reveals: MenuModifierGroup[]` (resolved from `modifier_reveals`, depth 1);
 `MenuItem` gains `hook_en/ar`, `highlight`, `sold_out`, `photo_url`, `photo_blur`, `discountPct`
 (decorated from settings); `MenuCategory.photo_url`. Pure helpers for tests: `resolveReveals`,
@@ -254,6 +261,7 @@ folds `cafe_settings_public` rows into a typed object with defaults (`hero_mode:
 `imageSizes: [16, 64, 96, 128, 256, 384]`, `minimumCacheTTL: 2592000`; `redirects()` for `/menu`.
 
 ### 6.2 `src/lib/cafe/basket.ts` (MODIFY)
+
 `BasketLine.discount_pct`, `BasketLine.list_unit_price_iqd`; `lineTotal = mulIqd(addIqd(
 applyPctDiscountIqd(unit, pct), Σ mods), qty)`; `basketSubtotal`, `basketDiscountTotal`;
 `activeGroups(item, chosen)` = linked groups ∪ groups revealed by chosen modifiers;
@@ -264,12 +272,14 @@ active set; `subtreeModifierIds(item, modifierId)`; `toOrderPayload` unchanged; 
 variant vanished (toast `removedUnavailable`), re-snapshots prices/discount (toast `priceChanged`).
 
 ### 6.3 Realtime + refresh
+
 `useMenu` subscribes once to `menu` (`setAuth()` first), debounces 500 ms, refetches menu + settings,
 then `useBasket.reconcile`. `useSessionChannel` owns the single `session:{id}` channel and dispatches
 `order_status` → `useOrders`, `waiter_call_status` → `useWaiterCall` (replaces the 20 s poll; 60 s
 safety poll while a call is open).
 
 ### 6.4 Submit
+
 `create_guest_order({ p_items, p_idempotency_key })` with `idemKey.current()` persisted in the draft;
 success → `idemKey.reset()`, clear, toast `sentToWaiter`, `order_submitted`, `session.touched()`,
 `orders.reload()`. Error mapping (`appRpc.ts`): add `BELL_DISABLED → cafe.bellDisabled`; on
@@ -277,10 +287,12 @@ success → `idemKey.reset()`, clear, toast `sentToWaiter`, `order_submitted`, `
 `SESSION_EXPIRED → markExpired()`; `DEGRADED_LOCKOUT → degraded=true`.
 
 ## 7. PWA / offline
+
 Manifest only; no service worker. `OfflineBanner` from `useOnline()`; while offline CTAs disabled with
 the offline copy, waiter FAB dimmed, `useMenu` refetches on `online`.
 
 ## 8. Tests
+
 Unit (vitest, node env): `basket.test.ts` (discount parity table `1250×15% → 1063`, `999×10% → 899`,
 0 % identity, modifiers undiscounted, `activeGroups`/`violatedGroup` with reveals, `buildLine` rejects
 non-revealed, `subtreeModifierIds`, draft migration, `mergeDrafts`, `reconcile`); `menu.test.ts`
@@ -300,19 +312,21 @@ AR twin); `cafe-menu-live.spec.ts` (sold-out stamp via broadcast); `cafe-rtl-lay
 default-locale test. Lighthouse on the Vercel preview: LCP < 2.5 s on Slow 4G.
 
 ## 9. Delivery waves
-| Wave | Files | Verify |
-|---|---|---|
-| Foundation | tokens `cafeBrand.ts`, `palette.ts`, `theme.ts`, `index.ts`, `brand/cafe-mark.svg`, icon script; `proxy.ts` (−`middleware.ts`), `locales.ts`, `next.config.ts`, layout/page/`t/[token]`/loading/error/not-found, manifest, `public/brand/cafe/*`, `styles/cafe/*`, `components/cafe/brand/*`, delete `(public)/*`; temporary `CafeApp` shim rendering the SSR menu | typecheck; vitest css guard; e2e cafe-root SSR/locale/redirect |
-| Data + libs | `menu.ts`, `menu.server.ts`, `media.ts`, `cafe/basket.ts` (+test), `appRpc.ts`, catalogs EN+AR | typecheck; vitest; i18n parity |
-| Hooks + core UI | `hooks/cafe/*` (+tests), `CafeApp`, TopBar, Hero, CategoryPills, MenuStage, MenuCard, ItemSheet, BasketSheet, QrRequiredSheet, Toast, OfflineBanner, Ticker, Footer, ScrollTopFab, MenuUnavailable | typecheck; vitest; e2e cafe-root + cafe-journey (order half) + cafe-rtl-layout |
-| Waiter + orders + tutorial | WaiterButton/WaiterSheet, BellTutorial, OrdersStrip, OrdersSheet, `useSessionChannel`, `useWaiterCall`, `useOrders` | e2e cafe-journey full, cafe-menu-live |
-| Analytics + polish | `src/lib/analytics/*`, `posthog-js` dep, haptics, manifest/icons final, owner checklist | vitest; e2e asserts no `*.posthog.com` requests without key |
-| QA | RTL pass on real phones, Lighthouse, axe (optional), HANDOFF | full gate |
+
+| Wave                       | Files                                                                                                                                                                                                                                                                                                                                                              | Verify                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Foundation                 | tokens `cafeBrand.ts`, `palette.ts`, `theme.ts`, `index.ts`, `brand/cafe-mark.svg`, icon script; `proxy.ts` (−`middleware.ts`), `locales.ts`, `next.config.ts`, layout/page/`t/[token]`/loading/error/not-found, manifest, `public/brand/cafe/*`, `styles/cafe/*`, `components/cafe/brand/*`, delete `(public)/*`; temporary `CafeApp` shim rendering the SSR menu | typecheck; vitest css guard; e2e cafe-root SSR/locale/redirect                 |
+| Data + libs                | `menu.ts`, `menu.server.ts`, `media.ts`, `cafe/basket.ts` (+test), `appRpc.ts`, catalogs EN+AR                                                                                                                                                                                                                                                                     | typecheck; vitest; i18n parity                                                 |
+| Hooks + core UI            | `hooks/cafe/*` (+tests), `CafeApp`, TopBar, Hero, CategoryPills, MenuStage, MenuCard, ItemSheet, BasketSheet, QrRequiredSheet, Toast, OfflineBanner, Ticker, Footer, ScrollTopFab, MenuUnavailable                                                                                                                                                                 | typecheck; vitest; e2e cafe-root + cafe-journey (order half) + cafe-rtl-layout |
+| Waiter + orders + tutorial | WaiterButton/WaiterSheet, BellTutorial, OrdersStrip, OrdersSheet, `useSessionChannel`, `useWaiterCall`, `useOrders`                                                                                                                                                                                                                                                | e2e cafe-journey full, cafe-menu-live                                          |
+| Analytics + polish         | `src/lib/analytics/*`, `posthog-js` dep, haptics, manifest/icons final, owner checklist                                                                                                                                                                                                                                                                            | vitest; e2e asserts no `*.posthog.com` requests without key                    |
+| QA                         | RTL pass on real phones, Lighthouse, axe (optional), HANDOFF                                                                                                                                                                                                                                                                                                       | full gate                                                                      |
 
 Vercel env: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_POSTHOG_KEY` (blank for now),
 `NEXT_PUBLIC_POSTHOG_HOST` (`https://eu.i.posthog.com`).
 
 ## Risks
+
 Next 16: `middleware`→`proxy`; `params`/`searchParams` are Promises; `themeColor`/`viewport` only via
 `generateViewport`; `images.qualities` required; `router.refresh()` would return the cached entry →
 client refetch on broadcast; `[locale]/page.tsx` must not read cookies/headers (keeps ISR);

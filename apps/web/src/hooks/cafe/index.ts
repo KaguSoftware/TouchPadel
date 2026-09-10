@@ -26,7 +26,13 @@ export {
 export type { GuestOrder, GuestOrderItem, GuestOrderStatus } from './orders';
 export { useWaiterCall, DEFAULT_COOLDOWN_SECONDS } from './useWaiterCall';
 export type { UseWaiterCall, WaiterReason, RaiseResult } from './useWaiterCall';
-export { waiterPhase, formatCooldown, isCallOpen, cooldownStorageKey, cooldownLeftMs } from './waiter';
+export {
+  waiterPhase,
+  formatCooldown,
+  isCallOpen,
+  cooldownStorageKey,
+  cooldownLeftMs,
+} from './waiter';
 export type { WaiterCall, WaiterCallStatus, WaiterPhase } from './waiter';
 export { useVenueMode } from './useVenueMode';
 export { useScrollSpy } from './useScrollSpy';
