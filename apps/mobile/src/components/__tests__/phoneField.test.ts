@@ -116,6 +116,16 @@ describe('PhoneField', () => {
     expect(PHONE_CODE).not.toContain('DIVIDER_INSET');
   });
 
+  it('keeps the digits when the country changes, re-capped for the new one', () => {
+    // Typing the number first and fixing the code afterwards is the ordinary
+    // filling order, and the picker used to wipe the field for it. The number
+    // now survives; it is only re-sanitised, because the field's `maxLength`
+    // is per-country and a longer value would be stranded above it.
+    const src = phoneFieldSource();
+    expect(src, 'the picker no longer clears the number').not.toContain("onChangeNational('')");
+    expect(src).toContain('sanitizeNationalInput(national, next)');
+  });
+
   it('positions the divider with logical insets, so it mirrors on its own', () => {
     expect(PHONE).toMatch(/\bend: 0/);
     expect(PHONE).not.toMatch(/\b(left|right): 0/);

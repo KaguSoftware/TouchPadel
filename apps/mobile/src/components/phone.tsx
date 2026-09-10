@@ -233,12 +233,22 @@ export function PhoneField({
         selected={iso}
         onSelect={(next) => {
           onChangeIso(next);
-          // The number is CLEARED on a country change (owner's call,
-          // 2026-09-06). Digits typed for one country rarely mean anything
-          // under another — the lengths and the trunk rules differ — and a
-          // half-kept number silently trimmed to the new country's length is
-          // worse than an empty field the guest can simply retype.
-          if (next !== iso) onChangeNational('');
+          // The number is KEPT across a country change (owner's call,
+          // 2026-09-10, reversing the clear-on-change of 2026-09-06). Typing
+          // the digits first and only then correcting the code is the ordinary
+          // way this field is filled in, and wiping the number for it made the
+          // guest retype what they had just entered.
+          //
+          // Re-sanitised against the NEW country, because the cap the field
+          // enforces is per-country: a number longer than the new one allows
+          // would otherwise sit in state above a `maxLength` the native input
+          // no longer lets it be edited back down to. Anything short enough is
+          // passed through untouched, and `validatePhone` still judges it on
+          // save.
+          if (next !== iso) {
+            const kept = sanitizeNationalInput(national, next);
+            if (kept !== national) onChangeNational(kept);
+          }
           setPickerOpen(false);
         }}
         onClose={() => setPickerOpen(false)}

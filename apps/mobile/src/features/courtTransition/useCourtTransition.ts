@@ -144,18 +144,23 @@ export function useCourtTransition(): CourtTransition {
         });
       };
 
-      // Opening is the expensive half: `setMounted` above brings up the whole
-      // booking sheet — the availability queries, the realtime subscription and
-      // every one of its staggered animation nodes — and React commits that in
-      // the tick this call returns to. Starting the spring here as well put the
-      // transition's first frames inside that commit, and the court is the one
-      // layer that cannot ride it out: the sheet and the button are native, but
-      // the court's pitch is drawn from p in a JS rAF loop (Court3D), so a
-      // blocked thread shows as the court jerking while everything over it
-      // glides (owner, 2026-09-08: "it glitches a bit and shakes").
+      // Opening gets ONE FRAME of head start before the spring runs.
       //
-      // One frame of head start is enough — React has flushed the mount by the
-      // time this callback runs — and 16 ms is well under the ~100 ms a tap has
+      // `setMounted` above used to bring up the whole booking sheet — the
+      // availability queries, the realtime subscription and every one of its
+      // staggered animation nodes — and React committed that in the tick this
+      // call returned to. Starting the spring here as well put the transition's
+      // first frames inside that commit, and the court is the one layer that
+      // cannot ride it out: the sheet and the button are native, but the
+      // court's pitch is drawn from p in a JS rAF loop (Court3D), so a blocked
+      // thread showed as the court jerking while everything over it glided
+      // (owner, 2026-09-08: "it glitches a bit and shakes").
+      //
+      // The Book tab now mounts the sheet long before the tap (`sheetPrewarmed`
+      // in app/(tabs)/index.tsx), so on that surface there is usually nothing
+      // left to commit. The frame is kept all the same: it still covers the
+      // re-render this call does cause, it is what the standalone entry points
+      // get on their first open, and 16 ms is well under the ~100 ms a tap has
       // to feel instant. Closing mounts nothing, so it still starts here and
       // now: the back button has to answer immediately.
       if (target === 1) {

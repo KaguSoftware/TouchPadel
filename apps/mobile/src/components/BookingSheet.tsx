@@ -94,8 +94,6 @@ export interface BookingSheetProps {
   isOpen: boolean;
   /** A hold call is in flight — the caller keeps the sheet mounted and the back button idle. */
   onBusyChange?: (busy: boolean) => void;
-  /** Any touch inside the card (tap, scroll, drag) — the court behind keeps its rally going. */
-  onInteraction?: () => void;
 }
 
 export function BookingSheet({
@@ -104,7 +102,6 @@ export function BookingSheet({
   bottomInset,
   isOpen,
   onBusyChange,
-  onInteraction,
 }: BookingSheetProps) {
   const { t, locale, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
@@ -145,11 +142,10 @@ export function BookingSheet({
   //
   // A date that is NOT cached shows the skeleton first, so its list mounts
   // fresh at 0 anyway and the ref below is simply null that time round.
-  const gridKey = `${a.date}|${a.durationMin}`;
   const gridRef = useRef<ScrollView>(null);
   useEffect(() => {
     gridRef.current?.scrollTo({ y: 0, animated: false });
-  }, [gridKey]);
+  }, [a.gridKey]);
 
   // Sheet: direction-aware PITCH ease (remapped inside its 0.25 → 1 slice).
   const sheet = useMemo(() => {
@@ -284,11 +280,29 @@ export function BookingSheet({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD, paddingBottom: 14 }}
       >
+        {/*
+          Keyed by POSITION, not by start time.
+
+          The grid is a fixed two-column ladder of identical cells that is
+          re-derived whole on every day chip and every duration tap, and no cell
+          carries state of its own — so a key is only telling React which cell to
+          reuse. Keying on the start time answered "none of them" for a day
+          change (new night, all new times), which unmounted every one of the ~34
+          cells and built ~34 more in the same commit. Position answers "the one
+          in the same slot", so the same views stay put and take new text.
+
+          That commit runs on the JS thread the court's rally is drawn from
+          (Court3D), so a teardown-and-rebuild is frames the animation does not
+          get — the court freezing on a date change is exactly what this and the
+          ICU caching in @touch/core's localParts are between them fixing
+          (owner, 2026-09-10). Duration taps already reconciled in place, since
+          60 and 90 minutes share nearly all their start times; days now do too.
+        */}
         {a.rows.map((row, r) => {
           const e = rows[Math.min(r, SPEC.grid.sharedFromRow)]!;
           return (
             <Animated.View
-              key={row[0]?.startAt.toISOString() ?? r}
+              key={r}
               style={{
                 flexDirection: 'row',
                 gap: 6,
@@ -297,15 +311,15 @@ export function BookingSheet({
                 transform: [{ translateY: e.translateY }, { scale: e.scale }],
               }}
             >
-              {row.map((cell) => (
+              {row.map((cell, c) => (
                 <SlotCell
-                  key={cell.startAt.toISOString()}
+                  key={c}
                   compact
                   cell={cell}
                   time={formatTime(cell.startAt, locale, a.tz)}
                   sub={a.subFor(cell)}
                   capacityLine={a.capacityLineFor(cell)}
-                  onPress={() => a.onTapCell(cell)}
+                  onPress={a.onTapCell}
                 />
               ))}
               {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
@@ -338,7 +352,16 @@ export function BookingSheet({
       {cardW > 0 ? (
         <Animated.View
           pointerEvents={isOpen ? 'auto' : 'none'}
-          onTouchStart={onInteraction}
+          // Hidden from screen readers whenever the sheet is not the view,
+          // which is now most of the time: the caller mounts this card long
+          // before the guest asks for it, so that opening costs nothing (see
+          // `sheetPrewarmed` in app/(tabs)/index.tsx). At p = 0 it is 360 px
+          // down at zero opacity and takes no touches — but a day pill and
+          // thirty times are all perfectly reachable by TalkBack unless they
+          // are taken out of the tree as well. This also covers the closing
+          // animation, where the card has visibly gone but is still mounted.
+          accessibilityElementsHidden={!isOpen}
+          importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
           style={{
             width: cardW,
             maxHeight: cardMaxH,
