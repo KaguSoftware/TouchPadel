@@ -101,9 +101,7 @@ describe.skipIf(!up)('0052 venue settings write through PostgREST', () => {
         p_opening_hours: { tue: [['10:00', '20:00']] },
         p_closed_dates: ['2026-06-01'],
       });
-      await appRpc(manager, 'set_opening_hours', {
-        p_opening_hours: { wed: [['11:00', '21:00']] },
-      });
+      await appRpc(manager, 'set_opening_hours', { p_opening_hours: { wed: [['11:00', '21:00']] } });
       const after = await readSettings();
       expect(after.opening_hours).toEqual({ wed: [['11:00', '21:00']] });
       expect(after.closed_dates).toEqual(['2026-06-01']);
@@ -119,9 +117,9 @@ describe.skipIf(!up)('0052 venue settings write through PostgREST', () => {
         (await appRpc(cashier, 'set_opening_hours', { p_closed_dates: [] })).error?.message,
       ).toBe('FORBIDDEN');
       const guest = await anonymousSessionClient();
-      expect(
-        (await appRpc(guest, 'set_opening_hours', { p_closed_dates: [] })).error?.message,
-      ).toBe('FORBIDDEN');
+      expect((await appRpc(guest, 'set_opening_hours', { p_closed_dates: [] })).error?.message).toBe(
+        'FORBIDDEN',
+      );
     });
 
     it('audits the change with before and after', async () => {

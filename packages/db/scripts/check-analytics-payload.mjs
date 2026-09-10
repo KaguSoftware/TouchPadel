@@ -39,20 +39,10 @@ const psql = (sql) =>
  * or carrying a handle back to one.
  */
 const FORBIDDEN = [
-  /guest_id/i,
-  /guest_name/i,
-  /guest_phone/i,
-  /customer_id/i,
-  /customer_name/i,
-  /customer_phone/i,
-  /profile_id/i,
-  /auth_user_id/i,
-  /\bphone\b/i,
-  /email/i,
-  /full_name/i,
-  /\buser_id\b/i,
-  /session_id/i,
-  /device_id/i,
+  /guest_id/i, /guest_name/i, /guest_phone/i,
+  /customer_id/i, /customer_name/i, /customer_phone/i,
+  /profile_id/i, /auth_user_id/i, /\bphone\b/i, /email/i, /full_name/i,
+  /\buser_id\b/i, /session_id/i, /device_id/i,
 ];
 
 /**
@@ -97,9 +87,7 @@ for (const f of fns) {
 
 console.log('Analytics payload gate — SEC-29');
 console.log(`  client-callable analytics/report/panel fns    ${fns.length}`);
-console.log(
-  '  destination                                  Groq (third-party LLM), via analytics-insights',
-);
+console.log('  destination                                  Groq (third-party LLM), via analytics-insights');
 
 if (fns.length === 0) {
   console.error('\nFAIL  scanned nothing — the naming convention or the schema moved.');
@@ -110,9 +98,7 @@ if (findings.length > 0) {
   console.error(`\nFAIL  ${findings.length} guest identifier(s) in an analytics payload:\n`);
   for (const f of findings) console.error(`  app.${f.fn}  ->  '${f.key}'`);
   console.error('\nThese payloads are POSTed to a third-party LLM provider outside the venue.');
-  console.error(
-    'Aggregate the figure without the identifier, or keep the feature inside the database.',
-  );
+  console.error('Aggregate the figure without the identifier, or keep the feature inside the database.');
   process.exit(1);
 }
 

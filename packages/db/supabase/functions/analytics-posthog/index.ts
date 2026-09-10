@@ -94,8 +94,7 @@ const TEMPLATES: Record<string, Template> = {
 
   daily_engagement: {
     columns: ['business_date', 'pageviews', 'views', 'carts', 'sessions', 'waiter_calls', 'orders'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT ${bizDate(c)} AS d,
              countIf(event = '$pageview') AS pageviews,
              countIf(event = 'item_viewed') AS views,
@@ -105,38 +104,33 @@ const TEMPLATES: Record<string, Template> = {
              countIf(event = 'order_submitted') AS orders
       FROM events
       WHERE ${c.inRange}
-      GROUP BY d ORDER BY d`,
-    ],
+      GROUP BY d ORDER BY d`],
   },
 
   // Distinct-session views measure "how many diners looked" (a curious diner
   // reopening a modal cannot inflate it); raw views are kept as context.
   top_viewed_items: {
     columns: ['item_id', 'item_name', 'sessions', 'views'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT properties.item_id AS id, any(properties.item_name) AS name,
              count(DISTINCT $session_id) AS sessions, count() AS views
       FROM events
       WHERE event = 'item_viewed' AND ${c.inRange}
         AND isNotNull(id) AND id != ''
-      GROUP BY id ORDER BY sessions DESC, views DESC LIMIT ${TOP_POOL}`,
-    ],
+      GROUP BY id ORDER BY sessions DESC, views DESC LIMIT ${TOP_POOL}`],
     merge: (r, c) => r[0].slice(0, c.params.limit ?? TOP_POOL),
   },
 
   top_carted_items: {
     columns: ['item_id', 'item_name', 'sessions', 'adds', 'qty'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT properties.item_id AS id, any(properties.item_name) AS name,
              count(DISTINCT $session_id) AS sessions, count() AS adds,
              sum(toInt(coalesce(properties.qty, '1'))) AS qty
       FROM events
       WHERE event = 'item_added_to_basket' AND ${c.inRange}
         AND isNotNull(id) AND id != ''
-      GROUP BY id ORDER BY sessions DESC, adds DESC LIMIT ${TOP_POOL}`,
-    ],
+      GROUP BY id ORDER BY sessions DESC, adds DESC LIMIT ${TOP_POOL}`],
     merge: (r, c) => r[0].slice(0, c.params.limit ?? TOP_POOL),
   },
 
@@ -145,8 +139,7 @@ const TEMPLATES: Record<string, Template> = {
   // Day grain lets the operator suppress (item, day) pairs the item sold on.
   abandoned_by_dwell: {
     columns: ['item_id', 'item_name', 'business_date', 'b5_10', 'b10_20', 'b20_plus', 'total'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT properties.item_id AS id, any(properties.item_name) AS name, ${bizDate(c)} AS d,
              countIf(toFloat(properties.dwell_ms) < 10000) AS b1,
              countIf(toFloat(properties.dwell_ms) >= 10000 AND toFloat(properties.dwell_ms) < 20000) AS b2,
@@ -155,15 +148,13 @@ const TEMPLATES: Record<string, Template> = {
       FROM events
       WHERE event = 'item_view_abandoned' AND ${c.inRange}
         AND isNotNull(id) AND id != ''
-      GROUP BY id, d ORDER BY d, total DESC`,
-    ],
+      GROUP BY id, d ORDER BY d, total DESC`],
   },
 
   // Session funnel: each step counts sessions that reached it AND every earlier one.
   funnel: {
     columns: ['step', 'sessions'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT countIf(has(e, '$pageview')) AS s1,
              countIf(has(e, '$pageview') AND has(e, 'item_viewed')) AS s2,
              countIf(has(e, '$pageview') AND has(e, 'item_viewed') AND has(e, 'item_added_to_basket')) AS s3,
@@ -175,8 +166,7 @@ const TEMPLATES: Record<string, Template> = {
         WHERE ${c.inRange}
           AND event IN ('$pageview', 'item_viewed', 'item_added_to_basket', 'order_submitted')
         GROUP BY sid
-      )`,
-    ],
+      )`],
     merge: (r) => {
       const row = r[0][0] ?? [];
       return [
@@ -191,8 +181,7 @@ const TEMPLATES: Record<string, Template> = {
   // Of the sessions that opened the basket, how many called a waiter or submitted an order.
   basket_to_call: {
     columns: ['baskets', 'called', 'ordered', 'converted', 'pct'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT countIf(has(e, 'basket_opened')) AS baskets,
              countIf(has(e, 'basket_opened') AND has(e, 'waiter_called')) AS called,
              countIf(has(e, 'basket_opened') AND has(e, 'order_submitted')) AS ordered,
@@ -202,40 +191,28 @@ const TEMPLATES: Record<string, Template> = {
         FROM events
         WHERE ${c.inRange} AND event IN ('basket_opened', 'waiter_called', 'order_submitted')
         GROUP BY sid
-      )`,
-    ],
+      )`],
     merge: (r) => {
       const row = r[0][0] ?? [];
       const baskets = num(row[0]);
       const conv = num(row[3]);
-      return [
-        [
-          baskets,
-          num(row[1]),
-          num(row[2]),
-          conv,
-          baskets > 0 ? Math.round((conv / baskets) * 100) : 0,
-        ],
-      ];
+      return [[baskets, num(row[1]), num(row[2]), conv, baskets > 0 ? Math.round((conv / baskets) * 100) : 0]];
     },
   },
 
   locale_split: {
     columns: ['locale', 'events', 'sessions'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT properties.locale AS loc, count() AS events, count(DISTINCT $session_id) AS sessions
       FROM events
       WHERE ${c.inRange} AND isNotNull(loc) AND loc != ''
-      GROUP BY loc ORDER BY events DESC`,
-    ],
+      GROUP BY loc ORDER BY events DESC`],
   },
 
   // Table activity from the session-level table_number super-property.
   table_activity: {
     columns: ['table_number', 'sessions', 'views', 'waiter_calls', 'orders'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT properties.table_number AS t,
              count(DISTINCT $session_id) AS sessions,
              countIf(event = 'item_viewed') AS views,
@@ -243,8 +220,7 @@ const TEMPLATES: Record<string, Template> = {
              countIf(event = 'order_submitted') AS orders
       FROM events
       WHERE ${c.inRange} AND isNotNull(t) AND t != ''
-      GROUP BY t ORDER BY sessions DESC LIMIT ${TOP_POOL}`,
-    ],
+      GROUP BY t ORDER BY sessions DESC LIMIT ${TOP_POOL}`],
     merge: (r, c) => r[0].slice(0, c.params.limit ?? 30),
   },
 
@@ -252,25 +228,21 @@ const TEMPLATES: Record<string, Template> = {
   // hour is the real venue clock hour.
   week_heatmap: {
     columns: ['dow', 'hour', 'views', 'sessions'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT modulo(toDayOfWeek(${c.biz}), 7) AS dow, toHour(${c.clock}) AS h,
              count() AS views, count(DISTINCT $session_id) AS sessions
       FROM events
       WHERE event = 'item_viewed' AND ${c.inRange}
-      GROUP BY dow, h ORDER BY dow, h`,
-    ],
+      GROUP BY dow, h ORDER BY dow, h`],
   },
 
   peak_hours: {
     columns: ['hour', 'views', 'sessions'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT toHour(${c.clock}) AS h, count() AS views, count(DISTINCT $session_id) AS sessions
       FROM events
       WHERE event = 'item_viewed' AND ${c.inRange}
-      GROUP BY h ORDER BY h`,
-    ],
+      GROUP BY h ORDER BY h`],
     merge: (r) => {
       const by = new Map(r[0].map((row) => [num(row[0]), row]));
       return Array.from({ length: 24 }, (_, h) => {
@@ -311,27 +283,10 @@ const TEMPLATES: Record<string, Template> = {
     merge: (r) => {
       const row = r[0][0] ?? [];
       const top = (ev: string) =>
-        r[1]
-          .filter((x) => str(x[0]) === ev)
-          .slice(0, 8)
-          .map((x) => ({ item_id: str(x[1]), clicks: num(x[2]) }));
+        r[1].filter((x) => str(x[0]) === ev).slice(0, 8).map((x) => ({ item_id: str(x[1]), clicks: num(x[2]) }));
       return [
-        [
-          'featured',
-          num(row[0]),
-          num(row[1]),
-          num(row[2]),
-          num(row[3]),
-          top('featured_item_clicked'),
-        ],
-        [
-          'suggested',
-          num(row[4]),
-          num(row[5]),
-          num(row[6]),
-          num(row[7]),
-          top('suggested_item_clicked'),
-        ],
+        ['featured', num(row[0]), num(row[1]), num(row[2]), num(row[3]), top('featured_item_clicked')],
+        ['suggested', num(row[4]), num(row[5]), num(row[6]), num(row[7]), top('suggested_item_clicked')],
       ];
     },
   },
@@ -340,8 +295,7 @@ const TEMPLATES: Record<string, Template> = {
   // material for the price-band conversion card.
   item_views_with_price: {
     columns: ['item_id', 'item_name', 'price_iqd', 'max_discount_pct', 'sessions', 'views'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT properties.item_id AS id, any(properties.item_name) AS name,
              median(toFloat(properties.price_iqd)) AS price,
              max(toFloat(coalesce(properties.discount_pct, '0'))) AS disc,
@@ -349,17 +303,8 @@ const TEMPLATES: Record<string, Template> = {
       FROM events
       WHERE event = 'item_viewed' AND ${c.inRange}
         AND isNotNull(id) AND id != ''
-      GROUP BY id ORDER BY sessions DESC LIMIT ${TOP_POOL}`,
-    ],
-    merge: (r) =>
-      r[0].map((x) => [
-        str(x[0]),
-        str(x[1]),
-        Math.round(num(x[2])),
-        num(x[3]),
-        num(x[4]),
-        num(x[5]),
-      ]),
+      GROUP BY id ORDER BY sessions DESC LIMIT ${TOP_POOL}`],
+    merge: (r) => r[0].map((x) => [str(x[0]), str(x[1]), Math.round(num(x[2])), num(x[3]), num(x[4]), num(x[5])]),
   },
 
   // visitors = distinct devices; visits = per-device activity stitched at a
@@ -398,15 +343,13 @@ const TEMPLATES: Record<string, Template> = {
 
   category_popularity: {
     columns: ['category_id', 'category_name_en', 'selections', 'sessions'],
-    sql: (c) => [
-      `
+    sql: (c) => [`
       SELECT properties.category_id AS id, any(properties.category_name_en) AS name,
              count() AS selections, count(DISTINCT $session_id) AS sessions
       FROM events
       WHERE event = 'category_selected' AND ${c.inRange}
         AND isNotNull(id) AND id != ''
-      GROUP BY id ORDER BY selections DESC LIMIT ${TOP_POOL}`,
-    ],
+      GROUP BY id ORDER BY selections DESC LIMIT ${TOP_POOL}`],
     merge: (r, c) => r[0].slice(0, c.params.limit ?? 30),
   },
 
@@ -437,9 +380,7 @@ const TEMPLATES: Record<string, Template> = {
     ],
     merge: (r, c) => {
       const per = c.params.limit ?? 5;
-      const stats = new Map(
-        r[0].map((x) => [str(x[0]), { sessions: num(x[1]), med: Math.round(num(x[2])) }]),
-      );
+      const stats = new Map(r[0].map((x) => [str(x[0]), { sessions: num(x[1]), med: Math.round(num(x[2])) }]));
       const items = new Map<string, { item_id: string; item_name: string; sessions: number }[]>();
       for (const x of r[1]) {
         const loc = str(x[0]);
@@ -469,10 +410,7 @@ export const QUERY_NAMES = Object.keys(TEMPLATES);
 type HogQLResult = { results?: unknown[][] };
 
 class UpstreamError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
+  constructor(readonly status: number, message: string) {
     super(message);
   }
 }
@@ -484,13 +422,10 @@ async function hogqlOnce(query: string): Promise<unknown[][]> {
     body: JSON.stringify({ query: { kind: 'HogQLQuery', query } }),
   });
   const text = await res.text();
-  if (res.status >= 500)
-    throw new UpstreamError(res.status, `posthog ${res.status}: ${text.slice(0, 200)}`);
+  if (res.status >= 500) throw new UpstreamError(res.status, `posthog ${res.status}: ${text.slice(0, 200)}`);
   if (!res.ok) {
     // 4xx will not fix itself (bad query / auth / 429) — surface, don't retry.
-    throw Object.assign(new Error(`posthog ${res.status}: ${text.slice(0, 200)}`), {
-      permanent: true,
-    });
+    throw Object.assign(new Error(`posthog ${res.status}: ${text.slice(0, 200)}`), { permanent: true });
   }
   const parsed = JSON.parse(text) as HogQLResult;
   return parsed.results ?? [];
@@ -547,8 +482,7 @@ interface QuerySpec {
 function parseBody(body: unknown): { queries: QuerySpec[]; h: number } | string {
   if (!body || typeof body !== 'object') return 'body must be a JSON object';
   const b = body as Record<string, unknown>;
-  if (!Array.isArray(b.queries) || b.queries.length === 0)
-    return 'queries must be a non-empty array';
+  if (!Array.isArray(b.queries) || b.queries.length === 0) return 'queries must be a non-empty array';
   if (b.queries.length > MAX_QUERIES) return `at most ${MAX_QUERIES} queries per batch`;
 
   let h = DEFAULT_START_HOUR;
@@ -565,8 +499,7 @@ function parseBody(body: unknown): { queries: QuerySpec[]; h: number } | string 
   for (const q of b.queries as unknown[]) {
     if (!q || typeof q !== 'object') return 'each query must be an object';
     const { name, from, to, params } = q as Record<string, unknown>;
-    if (typeof name !== 'string' || !(name in TEMPLATES))
-      return `unknown query name '${String(name)}'`;
+    if (typeof name !== 'string' || !(name in TEMPLATES)) return `unknown query name '${String(name)}'`;
     if (seen.has(name)) return `duplicate query name '${name}'`;
     seen.add(name);
     if (!isIsoDate(from) || !isIsoDate(to)) return `${name}: from/to must be YYYY-MM-DD`;

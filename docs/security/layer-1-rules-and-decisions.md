@@ -3,7 +3,7 @@
 **Version** 1.0 · **Date** 2026-09-04 · **Owner** DEV
 **Parent** `docs/security/security-layer-1.md`
 
-The boxes in Layer 1 that are _rules_ rather than code. A rule that lives only in
+The boxes in Layer 1 that are *rules* rather than code. A rule that lives only in
 a person's head is not a control, so each one below says what it forbids, why,
 and — where possible — which automated gate enforces it.
 
@@ -28,13 +28,11 @@ fails no review, and is invisible until `db diff` catches it (which the nightly
 `db-drift.yml` job now does).
 
 **What is allowed.**
-
 - Reading through a masked definer function that audits the access.
-- `supabase db diff`, `migration list`, and other read-only _schema_ commands.
+- `supabase db diff`, `migration list`, and other read-only *schema* commands.
 - Anything at all on a local stack, which holds no real data.
 
 **What is forbidden.**
-
 - `select` against `profiles`, `reservations`, `payments`, `guest_sessions`,
   `audit_log` or `staff` in the dashboard SQL Editor.
 - Any `insert` / `update` / `delete` / DDL there, in any table, ever — that is
@@ -51,10 +49,10 @@ the fact, which is exactly why access is limited instead — see §2.
 With one Supabase project (see D1, §5), **access control is the environment
 separation.** There is no staging to make mistakes in.
 
-| Role     | Supabase      | SQL Editor on the hosted project                  |
-| -------- | ------------- | ------------------------------------------------- |
+| Role | Supabase | SQL Editor on the hosted project |
+|---|---|---|
 | SEC, DEV | Owner / Admin | Emergency only, announced, with a reason recorded |
-| FE1, FE2 | Developer     | **No**                                            |
+| FE1, FE2 | Developer | **No** |
 
 **Enforcement.** Supabase dashboard — a person must set this, and it leaves no
 artifact in the repository. It belongs on the freeze checklist and must be
@@ -115,14 +113,14 @@ and there is no second environment in which the mistake could have surfaced firs
 
 **What has been done to reduce it** — none of which removes it:
 
-| Control                                  | What it catches                                                | What it cannot catch                              |
-| ---------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------- |
-| `check:migrations`                       | lock-taking and destructive DDL in changed migrations          | a logically wrong but structurally safe migration |
-| `lock_timeout = '3s'` preamble           | a migration freezing the till behind a lock                    | data already written incorrectly                  |
-| `timeout-minutes: 15` on `db-migrate`    | a hung push holding the database                               | the same                                          |
-| Ledger snapshot artifact                 | gives a "before" for `audit_log` / `stock_ledger` / `payments` | it is evidence, not a restore path                |
-| `staging` environment required reviewers | an unreviewed push                                             | a reviewer approving a bad migration              |
-| Nightly `db-drift.yml`                   | the hosted DB silently falling behind or being edited by hand  | anything within a 24-hour window                  |
+| Control | What it catches | What it cannot catch |
+|---|---|---|
+| `check:migrations` | lock-taking and destructive DDL in changed migrations | a logically wrong but structurally safe migration |
+| `lock_timeout = '3s'` preamble | a migration freezing the till behind a lock | data already written incorrectly |
+| `timeout-minutes: 15` on `db-migrate` | a hung push holding the database | the same |
+| Ledger snapshot artifact | gives a "before" for `audit_log` / `stock_ledger` / `payments` | it is evidence, not a restore path |
+| `staging` environment required reviewers | an unreviewed push | a reviewer approving a bad migration |
+| Nightly `db-drift.yml` | the hosted DB silently falling behind or being edited by hand | anything within a 24-hour window |
 
 **The only thing that removes it is a second project.** That is D1, and it is a
 contract question: either build staging as the SOW says, or obtain a signed
@@ -171,11 +169,11 @@ venue does not use.**
 
 ## 7 · Technical decisions taken 2026-09-04
 
-| Decision                    | Chosen                                               | Why                                                                                                                                                                                                          |
-| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Table token in the URL      | **Exchange for an HttpOnly cookie**                  | The token is the table's bearer credential. In the URL it went to every third party in `Referer`, into analytics as `$current_url`, and into browser history. Printed QR cards are unaffected.               |
-| PostHog on the guest app    | **Keep + full mitigation**, variation still required | Removing a shipped feature is a product decision, not a security one. Tokens are now scrubbed from every captured property. **SOW Module 6 still excludes analytics — the signed variation is outstanding.** |
-| `pin_cache` on the venue PC | **Encrypt the salt with `safeStorage`**              | A PIN is 4–6 digits; with the salt, the whole keyspace falls in seconds. DPAPI binds it to the Windows account, so a copied `queue.db` is inert. Fails closed if encryption is unavailable.                  |
+| Decision | Chosen | Why |
+|---|---|---|
+| Table token in the URL | **Exchange for an HttpOnly cookie** | The token is the table's bearer credential. In the URL it went to every third party in `Referer`, into analytics as `$current_url`, and into browser history. Printed QR cards are unaffected. |
+| PostHog on the guest app | **Keep + full mitigation**, variation still required | Removing a shipped feature is a product decision, not a security one. Tokens are now scrubbed from every captured property. **SOW Module 6 still excludes analytics — the signed variation is outstanding.** |
+| `pin_cache` on the venue PC | **Encrypt the salt with `safeStorage`** | A PIN is 4–6 digits; with the salt, the whole keyspace falls in seconds. DPAPI binds it to the Windows account, so a copied `queue.db` is inert. Fails closed if encryption is unavailable. |
 
 ### Known residual — the table token in the RSC payload
 
@@ -199,27 +197,27 @@ is already in cookies. That is a real refactor of the guest ordering boot and is
 
 None of these can be written into the repository. Each needs somebody signed in.
 
-| Item                                                      | Where                                                             | Note                                                                                                                            |
-| --------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| MFA org-wide                                              | GitHub, Supabase, Vercel, PostHog, Expo, Apple, Google, registrar | Recovery codes to the **client's** owner, never a Kagu inbox                                                                    |
-| Branch protection on `main`                               | GitHub → Rules                                                    | No direct pushes, 1 approving review, CI green                                                                                  |
-| "Require review from Code Owners"                         | GitHub → Rules                                                    | **`.github/CODEOWNERS` is inert without this**                                                                                  |
-| The `@KaguSoftware/tech-leads` team                       | GitHub → Teams                                                    | CODEOWNERS silently ignores an owner it cannot resolve                                                                          |
-| Required reviewers on `staging`                           | GitHub → Environments                                             | No repo artifact; verify by looking, add to the freeze pass                                                                     |
-| Supabase member roles                                     | Supabase → Organization                                           | §2 above                                                                                                                        |
-| CAPTCHA on                                                | Supabase → Auth → Attack Protection                               | ⚠ Do **not** disable anonymous sign-in — it is the cafe's guest identity                                                        |
-| Auth redirect allowlist                                   | Supabase → Auth → URL Configuration                               | Exact production URLs. No wildcards, no `localhost`, no `exp://*`                                                               |
-| Leaked-password protection; JWT 30 min + refresh rotation | Supabase → Auth                                                   |                                                                                                                                 |
-| `site_url` off `http://localhost:3000`                    | Supabase → Auth                                                   | `config.toml:53` is the local value; the hosted one is separate                                                                 |
-| Vercel preview protection                                 | Vercel → Deployment Protection                                    | Every preview points at the one live database                                                                                   |
-| Security Advisor run + waiver                             | Supabase → Advisors                                               | Expect `extension_in_public` (fixed by migration 0069) and `security_definer_view` ×4 (accepted — the four audited projections) |
-| Domain + registrar lock                                   | Registrar                                                         | Blocks HSTS preload, universal links, the privacy URL and printed QR cards                                                      |
-| OV/EV code-signing certificate                            | A CA                                                              | Days of lead time. Key in a cloud HSM, not a laptop                                                                             |
-| Android signing SHA-256                                   | Play Console → App integrity                                      | Fill `ANDROID_SHA256_FINGERPRINTS`; empty fails closed today                                                                    |
-| Apple Team ID                                             | Apple Developer                                                   | Fill `APPLE_TEAM_ID`; `TEAMID-UNSET` fails closed today                                                                         |
-| PITR on the Supabase tier                                 | Supabase → Billing                                                | SOW promises it; if the tier lacks it that is a contract gap                                                                    |
-| Account ownership at handover                             | All of the above                                                  | Longest-lead item in the project                                                                                                |
+| Item | Where | Note |
+|---|---|---|
+| MFA org-wide | GitHub, Supabase, Vercel, PostHog, Expo, Apple, Google, registrar | Recovery codes to the **client's** owner, never a Kagu inbox |
+| Branch protection on `main` | GitHub → Rules | No direct pushes, 1 approving review, CI green |
+| "Require review from Code Owners" | GitHub → Rules | **`.github/CODEOWNERS` is inert without this** |
+| The `@KaguSoftware/tech-leads` team | GitHub → Teams | CODEOWNERS silently ignores an owner it cannot resolve |
+| Required reviewers on `staging` | GitHub → Environments | No repo artifact; verify by looking, add to the freeze pass |
+| Supabase member roles | Supabase → Organization | §2 above |
+| CAPTCHA on | Supabase → Auth → Attack Protection | ⚠ Do **not** disable anonymous sign-in — it is the cafe's guest identity |
+| Auth redirect allowlist | Supabase → Auth → URL Configuration | Exact production URLs. No wildcards, no `localhost`, no `exp://*` |
+| Leaked-password protection; JWT 30 min + refresh rotation | Supabase → Auth | |
+| `site_url` off `http://localhost:3000` | Supabase → Auth | `config.toml:53` is the local value; the hosted one is separate |
+| Vercel preview protection | Vercel → Deployment Protection | Every preview points at the one live database |
+| Security Advisor run + waiver | Supabase → Advisors | Expect `extension_in_public` (fixed by migration 0069) and `security_definer_view` ×4 (accepted — the four audited projections) |
+| Domain + registrar lock | Registrar | Blocks HSTS preload, universal links, the privacy URL and printed QR cards |
+| OV/EV code-signing certificate | A CA | Days of lead time. Key in a cloud HSM, not a laptop |
+| Android signing SHA-256 | Play Console → App integrity | Fill `ANDROID_SHA256_FINGERPRINTS`; empty fails closed today |
+| Apple Team ID | Apple Developer | Fill `APPLE_TEAM_ID`; `TEAMID-UNSET` fails closed today |
+| PITR on the Supabase tier | Supabase → Billing | SOW promises it; if the tier lacks it that is a contract gap |
+| Account ownership at handover | All of the above | Longest-lead item in the project |
 
 ---
 
-_Kagu Web Studio · Touch Padel Phase 1 · 2026-09-04_
+*Kagu Web Studio · Touch Padel Phase 1 · 2026-09-04*

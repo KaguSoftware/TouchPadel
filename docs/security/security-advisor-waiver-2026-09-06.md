@@ -13,12 +13,12 @@
 
 **4 findings, all `security_definer_view`, all CRITICAL. All four are accepted by design.**
 
-| View                            | Advisor severity | Disposition         |
-| ------------------------------- | ---------------- | ------------------- |
-| `public.venue_settings_public`  | CRITICAL         | **Waived** — see §2 |
-| `public.court_availability`     | CRITICAL         | **Waived** — see §2 |
-| `public.cafe_settings_public`   | CRITICAL         | **Waived** — see §2 |
-| `public.menu_item_availability` | CRITICAL         | **Waived** — see §2 |
+| View | Advisor severity | Disposition |
+|---|---|---|
+| `public.venue_settings_public` | CRITICAL | **Waived** — see §2 |
+| `public.court_availability` | CRITICAL | **Waived** — see §2 |
+| `public.cafe_settings_public` | CRITICAL | **Waived** — see §2 |
+| `public.menu_item_availability` | CRITICAL | **Waived** — see §2 |
 
 These are exactly the four named in `AUDITED_OWNER_RIGHTS_VIEWS` in
 `packages/db/scripts/check-db-invariants.mjs`, which is written to fail on a **fifth**
@@ -57,13 +57,11 @@ projection IS the complete access control for every row it can return.** Verifie
 2026-09-06 by reading each definition against its base table:
 
 ### `court_availability` — the one that matters most
-
 ```sql
 select court_id, start_at, end_at, kind from reservations
  where status in ('pending','confirmed','arrived')
    and (kind <> 'hold' or hold_expires_at > now());
 ```
-
 `reservations` carries `guest_id`, `guest_name`, `guest_phone`, `price_iqd`, `notes`,
 `device_id`, `created_by_staff_id`. **None is selected.** The view answers "is this
 court busy" and cannot answer "who booked it, for how much". Free/busy is the whole
@@ -71,11 +69,9 @@ point of a public booking calendar; the identity columns are the thing that had 
 kept out, and they are.
 
 ### `cafe_settings_public`
-
 ```sql
 select key, value from cafe_settings where is_public;
 ```
-
 A row-level filter, and `is_public` is not guest-writable: the base table is
 manager/owner **read-only** under RLS with no client write grant, and every write goes
 through `app.set_cafe_settings`, which is in the `guarded` set and is proven to refuse a
@@ -88,8 +84,8 @@ enumeration, because a column projection is only as good as the list you checked
 against — an earlier draft of this section listed seven withheld columns and had missed
 `max_live_holds_per_guest`, which is exactly the error this table now prevents:
 
-| Exposed (10)                                                                                                                                                                                  | Withheld (8)                                                                                                                                                                |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exposed (10) | Withheld (8) |
+|---|---|
 | `venue_name`, `currency`, `timezone`, `opening_hours`, `closed_dates`, `phone`, `protected_horizon_hours`, `cancellation_window_hours`, `table_token_ttl_minutes`, `max_booking_horizon_days` | `id`, `hold_ttl_seconds`, `heartbeat_stale_seconds`, `waiter_call_cooldown_seconds`, `cash_rounding_iqd`, `expiring_soon_days`, `tax_inclusive`, `max_live_holds_per_guest` |
 
 Sources: `0006` (create table, 15 columns), `0026` (`phone`), `0048`
@@ -107,11 +103,9 @@ NOT told to the client, while `max_booking_horizon_days` and `cancellation_windo
 are, because the booking UI has to render them.
 
 ### `menu_item_availability`
-
 ```sql
 select item_id, orderable from app.menu_availability();
 ```
-
 Two columns. Discloses whether an item can be ordered — which is what the menu shows a
 guest anyway. No stock levels, no costs, no recipes.
 

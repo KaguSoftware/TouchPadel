@@ -21,19 +21,7 @@ import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../../components/ui';
-import {
-  AsyncStateWrapper,
-  DataTable,
-  EmptyState,
-  MessagePresenter,
-  PageHeader,
-  PermissionRefusedNotice,
-  ResultCount,
-  StatusBadge,
-  TableSkeleton,
-  asyncStatus,
-  type Column,
-} from '../../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, MessagePresenter, PageHeader, PermissionRefusedNotice, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../../components/kit';
 import { StaffAccountEditor } from './StaffAccountEditor';
 import { MIN_PASSWORD, ROLES, STAFF_QUERY_KEY, type StaffRow } from './staffModel';
 
@@ -58,17 +46,13 @@ export function StaffList() {
     // brute-forceable offline in seconds. The server returns the boolean.
     queryFn: () => appRpc<StaffRow[]>('list_staff'),
   });
-  const rows = useMemo(
-    () => [...(staffQ.data ?? [])].sort((a, b) => a.display_name.localeCompare(b.display_name)),
-    [staffQ.data],
-  );
-  const editing = editingId ? (rows.find((r) => r.id === editingId) ?? null) : null;
+  const rows = useMemo(() => [...(staffQ.data ?? [])].sort((a, b) => a.display_name.localeCompare(b.display_name)), [staffQ.data]);
+  const editing = editingId ? rows.find((r) => r.id === editingId) ?? null : null;
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: STAFF_QUERY_KEY });
 
   const setRole = useMutation({
-    mutationFn: (v: { id: string; role: StaffRole }) =>
-      appRpc('set_staff_role', { p_staff_id: v.id, p_role: v.role }),
+    mutationFn: (v: { id: string; role: StaffRole }) => appRpc('set_staff_role', { p_staff_id: v.id, p_role: v.role }),
     onSuccess: () => {
       toast.ok(tr('op.toast.saved'));
       void refresh();
@@ -77,8 +61,7 @@ export function StaffList() {
   });
 
   const setActive = useMutation({
-    mutationFn: (v: { id: string; active: boolean }) =>
-      appRpc('set_staff_active', { p_staff_id: v.id, p_active: v.active }),
+    mutationFn: (v: { id: string; active: boolean }) => appRpc('set_staff_active', { p_staff_id: v.id, p_active: v.active }),
     onSuccess: () => {
       toast.ok(tr('op.toast.saved'));
       void refresh();
@@ -95,10 +78,7 @@ export function StaffList() {
     onError: (e) => toast.err(e),
   });
 
-  const owners = useMemo(
-    () => rows.filter((s) => s.role === 'owner' && s.is_active).length,
-    [rows],
-  );
+  const owners = useMemo(() => rows.filter((s) => s.role === 'owner' && s.is_active).length, [rows]);
 
   async function toggleActive(row: StaffRow) {
     const ok = await confirm({
@@ -118,20 +98,9 @@ export function StaffList() {
       key: 'name',
       header: tr('ws.owner.staff.columns.name'),
       render: (s) => (
-        <span
-          style={{
-            display: 'inline-flex',
-            gap: 'var(--tp-sp-1-5)',
-            alignItems: 'baseline',
-            opacity: s.is_active ? 1 : 0.6,
-          }}
-        >
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'baseline', opacity: s.is_active ? 1 : 0.6 }}>
           <bdi style={{ fontWeight: 600 }}>{s.display_name}</bdi>
-          {s.id === me?.id && (
-            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
-              {tr('op.staff.you')}
-            </span>
-          )}
+          {s.id === me?.id && <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>{tr('op.staff.you')}</span>}
         </span>
       ),
     },
@@ -158,34 +127,13 @@ export function StaffList() {
       header: tr('ws.owner.staff.columns.pin'),
       render: (s) =>
         s.role === 'manager' || s.role === 'owner' ? (
-          <span
-            style={{
-              display: 'inline-flex',
-              gap: 'var(--tp-sp-1-5)',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
-            <StatusBadge
-              tone={s.has_pin ? 'success' : 'neutral'}
-              size="sm"
-              label={s.has_pin ? tr('op.staff.pinSet') : tr('op.staff.pinNone')}
-            />
-            <Button
-              kind="ghost"
-              size="sm"
-              disabled={!can.manageStaff || busyRow}
-              onClick={() => setPinFor(s)}
-            >
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <StatusBadge tone={s.has_pin ? 'success' : 'neutral'} size="sm" label={s.has_pin ? tr('op.staff.pinSet') : tr('op.staff.pinNone')} />
+            <Button kind="ghost" size="sm" disabled={!can.manageStaff || busyRow} onClick={() => setPinFor(s)}>
               {s.has_pin ? tr('op.staff.pinChange') : tr('op.staff.pinSetAction')}
             </Button>
             {s.has_pin && (
-              <Button
-                kind="ghost"
-                size="sm"
-                disabled={!can.manageStaff || busyRow}
-                onClick={() => clearPin.mutate(s.id)}
-              >
+              <Button kind="ghost" size="sm" disabled={!can.manageStaff || busyRow} onClick={() => clearPin.mutate(s.id)}>
                 {tr('op.staff.pinClear')}
               </Button>
             )}
@@ -199,12 +147,7 @@ export function StaffList() {
       key: 'status',
       header: tr('ws.owner.staff.columns.status'),
       width: '7rem',
-      render: (s) =>
-        s.is_active ? (
-          <StatusBadge tone="success" size="sm" label={tr('ws.owner.staff.status.active')} />
-        ) : (
-          <StatusBadge tone="neutral" size="sm" label={tr('ws.owner.staff.status.inactive')} />
-        ),
+      render: (s) => (s.is_active ? <StatusBadge tone="success" size="sm" label={tr('ws.owner.staff.status.active')} /> : <StatusBadge tone="neutral" size="sm" label={tr('ws.owner.staff.status.inactive')} />),
     },
     {
       key: 'actions',
@@ -215,23 +158,11 @@ export function StaffList() {
       // collapsing them behind a trigger would make the acceptance script
       // unrunnable. Left inline deliberately — see the handover note.
       render: (s) => (
-        <span
-          style={{
-            display: 'inline-flex',
-            gap: 'var(--tp-sp-1)',
-            flexWrap: 'wrap',
-            justifyContent: 'flex-end',
-          }}
-        >
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <Button kind="ghost" size="sm" icon="note" onClick={() => setEditingId(s.id)}>
             {tr('op.common.edit')}
           </Button>
-          <Button
-            kind="ghost"
-            size="sm"
-            disabled={!can.manageStaff || busyRow}
-            onClick={() => setPasswordFor(s)}
-          >
+          <Button kind="ghost" size="sm" disabled={!can.manageStaff || busyRow} onClick={() => setPasswordFor(s)}>
             {tr('op.staff.resetPassword')}
           </Button>
           <Button
@@ -257,34 +188,16 @@ export function StaffList() {
         title={tr('op.staff.title')}
         subtitle={tr('ws.owner.staff.lead')}
         actions={
-          <Button
-            kind="primary"
-            icon="userPlus"
-            disabled={!can.manageStaff}
-            onClick={() => setAdding(true)}
-          >
+          <Button kind="primary" icon="userPlus" disabled={!can.manageStaff} onClick={() => setAdding(true)}>
             {tr('op.staff.add')}
           </Button>
         }
       >
         <ResultCount shown={rows.length} total={rows.length} />
       </PageHeader>
-      {!can.manageStaff && (
-        <PermissionRefusedNotice
-          action={tr('ws.owner.staff.refusedAction')}
-          requiredRole={requiredRoleFor('manageStaff')}
-          style={{ marginBlockEnd: 'var(--tp-sp-4)' }}
-        />
-      )}
+      {!can.manageStaff && <PermissionRefusedNotice action={tr('ws.owner.staff.refusedAction')} requiredRole={requiredRoleFor('manageStaff')} style={{ marginBlockEnd: 'var(--tp-sp-4)' }} />}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: editing ? 'minmax(0, 1fr) minmax(20rem, 26rem)' : 'minmax(0, 1fr)',
-          gap: 'var(--tp-sp-4)',
-          alignItems: 'start',
-        }}
-      >
+      <div style={{ display: 'grid', gridTemplateColumns: editing ? 'minmax(0, 1fr) minmax(20rem, 26rem)' : 'minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
         <div style={{ minInlineSize: 0 }}>
           <AsyncStateWrapper
             status={asyncStatus(staffQ, (d) => d.length === 0)}
@@ -296,33 +209,13 @@ export function StaffList() {
                 icon="users"
                 title={tr('ws.owner.staff.emptyTitle')}
                 body={tr('ws.owner.staff.emptyBody')}
-                action={
-                  <Button
-                    kind="primary"
-                    disabled={!can.manageStaff}
-                    onClick={() => setAdding(true)}
-                  >
-                    {tr('op.staff.add')}
-                  </Button>
-                }
+                action={<Button kind="primary" disabled={!can.manageStaff} onClick={() => setAdding(true)}>{tr('op.staff.add')}</Button>}
               />
             }
           >
-            <DataTable
-              columns={columns}
-              rows={rows}
-              rowKey={(s) => s.id}
-              selectedKey={editingId}
-              aria-label={tr('op.staff.title')}
-            />
+            <DataTable columns={columns} rows={rows} rowKey={(s) => s.id} selectedKey={editingId} aria-label={tr('op.staff.title')} />
           </AsyncStateWrapper>
-          {owners === 1 && (
-            <MessagePresenter
-              tone="info"
-              message={tr('op.staff.oneOwner')}
-              style={{ marginBlockStart: 'var(--tp-sp-3)' }}
-            />
-          )}
+          {owners === 1 && <MessagePresenter tone="info" message={tr('op.staff.oneOwner')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />}
         </div>
         {editing && (
           <StaffAccountEditor
@@ -394,54 +287,26 @@ function AddStaffDialog({ onClose, onCreated }: { onClose(): void; onCreated(): 
           <Button onClick={onClose} disabled={create.isPending}>
             {tr('common.cancel')}
           </Button>
-          <Button
-            kind="primary"
-            icon="userPlus"
-            disabled={!ready}
-            busy={create.isPending}
-            onClick={() => create.mutate()}
-          >
+          <Button kind="primary" icon="userPlus" disabled={!ready} busy={create.isPending} onClick={() => create.mutate()}>
             {tr('op.staff.add')}
           </Button>
         </>
       }
     >
       <Field label={tr('auth.emailLabel')} required>
-        <input
-          style={inputStyle}
-          dir="ltr"
-          type="email"
-          autoComplete="off"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <input style={inputStyle} dir="ltr" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
       <Field label={tr('op.staff.name')} required>
         <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
       <Field label={tr('op.staff.role')} hint={tr('ws.owner.staff.editor.roleNote')}>
-        <Select<StaffRole>
-          value={role}
-          onChange={setRole}
-          options={ROLES.map((r) => ({ value: r, label: tr(`op.roles.${r}`) }))}
-        />
+        <Select<StaffRole> value={role} onChange={setRole} options={ROLES.map((r) => ({ value: r, label: tr(`op.roles.${r}`) }))} />
       </Field>
       {/* Shown, not masked: the owner reads this out during training and the
           staff member changes it afterwards. Masking a value you must dictate
           aloud only produces typos. */}
-      <Field
-        label={tr('op.staff.openingPassword')}
-        required
-        hint={tr('op.staff.passwordHint', { min: MIN_PASSWORD })}
-      >
-        <input
-          style={inputStyle}
-          dir="ltr"
-          type="text"
-          autoComplete="off"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+      <Field label={tr('op.staff.openingPassword')} required hint={tr('op.staff.passwordHint', { min: MIN_PASSWORD })}>
+        <input style={inputStyle} dir="ltr" type="text" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
       </Field>
       <ErrorText error={create.error} />
     </Modal>
@@ -454,12 +319,7 @@ function PasswordDialog({ staff, onClose }: { staff: StaffRow; onClose(): void }
   const [password, setPassword] = useState('');
 
   const reset = useMutation({
-    mutationFn: () =>
-      callEdge<unknown, { result: string }>(
-        'staff-admin',
-        { action: 'reset_password', staff_id: staff.id, password },
-        { ttlMs: 0 },
-      ),
+    mutationFn: () => callEdge<unknown, { result: string }>('staff-admin', { action: 'reset_password', staff_id: staff.id, password }, { ttlMs: 0 }),
     onSuccess: () => {
       toast.ok(tr('op.staff.passwordReset'));
       onClose();
@@ -475,45 +335,21 @@ function PasswordDialog({ staff, onClose }: { staff: StaffRow; onClose(): void }
           <Button onClick={onClose} disabled={reset.isPending}>
             {tr('common.cancel')}
           </Button>
-          <Button
-            kind="primary"
-            icon="lock"
-            disabled={password.length < MIN_PASSWORD}
-            busy={reset.isPending}
-            onClick={() => reset.mutate()}
-          >
+          <Button kind="primary" icon="lock" disabled={password.length < MIN_PASSWORD} busy={reset.isPending} onClick={() => reset.mutate()}>
             {tr('op.staff.resetPassword')}
           </Button>
         </>
       }
     >
-      <Field
-        label={tr('op.staff.openingPassword')}
-        hint={tr('op.staff.passwordHint', { min: MIN_PASSWORD })}
-      >
-        <input
-          style={inputStyle}
-          dir="ltr"
-          type="text"
-          autoComplete="off"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+      <Field label={tr('op.staff.openingPassword')} hint={tr('op.staff.passwordHint', { min: MIN_PASSWORD })}>
+        <input style={inputStyle} dir="ltr" type="text" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
       </Field>
       <ErrorText error={reset.error} />
     </Modal>
   );
 }
 
-function PinDialog({
-  staff,
-  onClose,
-  onSaved,
-}: {
-  staff: StaffRow;
-  onClose(): void;
-  onSaved(): void;
-}) {
+function PinDialog({ staff, onClose, onSaved }: { staff: StaffRow; onClose(): void; onSaved(): void }) {
   const { tr } = useLocale();
   const toast = useToast();
   const [pin, setPin] = useState('');
@@ -543,13 +379,7 @@ function PinDialog({
           <Button onClick={onClose} disabled={save.isPending}>
             {tr('common.cancel')}
           </Button>
-          <Button
-            kind="primary"
-            icon="lock"
-            disabled={!valid}
-            busy={save.isPending}
-            onClick={() => save.mutate()}
-          >
+          <Button kind="primary" icon="lock" disabled={!valid} busy={save.isPending} onClick={() => save.mutate()}>
             {tr('common.save')}
           </Button>
         </>
@@ -557,12 +387,7 @@ function PinDialog({
     >
       <Field label={tr('op.common.pin')} hint={tr('op.staff.pinHint')}>
         <input
-          style={{
-            ...inputStyle,
-            fontSize: 'var(--tp-fs-2xl)',
-            letterSpacing: '0.35em',
-            textAlign: 'center',
-          }}
+          style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
           dir="ltr"
           inputMode="numeric"
           autoComplete="off"

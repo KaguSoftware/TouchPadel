@@ -17,9 +17,7 @@ export function buildInsightsData(
   raw: RawAnalytics,
   derived: Derived,
   locale: Locale,
-  extras: { priorInsights?: string[]; rejections: string[]; patterns?: PatternCandidateWire[] } = {
-    rejections: [],
-  },
+  extras: { priorInsights?: string[]; rejections: string[]; patterns?: PatternCandidateWire[] } = { rejections: [] },
 ): InsightsData {
   const k = derived.kpis;
   const me = derived.menuEngineering;
@@ -37,22 +35,11 @@ export function buildInsightsData(
       waiter_calls: k.waiterCalls,
       basket_to_call_pct: k.basketToCallPct,
     },
-    daily: raw.daily.map((d) => ({
-      date: d.date,
-      revenue_iqd: d.revenueIqd,
-      tabs: d.tabs,
-      orders: d.orders,
-      waiter_calls: d.waiterCalls,
-    })),
+    daily: raw.daily.map((d) => ({ date: d.date, revenue_iqd: d.revenueIqd, tabs: d.tabs, orders: d.orders, waiter_calls: d.waiterCalls })),
     best_sellers: raw.bestSellers
       .filter((b) => derived.keep(b.id))
       .slice(0, 15)
-      .map((b) => ({
-        name: name(derived, b.id, locale),
-        qty: b.qty,
-        revenue_iqd: b.revenueIqd,
-        share_pct: b.sharePct,
-      })),
+      .map((b) => ({ name: name(derived, b.id, locale), qty: b.qty, revenue_iqd: b.revenueIqd, share_pct: b.sharePct })),
     margins: me.hasData
       ? {
           margin_pct: me.totals.marginPct,
@@ -87,13 +74,8 @@ export function buildInsightsData(
     engagement: raw.posthog
       ? {
           funnel: raw.posthog.funnel.map((s) => ({ step: s.step, sessions: s.sessions })),
-          locale_split: raw.posthog.localePreferences.map((l) => ({
-            locale: l.locale,
-            sessions: l.sessions,
-          })),
-          abandoned: derived.abandoned
-            .slice(0, 10)
-            .map((a) => ({ name: name(derived, a.id, locale), total: a.total, long: a.b20plus })),
+          locale_split: raw.posthog.localePreferences.map((l) => ({ locale: l.locale, sessions: l.sessions })),
+          abandoned: derived.abandoned.slice(0, 10).map((a) => ({ name: name(derived, a.id, locale), total: a.total, long: a.b20plus })),
         }
       : undefined,
     prior_insights: extras.priorInsights,

@@ -7,14 +7,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const files = ['courts.sql', 'menu.sql', 'tables.sql', 'stock.sql'].map((f) =>
-  join(root, 'fixtures', f),
-);
-const DB_URL =
-  process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const files = ['courts.sql', 'menu.sql', 'tables.sql', 'stock.sql'].map((f) => join(root, 'fixtures', f));
+const DB_URL = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 function hasPsql() {
-  const r = spawnSync('psql', ['--version'], { stdio: 'ignore' });
+  const r = spawnSync('psql', ['--version'], { stdio: 'ignore'});
   return r.status === 0;
 }
 
@@ -36,7 +33,7 @@ function isLocalTarget(url) {
 
 if (hasPsql()) {
   const args = [DB_URL, '-v', 'ON_ERROR_STOP=1', ...files.flatMap((f) => ['-f', f])];
-  execFileSync('psql', args, { stdio: 'inherit' });
+  execFileSync('psql', args, { stdio: 'inherit'});
 } else {
   if (!isLocalTarget(DB_URL)) {
     console.error(
@@ -52,12 +49,10 @@ if (hasPsql()) {
   const r = spawnSync(
     'docker',
     ['exec', '-i', container, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'],
-    { input: sql, stdio: ['pipe', 'inherit', 'inherit'] },
+    { input: sql, stdio: ['pipe', 'inherit', 'inherit']},
   );
   if (r.status !== 0) {
-    console.error(
-      `[db-fixtures] docker exec failed (container ${container}); is the local stack running?`,
-    );
+    console.error(`[db-fixtures] docker exec failed (container ${container}); is the local stack running?`);
     process.exit(r.status ?? 1);
   }
 }

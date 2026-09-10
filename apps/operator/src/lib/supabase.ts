@@ -21,11 +21,9 @@ const LOCAL_ANON_KEY =
  * degraded story is about network loss, is the single most expensive way to be
  * wrong. Fail at startup instead, where the crash screen names the cause.
  */
-export function resolveSupabaseEnv(env: {
-  VITE_SUPABASE_URL?: string;
-  VITE_SUPABASE_ANON_KEY?: string;
-  DEV?: boolean;
-}): { url: string; anonKey: string } {
+export function resolveSupabaseEnv(
+  env: { VITE_SUPABASE_URL?: string; VITE_SUPABASE_ANON_KEY?: string; DEV?: boolean },
+): { url: string; anonKey: string } {
   const url = env.VITE_SUPABASE_URL?.trim();
   const anonKey = env.VITE_SUPABASE_ANON_KEY?.trim();
   if (url && anonKey) return { url, anonKey };

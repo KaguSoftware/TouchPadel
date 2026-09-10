@@ -18,19 +18,13 @@ export function providerFromEnv(get: (name: string) => string | undefined): SmsP
     const authToken = get('TWILIO_AUTH_TOKEN') ?? '';
     const from = get('TWILIO_FROM') ?? '';
     if (accountSid && authToken && from) return twilioProvider({ accountSid, authToken, from });
-    console.warn(
-      '[send-sms-otp] SMS_PROVIDER=twilio but TWILIO_* secrets are incomplete; using log',
-    );
+    console.warn('[send-sms-otp] SMS_PROVIDER=twilio but TWILIO_* secrets are incomplete; using log');
     return logProvider(isLocal);
   }
   if (name === 'otpiq') {
     const apiKey = get('OTPIQ_API_KEY') ?? '';
     if (apiKey) {
-      return otpiqProvider({
-        apiKey,
-        provider: get('OTPIQ_PROVIDER'),
-        senderId: get('OTPIQ_SENDER_ID'),
-      });
+      return otpiqProvider({ apiKey, provider: get('OTPIQ_PROVIDER'), senderId: get('OTPIQ_SENDER_ID') });
     }
     console.warn('[send-sms-otp] SMS_PROVIDER=otpiq but OTPIQ_API_KEY is unset; using log');
     return logProvider(isLocal);

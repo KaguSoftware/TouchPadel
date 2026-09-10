@@ -61,11 +61,7 @@ describe.skipIf(!up)('0062 courts admin', () => {
       p_duration_options: [45, 90],
     });
     expect(upd.error).toBeNull();
-    const { data: after } = await svc
-      .from('courts')
-      .select('indoor, duration_options')
-      .eq('id', id)
-      .single();
+    const { data: after } = await svc.from('courts').select('indoor, duration_options').eq('id', id).single();
     expect(after).toEqual({ indoor: false, duration_options: [45, 90] });
 
     const { data: audit } = await svc
@@ -219,10 +215,11 @@ describe.skipIf(!up)('0062 courts admin', () => {
     const b = await createCourt(`CC2-${Date.now()}`);
     const res = await appRpc(manager, 'reorder_courts', { p_ids: [b, a] });
     expect(res.error).toBeNull();
-    const { data } = await svc.from('courts').select('id, sort_order').in('id', [a, b]);
-    const byId = new Map(
-      (data as { id: string; sort_order: number }[]).map((r) => [r.id, r.sort_order]),
-    );
+    const { data } = await svc
+      .from('courts')
+      .select('id, sort_order')
+      .in('id', [a, b]);
+    const byId = new Map((data as { id: string; sort_order: number }[]).map((r) => [r.id, r.sort_order]));
     expect(byId.get(b)).toBeLessThan(byId.get(a)!);
 
     const dup = outcome(await appRpc(manager, 'reorder_courts', { p_ids: [a, a] }));

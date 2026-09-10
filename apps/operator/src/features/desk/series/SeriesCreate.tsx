@@ -15,31 +15,12 @@ import { clientRef, deviceId, station } from '../../../lib/idem';
 import { QK, fetchActiveCourts, fetchVenueSettings, type CourtRow } from '../../../lib/queries';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, ErrorText, Field, Select, inputStyle } from '../../../components/ui';
-import {
-  AsyncStateWrapper,
-  MessagePresenter,
-  PageHeader,
-  Panel,
-  SegmentedControl,
-  StatusBadge,
-  asyncStatus,
-} from '../../../components/kit';
+import { AsyncStateWrapper, MessagePresenter, PageHeader, Panel, SegmentedControl, StatusBadge, asyncStatus } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
-import {
-  nameFromQuery,
-  phoneDigitCount,
-  phoneFromQuery,
-  sanitizeName,
-  sanitizePhone,
-} from '../deskLogic';
+import { nameFromQuery, phoneDigitCount, phoneFromQuery, sanitizeName, sanitizePhone } from '../deskLogic';
 import { todayInTz } from '../useTradingNight';
 import { CustomerPicker, type PickedCustomer } from '../customers/CustomerPicker';
-import type {
-  SeriesCreateResult,
-  SeriesOccurrencePreview,
-  SeriesPattern,
-  SeriesPreview,
-} from '../deskTypes';
+import type { SeriesCreateResult, SeriesOccurrencePreview, SeriesPattern, SeriesPreview } from '../deskTypes';
 import {
   conflictCount,
   draftKey,
@@ -112,10 +93,7 @@ export function RecurringSeriesCreateScreen() {
   const [nameTouched, setNameTouched] = useState(false);
   const [phoneTouched, setPhoneTouched] = useState(false);
 
-  const [preview, setPreview] = useState<{
-    key: string;
-    occurrences: SeriesOccurrencePreview[];
-  } | null>(null);
+  const [preview, setPreview] = useState<{ key: string; occurrences: SeriesOccurrencePreview[] } | null>(null);
   const [resolutions, setResolutions] = useState<ResolutionMap>({});
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -154,25 +132,9 @@ export function RecurringSeriesCreateScreen() {
   const phoneTooShort = phoneDigits > 0 && phoneDigits < PHONE_MIN_DIGITS;
   const phoneUnusable = phoneMissing || phoneTooShort;
 
-  const phase: Phase = busy
-    ? 'busy'
-    : checking
-      ? 'checking'
-      : error != null
-        ? 'error'
-        : preview && !stale && clashes > 0
-          ? 'conflictsFound'
-          : 'ready';
+  const phase: Phase = busy ? 'busy' : checking ? 'checking' : error != null ? 'error' : preview && !stale && clashes > 0 ? 'conflictsFound' : 'ready';
   const canSubmit = phase === 'ready' || (phase === 'conflictsFound' && unresolved.length === 0);
-  const submitReady =
-    preview !== null &&
-    !stale &&
-    canSubmit &&
-    hasCustomer &&
-    problem === null &&
-    !phoneUnusable &&
-    !busy &&
-    !checking;
+  const submitReady = preview !== null && !stale && canSubmit && hasCustomer && problem === null && !phoneUnusable && !busy && !checking;
 
   /*
    * Rulebook 4.3. Five conditions used to hold these two buttons shut, and a
@@ -188,33 +150,16 @@ export function RecurringSeriesCreateScreen() {
   const patternErrors: PatternErrors = {
     court: !effective.courtId ? tr('ws.courtDesk.series.invalidCourt') : undefined,
     time: !TIME_RE.test(effective.startTime) ? tr('ws.courtDesk.series.invalidTime') : undefined,
-    weekdays:
-      effective.pattern === 'weekdays' && effective.weekdays.length === 0
-        ? tr('ws.courtDesk.series.invalidWeekdays')
-        : undefined,
+    weekdays: effective.pattern === 'weekdays' && effective.weekdays.length === 0 ? tr('ws.courtDesk.series.invalidWeekdays') : undefined,
     startsOn: effective.startsOn < today ? tr('ws.courtDesk.series.invalidPast') : undefined,
-    weeks:
-      effective.endMode === 'weeks' && (!Number.isInteger(effective.weeks) || effective.weeks < 1)
-        ? tr('ws.courtDesk.series.invalidWeeks')
-        : undefined,
-    endsOn:
-      effective.endMode === 'date' && effective.endsOn <= effective.startsOn
-        ? tr('ws.courtDesk.series.invalidEnd')
-        : undefined,
+    weeks: effective.endMode === 'weeks' && (!Number.isInteger(effective.weeks) || effective.weeks < 1) ? tr('ws.courtDesk.series.invalidWeeks') : undefined,
+    endsOn: effective.endMode === 'date' && effective.endsOn <= effective.startsOn ? tr('ws.courtDesk.series.invalidEnd') : undefined,
   };
   const shownPatternErrors: PatternErrors = errorScope === 'none' ? {} : patternErrors;
-  const nameError =
-    errorScope === 'all' && !hasCustomer ? tr('ws.courtDesk.series.invalidName') : undefined;
+  const nameError = errorScope === 'all' && !hasCustomer ? tr('ws.courtDesk.series.invalidName') : undefined;
   const phoneError =
-    errorScope !== 'all'
-      ? undefined
-      : phoneMissing
-        ? tr('ws.courtDesk.series.phoneRequired')
-        : phoneTooShort
-          ? tr('ws.courtDesk.series.invalidPhone')
-          : undefined;
-  const anyFieldError =
-    problem !== null || (errorScope === 'all' && (!hasCustomer || phoneUnusable));
+    errorScope !== 'all' ? undefined : phoneMissing ? tr('ws.courtDesk.series.phoneRequired') : phoneTooShort ? tr('ws.courtDesk.series.invalidPhone') : undefined;
+  const anyFieldError = problem !== null || (errorScope === 'all' && (!hasCustomer || phoneUnusable));
 
   async function runCheck() {
     setChecking(true);
@@ -287,40 +232,22 @@ export function RecurringSeriesCreateScreen() {
         : stale
           ? tr('ws.courtDesk.series.staleDraft')
           : unresolved.length > 0
-            ? tr('ws.courtDesk.series.unresolved', {
-                count: formatNumber(unresolved.length, locale),
-              })
+            ? tr('ws.courtDesk.series.unresolved', { count: formatNumber(unresolved.length, locale) })
             : undefined;
 
   return (
     <div>
-      <PageHeader
-        title={tr('ws.courtDesk.series.title')}
-        subtitle={tr('ws.courtDesk.series.lead')}
-      />
-      <AsyncStateWrapper
-        status={asyncStatus(courtsQ, (c) => c.length === 0)}
-        error={courtsQ.error}
-        onRetry={() => void courtsQ.refetch()}
-      >
+      <PageHeader title={tr('ws.courtDesk.series.title')} subtitle={tr('ws.courtDesk.series.lead')} />
+      <AsyncStateWrapper status={asyncStatus(courtsQ, (c) => c.length === 0)} error={courtsQ.error} onRetry={() => void courtsQ.refetch()}>
         {result ? (
           <Panel>
             <MessagePresenter
               tone="success"
-              message={tr('ws.courtDesk.series.created', {
-                created: formatNumber(result.created.length, locale),
-                skipped: formatNumber(result.skipped.length, locale),
-              })}
+              message={tr('ws.courtDesk.series.created', { created: formatNumber(result.created.length, locale), skipped: formatNumber(result.skipped.length, locale) })}
               style={{ marginBlockEnd: '0.75rem' }}
             />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <Link
-                to="/desk/series/$id"
-                params={{ id: result.seriesId }}
-                className="tp-btn"
-                data-kind="primary"
-                data-size="md"
-              >
+              <Link to="/desk/series/$id" params={{ id: result.seriesId }} className="tp-btn" data-kind="primary" data-size="md">
                 {tr('ws.courtDesk.series.openSeries')}
               </Link>
               <Link to="/desk" className="tp-btn" data-kind="default" data-size="md">
@@ -337,27 +264,11 @@ export function RecurringSeriesCreateScreen() {
            */
           <div className="tp-split" style={{ gap: '1rem' }}>
             <Panel title={tr('ws.courtDesk.series.pattern')} bodyClassName="tp-cq">
-              <SeriesPatternBuilder
-                draft={effective}
-                courts={courts}
-                disabled={busy}
-                minDate={today}
-                errors={shownPatternErrors}
-                onChange={setDraft}
-              />
+              <SeriesPatternBuilder draft={effective} courts={courts} disabled={busy} minDate={today} errors={shownPatternErrors} onChange={setDraft} />
             </Panel>
 
             <Panel title={tr('ws.courtDesk.series.customer')} bodyClassName="tp-cq">
-              <p
-                style={{
-                  color: 'var(--tp-muted-fg)',
-                  fontSize: 'var(--tp-fs-sm)',
-                  marginBlockEnd: '0.6rem',
-                  marginBlockStart: 0,
-                }}
-              >
-                {tr('ws.courtDesk.series.customerHint')}
-              </p>
+              <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: '0.6rem', marginBlockStart: 0 }}>{tr('ws.courtDesk.series.customerHint')}</p>
               <CustomerPicker
                 value={customer}
                 disabled={busy}
@@ -369,19 +280,13 @@ export function RecurringSeriesCreateScreen() {
                   setCustomer(next);
                   if (next) {
                     // What the account says outranks what was searched for.
-                    if (!nameTouched || walkInName.trim() === '')
-                      setWalkInName(sanitizeName(next.name));
-                    if (next.phone && (!phoneTouched || walkInPhone.trim() === ''))
-                      setWalkInPhone(sanitizePhone(next.phone));
+                    if (!nameTouched || walkInName.trim() === '') setWalkInName(sanitizeName(next.name));
+                    if (next.phone && (!phoneTouched || walkInPhone.trim() === '')) setWalkInPhone(sanitizePhone(next.phone));
                   }
                 }}
               />
               <div className="tp-grid" data-cols="2" style={{ gap: '0.75rem' }}>
-                <Field
-                  label={tr('ws.courtDesk.series.walkInName')}
-                  required={customer === null}
-                  error={nameError}
-                >
+                <Field label={tr('ws.courtDesk.series.walkInName')} required={customer === null} error={nameError}>
                   <input
                     style={inputStyle}
                     value={walkInName}
@@ -410,13 +315,7 @@ export function RecurringSeriesCreateScreen() {
                 </Field>
               </div>
               <Field label={tr('ws.courtDesk.series.notes')} style={{ marginBlockEnd: 0 }}>
-                <input
-                  style={inputStyle}
-                  value={notes}
-                  disabled={busy}
-                  maxLength={1000}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
+                <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
               </Field>
             </Panel>
 
@@ -428,54 +327,23 @@ export function RecurringSeriesCreateScreen() {
                   <StatusBadge
                     size="sm"
                     tone={stale ? 'neutral' : clashes > 0 ? 'danger' : 'success'}
-                    label={tr('ws.courtDesk.series.previewLead', {
-                      count: formatNumber(occurrences.length, locale),
-                      conflicts: formatNumber(clashes, locale),
-                    })}
+                    label={tr('ws.courtDesk.series.previewLead', { count: formatNumber(occurrences.length, locale), conflicts: formatNumber(clashes, locale) })}
                   />
                 ) : undefined
               }
             >
               <ErrorText error={error} />
-              {checking && (
-                <p style={{ color: 'var(--tp-muted-fg)', margin: 0 }}>
-                  {tr('ws.courtDesk.series.checking')}
-                </p>
-              )}
-              {!checking && preview === null && (
-                <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>
-                  {tr('ws.courtDesk.series.emptyPreview')}
-                </p>
-              )}
-              {stale && !checking && (
-                <MessagePresenter
-                  tone="refused"
-                  message={tr('ws.courtDesk.series.staleDraft')}
-                  style={{ marginBlockEnd: '0.6rem' }}
-                />
-              )}
+              {checking && <p style={{ color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('ws.courtDesk.series.checking')}</p>}
+              {!checking && preview === null && <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', margin: 0 }}>{tr('ws.courtDesk.series.emptyPreview')}</p>}
+              {stale && !checking && <MessagePresenter tone="refused" message={tr('ws.courtDesk.series.staleDraft')} style={{ marginBlockEnd: '0.6rem' }} />}
               {preview && !checking && (
                 <>
                   {clashes === 0 ? (
-                    <MessagePresenter
-                      tone="success"
-                      message={tr('ws.courtDesk.series.noClashes')}
-                      style={{ marginBlockEnd: '0.6rem' }}
-                    />
+                    <MessagePresenter tone="success" message={tr('ws.courtDesk.series.noClashes')} style={{ marginBlockEnd: '0.6rem' }} />
                   ) : unresolved.length > 0 ? (
-                    <MessagePresenter
-                      tone="refused"
-                      message={tr('ws.courtDesk.series.unresolved', {
-                        count: formatNumber(unresolved.length, locale),
-                      })}
-                      style={{ marginBlockEnd: '0.6rem' }}
-                    />
+                    <MessagePresenter tone="refused" message={tr('ws.courtDesk.series.unresolved', { count: formatNumber(unresolved.length, locale) })} style={{ marginBlockEnd: '0.6rem' }} />
                   ) : (
-                    <MessagePresenter
-                      tone="success"
-                      message={tr('ws.courtDesk.series.allResolved')}
-                      style={{ marginBlockEnd: '0.6rem' }}
-                    />
+                    <MessagePresenter tone="success" message={tr('ws.courtDesk.series.allResolved')} style={{ marginBlockEnd: '0.6rem' }} />
                   )}
                   <ClashPreviewList
                     occurrences={occurrences}
@@ -483,15 +351,7 @@ export function RecurringSeriesCreateScreen() {
                     resolutions={resolutions}
                     tz={tz}
                     disabled={busy}
-                    onResolve={(date, action, courtId) =>
-                      setResolutions((prev) => ({
-                        ...prev,
-                        [date]:
-                          action === 'skip'
-                            ? { date, action }
-                            : { date, action, courtId: courtId! },
-                      }))
-                    }
+                    onResolve={(date, action, courtId) => setResolutions((prev) => ({ ...prev, [date]: action === 'skip' ? { date, action } : { date, action, courtId: courtId! } }))}
                   />
                 </>
               )}
@@ -518,44 +378,19 @@ export function RecurringSeriesCreateScreen() {
                 }}
               >
                 {footerHint && (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      gap: '0.35rem',
-                      alignItems: 'center',
-                      fontSize: 'var(--tp-fs-sm)',
-                      color: 'var(--tp-muted-fg)',
-                      minInlineSize: 0,
-                    }}
-                  >
+                  <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', minInlineSize: 0 }}>
                     <Icon name="info" size={14} />
                     {footerHint}
                   </span>
                 )}
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    gap: '0.5rem',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    marginInlineStart: 'auto',
-                  }}
-                >
+                <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginInlineStart: 'auto' }}>
                   <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
                     {tr('common.cancel')}
                   </Link>
                   <Button icon="search" busy={checking} disabled={busy} onClick={checkClashes}>
-                    {preview
-                      ? tr('ws.courtDesk.series.recheck')
-                      : tr('ws.courtDesk.series.checkClashes')}
+                    {preview ? tr('ws.courtDesk.series.recheck') : tr('ws.courtDesk.series.checkClashes')}
                   </Button>
-                  <Button
-                    kind="primary"
-                    icon="repeat"
-                    busy={busy}
-                    disabled={checking}
-                    onClick={() => void submit()}
-                  >
+                  <Button kind="primary" icon="repeat" busy={busy} disabled={checking} onClick={() => void submit()}>
                     {tr('ws.courtDesk.series.submit')}
                   </Button>
                 </span>
@@ -596,12 +431,7 @@ export function SeriesPatternBuilder({
   return (
     <div>
       <Field label={tr('ws.courtDesk.series.court')} required error={errors?.court}>
-        <Select
-          value={draft.courtId}
-          disabled={disabled}
-          onChange={(courtId) => set({ courtId, durationMin: 0 })}
-          options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))}
-        />
+        <Select value={draft.courtId} disabled={disabled} onChange={(courtId) => set({ courtId, durationMin: 0 })} options={courts.map((c) => ({ value: c.id, label: pickName(locale, c) }))} />
       </Field>
       {/* group: a <label> around a set of buttons forwards hover AND click to
           the first of them — see Field. */}
@@ -617,12 +447,7 @@ export function SeriesPatternBuilder({
         />
       </Field>
       {draft.pattern === 'weekdays' && (
-        <Field
-          label={tr('ws.courtDesk.series.weekdaysPick')}
-          required
-          group
-          error={errors?.weekdays}
-        >
+        <Field label={tr('ws.courtDesk.series.weekdaysPick')} required group error={errors?.weekdays}>
           {/*
             inline-flex, not flex: a full-width row made every pixel to the
             right of "Sat" part of the group, and while the group was wrapped in
@@ -638,11 +463,7 @@ export function SeriesPatternBuilder({
                   kind={on ? 'primary' : 'default'}
                   aria-pressed={on}
                   disabled={disabled}
-                  onClick={() =>
-                    set({
-                      weekdays: on ? draft.weekdays.filter((d) => d !== i) : [...draft.weekdays, i],
-                    })
-                  }
+                  onClick={() => set({ weekdays: on ? draft.weekdays.filter((d) => d !== i) : [...draft.weekdays, i] })}
                 >
                   {tr(`ws.courtDesk.common.weekday.${k}`)}
                 </Button>
@@ -665,22 +486,10 @@ export function SeriesPatternBuilder({
           />
         </Field>
         <Field label={tr('ws.courtDesk.series.time')} required error={errors?.time}>
-          <input
-            type="time"
-            step={1800}
-            style={inputStyle}
-            value={draft.startTime}
-            disabled={disabled}
-            onChange={(e) => set({ startTime: e.target.value })}
-          />
+          <input type="time" step={1800} style={inputStyle} value={draft.startTime} disabled={disabled} onChange={(e) => set({ startTime: e.target.value })} />
         </Field>
         <Field label={tr('ws.courtDesk.series.duration')}>
-          <select
-            style={inputStyle}
-            value={draft.durationMin}
-            disabled={disabled}
-            onChange={(e) => set({ durationMin: Number(e.target.value) })}
-          >
+          <select style={inputStyle} value={draft.durationMin} disabled={disabled} onChange={(e) => set({ durationMin: Number(e.target.value) })}>
             {durations.map((d) => (
               <option key={d} value={d}>
                 {tr('op.common.minutesShort', { minutes: d })}
@@ -704,12 +513,7 @@ export function SeriesPatternBuilder({
           />
         </Field>
         {draft.endMode === 'weeks' ? (
-          <Field
-            label={tr('ws.courtDesk.series.weeks')}
-            required
-            error={errors?.weeks}
-            style={{ marginBlockEnd: 0 }}
-          >
+          <Field label={tr('ws.courtDesk.series.weeks')} required error={errors?.weeks} style={{ marginBlockEnd: 0 }}>
             <input
               type="number"
               min={1}
@@ -722,12 +526,7 @@ export function SeriesPatternBuilder({
             />
           </Field>
         ) : (
-          <Field
-            label={tr('ws.courtDesk.series.endsOn')}
-            required
-            error={errors?.endsOn}
-            style={{ marginBlockEnd: 0 }}
-          >
+          <Field label={tr('ws.courtDesk.series.endsOn')} required error={errors?.endsOn} style={{ marginBlockEnd: 0 }}>
             <input
               type="date"
               style={inputStyle}
@@ -763,25 +562,10 @@ export function ClashPreviewList({
   onResolve: (date: string, action: 'skip' | 'moveCourt', courtId?: string) => void;
 }) {
   const { tr, locale } = useLocale();
-  const courtName = (id: string) =>
-    pickName(
-      locale,
-      courts.find((c) => c.id === id),
-    ) || id;
+  const courtName = (id: string) => pickName(locale, courts.find((c) => c.id === id)) || id;
   return (
-    <div
-      style={{
-        border: '1px solid var(--tp-border)',
-        borderRadius: 'var(--tp-radius-panel)',
-        overflow: 'auto',
-        maxBlockSize: '60vh',
-      }}
-    >
-      <table
-        className="tp-table"
-        data-dense="true"
-        aria-label={tr('ws.courtDesk.series.previewTitle')}
-      >
+    <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'auto', maxBlockSize: '60vh' }}>
+      <table className="tp-table" data-dense="true" aria-label={tr('ws.courtDesk.series.previewTitle')}>
         <thead>
           <tr>
             <th>{tr('ws.courtDesk.series.date')}</th>
@@ -795,10 +579,7 @@ export function ClashPreviewList({
             const start = new Date(o.startsAt);
             const end = new Date(o.endsAt);
             return (
-              <tr
-                key={o.date}
-                style={{ background: o.conflict && !res ? 'var(--tp-danger-soft)' : undefined }}
-              >
+              <tr key={o.date} style={{ background: o.conflict && !res ? 'var(--tp-danger-soft)' : undefined }}>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <bdi>{formatDate(start, locale, tz)}</bdi>
                 </td>
@@ -807,85 +588,26 @@ export function ClashPreviewList({
                 </td>
                 <td>
                   {!o.conflict ? (
-                    <StatusBadge
-                      size="sm"
-                      tone="success"
-                      label={tr('ws.courtDesk.series.free')}
-                      icon="check"
-                    />
+                    <StatusBadge size="sm" tone="success" label={tr('ws.courtDesk.series.free')} icon="check" />
                   ) : res ? (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        gap: '0.4rem',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <StatusBadge
-                        size="sm"
-                        tone="neutral"
-                        label={
-                          res.action === 'skip'
-                            ? tr('ws.courtDesk.series.resolution.skip')
-                            : tr('ws.courtDesk.series.resolution.moveCourt', {
-                                court: courtName(res.courtId),
-                              })
-                        }
-                      />
-                      <Button
-                        size="sm"
-                        kind="ghost"
-                        icon="undo"
-                        disabled={disabled}
-                        onClick={() => onResolve(o.date, 'skip')}
-                        aria-label={tr('ws.courtDesk.series.resolveSkip')}
-                      />
+                    <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <StatusBadge size="sm" tone="neutral" label={res.action === 'skip' ? tr('ws.courtDesk.series.resolution.skip') : tr('ws.courtDesk.series.resolution.moveCourt', { court: courtName(res.courtId) })} />
+                      <Button size="sm" kind="ghost" icon="undo" disabled={disabled} onClick={() => onResolve(o.date, 'skip')} aria-label={tr('ws.courtDesk.series.resolveSkip')} />
                     </span>
                   ) : (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        gap: '0.4rem',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <StatusBadge
-                        size="sm"
-                        tone="danger"
-                        label={tr('ws.courtDesk.series.clash')}
-                        icon="alert"
-                      />
-                      <Button
-                        size="sm"
-                        disabled={disabled}
-                        onClick={() => onResolve(o.date, 'skip')}
-                      >
+                    <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <StatusBadge size="sm" tone="danger" label={tr('ws.courtDesk.series.clash')} icon="alert" />
+                      <Button size="sm" disabled={disabled} onClick={() => onResolve(o.date, 'skip')}>
                         {tr('ws.courtDesk.series.resolveSkip')}
                       </Button>
                       {o.conflict.alternativeCourtIds.length > 0 ? (
                         o.conflict.alternativeCourtIds.map((cid) => (
-                          <Button
-                            key={cid}
-                            size="sm"
-                            kind="soft"
-                            disabled={disabled}
-                            onClick={() => onResolve(o.date, 'moveCourt', cid)}
-                          >
+                          <Button key={cid} size="sm" kind="soft" disabled={disabled} onClick={() => onResolve(o.date, 'moveCourt', cid)}>
                             {tr('ws.courtDesk.series.resolveMoveTo', { court: courtName(cid) })}
                           </Button>
                         ))
                       ) : (
-                        <span
-                          style={{
-                            fontSize: 'var(--tp-fs-xs)',
-                            color: 'var(--tp-muted-fg)',
-                            display: 'inline-flex',
-                            gap: '0.25rem',
-                            alignItems: 'center',
-                          }}
-                        >
+                        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', display: 'inline-flex', gap: '0.25rem', alignItems: 'center' }}>
                           <Icon name="info" size={12} /> {tr('ws.courtDesk.series.noAlternative')}
                         </span>
                       )}

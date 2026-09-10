@@ -44,16 +44,8 @@ export function MarginChip({ price, cost }: { price: number | null; cost: number
   const { tr } = useLocale();
   const pct = marginPct(price, cost);
   const band = marginBand(pct);
-  if (band === 'noCost')
-    return <StatusBadge size="sm" tone="neutral" dot={false} label={tr('op.menu.noCost')} />;
-  return (
-    <StatusBadge
-      size="sm"
-      tone={BAND_TONE[band]}
-      dot={false}
-      label={tr('op.menu.margin', { pct: pct ?? 0 })}
-    />
-  );
+  if (band === 'noCost') return <StatusBadge size="sm" tone="neutral" dot={false} label={tr('op.menu.noCost')} />;
+  return <StatusBadge size="sm" tone={BAND_TONE[band]} dot={false} label={tr('op.menu.margin', { pct: pct ?? 0 })} />;
 }
 
 export function HighlightDot({ highlight }: { highlight: Highlight }) {

@@ -10,15 +10,11 @@ export const reportsEn = {
     staff: 'Staff activity',
   },
   lead: {
-    revenue:
-      'Revenue and payments by day, week or month. Padel and cafe separately and combined; cash against card; discounts, voids and refunds with their authoriser; tax by rate.',
-    courts:
-      'Occupancy, revenue per court and per available hour, booking volumes, cancellations and no-shows, peak against off-peak.',
+    revenue: 'Revenue and payments by day, week or month. Padel and cafe separately and combined; cash against card; discounts, voids and refunds with their authoriser; tax by rate.',
+    courts: 'Occupancy, revenue per court and per available hour, booking volumes, cancellations and no-shows, peak against off-peak.',
     cafe: 'Order count and average order value, best sellers, cost of goods and margin, waste by reason, preparation times by station.',
-    stock:
-      'Stock value on hand, variance against counts, low and below-par items, expiry and consumption.',
-    staff:
-      'Activity and exceptions per person, shown against the shifts they worked. No ranking, no score.',
+    stock: 'Stock value on hand, variance against counts, low and below-par items, expiry and consumption.',
+    staff: 'Activity and exceptions per person, shown against the shifts they worked. No ranking, no score.',
   },
   filters: {
     court: 'Court',

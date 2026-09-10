@@ -32,9 +32,7 @@ export function GroupEditor({
   const { tr, locale } = useLocale();
   const toast = useToast();
   const { refresh } = useAddons();
-  const initialLinked = new Set(
-    links.filter((l) => l.group_id === group?.id).map((l) => l.item_id),
-  );
+  const initialLinked = new Set(links.filter((l) => l.group_id === group?.id).map((l) => l.item_id));
 
   const [nameEn, setNameEn] = useState(group?.name_en ?? '');
   const [nameAr, setNameAr] = useState(group?.name_ar ?? '');
@@ -65,18 +63,10 @@ export function GroupEditor({
         p_max_select: max,
       });
       for (const itemId of diff.link) {
-        await appRpc('link_item_modifier_group', {
-          p_item_id: itemId,
-          p_group_id: id,
-          p_linked: true,
-        });
+        await appRpc('link_item_modifier_group', { p_item_id: itemId, p_group_id: id, p_linked: true });
       }
       for (const itemId of diff.unlink) {
-        await appRpc('link_item_modifier_group', {
-          p_item_id: itemId,
-          p_group_id: id,
-          p_linked: false,
-        });
+        await appRpc('link_item_modifier_group', { p_item_id: itemId, p_group_id: id, p_linked: false });
       }
       return id;
     },
@@ -94,7 +84,8 @@ export function GroupEditor({
 
   const q = query.trim().toLowerCase();
   const visibleItems = items.filter(
-    (i) => q === '' || i.name_en.toLowerCase().includes(q) || i.name_ar.toLowerCase().includes(q),
+    (i) =>
+      q === '' || i.name_en.toLowerCase().includes(q) || i.name_ar.toLowerCase().includes(q),
   );
 
   function toggleItem(id: string, on: boolean) {
@@ -111,11 +102,7 @@ export function GroupEditor({
   return (
     <div style={card}>
       <h3 style={{ marginBlockStart: 0 }}>
-        {group
-          ? pickName(locale, group)
-          : subGroup
-            ? tr('op.addons.newSubGroup')
-            : tr('op.addons.newGroup')}
+        {group ? pickName(locale, group) : subGroup ? tr('op.addons.newSubGroup') : tr('op.addons.newGroup')}
       </h3>
       <BilingualFields
         labelEn={tr('op.menu.nameEn')}
@@ -127,10 +114,7 @@ export function GroupEditor({
         maxLength={80}
       />
       <Field label={tr('op.addons.minMax')}>
-        <span
-          style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }}
-          dir="ltr"
-        >
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center' }} dir="ltr">
           <input
             style={numStyle}
             type="number"
@@ -149,16 +133,11 @@ export function GroupEditor({
             onChange={(e) => setMax(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
           />
           {min > 0 && (
-            <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-              {tr('op.addons.required')}
-            </span>
+            <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.addons.required')}</span>
           )}
         </span>
         {mmErr && (
-          <span
-            role="alert"
-            style={{ display: 'block', color: 'var(--tp-danger)', fontSize: 'var(--tp-fs-sm)' }}
-          >
+          <span role="alert" style={{ display: 'block', color: 'var(--tp-danger)', fontSize: 'var(--tp-fs-sm)' }}>
             {tr('op.menu.minSelect')} ≤ {tr('op.menu.maxSelect')} · {tr('op.menu.maxSelect')} ≥ 1
           </span>
         )}
@@ -184,9 +163,7 @@ export function GroupEditor({
             }}
           >
             {visibleItems.length === 0 && (
-              <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>
-                {tr('op.common.none')}
-              </span>
+              <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-md)' }}>{tr('op.common.none')}</span>
             )}
             {visibleItems.map((i) => (
               <label
@@ -214,11 +191,7 @@ export function GroupEditor({
       <ErrorText error={error} />
       <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', justifyContent: 'flex-end' }}>
         {onCancel && <Button onClick={onCancel}>{tr('common.cancel')}</Button>}
-        <Button
-          kind="primary"
-          disabled={save.isPending || !valid || !dirty}
-          onClick={() => save.mutate()}
-        >
+        <Button kind="primary" disabled={save.isPending || !valid || !dirty} onClick={() => save.mutate()}>
           {tr('common.save')}
         </Button>
       </div>

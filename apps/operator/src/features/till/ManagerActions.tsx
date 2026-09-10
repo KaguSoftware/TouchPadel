@@ -23,15 +23,7 @@ import { touch } from '../../ipc/bridge';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
 import { requiredRoleFor } from '../../lib/auth';
-import {
-  Button,
-  ErrorText,
-  Field,
-  Modal,
-  PinReasonModal,
-  Select,
-  inputStyle,
-} from '../../components/ui';
+import { Button, ErrorText, Field, Modal, PinReasonModal, Select, inputStyle } from '../../components/ui';
 import { MessagePresenter, Money, PermissionRefusedNotice } from '../../components/kit';
 import { kvRow, muted, numeric, reasonedFooter } from './tillStyles';
 
@@ -143,11 +135,7 @@ export function RefundDialog({
         }
       >
         {!canRefund && (
-          <PermissionRefusedNotice
-            action={tr('ws.cashier.refund.refusedAction')}
-            requiredRole={requiredRoleFor('refund')}
-            style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
-          />
+          <PermissionRefusedNotice action={tr('ws.cashier.refund.refusedAction')} requiredRole={requiredRoleFor('refund')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
         )}
         {payments.length === 0 ? (
           <p style={muted}>{tr('op.till.refundNoPayments')}</p>
@@ -173,10 +161,7 @@ export function RefundDialog({
                 }))}
               />
             </Field>
-            <Field
-              label={tr('op.till.refundAmount')}
-              hint={tr('op.till.refundMax', { amount: formatIQD(max, locale) })}
-            >
+            <Field label={tr('op.till.refundAmount')} hint={tr('op.till.refundMax', { amount: formatIQD(max, locale) })}>
               <input
                 style={{ ...inputStyle, ...numeric, textAlign: 'end' }}
                 dir="ltr"
@@ -187,41 +172,13 @@ export function RefundDialog({
               />
             </Field>
 
-            <h3
-              style={{
-                fontSize: 'var(--tp-fs-sm)',
-                fontWeight: 600,
-                marginBlockEnd: 'var(--tp-sp-0)',
-              }}
-            >
-              {tr('op.till.refundItems')}
-            </h3>
-            <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-1-5)' }}>
-              {tr('op.till.refundItemsHint')}
-            </p>
-            <div
-              style={{
-                border: '1px solid var(--tp-border)',
-                borderRadius: 'var(--tp-radius-panel)',
-                maxBlockSize: '12rem',
-                overflowY: 'auto',
-              }}
-            >
+            <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-0)' }}>{tr('op.till.refundItems')}</h3>
+            <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-1-5)' }}>{tr('op.till.refundItemsHint')}</p>
+            <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', maxBlockSize: '12rem', overflowY: 'auto' }}>
               {lines
                 .filter((l) => !l.voided)
                 .map((l) => (
-                  <div
-                    key={l.id}
-                    style={{
-                      display: 'flex',
-                      gap: 'var(--tp-sp-2)',
-                      alignItems: 'center',
-                      minBlockSize: 'var(--tp-touch)',
-                      paddingBlock: 'var(--tp-sp-1)',
-                      paddingInline: 'var(--tp-sp-2-5)',
-                      borderBlockEnd: '1px solid var(--tp-border)',
-                    }}
-                  >
+                  <div key={l.id} style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-touch)', paddingBlock: 'var(--tp-sp-1)', paddingInline: 'var(--tp-sp-2-5)', borderBlockEnd: '1px solid var(--tp-border)' }}>
                     <span style={{ flex: 1 }}>
                       {l.qty}× <bdi>{pickName(locale, l.menu_item)}</bdi>
                     </span>
@@ -233,10 +190,7 @@ export function RefundDialog({
                       aria-label={pickName(locale, l.menu_item) || l.id}
                       value={items[l.id] ?? 0}
                       onChange={(e) => {
-                        const qty = Math.min(
-                          Math.max(Number(e.target.value.replace(/\D/g, '')) || 0, 0),
-                          l.qty,
-                        );
+                        const qty = Math.min(Math.max(Number(e.target.value.replace(/\D/g, '')) || 0, 0), l.qty);
                         setItems((prev) => ({ ...prev, [l.id]: qty }));
                       }}
                     />
@@ -249,12 +203,7 @@ export function RefundDialog({
       </Modal>
 
       {pinOpen && (
-        <PinReasonModal
-          title={tr('op.till.refund')}
-          busy={busy}
-          onSubmit={(pin, reason) => void submit(pin, reason)}
-          onClose={() => setPinOpen(false)}
-        />
+        <PinReasonModal title={tr('op.till.refund')} busy={busy} onSubmit={(pin, reason) => void submit(pin, reason)} onClose={() => setPinOpen(false)} />
       )}
     </>
   );
@@ -321,9 +270,7 @@ export function OverridePriceDialog({
               kind="primary"
               icon="tag"
               disabled={busy || price === currentUnitPriceIqd}
-              disabledReason={
-                price === currentUnitPriceIqd ? tr('ws.cashier.detail.overrideSame') : undefined
-              }
+              disabledReason={price === currentUnitPriceIqd ? tr('ws.cashier.detail.overrideSame') : undefined}
               onClick={() => setPinOpen(true)}
             >
               {tr('op.till.override')}
@@ -352,12 +299,7 @@ export function OverridePriceDialog({
       </Modal>
 
       {pinOpen && (
-        <PinReasonModal
-          title={tr('op.till.override')}
-          busy={busy}
-          onSubmit={(pin, reason) => void submit(pin, reason)}
-          onClose={() => setPinOpen(false)}
-        />
+        <PinReasonModal title={tr('op.till.override')} busy={busy} onSubmit={(pin, reason) => void submit(pin, reason)} onClose={() => setPinOpen(false)} />
       )}
     </>
   );
@@ -449,9 +391,7 @@ export function MergeTabsDialog({
         </div>
       }
     >
-      <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
-        {tr('ws.cashier.merge.into', { name: survivorLabel })}
-      </p>
+      <p style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.merge.into', { name: survivorLabel })}</p>
       <ErrorText error={candidatesQ.error} />
       {candidatesQ.isSuccess && candidates.length === 0 ? (
         <p style={muted}>{tr('ws.cashier.merge.none')}</p>
@@ -460,10 +400,7 @@ export function MergeTabsDialog({
           <Select
             value={donorId}
             onChange={setDonorId}
-            options={[
-              { value: '', label: tr('ws.cashier.merge.donor') },
-              ...candidates.map((t) => ({ value: t.id, label: nameOf(t) })),
-            ]}
+            options={[{ value: '', label: tr('ws.cashier.merge.donor') }, ...candidates.map((t) => ({ value: t.id, label: nameOf(t) }))]}
           />
         </Field>
       )}

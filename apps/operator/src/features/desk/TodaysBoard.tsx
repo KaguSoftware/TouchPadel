@@ -31,14 +31,7 @@ import {
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { ReservationBadge, availabilityTone } from './deskStatus';
-import {
-  arrivals,
-  courtAvailability,
-  groupByStart,
-  isVisible,
-  paymentStatusFor,
-  type CourtAvailability,
-} from './deskLogic';
+import { arrivals, courtAvailability, groupByStart, isVisible, paymentStatusFor, type CourtAvailability } from './deskLogic';
 import type { CustomerFlag, ReservationRow, TabLinkRow } from './deskTypes';
 import { CreateReservationDialog } from './CreateReservationDialog';
 import { OVERRIDE_REASONS } from './ReservationActionsDialog';
@@ -72,37 +65,16 @@ export interface TodaysBoardViewProps {
 
 export function TodaysBoardView(p: TodaysBoardViewProps) {
   const { tr, locale } = useLocale();
-  const courtName = (id: string) =>
-    pickName(
-      locale,
-      p.courts.find((c) => c.id === id),
-    );
-  const bookings = useMemo(
-    () => p.reservations.filter((r) => r.kind === 'booking'),
-    [p.reservations],
-  );
+  const courtName = (id: string) => pickName(locale, p.courts.find((c) => c.id === id));
+  const bookings = useMemo(() => p.reservations.filter((r) => r.kind === 'booking'), [p.reservations]);
   const groups = useMemo(() => groupByStart(p.reservations), [p.reservations]);
-  const availability = useMemo(
-    () =>
-      courtAvailability(
-        p.courts.map((c) => c.id),
-        p.reservations,
-        p.nowIso,
-      ),
-    [p.courts, p.reservations, p.nowIso],
-  );
-  const due = useMemo(
-    () => arrivals(p.reservations, p.nowIso, p.horizonIso),
-    [p.reservations, p.nowIso, p.horizonIso],
-  );
+  const availability = useMemo(() => courtAvailability(p.courts.map((c) => c.id), p.reservations, p.nowIso), [p.courts, p.reservations, p.nowIso]);
+  const due = useMemo(() => arrivals(p.reservations, p.nowIso, p.horizonIso), [p.reservations, p.nowIso, p.horizonIso]);
 
   const header = (
     <PageHeader
       title={tr('ws.courtDesk.board.title')}
-      subtitle={tr('ws.courtDesk.board.subtitle', {
-        date: formatDate(new Date(`${p.date}T12:00:00Z`), locale, 'UTC'),
-        count: formatNumber(bookings.length, locale),
-      })}
+      subtitle={tr('ws.courtDesk.board.subtitle', { date: formatDate(new Date(`${p.date}T12:00:00Z`), locale, 'UTC'), count: formatNumber(bookings.length, locale) })}
       actions={
         <>
           <Button
@@ -110,11 +82,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
             icon="plus"
             onClick={p.onCreateBooking}
             disabled={p.status !== 'ready' && p.status !== 'empty'}
-            disabledReason={
-              p.status === 'error'
-                ? tr('ws.courtDesk.board.newBookingBlockedError')
-                : tr('ws.courtDesk.board.newBookingBlockedLoading')
-            }
+            disabledReason={p.status === 'error' ? tr('ws.courtDesk.board.newBookingBlockedError') : tr('ws.courtDesk.board.newBookingBlockedLoading')}
           >
             {tr('ws.courtDesk.board.newBooking')}
           </Button>
@@ -137,26 +105,13 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
         error={p.error}
         onRetry={p.onRetry}
         skeleton={
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(0, 2fr) minmax(16rem, 1fr)',
-              gap: '1rem',
-            }}
-          >
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(16rem, 1fr)', gap: '1rem' }}>
             <Skeleton lines={8} blockSize="2.2rem" />
             <Skeleton lines={5} blockSize="2.2rem" />
           </div>
         }
         emptyContent={
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(0, 2fr) minmax(16rem, 1fr)',
-              gap: '1rem',
-              alignItems: 'start',
-            }}
-          >
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(16rem, 1fr)', gap: '1rem', alignItems: 'start' }}>
             <EmptyState
               icon="calendar"
               title={tr('ws.courtDesk.board.emptyTitle')}
@@ -167,29 +122,13 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                 </Button>
               }
             />
-            <AvailabilityStrip
-              availability={availability}
-              courtName={courtName}
-              tz={p.tz}
-              live={p.live}
-            />
+            <AvailabilityStrip availability={availability} courtName={courtName} tz={p.tz} live={p.live} />
           </div>
         }
       >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 2fr) minmax(16rem, 1fr)',
-            gap: '1rem',
-            alignItems: 'start',
-          }}
-        >
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(16rem, 1fr)', gap: '1rem', alignItems: 'start' }}>
           <Panel title={tr('ws.courtDesk.board.bookings')} padded={false}>
-            <table
-              className="tp-table"
-              data-dense="true"
-              aria-label={tr('ws.courtDesk.board.bookings')}
-            >
+            <table className="tp-table" data-dense="true" aria-label={tr('ws.courtDesk.board.bookings')}>
               <thead>
                 <tr>
                   <th>{tr('ws.courtDesk.board.time')}</th>
@@ -223,75 +162,33 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
             </table>
           </Panel>
           <div style={{ display: 'grid', gap: '1rem' }}>
-            <AvailabilityStrip
-              availability={availability}
-              courtName={courtName}
-              tz={p.tz}
-              live={p.live}
-            />
+            <AvailabilityStrip availability={availability} courtName={courtName} tz={p.tz} live={p.live} />
             <Panel title={tr('ws.courtDesk.board.arrivals')} padded={false}>
-              <p
-                style={{
-                  paddingBlock: '0.5rem',
-                  paddingInline: '0.85rem',
-                  color: 'var(--tp-muted-fg)',
-                  fontSize: 'var(--tp-fs-xs)',
-                  borderBlockEnd: '1px solid var(--tp-border)',
-                }}
-              >
+              <p style={{ paddingBlock: '0.5rem', paddingInline: '0.85rem', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)', borderBlockEnd: '1px solid var(--tp-border)' }}>
                 {tr('ws.courtDesk.board.arrivalsLead')}
               </p>
               {due.length === 0 ? (
-                <p
-                  style={{
-                    paddingBlock: '0.9rem',
-                    paddingInline: '0.85rem',
-                    color: 'var(--tp-muted-fg)',
-                    fontSize: 'var(--tp-fs-sm)',
-                  }}
-                >
-                  {tr('ws.courtDesk.board.arrivalsEmpty')}
-                </p>
+                <p style={{ paddingBlock: '0.9rem', paddingInline: '0.85rem', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.courtDesk.board.arrivalsEmpty')}</p>
               ) : (
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                   {due.map((r) => (
                     <li
                       key={r.id}
                       className="tp-row"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        paddingBlock: '0.45rem',
-                        paddingInline: '0.85rem',
-                        borderBlockEnd: '1px solid var(--tp-border)',
-                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingBlock: '0.45rem', paddingInline: '0.85rem', borderBlockEnd: '1px solid var(--tp-border)' }}
                     >
                       <div style={{ minInlineSize: 0, flex: 1 }}>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
+                        <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           <bdi>{r.guest_name ?? tr('ws.courtDesk.board.walkIn')}</bdi>
                         </div>
                         <div style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-                          <bdi>{courtName(r.court_id)}</bdi> ·{' '}
-                          <bdi>{formatTime(new Date(r.start_at), locale, p.tz)}</bdi>
+                          <bdi>{courtName(r.court_id)}</bdi> · <bdi>{formatTime(new Date(r.start_at), locale, p.tz)}</bdi>
                         </div>
                       </div>
                       {r.status === 'arrived' ? (
                         <BookingStatusIndicator status="arrived" size="sm" />
                       ) : (
-                        <Button
-                          size="sm"
-                          icon="check"
-                          busy={p.markingId === r.id}
-                          onClick={() => p.onMarkArrived(r.id)}
-                        >
+                        <Button size="sm" icon="check" busy={p.markingId === r.id} onClick={() => p.onMarkArrived(r.id)}>
                           {tr('ws.courtDesk.board.markArrived')}
                         </Button>
                       )}
@@ -334,12 +231,7 @@ function BoardRow({
 }) {
   const { tr, locale } = useLocale();
   const inProgress = r.start_at <= nowIso && r.end_at > nowIso;
-  const label =
-    r.kind === 'maintenance'
-      ? (r.notes ?? tr('ws.courtDesk.board.blocked'))
-      : r.kind === 'hold'
-        ? tr('ws.courtDesk.board.hold')
-        : (r.guest_name ?? tr('ws.courtDesk.board.walkIn'));
+  const label = r.kind === 'maintenance' ? (r.notes ?? tr('ws.courtDesk.board.blocked')) : r.kind === 'hold' ? tr('ws.courtDesk.board.hold') : (r.guest_name ?? tr('ws.courtDesk.board.walkIn'));
   return (
     <tr
       data-clickable="true"
@@ -351,47 +243,24 @@ function BoardRow({
           onSelect();
         }
       }}
-      style={{
-        borderBlockStart: first && groupSize > 1 ? '2px solid var(--tp-border-strong)' : undefined,
-      }}
+      style={{ borderBlockStart: first && groupSize > 1 ? '2px solid var(--tp-border-strong)' : undefined }}
     >
-      <td
-        style={{
-          fontVariantNumeric: 'tabular-nums',
-          whiteSpace: 'nowrap',
-          fontWeight: first ? 600 : 400,
-          color: first ? 'var(--tp-fg)' : 'var(--tp-muted-fg)',
-        }}
-      >
+      <td style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: first ? 600 : 400, color: first ? 'var(--tp-fg)' : 'var(--tp-muted-fg)' }}>
         <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
         {inProgress && (
-          <StatusBadge
-            size="sm"
-            tone="success"
-            label={tr('ws.courtDesk.board.live')}
-            style={{ marginInlineStart: '0.4rem' }}
-          />
+          <StatusBadge size="sm" tone="success" label={tr('ws.courtDesk.board.live')} style={{ marginInlineStart: '0.4rem' }} />
         )}
       </td>
       <td>
         <bdi>{courtName}</bdi>
       </td>
       <td>
-        <span
-          style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}
-        >
+        <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <strong>
             <bdi>{label}</bdi>
           </strong>
           {r.guest_phone && (
-            <bdi
-              dir="ltr"
-              style={{
-                color: 'var(--tp-muted-fg)',
-                fontSize: 'var(--tp-fs-xs)',
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
+            <bdi dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)', fontVariantNumeric: 'tabular-nums' }}>
               {r.guest_phone}
             </bdi>
           )}
@@ -403,29 +272,15 @@ function BoardRow({
       <td>
         <ReservationBadge reservation={r} size="sm" />
       </td>
-      <td>
-        {r.kind === 'booking' ? (
-          <PaymentStatusIndicator paymentStatus={paymentStatusFor(r, tabLinks)} size="sm" />
-        ) : null}
-      </td>
+      <td>{r.kind === 'booking' ? <PaymentStatusIndicator paymentStatus={paymentStatusFor(r, tabLinks)} size="sm" /> : null}</td>
       <td style={{ textAlign: 'end', whiteSpace: 'nowrap' }}>
-        <span
-          style={{ display: 'inline-flex', gap: '0.3rem' }}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
+        <span style={{ display: 'inline-flex', gap: '0.3rem' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           {r.kind === 'booking' && r.status === 'confirmed' && (
             <Button size="sm" icon="check" busy={marking} onClick={onMarkArrived}>
               {tr('ws.courtDesk.board.markArrived')}
             </Button>
           )}
-          <Button
-            size="sm"
-            kind="ghost"
-            iconEnd="chevronEnd"
-            onClick={onSelect}
-            aria-label={`${tr('ws.courtDesk.board.open')} ${label}`}
-          >
+          <Button size="sm" kind="ghost" iconEnd="chevronEnd" onClick={onSelect} aria-label={`${tr('ws.courtDesk.board.open')} ${label}`}>
             {tr('ws.courtDesk.board.open')}
           </Button>
         </span>
@@ -457,15 +312,7 @@ function AvailabilityStrip({
          * no shape at all (rulebook 10.6). Both states carry a glyph now, and
          * neither pulses: live is steady, and its label already says so.
          */
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--tp-sp-1)',
-            fontSize: 'var(--tp-fs-xs)',
-            color: live ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)',
-          }}
-        >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: live ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)' }}>
           <Icon name={live ? 'checkCircle' : 'clock'} size={12} />
           {live ? tr('ws.courtDesk.board.live') : tr('ws.courtDesk.board.polling')}
         </span>
@@ -476,30 +323,12 @@ function AvailabilityStrip({
           const tone = availabilityTone(a);
           const body =
             a.state === 'busy'
-              ? tr(
-                  a.kind === 'maintenance'
-                    ? 'ws.courtDesk.board.busyBlocked'
-                    : 'ws.courtDesk.board.busyUntil',
-                  { time: formatTime(new Date(a.untilAt), locale, tz) },
-                )
+              ? tr(a.kind === 'maintenance' ? 'ws.courtDesk.board.busyBlocked' : 'ws.courtDesk.board.busyUntil', { time: formatTime(new Date(a.untilAt), locale, tz) })
               : a.nextStartAt
-                ? tr('ws.courtDesk.board.freeUntil', {
-                    time: formatTime(new Date(a.nextStartAt), locale, tz),
-                  })
+                ? tr('ws.courtDesk.board.freeUntil', { time: formatTime(new Date(a.nextStartAt), locale, tz) })
                 : tr('ws.courtDesk.board.free');
           return (
-            <li
-              key={a.courtId}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '0.5rem',
-                paddingBlock: '0.5rem',
-                paddingInline: '0.85rem',
-                borderBlockEnd: '1px solid var(--tp-border)',
-              }}
-            >
+            <li key={a.courtId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', paddingBlock: '0.5rem', paddingInline: '0.85rem', borderBlockEnd: '1px solid var(--tp-border)' }}>
               <span style={{ fontWeight: 600 }}>
                 <bdi>{courtName(a.courtId)}</bdi>
               </span>
@@ -535,14 +364,8 @@ export function TodaysBoardScreen() {
     if (settingsQ.data) setDate(todayInTz(settingsQ.data.timezone));
   }, [settingsQ.data]);
 
-  const visible = useMemo(
-    () => night.reservations.filter((r) => isVisible(r, nowMs)),
-    [night.reservations, nowMs],
-  );
-  const bookingIds = useMemo(
-    () => visible.filter((r) => r.kind === 'booking').map((r) => r.id),
-    [visible],
-  );
+  const visible = useMemo(() => night.reservations.filter((r) => isVisible(r, nowMs)), [night.reservations, nowMs]);
+  const bookingIds = useMemo(() => visible.filter((r) => r.kind === 'booking').map((r) => r.id), [visible]);
   const tabLinksQ = useTabLinks(bookingIds);
 
   const [createAt, setCreateAt] = useState<{ courtId: string; startAt: Date } | null>(null);
@@ -550,9 +373,7 @@ export function TodaysBoardScreen() {
   const [markingId, setMarkingId] = useState<string | null>(null);
 
   const status: AsyncStatus =
-    (settingsQ.isError && !settingsQ.data) ||
-    (courtsQ.isError && !courtsQ.data) ||
-    (reservationsQ.isError && !reservationsQ.data)
+    (settingsQ.isError && !settingsQ.data) || (courtsQ.isError && !courtsQ.data) || (reservationsQ.isError && !reservationsQ.data)
       ? 'error'
       : !settingsQ.data || !courtsQ.data || !reservationsQ.data
         ? 'loading'
@@ -569,11 +390,7 @@ export function TodaysBoardScreen() {
   /** The next free half-hour on any court from now; otherwise send the desk to the calendar. */
   function createBooking() {
     const nowIso = new Date(nowMs).toISOString();
-    const avail = courtAvailability(
-      courts.map((c) => c.id),
-      visible,
-      nowIso,
-    );
+    const avail = courtAvailability(courts.map((c) => c.id), visible, nowIso);
     const free = avail.find((a) => a.state === 'free');
     const nextMin = rows.find((min) => wallTimeToUtc(date, min, tz).getTime() >= nowMs);
     if (!free || nextMin === undefined) {
@@ -589,16 +406,9 @@ export function TodaysBoardScreen() {
     setPendingArrive(null);
     setMarkingId(r.id);
     // Optimistic, like the calendar dialog: single-row transition, idempotent server-side.
-    queryClient.setQueryData(['reservations', date], (list?: ReservationRow[]) =>
-      list?.map((row) => (row.id === r.id ? { ...row, status: 'arrived' } : row)),
-    );
+    queryClient.setQueryData(['reservations', date], (list?: ReservationRow[]) => list?.map((row) => (row.id === r.id ? { ...row, status: 'arrived' } : row)));
     try {
-      await mutate('reservation.update', {
-        action: 'mark',
-        reservationId: r.id,
-        status: 'arrived',
-        reason,
-      });
+      await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: 'arrived', reason });
     } catch (e) {
       toast.err(e);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });

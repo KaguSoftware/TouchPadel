@@ -9,15 +9,7 @@ import type { Derived } from '../derive';
 import type { Formatters } from '../format';
 import { CardShell, muted, type CardState } from './CardShell';
 
-export function BoughtTogether({
-  derived,
-  state,
-  f,
-}: {
-  derived: Derived | null;
-  state: CardState;
-  f: Formatters;
-}) {
+export function BoughtTogether({ derived, state, f }: { derived: Derived | null; state: CardState; f: Formatters }) {
   const { tr, locale } = useLocale();
   const pairs = derived?.pairs ?? [];
   const name = (id: string) => {

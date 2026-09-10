@@ -23,15 +23,7 @@ function ticket(over: Partial<TicketView> = {}): TicketView {
     stale: false,
     actorLabel: null,
     items: [
-      {
-        id: 'i1',
-        qty: 1,
-        name: 'Espresso',
-        variant: 'Regular',
-        modifiers: ['Extra shot'],
-        notes: 'no sugar',
-        ready: false,
-      },
+      { id: 'i1', qty: 1, name: 'Espresso', variant: 'Regular', modifiers: ['Extra shot'], notes: 'no sugar', ready: false },
       { id: 'i2', qty: 2, name: 'Karak', variant: null, modifiers: [], notes: null, ready: true },
     ],
     canMarkItems: true,
@@ -51,17 +43,7 @@ function renderScreen(over: Partial<KitchenDisplayScreenProps> = {}) {
         tag: { kind: 'court', guest: 'Ahmed' },
         ageSeconds: 700,
         ageState: 'late',
-        items: [
-          {
-            id: 'i3',
-            qty: 1,
-            name: 'Club sandwich',
-            variant: null,
-            modifiers: [],
-            notes: null,
-            ready: false,
-          },
-        ],
+        items: [{ id: 'i3', qty: 1, name: 'Club sandwich', variant: null, modifiers: [], notes: null, ready: false }],
       }),
     ],
     connection: 'live',
@@ -103,9 +85,7 @@ describe('KitchenDisplayScreen states', () => {
     expect(screen.getByRole('checkbox', { name: /Espresso/ })).toBeTruthy();
     expect(within(cards[0]!).getByText('Extra shot')).toBeTruthy();
     expect(within(cards[0]!).getByText('no sugar')).toBeTruthy();
-    expect((screen.getByRole('checkbox', { name: /Karak/ }) as HTMLInputElement).checked).toBe(
-      true,
-    );
+    expect((screen.getByRole('checkbox', { name: /Karak/ }) as HTMLInputElement).checked).toBe(true);
     // Header: open count, clock and the live pill — nothing else.
     expect(screen.getByTestId('open-count').textContent).toBe('2 open');
     expect(screen.getByTestId('connection-pill').getAttribute('data-status')).toBe('live');

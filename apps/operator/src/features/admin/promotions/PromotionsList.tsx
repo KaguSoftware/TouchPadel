@@ -68,12 +68,7 @@ export function PromotionsListScreen() {
       key: 'value',
       header: tr('ws.manager.promotions.value'),
       numeric: true,
-      render: (p) =>
-        p.type === 'percent' ? (
-          <span dir="ltr">{formatNumber(p.value, locale)}%</span>
-        ) : (
-          <Money amount={p.value} />
-        ),
+      render: (p) => (p.type === 'percent' ? <span dir="ltr">{formatNumber(p.value, locale)}%</span> : <Money amount={p.value} />),
     },
     {
       key: 'window',
@@ -85,14 +80,7 @@ export function PromotionsListScreen() {
       header: tr('ws.manager.promotions.applies'),
       render: (p) => (
         <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-          <StatusBadge
-            size="sm"
-            tone={p.auto ? 'accent' : 'neutral'}
-            dot={false}
-            label={
-              p.auto ? tr('ws.manager.promotions.auto') : tr('ws.manager.promotions.staffSelected')
-            }
-          />
+          <StatusBadge size="sm" tone={p.auto ? 'accent' : 'neutral'} dot={false} label={p.auto ? tr('ws.manager.promotions.auto') : tr('ws.manager.promotions.staffSelected')} />
           {p.public_code && (
             <StatusBadge
               size="sm"
@@ -102,18 +90,8 @@ export function PromotionsListScreen() {
               label={`${tr('ws.manager.promotions.code', { code: p.public_code })}${p.code_single_use ? ` · ${tr('ws.manager.promotions.singleUse')}` : ''}`}
             />
           )}
-          {hasScope({
-            courtIds: p.scope?.courtIds ?? [],
-            categoryIds: p.scope?.categoryIds ?? [],
-            itemIds: p.scope?.itemIds ?? [],
-          }) && (
-            <StatusBadge
-              size="sm"
-              tone="neutral"
-              dot={false}
-              icon="layers"
-              label={tr('ws.manager.promotions.editor.scopeTitle')}
-            />
+          {hasScope({ courtIds: p.scope?.courtIds ?? [], categoryIds: p.scope?.categoryIds ?? [], itemIds: p.scope?.itemIds ?? [] }) && (
+            <StatusBadge size="sm" tone="neutral" dot={false} icon="layers" label={tr('ws.manager.promotions.editor.scopeTitle')} />
           )}
         </span>
       ),
@@ -123,13 +101,7 @@ export function PromotionsListScreen() {
       header: tr('ws.manager.promotions.status'),
       render: (p) => {
         const lc = lifecycle(p);
-        return (
-          <StatusBadge
-            tone={LIFECYCLE_TONE[lc]}
-            label={tr(`ws.manager.promotions.${lc}`)}
-            size="sm"
-          />
-        );
+        return <StatusBadge tone={LIFECYCLE_TONE[lc]} label={tr(`ws.manager.promotions.${lc}`)} size="sm" />;
       },
     },
     {
@@ -157,12 +129,7 @@ export function PromotionsListScreen() {
         title={tr('ws.manager.promotions.title')}
         subtitle={tr('ws.manager.promotions.lead')}
         actions={
-          <Button
-            kind="primary"
-            icon="plus"
-            disabled={!can.editPromotions}
-            onClick={() => openEditor('new')}
-          >
+          <Button kind="primary" icon="plus" disabled={!can.editPromotions} onClick={() => openEditor('new')}>
             {tr('ws.manager.promotions.create')}
           </Button>
         }
@@ -170,12 +137,7 @@ export function PromotionsListScreen() {
         {/* Rulebook 6.10: the count belongs beside the title, not only under the table. */}
         <ResultCount shown={rows.length} total={rows.length} />
         <MessagePresenter tone="info" message={tr('ws.manager.promotions.bestOnly')} />
-        {!can.editPromotions && (
-          <PermissionRefusedNotice
-            action={tr('ws.manager.promotions.create')}
-            requiredRole={requiredRoleFor('editPromotions')}
-          />
-        )}
+        {!can.editPromotions && <PermissionRefusedNotice action={tr('ws.manager.promotions.create')} requiredRole={requiredRoleFor('editPromotions')} />}
       </PageHeader>
 
       <AsyncStateWrapper
@@ -189,12 +151,7 @@ export function PromotionsListScreen() {
             title={tr('ws.manager.promotions.empty')}
             body={tr('ws.manager.promotions.emptyBody')}
             action={
-              <Button
-                kind="primary"
-                icon="plus"
-                disabled={!can.editPromotions}
-                onClick={() => openEditor('new')}
-              >
+              <Button kind="primary" icon="plus" disabled={!can.editPromotions} onClick={() => openEditor('new')}>
                 {tr('ws.manager.promotions.create')}
               </Button>
             }
@@ -217,8 +174,7 @@ function WindowText({ row }: { row: PromotionRow }) {
   const { tr, locale } = useLocale();
   const from = row.starts_at ? formatDate(new Date(row.starts_at), locale) : null;
   const to = row.ends_at ? formatDate(new Date(row.ends_at), locale) : null;
-  if (!from && !to)
-    return <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.promotions.noEnd')}</span>;
+  if (!from && !to) return <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.promotions.noEnd')}</span>;
   return (
     <span style={{ fontSize: 'var(--tp-fs-sm)' }}>
       {from && <bdi>{tr('ws.manager.promotions.from', { date: from })}</bdi>}

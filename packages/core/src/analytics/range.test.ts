@@ -67,14 +67,8 @@ describe('date arithmetic', () => {
   });
 
   it('previousRange is the equal-length window immediately before', () => {
-    expect(previousRange({ from: '2026-09-08', to: '2026-09-14' })).toEqual({
-      from: '2026-09-01',
-      to: '2026-09-07',
-    });
-    expect(previousRange({ from: '2026-09-14', to: '2026-09-14' })).toEqual({
-      from: '2026-09-13',
-      to: '2026-09-13',
-    });
+    expect(previousRange({ from: '2026-09-08', to: '2026-09-14' })).toEqual({ from: '2026-09-01', to: '2026-09-07' });
+    expect(previousRange({ from: '2026-09-14', to: '2026-09-14' })).toEqual({ from: '2026-09-13', to: '2026-09-13' });
   });
 
   it('shiftRange preserves length', () => {
@@ -88,10 +82,7 @@ describe('resolveRange', () => {
   const today = '2026-09-14';
 
   it('defaults to the last 30 days ending on the business today', () => {
-    expect(resolveRange({}, today)).toEqual({
-      preset: '30d',
-      range: { from: '2026-08-16', to: today },
-    });
+    expect(resolveRange({}, today)).toEqual({ preset: '30d', range: { from: '2026-08-16', to: today } });
     expect(resolveRange({ range: 'bogus' }, today).preset).toBe('30d');
   });
 
@@ -107,9 +98,7 @@ describe('resolveRange', () => {
       preset: 'custom',
       range: { from: '2026-08-01', to: '2026-08-10' },
     });
-    expect(
-      resolveRange({ range: 'custom', from: '2026-08-10', to: '2026-08-01' }, today).range,
-    ).toEqual({
+    expect(resolveRange({ range: 'custom', from: '2026-08-10', to: '2026-08-01' }, today).range).toEqual({
       from: '2026-08-01',
       to: '2026-08-10',
     });
@@ -117,9 +106,7 @@ describe('resolveRange', () => {
 
   it('falls back to the default when a custom range is malformed', () => {
     expect(resolveRange({ range: 'custom', from: '2026-08-01' }, today).preset).toBe('30d');
-    expect(
-      resolveRange({ range: 'custom', from: '2026-02-30', to: '2026-03-01' }, today).preset,
-    ).toBe('30d');
+    expect(resolveRange({ range: 'custom', from: '2026-02-30', to: '2026-03-01' }, today).preset).toBe('30d');
   });
 });
 
@@ -127,10 +114,7 @@ describe('resolveCompare', () => {
   const range = { from: '2026-09-08', to: '2026-09-14' }; // Tue..Mon
 
   it('defaults to the previous period', () => {
-    expect(resolveCompare(undefined, range)).toEqual({
-      basis: 'prev',
-      range: { from: '2026-09-01', to: '2026-09-07' },
-    });
+    expect(resolveCompare(undefined, range)).toEqual({ basis: 'prev', range: { from: '2026-09-01', to: '2026-09-07' } });
     expect(resolveCompare('nonsense', range).basis).toBe('prev');
   });
 
@@ -157,32 +141,15 @@ describe('isLiveRange', () => {
 
 describe('salesCoverage', () => {
   it('names the missing days and computes the ratio', () => {
-    const c = salesCoverage({ from: '2026-09-01', to: '2026-09-10' }, [
-      '2026-09-01',
-      '2026-09-02',
-      '2026-09-02',
-      '2026-09-05',
-    ]);
+    const c = salesCoverage({ from: '2026-09-01', to: '2026-09-10' }, ['2026-09-01', '2026-09-02', '2026-09-02', '2026-09-05']);
     expect(c.days).toBe(10);
     expect(c.daysWithData).toBe(3);
-    expect(c.missing).toEqual([
-      '2026-09-03',
-      '2026-09-04',
-      '2026-09-06',
-      '2026-09-07',
-      '2026-09-08',
-      '2026-09-09',
-      '2026-09-10',
-    ]);
+    expect(c.missing).toEqual(['2026-09-03', '2026-09-04', '2026-09-06', '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10']);
     expect(c.ratio).toBeCloseTo(0.3);
   });
 
   it('ignores dates outside the range', () => {
-    const c = salesCoverage({ from: '2026-09-01', to: '2026-09-02' }, [
-      '2026-08-31',
-      '2026-09-01',
-      '2026-09-02',
-    ]);
+    const c = salesCoverage({ from: '2026-09-01', to: '2026-09-02' }, ['2026-08-31', '2026-09-01', '2026-09-02']);
     expect(c).toEqual({ days: 2, daysWithData: 2, missing: [], ratio: 1 });
   });
 });
@@ -191,23 +158,11 @@ describe('engagementWindow', () => {
   const range = { from: '2026-09-01', to: '2026-09-10' };
 
   it('covers the whole range without a floor', () => {
-    expect(engagementWindow(range, null)).toEqual({
-      from: '2026-09-01',
-      to: '2026-09-10',
-      days: 10,
-      clipped: false,
-      empty: false,
-    });
+    expect(engagementWindow(range, null)).toEqual({ from: '2026-09-01', to: '2026-09-10', days: 10, clipped: false, empty: false });
   });
 
   it('clips at the floor', () => {
-    expect(engagementWindow(range, '2026-09-06')).toEqual({
-      from: '2026-09-06',
-      to: '2026-09-10',
-      days: 5,
-      clipped: true,
-      empty: false,
-    });
+    expect(engagementWindow(range, '2026-09-06')).toEqual({ from: '2026-09-06', to: '2026-09-10', days: 5, clipped: true, empty: false });
   });
 
   it('is empty when the range predates the floor', () => {
@@ -219,11 +174,7 @@ describe('engagementWindow', () => {
   it('only compares windows of equal tracked length', () => {
     const now = engagementWindow(range, null);
     expect(engagementComparable(now, engagementWindow(previousRange(range), null))).toBe(true);
-    expect(engagementComparable(now, engagementWindow(previousRange(range), '2026-08-25'))).toBe(
-      false,
-    );
-    expect(engagementComparable(now, engagementWindow(previousRange(range), '2026-09-01'))).toBe(
-      false,
-    );
+    expect(engagementComparable(now, engagementWindow(previousRange(range), '2026-08-25'))).toBe(false);
+    expect(engagementComparable(now, engagementWindow(previousRange(range), '2026-09-01'))).toBe(false);
   });
 });

@@ -49,12 +49,12 @@ project's **publishable** key (`sb_publishable_…`), not the legacy anon JWT.
 
 `KaguSoftware/TouchPadel` → Settings → Secrets and variables → Actions.
 
-| Name                         | Kind   | Value                                                                            | Required |
-| ---------------------------- | ------ | -------------------------------------------------------------------------------- | -------- |
-| `OPERATOR_SUPABASE_URL`      | secret | hosted project URL (Supabase → Project Settings → API)                           | yes      |
-| `OPERATOR_SUPABASE_ANON_KEY` | secret | the anon / publishable key from the same page                                    | yes      |
-| `OPERATOR_GUEST_SITE_URL`    | secret | guest site origin, no trailing slash (e.g. `https://touch-padel-web.vercel.app`) | yes      |
-| `RELEASES_GH_TOKEN`          | secret | the token from step 2                                                            | yes      |
+| Name | Kind | Value | Required |
+|---|---|---|---|
+| `OPERATOR_SUPABASE_URL` | secret | hosted project URL (Supabase → Project Settings → API) | yes |
+| `OPERATOR_SUPABASE_ANON_KEY` | secret | the anon / publishable key from the same page | yes |
+| `OPERATOR_GUEST_SITE_URL` | secret | guest site origin, no trailing slash (e.g. `https://touch-padel-web.vercel.app`) | yes |
+| `RELEASES_GH_TOKEN` | secret | the token from step 2 | yes |
 
 The release workflow refuses to build without the first two (the app would
 crash at startup) or without the token (nothing could be published).
@@ -98,21 +98,21 @@ Roughly US$10/month; no hardware token; SmartScreen trusts it quickly.
    validation** for the organisation — Microsoft asks for the company's legal
    registration documents; allow several days. (Individual validation is also
    offered if the company route is blocked.)
-3. In the account, create a **certificate profile** of type _Public Trust_.
+3. In the account, create a **certificate profile** of type *Public Trust*.
 4. In Microsoft Entra, create an **app registration** with a client secret,
-   and give that app the _Trusted Signing Certificate Profile Signer_ role on
+   and give that app the *Trusted Signing Certificate Profile Signer* role on
    the Trusted Signing account.
 5. Add to the source repo:
 
-| Name                              | Kind         | Value                                                                                   |
-| --------------------------------- | ------------ | --------------------------------------------------------------------------------------- |
-| `AZURE_TENANT_ID`                 | secret       | Entra tenant id                                                                         |
-| `AZURE_CLIENT_ID`                 | secret       | the app registration's client id                                                        |
-| `AZURE_CLIENT_SECRET`             | secret       | its client secret                                                                       |
-| `AZURE_CODE_SIGNING_ENDPOINT`     | **variable** | the account's endpoint URL, e.g. `https://weu.codesigning.azure.net`                    |
-| `AZURE_CODE_SIGNING_ACCOUNT_NAME` | **variable** | the Trusted Signing account name                                                        |
-| `AZURE_CERTIFICATE_PROFILE_NAME`  | **variable** | the certificate profile name                                                            |
-| `WIN_SIGN_PUBLISHER_NAME`         | **variable** | the certificate's exact CN (e.g. `Kagu Software Ltd`), so installed apps verify updates |
+| Name | Kind | Value |
+|---|---|---|
+| `AZURE_TENANT_ID` | secret | Entra tenant id |
+| `AZURE_CLIENT_ID` | secret | the app registration's client id |
+| `AZURE_CLIENT_SECRET` | secret | its client secret |
+| `AZURE_CODE_SIGNING_ENDPOINT` | **variable** | the account's endpoint URL, e.g. `https://weu.codesigning.azure.net` |
+| `AZURE_CODE_SIGNING_ACCOUNT_NAME` | **variable** | the Trusted Signing account name |
+| `AZURE_CERTIFICATE_PROFILE_NAME` | **variable** | the certificate profile name |
+| `WIN_SIGN_PUBLISHER_NAME` | **variable** | the certificate's exact CN (e.g. `Kagu Software Ltd`), so installed apps verify updates |
 
 ### Route B — a certificate file (OV/EV from a certificate authority)
 
@@ -139,6 +139,7 @@ keychain and passes CSC_KEYCHAIN + CSC_NAME. Notarization is submit-and-continue
 (apps/operator-shell/scripts/notarize-mac.cjs): Apple held two submissions 55 min and 3 h; Gatekeeper
 checks the ticket online, so no stapling is needed. Apple silicon only.
 
+
 The mac build is scaffolded and runs only when all five secrets below exist.
 An unsigned mac app cannot be opened on current macOS and cannot update
 itself, so there is no unsigned interim like on Windows.
@@ -153,13 +154,13 @@ itself, so there is no unsigned interim like on Windows.
 4. Note the **Team ID** (developer.apple.com → Membership).
 5. Add to the source repo:
 
-| Name                          | Kind                        |
-| ----------------------------- | --------------------------- |
-| `MAC_CSC_LINK`                | secret (the base64 .p12)    |
-| `MAC_CSC_KEY_PASSWORD`        | secret                      |
-| `APPLE_ID`                    | secret (the Apple ID email) |
-| `APPLE_APP_SPECIFIC_PASSWORD` | secret                      |
-| `APPLE_TEAM_ID`               | secret                      |
+| Name | Kind |
+|---|---|
+| `MAC_CSC_LINK` | secret (the base64 .p12) |
+| `MAC_CSC_KEY_PASSWORD` | secret |
+| `APPLE_ID` | secret (the Apple ID email) |
+| `APPLE_APP_SPECIFIC_PASSWORD` | secret |
+| `APPLE_TEAM_ID` | secret |
 
 The next tag push then also publishes `Touch-Padel-Operator-arm64.dmg`
 (Apple silicon) and `Touch-Padel-Operator-x64.dmg` (Intel), signed and

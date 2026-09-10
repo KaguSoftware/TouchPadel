@@ -134,8 +134,7 @@ export default function SettingsScreen() {
   };
 
   // Expo Go reports ITS OWN native version; the app's comes from the config.
-  const appVersion =
-    Constants.expoConfig?.version ?? Application.nativeApplicationVersion ?? '0.0.0';
+  const appVersion = Constants.expoConfig?.version ?? Application.nativeApplicationVersion ?? '0.0.0';
   const build = isRunningInExpoGo() ? 'dev' : (Application.nativeBuildVersion ?? '0');
 
   // A plain row: the layout direction (DirectionRoot) puts the icon on the

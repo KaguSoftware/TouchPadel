@@ -72,10 +72,7 @@ const TABLE_UNKNOWN = '—';
 
 /** HTML-escape for Telegram `parse_mode: 'HTML'` — only `& < >` are significant. */
 export function esc(s: unknown): string {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /** Integer IQD with Latin digits and a `,` thousands separator: 12500 -> "12,500". */
@@ -106,7 +103,7 @@ export function fmtTime(iso: string | Date | null | undefined, tz = 'Asia/Baghda
 function pick(lang: Lang, ar: string | null | undefined, en: string | null | undefined): string {
   const a = ar ?? '';
   const e = en ?? '';
-  return lang === 'en' ? e || a : a || e;
+  return lang === 'en' ? (e || a) : (a || e);
 }
 
 function tableLine(table: string | null | undefined): string {
@@ -313,10 +310,7 @@ export function renderByKind(kind: OutboxKind | string, payload: unknown, lang: 
 }
 
 /** Keyboard for a freshly sent outbox row, by kind (test messages carry none). */
-export function keyboardByKind(
-  kind: OutboxKind | string,
-  refId: string | null,
-): InlineKeyboard | null {
+export function keyboardByKind(kind: OutboxKind | string, refId: string | null): InlineKeyboard | null {
   if (!refId) return null;
   if (kind === 'order_new') return orderKeyboard(refId, 'new');
   if (kind === 'waiter_call') return callKeyboard(refId, 'new');

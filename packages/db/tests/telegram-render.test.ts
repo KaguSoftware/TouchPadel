@@ -142,12 +142,7 @@ describe('renderCall / renderTest', () => {
   it('renders each reason line', () => {
     const base = { call_id: CALL_ID, table_number: '3', raised_at: '2026-08-25T11:05:00Z' };
     expect(renderCall({ ...base, reason: 'bill' })).toBe(
-      [
-        '🙋 <b>نداء نادل · Waiter call</b>',
-        '🪑 <b>طاولة 3</b> · Table 3',
-        '💳 الحساب · The bill',
-        '🕒 14:05',
-      ].join('\n'),
+      ['🙋 <b>نداء نادل · Waiter call</b>', '🪑 <b>طاولة 3</b> · Table 3', '💳 الحساب · The bill', '🕒 14:05'].join('\n'),
     );
     expect(renderCall({ ...base, reason: 'order' })).toContain('🍽 يريد الطلب · Wants to order');
     expect(renderCall({ ...base, reason: 'water' })).toContain('💧 ماء · Water');
@@ -177,36 +172,22 @@ describe('keyboards', () => {
       `o:served:${ORDER_ID}`,
       `o:void:${ORDER_ID}`,
     ]);
-    expect(kb.inline_keyboard[0]!.map((b) => b.text)).toEqual([
-      '✅ شوهد',
-      '🍽 تم التقديم',
-      '❌ إلغاء',
-    ]);
+    expect(kb.inline_keyboard[0]!.map((b) => b.text)).toEqual(['✅ شوهد', '🍽 تم التقديم', '❌ إلغاء']);
     for (const b of kb.inline_keyboard[0]!) expect(bytes(b.callback_data)).toBeLessThanOrEqual(64);
   });
 
   it('reduces per stage', () => {
-    expect(orderKeyboard(ORDER_ID, 'order_seen')!.inline_keyboard[0]!.map((b) => b.text)).toEqual([
-      '🍽 تم التقديم',
-      '❌ إلغاء',
-    ]);
+    expect(orderKeyboard(ORDER_ID, 'order_seen')!.inline_keyboard[0]!.map((b) => b.text)).toEqual(['🍽 تم التقديم', '❌ إلغاء']);
     expect(orderKeyboard(ORDER_ID, 'order_final')).toBeNull();
-    expect(callKeyboard(CALL_ID, 'new')!.inline_keyboard[0]!.map((b) => b.callback_data)).toEqual([
-      `w:ack:${CALL_ID}`,
-      `w:done:${CALL_ID}`,
-    ]);
-    expect(callKeyboard(CALL_ID, 'call_acked')!.inline_keyboard[0]!.map((b) => b.text)).toEqual([
-      '✔️ تم',
-    ]);
+    expect(callKeyboard(CALL_ID, 'new')!.inline_keyboard[0]!.map((b) => b.callback_data)).toEqual([`w:ack:${CALL_ID}`, `w:done:${CALL_ID}`]);
+    expect(callKeyboard(CALL_ID, 'call_acked')!.inline_keyboard[0]!.map((b) => b.text)).toEqual(['✔️ تم']);
     expect(callKeyboard(CALL_ID, 'call_final')).toBeNull();
   });
 
   it('keyboardAfter maps apply_action keyboard stages', () => {
     expect(keyboardAfter('order_new', 'unchanged', ORDER_ID)).toBeUndefined();
     expect(keyboardAfter('order_new', 'order_final', ORDER_ID)).toBeNull();
-    expect(keyboardAfter('waiter_call', 'call_acked', CALL_ID)!.inline_keyboard[0]!).toHaveLength(
-      1,
-    );
+    expect(keyboardAfter('waiter_call', 'call_acked', CALL_ID)!.inline_keyboard[0]!).toHaveLength(1);
   });
 });
 
@@ -227,9 +208,7 @@ describe('callbacks', () => {
     expect(toastFor('not_found')).toBe('غير موجود');
     expect(toastFor('refused')).toBe('الطلب مدفوع — الإلغاء من الكاشير');
     expect(toastFor('???')).toBe('غير معروف');
-    expect(statusFooter('o:seen', 'Ahmed <x>', '14:07')).toBe(
-      '✅ شوهد · Seen — Ahmed &lt;x&gt; · 14:07',
-    );
+    expect(statusFooter('o:seen', 'Ahmed <x>', '14:07')).toBe('✅ شوهد · Seen — Ahmed &lt;x&gt; · 14:07');
     expect(statusFooter('w:ack', 'Sara', '09:00')).toBe('✅ قادم · On the way — Sara · 09:00');
   });
 });

@@ -25,36 +25,18 @@ const contractPayload = {
     voids: { count: 1, amountIqd: 4000 },
     refunds: { count: 0, amountIqd: 0 },
   },
-  dayClose: {
-    open: true,
-    businessDate: '2026-09-03',
-    openedAt: '2026-09-03T06:00:00Z',
-    blockingTabs: 3,
-    queued: 0,
-  },
+  dayClose: { open: true, businessDate: '2026-09-03', openedAt: '2026-09-03T06:00:00Z', blockingTabs: 3, queued: 0 },
 };
 
 describe('normalizeOverview', () => {
   it('parses the contract shape', () => {
     const o = normalizeOverview(contractPayload);
     expect(o.bookings).toMatchObject({ today: 12, arrived: 4, upcoming: 7, noShows: 1 });
-    expect(o.cafe).toMatchObject({
-      openTabs: 3,
-      ticketsQueued: 2,
-      ticketsLate: 1,
-      waiterCallsOpen: 0,
-    });
+    expect(o.cafe).toMatchObject({ openTabs: 3, ticketsQueued: 2, ticketsLate: 1, waiterCallsOpen: 0 });
     expect(o.cafe.ticketsPreparing).toBeNull();
     expect(o.stock.lastCountAt).toBe('2026-09-02T20:00:00Z');
     expect(o.staffActivity).toEqual([
-      {
-        staffId: 's1',
-        name: 'Noor',
-        role: null,
-        ordersTaken: 9,
-        bookingsCreated: 2,
-        paymentsTaken: null,
-      },
+      { staffId: 's1', name: 'Noor', role: null, ordersTaken: 9, bookingsCreated: 2, paymentsTaken: null },
     ]);
     expect(o.exceptions.discounts).toEqual({ count: 2, amountIqd: 15000 });
     expect(o.exceptions.waste).toBeNull();
@@ -67,21 +49,9 @@ describe('normalizeOverview', () => {
   it('accepts the richer optional fields when the server sends them', () => {
     const o = normalizeOverview({
       ...contractPayload,
-      bookings: {
-        ...contractPayload.bookings,
-        nextArrival: { startAt: '2026-09-03T15:00:00Z', guestName: 'Ali' },
-      },
+      bookings: { ...contractPayload.bookings, nextArrival: { startAt: '2026-09-03T15:00:00Z', guestName: 'Ali' } },
       cafe: { ...contractPayload.cafe, ticketsPreparing: 4 },
-      staffActivity: [
-        {
-          staffId: 's1',
-          name: 'Noor',
-          role: 'cashier',
-          ordersTaken: 9,
-          bookingsCreated: 2,
-          paymentsTaken: 5,
-        },
-      ],
+      staffActivity: [{ staffId: 's1', name: 'Noor', role: 'cashier', ordersTaken: 9, bookingsCreated: 2, paymentsTaken: 5 }],
       exceptions: { ...contractPayload.exceptions, waste: { count: 3, amountIqd: 2500 } },
       dayClose: { ...contractPayload.dayClose, blockingTabs: [{ id: 't1', label: 'T4' }, 't2'] },
     });
@@ -157,24 +127,14 @@ describe('alertsFor', () => {
       cafe: { openTabs: 3, ticketsQueued: 2, ticketsLate: 3, waiterCallsOpen: 1 },
       stock: { low: 4, belowPar: 5, expiringSoon: 1, expired: 7 },
     });
-    expect(alertsFor(o).map((a) => a.key)).toEqual([
-      'ticketsLate',
-      'expired',
-      'low',
-      'noShows',
-      'waiterCalls',
-    ]);
+    expect(alertsFor(o).map((a) => a.key)).toEqual(['ticketsLate', 'expired', 'low', 'noShows', 'waiterCalls']);
     // The order is the table's, never the counts': expired is 7 and late is 3,
     // and late still leads because a guest is waiting on it.
     expect(alertsFor(o).map((a) => a.count)).toEqual([3, 7, 4, 2, 1]);
   });
 
   it('carries each alarm to the screen that owns it', () => {
-    const o = normalizeOverview({
-      cafe: { ticketsLate: 1, waiterCallsOpen: 1 },
-      stock: { low: 1, expired: 1 },
-      bookings: { noShows: 1 },
-    });
+    const o = normalizeOverview({ cafe: { ticketsLate: 1, waiterCallsOpen: 1 }, stock: { low: 1, expired: 1 }, bookings: { noShows: 1 } });
     expect(Object.fromEntries(alertsFor(o).map((a) => [a.key, a.href]))).toEqual({
       ticketsLate: '/till/tabs',
       expired: '/stock',
@@ -196,25 +156,12 @@ describe('dayCloseState', () => {
   const base = { open: true, businessDate: null, openedAt: null, blockingTabs: [], queued: 0 };
 
   it('is closed whenever no business day is open, whatever else is outstanding', () => {
-    expect(
-      dayCloseState(
-        normalizeOverview({ dayClose: { ...base, open: false, blockingTabs: 3, queued: 9 } })
-          .dayClose,
-      ),
-    ).toBe('closed');
+    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, open: false, blockingTabs: 3, queued: 9 } }).dayClose)).toBe('closed');
   });
 
   it('ranks open tabs above a queued write — a tab needs a person, a queue needs the network', () => {
-    expect(
-      dayCloseState(
-        normalizeOverview({ dayClose: { ...base, blockingTabs: 2, queued: 5 } }).dayClose,
-      ),
-    ).toBe('blockedByOpenTabs');
-    expect(
-      dayCloseState(
-        normalizeOverview({ dayClose: { ...base, blockingTabs: [], queued: 5 } }).dayClose,
-      ),
-    ).toBe('blockedByUnsyncedQueue');
+    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, blockingTabs: 2, queued: 5 } }).dayClose)).toBe('blockedByOpenTabs');
+    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, blockingTabs: [], queued: 5 } }).dayClose)).toBe('blockedByUnsyncedQueue');
   });
 
   it('is ready only when both gates are clear', () => {
@@ -256,9 +203,6 @@ describe('normalizeCount — the waste spelling', () => {
     expect(normalizeCount({ count: 3, cost_iqd: 2500 })).toEqual({ count: 3, amountIqd: 2500 });
   });
   it('still prefers an explicit amount when both are present', () => {
-    expect(normalizeCount({ count: 1, amountIqd: 10, costIqd: 99 })).toEqual({
-      count: 1,
-      amountIqd: 10,
-    });
+    expect(normalizeCount({ count: 1, amountIqd: 10, costIqd: 99 })).toEqual({ count: 1, amountIqd: 10 });
   });
 });

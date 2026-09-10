@@ -17,15 +17,15 @@ durable write path) and C3 (module 5) remain, as does packaging. See §§8-10.
 
 ## 1. Verdict at a glance
 
-| SOW module           | Acceptance test                                                                                              | Desktop status                                                                                                                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Foundations        | roles confirmed by a written role test (L225-230)                                                            | **Partial** — the role matrix is default-deny and tested, but owner-managed staff accounts (L234) and the audit-log viewer (L241-243) do not exist, and there is no short-lived session on the shared till (L237) |
-| 2 Reservation        | guest booking appears on the desk calendar; staff create, move, cancel (L290-296)                            | **Partial** — day view only (L307 requires week), no shorten, no court records admin (L299-300), no closed-dates editor (L319), overrides audited without a reason (L313)                                         |
-| 3 Cafe guest         | ticket reaches the kitchen screen; waiter call reaches the floor view; tab settles at the till (L353-359)    | **Built** — KDS, `WaiterCallsPanel` and till settle all work                                                                                                                                                      |
-| 4 Cashier & dispatch | a full trading day; day close reconciles cash and card; every discount, void and refund traceable (L434-439) | **Partial** — no refund, no price override, no merge, no split-by-item, no cash-drawer record, no receipt printing; charge-to-booking omits the court price                                                       |
-| 5 Stock & recipes    | physical count → variance report reconciles (L509-514)                                                       | **Absent** — `routes/stock.tsx` renders one `<h1>`; no `src/features/stock/` exists                                                                                                                               |
-| 6 Website            | site matches the desktop app; reflects a till change without a redeploy (L581-587)                           | **Built** — the cafe content editors drive the guest site                                                                                                                                                         |
-| 7 Degraded mode      | till keeps trading disconnected; queued items replay exactly once (L659-665)                                 | **Absent on the client**, and it fails silently — see C1 and C2                                                                                                                                                   |
+| SOW module | Acceptance test | Desktop status |
+|---|---|---|
+| 1 Foundations | roles confirmed by a written role test (L225-230) | **Partial** — the role matrix is default-deny and tested, but owner-managed staff accounts (L234) and the audit-log viewer (L241-243) do not exist, and there is no short-lived session on the shared till (L237) |
+| 2 Reservation | guest booking appears on the desk calendar; staff create, move, cancel (L290-296) | **Partial** — day view only (L307 requires week), no shorten, no court records admin (L299-300), no closed-dates editor (L319), overrides audited without a reason (L313) |
+| 3 Cafe guest | ticket reaches the kitchen screen; waiter call reaches the floor view; tab settles at the till (L353-359) | **Built** — KDS, `WaiterCallsPanel` and till settle all work |
+| 4 Cashier & dispatch | a full trading day; day close reconciles cash and card; every discount, void and refund traceable (L434-439) | **Partial** — no refund, no price override, no merge, no split-by-item, no cash-drawer record, no receipt printing; charge-to-booking omits the court price |
+| 5 Stock & recipes | physical count → variance report reconciles (L509-514) | **Absent** — `routes/stock.tsx` renders one `<h1>`; no `src/features/stock/` exists |
+| 6 Website | site matches the desktop app; reflects a till change without a redeploy (L581-587) | **Built** — the cafe content editors drive the guest site |
+| 7 Degraded mode | till keeps trading disconnected; queued items replay exactly once (L659-665) | **Absent on the client**, and it fails silently — see C1 and C2 |
 
 Two further deliverable-level facts: the app **cannot be packaged** (§5), and until today
 `pnpm turbo lint` was a no-op for both packages while 89 React components had no unit test of
@@ -107,11 +107,7 @@ and its hand-maintained mirror `operator/src/ipc/bridge.ts:11-22` both omit `sta
 ```tsx
 function StockPlaceholder() {
   const { tr } = useLocale();
-  return (
-    <RequireRole route="/stock">
-      <h1>{tr('stock.title')}</h1>
-    </RequireRole>
-  );
+  return (<RequireRole route="/stock"><h1>{tr('stock.title')}</h1></RequireRole>);
 }
 ```
 
@@ -151,7 +147,7 @@ One global `QueryClient` (`main.tsx:40`), `staleTime: 10_000`.
   `is_active = false`. Navigating QR-admin → till serves the till's **new-tab table picker a
   list of inactive tables**.
 - `['settings']` — `features/desk/DeskCalendar.tsx:71` selects `timezone, opening_hours,
-closed_dates`; `features/admin/OpeningHoursEditor.tsx:31` selects only two of those. Prime the
+  closed_dates`; `features/admin/OpeningHoursEditor.tsx:31` selects only two of those. Prime the
   cache from the editor and `DeskCalendar.tsx:95` reads `timezone` as `undefined` and silently
   falls back to a hard-coded constant — the calendar renders in the wrong timezone, with no error.
 - `['courts']` — `DeskCalendar.tsx:83` (5 columns including `sort_order`) versus
@@ -169,7 +165,7 @@ position up reverts their edit — no warning, no conflict.
 ### H4 — Multi-write saves are neither atomic nor resumable · **FIXED (wave 1, migration 0050)**
 
 - `features/admin/hero/HeroBuilder.tsx:190` — `for (const write of writes) await
-setSetting.mutateAsync(write);` with no rollback. A mid-loop failure leaves the guest hero
+  setSetting.mutateAsync(write);` with no rollback. A mid-loop failure leaves the guest hero
   half-configured.
 - `features/admin/qr/QrPage.tsx:91-94` — token rotation in a loop. A failure at table 7 of 20
   leaves **seven printed QR cards dead and thirteen live**, with nothing on screen saying which.
@@ -195,13 +191,13 @@ is no `second-instance` handler to focus the existing window.
 
 All of these are granted and tested server-side and have **zero call sites** in the operator:
 
-| SOW      | Capability                                                  | Server side                                                       |
-| -------- | ----------------------------------------------------------- | ----------------------------------------------------------------- |
-| L453     | Refunds by a manager role, reversing the stock movement     | `app.refund`                                                      |
-| L450-451 | Price overrides behind an authorised PIN with a reason code | `app.override_price`                                              |
-| L444     | Merge tables                                                | `app.merge_tabs`                                                  |
-| L241-243 | Audit log — actor, action, before/after, reason             | `audit_log`, already `grant select` to management at `0005:63-65` |
-| L546-547 | Low-stock and par-level alerts                              | `manager_alerts`                                                  |
+| SOW | Capability | Server side |
+|---|---|---|
+| L453 | Refunds by a manager role, reversing the stock movement | `app.refund` |
+| L450-451 | Price overrides behind an authorised PIN with a reason code | `app.override_price` |
+| L444 | Merge tables | `app.merge_tabs` |
+| L241-243 | Audit log — actor, action, before/after, reason | `audit_log`, already `grant select` to management at `0005:63-65` |
+| L546-547 | Low-stock and par-level alerts | `manager_alerts` |
 
 `components/ui.tsx:304` even describes the PIN modal as "shared by discount / void / **refund**
 flows" — the refund consumer was never written. `lib/errors.ts:93` maps `VOID_REQUIRES_REFUND`,
@@ -514,16 +510,16 @@ operator-shell 62.
 
 ## 12. Still open after wave 2
 
-| Finding                                                                                                             | State                                                     |
-| ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **C2** — no operator write goes through the IPC queue; no dequeue, no replay worker, no `ref_cache`                 | Untouched. The till still cannot trade through an outage. |
-| **C3** — module 5 has no UI; `/stock` is a live sidebar link to an `<h1>`                                           | Untouched.                                                |
-| **§5** — no Windows installer: no electron-builder, no icon, no signing, renderer not bundled, native ABI unhandled | Untouched.                                                |
-| **M1** — KDS item-ready marks are component state; prep time not stored; source not tagged                          | Untouched.                                                |
-| L237 — short-lived sessions / idle lock on the shared till                                                          | Untouched.                                                |
-| L299-300 — court records admin (name, indoor/outdoor, photo, duration options)                                      | Untouched; needs an `upsert_court` RPC.                   |
-| L425-433 — thermal receipt printing (Arabic as a rendered image)                                                    | Untouched; the on-screen bill satisfies L456 today.       |
-| L256-257 — error tracking (Sentry) on the booking and ordering paths                                                | Seam exists (`lib/telemetry.ts`); no reporter installed.  |
+| Finding | State |
+|---|---|
+| **C2** — no operator write goes through the IPC queue; no dequeue, no replay worker, no `ref_cache` | Untouched. The till still cannot trade through an outage. |
+| **C3** — module 5 has no UI; `/stock` is a live sidebar link to an `<h1>` | Untouched. |
+| **§5** — no Windows installer: no electron-builder, no icon, no signing, renderer not bundled, native ABI unhandled | Untouched. |
+| **M1** — KDS item-ready marks are component state; prep time not stored; source not tagged | Untouched. |
+| L237 — short-lived sessions / idle lock on the shared till | Untouched. |
+| L299-300 — court records admin (name, indoor/outdoor, photo, duration options) | Untouched; needs an `upsert_court` RPC. |
+| L425-433 — thermal receipt printing (Arabic as a rendered image) | Untouched; the on-screen bill satisfies L456 today. |
+| L256-257 — error tracking (Sentry) on the booking and ordering paths | Seam exists (`lib/telemetry.ts`); no reporter installed. |
 
 The charge-to-booking money model in 0053 is worth a line-review: the court fee sits OUTSIDE
 `subtotal_iqd` (so percentage discounts apply to goods only) and outside the tax base (tax is

@@ -87,165 +87,57 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
   profiles: {
     id: n,
     // profiles.full_name is NOT NULL, so deletion overwrites rather than empties.
-    full_name: {
-      category: 'Name',
-      why: 'shown to the guest, and to the desk when they arrive',
-      onDelete: 'anonymise',
-    },
-    phone: {
-      category: 'Phone number',
-      why: 'booking confirmation, and the desk calling about a court',
-      onDelete: 'scrub',
-    },
+    full_name: { category: 'Name', why: 'shown to the guest, and to the desk when they arrive', onDelete: 'anonymise' },
+    phone: { category: 'Phone number', why: 'booking confirmation, and the desk calling about a court', onDelete: 'scrub' },
     preferred_lang: n,
-    expo_push_token: {
-      category: 'Device or other IDs',
-      why: 'booking reminders and order-ready pushes',
-      onDelete: 'scrub',
-    },
+    expo_push_token: { category: 'Device or other IDs', why: 'booking reminders and order-ready pushes', onDelete: 'scrub' },
     created_at: n,
     deleted_at: n,
   },
   reservations: {
-    id: n,
-    court_id: n,
-    kind: n,
-    status: n,
-    start_at: n,
-    end_at: n,
-    period: n,
-    guest_id: n,
-    guest_name: {
-      category: 'Name',
-      why: 'bookings taken at the desk, including for an account holder',
-      onDelete: 'scrub',
-    },
-    guest_phone: {
-      category: 'Phone number',
-      why: 'the desk calling about this specific booking',
-      onDelete: 'scrub',
-    },
-    created_by_staff_id: n,
-    source: n,
-    rate_rule_id: n,
-    price_iqd: {
-      category: 'Purchase history',
-      why: 'what the court sold for — the venue reports on it',
-      onDelete: 'keep',
-    },
-    hold_expires_at: n,
-    cancelled_at: n,
-    cancellation_reason: n,
-    notes: {
-      category: 'User content',
-      why: 'free text taken at the desk about this booking',
-      onDelete: 'scrub',
-    },
-    device_id: {
-      category: 'Device or other IDs',
-      why: 'which till or phone made the booking; replay protection',
-      onDelete: 'scrub',
-    },
-    idempotency_key: n,
-    client_ref: n,
-    created_at: n,
-    series_id: n,
+    id: n, court_id: n, kind: n, status: n, start_at: n, end_at: n, period: n, guest_id: n,
+    guest_name: { category: 'Name', why: 'bookings taken at the desk, including for an account holder', onDelete: 'scrub' },
+    guest_phone: { category: 'Phone number', why: 'the desk calling about this specific booking', onDelete: 'scrub' },
+    created_by_staff_id: n, source: n, rate_rule_id: n,
+    price_iqd: { category: 'Purchase history', why: 'what the court sold for — the venue reports on it', onDelete: 'keep' },
+    hold_expires_at: n, cancelled_at: n, cancellation_reason: n,
+    notes: { category: 'User content', why: 'free text taken at the desk about this booking', onDelete: 'scrub' },
+    device_id: { category: 'Device or other IDs', why: 'which till or phone made the booking; replay protection', onDelete: 'scrub' },
+    idempotency_key: n, client_ref: n, created_at: n, series_id: n,
   },
   reservation_series: {
-    id: n,
-    court_id: n,
-    pattern: n,
-    weekdays: n,
-    start_time: n,
-    duration_min: n,
-    starts_on: n,
-    ends_on: n,
-    guest_id: n,
-    guest_name: {
-      category: 'Name',
-      why: 'a standing booking is held in somebody’s name',
-      onDelete: 'scrub',
-    },
-    guest_phone: {
-      category: 'Phone number',
-      why: 'the desk calls the holder when a week is cancelled',
-      onDelete: 'scrub',
-    },
-    notes: {
-      category: 'User content',
-      why: 'free text about the standing booking',
-      onDelete: 'scrub',
-    },
-    created_by_staff_id: n,
-    idempotency_key: n,
-    created_at: n,
-    cancelled_at: n,
-    cancelled_reason: n,
+    id: n, court_id: n, pattern: n, weekdays: n, start_time: n, duration_min: n,
+    starts_on: n, ends_on: n, guest_id: n,
+    guest_name: { category: 'Name', why: 'a standing booking is held in somebody’s name', onDelete: 'scrub' },
+    guest_phone: { category: 'Phone number', why: 'the desk calls the holder when a week is cancelled', onDelete: 'scrub' },
+    notes: { category: 'User content', why: 'free text about the standing booking', onDelete: 'scrub' },
+    created_by_staff_id: n, idempotency_key: n, created_at: n, cancelled_at: n, cancelled_reason: n,
   },
   guest_sessions: {
-    id: n,
-    table_id: n,
-    auth_user_id: {
-      category: 'App activity',
-      why: 'which account scanned which table, so the tab is theirs',
-      onDelete: 'auth',
-    },
-    linked_profile_id: n,
-    created_at: n,
-    last_activity_at: n,
-    expires_at: n,
-    closed_at: n,
+    id: n, table_id: n,
+    auth_user_id: { category: 'App activity', why: 'which account scanned which table, so the tab is theirs', onDelete: 'auth' },
+    linked_profile_id: n, created_at: n, last_activity_at: n, expires_at: n, closed_at: n,
   },
   customer_notes: {
-    id: n,
-    customer_id: n,
-    body: {
-      category: 'User content',
-      why: 'what the desk wrote about this customer',
-      onDelete: 'row',
-    },
-    author_id: n,
-    created_at: n,
-    edited_at: n,
-    edited_by: n,
+    id: n, customer_id: n,
+    body: { category: 'User content', why: 'what the desk wrote about this customer', onDelete: 'row' },
+    author_id: n, created_at: n, edited_at: n, edited_by: n,
   },
   customer_flags: {
     customer_id: n,
     type: { category: 'App activity', why: 'desk labels such as VIP', onDelete: 'row' },
     label: { category: 'User content', why: 'free-text label on the customer', onDelete: 'row' },
-    created_by: n,
-    created_at: n,
+    created_by: n, created_at: n,
   },
   notification_outbox: {
-    id: n,
-    profile_id: n,
-    kind: n,
-    payload: {
-      category: 'User content',
-      why: 'the text of the push queued for this guest',
-      onDelete: 'row',
-    },
-    scheduled_for: n,
-    sent_at: n,
-    attempts: n,
-    last_error: n,
-    created_at: n,
+    id: n, profile_id: n, kind: n,
+    payload: { category: 'User content', why: 'the text of the push queued for this guest', onDelete: 'row' },
+    scheduled_for: n, sent_at: n, attempts: n, last_error: n, created_at: n,
   },
   promotion_redemptions: {
-    id: n,
-    promotion_id: n,
-    tab_id: n,
-    adjustment_id: n,
-    customer_id: n,
-    amount_iqd: {
-      category: 'Purchase history',
-      why: 'the discount given — part of the venue’s takings',
-      onDelete: 'keep',
-    },
-    code_used: n,
-    idempotency_key: n,
-    redeemed_at: n,
-    redeemed_by: n,
+    id: n, promotion_id: n, tab_id: n, adjustment_id: n, customer_id: n,
+    amount_iqd: { category: 'Purchase history', why: 'the discount given — part of the venue’s takings', onDelete: 'keep' },
+    code_used: n, idempotency_key: n, redeemed_at: n, redeemed_by: n,
   },
 };
 
@@ -353,10 +245,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     if (confirmed.error) throw new Error(`confirm_booking: ${confirmed.error.message}`);
 
     // Fill in every 'scrub' column on the two tables whose rows survive.
-    await svc
-      .from('profiles')
-      .update({ expo_push_token: 'ExponentPushToken[sec20]' })
-      .eq('id', uid);
+    await svc.from('profiles').update({ expo_push_token: 'ExponentPushToken[sec20]' }).eq('id', uid);
     await svc
       .from('reservations')
       .update({
@@ -372,12 +261,7 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       .insert({ customer_id: uid, body: 'sec20 note', author_id: SEED_STAFF_IDS.court_desk });
     await svc
       .from('customer_flags')
-      .insert({
-        customer_id: uid,
-        type: 'vip',
-        label: 'sec20',
-        created_by: SEED_STAFF_IDS.court_desk,
-      });
+      .insert({ customer_id: uid, type: 'vip', label: 'sec20', created_by: SEED_STAFF_IDS.court_desk });
     await svc.from('notification_outbox').insert({
       profile_id: uid,
       kind: 'reservation_reminder',
@@ -451,20 +335,13 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
       for (const [col, f] of Object.entries(fields)) {
         if (!f.category) continue;
         if (!byCategory.has(f.category)) byCategory.set(f.category, []);
-        byCategory
-          .get(f.category)!
-          .push({ where: `${table}.${col}`, why: f.why!, fate: f.onDelete! });
+        byCategory.get(f.category)!.push({ where: `${table}.${col}`, why: f.why!, fate: f.onDelete! });
       }
     }
-    const lines = [
-      '',
-      'DATA SAFETY — generated from GUEST_DATA (SEC-20). Do not retype from memory.',
-      '',
-    ];
+    const lines = ['', 'DATA SAFETY — generated from GUEST_DATA (SEC-20). Do not retype from memory.', ''];
     for (const [category, entries] of [...byCategory].sort()) {
       lines.push(`  ${category}`);
-      for (const e of entries)
-        lines.push(`      ${e.where.padEnd(32)} ${e.fate.padEnd(6)} ${e.why}`);
+      for (const e of entries) lines.push(`      ${e.where.padEnd(32)} ${e.fate.padEnd(6)} ${e.why}`);
       lines.push('');
     }
     lines.push('  Deletion: in-app, app.delete_my_account (migration 0077).');

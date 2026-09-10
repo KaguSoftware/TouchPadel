@@ -46,11 +46,7 @@ export function AppleButton({ label, onPress, busy, disabled, height }: AppleBut
       accessibilityRole={disabled ? 'button' : undefined}
       accessibilityLabel={disabled ? label : undefined}
       accessibilityState={disabled ? { disabled: true } : undefined}
-      style={{
-        alignSelf: 'stretch',
-        opacity: disabled ? 0.55 : 1,
-        pointerEvents: disabled ? 'none' : 'auto',
-      }}
+      style={{ alignSelf: 'stretch', opacity: disabled ? 0.55 : 1, pointerEvents: disabled ? 'none' : 'auto' }}
     >
       <AppleAuthentication.AppleAuthenticationButton
         buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}

@@ -37,9 +37,7 @@ const emptyLine = (): DraftLine => ({
 
 /** Short-delivery flag for a draft line: the received quantity is below the expected one. */
 export function isShort(l: Pick<DraftLine, 'qtyExpected' | 'qtyReceived'>): boolean {
-  return (
-    l.qtyExpected !== '' && l.qtyReceived !== '' && Number(l.qtyReceived) < Number(l.qtyExpected)
-  );
+  return l.qtyExpected !== '' && l.qtyReceived !== '' && Number(l.qtyReceived) < Number(l.qtyExpected);
 }
 
 export function ReceiveDelivery() {
@@ -53,26 +51,15 @@ export function ReceiveDelivery() {
   const [error, setError] = useState<unknown>(null);
 
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
-  const ingredients = (ingredientsQ.data ?? []).filter(
-    (i) => i.is_active && i.kind === 'purchased',
-  );
+  const ingredients = (ingredientsQ.data ?? []).filter((i) => i.is_active && i.kind === 'purchased');
 
   function patch(key: string, part: Partial<DraftLine>) {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...part } : l)));
   }
 
-  const validLines = lines.filter(
-    (l) =>
-      l.ingredientId &&
-      Number(l.qtyReceived) > 0 &&
-      Number(l.unitCostIqd) >= 0 &&
-      l.unitCostIqd !== '',
-  );
+  const validLines = lines.filter((l) => l.ingredientId && Number(l.qtyReceived) > 0 && Number(l.unitCostIqd) >= 0 && l.unitCostIqd !== '');
   const shortCount = lines.filter(isShort).length;
-  const dirty =
-    lines.some((l) => l.ingredientId || l.qtyReceived || l.qtyExpected) ||
-    supplier !== '' ||
-    notes !== '';
+  const dirty = lines.some((l) => l.ingredientId || l.qtyReceived || l.qtyExpected) || supplier !== '' || notes !== '';
 
   async function submit() {
     setBusy(true);
@@ -109,13 +96,7 @@ export function ReceiveDelivery() {
         actions={
           <>
             {dirty && <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} />}
-            {shortCount > 0 && (
-              <StatusBadge
-                tone="warn"
-                icon="alert"
-                label={tr('ws.manager.stock.goodsIn.shortTitle')}
-              />
-            )}
+            {shortCount > 0 && <StatusBadge tone="warn" icon="alert" label={tr('ws.manager.stock.goodsIn.shortTitle')} />}
           </>
         }
       />
@@ -123,35 +104,17 @@ export function ReceiveDelivery() {
       <Panel>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
           <Field label={tr('op.stock.supplier')}>
-            <input
-              style={inputStyle}
-              value={supplier}
-              disabled={busy}
-              onChange={(e) => setSupplier(e.target.value)}
-            />
+            <input style={inputStyle} value={supplier} disabled={busy} onChange={(e) => setSupplier(e.target.value)} />
           </Field>
           <Field label={tr('op.common.notes')}>
-            <input
-              style={inputStyle}
-              value={notes}
-              disabled={busy}
-              onChange={(e) => setNotes(e.target.value)}
-            />
+            <input style={inputStyle} value={notes} disabled={busy} onChange={(e) => setNotes(e.target.value)} />
           </Field>
         </div>
       </Panel>
 
-      <Panel
-        title={tr('ws.manager.stock.goodsIn.lines')}
-        style={{ marginBlockStart: 'var(--tp-sp-3)' }}
-      >
+      <Panel title={tr('ws.manager.stock.goodsIn.lines')} style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
         {shortCount > 0 && (
-          <MessagePresenter
-            tone="refused"
-            icon="alert"
-            message={tr('ws.manager.stock.goodsIn.shortLead', { count: shortCount })}
-            style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
-          />
+          <MessagePresenter tone="refused" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead', { count: shortCount })} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
         )}
         {lines.map((l) => {
           const short = isShort(l);
@@ -169,12 +132,7 @@ export function ReceiveDelivery() {
               }}
             >
               <Field label={tr('op.stock.ingredient')} style={{ marginBlockEnd: 0 }}>
-                <select
-                  style={inputStyle}
-                  value={l.ingredientId}
-                  disabled={busy}
-                  onChange={(e) => patch(l.key, { ingredientId: e.target.value })}
-                >
+                <select style={inputStyle} value={l.ingredientId} disabled={busy} onChange={(e) => patch(l.key, { ingredientId: e.target.value })}>
                   <option value="">—</option>
                   {ingredients.map((i) => (
                     <option key={i.id} value={i.id}>
@@ -184,23 +142,12 @@ export function ReceiveDelivery() {
                 </select>
               </Field>
               <Field label={tr('op.stock.qtyExpected')} style={{ marginBlockEnd: 0 }}>
-                <input
-                  style={inputStyle}
-                  dir="ltr"
-                  inputMode="decimal"
-                  value={l.qtyExpected}
-                  disabled={busy}
-                  onChange={(e) => patch(l.key, { qtyExpected: e.target.value })}
-                />
+                <input style={inputStyle} dir="ltr" inputMode="decimal" value={l.qtyExpected} disabled={busy} onChange={(e) => patch(l.key, { qtyExpected: e.target.value })} />
               </Field>
               <Field
                 label={tr('op.stock.qtyReceived')}
                 style={{ marginBlockEnd: 0 }}
-                error={
-                  short
-                    ? tr('op.stock.short', { qty: Number(l.qtyExpected) - Number(l.qtyReceived) })
-                    : undefined
-                }
+                error={short ? tr('op.stock.short', { qty: Number(l.qtyExpected) - Number(l.qtyReceived) }) : undefined}
               >
                 <input
                   style={{ ...inputStyle, borderColor: short ? 'var(--tp-warn)' : undefined }}
@@ -212,28 +159,10 @@ export function ReceiveDelivery() {
                 />
               </Field>
               <Field label={tr('op.stock.unitCost')} style={{ marginBlockEnd: 0 }}>
-                <input
-                  style={inputStyle}
-                  dir="ltr"
-                  inputMode="numeric"
-                  value={l.unitCostIqd}
-                  disabled={busy}
-                  onChange={(e) => patch(l.key, { unitCostIqd: e.target.value })}
-                />
+                <input style={inputStyle} dir="ltr" inputMode="numeric" value={l.unitCostIqd} disabled={busy} onChange={(e) => patch(l.key, { unitCostIqd: e.target.value })} />
               </Field>
-              <Field
-                label={tr('op.stock.expiry')}
-                hint={tr('ws.manager.stock.goodsIn.expiryHint')}
-                style={{ marginBlockEnd: 0 }}
-              >
-                <input
-                  style={inputStyle}
-                  type="date"
-                  dir="ltr"
-                  value={l.expiryDate}
-                  disabled={busy}
-                  onChange={(e) => patch(l.key, { expiryDate: e.target.value })}
-                />
+              <Field label={tr('op.stock.expiry')} hint={tr('ws.manager.stock.goodsIn.expiryHint')} style={{ marginBlockEnd: 0 }}>
+                <input style={inputStyle} type="date" dir="ltr" value={l.expiryDate} disabled={busy} onChange={(e) => patch(l.key, { expiryDate: e.target.value })} />
               </Field>
               <div style={{ paddingBlockEnd: 'var(--tp-sp-0)' }}>
                 <Button
@@ -249,29 +178,11 @@ export function ReceiveDelivery() {
           );
         })}
 
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            marginBlockStart: 'var(--tp-sp-2)',
-            gap: 'var(--tp-sp-2)',
-            flexWrap: 'wrap',
-          }}
-        >
-          <Button
-            icon="plus"
-            disabled={busy}
-            onClick={() => setLines((ls) => [...ls, emptyLine()])}
-          >
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBlockStart: 'var(--tp-sp-2)', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+          <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
             {tr('op.stock.addLine')}
           </Button>
-          <Button
-            kind="primary"
-            icon="package"
-            busy={busy}
-            disabled={validLines.length === 0}
-            onClick={() => void submit()}
-          >
+          <Button kind="primary" icon="package" busy={busy} disabled={validLines.length === 0} onClick={() => void submit()}>
             {tr('op.stock.receiveBtn')}
           </Button>
         </div>

@@ -15,15 +15,7 @@ export function isLive(status: string): boolean {
   return BLOCKING_STATUSES.has(status);
 }
 
-const KNOWN: readonly BookingStatus[] = [
-  'pending',
-  'confirmed',
-  'arrived',
-  'completed',
-  'cancelled',
-  'no_show',
-  'expired',
-];
+const KNOWN: readonly BookingStatus[] = ['pending', 'confirmed', 'arrived', 'completed', 'cancelled', 'no_show', 'expired'];
 
 /** Server status → the seven-state indicator. Unknown strings render as-is via the indicator. */
 export function toBookingStatus(status: string): BookingStatus | string {
@@ -52,18 +44,13 @@ export function paymentStatusFor(
  */
 export function isVisible(r: ReservationRow, nowMs: number): boolean {
   if (r.status === 'cancelled' || r.status === 'expired' || r.status === 'no_show') return false;
-  if (r.kind === 'hold' && r.hold_expires_at && new Date(r.hold_expires_at).getTime() <= nowMs)
-    return false;
+  if (r.kind === 'hold' && r.hold_expires_at && new Date(r.hold_expires_at).getTime() <= nowMs) return false;
   return true;
 }
 
 /** Sort by start, then by court so the board reads top to bottom through the night. */
-export function sortByStart<T extends { start_at: string; court_id: string }>(
-  rows: readonly T[],
-): T[] {
-  return [...rows].sort(
-    (a, b) => a.start_at.localeCompare(b.start_at) || a.court_id.localeCompare(b.court_id),
-  );
+export function sortByStart<T extends { start_at: string; court_id: string }>(rows: readonly T[]): T[] {
+  return [...rows].sort((a, b) => a.start_at.localeCompare(b.start_at) || a.court_id.localeCompare(b.court_id));
 }
 
 export interface TimeGroup<T> {
@@ -73,9 +60,7 @@ export interface TimeGroup<T> {
 }
 
 /** Bookings grouped by identical start instant, in order. */
-export function groupByStart<T extends { start_at: string; court_id: string }>(
-  rows: readonly T[],
-): TimeGroup<T>[] {
+export function groupByStart<T extends { start_at: string; court_id: string }>(rows: readonly T[]): TimeGroup<T>[] {
   const groups: TimeGroup<T>[] = [];
   for (const r of sortByStart(rows)) {
     const last = groups[groups.length - 1];
@@ -87,13 +72,7 @@ export function groupByStart<T extends { start_at: string; court_id: string }>(
 
 export type CourtAvailability =
   | { courtId: string; state: 'free'; nextStartAt: string | null }
-  | {
-      courtId: string;
-      state: 'busy';
-      kind: 'booking' | 'hold' | 'maintenance';
-      untilAt: string;
-      reservationId: string;
-    };
+  | { courtId: string; state: 'busy'; kind: 'booking' | 'hold' | 'maintenance'; untilAt: string; reservationId: string };
 
 /**
  * What each court is doing right now, from rows already on screen. A court is
@@ -106,22 +85,12 @@ export function courtAvailability(
   nowIso: string,
 ): CourtAvailability[] {
   return courtIds.map((courtId) => {
-    const own = reservations.filter(
-      (r) => r.court_id === courtId && BLOCKING_STATUSES.has(r.status),
-    );
+    const own = reservations.filter((r) => r.court_id === courtId && BLOCKING_STATUSES.has(r.status));
     const current = own.find((r) => r.start_at <= nowIso && r.end_at > nowIso);
     if (current) {
-      return {
-        courtId,
-        state: 'busy',
-        kind: current.kind,
-        untilAt: current.end_at,
-        reservationId: current.id,
-      };
+      return { courtId, state: 'busy', kind: current.kind, untilAt: current.end_at, reservationId: current.id };
     }
-    const upcoming = own
-      .filter((r) => r.start_at > nowIso)
-      .sort((a, b) => a.start_at.localeCompare(b.start_at));
+    const upcoming = own.filter((r) => r.start_at > nowIso).sort((a, b) => a.start_at.localeCompare(b.start_at));
     return { courtId, state: 'free', nextStartAt: upcoming[0]?.start_at ?? null };
   });
 }
@@ -130,11 +99,7 @@ export function courtAvailability(
  * The arrivals panel: bookings starting between `now` and `horizonIso`
  * that have not arrived yet, plus everything already marked arrived.
  */
-export function arrivals(
-  reservations: readonly ReservationRow[],
-  nowIso: string,
-  horizonIso: string,
-): ReservationRow[] {
+export function arrivals(reservations: readonly ReservationRow[], nowIso: string, horizonIso: string): ReservationRow[] {
   return sortByStart(
     reservations.filter((r) => {
       if (r.kind !== 'booking') return false;

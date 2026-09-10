@@ -82,10 +82,7 @@ test.describe('cafe RTL layout @ar', () => {
   });
 
   test('an open item sheet stays within the viewport in Arabic', async ({ page }) => {
-    await page
-      .getByRole('button', { name: /كابتشينو/ })
-      .first()
-      .click();
+    await page.getByRole('button', { name: /كابتشينو/ }).first().click();
     const sheet = page.getByRole('dialog', { name: 'كابتشينو' });
     await expect(sheet).toBeVisible();
     await assertWithinViewport(sheet, 'item sheet');

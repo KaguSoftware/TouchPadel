@@ -28,8 +28,7 @@ export function TempChips({
   // `className` only ADDS placement; the colour always comes from the
   // --hot / --cold modifier. --icon centres the mark in the pill, which the
   // word-bearing chips elsewhere do not want.
-  const cls = (mod: string) =>
-    ['tp-temp', 'tp-temp--icon', mod, className].filter(Boolean).join(' ');
+  const cls = (mod: string) => ['tp-temp', 'tp-temp--icon', mod, className].filter(Boolean).join(' ');
   return (
     <>
       {hot && (

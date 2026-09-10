@@ -1,18 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { MoneyError } from '../money/iqd';
-import {
-  buildMenuEngineering,
-  type CostedMenuItem,
-  menuEngineeringForModel,
-  RELIABLE_COST_COVERAGE,
-} from './menuMatrix';
+import { buildMenuEngineering, type CostedMenuItem, menuEngineeringForModel, RELIABLE_COST_COVERAGE } from './menuMatrix';
 
-const item = (
-  id: string,
-  nameEn: string,
-  defaultPriceIqd: number,
-  costIqd: number | null,
-): CostedMenuItem => ({
+const item = (id: string, nameEn: string, defaultPriceIqd: number, costIqd: number | null): CostedMenuItem => ({
   id,
   nameEn,
   nameAr: `${nameEn}-ar`,
@@ -71,13 +61,7 @@ describe('buildMenuEngineering', () => {
     );
     const totalProfit = 200 * 2300 + 150 * 3900 + 20 * 7500 + 30 * 2000;
     const totalQty = 400;
-    expect(me.totals).toEqual({
-      qty: 400,
-      revenueIqd: 1860000,
-      costIqd: 1860000 - totalProfit,
-      profitIqd: totalProfit,
-      marginPct: Math.round((totalProfit / 1860000) * 100),
-    });
+    expect(me.totals).toEqual({ qty: 400, revenueIqd: 1860000, costIqd: 1860000 - totalProfit, profitIqd: totalProfit, marginPct: Math.round((totalProfit / 1860000) * 100) });
     expect(me.avgUnitMarginIqd).toBeCloseTo(totalProfit / totalQty); // 3182.5, well below the unweighted mean
     expect(me.popularityThreshold).toBeCloseTo(0.25 * 0.7);
     const q = Object.fromEntries(me.items.map((i) => [i.id, i.quadrant]));
@@ -120,10 +104,7 @@ describe('buildMenuEngineering', () => {
       items,
     );
     expect(me.items.find((i) => i.id === 'cap')!.unitPriceIqd).toBe(4000);
-    expect(me.items.find((i) => i.id === 'esp')).toMatchObject({
-      unitPriceIqd: 3000,
-      revenueIqd: 30000,
-    });
+    expect(me.items.find((i) => i.id === 'esp')).toMatchObject({ unitPriceIqd: 3000, revenueIqd: 30000 });
   });
 
   it('sums duplicate sold rows and drops zero-qty rows', () => {
@@ -141,12 +122,8 @@ describe('buildMenuEngineering', () => {
   });
 
   it('validates money and quantities at the boundary', () => {
-    expect(() => buildMenuEngineering([{ id: 'esp', qty: 1, revenueIqd: 10.5 }], items)).toThrow(
-      MoneyError,
-    );
-    expect(() => buildMenuEngineering([{ id: 'esp', qty: 1.5, revenueIqd: 10 }], items)).toThrow(
-      RangeError,
-    );
+    expect(() => buildMenuEngineering([{ id: 'esp', qty: 1, revenueIqd: 10.5 }], items)).toThrow(MoneyError);
+    expect(() => buildMenuEngineering([{ id: 'esp', qty: 1.5, revenueIqd: 10 }], items)).toThrow(RangeError);
     expect(() => buildMenuEngineering([], [item('bad', 'Bad', 1000, -1)])).toThrow(MoneyError);
   });
 });

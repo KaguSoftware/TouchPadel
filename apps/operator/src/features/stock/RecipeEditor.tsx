@@ -17,15 +17,7 @@ import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
-import {
-  DataTable,
-  MessagePresenter,
-  PageHeader,
-  Panel,
-  SegmentedControl,
-  StatusBadge,
-  type Column,
-} from '../../components/kit';
+import { DataTable, MessagePresenter, PageHeader, Panel, SegmentedControl, StatusBadge, type Column } from '../../components/kit';
 import { SK, fetchIngredients } from './stockKeys';
 
 type TargetKind = 'variant' | 'modifier' | 'output';
@@ -92,26 +84,13 @@ export function RecipeEditor() {
         }));
       }
       if (target === 'modifier') {
-        const { data, error: err } = await supabase
-          .from('modifiers')
-          .select('id, name_en, name_ar')
-          .order('name_en');
+        const { data, error: err } = await supabase.from('modifiers').select('id, name_en, name_ar').order('name_en');
         if (err) throw err;
-        return (data as { id: string; name_en: string; name_ar: string }[]).map((m) => ({
-          id: m.id,
-          label: pickName(locale, m),
-        }));
+        return (data as { id: string; name_en: string; name_ar: string }[]).map((m) => ({ id: m.id, label: pickName(locale, m) }));
       }
-      const { data, error: err } = await supabase
-        .from('ingredients')
-        .select('id, name_en, name_ar')
-        .eq('kind', 'prepared')
-        .order('name_en');
+      const { data, error: err } = await supabase.from('ingredients').select('id, name_en, name_ar').eq('kind', 'prepared').order('name_en');
       if (err) throw err;
-      return (data as { id: string; name_en: string; name_ar: string }[]).map((i) => ({
-        id: i.id,
-        label: pickName(locale, i),
-      }));
+      return (data as { id: string; name_en: string; name_ar: string }[]).map((i) => ({ id: i.id, label: pickName(locale, i) }));
     },
   });
 
@@ -120,10 +99,7 @@ export function RecipeEditor() {
     queryKey: ['stock', 'recipes', 'variantLines'],
     enabled: target === 'variant',
     queryFn: async (): Promise<RecipeLineRow[]> => {
-      const { data, error: err } = await supabase
-        .from('recipe_lines')
-        .select('variant_id, ingredient_id, qty')
-        .not('variant_id', 'is', null);
+      const { data, error: err } = await supabase.from('recipe_lines').select('variant_id, ingredient_id, qty').not('variant_id', 'is', null);
       if (err) throw err;
       return data as RecipeLineRow[];
     },
@@ -133,16 +109,8 @@ export function RecipeEditor() {
     queryKey: SK.recipes(target, targetId),
     enabled: !!targetId,
     queryFn: async () => {
-      const col =
-        target === 'variant'
-          ? 'variant_id'
-          : target === 'modifier'
-            ? 'modifier_id'
-            : 'output_ingredient_id';
-      const { data, error: err } = await supabase
-        .from('recipe_lines')
-        .select('ingredient_id, qty')
-        .eq(col, targetId);
+      const col = target === 'variant' ? 'variant_id' : target === 'modifier' ? 'modifier_id' : 'output_ingredient_id';
+      const { data, error: err } = await supabase.from('recipe_lines').select('ingredient_id, qty').eq(col, targetId);
       if (err) throw err;
       return data as { ingredient_id: string; qty: number }[];
     },
@@ -151,21 +119,14 @@ export function RecipeEditor() {
   // Hydrate the draft when a target's lines land (once per selection).
   if (targetId && linesQ.isSuccess && loadedFor !== `${target}:${targetId}`) {
     setLoadedFor(`${target}:${targetId}`);
-    setLines(
-      linesQ.data.map((l) => ({
-        key: crypto.randomUUID(),
-        ingredientId: l.ingredient_id,
-        qty: String(l.qty),
-      })),
-    );
+    setLines(linesQ.data.map((l) => ({ key: crypto.randomUUID(), ingredientId: l.ingredient_id, qty: String(l.qty) })));
   }
 
   const validLines = lines.filter((l) => l.ingredientId && Number(l.qty) > 0);
   const savedLines = linesQ.data ?? [];
   const dirty =
     !!targetId &&
-    JSON.stringify(validLines.map((l) => [l.ingredientId, Number(l.qty)]).sort()) !==
-      JSON.stringify(savedLines.map((l) => [l.ingredient_id, l.qty]).sort());
+    JSON.stringify(validLines.map((l) => [l.ingredientId, Number(l.qty)]).sort()) !== JSON.stringify(savedLines.map((l) => [l.ingredient_id, l.qty]).sort());
 
   async function save() {
     setBusy(true);
@@ -196,41 +157,25 @@ export function RecipeEditor() {
   const options = optionsQ.data ?? NO_OPTIONS;
   const selectedOption = options.find((o) => o.id === targetId);
   const siblings = useMemo(
-    () =>
-      target === 'variant' && selectedOption?.itemId
-        ? options.filter((o) => o.itemId === selectedOption.itemId)
-        : [],
+    () => (target === 'variant' && selectedOption?.itemId ? options.filter((o) => o.itemId === selectedOption.itemId) : []),
     [target, selectedOption, options],
   );
   const lineCountByVariant = useMemo(() => {
     const m = new Map<string, number>();
-    for (const l of variantLinesQ.data ?? [])
-      if (l.variant_id) m.set(l.variant_id, (m.get(l.variant_id) ?? 0) + 1);
+    for (const l of variantLinesQ.data ?? []) if (l.variant_id) m.set(l.variant_id, (m.get(l.variant_id) ?? 0) + 1);
     return m;
   }, [variantLinesQ.data]);
   const incompleteCount = siblings.filter((s) => !(lineCountByVariant.get(s.id) ?? 0)).length;
 
   const matrixColumns: Column<TargetOption>[] = [
-    {
-      key: 'size',
-      header: tr('op.stock.target_variant'),
-      render: (v) => (
-        <bdi style={{ fontWeight: v.id === targetId ? 700 : 500 }}>{v.variantName ?? v.label}</bdi>
-      ),
-    },
+    { key: 'size', header: tr('op.stock.target_variant'), render: (v) => <bdi style={{ fontWeight: v.id === targetId ? 700 : 500 }}>{v.variantName ?? v.label}</bdi> },
     {
       key: 'lines',
       header: tr('op.stock.qtyPerUnit'),
       numeric: true,
       render: (v) => {
         const n = lineCountByVariant.get(v.id) ?? 0;
-        return n === 0 ? (
-          <span style={{ color: 'var(--tp-muted-fg)' }}>
-            {tr('ws.manager.stock.recipes.noLines')}
-          </span>
-        ) : (
-          tr('ws.manager.stock.recipes.lines', { count: formatNumber(n, locale) })
-        );
+        return n === 0 ? <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.recipes.noLines')}</span> : tr('ws.manager.stock.recipes.lines', { count: formatNumber(n, locale) });
       },
     },
     {
@@ -240,12 +185,7 @@ export function RecipeEditor() {
         (lineCountByVariant.get(v.id) ?? 0) > 0 ? (
           <StatusBadge size="sm" tone="success" label={tr('ws.manager.stock.recipes.complete')} />
         ) : (
-          <StatusBadge
-            size="sm"
-            tone="danger"
-            icon="alert"
-            label={tr('ws.manager.stock.recipes.incomplete')}
-          />
+          <StatusBadge size="sm" tone="danger" icon="alert" label={tr('ws.manager.stock.recipes.incomplete')} />
         ),
     },
     {
@@ -268,20 +208,11 @@ export function RecipeEditor() {
       <PageHeader
         title={tr('op.stock.recipesTitle')}
         subtitle={tr('op.stock.recipesHint')}
-        actions={
-          dirty ? <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} /> : undefined
-        }
+        actions={dirty ? <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} /> : undefined}
       />
 
       <Panel>
-        <div
-          style={{
-            display: 'flex',
-            gap: 'var(--tp-sp-3)',
-            alignItems: 'flex-end',
-            flexWrap: 'wrap',
-          }}
-        >
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <Field label={tr('op.stock.kind')} style={{ marginBlockEnd: 0 }}>
             <SegmentedControl<TargetKind>
               value={target}
@@ -293,15 +224,8 @@ export function RecipeEditor() {
               ]}
             />
           </Field>
-          <Field
-            label={tr(`op.stock.target_${target}`)}
-            style={{ marginBlockEnd: 0, flex: 1, minInlineSize: '16rem' }}
-          >
-            <select
-              style={inputStyle}
-              value={targetId}
-              onChange={(e) => select(target, e.target.value)}
-            >
+          <Field label={tr(`op.stock.target_${target}`)} style={{ marginBlockEnd: 0, flex: 1, minInlineSize: '16rem' }}>
+            <select style={inputStyle} value={targetId} onChange={(e) => select(target, e.target.value)}>
               <option value="">—</option>
               {options.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -311,13 +235,7 @@ export function RecipeEditor() {
             </select>
           </Field>
         </div>
-        {target === 'modifier' && (
-          <MessagePresenter
-            tone="info"
-            message={tr('ws.manager.stock.recipes.modifierHint')}
-            style={{ marginBlockStart: 'var(--tp-sp-3)' }}
-          />
-        )}
+        {target === 'modifier' && <MessagePresenter tone="info" message={tr('ws.manager.stock.recipes.modifierHint')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />}
       </Panel>
 
       {target === 'variant' && siblings.length > 0 && (
@@ -325,60 +243,23 @@ export function RecipeEditor() {
           title={tr('ws.manager.stock.recipes.matrixTitle')}
           padded={false}
           style={{ marginBlockStart: 'var(--tp-sp-3)' }}
-          actions={
-            incompleteCount > 0 ? (
-              <StatusBadge
-                size="sm"
-                tone="danger"
-                icon="alert"
-                label={`${tr('ws.manager.stock.recipes.incomplete')} · ${formatNumber(incompleteCount, locale)}`}
-              />
-            ) : undefined
-          }
+          actions={incompleteCount > 0 ? <StatusBadge size="sm" tone="danger" icon="alert" label={`${tr('ws.manager.stock.recipes.incomplete')} · ${formatNumber(incompleteCount, locale)}`} /> : undefined}
         >
-          <p
-            style={{
-              paddingBlock: 'var(--tp-sp-2)',
-              paddingInline: 'var(--tp-sp-3)',
-              fontSize: 'var(--tp-fs-sm)',
-              color: 'var(--tp-muted-fg)',
-            }}
-          >
-            {tr('ws.manager.stock.recipes.matrixLead')}
-          </p>
-          <DataTable
-            columns={matrixColumns}
-            rows={siblings}
-            rowKey={(v) => v.id}
-            selectedKey={targetId}
-            aria-label={tr('ws.manager.stock.recipes.matrixTitle')}
-          />
+          <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.recipes.matrixLead')}</p>
+          <DataTable columns={matrixColumns} rows={siblings} rowKey={(v) => v.id} selectedKey={targetId} aria-label={tr('ws.manager.stock.recipes.matrixTitle')} />
         </Panel>
       )}
 
       {targetId && (
         <Panel title={selectedOption?.label ?? ''} style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
           {lines.map((l) => (
-            <div
-              key={l.key}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr 1fr auto',
-                gap: 'var(--tp-sp-1-5)',
-                alignItems: 'end',
-                marginBlockEnd: 'var(--tp-sp-1)',
-              }}
-            >
+            <div key={l.key} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 'var(--tp-sp-1-5)', alignItems: 'end', marginBlockEnd: 'var(--tp-sp-1)' }}>
               <Field label={tr('op.stock.ingredient')} style={{ marginBlockEnd: 0 }}>
                 <select
                   style={inputStyle}
                   value={l.ingredientId}
                   disabled={busy}
-                  onChange={(e) =>
-                    setLines((ls) =>
-                      ls.map((x) => (x.key === l.key ? { ...x, ingredientId: e.target.value } : x)),
-                    )
-                  }
+                  onChange={(e) => setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, ingredientId: e.target.value } : x)))}
                 >
                   <option value="">—</option>
                   {ingredients.map((i) => (
@@ -395,58 +276,22 @@ export function RecipeEditor() {
                   inputMode="decimal"
                   value={l.qty}
                   disabled={busy}
-                  onChange={(e) =>
-                    setLines((ls) =>
-                      ls.map((x) => (x.key === l.key ? { ...x, qty: e.target.value } : x)),
-                    )
-                  }
+                  onChange={(e) => setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, qty: e.target.value } : x)))}
                 />
               </Field>
               <div style={{ paddingBlockEnd: 'var(--tp-sp-0)' }}>
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  icon="x"
-                  disabled={busy}
-                  aria-label={tr('ws.kit.actions.remove')}
-                  onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-                />
+                <Button kind="ghost" size="sm" icon="x" disabled={busy} aria-label={tr('ws.kit.actions.remove')} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))} />
               </div>
             </div>
           ))}
           {lines.length === 0 && (
-            <MessagePresenter
-              tone="refused"
-              icon="alert"
-              message={tr('ws.manager.stock.recipes.incomplete')}
-              style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }}
-            />
+            <MessagePresenter tone="refused" icon="alert" message={tr('ws.manager.stock.recipes.incomplete')} style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }} />
           )}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginBlockStart: 'var(--tp-sp-2)',
-              gap: 'var(--tp-sp-2)',
-              flexWrap: 'wrap',
-            }}
-          >
-            <Button
-              icon="plus"
-              disabled={busy}
-              onClick={() =>
-                setLines((ls) => [...ls, { key: crypto.randomUUID(), ingredientId: '', qty: '' }])
-              }
-            >
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBlockStart: 'var(--tp-sp-2)', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+            <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, { key: crypto.randomUUID(), ingredientId: '', qty: '' }])}>
               {tr('op.stock.addLine')}
             </Button>
-            <Button
-              kind="primary"
-              icon="check"
-              busy={busy}
-              disabled={!dirty}
-              onClick={() => void save()}
-            >
+            <Button kind="primary" icon="check" busy={busy} disabled={!dirty} onClick={() => void save()}>
               {tr('op.common.apply')}
             </Button>
           </div>

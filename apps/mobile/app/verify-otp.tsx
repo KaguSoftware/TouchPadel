@@ -4,12 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatIraqiNational } from '@touch/core';
 import { isolate } from '@touch/i18n';
 import { supabase } from '../src/lib/supabase';
-import {
-  resendPhoneLink,
-  sendPhoneOtp,
-  verifyPhoneLink,
-  verifyPhoneOtp,
-} from '../src/features/auth/api';
+import { resendPhoneLink, sendPhoneOtp, verifyPhoneLink, verifyPhoneOtp } from '../src/features/auth/api';
 import {
   OTP_LENGTH,
   RESEND_COOLDOWN_S,
@@ -26,16 +21,7 @@ import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useBack } from '../src/navigation/back';
 import { space, useTheme } from '../src/theme';
-import {
-  Button,
-  ErrorText,
-  Field,
-  FormScreen,
-  Hint,
-  LinkText,
-  Screen,
-  Title,
-} from '../src/components/ui';
+import { Button, ErrorText, Field, FormScreen, Hint, LinkText, Screen, Title } from '../src/components/ui';
 import { useToast } from '../src/components/overlays';
 
 type Mode = 'signin' | 'link';
@@ -156,9 +142,7 @@ function VerifyOtpForm({ mode, phone }: { mode: Mode; phone: string }) {
       <Stack.Screen options={{ title: t('auth.otpTitle') }} />
       <FormScreen>
         <Title plain>{t('auth.otpTitle')}</Title>
-        <Hint style={{ marginTop: 8 }}>
-          {t('auth.otpBody', { phone: isolate(formatIraqiNational(phone)) })}
-        </Hint>
+        <Hint style={{ marginTop: 8 }}>{t('auth.otpBody', { phone: isolate(formatIraqiNational(phone)) })}</Hint>
         <Field
           label={t('auth.otpLabel')}
           value={code}
@@ -185,9 +169,7 @@ function VerifyOtpForm({ mode, phone }: { mode: Mode; phone: string }) {
           style={{ marginTop: space.l }}
         />
         <Button
-          label={
-            coolingDown ? t('auth.resendCodeIn', { seconds: secondsLeft }) : t('auth.resendCode')
-          }
+          label={coolingDown ? t('auth.resendCodeIn', { seconds: secondsLeft }) : t('auth.resendCode')}
           onPress={() => void onResend()}
           disabled={busy || coolingDown}
           variant="secondary"
@@ -210,8 +192,7 @@ export default function VerifyOtpScreen() {
   const { session, initializing } = useAuth();
   const mode: Mode = params.mode === 'link' ? 'link' : 'signin';
   const phone = typeof params.phone === 'string' ? params.phone : '';
-  if (!phoneOtpEnabled() || !phone)
-    return <Redirect href={mode === 'link' ? '/(tabs)' : '/sign-in'} />;
+  if (!phoneOtpEnabled() || !phone) return <Redirect href={mode === 'link' ? '/(tabs)' : '/sign-in'} />;
   if (mode === 'link') {
     return (
       <RequireSession>

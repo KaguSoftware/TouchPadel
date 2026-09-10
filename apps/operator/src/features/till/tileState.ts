@@ -45,8 +45,7 @@ export function localIsoDate(d: Date = new Date()): string {
 export function deriveTileState(input: TileInput): TileState {
   const orderable = input.orderable ?? true;
   if (!orderable) {
-    const staffMarked =
-      input.soldOut || (input.unavailableOn !== null && input.unavailableOn === input.today);
+    const staffMarked = input.soldOut || (input.unavailableOn !== null && input.unavailableOn === input.today);
     return staffMarked ? 'unavailable' : 'blockedByStock';
   }
   return input.hasActiveTab ? 'ready' : 'noTab';

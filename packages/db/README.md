@@ -224,17 +224,8 @@ Errors follow `apps/operator/src/lib/edge.ts statusToEdgeCode`: 401 `AUTH_REQUIR
 client never sends HogQL):
 
 ```jsonc
-{
-  "queries": [
-    {
-      "name": "daily_engagement",
-      "from": "2026-08-01",
-      "to": "2026-08-25",
-      "params": { "limit": 80 },
-    },
-  ],
-  "business_day_start_hour": 4,
-}
+{ "queries": [{ "name": "daily_engagement", "from": "2026-08-01", "to": "2026-08-25", "params": { "limit": 80 } }],
+  "business_day_start_hour": 4 }
 // -> { configured: true, floor: "2026-08-01" | null, results: { daily_engagement: { columns: [...], rows: [[...]] } } }
 ```
 
@@ -272,15 +263,15 @@ Groq 429 / 5xx / 25 s budget → `502 {error:'UPSTREAM'}`.
 
 Secrets (`pnpm exec supabase secrets set …`; template in `supabase/functions/.env.example`):
 
-| Secret                     | Function           | Default                    |
-| -------------------------- | ------------------ | -------------------------- |
-| `POSTHOG_PERSONAL_API_KEY` | analytics-posthog  | unset → `configured:false` |
-| `POSTHOG_PROJECT_ID`       | analytics-posthog  | unset → `configured:false` |
-| `POSTHOG_HOST`             | analytics-posthog  | `https://eu.posthog.com`   |
-| `POSTHOG_ENGAGEMENT_FLOOR` | analytics-posthog  | unset (no clipping)        |
-| `GROQ_API_KEY`             | analytics-insights | unset → `degraded:true`    |
-| `GROQ_MODEL`               | analytics-insights | `openai/gpt-oss-120b`      |
-| `GROQ_JUDGE_MODEL`         | analytics-insights | `llama-3.1-8b-instant`     |
+| Secret | Function | Default |
+|---|---|---|
+| `POSTHOG_PERSONAL_API_KEY` | analytics-posthog | unset → `configured:false` |
+| `POSTHOG_PROJECT_ID` | analytics-posthog | unset → `configured:false` |
+| `POSTHOG_HOST` | analytics-posthog | `https://eu.posthog.com` |
+| `POSTHOG_ENGAGEMENT_FLOOR` | analytics-posthog | unset (no clipping) |
+| `GROQ_API_KEY` | analytics-insights | unset → `degraded:true` |
+| `GROQ_MODEL` | analytics-insights | `openai/gpt-oss-120b` |
+| `GROQ_JUDGE_MODEL` | analytics-insights | `llama-3.1-8b-instant` |
 
 Local smoke test:
 
@@ -301,17 +292,17 @@ back through the webhook and drive the KDS via `app.telegram_apply_action`. Owne
 setup walkthrough: `supabase/functions/SETUP-telegram.md`. Pure rendering lives in
 `_shared/telegram.ts` (templates unit-tested by `tests/telegram-render.test.ts`).
 
-| Function                               | Auth                                                                                              | Does                                                                                                                                                                                                                                                                                                                                |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /functions/v1/telegram-send`     | service-role key (`verify_jwt = true`); called by `app.telegram_nudge` (pg_net) and cron          | `app.claim_due_telegram(50)` → `sendMessage` (HTML + keyboard) → stamps `sent` / `queued`+`scheduled_for` (429 `retry_after`, transient backoff `min(5s·2^attempts, 5min)`) / `failed` (other 4xx, or attempts ≥ 8) / `skipped` (`NOT_CONFIGURED` when the token is unset). Returns `{configured, claimed, sent, failed, skipped}`. |
-| `POST /functions/v1/telegram-callback` | `X-Telegram-Bot-Api-Secret-Token` = `TELEGRAM_WEBHOOK_SECRET` (`verify_jwt = false`; unset → 401) | `callback_query` → `app.telegram_apply_action` → `answerCallbackQuery` toast → `editMessageText` (original outbox `text` + status footer, reduced keyboard) → stamps `cafe_settings.telegram_last_callback_at`. Always HTTP 200 (`{ok:false}` on internal errors) so Telegram never re-delivers.                                    |
+| Function | Auth | Does |
+|---|---|---|
+| `POST /functions/v1/telegram-send` | service-role key (`verify_jwt = true`); called by `app.telegram_nudge` (pg_net) and cron | `app.claim_due_telegram(50)` → `sendMessage` (HTML + keyboard) → stamps `sent` / `queued`+`scheduled_for` (429 `retry_after`, transient backoff `min(5s·2^attempts, 5min)`) / `failed` (other 4xx, or attempts ≥ 8) / `skipped` (`NOT_CONFIGURED` when the token is unset). Returns `{configured, claimed, sent, failed, skipped}`. |
+| `POST /functions/v1/telegram-callback` | `X-Telegram-Bot-Api-Secret-Token` = `TELEGRAM_WEBHOOK_SECRET` (`verify_jwt = false`; unset → 401) | `callback_query` → `app.telegram_apply_action` → `answerCallbackQuery` toast → `editMessageText` (original outbox `text` + status footer, reduced keyboard) → stamps `cafe_settings.telegram_last_callback_at`. Always HTTP 200 (`{ok:false}` on internal errors) so Telegram never re-delivers. |
 
 Secrets (`pnpm exec supabase secrets set …`; template in `supabase/functions/.env.example`):
 
-| Secret                    | Function                         | Default                                      |
-| ------------------------- | -------------------------------- | -------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`      | telegram-send, telegram-callback | unset → rows `skipped`, `{configured:false}` |
-| `TELEGRAM_WEBHOOK_SECRET` | telegram-callback                | unset → every webhook call is 401            |
+| Secret | Function | Default |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | telegram-send, telegram-callback | unset → rows `skipped`, `{configured:false}` |
+| `TELEGRAM_WEBHOOK_SECRET` | telegram-callback | unset → every webhook call is 401 |
 
 Cron / Vault: migration 0032 schedules `tp_telegram_sweep` (pg_cron, every 10 s;
 per-minute on pg_cron < 1.5) which calls `app.telegram_nudge()`; the nudge POSTs to

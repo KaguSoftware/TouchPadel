@@ -142,11 +142,7 @@ function BookingHistoryScreen() {
           ) : null
         }
         ListEmptyComponent={
-          <EmptyState
-            fill
-            title={t('booking.noHistoryTitle')}
-            message={t('booking.noHistoryBody')}
-          />
+          <EmptyState fill title={t('booking.noHistoryTitle')} message={t('booking.noHistoryBody')} />
         }
         renderItem={({ item, index }) => renderRow(item, index)}
         ListFooterComponent={

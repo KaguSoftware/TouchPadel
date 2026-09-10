@@ -110,14 +110,14 @@ One question still unanswered.
 
 ## 4. Decisions and paperwork
 
-| Item / البند                                    | Due    | Status                                                                                                                                                                                                                                                                                                                                                                                         |
-| ----------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Domain name** / اسم النطاق                    | Week 1 | You asked us to help. `touchpadel.com` is on the aftermarket at roughly $65,000; `touchpadel.iq` is restricted; `touchpadel.com.iq` is available at about $330/yr; a short `.com` variant is about $15/yr. **This is a brand decision only Mustafa can make.** Until a domain exists we cannot print the table QR cards — the system refuses to print a temporary address onto physical cards. |
-| **PITR (database recovery)** / الاسترجاع الزمني | Week 1 | Still unanswered. Point-in-time recovery is a **paid Supabase add-on** on top of the ~$25/mo plan (roughly $100/mo), billed to Touch. The alternative is daily backups only, included. We need your written choice.                                                                                                                                                                            |
-| **Named approver** / الجهة المعتمدة             | Week 1 | Two questions still open. We have Mustafa Awad, Owner. Please confirm the weekly slot he is available for sign-off.                                                                                                                                                                                                                                                                            |
-| **Brand font licences** / تراخيص الخطوط         | Week 1 | Still unanswered. We need the **licensed font files** for Next Art (Latin) and Frutiger LT Arabic — not screenshots. Until they arrive the apps ship with free stand-ins, swapped later in one line.                                                                                                                                                                                           |
-| **Branding assets** / أصول العلامة              | Week 1 | You noted logo, colours and photos were "sent already via WhatsApp". **We do not have them in the build.** Please re-send them to the project email so they are on the record.                                                                                                                                                                                                                 |
-| **Anything else we should know?**               | Week 1 | Optional, still blank.                                                                                                                                                                                                                                                                                                                                                                         |
+| Item / البند | Due | Status |
+|---|---|---|
+| **Domain name** / اسم النطاق | Week 1 | You asked us to help. `touchpadel.com` is on the aftermarket at roughly $65,000; `touchpadel.iq` is restricted; `touchpadel.com.iq` is available at about $330/yr; a short `.com` variant is about $15/yr. **This is a brand decision only Mustafa can make.** Until a domain exists we cannot print the table QR cards — the system refuses to print a temporary address onto physical cards. |
+| **PITR (database recovery)** / الاسترجاع الزمني | Week 1 | Still unanswered. Point-in-time recovery is a **paid Supabase add-on** on top of the ~$25/mo plan (roughly $100/mo), billed to Touch. The alternative is daily backups only, included. We need your written choice. |
+| **Named approver** / الجهة المعتمدة | Week 1 | Two questions still open. We have Mustafa Awad, Owner. Please confirm the weekly slot he is available for sign-off. |
+| **Brand font licences** / تراخيص الخطوط | Week 1 | Still unanswered. We need the **licensed font files** for Next Art (Latin) and Frutiger LT Arabic — not screenshots. Until they arrive the apps ship with free stand-ins, swapped later in one line. |
+| **Branding assets** / أصول العلامة | Week 1 | You noted logo, colours and photos were "sent already via WhatsApp". **We do not have them in the build.** Please re-send them to the project email so they are on the record. |
+| **Anything else we should know?** | Week 1 | Optional, still blank. |
 
 ---
 
@@ -137,13 +137,13 @@ website. Please confirm the correct number before go-live.
 
 ## What we did with what you sent / ما تم تنفيذه
 
-| Your answer                              | Now live in the system                                                                             |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Open 09:00, close 02:00, all seven days  | Opening hours, on every surface. The system now supports trading past midnight — it did not before |
-| Cancel up to 4 hours before              | Cancellation window, enforced server-side                                                          |
-| IQD only, confirmed                      | Recorded as the trading currency (SOW section 10 decision)                                         |
-| Tax: zero                                | 0% across the board; the 10% group stays switched off until your accountant says otherwise         |
-| Kurdish: not needed                      | English + Arabic only, as contracted. Closed as a change request                                   |
-| Court 1 and Court 2, indoor, 60 minutes  | Court records, awaiting rate rules before they can be booked                                       |
-| Mustafa Awad, Owner                      | Named approver and venue contact                                                                   |
-| Hosting done, Frankfurt region confirmed | Verified — the project is live in `eu-central-1`                                                   |
+| Your answer | Now live in the system |
+|---|---|
+| Open 09:00, close 02:00, all seven days | Opening hours, on every surface. The system now supports trading past midnight — it did not before |
+| Cancel up to 4 hours before | Cancellation window, enforced server-side |
+| IQD only, confirmed | Recorded as the trading currency (SOW section 10 decision) |
+| Tax: zero | 0% across the board; the 10% group stays switched off until your accountant says otherwise |
+| Kurdish: not needed | English + Arabic only, as contracted. Closed as a change request |
+| Court 1 and Court 2, indoor, 60 minutes | Court records, awaiting rate rules before they can be booked |
+| Mustafa Awad, Owner | Named approver and venue contact |
+| Hosting done, Frankfurt region confirmed | Verified — the project is live in `eu-central-1` |

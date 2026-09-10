@@ -113,7 +113,7 @@ https://vercel.com — the project serving `touch-padel-web.vercel.app`.
 1. Settings → Environment Variables. Add for **all** environments:
    - `NEXT_PUBLIC_POSTHOG_KEY` = the `phc_...` from Task 2
    - `NEXT_PUBLIC_POSTHOG_HOST` = `https://eu.i.posthog.com`
-2. Do **not** trigger a redeploy — tell me instead, since it must be redeployed _without build cache_.
+2. Do **not** trigger a redeploy — tell me instead, since it must be redeployed *without build cache*.
 
 ## Task 7 — Domain (check only)
 

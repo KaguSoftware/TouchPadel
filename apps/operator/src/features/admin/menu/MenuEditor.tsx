@@ -34,12 +34,7 @@ import { HighlightDot, MarginChip, Thumb } from './chips';
 import { countWithoutCost, defaultPrice, matchesSearch, reorderedIds, sortRows } from './menuLogic';
 import { CategoryForm } from './CategoryEditor';
 import { ItemForm } from './ItemForm';
-import {
-  MENU_AVAILABILITY_KEY,
-  fetchStockBlockData,
-  stockBlockFor,
-  todayIso,
-} from './availability';
+import { MENU_AVAILABILITY_KEY, fetchStockBlockData, stockBlockFor, todayIso } from './availability';
 import { patchCachedItems, useAdminMenu, type CategoryRow, type ItemRow } from './useAdminMenu';
 
 export function MenuEditor() {
@@ -77,15 +72,7 @@ export function MenuEditor() {
   }
 
   const reorder = useMutation({
-    mutationFn: async ({
-      rows,
-      index,
-      direction,
-    }: {
-      rows: ItemRow[];
-      index: number;
-      direction: 'up' | 'down';
-    }) => {
+    mutationFn: async ({ rows, index, direction }: { rows: ItemRow[]; index: number; direction: 'up' | 'down' }) => {
       const ids = reorderedIds(rows, index, direction);
       if (ids.length === 0) return;
       const position = new Map(ids.map((id, i) => [id, i]));
@@ -111,16 +98,10 @@ export function MenuEditor() {
   const data = menu.data;
   const categories = useMemo(() => (data ? sortRows(data.categories) : []), [data]);
   const activeCat = selectedCategory ?? categories[0]?.id ?? null;
-  const categoryItems = useMemo(
-    () => (data ? sortRows(data.items.filter((i) => i.category_id === activeCat)) : []),
-    [data, activeCat],
-  );
+  const categoryItems = useMemo(() => (data ? sortRows(data.items.filter((i) => i.category_id === activeCat)) : []), [data, activeCat]);
   const visibleItems = categoryItems.filter((i) => matchesSearch(i, search));
   const searching = search.trim() !== '';
-  const item =
-    data && selectedItem && selectedItem !== 'new'
-      ? (data.items.find((i) => i.id === selectedItem) ?? null)
-      : null;
+  const item = data && selectedItem && selectedItem !== 'new' ? (data.items.find((i) => i.id === selectedItem) ?? null) : null;
   const noCost = data ? countWithoutCost(data.items, data.costs) : 0;
   const menuStatus = asyncStatus(menu, (d) => d.categories.length === 0);
 
@@ -131,46 +112,18 @@ export function MenuEditor() {
       render: (i) => {
         const block = stockBlockFor(i, availabilityQ.data, today);
         return (
-          <span
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--tp-sp-2)',
-              minInlineSize: 0,
-              opacity: i.is_active ? 1 : 0.55,
-            }}
-          >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0, opacity: i.is_active ? 1 : 0.55 }}>
             <Thumb path={i.photo_path} size="2rem" />
             <span style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-0)' }}>
-              <span
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--tp-sp-1-5)',
-                  fontWeight: i.id === selectedItem ? 700 : 500,
-                }}
-              >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontWeight: i.id === selectedItem ? 700 : 500 }}>
                 <HighlightDot highlight={i.highlight} />
                 <bdi>{pickName(locale, i)}</bdi>
               </span>
               <span style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-                {!i.is_active && (
-                  <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.menu.inactive')} />
-                )}
-                {i.sold_out && (
-                  <StatusBadge size="sm" tone="danger" label={tr('ws.manager.menu.soldOut')} />
-                )}
-                {i.unavailable_on === today && (
-                  <StatusBadge size="sm" tone="warn" label={tr('ws.manager.menu.offToday')} />
-                )}
-                {block.blocked && (
-                  <StatusBadge
-                    size="sm"
-                    tone="warn"
-                    icon="box"
-                    label={tr('ws.manager.menu.blocked')}
-                  />
-                )}
+                {!i.is_active && <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.menu.inactive')} />}
+                {i.sold_out && <StatusBadge size="sm" tone="danger" label={tr('ws.manager.menu.soldOut')} />}
+                {i.unavailable_on === today && <StatusBadge size="sm" tone="warn" label={tr('ws.manager.menu.offToday')} />}
+                {block.blocked && <StatusBadge size="sm" tone="warn" icon="box" label={tr('ws.manager.menu.blocked')} />}
               </span>
             </span>
           </span>
@@ -222,12 +175,7 @@ export function MenuEditor() {
               onUp={() => reorder.mutate({ rows: categoryItems, index, direction: 'up' })}
               onDown={() => reorder.mutate({ rows: categoryItems, index, direction: 'down' })}
               disabledUp={!can.editMenu || searching || index <= 0 || reorder.isPending}
-              disabledDown={
-                !can.editMenu ||
-                searching ||
-                index === categoryItems.length - 1 ||
-                reorder.isPending
-              }
+              disabledDown={!can.editMenu || searching || index === categoryItems.length - 1 || reorder.isPending}
             />
           </span>
         );
@@ -261,12 +209,7 @@ export function MenuEditor() {
           </>
         }
       >
-        {!can.editMenu && (
-          <PermissionRefusedNotice
-            action={tr('ws.manager.menu.newItem')}
-            requiredRole={requiredRoleFor('editMenu')}
-          />
-        )}
+        {!can.editMenu && <PermissionRefusedNotice action={tr('ws.manager.menu.newItem')} requiredRole={requiredRoleFor('editMenu')} />}
       </PageHeader>
 
       <AsyncStateWrapper
@@ -280,12 +223,7 @@ export function MenuEditor() {
               title={tr('ws.manager.menu.noCategories')}
               body={tr('ws.manager.menu.noCategoriesBody')}
               action={
-                <Button
-                  kind="primary"
-                  icon="plus"
-                  disabled={!can.editMenu}
-                  onClick={() => setEditCategory('new')}
-                >
+                <Button kind="primary" icon="plus" disabled={!can.editMenu} onClick={() => setEditCategory('new')}>
                   {tr('ws.manager.menu.newCategory')}
                 </Button>
               }
@@ -320,18 +258,7 @@ export function MenuEditor() {
                 {categories.map((c) => {
                   const active = c.id === activeCat;
                   return (
-                    <li
-                      key={c.id}
-                      className="tp-row"
-                      data-clickable="true"
-                      data-selected={active ? 'true' : undefined}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--tp-sp-1)',
-                        borderRadius: 'var(--tp-radius-ctl)',
-                      }}
-                    >
+                    <li key={c.id} className="tp-row" data-clickable="true" data-selected={active ? 'true' : undefined} style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', borderRadius: 'var(--tp-radius-ctl)' }}>
                       <button
                         type="button"
                         aria-current={active || undefined}
@@ -362,13 +289,7 @@ export function MenuEditor() {
                       >
                         <bdi>{pickName(locale, c)}</bdi>
                       </button>
-                      <Button
-                        kind="ghost"
-                        size="sm"
-                        icon="note"
-                        onClick={() => setEditCategory(c)}
-                        aria-label={`${tr('ws.manager.menu.editCategory')} — ${pickName(locale, c)}`}
-                      />
+                      <Button kind="ghost" size="sm" icon="note" onClick={() => setEditCategory(c)} aria-label={`${tr('ws.manager.menu.editCategory')} — ${pickName(locale, c)}`} />
                     </li>
                   );
                 })}
@@ -391,12 +312,7 @@ export function MenuEditor() {
 
             {/* items */}
             <div style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
-              <SearchField
-                value={search}
-                onChange={setSearch}
-                placeholder={tr('ws.manager.menu.search')}
-                aria-label={tr('op.common.search')}
-              />
+              <SearchField value={search} onChange={setSearch} placeholder={tr('ws.manager.menu.search')} aria-label={tr('op.common.search')} />
               <ResultCount shown={visibleItems.length} total={categoryItems.length} />
               <ErrorText error={availabilityQ.error} />
               {categoryItems.length === 0 ? (
@@ -406,13 +322,7 @@ export function MenuEditor() {
                   title={tr('ws.manager.menu.emptyCategory')}
                   body={tr('ws.manager.menu.emptyCategoryBody')}
                   action={
-                    <Button
-                      kind="primary"
-                      size="sm"
-                      icon="plus"
-                      disabled={!can.editMenu || !activeCat}
-                      onClick={() => void guardedSelect(() => setSelectedItem('new'))}
-                    >
+                    <Button kind="primary" size="sm" icon="plus" disabled={!can.editMenu || !activeCat} onClick={() => void guardedSelect(() => setSelectedItem('new'))}>
                       {tr('ws.manager.menu.newItem')}
                     </Button>
                   }
@@ -427,26 +337,11 @@ export function MenuEditor() {
                   // A bare sentence in a table body told a manager whose search
                   // matched nothing that the category was empty, and offered no
                   // way back (rulebook 9.2).
-                  emptyContent={
-                    <EmptyState
-                      compact
-                      kind="filtered"
-                      title={tr('ws.manager.menu.noMatch')}
-                      onClearFilters={() => setSearch('')}
-                    />
-                  }
+                  emptyContent={<EmptyState compact kind="filtered" title={tr('ws.manager.menu.noMatch')} onClearFilters={() => setSearch('')} />}
                   aria-label={tr('ws.manager.menu.items')}
                 />
               )}
-              <p
-                style={{
-                  fontSize: 'var(--tp-fs-xs)',
-                  color: 'var(--tp-muted-fg)',
-                  display: 'flex',
-                  gap: 'var(--tp-sp-1)',
-                  alignItems: 'center',
-                }}
-              >
+              <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', display: 'flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
                 <Icon name="info" size={12} /> {tr('ws.manager.menu.reorderHint')}
               </p>
             </div>
@@ -461,11 +356,7 @@ export function MenuEditor() {
                   groups={data.groups}
                   modifiers={data.modifiers}
                   cost={item ? (data.costs.get(item.id) ?? null) : null}
-                  stockBlock={
-                    item
-                      ? stockBlockFor(item, availabilityQ.data, today)
-                      : { blocked: false, ingredients: [] }
-                  }
+                  stockBlock={item ? stockBlockFor(item, availabilityQ.data, today) : { blocked: false, ingredients: [] }}
                   onSaved={(id) => setSelectedItem(id)}
                   onDirtyChange={onDirtyChange}
                 />

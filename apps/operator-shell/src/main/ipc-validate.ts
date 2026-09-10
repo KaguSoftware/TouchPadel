@@ -218,8 +218,7 @@ export function validatePrintJob(value: unknown): PrintJob {
  */
 export function validateAuthState(value: unknown): AuthState | null {
   if (value === null) return null;
-  if (typeof value !== 'object' || Array.isArray(value))
-    fail('authState must be an object or null');
+  if (typeof value !== 'object' || Array.isArray(value)) fail('authState must be an object or null');
   const raw = value as Record<string, unknown>;
   const accessToken = requireString(raw.accessToken, 'accessToken', 8192);
   const staffId = requireString(raw.staffId, 'staffId', 64);
@@ -237,10 +236,7 @@ export function validateConnState(value: unknown): boolean {
 
 /** A KDS renderer's bump, bound for the till over the LAN. kdsStation is
  *  stamped by main from station.json — never trusted from the renderer. */
-export function validateLanStatus(value: unknown): {
-  ref: string;
-  status: 'preparing' | 'ready' | 'completed';
-} {
+export function validateLanStatus(value: unknown): { ref: string; status: 'preparing' | 'ready' | 'completed' } {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     fail('lanStatus must be an object');
   }

@@ -11,7 +11,7 @@ What is actually established:
   (Latin) and **Frutiger LT Arabic** (Arabic). Lama Sans appears on neither board, and the string
   does not occur anywhere in either deck's 52 pages.
 - The decks are not a clean two-face system in practice. Their embedded font resources are Next Art
-  and Frutiger LT Arabic _alongside_ Alexandria, GE Dinkum, IBM Plex Sans Arabic, Araboto and Adobe
+  and Frutiger LT Arabic *alongside* Alexandria, GE Dinkum, IBM Plex Sans Arabic, Araboto and Adobe
   Arabic — a two-face board over a seven-face document, and four different Arabic faces across the
   two files.
 - Lama Sans is what was supplied and what the apps use.
@@ -23,7 +23,7 @@ confirmed outdated, re-typesetting them is a handover item for the designer. Ris
 `docs/design/design-delivery.md` tracks the licensing question and is still open.
 
 The property that matters architecturally is that Lama Sans is **dual-script**. Every weight carries
-Latin _and_ Arabic in the same file, so the interface does not change family when it changes
+Latin *and* Arabic in the same file, so the interface does not change family when it changes
 language. That is what collapsed the two-stack Latin/Arabic apparatus in
 `packages/ui/src/tokens/typography.ts` — the Latin token and the Arabic token now resolve to the
 same family, and they survive only so the ~200 existing call sites keep working and so the fallback
@@ -45,21 +45,21 @@ tails can differ.
 
 ## The seven faces that ship
 
-| File                     | Weight | Style  | Used for                          |
-| ------------------------ | ------ | ------ | --------------------------------- |
-| `LamaSans-Regular`       | 400    | normal | Body copy everywhere; first paint |
-| `LamaSans-Medium`        | 500    | normal | Labels, table headers             |
-| `LamaSans-SemiBold`      | 600    | normal | Buttons, headings, status chips   |
-| `LamaSans-Bold`          | 700    | normal | Headings, totals; first paint     |
-| `LamaSans-ExtraBold`     | 800    | normal | Cafe display headlines            |
-| `LamaSans-Black`         | 900    | normal | The wordmark and hero type        |
-| `LamaSans-RegularItalic` | 400    | italic | The five muted "note" lines       |
+| File | Weight | Style | Used for |
+|---|---|---|---|
+| `LamaSans-Regular` | 400 | normal | Body copy everywhere; first paint |
+| `LamaSans-Medium` | 500 | normal | Labels, table headers |
+| `LamaSans-SemiBold` | 600 | normal | Buttons, headings, status chips |
+| `LamaSans-Bold` | 700 | normal | Headings, totals; first paint |
+| `LamaSans-ExtraBold` | 800 | normal | Cafe display headlines |
+| `LamaSans-Black` | 900 | normal | The wordmark and hero type |
+| `LamaSans-RegularItalic` | 400 | italic | The five muted "note" lines |
 
 Regular and Bold lead the load order and are the two in `PRELOAD_FACES`: they are what the first
 paint needs on every surface, and the two the receipt pipeline inlines.
 
 The italic is in the set on purpose. Without a real italic face the browser synthesises an oblique
-by shearing the roman, and a sheared _Arabic_ note is a conspicuous artefact — worse here than the
+by shearing the roman, and a sheared *Arabic* note is a conspicuous artefact — worse here than the
 same trick would be in a Latin-only product.
 
 ## What was cut, and why it is not an accident

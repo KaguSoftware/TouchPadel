@@ -16,19 +16,14 @@ import { useMemo, useState } from 'react';
 import { pickLocale, type ItemConversion } from '@touch/core';
 import { Button } from '../../../components/ui';
 import { useLocale } from '../../../lib/i18n';
-import {
-  DataTable,
-  ResultCount,
-  SearchField,
-  StatusBadge,
-  type Column,
-} from '../../../components/kit';
+import { DataTable, ResultCount, SearchField, StatusBadge, type Column } from '../../../components/kit';
 import { downloadCsv, toCsv } from '../csv';
 import type { Formatters } from '../format';
 import { CardShell, type CardState } from './CardShell';
 
 type SortKey = 'name' | 'views' | 'carts' | 'sold' | 'conv';
 const COLLAPSED = 15;
+
 
 export function ConversionTable({
   rows,
@@ -48,8 +43,7 @@ export function ConversionTable({
   const [expanded, setExpanded] = useState(false);
 
   const named = useMemo(
-    () =>
-      rows.map((r) => ({ ...r, name: pickLocale({ en: r.nameEn, ar: r.nameAr }, locale) || r.id })),
+    () => rows.map((r) => ({ ...r, name: pickLocale({ en: r.nameEn, ar: r.nameAr }, locale) || r.id })),
     [rows, locale],
   );
 
@@ -59,14 +53,7 @@ export function ConversionTable({
     const dir = asc ? 1 : -1;
     return [...list].sort((a, b) => {
       if (sort === 'name') return a.name.localeCompare(b.name) * dir;
-      const pick = (r: typeof a) =>
-        sort === 'views'
-          ? r.views
-          : sort === 'carts'
-            ? r.carts
-            : sort === 'sold'
-              ? r.sold
-              : r.convPct;
+      const pick = (r: typeof a) => (sort === 'views' ? r.views : sort === 'carts' ? r.carts : sort === 'sold' ? r.sold : r.convPct);
       return (pick(a) - pick(b)) * dir;
     });
   }, [named, search, sort, asc]);
@@ -75,39 +62,16 @@ export function ConversionTable({
 
   type Row = (typeof named)[number];
   const columns: Column<Row>[] = [
-    {
-      key: 'name',
-      header: tr('analytics.conversion.item'),
-      sortable: true,
-      truncate: true,
-      truncateTitle: (r) => r.name,
-    },
+    { key: 'name', header: tr('analytics.conversion.item'), sortable: true, truncate: true, truncateTitle: (r) => r.name },
     {
       key: 'views',
       header: tr('analytics.conversion.views'),
       sortable: true,
       numeric: true,
-      render: (r) =>
-        r.views === 0 ? (
-          <StatusBadge size="sm" tone="warn" label={tr('analytics.conversion.noViews')} />
-        ) : (
-          f.num(r.views)
-        ),
+      render: (r) => (r.views === 0 ? <StatusBadge size="sm" tone="warn" label={tr('analytics.conversion.noViews')} /> : f.num(r.views)),
     },
-    {
-      key: 'carts',
-      header: tr('analytics.conversion.carts'),
-      sortable: true,
-      numeric: true,
-      render: (r) => f.num(r.carts),
-    },
-    {
-      key: 'sold',
-      header: tr('analytics.conversion.sold'),
-      sortable: true,
-      numeric: true,
-      render: (r) => f.num(r.sold),
-    },
+    { key: 'carts', header: tr('analytics.conversion.carts'), sortable: true, numeric: true, render: (r) => f.num(r.carts) },
+    { key: 'sold', header: tr('analytics.conversion.sold'), sortable: true, numeric: true, render: (r) => f.num(r.sold) },
     {
       key: 'conv',
       header: tr('analytics.conversion.conv'),
@@ -115,14 +79,10 @@ export function ConversionTable({
       numeric: true,
       // Two different populations: a guest who never scanned still lands in
       // "sold", so a ratio here would be arithmetic on incompatible counts.
-      render: (r) =>
-        r.views === 0 && r.sold > 0 ? (
-          <StatusBadge size="sm" tone="warn" label={tr('analytics.conversion.soldWithoutView')} />
-        ) : (
-          f.pct(r.convPct)
-        ),
+      render: (r) => (r.views === 0 && r.sold > 0 ? <StatusBadge size="sm" tone="warn" label={tr('analytics.conversion.soldWithoutView')} /> : f.pct(r.convPct)),
     },
   ];
+
 
   function exportCsv() {
     const csv = toCsv(
@@ -188,14 +148,7 @@ export function ConversionTable({
           setAsc(next.key === 'name');
         }}
       />
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--tp-sp-2)',
-          marginBlockStart: 'var(--tp-sp-2)',
-        }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)' }}>
         <ResultCount shown={shown.length} total={named.length} />
         {filtered.length > COLLAPSED && (
           <Button kind="ghost" size="sm" onClick={() => setExpanded((v) => !v)}>

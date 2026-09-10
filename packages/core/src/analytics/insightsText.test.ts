@@ -37,9 +37,7 @@ describe('latinDigits', () => {
 
 describe('normalizeFinding', () => {
   it('lowercases, strips punctuation, collapses whitespace, trims', () => {
-    expect(normalizeFinding('  Cappuccino sold 12,500 IQD — up 15%!  ')).toBe(
-      'cappuccino sold 12 500 iqd up 15',
-    );
+    expect(normalizeFinding('  Cappuccino sold 12,500 IQD — up 15%!  ')).toBe('cappuccino sold 12 500 iqd up 15');
     expect(normalizeFinding('A-B/C.D')).toBe('a b c d');
     expect(normalizeFinding('')).toBe('');
     expect(normalizeFinding('!!!')).toBe('');
@@ -58,12 +56,8 @@ describe('normalizeFinding', () => {
   });
 
   it('treats a changed figure as a different claim and punctuation/case as the same one', () => {
-    expect(normalizeFinding('Kahi sells 8,000 IQD.')).toBe(
-      normalizeFinding('KAHI SELLS 8,000 IQD'),
-    );
-    expect(normalizeFinding('Kahi sells 8,000 IQD.')).not.toBe(
-      normalizeFinding('Kahi sells 9,000 IQD.'),
-    );
+    expect(normalizeFinding('Kahi sells 8,000 IQD.')).toBe(normalizeFinding('KAHI SELLS 8,000 IQD'));
+    expect(normalizeFinding('Kahi sells 8,000 IQD.')).not.toBe(normalizeFinding('Kahi sells 9,000 IQD.'));
   });
 
   it('matches the SQL twin on a mixed fixture', () => {
@@ -95,13 +89,7 @@ describe('findingImpact', () => {
 
 describe('rankFindings', () => {
   it('sorts by money at stake, stable on ties, capped', () => {
-    const findings = [
-      'no money here',
-      'worth 5,000 IQD',
-      'worth 90,000 IQD',
-      'another without',
-      'worth 5,000 IQD too',
-    ];
+    const findings = ['no money here', 'worth 5,000 IQD', 'worth 90,000 IQD', 'another without', 'worth 5,000 IQD too'];
     expect(rankFindings(findings)).toEqual([
       'worth 90,000 IQD',
       'worth 5,000 IQD',
@@ -110,9 +98,7 @@ describe('rankFindings', () => {
       'another without',
     ]);
     expect(rankFindings(findings, 2)).toEqual(['worth 90,000 IQD', 'worth 5,000 IQD']);
-    expect(rankFindings(Array.from({ length: 20 }, (_, i) => `f${i} 1 IQD`))).toHaveLength(
-      MAX_FINDINGS,
-    );
+    expect(rankFindings(Array.from({ length: 20 }, (_, i) => `f${i} 1 IQD`))).toHaveLength(MAX_FINDINGS);
   });
 });
 
@@ -168,10 +154,7 @@ describe('dropLowConfidenceClaims', () => {
       basis,
       WEEKDAYS,
     );
-    expect(kept).toEqual([
-      'Fridays bring 40% of Kahi sales',
-      'مبيعات الكاهي ترتفع يوم الجمعة إلى 40%',
-    ]);
+    expect(kept).toEqual(['Fridays bring 40% of Kahi sales', 'مبيعات الكاهي ترتفع يوم الجمعة إلى 40%']);
     expect(dropped).toHaveLength(3);
   });
 
@@ -183,23 +166,13 @@ describe('dropLowConfidenceClaims', () => {
   });
 
   it('drops trend claims when the period is too short, keeps them otherwise', () => {
-    const texts = [
-      'Sales rose 20% to 900,000 IQD',
-      'ارتفعت المبيعات 20%',
-      'Kahi is the best seller with 120 units',
-    ];
-    expect(dropLowConfidenceClaims(texts, basis, WEEKDAYS).kept).toEqual([
-      'Kahi is the best seller with 120 units',
-    ]);
-    expect(dropLowConfidenceClaims(texts, { ...basis, salesDays: 7 }, WEEKDAYS).kept).toEqual(
-      texts,
-    );
+    const texts = ['Sales rose 20% to 900,000 IQD', 'ارتفعت المبيعات 20%', 'Kahi is the best seller with 120 units'];
+    expect(dropLowConfidenceClaims(texts, basis, WEEKDAYS).kept).toEqual(['Kahi is the best seller with 120 units']);
+    expect(dropLowConfidenceClaims(texts, { ...basis, salesDays: 7 }, WEEKDAYS).kept).toEqual(texts);
   });
 
   it('honours a custom trend regex', () => {
-    const r = dropLowConfidenceClaims(['Sales rose 20%', 'Sales jumped 20%'], basis, WEEKDAYS, {
-      trendWords: /jumped/,
-    });
+    const r = dropLowConfidenceClaims(['Sales rose 20%', 'Sales jumped 20%'], basis, WEEKDAYS, { trendWords: /jumped/ });
     expect(r.kept).toEqual(['Sales rose 20%']);
   });
 });
@@ -207,9 +180,7 @@ describe('dropLowConfidenceClaims', () => {
 describe('dropExcludedMentions', () => {
   it('strips lines naming an excluded item, punctuation- and case-insensitively', () => {
     const texts = ['Meal Upgrade drives 30% of revenue', 'Kahi is strong', 'ترقية لوجبة تجلب 30%'];
-    expect(dropExcludedMentions(texts, ['meal upgrade', 'ترقية لوجبة'])).toEqual([
-      'Kahi is strong',
-    ]);
+    expect(dropExcludedMentions(texts, ['meal upgrade', 'ترقية لوجبة'])).toEqual(['Kahi is strong']);
     expect(dropExcludedMentions(texts, [])).toEqual(texts);
     expect(dropExcludedMentions(texts, ['a'])).toEqual(texts);
   });

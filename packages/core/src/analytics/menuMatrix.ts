@@ -111,12 +111,7 @@ export type MenuEngineeringOptions = {
   reliableCoverage?: number;
 };
 
-const EMPTY_COUNTS = (): Record<MenuQuadrant, number> => ({
-  star: 0,
-  plowhorse: 0,
-  puzzle: 0,
-  dog: 0,
-});
+const EMPTY_COUNTS = (): Record<MenuQuadrant, number> => ({ star: 0, plowhorse: 0, puzzle: 0, dog: 0 });
 
 /**
  * Build the matrix. `sold` is EVERY sold item in the range (not a top-N — dogs and puzzles

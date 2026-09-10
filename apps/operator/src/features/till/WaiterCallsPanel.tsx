@@ -114,23 +114,8 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
 
   return (
     <div style={{ ...card, marginBlockEnd: 'var(--tp-sp-2-5)' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 'var(--tp-sp-1-5)',
-        }}
-      >
-        <h2
-          style={{
-            margin: 0,
-            fontSize: 'var(--tp-fs-lg)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--tp-sp-1-5)',
-          }}
-        >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-1-5)' }}>
+        <h2 style={{ margin: 0, fontSize: 'var(--tp-fs-lg)', display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
           {tr('op.floor.waiterCalls')}
           {calls.length > 0 && (
             <span
@@ -150,14 +135,7 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
         {status && <ConnectionPill status={status} />}
       </div>
       {calls.length === 0 && (
-        <p
-          style={{
-            margin: 0,
-            marginBlockStart: 'var(--tp-sp-1)',
-            color: 'var(--tp-muted-fg)',
-            fontSize: 'var(--tp-fs-sm)',
-          }}
-        >
+        <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
           {tr('op.floor.noCalls')}
         </p>
       )}
@@ -193,24 +171,8 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
             )}
             {/* The till mounts this in a 13rem rail: a long table number must wrap,
                 never widen the column or clip its age. */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'baseline',
-                gap: 'var(--tp-sp-1-5)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <strong
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 'var(--tp-sp-1)',
-                  minInlineSize: 0,
-                  overflowWrap: 'anywhere',
-                }}
-              >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+              <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0, overflowWrap: 'anywhere' }}>
                 {tr('op.floor.table', { table: isolate(c.table?.table_number ?? '—') })}
                 <span
                   style={{
@@ -240,51 +202,28 @@ export function WaiterCallsPanel({ status }: { status?: BroadcastStatus }) {
             <div style={{ color: 'var(--tp-muted-fg)' }}>
               {tr(`op.floor.reasons.${c.reason}`)}
               {escalated && (
-                <span style={{ color: 'var(--tp-danger)', fontWeight: 700 }}>
-                  {' '}
-                  · {tr('op.floor.escalated')}
-                </span>
+                <span style={{ color: 'var(--tp-danger)', fontWeight: 700 }}> · {tr('op.floor.escalated')}</span>
               )}
             </div>
-            <div
-              style={{
-                display: 'flex',
-                gap: 'var(--tp-sp-1-5)',
-                marginBlockStart: 'var(--tp-sp-1)',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}
-            >
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', marginBlockStart: 'var(--tp-sp-1)', alignItems: 'center', flexWrap: 'wrap' }}>
               {c.status === 'raised' ? (
                 <Button disabled={busyId === c.id} onClick={() => void act(c.id, 'ack')}>
                   {tr('op.floor.ack')}
                 </Button>
               ) : (
-                <span
-                  style={{
-                    color: 'var(--tp-accent)',
-                    alignSelf: 'center',
-                    fontSize: 'var(--tp-fs-sm)',
-                  }}
-                >
+                <span style={{ color: 'var(--tp-accent)', alignSelf: 'center', fontSize: 'var(--tp-fs-sm)' }}>
                   {tr('op.floor.acked')}
                   {c.acknowledged_label && (
                     <span style={{ color: 'var(--tp-muted-fg)' }}> ({c.acknowledged_label})</span>
                   )}
                 </span>
               )}
-              <Button
-                kind="primary"
-                disabled={busyId === c.id}
-                onClick={() => void act(c.id, 'resolve')}
-              >
+              <Button kind="primary" disabled={busyId === c.id} onClick={() => void act(c.id, 'resolve')}>
                 {tr('op.floor.resolve')}
               </Button>
             </div>
             {c.resolved_label && (
-              <div style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                {c.resolved_label}
-              </div>
+              <div style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{c.resolved_label}</div>
             )}
           </div>
         );

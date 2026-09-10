@@ -130,13 +130,7 @@ export function NoticeSheet({
  * each raise their own alert, and re-running a failed request that yields the
  * same message should not stack a second copy.
  */
-export function ErrorAlert({
-  message,
-  onDismiss,
-}: {
-  message: string | null;
-  onDismiss: () => void;
-}) {
+export function ErrorAlert({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
   const { t } = useLocale();
   const shownFor = useRef<string | null>(null);
   const dismiss = useRef(onDismiss);
@@ -151,12 +145,9 @@ export function ErrorAlert({
     }
     if (shownFor.current === message) return;
     shownFor.current = message;
-    Alert.alert(
-      t('errors.title'),
-      message,
-      [{ text: t('common.ok'), style: 'cancel', onPress: () => dismiss.current() }],
-      { cancelable: true, onDismiss: () => dismiss.current() },
-    );
+    Alert.alert(t('errors.title'), message, [
+      { text: t('common.ok'), style: 'cancel', onPress: () => dismiss.current() },
+    ], { cancelable: true, onDismiss: () => dismiss.current() });
   }, [message, t]);
 
   return null;
@@ -220,11 +211,7 @@ export function ConfirmAlert({
       title,
       body,
       [
-        {
-          text: cancelLabel ?? t('common.cancel'),
-          style: 'cancel',
-          onPress: () => handlers.current.onDismiss(),
-        },
+        { text: cancelLabel ?? t('common.cancel'), style: 'cancel', onPress: () => handlers.current.onDismiss() },
         {
           text: confirmLabel,
           style: destructive ? 'destructive' : 'default',
@@ -310,9 +297,7 @@ function ToastHost({ toast }: { toast: ToastState | null }) {
           boxShadow: shadows.toast,
         }}
       >
-        <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: brand.white }}>
-          {toast.message}
-        </Text>
+        <Text style={{ fontFamily: fonts.body700, fontSize: 12.5, color: brand.white }}>{toast.message}</Text>
       </View>
     </View>
   );

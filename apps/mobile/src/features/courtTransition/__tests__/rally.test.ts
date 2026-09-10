@@ -183,9 +183,8 @@ describe('rally (prototype updateRally)', () => {
     // …and holds the rest stance for the 3 s between strokes.
     const idle = SWING_DURATION + 0.1 - SWING_CONTACT;
     expect(rallyAt(idle, 0).rackets[0]!.hit).toBe(0);
-    expect(
-      near(rallyAt(idle, 0).rackets[0]!.hit, rallyAt(idle + LOOP_SECONDS, 0).rackets[0]!.hit),
-    ).toBe(true);
+    expect(near(rallyAt(idle, 0).rackets[0]!.hit, rallyAt(idle + LOOP_SECONDS, 0).rackets[0]!.hit))
+      .toBe(true);
   });
 
   it('the receiver winds up through the leg the ball is flying at them', () => {

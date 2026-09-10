@@ -31,8 +31,7 @@ function walk(d: string, out: string[] = []): string[] {
 }
 const SOURCES = [...walk(join(ROOT, 'app')), ...walk(join(ROOT, 'src'))];
 const rel = (f: string) => relative(ROOT, f).split(sep).join('/');
-const stripComments = (src: string) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 /** Files that draw in physical coordinates on purpose (eslint override, same list). */
 const PHYSICAL_ART = new Set(['src/components/CourtIllustration.tsx']);
@@ -44,28 +43,17 @@ describe('DirectionRoot', () => {
     expect(DIRECTION).toMatch(/direction: dir \}/);
   });
 
-  it("crossfades with an opaque cover, never with the tree's own opacity", () => {
+  it('crossfades with an opaque cover, never with the tree\'s own opacity', () => {
     // The tree hosts UIKit material (native bar, tab-bar blur, BlurView), which
     // breaks under an ancestor alpha below 1.
-    const root = DIRECTION.slice(
-      DIRECTION.indexOf('export function DirectionRoot('),
-      DIRECTION.indexOf('export function LtrIsland('),
-    );
+    const root = DIRECTION.slice(DIRECTION.indexOf('export function DirectionRoot('), DIRECTION.indexOf('export function LtrIsland('));
     expect(root).toContain('useLocaleSwitch()');
     expect(root.indexOf('{children}')).toBeLessThan(root.indexOf('opacity: cover'));
     expect(root).toMatch(/<View style=\{\{ flex: 1, direction: dir \}\}>/);
   });
 
   it('wraps the navigator, the offline banner and the toast host', () => {
-    const order = [
-      '<LocaleProvider',
-      '<DirectionRoot>',
-      '<ToastProvider>',
-      '<RootStack',
-      '<ConnectivityBanner',
-      '</ToastProvider>',
-      '</DirectionRoot>',
-    ];
+    const order = ['<LocaleProvider', '<DirectionRoot>', '<ToastProvider>', '<RootStack', '<ConnectivityBanner', '</ToastProvider>', '</DirectionRoot>'];
     const app = LAYOUT.slice(LAYOUT.indexOf('function AppRoot('));
     let last = -1;
     for (const marker of order) {
@@ -76,10 +64,7 @@ describe('DirectionRoot', () => {
   });
 
   it('is the shell of the two fallback screens too', () => {
-    const shell = LAYOUT.slice(
-      LAYOUT.indexOf('function FallbackShell('),
-      LAYOUT.indexOf('export function ErrorBoundary('),
-    );
+    const shell = LAYOUT.slice(LAYOUT.indexOf('function FallbackShell('), LAYOUT.indexOf('export function ErrorBoundary('));
     expect(shell).toContain('const locale = lastKnownLocale();');
     expect(shell).toContain('<LocaleProvider key={locale} initialLocale={locale}>');
     expect(shell).toContain('<DirectionRoot>');
@@ -94,12 +79,7 @@ describe('drawings mirror themselves — Yoga never flips path data', () => {
   it('every directional icon passes flip', () => {
     expect(ICONS).toMatch(/export const ChevronIcon = [^\n]*\bflip\b/);
     expect(ICONS).toMatch(/export const BackChevronIcon = [^\n]*\bflip\b/);
-    expect(
-      ICONS.slice(
-        ICONS.indexOf('function StrokeIcon('),
-        ICONS.indexOf('export const CalendarIcon'),
-      ),
-    ).toContain('flip ? mirror(dir)');
+    expect(ICONS.slice(ICONS.indexOf('function StrokeIcon('), ICONS.indexOf('export const CalendarIcon'))).toContain('flip ? mirror(dir)');
     expect(ICONS.slice(ICONS.indexOf('export function TitleSquiggle('))).toContain('mirror(dir)');
   });
 
@@ -113,10 +93,7 @@ describe('drawings mirror themselves — Yoga never flips path data', () => {
     expect(WELCOME.match(/mirror\(dir\)/g)).toHaveLength(1);
     const underline = WELCOME.slice(WELCOME.indexOf('<Svg'), WELCOME.indexOf('</Svg>'));
     expect(underline).toContain('mirror(dir)');
-    const ball = WELCOME.slice(
-      WELCOME.indexOf('<PadelBallIcon') - 400,
-      WELCOME.indexOf('<PadelBallIcon'),
-    );
+    const ball = WELCOME.slice(WELCOME.indexOf('<PadelBallIcon') - 400, WELCOME.indexOf('<PadelBallIcon'));
     expect(ball).not.toContain('mirror(dir)');
   });
 
@@ -139,9 +116,7 @@ describe('physical art lives on an LTR island', () => {
     for (const f of SOURCES) {
       const r = rel(f);
       if (PHYSICAL_ART.has(r) || isGeometry(r)) continue;
-      expect(readFileSync(f, 'utf8'), r).not.toMatch(
-        /^\s+(left|right|marginLeft|marginRight|paddingLeft|paddingRight):/m,
-      );
+      expect(readFileSync(f, 'utf8'), r).not.toMatch(/^\s+(left|right|marginLeft|marginRight|paddingLeft|paddingRight):/m);
     }
   });
 });

@@ -221,9 +221,7 @@ describe.skipIf(!up)('0058/0059 OAuth-shaped sign-ups -> profiles bootstrap + ph
       .eq('id', a.id);
     expect(fix.error).toBeNull();
 
-    const confirmed = await appRpc(a.client, 'confirm_booking', { p_hold_id: holdId }).then(
-      outcome,
-    );
+    const confirmed = await appRpc(a.client, 'confirm_booking', { p_hold_id: holdId }).then(outcome);
     expect(confirmed.ok, confirmed.errorMessage).toBe(true);
     expect(confirmed.duplicate).toBe(false);
 

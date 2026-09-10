@@ -57,8 +57,7 @@ export function useHoldSlot() {
   const queryClient = useQueryClient();
   return useMutation<HoldResult, Error, HoldVars>({
     mutationKey: ['hold-slot'],
-    mutationFn: (vars) =>
-      holdSlot(supabase, { ...vars, idempotencyKey: idemKeyFor(intentOf(vars)) }),
+    mutationFn: (vars) => holdSlot(supabase, { ...vars, idempotencyKey: idemKeyFor(intentOf(vars)) }),
     onSettled: (_data, _error, vars) => {
       clearIdemKey(intentOf(vars));
       void queryClient.invalidateQueries({ queryKey: ['availability'] });

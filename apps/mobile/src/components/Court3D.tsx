@@ -404,6 +404,7 @@ export function Court3D({
    */
   const appStateRef = useRef<string>(AppState.currentState);
 
+
   sizeCb.current = onSize;
   unavailableCb.current = onUnavailable;
   ease.current = pitchEase(direction, 0);

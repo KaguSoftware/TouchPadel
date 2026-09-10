@@ -7,7 +7,6 @@ context: `docs/PRODUCT.md` and `docs/DESIGN.md`. HANDOFF.md explains the repo; r
 "Conventions" section.
 
 ## Non-negotiables
-
 - **Stay in your lane's files** (build plan §5). Never edit `components/**`, `lib/auth.tsx`,
   `lib/workspaces.ts`, `routes/__root.tsx`, `main.tsx`, `packages/ui/**`, or another lane's
   folders. If you need a shared primitive that does not exist, build it inside your own folder
@@ -18,7 +17,7 @@ context: `docs/PRODUCT.md` and `docs/DESIGN.md`. HANDOFF.md explains the repo; r
   write real Arabic, not transliteration). Reuse `ws.kit.*` and `ws.shell.*` where a string
   already exists; existing `op.*` keys may be reused too. Never add keys to `en.ts`/`ar.ts` directly.
 - **Formatting**: `formatIQD / formatNumber / formatDate / formatTime / formatDateTime /
-formatTimeRange` from `@touch/i18n` only. No `Intl.*`, no `toLocaleString`, no hand-built
+  formatTimeRange` from `@touch/i18n` only. No `Intl.*`, no `toLocaleString`, no hand-built
   money strings. `isolate()` for Latin fragments in Arabic sentences; `<bdi>` in JSX.
 - **No money / stock / time arithmetic in the UI.** Render server figures. Change due, totals,
   variance, prices: from the RPC result. (Pure display helpers like "is this date today" are fine.)
@@ -49,7 +48,6 @@ formatTimeRange` from `@touch/i18n` only. No `Intl.*`, no `toLocaleString`, no h
   focus order sane and dialogs trapped (Modal does this).
 
 ## Shared components (import from `../../components/...`)
-
 - `ui`: `Button` (kind default|primary|danger|ghost|soft, size sm|md|lg|xl, icon, busy), `Field`
   (label, hint, error, required), `inputStyle`, `card`, `panelMuted`, `Modal` (title, subtitle,
   size, footer), `ErrorText`, `Spinner`, `Skeleton`, `Tabs`, `Select`, `AmountPad`,
@@ -70,19 +68,16 @@ formatTimeRange` from `@touch/i18n` only. No `Intl.*`, no `toLocaleString`, no h
 - Shell: `useWorkspace()` from `routes/__root` if you need the active workspace.
 
 ## Gate before you report
-
 ```
 pnpm --filter @touch/operator lint typecheck test
 pnpm --filter @touch/i18n typecheck
 ```
-
 All green. Add unit tests for any pure logic you write (`*.test.ts`, vitest, node env) and at
 least one component test (`*.test.tsx`, jsdom + testing-library) for your lane's main screen
 rendering its four states. Keep existing e2e selectors your lane touches stable (headings,
 button names, dialog names listed in `e2e/tests/operator-*.spec.ts`).
 
 ## Report format (final message)
-
 1. Screens built (spec §) with the states each renders.
 2. Files created/changed.
 3. Deviations from the contract and why.

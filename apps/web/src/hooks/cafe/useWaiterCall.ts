@@ -121,9 +121,7 @@ export function useWaiterCall(
   const applyStatus = useCallback((payload: WaiterCallStatusPayload) => {
     setCall((prev) =>
       // Ignore chatter about an older call once a newer one is in flight.
-      prev && prev.callId !== payload.call_id
-        ? prev
-        : { callId: payload.call_id, status: payload.status },
+      prev && prev.callId !== payload.call_id ? prev : { callId: payload.call_id, status: payload.status },
     );
   }, []);
 

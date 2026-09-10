@@ -25,9 +25,7 @@ export function phoneDigits(raw: unknown): string {
 }
 
 export function phoneCanon(raw: unknown): string {
-  return phoneDigits(raw)
-    .replace(/^00/, '')
-    .replace(/^(964|0)/, '');
+  return phoneDigits(raw).replace(/^00/, '').replace(/^(964|0)/, '');
 }
 
 export function toE164Iraq(raw: unknown): string | null {

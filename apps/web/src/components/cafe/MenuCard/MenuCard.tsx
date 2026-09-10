@@ -78,7 +78,9 @@ export function MenuCard({
     <div className="tp-menu-item__price">
       {discount > 0 ? (
         <>
-          <span className="tp-price--promo">{menuPrice(applyPctDiscountIqd(value, discount))}</span>
+          <span className="tp-price--promo">
+            {menuPrice(applyPctDiscountIqd(value, discount))}
+          </span>
           <span className="tp-price--struck">{menuPrice(value)}</span>
         </>
       ) : (

@@ -98,7 +98,9 @@ export default function TabsLayoutAndroid() {
       <Tabs.Screen
         name="index"
         options={{
-          tabBarIcon: ({ focused, color }) => <TabBookIcon color={focused ? brand.green : color} />,
+          tabBarIcon: ({ focused, color }) => (
+            <TabBookIcon color={focused ? brand.green : color} />
+          ),
           tabBarLabel: ({ focused }) => <TabLabel text={t('tabs.book')} focused={focused} />,
         }}
       />

@@ -15,13 +15,7 @@ import { tradingSpan, wallTimeToUtc, type DayKey } from '@touch/core';
 import { VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { cachedQuery } from '../../lib/refCache';
-import {
-  QK,
-  fetchVenueSettings,
-  fetchActiveCourts,
-  type CourtRow,
-  type VenueSettingsRow,
-} from '../../lib/queries';
+import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow, type VenueSettingsRow } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { RESERVATION_COLUMNS, type ReservationRow, type TabLinkRow } from './deskTypes';
 
@@ -62,22 +56,15 @@ export function useTradingNight(date: string): TradingNight {
   const dayIndex = new Date(`${date}T12:00:00Z`).getUTCDay();
   const dayKey = DAY_KEYS[dayIndex] as DayKey;
   const windows = settingsQ.data?.opening_hours?.[dayKey] ?? [];
-  const nextDayWindows =
-    settingsQ.data?.opening_hours?.[DAY_KEYS[(dayIndex + 1) % 7] as DayKey] ?? [];
+  const nextDayWindows = settingsQ.data?.opening_hours?.[DAY_KEYS[(dayIndex + 1) % 7] as DayKey] ?? [];
   const closedDates = settingsQ.data?.closed_dates ?? [];
   const closed = closedDates.includes(date);
 
   const { startMin: openMin, endMin: closeMin } = tradingSpan(windows, nextDayWindows);
   const rowCount = Math.max(0, Math.ceil((closeMin - openMin) / SLOT_MIN));
-  const rows = useMemo(
-    () => Array.from({ length: rowCount }, (_, i) => openMin + i * SLOT_MIN),
-    [rowCount, openMin],
-  );
+  const rows = useMemo(() => Array.from({ length: rowCount }, (_, i) => openMin + i * SLOT_MIN), [rowCount, openMin]);
 
-  const dayEnd = useMemo(
-    () => wallTimeToUtc(date, Math.max(24 * 60, closeMin), tz),
-    [date, tz, closeMin],
-  );
+  const dayEnd = useMemo(() => wallTimeToUtc(date, Math.max(24 * 60, closeMin), tz), [date, tz, closeMin]);
 
   const reservationsQ = useQuery({
     queryKey: ['reservations', date],
@@ -140,10 +127,7 @@ export function useTabLinks(reservationIds: readonly string[]): UseQueryResult<T
     queryKey: ['tabLinks', ids],
     enabled: ids.length > 0,
     queryFn: async (): Promise<TabLinkRow[]> => {
-      const { data, error } = await supabase
-        .from('tabs')
-        .select('reservation_id, status')
-        .in('reservation_id', ids);
+      const { data, error } = await supabase.from('tabs').select('reservation_id, status').in('reservation_id', ids);
       if (error) throw error;
       return (data ?? []) as TabLinkRow[];
     },

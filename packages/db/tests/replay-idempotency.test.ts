@@ -137,10 +137,7 @@ describe.skipIf(!up)('0049 replay idempotency', () => {
         .from('stock_batches')
         .select('qty_remaining')
         .eq('ingredient_id', ing);
-      return (data ?? []).reduce(
-        (a, r) => a + Number((r as { qty_remaining: number }).qty_remaining),
-        0,
-      );
+      return (data ?? []).reduce((a, r) => a + Number((r as { qty_remaining: number }).qty_remaining), 0);
     };
     const before = await onHand();
 

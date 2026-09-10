@@ -49,21 +49,9 @@ const payload = {
   bookings: { today: 12, arrived: 4, upcoming: 7, noShows: 1 },
   cafe: { openTabs: 3, ticketsQueued: 2, ticketsLate: 1, waiterCallsOpen: 0 },
   stock: { low: 2, belowPar: 5, expiringSoon: 1, expired: 0, lastCountAt: null },
-  staffActivity: [
-    { staffId: 's1', name: 'Noor', role: 'cashier', ordersTaken: 9, bookingsCreated: 2 },
-  ],
-  exceptions: {
-    discounts: { count: 2, amountIqd: 15000 },
-    voids: { count: 0, amountIqd: 0 },
-    refunds: { count: 1, amountIqd: 3000 },
-  },
-  dayClose: {
-    open: true,
-    businessDate: '2026-09-03',
-    openedAt: '2026-09-03T06:00:00Z',
-    blockingTabs: [{ id: 'tab-1', label: 'T4' }],
-    queued: 0,
-  },
+  staffActivity: [{ staffId: 's1', name: 'Noor', role: 'cashier', ordersTaken: 9, bookingsCreated: 2 }],
+  exceptions: { discounts: { count: 2, amountIqd: 15000 }, voids: { count: 0, amountIqd: 0 }, refunds: { count: 1, amountIqd: 3000 } },
+  dayClose: { open: true, businessDate: '2026-09-03', openedAt: '2026-09-03T06:00:00Z', blockingTabs: [{ id: 'tab-1', label: 'T4' }], queued: 0 },
 };
 
 beforeEach(() => {
@@ -99,9 +87,7 @@ describe('OperationsOverviewScreen', () => {
     await screen.findByText('Staff activity today');
     const tile = screen.getByRole('button', { name: /Discounts/ });
     tile.click();
-    await waitFor(() =>
-      expect(nav.navigate).toHaveBeenCalledWith({ href: '/admin/audit?q=discount.apply' }),
-    );
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith({ href: '/admin/audit?q=discount.apply' }));
   });
 
   it('routes a blocking tab to the till', async () => {
@@ -146,10 +132,7 @@ describe('OperationsOverviewScreen', () => {
     renderScreen();
     // payload has one blocking tab, so the day is blocked by open tabs.
     expect(await screen.findByText('Blocked by open tabs')).toBeTruthy();
-    rpc.appRpc.mockResolvedValue({
-      ...payload,
-      dayClose: { ...payload.dayClose, blockingTabs: [], queued: 0 },
-    });
+    rpc.appRpc.mockResolvedValue({ ...payload, dayClose: { ...payload.dayClose, blockingTabs: [], queued: 0 } });
     cleanup();
     renderScreen();
     expect(await screen.findByText('Ready to close')).toBeTruthy();
@@ -171,13 +154,7 @@ describe('OperationsOverviewScreen', () => {
   it('never totals the overlapping ticket counts', async () => {
     rpc.appRpc.mockResolvedValue({
       ...payload,
-      cafe: {
-        openTabs: 8,
-        ticketsQueued: 470,
-        ticketsPreparing: 3,
-        ticketsLate: 473,
-        waiterCallsOpen: 8,
-      },
+      cafe: { openTabs: 8, ticketsQueued: 470, ticketsPreparing: 3, ticketsLate: 473, waiterCallsOpen: 8 },
     });
     renderScreen();
     await screen.findByText('Tickets on the board');

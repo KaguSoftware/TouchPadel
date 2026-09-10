@@ -61,9 +61,7 @@ export function loadStation(): StationConfig {
   const file = stationFilePath();
   const appVersion = app.getVersion();
   if (!fs.existsSync(file)) {
-    console.warn(
-      `[station] ${file} missing — first run, station unconfigured (dev defaults TILL1/till)`,
-    );
+    console.warn(`[station] ${file} missing — first run, station unconfigured (dev defaults TILL1/till)`);
     cached = { ...DEV_DEFAULTS, configured: false, appVersion };
     return cached;
   }

@@ -30,10 +30,7 @@ export const numeric: CSSProperties = {
 export const muted: CSSProperties = { color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' };
 
 /** 44px minimum touch target on the till (DESIGN.md density). */
-export const touchTarget: CSSProperties = {
-  minBlockSize: 'var(--tp-touch)',
-  minInlineSize: 'var(--tp-touch)',
-};
+export const touchTarget: CSSProperties = { minBlockSize: 'var(--tp-touch)', minInlineSize: 'var(--tp-touch)' };
 
 /**
  * The basket's reserved height. A cashier aims at the item grid without

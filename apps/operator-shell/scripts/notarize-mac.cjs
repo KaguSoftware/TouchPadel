@@ -44,19 +44,12 @@ function xcrun(args, { json = false } = {}) {
   try {
     return { ok: true, data: JSON.parse(out), out, err };
   } catch {
-    return {
-      ok: false,
-      transport: true,
-      out,
-      err: `unparseable notarytool output: ${out.slice(0, 200)}`,
-    };
+    return { ok: false, transport: true, out, err: `unparseable notarytool output: ${out.slice(0, 200)}` };
   }
 }
 
 function looksLikeTransport(text) {
-  return /offline|NSURLErrorDomain|timed out|timeout|network|connection|ECONNRESET|EAI_AGAIN|503|502|TLS/i.test(
-    text,
-  );
+  return /offline|NSURLErrorDomain|timed out|timeout|network|connection|ECONNRESET|EAI_AGAIN|503|502|TLS/i.test(text);
 }
 
 module.exports = async function notarizeMac(context) {
@@ -70,30 +63,18 @@ module.exports = async function notarizeMac(context) {
   const appPath = path.join(context.appOutDir, `${appName}.app`);
   if (!fs.existsSync(appPath)) throw new Error(`notarize: ${appPath} does not exist`);
 
-  const auth = [
-    '--apple-id',
-    APPLE_ID,
-    '--team-id',
-    APPLE_TEAM_ID,
-    '--password',
-    APPLE_APP_SPECIFIC_PASSWORD,
-  ];
+  const auth = ['--apple-id', APPLE_ID, '--team-id', APPLE_TEAM_ID, '--password', APPLE_APP_SPECIFIC_PASSWORD];
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'notarize-'));
   const zipPath = path.join(tmp, `${appName}.zip`);
 
   log(`zipping ${appPath}`);
-  const ditto = spawnSync('ditto', ['-c', '-k', '--keepParent', appPath, zipPath], {
-    encoding: 'utf8',
-  });
+  const ditto = spawnSync('ditto', ['-c', '-k', '--keepParent', appPath, zipPath], { encoding: 'utf8' });
   if (ditto.status !== 0) throw new Error(`notarize: ditto failed: ${ditto.stderr}`);
 
   let id = null;
   for (let attempt = 1; attempt <= SUBMIT_ATTEMPTS && !id; attempt++) {
     log(`submitting (attempt ${attempt}/${SUBMIT_ATTEMPTS})`);
-    const r = xcrun(
-      ['notarytool', 'submit', zipPath, ...auth, '--no-wait', '--output-format', 'json'],
-      { json: true },
-    );
+    const r = xcrun(['notarytool', 'submit', zipPath, ...auth, '--no-wait', '--output-format', 'json'], { json: true });
     if (r.ok && r.data && r.data.id) {
       id = r.data.id;
     } else if (r.transport && attempt < SUBMIT_ATTEMPTS) {
@@ -114,9 +95,7 @@ module.exports = async function notarizeMac(context) {
   // 55 min and 3 h with the runner's network fine throughout, and every one
   // of those minutes is 10x-billed mac time.
   if (process.env.NOTARIZE_WAIT !== '1') {
-    log(
-      `not waiting for Apple (NOTARIZE_WAIT is not 1) — check later with: xcrun notarytool info ${id}`,
-    );
+    log(`not waiting for Apple (NOTARIZE_WAIT is not 1) — check later with: xcrun notarytool info ${id}`);
     fs.rmSync(tmp, { recursive: true, force: true });
     return;
   }
@@ -128,9 +107,7 @@ module.exports = async function notarizeMac(context) {
   let hardFailures = 0;
   for (;;) {
     if (Date.now() - started > DEADLINE_MS) {
-      throw new Error(
-        `notarize: gave up after ${DEADLINE_MS / 60000} min; submission ${id} last status "${lastStatus}"`,
-      );
+      throw new Error(`notarize: gave up after ${DEADLINE_MS / 60000} min; submission ${id} last status "${lastStatus}"`);
     }
     await sleep(POLL_MS);
     const r = xcrun(['notarytool', 'info', id, ...auth, '--output-format', 'json'], { json: true });
@@ -143,9 +120,7 @@ module.exports = async function notarizeMac(context) {
         continue;
       }
       hardFailures++;
-      log(
-        `info failed (${hardFailures}/${MAX_CONSECUTIVE_HARD_FAILURES} before giving up): ${first}`,
-      );
+      log(`info failed (${hardFailures}/${MAX_CONSECUTIVE_HARD_FAILURES} before giving up): ${first}`);
       if (hardFailures >= MAX_CONSECUTIVE_HARD_FAILURES) {
         throw new Error(`notarize: notarytool info keeps failing for ${id}: ${r.err || r.out}`);
       }
@@ -166,8 +141,7 @@ module.exports = async function notarizeMac(context) {
 
   log(`stapling ${appPath}`);
   const staple = spawnSync('xcrun', ['stapler', 'staple', appPath], { encoding: 'utf8' });
-  if (staple.status !== 0)
-    throw new Error(`notarize: stapler failed: ${staple.stderr || staple.stdout}`);
+  if (staple.status !== 0) throw new Error(`notarize: stapler failed: ${staple.stderr || staple.stdout}`);
   fs.rmSync(tmp, { recursive: true, force: true });
   log('done');
 };

@@ -37,10 +37,7 @@ export function completeFirstRun(
     writeStation(file);
   } catch (error) {
     if (error instanceof StationExistsError) return { ok: false, error: 'already-configured' };
-    console.error(
-      '[station] first-run write failed:',
-      error instanceof Error ? error.message : String(error),
-    );
+    console.error('[station] first-run write failed:', error instanceof Error ? error.message : String(error));
     return { ok: false, error: 'write-failed' };
   }
   console.log('[station] first run complete:', req.mode, req.stationId, '- relaunching');

@@ -56,10 +56,7 @@ export function ItemSheet({
         if (inGroup.length >= group.max_select && group.max_select === 1) {
           for (const x of inGroup) next.delete(x.id);
         }
-        if (
-          modifiers.filter((x) => x.group_id === group.id && next.has(x.id)).length <
-          group.max_select
-        )
+        if (modifiers.filter((x) => x.group_id === group.id && next.has(x.id)).length < group.max_select)
           next.set(m.id, 1);
       }
       return next;
@@ -117,11 +114,7 @@ export function ItemSheet({
     >
       {variants.length > 1 ? (
         <Field label={tr('op.till.size')}>
-          <div
-            role="radiogroup"
-            aria-label={tr('op.till.size')}
-            style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}
-          >
+          <div role="radiogroup" aria-label={tr('op.till.size')} style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
             {variants.map((v) => (
               <Button
                 key={v.id}
@@ -146,10 +139,7 @@ export function ItemSheet({
       {linkedGroups.map((g) => (
         <div key={g.id} style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
           <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-1)', fontWeight: 600 }}>
-            {pickName(locale, g)}{' '}
-            <span style={{ fontWeight: 400 }}>
-              ({g.min_select}–{g.max_select})
-            </span>
+            {pickName(locale, g)} <span style={{ fontWeight: 400 }}>({g.min_select}–{g.max_select})</span>
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
             {modifiers
@@ -177,21 +167,9 @@ export function ItemSheet({
 
       <Field label={tr('op.till.qty')}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
-          <Button
-            size="lg"
-            icon="minus"
-            aria-label="−1"
-            disabled={qty <= 1}
-            onClick={() => setQty((q) => Math.max(1, q - 1))}
-            style={touchTarget}
-          />
+          <Button size="lg" icon="minus" aria-label="−1" disabled={qty <= 1} onClick={() => setQty((q) => Math.max(1, q - 1))} style={touchTarget} />
           <input
-            style={{
-              ...inputStyle,
-              inlineSize: '4.5rem',
-              textAlign: 'center',
-              fontSize: 'var(--tp-fs-lg)',
-            }}
+            style={{ ...inputStyle, inlineSize: '4.5rem', textAlign: 'center', fontSize: 'var(--tp-fs-lg)' }}
             type="number"
             dir="ltr"
             min={1}
@@ -199,23 +177,11 @@ export function ItemSheet({
             value={qty}
             onChange={(e) => setQty(Math.max(1, Math.min(99, Number(e.target.value) || 1)))}
           />
-          <Button
-            size="lg"
-            icon="plus"
-            aria-label="+1"
-            disabled={qty >= 99}
-            onClick={() => setQty((q) => Math.min(99, q + 1))}
-            style={touchTarget}
-          />
+          <Button size="lg" icon="plus" aria-label="+1" disabled={qty >= 99} onClick={() => setQty((q) => Math.min(99, q + 1))} style={touchTarget} />
         </div>
       </Field>
       <Field label={tr('op.till.itemNotes')}>
-        <input
-          style={inputStyle}
-          value={notes}
-          maxLength={120}
-          onChange={(e) => setNotes(e.target.value)}
-        />
+        <input style={inputStyle} value={notes} maxLength={120} onChange={(e) => setNotes(e.target.value)} />
       </Field>
     </Modal>
   );

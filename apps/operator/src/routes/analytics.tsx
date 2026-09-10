@@ -5,10 +5,7 @@ import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { rootRoute, RequireRole } from './__root';
 import { validateSearch, type AnalyticsSearch } from '../features/analytics/search';
 
-const LazyAnalyticsPage = lazyRouteComponent(
-  () => import('../features/analytics/AnalyticsPage'),
-  'AnalyticsPage',
-);
+const LazyAnalyticsPage = lazyRouteComponent(() => import('../features/analytics/AnalyticsPage'), 'AnalyticsPage');
 
 export const analyticsRoute = createRoute({
   getParentRoute: () => rootRoute,

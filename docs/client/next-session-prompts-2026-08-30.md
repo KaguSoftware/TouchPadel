@@ -114,7 +114,7 @@ Two halves, in order:
    pack citation) for the contractual record, guarded so it never inserts auth users directly.
 
 Then the Telegram allowlist: telegram_staff currently has one row pointing at Dev Owner
-(tg 1381081738). Re-point to the real staff in the SAME session. GOTCHA (HANDOFF):
+(tg 1381081738). Re-point to the real staff in the SAME session. GOTCHA (HANDOFF): 
 app.set_telegram_staff cannot be called from the SQL editor (needs an owner JWT) and has no
 operator UI — either call it authenticated as the new real owner account, or do the direct
 insert and note the missing telegram.staff_set audit row. Get each staff member's tg_user_id

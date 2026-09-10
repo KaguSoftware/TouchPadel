@@ -10,18 +10,7 @@ import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button } from '../../components/ui';
-import {
-  AsyncStateWrapper,
-  DataTable,
-  EmptyState,
-  PageHeader,
-  ResultCount,
-  StatusBadge,
-  TableSkeleton,
-  asyncStatus,
-  type Column,
-  type Tone,
-} from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, PageHeader, ResultCount, StatusBadge, TableSkeleton, asyncStatus, type Column, type Tone } from '../../components/kit';
 import { SK, fetchIngredients } from './stockKeys';
 
 interface AlertRow {
@@ -31,11 +20,7 @@ interface AlertRow {
   created_at: string;
 }
 
-const KIND_TONE: Record<string, Tone> = {
-  negative_stock: 'danger',
-  low_stock: 'warn',
-  replay_conflict: 'danger',
-};
+const KIND_TONE: Record<string, Tone> = { negative_stock: 'danger', low_stock: 'warn', replay_conflict: 'danger' };
 
 export function AlertsPanel() {
   const { tr, locale } = useLocale();
@@ -46,11 +31,7 @@ export function AlertsPanel() {
     queryKey: SK.alerts,
     refetchInterval: 60_000, // no realtime topic for alerts — advisory cadence
     queryFn: async (): Promise<AlertRow[]> => {
-      const { data, error } = await supabase
-        .from('manager_alerts')
-        .select('id, kind, payload, created_at')
-        .is('acknowledged_at', null)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('manager_alerts').select('id, kind, payload, created_at').is('acknowledged_at', null).order('created_at', { ascending: false });
       if (error) throw error;
       return data as AlertRow[];
     },
@@ -63,9 +44,7 @@ export function AlertsPanel() {
     onMutate: async (alertId) => {
       await queryClient.cancelQueries({ queryKey: SK.alerts });
       const prev = queryClient.getQueryData<AlertRow[]>(SK.alerts);
-      queryClient.setQueryData<AlertRow[]>(SK.alerts, (rows) =>
-        rows?.filter((r) => r.id !== alertId),
-      );
+      queryClient.setQueryData<AlertRow[]>(SK.alerts, (rows) => rows?.filter((r) => r.id !== alertId));
       return { prev };
     },
     onError: (e, _id, ctx) => {
@@ -82,13 +61,7 @@ export function AlertsPanel() {
   };
 
   const columns: Column<AlertRow>[] = [
-    {
-      key: 'kind',
-      header: tr('op.stock.alertsTitle'),
-      render: (a) => (
-        <StatusBadge tone={KIND_TONE[a.kind] ?? 'neutral'} label={alertLabel[a.kind] ?? a.kind} />
-      ),
-    },
+    { key: 'kind', header: tr('op.stock.alertsTitle'), render: (a) => <StatusBadge tone={KIND_TONE[a.kind] ?? 'neutral'} label={alertLabel[a.kind] ?? a.kind} /> },
     {
       key: 'ingredient',
       header: tr('op.stock.ingredient'),
@@ -107,22 +80,13 @@ export function AlertsPanel() {
         );
       },
     },
-    {
-      key: 'when',
-      header: tr('op.stock.when'),
-      render: (a) => <bdi>{formatDateTime(new Date(a.created_at), locale)}</bdi>,
-    },
+    { key: 'when', header: tr('op.stock.when'), render: (a) => <bdi>{formatDateTime(new Date(a.created_at), locale)}</bdi> },
     {
       key: 'ack',
       header: '',
       align: 'end',
       render: (a) => (
-        <Button
-          size="sm"
-          icon="check"
-          busy={acknowledge.isPending && acknowledge.variables === a.id}
-          onClick={() => acknowledge.mutate(a.id)}
-        >
+        <Button size="sm" icon="check" busy={acknowledge.isPending && acknowledge.variables === a.id} onClick={() => acknowledge.mutate(a.id)}>
           {tr('op.stock.acknowledge')}
         </Button>
       ),
@@ -139,21 +103,9 @@ export function AlertsPanel() {
         error={alertsQ.error}
         onRetry={() => void alertsQ.refetch()}
         skeleton={<TableSkeleton columns={columns} rows={3} />}
-        emptyContent={
-          <EmptyState
-            kind="nothingToDo"
-            icon="checkCircle"
-            title={tr('op.stock.noAlerts')}
-            body={tr('ws.manager.stock.alerts.emptyBody')}
-          />
-        }
+        emptyContent={<EmptyState kind="nothingToDo" icon="checkCircle" title={tr('op.stock.noAlerts')} body={tr('ws.manager.stock.alerts.emptyBody')} />}
       >
-        <DataTable
-          columns={columns}
-          rows={alertsQ.data ?? []}
-          rowKey={(a) => a.id}
-          aria-label={tr('op.stock.alertsTitle')}
-        />
+        <DataTable columns={columns} rows={alertsQ.data ?? []} rowKey={(a) => a.id} aria-label={tr('op.stock.alertsTitle')} />
       </AsyncStateWrapper>
     </div>
   );

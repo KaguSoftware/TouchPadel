@@ -8,24 +8,23 @@
 > that project: an anonymous session calling `hold_slot` now returns `ACCOUNT_REQUIRED`,
 > the exact call this document reproduces as succeeding.
 >
-> | Finding                            | State                                                                 | Where |
-> | ---------------------------------- | --------------------------------------------------------------------- | ----- |
-> | C1 anonymous hold                  | fixed — `ACCOUNT_REQUIRED`, live-hold cap, booking horizon, audit row | 0048  |
-> | H1 no re-pricing on move/extend    | fixed — `price_slot` re-resolved; manual overrides preserved          | 0048  |
-> | H2 no re-validation on move/extend | fixed — `assert_bookable` called                                      | 0048  |
-> | H3 idempotency read oracle         | fixed — caller-scoped, `IDEMPOTENCY_CONFLICT`                         | 0048  |
-> | H4 overnight rate rule divergence  | fixed — `check (start_time < end_time)` + RPC guard                   | 0048  |
-> | H5 lock-the-peeked-court           | fixed — court re-checked after `FOR UPDATE`, raises `40001`           | 0048  |
-> | M1-M8                              | **still open** — deliberately out of scope for this pass              | —     |
+> | Finding | State | Where |
+> |---|---|---|
+> | C1 anonymous hold | fixed — `ACCOUNT_REQUIRED`, live-hold cap, booking horizon, audit row | 0048 |
+> | H1 no re-pricing on move/extend | fixed — `price_slot` re-resolved; manual overrides preserved | 0048 |
+> | H2 no re-validation on move/extend | fixed — `assert_bookable` called | 0048 |
+> | H3 idempotency read oracle | fixed — caller-scoped, `IDEMPOTENCY_CONFLICT` | 0048 |
+> | H4 overnight rate rule divergence | fixed — `check (start_time < end_time)` + RPC guard | 0048 |
+> | H5 lock-the-peeked-court | fixed — court re-checked after `FOR UPDATE`, raises `40001` | 0048 |
+> | M1-M8 | **still open** — deliberately out of scope for this pass | — |
 >
 > Also closed here, found while fixing the above:
->
-> - `app.pin_attempts` was the only table without RLS (not client-reachable — its
+> * `app.pin_attempts` was the only table without RLS (not client-reachable — its
 >   sole grant is to `service_role` — so a missing layer, not an open hole). 0048.
-> - `send-push` and `replay` had **never been deployed** to the project, so
+> * `send-push` and `replay` had **never been deployed** to the project, so
 >   `notification_outbox` had never been drained. Deployed; the cron that drives
 >   the sender now lives in 0048 instead of only in prose (README:100-119).
-> - The offline `replay` path could apply `apply_discount`, `override_price` and
+> * The offline `replay` path could apply `apply_discount`, `override_price` and
 >   `record_waste` **twice**. 0049.
 >
 > Both CI guards that blessed C1 were the reason it shipped, and both now fail on it:
@@ -37,11 +36,12 @@
 > **The findings below are left exactly as written.** They record what was true when
 > the audit ran, which is what makes the reproductions checkable.
 
+
 ## Scope and method
 
 The cafe backend has had **two** adversarial passes (17 defects in `01057bb`, 6 more in `e273b6c`).
-The padel booking backend — the signed contract's #1 technical promise (_"double-booking prevention
-… a database exclusion constraint on court and time range … delivered with concurrency tests"_,
+The padel booking backend — the signed contract's #1 technical promise (*"double-booking prevention
+… a database exclusion constraint on court and time range … delivered with concurrency tests"*,
 SOW L279-288) — had had exactly one **reactive** fix (`22e4e36`, the 40P01 from CI run #17) and no
 systematic audit.
 
@@ -54,7 +54,7 @@ The local DB was reset to fixtures afterwards (`supabase db reset --local`). **N
 hosted project.**
 
 **Per the owner's instruction this is report-only.** No migrations, no RPC changes, no test additions
-were made. Fix _shapes_ are described; fixes are not applied.
+were made. Fix *shapes* are described; fixes are not applied.
 
 One important negative result up front: **the contractual guest journey works.** A real account guest
 can hold → confirm → cancel end to end. It has simply never been executed by the test suite (§4.1).
@@ -120,9 +120,9 @@ orphan pending holds now in table: 13
 ```
 
 Anonymous signup is unlimited — the repo already knows this (`hardening.test.ts:165-168`:
-_"anonymous sign-up is unlimited, so a fresh identity per attempt reset the per-caller window"_).
+*"anonymous sign-up is unlimited, so a fresh identity per attempt reset the per-caller window"*).
 One script can hold every court × every open slot, arbitrarily far into the future, re-issuing every
-`hold_ttl_seconds`, forever. The desk cannot even _find_ the rows through the guest grid, because
+`hold_ttl_seconds`, forever. The desk cannot even *find* the rows through the guest grid, because
 `court_availability` hides a hold once its TTL lapses.
 
 **Every layer of automation blesses it.** `rls-matrix.ts:301` expects `guest_anon_session` to
@@ -141,12 +141,12 @@ One script can hold every court × every open slot, arbitrarily far into the fut
 
 Verified by counting call sites in the **live** function bodies:
 
-| function                   | `assert_bookable` | `price_slot` | `write_audit` |
-| -------------------------- | ----------------- | ------------ | ------------- |
-| `hold_slot`                | 1                 | 1            | **0**         |
-| `staff_create_reservation` | 1                 | 1            | 2             |
-| **`move_reservation`**     | **0**             | **0**        | 1             |
-| **`extend_reservation`**   | **0**             | **0**        | 1             |
+| function | `assert_bookable` | `price_slot` | `write_audit` |
+|---|---|---|---|
+| `hold_slot` | 1 | 1 | **0** |
+| `staff_create_reservation` | 1 | 1 | 2 |
+| **`move_reservation`** | **0** | **0** | 1 |
+| **`extend_reservation`** | **0** | **0** | 1 |
 
 **Reproduced** with off-peak 09-17 (60=40k/90=55k/120=70k) and peak 17-23 (60=60k/90=80k/120=90k):
 
@@ -168,8 +168,8 @@ Both are one-click buttons on the desk calendar (`DeskCalendar.tsx:627` extend, 
 Repeating "Extend +30" runs a court all night at the one-hour price.
 
 This also **silently corrupts price provenance**, which the schema header calls a design invariant
-(`0007:2-3`, _"bookings snapshot (rate_rule_id, price_iqd) so a historical price is explainable
-forever"_). After a move, `rate_rule_id` explains the price against a rule whose window the booking
+(`0007:2-3`, *"bookings snapshot (rate_rule_id, price_iqd) so a historical price is explainable
+forever"*). After a move, `rate_rule_id` explains the price against a rule whose window the booking
 no longer falls in.
 
 **Fix shape.** Re-run `app.price_slot` inside both RPCs and re-stamp `rate_rule_id`/`price_iqd`, or
@@ -202,7 +202,7 @@ court is active.
 ### H3 — The booking side never received 0038's caller-scoped idempotency fix: a cross-principal read oracle
 
 `0038` fixed exactly this class for the cafe (`create_guest_order`, `open_tab`) and **never touched
-`hold_slot` or `staff_create_reservation`**. Both still do an unscoped lookup, _before_ the court
+`hold_slot` or `staff_create_reservation`**. Both still do an unscoped lookup, *before* the court
 check, `assert_bookable`, and the degraded guard:
 
 ```sql
@@ -211,7 +211,7 @@ check, `assert_bookable`, and the degraded guard:
     'status', v_existing.status, 'hold_expires_at', v_existing.hold_expires_at);
 ```
 
-**Reproduced** — guest B is a _different principal_ asking about a _different court and duration_:
+**Reproduced** — guest B is a *different principal* asking about a *different court and duration*:
 
 ```
 A holds with key K  -> OK f314647e-bd10-4469-89bc-e499afcda0b2
@@ -246,7 +246,7 @@ type="time">`. So `start_time > end_time` is creatable. SQL handles it by wrappi
 `packages/core/src/pricing/rateRules.ts:79` refuses it:
 
 ```ts
-if (end <= start) return false; // midnight-crossing windows unsupported
+    if (end <= start) return false; // midnight-crossing windows unsupported
 ```
 
 **Reproduced.** One rule `22:00 → 02:00 @ 90 000` (priority 20) alongside peak `17:00–23:00 @ 60 000`
@@ -265,7 +265,7 @@ configuration change alone — no code change, no misconfiguration flagged anywh
 `upsert_rate_rule` (simplest, matches what TS already assumes), or implement wrapping in TS. Do not
 leave the two disagreeing.
 
-### H5 — `move`/`extend` lock the court they _peeked_, not the court they _write_ (analysis; not reproduced)
+### H5 — `move`/`extend` lock the court they *peeked*, not the court they *write* (analysis; not reproduced)
 
 Both read `court_id` **unlocked**, take `lock_court` on that value, then take the row lock and
 **re-resolve the court from the freshly-locked row**. The code asserts this is safe:
@@ -279,13 +279,13 @@ That reasoning does not hold, because two concurrent movers lock **different pai
 `C1→C2` holding `{C1,C2}`; T_b peeked `C1` and holds `{C1,C3}`. After T_a commits, T_b re-reads
 `v.court_id = C2` and — when `p_court_id` is NULL, exactly what the offline replay path sends
 (`functions/replay/index.ts:67`) — writes to C2 holding locks on C1 and C3 only, entering the
-exclusion window unserialized against a `hold_slot` that _does_ hold `lock_court(C2)`.
+exclusion window unserialized against a `hold_slot` that *does* hold `lock_court(C2)`.
 
 The expected symptom is a raw **`40P01`** — the precise failure 0042 was written to eliminate, and
 which `HANDOFF.md` classifies as a regression rather than a flake.
 
 **Not reproduced**: it needs a three-way interleave with sub-millisecond timing, and I did not want
-to claim a race I had not actually observed. Everything _around_ it is verified — the unlocked peek,
+to claim a race I had not actually observed. Everything *around* it is verified — the unlocked peek,
 the re-resolve, and the lock set are all in the deployed bodies.
 
 **Fix shape.** After `FOR UPDATE`, re-check that `v.court_id` is in the locked set; if not, raise a
@@ -324,7 +324,7 @@ Confirmed live — the hold row reads `price_iqd: null`:
 read own hold -> rows=1 [{"id":"75e230ca-...","status":"pending","price_iqd":null}]
 ```
 
-`confirm_booking` then re-resolves from scratch and stamps _that_. Any rate edit inside the
+`confirm_booking` then re-resolves from scratch and stamps *that*. Any rate edit inside the
 300-second hold window silently changes the charge versus the quote, with no `PRICE_CHANGED` signal
 and no record of what was quoted. The mobile confirm screen compounds it by discarding the price
 `confirm_booking` returns (`confirm.tsx:51`).
@@ -342,7 +342,7 @@ hold 16:00-18:00 (120min) -> 70000 IQD via "PROBE offpeak"
 ```
 
 Not a divergence — a shared design hole, reachable from the mobile UI today with no tooling.
-Relatedly, `hold_slot` never snaps `p_start_at` to a grid (`slotIncrementMin` is a _rendering_
+Relatedly, `hold_slot` never snaps `p_start_at` to a grid (`slotIncrementMin` is a *rendering*
 parameter with no server counterpart), so `start_at = 09:01` makes one booking block two grid cells.
 
 **Fix shape.** Price by covered segment, or refuse slots that straddle a rule boundary. Snap or
@@ -353,10 +353,10 @@ validate `start_at` server-side.
 Verified live: **`rate_rules` has zero CHECK constraints; `courts` has zero;** `venue_settings` has
 only an id check.
 
-| Missing                                      | Consequence                                                                                                                                                                                                                                                                                     |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rate_rules` time ordering                   | H4 above                                                                                                                                                                                                                                                                                        |
-| `venue_settings.hold_ttl_seconds > 0`        | **Reproduced**: set to `0` → `hold_slot` OK, `confirm_booking -> HOLD_EXPIRED`. Every confirm fails, with no error pointing at the setting.                                                                                                                                                     |
+| Missing | Consequence |
+|---|---|
+| `rate_rules` time ordering | H4 above |
+| `venue_settings.hold_ttl_seconds > 0` | **Reproduced**: set to `0` → `hold_slot` OK, `confirm_booking -> HOLD_EXPIRED`. Every confirm fails, with no error pointing at the setting. |
 | `courts.duration_options` NULL-element guard | `if not (p_duration_min = any (…))` evaluates to `NULL` when the array holds a NULL and nothing matches → `if NULL then` does not fire → the `INVALID_DURATION` guard **silently passes**. Latent (service-role writes only) but the wrong shape for a guard; `… is not true` would be correct. |
 
 ### M5 — `parseHHMM` throws on the database's own time format
@@ -382,7 +382,7 @@ no-op on the desk, and a total `OUTSIDE_HOURS` lockout server-side.
 ### M6 — `hold_slot` writes no audit row
 
 Confirmed live (`write_audit` count = 0), contradicting the file's own header:
-_"every mutating function … audit rows written atomically"_. Creating a hold is the act that takes a
+*"every mutating function … audit rows written atomically"*. Creating a hold is the act that takes a
 court off the market and is the only reservation mutation with no trail. Combined with C1 —
 `guest_id` NULL and a client-supplied, unvalidated `device_id` — a court-blocking hold is
 **unattributable after the fact**. `expire_stale_holds` is likewise unaudited.
@@ -417,14 +417,14 @@ session it is worse: both calls fail with `FORBIDDEN` (C1) before either guard i
   abolished DST in 2008 and the code does not rely on that.
 - **`0041_availability_local_day` is a cafe menu-86 fix**, not a court-availability fix. The padel
   path never had that bug.
-- **Money rounding does not diverge.** Padel pricing is a pure integer _lookup_ — no multiplication,
-  no division, no float anywhere. Every SQL/TS pair that _does_ divide (`split_evenly`,
+- **Money rounding does not diverge.** Padel pricing is a pure integer *lookup* — no multiplication,
+  no division, no float anywhere. Every SQL/TS pair that *does* divide (`split_evenly`,
   `apply_pct_discount`) rounds identically, and the SQL uses `numeric`, not `float8`.
 - **No client-supplied price reaches the server.** Payload schemas are `.strict()` with explicit
   "no price fields" notes; the only price argument is manager/owner-gated and called by no app.
 - **The exclusion constraint itself is sound.** No writer moves a row from outside the predicate back
   inside it, so there is no resurrection path. Its `status` column is the predicate of a partial
-  index, so status updates _do_ re-run the check — they are safe for the right reason, not the reason
+  index, so status updates *do* re-run the check — they are safe for the right reason, not the reason
   the `0042` header gives.
 - **The contractual guest journey works** — see §4.1.
 
@@ -448,18 +448,18 @@ row as service_role -> {"status":"cancelled","kind":"booking","price_iqd":40000}
 But **every padel test uses `anonymousSessionClient()`**. Because of C1 those holds cannot be
 confirmed by their creator, so `concurrency.test.ts:197` routes the confirm through the **desk**
 client, and `:187` records why: `guest_id: null, // anonymous session has no profile`. The suite
-worked _around_ C1 rather than failing on it.
+worked *around* C1 rather than failing on it.
 
 `confirm_booking` is called exactly once in the whole suite — as staff, inside a race. **There is no
 happy-path confirm test of any kind.**
 
 ### 4.2 The guards
 
-| Guard             | What it misses                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guard | What it misses |
+|---|---|
 | **`check:locks`** | Detects only `FOR UPDATE` and `app.x(` calls. `0042`'s entire fix is `pg_advisory_xact_lock` inside `app.lock_court` — **the script has no concept of an advisory lock**. Nothing verifies the lock precedes the first write, nothing verifies the cross-court `least()/greatest()` ordering. Reversing them leaves the guard green. `reservations` is also the last rank in its `ORDER`, so an inversion involving it can essentially never fire. |
-| **`check:authz`** | Exempts exactly the four ownership-guarded booking RPCs via `PUBLIC_BY_DESIGN`, and probes only the first line (all args NULL). It proves _role_, never _ownership_ — and ownership is where C1 and H3 live. A refusal for the wrong reason also counts: `DEGRADED_LOCKOUT` is in its `REFUSED` regex.                                                                                                                                             |
-| **`rls-matrix`**  | All ten booking RPC rules pass `NIL_UUID` and classify grant-layer outcomes only. It actively blesses C1 (`expect: ex('execute', …)` for `guest_anon_session` on `hold_slot`).                                                                                                                                                                                                                                                                     |
+| **`check:authz`** | Exempts exactly the four ownership-guarded booking RPCs via `PUBLIC_BY_DESIGN`, and probes only the first line (all args NULL). It proves *role*, never *ownership* — and ownership is where C1 and H3 live. A refusal for the wrong reason also counts: `DEGRADED_LOCKOUT` is in its `REFUSED` regex. |
+| **`rls-matrix`** | All ten booking RPC rules pass `NIL_UUID` and classify grant-layer outcomes only. It actively blesses C1 (`expect: ex('execute', …)` for `guest_anon_session` on `hold_slot`). |
 
 ### 4.3 Tests
 
@@ -491,18 +491,18 @@ Reported for decision. **Items 1, 2, 3, 4 and 7 were implemented in migrations 0
 see the STATUS block at the top of this file.** Items 5, 6, 8 (partially), 9 and 10 remain open;
 item 8 is done for both guard scripts.
 
-| #   | Work                                                                                                                                         | Why first                                                                                        | Size                   |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------- |
-| 1   | **C1** — refuse `hold_slot` without a `profiles` row; add a live-hold cap and a booking horizon; audit hold creation                         | The only finding remotely exploitable by an outsider, and it denies the venue's entire inventory | 1 migration + settings |
-| 2   | **H1 + H2** — re-price and re-validate in `move`/`extend`                                                                                    | Loses real money on every desk mis-use, today, with no tooling                                   | 1 migration            |
-| 3   | **H4 + M4** — `check (start_time < end_time)` + validation in `upsert_rate_rule`                                                             | Closes the quote-vs-charge divergence at the source; cheaper than implementing wrapping in TS    | 1 migration            |
-| 4   | **H3** — port 0038's caller-scoped idempotency to the two booking RPCs                                                                       | Cross-principal read oracle on an RLS-protected table                                            | 1 migration            |
-| 5   | **M1** — temporal guard on `mark_reservation`                                                                                                | A mis-click resells a paid booking with no signal to anyone                                      | small                  |
-| 6   | **M2** — persist the quote, compare at confirm                                                                                               | Contractual "explainable forever" price provenance                                               | small                  |
-| 7   | **H5** — re-check the court after `FOR UPDATE`, raise `40001`                                                                                | Prevents the 40P01 regression 0042 was written to remove                                         | small                  |
-| 8   | **Guards**: teach `check:locks` about advisory locks; drop the `PUBLIC_BY_DESIGN` exemption and probe ownership with two distinct principals | These are what let items 1–7 through CI                                                          | 1 day                  |
-| 9   | **Tests**: the account-guest journey; `move`/`mark` functional coverage; the twelve unasserted codes; `confirm_booking` under degraded       | Turns this audit into a permanent regression net                                                 | 1–2 days               |
-| 10  | **M5–M8**, client error maps, missing CHECK constraints                                                                                      | Cleanup                                                                                          | small                  |
+| # | Work | Why first | Size |
+|---|---|---|---|
+| 1 | **C1** — refuse `hold_slot` without a `profiles` row; add a live-hold cap and a booking horizon; audit hold creation | The only finding remotely exploitable by an outsider, and it denies the venue's entire inventory | 1 migration + settings |
+| 2 | **H1 + H2** — re-price and re-validate in `move`/`extend` | Loses real money on every desk mis-use, today, with no tooling | 1 migration |
+| 3 | **H4 + M4** — `check (start_time < end_time)` + validation in `upsert_rate_rule` | Closes the quote-vs-charge divergence at the source; cheaper than implementing wrapping in TS | 1 migration |
+| 4 | **H3** — port 0038's caller-scoped idempotency to the two booking RPCs | Cross-principal read oracle on an RLS-protected table | 1 migration |
+| 5 | **M1** — temporal guard on `mark_reservation` | A mis-click resells a paid booking with no signal to anyone | small |
+| 6 | **M2** — persist the quote, compare at confirm | Contractual "explainable forever" price provenance | small |
+| 7 | **H5** — re-check the court after `FOR UPDATE`, raise `40001` | Prevents the 40P01 regression 0042 was written to remove | small |
+| 8 | **Guards**: teach `check:locks` about advisory locks; drop the `PUBLIC_BY_DESIGN` exemption and probe ownership with two distinct principals | These are what let items 1–7 through CI | 1 day |
+| 9 | **Tests**: the account-guest journey; `move`/`mark` functional coverage; the twelve unasserted codes; `confirm_booking` under degraded | Turns this audit into a permanent regression net | 1–2 days |
+| 10 | **M5–M8**, client error maps, missing CHECK constraints | Cleanup | small |
 
 Overlaps already logged in `docs/design/mobile-audit-2026-08-27.md`: `app.release_hold()` (no release
 path exists — `cancel_reservation` refuses inside the cancellation window), `app.delete_account()`

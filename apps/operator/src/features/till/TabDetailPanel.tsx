@@ -26,22 +26,8 @@ import { mutate } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { useLocale, pickName } from '../../lib/i18n';
 import { requiredRoleFor, usePermissions } from '../../lib/auth';
-import {
-  Button,
-  ErrorText,
-  Field,
-  PinReasonModal,
-  Skeleton,
-  inputStyle,
-} from '../../components/ui';
-import {
-  Kbd,
-  MessagePresenter,
-  Money,
-  PermissionRefusedNotice,
-  ReasonCodePrompt,
-  TabStatusIndicator,
-} from '../../components/kit';
+import { Button, ErrorText, Field, PinReasonModal, Skeleton, inputStyle } from '../../components/ui';
+import { Kbd, MessagePresenter, Money, PermissionRefusedNotice, ReasonCodePrompt, TabStatusIndicator } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { computeTabTotals, discountBreakdown } from './tabTotals';
 import { BillView } from './BillView';
@@ -79,15 +65,10 @@ export function TabDetailPanel({
   const can = usePermissions();
   const queryClient = useQueryClient();
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' });
-  const [discountKind, setDiscountKind] = useState<'discount_percent' | 'discount_amount'>(
-    'discount_percent',
-  );
+  const [discountKind, setDiscountKind] = useState<'discount_percent' | 'discount_amount'>('discount_percent');
   const [discountValue, setDiscountValue] = useState(10);
   const [promoCode, setPromoCode] = useState('');
-  const [promoNotice, setPromoNotice] = useState<{
-    tone: 'success' | 'refused';
-    text: string;
-  } | null>(null);
+  const [promoNotice, setPromoNotice] = useState<{ tone: 'success' | 'refused'; text: string } | null>(null);
   const [drawerNoted, setDrawerNoted] = useState(false);
   const [voidRefused, setVoidRefused] = useState(false);
   const [actionError, setActionError] = useState<unknown>(null);
@@ -104,10 +85,7 @@ export function TabDetailPanel({
     staleTime: 300_000,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('venue_settings')
-        .select('tax_inclusive')
-        .single();
+      const { data, error } = await supabase.from('venue_settings').select('tax_inclusive').single();
       if (error) throw error;
       return Boolean((data as { tax_inclusive: boolean }).tax_inclusive);
     },
@@ -115,9 +93,7 @@ export function TabDetailPanel({
   const taxCtx = useMemo(() => {
     if (!menuForTaxQ.data || taxInclusiveQ.data === undefined) return null;
     return {
-      rateByCategory: new Map(
-        menuForTaxQ.data.categories.map((c) => [c.id, c.tax_group?.rate_bp ?? 0]),
-      ),
+      rateByCategory: new Map(menuForTaxQ.data.categories.map((c) => [c.id, c.tax_group?.rate_bp ?? 0])),
       taxInclusive: taxInclusiveQ.data,
     };
   }, [menuForTaxQ.data, taxInclusiveQ.data]);
@@ -160,11 +136,7 @@ export function TabDetailPanel({
   }
   const close = () => setOverlay({ kind: 'none' });
 
-  async function settle(
-    method: PaymentMethod,
-    amountIqd: number | null,
-    tenderedIqd: number | null,
-  ) {
+  async function settle(method: PaymentMethod, amountIqd: number | null, tenderedIqd: number | null) {
     setBusy(true);
     setActionError(null);
     try {
@@ -197,11 +169,7 @@ export function TabDetailPanel({
     setBusy(true);
     setActionError(null);
     try {
-      await appRpc('record_drawer_open', {
-        p_reason_code: reasonCode,
-        p_device_id: deviceId(),
-        p_tab_id: tabId,
-      });
+      await appRpc('record_drawer_open', { p_reason_code: reasonCode, p_device_id: deviceId(), p_tab_id: tabId });
       setDrawerNoted(true);
       close();
     } catch (e) {
@@ -270,12 +238,7 @@ export function TabDetailPanel({
         p_idempotency_key: crypto.randomUUID(),
         p_device_id: deviceId(),
       });
-      setPromoNotice({
-        tone: 'success',
-        text: tr('ws.cashier.detail.promoApplied', {
-          amount: formatIQD(Number(res?.amountIqd ?? 0), locale),
-        }),
-      });
+      setPromoNotice({ tone: 'success', text: tr('ws.cashier.detail.promoApplied', { amount: formatIQD(Number(res?.amountIqd ?? 0), locale) }) });
       setPromoCode('');
       refresh();
     } catch (e) {
@@ -294,15 +257,7 @@ export function TabDetailPanel({
   // ---- render ---------------------------------------------------------------
   if (tabQ.isError && !tab) {
     return (
-      <section
-        aria-label={tr('ws.cashier.till.regionTab')}
-        style={{
-          display: 'grid',
-          gap: 'var(--tp-sp-2)',
-          justifyItems: 'start',
-          paddingBlock: 'var(--tp-sp-3)',
-        }}
-      >
+      <section aria-label={tr('ws.cashier.till.regionTab')} style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
         <ErrorText error={tabQ.error} style={{ marginBlock: 0 }} />
         <Button icon="refresh" onClick={() => void tabQ.refetch()}>
           {tr('ws.kit.async.retry')}
@@ -317,15 +272,7 @@ export function TabDetailPanel({
       <section
         aria-label={tr('ws.cashier.till.regionTab')}
         aria-busy="true"
-        style={{
-          flex: '1 1 auto',
-          blockSize: '100%',
-          minBlockSize: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--tp-sp-3)',
-          paddingBlock: 'var(--tp-sp-3)',
-        }}
+        style={{ flex: '1 1 auto', blockSize: '100%', minBlockSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)', paddingBlock: 'var(--tp-sp-3)' }}
       >
         <Skeleton lines={1} blockSize="var(--tp-fs-2xl)" />
         <div style={{ flex: 1, minBlockSize: 0 }}>
@@ -340,8 +287,7 @@ export function TabDetailPanel({
   const liveOrders = tab.orders.filter((o) => o.status !== 'voided');
   const allLines = liveOrders.flatMap((o) => o.order_items);
   const partiallyPaid = !settled && totals.paid > 0 && due > 0;
-  const overrideLine =
-    overlay.kind === 'override' ? allLines.find((l) => l.id === overlay.lineId) : undefined;
+  const overrideLine = overlay.kind === 'override' ? allLines.find((l) => l.id === overlay.lineId) : undefined;
 
   // Rulebook 4.3 — no dead ends. Only STATE gets a reason here: `busy` is
   // already spoken by the spinner on the control the operator just pressed.
@@ -360,13 +306,7 @@ export function TabDetailPanel({
     <section
       aria-label={tr('ws.cashier.till.regionTab')}
       aria-busy={busy || undefined}
-      style={{
-        flex: '1 1 auto',
-        blockSize: '100%',
-        minBlockSize: 0,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
+      style={{ flex: '1 1 auto', blockSize: '100%', minBlockSize: 0, display: 'flex', flexDirection: 'column' }}
     >
       {/* ---- zone 1: identity, always on screen (rulebook 5.2) ---- */}
       <header
@@ -378,37 +318,14 @@ export function TabDetailPanel({
           borderBlockEnd: '1px solid var(--tp-border)',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 'var(--tp-sp-2)',
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 'var(--tp-fs-lg)',
-              fontWeight: 700,
-              minInlineSize: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+          <h2 style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <bdi>{label}</bdi>
           </h2>
           <TabStatusIndicator status={tab.status} size="sm" />
         </div>
         {tab.reservation_id && (
-          <span
-            style={{
-              ...muted,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--tp-sp-1)',
-            }}
-          >
+          <span style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
             <Icon name="calendar" size={13} /> {tr('ws.cashier.detail.chargedTo')}
             {tab.reservation?.court && (
               <>
@@ -421,32 +338,13 @@ export function TabDetailPanel({
       </header>
 
       {/* ---- zone 2: everything that grows ---- */}
-      <div
-        style={{
-          flex: 1,
-          minBlockSize: 0,
-          overflowY: 'auto',
-          display: 'grid',
-          gap: 'var(--tp-sp-3)',
-          alignContent: 'start',
-          paddingBlock: 'var(--tp-sp-3)',
-        }}
-      >
+      <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto', display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
         {/* ---- lines (TabLineList, sent = not editable, void = waste) ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
           <h3 style={sectionTitle}>{tr('ws.cashier.detail.linesTitle')}</h3>
           {allLines.length === 0 && <p style={muted}>{tr('ws.cashier.detail.noLines')}</p>}
           {liveOrders.map((o) => (
-            <ul
-              key={o.id}
-              style={{
-                listStyle: 'none',
-                margin: 0,
-                padding: 0,
-                display: 'grid',
-                gap: 'var(--tp-sp-1)',
-              }}
-            >
+            <ul key={o.id} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
               {o.order_items.map((line) => (
                 <TabLine
                   key={line.id}
@@ -463,55 +361,29 @@ export function TabDetailPanel({
               ))}
             </ul>
           ))}
-          {allLines.length > 0 && !settled && (
-            <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>
-              {tr('ws.cashier.detail.sentHint')}
-            </p>
-          )}
-          {voidRefused && (
-            <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />
-          )}
+          {allLines.length > 0 && !settled && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.sentHint')}</p>}
+          {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
         </div>
 
         {/* ---- totals (TabTotals + AppliedPromotionRow) ---- */}
-        <div
-          style={{
-            display: 'grid',
-            gap: 'var(--tp-sp-0)',
-            borderBlockStart: '1px solid var(--tp-border)',
-            paddingBlockStart: 'var(--tp-sp-2)',
-          }}
-        >
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-2)' }}>
           <Row label={tr('common.subtotal')} amount={totals.subtotal} />
-          {discounts.manager > 0 && (
-            <Row label={tr('ws.cashier.detail.managerDiscount')} amount={-discounts.manager} />
-          )}
+          {discounts.manager > 0 && <Row label={tr('ws.cashier.detail.managerDiscount')} amount={-discounts.manager} />}
           {discounts.promotion > 0 && (
             <Row
               label={
-                <span
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}
-                >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
                   <Icon name="tag" size={13} /> {tr('ws.cashier.detail.promoAppliedRow')}
                 </span>
               }
               amount={-discounts.promotion}
             />
           )}
-          {totals.tax > 0 && (
-            <Row
-              label={taxCtx?.taxInclusive ? tr('op.till.taxIncluded') : tr('op.till.tax')}
-              amount={totals.tax}
-            />
-          )}
+          {totals.tax > 0 && <Row label={taxCtx?.taxInclusive ? tr('op.till.taxIncluded') : tr('op.till.tax')} amount={totals.tax} />}
           <Row label={tr('common.total')} amount={totals.total} strong />
           {totals.paid > 0 && <Row label={tr('ws.cashier.detail.paid')} amount={-totals.paid} />}
-          {totals.paid > 0 && !settled && (
-            <Row label={tr('ws.cashier.detail.due')} amount={due} strong />
-          )}
-          {lastChange != null && lastChange > 0 && (
-            <Row label={tr('op.till.change')} amount={lastChange} strong tone="success" />
-          )}
+          {totals.paid > 0 && !settled && <Row label={tr('ws.cashier.detail.due')} amount={due} strong />}
+          {lastChange != null && lastChange > 0 && <Row label={tr('op.till.change')} amount={lastChange} strong tone="success" />}
         </div>
 
         {/*
@@ -519,17 +391,9 @@ export function TabDetailPanel({
           pay footer is deliberately not part of, so any combination of them can
           appear without the Cash button knowing about it.
         */}
-        {partiallyPaid && (
-          <MessagePresenter
-            tone="info"
-            icon="banknote"
-            message={tr('ws.cashier.payment.partiallyPaid', { amount: formatIQD(due, locale) })}
-          />
-        )}
+        {partiallyPaid && <MessagePresenter tone="info" icon="banknote" message={tr('ws.cashier.payment.partiallyPaid', { amount: formatIQD(due, locale) })} />}
         {settled && <MessagePresenter tone="success" message={tr('op.till.paidInFull')} />}
-        {drawerNoted && (
-          <MessagePresenter tone="success" icon="drawer" message={tr('op.till.drawerNoted')} />
-        )}
+        {drawerNoted && <MessagePresenter tone="success" icon="drawer" message={tr('op.till.drawerNoted')} />}
         <ErrorText error={actionError} />
 
         {/* ---- promotion (read-only result; the server chose it) ---- */}
@@ -537,10 +401,7 @@ export function TabDetailPanel({
           <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
             <h3 style={sectionTitle}>{tr('ws.cashier.detail.promoTitle')}</h3>
             <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'end' }}>
-              <Field
-                label={tr('ws.cashier.detail.promoCode')}
-                style={{ marginBlockEnd: 0, flex: 1 }}
-              >
+              <Field label={tr('ws.cashier.detail.promoCode')} style={{ marginBlockEnd: 0, flex: 1 }}>
                 <input
                   style={inputStyle}
                   value={promoCode}
@@ -556,23 +417,14 @@ export function TabDetailPanel({
               </Button>
             </div>
             {promoNotice && <MessagePresenter tone={promoNotice.tone} message={promoNotice.text} />}
-            <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>
-              {tr('ws.cashier.detail.promoHint')}
-            </p>
+            <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.promoHint')}</p>
           </div>
         )}
 
         {/* ---- actions ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
           <h3 style={sectionTitle}>{tr('ws.cashier.detail.actionsTitle')}</h3>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 'var(--tp-sp-1-5)',
-              alignItems: 'flex-start',
-            }}
-          >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)', alignItems: 'flex-start' }}>
             {!settled && (
               <>
                 <Button
@@ -583,25 +435,14 @@ export function TabDetailPanel({
                 >
                   {tr('ws.cashier.detail.split')}
                 </Button>
-                <Button
-                  icon="tag"
-                  disabled={busy}
-                  onClick={() => {
-                    setPinError(null);
-                    setOverlay({ kind: 'discount' });
-                  }}
-                >
+                <Button icon="tag" disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
                   {tr('ws.cashier.detail.discount')}
                 </Button>
                 <Button icon="merge" disabled={busy} onClick={() => setOverlay({ kind: 'merge' })}>
                   {tr('ws.cashier.detail.merge')}
                 </Button>
                 {!tab.reservation_id && (
-                  <Button
-                    icon="calendar"
-                    disabled={busy}
-                    onClick={() => setOverlay({ kind: 'charge' })}
-                  >
+                  <Button icon="calendar" disabled={busy} onClick={() => setOverlay({ kind: 'charge' })}>
                     {tr('ws.cashier.detail.chargeBooking')}
                   </Button>
                 )}
@@ -614,21 +455,13 @@ export function TabDetailPanel({
               {tr('op.till.openDrawer')}
             </Button>
             {tab.payments.length > 0 && (
-              <Button
-                kind="danger"
-                icon="undo"
-                disabled={busy}
-                onClick={() => setOverlay({ kind: 'refund' })}
-              >
+              <Button kind="danger" icon="undo" disabled={busy} onClick={() => setOverlay({ kind: 'refund' })}>
                 {tr('op.till.refund')}
               </Button>
             )}
           </div>
           {tab.payments.length > 0 && !can.refund && (
-            <PermissionRefusedNotice
-              action={tr('ws.cashier.detail.refundAction')}
-              requiredRole={requiredRoleFor('refund')}
-            />
+            <PermissionRefusedNotice action={tr('ws.cashier.detail.refundAction')} requiredRole={requiredRoleFor('refund')} />
           )}
         </div>
       </div>
@@ -640,27 +473,11 @@ export function TabDetailPanel({
         reserves the height of a disabled-reason line, so stating the reason
         cannot move the button the reason is about.
       */}
-      <div
-        style={{
-          flex: '0 0 auto',
-          borderBlockStart: '1px solid var(--tp-border)',
-          paddingBlock: 'var(--tp-sp-2-5)',
-          display: 'grid',
-          gap: 'var(--tp-sp-1-5)',
-        }}
-      >
+      <div style={{ flex: '0 0 auto', borderBlockStart: '1px solid var(--tp-border)', paddingBlock: 'var(--tp-sp-2-5)', display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
         {!settled ? (
           <>
             <h3 style={sectionTitle}>{tr('ws.cashier.payment.title')}</h3>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 'var(--tp-sp-1-5)',
-                alignItems: 'start',
-                minBlockSize: '5rem',
-              }}
-            >
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-1-5)', alignItems: 'start', minBlockSize: '5rem' }}>
               <Button
                 kind="primary"
                 size="xl"
@@ -697,13 +514,7 @@ export function TabDetailPanel({
             </div>
           </>
         ) : (
-          <Button
-            kind="primary"
-            size="lg"
-            icon="x"
-            onClick={onClosedTab}
-            style={{ inlineSize: '100%' }}
-          >
+          <Button kind="primary" size="lg" icon="x" onClick={onClosedTab} style={{ inlineSize: '100%' }}>
             {tr('ws.cashier.detail.close')}
           </Button>
         )}
@@ -711,24 +522,10 @@ export function TabDetailPanel({
 
       {/* ---- overlays ---- */}
       {overlay.kind === 'pay' && (
-        <PaymentPane
-          mode={overlay.method}
-          due={due}
-          busy={busy}
-          error={actionError}
-          onCancel={close}
-          onSettle={(m, a, t) => void settle(m, a, t)}
-        />
+        <PaymentPane mode={overlay.method} due={due} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t)} />
       )}
       {overlay.kind === 'split' && (
-        <SplitBillDialog
-          tabId={tabId}
-          lines={allLines}
-          due={due}
-          busy={busy}
-          onSettleShare={(amount) => void settle('cash', amount, amount)}
-          onClose={close}
-        />
+        <SplitBillDialog tabId={tabId} lines={allLines} due={due} busy={busy} onSettleShare={(amount) => void settle('cash', amount, amount)} onClose={close} />
       )}
       {overlay.kind === 'bill' && (
         <BillView
@@ -778,17 +575,8 @@ export function TabDetailPanel({
         />
       )}
       {overlay.kind === 'drawer' && (
-        <ReasonCodePrompt
-          action={tr('ws.cashier.payment.drawerAction')}
-          busy={busy}
-          error={actionError}
-          withNote={false}
-          onSubmit={(code) => void recordDrawerOpen(code)}
-          onCancel={close}
-        >
-          <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>
-            {tr('ws.cashier.drawer.openHint')}
-          </p>
+        <ReasonCodePrompt action={tr('ws.cashier.payment.drawerAction')} busy={busy} error={actionError} withNote={false} onSubmit={(code) => void recordDrawerOpen(code)} onCancel={close}>
+          <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
         </ReasonCodePrompt>
       )}
       {overrideLine && (
@@ -815,11 +603,7 @@ export function TabDetailPanel({
           onSubmit={(pin, reason) => void applyDiscount(pin, reason)}
         >
           <Field label={tr('op.till.discount')}>
-            <select
-              style={inputStyle}
-              value={discountKind}
-              onChange={(e) => setDiscountKind(e.target.value as typeof discountKind)}
-            >
+            <select style={inputStyle} value={discountKind} onChange={(e) => setDiscountKind(e.target.value as typeof discountKind)}>
               <option value="discount_percent">{tr('op.till.discountPercent')}</option>
               <option value="discount_amount">{tr('op.till.discountAmount')}</option>
             </select>
@@ -849,12 +633,7 @@ export function TabDetailPanel({
           }}
           onSubmit={(pin, reason) => void voidLine(overlay.lineId, pin, reason)}
         >
-          <MessagePresenter
-            tone="refused"
-            icon="alert"
-            message={tr('ws.cashier.detail.voidConsequence')}
-            style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
-          />
+          <MessagePresenter tone="refused" icon="alert" message={tr('ws.cashier.detail.voidConsequence')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
         </PinReasonModal>
       )}
     </section>
@@ -890,30 +669,17 @@ function TabLine({
       <span style={{ minInlineSize: 0, flex: 1 }}>
         <bdi>{name}</bdi>
         {line.voided && (
-          <span
-            style={{
-              ...muted,
-              fontSize: 'var(--tp-fs-xs)',
-              marginInlineStart: '0.4rem',
-              textDecoration: 'none',
-              display: 'inline-block',
-            }}
-          >
+          <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginInlineStart: '0.4rem', textDecoration: 'none', display: 'inline-block' }}>
             {tr('ws.cashier.detail.voided')}
           </span>
         )}
         {line.order_item_modifiers.length > 0 && (
           <span style={{ display: 'block', ...muted, fontSize: 'var(--tp-fs-xs)' }}>
-            {line.order_item_modifiers
-              .map((m) => pickName(locale, m.modifier))
-              .filter(Boolean)
-              .join(' · ')}
+            {line.order_item_modifiers.map((m) => pickName(locale, m.modifier)).filter(Boolean).join(' · ')}
           </span>
         )}
         {line.notes && (
-          <span
-            style={{ display: 'block', ...muted, fontSize: 'var(--tp-fs-xs)', fontStyle: 'italic' }}
-          >
+          <span style={{ display: 'block', ...muted, fontSize: 'var(--tp-fs-xs)', fontStyle: 'italic' }}>
             <bdi>{line.notes}</bdi>
           </span>
         )}
@@ -922,24 +688,8 @@ function TabLine({
         <Money amount={line.line_total_iqd} />
         {!line.voided && !settled && (
           <>
-            <Button
-              kind="ghost"
-              size="sm"
-              icon="tag"
-              disabled={busy}
-              title={tr('op.till.override')}
-              aria-label={`${tr('op.till.override')} — ${name}`}
-              onClick={onOverride}
-            />
-            <Button
-              kind="ghost"
-              size="sm"
-              icon="ban"
-              disabled={busy}
-              title={tr('ws.cashier.detail.voidLine')}
-              aria-label={`${tr('ws.cashier.detail.voidLine')} — ${name}`}
-              onClick={onVoid}
-            />
+            <Button kind="ghost" size="sm" icon="tag" disabled={busy} title={tr('op.till.override')} aria-label={`${tr('op.till.override')} — ${name}`} onClick={onOverride} />
+            <Button kind="ghost" size="sm" icon="ban" disabled={busy} title={tr('ws.cashier.detail.voidLine')} aria-label={`${tr('ws.cashier.detail.voidLine')} — ${name}`} onClick={onVoid} />
           </>
         )}
       </span>
@@ -948,27 +698,11 @@ function TabLine({
 }
 
 /** One totals row: <span>label</span><span>amount</span> — the e2e change assertion anchors on this shape. */
-function Row({
-  label,
-  amount,
-  strong,
-  tone,
-}: {
-  label: React.ReactNode;
-  amount: number;
-  strong?: boolean;
-  tone?: 'success';
-}) {
+function Row({ label, amount, strong, tone }: { label: React.ReactNode; amount: number; strong?: boolean; tone?: 'success' }) {
   const { locale } = useLocale();
   const negative = amount < 0;
   return (
-    <div
-      style={{
-        ...kvRow,
-        fontWeight: strong ? 700 : 400,
-        color: tone === 'success' ? 'var(--tp-success-fg)' : undefined,
-      }}
-    >
+    <div style={{ ...kvRow, fontWeight: strong ? 700 : 400, color: tone === 'success' ? 'var(--tp-success-fg)' : undefined }}>
       <span>{label}</span>
       <span dir="ltr" style={numeric}>
         {negative ? `−${formatIQD(-amount, locale)}` : formatIQD(amount, locale)}

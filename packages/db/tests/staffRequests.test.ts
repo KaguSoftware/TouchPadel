@@ -60,11 +60,7 @@ describe.skipIf(!up)('0072 staff requests', () => {
     // An advance with dates, and leave with no range: both are constraint
     // violations, not RPC errors, so the table stays honest even if a future
     // RPC forgets to check.
-    const bad = await submit(cashier, {
-      p_kind: 'advance',
-      p_from: '2026-10-01',
-      p_amount_iqd: 1000,
-    });
+    const bad = await submit(cashier, { p_kind: 'advance', p_from: '2026-10-01', p_amount_iqd: 1000 });
     expect(bad.ok).toBe(false);
 
     const noRange = await submit(cashier, { p_kind: 'leave' });
@@ -107,15 +103,11 @@ describe.skipIf(!up)('0072 staff requests', () => {
       .single();
     const id = (data as { id: string }).id;
 
-    const byManager = outcome(
-      await appRpc(manager, 'decide_staff_request', { p_id: id, p_approve: true }),
-    );
+    const byManager = outcome(await appRpc(manager, 'decide_staff_request', { p_id: id, p_approve: true }));
     expect(byManager.ok).toBe(false);
     expect(byManager.errorMessage).toContain('FORBIDDEN');
 
-    const byOwner = outcome(
-      await appRpc(owner, 'decide_staff_request', { p_id: id, p_approve: true }),
-    );
+    const byOwner = outcome(await appRpc(owner, 'decide_staff_request', { p_id: id, p_approve: true }));
     expect(byOwner.ok, byOwner.errorMessage).toBe(true);
   });
 
@@ -127,37 +119,23 @@ describe.skipIf(!up)('0072 staff requests', () => {
       .limit(1)
       .single();
     const again = outcome(
-      await appRpc(owner, 'decide_staff_request', {
-        p_id: (data as { id: string }).id,
-        p_approve: false,
-        p_note: 'x',
-      }),
+      await appRpc(owner, 'decide_staff_request', { p_id: (data as { id: string }).id, p_approve: false, p_note: 'x' }),
     );
     expect(again.ok).toBe(false);
     expect(again.errorMessage).toContain('REQUEST_NOT_PENDING');
   });
 
   it('requires a reason to decline, and records it', async () => {
-    const made = await submit(cashier, {
-      p_kind: 'correction',
-      p_from: '2026-09-01',
-      p_note: 'I worked this shift',
-    });
+    const made = await submit(cashier, { p_kind: 'correction', p_from: '2026-09-01', p_note: 'I worked this shift' });
     expect(made.ok, made.errorMessage).toBe(true);
     const id = made.data as unknown as string;
 
-    const noReason = outcome(
-      await appRpc(owner, 'decide_staff_request', { p_id: id, p_approve: false }),
-    );
+    const noReason = outcome(await appRpc(owner, 'decide_staff_request', { p_id: id, p_approve: false }));
     expect(noReason.ok).toBe(false);
     expect(noReason.errorMessage).toContain('REASON_REQUIRED');
 
     const withReason = outcome(
-      await appRpc(owner, 'decide_staff_request', {
-        p_id: id,
-        p_approve: false,
-        p_note: 'roster shows otherwise',
-      }),
+      await appRpc(owner, 'decide_staff_request', { p_id: id, p_approve: false, p_note: 'roster shows otherwise' }),
     );
     expect(withReason.ok, withReason.errorMessage).toBe(true);
     const row = withReason.data as { status: string; decision_note: string; decided_by: string };
@@ -170,21 +148,14 @@ describe.skipIf(!up)('0072 staff requests', () => {
     const own = await submit(owner, { p_kind: 'leave', p_from: '2026-12-01', p_to: '2026-12-02' });
     expect(own.ok, own.errorMessage).toBe(true);
     const res = outcome(
-      await appRpc(owner, 'decide_staff_request', {
-        p_id: own.data as unknown as string,
-        p_approve: true,
-      }),
+      await appRpc(owner, 'decide_staff_request', { p_id: own.data as unknown as string, p_approve: true }),
     );
     expect(res.ok).toBe(false);
     expect(res.errorMessage).toContain('CANNOT_DECIDE_OWN');
   });
 
   it('lets the requester withdraw, but nobody else', async () => {
-    const made = await submit(cashier, {
-      p_kind: 'shift_swap',
-      p_from: '2026-11-01',
-      p_to: '2026-11-02',
-    });
+    const made = await submit(cashier, { p_kind: 'shift_swap', p_from: '2026-11-01', p_to: '2026-11-02' });
     const id = made.data as unknown as string;
 
     const byOther = outcome(await appRpc(manager, 'withdraw_staff_request', { p_id: id }));
@@ -193,11 +164,7 @@ describe.skipIf(!up)('0072 staff requests', () => {
     const byOwnerOfRow = outcome(await appRpc(cashier, 'withdraw_staff_request', { p_id: id }));
     expect(byOwnerOfRow.ok, byOwnerOfRow.errorMessage).toBe(true);
 
-    const { data } = await svc
-      .from('staff_requests')
-      .select('status, decided_by')
-      .eq('id', id)
-      .single();
+    const { data } = await svc.from('staff_requests').select('status, decided_by').eq('id', id).single();
     // A withdrawal is the requester's own act, so it carries no decider.
     expect(data).toMatchObject({ status: 'withdrawn', decided_by: null });
   });
@@ -206,9 +173,7 @@ describe.skipIf(!up)('0072 staff requests', () => {
     // Regression guard: withdraw used to reach its NOT_FOUND before any role
     // check, which told an anonymous scanner which request ids exist.
     const guest = await anonymousSessionClient();
-    const res = outcome(
-      await appRpc(guest, 'withdraw_staff_request', { p_id: crypto.randomUUID() }),
-    );
+    const res = outcome(await appRpc(guest, 'withdraw_staff_request', { p_id: crypto.randomUUID() }));
     expect(res.ok).toBe(false);
     expect(res.errorMessage).toContain('FORBIDDEN');
   });

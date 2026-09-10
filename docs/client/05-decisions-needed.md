@@ -10,7 +10,7 @@ SOW section 10.
 
 The system trades in a **single currency, Iraqi dinar (IQD)**, whole dinars, no decimals.
 The SOW is explicit: dual currency (e.g. USD alongside IQD) is **not** in this scope and would
-be quoted as an addition. Please confirm: _"IQD single currency, confirmed."_
+be quoted as an addition. Please confirm: *"IQD single currency, confirmed."*
 
 النظام يعمل بعملة واحدة: الدينار العراقي. العملة المزدوجة خارج النطاق وتُسعّر كإضافة. يرجى التأكيد كتابياً.
 
@@ -18,7 +18,7 @@ be quoted as an addition. Please confirm: _"IQD single currency, confirmed."_
 
 Default is **0% on everything until your accountant decides otherwise**. If any item group
 carries tax (e.g. food vs. drinks treated differently), we need the rate **per item group**,
-in writing, from the accountant. Confirm either: _"0% across the board"_ or send the rates.
+in writing, from the accountant. Confirm either: *"0% across the board"* or send the rates.
 
 الافتراضي ٠٪ على كل شيء حتى يقرر المحاسب غير ذلك. إن وجدت ضريبة، نحتاج النسبة لكل مجموعة أصناف كتابياً.
 

@@ -101,9 +101,10 @@ describe.skipIf(!up)('Apple account-deletion token revocation', () => {
     expect(source, 'the stub must say why it is a stub').toMatch(/\.p8/);
     // Comment text wraps, so compare on collapsed whitespace rather than raw.
     const prose = source.replace(/\s*\n\s*\*?\s*/g, ' ');
-    expect(prose, 'the stub must name what unblocks it, so it survives a lost session').toContain(
-      'Apple Developer enrolment',
-    );
+    expect(
+      prose,
+      'the stub must name what unblocks it, so it survives a lost session',
+    ).toContain('Apple Developer enrolment');
   });
 
   /**

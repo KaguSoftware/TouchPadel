@@ -12,7 +12,6 @@ floor this same file sets, `--tp-touch` at 38.5px against a documented 44px, and
 reading size can never move a finger target again.
 
 ## Scene, and why the theme is what it is
-
 "A cashier at a Windows till under bright cafe lighting, glancing between the screen and a
 guest, needs to find Cappuccino in one second; a wall-mounted kitchen display is read from three
 metres through steam; the owner reads a week's numbers on a laptop at night." The bright rooms
@@ -20,44 +19,43 @@ force a light, paper-like surface for desk, till, manager and owner. The kitchen
 high-contrast board with large type. Both are decided by the room, not by the category.
 
 ## Color (OKLCH, all neutrals tinted toward the brand blue hue 262)
-
 Strategy: **Restrained**. One accent (Touch Blue) on primary actions, selection and focus,
 under 10% of any surface. Padel Green is a semantic colour (live, ready, arrived, success), not
 decoration. The navigation rail is the single committed brand surface: deep navy ink carrying
 the court-line motif at low opacity.
 
-| Token                                             | Value                                | Use                                      |
-| ------------------------------------------------- | ------------------------------------ | ---------------------------------------- |
-| `--tp-bg`                                         | oklch(98.5% 0.004 260)               | page ground                              |
-| `--tp-surface`                                    | oklch(99.4% 0.002 260)               | panels, tiles, tables                    |
-| `--tp-surface-2`                                  | oklch(96.4% 0.006 260)               | toolbars, table heads, secondary panels  |
-| `--tp-fg`                                         | oklch(22% 0.03 260)                  | text                                     |
-| `--tp-muted-fg`                                   | oklch(48% 0.025 260)                 | secondary text (≥ 4.5:1 on bg)           |
-| `--tp-border`                                     | oklch(90% 0.01 260)                  | hairlines                                |
-| `--tp-border-strong`                              | oklch(82% 0.015 260)                 | inputs, focused rows                     |
-| `--tp-accent`                                     | **#3360AB** (`var(--tp-brand-blue)`) | primary action, selection                |
-| `--tp-accent-hover`                               | oklch(42% 0.13 260)                  |                                          |
-| `--tp-accent-soft`                                | oklch(94% 0.03 260)                  | selected row / chip ground               |
-| `--tp-success` / `-soft` / `-fg`                  | **#A5D06F**, hue 128.68              | live, ready, arrived                     |
-| `--tp-warn` / `-soft` / `-fg`                     | amber 75 hue                         | attention, ageing                        |
-| `--tp-danger` / `-soft` / `-fg`                   | red 27 hue                           | refused, void, stale                     |
-| `--tp-*-mark`                                     | ~58% lightness                       | dots, small icons, 2px rules — see below |
-| `--tp-border-input`                               | oklch(65% 0.02 260)                  | control boundaries; clears 3:1           |
-| `--tp-skeleton`                                   | oklch(90% 0.012 260)                 | the loading ground                       |
-| `--tp-rail` / `--tp-rail-fg` / `--tp-rail-active` | navy ink family                      | workspace navigation                     |
-| `--tp-kds-bg` / `--tp-kds-card` / `--tp-kds-fg`   | dark family                          | kitchen display only                     |
+| Token | Value | Use |
+|---|---|---|
+| `--tp-bg` | oklch(98.5% 0.004 260) | page ground |
+| `--tp-surface` | oklch(99.4% 0.002 260) | panels, tiles, tables |
+| `--tp-surface-2` | oklch(96.4% 0.006 260) | toolbars, table heads, secondary panels |
+| `--tp-fg` | oklch(22% 0.03 260) | text |
+| `--tp-muted-fg` | oklch(48% 0.025 260) | secondary text (≥ 4.5:1 on bg) |
+| `--tp-border` | oklch(90% 0.01 260) | hairlines |
+| `--tp-border-strong` | oklch(82% 0.015 260) | inputs, focused rows |
+| `--tp-accent` | **#3360AB** (`var(--tp-brand-blue)`) | primary action, selection |
+| `--tp-accent-hover` | oklch(42% 0.13 260) | |
+| `--tp-accent-soft` | oklch(94% 0.03 260) | selected row / chip ground |
+| `--tp-success` / `-soft` / `-fg` | **#A5D06F**, hue 128.68 | live, ready, arrived |
+| `--tp-warn` / `-soft` / `-fg` | amber 75 hue | attention, ageing |
+| `--tp-danger` / `-soft` / `-fg` | red 27 hue | refused, void, stale |
+| `--tp-*-mark` | ~58% lightness | dots, small icons, 2px rules — see below |
+| `--tp-border-input` | oklch(65% 0.02 260) | control boundaries; clears 3:1 |
+| `--tp-skeleton` | oklch(90% 0.012 260) | the loading ground |
+| `--tp-rail` / `--tp-rail-fg` / `--tp-rail-active` | navy ink family | workspace navigation |
+| `--tp-kds-bg` / `--tp-kds-card` / `--tp-kds-fg` | dark family | kitchen display only |
 
 ### The palette is closed
 
 Five colours exist, and they are spelled exactly — never approximated in OKLCH, never eyedropped:
 
-|             |           |                              |
-| ----------- | --------- | ---------------------------- |
-| Touch Blue  | `#3360AB` | `oklch(49.65% 0.13 260.02)`  |
+| | | |
+|---|---|---|
+| Touch Blue | `#3360AB` | `oklch(49.65% 0.13 260.02)` |
 | Padel Green | `#A5D06F` | `oklch(80.51% 0.134 128.68)` |
-| Brand Gray  | `#BCBDBF` | `oklch(79.82% 0.003 264.54)` |
-| Black       | `#000000` |                              |
-| White       | `#FFFFFF` |                              |
+| Brand Gray | `#BCBDBF` | `oklch(79.82% 0.003 264.54)` |
+| Black | `#000000` | |
+| White | `#FFFFFF` | |
 
 Every accent token is a `var()` alias onto one of them, so the identity cannot drift a second
 time — it already had: `--tp-accent` was `oklch(47% 0.13 262)`, which renders **#3057A3**, and the
@@ -95,7 +93,6 @@ the swoosh path and nothing else — not text, not a border, not a divider, not 
 The court-line motif has two call sites (rail head, lock overlay).
 
 ## Typography
-
 One family for UI, and here that is literal: **Lama Sans** carries Latin and Arabic in the same
 faces, so the operator never swaps family with locale. Windows-only target, so the stack leads
 with it and falls back to `Segoe UI Variable` / `Segoe UI`, which covers Arabic well without a
@@ -105,19 +102,16 @@ read. Numerals are always tabular. Scale (rem): 0.75 · 0.8125 · 0.875 (base) �
 prose ≤ 70ch.
 
 ## Spacing and shape
-
 4px base. Common steps: 4 · 8 · 12 · 16 · 24 · 32. Radius: 6px controls, 10px panels, pill
 for badges. Elevation is a border first; shadow only on overlays (dialogs, sheets, toasts).
 
 ## Density
-
 Tables: 40px rows (`--tp-row-h`), 34px dense (`--tp-row-h-dense`). Till tiles ≥ 72px
 (`--tp-tile-min-block`). 44px minimum touch target (`--tp-touch`) everywhere on till and
 kitchen. Forms: 8px between label and control, 16px between fields. These are tokens, and they
 are px — do not re-type the numbers.
 
 ## Components (shared vocabulary)
-
 Button (primary / default / danger / ghost; every one accepts `busy`), Field, Input, Select,
 Tabs, Modal, ConfirmationDialog, PinPromptOverlay, ReasonCodePrompt, AsyncStateWrapper,
 DataTable, StatusIndicator (booking / payment / ticket / tab), HeadlineFigure, ComparisonDelta,
@@ -125,7 +119,6 @@ PermissionRefusedNotice, ConflictNotice, MessagePresenter, DegradedBanner, Works
 BilingualFieldPair, SearchField, Pagination, EmptyState, Skeleton, Spinner, Icon.
 
 ## States
-
 Every interactive component: default, hover, focus-visible (2px accent ring, 2px offset),
 active, disabled (opacity .5, `not-allowed`), busy (spinner in place of label, non-actionable).
 Every data screen: loading (skeleton), ready, empty (teaches the next action), error (retry).
@@ -156,7 +149,6 @@ as a dead glyph while the app is still working. Everything else respects
 `prefers-reduced-motion`.
 
 ## Direction and language
-
 Logical properties only (lint-enforced). `dir` on `<html>` flips the document; no mirrored
 stylesheet. Latin fragments inside Arabic strings go through `isolate()`. All formatting
 through `@touch/i18n` formatters.

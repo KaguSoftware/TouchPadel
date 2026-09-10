@@ -66,11 +66,7 @@ export function DirectionRoot({ children }: { children: ReactNode }) {
       <Animated.View
         style={[
           StyleSheet.absoluteFill,
-          {
-            backgroundColor: colors.bg,
-            opacity: cover,
-            pointerEvents: switching ? 'auto' : 'none',
-          },
+          { backgroundColor: colors.bg, opacity: cover, pointerEvents: switching ? 'auto' : 'none' },
         ]}
       />
       {/* Painted from the theme switch's own color, which lags the commit by a

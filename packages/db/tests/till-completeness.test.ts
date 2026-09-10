@@ -193,10 +193,7 @@ describe.skipIf(!up)('0053 till completeness', () => {
         })
         .select('id')
         .single();
-      await svc
-        .from('tabs')
-        .update({ reservation_id: (data as { id: string }).id })
-        .eq('id', tabId);
+      await svc.from('tabs').update({ reservation_id: (data as { id: string }).id }).eq('id', tabId);
       expect((await totals(tabId)).court_iqd).toBe(0);
     });
 
@@ -335,10 +332,7 @@ describe.skipIf(!up)('0053 till completeness', () => {
       const tabId = await openTab('split-court');
       await addItem(tabId, itemA);
       await addItem(tabId, itemB);
-      await svc
-        .from('tabs')
-        .update({ reservation_id: (r as { id: string }).id })
-        .eq('id', tabId);
+      await svc.from('tabs').update({ reservation_id: (r as { id: string }).id }).eq('id', tabId);
       const ids = await liveItemIds(tabId);
 
       const res = await appRpc(cashier, 'split_by_item', {
@@ -491,11 +485,7 @@ describe.skipIf(!up)('0053 till completeness', () => {
         .select('status, merged_into_tab_id, total_iqd')
         .eq('id', tabId)
         .single();
-      return data as {
-        status: string;
-        merged_into_tab_id: string | null;
-        total_iqd: number | null;
-      };
+      return data as { status: string; merged_into_tab_id: string | null; total_iqd: number | null };
     }
 
     it('voids an untouched tab, and does not pretend it was merged', async () => {
@@ -521,11 +511,7 @@ describe.skipIf(!up)('0053 till completeness', () => {
         .eq('action', 'tab.cancel')
         .eq('entity_id', tabId)
         .single();
-      const row = data as {
-        actor_id: string | null;
-        before: { status: string };
-        after: { status: string };
-      };
+      const row = data as { actor_id: string | null; before: { status: string }; after: { status: string } };
       expect(row.actor_id).not.toBeNull();
       expect(row.before.status).toBe('open');
       expect(row.after.status).toBe('void');
@@ -555,11 +541,7 @@ describe.skipIf(!up)('0053 till completeness', () => {
       // Inserted directly so this hits the payments branch rather than the
       // orders branch, which fires first on any tab with a real bill.
       const tabId = await openTab('cancel-paid');
-      const { data: tab } = await svc
-        .from('tabs')
-        .select('day_session_id')
-        .eq('id', tabId)
-        .single();
+      const { data: tab } = await svc.from('tabs').select('day_session_id').eq('id', tabId).single();
       const { error } = await svc.from('payments').insert({
         tab_id: tabId,
         day_session_id: (tab as { day_session_id: string }).day_session_id,

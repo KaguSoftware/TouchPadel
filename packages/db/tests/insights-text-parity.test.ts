@@ -20,9 +20,7 @@ describe('insightsText edge copy', () => {
     const core = normalizeEol(readFileSync(CORE, 'utf8'));
     const copyLines = normalizeEol(readFileSync(COPY, 'utf8')).split('\n');
     const header = copyLines.slice(0, HEADER_LINES);
-    expect(header[0]).toMatch(
-      /^\/\/ COPY — keep in sync with packages\/core\/src\/analytics\/insightsText\.ts/,
-    );
+    expect(header[0]).toMatch(/^\/\/ COPY — keep in sync with packages\/core\/src\/analytics\/insightsText\.ts/);
     expect(header.every((l) => l.startsWith('//'))).toBe(true);
     expect(copyLines.slice(HEADER_LINES).join('\n')).toBe(core);
   });

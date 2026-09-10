@@ -10,16 +10,16 @@ Nothing before §C changes what guests see.
 
 ## A. Owner side — decide and contract (blocks everything below)
 
-| #   | Decision / item                  | Notes                                                                                                                                                                                                                                    |
-| --- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1  | **Provider and channel (D4a)**   | Recommended: an Iraqi aggregator with WhatsApp-first + SMS fallback (direct Zain / Asiacell / Korek routes; e.g. OTPIQ). Alternative: Twilio. Whatever is chosen, the account is Touch's and the per-message cost is on Touch's invoice. |
-| A2  | **Alphanumeric sender id**       | Register "TouchPadel" (or the brand's chosen sender). Asiacell requires pre-registration; Zain and Korek drop numeric senders. Without it delivery is best-effort.                                                                       |
-| A3  | **WhatsApp channel** (if chosen) | Meta business verification on the vendor's platform: allow one to two weeks.                                                                                                                                                             |
-| A4  | **Scope (D4b)**                  | Extra method beside email + social (recommended first), or the default button.                                                                                                                                                           |
-| A5  | **Desk-account claim (D4c)**     | Yes = run §D. No = staff correct numbers first; desk-created walk-ins keep signing in by "forgot password" (real email) only.                                                                                                            |
-| A6  | **Iraq-only (D4d)**              | Keep `{964}` (recommended) or list the extra country codes.                                                                                                                                                                              |
-| A7  | **Hand over the vendor API key** | Never in chat or a shared document — see `API.md` "How to hand these over".                                                                                                                                                              |
-| A8  | **Written record**               | Decisions D4a–D4d recorded alongside D1–D3 (the social sign-in decisions); it is a vendor addition outside the SOW, like social sign-in.                                                                                                 |
+| # | Decision / item | Notes |
+|---|---|---|
+| A1 | **Provider and channel (D4a)** | Recommended: an Iraqi aggregator with WhatsApp-first + SMS fallback (direct Zain / Asiacell / Korek routes; e.g. OTPIQ). Alternative: Twilio. Whatever is chosen, the account is Touch's and the per-message cost is on Touch's invoice. |
+| A2 | **Alphanumeric sender id** | Register "TouchPadel" (or the brand's chosen sender). Asiacell requires pre-registration; Zain and Korek drop numeric senders. Without it delivery is best-effort. |
+| A3 | **WhatsApp channel** (if chosen) | Meta business verification on the vendor's platform: allow one to two weeks. |
+| A4 | **Scope (D4b)** | Extra method beside email + social (recommended first), or the default button. |
+| A5 | **Desk-account claim (D4c)** | Yes = run §D. No = staff correct numbers first; desk-created walk-ins keep signing in by "forgot password" (real email) only. |
+| A6 | **Iraq-only (D4d)** | Keep `{964}` (recommended) or list the extra country codes. |
+| A7 | **Hand over the vendor API key** | Never in chat or a shared document — see `API.md` "How to hand these over". |
+| A8 | **Written record** | Decisions D4a–D4d recorded alongside D1–D3 (the social sign-in decisions); it is a vendor addition outside the SOW, like social sign-in. |
 
 ## B. Pre-activation audit (us, read-only, 10 minutes)
 

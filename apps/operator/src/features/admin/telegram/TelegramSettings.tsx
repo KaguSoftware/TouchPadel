@@ -16,13 +16,7 @@ import { Button, Field, Select, Skeleton, Spinner, Tabs, inputStyle } from '../.
 import { PageHeader, StatusBadge } from '../../../components/kit';
 import { SettingsGroup, SettingsRow, settingField } from '../settings/SettingsList';
 import { isValidChatId, normalizeChatId } from './chatId';
-import {
-  OUTBOX_QUERY_KEY,
-  OutboxList,
-  StatusChip,
-  type OutboxRow,
-  type OutboxStatus,
-} from './OutboxList';
+import { OUTBOX_QUERY_KEY, OutboxList, StatusChip, type OutboxRow, type OutboxStatus } from './OutboxList';
 
 const POLL_MS = 2_000;
 const POLL_FOR_MS = 20_000;
@@ -112,10 +106,7 @@ export function TelegramSettings() {
 
   return (
     <div style={{ maxInlineSize: 'var(--tp-measure-form)' }}>
-      <PageHeader
-        title={tr('op.telegram.title')}
-        subtitle={tr('ws.manager.settings.telegram.lead')}
-      />
+      <PageHeader title={tr('op.telegram.title')} subtitle={tr('ws.manager.settings.telegram.lead')} />
       <Tabs
         value={tab}
         onChange={setTab}
@@ -168,11 +159,7 @@ export function TelegramSettings() {
                 style={settingField}
               >
                 <input
-                  style={{
-                    ...inputStyle,
-                    maxInlineSize: '16rem',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
+                  style={{ ...inputStyle, maxInlineSize: '16rem', fontVariantNumeric: 'tabular-nums' }}
                   dir="ltr"
                   inputMode="numeric"
                   autoComplete="off"
@@ -180,19 +167,12 @@ export function TelegramSettings() {
                   value={chatId}
                   onChange={(e) => setChatId(normalizeChatId(e.target.value))}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && chatDirty && (chatValid || chatId === ''))
-                      void saveChatId();
+                    if (e.key === 'Enter' && chatDirty && (chatValid || chatId === '')) void saveChatId();
                   }}
                 />
               </Field>
               <details style={{ fontSize: 'var(--tp-fs-sm)' }}>
-                <summary
-                  style={{
-                    cursor: 'pointer',
-                    color: 'var(--tp-accent)',
-                    minBlockSize: 'var(--tp-row-h-dense)',
-                  }}
-                >
+                <summary style={{ cursor: 'pointer', color: 'var(--tp-accent)', minBlockSize: 'var(--tp-row-h-dense)' }}>
                   {tr('op.telegram.howToFind')}
                 </summary>
                 <ol style={{ paddingInlineStart: 'var(--tp-sp-5)', lineHeight: 1.6 }}>
@@ -205,11 +185,7 @@ export function TelegramSettings() {
             </SettingsRow>
 
             <SettingsRow>
-              <Field
-                label={tr('op.telegram.lang')}
-                hint={tr('ws.manager.settings.telegram.langHint')}
-                style={settingField}
-              >
+              <Field label={tr('op.telegram.lang')} hint={tr('ws.manager.settings.telegram.langHint')} style={settingField}>
                 <Select<TelegramLang>
                   value={settings.telegram_lang}
                   style={{ maxInlineSize: '12rem' }}
@@ -218,9 +194,7 @@ export function TelegramSettings() {
                     { value: 'en', label: tr('op.telegram.langEn') },
                   ]}
                   onChange={(next) =>
-                    setSetting
-                      .mutateAsync({ key: 'telegram_lang', value: next })
-                      .catch((e) => toast.err(e))
+                    setSetting.mutateAsync({ key: 'telegram_lang', value: next }).catch((e) => toast.err(e))
                   }
                 />
               </Field>
@@ -236,14 +210,7 @@ export function TelegramSettings() {
                 </>
               }
             >
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 'var(--tp-sp-2-5)',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center', flexWrap: 'wrap' }}>
                 <Button
                   icon="bell"
                   disabled={!configured || test.phase === 'polling'}
@@ -260,18 +227,12 @@ export function TelegramSettings() {
                   <>
                     <Spinner size="xs" />
                     <StatusChip status={test.status} />
-                    <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-                      {tr('op.telegram.sending')}
-                    </span>
+                    <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.telegram.sending')}</span>
                   </>
                 )}
-                {(test.phase === 'done' || test.phase === 'timeout') && (
-                  <StatusChip status={test.status} />
-                )}
+                {(test.phase === 'done' || test.phase === 'timeout') && <StatusChip status={test.status} />}
                 {test.phase === 'timeout' && (
-                  <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-                    {tr('op.telegram.testTimeout')}
-                  </span>
+                  <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.telegram.testTimeout')}</span>
                 )}
               </div>
               {test.phase !== 'idle' && test.lastError && (

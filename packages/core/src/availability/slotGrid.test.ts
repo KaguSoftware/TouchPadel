@@ -76,7 +76,9 @@ describe('buildSlotGrid — grid generation', () => {
       ['00:00', '02:00'],
       ['09:00', '24:00'],
     ];
-    const [grid] = buildSlotGrid(base({ openingHours: { mon: TOUCH_DAY }, slotIncrementMin: 30 }));
+    const [grid] = buildSlotGrid(
+      base({ openingHours: { mon: TOUCH_DAY }, slotIncrementMin: 30 }),
+    );
     const starts = (grid?.slots ?? []).map((s) => s.startAt.getTime()).sort((a, b) => a - b);
 
     expect(starts).toContain(at('00:00').getTime());

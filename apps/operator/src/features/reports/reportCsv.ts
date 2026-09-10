@@ -25,9 +25,7 @@ export function reportCsv(
   const headers = columns.map(labelOf);
   const body: CsvCell[][] = rows.map((r) => columns.map((c) => cell(r[c.key])));
   if (totals && Object.keys(totals).length > 0) {
-    body.push(
-      columns.map((c, i) => (i === 0 && totals[c.key] == null ? totalsLabel : cell(totals[c.key]))),
-    );
+    body.push(columns.map((c, i) => (i === 0 && totals[c.key] == null ? totalsLabel : cell(totals[c.key]))));
   }
   return toCsv(headers, body);
 }
@@ -35,11 +33,7 @@ export function reportCsv(
 const SAFE = /[^a-z0-9-]+/gi;
 
 /** `courts_2026-09-01_2026-09-30_view-byHour_court-1a2b3c4d.csv` */
-export function reportFilename(
-  base: string,
-  period: Period,
-  filters: Record<string, string | undefined | null>,
-): string {
+export function reportFilename(base: string, period: Period, filters: Record<string, string | undefined | null>): string {
   const parts = [base, period.from, period.to];
   for (const [k, v] of Object.entries(filters)) {
     if (!v) continue;

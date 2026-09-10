@@ -18,9 +18,7 @@ export interface PrinterConfig {
   port?: number;
 }
 
-async function renderToBitmap(
-  html: string,
-): Promise<{ bgra: Buffer; width: number; height: number }> {
+async function renderToBitmap(html: string): Promise<{ bgra: Buffer; width: number; height: number }> {
   const win = new BrowserWindow({
     show: false,
     width: RECEIPT_WIDTH_PX,
@@ -42,10 +40,9 @@ async function renderToBitmap(
     win.setContentSize(RECEIPT_WIDTH_PX, Math.max(64, Math.min(contentHeight, 20_000)));
     await new Promise((r) => setTimeout(r, 100));
     const image = await win.webContents.capturePage();
-    const sized =
-      image.getSize().width === RECEIPT_WIDTH_PX
-        ? image
-        : image.resize({ width: RECEIPT_WIDTH_PX });
+    const sized = image.getSize().width === RECEIPT_WIDTH_PX
+      ? image
+      : image.resize({ width: RECEIPT_WIDTH_PX });
     const { width, height } = sized.getSize();
     return { bgra: sized.toBitmap(), width, height };
   } finally {

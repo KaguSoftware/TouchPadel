@@ -1,6 +1,6 @@
 // .mjs on purpose: @touch/config is `"type": "module"` and its preset uses ESM
 // `import` — same choice as the apps. Before this file `pnpm turbo lint`
-// skipped this package silently because it had no `lint` script — and this is
+// skipped this package silently because it had no `lint` script. This is
 // the package whose whole point is the logical-property rule the guard enforces.
 import { base, react } from '@touch/config/eslint';
 

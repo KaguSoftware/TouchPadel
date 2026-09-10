@@ -1,19 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  FIGURE_KEYS,
-  FIGURES,
-  figuresIn,
-  figuresToCsvRows,
-  mapFigures,
-  panelIsEmpty,
-} from './figures';
+import { FIGURE_KEYS, FIGURES, figuresIn, figuresToCsvRows, mapFigures, panelIsEmpty } from './figures';
 
 describe('figure metadata', () => {
   it('covers the twelve panel figures, each in exactly one group', () => {
     expect(FIGURE_KEYS).toHaveLength(12);
-    const all = [...figuresIn('headline'), ...figuresIn('padel'), ...figuresIn('cafe')].map(
-      (f) => f.key,
-    );
+    const all = [...figuresIn('headline'), ...figuresIn('padel'), ...figuresIn('cafe')].map((f) => f.key);
     expect([...all].sort()).toEqual([...FIGURE_KEYS].sort());
   });
   it('inverts the figures where a rise is bad', () => {
@@ -46,24 +37,10 @@ describe('panelIsEmpty', () => {
   it('is empty with no figures or only nulls and zeros', () => {
     expect(panelIsEmpty(null)).toBe(true);
     expect(panelIsEmpty({ figures: [] })).toBe(true);
-    expect(
-      panelIsEmpty({
-        figures: [
-          { key: 'revenue', value: 0 },
-          { key: 'orders', value: null },
-        ],
-      }),
-    ).toBe(true);
+    expect(panelIsEmpty({ figures: [{ key: 'revenue', value: 0 }, { key: 'orders', value: null }] })).toBe(true);
   });
   it('is not empty once any figure has a value', () => {
-    expect(
-      panelIsEmpty({
-        figures: [
-          { key: 'revenue', value: 0 },
-          { key: 'orders', value: 3 },
-        ],
-      }),
-    ).toBe(false);
+    expect(panelIsEmpty({ figures: [{ key: 'revenue', value: 0 }, { key: 'orders', value: 3 }] })).toBe(false);
   });
 });
 

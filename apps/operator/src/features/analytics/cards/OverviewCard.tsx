@@ -69,11 +69,7 @@ export function OverviewCard({
         itemConversion: derived.itemConversion,
         abandonedViews: derived.abandoned,
         bestSellers: derived.soldTotals
-          .map((s) => ({
-            ...(derived.names.get(s.id) ?? { id: s.id, nameEn: s.id, nameAr: s.id }),
-            qty: s.qty,
-            revenueIqd: s.revenueIqd,
-          }))
+          .map((s) => ({ ...(derived.names.get(s.id) ?? { id: s.id, nameEn: s.id, nameAr: s.id }), qty: s.qty, revenueIqd: s.revenueIqd }))
           .sort((a, b) => b.qty - a.qty),
         menuEngineering: derived.menuEngineering,
       },
@@ -81,26 +77,14 @@ export function OverviewCard({
     );
   }, [derived, preset, tr, f, locale]);
 
-  const empty =
-    overview !== null &&
-    overview.strengths.length === 0 &&
-    overview.push.length === 0 &&
-    overview.watch.length === 0;
+  const empty = overview !== null && overview.strengths.length === 0 && overview.push.length === 0 && overview.watch.length === 0;
 
   return (
     <CardShell
       title={tr('analytics.overview.title')}
       state={state === 'ready' && (overview === null || empty) ? 'empty' : state}
       emptyKey="analytics.overview.noData"
-      actions={
-        overview && (
-          <StatusBadge
-            size="sm"
-            tone={TONE_CHIP[overview.tone]}
-            label={tr(TONE_KEY[overview.tone])}
-          />
-        )
-      }
+      actions={overview && <StatusBadge size="sm" tone={TONE_CHIP[overview.tone]} label={tr(TONE_KEY[overview.tone])} />}
     >
       {overview && (
         <div style={{ display: 'grid', gap: '0.6rem' }}>
@@ -120,15 +104,7 @@ function Group({ titleKey, lines }: { titleKey: MessageKey; lines: readonly stri
   return (
     <div>
       <span style={{ ...muted, display: 'block', fontWeight: 700 }}>{tr(titleKey)}</span>
-      <ul
-        style={{
-          margin: '0.2rem 0 0',
-          paddingInlineStart: '1.1rem',
-          fontSize: 'var(--tp-fs-sm)',
-          display: 'grid',
-          gap: '0.2rem',
-        }}
-      >
+      <ul style={{ margin: '0.2rem 0 0', paddingInlineStart: '1.1rem', fontSize: 'var(--tp-fs-sm)', display: 'grid', gap: '0.2rem' }}>
         {lines.map((line, i) => (
           <li key={`${i}-${line}`}>{line}</li>
         ))}

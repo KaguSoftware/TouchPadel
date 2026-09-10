@@ -19,7 +19,10 @@
  * auth.uid() — the service client is used only for verification + bookkeeping
  * (sync_replays, manager_alerts), never to bypass RPC security.
  */
-import { createServiceClient, getCallerUserId } from '../_shared/supabase.ts';
+import {
+  createServiceClient,
+  getCallerUserId,
+} from '../_shared/supabase.ts';
 import { json, mapPgError, isExclusionConflict, type PgError } from '../_shared/http.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -173,7 +176,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
           p_new_unit_price_iqd: p?.newUnitPriceIqd,
           p_pin: p?.pin,
           p_reason_code: p?.reasonCode,
-          ...common(c), // 0049: was p_device_id only -- a replay re-overrode
+          ...common(c),        // 0049: was p_device_id only -- a replay re-overrode
         }),
       };
     }
@@ -187,7 +190,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
         p_pin: p?.pin,
         p_reason_code: p?.reasonCode,
         p_order_item_id: p?.orderItemId ?? null,
-        ...common(c), // 0049: was p_device_id only -- a replay discounted twice
+        ...common(c),          // 0049: was p_device_id only -- a replay discounted twice
       }),
     };
   },
@@ -206,7 +209,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_qty: p?.qty,
       p_movement_type: p?.movementType ?? 'waste_spill',
       p_reason_code: p?.reasonCode ?? null,
-      ...common(c), // 0049: was p_device_id only -- a replay deducted stock twice
+      ...common(c),            // 0049: was p_device_id only -- a replay deducted stock twice
     }),
   }),
 };
@@ -250,18 +253,12 @@ Deno.serve(async (req) => {
   }
   const { idempotency_key, mutation_type, payload, station_id, staff_id } = body ?? {};
   if (
-    typeof idempotency_key !== 'string' ||
-    !idempotency_key ||
+    typeof idempotency_key !== 'string' || !idempotency_key ||
     typeof mutation_type !== 'string' ||
-    typeof station_id !== 'string' ||
-    !station_id ||
-    typeof staff_id !== 'string' ||
-    !staff_id
+    typeof station_id !== 'string' || !station_id ||
+    typeof staff_id !== 'string' || !staff_id
   ) {
-    return json(
-      { error: 'idempotency_key, mutation_type, payload, station_id, staff_id required' },
-      400,
-    );
+    return json({ error: 'idempotency_key, mutation_type, payload, station_id, staff_id required' }, 400);
   }
   // Key discipline (mirrors mutationEnvelopeSchema): "{station}:{type}:{ulid}".
   const [keyStation, keyType] = idempotency_key.split(':');
@@ -293,11 +290,7 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (dup.error) return json({ error: dup.error.message }, 500);
   if (dup.data) {
-    return json({
-      result: 'duplicate',
-      prior_result: dup.data.result,
-      echo: dup.data.conflict_detail,
-    });
+    return json({ result: 'duplicate', prior_result: dup.data.result, echo: dup.data.conflict_detail });
   }
 
   const routeFor = MUTATION_RPCS[mutation_type];
@@ -357,10 +350,14 @@ Deno.serve(async (req) => {
   }
 
   // Dispatch AS THE STAFF SESSION so role guards + audit attribution hold.
-  const asStaff = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: req.headers.get('Authorization')! } },
-  });
+  const asStaff = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: req.headers.get('Authorization')! } },
+    },
+  );
   const { data: rpcResult, error: rpcError } = await asStaff
     .schema('app')
     .rpc(route.rpc, route.args(effectivePayload, ctx));
@@ -402,12 +399,7 @@ Deno.serve(async (req) => {
         payload,
       };
       const prior = await record('conflict', detail);
-      if (prior)
-        return json({
-          result: 'duplicate',
-          prior_result: prior.result,
-          echo: prior.conflict_detail,
-        });
+      if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: prior.conflict_detail });
       // Surface to the desk: shows a conflict rather than an overwrite (SoW).
       const alert = await service.from('manager_alerts').insert({
         kind: 'replay_conflict',
@@ -435,25 +427,16 @@ Deno.serve(async (req) => {
     };
     const priorErr = await record('conflict', errDetail);
     if (priorErr) {
-      return json({
-        result: 'duplicate',
-        prior_result: priorErr.result,
-        echo: priorErr.conflict_detail,
-      });
+      return json({ result: 'duplicate', prior_result: priorErr.result, echo: priorErr.conflict_detail });
     }
     return json({ result: 'error', ...mapped }, mapped.status);
   }
 
   // RPCs are themselves idempotent and echo { duplicate: true } when the write
   // already existed (e.g. an online race): record the truthful outcome.
-  const wasDuplicate = !!(
-    rpcResult &&
-    typeof rpcResult === 'object' &&
-    (rpcResult as any).duplicate
-  );
+  const wasDuplicate = !!(rpcResult && typeof rpcResult === 'object' && (rpcResult as any).duplicate);
   const prior = await record(wasDuplicate ? 'duplicate' : 'applied', rpcResult);
-  if (prior)
-    return json({ result: 'duplicate', prior_result: prior.result, echo: prior.conflict_detail });
+  if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: prior.conflict_detail });
 
   return json({ result: wasDuplicate ? 'duplicate' : 'applied', echo: rpcResult });
 });

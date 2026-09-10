@@ -26,10 +26,7 @@ import { execFileSync } from 'node:child_process';
 /** Paths that must never appear in history, with why each one matters. */
 const FORBIDDEN = [
   { re: /(^|\/)\.env$/, what: 'a real .env file' },
-  {
-    re: /(^|\/)\.env\.(?!example$)[^/]+$/,
-    what: 'an environment-specific .env file (.env.local, .env.remote, …)',
-  },
+  { re: /(^|\/)\.env\.(?!example$)[^/]+$/, what: 'an environment-specific .env file (.env.local, .env.remote, …)' },
   { re: /(^|\/)station\.json$/, what: 'a venue station config (station identity + pairing state)' },
   // .pem is NOT here — it is content-checked below. See the note on PEM_PRIVATE_KEY.
   { re: /\.p12$/, what: 'a signing keystore' },
@@ -98,18 +95,13 @@ for (const file of added) {
 for (const file of added) {
   const rule = CONTENT_CHECKED.find((r) => r.re.test(file));
   if (!rule) continue;
-  const revs = execFileSync('git', ['log', '--all', '--format=%h', '--', file], {
-    encoding: 'utf8',
-  })
+  const revs = execFileSync('git', ['log', '--all', '--format=%h', '--', file], { encoding: 'utf8' })
     .split('\n')
     .filter(Boolean);
   for (const rev of revs) {
     let body;
     try {
-      body = execFileSync('git', ['show', `${rev}:${file}`], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
+      body = execFileSync('git', ['show', `${rev}:${file}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     } catch {
       continue; // deleted at that revision
     }
@@ -121,9 +113,7 @@ for (const file of added) {
 }
 
 if (violations.length === 0) {
-  console.log(
-    `PASS  no secret-bearing file was ever committed (${added.size} paths across all history).`,
-  );
+  console.log(`PASS  no secret-bearing file was ever committed (${added.size} paths across all history).`);
   process.exit(0);
 }
 
@@ -132,19 +122,13 @@ for (const v of violations) {
   console.error(`  ${v.file}`);
   console.error(`      ${v.what}`);
   // The commits that introduced it — the reviewer needs these to judge exposure.
-  const commits = execFileSync(
-    'git',
-    ['log', '--all', '--oneline', '--diff-filter=A', '--', v.file],
-    {
-      encoding: 'utf8',
-    },
-  ).trim();
+  const commits = execFileSync('git', ['log', '--all', '--oneline', '--diff-filter=A', '--', v.file], {
+    encoding: 'utf8',
+  }).trim();
   for (const line of commits.split('\n').slice(0, 5)) console.error(`      added in ${line}`);
   console.error('');
 }
 console.error('Deleting the file does NOT remove it — it stays reachable in every clone and fork.');
-console.error(
-  'ROTATE every credential the file contained first; scrubbing history is secondary and',
-);
+console.error('ROTATE every credential the file contained first; scrubbing history is secondary and');
 console.error('never sufficient on its own.');
 process.exit(1);

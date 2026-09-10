@@ -26,15 +26,7 @@ const ACTION: Record<MenuQuadrant, MessageKey> = {
   dog: 'analytics.matrix.actions.dog',
 };
 
-export function MenuMatrixCard({
-  derived,
-  state,
-  f,
-}: {
-  derived: Derived | null;
-  state: CardState;
-  f: Formatters;
-}) {
+export function MenuMatrixCard({ derived, state, f }: { derived: Derived | null; state: CardState; f: Formatters }) {
   const { tr, locale } = useLocale();
   const me = derived?.menuEngineering ?? null;
   const noCost = me ? Math.max(0, me.coverage.soldItems - me.coverage.costedItems) : 0;
@@ -47,9 +39,7 @@ export function MenuMatrixCard({
       note={
         me && me.hasData ? (
           <>
-            {tr('analytics.matrix.coverage', {
-              pct: f.num(Math.round(me.coverage.revenueRatio * 100)),
-            })}
+            {tr('analytics.matrix.coverage', { pct: f.num(Math.round(me.coverage.revenueRatio * 100)) })}
             {noCost > 0 && ` · ${tr('analytics.matrix.noCost', { count: f.num(noCost) })}`}{' '}
             <Link to="/admin/menu" style={{ color: 'var(--tp-accent)' }}>
               {tr('analytics.matrix.setupLink')}
@@ -62,42 +52,18 @@ export function MenuMatrixCard({
       {me && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
           {QUADRANTS.map((q) => {
-            const items = me.items
-              .filter((i) => i.quadrant === q)
-              .sort((a, b) => b.profitIqd - a.profitIqd);
+            const items = me.items.filter((i) => i.quadrant === q).sort((a, b) => b.profitIqd - a.profitIqd);
             return (
-              <div
-                key={q}
-                style={{
-                  border: '1px solid var(--tp-border)',
-                  borderRadius: '0.4rem',
-                  padding: '0.5rem',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                  }}
-                >
+              <div key={q} style={{ border: '1px solid var(--tp-border)', borderRadius: '0.4rem', padding: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <strong style={{ fontSize: 'var(--tp-fs-sm)' }}>{tr(TITLE[q])}</strong>
-                  <StatusBadge
-                    size="sm"
-                    dot={false}
-                    tone={q === 'star' ? 'success' : q === 'dog' ? 'danger' : 'neutral'}
-                    label={f.num(me.counts[q])}
-                  />
+                  <StatusBadge size="sm" dot={false} tone={q === 'star' ? 'success' : q === 'dog' ? 'danger' : 'neutral'} label={f.num(me.counts[q])} />
                 </div>
                 <p style={{ ...muted, marginBlock: '0.25rem' }}>{tr(ACTION[q])}</p>
                 <ul style={{ margin: 0, paddingInlineStart: '1rem', fontSize: 'var(--tp-fs-sm)' }}>
                   {items.slice(0, 4).map((i) => (
-                    <li
-                      key={i.id}
-                      style={{ color: i.losingMoney ? 'var(--tp-danger)' : undefined }}
-                    >
-                      {pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.id} —{' '}
-                      {f.money(i.unitMarginIqd)} · {f.num(i.qty)}
+                    <li key={i.id} style={{ color: i.losingMoney ? 'var(--tp-danger)' : undefined }}>
+                      {pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.id} — {f.money(i.unitMarginIqd)} · {f.num(i.qty)}
                     </li>
                   ))}
                 </ul>

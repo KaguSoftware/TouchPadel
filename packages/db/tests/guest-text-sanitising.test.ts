@@ -71,10 +71,7 @@ describe.skipIf(!up)('0080 guest text sanitising (SEC-27)', () => {
       const guest = await guestClient(svc, 'escpos');
       const uid = (await guest.auth.getUser()).data.user!.id;
 
-      await guest
-        .from('profiles')
-        .update({ full_name: `Sam${ESC}pKick` })
-        .eq('id', uid);
+      await guest.from('profiles').update({ full_name: `Sam${ESC}pKick` }).eq('id', uid);
 
       const { data } = await svc.from('profiles').select('full_name').eq('id', uid).single();
       const name = (data as { full_name: string }).full_name;
@@ -86,10 +83,7 @@ describe.skipIf(!up)('0080 guest text sanitising (SEC-27)', () => {
       const guest = await guestClient(svc, 'zwsp');
       const uid = (await guest.auth.getUser()).data.user!.id;
 
-      await guest
-        .from('profiles')
-        .update({ full_name: `A${ZWSP}dm${BOM}in` })
-        .eq('id', uid);
+      await guest.from('profiles').update({ full_name: `A${ZWSP}dm${BOM}in` }).eq('id', uid);
 
       const { data } = await svc.from('profiles').select('full_name').eq('id', uid).single();
       expect((data as { full_name: string }).full_name).toBe('Admin');
@@ -123,10 +117,7 @@ describe.skipIf(!up)('0080 guest text sanitising (SEC-27)', () => {
       const guest = await guestClient(svc, 'phone');
       const uid = (await guest.auth.getUser()).data.user!.id;
 
-      await guest
-        .from('profiles')
-        .update({ phone: `+964${RLM}770${ZWSP}0000000` })
-        .eq('id', uid);
+      await guest.from('profiles').update({ phone: `+964${RLM}770${ZWSP}0000000` }).eq('id', uid);
       let { data } = await svc.from('profiles').select('phone').eq('id', uid).single();
       expect((data as { phone: string }).phone).toBe('+9647700000000');
 

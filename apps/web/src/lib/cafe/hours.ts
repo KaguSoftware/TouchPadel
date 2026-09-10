@@ -28,9 +28,7 @@ function venueParts(now: Date): { isoDate: string; dayKey: DayKey } {
   let weekday: string;
   try {
     isoDate = new Intl.DateTimeFormat('en-CA', { timeZone: VENUE_TZ }).format(now);
-    weekday = new Intl.DateTimeFormat('en-US', { timeZone: VENUE_TZ, weekday: 'short' }).format(
-      now,
-    );
+    weekday = new Intl.DateTimeFormat('en-US', { timeZone: VENUE_TZ, weekday: 'short' }).format(now);
   } catch {
     isoDate = now.toISOString().slice(0, 10);
     weekday = now.toUTCString().slice(0, 3);

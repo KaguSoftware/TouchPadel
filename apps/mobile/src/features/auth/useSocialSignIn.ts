@@ -28,11 +28,7 @@ import {
   type SocialProvider,
 } from './social';
 import { newNonce } from './providers/nonce';
-import {
-  appleSignInExpected,
-  isAppleSignInAvailable,
-  requestAppleCredential,
-} from './providers/apple';
+import { appleSignInExpected, isAppleSignInAvailable, requestAppleCredential } from './providers/apple';
 import { isGoogleSignInAvailable, requestGoogleIdToken } from './providers/google';
 
 export interface SocialAvailability {
@@ -50,10 +46,7 @@ export interface UseSocialSignIn {
   signInWith: (provider: SocialProvider) => Promise<void>;
 }
 
-export function useSocialSignIn(opts: {
-  onComplete: () => void;
-  disabled?: boolean;
-}): UseSocialSignIn {
+export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boolean }): UseSocialSignIn {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { t } = useLocale();

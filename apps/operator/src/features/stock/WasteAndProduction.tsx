@@ -24,14 +24,7 @@ export function WasteAndProduction() {
   return (
     <div style={{ maxInlineSize: '60rem' }}>
       <PageHeader title={tr('op.stock.wasteTitle')} subtitle={tr('ws.manager.stock.waste.lead')} />
-      <div
-        style={{
-          display: 'grid',
-          gap: 'var(--tp-sp-4)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))',
-          alignItems: 'start',
-        }}
-      >
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', alignItems: 'start' }}>
         <WasteForm />
         <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           <ReasonsPanel />
@@ -51,18 +44,9 @@ function ReasonsPanel() {
   const { tr } = useLocale();
   const navigate = useNavigate();
   const line = (label: string, hint: string | null, tone: 'accent' | 'neutral') => (
-    <li
-      style={{
-        display: 'grid',
-        gap: 'var(--tp-sp-0)',
-        paddingBlock: 'var(--tp-sp-1-5)',
-        borderBlockEnd: '1px solid var(--tp-border)',
-      }}
-    >
+    <li style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlock: 'var(--tp-sp-1-5)', borderBlockEnd: '1px solid var(--tp-border)' }}>
       <StatusBadge size="sm" tone={tone} label={label} style={{ justifySelf: 'start' }} />
-      {hint && (
-        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</span>
-      )}
+      {hint && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</span>}
     </li>
   );
   return (
@@ -70,23 +54,10 @@ function ReasonsPanel() {
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {line(tr('ws.manager.stock.waste.spill'), null, 'accent')}
         {line(tr('ws.manager.stock.waste.spoilage'), null, 'accent')}
-        {line(
-          tr('ws.manager.stock.waste.voidAfterSend'),
-          tr('ws.manager.stock.waste.voidAfterSendHint'),
-          'neutral',
-        )}
-        {line(
-          tr('ws.manager.stock.waste.expiredWriteOff'),
-          tr('ws.manager.stock.waste.expiredWriteOffHint'),
-          'neutral',
-        )}
+        {line(tr('ws.manager.stock.waste.voidAfterSend'), tr('ws.manager.stock.waste.voidAfterSendHint'), 'neutral')}
+        {line(tr('ws.manager.stock.waste.expiredWriteOff'), tr('ws.manager.stock.waste.expiredWriteOffHint'), 'neutral')}
       </ul>
-      <Button
-        size="sm"
-        icon="hourglass"
-        style={{ marginBlockStart: 'var(--tp-sp-2)' }}
-        onClick={() => void navigate({ to: '/stock/expiry' })}
-      >
+      <Button size="sm" icon="hourglass" style={{ marginBlockStart: 'var(--tp-sp-2)' }} onClick={() => void navigate({ to: '/stock/expiry' })}>
         {tr('ws.manager.stock.waste.goToExpiry')}
       </Button>
     </Panel>
@@ -132,12 +103,7 @@ function WasteForm() {
   return (
     <Panel title={tr('op.stock.recordWasteBtn')}>
       <Field label={tr('op.stock.ingredient')} required>
-        <select
-          style={inputStyle}
-          value={ingredientId}
-          disabled={busy}
-          onChange={(e) => setIngredientId(e.target.value)}
-        >
+        <select style={inputStyle} value={ingredientId} disabled={busy} onChange={(e) => setIngredientId(e.target.value)}>
           <option value="">—</option>
           {ingredients.map((i) => (
             <option key={i.id} value={i.id}>
@@ -147,42 +113,19 @@ function WasteForm() {
         </select>
       </Field>
       <Field label={tr('op.stock.qty')} hint={unit} required>
-        <input
-          style={inputStyle}
-          dir="ltr"
-          inputMode="decimal"
-          value={qty}
-          disabled={busy}
-          onChange={(e) => setQty(e.target.value)}
-        />
+        <input style={inputStyle} dir="ltr" inputMode="decimal" value={qty} disabled={busy} onChange={(e) => setQty(e.target.value)} />
       </Field>
       <Field label={tr('op.stock.wasteKind')} required>
-        <select
-          style={inputStyle}
-          value={movementType}
-          disabled={busy}
-          onChange={(e) => setMovementType(e.target.value as typeof movementType)}
-        >
+        <select style={inputStyle} value={movementType} disabled={busy} onChange={(e) => setMovementType(e.target.value as typeof movementType)}>
           <option value="waste_spill">{tr('op.stock.spill')}</option>
           <option value="waste_spoilage">{tr('op.stock.spoilage')}</option>
         </select>
       </Field>
       <Field label={tr('op.common.reason')} hint={tr('ws.manager.stock.waste.note')} required>
-        <input
-          style={inputStyle}
-          value={reason}
-          disabled={busy}
-          onChange={(e) => setReason(e.target.value)}
-        />
+        <input style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
       </Field>
       <ErrorText error={error} />
-      <Button
-        kind="primary"
-        icon="ban"
-        busy={busy}
-        disabled={!ingredientId || !(Number(qty) > 0) || !reason.trim()}
-        onClick={() => void submit()}
-      >
+      <Button kind="primary" icon="ban" busy={busy} disabled={!ingredientId || !(Number(qty) > 0) || !reason.trim()} onClick={() => void submit()}>
         {tr('op.stock.recordWasteBtn')}
       </Button>
     </Panel>
@@ -226,12 +169,7 @@ function ProductionForm() {
   return (
     <div>
       <Field label={tr('op.stock.preparedIngredient')}>
-        <select
-          style={inputStyle}
-          value={ingredientId}
-          disabled={busy}
-          onChange={(e) => setIngredientId(e.target.value)}
-        >
+        <select style={inputStyle} value={ingredientId} disabled={busy} onChange={(e) => setIngredientId(e.target.value)}>
           <option value="">—</option>
           {prepared.map((i) => (
             <option key={i.id} value={i.id}>
@@ -241,23 +179,10 @@ function ProductionForm() {
         </select>
       </Field>
       <Field label={tr('op.stock.outputQty')}>
-        <input
-          style={inputStyle}
-          dir="ltr"
-          inputMode="decimal"
-          value={qty}
-          disabled={busy}
-          onChange={(e) => setQty(e.target.value)}
-        />
+        <input style={inputStyle} dir="ltr" inputMode="decimal" value={qty} disabled={busy} onChange={(e) => setQty(e.target.value)} />
       </Field>
       <ErrorText error={error} />
-      <Button
-        kind="primary"
-        icon="flame"
-        busy={busy}
-        disabled={!ingredientId || !(Number(qty) > 0)}
-        onClick={() => void submit()}
-      >
+      <Button kind="primary" icon="flame" busy={busy} disabled={!ingredientId || !(Number(qty) > 0)} onClick={() => void submit()}>
         {tr('op.stock.produceBtn')}
       </Button>
     </div>

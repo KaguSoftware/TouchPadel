@@ -41,8 +41,7 @@ export function ReportTable({
   const units = unitsFor(tr);
   const dataColumns = useMemo(() => {
     const cols = toDataColumns(columns, locale, tr, { sortable });
-    if (rowExtra)
-      cols.push({ key: '__extra', header: rowExtra.header, render: rowExtra.render, align: 'end' });
+    if (rowExtra) cols.push({ key: '__extra', header: rowExtra.header, render: rowExtra.render, align: 'end' });
     return cols;
   }, [columns, locale, tr, sortable, rowExtra]);
   const hasTotals = Boolean(totals && Object.keys(totals).length > 0);
@@ -63,22 +62,9 @@ export function ReportTable({
             {dataColumns.map((c, i) => {
               const col = columns.find((n) => n.key === c.key);
               const v = totals ? totals[c.key] : undefined;
-              const text =
-                i === 0 && v == null
-                  ? tr('ws.reports.totals')
-                  : col
-                    ? formatCell(v, col.kind, locale, units)
-                    : '';
+              const text = i === 0 && v == null ? tr('ws.reports.totals') : col ? formatCell(v, col.kind, locale, units) : '';
               return (
-                <td
-                  key={c.key}
-                  data-align={c.align ?? (c.numeric ? 'end' : 'start')}
-                  style={
-                    c.numeric
-                      ? { fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums' }
-                      : undefined
-                  }
-                >
+                <td key={c.key} data-align={c.align ?? (c.numeric ? 'end' : 'start')} style={c.numeric ? { fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums' } : undefined}>
                   {text}
                 </td>
               );

@@ -67,10 +67,7 @@ export function CafeSettingsTab() {
   }, [venueQ.data, cooldown]);
   const cooldownNum = Number(cooldown);
   const cooldownValid =
-    cooldown !== null &&
-    /^\d+$/.test(cooldown) &&
-    cooldownNum >= COOLDOWN_MIN &&
-    cooldownNum <= COOLDOWN_MAX;
+    cooldown !== null && /^\d+$/.test(cooldown) && cooldownNum >= COOLDOWN_MIN && cooldownNum <= COOLDOWN_MAX;
   const saveCooldown = useMutation({
     mutationFn: () => appRpc('set_waiter_call_cooldown', { p_seconds: cooldownNum }),
     onSuccess: () => {
@@ -143,30 +140,19 @@ export function CafeSettingsTab() {
   const floorSaved = settings.analytics_engagement_floor ?? '';
 
   return (
-    <div
-      style={{ maxInlineSize: 'var(--tp-measure-form)', display: 'grid', gap: 'var(--tp-sp-4)' }}
-    >
-      <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-        {tr('ws.owner.settings.cafe.lead')}
-      </p>
+    <div style={{ maxInlineSize: 'var(--tp-measure-form)', display: 'grid', gap: 'var(--tp-sp-4)' }}>
+      <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.owner.settings.cafe.lead')}</p>
 
       {canSetBusinessDay && (
         <SettingsGroup title={tr('ws.manager.settings.groups.tradingDay')}>
           <SettingsRow>
-            <Field
-              label={tr('op.settings.businessDay')}
-              hint={tr('op.settings.businessDayHint')}
-              style={settingField}
-            >
+            <Field label={tr('op.settings.businessDay')} hint={tr('op.settings.businessDayHint')} style={settingField}>
               <Select
                 value={String(settings.analytics_business_day_start_hour)}
                 style={{ maxInlineSize: '14rem' }}
                 options={BUSINESS_DAY_HOURS.map((h) => ({
                   value: String(h),
-                  label:
-                    h === 0
-                      ? tr('op.settings.calendarDay')
-                      : tr('op.settings.hour', { hour: String(h).padStart(2, '0') }),
+                  label: h === 0 ? tr('op.settings.calendarDay') : tr('op.settings.hour', { hour: String(h).padStart(2, '0') }),
                 }))}
                 onChange={(v) => void write('analytics_business_day_start_hour', Number(v))}
               />
@@ -182,9 +168,7 @@ export function CafeSettingsTab() {
               kind="primary"
               disabled={!cooldownValid || cooldownNum === venueQ.data || saveCooldown.isPending}
               disabledReason={
-                !cooldownValid
-                  ? tr('ws.manager.settings.cooldownInvalid')
-                  : tr('ws.manager.settings.noChanges')
+                !cooldownValid ? tr('ws.manager.settings.cooldownInvalid') : tr('ws.manager.settings.noChanges')
               }
               busy={saveCooldown.isPending}
               onClick={() => saveCooldown.mutate()}
@@ -199,11 +183,7 @@ export function CafeSettingsTab() {
             // on failure — meaning by colour alone, and never announced. It is the
             // control's own hint now, and its own error when the value is refused.
             hint={`${tr('op.settings.cooldownHint')} ${tr('op.settings.cooldownRange')}`}
-            error={
-              cooldown !== null && !cooldownValid
-                ? tr('ws.manager.settings.cooldownInvalid')
-                : undefined
-            }
+            error={cooldown !== null && !cooldownValid ? tr('ws.manager.settings.cooldownInvalid') : undefined}
             style={settingField}
           >
             <input
@@ -223,10 +203,7 @@ export function CafeSettingsTab() {
         </SettingsRow>
       </SettingsGroup>
 
-      <SettingsGroup
-        title={tr('ws.manager.settings.groups.analytics')}
-        description={tr('ws.manager.settings.analyticsLead')}
-      >
+      <SettingsGroup title={tr('ws.manager.settings.groups.analytics')} description={tr('ws.manager.settings.analyticsLead')}>
         {canSetExclusions && excluded ? (
           <SettingsRow
             end={
@@ -241,11 +218,7 @@ export function CafeSettingsTab() {
               </Button>
             }
           >
-            <Field
-              label={tr('op.settings.excludedItems')}
-              hint={tr('op.settings.excludedHint')}
-              style={settingField}
-            >
+            <Field label={tr('op.settings.excludedItems')} hint={tr('op.settings.excludedHint')} style={settingField}>
               <input
                 style={inputStyle}
                 type="search"
@@ -269,12 +242,7 @@ export function CafeSettingsTab() {
               {filteredItems.map((i) => (
                 <label
                   key={i.id}
-                  style={{
-                    display: 'flex',
-                    gap: 'var(--tp-sp-2)',
-                    alignItems: 'center',
-                    minBlockSize: 'var(--tp-row-h-dense)',
-                  }}
+                  style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-row-h-dense)' }}
                 >
                   <input
                     type="checkbox"
@@ -290,14 +258,7 @@ export function CafeSettingsTab() {
                 </label>
               ))}
             </div>
-            <div
-              style={{
-                display: 'flex',
-                gap: 'var(--tp-sp-3)',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}
-            >
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', flexWrap: 'wrap' }}>
               <ResultCount shown={filteredItems.length} total={itemsQ.data?.length ?? 0} />
               <StatusBadge
                 size="sm"
@@ -308,16 +269,8 @@ export function CafeSettingsTab() {
           </SettingsRow>
         ) : null}
 
-        <SettingsRow
-          end={
-            <StatusBadge size="sm" tone="neutral" label={tr('ws.manager.settings.stationOnly')} />
-          }
-        >
-          <Field
-            label={tr('op.settings.coversMult')}
-            hint={tr('op.settings.coversMultHint')}
-            style={settingField}
-          >
+        <SettingsRow end={<StatusBadge size="sm" tone="neutral" label={tr('ws.manager.settings.stationOnly')} />}>
+          <Field label={tr('op.settings.coversMult')} hint={tr('op.settings.coversMultHint')} style={settingField}>
             <Select
               value={String(coversMult)}
               style={{ maxInlineSize: '10rem' }}
@@ -334,11 +287,7 @@ export function CafeSettingsTab() {
                 <Button
                   kind="primary"
                   disabled={!floor || floor === floorSaved || setSetting.isPending}
-                  disabledReason={
-                    !floor
-                      ? tr('ws.manager.settings.floorPickDate')
-                      : tr('ws.manager.settings.noChanges')
-                  }
+                  disabledReason={!floor ? tr('ws.manager.settings.floorPickDate') : tr('ws.manager.settings.noChanges')}
                   busy={setSetting.isPending}
                   onClick={() => void write('analytics_engagement_floor', floor)}
                 >
@@ -358,20 +307,11 @@ export function CafeSettingsTab() {
                 )}
               </>
             ) : (
-              <StatusBadge
-                size="sm"
-                tone="neutral"
-                icon="lock"
-                label={tr('ws.kit.common.readOnly')}
-              />
+              <StatusBadge size="sm" tone="neutral" icon="lock" label={tr('ws.kit.common.readOnly')} />
             )
           }
         >
-          <Field
-            label={tr('op.settings.engagementFloor')}
-            hint={tr('op.settings.engagementFloorHint')}
-            style={settingField}
-          >
+          <Field label={tr('op.settings.engagementFloor')} hint={tr('op.settings.engagementFloorHint')} style={settingField}>
             {canSetFloor ? (
               <input
                 style={{ ...inputStyle, inlineSize: 'auto' }}

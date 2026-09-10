@@ -93,11 +93,8 @@ export function isEnabled(): boolean {
 }
 
 function onIdle(fn: () => void): void {
-  const ric = (
-    window as unknown as {
-      requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
-    }
-  ).requestIdleCallback;
+  const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number })
+    .requestIdleCallback;
   if (typeof ric === 'function') ric(fn, { timeout: 2000 });
   else window.setTimeout(fn, 2000);
 }

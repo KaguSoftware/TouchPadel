@@ -134,7 +134,9 @@ export default function VerifyEmailScreen() {
         {notice ? <Hint style={{ textAlign: 'center' }}>{notice}</Hint> : null}
         <ErrorText>{error}</ErrorText>
         <Button
-          label={coolingDown ? t('auth.resendIn', { seconds: secondsLeft }) : t('auth.resendLink')}
+          label={
+            coolingDown ? t('auth.resendIn', { seconds: secondsLeft }) : t('auth.resendLink')
+          }
           onPress={() => void onResend()}
           busy={busy}
           disabled={!email || coolingDown}

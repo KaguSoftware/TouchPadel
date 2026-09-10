@@ -47,40 +47,14 @@ function renderScreen() {
 
 const rows = [
   {
-    id: 'p1',
-    name_en: 'Happy hour',
-    name_ar: 'ساعة السعادة',
-    type: 'percent',
-    value: 20,
-    starts_at: null,
-    ends_at: null,
-    weekdays: [],
-    hour_from: null,
-    hour_to: null,
-    scope: null,
-    limits: null,
-    auto: true,
-    public_code: null,
-    code_single_use: false,
-    enabled: true,
+    id: 'p1', name_en: 'Happy hour', name_ar: 'ساعة السعادة', type: 'percent', value: 20,
+    starts_at: null, ends_at: null, weekdays: [], hour_from: null, hour_to: null, scope: null, limits: null,
+    auto: true, public_code: null, code_single_use: false, enabled: true,
   },
   {
-    id: 'p2',
-    name_en: 'Old promo',
-    name_ar: 'عرض قديم',
-    type: 'amount',
-    value: 5000,
-    starts_at: '2026-01-01T00:00:00Z',
-    ends_at: '2026-02-01T00:00:00Z',
-    weekdays: [],
-    hour_from: null,
-    hour_to: null,
-    scope: null,
-    limits: null,
-    auto: false,
-    public_code: 'OLD5',
-    code_single_use: true,
-    enabled: false,
+    id: 'p2', name_en: 'Old promo', name_ar: 'عرض قديم', type: 'amount', value: 5000,
+    starts_at: '2026-01-01T00:00:00Z', ends_at: '2026-02-01T00:00:00Z', weekdays: [], hour_from: null, hour_to: null,
+    scope: null, limits: null, auto: false, public_code: 'OLD5', code_single_use: true, enabled: false,
   },
 ];
 
@@ -130,12 +104,7 @@ describe('PromotionsListScreen', () => {
     renderScreen();
     await screen.findByText('Happy hour');
     await user.click(screen.getByRole('switch', { name: 'Enabled — Happy hour' }));
-    await waitFor(() =>
-      expect(rpc.appRpc).toHaveBeenCalledWith('set_promotion_enabled', {
-        p_id: 'p1',
-        p_enabled: false,
-      }),
-    );
+    await waitFor(() => expect(rpc.appRpc).toHaveBeenCalledWith('set_promotion_enabled', { p_id: 'p1', p_enabled: false }));
     // The row click (navigation) must not fire from the switch.
     expect(nav.navigate).not.toHaveBeenCalled();
   });
@@ -146,8 +115,6 @@ describe('PromotionsListScreen', () => {
     renderScreen();
     await screen.findByText('Happy hour');
     expect(screen.getByRole('note')).toBeTruthy();
-    expect(
-      (screen.getByRole('switch', { name: 'Enabled — Happy hour' }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    expect((screen.getByRole('switch', { name: 'Enabled — Happy hour' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

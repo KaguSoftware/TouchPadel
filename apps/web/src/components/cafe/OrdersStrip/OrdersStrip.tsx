@@ -20,9 +20,7 @@ export function OrdersStrip({
   if (live.length === 0) return null;
   const tr = makeT(locale);
   const label =
-    live.length === 1
-      ? tr('cafe.orders.liveOne')
-      : tr('cafe.orders.liveMany', { count: live.length });
+    live.length === 1 ? tr('cafe.orders.liveOne') : tr('cafe.orders.liveMany', { count: live.length });
   return (
     <button type="button" className="tp-orders-strip" onClick={onOpen}>
       <span className="tp-orders-strip__dot" aria-hidden="true" />

@@ -98,24 +98,10 @@ export interface CustomerRecord {
   counts: CustomerCounts;
   upcoming: CustomerReservationRow[];
   history: CustomerReservationRow[];
-  cafeOrders: {
-    id: string;
-    opened_at: string;
-    total_iqd: number | null;
-    status: string;
-    reservation_id: string | null;
-  }[];
+  cafeOrders: { id: string; opened_at: string; total_iqd: number | null; status: string; reservation_id: string | null }[];
   notes: CustomerNote[];
   /** Empty in 0065; the series lane fills it. */
-  series: {
-    id: string;
-    pattern: string;
-    starts_on: string;
-    ends_on: string;
-    court_id: string;
-    occurrences?: number;
-    cancelled_at?: string | null;
-  }[];
+  series: { id: string; pattern: string; starts_on: string; ends_on: string; court_id: string; occurrences?: number; cancelled_at?: string | null }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -141,8 +127,7 @@ export interface SeriesPreview {
   occurrences: SeriesOccurrencePreview[];
 }
 
-export type SeriesResolution =
-  { date: string; action: 'skip' } | { date: string; action: 'moveCourt'; courtId: string };
+export type SeriesResolution = { date: string; action: 'skip' } | { date: string; action: 'moveCourt'; courtId: string };
 
 export interface SeriesCreateResult {
   seriesId: string;

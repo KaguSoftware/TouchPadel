@@ -77,12 +77,7 @@ export function SkeletonList({ rows = 4, height = 84 }: { rows?: number; height?
   return (
     <View style={{ paddingTop: space.xs }}>
       {Array.from({ length: rows }, (_, i) => (
-        <Skeleton
-          key={i}
-          height={height}
-          radius={radius.button}
-          style={{ marginBottom: space.sm }}
-        />
+        <Skeleton key={i} height={height} radius={radius.button} style={{ marginBottom: space.sm }} />
       ))}
     </View>
   );

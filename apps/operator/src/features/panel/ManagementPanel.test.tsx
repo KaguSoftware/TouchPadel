@@ -43,10 +43,7 @@ describe('ManagementPanelScreen — four states', () => {
     expect(screen.getByRole('heading', { name: 'Management panel' })).toBeTruthy();
     expect(document.querySelector('[aria-busy="true"]')).toBeTruthy();
     expect(screen.queryByText('15,000 IQD')).toBeNull();
-    expect(rpc).toHaveBeenCalledWith(
-      'panel_headline',
-      expect.objectContaining({ p_compare: 'previousPeriod' }),
-    );
+    expect(rpc).toHaveBeenCalledWith('panel_headline', expect.objectContaining({ p_compare: 'previousPeriod' }));
   });
 
   it('ready: renders the server figures verbatim, with comparison', async () => {
@@ -73,17 +70,10 @@ describe('ManagementPanelScreen — four states', () => {
   });
 
   it('empty: a period with no trading says so and offers another range', async () => {
-    rpc.mockResolvedValue({
-      figures: [
-        { key: 'revenue', value: 0 },
-        { key: 'orders', value: null },
-      ],
-    });
+    rpc.mockResolvedValue({ figures: [{ key: 'revenue', value: 0 }, { key: 'orders', value: null }] });
     renderPanel();
     expect(await screen.findByText('No trading in this period')).toBeTruthy();
-    expect(
-      screen.getByText('Nothing was sold or booked between these dates. Pick another period.'),
-    ).toBeTruthy();
+    expect(screen.getByText('Nothing was sold or booked between these dates. Pick another period.')).toBeTruthy();
     // The empty state offers a wider range on top of the preset strip.
     expect(screen.getAllByRole('button', { name: 'Last 30 days' }).length).toBeGreaterThan(1);
   });

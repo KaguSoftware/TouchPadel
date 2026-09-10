@@ -119,24 +119,14 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
     await ensureOpenDay(manager, svc);
 
     tea = await createTestMenuItem(svc, 'tg-tea', 2_000);
-    await svc
-      .from('menu_items')
-      .update({ name_ar: 'شاي عراقي', name_en: 'Iraqi Tea' })
-      .eq('id', tea.itemId);
+    await svc.from('menu_items').update({ name_ar: 'شاي عراقي', name_en: 'Iraqi Tea' }).eq('id', tea.itemId);
     const mint = await addModifierToItem(svc, tea.itemId, 'نعناع', 250);
     mintId = mint.modifierId;
     cake = await createTestMenuItem(svc, 'tg-cake', 5_500);
-    await svc
-      .from('menu_items')
-      .update({ name_ar: 'كيكة التمر', name_en: 'Date Cake' })
-      .eq('id', cake.itemId);
+    await svc.from('menu_items').update({ name_ar: 'كيكة التمر', name_en: 'Date Cake' }).eq('id', cake.itemId);
 
     tableId = await createTestCafeTable(svc, 'TG');
-    const { data: t } = await svc
-      .from('cafe_tables')
-      .select('table_number')
-      .eq('id', tableId)
-      .single();
+    const { data: t } = await svc.from('cafe_tables').select('table_number').eq('id', tableId).single();
     tableNumber = (t as { table_number: string }).table_number;
     guest = await openGuestSession(owner, tableId);
 
@@ -173,23 +163,13 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
     idemKey = testIdemKey('order.create');
     const res = await appRpc(guest.client, 'create_guest_order', {
       p_items: [
-        {
-          variant_id: tea.variantId,
-          qty: 2,
-          modifiers: [{ modifier_id: mintId, qty: 1 }],
-          notes: 'بدون سكر',
-        },
+        { variant_id: tea.variantId, qty: 2, modifiers: [{ modifier_id: mintId, qty: 1 }], notes: 'بدون سكر' },
         { variant_id: cake.variantId, qty: 1 },
       ],
       p_idempotency_key: idemKey,
     }).then(outcome);
     expect(res.ok, res.errorMessage).toBe(true);
-    const d = res.data as {
-      order_id: string;
-      tab_id: string;
-      ticket_id: string;
-      total_iqd: number;
-    };
+    const d = res.data as { order_id: string; tab_id: string; ticket_id: string; total_iqd: number };
     orderId = d.order_id;
     tabId = d.tab_id;
     ticketId = d.ticket_id;
@@ -261,21 +241,14 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
   });
 
   it('waiter call enqueues a waiter_call row with table + reason', async () => {
-    const raised = await appRpc(guest.client, 'raise_waiter_call', { p_reason: 'bill' }).then(
-      outcome,
-    );
+    const raised = await appRpc(guest.client, 'raise_waiter_call', { p_reason: 'bill' }).then(outcome);
     expect(raised.ok, raised.errorMessage).toBe(true);
     callId = (raised.data as { call_id: string }).call_id;
 
     const rows = await outboxFor('waiter_call', callId);
     expect(rows).toHaveLength(1);
     outboxCallId = rows[0]!.id;
-    const p = rows[0]!.payload as {
-      call_id: string;
-      table_number: string;
-      reason: string;
-      raised_at: string;
-    };
+    const p = rows[0]!.payload as { call_id: string; table_number: string; reason: string; raised_at: string };
     expect(p.call_id).toBe(callId);
     expect(p.table_number).toBe(tableNumber);
     expect(p.reason).toBe('bill');
@@ -339,12 +312,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
   it('o:seen -> ticket preparing with last_actor_label; a repeat tap is a duplicate', async () => {
     const seen = await applyAction('o:seen', orderId);
     expect(seen.ok, seen.errorMessage).toBe(true);
-    const r = seen.data as {
-      result: string;
-      status: string;
-      keyboard: string;
-      actor_label: string;
-    };
+    const r = seen.data as { result: string; status: string; keyboard: string; actor_label: string };
     expect(r.result).toBe('applied');
     expect(r.status).toBe('preparing');
     expect(r.keyboard).toBe('order_seen');
@@ -385,22 +353,14 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
       .select('status, ready_at, completed_at, actual_prep_seconds, last_actor_label')
       .eq('id', ticketId)
       .single();
-    const tt = t as {
-      status: string;
-      ready_at: string | null;
-      completed_at: string | null;
-      actual_prep_seconds: number | null;
-    };
+    const tt = t as { status: string; ready_at: string | null; completed_at: string | null; actual_prep_seconds: number | null };
     expect(tt.status).toBe('completed');
     expect(tt.ready_at).not.toBeNull();
     expect(tt.completed_at).not.toBeNull();
     expect(Number.isInteger(tt.actual_prep_seconds)).toBe(true);
     const { data: o } = await svc.from('orders').select('status').eq('id', orderId).single();
     expect((o as { status: string }).status).toBe('served');
-    const { data: items } = await svc
-      .from('order_items')
-      .select('ready_at')
-      .eq('order_id', orderId);
+    const { data: items } = await svc.from('order_items').select('ready_at').eq('order_id', orderId);
     expect((items as { ready_at: string | null }[]).every((i) => i.ready_at !== null)).toBe(true);
 
     const dup = await applyAction('o:served', orderId);
@@ -420,12 +380,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
       .select('status, acknowledged_by, acknowledged_label, acknowledged_at')
       .eq('id', callId)
       .single();
-    const w1 = c1 as {
-      status: string;
-      acknowledged_by: string | null;
-      acknowledged_label: string | null;
-      acknowledged_at: string | null;
-    };
+    const w1 = c1 as { status: string; acknowledged_by: string | null; acknowledged_label: string | null; acknowledged_at: string | null };
     expect(w1.status).toBe('acknowledged');
     expect(w1.acknowledged_by).toBeNull();
     expect(w1.acknowledged_label).toBe('Telegram: Ahmed');
@@ -436,12 +391,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
 
     const done = await applyAction('w:done', callId, NOOR);
     expect(done.ok, done.errorMessage).toBe(true);
-    const d = done.data as {
-      result: string;
-      status: string;
-      keyboard: string;
-      actor_label: string;
-    };
+    const d = done.data as { result: string; status: string; keyboard: string; actor_label: string };
     expect(d.result).toBe('applied');
     expect(d.status).toBe('resolved');
     expect(d.keyboard).toBe('call_final');
@@ -452,12 +402,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
       .select('status, resolved_by, resolved_label, acknowledged_label')
       .eq('id', callId)
       .single();
-    const w2 = c2 as {
-      status: string;
-      resolved_by: string | null;
-      resolved_label: string | null;
-      acknowledged_label: string;
-    };
+    const w2 = c2 as { status: string; resolved_by: string | null; resolved_label: string | null; acknowledged_label: string };
     expect(w2.status).toBe('resolved');
     expect(w2.resolved_by).toBeNull();
     expect(w2.resolved_label).toBe('Telegram: Noor');
@@ -496,14 +441,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
       .select('action, result, tg_user_id, tg_first_name, tg_username, detail')
       .eq('ref_id', orderId)
       .order('id');
-    type Tap = {
-      action: string;
-      result: string;
-      tg_user_id: number;
-      tg_first_name: string;
-      tg_username: string | null;
-      detail: string | null;
-    };
+    type Tap = { action: string; result: string; tg_user_id: number; tg_first_name: string; tg_username: string | null; detail: string | null };
     const taps = ledger as Tap[];
     expect(taps.map((x) => `${x.action}:${x.result}`)).toEqual([
       'o:seen:applied',
@@ -556,13 +494,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
       .select('kind, ref_id, chat_id, status, payload')
       .eq('id', testOutboxId)
       .single();
-    const r = row as {
-      kind: string;
-      ref_id: string | null;
-      chat_id: string;
-      status: string;
-      payload: { sent_by: string; at: string };
-    };
+    const r = row as { kind: string; ref_id: string | null; chat_id: string; status: string; payload: { sent_by: string; at: string } };
     expect(r.kind).toBe('test');
     expect(r.ref_id).toBeNull();
     expect(r.chat_id).toBe(CHAT_ID);
@@ -589,35 +521,21 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
   it('retry_telegram_outbox resets a failed row (owner only)', async () => {
     const { error: failErr } = await svc
       .from('telegram_outbox')
-      .update({
-        status: 'failed',
-        attempts: 8,
-        last_error: 'chat not found',
-        scheduled_for: new Date(Date.now() + 3600_000).toISOString(),
-      })
+      .update({ status: 'failed', attempts: 8, last_error: 'chat not found', scheduled_for: new Date(Date.now() + 3600_000).toISOString() })
       .eq('id', testOutboxId);
     expect(failErr).toBeNull();
 
-    const mgr = await appRpc(manager, 'retry_telegram_outbox', { p_id: testOutboxId }).then(
-      outcome,
-    );
+    const mgr = await appRpc(manager, 'retry_telegram_outbox', { p_id: testOutboxId }).then(outcome);
     expect(mgr.errorMessage).toContain('FORBIDDEN');
 
-    const retried = await appRpc(owner, 'retry_telegram_outbox', { p_id: testOutboxId }).then(
-      outcome,
-    );
+    const retried = await appRpc(owner, 'retry_telegram_outbox', { p_id: testOutboxId }).then(outcome);
     expect(retried.ok, retried.errorMessage).toBe(true);
     const { data: row } = await svc
       .from('telegram_outbox')
       .select('status, attempts, last_error, scheduled_for')
       .eq('id', testOutboxId)
       .single();
-    const r = row as {
-      status: string;
-      attempts: number;
-      last_error: string | null;
-      scheduled_for: string;
-    };
+    const r = row as { status: string; attempts: number; last_error: string | null; scheduled_for: string };
     expect(r.status).toBe('queued');
     expect(r.attempts).toBe(0);
     expect(r.last_error).toBeNull();
@@ -646,9 +564,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
     const quietOrder = (res.data as { order_id: string }).order_id;
     expect(await outboxFor('order_new', quietOrder)).toHaveLength(0);
 
-    const raised = await appRpc(quiet.client, 'raise_waiter_call', { p_reason: 'water' }).then(
-      outcome,
-    );
+    const raised = await appRpc(quiet.client, 'raise_waiter_call', { p_reason: 'water' }).then(outcome);
     expect(raised.ok, raised.errorMessage).toBe(true);
     const quietCall = (raised.data as { call_id: string }).call_id;
     expect(await outboxFor('waiter_call', quietCall)).toHaveLength(0);
@@ -661,9 +577,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
       p_idempotency_key: testIdemKey('order.create'),
     }).then(outcome);
     expect(res2.ok, res2.errorMessage).toBe(true);
-    expect(await outboxFor('order_new', (res2.data as { order_id: string }).order_id)).toHaveLength(
-      0,
-    );
+    expect(await outboxFor('order_new', (res2.data as { order_id: string }).order_id)).toHaveLength(0);
   });
 
   it('telegram_nudge is a silent no-op without pg_net / secrets (never throws); clients cannot call it', async () => {
@@ -691,12 +605,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
         .select('action, result, detail, tg_user_id')
         .eq('ref_id', refId)
         .order('id');
-      return (data ?? []) as {
-        action: string;
-        result: string;
-        detail: string | null;
-        tg_user_id: number;
-      }[];
+      return (data ?? []) as { action: string; result: string; detail: string | null; tg_user_id: number }[];
     };
 
     beforeAll(async () => {
@@ -752,10 +661,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
       const nope = await applyAction('o:void', freshOrder, SARA);
       expect((nope.data as { result: string }).result).toBe('refused');
       expect((await ledgerFor(freshOrder)).at(-1)!.detail).toBe('void_not_authorized');
-      const { data: items } = await svc
-        .from('order_items')
-        .select('voided')
-        .eq('order_id', freshOrder);
+      const { data: items } = await svc.from('order_items').select('voided').eq('order_id', freshOrder);
       expect((items as { voided: boolean }[]).every((i) => !i.voided)).toBe(true);
     });
 
@@ -763,10 +669,7 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
       const r = await applyAction('o:void', freshOrder, AHMED);
       expect((r.data as { result: string }).result).toBe('applied');
 
-      const { data: items } = await svc
-        .from('order_items')
-        .select('id, voided')
-        .eq('order_id', freshOrder);
+      const { data: items } = await svc.from('order_items').select('id, voided').eq('order_id', freshOrder);
       expect((items as { voided: boolean }[]).every((i) => i.voided)).toBe(true);
 
       // 0039: authorizer was NULL before this migration — the day-close

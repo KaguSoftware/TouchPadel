@@ -6,10 +6,7 @@ import { validateTillSearch, type TillSearch } from '../../features/till/tillSea
 
 const TillScreen = lazyRouteComponent(() => import('../../features/till/TillScreen'), 'TillScreen');
 const OpenTabs = lazyRouteComponent(() => import('../../features/till/OpenTabs'), 'OpenTabsScreen');
-const CashDrawer = lazyRouteComponent(
-  () => import('../../features/till/CashDrawer'),
-  'CashDrawerScreen',
-);
+const CashDrawer = lazyRouteComponent(() => import('../../features/till/CashDrawer'), 'CashDrawerScreen');
 
 const child = <P extends string>(path: P, Component: Parameters<typeof guarded>[1]) =>
   createRoute({
@@ -34,8 +31,4 @@ export const tillIndexRoute = createRoute({
   wrapInSuspense: true,
 });
 
-export const tillChildren = [
-  tillIndexRoute,
-  child('tabs', OpenTabs),
-  child('drawer', CashDrawer),
-] as const;
+export const tillChildren = [tillIndexRoute, child('tabs', OpenTabs), child('drawer', CashDrawer)] as const;

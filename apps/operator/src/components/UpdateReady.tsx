@@ -63,15 +63,7 @@ export function UpdateReadyControl({
       style={{ ...style, color: 'var(--tp-rail-green)', fontWeight: 600 }}
     >
       <Icon name="refresh" size={16} />
-      <span
-        style={{
-          flex: 1,
-          minInlineSize: 0,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
+      <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {tr('ws.shell.nav.updateReady')} <span dir="ltr">{version}</span>
       </span>
     </button>

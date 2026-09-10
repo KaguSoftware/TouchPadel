@@ -104,10 +104,7 @@ function SignInScreen() {
           />
         ) : null}
         {hasSocial(social.available) || phoneOtp ? (
-          <LabeledDivider
-            label={t('auth.orContinueWithEmail')}
-            style={{ marginTop: 18, marginBottom: 4 }}
-          />
+          <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
         <Field
           placeholder={t('auth.emailLabel')}

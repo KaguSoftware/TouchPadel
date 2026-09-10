@@ -245,42 +245,18 @@ export default function ProfileScreen() {
 
           {profileGateState(profile) === 'incomplete' ? (
             // D3: a social sign-in that left before completing its profile.
-            <Card
-              style={{
-                marginTop: space.m,
-                backgroundColor: colors.amb,
-                borderColor: colors.ambline,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: fonts.body600,
-                  fontSize: 12.5,
-                  lineHeight: 19,
-                  color: colors.ambtext,
-                }}
-              >
+            <Card style={{ marginTop: space.m, backgroundColor: colors.amb, borderColor: colors.ambline }}>
+              <Text style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: colors.ambtext }}>
                 {/* A phone sign-up (OTP scaffold) has the phone and lacks the name; every other case lacks the phone. */}
-                {t(
-                  profile.data?.phone
-                    ? 'profile.completeNameNudge'
-                    : 'profile.completeProfileNudge',
-                )}
+                {t(profile.data?.phone ? 'profile.completeNameNudge' : 'profile.completeProfileNudge')}
               </Text>
               <Button
                 label={t(profile.data?.phone ? 'auth.addNameLink' : 'auth.addPhoneLink')}
                 variant="secondary"
                 size="compact"
-                onPress={() =>
-                  router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } })
-                }
+                onPress={() => router.push({ pathname: '/complete-profile', params: { returnTo: 'back' } })}
                 labelColor={colors.ambstrong}
-                style={{
-                  marginTop: 10,
-                  alignSelf: 'flex-start',
-                  backgroundColor: 'transparent',
-                  borderColor: colors.ambstrong,
-                }}
+                style={{ marginTop: 10, alignSelf: 'flex-start', backgroundColor: 'transparent', borderColor: colors.ambstrong }}
               />
             </Card>
           ) : null}
@@ -315,9 +291,7 @@ export default function ProfileScreen() {
               <MenuRow
                 icon={<PhoneIcon size={15} color={colors.gstrong} />}
                 label={t('auth.verifyPhoneRow')}
-                onPress={() =>
-                  router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })
-                }
+                onPress={() => router.push({ pathname: '/phone-sign-in', params: { mode: 'link' } })}
               />
             ) : null}
             <MenuRow

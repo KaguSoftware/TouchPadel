@@ -69,7 +69,13 @@ export function MenuStage({
 
             <div className="tp-stage__rows">
               {cat.items.map((item) => (
-                <MenuCard key={item.id} item={item} locale={locale} art={art} onOpen={onOpenItem} />
+                <MenuCard
+                  key={item.id}
+                  item={item}
+                  locale={locale}
+                  art={art}
+                  onOpen={onOpenItem}
+                />
               ))}
             </div>
             <span className="tp-visually-hidden">

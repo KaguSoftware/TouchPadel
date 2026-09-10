@@ -118,10 +118,7 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
   // -------------------------------------------------------------------------
   it('taxes the POST-discount base, not the gross subtotal', async () => {
     await svc.from('tax_groups').update({ is_active: true }).eq('id', TAX_RESTAURANT_10);
-    await svc
-      .from('menu_categories')
-      .update({ tax_group_id: TAX_RESTAURANT_10 })
-      .eq('id', coffee.categoryId);
+    await svc.from('menu_categories').update({ tax_group_id: TAX_RESTAURANT_10 }).eq('id', coffee.categoryId);
     try {
       // Control: no discount, 10% on 20,000.
       const plain = await freshTab([{ variant_id: coffee.variantId, qty: 2 }]);
@@ -151,10 +148,7 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
         total: 11_000,
       });
     } finally {
-      await svc
-        .from('menu_categories')
-        .update({ tax_group_id: TAX_STANDARD_0 })
-        .eq('id', coffee.categoryId);
+      await svc.from('menu_categories').update({ tax_group_id: TAX_STANDARD_0 }).eq('id', coffee.categoryId);
       await svc.from('tax_groups').update({ is_active: false }).eq('id', TAX_RESTAURANT_10);
     }
   });
@@ -166,18 +160,12 @@ describe.skipIf(!up)('tab totals + adjustment guards (0036/0037/0038)', () => {
     // seed.sql ships 'Restaurant 10%' inactive on purpose; before 0036 nothing
     // in the codebase read is_active, so pointing a category at it silently
     // taxed every tab 10% anyway.
-    await svc
-      .from('menu_categories')
-      .update({ tax_group_id: TAX_RESTAURANT_10 })
-      .eq('id', cake.categoryId);
+    await svc.from('menu_categories').update({ tax_group_id: TAX_RESTAURANT_10 }).eq('id', cake.categoryId);
     try {
       const { tabId } = await freshTab([{ variant_id: cake.variantId, qty: 1 }]);
       expect(await settleAndRead(tabId)).toMatchObject({ subtotal: 10_000, tax: 0, total: 10_000 });
     } finally {
-      await svc
-        .from('menu_categories')
-        .update({ tax_group_id: TAX_STANDARD_0 })
-        .eq('id', cake.categoryId);
+      await svc.from('menu_categories').update({ tax_group_id: TAX_STANDARD_0 }).eq('id', cake.categoryId);
     }
   });
 

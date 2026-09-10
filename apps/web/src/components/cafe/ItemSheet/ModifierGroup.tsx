@@ -52,9 +52,7 @@ export function ModifierGroup({
       aria-label={
         revealed
           ? `${tr('cafe.revealsHint')} — ${ar ? group.name_ar : group.name_en}`
-          : ar
-            ? group.name_ar
-            : group.name_en
+          : (ar ? group.name_ar : group.name_en)
       }
     >
       <h3>

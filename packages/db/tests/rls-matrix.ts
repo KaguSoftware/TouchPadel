@@ -112,22 +112,13 @@ const MANAGER_PIN = '380517';
 // principal passes the guard and fails on the arguments instead.
 const OWNER_ONLY = ex<RpcExpectation>('guarded', { anon: 'denied', owner: 'execute' });
 const MANAGER_UP = ex<RpcExpectation>('guarded', {
-  anon: 'denied',
-  manager: 'execute',
-  owner: 'execute',
+  anon: 'denied', manager: 'execute', owner: 'execute',
 });
 const CASHIER_UP = ex<RpcExpectation>('guarded', {
-  anon: 'denied',
-  cashier: 'execute',
-  manager: 'execute',
-  owner: 'execute',
+  anon: 'denied', cashier: 'execute', manager: 'execute', owner: 'execute',
 });
 const PREP_UP = ex<RpcExpectation>('guarded', {
-  anon: 'denied',
-  prep: 'execute',
-  cashier: 'execute',
-  manager: 'execute',
-  owner: 'execute',
+  anon: 'denied', prep: 'execute', cashier: 'execute', manager: 'execute', owner: 'execute',
 });
 /** Granted to `authenticated` only; answers about the caller alone. */
 const SELF_AUTHED = ex<RpcExpectation>('execute', { anon: 'denied' });
@@ -157,8 +148,8 @@ export const matrix: MatrixRule[] = [
       'CRITICAL (SEC-21, 0077): the push token is never client-readable — a column ' +
       'grant test, exactly as staff.pin_hash is. 0004 granted SELECT on the WHOLE ' +
       'table to `authenticated`, and profiles_select admits court_desk/manager/owner, ' +
-      "so every desk session could read every guest's token: the one credential " +
-      "needed to push an arbitrary notification to that guest's phone. Denied to the " +
+      'so every desk session could read every guest\'s token: the one credential ' +
+      'needed to push an arbitrary notification to that guest\'s phone. Denied to the ' +
       'OWNING guest too — nothing in the app ever read it back, only registers it.',
     drop: 6,
   },
@@ -1281,13 +1272,7 @@ export const matrix: MatrixRule[] = [
     kind: 'write',
     name: 'telegram_actions',
     op: 'insert',
-    payload: {
-      action: 'o:seen',
-      ref_id: NIL_UUID,
-      tg_user_id: 1,
-      tg_first_name: 'x',
-      result: 'applied',
-    },
+    payload: { action: 'o:seen', ref_id: NIL_UUID, tg_user_id: 1, tg_first_name: 'x', result: 'applied' },
     expect: ex<WriteExpectation>('denied'),
     note: 'the tap ledger is written only by app.telegram_apply_action (service role)',
     drop: 4,
@@ -2155,8 +2140,8 @@ export const matrix: MatrixRule[] = [
     // exactly what 'execute' asserts, and short of doing anything.
     args: {},
     expect: ex<RpcExpectation>('guarded', {
-      anon: 'denied', // no EXECUTE grant to anon
-      guest_account: 'execute', // a real account gets as far as the confirmation
+      anon: 'denied',              // no EXECUTE grant to anon
+      guest_account: 'execute',    // a real account gets as far as the confirmation
     }),
     note:
       'A cafe guest holds `authenticated` exactly as staff do, so the guards ARE ' +
@@ -2204,491 +2189,149 @@ export const matrix: MatrixRule[] = [
   // ══════════════════════════════════════════════════════════════════════════
 
   // ── owner only: the analytics family (app.analytics_guard) ────────────────
+  { kind: 'rpc', schema: 'app', name: 'analytics_best_sellers', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_bought_together', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_hourly', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_item_margins', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_menu_snapshot', args: {}, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_price_bands', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_promo', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_sold_items', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'analytics_best_sellers',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'analytics_bought_together',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'analytics_hourly',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'analytics_item_margins',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'analytics_menu_snapshot',
-    args: {},
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'analytics_price_bands',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'analytics_promo',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'analytics_sold_items',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'save_analytics_patterns',
+    kind: 'rpc', schema: 'app', name: 'save_analytics_patterns',
     // Inverted range -> INVALID_RANGE, so owner never reaches the INSERT.
     args: { p_range_from: DAY_TO, p_range_to: DAY_FROM, p_locale: 'en', p_patterns: [] },
-    expect: OWNER_ONLY,
-    drop: 7,
+    expect: OWNER_ONLY, drop: 7,
   },
+  { kind: 'rpc', schema: 'app', name: 'unreject_insight', args: { p_id: NIL_UUID }, expect: OWNER_ONLY, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'unreject_insight',
-    args: { p_id: NIL_UUID },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'llm_usage_summary',
+    kind: 'rpc', schema: 'app', name: 'llm_usage_summary',
     // 0079/SEC-29. Spend is the owner's business and nobody else's — a manager
     // reading the model bill learns the venue's cost base.
-    args: {},
-    expect: OWNER_ONLY,
-    drop: 7,
+    args: {}, expect: OWNER_ONLY, drop: 7,
   },
 
   // ── owner only: staff administration ──────────────────────────────────────
+  { kind: 'rpc', schema: 'app', name: 'clear_staff_pin', args: { p_staff_id: NIL_UUID }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'rename_staff', args: { p_staff_id: NIL_UUID, p_display_name: 'matrix probe' }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'set_staff_active', args: { p_staff_id: NIL_UUID, p_active: false }, expect: OWNER_ONLY, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'clear_staff_pin',
-    args: { p_staff_id: NIL_UUID },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'rename_staff',
-    args: { p_staff_id: NIL_UUID, p_display_name: 'matrix probe' },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_staff_active',
-    args: { p_staff_id: NIL_UUID, p_active: false },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_staff_role',
+    kind: 'rpc', schema: 'app', name: 'set_staff_role',
     // p_role must be a REAL staff_role: an unknown label fails at argument
     // coercion, before the function body, so no principal would reach the guard
     // and every 'guarded' expectation here would silently stop meaning anything.
     args: { p_staff_id: NIL_UUID, p_role: 'cashier' },
-    expect: OWNER_ONLY,
-    drop: 7,
+    expect: OWNER_ONLY, drop: 7,
   },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_telegram_staff',
-    args: { p_tg_user_id: 1, p_staff_id: NIL_UUID },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'retry_telegram_outbox',
-    args: { p_id: 9_999_999_999 },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
+  { kind: 'rpc', schema: 'app', name: 'set_telegram_staff', args: { p_tg_user_id: 1, p_staff_id: NIL_UUID }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'retry_telegram_outbox', args: { p_id: 9_999_999_999 }, expect: OWNER_ONLY, drop: 7 },
 
   // ── owner only: the money-facing reports (app.reports_guard(true)) ────────
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'panel_headline',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'report_revenue',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: OWNER_ONLY,
-    drop: 7,
-  },
+  { kind: 'rpc', schema: 'app', name: 'panel_headline', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'report_revenue', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
 
   // ── manager + owner: reports and the audit trail (reports_guard(false)) ───
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'audit_log_page',
-    args: { p_from: TS_FROM, p_to: TS_TO },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
+  { kind: 'rpc', schema: 'app', name: 'audit_log_page', args: { p_from: TS_FROM, p_to: TS_TO }, expect: MANAGER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'ops_overview', args: {}, expect: MANAGER_UP, drop: 7 },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'report_cafe',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'report_courts',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'report_drill',
-    args: { p_figure: '__not_a_figure__', p_key: 'x', p_from: DAY_FROM, p_to: DAY_TO },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'report_staff_activity',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'report_stock',
-    args: { p_from: DAY_FROM, p_to: DAY_TO },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
+  { kind: 'rpc', schema: 'app', name: 'report_cafe', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'report_courts', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'report_drill', args: { p_figure: '__not_a_figure__', p_key: 'x', p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'report_staff_activity', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'report_stock', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'list_staff', args: {}, expect: MANAGER_UP, drop: 7 },
 
   // ── manager + owner: menu, courts, stock and venue configuration ──────────
+  { kind: 'rpc', schema: 'app', name: 'finalize_count', args: { p_count_id: NIL_UUID }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'link_item_modifier_group', args: { p_item_id: NIL_UUID, p_group_id: NIL_UUID }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'reorder_courts', args: { p_ids: [NIL_UUID] }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'reorder_menu_categories', args: { p_ids: [NIL_UUID] }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'reorder_menu_items', args: { p_ids: [NIL_UUID] }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'reorder_modifiers', args: { p_ids: [NIL_UUID] }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'set_addon_suggestions', args: { p_item_id: NIL_UUID, p_suggested_item_ids: [] }, expect: MANAGER_UP, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'finalize_count',
-    args: { p_count_id: NIL_UUID },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'link_item_modifier_group',
-    args: { p_item_id: NIL_UUID, p_group_id: NIL_UUID },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'reorder_courts',
-    args: { p_ids: [NIL_UUID] },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'reorder_menu_categories',
-    args: { p_ids: [NIL_UUID] },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'reorder_menu_items',
-    args: { p_ids: [NIL_UUID] },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'reorder_modifiers',
-    args: { p_ids: [NIL_UUID] },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_addon_suggestions',
-    args: { p_item_id: NIL_UUID, p_suggested_item_ids: [] },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_cafe_settings',
+    kind: 'rpc', schema: 'app', name: 'set_cafe_settings',
     // A JSON ARRAY, not an object -> INVALID_SETTINGS before anything is saved.
-    args: { p_settings: [] },
-    expect: MANAGER_UP,
-    drop: 7,
+    args: { p_settings: [] }, expect: MANAGER_UP, drop: 7,
   },
+  { kind: 'rpc', schema: 'app', name: 'set_category_photo', args: { p_category_id: NIL_UUID, p_photo_path: 'matrix/probe.png' }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'set_item_availability', args: { p_item_id: NIL_UUID, p_available: false }, expect: MANAGER_UP, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_category_photo',
-    args: { p_category_id: NIL_UUID, p_photo_path: 'matrix/probe.png' },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_item_availability',
-    args: { p_item_id: NIL_UUID, p_available: false },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_opening_hours',
+    kind: 'rpc', schema: 'app', name: 'set_opening_hours',
     // Array, not object -> INVALID_HOURS. Passing nothing would UPDATE venue_settings.
-    args: { p_opening_hours: [] },
-    expect: MANAGER_UP,
-    drop: 7,
+    args: { p_opening_hours: [] }, expect: MANAGER_UP, drop: 7,
   },
+  { kind: 'rpc', schema: 'app', name: 'set_recipe', args: { p_target: '__not_a_target__', p_target_id: NIL_UUID, p_lines: [] }, expect: MANAGER_UP, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_recipe',
-    args: { p_target: '__not_a_target__', p_target_id: NIL_UUID, p_lines: [] },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_waiter_call_cooldown',
+    kind: 'rpc', schema: 'app', name: 'set_waiter_call_cooldown',
     // Below the 30-second floor -> INVALID_COOLDOWN. A VALID number here would
     // rewrite the live venue setting on every run of the suite.
-    args: { p_seconds: 1 },
-    expect: MANAGER_UP,
-    drop: 7,
+    args: { p_seconds: 1 }, expect: MANAGER_UP, drop: 7,
   },
+  { kind: 'rpc', schema: 'app', name: 'upsert_court', args: { p_name_en: '', p_name_ar: '', p_indoor: true }, expect: MANAGER_UP, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'upsert_court',
-    args: { p_name_en: '', p_name_ar: '', p_indoor: true },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'upsert_ingredient',
+    kind: 'rpc', schema: 'app', name: 'upsert_ingredient',
     // Blank names -> NAME_REQUIRED. p_unit must still be a REAL stock_unit or
     // the call dies at coercion and never reaches the guard.
-    args: { p_name_en: '', p_name_ar: '', p_unit: 'g' },
-    expect: MANAGER_UP,
-    drop: 7,
+    args: { p_name_en: '', p_name_ar: '', p_unit: 'g' }, expect: MANAGER_UP, drop: 7,
   },
+  { kind: 'rpc', schema: 'app', name: 'upsert_menu_category', args: { p_name_en: 'x', p_name_ar: 'x', p_tax_group_id: NIL_UUID }, expect: MANAGER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'upsert_modifier', args: { p_group_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x' }, expect: MANAGER_UP, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'upsert_menu_category',
-    args: { p_name_en: 'x', p_name_ar: 'x', p_tax_group_id: NIL_UUID },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'upsert_modifier',
-    args: { p_group_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x' },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'upsert_modifier_group',
+    kind: 'rpc', schema: 'app', name: 'upsert_modifier_group',
     // min > max -> INVALID_SELECT_RANGE; this one has no foreign key to miss on.
     args: { p_name_en: 'x', p_name_ar: 'x', p_min_select: 5, p_max_select: 1 },
-    expect: MANAGER_UP,
-    drop: 7,
+    expect: MANAGER_UP, drop: 7,
   },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'upsert_rate_rule',
+    kind: 'rpc', schema: 'app', name: 'upsert_rate_rule',
     // A named court that does not exist -> COURT_NOT_FOUND. Leaving p_court_id
     // null would make it a VENUE-WIDE rule and it would be created for real.
     args: {
-      p_name: 'matrix probe',
-      p_days_of_week: [1],
-      p_start_time: '10:00',
-      p_end_time: '11:00',
-      p_prices: {},
-      p_court_id: NIL_UUID,
+      p_name: 'matrix probe', p_days_of_week: [1], p_start_time: '10:00', p_end_time: '11:00',
+      p_prices: {}, p_court_id: NIL_UUID,
     },
-    expect: MANAGER_UP,
-    drop: 7,
+    expect: MANAGER_UP, drop: 7,
   },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'upsert_variant',
-    args: { p_item_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x', p_price_iqd: 1000 },
-    expect: MANAGER_UP,
-    drop: 7,
-  },
+  { kind: 'rpc', schema: 'app', name: 'upsert_variant', args: { p_item_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x', p_price_iqd: 1000 }, expect: MANAGER_UP, drop: 7 },
 
   // ── cashier + manager + owner: the till surface ───────────────────────────
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'merge_tabs',
-    args: { p_donor_tab_id: NIL_UUID, p_survivor_tab_id: NIL_UUID },
-    expect: CASHIER_UP,
-    drop: 7,
-  },
+  { kind: 'rpc', schema: 'app', name: 'merge_tabs', args: { p_donor_tab_id: NIL_UUID, p_survivor_tab_id: NIL_UUID }, expect: CASHIER_UP, drop: 7 },
   // Nil tab stops at NO_OPEN_DAY/TAB_NOT_FOUND past the guard — nothing is voided.
+  { kind: 'rpc', schema: 'app', name: 'cancel_tab', args: { p_tab_id: NIL_UUID }, expect: CASHIER_UP, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'cancel_tab',
-    args: { p_tab_id: NIL_UUID },
-    expect: CASHIER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'override_price',
+    kind: 'rpc', schema: 'app', name: 'override_price',
     // The CORRECT manager PIN on purpose. A wrong one writes a failed row to
     // app.pin_attempts, and five of those in five minutes lock that caller out
     // of every PIN path — which is shared state the hardening and idle-lock
     // suites assert on. A successful check writes success=true and counts
     // toward nothing. The NIL line id then stops it at ITEM_NOT_FOUND.
-    args: {
-      p_order_item_id: NIL_UUID,
-      p_new_unit_price_iqd: 1000,
-      p_pin: MANAGER_PIN,
-      p_reason_code: 'matrix',
-    },
-    expect: CASHIER_UP,
-    drop: 7,
+    args: { p_order_item_id: NIL_UUID, p_new_unit_price_iqd: 1000, p_pin: MANAGER_PIN, p_reason_code: 'matrix' },
+    expect: CASHIER_UP, drop: 7,
   },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'record_drawer_open',
+    kind: 'rpc', schema: 'app', name: 'record_drawer_open',
     args: { p_reason_code: '' }, // REASON_REQUIRED — nothing is recorded
-    expect: CASHIER_UP,
-    drop: 7,
+    expect: CASHIER_UP, drop: 7,
   },
+  { kind: 'rpc', schema: 'app', name: 'resolve_waiter_call', args: { p_call_id: NIL_UUID }, expect: CASHIER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'split_by_item', args: { p_tab_id: NIL_UUID, p_groups: [] }, expect: CASHIER_UP, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'resolve_waiter_call',
-    args: { p_call_id: NIL_UUID },
-    expect: CASHIER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'split_by_item',
-    args: { p_tab_id: NIL_UUID, p_groups: [] },
-    expect: CASHIER_UP,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'void_after_send',
+    kind: 'rpc', schema: 'app', name: 'void_after_send',
     args: { p_order_item_id: NIL_UUID, p_pin: MANAGER_PIN, p_reason_code: 'matrix' },
-    expect: CASHIER_UP,
-    drop: 7,
+    expect: CASHIER_UP, drop: 7,
   },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'write_off_expired',
+    kind: 'rpc', schema: 'app', name: 'write_off_expired',
     args: { p_batch_id: NIL_UUID, p_pin: MANAGER_PIN, p_reason_code: 'expired' },
-    expect: CASHIER_UP,
-    drop: 7,
+    expect: CASHIER_UP, drop: 7,
   },
 
   // ── prep + cashier + manager + owner: the kitchen surface ─────────────────
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'set_order_item_ready',
-    args: { p_order_item_id: NIL_UUID, p_ready: true },
-    expect: PREP_UP,
-    drop: 7,
-  },
+  { kind: 'rpc', schema: 'app', name: 'set_order_item_ready', args: { p_order_item_id: NIL_UUID, p_ready: true }, expect: PREP_UP, drop: 7 },
 
   // ── ownership-guarded, not role-guarded ───────────────────────────────────
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'release_hold',
+    kind: 'rpc', schema: 'app', name: 'release_hold',
     args: { p_reservation_id: NIL_UUID },
     // An ACCOUNT is required, exactly as for hold_slot (0048/C1): an anonymous
     // cafe session has no profiles row and is turned away with ACCOUNT_REQUIRED.
@@ -2702,72 +2345,20 @@ export const matrix: MatrixRule[] = [
   // Each answers only about the CALLER, or about data that is public before any
   // identity exists. They are listed in check-rpc-authz's PUBLIC_BY_DESIGN; these
   // rows are what proves the claim across all eight principals rather than one.
+  { kind: 'rpc', schema: 'app', name: 'is_media_path', args: { p: 'menu-media/x.png' }, expect: SELF_ANON_OK, drop: 7 },
   {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'is_media_path',
-    args: { p: 'menu-media/x.png' },
-    expect: SELF_ANON_OK,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'is_staff',
+    kind: 'rpc', schema: 'app', name: 'is_staff',
     // VARIADIC roles staff_role[]. PostgREST needs the array under its real
     // parameter name — an empty body 404s with PGRST202 ("without parameters")
     // and would read as un-probed rather than as covered.
     args: { roles: ['owner'] },
-    expect: SELF_ANON_OK,
-    drop: 7,
+    expect: SELF_ANON_OK, drop: 7,
   },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'menu_availability',
-    args: {},
-    expect: SELF_ANON_OK,
-    drop: 7,
-  },
+  { kind: 'rpc', schema: 'app', name: 'menu_availability', args: {}, expect: SELF_ANON_OK, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'staff_role', args: {}, expect: SELF_ANON_OK, drop: 7 },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'is_own_session',
-    args: { p_session_id: NIL_UUID },
-    expect: SELF_AUTHED,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'item_active_groups',
-    args: { p_item_id: NIL_UUID, p_chosen_modifier_ids: [] },
-    expect: SELF_AUTHED,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'order_is_callers',
-    args: { p_order_id: NIL_UUID },
-    expect: SELF_AUTHED,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'tab_is_callers',
-    args: { p_tab_id: NIL_UUID },
-    expect: SELF_AUTHED,
-    drop: 7,
-  },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'verify_table_token',
-    args: { p_token: 'not-a-real-token' },
-    expect: SELF_AUTHED,
-    drop: 7,
-  },
+  { kind: 'rpc', schema: 'app', name: 'is_own_session', args: { p_session_id: NIL_UUID }, expect: SELF_AUTHED, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'item_active_groups', args: { p_item_id: NIL_UUID, p_chosen_modifier_ids: [] }, expect: SELF_AUTHED, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'order_is_callers', args: { p_order_id: NIL_UUID }, expect: SELF_AUTHED, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'tab_is_callers', args: { p_tab_id: NIL_UUID }, expect: SELF_AUTHED, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'verify_table_token', args: { p_token: 'not-a-real-token' }, expect: SELF_AUTHED, drop: 7 },
 ];

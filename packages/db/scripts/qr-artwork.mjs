@@ -117,16 +117,11 @@ async function generateToken(tableId) {
     body: JSON.stringify({ p_table_id: tableId }),
   });
   if (!res.ok) {
-    throw new Error(
-      `generate_table_token(${tableId}) failed: HTTP ${res.status} ${await res.text()}`,
-    );
+    throw new Error(`generate_table_token(${tableId}) failed: HTTP ${res.status} ${await res.text()}`);
   }
   const data = await res.json();
   const token = typeof data === 'string' ? data : data?.token;
-  if (!token)
-    throw new Error(
-      `generate_table_token(${tableId}): unexpected response ${JSON.stringify(data)}`,
-    );
+  if (!token) throw new Error(`generate_table_token(${tableId}): unexpected response ${JSON.stringify(data)}`);
   return token;
 }
 
@@ -173,11 +168,7 @@ async function fontFaceCss() {
 }
 
 function esc(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /**
@@ -257,14 +248,10 @@ async function main() {
     const svg = renderCard({ tableNumber: t.table_number, zone: t.zone, qrUrl, fontCss });
     const file = path.join(OUT_DIR, `table-${safeName(t.table_number)}.svg`);
     await writeFile(file, svg, 'utf8');
-    console.log(
-      `  ${t.table_number.padEnd(6)} v${t.token_version}  ->  ${path.relative(process.cwd(), file)}`,
-    );
+    console.log(`  ${t.table_number.padEnd(6)} v${t.token_version}  ->  ${path.relative(process.cwd(), file)}`);
   }
   console.log(`\n${tables.length} card(s) in ${OUT_DIR}`);
-  console.log(
-    'Rotation reminder: bumping cafe_tables.token_version kills printed QRs — re-run + reprint.',
-  );
+  console.log('Rotation reminder: bumping cafe_tables.token_version kills printed QRs — re-run + reprint.');
 }
 
 main().catch((e) => {

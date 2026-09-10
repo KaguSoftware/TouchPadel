@@ -29,20 +29,8 @@ import { appRpc } from '../../lib/appRpc';
 import { QK, fetchVenueSettings } from '../../lib/queries';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText, Skeleton, inputStyle } from '../../components/ui';
-import {
-  AsyncStateWrapper,
-  MessagePresenter,
-  Panel,
-  StatusBadge,
-  asyncStatus,
-} from '../../components/kit';
-import {
-  addClosedDate,
-  isIsoDate,
-  removeClosedDate,
-  sameClosedDates,
-  splitClosedDates,
-} from './closedDates';
+import { AsyncStateWrapper, MessagePresenter, Panel, StatusBadge, asyncStatus } from '../../components/kit';
+import { addClosedDate, isIsoDate, removeClosedDate, sameClosedDates, splitClosedDates } from './closedDates';
 
 const DAY_KEYS: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -70,13 +58,7 @@ function draftFrom(hours: Parameters<typeof readOpeningHours>[0]): Record<DayKey
   const next = {} as Record<DayKey, DayDraft>;
   for (const key of DAY_KEYS) {
     const p = pairs[key];
-    next[key] = {
-      closed: p.closed,
-      open: p.open,
-      close: p.close,
-      overnight: p.overnight,
-      split: p.split,
-    };
+    next[key] = { closed: p.closed, open: p.open, close: p.close, overnight: p.overnight, split: p.split };
   }
   return next;
 }
@@ -147,12 +129,7 @@ export function OpeningHoursEditor() {
   const status = asyncStatus(settingsQ, () => false);
   if (status !== 'ready' || !draft || closed === null) {
     return (
-      <AsyncStateWrapper
-        status={status === 'ready' ? 'loading' : status}
-        error={settingsQ.error}
-        onRetry={() => void settingsQ.refetch()}
-        skeleton={<Skeleton lines={8} />}
-      >
+      <AsyncStateWrapper status={status === 'ready' ? 'loading' : status} error={settingsQ.error} onRetry={() => void settingsQ.refetch()} skeleton={<Skeleton lines={8} />}>
         {null}
       </AsyncStateWrapper>
     );
@@ -160,9 +137,7 @@ export function OpeningHoursEditor() {
 
   // The venue's own today, not the browser's — a station in another timezone
   // must not decide that tomorrow's closure is already in the past.
-  const todayIso = new Date().toLocaleDateString('en-CA', {
-    timeZone: settingsQ.data?.timezone ?? undefined,
-  });
+  const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: settingsQ.data?.timezone ?? undefined });
   const { upcoming, past } = splitClosedDates(closed, todayIso);
   const datesDirty = !sameClosedDates(closed, settingsQ.data?.closed_dates ?? []);
   const dirty = hoursDirty || datesDirty;
@@ -188,31 +163,11 @@ export function OpeningHoursEditor() {
                 }}
               >
                 <span style={{ fontWeight: 600 }}>{tr(`op.days.${key}`)}</span>
-                <label
-                  style={{
-                    display: 'inline-flex',
-                    gap: 'var(--tp-sp-1-5)',
-                    alignItems: 'center',
-                    fontSize: 'var(--tp-fs-sm)',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={d.closed}
-                    disabled={busy}
-                    onChange={(e) => editDay(key, { closed: e.target.checked })}
-                  />
+                <label style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)' }}>
+                  <input type="checkbox" checked={d.closed} disabled={busy} onChange={(e) => editDay(key, { closed: e.target.checked })} />
                   {tr('op.hours.closedDay')}
                 </label>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    gap: 'var(--tp-sp-1-5)',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    minBlockSize: 'var(--tp-row-h)',
-                  }}
-                >
+                <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap', minBlockSize: 'var(--tp-row-h)' }}>
                   {!d.closed && (
                     <>
                       <input
@@ -234,17 +189,8 @@ export function OpeningHoursEditor() {
                         value={d.close}
                         onChange={(e) => editDay(key, { close: e.target.value })}
                       />
-                      {d.overnight && (
-                        <StatusBadge
-                          tone="info"
-                          size="sm"
-                          dot={false}
-                          label={tr('op.hours.nextDay')}
-                        />
-                      )}
-                      {d.split && (
-                        <StatusBadge tone="warn" size="sm" label={tr('ws.kit.common.readOnly')} />
-                      )}
+                      {d.overnight && <StatusBadge tone="info" size="sm" dot={false} label={tr('op.hours.nextDay')} />}
+                      {d.split && <StatusBadge tone="warn" size="sm" label={tr('ws.kit.common.readOnly')} />}
                     </>
                   )}
                 </span>
@@ -253,27 +199,13 @@ export function OpeningHoursEditor() {
           })}
         </div>
         {DAY_KEYS.some((k) => draft[k].split) && (
-          <MessagePresenter
-            tone="refused"
-            message={tr('op.hours.splitNotice')}
-            style={{ marginBlock: 'var(--tp-sp-3)', marginInline: 'var(--tp-sp-3)' }}
-          />
+          <MessagePresenter tone="refused" message={tr('op.hours.splitNotice')} style={{ marginBlock: 'var(--tp-sp-3)', marginInline: 'var(--tp-sp-3)' }} />
         )}
       </Panel>
 
       <Panel title={tr('op.hours.closedDatesTitle')}>
-        <p
-          style={{
-            fontSize: 'var(--tp-fs-sm)',
-            color: 'var(--tp-muted-fg)',
-            marginBlockEnd: 'var(--tp-sp-2-5)',
-          }}
-        >
-          {tr('op.hours.closedDatesHint')}
-        </p>
-        <div
-          style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}
-        >
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>{tr('op.hours.closedDatesHint')}</p>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             style={{ ...inputStyle, inlineSize: 'auto' }}
             dir="ltr"
@@ -297,55 +229,16 @@ export function OpeningHoursEditor() {
         </div>
 
         {upcoming.length === 0 ? (
-          <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
-            {tr('op.hours.closedDatesNone')}
-          </p>
+          <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-2-5)' }}>{tr('op.hours.closedDatesNone')}</p>
         ) : (
-          <ul
-            style={{
-              listStyle: 'none',
-              paddingInline: 0,
-              marginBlock: 'var(--tp-sp-2-5) 0',
-              display: 'grid',
-            }}
-          >
+          <ul style={{ listStyle: 'none', paddingInline: 0, marginBlock: 'var(--tp-sp-2-5) 0', display: 'grid' }}>
             {upcoming.map((d) => (
-              <li
-                key={d}
-                className="tp-row"
-                style={{
-                  display: 'flex',
-                  gap: 'var(--tp-sp-3)',
-                  alignItems: 'center',
-                  paddingBlock: 'var(--tp-sp-1)',
-                  borderBlockEnd: '1px solid var(--tp-border)',
-                }}
-              >
-                <span
-                  dir="ltr"
-                  style={{ fontVariantNumeric: 'tabular-nums', minInlineSize: '7rem' }}
-                >
+              <li key={d} className="tp-row" style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', paddingBlock: 'var(--tp-sp-1)', borderBlockEnd: '1px solid var(--tp-border)' }}>
+                <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', minInlineSize: '7rem' }}>
                   {d}
                 </span>
-                <span
-                  style={{
-                    color: 'var(--tp-muted-fg)',
-                    fontSize: 'var(--tp-fs-sm)',
-                    marginInlineEnd: 'auto',
-                  }}
-                >
-                  {showDate(d)}
-                </span>
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  icon="x"
-                  disabled={busy}
-                  onClick={() => {
-                    setClosed(removeClosedDate(closed, d));
-                    setSaved(false);
-                  }}
-                >
+                <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginInlineEnd: 'auto' }}>{showDate(d)}</span>
+                <Button kind="ghost" size="sm" icon="x" disabled={busy} onClick={() => { setClosed(removeClosedDate(closed, d)); setSaved(false); }}>
                   {tr('op.common.remove')}
                 </Button>
               </li>
@@ -355,33 +248,15 @@ export function OpeningHoursEditor() {
 
         {past.length > 0 && (
           <details style={{ marginBlockStart: 'var(--tp-sp-2-5)' }}>
-            <summary
-              style={{
-                cursor: 'pointer',
-                color: 'var(--tp-muted-fg)',
-                fontSize: 'var(--tp-fs-sm)',
-              }}
-            >
+            <summary style={{ cursor: 'pointer', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
               {tr('op.hours.closedDatesPast', { count: past.length })}
             </summary>
             {/* Kept, not pruned: closed_dates is also the record of why a day has
                 no takings, and dropping last Eid would make the day-close history
                 unexplainable. */}
-            <ul
-              style={{
-                listStyle: 'none',
-                paddingInline: 0,
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 'var(--tp-sp-1-5)',
-              }}
-            >
+            <ul style={{ listStyle: 'none', paddingInline: 0, display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
               {past.map((d) => (
-                <li
-                  key={d}
-                  dir="ltr"
-                  style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}
-                >
+                <li key={d} dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
                   {d}
                 </li>
               ))}
@@ -392,18 +267,11 @@ export function OpeningHoursEditor() {
 
       <ErrorText error={error} style={{ marginBlock: 0 }} />
       {saved && !dirty && <MessagePresenter tone="success" message={tr('op.hours.saved')} />}
-      <div
-        style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}
-      >
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
         <Button kind="primary" icon="check" busy={busy} onClick={() => void save()}>
           {tr('common.save')}
         </Button>
-        <Button
-          kind="ghost"
-          disabled={busy || !dirty}
-          disabledReason={!dirty ? tr('ws.manager.disabled.noChanges') : undefined}
-          onClick={discard}
-        >
+        <Button kind="ghost" disabled={busy || !dirty} disabledReason={!dirty ? tr('ws.manager.disabled.noChanges') : undefined} onClick={discard}>
           {tr('ws.kit.actions.discard')}
         </Button>
         {dirty && <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} />}

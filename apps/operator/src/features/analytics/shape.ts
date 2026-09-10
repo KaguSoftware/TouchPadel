@@ -298,22 +298,12 @@ export interface TopItemRow {
 }
 export const parseTopViewed = (r?: PosthogQueryResult): TopItemRow[] =>
   rowsToObjects(r)
-    .map((o) => ({
-      id: str(o.item_id),
-      name: str(o.item_name),
-      sessions: num(o.sessions),
-      views: num(o.views),
-    }))
+    .map((o) => ({ id: str(o.item_id), name: str(o.item_name), sessions: num(o.sessions), views: num(o.views) }))
     .filter((x) => x.id !== '');
 
 export const parseTopCarted = (r?: PosthogQueryResult): TopItemRow[] =>
   rowsToObjects(r)
-    .map((o) => ({
-      id: str(o.item_id),
-      name: str(o.item_name),
-      sessions: num(o.sessions),
-      views: num(o.adds),
-    }))
+    .map((o) => ({ id: str(o.item_id), name: str(o.item_name), sessions: num(o.sessions), views: num(o.adds) }))
     .filter((x) => x.id !== '');
 
 export interface AbandonedRow {
@@ -491,11 +481,6 @@ export const parseLocalePreferences = (r?: PosthogQueryResult): LocalePref[] =>
     medianSeconds: num(o.median_seconds),
     topItems: arr(o.top_items).map((t) => {
       const x = obj(t);
-      return {
-        id: str(x.item_id),
-        name: str(x.item_name),
-        sessions: num(x.sessions),
-        rate: num(x.rate),
-      };
+      return { id: str(x.item_id), name: str(x.item_name), sessions: num(x.sessions), rate: num(x.rate) };
     }),
   }));

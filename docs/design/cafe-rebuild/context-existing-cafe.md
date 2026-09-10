@@ -6,9 +6,7 @@ Monorepo root: `c:\Users\p.mansouri\Desktop\kagu software\TouchPadel`. pnpm 9 + 
 `@touch/i18n`, `@touch/config`.
 
 ## 1. WEB APP (`apps/web`)
-
 Routes under `app/[locale]`:
-
 - `layout.tsx` — only `<html>`; `lang`, `dir`, `data-theme="padel"`; Google Fonts Montserrat + IBM
   Plex Sans Arabic; inlines `themeCss` + `appCss` (from `src/styles/app-css.ts`, one template string,
   BEM-ish `tp-*` classes, logical properties only, NO animations, no dark mode, 1 breakpoint 640px).
@@ -65,7 +63,6 @@ Routes under `app/[locale]`:
 - RTL = `dir="rtl"` + `[dir='rtl'] { font-family: var(--tp-font-arabic) }` only.
 
 ## 2. DATABASE (`packages/db/supabase/migrations`, 0001–0026, no 0023)
-
 Enums (0002): tab_status(open, awaiting_payment, settled, void); order_source(guest_web, till);
 order_status(sent, preparing, ready, served, voided); ticket_status(queued, preparing, ready,
 completed, voided); waiter_call_reason(order, bill, water, assistance); waiter_call_status(raised,
@@ -151,7 +148,6 @@ Touch Cafe palette, `qrPath()` renders modules into one `<path>`; needs service 
 generate_table_token); output `packages/db/artwork/` (not committed).
 
 ## 3. OPERATOR (`apps/operator`) — cafe consumers
-
 `src/lib/realtime.ts` `useBroadcast({topic,isPrivate,events,enabled,onEvent,invalidateKeys})` (cache-bust
 hint; data reloads from tables). `features/kds/KdsBoard.tsx` (250 L): fetch tickets queued/preparing/
 ready (+completed last 2 min), refetch 30 s, `useBroadcast({topic:'kds'})`, age colours
@@ -163,7 +159,6 @@ Ack/Resolve buttons, 30 s age ticker). `features/admin/MenuEditor.tsx` (see cont
 ## 4. Telegram / analytics / webhooks: ABSENT everywhere (only Expo push for bookings; Sentry absent).
 
 ## 5. `packages/ui` tokens
-
 `palette.ts`: `padelPalette` and `cafePalette` sharing semantic token names (`--tp-bg`, `--tp-fg`,
 `--tp-surface`, `--tp-accent`, `--tp-accent-contrast`, `--tp-accent-2`, `--tp-accent-2-contrast`,
 `--tp-muted`, `--tp-muted-fg`, `--tp-border`, `--tp-danger`, `--tp-danger-contrast`); cafe: bg
@@ -174,7 +169,6 @@ Plex Sans Arabic…, `--tp-font-body` = arabic stack, `--tp-font-mono`; "BRAND F
 `THEME_STYLE_ID`. `ThemeProvider.tsx` (client; used by operator, not web). NO components in @touch/ui.
 
 ## 6. e2e (`e2e/tests/`)
-
 `cafe-journey.spec.ts`: EN — mint token for T3 (helpers: ensureTillFresh, ensureOpenDay,
 clearWaiterCalls, voidOpenTabsForTable, mintTableToken), goto `/en/t/{token}`, Hot Drinks →
 Cappuccino → Large + Oat Milk → Add → Basket → Place order → "Received" → prep client sets preparing
@@ -184,14 +178,12 @@ Arabic category/item/sheet strings. `public-menu.spec.ts`: 390×844 viewport, la
 and AR, assertNoHorizontalScroll. `packages/db/tests/cafe-flow.test.ts`: 8 contractual DB tests.
 
 ## 7. Conventions (README/CONTRIBUTING)
-
 Migrations only; `pnpm db:types` + commit types.gen.ts (CI fails on drift); money only in
 packages/core; operator writes via RPC (IPC queue for till later); CSS logical properties (lint);
 test every screen in Arabic; `_en`/`_ar` NOT NULL; secrets never in repo; decision hierarchy
 design-data.md > design-arch.md > design-delivery.md; HANDOFF "Resolved design calls" wins.
 
 ## Known seams / bugs to fix in this rebuild
-
 1. photo_path never rendered; no storage bucket; `upsert_menu_item` wipes photo on save.
 2. `/t/[token]` ships zero server-rendered content (blank until anon sign-in + RPC).
 3. Waiter-call resolution is a 20 s poll (floor topic staff-only) — add guest-visible broadcast on

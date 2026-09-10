@@ -292,14 +292,7 @@ export const TicketCard = memo(function TicketCard({
           minBlockSize: KDS_BAND_BLOCK,
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--tp-sp-2-5)',
-            minInlineSize: 0,
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2-5)', minInlineSize: 0 }}>
           {keyHint && (
             <span
               aria-hidden="true"
@@ -464,12 +457,7 @@ export const TicketCard = memo(function TicketCard({
           }}
         >
           {t.status === 'queued' && (
-            <ActionButton
-              kind="primary"
-              keyLabel="S"
-              busy={busy}
-              onClick={() => onStatus(t.id, 'preparing')}
-            >
+            <ActionButton kind="primary" keyLabel="S" busy={busy} onClick={() => onStatus(t.id, 'preparing')}>
               {tr('op.kds.start')}
             </ActionButton>
           )}
@@ -484,12 +472,7 @@ export const TicketCard = memo(function TicketCard({
             </ActionButton>
           )}
           {t.status === 'ready' && (
-            <ActionButton
-              kind="primary"
-              keyLabel="C"
-              busy={busy}
-              onClick={() => onStatus(t.id, 'completed')}
-            >
+            <ActionButton kind="primary" keyLabel="C" busy={busy} onClick={() => onStatus(t.id, 'completed')}>
               {tr('op.kds.complete')}
             </ActionButton>
           )}
@@ -513,13 +496,7 @@ function ActionButton({
   onClick: () => void;
 }) {
   return (
-    <Button
-      kind={kind}
-      size="xl"
-      busy={busy}
-      onClick={onClick}
-      style={{ minInlineSize: ACTION_INLINE }}
-    >
+    <Button kind={kind} size="xl" busy={busy} onClick={onClick} style={{ minInlineSize: ACTION_INLINE }}>
       {children}
       <KdsKbd>{keyLabel}</KdsKbd>
     </Button>
@@ -565,9 +542,7 @@ const ItemLine = memo(function ItemLine({
       {/* Modifiers and notes step DOWN to the board floor, so the item name is
           the strongest thing on the line — all three used to sit at one size. */}
       {item.modifiers.length > 0 && (
-        <span
-          style={{ fontSize: 'var(--tp-fs-kds-sm)', color: 'var(--tp-kds-muted)', lineHeight: 1.3 }}
-        >
+        <span style={{ fontSize: 'var(--tp-fs-kds-sm)', color: 'var(--tp-kds-muted)', lineHeight: 1.3 }}>
           {item.modifiers.join(' · ')}
         </span>
       )}

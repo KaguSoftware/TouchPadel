@@ -79,10 +79,7 @@ test.describe('operator stock (module 5)', () => {
       await svc.from('stock_count_lines').delete().eq('ingredient_id', ingredientId);
       await svc.from('stock_movements').delete().eq('ingredient_id', ingredientId);
       await svc.from('stock_batches').delete().eq('ingredient_id', ingredientId);
-      await svc
-        .from('manager_alerts')
-        .delete()
-        .contains('payload', { ingredient_id: ingredientId });
+      await svc.from('manager_alerts').delete().contains('payload', { ingredient_id: ingredientId });
       await svc.from('ingredients').delete().eq('id', ingredientId);
     }
     await voidOpenTabsForTable(svc, TILL_TABLE);
@@ -110,10 +107,7 @@ test.describe('operator stock (module 5)', () => {
   test('(b) goods in raises on-hand and the ledger names the delivery', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/receive`);
-    await page
-      .getByLabel('Ingredient')
-      .first()
-      .selectOption({ label: `${ING} (g)` });
+    await page.getByLabel('Ingredient').first().selectOption({ label: `${ING} (g)` });
     await page.getByLabel('Expected').first().fill('500');
     await page.getByLabel('Received').first().fill('400');
     await expect(page.getByText('Short by 100')).toBeVisible(); // short-delivery capture
@@ -166,10 +160,7 @@ test.describe('operator stock (module 5)', () => {
             .select('qty_delta')
             .eq('ingredient_id', ingredientId)
             .eq('movement_type', 'sale_consumption');
-          return (data ?? []).reduce(
-            (s, m) => s + Number((m as { qty_delta: number }).qty_delta),
-            0,
-          );
+          return (data ?? []).reduce((s, m) => s + Number((m as { qty_delta: number }).qty_delta), 0);
         },
         { timeout: 15_000 },
       )
@@ -186,10 +177,7 @@ test.describe('operator stock (module 5)', () => {
   test('(d) waste demands a reason and lands in the ledger', async ({ page }) => {
     await signIn(page, SEED_STAFF.manager);
     await page.goto(`${OPERATOR_URL}/stock/waste`);
-    await page
-      .getByLabel(/^Ingredient/)
-      .first()
-      .selectOption({ label: `${ING} (g)` });
+    await page.getByLabel(/^Ingredient/).first().selectOption({ label: `${ING} (g)` });
     await page.getByLabel('Qty', { exact: true }).fill('30');
     await page.getByLabel('Reason').fill('dropped the bag');
     await page.getByRole('button', { name: 'Record waste' }).click();

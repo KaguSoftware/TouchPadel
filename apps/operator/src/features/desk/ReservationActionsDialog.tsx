@@ -22,20 +22,8 @@ import { ReservationBadge } from './deskStatus';
 import { allowedMarks, isLive } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
 
-const CANCEL_REASONS = [
-  'customer_request',
-  'weather',
-  'staff_error',
-  'duplicate',
-  'other',
-] as const;
-export const OVERRIDE_REASONS = [
-  'customer_request',
-  'staff_error',
-  'weather',
-  'duplicate',
-  'other',
-] as const;
+const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
+export const OVERRIDE_REASONS = ['customer_request', 'staff_error', 'weather', 'duplicate', 'other'] as const;
 
 /** Shorten and extend move in half-hour steps, matching the grid. */
 export const STEP_MIN = 30;
@@ -94,12 +82,7 @@ export function ReservationActionsDialog({
       list?.map((row) => (row.id === r.id ? { ...row, status } : row)),
     );
     onChanged();
-    void mutate('reservation.update', {
-      action: 'mark',
-      reservationId: r.id,
-      status,
-      reason,
-    }).catch((e: unknown) => {
+    void mutate('reservation.update', { action: 'mark', reservationId: r.id, status, reason }).catch((e: unknown) => {
       toast.err(e);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
     });
@@ -111,23 +94,14 @@ export function ReservationActionsDialog({
   const court = courts.find((c) => c.id === r.court_id);
   // The floor is the court's own shortest bookable duration: shorter than that
   // and no rate rule prices the slot, so the server refuses. Do not offer it.
-  const minDurationMin = court?.duration_options?.length
-    ? Math.min(...court.duration_options)
-    : STEP_MIN;
-  const title =
-    r.kind === 'maintenance'
-      ? tr('op.desk.maintenance')
-      : r.kind === 'hold'
-        ? tr('op.desk.hold')
-        : (r.guest_name ?? tr('op.desk.walkIn'));
+  const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
+  const title = r.kind === 'maintenance' ? tr('op.desk.maintenance') : r.kind === 'hold' ? tr('op.desk.hold') : (r.guest_name ?? tr('op.desk.walkIn'));
 
   return (
     <Modal
       title={title}
       subtitle={
-        <span
-          style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}
-        >
+        <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <bdi>{court ? pickName(locale, court) : ''}</bdi>
           <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
           {r.guest_phone && <bdi dir="ltr">{r.guest_phone}</bdi>}
@@ -155,18 +129,11 @@ export function ReservationActionsDialog({
         </>
       }
     >
-      {r.notes && (
-        <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem' }}>{r.notes}</p>
-      )}
+      {r.notes && <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem' }}>{r.notes}</p>}
       <ErrorText error={error} />
       {live && !showMove && !showCancel && (
         <Field label={tr('op.desk.overrideReason')}>
-          <select
-            style={inputStyle}
-            value={reason}
-            disabled={busy}
-            onChange={(e) => setReason(e.target.value)}
-          >
+          <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
             {OVERRIDE_REASONS.map((code) => (
               <option key={code} value={code}>
                 {tr(`op.reasons.${code}`)}
@@ -197,17 +164,13 @@ export function ReservationActionsDialog({
             disabled={durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000}
             // Rulebook 4.3: the floor is the court's own shortest priced
             // length, which is not guessable from a greyed button.
-            disabledReason={tr('ws.courtDesk.detail.shortenFloor', {
-              minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }),
-            })}
+            disabledReason={tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
             onClick={() =>
               void run(() =>
                 mutate('reservation.update', {
                   action: 'extend',
                   reservationId: r.id,
-                  newEndAt: new Date(
-                    new Date(r.end_at).getTime() - STEP_MIN * 60_000,
-                  ).toISOString(),
+                  newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(),
                   reason,
                 }),
               )
@@ -222,9 +185,7 @@ export function ReservationActionsDialog({
                 mutate('reservation.update', {
                   action: 'extend',
                   reservationId: r.id,
-                  newEndAt: new Date(
-                    new Date(r.end_at).getTime() + STEP_MIN * 60_000,
-                  ).toISOString(),
+                  newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(),
                   reason,
                 }),
               )
@@ -240,26 +201,13 @@ export function ReservationActionsDialog({
           </Button>
         </div>
       )}
-      {!live && (
-        <p style={{ color: 'var(--tp-muted-fg)' }}>
-          {tr('ws.courtDesk.detail.notLive', {
-            status: tr(`ws.kit.bookingStatus.${r.status as 'completed'}`),
-          })}
-        </p>
-      )}
+      {!live && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.detail.notLive', { status: tr(`ws.kit.bookingStatus.${r.status as 'completed'}`) })}</p>}
 
       {showMove && (
         <div style={{ marginBlockStart: '0.6rem' }}>
-          <h3 style={{ marginBlock: '0.4rem', fontSize: 'var(--tp-fs-md)' }}>
-            {tr('op.desk.moveTitle')}
-          </h3>
+          <h3 style={{ marginBlock: '0.4rem', fontSize: 'var(--tp-fs-md)' }}>{tr('op.desk.moveTitle')}</h3>
           <Field label={tr('op.desk.newCourt')}>
-            <select
-              style={inputStyle}
-              value={moveCourt}
-              disabled={busy}
-              onChange={(e) => setMoveCourt(e.target.value)}
-            >
+            <select style={inputStyle} value={moveCourt} disabled={busy} onChange={(e) => setMoveCourt(e.target.value)}>
               {courts.map((c) => (
                 <option key={c.id} value={c.id}>
                   {pickName(locale, c)}
@@ -268,12 +216,7 @@ export function ReservationActionsDialog({
             </select>
           </Field>
           <Field label={tr('op.desk.newStart')}>
-            <select
-              style={inputStyle}
-              value={moveStartMin}
-              disabled={busy}
-              onChange={(e) => setMoveStartMin(e.target.value === '' ? '' : Number(e.target.value))}
-            >
+            <select style={inputStyle} value={moveStartMin} disabled={busy} onChange={(e) => setMoveStartMin(e.target.value === '' ? '' : Number(e.target.value))}>
               <option value="">—</option>
               {rows.map((min) => (
                 <option key={min} value={min}>
@@ -290,10 +233,7 @@ export function ReservationActionsDialog({
               kind="primary"
               busy={busy}
               onClick={() => {
-                const start =
-                  moveStartMin === ''
-                    ? new Date(r.start_at)
-                    : wallTimeToUtc(date, moveStartMin, tz);
+                const start = moveStartMin === '' ? new Date(r.start_at) : wallTimeToUtc(date, moveStartMin, tz);
                 void run(() =>
                   mutate('reservation.update', {
                     action: 'move',
@@ -315,12 +255,7 @@ export function ReservationActionsDialog({
       {showCancel && (
         <div style={{ marginBlockStart: '0.6rem' }}>
           <Field label={tr('op.common.reason')}>
-            <select
-              style={inputStyle}
-              value={cancelReason}
-              disabled={busy}
-              onChange={(e) => setCancelReason(e.target.value)}
-            >
+            <select style={inputStyle} value={cancelReason} disabled={busy} onChange={(e) => setCancelReason(e.target.value)}>
               {CANCEL_REASONS.map((code) => (
                 <option key={code} value={code}>
                   {tr(`op.reasons.${code}`)}
@@ -332,19 +267,7 @@ export function ReservationActionsDialog({
             <Button onClick={() => setShowCancel(false)} disabled={busy}>
               {tr('common.back')}
             </Button>
-            <Button
-              kind="danger"
-              busy={busy}
-              onClick={() =>
-                void run(() =>
-                  mutate('reservation.update', {
-                    action: 'cancel',
-                    reservationId: r.id,
-                    reason: cancelReason,
-                  }),
-                )
-              }
-            >
+            <Button kind="danger" busy={busy} onClick={() => void run(() => mutate('reservation.update', { action: 'cancel', reservationId: r.id, reason: cancelReason }))}>
               {tr('op.desk.cancelBooking')}
             </Button>
           </div>

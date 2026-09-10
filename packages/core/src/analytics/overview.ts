@@ -33,7 +33,12 @@ export type Overview = {
 
 /** Metrics where "up" is unambiguously good — the ones tallied for the verdict. Dwell and waiter calls are excluded on purpose (ambiguous direction). */
 export type OverviewMetricKey =
-  'totalSales' | 'avgSpendPerCover' | 'totalCovers' | 'basketConversion' | 'views' | 'sessions';
+  | 'totalSales'
+  | 'avgSpendPerCover'
+  | 'totalCovers'
+  | 'basketConversion'
+  | 'views'
+  | 'sessions';
 
 export const OVERVIEW_METRICS: readonly OverviewMetricKey[] = [
   'totalSales',
@@ -59,18 +64,8 @@ export type OverviewInput = {
   };
   /** Percent deltas vs the comparison window; null = no baseline. */
   deltas: Record<OverviewMetricKey, number | null>;
-  itemConversion: readonly (ItemRef & {
-    views: number;
-    carts: number;
-    sold: number;
-    convPct: number;
-  })[];
-  abandonedViews: readonly (ItemRef & {
-    b5to10: number;
-    b10to20: number;
-    b20plus: number;
-    total: number;
-  })[];
+  itemConversion: readonly (ItemRef & { views: number; carts: number; sold: number; convPct: number })[];
+  abandonedViews: readonly (ItemRef & { b5to10: number; b10to20: number; b20plus: number; total: number })[];
   bestSellers: readonly (ItemRef & { qty: number; revenueIqd: number })[];
   /** Absent / `hasData: false` when no cost has been entered — every margin line is then skipped. */
   menuEngineering?: MenuEngineering | null;
@@ -90,19 +85,10 @@ export type OverviewCopy = {
   abandonedLongReads: (name: string, total: number, longReaders: number) => string;
   abandonedQuickClose: (name: string, total: number) => string;
   deadItem: (name: string, views: number) => string;
-  profitSummary: (
-    marginPct: number,
-    profitIqd: number,
-    partial: { revenuePct: number; costedItems: number } | null,
-  ) => string;
+  profitSummary: (marginPct: number, profitIqd: number, partial: { revenuePct: number; costedItems: number } | null) => string;
   belowCostOne: (name: string, unitMarginIqd: number, lostIqd: number) => string;
   belowCostMany: (count: number, names: string[], lostIqd: number) => string;
-  plowhorse: (
-    name: string,
-    unitMarginIqd: number,
-    avgUnitMarginIqd: number,
-    partial: boolean,
-  ) => string;
+  plowhorse: (name: string, unitMarginIqd: number, avgUnitMarginIqd: number, partial: boolean) => string;
   puzzle: (name: string, unitMarginIqd: number, qty: number) => string;
   dogs: (count: number, profitIqd: number) => string;
 };
@@ -138,8 +124,7 @@ export const DEFAULT_OVERVIEW_COPY_EN: OverviewCopy = {
   headline: {
     good: (p) => `Things look good ${p} — most indicators are up.`,
     weak: (p) => `${capFirst(p)} some indicators slipped — worth a look at the items below.`,
-    mixed: (p) =>
-      `${capFirst(p)} the picture is mixed — some things are working, others need attention.`,
+    mixed: (p) => `${capFirst(p)} the picture is mixed — some things are working, others need attention.`,
     neutral: (p) => `${capFirst(p)} the picture is steady — no clear rise or fall.`,
   },
   metricUp: (label, pct) => `${label} up ${pct}%.`,
@@ -153,13 +138,10 @@ export const DEFAULT_OVERVIEW_COPY_EN: OverviewCopy = {
     `${name} gets looked at but not ordered (${en.format(total)} times); ${en.format(long)} people read it for 20 s+ and gave up — the description or price may be the issue.`,
   abandonedQuickClose: (name, total) =>
     `${name} gets looked at but not ordered (${en.format(total)} times); most close it within seconds — the photo or first impression may be weak.`,
-  deadItem: (name, views) =>
-    `${name} was viewed ${en.format(views)} times but never sold — review how it is presented.`,
+  deadItem: (name, views) => `${name} was viewed ${en.format(views)} times but never sold — review how it is presented.`,
   profitSummary: (marginPct, profitIqd, partial) =>
     `Gross margin ${marginPct}% — ${money(profitIqd)} gross profit${
-      partial
-        ? `, across ${partial.costedItems} costed items covering ${partial.revenuePct}% of revenue`
-        : ''
+      partial ? `, across ${partial.costedItems} costed items covering ${partial.revenuePct}% of revenue` : ''
     }.`,
   belowCostOne: (name, unitMargin, lost) =>
     `${name} sells below cost (${money(unitMargin)} per unit) — ${money(lost)} lost over the period; fix the price or portion cost now.`,
@@ -175,10 +157,7 @@ export const DEFAULT_OVERVIEW_COPY_EN: OverviewCopy = {
     `${count} items sell little and earn little (${money(profit)} total) — consider dropping them; the kitchen gets simpler too.`,
 };
 
-export function buildOverview(
-  data: OverviewInput,
-  copy: OverviewCopy = DEFAULT_OVERVIEW_COPY_EN,
-): Overview {
+export function buildOverview(data: OverviewInput, copy: OverviewCopy = DEFAULT_OVERVIEW_COPY_EN): Overview {
   const { deltas, itemConversion, abandonedViews, bestSellers, preset } = data;
   const name = (ref: ItemRef) => pickLocale({ en: ref.nameEn, ar: ref.nameAr }, copy.locale);
 
@@ -198,12 +177,7 @@ export function buildOverview(
       copy.profitSummary(
         me.totals.marginPct,
         me.totals.profitIqd,
-        partial
-          ? {
-              revenuePct: Math.round(me.coverage.revenueRatio * 100),
-              costedItems: me.coverage.costedItems,
-            }
-          : null,
+        partial ? { revenuePct: Math.round(me.coverage.revenueRatio * 100), costedItems: me.coverage.costedItems } : null,
       ),
     );
 
@@ -226,9 +200,7 @@ export function buildOverview(
       .sort((a, b) => b.qty - a.qty)[0];
     if (plowhorse) {
       mentioned.add(plowhorse.id);
-      watch.push(
-        copy.plowhorse(name(plowhorse), plowhorse.unitMarginIqd, me.avgUnitMarginIqd, partial),
-      );
+      watch.push(copy.plowhorse(name(plowhorse), plowhorse.unitMarginIqd, me.avgUnitMarginIqd, partial));
     }
 
     // Puzzles: profitable but nobody finds them — the cheapest lever on the page.
@@ -244,12 +216,7 @@ export function buildOverview(
     // Dogs: only as a group, and only when there are enough to matter.
     const dogs = me.items.filter((i) => i.quadrant === 'dog' && !i.losingMoney);
     if (dogs.length >= 3) {
-      watch.push(
-        copy.dogs(
-          dogs.length,
-          dogs.reduce((s, d) => s + d.profitIqd, 0),
-        ),
-      );
+      watch.push(copy.dogs(dogs.length, dogs.reduce((s, d) => s + d.profitIqd, 0)));
     }
   }
 
@@ -297,9 +264,7 @@ export function buildOverview(
     if (a.total < 3 || mentioned.has(a.id)) continue;
     mentioned.add(a.id);
     watch.push(
-      a.b20plus >= 2
-        ? copy.abandonedLongReads(name(a), a.total, a.b20plus)
-        : copy.abandonedQuickClose(name(a), a.total),
+      a.b20plus >= 2 ? copy.abandonedLongReads(name(a), a.total, a.b20plus) : copy.abandonedQuickClose(name(a), a.total),
     );
   }
 

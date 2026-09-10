@@ -9,19 +9,10 @@ import type { Formatters } from '../format';
 import { CardShell, muted, type CardState } from './CardShell';
 import { StatusBadge } from '../../../components/kit';
 
-export function LocalePrefs({
-  raw,
-  state,
-  f,
-}: {
-  raw: RawAnalytics | null;
-  state: CardState;
-  f: Formatters;
-}) {
+export function LocalePrefs({ raw, state, f }: { raw: RawAnalytics | null; state: CardState; f: Formatters }) {
   const { tr } = useLocale();
   const rows = raw?.posthog?.localePreferences ?? [];
-  const label = (code: string) =>
-    code === 'ar' ? tr('settings.arabic') : code === 'en' ? tr('settings.english') : code;
+  const label = (code: string) => (code === 'ar' ? tr('settings.arabic') : code === 'en' ? tr('settings.english') : code);
 
   return (
     <CardShell
@@ -35,21 +26,13 @@ export function LocalePrefs({
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'baseline' }}>
               <StatusBadge size="sm" tone="accent" dot={false} label={label(row.locale)} />
               <span style={muted}>
-                {f.num(row.sessions)} {tr('analytics.cards.sessions').toLowerCase()} ·{' '}
-                {f.duration(row.medianSeconds)}
+                {f.num(row.sessions)} {tr('analytics.cards.sessions').toLowerCase()} · {f.duration(row.medianSeconds)}
               </span>
             </div>
-            <ul
-              style={{
-                margin: '0.2rem 0 0',
-                paddingInlineStart: '1.1rem',
-                fontSize: 'var(--tp-fs-sm)',
-              }}
-            >
+            <ul style={{ margin: '0.2rem 0 0', paddingInlineStart: '1.1rem', fontSize: 'var(--tp-fs-sm)' }}>
               {row.topItems.slice(0, 3).map((item) => (
                 <li key={item.id}>
-                  {item.name || item.id}{' '}
-                  <span style={muted}>{f.pct(Math.round(item.rate * 100))}</span>
+                  {item.name || item.id} <span style={muted}>{f.pct(Math.round(item.rate * 100))}</span>
                 </li>
               ))}
             </ul>

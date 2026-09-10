@@ -25,10 +25,7 @@ export interface StaffOption {
 }
 
 export async function fetchReportCategories(): Promise<CategoryOption[]> {
-  const { data, error } = await supabase
-    .from('menu_categories')
-    .select('id, name_en, name_ar')
-    .order('sort_order');
+  const { data, error } = await supabase.from('menu_categories').select('id, name_en, name_ar').order('sort_order');
   if (error) throw error;
   return (data ?? []) as CategoryOption[];
 }

@@ -7,32 +7,12 @@
  * Inline styles with logical properties only; interaction states via the
  * class hooks in GlobalStyles.
  */
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { formatIQD, formatNumber, formatPercent } from '@touch/i18n';
 import { useLocale } from '../lib/i18n';
 import type { StaffRole } from '../lib/auth';
-import {
-  Button,
-  ErrorText,
-  Field,
-  Modal,
-  REASON_CODES,
-  Select,
-  Skeleton,
-  Spinner,
-  card,
-  inputStyle,
-  type ReasonCode,
-} from './ui';
+import { Button, ErrorText, Field, Modal, REASON_CODES, Select, Skeleton, Spinner, card, inputStyle, type ReasonCode } from './ui';
 import { Icon, type IconName } from './icons';
 import { BilingualFields } from './inputs';
 
@@ -65,48 +45,19 @@ export function PageHeader({
         ...style,
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
         <div style={{ minInlineSize: 0 }}>
           {eyebrow && (
-            <p
-              style={{
-                fontSize: 'var(--tp-fs-xs)',
-                color: 'var(--tp-muted-fg)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                fontWeight: 600,
-                marginBlockEnd: '0.2rem',
-              }}
-            >
+            <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBlockEnd: '0.2rem' }}>
               {eyebrow}
             </p>
           )}
           <h1 style={{ fontSize: 'var(--tp-fs-2xl)', fontWeight: 700 }}>{title}</h1>
           {subtitle && (
-            <p
-              style={{
-                color: 'var(--tp-muted-fg)',
-                marginBlockStart: '0.2rem',
-                maxInlineSize: '70ch',
-              }}
-            >
-              {subtitle}
-            </p>
+            <p style={{ color: 'var(--tp-muted-fg)', marginBlockStart: '0.2rem', maxInlineSize: '70ch' }}>{subtitle}</p>
           )}
         </div>
-        {actions && (
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            {actions}
-          </div>
-        )}
+        {actions && <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}
       </div>
       {children}
     </header>
@@ -114,15 +65,7 @@ export function PageHeader({
 }
 
 /** A horizontal control strip: filters, view switches, search. */
-export function Toolbar({
-  children,
-  style,
-  end,
-}: {
-  children?: ReactNode;
-  end?: ReactNode;
-  style?: CSSProperties;
-}) {
+export function Toolbar({ children, style, end }: { children?: ReactNode; end?: ReactNode; style?: CSSProperties }) {
   return (
     <div
       style={{
@@ -135,18 +78,7 @@ export function Toolbar({
       }}
     >
       {children}
-      {end && (
-        <div
-          style={{
-            marginInlineStart: 'auto',
-            display: 'flex',
-            gap: '0.5rem',
-            alignItems: 'center',
-          }}
-        >
-          {end}
-        </div>
-      )}
+      {end && <div style={{ marginInlineStart: 'auto', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>{end}</div>}
     </div>
   );
 }
@@ -208,18 +140,11 @@ export function Panel({
             borderBlockEnd: '1px solid var(--tp-border)',
           }}
         >
-          {title && (
-            <Heading style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{title}</Heading>
-          )}
-          {actions && (
-            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>
-          )}
+          {title && <Heading style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{title}</Heading>}
+          {actions && <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>{actions}</div>}
         </div>
       )}
-      <div
-        className={bodyClassName}
-        style={padded ? { paddingBlock: '0.75rem', paddingInline: '0.85rem' } : undefined}
-      >
+      <div className={bodyClassName} style={padded ? { paddingBlock: '0.75rem', paddingInline: '0.85rem' } : undefined}>
         {children}
       </div>
     </section>
@@ -316,21 +241,11 @@ export function AsyncStateWrapper({
   if (status === 'error') {
     return (
       <div role="alert" style={{ ...card, display: 'grid', gap: '0.5rem', justifyItems: 'start' }}>
-        <div
-          style={{
-            display: 'flex',
-            gap: '0.5rem',
-            alignItems: 'center',
-            color: 'var(--tp-danger-fg)',
-            fontWeight: 600,
-          }}
-        >
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', color: 'var(--tp-danger-fg)', fontWeight: 600 }}>
           <Icon name="alert" /> {tr('ws.kit.async.error')}
         </div>
         {errorContent ?? (error ? <ErrorText error={error} style={{ marginBlock: 0 }} /> : null)}
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-          {tr('ws.kit.async.offlineHint')}
-        </p>
+        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.kit.async.offlineHint')}</p>
         {onRetry && (
           <Button icon="refresh" onClick={onRetry}>
             {tr('ws.kit.async.retry')}
@@ -340,13 +255,7 @@ export function AsyncStateWrapper({
     );
   }
   if (status === 'empty')
-    return (
-      <>
-        {emptyContent ?? (
-          <EmptyState kind={kind} onClearFilters={onClearFilters} compact={compact} />
-        )}
-      </>
-    );
+    return <>{emptyContent ?? <EmptyState kind={kind} onClearFilters={onClearFilters} compact={compact} />}</>;
   return <>{children}</>;
 }
 
@@ -429,15 +338,7 @@ export function EmptyState({
       </Heading>
       {body && <p style={{ maxInlineSize: '46ch', fontSize: 'var(--tp-fs-sm)' }}>{body}</p>}
       {(action || clear) && (
-        <div
-          style={{
-            marginBlockStart: 'var(--tp-sp-1-5)',
-            display: 'flex',
-            gap: 'var(--tp-sp-2)',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-          }}
-        >
+        <div style={{ marginBlockStart: 'var(--tp-sp-1-5)', display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
           {clear && (
             <Button size="sm" icon="x" onClick={clear}>
               {tr('ws.kit.empty.clearFilters')}
@@ -515,23 +416,14 @@ export function StatusBadge({
       {icon ? (
         <Icon name={icon} size={size === 'sm' ? 12 : 14} />
       ) : dot ? (
-        <span
-          aria-hidden="true"
-          style={{
-            inlineSize: '0.45rem',
-            blockSize: '0.45rem',
-            borderRadius: '50%',
-            background: t.dot,
-          }}
-        />
+        <span aria-hidden="true" style={{ inlineSize: '0.45rem', blockSize: '0.45rem', borderRadius: '50%', background: t.dot }} />
       ) : null}
       {label}
     </span>
   );
 }
 
-export type BookingStatus =
-  'pending' | 'confirmed' | 'arrived' | 'completed' | 'cancelled' | 'no_show' | 'expired';
+export type BookingStatus = 'pending' | 'confirmed' | 'arrived' | 'completed' | 'cancelled' | 'no_show' | 'expired';
 const BOOKING_TONE: Record<BookingStatus, Tone> = {
   pending: 'warn',
   confirmed: 'accent',
@@ -541,90 +433,34 @@ const BOOKING_TONE: Record<BookingStatus, Tone> = {
   no_show: 'danger',
   expired: 'neutral',
 };
-export function BookingStatusIndicator({
-  status,
-  size,
-}: {
-  status: BookingStatus | string;
-  size?: 'sm' | 'md';
-}) {
+export function BookingStatusIndicator({ status, size }: { status: BookingStatus | string; size?: 'sm' | 'md' }) {
   const { tr } = useLocale();
   const known = (Object.keys(BOOKING_TONE) as BookingStatus[]).includes(status as BookingStatus);
   const s = (known ? status : 'expired') as BookingStatus;
-  return (
-    <StatusBadge
-      tone={BOOKING_TONE[s]}
-      label={known ? tr(`ws.kit.bookingStatus.${s}`) : status}
-      size={size}
-    />
-  );
+  return <StatusBadge tone={BOOKING_TONE[s]} label={known ? tr(`ws.kit.bookingStatus.${s}`) : status} size={size} />;
 }
 
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid' | 'refunded' | 'unknown';
-const PAYMENT_TONE: Record<PaymentStatus, Tone> = {
-  unpaid: 'warn',
-  partial: 'info',
-  paid: 'success',
-  refunded: 'neutral',
-  unknown: 'neutral',
-};
-export function PaymentStatusIndicator({
-  paymentStatus,
-  size,
-}: {
-  paymentStatus: PaymentStatus;
-  size?: 'sm' | 'md';
-}) {
+const PAYMENT_TONE: Record<PaymentStatus, Tone> = { unpaid: 'warn', partial: 'info', paid: 'success', refunded: 'neutral', unknown: 'neutral' };
+export function PaymentStatusIndicator({ paymentStatus, size }: { paymentStatus: PaymentStatus; size?: 'sm' | 'md' }) {
   const { tr } = useLocale();
-  return (
-    <StatusBadge
-      tone={PAYMENT_TONE[paymentStatus]}
-      label={tr(`ws.kit.paymentStatus.${paymentStatus}`)}
-      size={size}
-      icon={paymentStatus === 'paid' ? 'check' : undefined}
-    />
-  );
+  return <StatusBadge tone={PAYMENT_TONE[paymentStatus]} label={tr(`ws.kit.paymentStatus.${paymentStatus}`)} size={size} icon={paymentStatus === 'paid' ? 'check' : undefined} />;
 }
 
 export type TicketState = 'queued' | 'preparing' | 'ready' | 'completed' | 'voided';
-const TICKET_TONE: Record<TicketState, Tone> = {
-  queued: 'accent',
-  preparing: 'warn',
-  ready: 'success',
-  completed: 'neutral',
-  voided: 'danger',
-};
+const TICKET_TONE: Record<TicketState, Tone> = { queued: 'accent', preparing: 'warn', ready: 'success', completed: 'neutral', voided: 'danger' };
 export function TicketStateIndicator({ state, size }: { state: TicketState; size?: 'sm' | 'md' }) {
   const { tr } = useLocale();
-  return (
-    <StatusBadge tone={TICKET_TONE[state]} label={tr(`ws.kit.ticketState.${state}`)} size={size} />
-  );
+  return <StatusBadge tone={TICKET_TONE[state]} label={tr(`ws.kit.ticketState.${state}`)} size={size} />;
 }
 
 export type TabStatus = 'open' | 'awaiting_payment' | 'settled' | 'void';
-const TAB_TONE: Record<TabStatus, Tone> = {
-  open: 'accent',
-  awaiting_payment: 'warn',
-  settled: 'success',
-  void: 'danger',
-};
-export function TabStatusIndicator({
-  status,
-  size,
-}: {
-  status: TabStatus | string;
-  size?: 'sm' | 'md';
-}) {
+const TAB_TONE: Record<TabStatus, Tone> = { open: 'accent', awaiting_payment: 'warn', settled: 'success', void: 'danger' };
+export function TabStatusIndicator({ status, size }: { status: TabStatus | string; size?: 'sm' | 'md' }) {
   const { tr } = useLocale();
   const known = (Object.keys(TAB_TONE) as TabStatus[]).includes(status as TabStatus);
   const s = (known ? status : 'open') as TabStatus;
-  return (
-    <StatusBadge
-      tone={TAB_TONE[s]}
-      label={known ? tr(`ws.kit.tabStatus.${s}`) : status}
-      size={size}
-    />
-  );
+  return <StatusBadge tone={TAB_TONE[s]} label={known ? tr(`ws.kit.tabStatus.${s}`) : status} size={size} />;
 }
 
 export type CustomerFlagType = 'vip' | 'birthday' | 'payment_note' | 'special_request';
@@ -635,18 +471,10 @@ const FLAG_META: Record<CustomerFlagType, { tone: Tone; icon: IconName }> = {
   special_request: { tone: 'info', icon: 'note' },
 };
 /** Surfaces wherever a customer appears (spec 06.9). */
-export function CustomerFlagBadge({
-  flag,
-  size = 'sm',
-}: {
-  flag: { type: CustomerFlagType | string; label?: string | null };
-  size?: 'sm' | 'md';
-}) {
+export function CustomerFlagBadge({ flag, size = 'sm' }: { flag: { type: CustomerFlagType | string; label?: string | null }; size?: 'sm' | 'md' }) {
   const { tr } = useLocale();
   const known = flag.type in FLAG_META;
-  const meta = known
-    ? FLAG_META[flag.type as CustomerFlagType]
-    : { tone: 'neutral' as Tone, icon: 'tag' as IconName };
+  const meta = known ? FLAG_META[flag.type as CustomerFlagType] : { tone: 'neutral' as Tone, icon: 'tag' as IconName };
   const base = known ? tr(`ws.kit.flags.${flag.type as CustomerFlagType}`) : flag.type;
   const label = flag.label ? `${base} · ${flag.label}` : base;
   return <StatusBadge tone={meta.tone} icon={meta.icon} label={label} size={size} title={label} />;
@@ -772,11 +600,7 @@ export function DataTable<T>({
                     <Icon
                       name="chevronDown"
                       size={12}
-                      label={
-                        sort!.dir === 'asc'
-                          ? tr('ws.kit.table.sortAsc')
-                          : tr('ws.kit.table.sortDesc')
-                      }
+                      label={sort!.dir === 'asc' ? tr('ws.kit.table.sortAsc') : tr('ws.kit.table.sortDesc')}
                       style={{ transform: sort!.dir === 'asc' ? 'rotate(180deg)' : undefined }}
                     />
                   )}
@@ -787,9 +611,7 @@ export function DataTable<T>({
                   key={c.key}
                   data-align={align}
                   data-sortable={sortable ? 'true' : undefined}
-                  aria-sort={
-                    active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined
-                  }
+                  aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
                   style={{ inlineSize: c.width }}
                 >
                   {sortable ? (
@@ -797,29 +619,14 @@ export function DataTable<T>({
                       type="button"
                       style={{
                         ...sortHeaderButton,
-                        justifyContent:
-                          align === 'end'
-                            ? 'flex-end'
-                            : align === 'center'
-                              ? 'center'
-                              : 'flex-start',
+                        justifyContent: align === 'end' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start',
                       }}
-                      onClick={() =>
-                        onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })
-                      }
+                      onClick={() => onSort!({ key: c.key, dir: active && sort!.dir === 'asc' ? 'desc' : 'asc' })}
                     >
                       {inner}
                     </button>
                   ) : (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 'var(--tp-sp-1)',
-                      }}
-                    >
-                      {inner}
-                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>{inner}</span>
                   )}
                 </th>
               );
@@ -829,14 +636,7 @@ export function DataTable<T>({
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td
-                colSpan={columns.length}
-                style={{
-                  color: 'var(--tp-muted-fg)',
-                  textAlign: 'center',
-                  paddingBlock: '1.25rem',
-                }}
-              >
+              <td colSpan={columns.length} style={{ color: 'var(--tp-muted-fg)', textAlign: 'center', paddingBlock: '1.25rem' }}>
                 {emptyContent ?? tr('ws.kit.table.noRows')}
               </td>
             </tr>
@@ -881,14 +681,7 @@ export function DataTable<T>({
                     <td
                       key={c.key}
                       data-align={c.align ?? (c.numeric ? 'end' : 'start')}
-                      style={
-                        c.numeric
-                          ? {
-                              fontFamily: 'var(--tp-font-numeric)',
-                              fontVariantNumeric: 'tabular-nums',
-                            }
-                          : undefined
-                      }
+                      style={c.numeric ? { fontFamily: 'var(--tp-font-numeric)', fontVariantNumeric: 'tabular-nums' } : undefined}
                     >
                       {c.truncate ? (
                         <span
@@ -950,39 +743,12 @@ export function Pagination({
   // under the pointer. The nav keeps its height with both arrows dead instead.
   const count = Math.max(1, pageCount);
   return (
-    <nav
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--tp-sp-2)',
-        justifyContent: 'flex-end',
-        marginBlockStart: 'var(--tp-sp-2-5)',
-        ...style,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 'var(--tp-fs-sm)',
-          color: 'var(--tp-muted-fg)',
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
+    <nav style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end', marginBlockStart: 'var(--tp-sp-2-5)', ...style }}>
+      <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
         {tr('ws.kit.table.page', { page: Math.min(page, count), count })}
       </span>
-      <Button
-        size="sm"
-        icon="chevronStart"
-        aria-label={tr('ws.kit.table.prev')}
-        disabled={page <= 1}
-        onClick={() => onChange(page - 1)}
-      />
-      <Button
-        size="sm"
-        icon="chevronEnd"
-        aria-label={tr('ws.kit.table.next')}
-        disabled={page >= count}
-        onClick={() => onChange(page + 1)}
-      />
+      <Button size="sm" icon="chevronStart" aria-label={tr('ws.kit.table.prev')} disabled={page <= 1} onClick={() => onChange(page - 1)} />
+      <Button size="sm" icon="chevronEnd" aria-label={tr('ws.kit.table.next')} disabled={page >= count} onClick={() => onChange(page + 1)} />
     </nav>
   );
 }
@@ -1119,9 +885,7 @@ export function RowActions({
   }
 
   // Stable sort: destructive last, the order the caller gave otherwise.
-  const ordered = [...actions].sort(
-    (a, b) => Number(a.danger ?? false) - Number(b.danger ?? false),
-  );
+  const ordered = [...actions].sort((a, b) => Number(a.danger ?? false) - Number(b.danger ?? false));
 
   return (
     <div role="group" aria-label={tr('ws.kit.table.rowActions')} style={container}>
@@ -1132,9 +896,7 @@ export function RowActions({
           icon="more"
           // Verb + object (rulebook 8.3). Without `label`, a screen-reader
           // user in a 40-row table hears forty buttons called "More".
-          aria-label={
-            label ? tr('ws.kit.table.rowActionsFor', { name: label }) : tr('ws.kit.actions.more')
-          }
+          aria-label={label ? tr('ws.kit.table.rowActionsFor', { name: label }) : tr('ws.kit.actions.more')}
           title={tr('ws.kit.actions.more')}
           onClick={() => (menu ? dismiss() : openMenu())}
         />
@@ -1152,15 +914,10 @@ export function RowActions({
             }
             if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
             e.preventDefault();
-            const items = Array.from(
-              e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not([disabled])'),
-            );
+            const items = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
             if (items.length === 0) return;
             const at = items.indexOf(document.activeElement as HTMLButtonElement);
-            const next =
-              e.key === 'ArrowDown'
-                ? (at + 1) % items.length
-                : (at - 1 + items.length) % items.length;
+            const next = e.key === 'ArrowDown' ? (at + 1) % items.length : (at - 1 + items.length) % items.length;
             items[next]?.focus();
           }}
           style={{
@@ -1194,10 +951,7 @@ export function RowActions({
               style={{
                 ...menuItemStyle,
                 color: a.danger ? 'var(--tp-danger-fg)' : 'var(--tp-fg)',
-                borderBlockStart:
-                  a.danger && i > 0 && !ordered[i - 1]?.danger
-                    ? '1px solid var(--tp-border)'
-                    : undefined,
+                borderBlockStart: a.danger && i > 0 && !ordered[i - 1]?.danger ? '1px solid var(--tp-border)' : undefined,
                 opacity: a.disabled ? 'var(--tp-opacity-disabled)' : undefined,
                 cursor: a.disabled ? 'not-allowed' : 'pointer',
               }}
@@ -1241,13 +995,7 @@ export function FilterChips({
     <div
       role="group"
       aria-label={tr('ws.kit.filters.active')}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--tp-sp-2)',
-        flexWrap: 'wrap',
-        ...style,
-      }}
+      style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', ...style }}
     >
       {chips.map((c) => (
         <span
@@ -1305,29 +1053,11 @@ export function FilterChips({
  * with no consumer, and routes both figures through the shared formatter so
  * Arabic does not get one grouped number and one bare one.
  */
-export function ResultCount({
-  shown,
-  total,
-  style,
-}: {
-  shown: number;
-  total: number;
-  style?: CSSProperties;
-}) {
+export function ResultCount({ shown, total, style }: { shown: number; total: number; style?: CSSProperties }) {
   const { tr, locale } = useLocale();
   return (
-    <span
-      style={{
-        fontSize: 'var(--tp-fs-sm)',
-        color: 'var(--tp-muted-fg)',
-        fontVariantNumeric: 'tabular-nums',
-        ...style,
-      }}
-    >
-      {tr('ws.kit.table.rowsOf', {
-        shown: formatNumber(shown, locale),
-        total: formatNumber(total, locale),
-      })}
+    <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums', ...style }}>
+      {tr('ws.kit.table.rowsOf', { shown: formatNumber(shown, locale), total: formatNumber(total, locale) })}
     </span>
   );
 }
@@ -1367,11 +1097,7 @@ export function TableSkeleton<T>({
         <thead>
           <tr>
             {columns.map((c) => (
-              <th
-                key={c.key}
-                data-align={c.align ?? (c.numeric ? 'end' : 'start')}
-                style={{ inlineSize: c.width }}
-              >
+              <th key={c.key} data-align={c.align ?? (c.numeric ? 'end' : 'start')} style={{ inlineSize: c.width }}>
                 {c.header}
               </th>
             ))}
@@ -1435,15 +1161,7 @@ export function DescriptionList({
           <dt style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>
             {it.label}
           </dt>
-          <dd
-            style={{
-              margin: 0,
-              fontVariantNumeric: it.numeric ? 'tabular-nums' : undefined,
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {it.value}
-          </dd>
+          <dd style={{ margin: 0, fontVariantNumeric: it.numeric ? 'tabular-nums' : undefined, overflowWrap: 'anywhere' }}>{it.value}</dd>
         </div>
       ))}
     </dl>
@@ -1476,11 +1194,7 @@ export function ComparisonDelta({
 }) {
   const { tr, locale } = useLocale();
   if (changeAbs == null && changePct == null) {
-    return (
-      <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-        {tr('ws.kit.comparison.noPrevious')}
-      </span>
-    );
+    return <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.kit.comparison.noPrevious')}</span>;
   }
   const abs = changeAbs ?? 0;
   const up = abs > 0;
@@ -1500,18 +1214,7 @@ export function ComparisonDelta({
       ? null
       : `${up ? '+' : ''}${formatPercent(changePct, locale)}${tr('ws.kit.common.percent')}`;
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.25rem',
-        fontSize: 'var(--tp-fs-xs)',
-        fontWeight: 600,
-        color,
-        fontVariantNumeric: 'tabular-nums',
-      }}
-      dir="ltr"
-    >
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color, fontVariantNumeric: 'tabular-nums' }} dir="ltr">
       {!flat && <Icon name={up ? 'trendUp' : 'trendDown'} size={13} />}
       <span>
         {up ? '+' : ''}
@@ -1549,28 +1252,9 @@ export function HeadlineFigure({
   const clickable = Boolean(drillable && onDrill && !busy);
   const inner = (
     <>
-      <span
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '0.5rem',
-        }}
-      >
-        <span
-          style={{
-            fontSize: 'var(--tp-fs-xs)',
-            color: 'var(--tp-muted-fg)',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-          }}
-        >
-          {label}
-        </span>
-        {clickable && (
-          <Icon name="arrowUpRight" size={14} style={{ color: 'var(--tp-muted-fg)' }} />
-        )}
+      <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+        {clickable && <Icon name="arrowUpRight" size={14} style={{ color: 'var(--tp-muted-fg)' }} />}
       </span>
       <span
         style={{
@@ -1579,12 +1263,7 @@ export function HeadlineFigure({
           fontWeight: 700,
           lineHeight: 1.15,
           fontVariantNumeric: 'tabular-nums',
-          color:
-            tone === 'danger'
-              ? 'var(--tp-danger-fg)'
-              : tone === 'warn'
-                ? 'var(--tp-warn-fg)'
-                : 'var(--tp-fg)',
+          color: tone === 'danger' ? 'var(--tp-danger-fg)' : tone === 'warn' ? 'var(--tp-warn-fg)' : 'var(--tp-fg)',
           marginBlockStart: '0.3rem',
         }}
       >
@@ -1592,12 +1271,7 @@ export function HeadlineFigure({
       </span>
       <span style={{ display: 'block', marginBlockStart: '0.3rem', minBlockSize: '1rem' }}>
         {comparison ? (
-          <ComparisonDelta
-            changeAbs={comparison.changeAbs}
-            changePct={comparison.changePct}
-            format={format}
-            invert={invert}
-          />
+          <ComparisonDelta changeAbs={comparison.changeAbs} changePct={comparison.changePct} format={format} invert={invert} />
         ) : hint ? (
           <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</span>
         ) : null}
@@ -1612,13 +1286,7 @@ export function HeadlineFigure({
     minInlineSize: 0,
   };
   return clickable ? (
-    <button
-      type="button"
-      className="tp-tile"
-      onClick={onDrill}
-      style={base}
-      title={tr('ws.kit.drill.title')}
-    >
+    <button type="button" className="tp-tile" onClick={onDrill} style={base} title={tr('ws.kit.drill.title')}>
       {inner}
     </button>
   ) : (
@@ -1627,15 +1295,7 @@ export function HeadlineFigure({
 }
 
 export type ComparisonMode = 'previousPeriod' | 'sameLastYear' | 'none';
-export function ComparisonControl({
-  mode,
-  onChange,
-  disabled,
-}: {
-  mode: ComparisonMode;
-  onChange: (m: ComparisonMode) => void;
-  disabled?: boolean;
-}) {
+export function ComparisonControl({ mode, onChange, disabled }: { mode: ComparisonMode; onChange: (m: ComparisonMode) => void; disabled?: boolean }) {
   const { tr } = useLocale();
   return (
     <Select<ComparisonMode>
@@ -1657,8 +1317,7 @@ export interface Period {
   from: string; // YYYY-MM-DD
   to: string; // YYYY-MM-DD inclusive
 }
-export type PeriodPreset =
-  'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30' | 'custom';
+export type PeriodPreset = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'last30' | 'custom';
 
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1710,50 +1369,25 @@ export function DateRangeControl({
   const { tr } = useLocale();
   const [draft, setDraft] = useState<Period>(period);
   useEffect(() => setDraft(period), [period]);
-  const active = useMemo(
-    () =>
-      presets.find((p) => {
-        const pp = presetPeriod(p);
-        return pp.from === period.from && pp.to === period.to;
-      }),
-    [presets, period],
-  );
+  const active = useMemo(() => presets.find((p) => {
+    const pp = presetPeriod(p);
+    return pp.from === period.from && pp.to === period.to;
+  }), [presets, period]);
   return (
-    <div
-      style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}
-      role="group"
-    >
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }} role="group">
       {presets.map((p) => (
-        <Button
-          key={p}
-          size="sm"
-          aria-pressed={active === p}
-          disabled={disabled}
-          onClick={() => onChange(presetPeriod(p))}
-        >
+        <Button key={p} size="sm" aria-pressed={active === p} disabled={disabled} onClick={() => onChange(presetPeriod(p))}>
           {tr(`ws.kit.dateRange.${p}`)}
         </Button>
       ))}
-      <span
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '0.3rem',
-          marginInlineStart: '0.4rem',
-        }}
-      >
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginInlineStart: '0.4rem' }}>
         <input
           type="date"
           aria-label={tr('ws.kit.dateRange.from')}
           value={draft.from}
           disabled={disabled}
           onChange={(e) => e.target.value && setDraft((d) => ({ ...d, from: e.target.value }))}
-          style={{
-            ...inputStyle,
-            inlineSize: 'auto',
-            minBlockSize: '1.85rem',
-            paddingBlock: '0.2rem',
-          }}
+          style={{ ...inputStyle, inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
         />
         <span style={{ color: 'var(--tp-muted-fg)' }}>–</span>
         <input
@@ -1762,20 +1396,10 @@ export function DateRangeControl({
           value={draft.to}
           disabled={disabled}
           onChange={(e) => e.target.value && setDraft((d) => ({ ...d, to: e.target.value }))}
-          style={{
-            ...inputStyle,
-            inlineSize: 'auto',
-            minBlockSize: '1.85rem',
-            paddingBlock: '0.2rem',
-          }}
+          style={{ ...inputStyle, inlineSize: 'auto', minBlockSize: '1.85rem', paddingBlock: '0.2rem' }}
         />
         {(draft.from !== period.from || draft.to !== period.to) && (
-          <Button
-            size="sm"
-            kind="soft"
-            disabled={disabled || draft.from > draft.to}
-            onClick={() => onChange(draft)}
-          >
+          <Button size="sm" kind="soft" disabled={disabled || draft.from > draft.to} onClick={() => onChange(draft)}>
             {tr('ws.kit.dateRange.apply')}
           </Button>
         )}
@@ -1784,26 +1408,10 @@ export function DateRangeControl({
   );
 }
 
-export function ExportButton({
-  busy,
-  onExport,
-  scope,
-  disabled,
-}: {
-  busy?: boolean;
-  onExport: () => void;
-  scope?: string;
-  disabled?: boolean;
-}) {
+export function ExportButton({ busy, onExport, scope, disabled }: { busy?: boolean; onExport: () => void; scope?: string; disabled?: boolean }) {
   const { tr } = useLocale();
   return (
-    <Button
-      icon="fileText"
-      busy={busy}
-      disabled={disabled}
-      onClick={onExport}
-      title={scope ?? tr('ws.kit.export.scope')}
-    >
+    <Button icon="fileText" busy={busy} disabled={disabled} onClick={onExport} title={scope ?? tr('ws.kit.export.scope')}>
       {busy ? tr('ws.kit.export.exporting') : tr('ws.kit.export.csv')}
     </Button>
   );
@@ -1831,25 +1439,14 @@ export function DrillThroughPanel<T>({
 }) {
   const { tr } = useLocale();
   return (
-    <Modal
-      title={title ?? tr('ws.kit.drill.title')}
-      onClose={onClose}
-      size="lg"
-      footer={<Button onClick={onClose}>{tr('ws.kit.drill.close')}</Button>}
-    >
+    <Modal title={title ?? tr('ws.kit.drill.title')} onClose={onClose} size="lg" footer={<Button onClick={onClose}>{tr('ws.kit.drill.close')}</Button>}>
       <AsyncStateWrapper
         status={status}
         onRetry={onRetry}
         error={error}
         emptyContent={<EmptyState compact icon="receipt" title={tr('ws.kit.drill.empty')} />}
       >
-        <DataTable
-          columns={columns}
-          rows={transactions}
-          rowKey={rowKey}
-          dense
-          maxBlockSize="60vh"
-        />
+        <DataTable columns={columns} rows={transactions} rowKey={rowKey} dense maxBlockSize="60vh" />
       </AsyncStateWrapper>
     </Modal>
   );
@@ -1890,13 +1487,7 @@ export function PinPromptOverlay({
           <Button onClick={onCancel} disabled={busy}>
             {tr('ws.kit.pin.cancel')}
           </Button>
-          <Button
-            kind="primary"
-            busy={busy}
-            disabled={pin.length < 4}
-            onClick={() => onSubmit(pin)}
-            icon="lock"
-          >
+          <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => onSubmit(pin)} icon="lock">
             {tr('ws.kit.pin.confirm')}
           </Button>
         </>
@@ -1905,12 +1496,7 @@ export function PinPromptOverlay({
       <Field label={tr('ws.kit.pin.pin')}>
         <input
           ref={ref}
-          style={{
-            ...inputStyle,
-            fontSize: 'var(--tp-fs-2xl)',
-            letterSpacing: '0.35em',
-            textAlign: 'center',
-          }}
+          style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
           type="password"
           inputMode="numeric"
           autoComplete="off"
@@ -1971,11 +1557,7 @@ export function ReasonCodePrompt({
       }
     >
       {children}
-      <div
-        role="radiogroup"
-        aria-labelledby={`${id}-label`}
-        style={{ display: 'grid', gap: '0.3rem', marginBlockEnd: '0.85rem' }}
-      >
+      <div role="radiogroup" aria-labelledby={`${id}-label`} style={{ display: 'grid', gap: '0.3rem', marginBlockEnd: '0.85rem' }}>
         <span id={`${id}-label`} style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
           {tr('ws.kit.reason.code')}
         </span>
@@ -1985,37 +1567,16 @@ export function ReasonCodePrompt({
             className="tp-row"
             data-clickable="true"
             data-selected={code === r ? 'true' : undefined}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              paddingBlock: '0.35rem',
-              paddingInline: '0.5rem',
-              borderRadius: 'var(--tp-radius-ctl)',
-              cursor: 'pointer',
-            }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingBlock: '0.35rem', paddingInline: '0.5rem', borderRadius: 'var(--tp-radius-ctl)', cursor: 'pointer' }}
           >
-            <input
-              type="radio"
-              name={`${id}-reason`}
-              value={r}
-              checked={code === r}
-              disabled={busy}
-              onChange={() => setCode(r)}
-            />
+            <input type="radio" name={`${id}-reason`} value={r} checked={code === r} disabled={busy} onChange={() => setCode(r)} />
             {tr(`op.reasons.${r}`)}
           </label>
         ))}
       </div>
       {withNote && (
         <Field label={tr('ws.kit.reason.note')}>
-          <input
-            style={inputStyle}
-            value={note}
-            disabled={busy}
-            maxLength={200}
-            onChange={(e) => setNote(e.target.value)}
-          />
+          <input style={inputStyle} value={note} disabled={busy} maxLength={200} onChange={(e) => setNote(e.target.value)} />
         </Field>
       )}
       <ErrorText error={error} />
@@ -2024,15 +1585,7 @@ export function ReasonCodePrompt({
 }
 
 /** A refused action stays present and states its reason (spec R9). */
-export function PermissionRefusedNotice({
-  action,
-  requiredRole,
-  style,
-}: {
-  action: string;
-  requiredRole: StaffRole;
-  style?: CSSProperties;
-}) {
+export function PermissionRefusedNotice({ action, requiredRole, style }: { action: string; requiredRole: StaffRole; style?: CSSProperties }) {
   const { tr } = useLocale();
   const role = tr(`op.roles.${requiredRole}`);
   return (
@@ -2054,8 +1607,7 @@ export function PermissionRefusedNotice({
     >
       <Icon name="shield" size={16} style={{ marginBlockStart: '0.1rem', flexShrink: 0 }} />
       <span>
-        <strong>{tr('ws.kit.refused.title')}</strong> —{' '}
-        {tr('ws.kit.refused.body', { action, role })}
+        <strong>{tr('ws.kit.refused.title')}</strong> — {tr('ws.kit.refused.body', { action, role })}
       </span>
     </div>
   );
@@ -2075,19 +1627,7 @@ export const MESSAGE_TONE: Record<MessageTone, { tone: Tone; icon: IconName }> =
   info: { tone: 'info', icon: 'info' },
 };
 
-export function MessagePresenter({
-  message,
-  tone,
-  icon,
-  rise,
-  style,
-}: {
-  message: ReactNode;
-  tone: MessageTone;
-  icon?: IconName;
-  /** Settle in on mount. Only for a message that ARRIVED unprompted — never for static copy or a direct answer to a click. */ rise?: boolean;
-  style?: CSSProperties;
-}) {
+export function MessagePresenter({ message, tone, icon, rise, style }: { message: ReactNode; tone: MessageTone; icon?: IconName; /** Settle in on mount. Only for a message that ARRIVED unprompted — never for static copy or a direct answer to a click. */ rise?: boolean; style?: CSSProperties }) {
   const meta = MESSAGE_TONE[tone];
   const s = TONE_STYLE[meta.tone];
   const ic: IconName = icon ?? meta.icon;
@@ -2122,19 +1662,7 @@ export function MessagePresenter({
 }
 
 /** A rejected write, not a warning. */
-export function ConflictNotice({
-  body,
-  onResolve,
-  resolveLabel,
-  children,
-  style,
-}: {
-  body?: ReactNode;
-  onResolve?: () => void;
-  resolveLabel?: string;
-  children?: ReactNode;
-  style?: CSSProperties;
-}) {
+export function ConflictNotice({ body, onResolve, resolveLabel, children, style }: { body?: ReactNode; onResolve?: () => void; resolveLabel?: string; children?: ReactNode; style?: CSSProperties }) {
   const { tr } = useLocale();
   return (
     <div
@@ -2194,25 +1722,8 @@ export function SearchField({
 }) {
   const { tr } = useLocale();
   return (
-    <span
-      style={{
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        inlineSize: '100%',
-        ...style,
-      }}
-    >
-      <Icon
-        name="search"
-        size={16}
-        style={{
-          position: 'absolute',
-          insetInlineStart: '0.65rem',
-          color: 'var(--tp-muted-fg)',
-          pointerEvents: 'none',
-        }}
-      />
+    <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', inlineSize: '100%', ...style }}>
+      <Icon name="search" size={16} style={{ position: 'absolute', insetInlineStart: '0.65rem', color: 'var(--tp-muted-fg)', pointerEvents: 'none' }} />
       <input
         ref={inputRef}
         type="search"
@@ -2238,24 +1749,11 @@ export function SearchField({
           fontSize: size === 'lg' ? 'var(--tp-fs-lg)' : undefined,
         }}
       />
-      <span
-        style={{
-          position: 'absolute',
-          insetInlineEnd: '0.4rem',
-          display: 'inline-flex',
-          alignItems: 'center',
-        }}
-      >
+      <span style={{ position: 'absolute', insetInlineEnd: '0.4rem', display: 'inline-flex', alignItems: 'center' }}>
         {busy ? (
           <Spinner size="xs" />
         ) : value ? (
-          <Button
-            kind="ghost"
-            size="sm"
-            icon="x"
-            aria-label={tr('ws.kit.search.clear')}
-            onClick={() => onChange('')}
-          />
+          <Button kind="ghost" size="sm" icon="x" aria-label={tr('ws.kit.search.clear')} onClick={() => onChange('')} />
         ) : null}
       </span>
     </span>
@@ -2319,8 +1817,7 @@ export function SegmentedControl<T extends string>({
               boxShadow: active ? 'var(--tp-shadow-raised)' : undefined,
               cursor: o.disabled ? 'not-allowed' : 'pointer',
               opacity: o.disabled ? 'var(--tp-opacity-disabled)' : 1,
-              transition:
-                'background var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out)',
+              transition: 'background var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out)',
               whiteSpace: 'nowrap',
             }}
           >
@@ -2337,100 +1834,38 @@ export function SegmentedControl<T extends string>({
 // Money helpers for display (formatting only; no arithmetic)
 // ---------------------------------------------------------------------------
 
-export function Money({
-  amount,
-  style,
-  strong,
-}: {
-  amount: number | null | undefined;
-  style?: CSSProperties;
-  strong?: boolean;
-}) {
+export function Money({ amount, style, strong }: { amount: number | null | undefined; style?: CSSProperties; strong?: boolean }) {
   const { locale } = useLocale();
   if (amount == null) return <span style={{ color: 'var(--tp-muted-fg)', ...style }}>—</span>;
   return (
-    <span
-      dir="ltr"
-      style={{
-        fontVariantNumeric: 'tabular-nums',
-        fontFamily: 'var(--tp-font-numeric)',
-        fontWeight: strong ? 700 : undefined,
-        ...style,
-      }}
-    >
+    <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)', fontWeight: strong ? 700 : undefined, ...style }}>
       {formatIQD(amount, locale)}
     </span>
   );
 }
 
 /** Change-due readout: server figures in, nothing computed here. */
-export function ChangeDueDisplay({
-  due,
-  tendered,
-  change,
-  short,
-}: {
-  due: number;
-  tendered: number | null;
-  change: number | null;
-  short?: number | null;
-}) {
+export function ChangeDueDisplay({ due, tendered, change, short }: { due: number; tendered: number | null; change: number | null; short?: number | null }) {
   const { tr } = useLocale();
   return (
-    <div
-      style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}
-    >
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
       {[
         { label: tr('ws.kit.change.due'), value: due, tone: 'neutral' as Tone },
         { label: tr('ws.kit.change.tendered'), value: tendered, tone: 'neutral' as Tone },
-        {
-          label: tr('ws.kit.change.change'),
-          value: change,
-          tone: (change ?? 0) > 0 ? ('success' as Tone) : ('neutral' as Tone),
-        },
+        { label: tr('ws.kit.change.change'), value: change, tone: (change ?? 0) > 0 ? ('success' as Tone) : ('neutral' as Tone) },
       ].map((cell) => (
-        <div
-          key={cell.label}
-          style={{
-            ...card,
-            background: TONE_STYLE[cell.tone].bg,
-            borderColor: 'transparent',
-            textAlign: 'center',
-          }}
-        >
-          <span
-            style={{
-              display: 'block',
-              fontSize: 'var(--tp-fs-sm)',
-              color: 'var(--tp-muted-fg)',
-              fontWeight: 600,
-            }}
-          >
+        <div key={cell.label} style={{ ...card, background: TONE_STYLE[cell.tone].bg, borderColor: 'transparent', textAlign: 'center' }}>
+          <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>
             {cell.label}
           </span>
-          <span
-            style={{
-              display: 'block',
-              fontSize: 'var(--tp-fs-2xl)',
-              fontWeight: 700,
-              color: TONE_STYLE[cell.tone].fg,
-            }}
-          >
+          <span style={{ display: 'block', fontSize: 'var(--tp-fs-2xl)', fontWeight: 700, color: TONE_STYLE[cell.tone].fg }}>
             <Money amount={cell.value} />
           </span>
         </div>
       ))}
       {short != null && short > 0 && (
         <div style={{ gridColumn: '1 / -1' }}>
-          <MessagePresenter
-            tone="refused"
-            message={
-              <>
-                {tr('ws.kit.change.short', { amount: '' })}
-                <Money amount={short} />
-              </>
-            }
-          />
+          <MessagePresenter tone="refused" message={<>{tr('ws.kit.change.short', { amount: '' })}<Money amount={short} /></>} />
         </div>
       )}
     </div>
@@ -2471,12 +1906,7 @@ export function BilingualFieldPair({
     <div style={{ marginBlockEnd: '0.5rem' }}>
       <span
         className={required ? 'tp-req' : undefined}
-        style={{
-          display: 'block',
-          fontSize: 'var(--tp-fs-sm)',
-          fontWeight: 600,
-          marginBlockEnd: '0.3rem',
-        }}
+        style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}
       >
         {label}
       </span>
@@ -2492,10 +1922,7 @@ export function BilingualFieldPair({
         disabled={disabled}
       />
       {error && (
-        <span
-          role="alert"
-          style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-danger-fg)' }}
-        >
+        <span role="alert" style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-danger-fg)' }}>
           {error}
         </span>
       )}
@@ -2504,13 +1931,7 @@ export function BilingualFieldPair({
 }
 
 /** Picks the active language and falls back to the other when empty. */
-export function LocalizedRecordText({
-  record,
-  style,
-}: {
-  record: { en?: string | null; ar?: string | null } | null | undefined;
-  style?: CSSProperties;
-}) {
+export function LocalizedRecordText({ record, style }: { record: { en?: string | null; ar?: string | null } | null | undefined; style?: CSSProperties }) {
   const { locale } = useLocale();
   if (!record) return null;
   const primary = locale === 'ar' ? record.ar : record.en;
@@ -2518,25 +1939,14 @@ export function LocalizedRecordText({
   const text = primary && primary.trim() ? primary : (fallback ?? '');
   const usedFallback = !(primary && primary.trim()) && Boolean(fallback && fallback.trim());
   return (
-    <span
-      dir={usedFallback ? (locale === 'ar' ? 'ltr' : 'rtl') : undefined}
-      style={{ unicodeBidi: 'isolate', ...style }}
-    >
+    <span dir={usedFallback ? (locale === 'ar' ? 'ltr' : 'rtl') : undefined} style={{ unicodeBidi: 'isolate', ...style }}>
       {text}
     </span>
   );
 }
 
 /** Mixed-direction text: each part isolated so numbers and Latin codes keep their order in Arabic. */
-export function BidirectionalTextRenderer({
-  parts,
-  separator = ' · ',
-  style,
-}: {
-  parts: readonly (string | number | ReactNode)[];
-  separator?: string;
-  style?: CSSProperties;
-}) {
+export function BidirectionalTextRenderer({ parts, separator = ' · ', style }: { parts: readonly (string | number | ReactNode)[]; separator?: string; style?: CSSProperties }) {
   return (
     <span style={style}>
       {parts.map((p, i) => (

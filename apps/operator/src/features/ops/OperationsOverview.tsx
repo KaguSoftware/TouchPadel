@@ -134,11 +134,7 @@ export function OperationsOverviewScreen() {
           </>
         }
       />
-      <AsyncStateWrapper
-        status={status}
-        error={overviewQ.error}
-        onRetry={() => void overviewQ.refetch()}
-      >
+      <AsyncStateWrapper status={status} error={overviewQ.error} onRetry={() => void overviewQ.refetch()}>
         {overviewQ.data && <Dashboard data={overviewQ.data} go={go} />}
       </AsyncStateWrapper>
     </div>
@@ -155,14 +151,7 @@ function Dashboard({ data, go }: { data: OpsOverview; go: (href: string) => void
           clusters and drops day close onto a second row beside a column of empty
           page. Four columns of ~17rem still hold every ladder row (label, bar,
           count) without wrapping. */}
-      <div
-        style={{
-          display: 'grid',
-          gap: 'var(--tp-sp-4)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(16rem, 1fr))',
-          alignItems: 'start',
-        }}
-      >
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(16rem, 1fr))', alignItems: 'start' }}>
         <BookingsCluster data={data} go={go} />
         <CafeCluster data={data} go={go} />
         <StockCluster data={data} go={go} />
@@ -223,52 +212,24 @@ function AttentionBand({ data, go }: { data: OpsOverview; go: (href: string) => 
 
   if (worst === null) {
     return (
-      <div
-        style={{
-          ...shell,
-          background: MARK_SOFT.success,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--tp-sp-2)',
-        }}
-      >
+      <div style={{ ...shell, background: MARK_SOFT.success, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
         <Icon name="checkCircle" size={17} style={{ color: MARK.success, flex: '0 0 auto' }} />
-        <span style={{ fontWeight: 600, color: MARK_FG.success }}>
-          {tr('ws.kit.empty.nothingToDo')}
-        </span>
+        <span style={{ fontWeight: 600, color: MARK_FG.success }}>{tr('ws.kit.empty.nothingToDo')}</span>
       </div>
     );
   }
 
   return (
     <section style={{ ...shell, background: MARK_SOFT[worst] }}>
-      <h2
-        style={{
-          fontSize: 'var(--tp-fs-md)',
-          fontWeight: 700,
-          color: MARK_FG[worst],
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--tp-sp-2)',
-        }}
-      >
+      <h2 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, color: MARK_FG[worst], display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
         <Icon name="alert" size={16} style={{ color: MARK[worst] }} />
         {tr('ws.manager.ops.attention.title')}
       </h2>
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 'var(--tp-sp-2)',
-          marginBlockStart: 'var(--tp-sp-2-5)',
-        }}
-      >
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
         {alerts.map((a) => (
           <Button key={a.key} size="sm" onClick={() => go(a.href)}>
             <Icon name={ALERT_ICON[a.key]} size={14} style={{ color: MARK[a.severity] }} />
-            <strong style={{ color: MARK_FG[a.severity], fontVariantNumeric: 'tabular-nums' }}>
-              {formatNumber(a.count, locale)}
-            </strong>
+            <strong style={{ color: MARK_FG[a.severity], fontVariantNumeric: 'tabular-nums' }}>{formatNumber(a.count, locale)}</strong>
             {tr(ALERT_LABEL[a.key])}
           </Button>
         ))}
@@ -317,33 +278,11 @@ function Cluster({
 }
 
 /** A labelled figure that is not the cluster's lead. Same row shape as a gate. */
-function SupportRow({
-  label,
-  value,
-  tone = 'neutral',
-}: {
-  label: string;
-  value: ReactNode;
-  tone?: 'neutral' | 'warn' | 'danger';
-}) {
+function SupportRow({ label, value, tone = 'neutral' }: { label: string; value: ReactNode; tone?: 'neutral' | 'warn' | 'danger' }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--tp-sp-2)',
-        fontSize: 'var(--tp-fs-sm)',
-      }}
-    >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)' }}>
       <span style={{ color: 'var(--tp-muted-fg)', minInlineSize: 0 }}>{label}</span>
-      <span
-        style={{
-          marginInlineStart: 'auto',
-          fontWeight: 700,
-          fontVariantNumeric: 'tabular-nums',
-          color: tone === 'neutral' ? 'var(--tp-fg)' : MARK_FG[tone],
-        }}
-      >
+      <span style={{ marginInlineStart: 'auto', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: tone === 'neutral' ? 'var(--tp-fg)' : MARK_FG[tone] }}>
         {value}
       </span>
     </div>
@@ -379,24 +318,16 @@ function BookingsCluster({ data, go }: { data: OpsOverview; go: (href: string) =
       actionLabel={tr('ws.manager.ops.bookings.open')}
       onAction={() => go('/desk')}
     >
-      <LeadFigure
-        label={tr('ws.manager.ops.bookings.today')}
-        value={formatNumber(b.today, locale)}
-      />
+      <LeadFigure label={tr('ws.manager.ops.bookings.today')} value={formatNumber(b.today, locale)} />
       <RatioMeter
         label={tr('ws.manager.ops.bookings.arrived')}
         value={b.arrived}
         limit={b.today}
-        limitLabel={tr('ws.manager.ops.bookings.ofBooked', {
-          count: formatNumber(b.today, locale),
-        })}
+        limitLabel={tr('ws.manager.ops.bookings.ofBooked', { count: formatNumber(b.today, locale) })}
         tone="success"
       />
       <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-        <SupportRow
-          label={tr('ws.manager.ops.bookings.upcoming')}
-          value={formatNumber(b.upcoming, locale)}
-        />
+        <SupportRow label={tr('ws.manager.ops.bookings.upcoming')} value={formatNumber(b.upcoming, locale)} />
         <SupportRow
           label={tr('ws.manager.ops.bookings.noShows')}
           value={formatNumber(b.noShows, locale)}
@@ -435,37 +366,14 @@ function CafeCluster({ data, go }: { data: OpsOverview; go: (href: string) => vo
   const { tr, locale } = useLocale();
   const c = data.cafe;
   return (
-    <Cluster
-      icon="flame"
-      title={tr('ws.manager.ops.cafe.title')}
-      actionLabel={tr('ws.manager.ops.cafe.open')}
-      onAction={() => go('/till/tabs')}
-    >
-      <LeadFigure
-        label={tr('ws.manager.ops.cafe.openTabs')}
-        value={formatNumber(c.openTabs, locale)}
-      />
+    <Cluster icon="flame" title={tr('ws.manager.ops.cafe.title')} actionLabel={tr('ws.manager.ops.cafe.open')} onAction={() => go('/till/tabs')}>
+      <LeadFigure label={tr('ws.manager.ops.cafe.openTabs')} value={formatNumber(c.openTabs, locale)} />
       <SeverityLadder
         caption={tr('ws.manager.ops.cafe.board')}
         rows={[
-          {
-            key: 'queued',
-            label: tr('ws.manager.ops.cafe.queued'),
-            value: c.ticketsQueued,
-            tone: 'neutral',
-          },
-          {
-            key: 'preparing',
-            label: tr('ws.manager.ops.cafe.preparing'),
-            value: c.ticketsPreparing,
-            tone: 'accent',
-          },
-          {
-            key: 'late',
-            label: tr('ws.manager.ops.cafe.late'),
-            value: c.ticketsLate,
-            tone: 'danger',
-          },
+          { key: 'queued', label: tr('ws.manager.ops.cafe.queued'), value: c.ticketsQueued, tone: 'neutral' },
+          { key: 'preparing', label: tr('ws.manager.ops.cafe.preparing'), value: c.ticketsPreparing, tone: 'accent' },
+          { key: 'late', label: tr('ws.manager.ops.cafe.late'), value: c.ticketsLate, tone: 'danger' },
         ]}
       />
       <SupportRow
@@ -489,46 +397,18 @@ function StockCluster({ data, go }: { data: OpsOverview; go: (href: string) => v
   const { tr, locale } = useLocale();
   const s = data.stock;
   return (
-    <Cluster
-      icon="package"
-      title={tr('ws.manager.ops.stock.title')}
-      actionLabel={tr('ws.manager.ops.stock.open')}
-      onAction={() => go('/stock')}
-    >
-      <LeadFigure
-        label={tr('ws.manager.ops.stock.low')}
-        value={formatNumber(s.low, locale)}
-        tone={s.low > 0 ? 'danger' : 'neutral'}
-      />
+    <Cluster icon="package" title={tr('ws.manager.ops.stock.title')} actionLabel={tr('ws.manager.ops.stock.open')} onAction={() => go('/stock')}>
+      <LeadFigure label={tr('ws.manager.ops.stock.low')} value={formatNumber(s.low, locale)} tone={s.low > 0 ? 'danger' : 'neutral'} />
       <SeverityLadder
         rows={[
           { key: 'low', label: tr('ws.manager.ops.stock.low'), value: s.low, tone: 'danger' },
-          {
-            key: 'belowPar',
-            label: tr('ws.manager.ops.stock.belowPar'),
-            value: s.belowPar,
-            tone: 'warn',
-          },
-          {
-            key: 'expiringSoon',
-            label: tr('ws.manager.ops.stock.expiringSoon'),
-            value: s.expiringSoon,
-            tone: 'warn',
-          },
-          {
-            key: 'expired',
-            label: tr('ws.manager.ops.stock.expired'),
-            value: s.expired,
-            tone: 'danger',
-          },
+          { key: 'belowPar', label: tr('ws.manager.ops.stock.belowPar'), value: s.belowPar, tone: 'warn' },
+          { key: 'expiringSoon', label: tr('ws.manager.ops.stock.expiringSoon'), value: s.expiringSoon, tone: 'warn' },
+          { key: 'expired', label: tr('ws.manager.ops.stock.expired'), value: s.expired, tone: 'danger' },
         ]}
       />
       <SupportNote label={tr('ws.manager.ops.stock.lastCount')}>
-        {s.lastCountAt ? (
-          <bdi>{formatDateTime(new Date(s.lastCountAt), locale)}</bdi>
-        ) : (
-          tr('ws.manager.ops.stock.neverCounted')
-        )}
+        {s.lastCountAt ? <bdi>{formatDateTime(new Date(s.lastCountAt), locale)}</bdi> : tr('ws.manager.ops.stock.neverCounted')}
       </SupportNote>
     </Cluster>
   );
@@ -557,20 +437,8 @@ function DayCloseCluster({ data, go }: { data: OpsOverview; go: (href: string) =
   const state = dayCloseState(d);
   const tone = DAY_CLOSE_TONE[state];
   const gates: GateRow[] = [
-    {
-      key: 'tabs',
-      label: tr('ws.manager.ops.dayClose.blockingTabs'),
-      count: d.blockingCount,
-      clearLabel: tr('ws.kit.common.none'),
-      tone: 'danger',
-    },
-    {
-      key: 'queued',
-      label: tr('ws.manager.ops.dayClose.queued'),
-      count: d.queued,
-      clearLabel: tr('ws.kit.common.none'),
-      tone: 'warn',
-    },
+    { key: 'tabs', label: tr('ws.manager.ops.dayClose.blockingTabs'), count: d.blockingCount, clearLabel: tr('ws.kit.common.none'), tone: 'danger' },
+    { key: 'queued', label: tr('ws.manager.ops.dayClose.queued'), count: d.queued, clearLabel: tr('ws.kit.common.none'), tone: 'warn' },
   ];
   return (
     <Cluster
@@ -582,44 +450,14 @@ function DayCloseCluster({ data, go }: { data: OpsOverview; go: (href: string) =
     >
       <div>
         <StatusBadge tone={tone} label={tr(`ws.manager.dayClose.state.${state}`)} />
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 'var(--tp-sp-2)',
-            marginBlockStart: 'var(--tp-sp-2)',
-            fontSize: 'var(--tp-fs-sm)',
-            color: 'var(--tp-muted-fg)',
-          }}
-        >
-          {d.open && d.openedAt && (
-            <bdi>
-              {tr('ws.manager.ops.dayClose.openSince', {
-                time: formatTime(new Date(d.openedAt), locale),
-              })}
-            </bdi>
-          )}
-          {d.businessDate && (
-            <bdi>
-              {tr('ws.manager.ops.dayClose.businessDate', {
-                date: formatDate(new Date(`${d.businessDate}T00:00:00`), locale),
-              })}
-            </bdi>
-          )}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          {d.open && d.openedAt && <bdi>{tr('ws.manager.ops.dayClose.openSince', { time: formatTime(new Date(d.openedAt), locale) })}</bdi>}
+          {d.businessDate && <bdi>{tr('ws.manager.ops.dayClose.businessDate', { date: formatDate(new Date(`${d.businessDate}T00:00:00`), locale) })}</bdi>}
         </div>
       </div>
       <GateList gates={gates} />
       {d.blockingTabs.length > 0 && (
-        <ul
-          style={{
-            listStyle: 'none',
-            padding: 0,
-            margin: 0,
-            display: 'flex',
-            gap: 'var(--tp-sp-1)',
-            flexWrap: 'wrap',
-          }}
-        >
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
           {d.blockingTabs.slice(0, BLOCKING_TABS_SHOWN).map((t) => (
             <li key={t.id}>
               <Button size="sm" kind="soft" icon="receipt" onClick={() => go(tillTabHref(t.id))}>
@@ -629,15 +467,8 @@ function DayCloseCluster({ data, go }: { data: OpsOverview; go: (href: string) =
           ))}
           {d.blockingTabs.length > BLOCKING_TABS_SHOWN && (
             <li>
-              <Button
-                size="sm"
-                kind="ghost"
-                iconEnd="arrowUpRight"
-                onClick={() => go('/admin/day-close')}
-              >
-                {tr('ws.manager.ops.dayClose.moreTabs', {
-                  count: formatNumber(d.blockingTabs.length - BLOCKING_TABS_SHOWN, locale),
-                })}
+              <Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => go('/admin/day-close')}>
+                {tr('ws.manager.ops.dayClose.moreTabs', { count: formatNumber(d.blockingTabs.length - BLOCKING_TABS_SHOWN, locale) })}
               </Button>
             </li>
           )}
@@ -676,24 +507,11 @@ function ExceptionsPanel({ data, go }: { data: OpsOverview; go: (href: string) =
 
   return (
     <Panel title={tr('ws.manager.ops.exceptions.title')}>
-      <p
-        style={{
-          fontSize: 'var(--tp-fs-sm)',
-          color: 'var(--tp-muted-fg)',
-          marginBlockEnd: 'var(--tp-sp-2)',
-        }}
-      >
+      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>
         {tr('ws.manager.ops.exceptions.lead')}
       </p>
       <DrillBarList rows={rows} onDrill={(k) => go(auditDrillHref(k))} />
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--tp-sp-2)',
-          marginBlockStart: 'var(--tp-sp-3)',
-          flexWrap: 'wrap',
-        }}
-      >
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
         <Button size="sm" icon="chart" onClick={() => go('/reports/courts')}>
           {tr('ws.manager.ops.reports')}
         </Button>
@@ -709,14 +527,7 @@ function StaffPanelBody({ rows }: { rows: OpsStaffRow[] }) {
   const { tr } = useLocale();
   return (
     <>
-      <p
-        style={{
-          paddingBlock: 'var(--tp-sp-2)',
-          paddingInline: 'var(--tp-sp-3)',
-          fontSize: 'var(--tp-fs-sm)',
-          color: 'var(--tp-muted-fg)',
-        }}
-      >
+      <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
         {tr('ws.manager.ops.staff.lead')}
       </p>
       <StaffTable rows={rows} />
@@ -733,48 +544,21 @@ function StaffTable({ rows }: { rows: OpsStaffRow[] }) {
   const { tr, locale } = useLocale();
   if (rows.length === 0) {
     return (
-      <div
-        style={{
-          paddingBlock: 'var(--tp-sp-2)',
-          paddingInline: 'var(--tp-sp-3)',
-          paddingBlockEnd: 'var(--tp-sp-3)',
-        }}
-      >
+      <div style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', paddingBlockEnd: 'var(--tp-sp-3)' }}>
         {/* Nobody has clocked anything yet is not a fault and not a filter. */}
-        <EmptyState
-          compact
-          kind="nothingToDo"
-          icon="users"
-          title={tr('ws.manager.ops.staff.empty')}
-        />
+        <EmptyState compact kind="nothingToDo" icon="users" title={tr('ws.manager.ops.staff.empty')} />
       </div>
     );
   }
   const columns: Column<OpsStaffRow>[] = [
-    {
-      key: 'name',
-      header: tr('ws.manager.ops.staff.name'),
-      truncate: true,
-      truncateTitle: (r) => r.name,
-      render: (r) => <bdi>{r.name}</bdi>,
-    },
+    { key: 'name', header: tr('ws.manager.ops.staff.name'), truncate: true, truncateTitle: (r) => r.name, render: (r) => <bdi>{r.name}</bdi> },
     {
       key: 'role',
       header: tr('ws.manager.ops.staff.role'),
       render: (r) => (r.role ? <RoleLabel role={r.role} /> : '—'),
     },
-    {
-      key: 'orders',
-      header: tr('ws.manager.ops.staff.orders'),
-      numeric: true,
-      render: (r) => formatNumber(r.ordersTaken, locale),
-    },
-    {
-      key: 'bookings',
-      header: tr('ws.manager.ops.staff.bookings'),
-      numeric: true,
-      render: (r) => formatNumber(r.bookingsCreated, locale),
-    },
+    { key: 'orders', header: tr('ws.manager.ops.staff.orders'), numeric: true, render: (r) => formatNumber(r.ordersTaken, locale) },
+    { key: 'bookings', header: tr('ws.manager.ops.staff.bookings'), numeric: true, render: (r) => formatNumber(r.bookingsCreated, locale) },
     {
       key: 'payments',
       header: tr('ws.manager.ops.staff.payments'),
@@ -782,15 +566,7 @@ function StaffTable({ rows }: { rows: OpsStaffRow[] }) {
       render: (r) => (r.paymentsTaken === null ? '—' : formatNumber(r.paymentsTaken, locale)),
     },
   ];
-  return (
-    <DataTable
-      columns={columns}
-      rows={rows}
-      rowKey={(r, i) => r.staffId || String(i)}
-      dense
-      aria-label={tr('ws.manager.ops.staff.title')}
-    />
-  );
+  return <DataTable columns={columns} rows={rows} rowKey={(r, i) => r.staffId || String(i)} dense aria-label={tr('ws.manager.ops.staff.title')} />;
 }
 
 const ROLE_KEYS = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
@@ -798,15 +574,7 @@ function RoleLabel({ role }: { role: string }) {
   const { tr } = useLocale();
   const known = (ROLE_KEYS as readonly string[]).includes(role);
   return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 'var(--tp-sp-1)',
-        color: 'var(--tp-muted-fg)',
-        fontSize: 'var(--tp-fs-sm)',
-      }}
-    >
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
       <Icon name="user" size={13} />
       {known ? tr(`op.roles.${role as (typeof ROLE_KEYS)[number]}`) : role}
     </span>

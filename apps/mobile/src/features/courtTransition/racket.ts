@@ -556,10 +556,7 @@ export function buildRacketKit(quality: CourtQuality): RacketKit {
     ring.position.y = 0.028 + i * 0.022;
     body.add(ring);
   }
-  const cap = part(
-    new THREE.CylinderGeometry(R + 0.0015, R + 0.0005, 0.012, full ? 24 : 12),
-    trimMat,
-  );
+  const cap = part(new THREE.CylinderGeometry(R + 0.0015, R + 0.0005, 0.012, full ? 24 : 12), trimMat);
   cap.position.y = 0.007;
   if (full) {
     const end = part(

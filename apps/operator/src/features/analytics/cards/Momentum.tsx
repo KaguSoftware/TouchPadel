@@ -11,15 +11,7 @@ import type { Formatters } from '../format';
 import { CardShell, muted, type CardState } from './CardShell';
 import { StatusBadge } from '../../../components/kit';
 
-export function Momentum({
-  derived,
-  state,
-  f,
-}: {
-  derived: Derived | null;
-  state: CardState;
-  f: Formatters;
-}) {
+export function Momentum({ derived, state, f }: { derived: Derived | null; state: CardState; f: Formatters }) {
   const { tr } = useLocale();
   const m = derived?.momentum ?? null;
   const empty = m !== null && m.rising.length === 0 && m.fading.length === 0;
@@ -29,11 +21,7 @@ export function Momentum({
       title={tr('analytics.cards.momentum')}
       state={state === 'ready' && (m === null || empty) ? 'empty' : state}
       emptyKey="analytics.empty.engagement"
-      actions={
-        m && !m.comparable ? (
-          <StatusBadge size="sm" tone="warn" label={tr('analytics.cards.notComparable')} />
-        ) : undefined
-      }
+      actions={m && !m.comparable ? <StatusBadge size="sm" tone="warn" label={tr('analytics.cards.notComparable')} /> : undefined}
     >
       {m && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
@@ -45,38 +33,14 @@ export function Momentum({
   );
 }
 
-function Column({
-  title,
-  rows,
-  f,
-}: {
-  title: string;
-  rows: readonly ItemMomentum[];
-  f: Formatters;
-}) {
+function Column({ title, rows, f }: { title: string; rows: readonly ItemMomentum[]; f: Formatters }) {
   const { locale } = useLocale();
   return (
     <div>
       <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{title}</span>
-      <ul
-        style={{
-          margin: '0.2rem 0 0',
-          padding: 0,
-          listStyle: 'none',
-          display: 'grid',
-          gap: '0.2rem',
-        }}
-      >
+      <ul style={{ margin: '0.2rem 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: '0.2rem' }}>
         {rows.map((r) => (
-          <li
-            key={r.id}
-            style={{
-              fontSize: 'var(--tp-fs-sm)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: '0.4rem',
-            }}
-          >
+          <li key={r.id} style={{ fontSize: 'var(--tp-fs-sm)', display: 'flex', justifyContent: 'space-between', gap: '0.4rem' }}>
             <span>{pickLocale({ en: r.nameEn, ar: r.nameAr }, locale) || r.id}</span>
             <span style={muted}>{r.deltaPct == null ? '—' : f.signedPct(r.deltaPct)}</span>
           </li>

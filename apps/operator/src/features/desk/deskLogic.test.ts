@@ -54,11 +54,7 @@ describe('paymentStatusFor', () => {
     expect(paymentStatusFor(r, [{ reservation_id: 'r1', status: 'void' }])).toBe('unknown');
   });
   it('never reports payment for blocks and holds', () => {
-    expect(
-      paymentStatusFor(row({ id: 'm', kind: 'maintenance' }), [
-        { reservation_id: 'm', status: 'settled' },
-      ]),
-    ).toBe('unknown');
+    expect(paymentStatusFor(row({ id: 'm', kind: 'maintenance' }), [{ reservation_id: 'm', status: 'settled' }])).toBe('unknown');
   });
 });
 
@@ -67,18 +63,8 @@ describe('isVisible', () => {
   it('hides cancelled, expired, no-show and lapsed holds', () => {
     expect(isVisible(row({ id: 'a', status: 'cancelled' }), now)).toBe(false);
     expect(isVisible(row({ id: 'b', status: 'no_show' }), now)).toBe(false);
-    expect(
-      isVisible(
-        row({ id: 'c', kind: 'hold', status: 'pending', hold_expires_at: '2026-09-03T15:00:00Z' }),
-        now,
-      ),
-    ).toBe(false);
-    expect(
-      isVisible(
-        row({ id: 'd', kind: 'hold', status: 'pending', hold_expires_at: '2026-09-03T16:00:00Z' }),
-        now,
-      ),
-    ).toBe(true);
+    expect(isVisible(row({ id: 'c', kind: 'hold', status: 'pending', hold_expires_at: '2026-09-03T15:00:00Z' }), now)).toBe(false);
+    expect(isVisible(row({ id: 'd', kind: 'hold', status: 'pending', hold_expires_at: '2026-09-03T16:00:00Z' }), now)).toBe(true);
     expect(isVisible(row({ id: 'e' }), now)).toBe(true);
   });
 });
@@ -90,10 +76,7 @@ describe('groupByStart', () => {
       row({ id: 'b', court_id: 'c2' }),
       row({ id: 'a', court_id: 'c1' }),
     ]);
-    expect(groups.map((g) => g.startAt)).toEqual([
-      '2026-09-03T15:00:00.000Z',
-      '2026-09-03T17:00:00.000Z',
-    ]);
+    expect(groups.map((g) => g.startAt)).toEqual(['2026-09-03T15:00:00.000Z', '2026-09-03T17:00:00.000Z']);
     expect(groups[0]!.rows.map((r) => r.id)).toEqual(['a', 'b']);
   });
 });
@@ -102,22 +85,14 @@ describe('courtAvailability', () => {
   const now = '2026-09-03T15:30:00.000Z';
   it('reports a court busy while a blocking reservation spans now', () => {
     const [c1] = courtAvailability(['c1'], [row({ id: 'r1' })], now);
-    expect(c1).toMatchObject({
-      state: 'busy',
-      untilAt: '2026-09-03T16:00:00.000Z',
-      reservationId: 'r1',
-    });
+    expect(c1).toMatchObject({ state: 'busy', untilAt: '2026-09-03T16:00:00.000Z', reservationId: 'r1' });
   });
   it('reports free with the next start, ignoring cancelled rows and other courts', () => {
     const rows = [
       row({ id: 'gone', status: 'cancelled' }),
       row({ id: 'other', court_id: 'c2' }),
       row({ id: 'next', start_at: '2026-09-03T18:00:00.000Z', end_at: '2026-09-03T19:00:00.000Z' }),
-      row({
-        id: 'later',
-        start_at: '2026-09-03T20:00:00.000Z',
-        end_at: '2026-09-03T21:00:00.000Z',
-      }),
+      row({ id: 'later', start_at: '2026-09-03T20:00:00.000Z', end_at: '2026-09-03T21:00:00.000Z' }),
     ];
     const [c1, c3] = courtAvailability(['c1', 'c3'], rows, now);
     expect(c1).toEqual({ courtId: 'c1', state: 'free', nextStartAt: '2026-09-03T18:00:00.000Z' });

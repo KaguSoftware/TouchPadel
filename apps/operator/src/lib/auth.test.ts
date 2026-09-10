@@ -153,12 +153,7 @@ describe('capability matrix', () => {
     // Named explicitly so deleting one from the matrix fails here rather
     // than silently exposing the control.
     expect(ALL_CAPS.sort()).toEqual(
-      [
-        'rotateTableToken',
-        'setAnalyticsExclusions',
-        'setBusinessDayStart',
-        'setEngagementFloor',
-      ].sort(),
+      ['rotateTableToken', 'setAnalyticsExclusions', 'setBusinessDayStart', 'setEngagementFloor'].sort(),
     );
   });
 

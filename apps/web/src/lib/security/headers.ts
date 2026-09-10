@@ -114,10 +114,7 @@ export const TABLE_ROUTE_HEADERS: ReadonlyArray<{ key: string; value: string }> 
  *  - dev adds 'unsafe-eval' because React Refresh needs it. It is branch-gated
  *    on NODE_ENV so it can never reach a production response.
  */
-export function buildCsp(
-  nonce: string,
-  opts: { isDev: boolean; supabaseUrl?: string | undefined },
-): string {
+export function buildCsp(nonce: string, opts: { isDev: boolean; supabaseUrl?: string | undefined }): string {
   const { isDev, supabaseUrl } = opts;
 
   // The app talks to exactly one Supabase project. Naming it — rather than

@@ -56,14 +56,7 @@ beforeEach(() => {
   openQueue().exec('DELETE FROM mutation_queue;');
   setAuthState({ accessToken: 't', staffId: STAFF, supabaseUrl: 'https://x.test', anonKey: 'k' });
   server = startLanKdsServer(
-    {
-      stationId: 'TILL1',
-      mode: 'till',
-      lanPsk: PSK,
-      lanBind: '127.0.0.1',
-      configured: true,
-      appVersion: 't',
-    },
+    { stationId: 'TILL1', mode: 'till', lanPsk: PSK, lanBind: '127.0.0.1', configured: true, appVersion: 't' },
     { port: PORT },
   );
   expect(server).not.toBeNull();
@@ -85,23 +78,9 @@ describe('parseStatusUpdate', () => {
     });
     expect(parseStatusUpdate(good)?.status).toBe('ready');
     expect(parseStatusUpdate('not json')).toBeNull();
-    expect(
-      parseStatusUpdate(
-        JSON.stringify({
-          type: 'status.update',
-          data: { ref: 'x', status: 'burnt', kdsStation: 'KDS-01' },
-        }),
-      ),
-    ).toBeNull();
+    expect(parseStatusUpdate(JSON.stringify({ type: 'status.update', data: { ref: 'x', status: 'burnt', kdsStation: 'KDS-01' } }))).toBeNull();
     expect(parseStatusUpdate(JSON.stringify({ type: 'ticket.new', data: {} }))).toBeNull();
-    expect(
-      parseStatusUpdate(
-        JSON.stringify({
-          type: 'status.update',
-          data: { ref: 'x', status: 'ready', kdsStation: 'kds lower' },
-        }),
-      ),
-    ).toBeNull();
+    expect(parseStatusUpdate(JSON.stringify({ type: 'status.update', data: { ref: 'x', status: 'ready', kdsStation: 'kds lower' } }))).toBeNull();
   });
 });
 
@@ -164,7 +143,9 @@ describe('lan kds server', () => {
     // v4/SEC-32: the payload column is encrypted at rest, so read it back
     // through the queue API rather than parsing the raw column.
     expect(row.payload_enc).toBe(1);
-    const queued = listBlockingRows().find((r) => r.idempotencyKey === String(row.idempotency_key));
+    const queued = listBlockingRows().find(
+      (r) => r.idempotencyKey === String(row.idempotency_key),
+    );
     expect(queued?.payload).toEqual({
       ticketIdemKey: env.idempotencyKey,
       status: 'ready',

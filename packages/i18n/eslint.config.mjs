@@ -5,7 +5,5 @@ import { base } from '@touch/config/eslint';
 
 export default [
   ...base, // typescript-eslint recommended + the repo's RTL logical-property guard
-  {
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.ts', '**/*.gen.ts'],
-  },
+  { ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.ts', '**/*.gen.ts'] },
 ];

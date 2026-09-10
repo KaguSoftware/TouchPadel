@@ -55,13 +55,7 @@ export function SectionHome({
     <div style={{ maxInlineSize: '64rem' }}>
       <PageHeader title={title} subtitle={lead} />
       {children}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))',
-          gap: 'var(--tp-sp-3)',
-        }}
-      >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
         {items.map((item) => (
           <Link
             key={item.to}
@@ -80,14 +74,7 @@ export function SectionHome({
               minBlockSize: 'var(--tp-tile-min-block)',
             }}
           >
-            <span
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 'var(--tp-sp-2)',
-              }}
-            >
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--tp-sp-2)' }}>
               <span
                 style={{
                   display: 'inline-flex',
@@ -107,9 +94,7 @@ export function SectionHome({
             <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-lg)' }}>
               {tr(`ws.shell.nav.${item.labelKey}`)}
             </span>
-            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-              {card(item.labelKey)}
-            </span>
+            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{card(item.labelKey)}</span>
           </Link>
         ))}
       </div>

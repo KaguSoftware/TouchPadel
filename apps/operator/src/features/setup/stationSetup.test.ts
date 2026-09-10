@@ -48,20 +48,13 @@ describe('setupReducer', () => {
   });
 
   it('refuses to confirm an invalid id and reports which field is wrong', () => {
-    const s = run([
-      { type: 'chooseMode', mode: 'desk' },
-      { type: 'stationId', value: '-desk' },
-      { type: 'confirm' },
-    ]);
+    const s = run([{ type: 'chooseMode', mode: 'desk' }, { type: 'stationId', value: '-desk' }, { type: 'confirm' }]);
     expect(s.step).toBe('details');
     expect(detailsValidity(s as DetailsState).stationId).toBe(false);
   });
 
   it('kds: the code is normalised as typed and confirm starts the scan', () => {
-    const s = run([
-      { type: 'chooseMode', mode: 'kds' },
-      { type: 'code', value: 'ab1o-i l2xy zz' },
-    ]);
+    const s = run([{ type: 'chooseMode', mode: 'kds' }, { type: 'code', value: 'ab1o-i l2xy zz' }]);
     expect((s as DetailsState).code).toBe('AB10112XYZ');
     expect(detailsValidity(s as DetailsState).code).toBe(true);
     expect(run([{ type: 'confirm' }], s).step).toBe('scanning');
@@ -71,10 +64,7 @@ describe('setupReducer', () => {
 
   it('scan: one till saves straight away with that host', () => {
     const s = run(
-      [
-        { type: 'confirm' },
-        { type: 'scanResult', result: { status: 'found', tills: ['192.168.4.10'] } },
-      ],
+      [{ type: 'confirm' }, { type: 'scanResult', result: { status: 'found', tills: ['192.168.4.10'] } }],
       kdsDetails,
     );
     expect(s.step).toBe('saving');
@@ -88,10 +78,7 @@ describe('setupReducer', () => {
 
   it('scan: several tills ask which one; picking saves', () => {
     const s = run(
-      [
-        { type: 'confirm' },
-        { type: 'scanResult', result: { status: 'found', tills: ['10.0.0.2', '10.0.0.3'] } },
-      ],
+      [{ type: 'confirm' }, { type: 'scanResult', result: { status: 'found', tills: ['10.0.0.2', '10.0.0.3'] } }],
       kdsDetails,
     );
     expect(s).toMatchObject({ step: 'choose', tills: ['10.0.0.2', '10.0.0.3'] });
@@ -101,10 +88,7 @@ describe('setupReducer', () => {
 
   it('scan: a refused code is reported and cleared on retry', () => {
     const s = run(
-      [
-        { type: 'confirm' },
-        { type: 'scanResult', result: { status: 'bad-code', candidates: ['10.0.0.2'] } },
-      ],
+      [{ type: 'confirm' }, { type: 'scanResult', result: { status: 'bad-code', candidates: ['10.0.0.2'] } }],
       kdsDetails,
     );
     expect(s).toMatchObject({ step: 'notFound', reason: 'bad-code' });
@@ -113,27 +97,19 @@ describe('setupReducer', () => {
   });
 
   it('scan: nothing found is none without an address, unreachable with one (and may be saved anyway)', () => {
-    const none = run(
-      [{ type: 'confirm' }, { type: 'scanResult', result: { status: 'none' } }],
-      kdsDetails,
-    );
+    const none = run([{ type: 'confirm' }, { type: 'scanResult', result: { status: 'none' } }], kdsDetails);
     expect(none).toMatchObject({ step: 'notFound', reason: 'none' });
     expect(canSaveAnyway(none)).toBe(false);
 
     const withHost = { ...kdsDetails, host: '192.168.4.10', showAdvanced: true };
-    const unreachable = run(
-      [{ type: 'confirm' }, { type: 'scanResult', result: { status: 'none' } }],
-      withHost,
-    );
+    const unreachable = run([{ type: 'confirm' }, { type: 'scanResult', result: { status: 'none' } }], withHost);
     expect(unreachable).toMatchObject({ step: 'notFound', reason: 'unreachable' });
     expect(canSaveAnyway(unreachable)).toBe(true);
     expect(setupReducer(unreachable, { type: 'saveAnyway' })).toMatchObject({
       step: 'saving',
       request: { tillHost: '192.168.4.10', pairingCode: 'ABCDEFGHJK' },
     });
-    expect(
-      run([{ type: 'confirm' }, { type: 'scanResult', result: { status: 'no-lan' } }], kdsDetails),
-    ).toMatchObject({
+    expect(run([{ type: 'confirm' }, { type: 'scanResult', result: { status: 'no-lan' } }], kdsDetails)).toMatchObject({
       step: 'notFound',
       reason: 'no-lan',
     });
@@ -143,17 +119,11 @@ describe('setupReducer', () => {
     const bad = { ...kdsDetails, host: '300.1.1.1' };
     expect(detailsValidity(bad).host).toBe(false);
     expect(setupReducer(bad, { type: 'confirm' }).step).toBe('details');
-    expect(setupReducer({ step: 'scanning', details: kdsDetails }, { type: 'back' })).toBe(
-      kdsDetails,
-    );
+    expect(setupReducer({ step: 'scanning', details: kdsDetails }, { type: 'back' })).toBe(kdsDetails);
   });
 
   it('a failed save can be retried or abandoned', () => {
-    const saving: SetupState = {
-      step: 'saving',
-      details: kdsDetails,
-      request: requestFor(kdsDetails, '10.0.0.2'),
-    };
+    const saving: SetupState = { step: 'saving', details: kdsDetails, request: requestFor(kdsDetails, '10.0.0.2') };
     const failed = setupReducer(saving, { type: 'saveFailed', error: 'write-failed' });
     expect(failed).toMatchObject({ step: 'failed', error: 'write-failed' });
     expect(setupReducer(failed, { type: 'retry' })).toBe(kdsDetails);
@@ -161,9 +131,6 @@ describe('setupReducer', () => {
   });
 
   it('requestFor drops the kds-only fields for a till or desk', () => {
-    expect(requestFor({ ...kdsDetails, mode: 'till', stationId: 'TILL-01' })).toEqual({
-      stationId: 'TILL-01',
-      mode: 'till',
-    });
+    expect(requestFor({ ...kdsDetails, mode: 'till', stationId: 'TILL-01' })).toEqual({ stationId: 'TILL-01', mode: 'till' });
   });
 });

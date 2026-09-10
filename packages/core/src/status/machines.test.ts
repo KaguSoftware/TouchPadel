@@ -100,6 +100,8 @@ describe('assertTransition', () => {
 
   it('unknown states are rejected, not silently allowed', () => {
     // simulate bad data arriving from outside TS
-    expect(orderStatusMachine.canTransition('draft' as never, 'sent' as never)).toBe(false);
+    expect(
+      orderStatusMachine.canTransition('draft' as never, 'sent' as never),
+    ).toBe(false);
   });
 });

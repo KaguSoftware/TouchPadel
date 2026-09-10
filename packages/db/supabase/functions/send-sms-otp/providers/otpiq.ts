@@ -22,19 +22,9 @@
  * Secrets: OTPIQ_API_KEY; optional OTPIQ_PROVIDER (default "whatsapp-sms"),
  * OTPIQ_SENDER_ID.
  */
-import {
-  SmsProviderError,
-  type SmsChannel,
-  type SmsProvider,
-  type SmsSendArgs,
-  type SmsSendResult,
-} from './types.ts';
+import { SmsProviderError, type SmsChannel, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
 
-export function otpiqProvider(env: {
-  apiKey: string;
-  provider?: string;
-  senderId?: string;
-}): SmsProvider {
+export function otpiqProvider(env: { apiKey: string; provider?: string; senderId?: string }): SmsProvider {
   const routing = env.provider?.trim() || 'whatsapp-sms';
   return {
     name: 'otpiq',
@@ -58,11 +48,7 @@ export function otpiqProvider(env: {
         error?: string;
       };
       if (!res.ok) {
-        throw new SmsProviderError(
-          'otpiq',
-          `otpiq ${res.status}: ${data.error ?? data.message ?? 'send failed'}`,
-          res.status,
-        );
+        throw new SmsProviderError('otpiq', `otpiq ${res.status}: ${data.error ?? data.message ?? 'send failed'}`, res.status);
       }
       // The channel that actually delivered is only known from trackSms later;
       // record the first channel of the routing string.

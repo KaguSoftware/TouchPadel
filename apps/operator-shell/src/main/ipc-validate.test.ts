@@ -12,7 +12,11 @@ import {
   IpcValidationError,
   MAX_PAYLOAD_BYTES,
 } from './ipc-validate';
-import { MUTATION_TYPES, clientRefRegex, idempotencyKeyRegex } from '@touch/core/schemas/mutations';
+import {
+  MUTATION_TYPES,
+  clientRefRegex,
+  idempotencyKeyRegex,
+} from '@touch/core/schemas/mutations';
 
 // The five ipcMain.handle callbacks used to take their arguments on trust —
 // TypeScript annotations are erased at runtime, so whatever the renderer sent
@@ -56,15 +60,7 @@ describe('validateMutationEnvelope', () => {
   it('accepts a well-formed envelope and returns only known fields', () => {
     const result = validateMutationEnvelope(envelope({ sneaky: 'extra' }));
     expect(Object.keys(result).sort()).toEqual(
-      [
-        'createdAt',
-        'deviceId',
-        'idempotencyKey',
-        'localId',
-        'mutationType',
-        'payload',
-        'staffId',
-      ].sort(),
+      ['createdAt', 'deviceId', 'idempotencyKey', 'localId', 'mutationType', 'payload', 'staffId'].sort(),
     );
     expect((result as Record<string, unknown>).sneaky).toBeUndefined();
     expect(result.staffId).toBe(STAFF);
@@ -266,9 +262,12 @@ describe('validatePin', () => {
     expect(validatePin('123456789012')).toBe('123456789012');
   });
 
-  it.each([['123'], ['1234567890123'], ['12a4'], [''], [' 1234 ']])('refuses %j', (value) => {
-    expect(() => validatePin(value)).toThrow(IpcValidationError);
-  });
+  it.each([['123'], ['1234567890123'], ['12a4'], [''], [' 1234 ']])(
+    'refuses %j',
+    (value) => {
+      expect(() => validatePin(value)).toThrow(IpcValidationError);
+    },
+  );
 
   it('never echoes the pin in the error message', () => {
     // A PIN in a kiosk log is a PIN on the machine anyone can walk up to.
@@ -345,50 +344,25 @@ describe('validatePairingCode', () => {
 
 describe('validateStationSetup', () => {
   it('till and desk keep only id + mode', () => {
-    expect(
-      validateStationSetup({ stationId: 'TILL-01', mode: 'till', pairingCode: 'ABCDEFGHJK', x: 1 }),
-    ).toEqual({
+    expect(validateStationSetup({ stationId: 'TILL-01', mode: 'till', pairingCode: 'ABCDEFGHJK', x: 1 })).toEqual({
       stationId: 'TILL-01',
       mode: 'till',
     });
-    expect(validateStationSetup({ stationId: 'DESK-01', mode: 'desk' })).toEqual({
-      stationId: 'DESK-01',
-      mode: 'desk',
-    });
+    expect(validateStationSetup({ stationId: 'DESK-01', mode: 'desk' })).toEqual({ stationId: 'DESK-01', mode: 'desk' });
   });
 
   it('a kitchen screen must bring a private till host and a code', () => {
     expect(
-      validateStationSetup({
-        stationId: 'KDS-01',
-        mode: 'kds',
-        tillHost: '192.168.4.10',
-        pairingCode: 'ABCDEFGHJK',
-      }),
-    ).toEqual({
-      stationId: 'KDS-01',
-      mode: 'kds',
-      tillHost: '192.168.4.10',
-      pairingCode: 'ABCDEFGHJK',
-    });
+      validateStationSetup({ stationId: 'KDS-01', mode: 'kds', tillHost: '192.168.4.10', pairingCode: 'ABCDEFGHJK' }),
+    ).toEqual({ stationId: 'KDS-01', mode: 'kds', tillHost: '192.168.4.10', pairingCode: 'ABCDEFGHJK' });
+    expect(() => validateStationSetup({ stationId: 'KDS-01', mode: 'kds', pairingCode: 'ABCDEFGHJK' })).toThrow(
+      IpcValidationError,
+    );
     expect(() =>
-      validateStationSetup({ stationId: 'KDS-01', mode: 'kds', pairingCode: 'ABCDEFGHJK' }),
-    ).toThrow(IpcValidationError);
-    expect(() =>
-      validateStationSetup({
-        stationId: 'KDS-01',
-        mode: 'kds',
-        tillHost: '8.8.8.8',
-        pairingCode: 'ABCDEFGHJK',
-      }),
+      validateStationSetup({ stationId: 'KDS-01', mode: 'kds', tillHost: '8.8.8.8', pairingCode: 'ABCDEFGHJK' }),
     ).toThrow(/private/);
     expect(() =>
-      validateStationSetup({
-        stationId: 'KDS-01',
-        mode: 'kds',
-        tillHost: '192.168.4.10',
-        pairingCode: 'nope',
-      }),
+      validateStationSetup({ stationId: 'KDS-01', mode: 'kds', tillHost: '192.168.4.10', pairingCode: 'nope' }),
     ).toThrow(IpcValidationError);
   });
 
@@ -402,16 +376,12 @@ describe('validateStationSetup', () => {
 describe('validateDiscoverRequest', () => {
   it('takes a code alone, or a code with one private host', () => {
     expect(validateDiscoverRequest({ code: 'ABCDEFGHJK' })).toEqual({ code: 'ABCDEFGHJK' });
-    expect(validateDiscoverRequest({ code: 'ABCDEFGHJK', host: '' })).toEqual({
-      code: 'ABCDEFGHJK',
-    });
+    expect(validateDiscoverRequest({ code: 'ABCDEFGHJK', host: '' })).toEqual({ code: 'ABCDEFGHJK' });
     expect(validateDiscoverRequest({ code: 'ABCDEFGHJK', host: '10.0.0.9' })).toEqual({
       code: 'ABCDEFGHJK',
       host: '10.0.0.9',
     });
-    expect(() => validateDiscoverRequest({ code: 'ABCDEFGHJK', host: '1.1.1.1' })).toThrow(
-      /private/,
-    );
+    expect(() => validateDiscoverRequest({ code: 'ABCDEFGHJK', host: '1.1.1.1' })).toThrow(/private/);
     expect(() => validateDiscoverRequest({ code: 'bad' })).toThrow(IpcValidationError);
   });
 });

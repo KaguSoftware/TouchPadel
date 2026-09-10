@@ -9,16 +9,7 @@ import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'rea
 import { Text } from '../i18n/text';
 import { formatDayNumber, formatMonthShort, isolate, type MessageKey } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
-import {
-  brand,
-  palettes,
-  radius,
-  shadows,
-  slotStateStyles,
-  space,
-  useTheme,
-  type Palette,
-} from '../theme';
+import { brand, palettes, radius, shadows, slotStateStyles, space, useTheme, type Palette } from '../theme';
 import type { MergedCell } from '../features/availability/assemble';
 import {
   CalendarIcon,
@@ -61,13 +52,7 @@ function statusColors(status: string, c: Palette): { fg: string; bg: string } {
   }
 }
 
-export function StatusPill({
-  status,
-  size = 'list',
-}: {
-  status: string;
-  size?: 'list' | 'detail';
-}) {
+export function StatusPill({ status, size = 'list' }: { status: string; size?: 'list' | 'detail' }) {
   const { colors, fonts, tracking } = useTheme();
   const { t } = useLocale();
   const { fg, bg } = statusColors(status, colors);
@@ -251,9 +236,7 @@ export function PayAtDeskCard({
           </Text>
         </View>
       ) : null}
-      <Text
-        style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.gtext2 }}
-      >
+      <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, lineHeight: 19, color: colors.gtext2 }}>
         {lead ? <Text style={{ fontFamily: fonts.body800 }}>{lead} </Text> : null}
         {body}
       </Text>
@@ -316,12 +299,7 @@ export function HeldSlotCard({
             numberOfLines={1}
             // pickLocale falls back to the English name; a Latin-only name in a
             // stretched Text would sit on the trailing edge under RTL on iOS.
-            style={{
-              alignSelf: 'flex-start',
-              fontFamily: fonts.display800,
-              fontSize: 14,
-              color: colors.ink,
-            }}
+            style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
           >
             {courtName}
           </Text>
@@ -558,9 +536,7 @@ export function NextUpCard({
   // anyway; the two that DO ('pending', 'arrived') are named in the eyebrow,
   // which costs no room and cannot be missed above the court name.
   const eyebrow =
-    status === 'confirmed'
-      ? label
-      : `${label} · ${t(STATUS_KEY[status] ?? 'booking.statusPending')}`;
+    status === 'confirmed' ? label : `${label} · ${t(STATUS_KEY[status] ?? 'booking.statusPending')}`;
   return (
     <Pressable
       accessibilityRole="button"
@@ -640,20 +616,8 @@ export function NextUpCard({
             marginTop: 5,
           }}
         >
-          <MetaItem
-            icon={CalendarIcon}
-            text={when}
-            color={ink.meta}
-            iconColor={ink.glyph}
-            size={12.5}
-          />
-          <MetaItem
-            icon={ClockIcon}
-            text={timeRange}
-            color={ink.meta}
-            iconColor={ink.glyph}
-            size={12.5}
-          />
+          <MetaItem icon={CalendarIcon} text={when} color={ink.meta} iconColor={ink.glyph} size={12.5} />
+          <MetaItem icon={ClockIcon} text={timeRange} color={ink.meta} iconColor={ink.glyph} size={12.5} />
         </View>
         <View
           style={{
@@ -755,13 +719,7 @@ export function StatChip({
       }}
     >
       <Icon size={12} color={accent ? colors.blue : colors.fnt} strokeWidth={2.2} />
-      <Text
-        style={{
-          fontFamily: fonts.body700,
-          fontSize: 11,
-          color: accent ? colors.mut2 : colors.mut,
-        }}
-      >
+      <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: accent ? colors.mut2 : colors.mut }}>
         {label}
       </Text>
     </View>
@@ -816,12 +774,7 @@ export function UpcomingBookingRow({
         <Text
           numberOfLines={1}
           // Shrink-wrapped to the leading edge, like the hero's court name.
-          style={{
-            alignSelf: 'flex-start',
-            fontFamily: fonts.display800,
-            fontSize: 14,
-            color: colors.ink,
-          }}
+          style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 14, color: colors.ink }}
         >
           {courtName}
         </Text>
@@ -915,23 +868,12 @@ export function PastBookingRow({
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
             numberOfLines={1}
-            style={{
-              alignSelf: 'flex-start',
-              fontFamily: fonts.display800,
-              fontSize: 13,
-              color: colors.mut2,
-            }}
+            style={{ alignSelf: 'flex-start', fontFamily: fonts.display800, fontSize: 13, color: colors.mut2 }}
           >
             {courtName}
           </Text>
           <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              columnGap: 10,
-              rowGap: 2,
-              marginTop: 2,
-            }}
+            style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 2, marginTop: 2 }}
           >
             <MetaItem icon={ClockIcon} text={when} color={colors.fnt} size={11} />
             {price ? <MetaItem icon={TagIcon} text={price} color={colors.fnt} size={11} /> : null}
@@ -989,13 +931,7 @@ export function DegradedBanner({
     const wrapped = isolate(phone);
     const marker = message.includes(wrapped) ? wrapped : phone;
     const [before, ...rest] = message.split(marker);
-    parts.push(
-      before,
-      <Text key="phone" style={bold}>
-        {wrapped}
-      </Text>,
-      rest.join(marker),
-    );
+    parts.push(before, <Text key="phone" style={bold}>{wrapped}</Text>, rest.join(marker));
   } else {
     parts.push(message);
   }
@@ -1020,20 +956,9 @@ export function DegradedBanner({
         <WifiOffIcon size={tight ? 16 : 17} color={colors.ambstrong} />
       </View>
       <Text
-        style={{
-          flex: 1,
-          fontFamily: fonts.body600,
-          fontSize: 12,
-          lineHeight: 17,
-          color: colors.ambtext,
-        }}
+        style={{ flex: 1, fontFamily: fonts.body600, fontSize: 12, lineHeight: 17, color: colors.ambtext }}
       >
-        {lead ? (
-          <Text style={bold}>
-            {lead}
-            {blockLead ? '\n' : ' '}
-          </Text>
-        ) : null}
+        {lead ? <Text style={bold}>{lead}{blockLead ? '\n' : ' '}</Text> : null}
         {parts}
       </Text>
       {onDismiss ? (

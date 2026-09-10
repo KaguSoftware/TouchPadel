@@ -92,12 +92,7 @@ function WelcomeScreen() {
           fill="none"
           style={[{ marginTop: 10 }, mirror(dir)]}
         >
-          <Path
-            d="M2 8C32 1.5 74 1.5 108 5.5"
-            stroke={brand.green}
-            strokeWidth={4}
-            strokeLinecap="round"
-          />
+          <Path d="M2 8C32 1.5 74 1.5 108 5.5" stroke={brand.green} strokeWidth={4} strokeLinecap="round" />
         </Svg>
 
         {pending ? (
@@ -115,12 +110,7 @@ function WelcomeScreen() {
             }}
           >
             <Text
-              style={{
-                fontFamily: fonts.body600,
-                fontSize: 12.5,
-                lineHeight: 19,
-                color: brand.white,
-              }}
+              style={{ fontFamily: fonts.body600, fontSize: 12.5, lineHeight: 19, color: brand.white }}
             >
               {t('auth.pendingSlotBanner', { label: isolate(pendingLabel) })}
             </Text>

@@ -1,13 +1,7 @@
 import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import {
-  QueryCache,
-  QueryClient,
-  MutationCache,
-  focusManager,
-  onlineManager,
-} from '@tanstack/react-query';
+import { QueryCache, QueryClient, MutationCache, focusManager, onlineManager } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { errorMessageOf, isTransportError } from './network';
 import { addBreadcrumb, captureException, captureMessage } from './telemetry';

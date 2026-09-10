@@ -68,39 +68,18 @@ export function CustomerPicker({
   if (value) {
     return (
       <Field label={label ?? tr('ws.courtDesk.create.customer')}>
-        <div
-          style={{
-            ...card,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            flexWrap: 'wrap',
-            paddingBlock: '0.5rem',
-          }}
-        >
+        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', paddingBlock: '0.5rem' }}>
           <Icon name="user" size={16} style={{ color: 'var(--tp-accent)' }} />
-          <span style={{ fontWeight: 600 }}>
-            {tr('ws.courtDesk.create.linked', { name: value.name })}
-          </span>
+          <span style={{ fontWeight: 600 }}>{tr('ws.courtDesk.create.linked', { name: value.name })}</span>
           {value.phone && (
-            <span
-              dir="ltr"
-              style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}
-            >
+            <span dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
               {value.phone}
             </span>
           )}
           {value.flags.map((f, i) => (
             <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
           ))}
-          <Button
-            kind="ghost"
-            size="sm"
-            icon="x"
-            disabled={disabled}
-            onClick={() => onChange(null)}
-            style={{ marginInlineStart: 'auto' }}
-          >
+          <Button kind="ghost" size="sm" icon="x" disabled={disabled} onClick={() => onChange(null)} style={{ marginInlineStart: 'auto' }}>
             {tr('ws.courtDesk.create.unlink')}
           </Button>
         </div>
@@ -110,20 +89,9 @@ export function CustomerPicker({
 
   return (
     <div style={{ marginBlockEnd: '0.85rem' }}>
-      <span
-        style={{
-          display: 'flex',
-          gap: '0.3rem',
-          alignItems: 'baseline',
-          fontSize: 'var(--tp-fs-sm)',
-          fontWeight: 600,
-          marginBlockEnd: '0.3rem',
-        }}
-      >
+      <span style={{ display: 'flex', gap: '0.3rem', alignItems: 'baseline', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: '0.3rem' }}>
         {label ?? tr('ws.courtDesk.create.customer')}
-        <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 400 }}>
-          ({tr('ws.courtDesk.common.optional')})
-        </span>
+        <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 400 }}>({tr('ws.courtDesk.common.optional')})</span>
       </span>
       <SearchField
         value={query}
@@ -133,27 +101,9 @@ export function CustomerPicker({
         busy={search.isFetching}
       />
       {search.enabled && (
-        <div
-          style={{
-            ...card,
-            marginBlockStart: '0.4rem',
-            paddingBlock: '0.3rem',
-            paddingInline: '0.3rem',
-            display: 'grid',
-            gap: '2px',
-          }}
-        >
+        <div style={{ ...card, marginBlockStart: '0.4rem', paddingBlock: '0.3rem', paddingInline: '0.3rem', display: 'grid', gap: '2px' }}>
           {search.isPending && !search.data && (
-            <div
-              style={{
-                paddingBlock: '0.4rem',
-                paddingInline: '0.5rem',
-                color: 'var(--tp-muted-fg)',
-                display: 'flex',
-                gap: '0.4rem',
-                alignItems: 'center',
-              }}
-            >
+            <div style={{ paddingBlock: '0.4rem', paddingInline: '0.5rem', color: 'var(--tp-muted-fg)', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
               <Spinner size="xs" /> {tr('ws.courtDesk.customers.searching')}
             </div>
           )}
@@ -165,9 +115,7 @@ export function CustomerPicker({
               className="tp-row"
               data-clickable="true"
               disabled={disabled}
-              onClick={() =>
-                onChange({ id: c.id, name: c.full_name, phone: c.phone, flags: c.flags ?? [] })
-              }
+              onClick={() => onChange({ id: c.id, name: c.full_name, phone: c.phone, flags: c.flags ?? [] })}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -187,10 +135,7 @@ export function CustomerPicker({
             >
               <span style={{ fontWeight: 600 }}>{c.full_name}</span>
               {c.phone && (
-                <span
-                  dir="ltr"
-                  style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}
-                >
+                <span dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>
                   {c.phone}
                 </span>
               )}
@@ -200,28 +145,14 @@ export function CustomerPicker({
             </button>
           ))}
           {search.isSuccess && (search.data ?? []).length === 0 && (
-            <p
-              style={{
-                margin: 0,
-                paddingBlock: '0.4rem',
-                paddingInline: '0.5rem',
-                color: 'var(--tp-muted-fg)',
-                fontSize: 'var(--tp-fs-sm)',
-              }}
-            >
+            <p style={{ margin: 0, paddingBlock: '0.4rem', paddingInline: '0.5rem', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
               {tr('ws.courtDesk.create.noMatches')}
             </p>
           )}
         </div>
       )}
       {showCreateLink && (
-        <p
-          style={{
-            marginBlockStart: '0.35rem',
-            fontSize: 'var(--tp-fs-xs)',
-            color: 'var(--tp-muted-fg)',
-          }}
-        >
+        <p style={{ marginBlockStart: '0.35rem', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
           <Link to="/desk/customers/new" style={{ color: 'var(--tp-accent)', fontWeight: 600 }}>
             {tr('ws.courtDesk.create.createCustomer')}
           </Link>

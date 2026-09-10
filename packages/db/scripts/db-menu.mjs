@@ -9,8 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const file = join(root, 'seeds', 'touch-cafe-menu.sql');
-const DB_URL =
-  process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const DB_URL = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 function hasPsql() {
   const r = spawnSync('psql', ['--version'], { stdio: 'ignore' });

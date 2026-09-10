@@ -18,14 +18,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  stackAvailable,
-  serviceClient,
-  anonClient,
-  signedInClient,
-  appRpc,
-  SEED_STAFF,
-} from './helpers';
+import { stackAvailable, serviceClient, anonClient, signedInClient, appRpc, SEED_STAFF } from './helpers';
 import {
   phoneCanon as coreCanon,
   phoneDigits as coreDigits,
@@ -77,10 +70,7 @@ describe('send-sms-otp verify.ts (Standard Webhooks)', () => {
   // 32 random-looking bytes, base64 — the shape the dashboard generates.
   const SECRET = 'v1,whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaskWfpF9wKuXxc=';
   const OTHER = 'v1,whsec_QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVowMTIzNDU2Nzg5';
-  const body = JSON.stringify({
-    user: { id: 'u1', phone: '9647701234567' },
-    sms: { otp: '123456' },
-  });
+  const body = JSON.stringify({ user: { id: 'u1', phone: '9647701234567' }, sms: { otp: '123456' } });
 
   it('decodes the secret with and without its prefixes', () => {
     expect(secretKeyBytes(SECRET)?.length).toBe(32);
@@ -95,11 +85,7 @@ describe('send-sms-otp verify.ts (Standard Webhooks)', () => {
     const h = await signStandardWebhook(SECRET, body, { id: 'msg_1', timestampS: now });
     const out = await verifyStandardWebhook({
       secret: SECRET,
-      headers: {
-        id: h['webhook-id']!,
-        timestamp: h['webhook-timestamp']!,
-        signature: h['webhook-signature']!,
-      },
+      headers: { id: h['webhook-id']!, timestamp: h['webhook-timestamp']!, signature: h['webhook-signature']! },
       body,
       nowS: now + 10,
     });
@@ -111,11 +97,7 @@ describe('send-sms-otp verify.ts (Standard Webhooks)', () => {
     const h = await signStandardWebhook(SECRET, body, { id: 'msg_1', timestampS: now });
     const out = await verifyStandardWebhook({
       secret: SECRET,
-      headers: {
-        id: 'msg_1',
-        timestamp: String(now),
-        signature: `v1,AAAA ${h['webhook-signature']}`,
-      },
+      headers: { id: 'msg_1', timestamp: String(now), signature: `v1,AAAA ${h['webhook-signature']}` },
       body,
       nowS: now,
     });
@@ -125,20 +107,9 @@ describe('send-sms-otp verify.ts (Standard Webhooks)', () => {
   it('refuses a tampered body, a wrong key, a stale timestamp, missing headers and no secret', async () => {
     const now = 1_800_000_000;
     const h = await signStandardWebhook(SECRET, body, { id: 'msg_1', timestampS: now });
-    const headers = {
-      id: h['webhook-id']!,
-      timestamp: h['webhook-timestamp']!,
-      signature: h['webhook-signature']!,
-    };
+    const headers = { id: h['webhook-id']!, timestamp: h['webhook-timestamp']!, signature: h['webhook-signature']! };
 
-    expect(
-      await verifyStandardWebhook({
-        secret: SECRET,
-        headers,
-        body: body.replace('123456', '654321'),
-        nowS: now,
-      }),
-    ).toEqual({
+    expect(await verifyStandardWebhook({ secret: SECRET, headers, body: body.replace('123456', '654321'), nowS: now })).toEqual({
       ok: false,
       reason: 'BAD_SIGNATURE',
     });
@@ -146,31 +117,15 @@ describe('send-sms-otp verify.ts (Standard Webhooks)', () => {
       ok: false,
       reason: 'BAD_SIGNATURE',
     });
-    expect(
-      await verifyStandardWebhook({ secret: SECRET, headers, body, nowS: now + 6 * 60 }),
-    ).toEqual({
+    expect(await verifyStandardWebhook({ secret: SECRET, headers, body, nowS: now + 6 * 60 })).toEqual({
       ok: false,
       reason: 'STALE_TIMESTAMP',
     });
-    expect(
-      await verifyStandardWebhook({
-        secret: SECRET,
-        headers: { ...headers, signature: null },
-        body,
-        nowS: now,
-      }),
-    ).toEqual({
+    expect(await verifyStandardWebhook({ secret: SECRET, headers: { ...headers, signature: null }, body, nowS: now })).toEqual({
       ok: false,
       reason: 'MISSING_HEADERS',
     });
-    expect(
-      await verifyStandardWebhook({
-        secret: SECRET,
-        headers: { ...headers, timestamp: 'soon' },
-        body,
-        nowS: now,
-      }),
-    ).toEqual({
+    expect(await verifyStandardWebhook({ secret: SECRET, headers: { ...headers, timestamp: 'soon' }, body, nowS: now })).toEqual({
       ok: false,
       reason: 'BAD_TIMESTAMP',
     });
@@ -179,9 +134,7 @@ describe('send-sms-otp verify.ts (Standard Webhooks)', () => {
       ok: false,
       reason: 'NO_SECRET',
     });
-    expect(
-      await verifyStandardWebhook({ secret: 'v1,whsec_%%%', headers, body, nowS: now }),
-    ).toEqual({
+    expect(await verifyStandardWebhook({ secret: 'v1,whsec_%%%', headers, body, nowS: now })).toEqual({
       ok: false,
       reason: 'BAD_SECRET',
     });
@@ -195,32 +148,17 @@ describe('send-sms-otp otp.ts', () => {
       parseHookPayload({ user: { id: 'u1', phone: '9647701234567' }, sms: { otp: '123456' } }),
     ).toEqual({
       ok: true,
-      payload: {
-        userId: 'u1',
-        phoneE164: '+9647701234567',
-        phoneCanon: '7701234567',
-        otp: '123456',
-        purpose: 'sms',
-      },
+      payload: { userId: 'u1', phoneE164: '+9647701234567', phoneCanon: '7701234567', otp: '123456', purpose: 'sms' },
     });
     expect(
-      parseHookPayload({
-        user: { id: 'u1', phone: '9647701234567' },
-        sms: { otp: '123456', sms_type: 'phone_change' },
-      }),
+      parseHookPayload({ user: { id: 'u1', phone: '9647701234567' }, sms: { otp: '123456', sms_type: 'phone_change' } }),
     ).toMatchObject({ ok: true, payload: { purpose: 'phone_change' } });
   });
 
   it('refuses a payload without a phone or a code', () => {
-    expect(parseHookPayload({ user: { id: 'u1' }, sms: { otp: '123456' } })).toMatchObject({
-      ok: false,
-    });
-    expect(parseHookPayload({ user: { id: 'u1', phone: '9647701234567' }, sms: {} })).toMatchObject(
-      { ok: false },
-    );
-    expect(
-      parseHookPayload({ user: { phone: '9647701234567' }, sms: { otp: 'abc' } }),
-    ).toMatchObject({ ok: false });
+    expect(parseHookPayload({ user: { id: 'u1' }, sms: { otp: '123456' } })).toMatchObject({ ok: false });
+    expect(parseHookPayload({ user: { id: 'u1', phone: '9647701234567' }, sms: {} })).toMatchObject({ ok: false });
+    expect(parseHookPayload({ user: { phone: '9647701234567' }, sms: { otp: 'abc' } })).toMatchObject({ ok: false });
     expect(parseHookPayload(null)).toMatchObject({ ok: false });
     expect(parseHookPayload('x')).toMatchObject({ ok: false });
   });
@@ -234,9 +172,7 @@ describe('send-sms-otp otp.ts', () => {
   });
 
   it('speaks the hook error contract and maps refusals to 4xx', () => {
-    expect(hookError(429, 'PHONE_RATE')).toEqual({
-      error: { http_code: 429, message: 'PHONE_RATE' },
-    });
+    expect(hookError(429, 'PHONE_RATE')).toEqual({ error: { http_code: 429, message: 'PHONE_RATE' } });
     expect(statusForRefusal('PHONE_RATE')).toBe(429);
     expect(statusForRefusal('DAILY_CAP')).toBe(429);
     expect(statusForRefusal('SMS_DISABLED')).toBe(403);
@@ -259,11 +195,7 @@ describe.skipIf(!up)('0069 sms_send_gate / sms_send_result / phone sign-up (stac
   const sends = () => svc.schema('app').from('sms_sends');
 
   const gate = async (phone: string, purpose = 'sms') => {
-    const res = await appRpc(svc, 'sms_send_gate', {
-      p_phone_e164: phone,
-      p_user_id: null,
-      p_purpose: purpose,
-    });
+    const res = await appRpc(svc, 'sms_send_gate', { p_phone_e164: phone, p_user_id: null, p_purpose: purpose });
     if (res.error) throw new Error(`sms_send_gate failed: ${res.error.message}`);
     return res.data as Decision;
   };
@@ -294,20 +226,14 @@ describe.skipIf(!up)('0069 sms_send_gate / sms_send_result / phone sign-up (stac
   it('ships DISABLED: refuses every send and logs the refusal', async () => {
     const d = await gate(GATE_PHONE);
     expect(d).toMatchObject({ allowed: false, reason: 'SMS_DISABLED' });
-    const { data } = await sends()
-      .select('status, reason, phone_canon')
-      .eq('id', d.send_id)
-      .single();
+    const { data } = await sends().select('status, reason, phone_canon').eq('id', d.send_id).single();
     expect(data).toEqual({ status: 'refused', reason: 'SMS_DISABLED', phone_canon: '7709990069' });
   });
 
   it('enabled: allow-lists the country code, caps per phone, and refused rows do not count', async () => {
     await limits().update({ enabled: true, per_phone_per_day: 2 }).eq('id', true);
 
-    expect(await gate('+995419010203')).toMatchObject({
-      allowed: false,
-      reason: 'PHONE_NOT_ALLOWED',
-    });
+    expect(await gate('+995419010203')).toMatchObject({ allowed: false, reason: 'PHONE_NOT_ALLOWED' });
 
     const a = await gate(GATE_PHONE);
     // Same number, another E.164 shape: one canonical phone. The gate takes
@@ -325,34 +251,16 @@ describe.skipIf(!up)('0069 sms_send_gate / sms_send_result / phone sign-up (stac
   });
 
   it('sms_send_result stamps a queued row once and refuses a second stamp / a bad status', async () => {
-    const { data: queued } = await sends()
-      .select('id')
-      .eq('phone_canon', '7709990069')
-      .eq('status', 'queued')
-      .limit(1);
+    const { data: queued } = await sends().select('id').eq('phone_canon', '7709990069').eq('status', 'queued').limit(1);
     const id = (queued as { id: number }[])[0]!.id;
 
     const ok = await appRpc(svc, 'sms_send_result', {
-      p_send_id: id,
-      p_status: 'sent',
-      p_provider: 'log',
-      p_channel: 'log',
-      p_provider_msg_id: 'log-1',
-      p_error: null,
-      p_cost_iqd: 0,
+      p_send_id: id, p_status: 'sent', p_provider: 'log', p_channel: 'log',
+      p_provider_msg_id: 'log-1', p_error: null, p_cost_iqd: 0,
     });
     expect(ok.error).toBeNull();
-    const { data: row } = await sends()
-      .select('status, provider, channel, provider_msg_id, cost_iqd')
-      .eq('id', id)
-      .single();
-    expect(row).toEqual({
-      status: 'sent',
-      provider: 'log',
-      channel: 'log',
-      provider_msg_id: 'log-1',
-      cost_iqd: 0,
-    });
+    const { data: row } = await sends().select('status, provider, channel, provider_msg_id, cost_iqd').eq('id', id).single();
+    expect(row).toEqual({ status: 'sent', provider: 'log', channel: 'log', provider_msg_id: 'log-1', cost_iqd: 0 });
 
     const again = await appRpc(svc, 'sms_send_result', { p_send_id: id, p_status: 'failed' });
     expect(again.error?.message).toContain('SEND_NOT_FOUND');

@@ -8,8 +8,7 @@
  */
 import { formatDate, formatDateTime, formatIQD, formatNumber, type Locale } from '@touch/i18n';
 
-export type ColumnKind =
-  'money' | 'number' | 'percent' | 'minutes' | 'hours' | 'date' | 'datetime' | 'text';
+export type ColumnKind = 'money' | 'number' | 'percent' | 'minutes' | 'hours' | 'date' | 'datetime' | 'text';
 
 /** A column as the RPC may describe it: a bare key, or a spec with optional labels and kind. */
 export interface ReportColumnSpec {
@@ -51,78 +50,16 @@ export interface ReportFilters {
 
 /** Column keys with a catalog label (`ws.reports.columns.*`). Anything else falls back to the server label or the key. */
 export const COLUMN_LABEL_KEYS = [
-  'date',
-  'period',
-  'business_date',
-  'court',
-  'hour',
-  'category',
-  'item',
-  'staff',
-  'method',
-  'source',
-  'revenue_iqd',
-  'padel_iqd',
-  'cafe_iqd',
-  'cash_iqd',
-  'card_iqd',
-  'bookings',
-  'orders',
-  'aov_iqd',
-  'discounts_iqd',
-  'voids_iqd',
-  'refunds_iqd',
-  'tax_iqd',
-  'rate',
-  'occupancy_pct',
-  'utilisation_pct',
-  'available_hours',
-  'booked_hours',
-  'revenue_per_hour_iqd',
-  'cancellations',
-  'no_shows',
-  'cancellation_rate_pct',
-  'no_show_rate_pct',
-  'peak_iqd',
-  'off_peak_iqd',
-  'peak_bookings',
-  'off_peak_bookings',
-  'qty',
-  'cogs_iqd',
-  'gross_profit_iqd',
-  'margin_pct',
-  'reason',
-  'waste_qty',
-  'waste_iqd',
-  'station',
-  'avg_prep_min',
-  'max_prep_min',
-  'ingredient',
-  'unit',
-  'on_hand',
-  'value_iqd',
-  'theoretical',
-  'counted',
-  'variance',
-  'variance_iqd',
-  'par',
-  'expires_on',
-  'consumed',
-  'orders_taken',
-  'bookings_created',
-  'days_worked',
-  'busiest_day',
-  'authoriser',
-  'count',
-  'amount_iqd',
-  'response_min',
-  'closed_by',
-  'cash_variance_iqd',
-  'kind',
-  'reference',
-  'at',
-  'actor',
-  'note',
+  'date', 'period', 'business_date', 'court', 'hour', 'category', 'item', 'staff', 'method', 'source',
+  'revenue_iqd', 'padel_iqd', 'cafe_iqd', 'cash_iqd', 'card_iqd', 'bookings', 'orders', 'aov_iqd',
+  'discounts_iqd', 'voids_iqd', 'refunds_iqd', 'tax_iqd', 'rate', 'occupancy_pct', 'utilisation_pct',
+  'available_hours', 'booked_hours', 'revenue_per_hour_iqd', 'cancellations', 'no_shows',
+  'cancellation_rate_pct', 'no_show_rate_pct', 'peak_iqd', 'off_peak_iqd', 'peak_bookings',
+  'off_peak_bookings', 'qty', 'cogs_iqd', 'gross_profit_iqd', 'margin_pct', 'reason', 'waste_qty',
+  'waste_iqd', 'station', 'avg_prep_min', 'max_prep_min', 'ingredient', 'unit', 'on_hand', 'value_iqd',
+  'theoretical', 'counted', 'variance', 'variance_iqd', 'par', 'expires_on', 'consumed', 'orders_taken',
+  'bookings_created', 'days_worked', 'busiest_day', 'authoriser', 'count', 'amount_iqd', 'response_min',
+  'closed_by', 'cash_variance_iqd', 'kind', 'reference', 'at', 'actor', 'note',
 ] as const;
 export type ColumnLabelKey = (typeof COLUMN_LABEL_KEYS)[number];
 const LABEL_KEY_SET: ReadonlySet<string> = new Set(COLUMN_LABEL_KEYS);
@@ -130,31 +67,17 @@ export function isColumnLabelKey(key: string): key is ColumnLabelKey {
   return LABEL_KEY_SET.has(key);
 }
 
-const KINDS: ReadonlySet<string> = new Set<ColumnKind>([
-  'money',
-  'number',
-  'percent',
-  'minutes',
-  'hours',
-  'date',
-  'datetime',
-  'text',
-]);
+const KINDS: ReadonlySet<string> = new Set<ColumnKind>(['money', 'number', 'percent', 'minutes', 'hours', 'date', 'datetime', 'text']);
 
 /** Kind from the column's declared kind, else its key suffix, else the sample value. */
-export function inferKind(
-  key: string,
-  declared: string | null | undefined,
-  sample: unknown,
-): ColumnKind {
+export function inferKind(key: string, declared: string | null | undefined, sample: unknown): ColumnKind {
   if (declared && KINDS.has(declared)) return declared as ColumnKind;
   if (key.endsWith('_iqd')) return 'money';
   if (key.endsWith('_pct')) return 'percent';
   if (key.endsWith('_min')) return 'minutes';
   if (key.endsWith('_hours')) return 'hours';
   if (key === 'at' || key.endsWith('_at')) return 'datetime';
-  if (key === 'date' || key === 'business_date' || key.endsWith('_on') || key.endsWith('_date'))
-    return 'date';
+  if (key === 'date' || key === 'business_date' || key.endsWith('_on') || key.endsWith('_date')) return 'date';
   if (typeof sample === 'number') return 'number';
   return 'text';
 }
@@ -167,35 +90,14 @@ export interface NormalizedColumn {
 }
 
 /** Keys shown first when the server sends none (drill-through transactions). */
-const PREFERRED_ORDER = [
-  'at',
-  'occurred_at',
-  'business_date',
-  'date',
-  'kind',
-  'reference',
-  'court',
-  'item',
-  'staff',
-  'actor',
-  'method',
-  'reason',
-  'amount_iqd',
-  'total_iqd',
-  'note',
-];
+const PREFERRED_ORDER = ['at', 'occurred_at', 'business_date', 'date', 'kind', 'reference', 'court', 'item', 'staff', 'actor', 'method', 'reason', 'amount_iqd', 'total_iqd', 'note'];
 
 /** Server columns → uniform specs. With no columns, the first row's keys stand in. */
-export function normalizeColumns(
-  columns: ReportColumnInput[] | null | undefined,
-  rows: readonly ReportRow[],
-): NormalizedColumn[] {
+export function normalizeColumns(columns: ReportColumnInput[] | null | undefined, rows: readonly ReportRow[]): NormalizedColumn[] {
   const sample = rows[0] ?? {};
   let specs: ReportColumnSpec[];
   if (columns && columns.length > 0) {
-    specs = columns
-      .map((c) => (typeof c === 'string' ? { key: c } : c))
-      .filter((c) => typeof c.key === 'string' && c.key !== '');
+    specs = columns.map((c) => (typeof c === 'string' ? { key: c } : c)).filter((c) => typeof c.key === 'string' && c.key !== '');
   } else {
     const keys = Object.keys(sample).filter((k) => !k.endsWith('_id') && k !== 'id');
     keys.sort((a, b) => {
@@ -226,13 +128,7 @@ export function humanizeKey(key: string): string {
 }
 
 export function isNumericKind(kind: ColumnKind): boolean {
-  return (
-    kind === 'money' ||
-    kind === 'number' ||
-    kind === 'percent' ||
-    kind === 'minutes' ||
-    kind === 'hours'
-  );
+  return kind === 'money' || kind === 'number' || kind === 'percent' || kind === 'minutes' || kind === 'hours';
 }
 
 function parseDate(value: unknown): Date | null {
@@ -250,20 +146,12 @@ export function formatCell(
   value: unknown,
   kind: ColumnKind,
   locale: Locale,
-  unit: {
-    percent: (n: string) => string;
-    minutes: (n: string) => string;
-    hours: (n: string) => string;
-  },
+  unit: { percent: (n: string) => string; minutes: (n: string) => string; hours: (n: string) => string },
 ): string {
   if (value === null || value === undefined || value === '') return '—';
   switch (kind) {
     case 'money':
-      return typeof value === 'number' && Number.isInteger(value)
-        ? formatIQD(value, locale)
-        : typeof value === 'number'
-          ? formatNumber(value, locale)
-          : String(value);
+      return typeof value === 'number' && Number.isInteger(value) ? formatIQD(value, locale) : typeof value === 'number' ? formatNumber(value, locale) : String(value);
     case 'number':
       return typeof value === 'number' ? formatNumber(value, locale) : String(value);
     case 'percent':
@@ -286,11 +174,7 @@ export function formatCell(
 }
 
 /** Stable client-side ordering of server rows. Never mutates. */
-export function sortRows(
-  rows: readonly ReportRow[],
-  key: string | null,
-  dir: 'asc' | 'desc',
-): ReportRow[] {
+export function sortRows(rows: readonly ReportRow[], key: string | null, dir: 'asc' | 'desc'): ReportRow[] {
   if (!key) return [...rows];
   const sign = dir === 'asc' ? 1 : -1;
   return rows

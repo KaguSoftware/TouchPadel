@@ -33,15 +33,7 @@ const PERSIST_SHAPE = 2;
 
 export const PERSIST_BUSTER = `op-${import.meta.env.VITE_APP_VERSION ?? 'dev'}-s${PERSIST_SHAPE}`;
 
-const PERSISTED_ROOTS = new Set([
-  'menu',
-  'tabs',
-  'day',
-  'courts',
-  'activeCafeTables',
-  'venueSettings',
-  'taxInclusive',
-]);
+const PERSISTED_ROOTS = new Set(['menu', 'tabs', 'day', 'courts', 'activeCafeTables', 'venueSettings', 'taxInclusive']);
 
 /** Structural type: react-query and query-core disagree on Query's privates. */
 interface PersistableQuery {

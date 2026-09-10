@@ -7,13 +7,13 @@ either is fine, as is any equivalent.
 
 ## Required specification
 
-| Requirement / المتطلب | Value                                                                                                                                                   |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Paper / الورق         | 80mm thermal roll (حراري 80 ملم)                                                                                                                        |
-| Resolution / الدقة    | 203 dpi                                                                                                                                                 |
+| Requirement / المتطلب | Value |
+|---|---|
+| Paper / الورق | 80mm thermal roll (حراري 80 ملم) |
+| Resolution / الدقة | 203 dpi |
 | Protocol / البروتوكول | **ESC/POS**, with **`GS v 0` raster graphics** support (needed for Arabic text — we print Arabic as rendered images, so raster support is not optional) |
-| Connections / التوصيل | **USB + Ethernet** (both ports on the same unit)                                                                                                        |
-| Cutter / القاطع       | Auto-cutter                                                                                                                                             |
+| Connections / التوصيل | **USB + Ethernet** (both ports on the same unit) |
+| Cutter / القاطع | Auto-cutter |
 
 Example models (this class, not a mandate): **Epson TM-T20III (Ethernet variant)**,
 **Xprinter XP-80C**. If buying locally, show the seller this table.

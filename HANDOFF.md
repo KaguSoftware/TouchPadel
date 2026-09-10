@@ -7,7 +7,6 @@
 > `~/.claude/plans/this-system-has-three-cuddly-moon.md` (cafe rebuild).
 
 ## Working style
-
 - **Git: NO AI co-author trailers, ever. Commits are authored by Parsa alone.** Pushing to
   GitHub (`KaguSoftware/TouchPadel`, private) is pre-authorized.
 - Plan mode for direction-setting work; owner approves before build.
@@ -26,7 +25,6 @@
 - Keep this file and the memory index (`~/.claude/.../memory/MEMORY.md`) in lockstep.
 
 ## What this is
-
 Phase 1 for **Touch Padel** (padel venue + cafe, Iraq; client approver: Mustafa). Kagu Web Studio
 builds: guest mobile app (React Native + Expo — padel booking ONLY), public website (Next.js on
 Vercel — carries the whole cafe QR-ordering experience), Windows operator app (Electron — till,
@@ -38,7 +36,6 @@ Desk payment only. Degraded offline mode (till keeps trading through outages). T
 submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04.
 
 ## Stack & environment
-
 - pnpm + Turborepo monorepo; TypeScript strict; Node ≥22 (supabase-js needs native WebSocket);
   packages scoped `@touch/*`; **React 19.2** workspace-wide (pinned via root `pnpm.overrides`).
 - Apps: `apps/mobile` (**Expo SDK 57**, expo-router 57, RN 0.86) · `apps/web` (**Next 16.3** App Router, Vercel) ·
@@ -51,7 +48,6 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
 - Dev OS: Windows 11 (Docker Desktop + WSL2 required). e2e: Playwright at `e2e/` (`pnpm e2e`).
 
 ## Conventions
-
 - All schema changes are migration files — no dashboard edits, ever.
 - Four data tiers, in load order: `supabase/seed.sql` (environment-invariant reference data **plus
   the venue config Touch has confirmed**) -> `fixtures/*.sql` (`f1f7`, dev/staging demo data) ->
@@ -76,7 +72,6 @@ submission Wed 2026-09-16 (hard stop Fri 09-18); review/handover ends 2026-10-04
   platform pickers/switches/action sheets. No web-styled custom nav in `apps/mobile`.
 - Brands: Padel 2026 identity (green #A5D06F / blue #3360AB) on app/site/operator; Touch Cafe
   identity (blue + brown #603813) on the QR-menu/ordering pages.
-
 ## Current status (2026-08-25, day 2 — the Touch Cafe rebuild)
 
 **Day 1 (2026-08-24)** delivered the whole platform foundation: migrations 0001–0026 on both the
@@ -90,7 +85,6 @@ admin), on top of our own schema and the Touch Cafe brand. The approved plan is
 `docs/design/cafe-rebuild/`.
 
 Landed and verified (committed):
-
 - **DB: migrations 0027–0035** — menu extensions (`hook_en/ar`, `highlight`, `sold_out`,
   `photo_blur`, category photos, `menu_item_costs`), modifier **reveals** (depth-1 invariant +
   `app.item_active_groups`), `cafe_settings` key/value registry + `cafe_settings_public` view,
@@ -136,7 +130,6 @@ Landed and verified (committed):
   The stale `public-menu.spec.ts` (asserted the dropped padel landing) was removed.
 
 Bugs the new e2e suite caught and fixed — all real product/harness defects, none were test tweaks:
-
 - **Bell coach mark never dismissed.** Its 6 s auto-dismiss timer depended on an inline callback, so
   every parent re-render restarted it; the scrim covered the whole menu and the guest could not open
   a single item. Timer is now armed once via a ref (+ memoised callback in `CafeApp`).
@@ -166,7 +159,7 @@ Every external account was created and wired. **Telegram, PostHog and Groq are n
   `TELEGRAM_WEBHOOK_SECRET`, `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, `GROQ_API_KEY`.
 - **All four edge functions deployed** — `telegram-send`, `telegram-callback` (confirmed
   `verify_jwt = false`), `analytics-posthog`, `analytics-insights`.
-- **Telegram live**: bot `@touchcafe_orders_bot`, group _Touch Cafe — Orders_, chat id
+- **Telegram live**: bot `@touchcafe_orders_bot`, group *Touch Cafe — Orders*, chat id
   `-5203171937` (a plain group, **not** a supergroup — the id changes if it ever converts).
   Webhook registered against `telegram-callback`, `getWebhookInfo` clean. A test message was
   delivered to the group. `telegram_enabled = true`.
@@ -174,12 +167,12 @@ Every external account was created and wired. **Telegram, PostHog and Groq are n
   `functions_base_url` are both correct (see the placeholder trap in Gotchas).
 - **Allowlist seeded** (0039): `tg_user_id 1381081738` → `Dev Owner`, `can_void = true`.
 - **PostHog**: EU project `touch-padel`, id **209766**, region confirmed. Personal key is
-  Query-Read only, scoped to that one project — that is the _only_ scope the code needs, since
+  Query-Read only, scoped to that one project — that is the *only* scope the code needs, since
   `analytics-posthog` makes exactly one kind of call (`POST /api/projects/{id}/query/`).
 - **Vercel** (2026-08-27): `NEXT_PUBLIC_POSTHOG_KEY` (type **Config**, not Secret — a
   `NEXT_PUBLIC_` value is inlined into the browser bundle, so "Secret" only hides it from you)
-  - `NEXT_PUBLIC_POSTHOG_HOST`, redeployed without build cache. **Verified live**: the key is
-    present in `/_next/static/immutable/chunks/` on `touch-padel-web.vercel.app/ar`.
+  + `NEXT_PUBLIC_POSTHOG_HOST`, redeployed without build cache. **Verified live**: the key is
+  present in `/_next/static/immutable/chunks/` on `touch-padel-web.vercel.app/ar`.
 - **GitHub secrets** (2026-08-27): `PROJECT_REF`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`
   added — **after** required reviewers were enabled on the `staging` environment. CI auto-migrate
   is now armed, which is the standing fix for the deploy-ordering hazard below.
@@ -209,7 +202,7 @@ surface was built out. Full audit: `docs/design/mobile-audit-2026-08-27.md`. Hea
   `eas.json` env value is a `REPLACE_*` placeholder.
 - **`pnpm turbo lint` is a green no-op across the whole monorepo** — no package defines a `lint`
   script and no `eslint.config.*` exists, despite `packages/config/src/eslint.js` shipping a complete
-  preset _including the RTL logical-properties guard this file claims is enforced_.
+  preset *including the RTL logical-properties guard this file claims is enforced*.
 
 Target was **Expo SDK 54** until 2026-09-05 — deliberately, because Expo Go on the Apple App Store
 stops at SDK 54. **Now Expo SDK 57** (RN 0.86, React 19.2, expo-router 57): the App Store Expo Go no
@@ -233,20 +226,20 @@ Every finding was **reproduced against the live local stack**, not inferred. Hea
 - **Real money: `move`/`extend` never re-price.** Reproduced: moving a booking off-peak → peak keeps
   40 000 instead of 60 000; extending 60 → 90 min keeps 40 000 instead of 55 000. Both are one-click
   desk buttons. They also **bypass `assert_bookable` entirely** — reproduced moving a booking to
-  00:00 local and extending onto a `closed_dates` day, while _creating_ on that same closed date is
+  00:00 local and extending onto a `closed_dates` day, while *creating* on that same closed date is
   correctly refused.
 - **Cross-principal read oracle.** The booking RPCs never got 0038's caller-scoped idempotency fix.
   Reproduced: guest B supplied guest A's key on a different court and received A's `reservation_id`
   and `status` — while a direct table read by B correctly returns 0 rows.
 - **Quote ≠ charge.** An overnight rate rule (creatable — `rate_rules` has **zero CHECK
-  constraints**) is _wrapped_ by SQL and _refused_ by `@touch/core`. Reproduced on the same slot and
+  constraints**) is *wrapped* by SQL and *refused* by `@touch/core`. Reproduced on the same slot and
   data: SQL charges **90 000**, the app shows **60 000**.
 - **A future paid booking can be silently resold**: `mark_reservation` has no temporal guard.
   Reproduced on a booking 556 days out, then re-held by another guest. The guest is never told.
 
 **Good news, and it matters:** the contractual guest journey (account sign-up → hold → confirm →
 cancel) **works end to end** — it has simply never been executed by the test suite, which uses
-anonymous sessions throughout and routes the confirm through the desk client to work _around_ the
+anonymous sessions throughout and routes the confirm through the desk client to work *around* the
 NULL-guest bug rather than failing on it.
 
 ## Day 5 (2026-08-27) — mobile: SDK 54 + the reliability layer
@@ -340,6 +333,7 @@ hosted 2026-08-30 with 0051–0056.)
 `check:authz` clean · `pnpm e2e` **29/29 EN + AR**. Operator unit tests 125 → 165;
 operator-shell 0 → 62.
 
+
 ### Day 6, continued — modules 1, 2 and 4 closed, and the heartbeat fixed
 
 Commits `2504dbb`, `3bfd697`, `7df48e7`, `3713b70`, `2d4c1cf`. Migrations **0050-0053**
@@ -420,7 +414,6 @@ mobile app went from wireframe to the designed product in one pass. Commit `bd9f
 expo-doctor 18/18, iOS+Android bundles built.
 
 **Three owner decisions (2026-08-31), all implemented:**
-
 1. **Guest browsing** — courts/availability are public; auth is demanded at slot tap via the
    Welcome pending-slot flow (in-memory intent -> sign-in/verify -> auto-hold -> Review). The DB
    was ready: every browse surface + `app.is_degraded()` already granted to `anon`.
@@ -459,7 +452,6 @@ buggy" and "always gives a no internet error". Three read-only audits (no-intern
 per-screen runtime bugs, design-vs-prototype parity) fed one fix pass. Commit on `main`.
 
 **The "no internet" was three separate surfaces:**
-
 1. **Hosted `app.is_degraded()` was `true`** — a dev till had heartbeated against production
    once and gone stale, so every guest (mobile AND web) had been in degraded mode since:
    amber crossed-out-Wi-Fi "Venue connection lost" banners, every today/tomorrow slot
@@ -559,7 +551,6 @@ mandatory (App Store guideline 4.8), which is why both land together. Approved p
 tree, **uncommitted** at the time of writing.
 
 **Three owner decisions (2026-09-01), all implemented:**
-
 1. **D1 — Google = native SDK** → `supabase.auth.signInWithIdToken({ provider: 'google' })`.
    Needs an **EAS development build**; the button is hidden in Expo Go and whenever the
    `EXPO_PUBLIC_GOOGLE_*` env is unset. Google Cloud needs Web + iOS OAuth clients plus one
@@ -588,7 +579,6 @@ library has no nonce support → Supabase "Skip nonce check" ON, a SEC decision)
 on both providers.
 
 **What shipped:**
-
 - Pure module `src/features/auth/social.ts` + `__tests__/social.test.ts` (10 `describe`s, 28 cases):
   `SocialAuthError` with library-agnostic codes, `makeNonce`, `appleDisplayName`, `mapSocialError`
   (cancel is silent; `DEVELOPER_ERROR` and GoTrue audience/nonce/provider refusals are **reported**
@@ -644,7 +634,7 @@ on both providers.
   0021 `confirm_booking` body verbatim plus one `PHONE_REQUIRED` guard after `HOLD_EXPIRED`/
   `DEGRADED` and before `GUEST_REQUIRED` (staff exempt; holds untouched) — a **behaviour change on
   a contractual RPC**, in its own file so SEC can review it alone. `packages/db/tests/
-oauth-profiles.test.ts` (8 cases) + `helpers.ts` `shapedGuest` (and `guestClient` now carries a
+  oauth-profiles.test.ts` (8 cases) + `helpers.ts` `shapedGuest` (and `guestClient` now carries a
   phone); `config.toml` gained `[auth.external.apple]` / `[auth.external.google]` (local GoTrue
   accepted them); `packages/db/README.md` documents both. **DB suite 342/342 green** incl. the 8
   new cases; `check:locks` / `check:authz` / `check:safeupdate` green; **0058 proven necessary** —
@@ -652,14 +642,13 @@ oauth-profiles.test.ts` (8 cases) + `helpers.ts` `shapedGuest` (and `guestClient
 
 **Gate (2026-09-01, after the review fixes):** DB as above. Mobile: `tsc --noEmit` clean · `eslint .`
 clean · vitest **7 files / 99 tests** · `@touch/i18n` parity 22/22 · `expo export` iOS (1582 modules)
-
-- Android (1574) with the Google env UNSET (CI parity) · expo-doctor 18/18 · `expo config --type
++ Android (1574) with the Google env UNSET (CI parity) · expo-doctor 18/18 · `expo config --type
 introspect` with a well-formed iOS client id shows the `com.googleusercontent.apps.…` URL scheme and
-  the `applesignin` entitlement; `EAS_BUILD=true` throws both when the id is unset and with the
-  committed `REPLACE_*` placeholder. Run vitest from PowerShell — under Git Bash the 8.3 `TEMP` path
-  gives vitest `EBUSY`; and use `pnpm --filter @touch/mobile run doctor` (bare `doctor` is pnpm's own
-  command). **Nothing has run on a device yet.** Nothing external exists either: no Expo/EAS project, no Apple Developer enrolment verified,
-  no Google Cloud project, hosted Supabase providers not configured, 0058/0059 not on hosted — **all three moved the same evening**: Google Cloud project + clients exist, providers are ON, and **0058/0059 were pushed to hosted on 2026-09-01** (see the gotchas below).
+the `applesignin` entitlement; `EAS_BUILD=true` throws both when the id is unset and with the
+committed `REPLACE_*` placeholder. Run vitest from PowerShell — under Git Bash the 8.3 `TEMP` path
+gives vitest `EBUSY`; and use `pnpm --filter @touch/mobile run doctor` (bare `doctor` is pnpm's own
+command). **Nothing has run on a device yet.** Nothing external exists either: no Expo/EAS project, no Apple Developer enrolment verified,
+no Google Cloud project, hosted Supabase providers not configured, 0058/0059 not on hosted — **all three moved the same evening**: Google Cloud project + clients exist, providers are ON, and **0058/0059 were pushed to hosted on 2026-09-01** (see the gotchas below).
 
 **Adversarial review (2026-09-01, three lenses — auth/security, RN runtime, RTL/a11y/design — each
 finding verified by an independent agent against the installed library sources): 14 confirmed, 0
@@ -716,7 +705,6 @@ perspective transform — the owner rejected that (commit `95e0286` holds it); t
 Code after that commit is on the working tree, **uncommitted** at the time of writing.
 
 **How it is built:**
-
 - **`expo-gl ~16.0.10` + `three 0.160.0`** (the prototype's own three version) — new native module ⇒
   the next EAS development build is required before anyone sees it. `Court3D`
   (`src/components/Court3D.tsx`) renders the scene into TWO `GLView`s as the prototype uses two
@@ -1072,7 +1060,6 @@ RPCs took it since 0048; a queued desk override must keep its reason). The banne
 did-not-sync attention count; Day close pre-checks the queue and lists blocking rows.
 
 **Side finds, all fixed en route:**
-
 - **`0058_release_hold` could never apply anywhere.** The kemal-merge migration shared version
   `20260901000058` with oauth_profile_bootstrap; the ledger PK is the version, so `migration up`
   AND `db push` both die on duplicate key — hosted included. Renamed to
@@ -1307,12 +1294,11 @@ were set with `gh secret set` (`OPERATOR_SUPABASE_ANON_KEY` = the hosted **publi
 **CI on `main` had been red since 2026-09-05** (three commits). Four independent causes, all fixed
 the same day — **CI green again on `93e93f0` (run `34104660220`: shell, mobile, db incl. types
 drift, lint/typecheck/test/build, e2e EN+AR)**:
-
 - **lint**: `apps/mobile/scripts/make-icons.mjs` uses `Buffer`; the mobile ESLint config linted
   `scripts/` as RN app code → `no-undef`. `scripts/**` is now ignored (as operator-shell already did).
 - **e2e**: `operator-cafe-admin` (g) used `getByLabel('Search')`; Playwright label matching is a
   substring match, and Majed's audit-log filter chips add a button `aria-label="Remove filter: Search:
-sold_out"` → strict-mode violation. Now `getByRole('searchbox', { name: 'Search' })`.
+  sold_out"` → strict-mode violation. Now `getByRole('searchbox', { name: 'Search' })`.
 - **db** `phone-otp.test.ts` ×2 — never green anywhere, not an environment fluke: (a) the Supabase
   CLI silently sets `enable_signup = false` at `supabase start` when **no `[auth.sms.<provider>]`
   block is enabled** ("WARN: no SMS provider is enabled. Disabling phone login"); the `send_sms` hook
@@ -1325,18 +1311,20 @@ sold_out"` → strict-mode violation. Now `getByRole('searchbox', { name: 'Searc
 - `supabase/setup-cli` pinned to **2.116.0** in both CI jobs (was `latest`) so the types-drift check
   is reproducible.
 
-Two more packaging bugs surfaced only on an installed build (peer session `touchpadel-7b`, same day): 4. **The 0.2.0 installer never opened a window** — `NODE_MODULE_VERSION 127 vs 130` inside
-`app.whenReady`: pnpm's hoisted root `better-sqlite3` carries the Node-22 prebuild and
-electron-builder's rebuild never reaches it (it runs in the package dir, finds nothing, reports
-success). `apps/operator-shell/scripts/native-abi.mjs` now fetches the Electron prebuild and PROVES
-it opens a database under `electron.exe` before packaging (`npmRebuild: false` so the builder can
-never look like it did the job; `pnpm native:node` flips the binary back for vitest). A boot throw
-is now a dialog + `userData/startup-error.log` + exit instead of a windowless process stuck
-behind the single-instance lock. NSIS switched to the assisted installer (one-click "flashed and
-vanished"). Tag `operator-v0.2.1` was cut with this, then **held and deleted** before publish because: 5. **A configured till crashed at boot** — `import_ws.WebSocketServer is not a constructor` in
-`startLanKdsServer`: the tree holds `ws` 7.5.13 hoisted at the root and 8.21.3 under
-operator-shell; with `ws` external, the asar got 7.x, which has no `WebSocketServer`. Only shows
-once `station.json` has a `lan_psk`. `ws` is now bundled by esbuild (`93e93f0`).
+Two more packaging bugs surfaced only on an installed build (peer session `touchpadel-7b`, same day):
+4. **The 0.2.0 installer never opened a window** — `NODE_MODULE_VERSION 127 vs 130` inside
+   `app.whenReady`: pnpm's hoisted root `better-sqlite3` carries the Node-22 prebuild and
+   electron-builder's rebuild never reaches it (it runs in the package dir, finds nothing, reports
+   success). `apps/operator-shell/scripts/native-abi.mjs` now fetches the Electron prebuild and PROVES
+   it opens a database under `electron.exe` before packaging (`npmRebuild: false` so the builder can
+   never look like it did the job; `pnpm native:node` flips the binary back for vitest). A boot throw
+   is now a dialog + `userData/startup-error.log` + exit instead of a windowless process stuck
+   behind the single-instance lock. NSIS switched to the assisted installer (one-click "flashed and
+   vanished"). Tag `operator-v0.2.1` was cut with this, then **held and deleted** before publish because:
+5. **A configured till crashed at boot** — `import_ws.WebSocketServer is not a constructor` in
+   `startLanKdsServer`: the tree holds `ws` 7.5.13 hoisted at the root and 8.21.3 under
+   operator-shell; with `ws` external, the asar got 7.x, which has no `WebSocketServer`. Only shows
+   once `station.json` has a `lan_psk`. `ws` is now bundled by esbuild (`93e93f0`).
 
 **`operator-v0.2.2` is the first working public release — published 2026-09-07 09:14 UTC**: run
 `34104663424` green (prepare → windows → publish; macos skipped), release `v0.2.2` in
@@ -1347,13 +1335,12 @@ site serves it. Unsigned (SmartScreen prompt once per machine) until a cert exis
 installed the broken 0.2.0 do NOT self-update (that build never reached the updater) — reinstall by hand.
 
 ## File map (key files)
-
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,
   PostHog `bau.se.engineers@gmail.com`). Check it before concluding an account "has no access".
 - `docs/client/chrome-agent-prompt.md` — the Claude-in-Chrome provisioning prompt template.
 - `docs/design/mobile-ui/` — the approved mobile design (dc.html artboards + UI build spec, 2026-08-31)
-  - **`Court Transition Prototype.html`** (2026-09-01: the court → booking transition; its header table is the motion spec).
+  + **`Court Transition Prototype.html`** (2026-09-01: the court → booking transition; its header table is the motion spec).
 - `docs/design/cafe-rebuild/` — **the cafe rebuild design pack**: `db-slice.md`, `web-slice.md`,
   `operator-slice.md`, `upperdeck-spec.md` (the reference project's full spec), `decisions.md`
   (owner decisions, binding), `context-existing-cafe.md`, `context-operator.md`.
@@ -1379,15 +1366,15 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
 - `packages/db/client-data/` — both intake pack JSONs (clean originals, committed 2026-08-30) +
   `courts.sql` + the pack ledger in its README.
 - `packages/db/supabase/migrations/` — 0001–0026 (platform) + **0027–0035 (cafe rebuild)** + …
-  - 0058–0059 (2026-09-01: OAuth profile bootstrap + phone rule) + 0060–0064 (2026-09-03:
-    release_hold rename, kds_item_ready, courts_admin, stock_admin_writes, idle_lock) + 0065–0070
-    (phone OTP base, test push) + 0071–0075 (2026-09-07, Majed: compact QR, staff_requests,
-    marketing, court_delete, no_show_terminates). **Hosted at 0075 as of 2026-09-07** (0 pending).
+  + 0058–0059 (2026-09-01: OAuth profile bootstrap + phone rule) + 0060–0064 (2026-09-03:
+  release_hold rename, kds_item_ready, courts_admin, stock_admin_writes, idle_lock) + 0065–0070
+  (phone OTP base, test push) + 0071–0075 (2026-09-07, Majed: compact QR, staff_requests,
+  marketing, court_delete, no_show_terminates). **Hosted at 0075 as of 2026-09-07** (0 pending).
 - `packages/db/supabase/functions/` — `replay`, `send-push`, `telegram-send`, `telegram-callback`,
   `analytics-posthog`, `analytics-insights`, `_shared/`, `SETUP-telegram.md`.
 - `packages/db/tests/` — contractual suites (concurrency, rls-matrix, cafe-flow, degraded,
   hardening, cafe-menu-ext, telegram, analytics, **oauth-profiles** (0058/0059, 8 cases),
-  - two pure suites).
+  + two pure suites).
 - `packages/core/src/analytics/` — pure analytics modules shared by the operator and the edge fn.
 - `apps/web/src/{components/cafe,hooks/cafe,styles/cafe,lib}` — the guest cafe app.
 - `apps/operator/src/features/{admin,analytics,kds,till,desk,stock}` — operator surfaces
@@ -1395,7 +1382,7 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
 - `apps/operator/src/lib/{mutate,queueResults,refCache,offlineTabs,persist}.ts` — the single
   write path's renderer half + offline reads/tabs + cache persistence.
 - `apps/operator-shell/src/main/{queue,sync-worker,pin-cache,lan-kds-server,lan-kds-client}.ts`
-  - `main/print/` — the durable queue, replay worker, offline PIN, LAN KDS, ESC/POS printing.
+  + `main/print/` — the durable queue, replay worker, offline PIN, LAN KDS, ESC/POS printing.
 - `docs/{install-runbook,drill-runbook}.md` — installing the till (incl. SmartScreen step) and
   the 16-step disconnection drill.
 - `apps/mobile/src/features/courtTransition/` — the court → booking transition: `spec.ts` (pure motion
@@ -1407,13 +1394,12 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
 - `e2e/` — Playwright config + specs (EN + AR).
 
 ## Roadmap / next steps
-
 1. ✔ DONE Day 1: platform foundation (see above).
 2. ✔ DONE Day 2 waves 0–6, 9–12: design pack, DB 0027–0035 + tests, edge functions, core analytics,
    operator foundations + admin sections + KDS alarms, web foundation + data layer + i18n.
 3. ✔ DONE Day 2 waves 7–8, 13–14: guest UI (shell/hooks + sheets), operator analytics dashboard UI,
    the e2e suite, and a full green gate — `pnpm turbo lint typecheck test` (14/14 tasks, 214/214 DB)
-   - `pnpm e2e` (29/29, EN + AR). **The cafe slice is code-complete locally.**
+   + `pnpm e2e` (29/29, EN + AR). **The cafe slice is code-complete locally.**
 4. ✔ DONE 2026-08-27 — **Owner setup**: Telegram bot + staff group + webhook secret, PostHog EU
    project, Groq key. **Still outstanding from this step:** the real domain (blocked on the client,
    see step 8) and the official Touch Cafe logo files.
@@ -1461,27 +1447,26 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
    `VITE_GUEST_SITE_URL` → token-Vault parity → ONE test card before the batch). Until then QR
    table cards **cannot be printed** — the operator refuses a `vercel.app` URL by design.
 10. Then back to the pre-cafe roadmap: stock UI, staff-admin RPC+UI, court records admin, week
-    calendar view, split-by-item/refund/override UIs, audit-log viewer, Sentry, short-lived till
-    sessions, Electron queue wiring + LAN KDS, printing pipeline. Store submission Wed 2026-09-16.
+   calendar view, split-by-item/refund/override UIs, audit-log viewer, Sentry, short-lived till
+   sessions, Electron queue wiring + LAN KDS, printing pipeline. Store submission Wed 2026-09-16.
 
 ## Deliberately partial — grows later (scope ledger)
-
-| Area                      | What ships now                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Intended full shape                                                                                                                                                                                                                                              | Grows in                                                                                                                                                                |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Business data             | Fixture courts/menu/recipes/tables (`f1f7`) remain the dev/test default. Touch's real venue config (hours, cancellation window, phone, currency, tax) is now in `seed.sql`; her two real courts are in `client-data/` (`70c4`), applied only by `pnpm db:client`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Client's real data throughout, once rate rules arrive -- until then the real courts price as `NO_RATE` and cannot be booked                                                                                                                                      | Blocked on the client (rates, menu, recipes, staff)                                                                                                                     |
-| Fonts                     | ◐ **Lama Sans** landed 2026-09-05 — supplied by Touch and now rendered by every surface. **Provenance unreconciled:** the decks' typography boards (`full-brand2.pdf` p11, `identity.pdf` p10) specify Next Art + Frutiger LT Arabic, "Lama" appears nowhere in either deck's 52 pages, and the decks embed those two alongside Alexandria, GE Dinkum, IBM Plex Sans Arabic, Araboto and Adobe Arabic — a two-face board over a seven-face document. Nothing here establishes which face is the brand's or who holds which licence; ask Touch. If Lama Sans supersedes the deck, re-typesetting the decks is a designer handover item. Dual-script (Latin + Arabic in the same faces, `fsType` 0 so embedding is permitted), which collapsed the two-stack Latin/Arabic architecture to one. Seven faces ship — 400/500/600/700/800/900 roman + 400 italic, standard width, woff2 for web and ttf for mobile — canonical at `packages/ui/fonts/lama/`, distributed by `pnpm fonts:sync` | The drop was 29 MB: 3 widths × 9 weights × roman/italic × otf/ttf/woff/woff2. Cut to 1.4 MB deliberately — condensed and expanded widths, 100/200/300, and every italic but Regular have no call site anywhere in the UI. They are not lost, they are unimported | A weight comes back the same way it went: file into `packages/ui/fonts/lama/{woff2,ttf}/`, spec into `FONT_FACES`, `pnpm fonts:sync` (`docs/brand/lama-sans/README.md`) |
-| Touch Cafe logo           | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | The official supplied artwork — sent via WhatsApp per pack 2, not yet in the build; re-send requested                                                                                                                                                            | When the files reach the repo                                                                                                                                           |
-| Backups                   | Daily Supabase backups (Pro built-in)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | SOW L258 promised PITR — owner declined it 2026-08-30 (~$100/mo). Deviation recorded; Mustafa's written acknowledgment pending (doc 07 §4)                                                                                                                       | Restore rehearsal W6                                                                                                                                                    |
-| Telegram / PostHog / Groq | ✔ Live 2026-08-27 — accounts created, secrets set, functions deployed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Untested against a real order; allowlist points at seed staff                                                                                                                                                                                                    | Roadmap 6                                                                                                                                                               |
-| Telegram allowlist        | One row: Parsa → `Dev Owner`, `can_void`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Every real staff member mapped to a real `staff` row                                                                                                                                                                                                             | When real staff exist (roadmap 6)                                                                                                                                       |
-| Analytics                 | Vendor-added (SOW excludes it) — sales side from our till data, engagement via PostHog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Same; engagement floor still provisional                                                                                                                                                                                                                         | Go-live day                                                                                                                                                             |
-| Social sign-in            | **Vendor addition 2026-09-01** — SOW L259-260 excludes it, spec §10 says do-not-build. Sign in with Apple (iOS only, native `expo-apple-authentication`) + Google (native SDK, `react-native-nitro-google-signin`) on sign-in/sign-up; complete-profile step when the phone is blank; migrations 0058/0059. Email/password stays the contractual path; acceptance never hinges on this. Code only — no console account, no device run                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Live: Google Cloud clients + Supabase provider lists set, dev builds verified on both platforms, `host.exp.Exponent` removed for the store build, the Android **Play App Signing** OAuth client added before the first Play upload                               | Roadmap 7 (day-zero sequence, `docs/client/social-auth-setup-2026-09-01.md`)                                                                                            |
-| Payments                  | Desk only (cash/card recorded; terminal separate)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Online payment                                                                                                                                                                                                                                                   | Later phase (SOW)                                                                                                                                                       |
-| Offline                   | Degraded mode: till queue + LAN KDS                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Full offline local DB                                                                                                                                                                                                                                            | Later phase (SOW)                                                                                                                                                       |
-| Staff admin               | Read-only `/admin/staff` list                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Invite/role management (needs service role)                                                                                                                                                                                                                      | Later                                                                                                                                                                   |
-| Padel backend             | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Fixes per the audit's recommended order                                                                                                                                                                                                                          | Not yet scheduled                                                                                                                                                       |
-| Operator desktop          | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **PUBLISHED 2026-09-07 as `v0.2.2`** (first working public build — the public repo, secrets, draft→publish pipeline, Electron-ABI rebuild proof and bundled `ws` all landed that day): durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS assisted installer at the stable `/download` link, first-run station setup + kitchen-screen pairing code, auto-update (feed verified: `latest.yml` 0.2.2), conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry                                                                                                                                                                                                                                                            | Owner: swap `RELEASES_GH_TOKEN` for a fine-grained PAT; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred                      | Site visit before 2026-10-04                                                                                                                                            |
-| Mobile app                | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build                                                                                                                                  | Roadmap 7 (by 2026-09-16)                                                                                                                                               |
+| Area | What ships now | Intended full shape | Grows in |
+|---|---|---|---|
+| Business data | Fixture courts/menu/recipes/tables (`f1f7`) remain the dev/test default. Touch's real venue config (hours, cancellation window, phone, currency, tax) is now in `seed.sql`; her two real courts are in `client-data/` (`70c4`), applied only by `pnpm db:client` | Client's real data throughout, once rate rules arrive -- until then the real courts price as `NO_RATE` and cannot be booked | Blocked on the client (rates, menu, recipes, staff) |
+| Fonts | ◐ **Lama Sans** landed 2026-09-05 — supplied by Touch and now rendered by every surface. **Provenance unreconciled:** the decks' typography boards (`full-brand2.pdf` p11, `identity.pdf` p10) specify Next Art + Frutiger LT Arabic, "Lama" appears nowhere in either deck's 52 pages, and the decks embed those two alongside Alexandria, GE Dinkum, IBM Plex Sans Arabic, Araboto and Adobe Arabic — a two-face board over a seven-face document. Nothing here establishes which face is the brand's or who holds which licence; ask Touch. If Lama Sans supersedes the deck, re-typesetting the decks is a designer handover item. Dual-script (Latin + Arabic in the same faces, `fsType` 0 so embedding is permitted), which collapsed the two-stack Latin/Arabic architecture to one. Seven faces ship — 400/500/600/700/800/900 roman + 400 italic, standard width, woff2 for web and ttf for mobile — canonical at `packages/ui/fonts/lama/`, distributed by `pnpm fonts:sync` | The drop was 29 MB: 3 widths × 9 weights × roman/italic × otf/ttf/woff/woff2. Cut to 1.4 MB deliberately — condensed and expanded widths, 100/200/300, and every italic but Regular have no call site anywhere in the UI. They are not lost, they are unimported | A weight comes back the same way it went: file into `packages/ui/fonts/lama/{woff2,ttf}/`, spec into `FONT_FACES`, `pnpm fonts:sync` (`docs/brand/lama-sans/README.md`) |
+| Touch Cafe logo | Recreated as an inline SVG wordmark + `packages/ui/src/brand/cafe-mark.svg` (SWAP POINT comments) | The official supplied artwork — sent via WhatsApp per pack 2, not yet in the build; re-send requested | When the files reach the repo |
+| Backups | Daily Supabase backups (Pro built-in) | SOW L258 promised PITR — owner declined it 2026-08-30 (~$100/mo). Deviation recorded; Mustafa's written acknowledgment pending (doc 07 §4) | Restore rehearsal W6 |
+| Telegram / PostHog / Groq | ✔ Live 2026-08-27 — accounts created, secrets set, functions deployed | Untested against a real order; allowlist points at seed staff | Roadmap 6 |
+| Telegram allowlist | One row: Parsa → `Dev Owner`, `can_void` | Every real staff member mapped to a real `staff` row | When real staff exist (roadmap 6) |
+| Analytics | Vendor-added (SOW excludes it) — sales side from our till data, engagement via PostHog | Same; engagement floor still provisional | Go-live day |
+| Social sign-in | **Vendor addition 2026-09-01** — SOW L259-260 excludes it, spec §10 says do-not-build. Sign in with Apple (iOS only, native `expo-apple-authentication`) + Google (native SDK, `react-native-nitro-google-signin`) on sign-in/sign-up; complete-profile step when the phone is blank; migrations 0058/0059. Email/password stays the contractual path; acceptance never hinges on this. Code only — no console account, no device run | Live: Google Cloud clients + Supabase provider lists set, dev builds verified on both platforms, `host.exp.Exponent` removed for the store build, the Android **Play App Signing** OAuth client added before the first Play upload | Roadmap 7 (day-zero sequence, `docs/client/social-auth-setup-2026-09-01.md`) |
+| Payments | Desk only (cash/card recorded; terminal separate) | Online payment | Later phase (SOW) |
+| Offline | Degraded mode: till queue + LAN KDS | Full offline local DB | Later phase (SOW) |
+| Staff admin | Read-only `/admin/staff` list | Invite/role management (needs service role) | Later |
+| Padel backend | Audited 2026-08-27, **report-only** — 1 critical, 5 high, 8 medium, all reproduced | Fixes per the audit's recommended order | Not yet scheduled |
+| Operator desktop | **CODE-COMPLETE 2026-09-03 (A1–A8 + B1–B11)** + **PUBLISHED 2026-09-07 as `v0.2.2`** (first working public build — the public repo, secrets, draft→publish pipeline, Electron-ABI rebuild proof and bundled `ws` all landed that day): durable single write path, offline reads/PIN/tab-open, LAN KDS, NSIS assisted installer at the stable `/download` link, first-run station setup + kitchen-screen pairing code, auto-update (feed verified: `latest.yml` 0.2.2), conditional signing (Azure/PFX) and a gated mac build, ESC/POS printing, warm-start cache + quick-add/keymap + optimistic marks, full stock module (Module-5 acceptance e2e green), courts admin, KDS item-ready persistence, idle lock, batch expiry | Owner: swap `RELEASES_GH_TOKEN` for a fine-grained PAT; source a signing cert (SmartScreen); official icon; on-site proof: physical print, drill rehearsal ×2 on packaged installs, Sentry DSN; USB printer transport deliberately deferred | Site visit before 2026-10-04 |
+| Mobile app | SDK 54; reliability layer (day 5) + **designed UI shipped 2026-08-31** (guest browse, dark mode, merged grid, profile/settings) + on-phone fix passes 2026-08-31/09-01 (no-internet root cause, trading-night grid) + social sign-in code 2026-09-01 (vendor addition, see its own row). Release plumbing still absent | Push end-to-end, account deletion + privacy pages (now also Apple token revocation), icon/splash, eas init, Sentry, store build | Roadmap 7 (by 2026-09-16) |
 
 ## Gotchas / open issues
 
@@ -1524,8 +1509,8 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
   criticals are closed; the Module-5 acceptance script passes as an e2e.
 - ~~HOSTED IS BEHIND~~ **CAUGHT UP 2026-09-07: hosted at 0075 (0 pending) and `replay` redeployed
   (v2).** Two traps from that day: (1) `supabase db push` run from the REPO ROOT fails with "Remote
-  migration versions not found in local migrations directory" and then _suggests_ `migration repair
---status reverted <every version>` — **never run that**; it would mark the whole hosted history as
+  migration versions not found in local migrations directory" and then *suggests* `migration repair
+  --status reverted <every version>` — **never run that**; it would mark the whole hosted history as
   undone. Run every `supabase` command from `packages/db`. (2) The 0071–0075 gap was user-visible:
   the operator code on `main` calls those RPCs, so a packaged app against a lagging hosted DB errors on
   the staff-requests / marketing / court-delete screens. Push migrations before cutting a release.
@@ -1573,7 +1558,7 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
   audit row to attribute it. **Every guard blesses it**: `rls-matrix.ts:301` expects it to succeed
   and `check-rpc-authz.mjs:48` exempts `hold_slot` under `PUBLIC_BY_DESIGN`.
 - **PADEL BACKEND: `move_reservation`/`extend_reservation` neither re-price nor re-validate**
-  (reproduced). Off-peak → peak keeps the off-peak price _and_ the off-peak `rate_rule_id`; extend
+  (reproduced). Off-peak → peak keeps the off-peak price *and* the off-peak `rate_rule_id`; extend
   60→90 keeps the 60-min price; both bypass `assert_bookable`, so a booking can be moved past
   closing or extended onto a closed date. Creating on a closed date is correctly refused — the guard
   exists, it is just absent from the mutate paths.
@@ -1581,7 +1566,7 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
   90 000, the app displays 60 000). `rate_rules` has **zero CHECK constraints**, so
   `start_time > end_time` is creatable; SQL wraps such a window, `rateRules.ts:79` refuses it. Pick
   one semantic before a rate is ever configured that way.
-- **PADEL BACKEND: the account-guest journey has never been executed by any test.** It _works_ —
+- **PADEL BACKEND: the account-guest journey has never been executed by any test.** It *works* —
   verified 2026-08-27 — but every padel test uses anonymous sessions, and `concurrency.test.ts:197`
   routes the confirm through the desk client to dodge the NULL-guest `FORBIDDEN`. There is no
   happy-path `confirm_booking` test at all.
@@ -1633,13 +1618,13 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
   (`max_live_holds_per_guest`) — the guest could then book NOTHING until the TTL ran out, which is
   what the phone reported on 2026-09-01 as `HOLD_QUOTA_EXCEEDED`. Now: Review releases on unmount
   (every exit — header arrow, Android back, back-swipe), and Bookings shows a **Held for you**
-  section with a live countdown, _Finish booking_ and _Release_. `release_hold` is holds-only,
+  section with a live countdown, *Finish booking* and *Release*. `release_hold` is holds-only,
   own-holds-only, idempotent, and writes `status = 'expired'` + audit `reservation.release`;
   confirmed bookings still go through `cancel_reservation` and its window. **Deploy note: the app
   fix is inert until 0058 is applied to the hosted project** — until then the client's release call
   returns "Could not find the function app.release_hold in the schema cache" (not a transport error,
   so it is not retried) and holds again sit for the whole TTL.
-- **Google Play: the 12-testers/14-days rule applies ONLY to _personal_ accounts created after
+- **Google Play: the 12-testers/14-days rule applies ONLY to *personal* accounts created after
   2023-11-13; organization accounts are exempt** — but org accounts need a D-U-N-S number, which
   averages 4–8 weeks. Whether Kagu already holds a D-U-N-S decides whether Android can make
   2026-09-16 at all. The contractual escape hatch is SOW L789-790: acceptance is on **submission of
@@ -1731,7 +1716,7 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
   - **0059 is a behaviour change on a contractual RPC.** Hosted guests whose `profiles.phone` is
     NULL/blank are refused at `confirm_booking` with `PHONE_REQUIRED` (staff exempt; holds
     unaffected) until they add one. **Pre-push check on hosted:** `select count(*) from profiles
-where nullif(btrim(phone),'') is null;` — **run 2026-09-01 before the push: 15 profiles, **12 phone-less = 6 staff (exempt from 0059) + 6 test guests, 0 of whom hold a reservation**; 130 anonymous cafe users; 15 `email` identities, no apple/google yet.** The "expect ~0" estimate was wrong about staff/test rows (staff minted by `staff-admin` have no phone; early test guests neither) but right about impact: no existing booking is affected, and the 6 testers meet the complete-profile gate next time they book. **Pushed 2026-09-01 from `packages/db` with `npx supabase db push --linked --yes`** after an independent two-agent read-only verification (0059 = 0021 body + exactly one guard hunk; 0058 same signature/revoke/`is_anonymous` return); hosted is at **0059**, and `pg_get_functiondef` on hosted shows both new bodies. Diff the copied 0021 body line by line if it is ever re-issued.
+    where nullif(btrim(phone),'') is null;` — **run 2026-09-01 before the push: 15 profiles, **12 phone-less = 6 staff (exempt from 0059) + 6 test guests, 0 of whom hold a reservation**; 130 anonymous cafe users; 15 `email` identities, no apple/google yet.** The "expect ~0" estimate was wrong about staff/test rows (staff minted by `staff-admin` have no phone; early test guests neither) but right about impact: no existing booking is affected, and the 6 testers meet the complete-profile gate next time they book. **Pushed 2026-09-01 from `packages/db` with `npx supabase db push --linked --yes`** after an independent two-agent read-only verification (0059 = 0021 body + exactly one guard hunk; 0058 same signature/revoke/`is_anonymous` return); hosted is at **0059**, and `pg_get_functiondef` on hosted shows both new bodies. Diff the copied 0021 body line by line if it is ever re-issued.
   - **Supabase CLI: run it from `packages/db`, never the repo root.** From the root the CLI sees an EMPTY `supabase/migrations` and reports "Remote migration versions not found in local migrations directory", offering `supabase migration repair --status reverted <all 57 versions>` — do NOT run that: it would mark every applied migration as reverted in the hosted history. Verified 2026-09-01: from `packages/db`, `supabase migration list --linked` agreed 0001–0057 both sides with only 0058/0059 pending. Non-interactive pushes need `--yes`; `supabase db query --linked "<sql>"` (Management API) is the way to run read-only counts on hosted without psql or the service-role key — one statement per call (multi-statement input returns only the last result).
   - **`eas.json development` points at the client's PRODUCTION Supabase** (a phone cannot reach
     `127.0.0.1:54321`; a deliberate departure from the `REPLACE_*` convention). Every dev social
@@ -1744,7 +1729,7 @@ where nullif(btrim(phone),'') is null;` — **run 2026-09-01 before the push: 15
     `social.ts`, the same regex repeated in `app.config.ts`; the committed `eas.json` values fail
     on purpose). The Google button is hidden in Expo Go and whenever `EXPO_PUBLIC_GOOGLE_*` is unset
     or a placeholder — a missing button on a dev build is a config symptom, not a UI bug. CI's `expo
-export` runs with the env unset on purpose.
+    export` runs with the env unset on purpose.
   - **Local GoTrue verifies id tokens against Apple's/Google's JWKS online** — `supabase start`
     needs internet for those two flows — and `config.toml` `[auth.external.*]` edits need
     `supabase stop && supabase start` (a `db reset` does not reload GoTrue). The local Google
@@ -1882,7 +1867,7 @@ export` runs with the env unset on purpose.
   backup. W4 "backup restore verification" + W6 restore rehearsal updated accordingly.
 - **TypeScript 6 in the editor vs 5.9.3 in the workspace** (2026-09-01). VS Code ships TS 6.0.x
   and reports 6.0 deprecations the CLI gate cannot see; 5.9.3 rejects `ignoreDeprecations:
-"6.0"`, so migrate, don't silence. The shell moved off `node10` (`module: node18` +
+  "6.0"`, so migrate, don't silence. The shell moved off `node10` (`module: node18` +
   `moduleResolution: node16`, still CJS). Re-check with a scratch `typescript@6` install: every
   project tsconfig is clean; only the ROOT `tsconfig.json` (expo base, no `include`) errors,
   because it sweeps the Deno edge functions — pre-existing, and only when compiled directly.
@@ -1892,12 +1877,11 @@ export` runs with the env unset on purpose.
   printed QR dies.
 
 ## Running it
-
 - `pnpm i` · `cd packages/db && pnpm exec supabase start` · `pnpm exec supabase db reset --local` ·
   `pnpm run db:fixtures` (loads through the DB container when `psql` is absent) · `pnpm run db:types`.
 - `pnpm turbo lint typecheck test` — the full gate. `pnpm --filter @touch/db test` needs the local
   stack. `pnpm e2e` needs the stack plus both dev servers.
 - Web against the LOCAL stack: `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon from supabase status> pnpm --filter @touch/web dev`.
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon from supabase status> pnpm --filter @touch/web dev`.
 - Operator: `pnpm --filter @touch/operator dev` (port 5174). Edge functions:
   `cd packages/db && pnpm exec supabase functions serve --env-file supabase/functions/.env`.

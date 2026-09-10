@@ -141,7 +141,7 @@
     try {
       window.parent.postMessage(
         { type: 'omelette:notify-3d-export', format: format, ok: ok === true },
-        '*',
+        '*'
       );
     } catch (e) {}
   }
@@ -253,7 +253,7 @@
 
       const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(200, 200),
-        new THREE.ShadowMaterial({ opacity: 0.18 }),
+        new THREE.ShadowMaterial({ opacity: 0.18 })
       );
       ground.rotation.x = -Math.PI / 2;
       ground.receiveShadow = true;
@@ -318,9 +318,12 @@
         // Rest the object on the ground without moving its origin.
         this._ground.position.y = box.min.y;
         const sphere = box.getBoundingSphere(new THREE.Sphere());
-        const dist = (sphere.radius / Math.tan((this._camera.fov * Math.PI) / 360)) * 1.35;
+        const dist =
+          (sphere.radius / Math.tan((this._camera.fov * Math.PI) / 360)) * 1.35;
         const dir = new THREE.Vector3(1, 0.55, 1.25).normalize();
-        this._camera.position.copy(sphere.center).add(dir.multiplyScalar(dist));
+        this._camera.position
+          .copy(sphere.center)
+          .add(dir.multiplyScalar(dist));
         this._camera.near = Math.max(dist / 100, 0.01);
         this._camera.far = dist * 100;
         this._camera.updateProjectionMatrix();
@@ -395,14 +398,16 @@
       const mod = await import('three/addons/exporters/OBJExporter.js');
       const mats = this._nameParts();
       const base = this._basename;
-      const obj = 'mtllib ' + base + '.mtl\n' + new mod.OBJExporter().parse(this._object);
+      const obj =
+        'mtllib ' + base + '.mtl\n' + new mod.OBJExporter().parse(this._object);
       let mtl = '# Exported by three-d-stage\n';
       for (const m of mats) {
         const c = m.color || { r: 0.8, g: 0.8, b: 0.8 };
         const rough = typeof m.roughness === 'number' ? m.roughness : 0.5;
         const opacity = typeof m.opacity === 'number' ? m.opacity : 1;
         mtl += 'newmtl ' + m.name + '\n';
-        mtl += 'Kd ' + c.r.toFixed(4) + ' ' + c.g.toFixed(4) + ' ' + c.b.toFixed(4) + '\n';
+        mtl +=
+          'Kd ' + c.r.toFixed(4) + ' ' + c.g.toFixed(4) + ' ' + c.b.toFixed(4) + '\n';
         mtl += 'Ks 0.2000 0.2000 0.2000\n';
         mtl += 'Ns ' + Math.round((1 - rough) * 200) + '\n';
         mtl += 'd ' + opacity.toFixed(4) + '\n\n';
@@ -420,7 +425,10 @@
         binary: true,
         animations: this._object.animations || [],
       });
-      download(new Blob([buf], { type: 'model/gltf-binary' }), base + '.glb');
+      download(
+        new Blob([buf], { type: 'model/gltf-binary' }),
+        base + '.glb'
+      );
     }
   }
 

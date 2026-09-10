@@ -52,45 +52,11 @@ describe('buildPriceBands', () => {
     );
     expect(bands).toHaveLength(4);
     expect(bands.map((b) => b.band)).toEqual([0, 1, 2, 3]);
-    expect(bands[0]).toMatchObject({
-      views: 25,
-      sold: 60,
-      revenueIqd: 150000,
-      convPctCapped: 100,
-      soldWithoutView: 35,
-    });
-    expect(bands[1]).toMatchObject({
-      views: 100,
-      sold: 30,
-      revenueIqd: 150000,
-      convPctCapped: 30,
-      soldWithoutView: 0,
-    });
-    expect(bands[2]).toMatchObject({
-      views: 0,
-      sold: 4,
-      revenueIqd: 32000,
-      convPctCapped: 0,
-      soldWithoutView: 4,
-    });
-    expect(bands[3]).toMatchObject({
-      views: 80,
-      sold: 0,
-      revenueIqd: 0,
-      convPctCapped: 0,
-      soldWithoutView: 0,
-    });
-    expect(bands[0]!.items).toEqual([
-      {
-        id: 'esp',
-        nameEn: '',
-        nameAr: '',
-        priceIqd: 2500,
-        views: 25,
-        sold: 60,
-        revenueIqd: 150000,
-      },
-    ]);
+    expect(bands[0]).toMatchObject({ views: 25, sold: 60, revenueIqd: 150000, convPctCapped: 100, soldWithoutView: 35 });
+    expect(bands[1]).toMatchObject({ views: 100, sold: 30, revenueIqd: 150000, convPctCapped: 30, soldWithoutView: 0 });
+    expect(bands[2]).toMatchObject({ views: 0, sold: 4, revenueIqd: 32000, convPctCapped: 0, soldWithoutView: 4 });
+    expect(bands[3]).toMatchObject({ views: 80, sold: 0, revenueIqd: 0, convPctCapped: 0, soldWithoutView: 0 });
+    expect(bands[0]!.items).toEqual([{ id: 'esp', nameEn: '', nameAr: '', priceIqd: 2500, views: 25, sold: 60, revenueIqd: 150000 }]);
     expect(bands[2]!.items[0]).toMatchObject({ id: 'kun', sold: 4 });
   });
 
@@ -113,12 +79,7 @@ describe('buildPriceBands', () => {
     expect(bands[3]).toMatchObject({ views: 0, sold: 3, revenueIqd: 33000 });
     const total = bands.reduce((s, b) => s + b.views, 0);
     expect(total).toBe(20);
-    expect(
-      bands
-        .flatMap((b) => b.items)
-        .map((i) => i.id)
-        .sort(),
-    ).toEqual(['cap', 'offmenu', 'soldonly']);
+    expect(bands.flatMap((b) => b.items).map((i) => i.id).sort()).toEqual(['cap', 'offmenu', 'soldonly']);
   });
 
   it('applies the exclusion filter and names', () => {
@@ -138,11 +99,7 @@ describe('buildPriceBands', () => {
   });
 
   it('validates money at the boundary', () => {
-    expect(() => buildPriceBands([], [{ id: 'esp', qty: 1, revenueIqd: 1.5 }], prices)).toThrow(
-      MoneyError,
-    );
-    expect(() => buildPriceBands([{ id: 'esp', priceIqd: -1, views: 1 }], [], prices)).toThrow(
-      MoneyError,
-    );
+    expect(() => buildPriceBands([], [{ id: 'esp', qty: 1, revenueIqd: 1.5 }], prices)).toThrow(MoneyError);
+    expect(() => buildPriceBands([{ id: 'esp', priceIqd: -1, views: 1 }], [], prices)).toThrow(MoneyError);
   });
 });

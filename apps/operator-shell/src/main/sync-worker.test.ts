@@ -40,7 +40,9 @@ function envelope(over: Partial<MutationEnvelope> = {}): MutationEnvelope {
   };
 }
 
-type Scripted = { status: number; body?: unknown } | { throw: string };
+type Scripted =
+  | { status: number; body?: unknown }
+  | { throw: string };
 
 function makeFetch(script: Scripted[]) {
   const calls: { url: string; init: RequestInit; body: Record<string, unknown> }[] = [];
@@ -272,8 +274,8 @@ describe('startSyncWorker', () => {
 
 function ackCount(): number {
   return (
-    openQueue().prepare("SELECT COUNT(*) AS c FROM mutation_queue WHERE state = 'acked'").get() as {
-      c: number;
-    }
+    openQueue()
+      .prepare("SELECT COUNT(*) AS c FROM mutation_queue WHERE state = 'acked'")
+      .get() as { c: number }
   ).c;
 }

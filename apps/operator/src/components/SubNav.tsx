@@ -58,35 +58,33 @@ export function SubNav({
           ...style,
         }}
       >
-        {visible
-          .flatMap((group) => group.items)
-          .map((item) => {
-            const active = isActive(item, path);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                aria-current={active ? 'page' : undefined}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  paddingBlock: '0.55rem',
-                  paddingInline: '0.85rem',
-                  borderBlockEnd: active ? '2px solid var(--tp-accent)' : '2px solid transparent',
-                  marginBlockEnd: '-1px',
-                  color: active ? 'var(--tp-fg)' : 'var(--tp-muted-fg)',
-                  fontWeight: active ? 700 : 500,
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                  transition: 'color var(--tp-dur-fast) var(--tp-ease-out)',
-                }}
-              >
-                {item.icon && <Icon name={item.icon} size={14} />}
-                {item.label}
-              </Link>
-            );
-          })}
+        {visible.flatMap((group) => group.items).map((item) => {
+          const active = isActive(item, path);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              aria-current={active ? 'page' : undefined}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                paddingBlock: '0.55rem',
+                paddingInline: '0.85rem',
+                borderBlockEnd: active ? '2px solid var(--tp-accent)' : '2px solid transparent',
+                marginBlockEnd: '-1px',
+                color: active ? 'var(--tp-fg)' : 'var(--tp-muted-fg)',
+                fontWeight: active ? 700 : 500,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                transition: 'color var(--tp-dur-fast) var(--tp-ease-out)',
+              }}
+            >
+              {item.icon && <Icon name={item.icon} size={14} />}
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
     );
   }
@@ -107,9 +105,7 @@ export function SubNav({
       }}
     >
       {title && (
-        <p style={{ marginBlockEnd: '0.75rem', fontSize: 'var(--tp-fs-xl)', fontWeight: 700 }}>
-          {title}
-        </p>
+        <p style={{ marginBlockEnd: '0.75rem', fontSize: 'var(--tp-fs-xl)', fontWeight: 700 }}>{title}</p>
       )}
       {visible.map((group) => (
         <section key={group.label} style={{ marginBlockEnd: '0.9rem' }}>

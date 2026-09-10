@@ -141,10 +141,8 @@ interface Req {
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isIsoDate = (s: unknown): s is string =>
   typeof s === 'string' && ISO_DATE.test(s) && Number.isFinite(Date.parse(`${s}T00:00:00Z`));
-const rows = (v: unknown): Row[] =>
-  Array.isArray(v) ? (v.filter((x) => x && typeof x === 'object') as Row[]) : [];
-const obj = (v: unknown): Row | null =>
-  v && typeof v === 'object' && !Array.isArray(v) ? (v as Row) : null;
+const rows = (v: unknown): Row[] => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') as Row[] : []);
+const obj = (v: unknown): Row | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Row) : null);
 const strings = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
 
@@ -168,7 +166,7 @@ function parsePatterns(v: unknown): PatternCandidate[] {
       id: p.id as string,
       kind: typeof p.kind === 'string' ? p.kind : 'co-move',
       subjects: strings(p.subjects),
-      metrics: (obj(p.metrics) as Record<string, number | string>) ?? {},
+      metrics: obj(p.metrics) as Record<string, number | string> ?? {},
       confidence: (['high', 'medium', 'low'] as const).includes(p.confidence as Confidence)
         ? (p.confidence as Confidence)
         : 'low',
@@ -182,29 +180,21 @@ function parseBody(body: unknown): Req | string {
   const b = obj(body);
   if (!b) return 'body must be a JSON object';
   const mode = b.mode;
-  if (
-    mode !== 'insights' &&
-    mode !== 'patterns' &&
-    mode !== 'revalidate' &&
-    mode !== 'replace_rejected'
-  ) {
-    return 'mode must be one of insights|patterns|revalidate|replace_rejected';
+  if (mode !== 'insights' && mode !== 'patterns' && mode !== 'revalidate' && mode !== 'replace_rejected') {
+    return "mode must be one of insights|patterns|revalidate|replace_rejected";
   }
   const lang = b.lang === 'en' ? 'en' : b.lang === 'ar' ? 'ar' : null;
   if (!lang) return "lang must be 'ar' or 'en'";
-  if (!isIsoDate(b.range_from) || !isIsoDate(b.range_to))
-    return 'range_from/range_to must be YYYY-MM-DD';
-  const span =
-    (Date.parse(`${b.range_to}T00:00:00Z`) - Date.parse(`${b.range_from}T00:00:00Z`)) / 86_400_000;
+  if (!isIsoDate(b.range_from) || !isIsoDate(b.range_to)) return 'range_from/range_to must be YYYY-MM-DD';
+  const span = (Date.parse(`${b.range_to}T00:00:00Z`) - Date.parse(`${b.range_from}T00:00:00Z`)) / 86_400_000;
   if (span < 0) return 'range_to is before range_from';
   if (span > MAX_SPAN_DAYS) return `span exceeds ${MAX_SPAN_DAYS} days`;
   const compare_basis = typeof b.compare_basis === 'string' ? b.compare_basis : 'prev';
-  if (!['prev', '4w', '52w'].includes(compare_basis)) return 'compare_basis must be prev|4w|52w';
+  if (!['prev', '4w', '52w'].includes(compare_basis)) return "compare_basis must be prev|4w|52w";
   const d = obj(b.data);
   if (!d) return 'data must be an object';
   const patterns = parsePatterns(d.patterns);
-  if (mode === 'patterns' && !Array.isArray(d.patterns))
-    return 'patterns mode requires data.patterns';
+  if (mode === 'patterns' && !Array.isArray(d.patterns)) return 'patterns mode requires data.patterns';
   return {
     mode,
     lang,
@@ -238,12 +228,7 @@ const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : Num
 const fmt = (v: unknown) => Math.round(n(v)).toLocaleString('en-US');
 const money = (v: unknown, lang: Lang) => (lang === 'ar' ? `${fmt(v)} د.ع` : `${fmt(v)} IQD`);
 const nameOf = (r: Row, lang: Lang, prefix = 'name') =>
-  String(
-    (lang === 'ar' ? r[`${prefix}_ar`] : r[`${prefix}_en`]) ??
-      r[`${prefix}_en`] ??
-      r[`${prefix}_ar`] ??
-      '',
-  );
+  String((lang === 'ar' ? r[`${prefix}_ar`] : r[`${prefix}_en`]) ?? r[`${prefix}_en`] ?? r[`${prefix}_ar`] ?? '');
 
 const WEEKDAYS = {
   en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
@@ -292,11 +277,7 @@ function templatedInsights(req: Req): Insight[] {
           : `${name} has the thinnest margin among costed items: ${n(worst.margin_pct)}% (${money(worst.margin_iqd, lang)} of ${money(worst.revenue_iqd, lang)}) — consider a small price rise or a cheaper portion.`,
       kind: 'profit',
       subjects: [name],
-      metrics: {
-        margin_pct: n(worst.margin_pct),
-        margin_iqd: n(worst.margin_iqd),
-        qty: n(worst.qty),
-      },
+      metrics: { margin_pct: n(worst.margin_pct), margin_iqd: n(worst.margin_iqd), qty: n(worst.qty) },
       confidence: n(worst.qty) >= 5 ? 'medium' : 'low',
     });
   }
@@ -324,18 +305,12 @@ function templatedInsights(req: Req): Insight[] {
         : `Promoted items sold ${fmt(p.qty)} units for ${money(p.revenue_iqd, lang)}, giving away ${money(p.discount_iqd, lang)} in discounts across ${fmt(p.orders)} orders.`,
       kind: 'pricing',
       subjects: [],
-      metrics: {
-        qty: n(p.qty),
-        revenue_iqd: n(p.revenue_iqd),
-        discount_iqd: n(p.discount_iqd),
-        orders: n(p.orders),
-      },
+      metrics: { qty: n(p.qty), revenue_iqd: n(p.revenue_iqd), discount_iqd: n(p.discount_iqd), orders: n(p.orders) },
       confidence: 'medium',
     });
   }
 
-  const busiest = data.daily
-    .filter((d) => n(d.revenue_iqd) > 0)
+  const busiest = data.daily.filter((d) => n(d.revenue_iqd) > 0)
     .reduce<Row | null>((a, b) => (!a || n(b.revenue_iqd) > n(a.revenue_iqd) ? b : a), null);
   if (busiest) {
     const date = String(busiest.business_date ?? '');
@@ -364,9 +339,7 @@ function gate(items: Insight[], req: Req, cap = MAX_FINDINGS): Insight[] {
   let texts = [...byText.values()].map((i) => i.text).filter(isStrongFinding);
   texts = dropRejectedFindings(texts, rejectionKeys(req.data.rejections)).kept;
   if (req.data.basis) {
-    texts = dropLowConfidenceClaims(texts, req.data.basis, WEEKDAYS, {
-      extraWeekdayNames: EXTRA_WEEKDAYS,
-    }).kept;
+    texts = dropLowConfidenceClaims(texts, req.data.basis, WEEKDAYS, { extraWeekdayNames: EXTRA_WEEKDAYS }).kept;
   }
   texts = dropExcludedMentions(texts, req.data.excluded_names);
   return rankFindings(texts, cap).map((t) => byText.get(normalizeFinding(t))!);
@@ -376,10 +349,7 @@ function gate(items: Insight[], req: Req, cap = MAX_FINDINGS): Insight[] {
 // Groq transport — JSON mode, one deadline for the whole request
 // ---------------------------------------------------------------------------
 class UpstreamError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
+  constructor(readonly status: number, message: string) {
     super(message);
   }
 }
@@ -446,19 +416,11 @@ function parseJson(content: string): unknown {
 
 function toInsight(raw: unknown, fallbackKind: Kind): Insight | null {
   if (typeof raw === 'string') {
-    return {
-      text: raw.trim(),
-      kind: fallbackKind,
-      subjects: [],
-      metrics: {},
-      confidence: 'medium',
-    };
+    return { text: raw.trim(), kind: fallbackKind, subjects: [], metrics: {}, confidence: 'medium' };
   }
   const r = obj(raw);
   if (!r || typeof r.text !== 'string') return null;
-  const kind = (KINDS as readonly string[]).includes(String(r.kind))
-    ? (r.kind as Kind)
-    : fallbackKind;
+  const kind = (KINDS as readonly string[]).includes(String(r.kind)) ? (r.kind as Kind) : fallbackKind;
   const confidence = (['high', 'medium', 'low'] as const).includes(r.confidence as Confidence)
     ? (r.confidence as Confidence)
     : 'medium';
@@ -466,22 +428,12 @@ function toInsight(raw: unknown, fallbackKind: Kind): Insight | null {
   for (const [k, v] of Object.entries(obj(r.metrics) ?? {})) {
     if (typeof v === 'number' || typeof v === 'string') metrics[k] = v;
   }
-  return {
-    text: r.text.trim(),
-    kind,
-    subjects: strings(r.subjects).slice(0, 6),
-    metrics,
-    confidence,
-  };
+  return { text: r.text.trim(), kind, subjects: strings(r.subjects).slice(0, 6), metrics, confidence };
 }
 
 function parseInsightArray(content: string, key: string, fallbackKind: Kind): Insight[] {
   const parsed = parseJson(content);
-  const arr = Array.isArray(parsed)
-    ? parsed
-    : Array.isArray(obj(parsed)?.[key])
-      ? (obj(parsed)![key] as unknown[])
-      : [];
+  const arr = Array.isArray(parsed) ? parsed : Array.isArray(obj(parsed)?.[key]) ? (obj(parsed)![key] as unknown[]) : [];
   return arr.map((x) => toInsight(x, fallbackKind)).filter((x): x is Insight => !!x);
 }
 
@@ -627,10 +579,9 @@ period counts as repeating it. Returning fewer findings is better than returning
 }
 
 function judgeSystem(lang: Lang): string {
-  const langLine =
-    lang === 'ar'
-      ? 'Write each sentence in plain Modern Standard Arabic with Latin digits; amounts as "12,500 د.ع".'
-      : 'Write each sentence in plain English with Latin digits; amounts as "12,500 IQD".';
+  const langLine = lang === 'ar'
+    ? 'Write each sentence in plain Modern Standard Arabic with Latin digits; amounts as "12,500 د.ع".'
+    : 'Write each sentence in plain English with Latin digits; amounts as "12,500 IQD".';
   return `You are the quality gate for a cafe menu "patterns" feature (QR-code digital menu, Iraqi dinar).
 You receive "candidates": REAL statistical patterns already computed from the data (correlation, market-basket
 lift, weekday over-indexing, a locale skew, a cost-based margin movement). The numbers are ground truth — never
@@ -685,15 +636,7 @@ function payload(req: Req, angle?: Kind): Row {
     structural: ['bought_together', 'best_sellers', 'engagement', 'price_bands'],
     summary: [],
   };
-  const keep = new Set([
-    'range',
-    'compare_basis',
-    'lang',
-    'kpis',
-    'coverage',
-    'basis',
-    ...WANT[angle],
-  ]);
+  const keep = new Set(['range', 'compare_basis', 'lang', 'kpis', 'coverage', 'basis', ...WANT[angle]]);
   const out: Row = {};
   for (const [k, v] of Object.entries(base)) {
     out[k] = keep.has(k) ? v : Array.isArray(v) ? [] : v && typeof v === 'object' ? null : v;
@@ -713,20 +656,14 @@ async function runScan(req: Req, alreadyFound: string[], deadline: number): Prom
     try {
       content = await chat(
         generateSystem(req, angle),
-        JSON.stringify({
-          ...payload(req, angle.id),
-          already_found: [...alreadyFound, ...found.map((f) => f.text)],
-        }),
+        JSON.stringify({ ...payload(req, angle.id), already_found: [...alreadyFound, ...found.map((f) => f.text)] }),
         MODEL,
         deadline,
       );
     } catch (err) {
       // Nothing collected yet → the whole request is an upstream failure.
       if (!found.length) throw err;
-      console.warn(
-        `[analytics-insights] pass ${angle.id} failed after ${found.length} findings:`,
-        err,
-      );
+      console.warn(`[analytics-insights] pass ${angle.id} failed after ${found.length} findings:`, err);
       break;
     }
     for (const ins of parseInsightArray(content, 'findings', angle.id)) {
@@ -753,14 +690,10 @@ async function modeRevalidate(req: Req, deadline: number) {
     deadline,
   );
   const parsed = obj(parseJson(content)) ?? {};
-  const ongoing = parseInsightArray(
-    JSON.stringify({ x: parsed.ongoing ?? [] }),
-    'x',
-    'summary',
-  ).map((i) => ({ ...i, status: 'ongoing' as const }));
-  const added = parseInsightArray(JSON.stringify({ x: parsed.added ?? [] }), 'x', 'summary').map(
-    (i) => ({ ...i, status: 'new' as const }),
-  );
+  const ongoing = parseInsightArray(JSON.stringify({ x: parsed.ongoing ?? [] }), 'x', 'summary')
+    .map((i) => ({ ...i, status: 'ongoing' as const }));
+  const added = parseInsightArray(JSON.stringify({ x: parsed.added ?? [] }), 'x', 'summary')
+    .map((i) => ({ ...i, status: 'new' as const }));
   const resolved = strings(parsed.resolved);
   return { insights: gate([...ongoing, ...added], req), resolved };
 }
@@ -772,18 +705,10 @@ function phraseFallback(req: Req): JudgedPattern[] {
     .map((p) => ({ ...p, text: p.fallbackText }));
 }
 
-async function modePatterns(
-  req: Req,
-  deadline: number,
-): Promise<{ patterns: JudgedPattern[]; degraded: boolean }> {
+async function modePatterns(req: Req, deadline: number): Promise<{ patterns: JudgedPattern[]; degraded: boolean }> {
   if (!req.data.patterns.length) return { patterns: [], degraded: false };
   const candidates = req.data.patterns.map(({ fallbackText: _f, ...c }) => c);
-  const content = await chat(
-    judgeSystem(req.lang),
-    JSON.stringify({ candidates }),
-    JUDGE_MODEL,
-    deadline,
-  );
+  const content = await chat(judgeSystem(req.lang), JSON.stringify({ candidates }), JUDGE_MODEL, deadline);
   const parsed = obj(parseJson(content));
   const keptRaw = Array.isArray(parsed?.kept) ? (parsed!.kept as unknown[]) : [];
   const byId = new Map(req.data.patterns.map((p) => [p.id, p]));
@@ -796,8 +721,7 @@ async function modePatterns(
     const id = String(r.id ?? '');
     const text = latinDigits(String(r.sentence ?? r.text ?? '')).trim();
     const cand = byId.get(id);
-    if (!cand || used.has(id) || !isStrongFinding(text) || banned.has(normalizeFinding(text)))
-      continue;
+    if (!cand || used.has(id) || !isStrongFinding(text) || banned.has(normalizeFinding(text))) continue;
     used.add(id);
     out.push({ ...cand, text });
   }
@@ -840,16 +764,10 @@ Deno.serve(async (req) => {
       return json({
         degraded: true,
         model: null,
-        insights: templated
-          .filter((i) => !known.has(normalizeFinding(i.text)))
-          .map((i) => ({ ...i, status: 'new' })),
+        insights: templated.filter((i) => !known.has(normalizeFinding(i.text))).map((i) => ({ ...i, status: 'new' })),
       });
     }
-    return json({
-      degraded: true,
-      model: null,
-      insights: templated.map((i) => ({ ...i, status: 'new' })),
-    });
+    return json({ degraded: true, model: null, insights: templated.map((i) => ({ ...i, status: 'new' })) });
   }
 
   // SEC-29 (0079): the quota gate. Deliberately AFTER the degraded path above —
@@ -865,11 +783,9 @@ Deno.serve(async (req) => {
       // 429, not 502: this is our own ceiling, not Groq failing. The operator
       // shows the owner why, and the templated fallback is still available.
       return json(
-        {
-          error: code.includes('LLM_MONTHLY_CAP') ? 'LLM_MONTHLY_CAP' : 'LLM_DAILY_QUOTA',
+        { error: code.includes('LLM_MONTHLY_CAP') ? 'LLM_MONTHLY_CAP' : 'LLM_DAILY_QUOTA',
           message: budget.error.details ?? code,
-          hint: budget.error.hint ?? null,
-        },
+          hint: budget.error.hint ?? null },
         429,
       );
     }

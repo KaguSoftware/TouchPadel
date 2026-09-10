@@ -65,9 +65,9 @@ touchpadel/
 
 ```yaml
 packages:
-  - 'apps/*'
-  - 'packages/*'
-  - 'tools/*'
+  - "apps/*"
+  - "packages/*"
+  - "tools/*"
 ```
 
 **turbo.json** (key pipeline)
@@ -75,11 +75,7 @@ packages:
 ```json
 {
   "tasks": {
-    "gen:types": {
-      "cache": true,
-      "inputs": ["supabase/migrations/**"],
-      "outputs": ["src/types.gen.ts"]
-    },
+    "gen:types": { "cache": true, "inputs": ["supabase/migrations/**"], "outputs": ["src/types.gen.ts"] },
     "build": { "dependsOn": ["^build", "@touch/db#gen:types"], "outputs": ["dist/**", ".next/**"] },
     "typecheck": { "dependsOn": ["@touch/db#gen:types"] },
     "test": { "dependsOn": ["@touch/db#gen:types"] },
@@ -92,7 +88,6 @@ packages:
 **tsconfig strategy:** `tsconfig.base.json` with `strict: true`, `verbatimModuleSyntax`, `noUncheckedIndexedAccess`. Packages use TS project references and export raw `.ts` via `exports` + `tsx`-friendly bundler resolution — apps compile packages themselves (no build step for internal packages; keeps 4-week velocity). `apps/mobile` extends `expo/tsconfig.base`; `operator-shell` has ONE tsconfig covering both `main` and `preload` (CommonJS, node types) — plus, since 2026-08-28, a `tsconfig.test.json` that exists only because the build project sets `rootDir: src` / `outDir: dist` and test files must not be emitted into the packaged output.
 
 **Team mapping (SoW tracks → this team):**
-
 - Track A (platform/data/degraded/queue/LAN/printing) → **user + AI agents** (weeks 1–4).
 - Track B (mobile) → **Frontend dev 1**.
 - Track C (web/cafe) → **Frontend dev 2**.
@@ -103,12 +98,11 @@ packages:
 
 ## 2. Operator App Architecture
 
-The SoW calls it "a wrapper around the same web application" — contractually the _application UI_ is shared, but architecturally it is a **locally-bundled SPA** (Vite build shipped inside the Electron package, loaded from `file://`/`app://` protocol, never from a URL). This is what makes Module 7 possible: the UI boots with zero network.
+The SoW calls it "a wrapper around the same web application" — contractually the *application UI* is shared, but architecturally it is a **locally-bundled SPA** (Vite build shipped inside the Electron package, loaded from `file://`/`app://` protocol, never from a URL). This is what makes Module 7 possible: the UI boots with zero network.
 
 ### 2.1 Process split
 
 **Main process (`operator-shell/src/main/`)** owns everything durable and hardware-facing:
-
 - `queue/` — SQLite durable write queue (better-sqlite3, WAL mode)
 - `sync/` — replay engine + reference-data cache refresher
 - `lan/` — WebSocket server for KDS fallback (§2.5)
@@ -117,15 +111,15 @@ The SoW calls it "a wrapper around the same web application" — contractually t
 - `kiosk/` — window policy, single-instance lock, auto-update
 - `station.ts` — station identity: `station_id` (e.g. `TILL1`, `DESK1`, `KDS1`) from `station.json` written by the installer; role of the machine, not the human
 
-**Renderer (the `apps/operator` SPA)** is pure UI + Supabase client for _reads and realtime only_. **All writes that must survive an outage go through IPC to the main-process queue — even when online.** One write path, exercised every day, so degraded mode is not a separate code path that rots.
+**Renderer (the `apps/operator` SPA)** is pure UI + Supabase client for *reads and realtime only*. **All writes that must survive an outage go through IPC to the main-process queue — even when online.** One write path, exercised every day, so degraded mode is not a separate code path that rots.
 
 **Preload bridge** (`contextBridge.exposeInMainWorld('touch', …)`), typed from `@touch/core/schemas`:
 
 ```ts
 interface TouchBridge {
   enqueue(m: MutationEnvelope): Promise<{ localId: string; state: 'queued' }>;
-  onQueueUpdate(cb: (s: QueueStatus) => void): Unsub; // depth, degraded flag, conflicts
-  onLanTicket(cb: (t: KitchenTicket) => void): Unsub; // KDS fallback feed
+  onQueueUpdate(cb: (s: QueueStatus) => void): Unsub;     // depth, degraded flag, conflicts
+  onLanTicket(cb: (t: KitchenTicket) => void): Unsub;     // KDS fallback feed
   getCachedRef<K extends RefKey>(key: K): Promise<RefData[K]>;
   print(job: PrintJob): Promise<PrintResult>;
   unlockPin(pin: string): Promise<{ staffId: string; role: Role; grantToken: string } | null>;
@@ -172,10 +166,10 @@ The KDS machine runs the **same Electron build** with `station.json: { station_i
 
 Normal operation: KDS subscribes to Supabase Realtime for tickets. Fallback subsystem in the **till's** main process:
 
-- **Protocol:** WebSocket server, `ws://<till>:47810`, JSON frames `{ type: 'ticket.new'|'ticket.snapshot'|'status.update', seq, data }`. Till pushes every kitchen-bound mutation it enqueues; KDS sends `status.update` (item ready / ticket complete) frames back, which the till enqueues into _its_ SQLite queue on the KDS's behalf (single-writer preserved — only the till machine owns the durable queue).
+- **Protocol:** WebSocket server, `ws://<till>:47810`, JSON frames `{ type: 'ticket.new'|'ticket.snapshot'|'status.update', seq, data }`. Till pushes every kitchen-bound mutation it enqueues; KDS sends `status.update` (item ready / ticket complete) frames back, which the till enqueues into *its* SQLite queue on the KDS's behalf (single-writer preserved — only the till machine owns the durable queue).
 - **Discovery:** static IP in `station.json` (venue LAN, 2 machines — mDNS/bonjour is a nice-to-have, static IP is the week-3 install reality; spec the till's DHCP reservation in the hardware document).
 - **Security:** pre-shared key generated at install, stored in both `station.json` files; WS handshake `Authorization: Bearer <psk>`; server binds to LAN interface only. Threat model is a venue LAN — PSK + non-routable bind is proportionate; the security reviewer signs off.
-- **Failover logic on KDS:** connect the LAN socket _always_ (it's cheap); render from Supabase Realtime while healthy; when heartbeat state says degraded (or Supabase socket drops >15 s), switch source to LAN feed, request `ticket.snapshot` to resync. On recovery, Realtime resumes and dedupes by ticket `client_ref`.
+- **Failover logic on KDS:** connect the LAN socket *always* (it's cheap); render from Supabase Realtime while healthy; when heartbeat state says degraded (or Supabase socket drops >15 s), switch source to LAN feed, request `ticket.snapshot` to resync. On recovery, Realtime resumes and dedupes by ticket `client_ref`.
 
 ### 2.5 Kiosk behavior
 
@@ -210,7 +204,6 @@ CREATE TABLE degraded_periods (
 ```
 
 **Till-driven, server-enforced:**
-
 1. Till main process POSTs `heartbeat` edge function every **10 s** (`station_id`, queue depth, app version). Function updates `venue_status.last_heartbeat_at` and, if mode was `degraded`, flips to `normal` and closes the open `degraded_periods` row.
 2. **Detection is server-side**: a `pg_cron` job every 15 s (or the heartbeat function evaluated lazily — chosen: **`pg_cron` every 15 s** so it fires even with zero traffic): if `now() - last_heartbeat_at > 30s` and mode = normal → set `degraded`, open a `degraded_periods` row.
 3. **Guest write refusal is in the database, not the UI**: the `create_reservation(...)` and `create_cafe_order(...)` SECURITY DEFINER functions (the only write paths RLS grants to guests) begin with:
@@ -221,18 +214,18 @@ CREATE TABLE degraded_periods (
    ```
    Cafe orders/waiter calls: blocked entirely while degraded. Reservations: blocked only inside the horizon — a booking for next Saturday proceeds.
 4. Clients map `P0DEG` to the contractual UX: mobile shows the venue phone number; web tells the guest to see a member of staff; both keep read views alive.
-5. **Recovery:** first successful heartbeat flips mode back _but_ guest writes for the horizon stay refused until the till reports `queue_depth = 0` in its heartbeat (add `writes_unlocked_at`) — prevents a guest booking racing an unreplayed offline booking. The replay conflict path (§2.2) covers the residual seconds-wide window; the SoW explicitly does not claim zero.
+5. **Recovery:** first successful heartbeat flips mode back *but* guest writes for the horizon stay refused until the till reports `queue_depth = 0` in its heartbeat (add `writes_unlocked_at`) — prevents a guest booking racing an unreplayed offline booking. The replay conflict path (§2.2) covers the residual seconds-wide window; the SoW explicitly does not claim zero.
 
 ---
 
 ## 4. Auth & Session Architecture
 
-| Client           | Identity                            | Mechanism                                                                                          |
-| ---------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Mobile           | Guest account                       | Supabase email+password, email verify, refresh tokens in `expo-secure-store`                       |
-| Web (public)     | Anonymous or optional guest sign-in | Supabase anonymous sign-in when a table token is presented; optional email sign-in attaches orders |
-| Web (cafe table) | **Anonymous table session**         | See below                                                                                          |
-| Operator         | Staff account + PIN escalation      | See below                                                                                          |
+| Client | Identity | Mechanism |
+|---|---|---|
+| Mobile | Guest account | Supabase email+password, email verify, refresh tokens in `expo-secure-store` |
+| Web (public) | Anonymous or optional guest sign-in | Supabase anonymous sign-in when a table token is presented; optional email sign-in attaches orders |
+| Web (cafe table) | **Anonymous table session** | See below |
+| Operator | Staff account + PIN escalation | See below |
 
 **Cafe anonymous table session:** guest scans QR → `GET /t/{table_token}` → Next.js middleware verifies token signature (§6.2), calls `supabase.auth.signInAnonymously()`, then edge function `table-token` **stamps the table binding into the anonymous session** via `auth.admin.updateUserById` app_metadata: `{ table_id, table_session_exp }`. RLS then authorizes without trusting client input:
 
@@ -243,10 +236,9 @@ CREATE POLICY guest_read_own_orders ON orders FOR SELECT
      AND table_id = (auth.jwt() -> 'app_metadata' ->> 'table_id')::uuid
      AND (auth.jwt() -> 'app_metadata' ->> 'table_session_exp')::timestamptz > now());
 ```
-
 Order creation and waiter call go through SECURITY DEFINER RPCs (`create_cafe_order`, `raise_waiter_call`) that re-check binding expiry, degraded mode, and per-table rate limits (waiter calls: max 1 open call per table per reason). Binding expiry = configurable inactivity window stored on `tables.session_ttl` (default 3 h); the token itself also expires (§6.2). Anonymous session cookie is Supabase's standard `sb-*` cookie via `@supabase/ssr`.
 
-**Staff on shared tills:** the _machine_ signs in once with a station Supabase account (role `station`, near-zero table grants — reads of menu/tickets only, realtime). Every **write** carries a human: staff enter their PIN → main process verifies against `pin_cache` (argon2id) → issues a short-lived local grant (renderer state, 5 min idle timeout for cashier actions). The queued mutation payload includes `staff_id` + a `pin_proof` (HMAC over idempotency_key with a per-staff server-shared secret rotated when PIN changes); the replay function verifies proof server-side and stamps `actor_id` — so an audit-log actor can't be forged by a compromised renderer, and PIN unlock still works offline. **Sensitive actions** (discount, void, price override, refund, reservation override, stock adjustment) additionally require a fresh PIN entry (no idle grant) and a `reason_code`, and the RPCs write `audit_log(actor_id, action, entity, before jsonb, after jsonb, reason_code, station_id, at)` — `audit_log` has INSERT-only RLS, no UPDATE/DELETE policies for anyone, including managers.
+**Staff on shared tills:** the *machine* signs in once with a station Supabase account (role `station`, near-zero table grants — reads of menu/tickets only, realtime). Every **write** carries a human: staff enter their PIN → main process verifies against `pin_cache` (argon2id) → issues a short-lived local grant (renderer state, 5 min idle timeout for cashier actions). The queued mutation payload includes `staff_id` + a `pin_proof` (HMAC over idempotency_key with a per-staff server-shared secret rotated when PIN changes); the replay function verifies proof server-side and stamps `actor_id` — so an audit-log actor can't be forged by a compromised renderer, and PIN unlock still works offline. **Sensitive actions** (discount, void, price override, refund, reservation override, stock adjustment) additionally require a fresh PIN entry (no idle grant) and a `reason_code`, and the RPCs write `audit_log(actor_id, action, entity, before jsonb, after jsonb, reason_code, station_id, at)` — `audit_log` has INSERT-only RLS, no UPDATE/DELETE policies for anyone, including managers.
 
 **Roles:** `staff_members(id, auth_user_id, display_name, role text CHECK (role IN ('cashier','prep','court_desk','manager','owner')), pin_hash, active)`. Role checks in RLS via a `current_staff_role()` helper; hierarchy encoded in a lookup, not in string comparisons. Owner manages staff via operator admin screens (owner-only policies).
 
@@ -256,16 +248,16 @@ Order creation and waiter call go through SECURITY DEFINER RPCs (`create_cafe_or
 
 One venue, low fan-out — bias to **postgres_changes** (simple, RLS-enforced) except where RLS rows aren't visible to the subscriber.
 
-| Event                       | Mechanism                                                                          | Channel/filter                                                                | Subscriber auth         |
-| --------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------- |
-| New/updated kitchen tickets | postgres_changes on `order_tickets`                                                | `station` role has SELECT on tickets                                          | operator (KDS, till)    |
-| Guest order status          | **broadcast** from `order_status_broadcast()` trigger → channel `table:{table_id}` | private channel; Realtime authorization policy checks `app_metadata.table_id` | web guest               |
-| Waiter calls                | postgres_changes on `waiter_calls`                                                 | staff-only SELECT                                                             | operator floor view     |
-| Freed/held court slots      | broadcast → channel `availability:{date}` (payload: court_id, range, state)        | public read; no PII in payload                                                | mobile, operator desk   |
-| Menu/availability edits     | postgres_changes on `menu_items`, `item_availability`                              | anon SELECT already granted                                                   | web, operator ref-cache |
-| Venue mode changes          | postgres_changes on `venue_status`                                                 | anon SELECT (single row, no secrets)                                          | all three clients       |
+| Event | Mechanism | Channel/filter | Subscriber auth |
+|---|---|---|---|
+| New/updated kitchen tickets | postgres_changes on `order_tickets` | `station` role has SELECT on tickets | operator (KDS, till) |
+| Guest order status | **broadcast** from `order_status_broadcast()` trigger → channel `table:{table_id}` | private channel; Realtime authorization policy checks `app_metadata.table_id` | web guest |
+| Waiter calls | postgres_changes on `waiter_calls` | staff-only SELECT | operator floor view |
+| Freed/held court slots | broadcast → channel `availability:{date}` (payload: court_id, range, state) | public read; no PII in payload | mobile, operator desk |
+| Menu/availability edits | postgres_changes on `menu_items`, `item_availability` | anon SELECT already granted | web, operator ref-cache |
+| Venue mode changes | postgres_changes on `venue_status` | anon SELECT (single row, no secrets) | all three clients |
 
-Guest order status uses broadcast because the guest's RLS view is scoped to `created_by = auth.uid()` yet status flips are written by staff — broadcast from a trigger avoids fragile RLS-on-replication edge cases and leaks nothing (payload: order client_ref + status only). Freed slots use broadcast because holds/blocks rows aren't guest-visible but their _absence_ is what the grid needs.
+Guest order status uses broadcast because the guest's RLS view is scoped to `created_by = auth.uid()` yet status flips are written by staff — broadcast from a trigger avoids fragile RLS-on-replication edge cases and leaks nothing (payload: order client_ref + status only). Freed slots use broadcast because holds/blocks rows aren't guest-visible but their *absence* is what the grid needs.
 
 ---
 
@@ -274,17 +266,16 @@ Guest order status uses broadcast because the guest's RLS view is scoped to `cre
 ### 6.1 Arabic thermal receipts (raster)
 
 Pipeline lives entirely in the Electron **main** process:
-
 1. Renderer sends `PrintJob` (structured bill data, not markup) over IPC.
 2. Main renders `receipt.html` (**Lama Sans** inlined as base64 woff2 — the document is a `data:` URL with no origin, so a served font path would not resolve, and one family covers a bilingual bill; CSS logical properties, width fixed to printer dots — 576 px for 80 mm/203 dpi, 384 px for 58 mm) in a **hidden offscreen BrowserWindow** → `webContents.printToPDF`? No — `capturePage()` → PNG. Chromium does the Arabic shaping/bidi; the printer never sees text.
 3. PNG → 1-bit dither (`sharp` threshold) → ESC/POS `GS v 0` raster command via `node-thermal-printer`/raw socket or USB (`escpos-usb`).
 4. Print jobs are queued in SQLite too (`print_queue`), so a paper-out doesn't lose a bill; reprint from till UI.
 
-**Week-1 deliverable to client (add to chase list): printer spec** — 80 mm ESC/POS thermal, 203 dpi, USB **and** Ethernet interfaces, `GS v 0` raster support, Windows driver optional (we write raw). Named acceptable models: Epson TM-T20III, Xprinter XP-80C class. Cash drawer RJ11 kick via printer (drawer-open pulse `ESC p` — SoW records drawer _opening record_, not control, but the pulse is free if the drawer is printer-connected).
+**Week-1 deliverable to client (add to chase list): printer spec** — 80 mm ESC/POS thermal, 203 dpi, USB **and** Ethernet interfaces, `GS v 0` raster support, Windows driver optional (we write raw). Named acceptable models: Epson TM-T20III, Xprinter XP-80C class. Cash drawer RJ11 kick via printer (drawer-open pulse `ESC p` — SoW records drawer *opening record*, not control, but the pulse is free if the drawer is printer-connected).
 
 ### 6.2 QR table token
 
-- Format: `https://<domain>/t/{token}` where token = **compact JWS (ES256)**, claims `{ tid: <table_uuid>, ver: <rotation int>, iat }`. No expiry in the _printed_ token (a printed card can't refresh); expiry is enforced by comparing `ver` to `tables.token_version` and by the session-binding TTL (§4).
+- Format: `https://<domain>/t/{token}` where token = **compact JWS (ES256)**, claims `{ tid: <table_uuid>, ver: <rotation int>, iat }`. No expiry in the *printed* token (a printed card can't refresh); expiry is enforced by comparing `ver` to `tables.token_version` and by the session-binding TTL (§4).
 - Rotation: manager bumps `tables.token_version` in operator admin → old QR verifies signature but fails `ver` check → "ask staff for the new code". Reissue print-ready artwork (a `qr-artwork` script in `packages/db/seed` renders SVG/PDF per table in Touch Cafe branding).
 - Signing key: ES256 private key held only in the `table-token` edge function secrets; public key baked into web middleware for stateless verification. Verification also confirms the table exists + is active before minting the anonymous binding.
 
@@ -308,25 +299,25 @@ Pipeline lives entirely in the Electron **main** process:
 
 **Env management:**
 
-| App          | Local                                         | Staging                        | Prod                                      |
-| ------------ | --------------------------------------------- | ------------------------------ | ----------------------------------------- |
-| web          | `.env.local` (supabase start URLs)            | Vercel env (preview)           | Vercel env (production) — client Supabase |
-| mobile       | `.env` via `app.config.ts`                    | `eas.json` staging profile env | production profile env                    |
-| operator     | `station.json` + build-time `import.meta.env` | staging release channel        | prod release channel                      |
-| db/functions | `supabase/functions/.env`                     | dashboard secrets              | dashboard secrets                         |
+| App | Local | Staging | Prod |
+|---|---|---|---|
+| web | `.env.local` (supabase start URLs) | Vercel env (preview) | Vercel env (production) — client Supabase |
+| mobile | `.env` via `app.config.ts` | `eas.json` staging profile env | production profile env |
+| operator | `station.json` + build-time `import.meta.env` | staging release channel | prod release channel |
+| db/functions | `supabase/functions/.env` | dashboard secrets | dashboard secrets |
 
 Only `EXPO_PUBLIC_`/`NEXT_PUBLIC_`/`VITE_` anon keys and public OAuth client identifiers ship to clients; service-role key exists solely in edge function secrets and CI (`db-migrate.yml`). An `env.ts` zod-validated loader in each app fails fast on missing vars.
 
 **Mobile public env, per profile** (`apps/mobile/.env.example` documents the local shape; `eas.json` carries the staging/production values):
 
-| Var                                                          | What it is                                                                                                                                                                                                       | Unset ⇒                                                                                                                                                                                                              |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase project URL + anon key — public by design, RLS is the protection                                                                                                                                        | `src/lib/supabase.ts` surfaces a config error (never a module-scope throw)                                                                                                                                           |
-| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`                           | Google **Web** OAuth client id (social sign-in, vendor addition 2026-09-01). Passed to the native SDK and also the `aud` of Android id tokens; listed first in Supabase → Auth → Providers → Google → Client IDs | Google button hidden                                                                                                                                                                                                 |
-| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`                           | Google **iOS** OAuth client id; its reversal is the iOS URL scheme the config plugin needs (derived in `app.config.ts`, no third var); listed second in Supabase                                                 | Google button hidden; `expo start` / `expo export` warn and skip the plugin; an **EAS build fails at config time**                                                                                                   |
-| `EXPO_PUBLIC_PHONE_OTP`                                      | Phone OTP feature flag (dormant vendor-addition scaffold 2026-09-05). Only the literal `on` enables; read in ONE place, `src/features/auth/phoneOtp.ts` (guarded by `reliability.test.ts`)                       | Default / anything else = off: no "Continue with phone" button, no Verify-phone row, the two OTP screens redirect away. `eas.json` carries `off` in every profile until `docs/client/phone-otp-activation.md` is run |
+| Var | What it is | Unset ⇒ |
+|---|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase project URL + anon key — public by design, RLS is the protection | `src/lib/supabase.ts` surfaces a config error (never a module-scope throw) |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google **Web** OAuth client id (social sign-in, vendor addition 2026-09-01). Passed to the native SDK and also the `aud` of Android id tokens; listed first in Supabase → Auth → Providers → Google → Client IDs | Google button hidden |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | Google **iOS** OAuth client id; its reversal is the iOS URL scheme the config plugin needs (derived in `app.config.ts`, no third var); listed second in Supabase | Google button hidden; `expo start` / `expo export` warn and skip the plugin; an **EAS build fails at config time** |
+| `EXPO_PUBLIC_PHONE_OTP` | Phone OTP feature flag (dormant vendor-addition scaffold 2026-09-05). Only the literal `on` enables; read in ONE place, `src/features/auth/phoneOtp.ts` (guarded by `reliability.test.ts`) | Default / anything else = off: no "Continue with phone" button, no Verify-phone row, the two OTP screens redirect away. `eas.json` carries `off` in every profile until `docs/client/phone-otp-activation.md` is run |
 
-Both Google values are **public identifiers, not secrets** (the Web client _secret_ stays in the Google Cloud console and is unused by the native id-token flow — `API.md` §9). Apple needs no env: the bundle id is its client id, and the button is hidden in Expo Go on Android because Apple is iOS-only by decision.
+Both Google values are **public identifiers, not secrets** (the Web client *secret* stays in the Google Cloud console and is unused by the native id-token flow — `API.md` §9). Apple needs no env: the bundle id is its client id, and the button is hidden in Expo Go on Android because Apple is iOS-only by decision.
 
 ---
 
@@ -349,7 +340,6 @@ Both Google values are **public identifiers, not secrets** (the Web client _secr
 - **W4:** stock module (user: ledger/FEFO/variance SQL; FE devs: stock UI), LAN KDS fallback, kiosk hardening, store submission, disconnection drill, load test. Fallback per SoW priority order: batch expiry gives way first, then queue polish slips into review weeks.
 
 ### Critical Files for Implementation
-
 - `packages/db/supabase/migrations/0001_foundations.sql` (roles, staff, RLS helpers, audit_log)
 - `packages/db/supabase/migrations/0002_reservations.sql` (EXCLUDE USING gist, holds, rate rules)
 - `apps/operator-shell/src/main/queue.ts` — SQLite durable queue. **NOT a replay engine**: as

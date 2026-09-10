@@ -43,49 +43,23 @@ export function ConversionBars({ bands, f }: { bands: readonly PriceBandSales[];
           >
             <span>{label(band)}</span>
             <span style={{ color: 'var(--tp-muted-fg)' }}>
-              {f.pct(band.convPctCapped)} · {f.num(band.views)}{' '}
-              {tr('analytics.conversion.views').toLowerCase()}
+              {f.pct(band.convPctCapped)} · {f.num(band.views)} {tr('analytics.conversion.views').toLowerCase()}
             </span>
           </button>
-          <div
-            style={{
-              background: 'var(--tp-surface)',
-              borderRadius: '0.25rem',
-              blockSize: '0.9rem',
-              marginBlockStart: '0.2rem',
-            }}
-          >
-            <div
-              style={{
-                inlineSize: `${Math.min(100, band.convPctCapped)}%`,
-                blockSize: '100%',
-                background: BLUE,
-                borderRadius: '0.25rem',
-              }}
-            />
+          <div style={{ background: 'var(--tp-surface)', borderRadius: '0.25rem', blockSize: '0.9rem', marginBlockStart: '0.2rem' }}>
+            <div style={{ inlineSize: `${Math.min(100, band.convPctCapped)}%`, blockSize: '100%', background: BLUE, borderRadius: '0.25rem' }} />
           </div>
           {band.soldWithoutView > 0 && (
             <div style={{ marginBlockStart: '0.25rem' }}>
-              <StatusBadge
-                size="sm"
-                tone="warn"
-                label={`${tr('analytics.conversion.soldWithoutView')}: ${f.num(band.soldWithoutView)}`}
-              />
+              <StatusBadge size="sm" tone="warn" label={`${tr('analytics.conversion.soldWithoutView')}: ${f.num(band.soldWithoutView)}`} />
             </div>
           )}
           {open === band.band && (
-            <ul
-              style={{
-                margin: '0.4rem 0 0',
-                paddingInlineStart: '1rem',
-                fontSize: 'var(--tp-fs-xs)',
-                color: 'var(--tp-muted-fg)',
-              }}
-            >
+            <ul style={{ margin: '0.4rem 0 0', paddingInlineStart: '1rem', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
               {band.items.slice(0, 8).map((item) => (
                 <li key={item.id}>
-                  {pickLocale({ en: item.nameEn, ar: item.nameAr }, locale) || item.id} —{' '}
-                  {f.num(item.views)} / {f.num(item.sold)}
+                  {pickLocale({ en: item.nameEn, ar: item.nameAr }, locale) || item.id} — {f.num(item.views)} /{' '}
+                  {f.num(item.sold)}
                 </li>
               ))}
             </ul>

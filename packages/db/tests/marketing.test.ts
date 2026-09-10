@@ -33,12 +33,9 @@ describe.skipIf(!up)('0073 marketing', () => {
   });
 
   afterAll(async () => {
-    if (madeCampaigns.length)
-      await svc.from('marketing_sends').delete().in('campaign_id', madeCampaigns);
-    if (madeCampaigns.length)
-      await svc.from('marketing_campaigns').delete().in('id', madeCampaigns);
-    if (madeAudiences.length)
-      await svc.from('marketing_audiences').delete().in('id', madeAudiences);
+    if (madeCampaigns.length) await svc.from('marketing_sends').delete().in('campaign_id', madeCampaigns);
+    if (madeCampaigns.length) await svc.from('marketing_campaigns').delete().in('id', madeCampaigns);
+    if (madeAudiences.length) await svc.from('marketing_audiences').delete().in('id', madeAudiences);
   });
 
   async function newCampaign(args: Record<string, unknown> = {}) {
@@ -71,9 +68,7 @@ describe.skipIf(!up)('0073 marketing', () => {
     madeAudiences.push(res.data as unknown as string);
 
     const all = outcome(await appRpc(owner, 'marketing_audience_reach', { p_rule: {} }));
-    const arabic = outcome(
-      await appRpc(owner, 'marketing_audience_reach', { p_rule: { lang: 'ar' } }),
-    );
+    const arabic = outcome(await appRpc(owner, 'marketing_audience_reach', { p_rule: { lang: 'ar' } }));
     expect(all.ok, all.errorMessage).toBe(true);
     // An empty rule constrains nothing, so it can only be a superset.
     expect(Number(all.data)).toBeGreaterThanOrEqual(Number(arabic.data));
@@ -107,9 +102,7 @@ describe.skipIf(!up)('0073 marketing', () => {
     // ...and performance refuses BEFORE its NOT_FOUND lookup, so it cannot be
     // used as an oracle to enumerate campaign ids.
     const perf = outcome(
-      await appRpc(guest, 'marketing_campaign_performance', {
-        p_campaign: madeCampaigns[0] ?? crypto.randomUUID(),
-      }),
+      await appRpc(guest, 'marketing_campaign_performance', { p_campaign: madeCampaigns[0] ?? crypto.randomUUID() }),
     );
     expect(perf.ok).toBe(false);
     expect(perf.errorMessage).toContain('FORBIDDEN');
@@ -155,34 +148,19 @@ describe.skipIf(!up)('0073 marketing', () => {
     // Regression: this used to fail as a raw check-constraint violation, which
     // carries no P0001 code, so the operator was told "something went wrong"
     // about a campaign whose real problem is an empty message.
-    const made = await newCampaign({
-      p_name_en: 'Empty',
-      p_name_ar: 'فارغة',
-      p_body_en: '',
-      p_body_ar: '',
-    });
+    const made = await newCampaign({ p_name_en: 'Empty', p_name_ar: 'فارغة', p_body_en: '', p_body_ar: '' });
     expect(made.ok, made.errorMessage).toBe(true);
     const res = outcome(
-      await appRpc(owner, 'set_campaign_status', {
-        p_id: made.data as unknown as string,
-        p_status: 'scheduled',
-      }),
+      await appRpc(owner, 'set_campaign_status', { p_id: made.data as unknown as string, p_status: 'scheduled' }),
     );
     expect(res.ok).toBe(false);
     expect(res.errorMessage).toContain('BODY_REQUIRED');
   });
 
   it('refuses to send a campaign with no start date', async () => {
-    const made = await newCampaign({
-      p_name_en: 'Undated',
-      p_name_ar: 'بلا تاريخ',
-      p_starts_at: null,
-    });
+    const made = await newCampaign({ p_name_en: 'Undated', p_name_ar: 'بلا تاريخ', p_starts_at: null });
     const res = outcome(
-      await appRpc(owner, 'set_campaign_status', {
-        p_id: made.data as unknown as string,
-        p_status: 'scheduled',
-      }),
+      await appRpc(owner, 'set_campaign_status', { p_id: made.data as unknown as string, p_status: 'scheduled' }),
     );
     expect(res.ok).toBe(false);
     expect(res.errorMessage).toContain('START_REQUIRED');
@@ -193,9 +171,7 @@ describe.skipIf(!up)('0073 marketing', () => {
     const id = made.data as unknown as string;
 
     // draft cannot jump straight to live.
-    const jump = outcome(
-      await appRpc(owner, 'set_campaign_status', { p_id: id, p_status: 'live' }),
-    );
+    const jump = outcome(await appRpc(owner, 'set_campaign_status', { p_id: id, p_status: 'live' }));
     expect(jump.ok).toBe(false);
     expect(jump.errorMessage).toContain('BAD_TRANSITION');
 
@@ -204,9 +180,7 @@ describe.skipIf(!up)('0073 marketing', () => {
       expect(res.ok, `${step}: ${res.errorMessage}`).toBe(true);
     }
     // Ended is terminal.
-    const revive = outcome(
-      await appRpc(owner, 'set_campaign_status', { p_id: id, p_status: 'live' }),
-    );
+    const revive = outcome(await appRpc(owner, 'set_campaign_status', { p_id: id, p_status: 'live' }));
     expect(revive.ok).toBe(false);
   });
 
@@ -252,17 +226,12 @@ describe.skipIf(!up)('0073 marketing', () => {
     // an owner nothing. Every existing migration uses an entity-specific code
     // (TAB_NOT_FOUND, COUNT_NOT_FOUND, ...); these follow that.
     const missing = crypto.randomUUID();
-    const campaign = outcome(
-      await appRpc(owner, 'set_campaign_status', { p_id: missing, p_status: 'scheduled' }),
-    );
+    const campaign = outcome(await appRpc(owner, 'set_campaign_status', { p_id: missing, p_status: 'scheduled' }));
     expect(campaign.errorMessage).toContain('CAMPAIGN_NOT_FOUND');
 
     const audience = outcome(
       await appRpc(owner, 'save_marketing_audience', {
-        p_id: missing,
-        p_name_en: 'x',
-        p_name_ar: 'س',
-        p_rule: {},
+        p_id: missing, p_name_en: 'x', p_name_ar: 'س', p_rule: {},
       }),
     );
     expect(audience.errorMessage).toContain('AUDIENCE_NOT_FOUND');
@@ -270,10 +239,7 @@ describe.skipIf(!up)('0073 marketing', () => {
 
   it('refuses a direct client write', async () => {
     const res = await owner.from('marketing_campaigns').insert({
-      name_en: 'direct',
-      name_ar: 'مباشر',
-      channel: 'telegram',
-      created_by: null,
+      name_en: 'direct', name_ar: 'مباشر', channel: 'telegram', created_by: null,
     });
     expect(res.error).not.toBeNull();
   });

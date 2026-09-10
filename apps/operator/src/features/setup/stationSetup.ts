@@ -75,23 +75,11 @@ export type SetupAction =
 export const initialSetupState: SetupState = { step: 'mode' };
 
 function details(mode: StationMode): DetailsState {
-  return {
-    step: 'details',
-    mode,
-    stationId: suggestStationId(mode),
-    code: '',
-    host: '',
-    showAdvanced: false,
-  };
+  return { step: 'details', mode, stationId: suggestStationId(mode), code: '', host: '', showAdvanced: false };
 }
 
 /** Field-level validity of the details form. */
-export function detailsValidity(d: DetailsState): {
-  stationId: boolean;
-  code: boolean;
-  host: boolean;
-  all: boolean;
-} {
+export function detailsValidity(d: DetailsState): { stationId: boolean; code: boolean; host: boolean; all: boolean } {
   const stationId = isValidStationId(d.stationId);
   const code = d.mode !== 'kds' || isPairingCode(d.code);
   const host = d.mode !== 'kds' || d.host === '' || isValidIpv4(d.host);
@@ -123,8 +111,7 @@ export function setupReducer(state: SetupState, action: SetupAction): SetupState
           return { step: 'mode' };
         case 'confirm': {
           if (!detailsValidity(state).all) return state;
-          if (state.mode !== 'kds')
-            return { step: 'saving', details: state, request: requestFor(state) };
+          if (state.mode !== 'kds') return { step: 'saving', details: state, request: requestFor(state) };
           return { step: 'scanning', details: state };
         }
         default:
@@ -147,11 +134,7 @@ export function setupReducer(state: SetupState, action: SetupAction): SetupState
         case 'no-lan':
           return { step: 'notFound', details: state.details, reason: 'no-lan' };
         default:
-          return {
-            step: 'notFound',
-            details: state.details,
-            reason: state.details.host ? 'unreachable' : 'none',
-          };
+          return { step: 'notFound', details: state.details, reason: state.details.host ? 'unreachable' : 'none' };
       }
 
     case 'choose':
@@ -177,9 +160,7 @@ export function setupReducer(state: SetupState, action: SetupAction): SetupState
       }
 
     case 'saving':
-      return action.type === 'saveFailed'
-        ? { step: 'failed', details: state.details, error: action.error }
-        : state;
+      return action.type === 'saveFailed' ? { step: 'failed', details: state.details, error: action.error } : state;
 
     case 'failed':
       if (action.type === 'retry') return state.details;
@@ -191,7 +172,5 @@ export function setupReducer(state: SetupState, action: SetupAction): SetupState
 /** Offered only when staff typed an address and it did not answer: the till
  *  may simply be off right now, and the client reconnects forever. */
 export function canSaveAnyway(state: SetupState): boolean {
-  return (
-    state.step === 'notFound' && state.reason === 'unreachable' && isValidIpv4(state.details.host)
-  );
+  return state.step === 'notFound' && state.reason === 'unreachable' && isValidIpv4(state.details.host);
 }

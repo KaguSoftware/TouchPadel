@@ -70,10 +70,7 @@ export function templateUnits(text: string): number {
 }
 
 /** The hook error body GoTrue understands. */
-export function hookError(
-  httpCode: number,
-  message: string,
-): { error: { http_code: number; message: string } } {
+export function hookError(httpCode: number, message: string): { error: { http_code: number; message: string } } {
   return { error: { http_code: httpCode, message } };
 }
 

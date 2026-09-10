@@ -12,7 +12,7 @@ and the only one with a hard external deadline: **store submission Wed 2026-09-1
 The audit found the app's **data layer and pure logic are genuinely good** — `assemble.ts`,
 `logic.ts`, `errors.ts` and the RPC bindings are well-typed, correctly modelled against the
 migrations, and unit-tested. The **presentation layer is a wireframe** (the code says so
-itself: `src/components/ui.tsx:2` — _"visual polish is FE1's later"_), and **everything the
+itself: `src/components/ui.tsx:2` — *"visual polish is FE1's later"*), and **everything the
 SOW attaches around booking is missing or broken**: push never reaches a device, court photos
 have neither a renderer nor a storage bucket, there is no profile screen, no account deletion,
 no Sentry, no app icon, and no EAS project.
@@ -42,7 +42,7 @@ file is **literally 0 bytes**. So `detectPrng()` succeeds at module-init and ret
 that calls `nodeCrypto.randomBytes` on `{}` → **`TypeError` on every slot hold**.
 
 The unit tests pass precisely because `vitest.config.ts` sets `environment: 'node'`, where
-`require('crypto')` is real. _The tests are green because they do not run on the target runtime._
+`require('crypto')` is real. *The tests are green because they do not run on the target runtime.*
 
 Fix: `react-native-get-random-values@~1.11.0` imported before anything touching `@touch/core`
 (note `packages/core/src/index.ts` does `export * from './schemas/mutations'`, so **every**
@@ -63,20 +63,20 @@ Both need the **hosted** project's Auth redirect allow-list updated, not just `c
 
 ### 1.3 Correctness defects in shipped code
 
-| #   | Defect                                                                                                                                                                                                                      | Location                                    |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| a   | Reads `venue_phone`; the column is **`phone`** (0026:824-838) → the contractual degraded-mode phone number (SOW L676-678) never renders. Hidden by an `as` cast that discarded the generated type.                          | `app/(app)/confirm.tsx:55`                  |
-| b   | `CLOSED_DATE` / `OUTSIDE_HOURS` (raised by `app.assert_bookable`, wired into `hold_slot` by 0042:139) are absent from `CODE_TO_KEY` → both render "Something went wrong". Touches SOW L319.                                 | `src/features/booking/errors.ts`            |
-| c   | Only `isLoading` is checked, never `isError` → **a network failure renders as a legitimate empty state** ("No courts are available right now"). Two of three main screens silently lie.                                     | `app/(app)/index.tsx:22`, `bookings.tsx:65` |
-| d   | Retry calls `day.refetch`, which refetches 1 of the 5 queries that can set `isError` → if courts/rates/settings fail, Retry does nothing, forever.                                                                          | `app/(app)/availability.tsx:144`            |
-| e   | **Idempotency is decorative** — a fresh ULID is minted inside the mutationFn per attempt, so `hold_slot`'s dedupe (0008:191-197) can never fire. A timeout that committed server-side then retried creates a _second_ hold. | `src/lib/idempotency.ts`                    |
-| f   | Abandoning confirm **leaks the slot hold** for the full `hold_ttl_seconds` (300 s) — Cancel just calls `router.back()`, and there is no `release_hold` RPC in the schema at all.                                            | `app/(app)/confirm.tsx:109`                 |
-| g   | No `queryClient.clear()` on sign-out → account B sees account A's cached `my-bookings`.                                                                                                                                     | `src/lib/queryClient.ts`                    |
-| h   | Whole Supabase session stored in `expo-secure-store`, which has a **~2048-byte per-value limit**, with no chunking adapter or size guard → the classic silent "randomly logged out".                                        | `src/lib/supabase.ts:18-22`                 |
-| i   | No `AppState` wiring for `startAutoRefresh`/`stopAutoRefresh`; no `onlineManager`/`focusManager` for TanStack Query (netinfo not installed).                                                                                | `src/lib/supabase.ts`, `queryClient.ts`     |
-| j   | Modal missing `onRequestClose` → **Android hardware back is trapped**; backdrop is a non-pressable `View`.                                                                                                                  | `app/(app)/availability.tsx:201`            |
-| k   | No error boundary anywhere, no crash reporting. `formatIQD` throws on any non-integer at 4 unguarded call sites → white screen.                                                                                             | app-wide                                    |
-| l   | `app.venue_mode()` / `app.is_degraded()` (guest-executable, 0021) never called — degraded state is only discovered _after_ a failed write.                                                                                  | —                                           |
+| # | Defect | Location |
+|---|---|---|
+| a | Reads `venue_phone`; the column is **`phone`** (0026:824-838) → the contractual degraded-mode phone number (SOW L676-678) never renders. Hidden by an `as` cast that discarded the generated type. | `app/(app)/confirm.tsx:55` |
+| b | `CLOSED_DATE` / `OUTSIDE_HOURS` (raised by `app.assert_bookable`, wired into `hold_slot` by 0042:139) are absent from `CODE_TO_KEY` → both render "Something went wrong". Touches SOW L319. | `src/features/booking/errors.ts` |
+| c | Only `isLoading` is checked, never `isError` → **a network failure renders as a legitimate empty state** ("No courts are available right now"). Two of three main screens silently lie. | `app/(app)/index.tsx:22`, `bookings.tsx:65` |
+| d | Retry calls `day.refetch`, which refetches 1 of the 5 queries that can set `isError` → if courts/rates/settings fail, Retry does nothing, forever. | `app/(app)/availability.tsx:144` |
+| e | **Idempotency is decorative** — a fresh ULID is minted inside the mutationFn per attempt, so `hold_slot`'s dedupe (0008:191-197) can never fire. A timeout that committed server-side then retried creates a *second* hold. | `src/lib/idempotency.ts` |
+| f | Abandoning confirm **leaks the slot hold** for the full `hold_ttl_seconds` (300 s) — Cancel just calls `router.back()`, and there is no `release_hold` RPC in the schema at all. | `app/(app)/confirm.tsx:109` |
+| g | No `queryClient.clear()` on sign-out → account B sees account A's cached `my-bookings`. | `src/lib/queryClient.ts` |
+| h | Whole Supabase session stored in `expo-secure-store`, which has a **~2048-byte per-value limit**, with no chunking adapter or size guard → the classic silent "randomly logged out". | `src/lib/supabase.ts:18-22` |
+| i | No `AppState` wiring for `startAutoRefresh`/`stopAutoRefresh`; no `onlineManager`/`focusManager` for TanStack Query (netinfo not installed). | `src/lib/supabase.ts`, `queryClient.ts` |
+| j | Modal missing `onRequestClose` → **Android hardware back is trapped**; backdrop is a non-pressable `View`. | `app/(app)/availability.tsx:201` |
+| k | No error boundary anywhere, no crash reporting. `formatIQD` throws on any non-integer at 4 unguarded call sites → white screen. | app-wide |
+| l | `app.venue_mode()` / `app.is_degraded()` (guest-executable, 0021) never called — degraded state is only discovered *after* a failed write. | — |
 
 ### 1.4 Contracted features with no implementation
 
@@ -100,9 +100,9 @@ Both need the **hosted** project's Auth redirect allow-list updated, not just `c
 
 ### 1.5 The native-feel rule is violated wholesale
 
-`HANDOFF.md:58-60` (owner, 2026-08-24): _"if it can look/behave native in React Native, it must —
+`HANDOFF.md:58-60` (owner, 2026-08-24): *"if it can look/behave native in React Native, it must —
 bottom tabs via expo-router `Tabs`, native stack with platform back gestures/transitions, platform
-pickers/switches/action sheets. No web-styled custom nav."_
+pickers/switches/action sheets. No web-styled custom nav."*
 
 Grep counts across `app/` + `src/`: **`Tabs` 0 · `ActionSheetIOS` 0 · `Switch` 0 · `Platform.` 0 ·
 `Haptics` 0 · `Animated`/`Reanimated` 0 · `RefreshControl` 0 · `useColorScheme` 0 · SafeArea/insets
@@ -160,7 +160,7 @@ minimum, with zero `hitSlop` to compensate.
   its own `.env.example` header ("values from `supabase start`"). Anyone running
   `pnpm --filter @touch/mobile dev` is writing to the client's database. Given roadmap item 6 is
   "real data over fixtures", this is an active foot-gun. (The anon key itself is public-by-design and
-  correctly gitignored — this is about the _target_, not a leak.)
+  correctly gitignored — this is about the *target*, not a leak.)
 
 ---
 
@@ -172,25 +172,24 @@ sections 3–5 can compensate for starting these late.
 ### 2.1 THE DATE RISK: Google Play
 
 I verified the rule directly. **The 12-testers-for-14-continuous-days requirement applies only
-to _personal_ developer accounts created after 2023-11-13. Organization accounts are exempt.**
+to *personal* developer accounts created after 2023-11-13. Organization accounts are exempt.**
 
 The arithmetic from today (2026-08-27):
 
-| Path                     | Requirement                                                                                                                                                                                            | Earliest production-eligible                           | Verdict                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| **Personal account**     | 12 real testers on real devices, opted in **continuously** 14 days, clock starts only after the closed-testing release is _approved_; then apply for production access, Google review "7 days or less" | 14 days → **2026-09-10**, + review → **~2026-09-17**   | **Misses 09-16.** Marginal even against the 09-18 hard stop. Any tester dropping out **resets the counter to zero**.       |
-| **Organization account** | Exempt from the tester rule, but requires a **D-U-N-S number** + business verification. D-U-N-S takes _up to 30 days, averaging 4–8 weeks_; Google then needs up to 7 days to receive it               | Only viable **if Kagu already holds a D-U-N-S number** | **If Kagu has a D-U-N-S: viable (verification has completed in ~33 h with docs ready). If not: misses the date outright.** |
+| Path | Requirement | Earliest production-eligible | Verdict |
+|---|---|---|---|
+| **Personal account** | 12 real testers on real devices, opted in **continuously** 14 days, clock starts only after the closed-testing release is *approved*; then apply for production access, Google review "7 days or less" | 14 days → **2026-09-10**, + review → **~2026-09-17** | **Misses 09-16.** Marginal even against the 09-18 hard stop. Any tester dropping out **resets the counter to zero**. |
+| **Organization account** | Exempt from the tester rule, but requires a **D-U-N-S number** + business verification. D-U-N-S takes *up to 30 days, averaging 4–8 weeks*; Google then needs up to 7 days to receive it | Only viable **if Kagu already holds a D-U-N-S number** | **If Kagu has a D-U-N-S: viable (verification has completed in ~33 h with docs ready). If not: misses the date outright.** |
 
-**The contractual escape hatch.** SOW L789-790: _"acceptance of the mobile app is on **submission
-of a working build**, not on store approval."_ An upload to Play's **internal testing track** is a
+**The contractual escape hatch.** SOW L789-790: *"acceptance of the mobile app is on **submission
+of a working build**, not on store approval."* An upload to Play's **internal testing track** is a
 submission of a working build. It requires no tester rule and no production access. So the
 contract can be satisfied on time for Android even if public availability slips.
 
 **Recommended action today, in this order:**
-
 1. Ask Kagu whether it already has a **D-U-N-S number**. This single fact decides the Android path.
 2. If yes → enrol the Play account as an **organization**, submit D-U-N-S immediately. Exempt.
-3. If no → enrol as **personal** _and start closed testing with 12 testers the same day_ as a
+3. If no → enrol as **personal** *and start closed testing with 12 testers the same day* as a
    hedge, while requesting a D-U-N-S in parallel (free, but request it today regardless).
 4. Either way, plan **iOS-first submission** and treat Android production availability as a
    follow-on, restating SOW L789-790 to Mustafa on the next client call so the expectation is set
@@ -198,16 +197,16 @@ contract can be satisfied on time for Android even if public availability slips.
 
 ### 2.2 Other day-zero items
 
-| #   | Item                                                                                                                                                                                                                                                                                                                                                                                                                      | Owner       | Lead time             | Blocking?                |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | --------------------- | ------------------------ |
-| 1   | **`eas init`** — no `.expo/`, no `extra.eas.projectId` (a literal TODO at `app.config.ts:29`), no `owner` field. Nothing can be built at all. Set `owner` to the Kagu org **before** running it, or the project binds to whoever ran it. `design-delivery.md:100` scheduled this Week 1 Day 1 as _"cannot slip"_ — it is now day 4+.                                                                                      | Dev         | minutes               | **YES — total**          |
-| 2   | Google Play enrolment per §2.1                                                                                                                                                                                                                                                                                                                                                                                            | Owner       | days–weeks            | **YES (Android)**        |
-| 3   | Confirm the Apple Developer membership is active and note the **Team ID** + App Store Connect app record (create the app record early; `ascAppId` is needed for `eas submit`)                                                                                                                                                                                                                                             | Owner       | ~1 day                | **YES (iOS)**            |
-| 4   | **FCM V1 service-account JSON** for Android push (upload to EAS as a credential). None exists anywhere in the repo; `API.md` has zero mentions of Apple/Google/FCM/EAS. Without it Android push silently fails in production.                                                                                                                                                                                             | Dev + Owner | ~1 h once Play exists | YES (push)               |
-| 5   | **APNs key** for iOS push (EAS can generate it given Apple access)                                                                                                                                                                                                                                                                                                                                                        | Dev         | minutes               | YES (push)               |
-| 6   | **Domain decision** — still blocked on Mustafa (HANDOFF.md:206-210). Gates the **privacy-policy URL**, which is a hard store requirement for both platforms, _and_ Universal Links. **Fallback if unresolved by 2026-09-05: publish the privacy policy on the existing `touch-padel-web.vercel.app` domain** and submit against that; a policy URL only has to resolve, it does not have to be on the final brand domain. | Owner       | client-blocked        | **YES — has a fallback** |
-| 7   | Real Supabase env values for the three `eas.json` profiles (all are `REPLACE_*` today; `production` points at `https://REPLACE-TOUCH-PROD-REF.supabase.co`). Cutline explicitly allows submitting against Kagu staging if Touch's project isn't live.                                                                                                                                                                     | Dev         | minutes               | **YES**                  |
-| 8   | **Demo account seeded with a future booking** for App Review notes — reviewers _will_ reject an app they cannot sign into. `staff` still holds only `Dev` seed rows.                                                                                                                                                                                                                                                      | Dev         | ~1 h                  | **YES**                  |
+| # | Item | Owner | Lead time | Blocking? |
+|---|---|---|---|---|
+| 1 | **`eas init`** — no `.expo/`, no `extra.eas.projectId` (a literal TODO at `app.config.ts:29`), no `owner` field. Nothing can be built at all. Set `owner` to the Kagu org **before** running it, or the project binds to whoever ran it. `design-delivery.md:100` scheduled this Week 1 Day 1 as *"cannot slip"* — it is now day 4+. | Dev | minutes | **YES — total** |
+| 2 | Google Play enrolment per §2.1 | Owner | days–weeks | **YES (Android)** |
+| 3 | Confirm the Apple Developer membership is active and note the **Team ID** + App Store Connect app record (create the app record early; `ascAppId` is needed for `eas submit`) | Owner | ~1 day | **YES (iOS)** |
+| 4 | **FCM V1 service-account JSON** for Android push (upload to EAS as a credential). None exists anywhere in the repo; `API.md` has zero mentions of Apple/Google/FCM/EAS. Without it Android push silently fails in production. | Dev + Owner | ~1 h once Play exists | YES (push) |
+| 5 | **APNs key** for iOS push (EAS can generate it given Apple access) | Dev | minutes | YES (push) |
+| 6 | **Domain decision** — still blocked on Mustafa (HANDOFF.md:206-210). Gates the **privacy-policy URL**, which is a hard store requirement for both platforms, *and* Universal Links. **Fallback if unresolved by 2026-09-05: publish the privacy policy on the existing `touch-padel-web.vercel.app` domain** and submit against that; a policy URL only has to resolve, it does not have to be on the final brand domain. | Owner | client-blocked | **YES — has a fallback** |
+| 7 | Real Supabase env values for the three `eas.json` profiles (all are `REPLACE_*` today; `production` points at `https://REPLACE-TOUCH-PROD-REF.supabase.co`). Cutline explicitly allows submitting against Kagu staging if Touch's project isn't live. | Dev | minutes | **YES** |
+| 8 | **Demo account seeded with a future booking** for App Review notes — reviewers *will* reject an app they cannot sign into. `staff` still holds only `Dev` seed rows. | Dev | ~1 h | **YES** |
 
 ---
 
@@ -229,8 +228,8 @@ React `19.0.0` is **exact-pinned in four places** and `@types/react` `~19.0.10` 
 - `packages/ui/package.json` (devDep)
 
 Bumping only `apps/mobile` makes pnpm either fail the pins or nest a second `react@19.1.0` under
-`apps/mobile/node_modules` — which in React Native produces _"Invalid hook call / two copies of
-React"_ at runtime, with Metro's flat resolution making the winner non-deterministic.
+`apps/mobile/node_modules` — which in React Native produces *"Invalid hook call / two copies of
+React"* at runtime, with Metro's flat resolution making the winner non-deterministic.
 
 **This is one atomic commit touching all four `package.json` files.** Compatibility checked:
 `apps/web` runs Next 16.3 whose react peer range accepts `^19.0.0`, so 19.1.0 is fine;
@@ -240,7 +239,7 @@ React"_ at runtime, with Metro's flat resolution making the winner non-determini
 Verification gate after the bump: `pnpm turbo typecheck test` must stay green **for web and
 operator as well as mobile** before any further mobile work lands.
 
-### 3.2 Also fix two ranges that are wrong _today_
+### 3.2 Also fix two ranges that are wrong *today*
 
 Independent of the upgrade, `expo-constants: ~17.0.0` and `expo-linking: ~7.0.0` are **SDK 52**
 ranges. They resolved to 17.0.8 / 7.0.5 while the root hoisted `expo-constants@17.1.8`, producing
@@ -256,33 +255,33 @@ which is itself evidence it has never been run.
 
 **Add — correctness and platform (all bundled in Expo Go, so the fast loop survives):**
 
-| Package                                     | Version    | Why                                                                                                                     |
-| ------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `react-native-get-random-values`            | `~1.11.0`  | **Fixes the §1.1 crash.**                                                                                               |
-| `expo-localization`                         | `~17.0.9`  | Device locale on first launch + the config plugin that actually carries `supportsRTL` (§1.7).                           |
-| `expo-splash-screen`                        | `~31.0.13` | Required for any splash on SDK 53+.                                                                                     |
-| `expo-font`                                 | `~14.0.12` | Brand fonts; Arabic currently renders in the system face.                                                               |
-| `expo-system-ui`                            | `~6.0.9`   | Root background colour under edge-to-edge.                                                                              |
-| `expo-updates`                              | `~29.0.20` | Makes the `eas.json` `channel` values real; SOW L165 OTA.                                                               |
-| `expo-application`                          | `~7.0.8`   | App version in Settings; Sentry release tagging.                                                                        |
-| `expo-web-browser`                          | `~15.0.11` | In-app privacy policy / terms (store requirement).                                                                      |
-| `@react-native-community/netinfo`           | `11.4.1`   | TanStack `onlineManager` — pause instead of fail offline.                                                               |
-| `@react-native-async-storage/async-storage` | `2.2.0`    | Move the **locale preference** off SecureStore (keychain is the wrong store for a non-secret) and back the query cache. |
+| Package | Version | Why |
+|---|---|---|
+| `react-native-get-random-values` | `~1.11.0` | **Fixes the §1.1 crash.** |
+| `expo-localization` | `~17.0.9` | Device locale on first launch + the config plugin that actually carries `supportsRTL` (§1.7). |
+| `expo-splash-screen` | `~31.0.13` | Required for any splash on SDK 53+. |
+| `expo-font` | `~14.0.12` | Brand fonts; Arabic currently renders in the system face. |
+| `expo-system-ui` | `~6.0.9` | Root background colour under edge-to-edge. |
+| `expo-updates` | `~29.0.20` | Makes the `eas.json` `channel` values real; SOW L165 OTA. |
+| `expo-application` | `~7.0.8` | App version in Settings; Sentry release tagging. |
+| `expo-web-browser` | `~15.0.11` | In-app privacy policy / terms (store requirement). |
+| `@react-native-community/netinfo` | `11.4.1` | TanStack `onlineManager` — pause instead of fail offline. |
+| `@react-native-async-storage/async-storage` | `2.2.0` | Move the **locale preference** off SecureStore (keychain is the wrong store for a non-secret) and back the query cache. |
 
 **Add — native look & feel:**
 
-| Package                                             | Version               | Replaces                                                                                           |
-| --------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------- |
-| `expo-symbols`                                      | `~1.0.8`              | SF Symbols on iOS — the app currently has **no icon set at all**.                                  |
-| `expo-image`                                        | `~3.0.11`             | The hardcoded `"TP"` text glyph; court photos.                                                     |
-| `expo-haptics`                                      | `~15.0.8`             | Slot select, booking confirm, cancel.                                                              |
-| `react-native-reanimated`                           | `~4.1.1`              | All motion. **Requires a new `react-native-worklets` peer and forces creating `babel.config.js`.** |
-| `react-native-gesture-handler`                      | `~2.28.0`             | Sheet drags; reanimated/bottom-sheet peer.                                                         |
-| `@react-native-community/datetimepicker`            | `8.4.4`               | The hand-rolled horizontal date chip strip.                                                        |
-| `@react-native-segmented-control/segmented-control` | `2.5.7`               | The two `<Text onPress>` language pills (native `UISegmentedControl` on iOS).                      |
-| `@gorhom/bottom-sheet`                              | latest                | The `<Modal transparent>` duration picker (pure JS over reanimated + GH → works in Expo Go).       |
-| `react-native-svg`                                  | `15.12.1`             | Brand marks.                                                                                       |
-| `expo-blur` / `expo-glass-effect`                   | `~15.0.8` / `~0.1.10` | Optional iOS 26 polish — **not on the critical path.**                                             |
+| Package | Version | Replaces |
+|---|---|---|
+| `expo-symbols` | `~1.0.8` | SF Symbols on iOS — the app currently has **no icon set at all**. |
+| `expo-image` | `~3.0.11` | The hardcoded `"TP"` text glyph; court photos. |
+| `expo-haptics` | `~15.0.8` | Slot select, booking confirm, cancel. |
+| `react-native-reanimated` | `~4.1.1` | All motion. **Requires a new `react-native-worklets` peer and forces creating `babel.config.js`.** |
+| `react-native-gesture-handler` | `~2.28.0` | Sheet drags; reanimated/bottom-sheet peer. |
+| `@react-native-community/datetimepicker` | `8.4.4` | The hand-rolled horizontal date chip strip. |
+| `@react-native-segmented-control/segmented-control` | `2.5.7` | The two `<Text onPress>` language pills (native `UISegmentedControl` on iOS). |
+| `@gorhom/bottom-sheet` | latest | The `<Modal transparent>` duration picker (pure JS over reanimated + GH → works in Expo Go). |
+| `react-native-svg` | `15.12.1` | Brand marks. |
+| `expo-blur` / `expo-glass-effect` | `~15.0.8` / `~0.1.10` | Optional iOS 26 polish — **not on the critical path.** |
 
 **Requires an EAS dev build (not Expo Go):** `@sentry/react-native`, `expo-dev-client@~6.0.21`,
 `expo-build-properties@~1.0.10`, and **push notification testing** (push does not work in Expo Go
@@ -293,7 +292,7 @@ on SDK 53+).
 - **`apps/mobile/metro.config.js`** — `watchFolders = [workspaceRoot]` + `nodeModulesPaths`.
   Explicitly do **not** set `disableHierarchicalLookup`: that is for the isolated linker and would
   break the flat root lookup this repo uses. Without this, editing `packages/*` does not hot-reload.
-- **`apps/mobile/babel.config.js`** — currently absent and _currently fine_ (`@expo/metro-config`
+- **`apps/mobile/babel.config.js`** — currently absent and *currently fine* (`@expo/metro-config`
   falls back to `babel-preset-expo`), but reanimated 4 / `react-native-worklets` forces it.
 - **`apps/mobile/eslint.config.js`** — `import { base, react } from '@touch/config/eslint'`. The
   preset is **already written** (`packages/config/src/eslint.js`, 4191 bytes, includes the RTL
@@ -336,7 +335,7 @@ tab**:
 **Decision needed — `NativeTabs` vs `Tabs`.** SDK 54 ships `NativeTabs` from
 `expo-router/unstable-native-tabs` (SwiftUI `TabView` on iOS, incl. liquid-glass tabs and
 scroll-to-top on tab press). It is genuinely native and exactly what the owner's rule asks for —
-**but Expo documents it as _alpha_, "API subject to change", and on Android icons require custom
+**but Expo documents it as *alpha*, "API subject to change", and on Android icons require custom
 `drawable` resources, which do not exist in Expo Go.**
 
 Recommendation: **spike `NativeTabs` on day 1 behind a single `_layout.tsx`** so swapping to the
@@ -346,20 +345,20 @@ and revisit after submission. Do not let an alpha API sit on the critical path t
 
 ### 4.2 Component-by-component replacement
 
-| Today                                                                                                      | Becomes                                                                                                                                         |
-| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<Modal transparent animationType="fade">` duration picker, **no `onRequestClose`** (Android back trapped) | `@gorhom/bottom-sheet` or native action sheet, with in-flight state on the _correct_ control and slots disabled while the hold RPC is in flight |
-| Horizontal `ScrollView` of `Pressable` date chips (~25 pt tall)                                            | `@react-native-community/datetimepicker` + a segmented week strip, ≥44 pt targets                                                               |
-| Two `<Text onPress>` language pills, duplicated in 2 files                                                 | `@react-native-segmented-control/segmented-control`, extracted to one component                                                                 |
-| Push opt-in `<Button>` with state never hydrated from `profiles.expo_push_token`                           | RN `<Switch>`, hydrated via the currently-dead `fetchOwnProfile`                                                                                |
-| Hardcoded `"TP"` text glyph                                                                                | `expo-image` + a new `court-media` bucket (§5)                                                                                                  |
-| `ScrollView` + nested `.map`, ~450 unvirtualized `Pressable`s                                              | `FlatList`/`FlashList`, memoised rows, `useMemo` on the per-cell reduce                                                                         |
-| No icons anywhere                                                                                          | `expo-symbols` (iOS) / `@expo/vector-icons` (Android)                                                                                           |
-| No motion                                                                                                  | `react-native-reanimated` — hold countdown, list transitions, sheet                                                                             |
-| No feedback                                                                                                | `expo-haptics` on slot select / confirm / cancel                                                                                                |
-| Bare `<View>` `Screen`                                                                                     | `SafeAreaView` + insets — **mandatory** under SDK 54 forced Android edge-to-edge                                                                |
-| No refresh                                                                                                 | `RefreshControl` on Courts + My Bookings; skeletons instead of bare spinners                                                                    |
-| Errors rendered as empty states                                                                            | Distinct `ErrorState` with a retry that refetches **all** failed queries                                                                        |
+| Today | Becomes |
+|---|---|
+| `<Modal transparent animationType="fade">` duration picker, **no `onRequestClose`** (Android back trapped) | `@gorhom/bottom-sheet` or native action sheet, with in-flight state on the *correct* control and slots disabled while the hold RPC is in flight |
+| Horizontal `ScrollView` of `Pressable` date chips (~25 pt tall) | `@react-native-community/datetimepicker` + a segmented week strip, ≥44 pt targets |
+| Two `<Text onPress>` language pills, duplicated in 2 files | `@react-native-segmented-control/segmented-control`, extracted to one component |
+| Push opt-in `<Button>` with state never hydrated from `profiles.expo_push_token` | RN `<Switch>`, hydrated via the currently-dead `fetchOwnProfile` |
+| Hardcoded `"TP"` text glyph | `expo-image` + a new `court-media` bucket (§5) |
+| `ScrollView` + nested `.map`, ~450 unvirtualized `Pressable`s | `FlatList`/`FlashList`, memoised rows, `useMemo` on the per-cell reduce |
+| No icons anywhere | `expo-symbols` (iOS) / `@expo/vector-icons` (Android) |
+| No motion | `react-native-reanimated` — hold countdown, list transitions, sheet |
+| No feedback | `expo-haptics` on slot select / confirm / cancel |
+| Bare `<View>` `Screen` | `SafeAreaView` + insets — **mandatory** under SDK 54 forced Android edge-to-edge |
+| No refresh | `RefreshControl` on Courts + My Bookings; skeletons instead of bare spinners |
+| Errors rendered as empty states | Distinct `ErrorState` with a retry that refetches **all** failed queries |
 
 ### 4.3 Token layer
 
@@ -370,11 +369,11 @@ string stop being bundled into the app. Fix `slotColors.booked` (**~1.9:1 — a 
 failure**) and pull `held`/`blocked` from `statusVars` instead of the two hardcoded off-palette hexes.
 
 Add a non-colour encoding for slot state (icon or pattern) — colour-alone fails WCAG 1.4.1 — plus
-`accessibilityLabel`/`accessibilityState` on slot cells, which today announce as _"5:30 PM, 40,000
-IQD, button"_ with no court, no duration and no state.
+`accessibilityLabel`/`accessibilityState` on slot cells, which today announce as *"5:30 PM, 40,000
+IQD, button"* with no court, no duration and no state.
 
 Keep `userInterfaceStyle: 'light'` for submission (the `@touch/ui` palette has no dark variant), but
-**fix `<StatusBar style="auto" />` → `"dark"`** — `auto` reads the _system_ scheme, so on a
+**fix `<StatusBar style="auto" />` → `"dark"`** — `auto` reads the *system* scheme, so on a
 dark-mode phone it paints light glyphs onto the app's permanently-white background: an invisible
 status bar on every dark-mode device today.
 
@@ -392,12 +391,12 @@ remain the documented swap point.
 Four gaps need **migrations or edge functions**, not just client code. These are the items most
 likely to be discovered late, because the mobile audit is where they surface.
 
-| #   | Work                                                        | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **`app.delete_account()` RPC + edge function**              | **Apple Guideline 5.1.1(v) is an automatic rejection** for any app that creates accounts. Nothing exists: zero hits for `delete_account` across all 47 migrations, no edge function, and not even a string in the i18n catalogs. Needs a `SECURITY DEFINER` RPC that anonymises/cascades the guest's `profiles` row and reservations per the retention policy, plus a service-role edge function calling `auth.admin.deleteUser`. Flagged by the team's own `design-critique.md:51` as _"unbudgeted-but-required"_. |
-| 2   | **`court-media` storage bucket + `set_court_photo` RPC**    | SOW L299 requires court photographs. Only `menu-media` exists (0031:290). Needs a bucket, `storage.objects` policies (public read, staff write), a `set_court_photo` RPC, and an operator admin UI to upload — mirroring the existing menu-photo pattern, including the lesson from 0027 that photo writes get their **own** RPC so the day-1 photo-wipe bug cannot recur.                                                                                                                                          |
-| 3   | **`app.release_hold()` RPC**                                | Abandoning the confirm screen currently blocks the slot for the full 300 s TTL for every other guest. No release path exists in the schema. Needs an RPC callable by the hold's owner, plus a client `beforeRemove` guard.                                                                                                                                                                                                                                                                                          |
-| 4   | **Supabase Auth redirect allow-list on the HOSTED project** | `touchpadel://reset-password` must be added to the Auth URL configuration, and `signUp` must pass `emailRedirectTo`. This is a _dashboard_ change on `lczijabnorujcgmbuqlw`, not a `config.toml` edit — so it needs a Claude-in-Chrome prompt per the project's standing practice (`docs/client/chrome-agent-prompt.md`). Without it, password reset and email verification stay broken on device regardless of client code.                                                                                        |
+| # | Work | Detail |
+|---|---|---|
+| 1 | **`app.delete_account()` RPC + edge function** | **Apple Guideline 5.1.1(v) is an automatic rejection** for any app that creates accounts. Nothing exists: zero hits for `delete_account` across all 47 migrations, no edge function, and not even a string in the i18n catalogs. Needs a `SECURITY DEFINER` RPC that anonymises/cascades the guest's `profiles` row and reservations per the retention policy, plus a service-role edge function calling `auth.admin.deleteUser`. Flagged by the team's own `design-critique.md:51` as *"unbudgeted-but-required"*. |
+| 2 | **`court-media` storage bucket + `set_court_photo` RPC** | SOW L299 requires court photographs. Only `menu-media` exists (0031:290). Needs a bucket, `storage.objects` policies (public read, staff write), a `set_court_photo` RPC, and an operator admin UI to upload — mirroring the existing menu-photo pattern, including the lesson from 0027 that photo writes get their **own** RPC so the day-1 photo-wipe bug cannot recur. |
+| 3 | **`app.release_hold()` RPC** | Abandoning the confirm screen currently blocks the slot for the full 300 s TTL for every other guest. No release path exists in the schema. Needs an RPC callable by the hold's owner, plus a client `beforeRemove` guard. |
+| 4 | **Supabase Auth redirect allow-list on the HOSTED project** | `touchpadel://reset-password` must be added to the Auth URL configuration, and `signUp` must pass `emailRedirectTo`. This is a *dashboard* change on `lczijabnorujcgmbuqlw`, not a `config.toml` edit — so it needs a Claude-in-Chrome prompt per the project's standing practice (`docs/client/chrome-agent-prompt.md`). Without it, password reset and email verification stay broken on device regardless of client code. |
 
 Also client-side but schema-adjacent: **wire `app.venue_mode()`** (guest-executable since 0021 and
 never called) so degraded mode shows a proactive banner with the venue phone number, rather than
@@ -432,25 +431,25 @@ i18n: **both catalogs need new keys** — verified absent from `en.ts` and `ar.t
 
 ### 6.2 Suggested sequencing to 2026-09-16
 
-| Window                  | Work                                                                                                                                                                                                                                           |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Today**               | §2 day-zero unblocks — `eas init`, Play/D-U-N-S decision, Apple team ID, real env values. These have external lead time; everything else can be done in parallel afterwards.                                                                   |
-| **Days 1–3**            | Crash fix (§1.1) + SDK 54 atomic upgrade (§3) + `metro.config.js`/`babel.config.js`/eslint wiring. Gate: `expo-doctor` clean, `pnpm turbo lint typecheck test` green across **all four** packages, `expo export` succeeds. `NativeTabs` spike. |
-| **Days 4–8**            | Native UI rebuild (§4) — tabs, sheets, pickers, safe areas, icons, images, haptics, refresh, skeletons, tokens, fonts, a11y.                                                                                                                   |
-| **Days 4–8 (parallel)** | Backend work (§5) — account deletion, `court-media`, `release_hold`, hosted Auth redirect URLs.                                                                                                                                                |
-| **Days 9–12**           | Correctness defects (§1.3), profile screen, push wired end-to-end **on a dev build** (push cannot be tested in Expo Go), Sentry, degraded banner.                                                                                              |
-| **Days 13–16**          | Store assets, listings EN+AR, screenshots in both languages, privacy labels + Data Safety, review notes + demo account, Arabic on-device pass, builds, submit.                                                                                 |
-| **Buffer**              | 09-16 → 09-18 hard stop; SOW weeks 5–6 are held for review/fixes.                                                                                                                                                                              |
+| Window | Work |
+|---|---|
+| **Today** | §2 day-zero unblocks — `eas init`, Play/D-U-N-S decision, Apple team ID, real env values. These have external lead time; everything else can be done in parallel afterwards. |
+| **Days 1–3** | Crash fix (§1.1) + SDK 54 atomic upgrade (§3) + `metro.config.js`/`babel.config.js`/eslint wiring. Gate: `expo-doctor` clean, `pnpm turbo lint typecheck test` green across **all four** packages, `expo export` succeeds. `NativeTabs` spike. |
+| **Days 4–8** | Native UI rebuild (§4) — tabs, sheets, pickers, safe areas, icons, images, haptics, refresh, skeletons, tokens, fonts, a11y. |
+| **Days 4–8 (parallel)** | Backend work (§5) — account deletion, `court-media`, `release_hold`, hosted Auth redirect URLs. |
+| **Days 9–12** | Correctness defects (§1.3), profile screen, push wired end-to-end **on a dev build** (push cannot be tested in Expo Go), Sentry, degraded banner. |
+| **Days 13–16** | Store assets, listings EN+AR, screenshots in both languages, privacy labels + Data Safety, review notes + demo account, Arabic on-device pass, builds, submit. |
+| **Buffer** | 09-16 → 09-18 hard stop; SOW weeks 5–6 are held for review/fixes. |
 
 ### 6.3 Top risks
 
-| Risk                                                                                | Mitigation                                                                                                                                                                                          | Decide by  |
-| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| **Google Play tester rule / D-U-N-S lead time makes Android production impossible** | Confirm D-U-N-S today; hedge with a personal account + 12 testers started immediately; lean on SOW L789-790 (acceptance is on _submission_, and an internal-track upload qualifies); plan iOS-first | **Today**  |
-| Domain unresolved → no privacy-policy URL → no listing                              | Publish the policy on the existing `vercel.app` domain and submit against it                                                                                                                        | 2026-09-05 |
-| `NativeTabs` is alpha; Android drawables don't exist in Expo Go                     | Spike day 1 behind a one-file swap to stable `Tabs`                                                                                                                                                 | Day 2      |
-| React 19.1 bump breaks `apps/web` or `apps/operator`                                | One atomic commit, full `turbo` gate across all four packages before anything else lands                                                                                                            | Day 3      |
-| Hermes `Intl` renders Arabic prices/times wrong — invisible to CI                   | Mandatory on-device Arabic pass; consider pinning formatting to explicit helpers                                                                                                                    | Day 14     |
+| Risk | Mitigation | Decide by |
+|---|---|---|
+| **Google Play tester rule / D-U-N-S lead time makes Android production impossible** | Confirm D-U-N-S today; hedge with a personal account + 12 testers started immediately; lean on SOW L789-790 (acceptance is on *submission*, and an internal-track upload qualifies); plan iOS-first | **Today** |
+| Domain unresolved → no privacy-policy URL → no listing | Publish the policy on the existing `vercel.app` domain and submit against it | 2026-09-05 |
+| `NativeTabs` is alpha; Android drawables don't exist in Expo Go | Spike day 1 behind a one-file swap to stable `Tabs` | Day 2 |
+| React 19.1 bump breaks `apps/web` or `apps/operator` | One atomic commit, full `turbo` gate across all four packages before anything else lands | Day 3 |
+| Hermes `Intl` renders Arabic prices/times wrong — invisible to CI | Mandatory on-device Arabic pass; consider pinning formatting to explicit helpers | Day 14 |
 
 ### 6.4 Verification
 
@@ -474,27 +473,21 @@ against the migration files, not inferred.
 ### 7.1 Account deletion is blocked by a foreign key, not just by missing UI
 
 `packages/db/supabase/migrations/20260824000004_*.sql:9`
-
 ```sql
 id uuid primary key references auth.users(id) on delete cascade
 ```
-
 `packages/db/supabase/migrations/20260824000008_reservations.sql:21`
-
 ```sql
 guest_id uuid references profiles(id),          -- NO on-delete clause -> NO ACTION
 ```
-
 So `auth.admin.deleteUser(uid)` cascades into `profiles`, which then **fails with a foreign-key
 violation for any guest who has ever booked**. And the row cannot simply be nulled either, because
 line 38 of the same file has:
-
 ```sql
 check (kind <> 'booking' or (guest_id is not null or guest_name is not null))
 ```
 
 **A migration is mandatory before any deletion path can work at all.** The shape:
-
 1. `alter table reservations ... foreign key (guest_id) references profiles(id) on delete set null;`
 2. The RPC must **snapshot `profiles.full_name`/`phone` into `reservations.guest_name`/`guest_phone`
    before** the guest row is nulled, or the check constraint fires.
@@ -508,13 +501,11 @@ Google Play's Data Safety form also asks for a **web-accessible account-deletion
 ### 7.2 `cancel_reservation` cannot be reused to release a hold
 
 `20260824000008_reservations.sql:600-605` — for a non-staff caller:
-
 ```sql
 select cancellation_window_hours into v_window from venue_settings;
 if v.start_at < now() + make_interval(hours => coalesce(v_window, 12)) then
   raise exception 'CANCELLATION_WINDOW' ...
 ```
-
 Releasing a hold for **tonight** is by definition inside the default 12-hour window, so the existing
 RPC raises instead of releasing. `app.release_hold(p_reservation_id uuid)` is genuinely new work:
 own-hold guard, `app.lock_court`, set `status = 'expired'`, audit — after which the 0022 realtime
@@ -537,7 +528,7 @@ trigger broadcasts `slot_changed` and other guests see the slot free immediately
 > and holds never expire. `pg_dump` cannot show `cron.job` (extension-owned), so run
 > `select jobname, schedule, active from cron.job;` in Studio — expect 6 rows.
 
-`HANDOFF.md` Day-3 records _"All four edge functions deployed"_ and names them:
+`HANDOFF.md` Day-3 records *"All four edge functions deployed"* and names them:
 `telegram-send`, `telegram-callback`, `analytics-posthog`, `analytics-insights`.
 **`send-push` is not among them** — nor is `replay`.
 
@@ -551,11 +542,9 @@ cron that would drain `notification_outbox` does not exist. Fixing only the clie
 nothing observable.
 
 Verify with:
-
 ```sql
 select jobname, schedule, active from cron.job;
 ```
-
 and `supabase functions list --linked`.
 
 ---
@@ -569,30 +558,29 @@ and `supabase functions list --linked`.
 that can be reasoned about locally. The deterministic fix is a new `apps/mobile/index.js`:
 
 ```js
-import 'react-native-get-random-values'; // MUST be first — seeds global.crypto.getRandomValues
+import 'react-native-get-random-values';   // MUST be first — seeds global.crypto.getRandomValues
 import 'expo-router/entry';
 ```
-
 with `"main": "index.js"`.
 
 Add a second, independent layer in `src/lib/idempotency.ts` by seeding the generator explicitly
 (`factory(prng)` over `expo-crypto.getRandomValues`) so the failure cannot silently return if the
 import order is ever disturbed — and guard the order itself with a pure vitest that reads
 `index.js` and asserts the first import. The current failure mode is silent until a user tries to
-book, which is exactly the kind of bug that needs belt _and_ braces.
+book, which is exactly the kind of bug that needs belt *and* braces.
 
 ### 8.2 Three slot states fail contrast, not one
 
 `src/theme.ts:25-31`, measured:
 
-| state     | today                 | ratio      | fix                                                                                                           |
-| --------- | --------------------- | ---------- | ------------------------------------------------------------------------------------------------------------- |
-| `booked`  | `#BCBDBF` / `#5C5E62` | **~1.9:1** | `#E8E9EA` / `#4A4C50` + border → ~6.8:1                                                                       |
-| `past`    | `#F6F7F5` / `#BCBDBF` | **~1.6:1** | `#F6F7F5` / `#5C5E62` → ~5.9:1                                                                                |
-| `blocked` | `#8A8C90` / `#FFFFFF` | **~3.4:1** | `#5C5E62` / `#FFFFFF` → ~6.6:1                                                                                |
-| `held`    | off-palette `#F0C868` | ok         | use `statusVars['--tp-warn-bg'/'--tp-warn-fg']`, which already exist in `packages/ui/src/tokens/cafeBrand.ts` |
-| `free`    | `#A5D06F` / `#000`    | ~12:1      | keep                                                                                                          |
+| state | today | ratio | fix |
+|---|---|---|---|
+| `booked` | `#BCBDBF` / `#5C5E62` | **~1.9:1** | `#E8E9EA` / `#4A4C50` + border → ~6.8:1 |
+| `past` | `#F6F7F5` / `#BCBDBF` | **~1.6:1** | `#F6F7F5` / `#5C5E62` → ~5.9:1 |
+| `blocked` | `#8A8C90` / `#FFFFFF` | **~3.4:1** | `#5C5E62` / `#FFFFFF` → ~6.6:1 |
+| `held` | off-palette `#F0C868` | ok | use `statusVars['--tp-warn-bg'/'--tp-warn-fg']`, which already exist in `packages/ui/src/tokens/cafeBrand.ts` |
+| `free` | `#A5D06F` / `#000` | ~12:1 | keep |
 
-Colour is also the _only_ channel encoding slot state, which fails WCAG 1.4.1 independently of
+Colour is also the *only* channel encoding slot state, which fails WCAG 1.4.1 independently of
 contrast. Add a per-state glyph and `accessibilityState`, and assert the ratios in a unit test so
 this stays fixed.

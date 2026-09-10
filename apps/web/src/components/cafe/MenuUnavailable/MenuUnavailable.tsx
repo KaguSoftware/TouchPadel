@@ -23,12 +23,7 @@ export function MenuUnavailable({
       <Loader size="md" tone="onLight" />
       <h2>{tr('cafe.menuUnavailable.title')}</h2>
       <p>{tr('cafe.menuUnavailable.body')}</p>
-      <button
-        type="button"
-        className="tp-btn tp-btn--primary"
-        disabled={retrying}
-        onClick={onRetry}
-      >
+      <button type="button" className="tp-btn tp-btn--primary" disabled={retrying} onClick={onRetry}>
         {retrying ? tr('common.loading') : tr('common.retry')}
       </button>
     </section>

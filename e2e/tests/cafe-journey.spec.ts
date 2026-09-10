@@ -79,10 +79,7 @@ test.describe('guest cafe journey (EN)', () => {
     await expect(coach).toHaveCount(0, { timeout: 15_000 });
 
     // ---- item sheet: a modifier that REVEALS a nested group (0028) ---------
-    await page
-      .getByRole('button', { name: /Beef Burger/ })
-      .first()
-      .click();
+    await page.getByRole('button', { name: /Beef Burger/ }).first().click();
     const burger = page.getByRole('dialog', { name: 'Beef Burger' });
     await expect(burger).toBeVisible();
 
@@ -110,10 +107,7 @@ test.describe('guest cafe journey (EN)', () => {
     await expect(page.getByText('Added to your basket.')).toBeVisible();
 
     // ---- the featured item carries the operator's discount ----------------
-    await page
-      .getByRole('button', { name: /Kahi with Geymar/ })
-      .first()
-      .click();
+    await page.getByRole('button', { name: /Kahi with Geymar/ }).first().click();
     const kahi = page.getByRole('dialog', { name: 'Kahi with Geymar' });
     await expect(kahi.locator('.tp-itemsheet__price--list')).toContainText('8,000');
     await kahi.getByRole('button', { name: /Add to order/ }).click();
@@ -130,9 +124,7 @@ test.describe('guest cafe journey (EN)', () => {
     await expect(basket).toContainText('Ordering here is not payment');
 
     await basket.getByRole('button', { name: 'Send to waiter' }).click();
-    await expect(page.getByText('Sent — a waiter has your order.')).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(page.getByText('Sent — a waiter has your order.')).toBeVisible({ timeout: 30_000 });
 
     // ---- live status over broadcast ---------------------------------------
     await page.getByRole('button', { name: /Preparing · 1 order/ }).click();
@@ -224,10 +216,7 @@ test.describe('guest cafe journey (AR) @ar', () => {
     await coach.getByRole('button', { name: 'فهمت' }).click();
     await expect(coach).toHaveCount(0);
 
-    await page
-      .getByRole('button', { name: /برغر لحم/ })
-      .first()
-      .click();
+    await page.getByRole('button', { name: /برغر لحم/ }).first().click();
     const burger = page.getByRole('dialog', { name: 'برغر لحم' });
     await expect(burger.getByRole('group', { name: /اختر مشروبك/ })).toHaveCount(0);
     await burger.getByRole('radio', { name: /ترقية لوجبة/ }).click();
@@ -252,9 +241,7 @@ test.describe('guest cafe journey (AR) @ar', () => {
     // the product no longer has.
     await expect(basket).toContainText('الطلب هنا لا يعني الدفع');
     await basket.getByRole('button', { name: 'أرسل إلى النادل' }).click();
-    await expect(page.getByText('تم الإرسال — النادل استلم طلبك.')).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(page.getByText('تم الإرسال — النادل استلم طلبك.')).toBeVisible({ timeout: 30_000 });
 
     // Arabic live status over the same broadcast channel.
     const { ticketId } = await latestOrderForTable(svc, AR_TABLE);

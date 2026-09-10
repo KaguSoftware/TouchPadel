@@ -43,12 +43,7 @@ describe.skipIf(!up)('0078 staff PIN strength (SEC-13)', () => {
     staffId = data.user.id;
     const { error: insErr } = await svc
       .from('staff')
-      .insert({
-        id: staffId,
-        display_name: 'PIN Strength Target',
-        role: 'manager',
-        is_active: true,
-      });
+      .insert({ id: staffId, display_name: 'PIN Strength Target', role: 'manager', is_active: true });
     if (insErr) throw new Error(`staff insert: ${insErr.message}`);
   });
 

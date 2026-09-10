@@ -11,7 +11,11 @@ declare const IqdBrand: unique symbol;
 export type IQD = number & { readonly [IqdBrand]: 'IQD' };
 
 export type MoneyErrorCode =
-  'NOT_AN_INTEGER' | 'NEGATIVE_AMOUNT' | 'UNSAFE_AMOUNT' | 'INVALID_ARGUMENT' | 'SPLIT_MISMATCH';
+  | 'NOT_AN_INTEGER'
+  | 'NEGATIVE_AMOUNT'
+  | 'UNSAFE_AMOUNT'
+  | 'INVALID_ARGUMENT'
+  | 'SPLIT_MISMATCH';
 
 export class MoneyError extends Error {
   readonly code: MoneyErrorCode;

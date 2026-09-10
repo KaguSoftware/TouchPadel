@@ -22,13 +22,13 @@ cheapest fix in the entire project.
 
 ### Sheet 1: `RECIPES` — one row per product + size + ingredient
 
-| Column                    | Meaning                                             | Example                   |
-| ------------------------- | --------------------------------------------------- | ------------------------- |
-| `item_en` / `item_ar`     | Product (must match the menu file)                  | `Cappuccino` / `كابتشينو` |
-| `size_en`                 | Size (must match the menu file)                     | `Large`                   |
-| `ingredient_or_subrecipe` | Ingredient name — or a sub-recipe name from Sheet 2 | `Espresso beans`          |
-| `quantity`                | Number only                                         | `18`                      |
-| `unit`                    | `g`, `ml`, or `pc`                                  | `g`                       |
+| Column | Meaning | Example |
+|---|---|---|
+| `item_en` / `item_ar` | Product (must match the menu file) | `Cappuccino` / `كابتشينو` |
+| `size_en` | Size (must match the menu file) | `Large` |
+| `ingredient_or_subrecipe` | Ingredient name — or a sub-recipe name from Sheet 2 | `Espresso beans` |
+| `quantity` | Number only | `18` |
+| `unit` | `g`, `ml`, or `pc` | `g` |
 
 ### Sheet 2: `SUB-RECIPES` — things you prepare in batches and use inside other recipes
 
@@ -39,13 +39,13 @@ inside another sub-recipe is not supported in this phase.
 
 ### Sheet 3: `INGREDIENTS` — one row per raw ingredient you buy
 
-| Column                | Meaning / المعنى                                            | Example                           |
-| --------------------- | ----------------------------------------------------------- | --------------------------------- |
-| `name_en` / `name_ar` | Ingredient name / اسم المكون                                | `Espresso beans` / `حبوب إسبريسو` |
-| `pack_size`           | Size of one purchased pack, with unit / حجم العبوة          | `1000 g`                          |
-| `pack_cost_iqd`       | Cost of one pack, whole IQD / كلفة العبوة بالدينار          | `25000`                           |
-| `supplier`            | Who you buy it from / المورد                                | `Al-Rasheed Foods`                |
-| `shelf_life_days`     | Days it keeps after opening/delivery / مدة الصلاحية بالأيام | `90`                              |
+| Column | Meaning / المعنى | Example |
+|---|---|---|
+| `name_en` / `name_ar` | Ingredient name / اسم المكون | `Espresso beans` / `حبوب إسبريسو` |
+| `pack_size` | Size of one purchased pack, with unit / حجم العبوة | `1000 g` |
+| `pack_cost_iqd` | Cost of one pack, whole IQD / كلفة العبوة بالدينار | `25000` |
+| `supplier` | Who you buy it from / المورد | `Al-Rasheed Foods` |
+| `shelf_life_days` | Days it keeps after opening/delivery / مدة الصلاحية بالأيام | `90` |
 
 Pack size + pack cost is how the system computes the real cost of every drink and dish sold.
 Shelf life drives the expiry warnings on stock batches.

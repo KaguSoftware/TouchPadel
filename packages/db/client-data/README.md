@@ -2,12 +2,12 @@
 
 The fourth data tier, and the only one that is **Touch's own information** rather than ours:
 
-| Tier            | Path                        | Loaded by            | What it is                                                                                            |
-| --------------- | --------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- |
-| Reference       | `supabase/seed.sql`         | `supabase db reset`  | Environment-invariant: tax groups, allergens, dev staff, **and the venue config Touch has confirmed** |
-| Dev fixtures    | `fixtures/*.sql`            | `pnpm db:fixtures`   | Replaceable demo business data, every UUID prefixed `f1f7`                                            |
-| Real cafe menu  | `seeds/touch-cafe-menu.sql` | `pnpm db:menu`       | The 13-category / 72-item menu from the approved design                                               |
-| **Client data** | **`client-data/*.sql`**     | **`pnpm db:client`** | **What Touch sent us, verbatim**                                                                      |
+| Tier | Path | Loaded by | What it is |
+|---|---|---|---|
+| Reference | `supabase/seed.sql` | `supabase db reset` | Environment-invariant: tax groups, allergens, dev staff, **and the venue config Touch has confirmed** |
+| Dev fixtures | `fixtures/*.sql` | `pnpm db:fixtures` | Replaceable demo business data, every UUID prefixed `f1f7` |
+| Real cafe menu | `seeds/touch-cafe-menu.sql` | `pnpm db:menu` | The 13-category / 72-item menu from the approved design |
+| **Client data** | **`client-data/*.sql`** | **`pnpm db:client`** | **What Touch sent us, verbatim** |
 
 Reserved UUID prefix for this tier: **`70c4`** ("TOUCH"). As with `f1f7`, nothing outside this
 directory may reference a `70c4` UUID.
@@ -35,10 +35,10 @@ pack answer key quoted in a comment beside every value. A reusable JSON→SQL im
 
 ### Pack ledger
 
-| Pack                               | Answered | Landed                                                                                                                                                                                                                                                                                                                                        | Notes                                                                                                                                                                                                                 |
-| ---------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `touch-padel-pack-2026-08-29.json` | 8 / 21   | hours, cancellation window, currency, tax, phone, courts                                                                                                                                                                                                                                                                                      | `submittedAt: null`. Rates, menu, recipes, ingredients and staff all empty — see `docs/client/06-outstanding-2026-08-29.md`                                                                                           |
-| `touch-padel-pack-2026-08-30.json` | 16 / 21  | Decisions pack — no new data files derivable. Confirms every 08-29 answer unchanged (13 answers added, 0 changed). Landed as records/docs: domain `touch-padel.com`, backups decision, Kurdish no, fonts/logo/photos received via WhatsApp, printer arrived, UPS, training yes, floor count 12, approver + hosting email, 4 operational notes | `submittedAt: null`. Rates, menu, recipes and staff STILL empty — see `docs/client/07-outstanding-2026-08-30.md`. Pack answer `pitr.mode = "pitr"` was **superseded by the owner 2026-08-30**: daily backups, no PITR |
+| Pack | Answered | Landed | Notes |
+|---|---|---|---|
+| `touch-padel-pack-2026-08-29.json` | 8 / 21 | hours, cancellation window, currency, tax, phone, courts | `submittedAt: null`. Rates, menu, recipes, ingredients and staff all empty — see `docs/client/06-outstanding-2026-08-29.md` |
+| `touch-padel-pack-2026-08-30.json` | 16 / 21 | Decisions pack — no new data files derivable. Confirms every 08-29 answer unchanged (13 answers added, 0 changed). Landed as records/docs: domain `touch-padel.com`, backups decision, Kurdish no, fonts/logo/photos received via WhatsApp, printer arrived, UPS, training yes, floor count 12, approver + hosting email, 4 operational notes | `submittedAt: null`. Rates, menu, recipes and staff STILL empty — see `docs/client/07-outstanding-2026-08-30.md`. Pack answer `pitr.mode = "pitr"` was **superseded by the owner 2026-08-30**: daily backups, no PITR |
 
 > **Both pack files above are the clean Kagu OS originals** (verified UTF-8, intact Arabic),
 > copied in byte-for-byte on 2026-08-30. The mojibake that kept the 2026-08-29 pack out of the

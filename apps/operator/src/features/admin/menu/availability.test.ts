@@ -23,13 +23,7 @@ const data: StockBlockData = {
   ],
 };
 
-const latte = {
-  id: 'latte',
-  is_active: true,
-  sold_out: false,
-  unavailable_on: null,
-  menu_item_variants: [{ id: 'latte-r' }],
-};
+const latte = { id: 'latte', is_active: true, sold_out: false, unavailable_on: null, menu_item_variants: [{ id: 'latte-r' }] };
 
 describe('stockBlockFor', () => {
   it('names the ingredient that is out when the server greyed the item', () => {
@@ -39,29 +33,19 @@ describe('stockBlockFor', () => {
   });
 
   it('is not a stock block when the item is orderable', () => {
-    expect(
-      stockBlockFor({ ...latte, id: 'tea', menu_item_variants: [] }, data, '2026-09-03').blocked,
-    ).toBe(false);
+    expect(stockBlockFor({ ...latte, id: 'tea', menu_item_variants: [] }, data, '2026-09-03').blocked).toBe(false);
   });
 
   it('is not a stock block when sold out, off today or inactive explain the greying', () => {
     expect(stockBlockFor({ ...latte, sold_out: true }, data, '2026-09-03').blocked).toBe(false);
-    expect(
-      stockBlockFor({ ...latte, unavailable_on: '2026-09-03' }, data, '2026-09-03').blocked,
-    ).toBe(false);
+    expect(stockBlockFor({ ...latte, unavailable_on: '2026-09-03' }, data, '2026-09-03').blocked).toBe(false);
     expect(stockBlockFor({ ...latte, is_active: false }, data, '2026-09-03').blocked).toBe(false);
     // Off on another day does not explain today's greying.
-    expect(
-      stockBlockFor({ ...latte, unavailable_on: '2026-09-01' }, data, '2026-09-03').blocked,
-    ).toBe(true);
+    expect(stockBlockFor({ ...latte, unavailable_on: '2026-09-01' }, data, '2026-09-03').blocked).toBe(true);
   });
 
   it('reports blocked with no names when the cause is outside the direct recipe (prepared expansion)', () => {
-    const b = stockBlockFor(
-      { ...latte, id: 'cake', menu_item_variants: [{ id: 'cake-s' }] },
-      data,
-      '2026-09-03',
-    );
+    const b = stockBlockFor({ ...latte, id: 'cake', menu_item_variants: [{ id: 'cake-s' }] }, data, '2026-09-03');
     expect(b.blocked).toBe(true);
     expect(b.ingredients).toEqual([]);
   });

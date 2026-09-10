@@ -25,9 +25,7 @@ function fakeClient(opts: { uid?: string | null; updateFails?: boolean } = {}) {
   const rec: Recorded = { order: [], updates: [], eqIds: [] };
   const client = {
     auth: {
-      getUser: vi.fn(async () => ({
-        data: { user: opts.uid === null ? null : { id: opts.uid ?? 'guest-1' } },
-      })),
+      getUser: vi.fn(async () => ({ data: { user: opts.uid === null ? null : { id: opts.uid ?? 'guest-1' } } })),
       signOut: vi.fn(async () => {
         rec.order.push('signOut');
         return { error: null };

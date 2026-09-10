@@ -203,7 +203,10 @@ export function playedCount(past: readonly BookingRow[]): number {
  * The comparison is on `end_at` for the same reason the split is: a game that
  * had not finished when history was cleared is not history yet.
  */
-export function visiblePast(past: readonly BookingRow[], clearedAt: string | null): BookingRow[] {
+export function visiblePast(
+  past: readonly BookingRow[],
+  clearedAt: string | null,
+): BookingRow[] {
   if (!clearedAt) return [...past];
   const cutoff = new Date(clearedAt).getTime();
   if (!Number.isFinite(cutoff)) return [...past];

@@ -46,9 +46,7 @@ export function phoneDigits(raw: unknown): string {
  * keeps its own code and still compares with itself consistently.
  */
 export function phoneCanon(raw: unknown): string {
-  return phoneDigits(raw)
-    .replace(/^00/, '')
-    .replace(/^(964|0)/, '');
+  return phoneDigits(raw).replace(/^00/, '').replace(/^(964|0)/, '');
 }
 
 /**

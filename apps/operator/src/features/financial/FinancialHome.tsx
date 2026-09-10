@@ -25,14 +25,8 @@ import { Panel, presetPeriod } from '../../components/kit';
 import { figuresIn, mapFigures, type PanelHeadline } from '../panel/figures';
 
 type CardKey =
-  | 'revenue'
-  | 'courtIncome'
-  | 'cafeSales'
-  | 'cashDrawer'
-  | 'dayClose'
-  | 'rates'
-  | 'menuPrices'
-  | 'stockValue';
+  | 'revenue' | 'courtIncome' | 'cafeSales' | 'cashDrawer'
+  | 'dayClose' | 'rates' | 'menuPrices' | 'stockValue';
 
 export function FinancialHomeScreen() {
   const { tr, locale } = useLocale();
@@ -61,12 +55,7 @@ export function FinancialHomeScreen() {
       <Panel
         title={tr('ws.owner.financialHome.headline.title')}
         actions={
-          <Button
-            size="sm"
-            kind="ghost"
-            iconEnd="arrowUpRight"
-            onClick={() => void navigate({ to: '/panel' })}
-          >
+          <Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/panel' })}>
             {tr('ws.owner.financialHome.headline.openPanel')}
           </Button>
         }
@@ -86,13 +75,7 @@ export function FinancialHomeScreen() {
               const f = figures.get(meta.key);
               return (
                 <div key={meta.key} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-                  <dt
-                    style={{
-                      fontSize: 'var(--tp-fs-sm)',
-                      color: 'var(--tp-muted-fg)',
-                      fontWeight: 600,
-                    }}
-                  >
+                  <dt style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>
                     {tr(`ws.owner.panel.figures.${meta.key}`)}
                   </dt>
                   <dd

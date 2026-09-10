@@ -94,7 +94,8 @@ export interface ResolveQueueRowRequest {
 }
 
 export type ResolveQueueRowResult =
-  { ok: true } | { ok: false; error: 'pin not recognised' | 'not-resolvable' };
+  | { ok: true }
+  | { ok: false; error: 'pin not recognised' | 'not-resolvable' };
 
 export interface MutationEnvelope {
   /** Client entity ref: '{station}-{ulid}' (plan override #2). The station segment may
@@ -183,7 +184,8 @@ export interface StationSetupRequest {
 }
 
 export type StationSetupResult =
-  { ok: true } | { ok: false; error: 'already-configured' | 'write-failed' };
+  | { ok: true }
+  | { ok: false; error: 'already-configured' | 'write-failed' };
 
 export type PairingInfoResult =
   | { ok: true; stationId: string; host: string | null; port: number; code: string }

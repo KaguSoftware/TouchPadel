@@ -61,8 +61,7 @@ export function commandForKey(e: KeyLike, dir: Direction): KeyCommand | null {
   if (e.key === ' ' || e.code === 'Space') return { type: 'toggleItem' };
   if (e.key === 'Escape') return { type: 'clear' };
 
-  const letter =
-    e.code === 'KeyS' || e.code === 'KeyR' || e.code === 'KeyC' ? e.code.slice(3) : e.key;
+  const letter = e.code === 'KeyS' || e.code === 'KeyR' || e.code === 'KeyC' ? e.code.slice(3) : e.key;
   switch (letter.toLowerCase()) {
     case 's':
       return { type: 'status', status: 'preparing' };

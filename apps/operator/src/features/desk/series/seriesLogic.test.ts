@@ -56,9 +56,7 @@ describe('resolvedEndsOn / seriesRpcArgs', () => {
   });
   it('sends the first date weekday for weekly/fortnightly and the chosen set, sorted and unique, for weekdays', () => {
     expect(seriesRpcArgs(base).p_weekdays).toEqual([0]);
-    expect(seriesRpcArgs({ ...base, pattern: 'weekdays', weekdays: [4, 2, 2] }).p_weekdays).toEqual(
-      [2, 4],
-    );
+    expect(seriesRpcArgs({ ...base, pattern: 'weekdays', weekdays: [4, 2, 2] }).p_weekdays).toEqual([2, 4]);
     expect(seriesRpcArgs(base)).toMatchObject({
       p_court_id: 'c1',
       p_pattern: 'weekly',
@@ -76,29 +74,15 @@ describe('resolvedEndsOn / seriesRpcArgs', () => {
 
 const occ: SeriesOccurrencePreview[] = [
   { date: '2026-09-06', startsAt: 'a', endsAt: 'b', conflict: null },
-  {
-    date: '2026-09-13',
-    startsAt: 'a',
-    endsAt: 'b',
-    conflict: { existingReservationId: 'x', resolvable: true, alternativeCourtIds: ['c2'] },
-  },
-  {
-    date: '2026-09-20',
-    startsAt: 'a',
-    endsAt: 'b',
-    conflict: { existingReservationId: 'y', resolvable: false, alternativeCourtIds: [] },
-  },
+  { date: '2026-09-13', startsAt: 'a', endsAt: 'b', conflict: { existingReservationId: 'x', resolvable: true, alternativeCourtIds: ['c2'] } },
+  { date: '2026-09-20', startsAt: 'a', endsAt: 'b', conflict: { existingReservationId: 'y', resolvable: false, alternativeCourtIds: [] } },
 ];
 
 describe('resolutions', () => {
   it('lists every clashing date without a resolution', () => {
     expect(conflictCount(occ)).toBe(2);
     expect(unresolvedDates(occ, {})).toEqual(['2026-09-13', '2026-09-20']);
-    expect(
-      unresolvedDates(occ, {
-        '2026-09-13': { date: '2026-09-13', action: 'moveCourt', courtId: 'c2' },
-      }),
-    ).toEqual(['2026-09-20']);
+    expect(unresolvedDates(occ, { '2026-09-13': { date: '2026-09-13', action: 'moveCourt', courtId: 'c2' } })).toEqual(['2026-09-20']);
   });
   it('sends only resolutions for dates that clash, in occurrence order', () => {
     const res = {

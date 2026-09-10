@@ -59,18 +59,13 @@ export default async function DownloadPage({ params }: { params: Promise<{ local
               {tr('download.macButton')}
             </a>
           ) : (
-            <span
-              className="tp-btn tp-btn--ghost tp-download__btn tp-download__btn--soon"
-              aria-disabled="true"
-            >
+            <span className="tp-btn tp-btn--ghost tp-download__btn tp-download__btn--soon" aria-disabled="true">
               {tr('download.macSoon')}
             </span>
           )}
         </div>
 
-        {SHOW_SMARTSCREEN_NOTE && (
-          <p className="tp-download__note">{tr('download.smartScreenNote')}</p>
-        )}
+        {SHOW_SMARTSCREEN_NOTE && <p className="tp-download__note">{tr('download.smartScreenNote')}</p>}
       </main>
     </div>
   );

@@ -37,7 +37,7 @@ const ORDER = [
   'payments',
   'refunds',
   'stock_batches',
-  'court_advisory', // app.lock_court() -- 0042, see ADVISORY note below
+  'court_advisory',   // app.lock_court() -- 0042, see ADVISORY note below
   'reservations',
 ];
 const rank = (t) => ORDER.indexOf(t);
@@ -86,22 +86,7 @@ function aliases(stmt) {
     String.raw`\b(?:from|join|update)\s+(${TBL})\b(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?`,
     'gi',
   );
-  const kw = [
-    'where',
-    'set',
-    'on',
-    'for',
-    'join',
-    'left',
-    'inner',
-    'using',
-    'order',
-    'group',
-    'returning',
-    'into',
-    'values',
-    'limit',
-  ];
+  const kw = ['where','set','on','for','join','left','inner','using','order','group','returning','into','values','limit'];
   for (const mm of stmt.matchAll(re)) {
     const tbl = mm[1].toLowerCase();
     const al = mm[2]?.toLowerCase();
@@ -129,10 +114,7 @@ function events(src) {
     if (lockM) {
       const al = aliases(stmt);
       if (lockM[2]) {
-        for (const a of lockM[2]
-          .split(',')
-          .map((x) => x.trim().toLowerCase())
-          .filter(Boolean)) {
+        for (const a of lockM[2].split(',').map((x) => x.trim().toLowerCase()).filter(Boolean)) {
           const t = al.get(a);
           if (t) out.push({ lock: t });
         }
@@ -145,16 +127,12 @@ function events(src) {
     // with no FOR UPDATE to match on, so it was invisible to this guard until
     // 0048. That is exactly why every line of 0042's fix went unguarded by the
     // script written to protect it. Emit it as a lock, ranked before reservations.
-    for (const _m of stmt.matchAll(/\bapp\.lock_court\s*\(/gi))
-      out.push({ lock: 'court_advisory' });
+    for (const _m of stmt.matchAll(/\bapp\.lock_court\s*\(/gi)) out.push({ lock: 'court_advisory' });
     for (const m of stmt.matchAll(/\bapp\.([a-z_][a-z0-9_]*)\s*\(/gi)) {
       if (m[1].toLowerCase() === 'lock_court') continue; // already emitted as a lock
       out.push({ call: m[1].toLowerCase() });
     }
-    const wr = new RegExp(
-      String.raw`\b(?:insert\s+into|update|delete\s+from)\s+(${WRITABLE})\b`,
-      'gi',
-    );
+    const wr = new RegExp(String.raw`\b(?:insert\s+into|update|delete\s+from)\s+(${WRITABLE})\b`, 'gi');
     for (const m of stmt.matchAll(wr)) out.push({ write: m[1].toLowerCase() });
   }
   return out;
@@ -184,11 +162,7 @@ const callable = psql(
     where n.nspname = 'app' and p.prosecdef
       and (has_function_privilege('anon', p.oid, 'EXECUTE')
         or has_function_privilege('authenticated', p.oid, 'EXECUTE'));`,
-)
-  .trim()
-  .split(',')
-  .filter(Boolean)
-  .sort();
+).trim().split(',').filter(Boolean).sort();
 
 /**
  * Every table app.tab_net_paid() reads. Anything that writes one of these
@@ -219,6 +193,7 @@ function timeline(name, stack = []) {
   return out;
 }
 
+
 /**
  * Reservation writers that do NOT need app.lock_court(). Each mutates `status`
  * by primary key and never touches court_id or start_at/end_at, so it cannot
@@ -231,12 +206,12 @@ function timeline(name, stack = []) {
  * across courts.
  */
 const STATUS_ONLY_RESERVATION_WRITERS = new Set([
-  'cancel_reservation', // -> cancelled: leaves the constrained set
-  'expire_stale_holds', // -> expired:   leaves it
-  'release_hold', // -> expired:   leaves it (0058, guest hand-back)
-  'mark_reservation', // -> arrived / no_show / completed
-  'confirm_booking', // pending -> confirmed: same period, same court
-  'cancel_series', // -> cancelled, one app.cancel_reservation per row (0066): leaves it
+  'cancel_reservation',   // -> cancelled: leaves the constrained set
+  'expire_stale_holds',   // -> expired:   leaves it
+  'release_hold',         // -> expired:   leaves it (0058, guest hand-back)
+  'mark_reservation',     // -> arrived / no_show / completed
+  'confirm_booking',      // pending -> confirmed: same period, same court
+  'cancel_series',        // -> cancelled, one app.cancel_reservation per row (0066): leaves it
 ]);
 
 const violations = [];
@@ -269,6 +244,7 @@ for (const fn of callable) {
     );
   }
 
+
   // Rule 3 — 0042's invariant, previously unguarded (0048/H5). Every writer of
   // the reservations exclusion window must serialize on the court FIRST. Taking
   // the row lock without it means two writers can enter the GiST exclusion check
@@ -277,11 +253,8 @@ for (const fn of callable) {
   // they write.
   const firstCourtLock = compact.indexOf('court_advisory');
   const firstResLock = compact.indexOf('reservations');
-  if (
-    !STATUS_ONLY_RESERVATION_WRITERS.has(fn) &&
-    firstResLock >= 0 &&
-    (firstCourtLock < 0 || firstCourtLock > firstResLock)
-  ) {
+  if (!STATUS_ONLY_RESERVATION_WRITERS.has(fn) &&
+      firstResLock >= 0 && (firstCourtLock < 0 || firstCourtLock > firstResLock)) {
     violations.push(
       `  ${fn}: locks reservations ` +
         (firstCourtLock < 0 ? 'without ever calling app.lock_court()' : 'before app.lock_court()') +

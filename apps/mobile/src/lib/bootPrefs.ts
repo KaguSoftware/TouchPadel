@@ -88,10 +88,7 @@ export async function loadBootPrefs(): Promise<BootPrefs> {
   try {
     const pairs = await AsyncStorage.multiGet([APPEARANCE_KEY, LOCALE_KEY]);
     for (const [key, value] of pairs) {
-      if (
-        key === APPEARANCE_KEY &&
-        (value === 'light' || value === 'dark' || value === 'automatic')
-      )
+      if (key === APPEARANCE_KEY && (value === 'light' || value === 'dark' || value === 'automatic'))
         appearance = value;
       if (key === LOCALE_KEY) locale = asLocale(value);
     }

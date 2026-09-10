@@ -104,11 +104,7 @@ export interface GoogleCredential {
  */
 export async function requestGoogleIdToken(hashedNonce: string): Promise<GoogleCredential> {
   if (!isGoogleSignInAvailable() || !WEB_CLIENT_ID) {
-    throw new SocialAuthError(
-      'UNAVAILABLE',
-      'google',
-      'Google sign-in is not configured for this build',
-    );
+    throw new SocialAuthError('UNAVAILABLE', 'google', 'Google sign-in is not configured for this build');
   }
   const { GoogleOneTapSignIn, statusCodes } = await loadLib();
   try {
@@ -124,9 +120,7 @@ export async function requestGoogleIdToken(hashedNonce: string): Promise<GoogleC
 
     let attempt: GoogleAttempt = firstGoogleAttempt(Platform.OS);
     let response =
-      attempt === 'signIn'
-        ? await GoogleOneTapSignIn.signIn()
-        : await GoogleOneTapSignIn.createAccount();
+      attempt === 'signIn' ? await GoogleOneTapSignIn.signIn() : await GoogleOneTapSignIn.createAccount();
     let step = nextGoogleStep(response.type, attempt);
     if (step === 'createAccount') {
       attempt = 'createAccount';

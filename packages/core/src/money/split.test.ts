@@ -71,7 +71,11 @@ describe('splitEvenly — largest remainder (plan override, NO 250 rounding)', (
 
 describe('splitByItems', () => {
   it('sums each payer’s lines exactly (no rounding involved)', () => {
-    const shares = splitByItems([[iqd(4000), iqd(1500)], [iqd(2500)], []]);
+    const shares = splitByItems([
+      [iqd(4000), iqd(1500)],
+      [iqd(2500)],
+      [],
+    ]);
     expect(shares).toEqual([5500, 2500, 0]);
   });
 

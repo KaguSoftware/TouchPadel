@@ -10,7 +10,13 @@
 export type OrderStatus = 'sent' | 'preparing' | 'ready' | 'served' | 'voided';
 export type TicketStatus = 'queued' | 'preparing' | 'ready' | 'completed' | 'voided';
 export type ReservationStatus =
-  'pending' | 'confirmed' | 'arrived' | 'completed' | 'cancelled' | 'no_show' | 'expired';
+  | 'pending'
+  | 'confirmed'
+  | 'arrived'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show'
+  | 'expired';
 export type TabStatus = 'open' | 'awaiting_payment' | 'settled' | 'void';
 
 export type StatusEntity = 'order' | 'ticket' | 'reservation' | 'tab';
@@ -70,19 +76,17 @@ export const orderStatusMachine: StatusMachine<OrderStatus> = makeMachine<OrderS
   voided: [],
 });
 
-export const ticketStatusMachine: StatusMachine<TicketStatus> = makeMachine<TicketStatus>(
-  'ticket',
-  {
-    queued: ['preparing', 'ready', 'voided'],
-    preparing: ['ready', 'voided'],
-    ready: ['completed', 'voided'],
-    completed: [],
-    voided: [],
-  },
-);
+export const ticketStatusMachine: StatusMachine<TicketStatus> = makeMachine<TicketStatus>('ticket', {
+  queued: ['preparing', 'ready', 'voided'],
+  preparing: ['ready', 'voided'],
+  ready: ['completed', 'voided'],
+  completed: [],
+  voided: [],
+});
 
-export const reservationStatusMachine: StatusMachine<ReservationStatus> =
-  makeMachine<ReservationStatus>('reservation', {
+export const reservationStatusMachine: StatusMachine<ReservationStatus> = makeMachine<ReservationStatus>(
+  'reservation',
+  {
     pending: ['confirmed', 'cancelled', 'expired'],
     confirmed: ['arrived', 'completed', 'cancelled', 'no_show'],
     arrived: ['completed'],
@@ -90,7 +94,8 @@ export const reservationStatusMachine: StatusMachine<ReservationStatus> =
     cancelled: [],
     no_show: [],
     expired: [],
-  });
+  },
+);
 
 export const tabStatusMachine: StatusMachine<TabStatus> = makeMachine<TabStatus>('tab', {
   open: ['awaiting_payment', 'settled', 'void'],

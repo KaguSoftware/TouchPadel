@@ -51,11 +51,7 @@ export function AnalyticsPage() {
     void navigate({ to: '/analytics', search: { ...search, ...next } });
   };
 
-  const salesState: CardState = state.salesLoading
-    ? 'loading'
-    : state.salesError
-      ? 'error'
-      : 'ready';
+  const salesState: CardState = state.salesLoading ? 'loading' : state.salesError ? 'error' : 'ready';
   const engState: CardState =
     state.engagement === 'loading' || state.salesLoading
       ? 'loading'
@@ -69,11 +65,8 @@ export function AnalyticsPage() {
   const salesBroken = salesState === 'error';
   const engBroken = engState === 'error' || engState === 'unconfigured' || salesBroken;
   const k = derived?.kpis;
-  const vsLabel = tr('analytics.kpi.vs', {
-    range: f.dateRange(data.compareRange.from, data.compareRange.to),
-  });
-  const mutedReason =
-    derived && !derived.salesDeltaReliable ? tr('analytics.kpi.mutedReason') : undefined;
+  const vsLabel = tr('analytics.kpi.vs', { range: f.dateRange(data.compareRange.from, data.compareRange.to) });
+  const mutedReason = derived && !derived.salesDeltaReliable ? tr('analytics.kpi.mutedReason') : undefined;
   const name = (id: string, en: string, ar: string) => pickLocale({ en, ar }, locale) || id;
 
   const bestSellerRows = (raw?.bestSellers ?? [])
@@ -87,20 +80,11 @@ export function AnalyticsPage() {
 
   const categoryRows = (raw?.posthog?.categoryPopularity ?? []).slice(0, 8).map((c) => {
     const known = derived?.categoryNames.get(c.id);
-    return {
-      label: known ? pickLocale({ en: known.nameEn, ar: known.nameAr }, locale) : c.nameEn,
-      value: c.selections,
-    };
+    return { label: known ? pickLocale({ en: known.nameEn, ar: known.nameAr }, locale) : c.nameEn, value: c.selections };
   });
 
   return (
-    <div
-      style={{
-        minInlineSize: '1024px',
-        paddingInline: 'var(--tp-sp-4)',
-        paddingBlockEnd: 'var(--tp-sp-6)',
-      }}
-    >
+    <div style={{ minInlineSize: '1024px', paddingInline: 'var(--tp-sp-4)', paddingBlockEnd: 'var(--tp-sp-6)' }}>
       {/*
         This page had no title and no h1 at all: the only "Analytics" on it was a
         micro-label inside the control deck, so heading navigation opened on
@@ -108,23 +92,14 @@ export function AnalyticsPage() {
         header scrolls away and the deck below it stays sticky, which is the
         order the owner reads them in.
       */}
-      <PageHeader
-        title={tr('analytics.title')}
-        subtitle={f.dateRange(data.range.from, data.range.to)}
-      />
+      <PageHeader title={tr('analytics.title')} subtitle={f.dateRange(data.range.from, data.range.to)} />
       <ControlDeck search={search} setSearch={setSearch} data={data} menu={raw?.menu ?? []} />
 
       {/* ---------------- 01 Pulse ---------------- */}
       <Zone zone={ZONES[0]!}>
         <Notices data={data} />
         {/* Nine tiles in three columns — a clean 3×3 instead of an orphan row. */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-            gap: '0.6rem',
-          }}
-        >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.6rem' }}>
           <Kpi
             label={tr('analytics.kpi.sales')}
             value={f.money(k?.salesIqd ?? 0)}
@@ -136,15 +111,7 @@ export function AnalyticsPage() {
             unavailable={salesBroken}
             f={f}
           />
-          <Kpi
-            label={tr('analytics.kpi.tabs')}
-            value={f.num(k?.tabs ?? 0)}
-            delta={derived?.deltas.tabs ?? null}
-            vsLabel={vsLabel}
-            loading={state.salesLoading}
-            unavailable={salesBroken}
-            f={f}
-          />
+          <Kpi label={tr('analytics.kpi.tabs')} value={f.num(k?.tabs ?? 0)} delta={derived?.deltas.tabs ?? null} vsLabel={vsLabel} loading={state.salesLoading} unavailable={salesBroken} f={f} />
           <Kpi
             label={tr('analytics.kpi.covers')}
             value={k?.coversEstimated == null ? '—' : f.num(k.coversEstimated)}
@@ -162,52 +129,16 @@ export function AnalyticsPage() {
             unavailable={salesBroken}
             f={f}
           />
-          <Kpi
-            label={tr('analytics.kpi.visits')}
-            value={f.num(k?.visits ?? 0)}
-            delta={derived?.deltas.visits ?? null}
-            vsLabel={vsLabel}
-            loading={engState === 'loading'}
-            unavailable={engBroken}
-            f={f}
-          />
-          <Kpi
-            label={tr('analytics.kpi.views')}
-            value={f.num(k?.views ?? 0)}
-            delta={derived?.deltas.views ?? null}
-            vsLabel={vsLabel}
-            loading={engState === 'loading'}
-            unavailable={engBroken}
-            f={f}
-          />
-          <Kpi
-            label={tr('analytics.kpi.median')}
-            value={f.duration(k?.medianSeconds ?? 0)}
-            delta={derived?.deltas.median ?? null}
-            vsLabel={vsLabel}
-            loading={engState === 'loading'}
-            unavailable={engBroken}
-            f={f}
-          />
-          <Kpi
-            label={tr('analytics.kpi.calls')}
-            value={f.num(k?.waiterCalls ?? 0)}
-            delta={derived?.deltas.calls ?? null}
-            vsLabel={vsLabel}
-            loading={state.salesLoading}
-            unavailable={salesBroken}
-            f={f}
-          />
+          <Kpi label={tr('analytics.kpi.visits')} value={f.num(k?.visits ?? 0)} delta={derived?.deltas.visits ?? null} vsLabel={vsLabel} loading={engState === 'loading'} unavailable={engBroken} f={f} />
+          <Kpi label={tr('analytics.kpi.views')} value={f.num(k?.views ?? 0)} delta={derived?.deltas.views ?? null} vsLabel={vsLabel} loading={engState === 'loading'} unavailable={engBroken} f={f} />
+          <Kpi label={tr('analytics.kpi.median')} value={f.duration(k?.medianSeconds ?? 0)} delta={derived?.deltas.median ?? null} vsLabel={vsLabel} loading={engState === 'loading'} unavailable={engBroken} f={f} />
+          <Kpi label={tr('analytics.kpi.calls')} value={f.num(k?.waiterCalls ?? 0)} delta={derived?.deltas.calls ?? null} vsLabel={vsLabel} loading={state.salesLoading} unavailable={salesBroken} f={f} />
           <Kpi
             label={tr('analytics.kpi.basketToCall')}
             value={f.pct(k?.basketToCallPct ?? 0)}
             delta={derived?.deltas.basket ?? null}
             vsLabel={vsLabel}
-            note={
-              k && !engBroken
-                ? tr('analytics.cards.sessions') + ': ' + f.num(k.basketToCallSample)
-                : undefined
-            }
+            note={k && !engBroken ? tr('analytics.cards.sessions') + ': ' + f.num(k.basketToCallSample) : undefined}
             loading={engState === 'loading'}
             unavailable={engBroken}
             f={f}
@@ -220,20 +151,8 @@ export function AnalyticsPage() {
         <ZoneGrid columns={1}>
           <OverviewCard derived={derived} preset={data.preset} state={salesState} f={f} />
           <ZoneGrid columns={2}>
-            <AiInsightsCard
-              raw={raw}
-              derived={derived}
-              stored={data.stored}
-              state={salesState}
-              f={f}
-            />
-            <PatternsCard
-              raw={raw}
-              derived={derived}
-              stored={data.stored}
-              state={salesState}
-              f={f}
-            />
+            <AiInsightsCard raw={raw} derived={derived} stored={data.stored} state={salesState} f={f} />
+            <PatternsCard raw={raw} derived={derived} stored={data.stored} state={salesState} f={f} />
           </ZoneGrid>
         </ZoneGrid>
       </Zone>
@@ -267,11 +186,7 @@ export function AnalyticsPage() {
       <Zone zone={ZONES[3]!}>
         <ChartCard
           title={tr('analytics.cards.salesVsEngagement')}
-          state={
-            salesState === 'ready' && (derived?.salesVsEngagement.length ?? 0) === 0
-              ? 'empty'
-              : salesState
-          }
+          state={salesState === 'ready' && (derived?.salesVsEngagement.length ?? 0) === 0 ? 'empty' : salesState}
           emptyKey="analytics.empty.sales"
           height={280}
           error={state.salesError}
@@ -286,17 +201,11 @@ export function AnalyticsPage() {
               state={salesState === 'ready' && bestSellerRows.length === 0 ? 'empty' : salesState}
               emptyKey="analytics.empty.sales"
             >
-              <HBarChart
-                rows={bestSellerRows}
-                format={(n) => f.compact(n)}
-                name={tr('analytics.cards.revenue')}
-              />
+              <HBarChart rows={bestSellerRows} format={(n) => f.compact(n)} name={tr('analytics.cards.revenue')} />
             </ChartCard>
             <ChartCard
               title={tr('analytics.cards.lookedNotBought')}
-              state={
-                engState === 'ready' && (derived?.abandoned.length ?? 0) === 0 ? 'empty' : engState
-              }
+              state={engState === 'ready' && (derived?.abandoned.length ?? 0) === 0 ? 'empty' : engState}
               emptyKey="analytics.empty.engagement"
               error={state.engagementError}
               onRetry={data.refetchAll}
@@ -308,29 +217,18 @@ export function AnalyticsPage() {
               state={engState === 'ready' && tableRows.length === 0 ? 'empty' : engState}
               emptyKey="analytics.empty.engagement"
             >
-              <HBarChart
-                rows={tableRows}
-                format={(n) => f.num(n)}
-                axisWidth={70}
-                name={tr('analytics.cards.sessions')}
-              />
+              <HBarChart rows={tableRows} format={(n) => f.num(n)} axisWidth={70} name={tr('analytics.cards.sessions')} />
             </ChartCard>
             <CardShell
               title={tr('analytics.cards.funnel')}
-              state={
-                engState === 'ready' && (raw?.posthog?.funnel.length ?? 0) === 0
-                  ? 'empty'
-                  : engState
-              }
+              state={engState === 'ready' && (raw?.posthog?.funnel.length ?? 0) === 0 ? 'empty' : engState}
               emptyKey="analytics.empty.engagement"
             >
               <FunnelBars steps={raw?.posthog?.funnel ?? []} f={f} />
             </CardShell>
             <CardShell
               title={tr('analytics.cards.priceBands')}
-              state={
-                engState === 'ready' && (derived?.priceBands.length ?? 0) === 0 ? 'empty' : engState
-              }
+              state={engState === 'ready' && (derived?.priceBands.length ?? 0) === 0 ? 'empty' : engState}
               emptyKey="analytics.empty.engagement"
               note={tr('analytics.conversion.howToRead')}
             >
@@ -341,11 +239,7 @@ export function AnalyticsPage() {
               state={engState === 'ready' && categoryRows.length === 0 ? 'empty' : engState}
               emptyKey="analytics.empty.engagement"
             >
-              <HBarChart
-                rows={categoryRows}
-                format={(n) => f.num(n)}
-                name={tr('analytics.cards.sessions')}
-              />
+              <HBarChart rows={categoryRows} format={(n) => f.num(n)} name={tr('analytics.cards.sessions')} />
             </ChartCard>
           </ZoneGrid>
         </div>
@@ -355,9 +249,7 @@ export function AnalyticsPage() {
       <Zone zone={ZONES[4]!}>
         <CardShell
           title={tr('analytics.cards.heatmap')}
-          state={
-            engState === 'ready' && (raw?.posthog?.heatmap.length ?? 0) === 0 ? 'empty' : engState
-          }
+          state={engState === 'ready' && (raw?.posthog?.heatmap.length ?? 0) === 0 ? 'empty' : engState}
           emptyKey="analytics.empty.heatmap"
         >
           <WeekHeatmap cells={raw?.posthog?.heatmap ?? []} f={f} />
@@ -366,12 +258,7 @@ export function AnalyticsPage() {
           <ZoneGrid columns={2}>
             <ChartCard
               title={tr('analytics.cards.peakHours')}
-              state={
-                engState === 'ready' &&
-                (raw?.posthog?.peakHours.some((h) => h.views > 0) ?? false) === false
-                  ? 'empty'
-                  : engState
-              }
+              state={engState === 'ready' && (raw?.posthog?.peakHours.some((h) => h.views > 0) ?? false) === false ? 'empty' : engState}
               emptyKey="analytics.empty.engagement"
             >
               <PeakHoursChart rows={raw?.posthog?.peakHours ?? []} f={f} />
@@ -392,9 +279,7 @@ function Notices({ data }: { data: ReturnType<typeof useAnalyticsData> }) {
   if (derived && derived.coverage.missing.length > 0) {
     lines.push(tr('analytics.notices.coverage', { missing: derived.coverage.missing.length }));
   }
-  lines.push(
-    tr('analytics.notices.businessDayLine', { hour: String(data.startHour).padStart(2, '0') }),
-  );
+  lines.push(tr('analytics.notices.businessDayLine', { hour: String(data.startHour).padStart(2, '0') }));
   // Café settings unreadable → the deck is running on migration defaults; say so.
   if (state.settingsError != null) lines.push(tr('errors.generic'));
   if (state.engagement === 'unconfigured') lines.push(tr('analytics.notices.noPosthog'));
@@ -402,25 +287,14 @@ function Notices({ data }: { data: ReturnType<typeof useAnalyticsData> }) {
     lines.push(tr('analytics.notices.floor', { date: data.raw.floor }));
   }
   return (
-    <div
-      style={{
-        marginBlockEnd: '0.6rem',
-        display: 'flex',
-        gap: '0.75rem',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-      }}
-    >
+    <div style={{ marginBlockEnd: '0.6rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
       {lines.map((line, i) => (
         <span key={`${i}-${line}`} style={muted}>
           {line}
         </span>
       ))}
       {state.salesError != null && (
-        <Button
-          onClick={data.refetchAll}
-          style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: 'var(--tp-sp-1)' }}
-        >
+        <Button onClick={data.refetchAll} style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: 'var(--tp-sp-1)' }}>
           {tr('common.retry')}
         </Button>
       )}

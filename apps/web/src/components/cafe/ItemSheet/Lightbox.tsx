@@ -149,12 +149,7 @@ export function Lightbox({
         {/* eslint-disable-next-line @next/next/no-img-element -- viewport-sized original, never resized */}
         <img src={src} alt={alt} draggable={false} />
       </div>
-      <button
-        type="button"
-        className="tp-lightbox__close"
-        onClick={onClose}
-        aria-label={closeLabel}
-      >
+      <button type="button" className="tp-lightbox__close" onClick={onClose} aria-label={closeLabel}>
         <CloseIcon />
       </button>
     </div>

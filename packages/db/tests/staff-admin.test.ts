@@ -105,9 +105,9 @@ describe.skipIf(!up)('0051 staff administration', () => {
           (await appRpc(client, 'rename_staff', { p_staff_id: id, p_display_name: 'X' })).error
             ?.message,
         ).toBe('FORBIDDEN');
-        expect((await appRpc(client, 'clear_staff_pin', { p_staff_id: id })).error?.message).toBe(
-          'FORBIDDEN',
-        );
+        expect(
+          (await appRpc(client, 'clear_staff_pin', { p_staff_id: id })).error?.message,
+        ).toBe('FORBIDDEN');
       }
     });
 
@@ -150,11 +150,7 @@ describe.skipIf(!up)('0051 staff administration', () => {
         .eq('entity_id', id)
         .eq('action', 'staff.role_set')
         .single();
-      const row = data as {
-        reason_code: string;
-        before: { role: string };
-        after: { role: string };
-      };
+      const row = data as { reason_code: string; before: { role: string }; after: { role: string } };
       expect(row.reason_code).toBe('promotion');
       expect(row.before.role).toBe('cashier');
       expect(row.after.role).toBe('manager');
@@ -165,9 +161,8 @@ describe.skipIf(!up)('0051 staff administration', () => {
       // demoted cashier is a live authorisation credential for someone who can
       // no longer authorise anything.
       const id = await makeStaff('demote', 'manager');
-      expect(
-        (await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '482913' })).error,
-      ).toBeNull();
+      expect((await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '482913' })).error)
+        .toBeNull();
       expect((await readStaff(id)).pin_hash).not.toBeNull();
 
       expect(

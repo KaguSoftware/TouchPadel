@@ -55,12 +55,7 @@ const ALL = args.includes('--all');
 const baseArg = args.find((a) => a.startsWith('--base='));
 
 const git = (a, opts = {}) =>
-  execFileSync('git', a, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    ...opts,
-  }).trim();
+  execFileSync('git', a, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts }).trim();
 
 /** The PR body carries the waiver in CI; the env var is the local equivalent. */
 const acceptance =
@@ -91,16 +86,12 @@ function resolveBase() {
 
 let files;
 if (ALL) {
-  files = git(['ls-files', MIG_DIR])
-    .split('\n')
-    .filter((f) => f.endsWith('.sql'));
+  files = git(['ls-files', MIG_DIR]).split('\n').filter((f) => f.endsWith('.sql'));
 } else {
   const base = resolveBase();
   if (!base) {
     console.error('FAIL  cannot resolve a merge base (no origin/main, no --base=).');
-    console.error(
-      '      A shallow clone will do this — CI needs fetch-depth: 0 or an explicit --base.',
-    );
+    console.error('      A shallow clone will do this — CI needs fetch-depth: 0 or an explicit --base.');
     process.exit(1);
   }
   let range;
@@ -299,14 +290,8 @@ function statements(sql) {
     if (ch === "'") {
       i += 1;
       while (i < sql.length) {
-        if (sql[i] === "'" && sql[i + 1] === "'") {
-          i += 2;
-          continue;
-        }
-        if (sql[i] === "'") {
-          i += 1;
-          break;
-        }
+        if (sql[i] === "'" && sql[i + 1] === "'") { i += 2; continue; }
+        if (sql[i] === "'") { i += 1; break; }
         if (sql[i] === '\n') line += 1;
         i += 1;
       }
@@ -329,10 +314,7 @@ function statements(sql) {
       continue;
     }
 
-    if (ch === '\n') {
-      line += 1;
-      if (!buf.trim()) startLine = line;
-    }
+    if (ch === '\n') { line += 1; if (!buf.trim()) startLine = line; }
     buf += ch;
     i += 1;
   }
@@ -367,7 +349,9 @@ for (const file of files) {
     // `set lock_timeout = 0` means "wait forever", which is the thing this rule
     // exists to prevent and would otherwise pass as "a lock_timeout is set".
     const firstNonSet = stmts.find((st) => !/^set\s+/i.test(st.text));
-    const head = firstNonSet ? sql.split('\n').slice(0, firstNonSet.line).join('\n') : sql;
+    const head = firstNonSet
+      ? sql.split('\n').slice(0, firstNonSet.line).join('\n')
+      : sql;
     const missing = [];
     if (!TIMEOUT_PREAMBLE.lock.test(head)) missing.push('lock_timeout');
     if (!TIMEOUT_PREAMBLE.statement.test(head)) missing.push('statement_timeout');
@@ -451,19 +435,11 @@ if (acceptance) {
   process.exit(0);
 }
 
-console.error(
-  'If a statement here is genuinely necessary — a CONCURRENT index must live in its own',
-);
+console.error('If a statement here is genuinely necessary — a CONCURRENT index must live in its own');
 console.error('migration, for instance — put this line in the pull request body:');
 console.error('');
-console.error(
-  '    MIGRATION-RISK-ACCEPTED: <why this is safe to run against the live venue database>',
-);
+console.error('    MIGRATION-RISK-ACCEPTED: <why this is safe to run against the live venue database>');
 console.error('');
-console.error(
-  "There is one Supabase project and it is the venue's live database (D1). A lock taken",
-);
-console.error(
-  'during service does not corrupt anything; it stops the till taking money until it clears.',
-);
+console.error('There is one Supabase project and it is the venue\'s live database (D1). A lock taken');
+console.error('during service does not corrupt anything; it stops the till taking money until it clears.');
 process.exit(1);

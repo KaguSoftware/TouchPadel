@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ItemRef } from './compare';
-import {
-  DEFAULT_PATTERNS_COPY_EN,
-  MAX_PATTERN_LEVEL,
-  minePatterns,
-  type PatternsInput,
-  pearson,
-} from './patterns';
+import { DEFAULT_PATTERNS_COPY_EN, MAX_PATTERN_LEVEL, minePatterns, type PatternsInput, pearson } from './patterns';
 import { buildPriceBands } from './priceBands';
 
 const names = new Map<string, ItemRef>(
@@ -56,12 +50,7 @@ describe('co-move family', () => {
       ];
     });
     // Raw quantities are perfectly correlated…
-    expect(
-      pearson(
-        totals.map((t) => t * 0.3),
-        totals.map((t) => t * 0.2),
-      ),
-    ).toBeCloseTo(1);
+    expect(pearson(totals.map((t) => t * 0.3), totals.map((t) => t * 0.2))).toBeCloseTo(1);
     // …but nothing survives the share control.
     const out = minePatterns({ ...emptyInput, soldByDay, recordedDays: DAYS }, 0);
     expect(out.filter((c) => c.kind === 'co-move')).toEqual([]);
@@ -79,9 +68,7 @@ describe('co-move family', () => {
       ];
     });
     const out = minePatterns({ ...emptyInput, soldByDay, recordedDays: DAYS }, 0);
-    const xy = out.find(
-      (c) => c.kind === 'co-move' && c.subjectIds.includes('x') && c.subjectIds.includes('y'),
-    );
+    const xy = out.find((c) => c.kind === 'co-move' && c.subjectIds.includes('x') && c.subjectIds.includes('y'));
     expect(xy).toBeDefined();
     expect(xy!.metrics.direction).toBe('together');
     expect(xy!.metrics.shareCorrelation).toBe(1);
@@ -98,17 +85,11 @@ describe('time family — sample disclosure', () => {
   const window = DAYS.slice(2); // 09-03 (Thu) .. 09-12 (Sat) = 10 days, Fridays 09-04, 09-11
   const soldByDay = window.flatMap((date) => [
     { id: 'g', date, qty: 20, revenueIqd: 20000 },
-    ...(date === '2026-09-04' || date === '2026-09-11'
-      ? [{ id: 'f', date, qty: 5, revenueIqd: 40000 }]
-      : []),
+    ...(date === '2026-09-04' || date === '2026-09-11' ? [{ id: 'f', date, qty: 5, revenueIqd: 40000 }] : []),
   ]);
 
   it('is not computed at all at the strict level (needs 5 Fridays)', () => {
-    expect(
-      minePatterns({ ...emptyInput, soldByDay, recordedDays: window }, 0).filter(
-        (c) => c.kind === 'time',
-      ),
-    ).toEqual([]);
+    expect(minePatterns({ ...emptyInput, soldByDay, recordedDays: window }, 0).filter((c) => c.kind === 'time')).toEqual([]);
   });
 
   it('surfaces at the loosest level, labelled low rather than dropped', () => {
@@ -154,9 +135,7 @@ describe('basket family', () => {
       confidence: 'medium',
       sampleLabel: '6 / 20 orders',
     });
-    expect(pq!.fallbackText).toBe(
-      '100% of orders with Kahi also include Geymar (2.5× chance, 6 orders) — a combo / cross-sell opportunity.',
-    );
+    expect(pq!.fallbackText).toBe('100% of orders with Kahi also include Geymar (2.5× chance, 6 orders) — a combo / cross-sell opportunity.');
   });
 
   it('drops the obvious "everyone adds water" pair (lift ≈ 1)', () => {
@@ -206,22 +185,8 @@ describe('segment family', () => {
         ...emptyInput,
         discount: { discounted: { views: 100, sold: 40 }, regular: { views: 100, sold: 20 } },
         locales: [
-          {
-            locale: 'ar',
-            sessions: 300,
-            topItems: [
-              { id: 'p', rate: 0.4 },
-              { id: 'r', rate: 0.3 },
-            ],
-          },
-          {
-            locale: 'en',
-            sessions: 20,
-            topItems: [
-              { id: 'y', rate: 0.5 },
-              { id: 'r', rate: 0.2 },
-            ],
-          },
+          { locale: 'ar', sessions: 300, topItems: [{ id: 'p', rate: 0.4 }, { id: 'r', rate: 0.3 }] },
+          { locale: 'en', sessions: 20, topItems: [{ id: 'y', rate: 0.5 }, { id: 'r', rate: 0.2 }] },
         ],
       },
       0,
@@ -230,11 +195,7 @@ describe('segment family', () => {
     expect(disc).toMatchObject({ subjects: ['Discounts'], metrics: { ratio: 2 } });
     expect(disc!.fallbackText).toMatch(/^Discounted items turn 40 of every 100 views/);
     const loc = out.find((c) => c.id.startsWith('segment:locale'));
-    expect(loc).toMatchObject({
-      subjects: ['Kahi', 'Burger'],
-      subjectIds: ['p', 'y'],
-      confidence: 'low',
-    });
+    expect(loc).toMatchObject({ subjects: ['Kahi', 'Burger'], subjectIds: ['p', 'y'], confidence: 'low' });
     expect(loc!.sampleLabel).toBe('300 Arabic / 20 English sessions');
   });
 });
@@ -255,13 +216,7 @@ describe('margin family', () => {
     const out = minePatterns({ ...emptyInput, soldByDay, recordedDays: DAYS, costs }, 0);
     const mix = out.find((c) => c.kind === 'margin' && c.id.startsWith('margin:h|mix'));
     expect(mix).toBeDefined();
-    expect(mix!.metrics).toMatchObject({
-      earlyMarginPct: 68,
-      lateMarginPct: 32,
-      shiftPoints: -36,
-      days: 12,
-      driver: 'High Margin',
-    });
+    expect(mix!.metrics).toMatchObject({ earlyMarginPct: 68, lateMarginPct: 32, shiftPoints: -36, days: 12, driver: 'High Margin' });
     expect(mix!.subjects).toEqual(['High Margin']);
     expect(mix!.confidence).toBe('medium');
     expect(mix!.fallbackText).toMatch(/^Gross margin fell from 68% .* to 32%/);
@@ -269,11 +224,7 @@ describe('margin family', () => {
 
   it('mines nothing without costs', () => {
     const soldByDay = DAYS.map((date) => ({ id: 'h', date, qty: 20, revenueIqd: 200000 }));
-    expect(
-      minePatterns({ ...emptyInput, soldByDay, recordedDays: DAYS }, 0).filter(
-        (c) => c.kind === 'margin',
-      ),
-    ).toEqual([]);
+    expect(minePatterns({ ...emptyInput, soldByDay, recordedDays: DAYS }, 0).filter((c) => c.kind === 'margin')).toEqual([]);
   });
 });
 
@@ -283,14 +234,9 @@ describe('ranking, dedupe, copy, validation', () => {
     const window = DAYS.slice(2);
     const soldByDay = window.flatMap((date) => [
       { id: 'g', date, qty: 20, revenueIqd: 20000 },
-      ...(date === '2026-09-04' || date === '2026-09-11'
-        ? [{ id: 'f', date, qty: 5, revenueIqd: 40000 }]
-        : []),
+      ...(date === '2026-09-04' || date === '2026-09-11' ? [{ id: 'f', date, qty: 5, revenueIqd: 40000 }] : []),
     ]);
-    const baskets = [
-      ...Array.from({ length: 6 }, () => ['p', 'q']),
-      ...Array.from({ length: 14 }, () => ['r']),
-    ];
+    const baskets = [...Array.from({ length: 6 }, () => ['p', 'q']), ...Array.from({ length: 14 }, () => ['r'])];
     const out = minePatterns({ ...emptyInput, soldByDay, recordedDays: window, baskets }, 2);
     expect(out.map((c) => [c.kind, c.confidence])).toEqual([
       ['basket', 'medium'],
@@ -300,33 +246,15 @@ describe('ranking, dedupe, copy, validation', () => {
   });
 
   it('renders subjects and fallback text in Arabic with an ar copy', () => {
-    const baskets = [
-      ...Array.from({ length: 6 }, () => ['p', 'q']),
-      ...Array.from({ length: 14 }, () => ['r']),
-    ];
-    const out = minePatterns({ ...emptyInput, baskets }, 0, {
-      ...DEFAULT_PATTERNS_COPY_EN,
-      locale: 'ar',
-    });
+    const baskets = [...Array.from({ length: 6 }, () => ['p', 'q']), ...Array.from({ length: 14 }, () => ['r'])];
+    const out = minePatterns({ ...emptyInput, baskets }, 0, { ...DEFAULT_PATTERNS_COPY_EN, locale: 'ar' });
     expect(out[0]!.subjects).toEqual(['كاهي', 'قيمر']);
     expect(out[0]!.fallbackText).toContain('كاهي');
   });
 
   it('applies the keep filter and validates money', () => {
-    const baskets = [
-      ...Array.from({ length: 6 }, () => ['p', 'q']),
-      ...Array.from({ length: 14 }, () => ['r']),
-    ];
+    const baskets = [...Array.from({ length: 6 }, () => ['p', 'q']), ...Array.from({ length: 14 }, () => ['r'])];
     expect(minePatterns({ ...emptyInput, baskets, keep: (id) => id !== 'p' }, 0)).toEqual([]);
-    expect(() =>
-      minePatterns(
-        {
-          ...emptyInput,
-          soldByDay: [{ id: 'x', date: DAYS[0]!, qty: 1, revenueIqd: 0.5 }],
-          recordedDays: DAYS,
-        },
-        0,
-      ),
-    ).toThrow();
+    expect(() => minePatterns({ ...emptyInput, soldByDay: [{ id: 'x', date: DAYS[0]!, qty: 1, revenueIqd: 0.5 }], recordedDays: DAYS }, 0)).toThrow();
   });
 });

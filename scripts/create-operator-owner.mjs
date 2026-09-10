@@ -37,8 +37,7 @@ function envFromFile(path) {
 const env = envFromFile(new URL('../apps/web/.env.local', import.meta.url));
 const URL_ = env.SUPABASE_URL;
 const KEY = env.SUPABASE_SERVICE_ROLE_KEY;
-if (!URL_ || !KEY)
-  throw new Error('apps/web/.env.local is missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY');
+if (!URL_ || !KEY) throw new Error('apps/web/.env.local is missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY');
 
 const headers = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
 
@@ -59,10 +58,7 @@ for (const u of users) console.log(`  ${u.email ?? u.phone ?? '(no email)'}  ${u
 
 const staffRows = await call('/rest/v1/staff?select=id,display_name,role,is_active');
 console.log(`\nExisting staff rows (${staffRows.length}):`);
-for (const s of staffRows)
-  console.log(
-    `  ${s.role.padEnd(10)} ${s.is_active ? 'active  ' : 'INACTIVE'} ${s.display_name}  ${s.id}`,
-  );
+for (const s of staffRows) console.log(`  ${s.role.padEnd(10)} ${s.is_active ? 'active  ' : 'INACTIVE'} ${s.display_name}  ${s.id}`);
 
 // ── Create or reuse the auth user ───────────────────────────────────────────
 let user = users.find((u) => u.email?.toLowerCase() === EMAIL.toLowerCase());
@@ -92,6 +88,4 @@ await call('/rest/v1/staff?on_conflict=id', {
   body: JSON.stringify({ id: user.id, display_name: DISPLAY_NAME, role: 'owner', is_active: true }),
 });
 
-console.log(
-  `\n✅ Owner ready.\n   email:    ${EMAIL}\n   password: ${PASSWORD}\n   staff id: ${user.id}\n\nSign in at http://localhost:5174 and open Desk.`,
-);
+console.log(`\n✅ Owner ready.\n   email:    ${EMAIL}\n   password: ${PASSWORD}\n   staff id: ${user.id}\n\nSign in at http://localhost:5174 and open Desk.`);

@@ -8,13 +8,7 @@
  * business-day hour and the exclusions are café-wide settings.
  */
 import { useState, type CSSProperties } from 'react';
-import {
-  BUSINESS_DAY_START_OPTIONS,
-  RANGE_PRESETS,
-  isIsoDate,
-  type CompareBasis,
-  type RangePreset,
-} from '@touch/core';
+import { BUSINESS_DAY_START_OPTIONS, RANGE_PRESETS, isIsoDate, type CompareBasis, type RangePreset } from '@touch/core';
 import type { MessageKey } from '@touch/i18n';
 import { Button, ErrorText, Select, inputStyle } from '../../components/ui';
 import { SegmentedControl } from '../../components/kit';
@@ -110,12 +104,7 @@ const band: CSSProperties = {
   minBlockSize: 'var(--tp-row-h)',
 };
 
-const small: CSSProperties = {
-  ...inputStyle,
-  inlineSize: 'auto',
-  fontSize: 'var(--tp-fs-sm)',
-  paddingBlock: 'var(--tp-sp-1-5)',
-};
+const small: CSSProperties = { ...inputStyle, inlineSize: 'auto', fontSize: 'var(--tp-fs-sm)', paddingBlock: 'var(--tp-sp-1-5)' };
 /** Buttons default to 2.25rem; the selects beside them stand on --tp-row-h. */
 const deckButton: CSSProperties = { minBlockSize: 'var(--tp-row-h)', fontSize: 'var(--tp-fs-sm)' };
 
@@ -185,41 +174,16 @@ export function ControlDeck({
             }
             options={RANGE_PRESETS.map((preset) =>
               preset === 'custom'
-                ? {
-                    value: preset,
-                    label: tr('analytics.deck.custom'),
-                    disabled: search.range !== 'custom' && !customValid,
-                  }
-                : {
-                    value: preset,
-                    label: tr(PRESET_KEY[preset as Exclude<RangePreset, 'custom'>]),
-                  },
+                ? { value: preset, label: tr('analytics.deck.custom'), disabled: search.range !== 'custom' && !customValid }
+                : { value: preset, label: tr(PRESET_KEY[preset as Exclude<RangePreset, 'custom'>]) },
             )}
           />
         </DeckGroup>
 
         <DeckGroup label={`${tr('analytics.deck.from')} / ${tr('analytics.deck.to')}`}>
-          <input
-            type="date"
-            style={small}
-            value={customFrom}
-            max={customTo}
-            onChange={(e) => setCustomFrom(e.target.value)}
-            aria-label={tr('analytics.deck.from')}
-          />
-          <input
-            type="date"
-            style={small}
-            value={customTo}
-            min={customFrom}
-            onChange={(e) => setCustomTo(e.target.value)}
-            aria-label={tr('analytics.deck.to')}
-          />
-          <Button
-            disabled={!customValid}
-            onClick={() => setSearch({ range: 'custom', from: customFrom, to: customTo })}
-            style={deckButton}
-          >
+          <input type="date" style={small} value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} aria-label={tr('analytics.deck.from')} />
+          <input type="date" style={small} value={customTo} min={customFrom} onChange={(e) => setCustomTo(e.target.value)} aria-label={tr('analytics.deck.to')} />
+          <Button disabled={!customValid} onClick={() => setSearch({ range: 'custom', from: customFrom, to: customTo })} style={deckButton}>
             {tr('analytics.deck.apply')}
           </Button>
         </DeckGroup>
@@ -231,10 +195,7 @@ export function ControlDeck({
           <Select<CompareBasis>
             value={data.compareBasis}
             onChange={(cmp) => setSearch({ cmp })}
-            options={(['prev', '4w', '52w'] as const).map((b) => ({
-              value: b,
-              label: tr(BASIS_KEY[b]),
-            }))}
+            options={(['prev', '4w', '52w'] as const).map((b) => ({ value: b, label: tr(BASIS_KEY[b]) }))}
             style={small}
           />
         </DeckGroup>
@@ -242,13 +203,8 @@ export function ControlDeck({
         <DeckGroup label={tr('analytics.deck.businessDay')}>
           <Select<string>
             value={String(data.startHour)}
-            onChange={(hour) =>
-              setSetting.mutate({ key: 'analytics_business_day_start_hour', value: Number(hour) })
-            }
-            options={BUSINESS_DAY_START_OPTIONS.map((h) => ({
-              value: String(h),
-              label: `${String(h).padStart(2, '0')}:00`,
-            }))}
+            onChange={(hour) => setSetting.mutate({ key: 'analytics_business_day_start_hour', value: Number(hour) })}
+            options={BUSINESS_DAY_START_OPTIONS.map((h) => ({ value: String(h), label: `${String(h).padStart(2, '0')}:00` }))}
             disabled={setSetting.isPending}
             style={small}
           />
@@ -294,16 +250,7 @@ export function ControlDeck({
         Everything that used to hang under an individual control and stagger the
         row. One muted line, below the controls, always exactly one line tall.
       */}
-      <p
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          columnGap: 'var(--tp-sp-3)',
-          rowGap: 'var(--tp-sp-1)',
-          fontSize: 'var(--tp-fs-xs)',
-          color: 'var(--tp-muted-fg)',
-        }}
-      >
+      <p style={{ display: 'flex', flexWrap: 'wrap', columnGap: 'var(--tp-sp-3)', rowGap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
         <span>{tr(HINT_KEY[data.compareBasis])}</span>
         {data.autoRefreshActive && (
           <span style={{ color: 'var(--tp-accent)' }}>
@@ -318,11 +265,7 @@ export function ControlDeck({
       <ErrorText error={setSetting.error} />
 
       {excludedOpen && (
-        <ExcludedItemsModal
-          menu={menu}
-          excludedIds={data.excludedIds}
-          onClose={() => setExcludedOpen(false)}
-        />
+        <ExcludedItemsModal menu={menu} excludedIds={data.excludedIds} onClose={() => setExcludedOpen(false)} />
       )}
     </div>
   );

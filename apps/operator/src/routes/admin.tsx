@@ -58,20 +58,14 @@ export function AdminShell() {
   const { tr } = useLocale();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const visible = new Set(staff ? allowedSubRoutes(staff.role, '/admin') : []);
-  const family = FAMILIES.find((f) =>
-    f.items.some((i) => path === i.to || path.startsWith(`${i.to}/`)),
-  );
+  const family = FAMILIES.find((f) => f.items.some((i) => path === i.to || path.startsWith(`${i.to}/`)));
   const groups: SubNavGroup[] = family
     ? [
         {
           label: tr(`op.adminNav.${family.label}` as const),
           items: family.items
             .filter((item) => visible.has(item.to))
-            .map((item) => ({
-              to: item.to,
-              label: tr(`op.adminNav.${item.key}` as const),
-              icon: item.icon,
-            })),
+            .map((item) => ({ to: item.to, label: tr(`op.adminNav.${item.key}` as const), icon: item.icon })),
         },
       ]
     : [];

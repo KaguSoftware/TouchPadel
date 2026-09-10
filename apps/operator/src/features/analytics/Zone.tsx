@@ -17,31 +17,11 @@ export interface ZoneDef {
 }
 
 export const ZONES: readonly ZoneDef[] = [
-  {
-    id: 'pulse',
-    ordinal: '01',
-    titleKey: 'analytics.zones.pulse',
-    descKey: 'analytics.zones.pulseDesc',
-  },
+  { id: 'pulse', ordinal: '01', titleKey: 'analytics.zones.pulse', descKey: 'analytics.zones.pulseDesc' },
   { id: 'ai', ordinal: '02', titleKey: 'analytics.zones.ai', descKey: 'analytics.zones.aiDesc' },
-  {
-    id: 'menu',
-    ordinal: '03',
-    titleKey: 'analytics.zones.menu',
-    descKey: 'analytics.zones.menuDesc',
-  },
-  {
-    id: 'sales',
-    ordinal: '04',
-    titleKey: 'analytics.zones.sales',
-    descKey: 'analytics.zones.salesDesc',
-  },
-  {
-    id: 'time',
-    ordinal: '05',
-    titleKey: 'analytics.zones.time',
-    descKey: 'analytics.zones.timeDesc',
-  },
+  { id: 'menu', ordinal: '03', titleKey: 'analytics.zones.menu', descKey: 'analytics.zones.menuDesc' },
+  { id: 'sales', ordinal: '04', titleKey: 'analytics.zones.sales', descKey: 'analytics.zones.salesDesc' },
+  { id: 'time', ordinal: '05', titleKey: 'analytics.zones.time', descKey: 'analytics.zones.timeDesc' },
 ];
 
 /** Id of the zone currently nearest the top of the viewport. */
@@ -86,26 +66,17 @@ const headRow: CSSProperties = {
 export function Zone({ zone, children }: { zone: ZoneDef; children: ReactNode }) {
   const { tr } = useLocale();
   return (
-    <section
-      id={`zone-${zone.id}`}
-      aria-labelledby={`zone-${zone.id}-title`}
-      style={{ marginBlockEnd: 'var(--tp-sp-6)', scrollMarginBlockStart: '5rem' }}
-    >
+    <section id={`zone-${zone.id}`} aria-labelledby={`zone-${zone.id}-title`} style={{ marginBlockEnd: 'var(--tp-sp-6)', scrollMarginBlockStart: '5rem' }}>
       <div style={headRow}>
         {/* --tp-muted is a SURFACE step (86% lightness); as ink on the page
             ground the ordinal was all but invisible. */}
-        <span
-          aria-hidden="true"
-          style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, color: 'var(--tp-muted-fg)' }}
-        >
+        <span aria-hidden="true" style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, color: 'var(--tp-muted-fg)' }}>
           {zone.ordinal}
         </span>
         <h2 id={`zone-${zone.id}-title`} style={{ margin: 0, fontSize: 'var(--tp-fs-xl)' }}>
           {tr(zone.titleKey)}
         </h2>
-        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-          {tr(zone.descKey)}
-        </span>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(zone.descKey)}</span>
       </div>
       {children}
     </section>
@@ -115,14 +86,7 @@ export function Zone({ zone, children }: { zone: ZoneDef; children: ReactNode })
 /** Responsive-free desktop grid used by every zone body (page is min 1024px wide). */
 export function ZoneGrid({ columns = 2, children }: { columns?: number; children: ReactNode }) {
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-        gap: 'var(--tp-sp-3)',
-        alignItems: 'start',
-      }}
-    >
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
       {children}
     </div>
   );

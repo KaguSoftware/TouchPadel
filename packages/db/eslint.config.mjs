@@ -7,13 +7,6 @@ export default [
   ...base, // typescript-eslint recommended + the repo's RTL logical-property guard
   {
     // supabase/functions/* run on Deno with their own types; lint them with `deno lint`, not this config.
-    ignores: [
-      'dist/**',
-      'node_modules/**',
-      'eslint.config.mjs',
-      'vitest.config.ts',
-      '**/*.gen.ts',
-      'supabase/functions/**',
-    ],
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.mjs', 'vitest.config.ts', '**/*.gen.ts', 'supabase/functions/**'],
   },
 ];

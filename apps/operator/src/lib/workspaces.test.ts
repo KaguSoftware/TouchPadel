@@ -45,32 +45,18 @@ describe('navigation sets', () => {
         expect(canAccess(roleFor[ws.key], item.to), `${ws.key} → ${item.to}`).toBe(true);
       }
       for (const section of ws.sections ?? []) {
-        expect(canAccess(roleFor[ws.key], section.home), `${ws.key} → ${section.key} home`).toBe(
-          true,
-        );
+        expect(canAccess(roleFor[ws.key], section.home), `${ws.key} → ${section.key} home`).toBe(true);
       }
       expect(canAccess(roleFor[ws.key], ws.home), `${ws.key} home`).toBe(true);
     }
   });
   it('every route prefix in ROUTE_ROLES is reachable from at least one rail or is a shell route', () => {
-    const targets = new Set(
-      Object.values(WORKSPACES).flatMap((ws) => workspaceItems(ws).map((i) => i.to)),
-    );
+    const targets = new Set(Object.values(WORKSPACES).flatMap((ws) => workspaceItems(ws).map((i) => i.to)));
     // Telegram lives in the admin sub-nav (System group), not on a rail.
-    const shell = new Set([
-      '/workspaces',
-      '/kds',
-      '/reports',
-      '/reports/revenue',
-      '/desk/customers/new',
-      '/admin/telegram',
-    ]);
+    const shell = new Set(['/workspaces', '/kds', '/reports', '/reports/revenue', '/desk/customers/new', '/admin/telegram']);
     for (const prefix of Object.keys(ROUTE_ROLES)) {
       const covered =
-        shell.has(prefix) ||
-        [...targets].some(
-          (t) => t === prefix || t.startsWith(`${prefix}/`) || prefix.startsWith(`${t}/`),
-        );
+        shell.has(prefix) || [...targets].some((t) => t === prefix || t.startsWith(`${prefix}/`) || prefix.startsWith(`${t}/`));
       expect(covered, prefix).toBe(true);
     }
   });
@@ -173,10 +159,7 @@ describe('sections', () => {
     const seen = new Map<string, string>();
     for (const section of owner.sections ?? []) {
       for (const item of section.items) {
-        expect(
-          seen.has(item.to),
-          `${item.to} in both ${seen.get(item.to)} and ${section.key}`,
-        ).toBe(false);
+        expect(seen.has(item.to), `${item.to} in both ${seen.get(item.to)} and ${section.key}`).toBe(false);
         seen.set(item.to, section.key);
       }
     }
@@ -195,13 +178,7 @@ describe('sections', () => {
   });
 
   it('leaves no /reports child stranded outside a section', () => {
-    for (const path of [
-      '/reports/revenue',
-      '/reports/courts',
-      '/reports/cafe',
-      '/reports/stock',
-      '/reports/staff',
-    ]) {
+    for (const path of ['/reports/revenue', '/reports/courts', '/reports/cafe', '/reports/stock', '/reports/staff']) {
       expect(sectionForPath(owner, path), path).not.toBeNull();
     }
   });

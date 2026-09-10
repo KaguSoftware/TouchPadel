@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  canDecide,
-  statusTone,
-  type StaffRequestRow,
-  type StaffRequestStatus,
-} from './requestTypes';
+import { canDecide, statusTone, type StaffRequestRow, type StaffRequestStatus } from './requestTypes';
 
 const row = (over: Partial<StaffRequestRow> = {}): StaffRequestRow => ({
   id: 'r1',

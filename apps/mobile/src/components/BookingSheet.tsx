@@ -27,14 +27,7 @@
  * (min 96 pt) instead of the card overflowing under the title or tab bar.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  Animated,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Animated, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
 import { wallTimeToUtc } from '@touch/core';
@@ -469,6 +462,7 @@ export function BookingSheet({
                   activeColor={colors.gstrong}
                 />
               </Animated.View>
+
 
               {/* Time grid: four rows visible, vertical scroll; rows pass under
                   the card's clipped edge. The one block that gives way on a short stage */}

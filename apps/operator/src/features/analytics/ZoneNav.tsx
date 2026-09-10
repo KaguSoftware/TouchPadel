@@ -11,10 +11,7 @@ export function ZoneNav() {
   const { tr } = useLocale();
   const active = useZoneSpy(IDS);
   return (
-    <nav
-      aria-label={tr('analytics.deck.jumpTo')}
-      style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}
-    >
+    <nav aria-label={tr('analytics.deck.jumpTo')} style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
       {ZONES.map((zone) => {
         const selected = zone.id === active;
         return (
@@ -22,11 +19,7 @@ export function ZoneNav() {
             key={zone.id}
             type="button"
             aria-current={selected ? 'true' : undefined}
-            onClick={() =>
-              document
-                .getElementById(`zone-${zone.id}`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }
+            onClick={() => document.getElementById(`zone-${zone.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             style={{
               // The deck stands every control on --tp-row-h; these pills came
               // to ~30px and floated inside that band.

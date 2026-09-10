@@ -43,15 +43,7 @@ export function QrIllustration({ className = 'tp-qr-art' }: { className?: string
     >
       {FINDERS.map(([fx, fy]) => (
         <g key={`${fx}-${fy}`}>
-          <rect
-            x={fx}
-            y={fy}
-            width="7"
-            height="7"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1"
-          />
+          <rect x={fx} y={fy} width="7" height="7" fill="none" stroke="currentColor" strokeWidth="1" />
           <rect x={fx + 2} y={fy + 2} width="3" height="3" fill="currentColor" />
         </g>
       ))}

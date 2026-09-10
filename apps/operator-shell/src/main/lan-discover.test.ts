@@ -18,14 +18,7 @@ let server: LanKdsServer | null = null;
 
 beforeEach(() => {
   server = startLanKdsServer(
-    {
-      stationId: 'TILL1',
-      mode: 'till',
-      lanPsk: CODE,
-      lanBind: '127.0.0.1',
-      configured: true,
-      appVersion: 't',
-    },
+    { stationId: 'TILL1', mode: 'till', lanPsk: CODE, lanBind: '127.0.0.1', configured: true, appVersion: 't' },
     { port: PORT },
   );
   expect(server).not.toBeNull();
@@ -62,10 +55,7 @@ describe('lan-net helpers', () => {
     });
     const subnets = localSubnets({
       lo: [iface('127.0.0.1', true)],
-      eth0: [
-        iface('192.168.4.7'),
-        { ...iface('192.168.4.7'), family: 'IPv6' as const, address: 'fe80::1' },
-      ],
+      eth0: [iface('192.168.4.7'), { ...iface('192.168.4.7'), family: 'IPv6' as const, address: 'fe80::1' }],
       wifi: [iface('169.254.10.2')],
       vpn: [iface('203.0.113.9')],
       docker: [iface('172.17.0.1')],

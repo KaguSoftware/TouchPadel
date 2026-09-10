@@ -18,8 +18,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Order matters: courts before rates before anything that references them.
 const ORDER = ['courts.sql', 'rates.sql', 'menu.sql', 'recipes.sql', 'staff.sql'];
 const files = ORDER.map((f) => join(root, 'client-data', f)).filter(existsSync);
-const DB_URL =
-  process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const DB_URL = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 if (files.length === 0) {
   console.error('[db-client] no client-data/*.sql to load — has an intake pack been landed yet?');
@@ -61,15 +60,8 @@ if (hasPsql()) {
     { input: sql, stdio: ['pipe', 'inherit', 'inherit'] },
   );
   if (r.status !== 0) {
-    console.error(
-      `[db-client] docker exec failed (container ${container}); is the local stack running?`,
-    );
+    console.error(`[db-client] docker exec failed (container ${container}); is the local stack running?`);
     process.exit(r.status ?? 1);
   }
 }
-console.log(
-  '[db-client] loaded',
-  files.length,
-  'client-data file(s):',
-  files.map((f) => f.split(/[\\/]/).pop()).join(', '),
-);
+console.log('[db-client] loaded', files.length, 'client-data file(s):', files.map((f) => f.split(/[\\/]/).pop()).join(', '));

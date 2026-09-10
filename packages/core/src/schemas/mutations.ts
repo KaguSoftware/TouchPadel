@@ -228,11 +228,7 @@ export const orderAddItemsPayloadSchema = z
             qty: z.number().int().positive(),
             notes: z.string().max(500).optional(),
             modifiers: z
-              .array(
-                z
-                  .object({ modifierId: uuid, qty: z.number().int().positive().default(1) })
-                  .strict(),
-              )
+              .array(z.object({ modifierId: uuid, qty: z.number().int().positive().default(1) }).strict())
               .default([]),
           })
           .strict(),

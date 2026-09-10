@@ -103,12 +103,7 @@ export function StaffRequestsScreen() {
   };
 
   const columns: Column<StaffRequestRow>[] = [
-    {
-      key: 'staff',
-      header: tr('ws.owner.requests.cols.staff'),
-      render: (r) => r.staff_name,
-      truncateTitle: (r) => r.staff_name,
-    },
+    { key: 'staff', header: tr('ws.owner.requests.cols.staff'), render: (r) => r.staff_name, truncateTitle: (r) => r.staff_name },
     {
       key: 'kind',
       header: tr('ws.owner.requests.cols.kind'),
@@ -121,11 +116,7 @@ export function StaffRequestsScreen() {
       render: (r) => (
         <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
           <span dir={r.kind === 'advance' ? 'ltr' : undefined}>{detail(r)}</span>
-          {r.note && (
-            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-              {r.note}
-            </span>
-          )}
+          {r.note && <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{r.note}</span>}
         </span>
       ),
       truncateTitle: (r) => `${detail(r)}${r.note ? ` — ${r.note}` : ''}`,
@@ -141,19 +132,14 @@ export function StaffRequestsScreen() {
       header: tr('ws.owner.requests.cols.status'),
       render: (r) => (
         <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-          <StatusBadge
-            tone={statusTone(r.status)}
-            label={tr(`ws.owner.requests.statuses.${r.status as StaffRequestStatus}`)}
-          />
+          <StatusBadge tone={statusTone(r.status)} label={tr(`ws.owner.requests.statuses.${r.status as StaffRequestStatus}`)} />
           {r.decided_by_name && (
             <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
               {tr('ws.owner.requests.decidedBy', { name: r.decided_by_name })}
             </span>
           )}
           {r.decision_note && (
-            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-              {r.decision_note}
-            </span>
+            <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{r.decision_note}</span>
           )}
         </span>
       ),
@@ -206,16 +192,8 @@ export function StaffRequestsScreen() {
         emptyContent={
           <EmptyState
             icon="check"
-            title={tr(
-              filter === 'pending'
-                ? 'ws.owner.requests.emptyPendingTitle'
-                : 'ws.owner.requests.emptyTitle',
-            )}
-            body={tr(
-              filter === 'pending'
-                ? 'ws.owner.requests.emptyPendingBody'
-                : 'ws.owner.requests.emptyBody',
-            )}
+            title={tr(filter === 'pending' ? 'ws.owner.requests.emptyPendingTitle' : 'ws.owner.requests.emptyTitle')}
+            body={tr(filter === 'pending' ? 'ws.owner.requests.emptyPendingBody' : 'ws.owner.requests.emptyBody')}
           />
         }
       >
@@ -232,9 +210,7 @@ export function StaffRequestsScreen() {
             decide.reset();
             setDeciding(null);
           }}
-          onSubmit={(note) =>
-            decide.mutate({ id: deciding.row.id, approve: deciding.approve, note })
-          }
+          onSubmit={(note) => decide.mutate({ id: deciding.row.id, approve: deciding.approve, note })}
         />
       )}
     </div>
@@ -304,15 +280,7 @@ function DecisionDialog({
           onChange={(e) => setNote(e.target.value)}
           onBlur={() => setTouched(true)}
           rows={3}
-          style={{
-            inlineSize: '100%',
-            font: 'inherit',
-            padding: 'var(--tp-sp-2)',
-            borderRadius: 'var(--tp-radius-ctl)',
-            border: '1px solid var(--tp-border)',
-            background: 'var(--tp-surface)',
-            color: 'var(--tp-fg)',
-          }}
+          style={{ inlineSize: '100%', font: 'inherit', padding: 'var(--tp-sp-2)', borderRadius: 'var(--tp-radius-ctl)', border: '1px solid var(--tp-border)', background: 'var(--tp-surface)', color: 'var(--tp-fg)' }}
         />
       </Field>
       {error != null && <ErrorText error={error} />}

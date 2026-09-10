@@ -56,11 +56,7 @@ interface ApplyResult {
   actor_label: string | null;
 }
 
-async function tg(
-  token: string,
-  method: string,
-  body: Record<string, unknown>,
-): Promise<{ ok: boolean; description?: string }> {
+async function tg(token: string, method: string, body: Record<string, unknown>): Promise<{ ok: boolean; description?: string }> {
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
       method: 'POST',
@@ -99,10 +95,7 @@ Deno.serve(async (req) => {
   const cq = update?.callback_query;
   if (!cq || typeof cq.id !== 'string') return json({ ok: true });
 
-  const answer = (text: string) =>
-    token
-      ? tg(token, 'answerCallbackQuery', { callback_query_id: cq.id, text })
-      : Promise.resolve({ ok: false });
+  const answer = (text: string) => (token ? tg(token, 'answerCallbackQuery', { callback_query_id: cq.id, text }) : Promise.resolve({ ok: false }));
 
   const parsed = parseCallbackData(cq.data);
   if (!parsed) {
@@ -142,11 +135,7 @@ Deno.serve(async (req) => {
       const messageId = cq.message.message_id;
       const keyboard = keyboardAfter(kind, applied.keyboard, parsed.refId);
       const replyMarkup = keyboard ?? { inline_keyboard: [] };
-      const footer = statusFooter(
-        parsed.action,
-        applied.actor_label ?? cq.from?.first_name ?? 'Telegram',
-        fmtTime(new Date()),
-      );
+      const footer = statusFooter(parsed.action, applied.actor_label ?? cq.from?.first_name ?? 'Telegram', fmtTime(new Date()));
 
       const { data: row } = await db
         .from('telegram_outbox')
@@ -173,22 +162,14 @@ Deno.serve(async (req) => {
           message_id: messageId,
           reply_markup: replyMarkup,
         });
-        if (!fallback.ok)
-          console.error('edit failed:', edited.description, '/', fallback.description);
+        if (!fallback.ok) console.error('edit failed:', edited.description, '/', fallback.description);
       }
     }
 
-    const { error: stampErr } = await db
-      .from('cafe_settings')
-      .upsert(
-        {
-          key: 'telegram_last_callback_at',
-          value: new Date().toISOString(),
-          is_public: false,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'key' },
-      );
+    const { error: stampErr } = await db.from('cafe_settings').upsert(
+      { key: 'telegram_last_callback_at', value: new Date().toISOString(), is_public: false, updated_at: new Date().toISOString() },
+      { onConflict: 'key' },
+    );
     if (stampErr) console.error('telegram_last_callback_at stamp failed:', stampErr.message);
 
     return json({ ok: true, result: applied.result, keyboard: applied.keyboard });

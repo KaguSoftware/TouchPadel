@@ -16,7 +16,9 @@ export function toggleDuration(selected: readonly number[], value: number): numb
 }
 
 export function durationsValid(selected: readonly number[]): boolean {
-  return selected.length > 0 && selected.every((v) => v >= 30 && v <= 300 && v % 15 === 0);
+  return (
+    selected.length > 0 && selected.every((v) => v >= 30 && v <= 300 && v % 15 === 0)
+  );
 }
 
 /** What is holding a court that cannot be deleted (0074 COURT_IN_USE detail). */

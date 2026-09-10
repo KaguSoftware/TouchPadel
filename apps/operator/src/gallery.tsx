@@ -41,53 +41,17 @@ interface Row {
   amount: string;
 }
 const ROWS: Row[] = [
-  {
-    ref: 'B-4182',
-    guest: 'Mohammed Al-Rashid',
-    court: 'Court 1',
-    time: '18:00 – 19:30',
-    status: 'arrived',
-    amount: '45,000',
-  },
-  {
-    ref: 'B-4183',
-    guest: 'Sara Hussein',
-    court: 'Court 2',
-    time: '18:00 – 19:30',
-    status: 'confirmed',
-    amount: '45,000',
-  },
-  {
-    ref: 'B-4184',
-    guest: 'Ali Kareem',
-    court: 'Court 1',
-    time: '19:30 – 21:00',
-    status: 'pending',
-    amount: '52,000',
-  },
-  {
-    ref: 'B-4185',
-    guest: 'Noor Abdullah',
-    court: 'Court 3',
-    time: '20:00 – 21:00',
-    status: 'cancelled',
-    amount: '0',
-  },
+  { ref: 'B-4182', guest: 'Mohammed Al-Rashid', court: 'Court 1', time: '18:00 – 19:30', status: 'arrived', amount: '45,000' },
+  { ref: 'B-4183', guest: 'Sara Hussein', court: 'Court 2', time: '18:00 – 19:30', status: 'confirmed', amount: '45,000' },
+  { ref: 'B-4184', guest: 'Ali Kareem', court: 'Court 1', time: '19:30 – 21:00', status: 'pending', amount: '52,000' },
+  { ref: 'B-4185', guest: 'Noor Abdullah', court: 'Court 3', time: '20:00 – 21:00', status: 'cancelled', amount: '0' },
 ];
 const TONES = ['neutral', 'accent', 'success', 'warn', 'danger', 'info'] as const;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ marginBlockEnd: '2rem' }}>
-      <h2
-        style={{
-          fontSize: 'var(--tp-fs-lg)',
-          marginBlockEnd: '0.75rem',
-          color: 'var(--tp-muted-fg)',
-        }}
-      >
-        {title}
-      </h2>
+      <h2 style={{ fontSize: 'var(--tp-fs-lg)', marginBlockEnd: '0.75rem', color: 'var(--tp-muted-fg)' }}>{title}</h2>
       {children}
     </section>
   );
@@ -100,24 +64,7 @@ function Gallery() {
     { key: 'guest', header: 'Guest' },
     { key: 'court', header: 'Court' },
     { key: 'time', header: 'Time' },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (r) => (
-        <StatusBadge
-          tone={
-            r.status === 'arrived'
-              ? 'success'
-              : r.status === 'pending'
-                ? 'warn'
-                : r.status === 'cancelled'
-                  ? 'danger'
-                  : 'accent'
-          }
-          label={r.status}
-        />
-      ),
-    },
+    { key: 'status', header: 'Status', render: (r) => <StatusBadge tone={r.status === 'arrived' ? 'success' : r.status === 'pending' ? 'warn' : r.status === 'cancelled' ? 'danger' : 'accent'} label={r.status} /> },
     { key: 'amount', header: 'Amount', numeric: true },
   ];
 
@@ -135,62 +82,22 @@ function Gallery() {
           overflow: 'hidden',
         }}
       >
-        <div
-          style={{
-            position: 'relative',
-            paddingBlock: '1rem 0.9rem',
-            paddingInline: '0.9rem',
-            borderBlockEnd: '1px solid var(--tp-rail-border)',
-            overflow: 'hidden',
-          }}
-        >
+        <div style={{ position: 'relative', paddingBlock: '1rem 0.9rem', paddingInline: '0.9rem', borderBlockEnd: '1px solid var(--tp-rail-border)', overflow: 'hidden' }}>
           <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
             <CourtLines opacity={0.16} />
           </div>
           <div style={{ position: 'relative' }}>
             <BrandLockup size={28} tone="onDark" />
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                marginBlockStart: '0.6rem',
-              }}
-            >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBlockStart: '0.6rem' }}>
               <span style={{ display: 'inline-flex', color: 'var(--tp-rail-green)' }}>
                 <Icon name="today" size={16} />
               </span>
-              <span
-                style={{
-                  fontWeight: 700,
-                  fontSize: 'var(--tp-fs-md)',
-                  color: 'var(--tp-brand-white)',
-                }}
-              >
-                Court desk
-              </span>
+              <span style={{ fontWeight: 700, fontSize: 'var(--tp-fs-md)', color: 'var(--tp-brand-white)' }}>Court desk</span>
             </div>
-            <p
-              style={{
-                fontSize: 'var(--tp-fs-xs)',
-                color: 'var(--tp-rail-muted)',
-                marginBlockStart: '0.15rem',
-              }}
-            >
-              Bookings, arrivals and guests
-            </p>
+            <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', marginBlockStart: '0.15rem' }}>Bookings, arrivals and guests</p>
           </div>
         </div>
-        <div
-          style={{
-            flex: 1,
-            paddingBlock: '0.6rem',
-            paddingInline: '0.5rem',
-            display: 'grid',
-            gap: '2px',
-            alignContent: 'start',
-          }}
-        >
+        <div style={{ flex: 1, paddingBlock: '0.6rem', paddingInline: '0.5rem', display: 'grid', gap: '2px', alignContent: 'start' }}>
           {[
             ['today', 'Today', true],
             ['calendar', 'Calendar', false],
@@ -198,12 +105,7 @@ function Gallery() {
             ['repeat', 'New series', false],
             ['ban', 'Block court', false],
           ].map(([icon, label, active]) => (
-            <a
-              key={label as string}
-              href="#"
-              className="tp-nav-item"
-              data-active={active ? 'true' : undefined}
-            >
+            <a key={label as string} href="#" className="tp-nav-item" data-active={active ? 'true' : undefined}>
               <Icon name={icon as 'today'} size={17} />
               <span>{label as string}</span>
             </a>
@@ -218,9 +120,7 @@ function Gallery() {
           actions={
             <>
               <Button icon="printer">Print sheet</Button>
-              <Button kind="primary" icon="plus">
-                Add booking
-              </Button>
+              <Button kind="primary" icon="plus">Add booking</Button>
             </>
           }
         />
@@ -242,9 +142,7 @@ function Gallery() {
             <Button kind="danger">Danger</Button>
             <Button disabled>Disabled</Button>
             <Button busy>Busy</Button>
-            <Button kind="primary" busy>
-              Saving
-            </Button>
+            <Button kind="primary" busy>Saving</Button>
             <Button icon="search" aria-label="Search" />
             <Button size="sm">Small</Button>
             <Button size="lg">Large</Button>
@@ -272,21 +170,10 @@ function Gallery() {
                   <RowActions
                     label={r.guest}
                     actions={[
-                      {
-                        id: 'open',
-                        label: 'Open booking',
-                        icon: 'arrowUpRight',
-                        onSelect: () => {},
-                      },
+                      { id: 'open', label: 'Open booking', icon: 'arrowUpRight', onSelect: () => {} },
                       { id: 'arrive', label: 'Mark arrived', icon: 'check', onSelect: () => {} },
                       { id: 'move', label: 'Move booking', icon: 'repeat', onSelect: () => {} },
-                      {
-                        id: 'cancel',
-                        label: 'Cancel booking',
-                        icon: 'ban',
-                        danger: true,
-                        onSelect: () => {},
-                      },
+                      { id: 'cancel', label: 'Cancel booking', icon: 'ban', danger: true, onSelect: () => {} },
                     ]}
                   />
                 ),
@@ -302,29 +189,12 @@ function Gallery() {
         <Section title="Messages and reasons">
           <div style={{ display: 'grid', gap: '0.6rem', maxInlineSize: 'var(--tp-measure-form)' }}>
             <MessagePresenter tone="success" message="Booking B-4182 marked arrived." />
-            <MessagePresenter
-              tone="refused"
-              message="Refunds need a manager. Ask a manager to sign in."
-            />
-            <MessagePresenter
-              tone="error"
-              message="That court was booked by another station a moment ago."
-            />
+            <MessagePresenter tone="refused" message="Refunds need a manager. Ask a manager to sign in." />
+            <MessagePresenter tone="error" message="That court was booked by another station a moment ago." />
             <MessagePresenter tone="info" message="Rates change at 18:00 tonight." />
-            <div
-              style={{
-                display: 'flex',
-                gap: '1rem',
-                alignItems: 'flex-start',
-                marginBlockStart: '0.5rem',
-              }}
-            >
-              <Button kind="danger" disabled disabledReason="Already paid — refund instead.">
-                Void booking
-              </Button>
-              <Button kind="primary" disabled disabledReason="The day is closed. Reopen it first.">
-                Take payment
-              </Button>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', marginBlockStart: '0.5rem' }}>
+              <Button kind="danger" disabled disabledReason="Already paid — refund instead.">Void booking</Button>
+              <Button kind="primary" disabled disabledReason="The day is closed. Reopen it first.">Take payment</Button>
             </div>
           </div>
         </Section>
@@ -335,33 +205,15 @@ function Gallery() {
               <TableSkeleton columns={columns} rows={3} />
               <div style={{ blockSize: '0.75rem' }} />
               <Skeleton lines={2} />
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '1rem',
-                  alignItems: 'center',
-                  marginBlockStart: '1rem',
-                }}
-              >
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBlockStart: '1rem' }}>
                 <Spinner size="lg" />
                 <Spinner size="md" />
                 <Spinner size="sm" />
                 <Spinner size="xs" />
-                <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                  lg · md · sm · xs
-                </span>
+                <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>lg · md · sm · xs</span>
               </div>
             </Panel>
-            <EmptyState
-              icon="today"
-              title="No bookings today"
-              body="Nothing is on the courts. Add a booking when a guest calls."
-              action={
-                <Button kind="primary" icon="plus">
-                  Add booking
-                </Button>
-              }
-            />
+            <EmptyState icon="today" title="No bookings today" body="Nothing is on the courts. Add a booking when a guest calls." action={<Button kind="primary" icon="plus">Add booking</Button>} />
           </div>
         </Section>
 
@@ -379,30 +231,13 @@ function Gallery() {
                 <option value="2">Court 2</option>
               </select>
             </Field>
-            <Tabs
-              value="a"
-              onChange={() => {}}
-              items={[
-                { id: 'a', label: 'Details' },
-                { id: 'b', label: 'Payments', count: 2 },
-                { id: 'c', label: 'History' },
-              ]}
-            />
+            <Tabs value="a" onChange={() => {}} items={[{ id: 'a', label: 'Details' }, { id: 'b', label: 'Payments', count: 2 }, { id: 'c', label: 'History' }]} />
           </div>
         </Section>
 
         <Section title="Brand — the six sanctioned surfaces">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div
-              style={{
-                background: 'var(--tp-rail)',
-                borderRadius: 'var(--tp-radius-panel)',
-                padding: '1.5rem',
-                display: 'grid',
-                gap: '1.25rem',
-                justifyItems: 'start',
-              }}
-            >
+            <div style={{ background: 'var(--tp-rail)', borderRadius: 'var(--tp-radius-panel)', padding: '1.5rem', display: 'grid', gap: '1.25rem', justifyItems: 'start' }}>
               <BrandLockup size={40} tone="onDark" />
               <BrandLockup size={22} tone="onDark" />
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -412,17 +247,7 @@ function Gallery() {
                 <BrandBall size={24} spin />
               </div>
             </div>
-            <div
-              style={{
-                background: 'var(--tp-surface)',
-                border: '1px solid var(--tp-border)',
-                borderRadius: 'var(--tp-radius-panel)',
-                padding: '1.5rem',
-                display: 'grid',
-                gap: '1.25rem',
-                justifyItems: 'start',
-              }}
-            >
+            <div style={{ background: 'var(--tp-surface)', border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', padding: '1.5rem', display: 'grid', gap: '1.25rem', justifyItems: 'start' }}>
               <BrandLockup size={40} />
               <BrandLockup size={22} />
               <div style={{ inlineSize: '100%', blockSize: '6rem' }}>
@@ -433,51 +258,14 @@ function Gallery() {
         </Section>
 
         <Section title="Kitchen board">
-          <div
-            data-workspace="prep"
-            style={{
-              background: 'var(--tp-kds-bg)',
-              borderRadius: 'var(--tp-radius-panel)',
-              padding: '1rem',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '0.75rem',
-            }}
-          >
+          <div data-workspace="prep" style={{ background: 'var(--tp-kds-bg)', borderRadius: 'var(--tp-radius-panel)', padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
             {(['fresh', 'warm', 'late'] as const).map((state) => (
-              <div
-                key={state}
-                style={{
-                  background: 'var(--tp-kds-card)',
-                  border: '1px solid var(--tp-kds-border)',
-                  borderRadius: 'var(--tp-radius-panel)',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    background: `var(--tp-kds-${state})`,
-                    color: 'var(--tp-kds-on-fill)',
-                    paddingBlock: '0.5rem',
-                    paddingInline: '0.75rem',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontWeight: 700,
-                    fontSize: 'var(--tp-fs-kds)',
-                  }}
-                >
+              <div key={state} style={{ background: 'var(--tp-kds-card)', border: '1px solid var(--tp-kds-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'hidden' }}>
+                <div style={{ background: `var(--tp-kds-${state})`, color: 'var(--tp-kds-on-fill)', paddingBlock: '0.5rem', paddingInline: '0.75rem', display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 'var(--tp-fs-kds)' }}>
                   <span>Table 4</span>
                   <span>{state === 'fresh' ? '1:20' : state === 'warm' ? '6:05' : '12:44'}</span>
                 </div>
-                <div
-                  style={{
-                    padding: '0.75rem',
-                    color: 'var(--tp-kds-fg)',
-                    fontSize: 'var(--tp-fs-kds-sm)',
-                    display: 'grid',
-                    gap: '0.35rem',
-                  }}
-                >
+                <div style={{ padding: '0.75rem', color: 'var(--tp-kds-fg)', fontSize: 'var(--tp-fs-kds-sm)', display: 'grid', gap: '0.35rem' }}>
                   <span>2 × Cappuccino</span>
                   <span>1 × Club sandwich</span>
                   <span style={{ color: 'var(--tp-kds-muted)' }}>no onions</span>
@@ -487,9 +275,7 @@ function Gallery() {
           </div>
         </Section>
 
-        <Button onClick={toggleLocale} icon="globe">
-          {tr('ws.shell.nav.language')}
-        </Button>
+        <Button onClick={toggleLocale} icon="globe">{tr('ws.shell.nav.language')}</Button>
         <div style={{ blockSize: '3rem' }} />
       </main>
     </div>

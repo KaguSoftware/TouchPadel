@@ -24,12 +24,7 @@ describe('makeNonce', () => {
   });
 
   it('rejects an empty random value instead of sending an empty nonce', async () => {
-    await expect(
-      makeNonce(
-        () => '',
-        async (s) => s,
-      ),
-    ).rejects.toThrow(/empty nonce/);
+    await expect(makeNonce(() => '', async (s) => s)).rejects.toThrow(/empty nonce/);
   });
 
   it('gives two attempts two different nonces', async () => {
@@ -64,12 +59,8 @@ describe('appleDisplayName', () => {
 
 describe('mapSocialError', () => {
   it('treats a cancelled or in-progress attempt as nothing to show', () => {
-    expect(mapSocialError(new SocialAuthError('CANCELLED', 'apple'))).toEqual({
-      kind: 'cancelled',
-    });
-    expect(mapSocialError(new SocialAuthError('IN_PROGRESS', 'google'))).toEqual({
-      kind: 'cancelled',
-    });
+    expect(mapSocialError(new SocialAuthError('CANCELLED', 'apple'))).toEqual({ kind: 'cancelled' });
+    expect(mapSocialError(new SocialAuthError('IN_PROGRESS', 'google'))).toEqual({ kind: 'cancelled' });
   });
 
   it('still recognises raw SDK cancel codes an adapter forgot to wrap', () => {
@@ -132,16 +123,10 @@ describe('mapSocialError', () => {
 
   it('reports a GoTrue refusal of the token (dashboard Client IDs / nonce)', () => {
     expect(
-      mapSocialError({
-        name: 'AuthApiError',
-        message: 'Unacceptable audience in id_token',
-        status: 400,
-      }),
+      mapSocialError({ name: 'AuthApiError', message: 'Unacceptable audience in id_token', status: 400 }),
     ).toEqual({ kind: 'error', key: 'auth.socialFailed', report: true });
     expect(
-      mapSocialError(
-        new Error('Passed nonce and nonce in id_token should either both exist or not'),
-      ),
+      mapSocialError(new Error('Passed nonce and nonce in id_token should either both exist or not')),
     ).toMatchObject({ key: 'auth.socialFailed', report: true });
   });
 
@@ -225,26 +210,14 @@ describe('buildProfilePatch', () => {
       full_name: 'Sara Ali',
     });
     expect(
-      buildProfilePatch('apple', {
-        ...apple,
-        existingFullName: 'k3x9q2',
-        email: 'k3x9q2@privaterelay.appleid.com',
-      }),
+      buildProfilePatch('apple', { ...apple, existingFullName: 'k3x9q2', email: 'k3x9q2@privaterelay.appleid.com' }),
     ).toEqual({ full_name: 'Sara Ali' });
-    expect(
-      buildProfilePatch('apple', { ...apple, existingFullName: 'sara', email: 'sara@icloud.com' }),
-    ).toEqual({
+    expect(buildProfilePatch('apple', { ...apple, existingFullName: 'sara', email: 'sara@icloud.com' })).toEqual({
       full_name: 'Sara Ali',
     });
     // An existing email/password guest who linked Apple keeps the name she typed. (A chosen name that
     // EQUALS the email local part is indistinguishable from the trigger fallback and is refreshed — accepted.)
-    expect(
-      buildProfilePatch('apple', {
-        ...apple,
-        existingFullName: 'Sara Karim',
-        email: 'sara@icloud.com',
-      }),
-    ).toBeNull();
+    expect(buildProfilePatch('apple', { ...apple, existingFullName: 'Sara Karim', email: 'sara@icloud.com' })).toBeNull();
   });
 });
 
@@ -261,9 +234,7 @@ describe('isGoogleClientId', () => {
   });
 
   it('treats the committed placeholders, blanks and typos as unset', () => {
-    expect(isGoogleClientId('REPLACE_WITH_GOOGLE_IOS_CLIENT_ID.apps.googleusercontent.com')).toBe(
-      false,
-    );
+    expect(isGoogleClientId('REPLACE_WITH_GOOGLE_IOS_CLIENT_ID.apps.googleusercontent.com')).toBe(false);
     expect(isGoogleClientId('replace-with-web-client-id.apps.googleusercontent.com')).toBe(false);
     expect(isGoogleClientId('123456789012-abc.apps.googleusercontent.com ')).toBe(false);
     expect(isGoogleClientId('')).toBe(false);

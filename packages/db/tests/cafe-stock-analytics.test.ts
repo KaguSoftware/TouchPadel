@@ -204,68 +204,32 @@ describe.skipIf(!up)('stock reversal + analytics visits (0043)', () => {
     };
 
     await svc.from('day_sessions').upsert({
-      id: ids.day,
-      business_date: day,
-      status: 'closed',
-      opened_at: at,
-      opened_by: SEED_STAFF_IDS.manager,
-      opening_float_iqd: 0,
-      closed_at: at,
-      closed_by: SEED_STAFF_IDS.manager,
+      id: ids.day, business_date: day, status: 'closed',
+      opened_at: at, opened_by: SEED_STAFF_IDS.manager, opening_float_iqd: 0,
+      closed_at: at, closed_by: SEED_STAFF_IDS.manager,
     });
     await svc.from('tabs').upsert({
-      id: ids.tab,
-      day_session_id: ids.day,
-      status: 'settled',
-      label: 'walk-in',
-      opened_by_staff_id: SEED_STAFF_IDS.cashier,
-      opened_at: at,
-      settled_at: at,
-      subtotal_iqd: 10_000,
-      tax_iqd: 0,
-      discount_iqd: 0,
-      total_iqd: 10_000,
+      id: ids.tab, day_session_id: ids.day, status: 'settled', label: 'walk-in',
+      opened_by_staff_id: SEED_STAFF_IDS.cashier, opened_at: at, settled_at: at,
+      subtotal_iqd: 10_000, tax_iqd: 0, discount_iqd: 0, total_iqd: 10_000,
     });
     await svc.from('orders').upsert({
-      id: ids.order,
-      tab_id: ids.tab,
-      source: 'till',
-      status: 'served',
-      placed_by_staff_id: SEED_STAFF_IDS.cashier,
-      placed_at: at,
+      id: ids.order, tab_id: ids.tab, source: 'till', status: 'served',
+      placed_by_staff_id: SEED_STAFF_IDS.cashier, placed_at: at,
     });
     await svc.from('order_items').upsert({
-      id: ids.line,
-      order_id: ids.order,
-      menu_item_id: item.itemId,
-      variant_id: item.variantId,
-      qty: 1,
-      unit_price_iqd: 10_000,
-      line_total_iqd: 10_000,
+      id: ids.line, order_id: ids.order, menu_item_id: item.itemId,
+      variant_id: item.variantId, qty: 1, unit_price_iqd: 10_000, line_total_iqd: 10_000,
     });
     await svc.from('payments').upsert({
-      id: ids.payment,
-      tab_id: ids.tab,
-      day_session_id: ids.day,
-      method: 'cash',
-      amount_iqd: 10_000,
-      tendered_iqd: 10_000,
-      change_iqd: 0,
-      recorded_by: SEED_STAFF_IDS.cashier,
-      created_at: at,
+      id: ids.payment, tab_id: ids.tab, day_session_id: ids.day, method: 'cash',
+      amount_iqd: 10_000, tendered_iqd: 10_000, change_iqd: 0,
+      recorded_by: SEED_STAFF_IDS.cashier, created_at: at,
     });
 
-    const res = await appRpc(owner, 'analytics_daily_sales', { p_from: day, p_to: day }).then(
-      outcome,
-    );
+    const res = await appRpc(owner, 'analytics_daily_sales', { p_from: day, p_to: day }).then(outcome);
     expect(res.ok, res.errorMessage).toBe(true);
-    const rows = res.data as {
-      business_date: string;
-      orders: number;
-      till_orders: number;
-      guest_orders: number;
-      visits: number;
-    }[];
+    const rows = res.data as { business_date: string; orders: number; till_orders: number; guest_orders: number; visits: number }[];
     const row = rows.find((r) => r.business_date === day);
     expect(row, `no analytics row for ${day}`).toBeDefined();
     expect(row!.till_orders).toBeGreaterThanOrEqual(1);
@@ -292,70 +256,39 @@ describe.skipIf(!up)('stock reversal + analytics visits (0043)', () => {
     };
 
     await svc.from('day_sessions').upsert({
-      id: ids.day,
-      business_date: day,
-      status: 'closed',
-      opened_at: at,
-      opened_by: SEED_STAFF_IDS.manager,
-      opening_float_iqd: 0,
-      closed_at: at,
-      closed_by: SEED_STAFF_IDS.manager,
+      id: ids.day, business_date: day, status: 'closed',
+      opened_at: at, opened_by: SEED_STAFF_IDS.manager, opening_float_iqd: 0,
+      closed_at: at, closed_by: SEED_STAFF_IDS.manager,
     });
     await svc.from('cafe_tables').upsert({
-      id: ids.table,
-      table_number: `MIX-${day}`,
-      capacity: 4,
-      is_active: true,
+      id: ids.table, table_number: `MIX-${day}`, capacity: 4, is_active: true,
     });
     // guest_sessions.auth_user_id references auth.users, so mint a real one.
     const { data: created } = await svc.auth.admin.createUser({
-      email: `mixed-${day}@test.touch.local`,
-      password: 'touch-dev-password',
-      email_confirm: true,
+      email: `mixed-${day}@test.touch.local`, password: 'touch-dev-password', email_confirm: true,
     });
     const authUserId = created?.user?.id ?? ids.user;
     await svc.from('guest_sessions').upsert({
-      id: ids.session,
-      table_id: ids.table,
-      auth_user_id: authUserId,
-      created_at: at,
-      last_activity_at: at,
-      expires_at: `${day}T23:00:00.000Z`,
+      id: ids.session, table_id: ids.table, auth_user_id: authUserId,
+      created_at: at, last_activity_at: at, expires_at: `${day}T23:00:00.000Z`,
     });
     await svc.from('tabs').upsert({
-      id: ids.tab,
-      day_session_id: ids.day,
-      table_id: ids.table,
-      status: 'settled',
-      opened_at: at,
-      settled_at: at,
-      subtotal_iqd: 20_000,
-      tax_iqd: 0,
-      discount_iqd: 0,
-      total_iqd: 20_000,
+      id: ids.tab, day_session_id: ids.day, table_id: ids.table, status: 'settled',
+      opened_at: at, settled_at: at,
+      subtotal_iqd: 20_000, tax_iqd: 0, discount_iqd: 0, total_iqd: 20_000,
     });
     await svc.from('orders').upsert([
       {
-        id: ids.guestOrder,
-        tab_id: ids.tab,
-        source: 'guest_web',
-        status: 'served',
-        guest_session_id: ids.session,
-        placed_at: at,
+        id: ids.guestOrder, tab_id: ids.tab, source: 'guest_web', status: 'served',
+        guest_session_id: ids.session, placed_at: at,
       },
       {
-        id: ids.tillOrder,
-        tab_id: ids.tab,
-        source: 'till',
-        status: 'served',
-        placed_by_staff_id: SEED_STAFF_IDS.cashier,
-        placed_at: at,
+        id: ids.tillOrder, tab_id: ids.tab, source: 'till', status: 'served',
+        placed_by_staff_id: SEED_STAFF_IDS.cashier, placed_at: at,
       },
     ]);
 
-    const res = await appRpc(owner, 'analytics_daily_sales', { p_from: day, p_to: day }).then(
-      outcome,
-    );
+    const res = await appRpc(owner, 'analytics_daily_sales', { p_from: day, p_to: day }).then(outcome);
     expect(res.ok, res.errorMessage).toBe(true);
     const rows = res.data as { business_date: string; orders: number; visits: number }[];
     const row = rows.find((r) => r.business_date === day);

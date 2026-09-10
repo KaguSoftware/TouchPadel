@@ -74,8 +74,7 @@ function SignUpScreen() {
     const invalid = validateSignUp({ fullName, email, password, phone });
     if (invalid === 'NAME_REQUIRED') return setFieldErrors({ name: t('auth.nameRequired') });
     if (invalid === 'EMAIL_INVALID') return setFieldErrors({ email: t('auth.emailInvalid') });
-    if (invalid === 'PASSWORD_TOO_SHORT')
-      return setFieldErrors({ password: t('auth.passwordTooShort') });
+    if (invalid === 'PASSWORD_TOO_SHORT') return setFieldErrors({ password: t('auth.passwordTooShort') });
     if (invalid === 'PHONE_REQUIRED') return setFieldErrors({ phone: t('auth.phoneRequired') });
     if (invalid) return setError(t('errors.validation'));
     // Length check runs LAST so the field order of the form is the order the
@@ -108,10 +107,7 @@ function SignUpScreen() {
           style={{ marginTop: 14 }}
         />
         {hasSocial(social.available) ? (
-          <LabeledDivider
-            label={t('auth.orContinueWithEmail')}
-            style={{ marginTop: 18, marginBottom: 4 }}
-          />
+          <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
         <Field
           placeholder={t('auth.fullNameLabel')}

@@ -1,5 +1,4 @@
 # TOUCH PADEL — GUEST MOBILE APP
-
 ## UI BUILD SPECIFICATION
 
 **Client:** Touch Padel · Iraq
@@ -25,7 +24,6 @@ It also deliberately contains **no application logic**. Session handling, data f
 ## 01 · WHAT YOU OWN AND WHAT YOU DO NOT
 
 ### You own
-
 - Every screen in section 05
 - Every presentational component in section 06
 - The rendering of all four async states on every data-backed screen
@@ -34,20 +32,19 @@ It also deliberately contains **no application logic**. Session handling, data f
 - Empty, loading, error and refused-action presentation
 
 ### You do not own
+| Concern | Delivered to you as |
+|---|---|
+| Session and authentication | `session` object + auth callbacks |
+| Data fetching | Resolved props + `status` flags |
+| Realtime updates | Re-rendered props; you react, you do not subscribe |
+| Slot hold lifecycle | `hold` object + `onHoldExpired` |
+| Booking writes | `onConfirmBooking` callback + result |
+| Cancellation permission | `cancellation.eligible` boolean + `cancellation.reason` |
+| Degraded mode | `degraded` boolean + `protectedHorizonEnd` |
+| Price calculation | Server-supplied `price` object — never computed on device |
+| Push notifications | Handled outside the UI layer entirely |
 
-| Concern                    | Delivered to you as                                       |
-| -------------------------- | --------------------------------------------------------- |
-| Session and authentication | `session` object + auth callbacks                         |
-| Data fetching              | Resolved props + `status` flags                           |
-| Realtime updates           | Re-rendered props; you react, you do not subscribe        |
-| Slot hold lifecycle        | `hold` object + `onHoldExpired`                           |
-| Booking writes             | `onConfirmBooking` callback + result                      |
-| Cancellation permission    | `cancellation.eligible` boolean + `cancellation.reason`   |
-| Degraded mode              | `degraded` boolean + `protectedHorizonEnd`                |
-| Price calculation          | Server-supplied `price` object — never computed on device |
-| Push notifications         | Handled outside the UI layer entirely                     |
-
-If you find yourself writing a conditional that decides whether something is _allowed_, stop — that belongs to the application layer and should be requested as a prop.
+If you find yourself writing a conditional that decides whether something is *allowed*, stop — that belongs to the application layer and should be requested as a prop.
 
 ---
 
@@ -121,7 +118,6 @@ MyBookings → BookingDetail
 Profile → { EditProfile, ChangePassword, Settings }
 
 **Entry points from outside**
-
 - Push notification tap → BookingDetail (booking id supplied)
 - Email verification link → VerificationResult
 - Password reset link → ResetPassword
@@ -166,7 +162,7 @@ Route guarding is applied by the application layer. You build the screens; you d
 **Purpose** Signs an existing guest in.
 **Data in** `busy`, `error`
 **Fields** email · password
-**States** `ready` · `busy` · `error` — must distinguish _invalid credentials_ from _email not verified_ from _network failure_
+**States** `ready` · `busy` · `error` — must distinguish *invalid credentials* from *email not verified* from *network failure*
 **Events out** `onSubmit({ email, password })` · `onForgotPassword` · `onGoToSignUp`
 
 ---
@@ -247,7 +243,6 @@ Route guarding is applied by the application layer. You build the screens; you d
 `status`, `date`, `courts: Court[]`, `selectedCourtIds`, `slots: Slot[]`, `selectedDuration`, `venue: VenueConfig`, `degraded`, `protectedHorizonEnd`, `holdBusy`
 
 **States**
-
 - `loading`
 - `ready` — grid populated
 - `empty` — day has no bookable slots at all
@@ -260,7 +255,6 @@ Route guarding is applied by the application layer. You build the screens; you d
 `onChangeDate(date)` · `onChangeCourts(ids)` · `onChangeDuration(minutes)` · `onSelectSlot(slot)` · `onRetry`
 
 **Requirements**
-
 - Every `Slot` renders its own `state`, including `blocked` and `horizon`, each with its reason available.
 - Price shown per slot is the server-supplied `price` for that specific slot. Never derived.
 - The grid re-renders when `slots` changes — realtime updates arrive as new props. Do not cache slots locally.
@@ -276,7 +270,6 @@ Route guarding is applied by the application layer. You build the screens; you d
 `hold: Hold`, `court: Court`, `venue: VenueConfig`, `busy`, `error`
 
 **States**
-
 - `ready` — hold live, countdown running
 - `busy` — confirmation in flight
 - `holdExpired` — countdown reached zero
@@ -287,7 +280,6 @@ Route guarding is applied by the application layer. You build the screens; you d
 `onConfirm` (via `ConfirmationDialog`) · `onCancel` · `onHoldExpired` · `onBackToAvailability`
 
 **Must render**
-
 - Court, date, start time, duration, price
 - `HoldCountdown` against `hold.expiresAt`
 - `CancellationPolicyDisclosure` from `venue.cancellationPolicyText`
@@ -323,7 +315,6 @@ Route guarding is applied by the application layer. You build the screens; you d
 `status`, `booking: Booking`, `venue: VenueConfig`, `cancelBusy`, `error`, `degraded`
 
 **States**
-
 - `loading` · `ready` · `notFound` · `error`
 - `cancelBusy`
 - `cancelRefused` — with `booking.cancellation.reason`
@@ -333,7 +324,6 @@ Route guarding is applied by the application layer. You build the screens; you d
 `onCancelBooking` (via `ConfirmationDialog`) · `onCallVenue` · `onRetry`
 
 **Must render**
-
 - Court record, date, start time, duration, stored price, status
 - `RecurringSeriesIndicator` when `booking.seriesId` is present
 - The cancellation window that applies
@@ -483,13 +473,13 @@ Two rules: no literal user-facing string in any component, and every `reason` ke
 
 ## 08 · ASSET DEPENDENCIES
 
-| Asset                              | Source                         | Scope reference                                      |
-| ---------------------------------- | ------------------------------ | ---------------------------------------------------- |
-| Logo, colour palette, brand assets | Touch, week 1                  | §14 — interfaces ship in placeholder styling if late |
-| Court photographs                  | Touch, via Supabase storage    | §04 court records                                    |
-| App icon and splash                | Touch branding                 | Required for store submission, week 4                |
-| Store listing screenshots          | Produced from finished screens | Track B, week 4                                      |
-| English and Arabic copy            | Touch, week 2                  | §14 — the Arabic build cannot be accepted without it |
+| Asset | Source | Scope reference |
+|---|---|---|
+| Logo, colour palette, brand assets | Touch, week 1 | §14 — interfaces ship in placeholder styling if late |
+| Court photographs | Touch, via Supabase storage | §04 court records |
+| App icon and splash | Touch branding | Required for store submission, week 4 |
+| Store listing screenshots | Produced from finished screens | Track B, week 4 |
+| English and Arabic copy | Touch, week 2 | §14 — the Arabic build cannot be accepted without it |
 
 ---
 
@@ -530,4 +520,4 @@ Three points the scope document does not settle. Each changes what you build.
 
 ---
 
-_Touch Padel · Phase 1 · Guest Mobile App · UI Build Specification_
+*Touch Padel · Phase 1 · Guest Mobile App · UI Build Specification*

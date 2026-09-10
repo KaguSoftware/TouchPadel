@@ -84,26 +84,23 @@ export function BootOverlay() {
   // The hold, then the fade.
   useEffect(() => {
     if (!revealed || done) return;
-    const hold = setTimeout(
-      () => {
-        if (reduceMotion) {
-          // Reduce Motion means no fade either: the cover goes, it does not
-          // dissolve (LocaleProvider's switch cover does the same).
-          fade.setValue(0);
-          setDone(true);
-          return;
-        }
-        Animated.timing(fade, {
-          toValue: 0,
-          duration: FADE_MS,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }).start(({ finished }) => {
-          if (finished) setDone(true);
-        });
-      },
-      reduceMotion ? REDUCED_HOLD_MS : HOLD_MS,
-    );
+    const hold = setTimeout(() => {
+      if (reduceMotion) {
+        // Reduce Motion means no fade either: the cover goes, it does not
+        // dissolve (LocaleProvider's switch cover does the same).
+        fade.setValue(0);
+        setDone(true);
+        return;
+      }
+      Animated.timing(fade, {
+        toValue: 0,
+        duration: FADE_MS,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setDone(true);
+      });
+    }, reduceMotion ? REDUCED_HOLD_MS : HOLD_MS);
     return () => clearTimeout(hold);
     // `reduceMotion` can land mid-hold (the OS answers asynchronously); when it
     // does the hold restarts under the shorter timing, which is the right way

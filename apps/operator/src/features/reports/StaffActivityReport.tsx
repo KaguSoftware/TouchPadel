@@ -20,8 +20,7 @@ export function StaffActivityReportScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
 
-  const openAudit = (actor: string) =>
-    void navigate({ to: '/admin/audit', search: { actor } as never });
+  const openAudit = (actor: string) => void navigate({ to: '/admin/audit', search: { actor } as never });
 
   return (
     <ReportScreen
@@ -54,14 +53,7 @@ export function StaffActivityReportScreen() {
           emptyKind: 'nothingToDo',
         },
       ]}
-      intro={
-        <MessagePresenter
-          tone="info"
-          icon="users"
-          message={tr('ws.reports.staff.note')}
-          style={{ marginBlockEnd: 'var(--tp-sp-4)' }}
-        />
-      }
+      intro={<MessagePresenter tone="info" icon="users" message={tr('ws.reports.staff.note')} style={{ marginBlockEnd: 'var(--tp-sp-4)' }} />}
       extraControls={({ filters }) =>
         filters.staffId ? (
           <div style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
@@ -70,15 +62,7 @@ export function StaffActivityReportScreen() {
             </Button>
           </div>
         ) : (
-          <p
-            style={{
-              fontSize: 'var(--tp-fs-xs)',
-              color: 'var(--tp-muted-fg)',
-              marginBlockEnd: 'var(--tp-sp-4)',
-            }}
-          >
-            {tr('ws.reports.staff.filterFirst')}
-          </p>
+          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)' }}>{tr('ws.reports.staff.filterFirst')}</p>
         )
       }
       rowExtra={() => ({
@@ -88,33 +72,16 @@ export function StaffActivityReportScreen() {
           const days = typeof row.days_worked === 'number' ? row.days_worked : null;
           const busiest = typeof row.busiest_day === 'string' ? row.busiest_day : null;
           return (
-            <span
-              style={{
-                display: 'inline-flex',
-                gap: 'var(--tp-sp-2-5)',
-                alignItems: 'center',
-                whiteSpace: 'nowrap',
-              }}
-            >
+            <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center', whiteSpace: 'nowrap' }}>
               {days != null && (
                 <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-                  {tr('ws.reports.staff.context', {
-                    days: formatNumber(days, locale),
-                    day: busiest ?? '—',
-                  })}
+                  {tr('ws.reports.staff.context', { days: formatNumber(days, locale), day: busiest ?? '—' })}
                 </span>
               )}
               {/* DataTable no longer fires the row action for a control inside a
                   cell, so the private stopPropagation this button carried is gone. */}
               {id && (
-                <Button
-                  size="sm"
-                  kind="ghost"
-                  icon="shield"
-                  onClick={() => openAudit(id)}
-                  title={tr('ws.reports.staff.audit')}
-                  aria-label={tr('ws.reports.staff.audit')}
-                />
+                <Button size="sm" kind="ghost" icon="shield" onClick={() => openAudit(id)} title={tr('ws.reports.staff.audit')} aria-label={tr('ws.reports.staff.audit')} />
               )}
             </span>
           );

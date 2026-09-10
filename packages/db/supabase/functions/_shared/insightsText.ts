@@ -85,7 +85,8 @@ export const normalizeFinding = (s: string): string =>
  * Currency markers a finding may attach to an amount: "IQD", "dinar(s)", "د.ع", "دينار"
  * (with common suffixes / "عراقي"). Matched case-insensitively on the lowercased text.
  */
-const MONEY_MARKER = '(?:iqd|dinars?|د\\.?\\s?ع\\.?|دينار(?:ا|اً|ًا)?(?:\\s*عراقي(?:ا|اً|ًا)?)?)';
+const MONEY_MARKER =
+  '(?:iqd|dinars?|د\\.?\\s?ع\\.?|دينار(?:ا|اً|ًا)?(?:\\s*عراقي(?:ا|اً|ًا)?)?)';
 /** "12,500" / "12٬500" / "12.500" / "12500" — IQD has no decimals, so every separator groups. */
 const AMOUNT = '(\\d{1,3}(?:[,٬.]\\d{3})+|\\d+)';
 const NOT_ALNUM_BEFORE = '(?<![\\p{L}\\p{N}])';

@@ -23,12 +23,7 @@ import {
 } from '../src/components/ui';
 import { useBack, useBackGuard } from '../src/navigation/back';
 import { PhoneField } from '../src/components/phone';
-import {
-  composePhone,
-  DEFAULT_ISO,
-  parsePhone,
-  validatePhone,
-} from '../src/features/profile/phone';
+import { composePhone, DEFAULT_ISO, parsePhone, validatePhone } from '../src/features/profile/phone';
 import { useToast } from '../src/components/overlays';
 import { ErrorState, SkeletonList } from '../src/components/states';
 
@@ -51,7 +46,7 @@ type ReturnTo = 'continue' | 'back';
 export default function CompleteProfileScreen() {
   const { t, locale, setLocale } = useLocale();
   const router = useRouter();
-
+  
   const toast = useToast();
   const { session, initializing } = useAuth();
   const params = useLocalSearchParams<{ returnTo?: string }>();

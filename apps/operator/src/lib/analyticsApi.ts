@@ -76,8 +76,7 @@ export function posthogQueries(
 // analytics-insights
 // ---------------------------------------------------------------------------
 export type InsightsMode = 'insights' | 'patterns' | 'revalidate' | 'replace_rejected';
-export type InsightKind =
-  'profit' | 'conversion' | 'pricing' | 'movement' | 'structural' | 'summary';
+export type InsightKind = 'profit' | 'conversion' | 'pricing' | 'movement' | 'structural' | 'summary';
 export type InsightConfidence = 'high' | 'medium' | 'low';
 
 export interface Insight {
@@ -151,14 +150,8 @@ export interface InsightsResponse {
 }
 
 /** LLM calls are never cached client-side — each is a deliberate owner action. */
-export function insights(
-  request: InsightsRequest,
-  opts?: CallEdgeOptions,
-): Promise<InsightsResponse> {
-  return callEdge<InsightsRequest, InsightsResponse>('analytics-insights', request, {
-    ttlMs: 0,
-    ...opts,
-  });
+export function insights(request: InsightsRequest, opts?: CallEdgeOptions): Promise<InsightsResponse> {
+  return callEdge<InsightsRequest, InsightsResponse>('analytics-insights', request, { ttlMs: 0, ...opts });
 }
 
 // ---------------------------------------------------------------------------
@@ -172,12 +165,7 @@ export const analyticsRpc = {
   soldItems: (from: string, to: string, basis: SalesBasis = 'settled') =>
     appRpc<Json>('analytics_sold_items', { p_from: from, p_to: to, p_basis: basis }),
   bestSellers: (from: string, to: string, limit = 20, basis: SalesBasis = 'settled') =>
-    appRpc<Json>('analytics_best_sellers', {
-      p_from: from,
-      p_to: to,
-      p_limit: limit,
-      p_basis: basis,
-    }),
+    appRpc<Json>('analytics_best_sellers', { p_from: from, p_to: to, p_limit: limit, p_basis: basis }),
   boughtTogether: (from: string, to: string, limit = 30, minSupport = 2) =>
     appRpc<Json>('analytics_bought_together', {
       p_from: from,
@@ -190,8 +178,7 @@ export const analyticsRpc = {
     appRpc<Json>('analytics_item_margins', { p_from: from, p_to: to, p_basis: basis }),
   priceBands: (from: string, to: string, basis: SalesBasis = 'settled') =>
     appRpc<Json>('analytics_price_bands', { p_from: from, p_to: to, p_basis: basis }),
-  hourly: (from: string, to: string) =>
-    appRpc<Json>('analytics_hourly', { p_from: from, p_to: to }),
+  hourly: (from: string, to: string) => appRpc<Json>('analytics_hourly', { p_from: from, p_to: to }),
   promo: (from: string, to: string) => appRpc<Json>('analytics_promo', { p_from: from, p_to: to }),
   menuSnapshot: () => appRpc<Json>('analytics_menu_snapshot', {}),
 
@@ -209,12 +196,7 @@ export const analyticsRpc = {
       p_locale: args.locale,
       p_insights: args.insights,
     }),
-  savePatterns: (args: {
-    from: string;
-    to: string;
-    locale: 'ar' | 'en';
-    patterns: JudgedPattern[];
-  }) =>
+  savePatterns: (args: { from: string; to: string; locale: 'ar' | 'en'; patterns: JudgedPattern[] }) =>
     appRpc<string>('save_analytics_patterns', {
       p_range_from: args.from,
       p_range_to: args.to,

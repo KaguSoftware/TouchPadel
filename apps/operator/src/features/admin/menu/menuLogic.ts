@@ -6,10 +6,7 @@
 export type MarginBand = 'good' | 'ok' | 'bad' | 'noCost';
 
 /** Integer margin percent `(price − cost) / price`; null when unknown or price ≤ 0. */
-export function marginPct(
-  price: number | null | undefined,
-  cost: number | null | undefined,
-): number | null {
+export function marginPct(price: number | null | undefined, cost: number | null | undefined): number | null {
   if (cost === null || cost === undefined) return null;
   if (price === null || price === undefined || price <= 0) return null;
   return Math.round(((price - cost) / price) * 100);
@@ -60,7 +57,9 @@ export interface Sortable {
 export function sortRows<T extends Sortable>(rows: readonly T[]): T[] {
   return [...rows].sort(
     (a, b) =>
-      a.sort_order - b.sort_order || a.name_en.localeCompare(b.name_en) || a.id.localeCompare(b.id),
+      a.sort_order - b.sort_order ||
+      a.name_en.localeCompare(b.name_en) ||
+      a.id.localeCompare(b.id),
   );
 }
 

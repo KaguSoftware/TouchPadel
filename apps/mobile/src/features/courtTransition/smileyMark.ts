@@ -47,6 +47,7 @@ export {
   SMILEY_CIRCLE,
 } from './smileyPaths';
 
+
 /**
  * Artwork space → three's: centred on the ink's enclosing circle and y-flipped,
  * so the mark stands upright with that circle on the origin. SVG's y points

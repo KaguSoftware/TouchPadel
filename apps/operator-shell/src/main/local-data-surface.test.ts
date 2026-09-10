@@ -24,9 +24,9 @@ describe('the local queue stores no guest identity (SEC-32)', () => {
    */
   it('has no table that looks like a customer roster', () => {
     const tables = (
-      openQueue().prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as {
-        name: string;
-      }[]
+      openQueue()
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+        .all() as { name: string }[]
     ).map((t) => t.name);
 
     // Whatever else it grows, these are the only tables it is allowed to have.

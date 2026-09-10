@@ -49,9 +49,7 @@ describe('segmented thumb geometry', () => {
 describe('segmented control wiring', () => {
   it('anchors the thumb logically and negates the translate under RTL', () => {
     expect(UI).toMatch(/start:\s*0,/);
-    expect(UI).toMatch(
-      /translateX:\s*rtl\s*\?\s*Animated\.multiply\(thumb\.x,\s*-1\)\s*:\s*thumb\.x/,
-    );
+    expect(UI).toMatch(/translateX:\s*rtl\s*\?\s*Animated\.multiply\(thumb\.x,\s*-1\)\s*:\s*thumb\.x/);
   });
 
   it('holds still under Reduce Motion', () => {

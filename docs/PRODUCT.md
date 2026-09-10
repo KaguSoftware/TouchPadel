@@ -3,14 +3,12 @@
 register: product
 
 ## What it is
-
 A Windows desktop application (Vite + React SPA inside Electron) installed on the till, the
 court desk, the wall-mounted kitchen display, and the manager/owner machines at Touch Padel, a
 padel venue with a cafe in Iraq. One build, one deployment, five purpose-built workspaces:
 court desk, cashier, prep (kitchen), manager, owner. Bilingual English/Arabic with full RTL.
 
 ## Users
-
 - **Court desk** — one person at a counter, phone in one hand, guest in front of them. Needs
   today's bookings, arrivals, the calendar, and a customer in seconds. Works at arm's length.
 - **Cashier** — stands at a till under bright cafe lighting, glancing between screen and guest.
@@ -23,7 +21,6 @@ court desk, cashier, prep (kitchen), manager, owner. Bilingual English/Arabic wi
   down to the transactions behind them. Nothing on this surface writes.
 
 ## Brand
-
 Touch Padel 2026 identity: Touch Blue `#3360AB`, Padel Green `#A5D06F`, a teal accent, black,
 white, grey `#BCBDBF`. Motif: diagonal court lines in green over blue. One typeface for both
 scripts, **Lama Sans** — delivered in place of the Next Art / Frutiger LT Arabic pair the 2026
@@ -31,20 +28,17 @@ deck names; Latin and Arabic sit in the same faces, so the interface does not ch
 it changes language. Tone: confident, athletic, direct. "Touch is a lifestyle."
 
 ## Tone
-
 Plain operational English and Arabic. Short labels. Every refusal states its reason. No
 marketing voice inside the tool; the brand shows up in the navigation rail and in the print
 artwork, not in the data.
 
 ## Anti-references
-
 - Generic admin templates: white cards on grey with an icon, a heading and a paragraph each.
 - Dashboards that grade staff (leaderboards, scores, rankings) — contractually excluded.
 - Dark-mode-by-default "cool tool" aesthetics on the till and the desk; those rooms are bright.
 - Decorative motion, gradient text, glass panels.
 
 ## Strategic principles
-
 1. The tool disappears into the task. Familiar product patterns, dense where the job is dense.
 2. Every action control respects `busy`; every refused action stays visible and says why.
 3. Money, stock and time are never computed in the UI; the server's figures are rendered.

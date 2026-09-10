@@ -30,15 +30,7 @@ export function CafeReportScreen() {
         {
           id: 'margins',
           label: tr('ws.reports.views.cafe.margins'),
-          columns: [
-            'item',
-            'category',
-            'qty',
-            'revenue_iqd',
-            'cogs_iqd',
-            'gross_profit_iqd',
-            'margin_pct',
-          ],
+          columns: ['item', 'category', 'qty', 'revenue_iqd', 'cogs_iqd', 'gross_profit_iqd', 'margin_pct'],
         },
         {
           id: 'waste',

@@ -10,9 +10,7 @@ import type { CampaignRow, MarketingOverview } from './marketingTypes';
 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
-vi.mock('../../components/toast', () => ({
-  useToast: () => ({ ok: vi.fn(), info: vi.fn(), err: vi.fn() }),
-}));
+vi.mock('../../components/toast', () => ({ useToast: () => ({ ok: vi.fn(), info: vi.fn(), err: vi.fn() }) }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   appRpc: vi.fn(),
@@ -140,10 +138,7 @@ describe('MarketingPanelScreen', () => {
     renderPanel();
     await user.click(await screen.findByRole('button', { name: 'Schedule' }));
     await waitFor(() =>
-      expect(rpc).toHaveBeenCalledWith('set_campaign_status', {
-        p_id: 'c1',
-        p_status: 'scheduled',
-      }),
+      expect(rpc).toHaveBeenCalledWith('set_campaign_status', { p_id: 'c1', p_status: 'scheduled' }),
     );
   });
 

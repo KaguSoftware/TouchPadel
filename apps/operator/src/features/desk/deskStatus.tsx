@@ -73,10 +73,7 @@ export function reservationTone(r: ReservationLike): Tone {
 }
 
 /** Tone per court in the availability strip, in the same vocabulary. */
-export function availabilityTone(a: {
-  state: 'free' | 'busy';
-  kind?: ReservationKind | string;
-}): Tone {
+export function availabilityTone(a: { state: 'free' | 'busy'; kind?: ReservationKind | string }): Tone {
   if (a.state === 'free') return 'success';
   return a.kind === 'maintenance' ? 'neutral' : 'accent';
 }
@@ -85,23 +82,9 @@ export function availabilityTone(a: {
  * The labelled status of one reservation. Five screens wrote this same
  * ternary; a block, a row, a chip and a dialog subtitle now all say it once.
  */
-export function ReservationBadge({
-  reservation: r,
-  size,
-}: {
-  reservation: ReservationLike;
-  size?: 'sm' | 'md';
-}) {
+export function ReservationBadge({ reservation: r, size }: { reservation: ReservationLike; size?: 'sm' | 'md' }) {
   const { tr } = useLocale();
   if (r.kind === 'booking') return <BookingStatusIndicator status={r.status} size={size} />;
-  const kind = (
-    r.kind === 'hold' || r.kind === 'maintenance' ? r.kind : 'booking'
-  ) satisfies ReservationKind;
-  return (
-    <StatusBadge
-      size={size}
-      tone={reservationTone(r)}
-      label={tr(`ws.kit.reservationKind.${kind}`)}
-    />
-  );
+  const kind = (r.kind === 'hold' || r.kind === 'maintenance' ? r.kind : 'booking') satisfies ReservationKind;
+  return <StatusBadge size={size} tone={reservationTone(r)} label={tr(`ws.kit.reservationKind.${kind}`)} />;
 }

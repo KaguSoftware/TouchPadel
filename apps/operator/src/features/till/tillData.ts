@@ -142,11 +142,7 @@ export interface TabListRow {
   orders: {
     source: string;
     status: string;
-    order_items: {
-      line_total_iqd: number;
-      voided: boolean;
-      menu_item: { category_id: string } | null;
-    }[];
+    order_items: { line_total_iqd: number; voided: boolean; menu_item: { category_id: string } | null }[];
   }[];
   tab_adjustments: { kind: string; amount_iqd: number }[];
   payments: { amount_iqd: number }[];
@@ -257,10 +253,7 @@ export interface TabDetail {
   court_iqd: number;
   reservation_id: string | null;
   table: { table_number: string } | null;
-  reservation: {
-    guest_name: string | null;
-    court: { name_en: string; name_ar: string } | null;
-  } | null;
+  reservation: { guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
   orders: TabOrderRow[];
   payments: { id: string; method: string; amount_iqd: number; change_iqd: number | null }[];
   tab_adjustments: TabAdjustmentRow[];
@@ -322,11 +315,7 @@ export function basketLineEstimate(l: BasketLine): number {
 
 /** The label a tab is known by on the floor: table number, guest name or free label. */
 export function tabAnchorLabel(
-  tab: {
-    table: { table_number: string } | null;
-    reservation: { guest_name: string | null } | null;
-    label: string | null;
-  },
+  tab: { table: { table_number: string } | null; reservation: { guest_name: string | null } | null; label: string | null },
   tableWord: string,
   reservationWord: string,
 ): string {

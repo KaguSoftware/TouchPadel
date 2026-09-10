@@ -56,8 +56,7 @@ import {
 
 /** One page. Deep history is a report, not a screen — this is for "what just happened". */
 const PAGE_SIZE = 200;
-const AUDIT_COLUMNS =
-  'id, at, actor_id, actor_role, authorizer_id, action, entity, entity_id, before, after, reason_code, device_id';
+const AUDIT_COLUMNS = 'id, at, actor_id, actor_role, authorizer_id, action, entity, entity_id, before, after, reason_code, device_id';
 const NO_ROWS: AuditRow[] = [];
 
 type Source = 'server' | 'fallback';
@@ -70,12 +69,7 @@ function isFunctionMissing(e: unknown): boolean {
   if (!(e instanceof AppRpcError)) return false;
   if (e.code !== 'UNKNOWN') return false;
   const text = `${e.message} ${e.hint ?? ''} ${e.details ?? ''}`.toLowerCase();
-  return (
-    text.includes('could not find') ||
-    text.includes('does not exist') ||
-    text.includes('schema cache') ||
-    text.includes('404')
-  );
+  return text.includes('could not find') || text.includes('does not exist') || text.includes('schema cache') || text.includes('404');
 }
 
 /**
@@ -138,10 +132,7 @@ async function fetchAuditPage(period: Period): Promise<{ rows: AuditRow[]; sourc
     .order('id', { ascending: false })
     .limit(PAGE_SIZE);
   if (error) throw error;
-  return {
-    rows: ((data ?? []) as unknown as AuditRow[]).filter((r) => inPeriod(r, bounds)),
-    source: 'fallback',
-  };
+  return { rows: ((data ?? []) as unknown as AuditRow[]).filter((r) => inPeriod(r, bounds)), source: 'fallback' };
 }
 
 export function AuditLog() {
@@ -150,11 +141,7 @@ export function AuditLog() {
   const initialQuery = typeof search.q === 'string' ? search.q : '';
   // `?actor=<staff id>` — the staff-activity report's "audit view filtered to one person".
   const initialActor = typeof search.actor === 'string' ? search.actor : '';
-  const [filter, setFilter] = useState<AuditFilter>({
-    ...EMPTY_FILTER,
-    query: initialQuery,
-    actorId: initialActor,
-  });
+  const [filter, setFilter] = useState<AuditFilter>({ ...EMPTY_FILTER, query: initialQuery, actorId: initialActor });
   const [period, setPeriod] = useState<Period>(() => presetPeriod('last30'));
   const [expanded, setExpanded] = useState<number | null>(null);
 
@@ -179,10 +166,7 @@ export function AuditLog() {
     staleTime: 5 * 60_000,
   });
 
-  const names = useMemo(
-    () => new Map((staffQ.data ?? []).map((s) => [s.id, s.display_name])),
-    [staffQ.data],
-  );
+  const names = useMemo(() => new Map((staffQ.data ?? []).map((s) => [s.id, s.display_name])), [staffQ.data]);
 
   // Stable identity: `logQ.data?.rows ?? []` builds a fresh array every render,
   // which silently defeats all the memos below.
@@ -194,12 +178,9 @@ export function AuditLog() {
   const actorOptions = useMemo(() => {
     const seen = new Map<string, string>();
     for (const r of rows) {
-      if (r.actor_id && !seen.has(r.actor_id))
-        seen.set(r.actor_id, actorLabel(r.actor_id, r.actor_role, names));
+      if (r.actor_id && !seen.has(r.actor_id)) seen.set(r.actor_id, actorLabel(r.actor_id, r.actor_role, names));
     }
-    return [...seen.entries()]
-      .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+    return [...seen.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   }, [rows, names]);
 
   const familyLabel = filter.family;
@@ -207,42 +188,20 @@ export function AuditLog() {
   // Rulebook 6.6: the four filters used to be legible only inside the controls
   // that set them, and "Clear" was a lone ghost button with no statement of
   // what it would clear.
-  const chips: FilterChip[] = (
-    [
-      filter.query
-        ? {
-            id: 'query',
-            label: tr('ws.manager.filters.search', { value: filter.query }),
-            text: tr('ws.manager.filters.search', { value: filter.query }),
-            onRemove: () => setFilter((f) => ({ ...f, query: '' })),
-          }
-        : null,
-      filter.family
-        ? {
-            id: 'family',
-            label: tr('ws.manager.filters.area', { value: familyLabel }),
-            text: tr('ws.manager.filters.area', { value: familyLabel }),
-            onRemove: () => setFilter((f) => ({ ...f, family: '' })),
-          }
-        : null,
-      filter.actorId
-        ? {
-            id: 'actor',
-            label: <bdi>{tr('ws.manager.filters.person', { value: actorName })}</bdi>,
-            text: tr('ws.manager.filters.person', { value: actorName }),
-            onRemove: () => setFilter((f) => ({ ...f, actorId: '' })),
-          }
-        : null,
-      filter.onlyMissingReason
-        ? {
-            id: 'missing',
-            label: tr('ws.manager.filters.missingReason'),
-            text: tr('ws.manager.filters.missingReason'),
-            onRemove: () => setFilter((f) => ({ ...f, onlyMissingReason: false })),
-          }
-        : null,
-    ] as (FilterChip | null)[]
-  ).filter((c): c is FilterChip => c !== null);
+  const chips: FilterChip[] = ([
+    filter.query
+      ? { id: 'query', label: tr('ws.manager.filters.search', { value: filter.query }), text: tr('ws.manager.filters.search', { value: filter.query }), onRemove: () => setFilter((f) => ({ ...f, query: '' })) }
+      : null,
+    filter.family
+      ? { id: 'family', label: tr('ws.manager.filters.area', { value: familyLabel }), text: tr('ws.manager.filters.area', { value: familyLabel }), onRemove: () => setFilter((f) => ({ ...f, family: '' })) }
+      : null,
+    filter.actorId
+      ? { id: 'actor', label: <bdi>{tr('ws.manager.filters.person', { value: actorName })}</bdi>, text: tr('ws.manager.filters.person', { value: actorName }), onRemove: () => setFilter((f) => ({ ...f, actorId: '' })) }
+      : null,
+    filter.onlyMissingReason
+      ? { id: 'missing', label: tr('ws.manager.filters.missingReason'), text: tr('ws.manager.filters.missingReason'), onRemove: () => setFilter((f) => ({ ...f, onlyMissingReason: false })) }
+      : null,
+  ] as (FilterChip | null)[]).filter((c): c is FilterChip => c !== null);
 
   // The table is hand-rolled (the expandable before/after row is a second <tr>
   // per record), so the skeleton is built from the same header labels rather
@@ -287,12 +246,7 @@ export function AuditLog() {
           <>
             <StatusBadge tone="neutral" icon="lock" label={tr('ws.manager.audit.readOnly')} />
             <ExportButton onExport={exportCsv} disabled={visible.length === 0} />
-            <Button
-              kind="ghost"
-              icon="refresh"
-              busy={logQ.isFetching && logQ.data !== undefined}
-              onClick={() => void logQ.refetch()}
-            >
+            <Button kind="ghost" icon="refresh" busy={logQ.isFetching && logQ.data !== undefined} onClick={() => void logQ.refetch()}>
               {tr('op.common.refresh')}
             </Button>
           </>
@@ -302,14 +256,8 @@ export function AuditLog() {
       </PageHeader>
 
       <Toolbar>
-        <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>
-          {tr('ws.manager.audit.period')}
-        </span>
-        <DateRangeControl
-          period={period}
-          onChange={setPeriod}
-          presets={['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'last30']}
-        />
+        <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('ws.manager.audit.period')}</span>
+        <DateRangeControl period={period} onChange={setPeriod} presets={['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'last30']} />
       </Toolbar>
       <Toolbar>
         <span style={{ inlineSize: '16rem' }}>
@@ -324,10 +272,7 @@ export function AuditLog() {
           <Select
             value={filter.family}
             onChange={(v) => setFilter((f) => ({ ...f, family: v }))}
-            options={[
-              { value: '', label: tr('op.audit.allFamilies') },
-              ...families.map((v) => ({ value: v, label: v })),
-            ]}
+            options={[{ value: '', label: tr('op.audit.allFamilies') }, ...families.map((v) => ({ value: v, label: v }))]}
             style={{ minInlineSize: '10rem' }}
           />
         </Field>
@@ -349,23 +294,10 @@ export function AuditLog() {
         </Button>
       </Toolbar>
 
-      <FilterChips
-        chips={chips}
-        onClearAll={() => setFilter(EMPTY_FILTER)}
-        style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }}
-      />
+      <FilterChips chips={chips} onClearAll={() => setFilter(EMPTY_FILTER)} style={{ marginBlockEnd: 'var(--tp-sp-2-5)' }} />
 
       {initialQuery && filter.query === initialQuery && (
-        <p
-          style={{
-            display: 'flex',
-            gap: 'var(--tp-sp-2)',
-            alignItems: 'center',
-            fontSize: 'var(--tp-fs-sm)',
-            color: 'var(--tp-muted-fg)',
-            marginBlockEnd: 'var(--tp-sp-2-5)',
-          }}
-        >
+        <p style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
           <Icon name="info" size={14} />
           <bdi>{tr('ws.manager.audit.filteredFrom', { query: initialQuery })}</bdi>
           <Button size="sm" kind="ghost" onClick={() => setFilter((f) => ({ ...f, query: '' }))}>
@@ -383,30 +315,15 @@ export function AuditLog() {
         skeleton={<TableSkeleton columns={skeletonColumns} rows={8} />}
         emptyContent={<EmptyState kind="initial" icon="fileText" title={tr('op.audit.empty')} />}
       >
-        <p
-          style={{
-            fontSize: 'var(--tp-fs-xs)',
-            color: 'var(--tp-muted-fg)',
-            marginBlockEnd: 'var(--tp-sp-2)',
-          }}
-        >
-          {logQ.data?.source === 'server'
-            ? tr('ws.manager.audit.source.server')
-            : tr('ws.manager.audit.source.fallback', { count: PAGE_SIZE })}
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>
+          {logQ.data?.source === 'server' ? tr('ws.manager.audit.source.server') : tr('ws.manager.audit.source.fallback', { count: PAGE_SIZE })}
         </p>
         {visible.length === 0 ? (
           // Not "no entries" — the log HAS entries, the filters matched none of
           // them, and the way out is the filters (rulebook 9.2).
           <EmptyState compact kind="filtered" onClearFilters={() => setFilter(EMPTY_FILTER)} />
         ) : (
-          <div
-            style={{
-              border: '1px solid var(--tp-border)',
-              borderRadius: 'var(--tp-radius-panel)',
-              overflow: 'auto',
-              background: 'var(--tp-surface)',
-            }}
-          >
+          <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', overflow: 'auto', background: 'var(--tp-surface)' }}>
             <table className="tp-table" aria-label={tr('op.audit.title')}>
               <thead>
                 <tr>
@@ -507,26 +424,15 @@ function RowPair({
           <div style={{ color: 'var(--tp-muted-fg)' }}>{row.entity_id}</div>
         </td>
         <td>
-          {row.reason_code ??
-            (flagged ? (
-              <StatusBadge size="sm" tone="danger" label={tr('op.audit.reasonMissing')} />
-            ) : (
-              <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>
-            ))}
+          {row.reason_code ?? (
+            flagged ? <StatusBadge size="sm" tone="danger" label={tr('op.audit.reasonMissing')} /> : <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>
+          )}
         </td>
         <td style={mono}>{row.device_id ?? '—'}</td>
         <td data-align="end">
           {changes.length > 0 && (
-            <Button
-              kind="ghost"
-              size="sm"
-              onClick={onToggle}
-              aria-expanded={open}
-              iconEnd={open ? 'chevronDown' : undefined}
-            >
-              {open
-                ? tr('op.audit.hideChanges')
-                : tr('op.audit.showChanges', { count: changes.length })}
+            <Button kind="ghost" size="sm" onClick={onToggle} aria-expanded={open} iconEnd={open ? 'chevronDown' : undefined}>
+              {open ? tr('op.audit.hideChanges') : tr('op.audit.showChanges', { count: changes.length })}
             </Button>
           )}
         </td>

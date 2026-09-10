@@ -264,11 +264,7 @@ function ItemSheetInner({
           </div>
         </div>
 
-        <div
-          className="tp-sheet__scrollhint"
-          data-at-bottom={atBottom ? 'true' : 'false'}
-          aria-hidden="true"
-        >
+        <div className="tp-sheet__scrollhint" data-at-bottom={atBottom ? 'true' : 'false'} aria-hidden="true">
           ⌄
         </div>
 
@@ -282,20 +278,8 @@ function ItemSheetInner({
                 disabled={qty <= QTY_MIN}
                 aria-label={tr('cafe.decreaseQty')}
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="16"
-                  height="16"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    d="M6 12h12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                  <path d="M6 12h12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                 </svg>
               </button>
               <span className="tp-qty__value" aria-live="polite">
@@ -308,20 +292,8 @@ function ItemSheetInner({
                 disabled={qty >= QTY_MAX}
                 aria-label={tr('cafe.increaseQty')}
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="16"
-                  height="16"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    d="M12 6v12M6 12h12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                  <path d="M12 6v12M6 12h12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                 </svg>
               </button>
             </div>

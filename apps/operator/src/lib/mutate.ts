@@ -75,21 +75,11 @@ function orderItems(p: any): unknown[] {
 export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
   'order.create': (p, key, device) => ({
     fn: 'till_add_items',
-    args: {
-      p_tab_id: p?.tabId,
-      p_items: orderItems(p),
-      p_idempotency_key: key,
-      p_device_id: device,
-    },
+    args: { p_tab_id: p?.tabId, p_items: orderItems(p), p_idempotency_key: key, p_device_id: device },
   }),
   'order.add_items': (p, key, device) => ({
     fn: 'till_add_items',
-    args: {
-      p_tab_id: p?.tabId,
-      p_items: orderItems(p),
-      p_idempotency_key: key,
-      p_device_id: device,
-    },
+    args: { p_tab_id: p?.tabId, p_items: orderItems(p), p_idempotency_key: key, p_device_id: device },
   }),
   'tab.open': (p, key, device) => ({
     fn: 'open_tab',
@@ -209,10 +199,7 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
           },
         };
       default:
-        throw new AppRpcError(
-          'UNKNOWN',
-          `reservation.update: unknown action '${String(p?.action)}'`,
-        );
+        throw new AppRpcError('UNKNOWN', `reservation.update: unknown action '${String(p?.action)}'`);
     }
   },
   'waiter_call.action': (p) => ({
@@ -245,11 +232,7 @@ function extractEcho(serverResult: unknown): unknown {
   return serverResult;
 }
 
-function toError(
-  state: 'conflict' | 'failed',
-  serverResult: unknown,
-  fallback?: string,
-): AppRpcError {
+function toError(state: 'conflict' | 'failed', serverResult: unknown, fallback?: string): AppRpcError {
   const body = (serverResult ?? {}) as Record<string, unknown>;
   const code =
     typeof body.error === 'string' && /^[A-Z][A-Z0-9_]*$/.test(body.error)
@@ -260,12 +243,7 @@ function toError(
           ? 'SLOT_TAKEN'
           : 'UNKNOWN';
   const message = typeof body.message === 'string' ? body.message : (fallback ?? code);
-  return new AppRpcError(
-    code,
-    message,
-    undefined,
-    typeof body.details === 'string' ? body.details : undefined,
-  );
+  return new AppRpcError(code, message, undefined, typeof body.details === 'string' ? body.details : undefined);
 }
 
 /**

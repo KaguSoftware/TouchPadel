@@ -84,14 +84,7 @@ export const MUTED = AXIS;
 // ground rather than on raw white (DESIGN.md: never #fff).
 // ---------------------------------------------------------------------------
 
-export const HEAT_RAMP = [
-  '#F2F3F7',
-  '#D0DDF4',
-  '#ACC3ED',
-  '#85A6E2',
-  '#5E84CA',
-  '#3360AB',
-] as const;
+export const HEAT_RAMP = ['#F2F3F7', '#D0DDF4', '#ACC3ED', '#85A6E2', '#5E84CA', '#3360AB'] as const;
 
 /** Dwell buckets of the "looked, not bought" stack, light → dark: same ramp. */
 export const DWELL = [HEAT_RAMP[1], HEAT_RAMP[3], HEAT_RAMP[5]] as const;
@@ -99,9 +92,6 @@ export const DWELL = [HEAT_RAMP[1], HEAT_RAMP[3], HEAT_RAMP[5]] as const;
 /** Pick a ramp step for a 0..1 intensity. */
 export function heatColor(intensity: number): string {
   if (!Number.isFinite(intensity) || intensity <= 0) return HEAT_RAMP[0];
-  const idx = Math.min(
-    HEAT_RAMP.length - 1,
-    Math.max(1, Math.ceil(intensity * (HEAT_RAMP.length - 1))),
-  );
+  const idx = Math.min(HEAT_RAMP.length - 1, Math.max(1, Math.ceil(intensity * (HEAT_RAMP.length - 1))));
   return HEAT_RAMP[idx]!;
 }

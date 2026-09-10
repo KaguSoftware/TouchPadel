@@ -151,14 +151,7 @@ export function hiddenGems(rows: readonly ItemConversion[], limit = 6): HiddenGe
     .filter((r) => r.sold >= 2 && r.views >= 3 && r.convPct >= 50 && r.views <= maxViews * 0.4)
     .sort((a, b) => b.convPct - a.convPct || a.views - b.views || a.id.localeCompare(b.id))
     .slice(0, limit)
-    .map(({ id, nameEn, nameAr, views, sold, convPct }) => ({
-      id,
-      nameEn,
-      nameAr,
-      views,
-      sold,
-      convPct,
-    }));
+    .map(({ id, nameEn, nameAr, views, sold, convPct }) => ({ id, nameEn, nameAr, views, sold, convPct }));
 }
 
 export type ItemMomentum = ItemRef & {
@@ -205,8 +198,7 @@ export function itemMomentum(
   if (engNow.empty || engPrev.empty || engPrev.days !== engNow.days) return base;
 
   const prevById = new Map<string, number>();
-  for (const p of prev)
-    prevById.set(p.id, (prevById.get(p.id) ?? 0) + assertCount(p.count, 'views'));
+  for (const p of prev) prevById.set(p.id, (prevById.get(p.id) ?? 0) + assertCount(p.count, 'views'));
   if (prevById.size === 0) return base;
 
   const curById = new Map<string, number>();
@@ -215,13 +207,7 @@ export function itemMomentum(
   const rows: ItemMomentum[] = [];
   for (const [id, current] of curById) {
     const previous = prevById.get(id) ?? 0;
-    rows.push({
-      ...refOf(id, names),
-      current,
-      previous,
-      deltaPct: pctDelta(current, previous),
-      isNew: previous === 0,
-    });
+    rows.push({ ...refOf(id, names), current, previous, deltaPct: pctDelta(current, previous), isNew: previous === 0 });
   }
   // Items that fell out of the current list entirely still count as fading.
   for (const [id, previous] of prevById) {
@@ -230,25 +216,12 @@ export function itemMomentum(
   }
 
   const rising = rows
-    .filter(
-      (r) =>
-        r.current >= MOMENTUM_MIN_VIEWS && (r.isNew || (r.deltaPct != null && r.deltaPct >= 25)),
-    )
-    .sort(
-      (a, b) =>
-        (b.deltaPct ?? 9999) - (a.deltaPct ?? 9999) ||
-        b.current - a.current ||
-        a.id.localeCompare(b.id),
-    )
+    .filter((r) => r.current >= MOMENTUM_MIN_VIEWS && (r.isNew || (r.deltaPct != null && r.deltaPct >= 25)))
+    .sort((a, b) => (b.deltaPct ?? 9999) - (a.deltaPct ?? 9999) || b.current - a.current || a.id.localeCompare(b.id))
     .slice(0, limit);
   const fading = rows
     .filter((r) => r.previous >= MOMENTUM_MIN_VIEWS && r.deltaPct != null && r.deltaPct <= -25)
-    .sort(
-      (a, b) =>
-        (a.deltaPct ?? 0) - (b.deltaPct ?? 0) ||
-        b.previous - a.previous ||
-        a.id.localeCompare(b.id),
-    )
+    .sort((a, b) => (a.deltaPct ?? 0) - (b.deltaPct ?? 0) || b.previous - a.previous || a.id.localeCompare(b.id))
     .slice(0, limit);
   return { ...base, rising, fading, comparable: true };
 }

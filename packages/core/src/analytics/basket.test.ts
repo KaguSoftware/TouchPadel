@@ -3,16 +3,8 @@ import { rankPairs, tallyBaskets } from './basket';
 
 describe('rankPairs', () => {
   it('reports confidence from the rarer side and computes lift when orders are known', () => {
-    const [pair] = rankPairs([
-      { a: 'latte', b: 'kahi', count: 6, aCount: 30, bCount: 8, orders: 100 },
-    ]);
-    expect(pair).toEqual({
-      a: 'kahi',
-      b: 'latte',
-      count: 6,
-      confidencePct: 75,
-      lift: (6 * 100) / (8 * 30),
-    });
+    const [pair] = rankPairs([{ a: 'latte', b: 'kahi', count: 6, aCount: 30, bCount: 8, orders: 100 }]);
+    expect(pair).toEqual({ a: 'kahi', b: 'latte', count: 6, confidencePct: 75, lift: (6 * 100) / (8 * 30) });
   });
 
   it('drops lone co-orders and self pairs, sorts by count then confidence', () => {
@@ -32,21 +24,23 @@ describe('rankPairs', () => {
   });
 
   it('never divides by a solo count smaller than the pair count', () => {
-    expect(rankPairs([{ a: 'p', b: 'q', count: 4, aCount: 0, bCount: 2 }])[0]?.confidencePct).toBe(
-      100,
-    );
+    expect(rankPairs([{ a: 'p', b: 'q', count: 4, aCount: 0, bCount: 2 }])[0]?.confidencePct).toBe(100);
   });
 
   it('rejects non-integer counts', () => {
-    expect(() => rankPairs([{ a: 'p', b: 'q', count: 2.5, aCount: 3, bCount: 3 }])).toThrow(
-      RangeError,
-    );
+    expect(() => rankPairs([{ a: 'p', b: 'q', count: 2.5, aCount: 3, bCount: 3 }])).toThrow(RangeError);
   });
 });
 
 describe('tallyBaskets', () => {
   it('counts distinct items per basket, singles included in orders and solo', () => {
-    const t = tallyBaskets([['a', 'b', 'b'], ['a', 'c'], ['b'], [], ['a', 'b', 'c']]);
+    const t = tallyBaskets([
+      ['a', 'b', 'b'],
+      ['a', 'c'],
+      ['b'],
+      [],
+      ['a', 'b', 'c'],
+    ]);
     expect(t.orders).toBe(4);
     expect([...t.solo.entries()].sort()).toEqual([
       ['a', 3],
