@@ -22,7 +22,6 @@ import {
   stackAvailable,
   serviceClient,
   signedInClient,
-  anonymousSessionClient,
   guestClient,
   appRpc,
   createTestCourt,

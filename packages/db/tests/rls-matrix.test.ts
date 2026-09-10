@@ -29,7 +29,6 @@ import {
   matrix,
   PRINCIPALS,
   type Principal,
-  type MatrixRule,
   type SelectRule,
   type WriteRule,
   type RpcRule,

@@ -127,7 +127,7 @@ function events(src) {
     // with no FOR UPDATE to match on, so it was invisible to this guard until
     // 0048. That is exactly why every line of 0042's fix went unguarded by the
     // script written to protect it. Emit it as a lock, ranked before reservations.
-    for (const m of stmt.matchAll(/\bapp\.lock_court\s*\(/gi)) out.push({ lock: 'court_advisory' });
+    for (const _m of stmt.matchAll(/\bapp\.lock_court\s*\(/gi)) out.push({ lock: 'court_advisory' });
     for (const m of stmt.matchAll(/\bapp\.([a-z_][a-z0-9_]*)\s*\(/gi)) {
       if (m[1].toLowerCase() === 'lock_court') continue; // already emitted as a lock
       out.push({ call: m[1].toLowerCase() });

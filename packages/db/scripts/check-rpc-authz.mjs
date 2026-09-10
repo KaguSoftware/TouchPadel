@@ -22,7 +22,6 @@
  * Usage:  node scripts/check-rpc-authz.mjs      (exit 1 on any unrefused RPC)
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 const URL_BASE = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const ANON =
