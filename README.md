@@ -90,6 +90,7 @@ Workflows live in `.github/workflows/`:
 
 - `HANDOFF.md` — current state, conventions, gotchas. Read first in any new session.
 - `CONTRIBUTING.md` — workflow rules and Windows setup.
+- `SECURITY.md` — how to report a vulnerability, and the rules for testing against a live venue.
 - `docs/install-runbook.md` — on-site install steps for the operator machine.
 - `docs/design/` — architecture, canonical data model, delivery plan.
 - `docs/security/` — security layer decisions and runbooks.
