@@ -487,6 +487,8 @@ export const ar: Messages = {
     slotInPast: 'هذا الوقت قد مضى بالفعل.',
     upcoming: 'القادمة',
     past: 'السابقة',
+    played: 'المباريات المُلعَبة',
+    cancelledTab: 'الملغاة',
     stateFree: 'متاح',
     stateHeld: 'محجوز مؤقتًا',
     stateBooked: 'محجوز',
@@ -554,6 +556,8 @@ export const ar: Messages = {
     historyClearedToast: 'تم مسح سجل الحجوزات',
     noHistoryTitle: 'لا توجد مباريات سابقة',
     noHistoryBody: 'ستظهر هنا المباريات التي لعبتها بعد انتهائها.',
+    noCancelledTitle: 'لا إلغاءات',
+    noCancelledBody: 'ستظهر هنا الحجوزات التي تُلغيها أنت أو الاستقبال.',
     // بطاقة «التالي» وعناوين الأقسام والخط الزمني في «السابقة»
     nextUp: 'التالي',
     onNow: 'جارٍ الآن',
@@ -564,6 +568,7 @@ export const ar: Messages = {
     startsInDays: 'خلال {count} يوم',
     upcomingCount: '{count} قادم',
     playedCount: '{count} مباراة',
+    cancelledCount: '{count} ملغاة',
     weeklySeries: 'سلسلة أسبوعية',
     bookingRef: 'الحجز {ref}',
     priceAtDesk: 'السعر · عند الاستقبال',
@@ -571,6 +576,13 @@ export const ar: Messages = {
     freeCancelUntil: 'إلغاء مجاني حتى {when}.',
     windowClosedTitle: 'انتهت مهلة الإلغاء',
     windowClosedBody: 'انتهت المهلة المجانية في {when}. ما زال بإمكان الاستقبال المساعدة في التغييرات.',
+    // من ألغى الحجز (0088) — «أُلغي هذا الحجز» وحدها لا تفرّق بين إلغاء قام به
+    // الضيف نفسه وإلغاء قام به النادي.
+    cancelledByYou: 'ألغيته أنت',
+    cancelledByVenue: 'ألغاه النادي',
+    cancelledByYouNotice: 'لقد ألغيت هذا الحجز وعاد الموعد متاحًا للجميع.',
+    cancelledByVenueNotice:
+      'ألغى النادي هذا الحجز وعاد الموعد متاحًا للجميع. راجع الاستقبال إذا لم يكن ذلك متوقعًا.',
     cancelledNotice: 'أُلغي هذا الحجز وعاد الموعد متاحًا للجميع.',
     noShowNotice: 'أغلق النادي هذا الحجز لعدم الحضور وعاد الموعد متاحًا للجميع. راجع الاستقبال إذا كان ذلك غير صحيح.',
     expiredNotice: 'انتهت صلاحية هذا الحجز قبل تأكيده وعاد الموعد متاحًا للجميع.',

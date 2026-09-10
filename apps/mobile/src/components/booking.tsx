@@ -690,21 +690,38 @@ export function ListHeading({
   );
 }
 
-/** A counted fact under the page title ("3 upcoming", "12 played"). */
-export function StatChip({
+/**
+ * A counted tab under the page title ("14 upcoming", "1 played", "2 cancelled").
+ *
+ * These read as chips and shipped as chips — numbers that looked tappable and
+ * were not (owner, 2026-09-11). They pick the list now, so each one is a real
+ * tab: the selected one keeps the blue tint the "upcoming" chip always had, and
+ * the others drop to the muted fill. The hit target is padded out with
+ * `hitSlop` rather than by growing the pill, so the header looks as it did.
+ */
+export function FilterChip({
   icon: Icon,
   label,
-  accent = false,
+  selected,
+  onPress,
 }: {
   icon: ComponentType<IconProps>;
   label: string;
-  /** The upcoming chip, which is the live one, takes the blue tint. */
-  accent?: boolean;
+  /** The tab whose list is on screen: blue tint, and announced as selected. */
+  selected: boolean;
+  onPress: () => void;
 }) {
   const { colors, fonts } = useTheme();
   return (
-    <View
-      style={{
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
+      onPress={onPress}
+      // Vertical only: the chips sit 7 px apart, so padding them sideways would
+      // overlap the neighbour's hit area and steal its taps.
+      hitSlop={{ top: 12, bottom: 12 }}
+      style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
@@ -713,16 +730,23 @@ export function StatChip({
         paddingTop: 5,
         paddingBottom: 5,
         borderRadius: radius.pill,
-        backgroundColor: accent ? colors.tint : colors.sub,
+        backgroundColor: selected ? colors.tint : colors.sub,
         borderWidth: 1,
-        borderColor: colors.line,
-      }}
+        borderColor: selected ? colors.line2 : colors.line,
+        opacity: pressed ? 0.7 : 1,
+      })}
     >
-      <Icon size={12} color={accent ? colors.blue : colors.fnt} strokeWidth={2.2} />
-      <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: accent ? colors.mut2 : colors.mut }}>
+      <Icon size={12} color={selected ? colors.blue : colors.fnt} strokeWidth={2.2} />
+      <Text
+        style={{
+          fontFamily: fonts.body700,
+          fontSize: 11,
+          color: selected ? colors.mut2 : colors.mut,
+        }}
+      >
         {label}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -815,6 +839,7 @@ export function PastBookingRow({
   when,
   price,
   status,
+  note,
   first,
   last,
   onPress,
@@ -823,6 +848,14 @@ export function PastBookingRow({
   when: string;
   price: string | null;
   status: string;
+  /**
+   * One line under the metadata saying something the badge cannot: today, WHO
+   * cancelled a cancelled booking (0088). Pre-translated, like `when` and
+   * `price` — this stays presentational. Null renders nothing, which is what
+   * a cancellation with no recorded actor gets: the badge is then the whole
+   * truth, and a caption guessing at "you" or "the venue" would not be.
+   */
+  note?: string | null;
   first: boolean;
   last: boolean;
   onPress: () => void;
@@ -878,6 +911,24 @@ export function PastBookingRow({
             <MetaItem icon={ClockIcon} text={when} color={colors.fnt} size={11} />
             {price ? <MetaItem icon={TagIcon} text={price} color={colors.fnt} size={11} /> : null}
           </View>
+          {note ? (
+            // Its own line rather than a third metadata pair: this is not
+            // another fact about the booking, it is what happened to it. Muted
+            // — the badge beside it already carries the colour, and a red
+            // "Cancelled by you" would alarm somebody about their own tap.
+            <Text
+              numberOfLines={2}
+              style={{
+                marginTop: 4,
+                fontFamily: fonts.body700,
+                fontSize: 11,
+                lineHeight: 15,
+                color: colors.mut,
+              }}
+            >
+              {note}
+            </Text>
+          ) : null}
         </View>
         <StatusPill status={status} />
       </Pressable>

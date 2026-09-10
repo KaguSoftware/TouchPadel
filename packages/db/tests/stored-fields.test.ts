@@ -100,7 +100,10 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     guest_phone: { category: 'Phone number', why: 'the desk calling about this specific booking', onDelete: 'scrub' },
     created_by_staff_id: n, source: n, rate_rule_id: n,
     price_iqd: { category: 'Purchase history', why: 'what the court sold for — the venue reports on it', onDelete: 'keep' },
-    hold_expires_at: n, cancelled_at: n, cancellation_reason: n,
+    // cancelled_by (0088) names a ROLE — 'guest' or 'staff' — never a person:
+    // it says whether the account holder or the desk ended the booking, which
+    // is what the app has to tell the guest, and identifies nobody.
+    hold_expires_at: n, cancelled_at: n, cancelled_by: n, cancellation_reason: n,
     notes: { category: 'User content', why: 'free text taken at the desk about this booking', onDelete: 'scrub' },
     device_id: { category: 'Device or other IDs', why: 'which till or phone made the booking; replay protection', onDelete: 'scrub' },
     idempotency_key: n, client_ref: n, created_at: n, series_id: n,

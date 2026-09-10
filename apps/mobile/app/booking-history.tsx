@@ -8,7 +8,12 @@ import { useLocale } from '../src/i18n/LocaleProvider';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { useMyBookings } from '../src/features/booking/hooks';
 import { useClearHistory, useHistoryClearedAt } from '../src/features/booking/history';
-import { splitBookings, visiblePast, type BookingRow } from '../src/features/booking/logic';
+import {
+  cancelActorLabel,
+  splitBookings,
+  visiblePast,
+  type BookingRow,
+} from '../src/features/booking/logic';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useCourts } from '../src/features/availability/hooks';
 import { formatPrice } from '../src/lib/price';
@@ -103,12 +108,17 @@ function BookingHistoryScreen() {
 
   const renderRow = (item: BookingRow, index: number) => {
     const start = new Date(item.start_at);
+    // The same caption the tab's rows carry (0088): this list mixes every
+    // ending, so a cancellation here has to say whose it was for exactly the
+    // reason it does there.
+    const actor = cancelActorLabel(item);
     return (
       <PastBookingRow
         courtName={courtNames.get(item.court_id) ?? ''}
         when={`${formatDate(start, locale)} · ${formatTime(start, locale)}`}
         price={formatPrice(item.price_iqd, locale)}
         status={item.status}
+        note={actor ? t(actor) : null}
         first={index === 0}
         last={index === history.length - 1}
         onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}

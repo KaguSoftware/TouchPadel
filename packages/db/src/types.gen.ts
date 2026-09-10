@@ -3387,6 +3387,7 @@ export type Database = {
         Row: {
           cancellation_reason: string | null
           cancelled_at: string | null
+          cancelled_by: Database["public"]["Enums"]["cancellation_actor"] | null
           client_ref: string | null
           court_id: string
           created_at: string
@@ -3412,6 +3413,9 @@ export type Database = {
         Insert: {
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          cancelled_by?:
+            | Database["public"]["Enums"]["cancellation_actor"]
+            | null
           client_ref?: string | null
           court_id: string
           created_at?: string
@@ -3437,6 +3441,9 @@ export type Database = {
         Update: {
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          cancelled_by?:
+            | Database["public"]["Enums"]["cancellation_actor"]
+            | null
           client_ref?: string | null
           court_id?: string
           created_at?: string
@@ -4772,6 +4779,7 @@ export type Database = {
         | "expiring_soon"
         | "replay_conflict"
       campaign_status: "draft" | "scheduled" | "live" | "ended" | "cancelled"
+      cancellation_actor: "guest" | "staff"
       day_status: "open" | "closing" | "closed"
       ingredient_kind: "purchased" | "prepared"
       marketing_channel: "telegram" | "guest_site" | "in_venue"
@@ -4949,6 +4957,7 @@ export const Constants = {
         "replay_conflict",
       ],
       campaign_status: ["draft", "scheduled", "live", "ended", "cancelled"],
+      cancellation_actor: ["guest", "staff"],
       day_status: ["open", "closing", "closed"],
       ingredient_kind: ["purchased", "prepared"],
       marketing_channel: ["telegram", "guest_site", "in_venue"],

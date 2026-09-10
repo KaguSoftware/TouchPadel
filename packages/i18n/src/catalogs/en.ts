@@ -497,6 +497,13 @@ export const en = {
     slotInPast: 'That time has already passed.',
     upcoming: 'Upcoming',
     past: 'Past',
+    // The heading over the Played tab's list. 'Past' is everything that
+    // is over, cancellations included; 'Played' is only the games the desk
+    // closed as played, which is what that tab filters to.
+    played: 'Played',
+    // The Cancelled tab. `cancelled` above is a sentence ("Booking cancelled."),
+    // so the tab and its heading get their own one-word string.
+    cancelledTab: 'Cancelled',
     stateFree: 'Free',
     stateHeld: 'Held',
     stateBooked: 'Booked',
@@ -565,6 +572,8 @@ export const en = {
     historyClearedToast: 'Booking history cleared',
     noHistoryTitle: 'No past games',
     noHistoryBody: 'Games you have played will be listed here once they are over.',
+    noCancelledTitle: 'Nothing cancelled',
+    noCancelledBody: 'Bookings you or the desk cancel will be listed here.',
     // "More life" pass (owner, 2026-09-05): My bookings stopped being a flat
     // list — a hero card for the next game, counted section headings, and a
     // timeline down Past. These are the strings that pass carries.
@@ -577,6 +586,7 @@ export const en = {
     startsInDays: 'In {count} days',
     upcomingCount: '{count} upcoming',
     playedCount: '{count} played',
+    cancelledCount: '{count} cancelled',
     weeklySeries: 'Weekly series',
     bookingRef: 'Booking {ref}',
     priceAtDesk: 'Price · at desk',
@@ -584,6 +594,21 @@ export const en = {
     freeCancelUntil: 'Free cancellation until {when}.',
     windowClosedTitle: 'Cancellation window closed',
     windowClosedBody: 'The free window ended at {when}. The desk can still help with changes.',
+    // WHO cancelled it (0088). "This booking was cancelled" is true of both
+    // endings and useful for neither — it tells a guest who cancelled it
+    // themselves something they already know, and tells one whose court the
+    // venue took back nothing at all. The short pair captions a row on My
+    // reservations > Cancelled; the notices carry the detail screen.
+    cancelledByYou: 'Cancelled by you',
+    cancelledByVenue: 'Cancelled by the venue',
+    cancelledByYouNotice: 'You cancelled this booking, and the slot went back on the grid.',
+    // "Were not expecting", not "were not told": the desk also cancels for
+    // guests who phone in, and calling that an unexplained cancellation would
+    // send someone to reception over a booking they ended themselves.
+    cancelledByVenueNotice:
+      'The venue cancelled this booking, and the slot went back on the grid. Speak to the desk if you were not expecting that.',
+    // The fallback, kept for cancellations from before the actor was recorded:
+    // saying nothing about who is honest, and guessing would not be.
     cancelledNotice: 'This booking was cancelled. The slot has been released back to the grid.',
     // A no-show is closed by the venue, not by the guest — so it says who did
     // it and where to take it, rather than leaving a booking that has quietly

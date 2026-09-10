@@ -88,7 +88,7 @@ function BookingDetailScreen() {
     start.getTime() > now.getTime() &&
     (booking.status === 'confirmed' || booking.status === 'pending');
   const eligible = booking != null && policyKnown && canCancel(booking, windowHours, now);
-  const endedNoticeKey = booking ? endedNotice(booking.status) : null;
+  const endedNoticeKey = booking ? endedNotice(booking.status, booking.cancelled_by) : null;
   const windowEnd =
     start && windowHours > 0 ? new Date(start.getTime() - windowHours * 3_600_000) : null;
 
@@ -343,6 +343,12 @@ function BookingDetailScreen() {
             and no hint that the slot had gone. The desk marks a no-show and
             from the guest's side the booking simply stops meaning anything,
             which is exactly what it looks like when nothing happened at all.
+
+            A cancellation names WHO ended it (0088) when the actor was
+            recorded: the venue taking a court back and the guest's own tap
+            arrive at the identical badge, and only one of them is worth a
+            call to the desk. An older cancellation with no actor stored keeps
+            the original sentence rather than guessing at one.
           */}
           {endedNoticeKey ? (
             <View
