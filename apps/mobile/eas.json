@@ -39,6 +39,11 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleTeamId": "BR42V976FS",
+        "ascAppId": "6809045183"
+      }
+    }
   }
 }
