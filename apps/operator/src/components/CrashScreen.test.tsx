@@ -65,9 +65,7 @@ describe('AppErrorBoundary', () => {
     }
 
     withLocale(
-      <AppErrorBoundary
-        fallback={(error, reset) => <CrashPanel error={error} onRetry={reset} />}
-      >
+      <AppErrorBoundary fallback={(error, reset) => <CrashPanel error={error} onRetry={reset} />}>
         <Sometimes />
       </AppErrorBoundary>,
     );
