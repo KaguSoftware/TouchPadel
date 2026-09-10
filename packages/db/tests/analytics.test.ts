@@ -58,7 +58,6 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
 
   let costed: { itemId: string; variantId: string }; // cost 900, list 4,000
   let uncosted: { itemId: string; variantId: string }; // no cost row, list 12,000
-  let orderId: string;
   let tabId: string;
   let paymentAmount: number;
   let day: string; // business date of the seeded activity
@@ -102,7 +101,6 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     }).then(outcome);
     if (!res.ok) throw new Error(`seed order failed: ${res.errorMessage}`);
     const d = res.data as { order_id: string; tab_id: string; total_iqd: number };
-    orderId = d.order_id;
     tabId = d.tab_id;
     paymentAmount = Number(d.total_iqd); // 20,000
 

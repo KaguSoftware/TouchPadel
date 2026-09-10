@@ -31,7 +31,8 @@
     "check:invariants": "node scripts/check-db-invariants.mjs",
     "check:rpc-registry": "node scripts/check-rpc-registry.mjs",
     "check:broadcast": "node scripts/check-broadcast-payloads.mjs",
-    "check:analytics": "node scripts/check-analytics-payload.mjs"
+    "check:analytics": "node scripts/check-analytics-payload.mjs",
+    "lint": "eslint ."
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.47.0",
@@ -40,6 +41,8 @@
     "qrcode": "^1.5.4",
     "supabase": "^2.0.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "@touch/config": "workspace:*",
+    "eslint": "^9.15.0"
   }
 }

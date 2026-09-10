@@ -347,7 +347,6 @@ describe.skipIf(!up)('SEC-20 stored-field allowlist', () => {
     lines.push('  Deletion: in-app, app.delete_my_account (migration 0077).');
     lines.push('  Every "scrub"/"row" field above is proved erased by the test above this one.');
     lines.push('  "keep" is deliberate retention — the venue’s takings, not the guest’s identity.');
-    // eslint-disable-next-line no-console
     console.log(lines.join('\n'));
     expect(byCategory.size).toBeGreaterThan(0);
   });

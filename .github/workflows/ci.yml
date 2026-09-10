@@ -111,18 +111,10 @@ jobs:
       - name: RPC registry + authz coverage
         run: pnpm --filter @touch/db check:rpc-registry
 
-      # SEC-28. What a kitchen screen receives. Prep needs what to cook and how
-      # long it has waited — never what it sold for or who the guest is. Reads
-      # the catalog, so a payload added by a migration nobody reviewed for this
-      # is still seen.
-      - name: Broadcast payloads (SEC-28)
-        run: pnpm --filter @touch/db check:broadcast
-
-      # SEC-29. Analytics output is POSTed to Groq, a third-party LLM outside the
-      # venue. A guest id in an aggregate is a guest record sent to a processor
-      # the privacy notice does not cover.
-      - name: Analytics payload (SEC-29)
-        run: pnpm --filter @touch/db check:analytics
+      # SEC-28 (broadcast payloads) and SEC-29 (analytics payload) read the live
+      # catalog over docker exec, so they run in the db job below, after
+      # `supabase start`. Listing them here with no stack made this job fail on
+      # every run.
 
       # Lock-taking and destructive DDL, scoped to the migrations THIS PR changes.
       # The 57 non-concurrent indexes already applied cannot be rewritten, so
