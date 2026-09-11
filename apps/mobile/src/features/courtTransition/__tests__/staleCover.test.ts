@@ -139,7 +139,9 @@ describe('the call site (lost once, in the merge afe7f57 of 2026-09-09)', () => 
   );
 
   it('imports frameRepaints', () => {
-    expect(court3d).toMatch(/import \{ frameRepaints \} from '\.\.\/features\/courtTransition\/staleCover';/);
+    expect(court3d).toMatch(
+      /import \{ frameRepaints \} from '\.\.\/features\/courtTransition\/staleCover';/,
+    );
   });
 
   it('clears the cover from the render loop, after the court frame has gone out', () => {
