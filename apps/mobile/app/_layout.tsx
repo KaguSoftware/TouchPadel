@@ -47,9 +47,11 @@ export const unstable_settings = { initialRouteName: '(tabs)' };
 // fallback type, no light→dark flash, no en→ar flash).
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 // ...and then it CROSS-FADES into BootOverlay, which is painted in the splash's
-// own #3360AB by the time this runs. Without the fade the wordmark cuts to the
-// smiley ball on an identical ground, which reads as a glitch rather than as
-// one screen becoming the next. (iOS honours `fade`; Android ignores it.)
+// own #3360AB by the time this runs, with the splash's own wordmark drawn from
+// the brand's vector paths at the splash's width — so the two frames are the
+// same picture and the fade is a safety net, not a transition. It stays: an
+// OS that lands a pixel off gets a blend rather than a cut. (iOS honours
+// `fade`; Android ignores it.)
 //
 // Expo Go serves its OWN splash from a prebuilt binary, so `setOptions` cannot
 // reach it: the call is a no-op that only logs a warning. Skipping it there

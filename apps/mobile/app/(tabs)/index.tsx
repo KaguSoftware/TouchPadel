@@ -17,7 +17,7 @@ import { useTabBarHeight } from '../../src/components/useTabBarHeight';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { logicalSign } from '../../src/i18n/direction';
-import { useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
+import { useVenueSettings } from '../../src/features/availability/hooks';
 import {
   openNowInfo,
   type VenueSettingsPublic,
@@ -46,7 +46,7 @@ import { Screen, Title } from '../../src/components/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { BrandPattern } from '../../src/components/BrandPattern';
-import { DegradedBanner } from '../../src/components/booking';
+
 import { BackChevronIcon, TitleSquiggle } from '../../src/components/icons';
 import { Court3D } from '../../src/components/Court3D';
 import { CourtIllustration } from '../../src/components/CourtIllustration';
@@ -350,11 +350,11 @@ export default function BookHomeScreen() {
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const settings = useVenueSettings();
-  const degraded = useIsDegraded();
+
   const reduceMotion = useReduceMotion();
   const { progress, veil, direction, isOpen, sheetMounted, openBooking, closeBooking } =
     useCourtTransition();
-  const [noticeClosed, setNoticeClosed] = useState(false);
+
   const [courtSize, setCourtSize] = useState<{ width: number; height: number } | null>(null);
   const [layerHeight, setLayerHeight] = useState(0);
   const [stageHeight, setStageHeight] = useState(0);
@@ -405,9 +405,10 @@ export default function BookHomeScreen() {
    * have paid anyway.
    *
    * The cost is that a closed sheet keeps its queries: one extra
-   * `court_availability` read a minute while this tab is open, alongside the
-   * degraded probe this screen already runs at that rate. In exchange the
-   * grid is warm when it appears — real times rather than a skeleton.
+   * `court_availability` read a minute while this tab is open, and the
+   * degraded probe at the same rate (the sheet is where that is shown now).
+   * In exchange the grid is warm when it appears — real times rather than a
+   * skeleton.
    */
   const [sheetPrewarmed, setSheetPrewarmed] = useState(false);
   useFocusEffect(
@@ -593,8 +594,8 @@ export default function BookHomeScreen() {
         <BrandPattern />
       </View>
 
-      {/* Everything above the stage — logo, open-now pill, degraded banner,
-          heading — stands directly on the pattern, at the strength the rest of
+      {/* Everything above the stage — logo, open-now pill, heading — stands
+          directly on the pattern, at the strength the rest of
           the page has it. There WAS a reading shade over this whole block; it
           is gone because it made the top of the page a different picture from
           the bottom, which is the thing the owner kept pointing at. The one
@@ -799,34 +800,15 @@ export default function BookHomeScreen() {
         }}
       >
         {/*
-          Under the heading, not above it: the venue notice is a note about the
-          page, so BOOK A COURT stays the first thing read on the tab.
-
-          OUT OF FLOW, and inside the stage. The header block and the stage are
-          flex siblings and the stage is `flex: 1`, so an in-flow notice took
-          its height straight out of the court — which visibly shrank the moment
-          the venue went offline and grew back when the guest closed it. Absolute
-          here means the stage measures the same either way, and `top: 0` is the
-          stage's own top edge: immediately under the title, where it was.
+          NO VENUE NOTICE ON THIS TAB. The amber "venue connection lost" banner
+          used to sit here, under the title, whenever the till's heartbeat went
+          stale — which is most nights after close, and for a few seconds on
+          many mornings. A guest opening the app at midnight to look at
+          tomorrow was greeted by an error about a server they have never
+          heard of (owner, 2026-09-11). The fact only matters at the moment of
+          booking, so it lives in the sheet now: a small line under the
+          duration picker, with the venue's number to tap (BookingSheet).
         */}
-        {degraded && !noticeClosed ? (
-          <View
-            pointerEvents="box-none"
-            style={{ position: 'absolute', top: 0, start: space.l, end: space.l, zIndex: 3 }}
-          >
-            <DegradedBanner
-              lead={t('degraded.leadConnectionLost')}
-              // No number in the copy: it sent a long digit run through a narrow
-              // banner, which wrapped away from the "Call" that introduced it.
-              // Profile already has a Call-the-venue row that dials directly.
-              message={t('degraded.bannerCourts')}
-              blockLead
-              // Closed by the guest alone — a refetch flipping `degraded` back
-              // on must not resurrect a notice they have already dealt with.
-              onDismiss={() => setNoticeClosed(true)}
-            />
-          </View>
-        ) : null}
         {glUnavailable ? (
           // No GL context on this device: the flat court, button underneath as before.
           <Animated.View

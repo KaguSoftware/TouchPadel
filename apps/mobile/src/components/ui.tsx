@@ -16,6 +16,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   TextInput,
   View,
   type ScrollViewProps,
@@ -825,13 +826,14 @@ export function Button({
     cta: { bg: brand.green, fg: brand.greenInk, border: 'transparent' },
     primary: { bg: brand.blue, fg: brand.white, border: 'transparent' },
     secondary: { bg: colors.card, fg: colors.ink, border: colors.line },
-    danger: { bg: brand.danger, fg: brand.white, border: 'transparent' },
+    danger: { bg: colors.danger, fg: brand.white, border: 'transparent' },
     // Dark ("blue mode") needs its own outline. The light recipe is a white
     // card with a red hairline; in dark the same recipe is `card` navy with
-    // #871A12 on it, and Cancel booking came out as a dark rectangle rather
-    // than a red action (owner, 2026-09-08). So the ground moves to the red
-    // tint and the border joins the label on the bright coral — 5.2:1 on that
-    // tint, and unmistakably red against the navy card it sits in. Both are
+    // the red line on it, and Cancel booking came out as a dark rectangle
+    // rather than a red action (owner, 2026-09-08). So the ground moves to the
+    // red tint and the border joins the label on `redtext` — 6.2:1 on that
+    // tint (a soft rose since 2026-09-11; tokens.ts has the reasoning), and
+    // still a distinct action against the navy card it sits in. Both are
     // existing dark-palette tokens; the palette stays closed.
     dangerOutline:
       appearance === 'dark'
@@ -867,21 +869,33 @@ export function Button({
         style,
       ]}
     >
+      {/* The label stays MOUNTED while busy, hidden, and the spinner is laid over
+          it: swapping the two changed the button's height. A compact label
+          measures under the 44 pt floor and is clamped to it; the 20 pt
+          spinner plus the same padding is 46, over it — so the instant a
+          mutation started, the button grew 2 pt and everything below it moved,
+          then moved back (owner, 2026-09-11, cancelling a booking). Keeping the
+          label's box keeps the height. */}
+      <Text
+        style={{
+          fontFamily: ghost ? fonts.body700 : fonts.display800,
+          fontSize: ghost ? 12.5 : s.font,
+          letterSpacing: ghost ? 0 : tracking(s.ls),
+          textTransform: ghost ? 'none' : 'uppercase',
+          color: labelColor ?? visual.fg,
+          opacity: busy ? 0 : 1,
+        }}
+      >
+        {label}
+      </Text>
       {busy ? (
-        <ActivityIndicator color={labelColor ?? visual.fg} />
-      ) : (
-        <Text
-          style={{
-            fontFamily: ghost ? fonts.body700 : fonts.display800,
-            fontSize: ghost ? 12.5 : s.font,
-            letterSpacing: ghost ? 0 : tracking(s.ls),
-            textTransform: ghost ? 'none' : 'uppercase',
-            color: labelColor ?? visual.fg,
-          }}
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}
         >
-          {label}
-        </Text>
-      )}
+          <ActivityIndicator color={labelColor ?? visual.fg} />
+        </View>
+      ) : null}
     </Pressable>
   );
 }

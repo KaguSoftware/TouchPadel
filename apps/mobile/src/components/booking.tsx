@@ -1230,12 +1230,20 @@ export const SlotCell = memo(function SlotCell({
 
 export function MenuRow({
   icon,
+  iconBg,
   label,
   onPress,
   last,
   disabled,
 }: {
   icon: ReactNode;
+  /**
+   * The disc behind the icon. Green (`gtint`) by default, which is right for
+   * every ordinary row and wrong for the one destructive row: a red trash icon
+   * on a green disc, in dark mode coral on olive (owner, 2026-09-11). That row
+   * passes `redtint` so the icon has its own ground in both themes.
+   */
+  iconBg?: string;
   label: string;
   onPress: () => void;
   last?: boolean;
@@ -1268,7 +1276,7 @@ export function MenuRow({
             width: 30,
             height: 30,
             borderRadius: 9,
-            backgroundColor: colors.gtint,
+            backgroundColor: iconBg ?? colors.gtint,
             alignItems: 'center',
             justifyContent: 'center',
           }}

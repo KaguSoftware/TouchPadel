@@ -9,7 +9,7 @@ splash are baked into the binary; an OTA update never changes them.
 | `adaptive-icon.png` (1024², alpha) | `android.adaptiveIcon.foregroundImage` | `brand/adaptive-foreground.svg` |
 | `adaptive-icon-monochrome.png` (1024², alpha) | `android.adaptiveIcon.monochromeImage` (Android 13+ themed icons) | `brand/adaptive-monochrome.svg` |
 | `notification-icon.png` (96², white on alpha) | `expo-notifications` plugin `icon` (Android status bar) | `brand/notification.svg` |
-| `logo-white.png` (900×332) | splash image (`expo-splash-screen` plugin) and the Welcome screen | brand lockup, white |
+| `logo-white.png` (900×332) | splash image (`expo-splash-screen` plugin) and the Welcome screen | brand lockup, white — its vector twin is `src/features/courtTransition/logoPaths.ts` (same crop; the boot loading screen draws that at the splash width, so the two must stay identical) |
 | `logo.png` (900×332) | in-app wordmark (courts + profile headers) | brand lockup, colour |
 | `fonts/LamaSans-*.ttf` | `BRAND_FONTS` (`src/theme/fonts.ts`) | `docs/brand/lama-sans` |
 
