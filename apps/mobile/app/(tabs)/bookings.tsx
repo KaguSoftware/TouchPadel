@@ -7,6 +7,7 @@ import { formatDate, formatTime, formatTimeRange, formatWeekdayShort } from '@to
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useMyBookings, useReleaseHold } from '../../src/features/booking/hooks';
+import { usePullRefresh } from '../../src/lib/usePullRefresh';
 import {
   cancelActorLabel,
   cancelledBookings,
@@ -120,6 +121,7 @@ export default function BookingsScreen() {
   const tabBarHeight = useTabBarHeight();
   const { session } = useAuth();
   const bookings = useMyBookings();
+  const pull = usePullRefresh(bookings.refetch);
   const [tab, setTab] = useState<Tab>('upcoming');
   const courts = useCourts();
   const settings = useVenueSettings();
@@ -588,8 +590,8 @@ export default function BookingsScreen() {
           contentContainerStyle={bottomPad}
           refreshControl={
             <RefreshControl
-              refreshing={bookings.isRefetching}
-              onRefresh={() => void bookings.refetch()}
+              refreshing={pull.refreshing}
+              onRefresh={pull.onRefresh}
               tintColor={colors.blue}
             />
           }

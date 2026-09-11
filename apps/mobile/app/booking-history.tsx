@@ -7,6 +7,7 @@ import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { useMyBookings } from '../src/features/booking/hooks';
+import { usePullRefresh } from '../src/lib/usePullRefresh';
 import { useClearHistory, useHistoryClearedAt } from '../src/features/booking/history';
 import {
   cancelActorLabel,
@@ -47,6 +48,7 @@ function BookingHistoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bookings = useMyBookings();
+  const pull = usePullRefresh(bookings.refetch);
   const courts = useCourts();
   const cleared = useHistoryClearedAt();
   const clear = useClearHistory();
@@ -136,8 +138,8 @@ function BookingHistoryScreen() {
         contentContainerStyle={{ paddingTop: 6, paddingBottom: 32 + insets.bottom, flexGrow: 1 }}
         refreshControl={
           <RefreshControl
-            refreshing={bookings.isRefetching}
-            onRefresh={() => void bookings.refetch()}
+            refreshing={pull.refreshing}
+            onRefresh={pull.onRefresh}
             tintColor={colors.blue}
           />
         }

@@ -16,6 +16,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   TextInput,
   View,
   type ScrollViewProps,
@@ -867,21 +868,33 @@ export function Button({
         style,
       ]}
     >
+      {/* The label stays MOUNTED while busy, hidden, and the spinner is laid over
+          it: swapping the two changed the button's height. A compact label
+          measures under the 44 pt floor and is clamped to it; the 20 pt
+          spinner plus the same padding is 46, over it — so the instant a
+          mutation started, the button grew 2 pt and everything below it moved,
+          then moved back (owner, 2026-09-11, cancelling a booking). Keeping the
+          label's box keeps the height. */}
+      <Text
+        style={{
+          fontFamily: ghost ? fonts.body700 : fonts.display800,
+          fontSize: ghost ? 12.5 : s.font,
+          letterSpacing: ghost ? 0 : tracking(s.ls),
+          textTransform: ghost ? 'none' : 'uppercase',
+          color: labelColor ?? visual.fg,
+          opacity: busy ? 0 : 1,
+        }}
+      >
+        {label}
+      </Text>
       {busy ? (
-        <ActivityIndicator color={labelColor ?? visual.fg} />
-      ) : (
-        <Text
-          style={{
-            fontFamily: ghost ? fonts.body700 : fonts.display800,
-            fontSize: ghost ? 12.5 : s.font,
-            letterSpacing: ghost ? 0 : tracking(s.ls),
-            textTransform: ghost ? 'none' : 'uppercase',
-            color: labelColor ?? visual.fg,
-          }}
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}
         >
-          {label}
-        </Text>
-      )}
+          <ActivityIndicator color={labelColor ?? visual.fg} />
+        </View>
+      ) : null}
     </Pressable>
   );
 }
