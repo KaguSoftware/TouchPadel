@@ -36,11 +36,19 @@
  * (min 96 pt) instead of the card overflowing under the title or tab bar.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  Animated,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
+import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../features/availability/useAvailabilityBooking';
 import { mapErrorToKey } from '../features/booking/errors';
@@ -56,6 +64,7 @@ import {
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
 import { DayChip, SlotCell } from './booking';
+import { WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
 
@@ -523,6 +532,72 @@ export function BookingSheet({
                 />
               </Animated.View>
 
+              {/* THE VENUE NOTICE — here, small, and nowhere else on the Book
+                  tab. The till's heartbeat going stale used to raise an amber
+                  banner over the court itself, on a tab the guest may only be
+                  browsing at midnight; the fact matters at the moment of
+                  booking and not before (owner, 2026-09-11). One line under
+                  the picker, with the venue's number bold and tappable — the
+                  whole row dials, so the touch target is the row and not a
+                  few digits. Enters with the picker. The cells themselves
+                  already say "desk only" for the protected days, and a tap on
+                  one opens the notice sheet with its own Call button. */}
+              {a.degraded ? (
+                <Animated.View
+                  style={{
+                    marginTop: 6,
+                    paddingStart: PAD,
+                    paddingEnd: PAD,
+                    opacity: pills[pillCount]!.opacity,
+                  }}
+                >
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={a.phone ? t('profile.callVenue') : undefined}
+                    disabled={!a.phone}
+                    onPress={a.onCall}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      opacity: pressed ? 0.7 : 1,
+                    })}
+                  >
+                    <WifiOffIcon size={12} color={colors.ambstrong} />
+                    <Text
+                      numberOfLines={2}
+                      style={{
+                        flex: 1,
+                        fontFamily: fonts.body600,
+                        fontSize: 11,
+                        lineHeight: 15,
+                        color: colors.ambtext,
+                      }}
+                    >
+                      {(() => {
+                        if (!a.phone) return t('degraded.bannerCourts');
+                        // Latin digits inside an Arabic sentence: isolated, or
+                        // the bidi algorithm reorders the number's groups
+                        // against the RTL paragraph (as DegradedBanner does).
+                        const wrapped = isolate(a.phone);
+                        const [before, ...rest] = t('degraded.bannerAvailability', {
+                          phone: wrapped,
+                        }).split(wrapped);
+                        return [
+                          before,
+                          <Text
+                            key="phone"
+                            style={{ fontFamily: fonts.body800, textDecorationLine: 'underline' }}
+                          >
+                            {wrapped}
+                          </Text>,
+                          rest.join(wrapped),
+                        ];
+                      })()}
+                    </Text>
+                  </Pressable>
+                </Animated.View>
+              ) : null}
 
               {/* Time grid: four rows visible, vertical scroll; rows pass under
                   the card's clipped edge. The one block that gives way on a short stage */}
