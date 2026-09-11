@@ -106,6 +106,7 @@ import { buildCourtScene, type CourtScene } from '../features/courtTransition/sc
 import { advance as advanceRally } from '../features/courtTransition/rallyClock';
 import { pitchEase, type Dir } from '../features/courtTransition/spec';
 import { canAnimate, canDraw } from '../features/courtTransition/surfaceState';
+import { frameRepaints } from '../features/courtTransition/staleCover';
 import { addBreadcrumb, captureException, captureMessage, describeError } from '../lib/telemetry';
 import { brand, useTheme } from '../theme';
 import { PATTERN_DEFAULT_OPACITY, patternInk } from '../theme/brandPattern';
@@ -254,6 +255,14 @@ const REVEAL_MS = 260;
  * and no GL edge case may leave that permanently invisible.
  */
 const REVEAL_FALLBACK_MS = 1500;
+/**
+ * The interval between two drawn frames past which the loop counts as having
+ * STALLED rather than dropped a frame. Not a gate — nothing stops or restarts
+ * on it — a threshold for the `court3d.frame.stall` breadcrumb, so a court that
+ * "froze" on a device can be read back as a stalled thread rather than a
+ * closed loop (which leaves its own `court3d.loop.stop`).
+ */
+const STALL_MS = 1000;
 
 const hexToInt = (hex: string): number => parseInt(hex.slice(1, 7), 16);
 
@@ -304,6 +313,8 @@ export function Court3D({
   const rallyT = useRef(0);
   /** `performance.now()` of the last frame that advanced it; null = no interval to measure. */
   const lastFrameAt = useRef<number | null>(null);
+  /** A stall is on the record until the next frame that is not one. */
+  const stalled = useRef(false);
   const loop = useRef<number | null>(null);
   const once = useRef<number | null>(null);
   const reduce = useRef(reduceMotion);
@@ -496,6 +507,20 @@ export function Court3D({
       lastFrameAt.current = now;
       rallyT.current = advanceRally(rallyT.current, since);
       t = rallyT.current;
+      // A frame that arrives a second or more after the last one is a stall,
+      // not a drop: the loop was never stopped, the thread simply did not get
+      // back to it (a GPU back-pressured `endFrameEXP`, a blocked JS thread).
+      // The rally clock absorbs it, so nothing jumps — but the guest saw the
+      // court freeze, and this is the only record of it. One breadcrumb per
+      // stall, so a device stalling every frame does not flood telemetry.
+      if (since !== null && since >= STALL_MS) {
+        if (!stalled.current) {
+          stalled.current = true;
+          addBreadcrumb('court3d.frame.stall', { sinceMs: Math.round(since) });
+        }
+      } else {
+        stalled.current = false;
+      }
     }
     try {
       fit(main);
@@ -506,6 +531,27 @@ export function Court3D({
       scene.update(t, value, ease.current(value));
       main.renderer.render(scene.scene, scene.camera);
       main.gl.endFrameEXP();
+      // A frame has gone out — but "gone out" only counts while the app is ACTIVE.
+      // `endFrameEXP` funnels into expo-gl's `flush`, which returns immediately
+      // while `_appIsBackgrounded` is set (EXGLContext.mm observes
+      // `UIApplicationWillResignActive`, i.e. the Control Center shade opening).
+      // So under the shade this code runs, the draw calls are issued, and NOTHING
+      // reaches the screen. Clearing the flag here regardless is what took the
+      // cover down over a framebuffer still cleared to the old palette — the
+      // white court band on a dark page, for the whole time the shade was up and
+      // a beat after it closed.
+      //
+      // Read from a ref, not the `appState` state value: this runs inside the
+      // render loop, which must not be rebuilt on every lifecycle change.
+      //
+      // THIS BLOCK WAS LOST ONCE, in the merge afe7f57 (2026-09-09), and the
+      // cover then stayed up forever after any theme flip — the court was a
+      // flat page-colour rectangle for the rest of the session. staleCover.ts's
+      // test now reads this file and fails if the call goes missing again.
+      if (frameRepaints({ repaintPending: repaint.current, appState: appStateRef.current })) {
+        repaint.current = false;
+        setStale(false);
+      }
       // There is a court on the surface now: let the stage fade up (no-op after
       // the first frame). The ball's surface follows in the same fade.
       showStage();
@@ -766,6 +812,16 @@ export function Court3D({
     running.current = live;
     reduce.current = reduceMotion;
     if (!live) {
+      // Every stop is on the record with its reason, so "the animation stopped"
+      // can be told apart from "the frames stalled" (court3d.frame.stall) after
+      // the fact: a stop here is the gate closing — no surface, tab blurred, or
+      // app not frontmost — and nothing else in this file halts the loop.
+      addBreadcrumb('court3d.loop.stop', {
+        ready,
+        focused: focusedRef.current,
+        appState: appStateRef.current,
+        reduceMotion,
+      });
       stopLoop();
       return;
     }
@@ -781,7 +837,7 @@ export function Court3D({
     // queued), so it costs nothing on the path that was going to draw anyway.
     if (repaint.current) requestOnce();
     return stopLoop;
-  }, [live, reduceMotion, startLoop, stopLoop, requestOnce]);
+  }, [live, ready, reduceMotion, startLoop, stopLoop, requestOnce]);
 
   // The same redraw, keyed on the COLOURS rather than on the lifecycle, because
   // the two listeners race. This component watches AppState for `active` and
