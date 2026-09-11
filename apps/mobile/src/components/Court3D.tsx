@@ -304,6 +304,11 @@ export function Court3D({
   const boxOffsetY = patternBox?.offsetY ?? 0;
   // Fixed for the life of the scene: the tier shapes what gets built.
   const quality = useRef(qualityProp ?? detectCourtQuality()).current;
+  useEffect(() => {
+    console.log('[courtperf] quality tier =', quality, 'propOverride =', qualityProp ?? 'none');
+  }, [quality, qualityProp]);
+  /** Wall-clock mark for the current context attach, for [courtperf]. */
+  const attachAt = useRef<number | null>(null);
   const court = useRef<CourtScene | null>(null);
   const layout = useRef<{ width: number; height: number } | null>(null);
   const surfaces = useRef<{ court: Surface | null; ball: Surface | null }>({
@@ -548,8 +553,22 @@ export function Court3D({
         scene.camera.updateProjectionMatrix();
       }
       scene.update(t, value, ease.current(value));
+      const __first = attachAt.current !== null;
+      const __tDraw = __first ? Date.now() : 0;
       main.renderer.render(scene.scene, scene.camera);
       main.gl.endFrameEXP();
+      if (__first) {
+        // First render() after a context attach compiles/links every shader,
+        // so this split separates GPU-driver cost from the JS scene build.
+        console.log(
+          '[courtperf] first render()',
+          Date.now() - __tDraw,
+          'ms | attach -> first frame',
+          Date.now() - (attachAt.current as number),
+          'ms',
+        );
+        attachAt.current = null;
+      }
       // A frame has gone out — but "gone out" only counts while the app is ACTIVE.
       // `endFrameEXP` funnels into expo-gl's `flush`, which returns immediately
       // while `_appIsBackgrounded` is set (EXGLContext.mm observes
@@ -684,8 +703,12 @@ export function Court3D({
           renderer.setClearColor(0x000000, 0); // see-through: the button shows between the ghosts
         }
         if (!court.current) {
+          const __tBuild = Date.now();
           court.current = buildCourtScene(quality);
+          console.log('[courtperf] scene build (cold)', Date.now() - __tBuild, 'ms');
           pushViewport();
+        } else {
+          console.log('[courtperf] scene REUSED (warm context)');
         }
         // Outside the branch above: Android destroys the surface while the app
         // is backgrounded and hands back a NEW context, but the scene object
@@ -697,6 +720,10 @@ export function Court3D({
         court.current.setBackdropInk(ink);
         surfaces.current[kind] = { gl, renderer, width: w, height: h };
         initFailures.current = 0; // a live surface: any earlier failure was transient
+        if (kind === 'court') {
+          attachAt.current = Date.now();
+          console.log('[courtperf] court context attached (build+renderer done)');
+        }
         addBreadcrumb('court3d.ready', { surface: kind, quality, width: w, height: h });
         if (kind === 'court') setReady(true);
         else if (running.current) requestOnce();
