@@ -21,20 +21,13 @@ import {
 } from '../../src/features/booking/logic';
 import { useHistoryClearedAt } from '../../src/features/booking/history';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import {
-  useCourts,
-  useCourtsBroadcast,
-  useIsDegraded,
-  useVenueSettings,
-} from '../../src/features/availability/hooks';
-import { venuePhoneOf } from '../../src/features/availability/assemble';
+import { useCourts, useCourtsBroadcast } from '../../src/features/availability/hooks';
 import { useAuth } from '../../src/features/auth/context';
 import { requestBookingSheet } from '../../src/features/courtTransition/openIntent';
 import { formatPrice } from '../../src/lib/price';
 import { radius, space, useTheme } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';
 import {
-  DegradedBanner,
   FilterChip,
   HeldSlotCard,
   ListHeading,
@@ -124,10 +117,6 @@ export default function BookingsScreen() {
   const pull = usePullRefresh(bookings.refetch);
   const [tab, setTab] = useState<Tab>('upcoming');
   const courts = useCourts();
-  const settings = useVenueSettings();
-  const degraded = useIsDegraded();
-  // Closed by the guest, not by a timer or a refetch — see `notice` below.
-  const [noticeClosed, setNoticeClosed] = useState(false);
   const release = useReleaseHold();
   const cleared = useHistoryClearedAt();
   const toast = useToast();
@@ -310,31 +299,17 @@ export default function BookingsScreen() {
     </View>
   );
 
-  const phone = venuePhoneOf(settings.data);
-
-  /**
-   * The venue notice sits in flow under the heading and stays until the guest
-   * closes it — a refetch flipping `degraded` back on must not resurrect one
-   * they have already dealt with. It rides inside the header, so it survives
-   * the screen flipping between loading, error, empty and list.
-   */
-  const notice =
-    degraded && !noticeClosed ? (
-      <View style={{ marginTop: 2, marginBottom: space.s }}>
-        <DegradedBanner
-          lead={t('degraded.leadConnectionLost')}
-          message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-          phone={phone}
-          blockLead
-          onDismiss={() => setNoticeClosed(true)}
-        />
-      </View>
-    ) : null;
+  // No venue notice here any more. The till's stale heartbeat used to raise
+  // the amber "venue connection lost" banner over this list too (owner,
+  // 2026-09-11: "still there in the reservations tab"); it lives in the
+  // booking sheet now, at the one moment it matters. A booking the desk
+  // changed while offline still arrives here through the realtime channel
+  // and the refetch, and the detail screen has its own Call the venue.
 
   const header = (
     <View style={{ paddingTop: space.l }}>
       <Title>{t('booking.myBookings')}</Title>
-      {notice}
+
       {tabs}
       {heldSection}
     </View>

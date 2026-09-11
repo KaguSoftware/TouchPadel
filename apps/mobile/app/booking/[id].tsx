@@ -10,7 +10,7 @@ import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useCancelReservation, useReservation } from '../../src/features/booking/hooks';
 import { canCancel, displayRef, endedNotice } from '../../src/features/booking/logic';
 import { mapErrorToKey } from '../../src/features/booking/errors';
-import { useCourts, useCourtsBroadcast, useIsDegraded, useVenueSettings } from '../../src/features/availability/hooks';
+import { useCourts, useCourtsBroadcast, useVenueSettings } from '../../src/features/availability/hooks';
 import { venuePhoneOf } from '../../src/features/availability/assemble';
 import { callPhone } from '../../src/lib/phone';
 import { formatPrice } from '../../src/lib/price';
@@ -24,7 +24,6 @@ import {
 } from '../../src/components/ui';
 import { useBack } from '../../src/navigation/back';
 import {
-  DegradedBanner,
   PayAtDeskCard,
   StatusPill,
   SummaryGrid,
@@ -50,7 +49,6 @@ function BookingDetailScreen() {
   const reservation = useReservation(typeof id === 'string' ? id : undefined);
   const courts = useCourts();
   const settings = useVenueSettings();
-  const degraded = useIsDegraded();
   const cancel = useCancelReservation();
   const toast = useToast();
   // The desk can end this booking while the guest is looking straight at it —
@@ -61,7 +59,6 @@ function BookingDetailScreen() {
   // adds no second subscription when it is opened from Bookings.
   useCourtsBroadcast();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [noticeClosed, setNoticeClosed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Eligibility follows the clock: the window can close while the guest looks.
@@ -122,24 +119,10 @@ function BookingDetailScreen() {
       <Stack.Screen
         options={{ title: booking ? t('booking.bookingRef', { ref: displayRef(booking.id) }) : '' }}
       />
-      {/*
-        Spec 05.16: the venue contact whenever the venue is degraded, closed
-        only by its × — a guest looking at a stale booking needs the number in
-        reach however long they spend reading, and however often the query
-        refetches. In flow rather than floating, matching the Book tab: an
-        overlay covered the top of the detail it was commenting on.
-      */}
-      {degraded && !noticeClosed ? (
-        <View style={{ marginBottom: space.s }}>
-          <DegradedBanner
-            lead={t('degraded.leadConnectionLost')}
-            message={t('degraded.bannerBookings', { phone: phone ?? '' })}
-            phone={phone}
-            blockLead
-            onDismiss={() => setNoticeClosed(true)}
-          />
-        </View>
-      ) : null}
+      {/* No venue notice here either (spec 05.16 put one above the detail; the
+          owner took every one of them off the top of screens on 2026-09-11 —
+          the sheet carries it at booking time). The venue's number stays in
+          reach on this screen through the window-closed card's Call button. */}
       {reservation.isLoading ? (
         <SkeletonList rows={2} height={140} />
       ) : reservation.isError ? (
