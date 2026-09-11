@@ -629,6 +629,10 @@ export const ar: Messages = {
     confirmNewPassword: 'تأكيد كلمة المرور الجديدة',
     updatePassword: 'تحديث كلمة المرور',
     fillAllFields: 'املأ الحقول الثلاثة جميعها.',
+    currentPasswordWrong: 'كلمة المرور الحالية غير صحيحة.',
+    newPasswordSame: 'يجب أن تختلف كلمة المرور الجديدة عن الحالية.',
+    passwordChangeUnavailable:
+      'تغيير كلمة المرور غير متاح حاليًا. سجّل الخروج واستخدم "نسيت كلمة المرور" بدلًا من ذلك.',
     // SEC-16 — حذف الحساب من داخل التطبيق.
     deleteAccount: 'حذف الحساب',
     deleteHeading: 'لا يمكن التراجع عن هذا.',

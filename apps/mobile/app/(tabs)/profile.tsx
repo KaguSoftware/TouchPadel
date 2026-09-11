@@ -8,6 +8,7 @@ import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
 import { hasRealEmail, phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
+import { hasPasswordSignIn } from '../../src/features/profile/changePasswordFlow';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
@@ -278,7 +279,10 @@ export default function ProfileScreen() {
             />
             {/* No password exists for a phone-only account, and a desk-created
               walk-in's synthetic address has no mailbox to recover to. */}
-            {hasRealEmail(session?.user) ? (
+            {/* …and only for an account that HAS a password: a guest who only
+              ever signed in with Google or Apple has none, and for them every
+              "current password" is wrong — the row looked broken, not absent. */}
+            {hasRealEmail(session?.user) && hasPasswordSignIn(session?.user) ? (
               <MenuRow
                 icon={<LockIcon size={15} color={colors.gstrong} />}
                 label={t('profile.changePassword')}

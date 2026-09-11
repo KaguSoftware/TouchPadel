@@ -662,6 +662,13 @@ export const en = {
     confirmNewPassword: 'Confirm new password',
     updatePassword: 'Update password',
     fillAllFields: 'Fill in all three fields.',
+    // Change password: each failure named for what it was. The proof sign-in
+    // used to borrow auth.invalidCredentials ("Email or password…") on a screen
+    // with no email field (owner, 2026-09-11).
+    currentPasswordWrong: 'Current password is incorrect.',
+    newPasswordSame: 'New password must be different from your current one.',
+    passwordChangeUnavailable:
+      'Password change is not available right now. Sign out and use "Forgot password" instead.',
     // SEC-16 — in-app account deletion. Both stores require a path to this from
     // INSIDE the app; a support email or a web form does not satisfy either.
     deleteAccount: 'Delete account',
