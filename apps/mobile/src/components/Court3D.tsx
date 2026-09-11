@@ -32,9 +32,11 @@
  *
  * Runtime shape:
  *   · `p` arrives through a native-driven Animated.Value listener (per frame).
- *   · The whole stage is held at opacity 0 until the court's FIRST frame has
- *     been drawn, then cross-fades in over REVEAL_MS — the scene takes a few
- *     hundred ms to build and used to appear in one frame (see REVEAL_MS).
+ *   · The whole stage is held at opacity 0 until the first frame of each VISIT
+ *     has been drawn, then cross-fades in over REVEAL_MS — the scene takes a
+ *     few hundred ms to build and used to appear in one frame (see REVEAL_MS).
+ *     The stage is put down again on blur, so every return to the tab gets
+ *     the same entrance, not just the first.
  *   · The rally advances on its OWN clock, one capped step per frame actually
  *     drawn (rallyClock.ts) rather than off the wall clock, so a JS thread busy
  *     with something else costs the animation frames and never a jump. The
@@ -245,14 +247,18 @@ const MAX_INIT_ATTEMPTS = 3;
  *
  * Re-armed for every court context, not just the first: a surface Android
  * destroys and recreates (leaving the tab, backgrounding) has nothing on it
- * either, so it comes back the same way rather than snapping in.
+ * either, so it comes back the same way rather than snapping in. And re-armed
+ * on every blur, so a return to the tab on iOS — where the surface and its
+ * picture survive the switch — fades in the same way rather than being there.
  */
 const REVEAL_MS = 260;
 /**
  * Insurance only. Every real path either draws within a frame of `attach` or
  * gives up through `onUnavailable`, and the caller then swaps in the flat
  * court — but the stage also carries the caller's "check availability" button,
- * and no GL edge case may leave that permanently invisible.
+ * and no GL edge case may leave that permanently invisible. Runs only while
+ * the tab is FOCUSED: a timer started on a blurred tab lifted the stage off
+ * screen and spent the entrance before anyone saw it.
  */
 const REVEAL_FALLBACK_MS = 1500;
 /**
@@ -411,7 +417,11 @@ export function Court3D({
   }, []);
   const showStage = useCallback(() => {
     clearRevealTimer();
-    if (revealed.current) return;
+    // A frame that lands while the tab is BLURRED must not lift the stage: the
+    // loop stops a commit after the blur, so one can, and the stage was put
+    // down on the way out so the next visit gets its entrance — that visit's
+    // first frame lifts it.
+    if (revealed.current || !focusedRef.current) return;
     revealed.current = true;
     Animated.timing(reveal, {
       toValue: 1,
@@ -420,14 +430,23 @@ export function Court3D({
       useNativeDriver: true,
     }).start();
   }, [reveal, clearRevealTimer]);
+  /**
+   * The backstop, for a stage someone can SEE: an arm while blurred gets no
+   * timer (it would lift the stage off screen, and the entrance with it), and
+   * the focus effect starts one for a stage that is still down on the way in.
+   */
+  const armFallback = useCallback(() => {
+    clearRevealTimer();
+    if (!focusedRef.current) return;
+    revealTimer.current = setTimeout(showStage, REVEAL_FALLBACK_MS);
+  }, [showStage, clearRevealTimer]);
   /** Hide the stage again until the surface that is coming up has drawn. */
   const armReveal = useCallback(() => {
     revealed.current = false;
     reveal.stopAnimation(); // a re-arm mid-fade must not be overwritten by it
     reveal.setValue(0);
-    clearRevealTimer();
-    revealTimer.current = setTimeout(showStage, REVEAL_FALLBACK_MS);
-  }, [reveal, showStage, clearRevealTimer]);
+    armFallback();
+  }, [reveal, armFallback]);
 
   /**
    * TEARDOWN CANNOT ASSUME A LIVE CONTEXT.
@@ -759,6 +778,9 @@ export function Court3D({
     useCallback(() => {
       focusedRef.current = true;
       setFocused(true);
+      // A stage still down from the blur below (or from a context that arrived
+      // dead while blurred) gets its backstop now that someone can see it.
+      if (!revealed.current) armFallback();
       // A fresh visit gets a fresh budget: attempts spent on a previous one
       // say nothing about whether GL works now.
       initFailures.current = 0;
@@ -772,8 +794,22 @@ export function Court3D({
       return () => {
         focusedRef.current = false;
         setFocused(false);
+        // ENTRANCE ON EVERY VISIT. On iOS the surface survives a tab switch
+        // (the native tab bar detaches the view; the GL context and its last
+        // frame live on), so nothing re-armed the reveal and the fade played
+        // once per launch — the court was simply THERE on every return, and
+        // the fallback timer, never cancelled on blur, burned the arm off
+        // screen whenever the guest left within 1.5 s of arriving (owner,
+        // 2026-09-11, switching tabs quickly). Armed HERE, while nobody can see
+        // it, rather than on focus: the native tab swap shows the screen a
+        // frame before the focus event reaches JS, so an arm on focus flashes
+        // the full court and cuts it to nothing before fading. Android destroys
+        // the surface on blur and `attach` arms again for the new context; the
+        // two arms agree. `focusedRef` is already false, so this starts no
+        // timer — the focus branch above does, on the way back in.
+        armReveal();
       };
-    }, []),
+    }, [armReveal, armFallback]),
   );
   useEffect(() => {
     const sub = AppState.addEventListener('change', (s) => {
@@ -783,8 +819,8 @@ export function Court3D({
     return () => sub.remove();
   }, []);
 
-  // Arm the reveal for the first surface, and take its backstop timer down with
-  // the component.
+  // Arm the reveal for the first surface (each later visit re-arms from the
+  // focus effect above), and take its backstop timer down with the component.
   useEffect(() => {
     armReveal();
     return clearRevealTimer;
