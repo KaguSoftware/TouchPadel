@@ -829,10 +829,11 @@ export function Button({
     danger: { bg: colors.danger, fg: brand.white, border: 'transparent' },
     // Dark ("blue mode") needs its own outline. The light recipe is a white
     // card with a red hairline; in dark the same recipe is `card` navy with
-    // #871A12 on it, and Cancel booking came out as a dark rectangle rather
-    // than a red action (owner, 2026-09-08). So the ground moves to the red
-    // tint and the border joins the label on the bright coral — 5.2:1 on that
-    // tint, and unmistakably red against the navy card it sits in. Both are
+    // the red line on it, and Cancel booking came out as a dark rectangle
+    // rather than a red action (owner, 2026-09-08). So the ground moves to the
+    // red tint and the border joins the label on `redtext` — 6.2:1 on that
+    // tint (a soft rose since 2026-09-11; tokens.ts has the reasoning), and
+    // still a distinct action against the navy card it sits in. Both are
     // existing dark-palette tokens; the palette stays closed.
     dangerOutline:
       appearance === 'dark'
