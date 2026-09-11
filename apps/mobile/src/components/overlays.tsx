@@ -268,11 +268,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastHost({ toast }: { toast: ToastState | null }) {
-  const { fonts } = useTheme();
+  const { colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
   if (!toast) return null;
   const bg =
-    toast.tone === 'error' ? brand.danger : toast.tone === 'info' ? brand.navy : brand.successToast;
+    toast.tone === 'error'
+      ? colors.danger
+      : toast.tone === 'info'
+        ? brand.navy
+        : brand.successToast;
   return (
     <View
       pointerEvents="none"

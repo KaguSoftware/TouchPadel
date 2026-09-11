@@ -312,6 +312,7 @@ export default function ProfileScreen() {
               undoable, and an Alert is what a mis-tap dismisses by habit. */}
             <MenuRow
               icon={<TrashIcon size={15} color={colors.redtext} />}
+              iconBg={colors.redtint}
               label={t('profile.deleteAccount')}
               onPress={() => router.push('/delete-account')}
               last
@@ -320,12 +321,16 @@ export default function ProfileScreen() {
 
           <ErrorText>{error}</ErrorText>
 
+          {/* A quiet outline, not a red one. Signing out is reversible and the
+              native alert already marks it destructive; painted red it stood
+              next to Delete account as a second alarm, and in dark mode coral
+              text in a blue outline on navy did not read as anything (owner,
+              2026-09-11). The one red on this screen is the row that earns it. */}
           <Button
             label={t('auth.signOut')}
             variant="secondary"
             size="medium"
             onPress={confirmSignOut}
-            labelColor={colors.redtext}
             style={{ marginTop: space.m, backgroundColor: 'transparent' }}
           />
         </ScrollView>

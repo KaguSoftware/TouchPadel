@@ -826,7 +826,7 @@ export function Button({
     cta: { bg: brand.green, fg: brand.greenInk, border: 'transparent' },
     primary: { bg: brand.blue, fg: brand.white, border: 'transparent' },
     secondary: { bg: colors.card, fg: colors.ink, border: colors.line },
-    danger: { bg: brand.danger, fg: brand.white, border: 'transparent' },
+    danger: { bg: colors.danger, fg: brand.white, border: 'transparent' },
     // Dark ("blue mode") needs its own outline. The light recipe is a white
     // card with a red hairline; in dark the same recipe is `card` navy with
     // #871A12 on it, and Cancel booking came out as a dark rectangle rather
