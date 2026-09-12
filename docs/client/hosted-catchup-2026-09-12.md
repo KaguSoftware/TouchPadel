@@ -6,8 +6,8 @@ Verified read-only with the anon key on 2026-09-12:
 
 | Symptom on the phone | Cause on the hosted project |
 |---|---|
-| My Bookings and booking detail show "could not load" for every guest | The schema lacks `reservations.cancelled_by` (migration 0088), which the app selects. Hosted stopped at 0076: `20260906000071_booking_integrity` was merged after `20260907000071..75` had been pushed by hand, it sorts before them, and `supabase db push` refuses out-of-order files. Every push since (by hand or the CI job) was refused, so 0077–0088 never applied. |
-| Every slot in the next 48 h is "desk only", holds refused | `app.is_degraded()` is **true**: a station installed in *Till* mode was switched off and its stale heartbeat row is still there. |
+| Every slot in the next 48 h is "desk only", holds refused | `app.is_degraded()` was **true**: two stations installed in *Till* mode (`TILL-01`, `TEST-AM`) were switched off and their stale heartbeat rows were still there. **Cleared 2026-09-12** (step 3 below, already done). |
+| Desk no-show/complete on a future booking is accepted; account deletion, PIN rules, text sanitising and the rest of 0076–0087 are absent | The hosted ledger is applied through 0075 plus 0088 only. `20260904000069_btree_gist_schema_fix` and `20260906000071_booking_integrity` were merged after `20260907000071..75` had been pushed by hand, they sort before those, and `supabase db push` refuses out-of-order files. Every push since (by hand or the CI job) was refused, so 0076–0087 never applied; 0088 was applied by hand on 09-11. |
 | The desk cannot create a customer account, so its bookings never link to a guest | Edge function `desk-customer-create` was never deployed (nor `staff-admin`, `apple-revoke`). |
 | In-app account deletion fails | `delete_my_account` is migration 0077, not on hosted. |
 
@@ -26,8 +26,9 @@ Every run below waits at the `staging` environment gate for your approval.
 
 1. **Migrations.** Actions → *DB Migrate (staging)* → *Run workflow* on `main` with
    **include_all = true**. In the run summary, the "Show pending migrations" step must list
-   `20260906000071_booking_integrity` plus `0077` … `0089` as local-only, and the diff must
-   be additive. Approve. Expect the push to apply those 14 files.
+   exactly these 15 as local-only: `20260904000069_btree_gist_schema_fix`,
+   `20260906000071_booking_integrity`, `0076` … `0087`, `0089` (0088 is already there), and the
+   diff must be additive. Approve.
 2. **Functions.** Actions → *Functions deploy (staging)* → *Run workflow*. Approve. The
    summary lists every function; `telegram-callback` and `send-sms-otp` must show
    `verify_jwt = false` (the job fails otherwise).
@@ -49,13 +50,18 @@ and offers a `migration repair --status reverted` that would mark the whole hist
 cd packages/db
 npx supabase login
 npx supabase projects list            # must show lczijabnorujcgmbuqlw
-npx supabase migration list --linked  # expect 20260906000071 and 0077..0089 as local-only
-npx supabase db push --linked --include-all --dry-run
+npx supabase migration list --linked  # expect 20260904000069, 20260906000071, 0076..0087, 0089 as local-only
+npx supabase db push --linked --include-all --dry-run   # must list exactly those 15
 npx supabase db push --linked --include-all --yes
 npx supabase functions deploy         # every function, verify_jwt from config.toml
 npx supabase functions list           # telegram-callback + send-sms-otp: verify_jwt = false
-pnpm db:clear-dev-till                # prints app.is_degraded(); must be false
+pnpm db:clear-dev-till                # prints app.is_degraded(); must be false (done 2026-09-12)
 ```
+
+Status 2026-09-12: the login and the stale-till sweep are done from this machine (`is_degraded()`
+is `false`); the dry-run listed exactly the 15 files above and the data prechecks for 0071's
+constraints passed (0 orphan live holds, 0 non-positive prices). The `db push` and
+`functions deploy` lines are the two commands still to run.
 
 ## Verify (anyone, read-only, anon key from `apps/operator/.env`)
 
@@ -68,8 +74,9 @@ curl -s -X POST "$URL/rest/v1/rpc/is_degraded" -H "apikey: $KEY" -H "Authorizati
 # 2. schema caught up: a 0087 function exists (permission denied = exists; PGRST202 = missing)
 curl -s -X POST "$URL/rest/v1/rpc/has_own_pin" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
   -H "Content-Profile: app" -H "Content-Type: application/json" -d '{}'      # -> code 42501
-# 3. the column the phone reads exists (42501 permission error is fine; 42703 is not)
-curl -s "$URL/rest/v1/reservations?select=cancelled_by&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+# 3. the 0071 function exists (same test); btree_gist moved: `select extnamespace::regnamespace from pg_extension where extname='btree_gist'` -> extensions
+curl -s -X POST "$URL/rest/v1/rpc/reason_given" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+  -H "Content-Profile: app" -H "Content-Type: application/json" -d '{"p_reason":"x"}'   # -> code 42501
 # 4. the desk's customer-create function is deployed (anything but NOT_FOUND)
 curl -s -X POST "$URL/functions/v1/desk-customer-create" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -d '{}'
 ```

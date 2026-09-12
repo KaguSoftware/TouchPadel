@@ -1343,17 +1343,24 @@ desk → queue → `replay` → `app.*`; phone ← `court_availability` poll + `
 `reservations`. **The break was entirely in what is deployed to the hosted project**, verified with
 anon-key probes (PGRST202 = function missing, 42501 = exists but denied):
 
-1. **Hosted stopped at 0076 and every push since was refused.** `20260906000071_booking_integrity`
-   (kemal's Phase 2, merged via PR #19 AFTER `20260907000071..75` had been pushed by hand) sorts
-   before versions already on the remote ledger; `supabase db push` refuses out-of-order files
-   unless `--include-all`. So manual pushes AND the CI `db-migrate` job failed from that merge on,
-   and 0077–0088 never applied. Present on hosted: 0060/61/64/65/66/69/70/72/74; missing:
-   0071-booking_integrity, 0077, 0078, 0081, 0087 (and therefore 0088).
-2. **The phone's booking list was dead because of it.** `apps/mobile/src/features/booking/api.ts`
-   selects `cancelled_by` (0088, 2026-09-11) → 42703 on hosted → My Bookings + booking detail render
-   the error state for every guest. Nothing the desk did could ever show there.
-3. **Hosted `is_degraded()` = true** (a packaged install set up as *Till*, then closed) →
-   every slot inside the 48 h horizon "desk only", holds refused. Fourth occurrence.
+1. **Two stranded migrations blocked every push since 2026-09-07.** `20260904000069_btree_gist_schema_fix`
+   and `20260906000071_booking_integrity` (kemal's Phase 2, merged via PR #19 AFTER
+   `20260907000071..75` had been pushed by hand) sort before versions already on the remote
+   ledger; `supabase db push` refuses out-of-order files unless `--include-all`. So manual pushes
+   AND the CI `db-migrate` job failed from that merge on. **Exact hosted ledger, read with the
+   right CLI account on 2026-09-12:** applied through 0075 plus **0088** (applied by hand on
+   09-11, so `reservations.cancelled_by` DOES exist); NOT applied: 20260904000069,
+   20260906000071, 0076–0087, 0089. Live `mark_reservation` is the 0075 body (no temporal guard);
+   `btree_gist` is still in `public`. (The anon-key probes earlier that day had read "0077 and
+   0087 missing" correctly but inferred "therefore 0088 missing" — wrong: 0088 was applied out
+   of order by hand.)
+2. **What the phone actually lost:** not the booking list (`cancelled_by` is there) but every
+   booking inside the 48 h horizon — see 3 — plus the 0076–0087 behaviour (no-show temporal
+   guard, account deletion, PIN uniformity, sanitising, …) and the desk's customer creation.
+3. **Hosted `is_degraded()` = true** — `TILL-01` (last beat 2026-09-11 13:01 UTC) and `TEST-AM`
+   (09-09), both `is_till`, both stale → every slot inside the 48 h horizon "desk only", holds
+   refused. Fourth occurrence. **Cleared 2026-09-12 ~14:45 UTC** (the 0057 sweep via
+   `db query --linked`; `is_degraded()` → false; `DEV-DEV1`/`DESK-01` rows left as they are).
 4. **Edge functions:** `desk-customer-create`, `staff-admin`, `apple-revoke` never deployed (404),
    so the desk could not create a guest account and its bookings stayed unlinked walk-ins.
 5. **The Supabase CLI on the dev machine is logged in as a different account**
@@ -1385,8 +1392,12 @@ renamed (ledger repair on every stack; conditional constraints).
 **Owner runbook: `docs/client/hosted-catchup-2026-09-12.md`** — Path A (GitHub: DB Migrate with
 `include_all = true` → Functions deploy → DB ops clear-stale-till), Path B (local CLI, correct
 account, from `packages/db`), the read-only verification curls, the venue note (only the real
-till in *Till* mode), and the walk-in-vs-linked-guest explanation. **Nothing hosted was touched
-this session** (no credentials); the owner runs Path A or B.
+till in *Till* mode), and the walk-in-vs-linked-guest explanation. **Done on hosted this session
+(after the owner ran `supabase login` with the right account):** the stale-till sweep
+(`is_degraded()` false). **Still owed (the harness refused to run production deploys; owner
+runs from `packages/db`):** `npx supabase db push --linked --include-all --yes` (dry-run
+verified: exactly the 15 files 20260904000069, 20260906000071, 0076–0087, 0089; prechecks
+green: 0 orphan live holds, 0 bad rate prices) and `npx supabase functions deploy`.
 
 Product gap recorded, not built: desk walk-ins (`guest_id` NULL) are busy slots on the phone but
 in nobody's My Bookings; the desk must pick/create the customer. Phone-number claim = D4c (open).
@@ -1571,8 +1582,9 @@ Not runnable here: the db vitest suite, `check:authz/locks/safeupdate/invariants
 - ~~OPERATOR C1 heartbeat~~ FIXED wave 2 (renderer sender). ~~C2 no write goes through the
   queue~~ FIXED day 14. ~~C3 stock UI~~ **FIXED day 14 (2026-09-03)**: all three audit
   criticals are closed; the Module-5 acceptance script passes as an e2e.
-- **HOSTED IS BEHIND AGAIN (2026-09-12): stuck at 0076, missing 0071-booking_integrity + 0077–0089,
-  three edge functions never deployed, `is_degraded()` true.** Cause: an out-of-order migration
+- **HOSTED IS BEHIND AGAIN (2026-09-12): applied through 0075 + 0088; missing 20260904000069,
+  20260906000071, 0076–0087, 0089; three edge functions never deployed; `is_degraded()` was true
+  (cleared 09-12).** Cause: an out-of-order migration
   blocks `db push` silently — see Day 19 and `docs/client/hosted-catchup-2026-09-12.md` (owner runs
   it; CI now gates version order). **Rule for every client build: no mobile/operator build that reads
   a new column or RPC ships before `supabase migration list --linked` shows 0 pending.** The dev
