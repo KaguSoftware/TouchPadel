@@ -57,3 +57,9 @@ apps/mobile/dist/
 # in apps/mobile/. Root-anchored: does not affect apps/mobile/eas.json.
 /app.json
 /eas.json
+
+# Firebase / FCM — Android push credentials
+apps/mobile/google-services.json
+google-services.json
+credentials.json
+*.jks

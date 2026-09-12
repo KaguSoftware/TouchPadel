@@ -183,10 +183,13 @@ export function PhoneField({
               // box and eats into this padding. Without the correction the
               // visible gap here is 8.55 px against 10 px on the other side.
               paddingEnd: CHIP_GAP + CHEVRON_BLEED,
-              // Matches the input's own vertical padding, so the divider and
-              // the text share a baseline box.
-              paddingTop: dense ? 13 : 14,
-              paddingBottom: dense ? 13 : 14,
+              // The chip FILLS the row's fixed height, exactly as the input
+              // beside it does (see the `boxHeight` note in ui.tsx), so the
+              // divider spans the same box the text sits in. Its own vertical
+              // padding would make it the taller of the two and reintroduce
+              // the mismatch this replaced.
+              alignSelf: 'stretch',
+              justifyContent: 'center',
             }}
           >
             {/* Conditional: `flagOf` returns '' for a code it cannot map, and

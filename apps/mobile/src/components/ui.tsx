@@ -317,8 +317,12 @@ export function LinkText({
 }
 
 /**
- * "Lead text + link" sentence used under the auth forms: the lead in `mut`,
- * only the action in blue bold — the design's `New here? <b>Create an account</b>`.
+ * "Lead text + link" used under the auth forms: the lead in `mut`, only the
+ * action in blue bold — the design's `New here?` / `<b>Create an account</b>`.
+ *
+ * STACKED, lead over action, not run together as one sentence. Still one
+ * Pressable and one accessible link, so the whole thing remains a single
+ * target with a single label whichever line is tapped.
  */
 export function FooterLink({
   lead,
@@ -335,13 +339,44 @@ export function FooterLink({
   return (
     <Pressable
       accessibilityRole="link"
+      // The two lines are one control: read as one sentence, not as a stray
+      // fragment followed by a link with no context.
+      accessibilityLabel={`${lead} ${label}`}
       onPress={onPress}
       hitSlop={{ top: 10, bottom: 10 }}
-      style={({ pressed }) => [{ alignSelf: 'center', opacity: pressed ? 0.7 : 1 }, style]}
+      style={({ pressed }) => [
+        { alignSelf: 'center', alignItems: 'center', opacity: pressed ? 0.7 : 1 },
+        style,
+      ]}
     >
-      <Text style={{ fontFamily: fonts.body400, fontSize: 12.5, color: colors.mut, textAlign: 'center' }}>
-        {lead}{' '}
-        <Text style={{ fontFamily: fonts.body800, color: colors.blue }}>{label}</Text>
+      {/* The lead's weight is named explicitly, not just via `fontFamily`.
+          When the brand faces are unavailable the font set falls back to the
+          platform's own (fontSets.system leaves every family undefined), and
+          weight then rides on `fontWeight` alone — which the bold action below
+          would otherwise be the only one to state, leaving these two lines
+          looking like different colours rather than different weights. */}
+      <Text
+        style={{
+          fontFamily: fonts.body400,
+          fontWeight: '400',
+          fontSize: 12.5,
+          color: colors.mut,
+          textAlign: 'center',
+        }}
+      >
+        {lead}
+      </Text>
+      <Text
+        style={{
+          fontFamily: fonts.body800,
+          fontWeight: '800',
+          fontSize: 12.5,
+          color: colors.blue,
+          textAlign: 'center',
+          marginTop: 3,
+        }}
+      >
+        {label}
       </Text>
     </Pressable>
   );
@@ -394,6 +429,16 @@ export interface FieldProps extends TextInputProps {
  */
 const LEAD_GAP = 10;
 
+/**
+ * The line box of the field's 14px text, pinned.
+ *
+ * Left to itself this differs per platform — iOS derives it from the font's
+ * metrics, Android from those plus the ascent/descent padding an EditText
+ * reserves — and the field's height would differ with it. 17 is what the 14px
+ * face resolves to on iOS, which is the height the design was drawn against.
+ */
+const LINE = 17;
+
 export function Field({
   label,
   error,
@@ -426,53 +471,109 @@ export function Field({
   const hasArabic = /[\u0600-\u06FF]/.test(value);
   const forceLtr =
     dir === 'rtl' && value.length > 0 && (isLatin || (hasLatin && !hasArabic));
-  // With a `lead` adornment the BORDER belongs to the row that wraps both, not
-  // to the input — otherwise the chip would sit outside a box drawn around the
-  // text alone. The input keeps the chrome when there is no adornment.
+  // The BORDER belongs to the row that wraps the input (and the adornment,
+  // when there is one) — otherwise a chip would sit outside a box drawn around
+  // the text alone, and the row is also what owns the horizontal inset.
+  //
+  // The border is ALWAYS 2px — only its colour changes with focus. The design
+  // asks for a 2px accent ring on a focused field (DESIGN.md §states); growing
+  // the border from 1 to 2 to get it would reflow the text by a pixel every
+  // time the field is tapped, so the width is constant and the resting state
+  // simply paints its 2px in the quiet line colour.
+  // The field's height, pinned rather than left to the text's intrinsic box.
+  // Android's EditText measures differently from iOS (and differently again
+  // once includeFontPadding is off), so a height that falls out of the text
+  // would differ between the two platforms; the design gives one number.
+  //
+  // The SAME height the field had when it was a 1px border around 14pt of
+  // padding over a 14px font: 1 + 14 + LINE + 14 + 1. The line box is pinned
+  // at LINE below rather than left to the platform, so both sides of that sum
+  // are known. The 2px border eats one pixel of the padding on each side —
+  // the box is unchanged, only the split between border and inset moves.
+  const boxHeight = 1 + (dense ? 13 : 14) + LINE + (dense ? 13 : 14) + 1;
   const chrome = {
     backgroundColor: colors.card,
-    borderWidth: 1,
+    height: boxHeight,
+    borderWidth: 2,
     borderColor: focused ? brand.green : error ? colors.redline : colors.line2,
     borderRadius: radius.cell,
   } as const;
-  const ring = focused && { boxShadow: `0 0 0 1px ${brand.green}` };
+  // `style` is documented as the TEXT's style, but every caller that passes one
+  // uses it to space the field against its neighbour. Split the margins off so
+  // they land on the bordered box and the rest still reaches the text.
+  const flat = StyleSheet.flatten(style) ?? {};
+  const margins: TextStyle = {};
+  const text: TextStyle = {};
+  for (const [k, v] of Object.entries(flat)) {
+    (/^margin/.test(k) ? margins : text)[k as keyof TextStyle] = v as never;
+  }
 
   return (
     <View style={{ marginTop: space.sm }}>
       {label ? <MicroLabel style={{ marginBottom: 5 }}>{label}</MicroLabel> : null}
       <View
-        style={
-          lead
-            ? [
-                chrome,
-                ring,
-                { flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
-                // The label above keeps the locale's direction; only this row
-                // is held physical. Yoga resolves start/end against it, so the
-                // adornment stays on the left and the input beside it.
-                ltrBox && { direction: 'ltr' as const },
-                boxStyle,
-              ]
-            : boxStyle
-        }
+        style={[
+          // Callers reach for `style` to nudge the FIELD (a marginTop between
+          // one field and the next), so the box takes the margins. Everything
+          // else in `style` is text and stays on the input below. Before the
+          // chrome moved up here a margin on the input was a margin on the
+          // bordered box; now it would be a gap inside the border.
+          margins,
+          chrome,
+          { flexDirection: 'row', alignItems: 'center' },
+          // THE INSET LIVES HERE, not on the TextInput. Under Fabric an
+          // AndroidTextInput resolves its own padding against the NATIVE
+          // direction, which this app pins LTR for good (i18n/nativeDirection)
+          // while the tree's real direction is a Yoga `direction` style — so a
+          // `paddingStart` on the input is dropped and the placeholder sits
+          // flush against the border. A plain View has no such second opinion:
+          // Yoga mirrors start/end on it correctly in both languages. The
+          // adornment, when there is one, supplies its own leading inset.
+          !lead && { paddingStart: space.m },
+          { paddingEnd: space.m },
+          // The label above keeps the locale's direction; only this row
+          // is held physical. Yoga resolves start/end against it, so the
+          // adornment stays on the left and the input beside it.
+          ltrBox && { direction: 'ltr' as const },
+          boxStyle,
+        ]}
       >
         {lead}
       <TextInput
         style={[
           {
-            ...(lead ? null : chrome),
-            // The adornment supplies the leading inset; a second one here
-            // would double the gap between the chip and the first character.
-            // With an adornment the leading inset is the gap AFTER it (the
-            // chip supplies the field's outer inset itself). It is not zero:
-            // at zero the text starts flush against the chip's divider.
-            paddingStart: lead ? LEAD_GAP : space.m,
-            paddingEnd: space.m,
-            ...(lead ? { flex: 1 } : null),
-            paddingTop: dense ? 13 : 14,
-            paddingBottom: dense ? 13 : 14,
+            // The chrome and the horizontal inset belong to the row above.
+            // All that is owed here is the gap AFTER an adornment's divider
+            // (the chip supplies the field's outer inset itself); at zero the
+            // text would start flush against that divider.
+            paddingStart: lead ? LEAD_GAP : 0,
+            paddingEnd: 0,
+            flex: 1,
+            // An EditText is happy to shrink below its text's width; without a
+            // floor a long placeholder could squeeze the row instead of
+            // ellipsing inside it.
+            minWidth: 0,
+            // NO vertical padding: the row above is a fixed height and centres
+            // what it holds, so the input simply fills it. Padding here would
+            // only push against that, and on Android it is what made the
+            // placeholder ride low in the first place.
+            paddingTop: 0,
+            paddingBottom: 0,
+            alignSelf: 'stretch',
+            // ANDROID: an EditText reserves space above and below the glyphs
+            // for the font's ascent/descent hints and then sits the text
+            // against the TOP of that box, so the placeholder rides low inside
+            // a field whose padding is otherwise symmetric. Dropping the
+            // reserved space makes the text box exactly the glyphs, and
+            // centring it in what the padding leaves puts it on the box's
+            // middle — where iOS already has it.
+            ...Platform.select({
+              android: { includeFontPadding: false, textAlignVertical: 'center' as const },
+              default: null,
+            }),
             fontFamily: fonts.body600,
             fontSize: 14,
+            lineHeight: LINE,
             color: colors.ink,
             // THE exception to the logical-alignment rule: TextInput is the one
             // element whose textAlign stays PHYSICAL on both platforms (Fabric
@@ -483,16 +584,12 @@ export function Field({
             textAlign: dir === 'rtl' ? 'right' : 'left',
             writingDirection: dir,
           },
-          // The design's 2 px focus ring, drawn outside the border so the
-          // field does not jump when it gains focus. With an adornment the
-          // ring is on the wrapping row instead — see `chrome` above.
-          !lead && ring,
           // Latin content (email / phone / password) anchors to the physical
           // left even inside the RTL layout — spec §06 Forms. Deliberate
           // exception to the logical-properties rule.
           // eslint-disable-next-line no-restricted-syntax
           forceLtr && { textAlign: 'left', writingDirection: 'ltr' },
-          style,
+          text,
         ]}
         placeholderTextColor={colors.fnt2}
         autoCapitalize="none"
