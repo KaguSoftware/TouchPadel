@@ -58,10 +58,12 @@ npx supabase functions list           # telegram-callback + send-sms-otp: verify
 pnpm db:clear-dev-till                # prints app.is_degraded(); must be false (done 2026-09-12)
 ```
 
-Status 2026-09-12: the login and the stale-till sweep are done from this machine (`is_degraded()`
-is `false`); the dry-run listed exactly the 15 files above and the data prechecks for 0071's
-constraints passed (0 orphan live holds, 0 non-positive prices). The `db push` and
-`functions deploy` lines are the two commands still to run.
+**Status 2026-09-12: ALL DONE.** Stale-till sweep, `db push --include-all` (15 applied, ledger
+89/89) and `functions deploy` (10 functions) were run from this machine and verified afterwards:
+`mark_reservation` carries the 0089 comment, `btree_gist` is in `extensions` with the exclusion
+constraint intact, the 0071 constraints are validated, `is_degraded()` is `false`, and the four
+previously missing/stale functions answer `AUTH_REQUIRED` to an anonymous call instead of 404.
+What remains is the on-device round trip below.
 
 ## Verify (anyone, read-only, anon key from `apps/operator/.env`)
 

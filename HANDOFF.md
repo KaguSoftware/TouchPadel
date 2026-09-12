@@ -1394,10 +1394,13 @@ renamed (ledger repair on every stack; conditional constraints).
 account, from `packages/db`), the read-only verification curls, the venue note (only the real
 till in *Till* mode), and the walk-in-vs-linked-guest explanation. **Done on hosted this session
 (after the owner ran `supabase login` with the right account):** the stale-till sweep
-(`is_degraded()` false). **Still owed (the harness refused to run production deploys; owner
-runs from `packages/db`):** `npx supabase db push --linked --include-all --yes` (dry-run
-verified: exactly the 15 files 20260904000069, 20260906000071, 0076–0087, 0089; prechecks
-green: 0 orphan live holds, 0 bad rate prices) and `npx supabase functions deploy`.
+(`is_degraded()` false). **The owner then ran `db push --linked --include-all --yes` (all 15
+applied) and `functions deploy` (all 10 functions) the same day. Verified afterwards with the
+CLI: ledger 89/89, 0 pending; live `mark_reservation` = 0089 comment; `btree_gist` in
+`extensions` with `reservations_no_overlap` intact; the three 0071 constraints validated;
+`reservations_sanitise` trigger present; `replay` v3, `desk-customer-create`/`staff-admin`/
+`apple-revoke` v1 ACTIVE, `telegram-callback` + `send-sms-otp` `verify_jwt=false`;
+`is_degraded()` false.** Not yet done: the on-device desk → phone round trip in the runbook.
 
 Product gap recorded, not built: desk walk-ins (`guest_id` NULL) are busy slots on the phone but
 in nobody's My Bookings; the desk must pick/create the customer. Phone-number claim = D4c (open).
@@ -1582,9 +1585,9 @@ Not runnable here: the db vitest suite, `check:authz/locks/safeupdate/invariants
 - ~~OPERATOR C1 heartbeat~~ FIXED wave 2 (renderer sender). ~~C2 no write goes through the
   queue~~ FIXED day 14. ~~C3 stock UI~~ **FIXED day 14 (2026-09-03)**: all three audit
   criticals are closed; the Module-5 acceptance script passes as an e2e.
-- **HOSTED IS BEHIND AGAIN (2026-09-12): applied through 0075 + 0088; missing 20260904000069,
-  20260906000071, 0076–0087, 0089; three edge functions never deployed; `is_degraded()` was true
-  (cleared 09-12).** Cause: an out-of-order migration
+- ~~HOSTED IS BEHIND AGAIN (2026-09-12)~~ **CAUGHT UP 2026-09-12: 89/89 migrations, all 10 edge
+  functions deployed, `is_degraded()` false** (it had been at 0075 + 0088 with 20260904000069,
+  20260906000071, 0076–0087 stranded and three functions never deployed). Cause: an out-of-order migration
   blocks `db push` silently — see Day 19 and `docs/client/hosted-catchup-2026-09-12.md` (owner runs
   it; CI now gates version order). **Rule for every client build: no mobile/operator build that reads
   a new column or RPC ships before `supabase migration list --linked` shows 0 pending.** The dev
