@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
@@ -12,7 +12,16 @@ import { radius, space, useTheme } from '../src/theme';
 import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
 import { PhoneField } from '../src/components/phone';
-import { composePhone, DEFAULT_ISO, parsePhone, validatePhone } from '../src/features/profile/phone';
+import {
+  composePhone,
+  DEFAULT_ISO,
+  parsePhone,
+  phoneChangeNeedsCode,
+  validatePhone,
+} from '../src/features/profile/phone';
+import { startPhoneLink } from '../src/features/auth/api';
+import { mapOtpError, phoneOtpEnabled } from '../src/features/auth/phoneOtp';
+import { supabase } from '../src/lib/supabase';
 import { useToast } from '../src/components/overlays';
 import { SkeletonList } from '../src/components/states';
 
@@ -23,6 +32,17 @@ import { SkeletonList } from '../src/components/states';
  * the whole screen (overlay + reload) instead of hiding inside a form whose
  * Save would flip the app's direction as a side effect.
  * Leaving does not prompt: back drops unsaved edits (owner, 2026-09-09).
+ *
+ * CHANGING THE PHONE NUMBER COSTS A 6-DIGIT CODE. The number is what the desk
+ * dials about a booking, so a new one has to prove it belongs to the guest:
+ * Save sends a code to it (`startPhoneLink`) and hands off to app/verify-otp.tsx
+ * in `link` mode, which writes `profiles.phone` only after the code comes back.
+ * The name is saved FIRST and on its own, so a guest who abandons the code
+ * screen still keeps that edit and the form has nothing left pending.
+ *
+ * Only when `phoneChangeNeedsCode` says so — the OTP scaffold is switched on,
+ * the number really changed, and it is an Iraqi mobile the SMS gate would
+ * deliver to. Otherwise Save writes both fields directly, exactly as before.
  */
 function EditProfileScreen() {
   const { t } = useLocale();
@@ -31,6 +51,8 @@ function EditProfileScreen() {
   const profile = useOwnProfile(!!session);
   const update = useUpdateProfile();
   const toast = useToast();
+  const router = useRouter();
+  const [sendingCode, setSendingCode] = useState(false);
 
   const [name, setName] = useState('');
   // The phone is EDITED as country + national digits and STORED as E.164.
@@ -75,16 +97,52 @@ function EditProfileScreen() {
     const badPhone = validatePhone(iso, national);
     if (badPhone === 'PHONE_REQUIRED') return setPhoneError(t('auth.phoneRequired'));
     if (badPhone) return setPhoneError(t('auth.phoneInvalid'));
-    update.mutate(
-      { full_name: name.trim(), phone },
-      {
-        onSuccess: () => {
-          toast(t('profile.updated'));
-          back();
+
+    const needsCode = phoneChangeNeedsCode({
+      enabled: phoneOtpEnabled(),
+      current: initial?.phone,
+      next: phone,
+    });
+
+    if (!needsCode) {
+      update.mutate(
+        { full_name: name.trim(), phone },
+        {
+          onSuccess: () => {
+            toast(t('profile.updated'));
+            back();
+          },
+          onError: (err) => setError(t(mapErrorToKey(err))),
         },
-        onError: (err) => setError(t(mapErrorToKey(err))),
-      },
-    );
+      );
+      return;
+    }
+
+    // The name goes first and alone. The phone is deliberately NOT included:
+    // it is not this guest's number until the code proves it, and a guest who
+    // walks away from the code screen must not find the new number already
+    // saved. verify-otp writes it after `verifyPhoneLink` succeeds.
+    void (async () => {
+      setSendingCode(true);
+      try {
+        if (name.trim() !== initial?.name) {
+          await new Promise<void>((resolve, reject) => {
+            update.mutate(
+              { full_name: name.trim() },
+              { onSuccess: () => resolve(), onError: (err) => reject(err) },
+            );
+          });
+        }
+        await startPhoneLink(supabase, phone);
+        router.push({ pathname: '/verify-otp', params: { phone, mode: 'link', from: 'edit' } });
+      } catch (err) {
+        // A send refusal (gate, caps, vendor) has its own copy; anything else
+        // is the profile update failing and reads as a generic save error.
+        setError(t(phoneOtpEnabled() ? mapOtpError(err) : mapErrorToKey(err)));
+      } finally {
+        setSendingCode(false);
+      }
+    })();
   };
 
   return (
@@ -145,7 +203,7 @@ function EditProfileScreen() {
           <Button
             label={t('profile.saveChanges')}
             variant="cta"
-            busy={update.isPending}
+            busy={update.isPending || sendingCode}
             onPress={onSave}
             style={{ marginTop: 6 }}
           />
