@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../src/i18n/text';
-import { router, Stack } from 'expo-router';
+import { router, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -12,7 +12,6 @@ import { useFonts } from 'expo-font';
 // LocaleDirContext is marked deprecated there in favour of I18nManager — which
 // this app pins LTR on purpose (see RootStack), so the context stays.
 import { LocaleDirContext } from 'expo-router/react-navigation';
-import { ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';

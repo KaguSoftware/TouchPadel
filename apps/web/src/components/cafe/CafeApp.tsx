@@ -143,8 +143,8 @@ export function CafeApp({
       return;
     }
     setTutorialOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above: opening
-    // a sheet must not schedule the coach mark for when it closes.
+    // Deliberately not depending on the sheet ref (see above): opening a sheet
+    // must not schedule the coach mark for when it closes.
   }, [table.state, table.bellEnabled, menu.settings.bell_tutorial_enabled]);
 
   const dismissTutorial = useCallback(() => setTutorialOpen(false), []);
