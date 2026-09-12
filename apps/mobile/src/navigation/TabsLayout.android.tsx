@@ -56,6 +56,38 @@ export default function TabsLayoutAndroid() {
 
   return (
     <Tabs
+      /**
+       * THE BLURRED TAB IS HIDDEN, NOT DETACHED — because the Book tab holds a
+       * GL surface and detaching it destroys the court.
+       *
+       * expo-gl's Android view is a `TextureView` whose
+       * `onSurfaceTextureDestroyed` calls `glContext.destroy()` (expo-gl
+       * GLView.kt), and react-navigation's bottom tabs default
+       * `detachInactiveScreens` to true on Android: a blurred tab goes to
+       * react-native-screens' activityState 0, its fragment is detached, the
+       * SurfaceTexture goes with it and the whole GL context dies. Coming back
+       * therefore could not just show the court again — it had to be handed a
+       * BRAND NEW context, build a new `THREE.WebGLRenderer` on it and compile
+       * and link every shader in the scene before one frame could be drawn,
+       * with the stage held at zero through all of it (Court3D's REVEAL_MS
+       * note). That is the court blinking out on the way back in (owner,
+       * 2026-09-12, Android).
+       *
+       * With this false the screens stay mounted natively and
+       * react-native-screens hides the blurred one with `display: 'none'`,
+       * which Fabric maps to `View.INVISIBLE` (SurfaceMountingManager.kt) —
+       * still attached to the window, so the SurfaceTexture and the context
+       * live, and still skipped by the draw, so nothing is composited for a tab
+       * nobody is looking at. The return is then only the entrance fade, which
+       * is exactly what iOS has always done: `NativeTabs` keeps the surface, and
+       * this is the one platform where the court was paying for the difference.
+       *
+       * The court's frame loop is gated on router focus, not on this, so a
+       * hidden tab still draws nothing and costs no battery. What it does keep
+       * is the GL memory — and the Book tab is the initial route, so that was
+       * allocated from launch anyway: this holds the peak rather than raising it.
+       */
+      detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.blue,

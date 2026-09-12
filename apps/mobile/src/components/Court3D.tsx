@@ -32,11 +32,13 @@
  *
  * Runtime shape:
  *   · `p` arrives through a native-driven Animated.Value listener (per frame).
- *   · The whole stage is held at opacity 0 until the first frame of each VISIT
- *     has been drawn, then cross-fades in over REVEAL_MS — the scene takes a
- *     few hundred ms to build and used to appear in one frame (see REVEAL_MS).
- *     The stage is put down again on blur, so every return to the tab gets
- *     the same entrance, not just the first.
+ *   · The whole stage is held at opacity 0 until a frame has been drawn, and put
+ *     down again on blur — so nothing, the on-net button included, is ever shown
+ *     over a surface that may have no picture on it. It CROSS-FADES in over
+ *     REVEAL_MS when the scene had to be built first and CUTS in when it did not
+ *     (a return): see REVEAL_MS.
+ *   · `onFirstFrame` says when that picture arrived, so the caller can hold its
+ *     own heavy work until the court is in front of the guest.
  *   · The rally advances on its OWN clock, one capped step per frame actually
  *     drawn (rallyClock.ts) rather than off the wall clock, so a JS thread busy
  *     with something else costs the animation frames and never a jump. The
@@ -190,6 +192,19 @@ export interface Court3DProps {
   /** The view's size in dp — the caller projects the net tape for the button from it (camera.ts). */
   onSize?: (size: { width: number; height: number }) => void;
   onUnavailable?: () => void;
+  /**
+   * The first frame of this mount has reached the screen — the court is a
+   * PICTURE now, not a page-coloured box.
+   *
+   * Fired once per mount, from the frame loop, for a caller that has work to do
+   * on this tab and wants the court in front of the guest before it starts. The
+   * Book tab prewarms the whole booking sheet on it (index.tsx): that mount is
+   * the biggest single piece of JS the tab runs, and with the loop now sharing
+   * the thread fairly (see startLoop) it was landing in the middle of the
+   * court's own context creation and scene build, so the court arrived later
+   * than it needed to on a slow bundle (owner, 2026-09-12, Expo Go).
+   */
+  onFirstFrame?: () => void;
   style?: StyleProp<ViewStyle>;
   /** The court layer's lift + dim, applied to both GL surfaces (not to `children`). */
   layerStyle?: ComponentProps<typeof Animated.View>['style'];
@@ -245,11 +260,23 @@ const MAX_INIT_ATTEMPTS = 3;
  * a cross-fade is what that setting asks for INSTEAD of movement, and the
  * alternative here is the pop it exists to prevent.
  *
- * Re-armed for every court context, not just the first: a surface Android
- * destroys and recreates (leaving the tab, backgrounding) has nothing on it
- * either, so it comes back the same way rather than snapping in. And re-armed
- * on every blur, so a return to the tab on iOS — where the surface and its
- * picture survive the switch — fades in the same way rather than being there.
+ * Re-armed for every court CONTEXT, not just the first: a surface the platform
+ * destroys and recreates (backgrounding, a lost context) has nothing on it
+ * either, so it comes back the same way rather than snapping in.
+ *
+ * AND IT IS THE COLD CASE ONLY. This duration answers one thing: a scene whose
+ * BUILD took a few hundred milliseconds appearing in a single frame. A return to
+ * the tab has no build — the scene object outlives every surface — so there is
+ * nothing to cover, and covering it anyway is what the owner reported as the
+ * court needing "approximately 100 milliseconds of loading" on every tab change
+ * (2026-09-12). `showStage` therefore CUTS when the stage went down over an
+ * already-built scene and fades only when it went down over nothing.
+ *
+ * What is left of a tab return, then, is however long the platform takes to hand
+ * back a surface: nothing at all on iOS, where the GL layer survives, and one
+ * context creation on Android, where it does not. That window is the floor here.
+ * Lowering it means keeping the Android surface alive across the switch, not
+ * shortening this.
  */
 const REVEAL_MS = 260;
 /**
@@ -288,6 +315,7 @@ export function Court3D({
   quality: qualityProp,
   onSize,
   onUnavailable,
+  onFirstFrame,
   style,
   layerStyle,
   children,
@@ -327,6 +355,8 @@ export function Court3D({
   /** A stall is on the record until the next frame that is not one. */
   const stalled = useRef(false);
   const loop = useRef<number | null>(null);
+  /** Bumped by every stop, so a frame in flight knows its loop was retired. */
+  const loopGeneration = useRef(0);
   const once = useRef<number | null>(null);
   const reduce = useRef(reduceMotion);
   const running = useRef(false);
@@ -371,6 +401,9 @@ export function Court3D({
   const clear = useRef(hexToInt(colors.page));
   const sizeCb = useRef(onSize);
   const unavailableCb = useRef(onUnavailable);
+  const firstFrameCb = useRef(onFirstFrame);
+  /** The one-shot latch behind `onFirstFrame`: a mount announces its picture once. */
+  const painted = useRef(false);
   const [ready, setReady] = useState(false);
   const [focused, setFocused] = useState(true);
   /** Read inside attach()'s catch, which must not re-create on every focus change. */
@@ -406,14 +439,20 @@ export function Court3D({
    */
   const appStateRef = useRef<string>(AppState.currentState);
 
-
   sizeCb.current = onSize;
   unavailableCb.current = onUnavailable;
+  firstFrameCb.current = onFirstFrame;
   ease.current = pitchEase(direction, 0);
 
   /** 0 until the court's first frame lands, then REVEAL_MS to 1 (see above). */
   const reveal = useRef(new Animated.Value(0)).current;
   const revealed = useRef(false);
+  /**
+   * Was the scene ALREADY BUILT when the stage last went down? Then what is
+   * coming is a return, not a first build, and it arrives as a cut rather than a
+   * cross-fade — see the note on REVEAL_MS.
+   */
+  const warmArm = useRef(false);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearRevealTimer = useCallback(() => {
     if (revealTimer.current === null) return;
@@ -428,6 +467,15 @@ export function Court3D({
     // first frame lifts it.
     if (revealed.current || !focusedRef.current) return;
     revealed.current = true;
+    // A RETURN IS A CUT. The cross-fade is there to stop a scene that took a few
+    // hundred milliseconds to build from appearing in one frame; a scene that is
+    // already built has nothing to hide, and dissolving it in anyway is the
+    // quarter-second of "loading" the owner reported on every tab change
+    // (2026-09-12). The court comes back the moment it has a frame.
+    if (warmArm.current) {
+      reveal.setValue(1);
+      return;
+    }
     Animated.timing(reveal, {
       toValue: 1,
       duration: REVEAL_MS,
@@ -445,9 +493,42 @@ export function Court3D({
     if (!focusedRef.current) return;
     revealTimer.current = setTimeout(showStage, REVEAL_FALLBACK_MS);
   }, [showStage, clearRevealTimer]);
-  /** Hide the stage again until the surface that is coming up has drawn. */
+  /**
+   * Hide the stage until the surface that is coming up has drawn — BUT NEVER ONE
+   * SOMEONE IS ALREADY LOOKING AT.
+   *
+   * That second half is the whole of the "check availability button appears for
+   * ~50 ms and vanishes" bug (owner, 2026-09-12, Android, Expo Go and the store
+   * build alike). The button is a plain view INSIDE this stage, so an arm takes
+   * it away with the court; and an arm that lands after the stage is already up
+   * is therefore visible as a blink, whatever brought it. There turned out to be
+   * several routes to exactly that, which is why fixing them one at a time kept
+   * not being enough:
+   *
+   *   · a replacement surface arriving from the platform after the focus
+   *     effect had already remounted the GLViews, or the other way round —
+   *     two attaches for one entry into the tab;
+   *   · `renderFrame`'s catch remounting both GLViews after a lost surface
+   *     while the court was still drawing (line ~684);
+   *   · attach's own retry doing the same when it is the BALL surface that
+   *     failed, throwing away a live court with it (line ~904);
+   *   · the REVEAL_FALLBACK_MS backstop lifting the stage on a slow first
+   *     build, and the court's attach then pulling it back down.
+   *
+   * All four express themselves at this one line, so this is where it is closed:
+   * once the stage is up and the tab is in front of someone, it stays up. The
+   * court's next frame draws into a stage that is already there — the court area
+   * may be empty for as long as the platform takes to hand back a surface, which
+   * is honest about what is happening — and nothing ever appears and then
+   * un-appears. An arm still does its job everywhere it matters: on the way out
+   * (blurred, so this guard is off), at mount, and for any surface that arrives
+   * while the stage is legitimately down.
+   */
   const armReveal = useCallback(() => {
+    if (revealed.current && focusedRef.current) return;
     revealed.current = false;
+    // Built scene = this is a return, and returns cut rather than fade (showStage).
+    warmArm.current = court.current !== null;
     reveal.stopAnimation(); // a re-arm mid-fade must not be overwritten by it
     reveal.setValue(0);
     armFallback();
@@ -490,6 +571,11 @@ export function Court3D({
   }, [detach]);
 
   const stopLoop = useCallback(() => {
+    // Retire this generation of the loop: the frame currently being drawn asks
+    // for its successor only if the generation it started in is still the
+    // current one (see startLoop), so a stop DURING a frame is honoured rather
+    // than being undone by that frame's own reschedule.
+    loopGeneration.current += 1;
     if (loop.current !== null) {
       cancelAnimationFrame(loop.current);
       loop.current = null;
@@ -593,6 +679,13 @@ export function Court3D({
       // There is a court on the surface now: let the stage fade up (no-op after
       // the first frame). The ball's surface follows in the same fade.
       showStage();
+      // And tell the caller, once, that there is something to see — work it was
+      // holding back until the court was on screen can go now. A ref latch, so
+      // this costs one comparison per frame and never a re-render of its own.
+      if (!painted.current) {
+        painted.current = true;
+        firstFrameCb.current?.();
+      }
       // The ball's surface shares the camera: same bounds, same picture, stacked above the button.
       const ball = surfaces.current.ball;
       if (ball) {
@@ -623,11 +716,66 @@ export function Court3D({
     }
   }, [showStage, stopLoop, teardown]);
 
+  /**
+   * THE NEXT FRAME IS ASKED FOR AFTER THIS ONE IS DRAWN, NOT BEFORE IT.
+   *
+   * This is the line that decides whether the rest of the app can render while
+   * the court is on screen, and the ordering is the whole of it. The reason is
+   * in React Native's scheduler, so it needs spelling out.
+   *
+   * In bridgeless RN `requestAnimationFrame` IS `setTimeout(0)`
+   * (ReactCommon/react/runtime/TimerManager.cpp says so in as many words), and
+   * on Android an expired timer is picked up by a Choreographer callback on the
+   * UI THREAD and handed to the JS thread as a RuntimeScheduler task at
+   * ImmediatePriority. React's own work — anything that is not a touch event:
+   * a transition, a passive effect, a setState from a promise, which is every
+   * react-query result landing — is a task at NormalPriority. The queue is a
+   * min-heap on each task's expiration, Immediate expires at once and Normal in
+   * FIVE SECONDS (SchedulerPriorityUtils.h), so for as long as an Immediate
+   * task is already waiting when the current one ends, React's work cannot
+   * reach the head of that queue.
+   *
+   * Asking for the next frame FIRST is exactly what kept one waiting: the timer
+   * was created before the draw, so the Choreographer tick that fell during the
+   * draw queued the next frame's task while this one was still running. On a
+   * phone that renders the court in under a frame nothing shows — the tick
+   * lands in the gap after the draw. On a phone where one frame's JS + GL costs
+   * MORE than the display interval the gap never happens, the queue is never
+   * empty, and every Normal-priority update on the tab — the booking sheet's
+   * prewarm, the availability rows arriving, the times replacing the skeleton —
+   * waited out the full five-second expiry. That is the "can't change the date
+   * for 5 seconds" on a weaker Android phone (owner's colleague, 2026-09-12),
+   * and the same starvation is what the five-second transition deadline noted
+   * in useAvailabilityBooking was really measuring.
+   *
+   * Asking AFTER the draw means no timer exists while the draw runs, so the
+   * moment it ends the queue holds whatever React had pending and the JS thread
+   * takes it. The court then pays for that work in frames — which rallyClock.ts
+   * already absorbs without a jump — instead of the guest paying for the court
+   * in seconds. Nothing is capped and nothing is skipped: a phone with frames
+   * to spare still runs at the display rate, because the tick that carries the
+   * next frame arrives in the gap either way.
+   */
   const startLoop = useCallback(() => {
     if (loop.current !== null) return;
+    // The generation this loop belongs to. `stopLoop` bumps it, so a frame that
+    // stops the loop from inside `renderFrame` (a lost surface) or a lifecycle
+    // change between frames cannot be overridden by the reschedule below.
+    const generation = loopGeneration.current;
     const step = () => {
-      loop.current = requestAnimationFrame(step);
-      renderFrame();
+      loop.current = null;
+      try {
+        renderFrame();
+      } finally {
+        // In a `finally`, so an unexpected throw cannot retire the loop and
+        // leave the court frozen on its last frame — which asking for the next
+        // frame FIRST used to make impossible by accident. A frame that means
+        // to stop the loop (a lost surface, teardown) bumps the generation, and
+        // that is honoured.
+        if (loopGeneration.current === generation && running.current) {
+          loop.current = requestAnimationFrame(step);
+        }
+      }
     };
     step();
   }, [renderFrame]);
@@ -720,6 +868,22 @@ export function Court3D({
         court.current.setBackdropInk(ink);
         surfaces.current[kind] = { gl, renderer, width: w, height: h };
         initFailures.current = 0; // a live surface: any earlier failure was transient
+        // AND THE REQUEST FOR NEW GLViews IS OFF, because one just arrived.
+        //
+        // `needsSurface` means "there is no surface and nothing is bringing
+        // one" — a context that came up dead while we were away, or a draw that
+        // lost its own. Android answers that by itself: the TextureView is
+        // re-attached on the way back to the tab, expo-gl re-initialises on the
+        // new SurfaceTexture (GLView.kt resets its flag in
+        // onSurfaceTextureDestroyed) and `attach` runs — often BEFORE the focus
+        // event reaches JS. Leaving the flag set then made the focus effect
+        // remount both GLViews on top of the working surfaces it already had:
+        // the court drew a frame, the stage was revealed with the on-net button
+        // on it, and the remount's own attach armed the reveal again and cut
+        // both away for a second entrance. That is the button appearing for
+        // ~50 ms and vanishing on the way into the tab (owner, 2026-09-12,
+        // Android, in the store build as well as in Expo Go).
+        needsSurface.current = false;
         if (kind === 'court') {
           attachAt.current = Date.now();
           console.log('[courtperf] court context attached (build+renderer done)');
@@ -816,24 +980,34 @@ export function Court3D({
       // once per GLView — so ask for new GLViews now that a surface can live.
       if (needsSurface.current) {
         needsSurface.current = false;
-        setGlGeneration((n) => n + 1);
+        // Unless one is already here — see the note in `attach`. A remount over
+        // a live surface throws away a court that is drawing and replays its
+        // entrance.
+        if (!surfaces.current.court) setGlGeneration((n) => n + 1);
       }
       return () => {
         focusedRef.current = false;
         setFocused(false);
-        // ENTRANCE ON EVERY VISIT. On iOS the surface survives a tab switch
-        // (the native tab bar detaches the view; the GL context and its last
-        // frame live on), so nothing re-armed the reveal and the fade played
-        // once per launch — the court was simply THERE on every return, and
-        // the fallback timer, never cancelled on blur, burned the arm off
-        // screen whenever the guest left within 1.5 s of arriving (owner,
-        // 2026-09-11, switching tabs quickly). Armed HERE, while nobody can see
-        // it, rather than on focus: the native tab swap shows the screen a
-        // frame before the focus event reaches JS, so an arm on focus flashes
-        // the full court and cuts it to nothing before fading. Android destroys
-        // the surface on blur and `attach` arms again for the new context; the
-        // two arms agree. `focusedRef` is already false, so this starts no
-        // timer — the focus branch above does, on the way back in.
+        // THE STAGE GOES DOWN ON THE WAY OUT, WHATEVER IS ON THE SURFACE.
+        //
+        // It was briefly conditional — keep the stage up when the surface is
+        // still alive, so a tab return shows the court it already had. That is
+        // sound on iOS and not sound on Android, where the platform takes the
+        // surface away without telling JS: the tab came back with the stage at
+        // full opacity over a framebuffer that no longer existed, so the on-net
+        // button — a plain view inside the same stage — was the only thing on
+        // it, until the replacement context attached and armed the reveal and
+        // took the button away again. The court is now left to re-arm at blur and
+        // to CUT back in the moment it has a frame (showStage), which costs the
+        // return the context's own latency and nothing else.
+        //
+        // Armed HERE rather than on focus: the native tab swap shows the screen
+        // a frame before the focus event reaches JS, so an arm on focus flashes
+        // the full court and cuts it to nothing before fading. `focusedRef` is
+        // already false, so `armFallback` inside this starts no timer — which is
+        // also what takes down the one this visit may have left running: it
+        // would otherwise spend the entrance off screen and lose the court's
+        // arrival altogether (owner, 2026-09-11, switching tabs quickly).
         armReveal();
       };
     }, [armReveal, armFallback]),

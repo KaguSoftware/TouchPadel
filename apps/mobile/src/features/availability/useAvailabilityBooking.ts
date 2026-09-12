@@ -160,12 +160,24 @@ export function useAvailabilityBooking(
    * it from a rAF loop on this same thread).
    *
    * That reasoning assumes the host eventually gives React's scheduler a clear
-   * window. A self-rescheduling 60 fps rAF loop never does — and the rally has
-   * no idle hold any more, so it runs for as long as the tab is open. React's
-   * scheduler gives transition work a 5000 ms deadline (Scheduler's
-   * NORMAL_PRIORITY_TIMEOUT) and defers it while the host says to yield, so the
-   * new day's times arrived a full five seconds after the chip was tapped
-   * (owner, 2026-09-10). Smooth, and useless.
+   * window, and a self-rescheduling frame loop did not: the new day's times
+   * arrived a full five seconds after the chip was tapped (owner, 2026-09-10).
+   * Smooth, and useless.
+   *
+   * The five seconds were not a coincidence and the mechanism is worth naming,
+   * because it governs everything else on this tab: React's scheduler here is
+   * the native RuntimeScheduler, whose queue is a min-heap on task expiry —
+   * ImmediatePriority (every timer, and `requestAnimationFrame` IS a timer in
+   * bridgeless RN) expires at once, NormalPriority (transitions, passive
+   * effects, any setState off a promise) in five seconds. A frame loop that
+   * always had its next timer queued therefore held the head of that queue
+   * until the expiry. Court3D's `startLoop` no longer does that — it asks for
+   * the next frame after drawing this one, which leaves the queue empty for the
+   * gap — and its header carries the full story.
+   *
+   * A tap is still the right place for this work regardless: a touch is a
+   * DISCRETE event, so what it sets renders synchronously and is never in that
+   * queue at all.
    *
    * So the selection drives the grid directly and the work lands on the tap,
    * where it can be seen and measured. What made that affordable is everything

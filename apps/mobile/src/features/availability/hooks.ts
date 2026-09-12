@@ -164,6 +164,30 @@ function buildDayGrid(date: string, src: GridSources): CourtSlots[] {
 const EMPTY_GRID: CourtSlots[] = [];
 
 /**
+ * The strip's busy ranges, as ONE query.
+ *
+ * Its own hook because TWO consumers need the same rows AND the same object
+ * identity: the grid this screen renders (useDayGrid) and the warm-up that
+ * assembles every other day chip (useWarmDayGrids). react-query gives a second
+ * observer on one key the same data reference, so the module grid cache can go
+ * on validating by reference across both — and, unlike reading the cache
+ * through `getQueryData`, a subscription also tells the warm-up WHEN the rows
+ * land. See the note on useWarmDayGrids for why that mattered.
+ *
+ * Gated on venue settings: the window's bounds are venue-local midnights, so it
+ * waits for the timezone rather than fetching a day under the wrong offset.
+ */
+function useAvailabilityWindow(from: string, to: string, tz: string, enabled: boolean) {
+  return useQuery({
+    queryKey: availabilityKeys.window(from, to),
+    queryFn: () => fetchAvailabilityWindow(supabase, from, to, tz),
+    enabled,
+    staleTime: 15_000,
+    refetchInterval: 60_000, // holds expire server-side; keep the grid honest
+  });
+}
+
+/**
  * Assembled, priced grid for one venue-local trading night.
  *
  * `strip` is the whole set of dates on offer: the busy ranges behind ALL of
@@ -182,13 +206,7 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
   // the selected date alone, so the first paint is never blocked on it.
   const from = strip[0] ?? date;
   const to = strip[strip.length - 1] ?? date;
-  const availability = useQuery({
-    queryKey: availabilityKeys.window(from, to),
-    queryFn: () => fetchAvailabilityWindow(supabase, from, to, tz),
-    enabled: settings.isSuccess,
-    staleTime: 15_000,
-    refetchInterval: 60_000, // holds expire server-side; keep the grid honest
-  });
+  const availability = useAvailabilityWindow(from, to, tz, settings.isSuccess);
 
   const grid = useMemo<CourtSlots[]>(
     () =>
@@ -249,15 +267,29 @@ export function useDayGrid(date: string, strip: readonly string[]): DayGrid {
  * with one shared request behind them the queries are gone and only the builds
  * remain. Guests move along the strip, not just next door.
  *
+ * IT RUNS OFF THE ROWS, NOT OFF A CACHE READ. This used to fire as soon as
+ * venue settings succeeded and take its inputs from `queryClient.getQueryData`,
+ * which meant it could not work: the busy-ranges query is GATED on those same
+ * settings (`enabled: settings.isSuccess`), so at the only moment this effect
+ * ran the rows it needed had not been requested yet. `buildDayGrid` returned
+ * the empty grid for all six dates, cached nothing, and the effect — with
+ * nothing in its dependencies that changes when data arrives — never ran again.
+ * Every chip was therefore still cold when it was tapped, which is exactly the
+ * work this is here to have done already. Subscribing to the five queries makes
+ * the arrival of any of them re-warm the strip, and makes the inputs the same
+ * objects the render path validates its cache against.
+ *
  * Deferred behind `InteractionManager`, and one build per turn of the event
  * loop: `runAfterInteractions` puts them after whatever is animating, and the
  * spacing keeps seven of them from landing in one tick — this shares a JS
  * thread with the court's rally loop, and a tick is a frame.
  */
 export function useWarmDayGrids(dates: readonly string[], date: string): void {
-  const queryClient = useQueryClient();
   const settings = useVenueSettings();
-  const ready = settings.isSuccess;
+  const courts = useCourts();
+  const rules = useRateRules();
+  const prices = useRatePrices();
+  const tz = settings.data?.timezone ?? DEFAULT_TZ;
   // The selection is built by the render that needs it, so it is skipped here;
   // it also leads the list so a re-selection does not re-do the others first.
   //
@@ -265,22 +297,32 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
   // actually change and not on every minute tick that hands back an
   // equal-but-new `dates` array.
   const pending = dates.filter((d) => d !== date).join(',');
-  // The window the strip's rows were fetched under — the same key useDayGrid built.
+  // The window the strip's rows were fetched under — the same key, and so the
+  // same observer and the same rows, as useDayGrid's.
   const from = dates[0] ?? date;
   const to = dates[dates.length - 1] ?? date;
+  const availability = useAvailabilityWindow(from, to, tz, settings.isSuccess);
 
+  const settingsData = settings.data;
+  const courtsData = courts.data;
+  const rulesData = rules.data;
+  const pricesData = prices.data;
+  const availabilityData = availability.data;
   useEffect(() => {
-    if (!ready || pending === '') return;
+    if (pending === '') return;
+    // Nothing to build from yet. The effect re-runs on each of these arriving,
+    // so the strip is warmed by whichever one lands last.
+    if (!settingsData || !courtsData || !rulesData || !pricesData || !availabilityData) return;
     let cancelled = false;
     const handle = InteractionManager.runAfterInteractions(async () => {
       for (const d of pending.split(',')) {
         if (cancelled) return;
         buildDayGrid(d, {
-          settings: queryClient.getQueryData(availabilityKeys.settings),
-          courts: queryClient.getQueryData(availabilityKeys.courts),
-          rules: queryClient.getQueryData(availabilityKeys.rates),
-          prices: queryClient.getQueryData(availabilityKeys.ratePrices),
-          availability: queryClient.getQueryData(availabilityKeys.window(from, to)),
+          settings: settingsData,
+          courts: courtsData,
+          rules: rulesData,
+          prices: pricesData,
+          availability: availabilityData,
         });
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
@@ -289,7 +331,7 @@ export function useWarmDayGrids(dates: readonly string[], date: string): void {
       cancelled = true;
       handle.cancel();
     };
-  }, [pending, from, to, ready, queryClient]);
+  }, [pending, settingsData, courtsData, rulesData, pricesData, availabilityData]);
 }
 
 /** The one live 'courts' channel, shared by every mounted consumer (see useCourtsBroadcast). */
