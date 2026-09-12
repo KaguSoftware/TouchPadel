@@ -1268,7 +1268,8 @@ activity, requests, marketing, audit log), **Setup** (unchanged). The old Operat
 **Hosted correction (verified 2026-09-07 via `supabase migration list --linked`): hosted is at 0070**, not
 the 0059 the Day 17 entry recorded — 0060–0070 were pushed between 2026-09-06 and 09-07. Pending:
 **0071–0075** (dry-run confirms exactly those five). `replay` is still **v1 (2026-08-27)** — the day-14
-redeploy is still owed.
+redeploy is still owed. *(Day 19 correction: the Gotchas line written later the same day records
+the replay redeploy done and hosted at 0075; the probe on 2026-09-12 confirms 0072–0076 present.)*
 
 ## Day 18, continued (2026-09-07) — the first operator release was cut
 
@@ -1333,6 +1334,69 @@ and `latest.yml` (`version: 0.2.2`); the stable link
 `…/releases/latest/download/Touch-Padel-Operator-Setup.exe` 302s to it and `/download` on the guest
 site serves it. Unsigned (SmartScreen prompt once per machine) until a cert exists. Machines that
 installed the broken 0.2.0 do NOT self-update (that build never reached the updater) — reinstall by hand.
+
+## Day 19 (2026-09-12) — "desk changes do nothing on the phone": the hosted ledger was stuck
+
+The owner reported that booking changes on the desktop app never reached the mobile app. Three
+read-only audits (desk write path, phone read path, backend) found the code wired end to end —
+desk → queue → `replay` → `app.*`; phone ← `court_availability` poll + `courts` broadcast +
+`reservations`. **The break was entirely in what is deployed to the hosted project**, verified with
+anon-key probes (PGRST202 = function missing, 42501 = exists but denied):
+
+1. **Hosted stopped at 0076 and every push since was refused.** `20260906000071_booking_integrity`
+   (kemal's Phase 2, merged via PR #19 AFTER `20260907000071..75` had been pushed by hand) sorts
+   before versions already on the remote ledger; `supabase db push` refuses out-of-order files
+   unless `--include-all`. So manual pushes AND the CI `db-migrate` job failed from that merge on,
+   and 0077–0088 never applied. Present on hosted: 0060/61/64/65/66/69/70/72/74; missing:
+   0071-booking_integrity, 0077, 0078, 0081, 0087 (and therefore 0088).
+2. **The phone's booking list was dead because of it.** `apps/mobile/src/features/booking/api.ts`
+   selects `cancelled_by` (0088, 2026-09-11) → 42703 on hosted → My Bookings + booking detail render
+   the error state for every guest. Nothing the desk did could ever show there.
+3. **Hosted `is_degraded()` = true** (a packaged install set up as *Till*, then closed) →
+   every slot inside the 48 h horizon "desk only", holds refused. Fourth occurrence.
+4. **Edge functions:** `desk-customer-create`, `staff-admin`, `apple-revoke` never deployed (404),
+   so the desk could not create a guest account and its bookings stayed unlinked walk-ins.
+5. **The Supabase CLI on the dev machine is logged in as a different account**
+   (`petitati.ist@gmail.com`'s project only; `--linked` commands 403). Hosted ops therefore go
+   through CI or after `supabase login` with the touch-padel-org account.
+
+**Late-apply hazard, and the fix (migration 0089).** 0071 and 0075/0076 both
+`create or replace app.mark_reservation`; 0076 already contains 0071's guard ("0076 = 0075 +
+0071"). Applying 0071 after 0076 would revert the 0075 half (cancelled_at stamping). Grep
+confirmed no other 0071 object is redefined by 0072–0088, and 0071's constraints are
+`if not exists … not valid` + validate, so **`20260912000089_mark_reservation_reassert.sql`**
+re-issues the 0076 body/comment/grants and the ledger order stops mattering. 0071 is NOT
+renamed (ledger repair on every stack; conditional constraints).
+
+**Guards so it cannot recur:**
+- `packages/db/scripts/check-migrations.mjs` now fails a PR whose NEW migration sorts before the
+  newest version on the merge base (`migration-out-of-order`) or shares a 14-digit version
+  (`migration-duplicate-version`). Neither is waivable by `MIGRATION-RISK-ACCEPTED`. The script
+  also judges UNTRACKED migration files locally (git diff never listed them, so a fresh file
+  passed silently).
+- `db-migrate.yml`: `workflow_dispatch` input `include_all` (default false) → `db push --yes
+  --include-all`; push-to-main stays a plain push that fails loudly.
+- **New `functions-deploy.yml`**: every edge function deploys on push to `main` touching
+  `supabase/functions/**` or `config.toml` (and on dispatch), behind the `staging` gate; asserts
+  `telegram-callback` + `send-sms-otp` keep `verify_jwt = false`.
+- **New `db-ops.yml`** (dispatch only, `staging` gate): `clear-stale-till` (the 0057 sweep via
+  `db query --linked`, one statement per call, prints `is_degraded()`), `migration-list`.
+
+**Owner runbook: `docs/client/hosted-catchup-2026-09-12.md`** — Path A (GitHub: DB Migrate with
+`include_all = true` → Functions deploy → DB ops clear-stale-till), Path B (local CLI, correct
+account, from `packages/db`), the read-only verification curls, the venue note (only the real
+till in *Till* mode), and the walk-in-vs-linked-guest explanation. **Nothing hosted was touched
+this session** (no credentials); the owner runs Path A or B.
+
+Product gap recorded, not built: desk walk-ins (`guest_id` NULL) are busy slots on the phone but
+in nobody's My Bookings; the desk must pick/create the customer. Phone-number claim = D4c (open).
+
+Also merged: branch `two` (Ameen: Android push testing, placeholders, Android perf) as a merge
+commit on top of this work.
+
+**Gate:** `check:migrations` PASS on 0089 and FAIL (non-waivable) on a back-dated and a
+duplicate probe file; `check:rpc-registry` green; workflows parse; eslint on the script green.
+Not runnable here: the db vitest suite, `check:authz/locks/safeupdate/invariants` (Docker).
 
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
@@ -1507,8 +1571,14 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
 - ~~OPERATOR C1 heartbeat~~ FIXED wave 2 (renderer sender). ~~C2 no write goes through the
   queue~~ FIXED day 14. ~~C3 stock UI~~ **FIXED day 14 (2026-09-03)**: all three audit
   criticals are closed; the Module-5 acceptance script passes as an e2e.
-- ~~HOSTED IS BEHIND~~ **CAUGHT UP 2026-09-07: hosted at 0075 (0 pending) and `replay` redeployed
-  (v2).** Two traps from that day: (1) `supabase db push` run from the REPO ROOT fails with "Remote
+- **HOSTED IS BEHIND AGAIN (2026-09-12): stuck at 0076, missing 0071-booking_integrity + 0077–0089,
+  three edge functions never deployed, `is_degraded()` true.** Cause: an out-of-order migration
+  blocks `db push` silently — see Day 19 and `docs/client/hosted-catchup-2026-09-12.md` (owner runs
+  it; CI now gates version order). **Rule for every client build: no mobile/operator build that reads
+  a new column or RPC ships before `supabase migration list --linked` shows 0 pending.** The dev
+  machine's CLI is logged in as the wrong account (`petitati.ist@gmail.com`) — re-`login` before any
+  `--linked` command. ~~CAUGHT UP 2026-09-07~~: hosted was at 0075 and `replay` redeployed (v2) that
+  day. Two traps from that day: (1) `supabase db push` run from the REPO ROOT fails with "Remote
   migration versions not found in local migrations directory" and then *suggests* `migration repair
   --status reverted <every version>` — **never run that**; it would mark the whole hosted history as
   undone. Run every `supabase` command from `packages/db`. (2) The 0071–0075 gap was user-visible:

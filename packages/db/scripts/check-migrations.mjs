@@ -44,7 +44,7 @@
  *   node scripts/check-migrations.mjs --all            # audit the whole dir
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -85,6 +85,8 @@ function resolveBase() {
 }
 
 let files;
+/** The merge base the PR is judged against (null in --all mode). */
+let range = null;
 if (ALL) {
   files = git(['ls-files', MIG_DIR]).split('\n').filter((f) => f.endsWith('.sql'));
 } else {
@@ -94,7 +96,6 @@ if (ALL) {
     console.error('      A shallow clone will do this — CI needs fetch-depth: 0 or an explicit --base.');
     process.exit(1);
   }
-  let range;
   try {
     range = git(['merge-base', base, 'HEAD']);
   } catch {
@@ -103,8 +104,118 @@ if (ALL) {
   files = git(['diff', '--name-only', '--diff-filter=ACMR', range, '--', MIG_DIR])
     .split('\n')
     .filter((f) => f.endsWith('.sql'));
+  // `git diff` never lists an UNTRACKED file, so a migration written a minute
+  // ago and not yet `git add`ed was invisible to a local run — the gate said
+  // PASS on exactly the file the author wanted judged. In CI everything is
+  // committed and this adds nothing.
+  files.push(...untrackedMigrations());
 }
-files = files.filter(Boolean);
+files = [...new Set(files.filter(Boolean))];
+
+function untrackedMigrations() {
+  return git(['ls-files', '--others', '--exclude-standard', '--', MIG_DIR])
+    .split('\n')
+    .filter((f) => f.endsWith('.sql'));
+}
+
+// ---- version order --------------------------------------------------------------
+
+/**
+ * The remote ledger is ordered by VERSION, not by merge date.
+ *
+ * `supabase db push` applies the local files whose version is greater than the
+ * newest version already on the remote history table, and REFUSES the push
+ * outright when a local file sorts before one that is already there (unless it
+ * is told `--include-all`). So a migration written on a branch and merged after
+ * a newer one has been pushed does not just apply late — it blocks every push
+ * after it, silently, until somebody notices the hosted project has stopped
+ * moving. That is what happened with 20260906000071_booking_integrity: merged
+ * after 20260907000071..75 had been pushed by hand, it held 0077–0088 off the
+ * hosted project for five days, and the guest app broke on a column that
+ * "existed" (0088). And a late apply is not even safe: 0071 and 0076 both
+ * `create or replace` the same function, so order decides which body wins.
+ *
+ * Rule: a migration ADDED by the pull request must sort after every migration
+ * already present on the merge base. A duplicate version (the 0058 collision,
+ * which no environment could apply) fails the same way. These are ledger
+ * facts, not risk assessments — MIGRATION-RISK-ACCEPTED does not waive them.
+ */
+const VERSION_RE = /^(\d{14})_/;
+const versionOf = (file) => path.basename(file).match(VERSION_RE)?.[1] ?? null;
+
+function versionOrderFindings() {
+  const out = [];
+
+  // Duplicate versions across the whole directory — the working tree, so an
+  // uncommitted file is judged too.
+  const dir = path.join(ROOT, MIG_DIR);
+  const seen = new Map();
+  for (const name of readdirSync(dir).filter((n) => n.endsWith('.sql')).sort()) {
+    const v = versionOf(name);
+    if (!v) continue;
+    if (seen.has(v)) {
+      out.push({
+        file: `${MIG_DIR}/${name}`,
+        line: 1,
+        hard: true,
+        rule: {
+          id: 'migration-duplicate-version',
+          what: `two migrations share version ${v}`,
+          why:
+            `The ledger is keyed by version, so ${seen.get(v)} and this file cannot both be\n` +
+            '        recorded — `migration up` and `db push` both fail on the duplicate key, on\n' +
+            '        every environment (this is how 0058 could never apply anywhere).\n' +
+            '        FIX: rename one of them to a version after the newest file in the directory.',
+        },
+        snippet: name,
+      });
+    } else {
+      seen.set(v, name);
+    }
+  }
+
+  if (!range) return out;
+
+  const baseVersions = git(['ls-tree', '-r', '--name-only', range, '--', MIG_DIR])
+    .split('\n')
+    .map(versionOf)
+    .filter(Boolean)
+    .sort();
+  const baseMax = baseVersions.at(-1);
+  if (!baseMax) return out;
+  const baseMaxFile = git(['ls-tree', '-r', '--name-only', range, '--', MIG_DIR])
+    .split('\n')
+    .find((f) => versionOf(f) === baseMax);
+
+  const added = [
+    ...git(['diff', '--name-only', '--diff-filter=AR', range, '--', MIG_DIR])
+      .split('\n')
+      .filter((f) => f.endsWith('.sql')),
+    ...untrackedMigrations(),
+  ];
+  for (const file of added) {
+    const v = versionOf(file);
+    if (!v || v > baseMax) continue;
+    out.push({
+      file,
+      line: 1,
+      hard: true,
+      rule: {
+        id: 'migration-out-of-order',
+        what: `new migration ${v} sorts before ${baseMax}, which is already on main`,
+        why:
+          `${path.basename(baseMaxFile ?? '')} is on the merge base and therefore on (or bound for)\n` +
+          '        the hosted ledger. `supabase db push` refuses a local file that sorts before the\n' +
+          '        newest remote version, so this file would block ITSELF and every migration\n' +
+          '        after it until somebody pushes with --include-all by hand — and a late apply\n' +
+          '        replays `create or replace` bodies out of order.\n' +
+          `        FIX: rename it to a version after ${baseMax} (today's date, next sequence).`,
+      },
+      snippet: path.basename(file),
+    });
+  }
+  return out;
+}
 
 /**
  * Every NEW migration must open with the lock/statement timeouts.
@@ -324,7 +435,7 @@ function statements(sql) {
 
 // ---- run ---------------------------------------------------------------------
 
-const findings = [];
+const findings = [...versionOrderFindings()];
 
 for (const file of files) {
   const abs = path.join(ROOT, file);
@@ -399,14 +510,19 @@ for (const file of files) {
 const scope = ALL ? 'ALL migrations' : `${files.length} changed migration file(s)`;
 console.log(`Migration safety gate — scope: ${scope}`);
 for (const f of files) console.log(`  ${f}`);
-if (files.length === 0) {
+// Ledger findings (order, duplicate version) are not scoped to changed files —
+// a duplicate can involve an untouched file — so they are reported even when
+// nothing else changed, and they are never waived.
+const hard = findings.filter((f) => f.hard);
+
+if (files.length === 0 && hard.length === 0) {
   console.log('\nPASS  no migration files changed.');
   process.exit(0);
 }
 console.log('');
 
 if (findings.length === 0) {
-  console.log('PASS  no lock-taking or destructive DDL in the changed migrations.');
+  console.log('PASS  no lock-taking or destructive DDL in the changed migrations; versions in order.');
   process.exit(0);
 }
 
@@ -416,8 +532,8 @@ for (const f of findings) {
   byRule.get(f.rule.id).sites.push(f);
 }
 
-const label = acceptance ? 'ACCEPTED' : 'FAIL';
-console.error(`${label}  ${findings.length} risky statement(s) in the changed migrations:\n`);
+const label = acceptance && hard.length === 0 ? 'ACCEPTED' : 'FAIL';
+console.error(`${label}  ${findings.length} finding(s) in the changed migrations:\n`);
 for (const { rule, sites } of byRule.values()) {
   console.error(`  ${rule.what}  (${sites.length} site${sites.length === 1 ? '' : 's'})`);
   console.error(`        ${rule.why}`);
@@ -427,6 +543,12 @@ for (const { rule, sites } of byRule.values()) {
   }
   if (sites.length > 6) console.error(`        … and ${sites.length - 6} more`);
   console.error('');
+}
+
+if (hard.length > 0) {
+  console.error('Version-order and duplicate-version findings cannot be accepted in writing: the remote');
+  console.error('ledger applies files by version and does not read the pull request. Rename the file.');
+  process.exit(1);
 }
 
 if (acceptance) {

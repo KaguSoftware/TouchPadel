@@ -2,6 +2,22 @@ name: DB Migrate (staging)
 
 on:
   workflow_dispatch:
+    inputs:
+      include_all:
+        # `supabase db push` refuses a local migration that sorts BEFORE a
+        # version already on the remote ledger, and with it every later one.
+        # That is the right default: a stranded file must be noticed, not
+        # applied late in an order nobody reviewed (two migrations that
+        # `create or replace` the same function are order-sensitive). This
+        # switch is the deliberate, reviewed exception — the "Show pending
+        # migrations" step prints exactly what it will apply, and the
+        # `staging` reviewer approves that list. Used once on 2026-09-12 for
+        # 20260906000071_booking_integrity; check-migrations.mjs now fails a
+        # pull request that would create the situation again.
+        description: 'Also apply migrations that sort before the newest remote version (--include-all)'
+        type: boolean
+        required: false
+        default: false
   push:
     branches: [main]
     paths:
@@ -157,10 +173,13 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      # `--yes` because this is non-interactive (the CLI otherwise prompts on a
+      # push it considers unusual). `--include-all` only when the dispatcher
+      # asked for it — see the input's comment.
       - name: Push migrations
         if: steps.preflight.outputs.configured == 'true'
         working-directory: packages/db
-        run: supabase db push
+        run: supabase db push --yes ${{ inputs.include_all == true && '--include-all' || '' }}
 
   # ---------------------------------------------------------------------------
   # W5 — PRODUCTION (client's Supabase project, Frankfurt eu-central-1).
