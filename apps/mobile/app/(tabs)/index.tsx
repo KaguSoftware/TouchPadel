@@ -22,8 +22,6 @@ import {
   openNowInfo,
   type VenueSettingsPublic,
 } from '../../src/features/availability/assemble';
-import { useAuth } from '../../src/features/auth/context';
-import { registerPushToken } from '../../src/features/profile/push';
 import { useCourtTransition } from '../../src/features/courtTransition/useCourtTransition';
 import { takeBookingSheetRequest } from '../../src/features/courtTransition/openIntent';
 import {
@@ -39,7 +37,6 @@ import {
   makeCamera,
   projectNet,
 } from '../../src/features/courtTransition/camera';
-import { addBreadcrumb } from '../../src/lib/telemetry';
 import { useReduceMotion } from '../../src/lib/useReduceMotion';
 import { brand, radius, space, useTheme, withAlpha } from '../../src/theme';
 import { Screen, Title } from '../../src/components/ui';
@@ -348,7 +345,6 @@ export default function BookHomeScreen() {
     BACK_BTN_FILL[dark ? 'dark' : 'light'],
   );
   const tabBarHeight = useTabBarHeight();
-  const { session } = useAuth();
   const settings = useVenueSettings();
 
   const reduceMotion = useReduceMotion();
@@ -426,12 +422,6 @@ export default function BookHomeScreen() {
       prev && prev.width === size.width && prev.height === size.height ? prev : size,
     );
   }, []);
-
-  // Best-effort push registration once signed in. The outcome is recorded.
-  useEffect(() => {
-    if (!session) return;
-    void registerPushToken().then((state) => addBreadcrumb('push.register', { state }));
-  }, [session]);
 
   // Opening only animates and mounts — nothing navigates, so tell screen
   // readers where they are. Closing waits for a hold call to settle: the sheet

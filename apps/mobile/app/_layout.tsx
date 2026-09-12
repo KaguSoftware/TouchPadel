@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import { router, Stack } from 'expo-router';
@@ -28,10 +28,14 @@ import { lastKnownPreference } from '../src/theme/lastAppearance';
 import { useNativeHeaderOptions } from '../src/navigation/headerOptions';
 import { useNavigationTheme } from '../src/navigation/theme';
 import { useNativeBarDirection } from '../src/navigation/headerDirection';
-import { AuthProvider } from '../src/features/auth/context';
+import { AuthProvider, useAuth } from '../src/features/auth/context';
 import { BootOverlay } from '../src/features/boot/BootOverlay';
 import { useAuthDeepLink } from '../src/features/auth/useAuthDeepLink';
-import { installNotificationHandler } from '../src/features/profile/push';
+import {
+  forgetWrittenPushToken,
+  installNotificationHandler,
+  startPushRegistrationLifecycle,
+} from '../src/features/profile/push';
 import { ErrorState, OfflineBanner } from '../src/components/states';
 import { ToastProvider } from '../src/components/overlays';
 import { palettes, ThemeProvider, useTheme } from '../src/theme';
@@ -153,6 +157,42 @@ function RootStack() {
   // Inside the navigator, so the emailed verification / recovery link can be
   // exchanged for a session and a dead link can route somewhere it is explained.
   useAuthDeepLink();
+  // Push registration lives HERE, under AuthProvider, because it needs the live
+  // session: the server drops a notification on the floor when the profile
+  // holds no token (migration 0075's trigger returns early and nothing
+  // backfills), so the token has to be written the moment a session exists —
+  // not when the Book tab happens to render, which is where it used to sit.
+  // `hasSession` is read through a ref so the lifecycle is installed ONCE and
+  // still sees the current session; re-installing it per sign-in would drop
+  // Expo's token-rotation listener on every auth event.
+  const { session } = useAuth();
+  const sessionRef = useRef(session);
+  const pushSync = useRef<((reason: string) => void) | null>(null);
+  useEffect(() => {
+    const stop = startPushRegistrationLifecycle({
+      hasSession: () => sessionRef.current !== null,
+    });
+    pushSync.current = stop.sync;
+    return () => {
+      pushSync.current = null;
+      stop();
+    };
+  }, []);
+  // Signing in while the app is already open fires no AppState event, so the
+  // lifecycle is nudged by hand. Signing OUT nulls the column server-side
+  // (SEC-21), so the cached "already written" token must be forgotten or the
+  // next sign-in would skip the rewrite as redundant.
+  //
+  // This effect also seeds sessionRef, and runs AFTER the one above: the
+  // lifecycle's own start-up sync therefore sees a null ref and no-ops, and
+  // this effect is what actually registers on a cold start with a restored
+  // session. Deliberate — one registration, from the branch that knows the
+  // session is real.
+  useEffect(() => {
+    sessionRef.current = session;
+    if (session) pushSync.current?.('signed-in');
+    else forgetWrittenPushToken();
+  }, [session]);
   // The direction the NATIVE bar is told, plus the short window in which its
   // back item is left off so UIKit rebuilds the chevron under the new
   // mirroring. Both come from one module — see ./src/navigation/headerDirection.
