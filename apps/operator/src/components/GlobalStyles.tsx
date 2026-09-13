@@ -166,6 +166,20 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-link { color: var(--tp-accent); text-decoration: none; }
 .tp-link:hover { text-decoration: underline; }
 
+/* ---- info tip (components/InfoTip.tsx) ---- */
+/* Always mounted so aria-describedby resolves while closed; hidden by
+   visibility + opacity, never display, and only opacity transitions: the
+   operator caused it, so nothing may move (DESIGN.md Motion). Geometry and
+   surface tokens are inline on the instance; this is the state machine. */
+.tp-infotip {
+  position: fixed; z-index: var(--tp-z-popover);
+  visibility: hidden; opacity: 0; pointer-events: none;
+  transition: opacity var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-infotip[data-open='true'] { visibility: visible; opacity: 1; pointer-events: auto; }
+.tp-infotip-trigger { color: var(--tp-muted-fg); }
+.tp-infotip-trigger:hover:not(:disabled), .tp-infotip-trigger:focus-visible { color: var(--tp-fg); }
+
 /* ---- navigation rail ---- */
 .tp-nav-item {
   display: flex; align-items: center; gap: 0.6rem;

@@ -27,6 +27,7 @@ import { marketingRoute } from './routes/marketing';
 import { workspacesRoute } from './routes/workspaces';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
+import { analyticsChildren } from './routes/analytics/_children';
 import { LocaleProvider, useLocale } from './lib/i18n';
 import { AuthProvider, useAuth, homeRoute } from './lib/auth';
 import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashScreen';
@@ -51,7 +52,7 @@ const routeTree = rootRoute.addChildren([
   reportsRoute.addChildren([...reportsChildren]),
   stockRoute.addChildren([...stockChildren]),
   adminRoute.addChildren([...adminChildren]),
-  analyticsRoute,
+  analyticsRoute.addChildren([...analyticsChildren]),
 ]);
 
 /** Send the operator back to the screen their role starts on; fall back to `/`. */

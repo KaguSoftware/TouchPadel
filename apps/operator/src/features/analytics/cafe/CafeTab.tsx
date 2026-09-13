@@ -1,5 +1,7 @@
 /**
- * `/analytics` — five zones over one data hook (operator-slice.md §5).
+ * `/analytics/cafe` — the Cafe tab: five zones over one data hook
+ * (operator-slice.md §5). The frame (title, tab strip) is shared with the
+ * Courts tab; this file owns everything below it.
  *
  * The page is designed to stay USEFUL in sales-only mode: with PostHog not
  * configured and the AI degraded, every till-derived card still renders and the
@@ -8,38 +10,38 @@
 import { useMemo } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { pickLocale } from '@touch/core';
-import { Button } from '../../components/ui';
-import { PageHeader } from '../../components/kit';
-import { useLocale } from '../../lib/i18n';
-import { ControlDeck } from './ControlDeck';
-import { Zone, ZoneGrid, ZONES } from './Zone';
-import { makeFormatters } from './format';
-import { useAnalyticsData } from './useAnalyticsData';
-import type { AnalyticsSearch } from './search';
-import { CardShell, muted, type CardState } from './cards/CardShell';
-import { Kpi } from './cards/Kpi';
-import { OverviewCard } from './cards/OverviewCard';
-import { AiInsightsCard } from './cards/AiInsightsCard';
-import { PatternsCard } from './cards/PatternsCard';
-import { MenuMatrixCard } from './cards/MenuMatrixCard';
-import { PositionCard } from './cards/PositionCard';
-import { ConversionTable } from './cards/ConversionTable';
-import { TopProfit } from './cards/TopProfit';
-import { HiddenGems } from './cards/HiddenGems';
-import { Momentum } from './cards/Momentum';
-import { BoughtTogether } from './cards/BoughtTogether';
-import { PromoPerformance } from './cards/PromoPerformance';
-import { LocalePrefs } from './cards/LocalePrefs';
-import { ChartCard } from './charts/ChartCard';
-import { HBarChart } from './charts/HBarChart';
-import { SalesVsEngagementChart } from './charts/SalesVsEngagementChart';
-import { AbandonedViewsChart } from './charts/AbandonedViewsChart';
-import { FunnelBars } from './charts/FunnelBars';
-import { ConversionBars } from './charts/ConversionBars';
-import { WeekHeatmap } from './charts/WeekHeatmap';
-import { PeakHoursChart } from './charts/PeakHoursChart';
+import { Button } from '../../../components/ui';
+import { useLocale } from '../../../lib/i18n';
+import { AnalyticsFrame } from '../AnalyticsFrame';
+import { ControlDeck } from '../ControlDeck';
+import { Zone, ZoneGrid, ZONES } from '../Zone';
+import { makeFormatters } from '../format';
+import { useAnalyticsData } from '../useAnalyticsData';
+import type { AnalyticsSearch } from '../search';
+import { CardShell, muted, type CardState } from '../cards/CardShell';
+import { Kpi } from '../cards/Kpi';
+import { OverviewCard } from '../cards/OverviewCard';
+import { AiInsightsCard } from '../cards/AiInsightsCard';
+import { PatternsCard } from '../cards/PatternsCard';
+import { MenuMatrixCard } from '../cards/MenuMatrixCard';
+import { PositionCard } from '../cards/PositionCard';
+import { ConversionTable } from '../cards/ConversionTable';
+import { TopProfit } from '../cards/TopProfit';
+import { HiddenGems } from '../cards/HiddenGems';
+import { Momentum } from '../cards/Momentum';
+import { BoughtTogether } from '../cards/BoughtTogether';
+import { PromoPerformance } from '../cards/PromoPerformance';
+import { LocalePrefs } from '../cards/LocalePrefs';
+import { ChartCard } from '../charts/ChartCard';
+import { HBarChart } from '../charts/HBarChart';
+import { SalesVsEngagementChart } from '../charts/SalesVsEngagementChart';
+import { AbandonedViewsChart } from '../charts/AbandonedViewsChart';
+import { FunnelBars } from '../charts/FunnelBars';
+import { ConversionBars } from '../charts/ConversionBars';
+import { WeekHeatmap } from '../charts/WeekHeatmap';
+import { PeakHoursChart } from '../charts/PeakHoursChart';
 
-export function AnalyticsPage() {
+export function CafeTab() {
   const { tr, locale } = useLocale();
   const search = useSearch({ from: '/analytics' }) as AnalyticsSearch;
   const navigate = useNavigate();
@@ -48,7 +50,7 @@ export function AnalyticsPage() {
   const { raw, derived, state } = data;
 
   const setSearch = (next: Partial<AnalyticsSearch>) => {
-    void navigate({ to: '/analytics', search: { ...search, ...next } });
+    void navigate({ to: '/analytics/cafe', search: { ...search, ...next } });
   };
 
   const salesState: CardState = state.salesLoading ? 'loading' : state.salesError ? 'error' : 'ready';
@@ -84,15 +86,9 @@ export function AnalyticsPage() {
   });
 
   return (
-    <div style={{ minInlineSize: '1024px', paddingInline: 'var(--tp-sp-4)', paddingBlockEnd: 'var(--tp-sp-6)' }}>
-      {/*
-        This page had no title and no h1 at all: the only "Analytics" on it was a
-        micro-label inside the control deck, so heading navigation opened on
-        "Pulse" and the active rail item agreed with nothing (3.4, 3.6). The
-        header scrolls away and the deck below it stays sticky, which is the
-        order the owner reads them in.
-      */}
-      <PageHeader title={tr('analytics.title')} subtitle={f.dateRange(data.range.from, data.range.to)} />
+    <AnalyticsFrame tab="cafe" subtitle={f.dateRange(data.range.from, data.range.to)}>
+      {/* The header and tab strip scroll away; the deck below them stays sticky,
+          which is the order the owner reads them in. */}
       <ControlDeck search={search} setSearch={setSearch} data={data} menu={raw?.menu ?? []} />
 
       {/* ---------------- 01 Pulse ---------------- */}
@@ -267,7 +263,7 @@ export function AnalyticsPage() {
           </ZoneGrid>
         </div>
       </Zone>
-    </div>
+    </AnalyticsFrame>
   );
 }
 

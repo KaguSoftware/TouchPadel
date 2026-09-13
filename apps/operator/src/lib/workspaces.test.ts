@@ -73,6 +73,12 @@ describe('isNavActive', () => {
     expect(isNavActive(series, '/desk/series/abc?x=1')).toBe(true);
     expect(isNavActive(series, '/desk/customers')).toBe(false);
   });
+  it('lights the analytics row on both of its tabs', () => {
+    const analytics = WORKSPACES.owner.groups[0]!.items.find((i) => i.labelKey === 'analytics')!;
+    expect(isNavActive(analytics, '/analytics/courts?range=7d')).toBe(true);
+    expect(isNavActive(analytics, '/analytics/cafe')).toBe(true);
+    expect(isNavActive(analytics, '/panel')).toBe(false);
+  });
 });
 
 describe('workspace memory', () => {
@@ -101,6 +107,8 @@ describe('workspaceForRoute', () => {
     expect(workspaceForRoute('/kds')).toBe('prep');
     expect(workspaceForRoute('/panel')).toBe('owner');
     expect(workspaceForRoute('/setup')).toBe('owner');
+    expect(workspaceForRoute('/analytics')).toBe('owner');
+    expect(workspaceForRoute('/analytics/courts')).toBe('owner');
     expect(workspaceForRoute('/ops')).toBe('manager');
     expect(workspaceForRoute('/desk')).toBeNull();
     expect(workspaceForRoute('/till/tabs')).toBeNull();
@@ -110,11 +118,11 @@ describe('workspaceForRoute', () => {
 describe('sections', () => {
   const owner = WORKSPACES.owner;
 
-  it("management's own rail is the panel plus one button per section", () => {
+  it("management's own rail is the panel and analytics, plus one button per section", () => {
     expect(owner.groups).toHaveLength(1);
-    // Reports and analytics left the top level: each now sits in the section
-    // that owns the question it answers.
-    expect(owner.groups[0]!.items.map((i) => i.to)).toEqual(['/panel']);
+    // Reports live in the sections that own the question they answer; analytics
+    // spans courts and cafe, so it is back on the rail (owner call, 2026-09-13).
+    expect(owner.groups[0]!.items.map((i) => i.to)).toEqual(['/panel', '/analytics']);
     expect(owner.sections?.map((s) => s.key)).toEqual(['financial', 'observation', 'stock', 'setup']);
   });
 
@@ -134,7 +142,6 @@ describe('sections', () => {
     expect(sectionForPath(owner, '/observation/requests')?.key).toBe('observation');
     expect(sectionForPath(owner, '/marketing')?.key).toBe('observation');
     expect(sectionForPath(owner, '/ops')?.key).toBe('observation');
-    expect(sectionForPath(owner, '/analytics')?.key).toBe('observation');
     // Bookings and tills are Observe's own view-only boards...
     expect(sectionForPath(owner, '/observation/courts')?.key).toBe('observation');
     expect(sectionForPath(owner, '/observation/tills')?.key).toBe('observation');
@@ -149,8 +156,10 @@ describe('sections', () => {
     expect(sectionForPath(owner, '/setup')?.key).toBe('setup');
     expect(sectionForPath(owner, '/admin/settings/trading')?.key).toBe('setup');
 
-    // The workspace's own row is not in any section.
+    // The workspace's own rows are not in any section.
     expect(sectionForPath(owner, '/panel')).toBeNull();
+    expect(sectionForPath(owner, '/analytics')).toBeNull();
+    expect(sectionForPath(owner, '/analytics/courts')).toBeNull();
     // A workspace without sections never claims anything.
     expect(sectionForPath(WORKSPACES.manager, '/ops')).toBeNull();
   });
@@ -223,6 +232,7 @@ describe('workspaceOwnsPath', () => {
     expect(workspaceOwnsPath('owner', '/admin/staff')).toBe(true);
     // The stock module is a Management section now, so it keeps the owner rail.
     expect(workspaceOwnsPath('owner', '/stock/counts')).toBe(true);
+    expect(workspaceOwnsPath('owner', '/analytics/cafe')).toBe(true);
     // /kds is nowhere on the owner's rail: following that link does hand the
     // shell over to the prep workspace.
     expect(workspaceOwnsPath('owner', '/kds')).toBe(false);

@@ -2,9 +2,10 @@
  * Observation home (/observation) — the landing screen of Management's
  * Observation section.
  *
- * The cards run from the shortest horizon outwards: right now, the pattern
- * over time, the three records you inspect, the two things waiting on you, and
- * the audit trail you reach for when one of the others raised a question.
+ * The cards run from the shortest horizon outwards: right now, the three
+ * records you inspect, the two things waiting on you, and the audit trail you
+ * reach for when one of the others raised a question. (Analytics, the shape
+ * over time, moved to Management's own rail on 2026-09-13.)
  *
  * Above them sits WHAT IS WAITING ON A DECISION. This is the one part of
  * Management that is not a reading — a staff request sits unanswered until the
@@ -26,7 +27,7 @@ import { Icon } from '../../components/icons';
 import { REQUESTS_QUERY_KEY, type StaffRequestsPage } from './requestTypes';
 
 type CardKey =
-  | 'floorNow' | 'patterns' | 'bookings' | 'tills'
+  | 'floorNow' | 'bookings' | 'tills'
   | 'staffActivity' | 'requests' | 'marketing' | 'audit';
 
 export function ObservationHomeScreen() {

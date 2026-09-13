@@ -182,6 +182,10 @@ export const kitEn = {
     unsaved: 'Unsaved changes',
     dirtyLeave: 'You have unsaved changes. Leave and lose them?',
   },
+  /** Accessible name of the InfoTip's default trigger (components/InfoTip.tsx). */
+  infoTip: {
+    label: 'More about this',
+  },
   /** The zoomed-out month shared by the desk calendar and the observe boards. */
   calendar: {
     month: 'Month',

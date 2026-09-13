@@ -172,6 +172,9 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     unsaved: 'تغييرات غير محفوظة',
     dirtyLeave: 'لديك تغييرات غير محفوظة. المغادرة وفقدانها؟',
   },
+  infoTip: {
+    label: 'المزيد عن هذا',
+  },
   calendar: {
     month: 'شهر',
     zoomOutHint: 'صغّر العرض إلى الشهر',

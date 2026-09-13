@@ -48,7 +48,7 @@ export interface NavItem {
     | 'panel' | 'analytics' | 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite'
     // Management's Financial / Observation sections (see the header note).
     | 'menuPrices'
-    | 'floorNow' | 'patterns' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
+    | 'floorNow' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
     // Management's Stock section.
     | 'inventory' | 'stockValue';
   icon: IconName;
@@ -130,13 +130,16 @@ const MANAGER_SETUP: readonly NavItem[] = [
 ];
 
 /**
- * Management's own rail is now one row. The panel is the headline every other
- * screen in the workspace elaborates; reports and analytics moved into the
- * sections that own the question they answer (revenue → Financial, patterns
- * → Observation) rather than sitting above the split as loose peers.
+ * Management's own rail is two rows. The panel is the headline every other
+ * screen in the workspace elaborates, and Analytics is the one reading that
+ * spans the whole business (courts and cafe on two tabs), so it sits above the
+ * split rather than inside Observe (owner call, 2026-09-13). Reports stayed in
+ * the sections that own the question they answer (revenue → Financial).
+ * `activePrefix` keeps the row lit on both tabs (/analytics/courts, /cafe).
  */
 const OWNER_PRIMARY: readonly NavItem[] = [
   { to: '/panel', labelKey: 'panel', icon: 'dashboard' },
+  { to: '/analytics', labelKey: 'analytics', icon: 'trendUp', activePrefix: '/analytics' },
 ];
 
 /**
@@ -166,11 +169,12 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
 /**
  * OBSERVATION — watching the venue rather than counting it.
  *
- * Order is by how far back you are looking: right now (the floor), the shape
- * over time (patterns), then the live records you inspect (bookings, tills,
- * staff activity), then the two things that WAIT ON THE OWNER — staff
- * requests to confirm and marketing to run — and finally the audit log, which
- * is where you go when one of the others raised a question.
+ * Order is by how far back you are looking: right now (the floor), then the
+ * live records you inspect (bookings, tills, staff activity), then the two
+ * things that WAIT ON THE OWNER — staff requests to confirm and marketing to
+ * run — and finally the audit log, which is where you go when one of the
+ * others raised a question. The shape over time (Analytics) is no longer a
+ * row here: it is on Management's own rail, see OWNER_PRIMARY.
  *
  * Bookings and Tills open Observe's OWN boards, not the desk calendar and the
  * cashier's tab board (owner call, 2026-09-13). Those are workstations; these
@@ -184,7 +188,6 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
 const OWNER_OBSERVATION: readonly NavItem[] = [
   { to: '/observation', labelKey: 'overview', icon: 'grid', exact: true },
   { to: '/ops', labelKey: 'floorNow', icon: 'dashboard' },
-  { to: '/analytics', labelKey: 'patterns', icon: 'trendUp' },
   { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
   { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
   { to: '/reports/staff', labelKey: 'staffActivity', icon: 'users' },
@@ -309,7 +312,8 @@ export function saveWorkspace(key: WorkspaceKey): void {
  */
 export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/kds') return 'prep';
-  if (path === '/panel' || path.startsWith('/reports/revenue') || path === '/analytics') return 'owner';
+  if (path === '/panel' || path.startsWith('/reports/revenue')) return 'owner';
+  if (path === '/analytics' || path.startsWith('/analytics/')) return 'owner';
   if (path === '/setup' || path.startsWith('/setup/')) return 'owner';
   // The section homes. /observation/requests is owner-only too, so the whole
   // subtree resolves here rather than only its landing screen.
