@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
+import { phoneOtpEnabled } from '../src/features/auth/phoneOtp';
 import type { Locale } from '@touch/i18n';
 import { supabase } from '../src/lib/supabase';
 import { signUp, validateSignUp } from '../src/features/auth/api';
@@ -58,6 +59,7 @@ function SignUpScreen() {
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
+  const phoneOtp = phoneOtpEnabled();
   const social = useSocialSignIn({
     onComplete: () => {
       toast(t('auth.welcomeBack'), 'info');
@@ -99,14 +101,26 @@ function SignUpScreen() {
     <Screen gutter={20} edges={[]}>
       <FormScreen>
         <Title plain>{t('auth.signUp')}</Title>
+        {/* Phone OTP — the default method when the flag is on (owner decision D4b, 2026-09-12). A phone
+            sign-up IS the phone sign-in flow (GoTrue creates the account on first verify), so the same
+            screen serves both. Off unless EXPO_PUBLIC_PHONE_OTP=on, in which case nothing here renders. */}
+        {phoneOtp ? (
+          <Button
+            label={t('auth.continueWithPhone')}
+            onPress={() => router.push('/phone-sign-in')}
+            disabled={busy || holdBusy || social.busyProvider !== null}
+            variant="cta"
+            style={{ marginTop: 14 }}
+          />
+        ) : null}
         <SocialSignInBlock
           available={social.available}
           busyProvider={social.busyProvider}
           disabled={busy || holdBusy}
           onPress={(provider) => void social.signInWith(provider)}
-          style={{ marginTop: 14 }}
+          style={{ marginTop: phoneOtp ? 10 : 14 }}
         />
-        {hasSocial(social.available) ? (
+        {hasSocial(social.available) || phoneOtp ? (
           <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
         <Field

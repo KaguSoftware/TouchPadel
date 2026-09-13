@@ -1174,15 +1174,20 @@ nothing typed reads the new objects — run `db:types` at the next reset.
 
 **Edge function `send-sms-otp`** (`verify_jwt = false`; Standard-Webhooks HMAC-SHA256 is the auth, fail-closed on an
 unset secret, ±300 s, constant-time). Pure halves `verify.ts` / `otp.ts` run under vitest on Node 22's webcrypto; the
-bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `providers/*`: `log`
-(default, spends nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender —
-Asiacell requires sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (written from the
-vendor's public client libraries; the runbook re-verifies the request shape before opening the gate). `_shared/phone.ts`
+bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `_shared/sms/*` (moved
+out of the hook 2026-09-12 so every edge function texts through ONE function, `sendSms()`): `log` (default, spends
+nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender — Asiacell requires
+sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (**the owner's choice, decided
+2026-09-12, SMS only — `OTPIQ_PROVIDER=sms`, no WhatsApp**; contract checked against the vendor's API reference the same day). `tests/sms-provider.test.ts` pins
+selection, each adapter against a mocked fetch, and the boundary (no other function file may name a vendor host or
+secret) — swapping vendors is `secrets set SMS_PROVIDER=…`, adding one is one adapter file. `_shared/phone.ts`
 is the edge copy of the new `@touch/core` normaliser, parity-tested on one fixture table.
 
 **Mobile.** `@touch/core` `phone/iraq.ts` (`phoneCanon` twin of SQL 0065, strict `toE164Iraq`, national formatter);
 `features/auth/phoneOtp.ts` (flag grammar, validation, `hasRealEmail`, `mapOtpError` for GoTrue codes AND the hook's
-relayed refusal reasons); five GoTrue calls in `api.ts`; screens `phone-sign-in.tsx` (fixed +964 chip, `signin` /
+relayed refusal reasons); five GoTrue calls in `api.ts`; **D4b decided 2026-09-12: phone is the default method** — with the flag on it is the
+green CTA at the top of `welcome.tsx`, `sign-in.tsx` and `sign-up.tsx` (email/social below; flag off = screens exactly
+as shipped); screens `phone-sign-in.tsx` (fixed +964 chip, `signin` /
 `link` modes) and `verify-otp.tsx` (iOS autofill, auto-submit at 6, 30 s resend, ungated in sign-in mode for the same
 reason verify-email is); entry buttons on welcome / sign-in; Profile gains **Verify phone number** for email/social
 users (sets `auth.users.phone` via `phone_change`, then rewrites `profiles.phone` to the number that proved itself)

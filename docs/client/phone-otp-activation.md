@@ -4,7 +4,10 @@ Everything needed to switch phone sign-in on is already built and tested, dorman
 (design note: `docs/design/phone-otp-2026-09-05.md`). This page is the checklist that turns it on, in order.
 Nothing before §C changes what guests see.
 
-**Status:** dormant since 2026-09-05. Not activated.
+**Status:** dormant since 2026-09-05. Not activated. **A1 decided 2026-09-12: OTPIQ, SMS only, no WhatsApp**
+(owner holds the API key; it goes in via §C step 1 on the owner's machine, never through chat). A3 therefore does not
+apply. **A4 decided 2026-09-12: phone is the default method** (green CTA on Welcome, Sign in and Create account;
+email and social stay as the alternatives; the SMS-fails fallback is "resend", not a second channel). A2, A5, A6 still open.
 
 ---
 
@@ -12,10 +15,10 @@ Nothing before §C changes what guests see.
 
 | # | Decision / item | Notes |
 |---|---|---|
-| A1 | **Provider and channel (D4a)** | Recommended: an Iraqi aggregator with WhatsApp-first + SMS fallback (direct Zain / Asiacell / Korek routes; e.g. OTPIQ). Alternative: Twilio. Whatever is chosen, the account is Touch's and the per-message cost is on Touch's invoice. |
+| A1 | **Provider and channel (D4a)** | **Decided 2026-09-12: OTPIQ, SMS only** (Iraqi aggregator with direct Zain / Asiacell / Korek routes; `OTPIQ_PROVIDER=sms`, no WhatsApp). The account is Touch's and the per-message cost is on Touch's invoice. Twilio stays as the shipped fallback adapter. |
 | A2 | **Alphanumeric sender id** | Register "TouchPadel" (or the brand's chosen sender). Asiacell requires pre-registration; Zain and Korek drop numeric senders. Without it delivery is best-effort. |
-| A3 | **WhatsApp channel** (if chosen) | Meta business verification on the vendor's platform: allow one to two weeks. |
-| A4 | **Scope (D4b)** | Extra method beside email + social (recommended first), or the default button. |
+| A3 | **WhatsApp channel** | **Not chosen (2026-09-12).** If revisited: Meta business verification on the vendor's platform, one to two weeks, then `OTPIQ_PROVIDER=whatsapp-sms`. |
+| A4 | **Scope (D4b)** | **Decided 2026-09-12: the default button.** With the flag on, "Continue with phone" is the green CTA at the top of Welcome, Sign in and Create account; email + social sit below it. With the flag off the screens are exactly as shipped. |
 | A5 | **Desk-account claim (D4c)** | Yes = run §D. No = staff correct numbers first; desk-created walk-ins keep signing in by "forgot password" (real email) only. |
 | A6 | **Iraq-only (D4d)** | Keep `{964}` (recommended) or list the extra country codes. |
 | A7 | **Hand over the vendor API key** | Never in chat or a shared document — see `API.md` "How to hand these over". |
@@ -47,7 +50,7 @@ worth a desk correction before §D.
 1. **Secrets** (hosted):
    ```bash
    pnpm exec supabase secrets set SEND_SMS_HOOK_SECRET='v1,whsec_…'   # generated in step 4, paste here
-   pnpm exec supabase secrets set SMS_PROVIDER=otpiq OTPIQ_API_KEY=… OTPIQ_PROVIDER=whatsapp-sms OTPIQ_SENDER_ID=TouchPadel
+   pnpm exec supabase secrets set SMS_PROVIDER=otpiq OTPIQ_API_KEY=… OTPIQ_PROVIDER=sms OTPIQ_SENDER_ID=TouchPadel
    # or: SMS_PROVIDER=twilio TWILIO_ACCOUNT_SID=… TWILIO_AUTH_TOKEN=… TWILIO_FROM=TouchPadel
    ```
 2. **Migration 0069** is applied by the normal CI migrate (`.github/workflows/db-migrate.yml`); confirm
@@ -62,9 +65,12 @@ worth a desk correction before §D.
    OTP length 6, minimum interval between resends 60 s.
 7. **Store-review number:** Dashboard → Phone provider → Test OTPs: add the reviewer's demo number and a fixed code
    (App Store / Play reviewers cannot receive Iraqi SMS). `9647700000001 = 123456` matches local dev.
-8. **OTPIQ only — verify the request shape** once against the live account before enabling the gate: the adapter
-   was written from the vendor's public client libraries (`providers/otpiq.ts` header). Send one code to a staff
-   phone with `SMS_PROVIDER=otpiq` and `enabled = true` for that phone's window, read `app.sms_sends`.
+8. **OTPIQ — one live send** before opening the gate. The adapter (`functions/_shared/sms/otpiq.ts`) was checked
+   against the vendor's published API reference on 2026-09-12 and its request/response contract is pinned by
+   `packages/db/tests/sms-provider.test.ts`, but the account itself (sender id approval, credit, trial mode) has not.
+   Send one code to a staff phone with `SMS_PROVIDER=otpiq` and `enabled = true` for that phone's window, read
+   `app.sms_sends`. An OTPIQ `400` with "SenderID not found / not accepted" means A2 is not done; "trial mode" means
+   the account has no credit yet; the function log prints the remaining credit after every successful send.
 9. **Open the gate:**
    ```sql
    update app.sms_limits
@@ -89,6 +95,21 @@ worth a desk correction before §D.
     Anything `refused` with `PHONE_NOT_ALLOWED` in volume is pumping being stopped; `failed` in volume is the vendor.
 14. **Paper:** update `docs/security/security-general.md` D5 (SEC-22) with the written decision; add the day to
     `HANDOFF.md`.
+
+### Swapping the vendor (two minutes, no code)
+
+Every edge function texts through ONE function, `sendSms()` in `functions/_shared/sms/index.ts`; no other file knows a
+vendor's hostname or secret names (a test fails if one does). So:
+
+- **To an adapter that already exists** (`log`, `twilio`, `otpiq`): `pnpm exec supabase secrets set SMS_PROVIDER=<name>`
+  plus that vendor's keys. Edge functions pick up new secrets on their next cold start; nothing to deploy.
+- **To a new vendor:** one file `functions/_shared/sms/<vendor>.ts` implementing `SmsProvider` (`send({to, body, code})`,
+  throw `SmsProviderError` on any non-2xx), one branch in `smsFromEnv` (`index.ts`), its secret names in
+  `functions/.env.example`, and a block in `tests/sms-provider.test.ts` mirroring the OTPIQ one. Then
+  `supabase functions deploy send-sms-otp` and the secrets command above.
+- **What does not change with the vendor:** the gate, the caps, the send log, the app copy. **What does:** the message
+  wording. Twilio sends our bilingual template verbatim; OTPIQ's verification type wraps the code in the vendor's own
+  template. The app never sees the difference.
 
 ### Rollback (any time, in reverse, each step independent)
 
