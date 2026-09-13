@@ -93,7 +93,7 @@ export function useStoredNumber(key: string, fallback: number, accept: (n: numbe
 }
 
 /** `document.hidden`, so auto-refresh can stop while the tab is in the background. */
-function usePageVisible(): boolean {
+export function usePageVisible(): boolean {
   const [visible, setVisible] = useState(() => (typeof document === 'undefined' ? true : !document.hidden));
   useEffect(() => {
     const onChange = () => setVisible(!document.hidden);
