@@ -1293,6 +1293,22 @@ export const matrix: MatrixRule[] = [
     note: 'RPC-only (app.set_telegram_staff, owner) — a client insert would be a self-grant',
     drop: 4,
   },
+  {
+    kind: 'select',
+    name: 'telegram_chats',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    note: '0091 detected groups: the operator picks the staff group from these',
+    drop: 7,
+  },
+  {
+    kind: 'write',
+    name: 'telegram_chats',
+    op: 'insert',
+    payload: { chat_id: '-570092', type: 'group', bot_status: 'member' },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'written only by telegram-callback (service role) — a client insert could plant a group the owner then picks',
+    drop: 7,
+  },
 
   // ── analytics LLM tables: owner reads only, RPC-only writes ───────────────
   {

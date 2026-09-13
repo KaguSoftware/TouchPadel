@@ -550,6 +550,21 @@ describe.skipIf(!up)('telegram outbox + callback write-back (0032)', () => {
     expect(missing.errorMessage).toContain('OUTBOX_NOT_FOUND');
   });
 
+  it('0091: retry re-targets the row at the CURRENT chat id, not its enqueue snapshot', async () => {
+    // The hosted failure: rows snapshotted with the placeholder id kept failing
+    // after the setting was corrected, because retry re-sent to the snapshot.
+    const { error: staleErr } = await svc
+      .from('telegram_outbox')
+      .update({ status: 'failed', chat_id: '-1009999999999', last_error: 'HTTP 400: Bad Request: chat not found' })
+      .eq('id', testOutboxId);
+    expect(staleErr).toBeNull();
+
+    const retried = await appRpc(owner, 'retry_telegram_outbox', { p_id: testOutboxId }).then(outcome);
+    expect(retried.ok, retried.errorMessage).toBe(true);
+    const { data: row } = await svc.from('telegram_outbox').select('chat_id, status').eq('id', testOutboxId).single();
+    expect(row).toEqual({ chat_id: CHAT_ID, status: 'queued' });
+  });
+
   it('with telegram_enabled=false nothing is enqueued (orders and calls still succeed)', async () => {
     await setCafeSetting(owner, 'telegram_enabled', false);
 

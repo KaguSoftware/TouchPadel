@@ -2,9 +2,17 @@
 
 New guest orders and waiter calls are posted to one Telegram group with inline
 buttons (`✅ شوهد / 🍽 تم التقديم / ❌ إلغاء`, `✅ أنا قادم / ✔️ تم`). Taps write
-back to the KDS through `app.telegram_apply_action`. Two edge functions are
-involved: `telegram-send` (outbox sender) and `telegram-callback` (webhook).
+back to the KDS through `app.telegram_apply_action`. Three edge functions are
+involved: `telegram-send` (outbox sender), `telegram-callback` (webhook) and
+`telegram-diagnose` (owner health check + webhook registration, 0091).
 Everything below is done once per Supabase project.
+
+> **Something not arriving? Start at Operator → Settings → Telegram → Diagnose →
+> Run diagnosis.** It asks Telegram about the token, the bot, the saved group,
+> the bot's membership, the webhook, the recent outbox rows and the tap allowlist,
+> and names the fix for each. The 2026-09-13 outage (nothing ever delivered) was
+> the saved chat id being the placeholder `-1001234567890`, written onto hosted
+> by an e2e run through a reused dev server — see `e2e/playwright.config.ts`.
 
 ## 1. Create the bot
 
@@ -12,18 +20,19 @@ Open [@BotFather](https://t.me/BotFather) → `/newbot` → name **Touch Cafe Or
 username ending in `bot` (e.g. `touchcafe_orders_bot`) → copy the **token**
 (`123456789:AA…`). Treat it like a password.
 
-## 2. Create the staff group and read its chat id
+## 2. Create the staff group
 
-1. Create a Telegram group for the staff, add the bot as a member. Disabling the
-   bot's privacy mode is NOT required — button callbacks work regardless.
-2. Send any message in the group, then:
-   ```sh
-   curl "https://api.telegram.org/bot<TOKEN>/getUpdates"
-   ```
-   Copy `message.chat.id`. For groups it is **negative** (`-1001234567890`) — keep
-   the minus sign. If `result` is empty, send another message and retry (or remove
-   and re-add the bot). Converting the group to a supergroup later CHANGES the id —
-   re-read it.
+Create a Telegram group for the staff. **Add the bot after step 7** (the webhook
+must exist first, so Telegram tells us about the group). The bot does not need
+to be an admin, and disabling privacy mode is NOT required — button callbacks
+work regardless. Promoting members to admin can upgrade a basic group to a
+supergroup, which CHANGES its id; `telegram-send` and `telegram-callback` follow
+that upgrade automatically (0091).
+
+The group id is picked in the operator (step 8), not read by hand. Fallback only
+while NO webhook is registered: send a message in the group, then
+`curl "https://api.telegram.org/bot<TOKEN>/getUpdates"` and copy the negative
+`message.chat.id`. Once a webhook exists `getUpdates` answers **409 Conflict**.
 
 ## 3. Generate the webhook secret
 
@@ -54,7 +63,7 @@ select vault.create_secret('https://<ref>.supabase.co/functions/v1', 'functions_
 ## 6. Deploy the functions
 
 ```sh
-pnpm exec supabase functions deploy telegram-send telegram-callback
+pnpm exec supabase functions deploy telegram-send telegram-callback telegram-diagnose
 pnpm exec supabase functions list     # telegram-callback must show verify_jwt = false
 ```
 
@@ -63,11 +72,19 @@ sends no Supabase JWT, the secret header is the auth; `telegram-send` = true).
 
 ## 7. Register the webhook
 
+Operator → Settings → Telegram → Diagnose → **Run diagnosis**, then
+**Re-register webhook** on the Webhook row. It registers
+`https://<ref>.supabase.co/functions/v1/telegram-callback` with the project's
+`TELEGRAM_WEBHOOK_SECRET` and `allowed_updates` `callback_query` +
+`my_chat_member` — the second is what lets the bot report the groups it joins.
+
+Fallback by hand:
+
 ```sh
 curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
   -d url=https://<ref>.supabase.co/functions/v1/telegram-callback \
   -d secret_token=<SECRET> \
-  -d 'allowed_updates=["callback_query"]'
+  -d 'allowed_updates=["callback_query","my_chat_member"]'
 curl "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"
 ```
 
@@ -75,7 +92,9 @@ Expect `"pending_update_count": 0` and no `last_error_message`.
 
 ## 8. Switch it on in the operator app
 
-Operator → Settings → Telegram: paste the chat id, enable, press **Send test** —
+Add the bot to the staff group now (or remove it and add it again). Within
+seconds it appears under Operator → Settings → Telegram → **Detected groups**;
+press **Use this group**, enable, press **Send test** —
 the `🔔 رسالة تجريبية` message must appear in the group within a few seconds.
 Then place a fixture order from the guest menu and tap `✅ شوهد`: the toast says
 `تم ✅`, the message gains a `✅ شوهد · Seen — <name> · HH:mm` footer, and the KDS
@@ -123,7 +142,9 @@ trail. Every call writes a `telegram.staff_set` audit entry.
 
 | Symptom | Look at |
 |---|---|
-| No message arrives | `select id, status, attempts, last_error from telegram_outbox order by id desc limit 10;` and the `telegram-send` logs. `NOT_CONFIGURED` = token secret missing; `HTTP 400: chat not found` = wrong chat id / bot not in the group; `HTTP 403` = bot kicked. Owner re-queues a row with `app.retry_telegram_outbox(id)`. |
+| Anything | **Run diagnosis** first (Settings → Telegram → Diagnose). Each failing row names its fix. |
+| Group never shows under Detected groups | The webhook was registered for `callback_query` only (Diagnose shows a Webhook warning) — Re-register, then remove and re-add the bot. |
+| No message arrives | `select id, chat_id, status, attempts, last_error from telegram_outbox order by id desc limit 10;` and the `telegram-send` logs. `NOT_CONFIGURED` = token secret missing; `HTTP 400: chat not found` = wrong chat id / bot not in the group / token of a different bot (compare `chat_id` with `cafe_settings.telegram_chat_id`); `HTTP 403` = bot kicked. Owner re-queues a row with Retry (`app.retry_telegram_outbox(id)`), which since 0091 sends it to the CURRENT saved group. |
 | Buttons do nothing | `getWebhookInfo` — a `last_error_message` with 401 means the secret differs between `setWebhook` and `TELEGRAM_WEBHOOK_SECRET`; `telegram-callback` logs show the 401s. |
 | Message lands in the wrong group | Re-read the chat id (`getUpdates`) — supergroup conversion changes it. |
 | Slow (> 10 s) | Only the cron sweep is running: Vault names `service_role_key` / `functions_base_url` missing or `pg_net` disabled (step 5). |

@@ -865,6 +865,13 @@ export async function ensureCafeProbeDataDrop4(svc: SupabaseClient): Promise<voi
     'tg_user_id',
   );
 
+  // telegram_chats (0091): groups the bot has been added to (my_chat_member).
+  await up(
+    'telegram_chats',
+    { chat_id: '-570091', title: 'Probe group ee57', type: 'group', bot_status: 'member', updated_at: past },
+    'chat_id',
+  );
+
   // LLM tables (owner-only reads).
   await up('analytics_insights', {
     id: probeId('601'), range_from: '2001-01-01', range_to: '2001-01-07',
