@@ -17,6 +17,7 @@ import { useSetCafeSetting } from '../../lib/settings';
 import { COVERS_MULTIPLIER_OPTIONS } from '../../lib/coversMultiplier';
 import { ExcludedItemsModal } from './ExcludedItemsModal';
 import { ZoneNav } from './ZoneNav';
+import { CAFE_ZONES } from './Zone';
 import { REFRESH_OPTIONS, type AnalyticsData } from './useAnalyticsData';
 import type { AnalyticsSearch } from './search';
 import type { MenuSnapshotRow } from './shape';
@@ -242,7 +243,7 @@ export function ControlDeck({
         </DeckGroup>
 
         <DeckGroup label={tr('analytics.deck.jumpTo')} style={{ marginInlineStart: 'auto' }}>
-          <ZoneNav />
+          <ZoneNav zones={CAFE_ZONES} />
         </DeckGroup>
       </div>
 

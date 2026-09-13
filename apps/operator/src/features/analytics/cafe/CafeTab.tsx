@@ -10,15 +10,15 @@
 import { useMemo } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { pickLocale } from '@touch/core';
-import { Button } from '../../../components/ui';
 import { useLocale } from '../../../lib/i18n';
 import { AnalyticsFrame } from '../AnalyticsFrame';
 import { ControlDeck } from '../ControlDeck';
-import { Zone, ZoneGrid, ZONES } from '../Zone';
+import { Zone, ZoneGrid, CAFE_ZONES } from '../Zone';
+import { Notices } from '../Notices';
 import { makeFormatters } from '../format';
 import { useAnalyticsData } from '../useAnalyticsData';
 import type { AnalyticsSearch } from '../search';
-import { CardShell, muted, type CardState } from '../cards/CardShell';
+import { CardShell, type CardState } from '../cards/CardShell';
 import { Kpi } from '../cards/Kpi';
 import { OverviewCard } from '../cards/OverviewCard';
 import { AiInsightsCard } from '../cards/AiInsightsCard';
@@ -92,8 +92,19 @@ export function CafeTab() {
       <ControlDeck search={search} setSearch={setSearch} data={data} menu={raw?.menu ?? []} />
 
       {/* ---------------- 01 Pulse ---------------- */}
-      <Zone zone={ZONES[0]!}>
-        <Notices data={data} />
+      <Zone zone={CAFE_ZONES[0]!}>
+        <Notices
+          lines={[
+            ...(derived && derived.coverage.missing.length > 0
+              ? [tr('analytics.notices.coverage', { missing: derived.coverage.missing.length })]
+              : []),
+            // Café settings unreadable → the deck is running on migration defaults; say so.
+            ...(state.settingsError != null ? [tr('errors.generic')] : []),
+            ...(state.engagement === 'unconfigured' ? [tr('analytics.notices.noPosthog')] : []),
+            ...(derived && derived.engNow.clipped && raw?.floor ? [tr('analytics.notices.floor', { date: raw.floor })] : []),
+          ]}
+          onRetry={state.salesError != null ? data.refetchAll : undefined}
+        />
         {/* Nine tiles in three columns — a clean 3×3 instead of an orphan row. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.6rem' }}>
           <Kpi
@@ -143,7 +154,7 @@ export function CafeTab() {
       </Zone>
 
       {/* ---------------- 02 AI ---------------- */}
-      <Zone zone={ZONES[1]!}>
+      <Zone zone={CAFE_ZONES[1]!}>
         <ZoneGrid columns={1}>
           <OverviewCard derived={derived} preset={data.preset} state={salesState} f={f} />
           <ZoneGrid columns={2}>
@@ -154,7 +165,7 @@ export function CafeTab() {
       </Zone>
 
       {/* ---------------- 03 Menu decisions ---------------- */}
-      <Zone zone={ZONES[2]!}>
+      <Zone zone={CAFE_ZONES[2]!}>
         <ZoneGrid columns={2}>
           <MenuMatrixCard derived={derived} state={salesState} f={f} />
           <PositionCard derived={derived} state={salesState} f={f} />
@@ -179,7 +190,7 @@ export function CafeTab() {
       </Zone>
 
       {/* ---------------- 04 Sales & engagement ---------------- */}
-      <Zone zone={ZONES[3]!}>
+      <Zone zone={CAFE_ZONES[3]!}>
         <ChartCard
           title={tr('analytics.cards.salesVsEngagement')}
           state={salesState === 'ready' && (derived?.salesVsEngagement.length ?? 0) === 0 ? 'empty' : salesState}
@@ -242,13 +253,19 @@ export function CafeTab() {
       </Zone>
 
       {/* ---------------- 05 Time & language ---------------- */}
-      <Zone zone={ZONES[4]!}>
+      <Zone zone={CAFE_ZONES[4]!}>
         <CardShell
           title={tr('analytics.cards.heatmap')}
           state={engState === 'ready' && (raw?.posthog?.heatmap.length ?? 0) === 0 ? 'empty' : engState}
           emptyKey="analytics.empty.heatmap"
         >
-          <WeekHeatmap cells={raw?.posthog?.heatmap ?? []} f={f} />
+          <WeekHeatmap
+            cells={(raw?.posthog?.heatmap ?? []).map((c) => ({ dow: c.dow, hour: c.hour, value: c.views }))}
+            f={f}
+            format={(n) => `${f.num(n)} ${tr('analytics.cards.viewsSeries').toLowerCase()}`}
+            unit={tr('analytics.cards.viewsSeries')}
+            hint={tr('ws.analytics.heatmap.hint')}
+          />
         </CardShell>
         <div style={{ marginBlockStart: '0.75rem' }}>
           <ZoneGrid columns={2}>
@@ -264,36 +281,5 @@ export function CafeTab() {
         </div>
       </Zone>
     </AnalyticsFrame>
-  );
-}
-
-/** Page-level notices: coverage gaps, business-day rule, engagement floor, no PostHog. */
-function Notices({ data }: { data: ReturnType<typeof useAnalyticsData> }) {
-  const { tr } = useLocale();
-  const { derived, state } = data;
-  const lines: string[] = [];
-  if (derived && derived.coverage.missing.length > 0) {
-    lines.push(tr('analytics.notices.coverage', { missing: derived.coverage.missing.length }));
-  }
-  lines.push(tr('analytics.notices.businessDayLine', { hour: String(data.startHour).padStart(2, '0') }));
-  // Café settings unreadable → the deck is running on migration defaults; say so.
-  if (state.settingsError != null) lines.push(tr('errors.generic'));
-  if (state.engagement === 'unconfigured') lines.push(tr('analytics.notices.noPosthog'));
-  if (derived && derived.engNow.clipped && data.raw?.floor) {
-    lines.push(tr('analytics.notices.floor', { date: data.raw.floor }));
-  }
-  return (
-    <div style={{ marginBlockEnd: '0.6rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-      {lines.map((line, i) => (
-        <span key={`${i}-${line}`} style={muted}>
-          {line}
-        </span>
-      ))}
-      {state.salesError != null && (
-        <Button onClick={data.refetchAll} style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: 'var(--tp-sp-1)' }}>
-          {tr('common.retry')}
-        </Button>
-      )}
-    </div>
   );
 }

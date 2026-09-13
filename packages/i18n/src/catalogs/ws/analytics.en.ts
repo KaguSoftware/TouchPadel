@@ -13,4 +13,27 @@ export const analyticsEn = {
     building: 'Courts analytics are being built',
     buildingBody: 'Bookings, occupancy, guests and the court to cafe link will appear here. The Cafe tab is live.',
   },
+  // The info button beside a card or zone title.
+  tips: {
+    about: 'About {title}',
+  },
+  // The KPI tile's delta opens both figures.
+  kpi: {
+    compareLabel: '{label}: both figures',
+    compareValues: '{previous} before, {current} now',
+  },
+  // Every chart's table and CSV twin.
+  twin: {
+    table: 'Show as table',
+    chart: 'Show as chart',
+    csv: 'Download CSV',
+  },
+  heatmap: {
+    hint: 'Hover a cell for its value',
+    closed: 'Closed',
+    ofPeak: '{pct} of the busiest cell',
+    cells: 'cells',
+    less: 'Less',
+    more: 'More',
+  },
 } as const;
