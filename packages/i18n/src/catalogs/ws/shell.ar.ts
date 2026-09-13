@@ -95,7 +95,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     inventory: 'إدارة المخزون',
     stockValue: 'قيمة المخزون',
     floorNow: 'الصالة الآن',
-    patterns: 'الأنماط',
+    patterns: 'التحليلات',
     staffActivity: 'نشاط الموظفين',
     requests: 'الطلبات',
     marketing: 'التسويق',
