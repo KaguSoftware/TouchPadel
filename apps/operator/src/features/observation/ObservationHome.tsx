@@ -27,7 +27,7 @@ import { REQUESTS_QUERY_KEY, type StaffRequestsPage } from './requestTypes';
 
 type CardKey =
   | 'floorNow' | 'patterns' | 'bookings' | 'tills'
-  | 'reports' | 'requests' | 'marketing' | 'audit';
+  | 'staffActivity' | 'requests' | 'marketing' | 'audit';
 
 export function ObservationHomeScreen() {
   const { tr, locale } = useLocale();

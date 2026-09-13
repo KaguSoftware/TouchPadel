@@ -113,6 +113,7 @@ export const shellEn = {
     // Observation section rows.
     floorNow: 'Floor now',
     patterns: 'Patterns',
+    staffActivity: 'Staff activity',
     requests: 'Requests',
     marketing: 'Marketing',
     telegram: 'Telegram',

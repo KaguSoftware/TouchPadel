@@ -196,7 +196,7 @@ export const ownerEn = {
     title: 'Financial',
     lead: 'Every figure here is money that moved. Nothing on this screen is an estimate, and nothing here is editable — the prices that produce these figures are set further down the list.',
     cards: {
-      reports: 'Revenue, court income and cafe sales over any period, one tab each, with drill-through and CSV export.',
+      reports: 'Revenue, court income and cafe sales over any period — one tab each, with drill-through and CSV export.',
       cashDrawer: 'Every time the drawer opened and why. The physical trail behind the cash figure.',
       dayClose: 'Expected against counted, and the variance on each closed day.',
       rates: 'What an hour on a court costs, by day and time. Changes apply to future bookings only.',
@@ -215,7 +215,7 @@ export const ownerEn = {
       patterns: 'The shape over time — which hours fill, which items move, what is fading.',
       bookings: 'The booking record itself. Search it, open one, see who changed it.',
       tills: 'Open and settled tabs across the floor, and what each is carrying.',
-      reports: 'Opens on staff activity — who worked, what they authorised, where discretion was used. The other reports are one tab away.',
+      staffActivity: 'Who worked, what they authorised and where the discretion was used.',
       requests: 'Leave, shift swaps, advances and record corrections waiting on your confirmation.',
       marketing: 'Campaigns, who they reached and what they returned.',
       audit: 'The full trail. Where you go when one of the screens above raises a question.',

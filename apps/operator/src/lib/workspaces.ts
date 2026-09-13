@@ -48,7 +48,7 @@ export interface NavItem {
     | 'panel' | 'analytics' | 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite'
     // Management's Financial / Observation sections (see the header note).
     | 'menuPrices'
-    | 'floorNow' | 'patterns' | 'requests' | 'marketing' | 'telegram'
+    | 'floorNow' | 'patterns' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
     // Management's Stock section.
     | 'inventory' | 'stockValue';
   icon: IconName;
@@ -140,14 +140,6 @@ const OWNER_PRIMARY: readonly NavItem[] = [
 ];
 
 /**
- * The reports screen is shared: revenue is money, staff activity is observe,
- * and both are tabs of one page. The Financial and Observe Reports rows both
- * match on this prefix, and `sectionForPath` keeps the owner in the section
- * they opened it from instead of flipping the rail on every tab.
- */
-export const REPORTS_PREFIX = '/reports';
-
-/**
  * FINANCIAL — money in, money out, and the two places it is counted.
  *
  * Order is the money's own path: what was earned (revenue, then the two
@@ -155,14 +147,16 @@ export const REPORTS_PREFIX = '/reports';
  * it agrees at the close, then the prices that will produce tomorrow's
  * figures. The value sitting on the shelves moved to Stock.
  *
- * The reports are ONE row, not one row per report. They already share a screen
- * whose tabs move between them, so a row per tab printed the same navigation
- * twice and made this the longest rail in the workspace. Observe carries a
- * Reports row too; see REPORTS_PREFIX for how one screen sits in two sections.
+ * The money reports (revenue, courts, cafe) are ONE Reports row: they share a
+ * screen whose tabs move between them, so a row per tab printed the same
+ * navigation twice. Its '/reports' prefix claims courts and cafe; staff
+ * activity and stock value have exact rows in Observe and Stock, which win
+ * over a prefix in `sectionForPath`. Every report lives in one section only,
+ * and the tabs show only the reports of the section you are in.
  */
 const OWNER_FINANCIAL: readonly NavItem[] = [
   { to: '/financial', labelKey: 'overview', icon: 'grid', exact: true },
-  { to: '/reports/revenue', labelKey: 'reports', icon: 'chart', activePrefix: REPORTS_PREFIX },
+  { to: '/reports/revenue', labelKey: 'reports', icon: 'chart', activePrefix: '/reports' },
   { to: '/till/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
   { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
@@ -174,7 +168,7 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
  *
  * Order is by how far back you are looking: right now (the floor), the shape
  * over time (patterns), then the live records you inspect (bookings, tills,
- * the reports — landing on staff activity), then the two things that WAIT ON THE OWNER — staff
+ * staff activity), then the two things that WAIT ON THE OWNER — staff
  * requests to confirm and marketing to run — and finally the audit log, which
  * is where you go when one of the others raised a question.
  *
@@ -188,7 +182,7 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
   { to: '/analytics', labelKey: 'patterns', icon: 'trendUp' },
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
   { to: '/till/tabs', labelKey: 'tills', icon: 'receipt' },
-  { to: '/reports/staff', labelKey: 'reports', icon: 'chart', activePrefix: REPORTS_PREFIX },
+  { to: '/reports/staff', labelKey: 'staffActivity', icon: 'users' },
   { to: '/observation/requests', labelKey: 'requests', icon: 'bell' },
   { to: '/marketing', labelKey: 'marketing', icon: 'spark', activePrefix: '/marketing' },
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
@@ -338,22 +332,18 @@ export function workspaceItems(ws: Workspace): readonly NavItem[] {
  * own rail. Derived from the URL, so a deep link, a reload and a drill-through
  * all land on the rail that matches the screen.
  *
- * A path more than one section owns (the reports, see REPORTS_PREFIX) needs a
- * tie-break the URL alone cannot give:
- *   1. `current` — the section the owner is already in keeps the rail, so a
- *      tab on the reports screen never throws them into another section.
- *   2. Otherwise the most specific match: a row whose `to` IS the path beats
- *      a prefix, and a longer prefix beats a shorter one. A cold link to
- *      /reports/stock lands in Stock, /reports/staff in Observe.
+ * When rows in two sections match, the most specific one wins: a row whose
+ * `to` IS the path beats a prefix, and a longer prefix beats a shorter one.
+ * Financial's Reports row claims '/reports', but /reports/stock is Stock's and
+ * /reports/staff is Observe's.
  */
-export function sectionForPath(ws: Workspace, path: string, current?: SectionKey | null): NavSection | null {
+export function sectionForPath(ws: Workspace, path: string): NavSection | null {
   const bare = path.replace(/[?#].*$/, '').replace(/\/+$/, '') || '/';
   let best: NavSection | null = null;
   let bestScore = -1;
   for (const section of ws.sections ?? []) {
     const matches = section.items.filter((item) => isNavActive(item, path));
     if (matches.length === 0) continue;
-    if (section.key === current) return section;
     const score = Math.max(...matches.map((item) => (item.to === bare ? Number.MAX_SAFE_INTEGER : (item.activePrefix ?? item.to).length)));
     if (score > bestScore) {
       best = section;

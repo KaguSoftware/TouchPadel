@@ -13,6 +13,13 @@ import { LocaleProvider } from '../../lib/i18n';
 
 const navigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
+// The report tabs hide what the role cannot open.
+vi.mock('../../lib/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useAuth: () => ({ staff: { role: 'owner' } }),
+}));
+// Inside Management, so the tabs are Financial's.
+vi.mock('../../routes/__root', () => ({ useWorkspace: () => ({ active: 'owner' }) }));
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
 vi.mock('../../lib/queries', () => ({ QK: { courts: ['courts'] }, fetchActiveCourts: vi.fn() }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
@@ -53,6 +60,17 @@ beforeEach(() => {
 });
 
 describe('CourtsReportScreen — four states', () => {
+  it("offers only Financial's reports as tabs, the open one selected", async () => {
+    rpc.mockReturnValue(new Promise(() => {}));
+    renderReport();
+    const tabs = within(screen.getByRole('tablist', { name: 'Reports' })).getAllByRole('tab');
+    // Staff activity is Observe's and stock value is Stock's: neither is duplicated here.
+    expect(tabs.map((t) => t.textContent)).toEqual(['Revenue', 'Courts', 'Cafe']);
+    expect(screen.getByRole('tab', { name: 'Courts' }).getAttribute('aria-selected')).toBe('true');
+    await userEvent.click(screen.getByRole('tab', { name: 'Cafe' }));
+    expect(navigate).toHaveBeenCalledWith({ to: '/reports/cafe' });
+  });
+
   it('loading: header and controls render while the table waits', () => {
     rpc.mockReturnValue(new Promise(() => {}));
     renderReport();
