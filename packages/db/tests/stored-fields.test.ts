@@ -107,6 +107,8 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     notes: { category: 'User content', why: 'free text taken at the desk about this booking', onDelete: 'scrub' },
     device_id: { category: 'Device or other IDs', why: 'which till or phone made the booking; replay protection', onDelete: 'scrub' },
     idempotency_key: n, client_ref: n, created_at: n, series_id: n,
+    // players (0092) is a group size, 1..8 or unknown; it counts people and names none.
+    players: n,
   },
   reservation_series: {
     id: n, court_id: n, pattern: n, weekdays: n, start_time: n, duration_min: n,
@@ -115,6 +117,7 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     guest_phone: { category: 'Phone number', why: 'the desk calls the holder when a week is cancelled', onDelete: 'scrub' },
     notes: { category: 'User content', why: 'free text about the standing booking', onDelete: 'scrub' },
     created_by_staff_id: n, idempotency_key: n, created_at: n, cancelled_at: n, cancelled_reason: n,
+    players: n,
   },
   guest_sessions: {
     id: n, table_id: n,

@@ -177,6 +177,26 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Record<string, unknown>
       }
+      analytics_courts_cafe: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      analytics_courts_demand: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      analytics_courts_endings: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      analytics_courts_guests: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      analytics_courts_summary: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
       analytics_daily_sales: {
         Args: { p_from: string; p_to: string }
         Returns: Json
@@ -192,6 +212,15 @@ export type Database = {
         Returns: Json
       }
       analytics_menu_snapshot: { Args: never; Returns: Json }
+      analytics_open_cells: {
+        Args: { p_ts_from: string; p_ts_to: string; p_tz: string }
+        Returns: {
+          dow: number
+          hour: number
+          open_days: number
+          open_minutes: number
+        }[]
+      }
       analytics_price_bands: {
         Args: { p_basis?: string; p_from: string; p_to: string }
         Returns: Json
@@ -805,6 +834,7 @@ export type Database = {
           p_locale: string
           p_range_from: string
           p_range_to: string
+          p_scope?: string
         }
         Returns: string
       }
@@ -814,6 +844,7 @@ export type Database = {
           p_patterns: Json
           p_range_from: string
           p_range_to: string
+          p_scope?: string
         }
         Returns: string
       }
@@ -1432,6 +1463,7 @@ export type Database = {
           locale: string
           range_from: string
           range_to: string
+          scope: string
         }
         Insert: {
           compare_basis?: string
@@ -1442,6 +1474,7 @@ export type Database = {
           locale?: string
           range_from: string
           range_to: string
+          scope?: string
         }
         Update: {
           compare_basis?: string
@@ -1452,6 +1485,7 @@ export type Database = {
           locale?: string
           range_from?: string
           range_to?: string
+          scope?: string
         }
         Relationships: [
           {
@@ -1472,6 +1506,7 @@ export type Database = {
           patterns: Json
           range_from: string
           range_to: string
+          scope: string
         }
         Insert: {
           created_at?: string
@@ -1481,6 +1516,7 @@ export type Database = {
           patterns: Json
           range_from: string
           range_to: string
+          scope?: string
         }
         Update: {
           created_at?: string
@@ -1490,6 +1526,7 @@ export type Database = {
           patterns?: Json
           range_from?: string
           range_to?: string
+          scope?: string
         }
         Relationships: [
           {
