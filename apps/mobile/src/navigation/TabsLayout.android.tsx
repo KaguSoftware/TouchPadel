@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -167,7 +167,20 @@ function AndroidTabs() {
                 />
               )
             : undefined,
-        tabBarItemStyle: { paddingTop: 2 },
+        // `alignSelf: 'flex-start'` (not a fixed height): items stretch to fill their
+        // row by default, so the pressable's background/ripple box reached down through
+        // the `paddingBottom: insets.bottom` strip below and visually merged with the
+        // system nav bar. Sizing to content instead keeps it clear of that strip without
+        // fighting the bar's own height math.
+        tabBarItemStyle: { paddingTop: 2, alignSelf: 'flex-start' },
+        // expo-router's BottomTabItem defaults to `android_ripple: { borderless: true }`,
+        // an unbounded circular ripple that ignores the tab item's own box — on this
+        // absolutely-positioned edge-to-edge bar it painted past the bar into the
+        // system nav bar below. A bounded, non-borderless ripple keeps Android's own
+        // clipping confined to the pressable's rect instead of a stray circle.
+        tabBarButton: (props) => (
+          <Pressable {...props} android_ripple={{ borderless: false, color: colors.line }} />
+        ),
         tabBarHideOnKeyboard: true,
         sceneStyle: { backgroundColor: colors.bg },
       }}
