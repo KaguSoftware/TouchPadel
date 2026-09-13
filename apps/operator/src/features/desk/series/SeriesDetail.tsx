@@ -57,7 +57,7 @@ export function SeriesDetailScreen() {
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['series', id] });
     void queryClient.invalidateQueries({ queryKey: ['reservations'] });
-    void queryClient.invalidateQueries({ queryKey: ['reservationsWeek'] });
+    void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
   }
 
   async function confirm(code: ReasonCode, note: string) {

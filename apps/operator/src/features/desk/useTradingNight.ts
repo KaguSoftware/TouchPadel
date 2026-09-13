@@ -94,7 +94,7 @@ export function useTradingNight(date: string): TradingNight {
     topic: 'courts',
     isPrivate: true,
     events: ['slot_changed'],
-    invalidateKeys: [['reservations'], ['reservationsWeek'], ['reservation']],
+    invalidateKeys: [['reservations'], ['reservationsMonth'], ['reservation']],
   });
 
   return {

@@ -112,7 +112,7 @@ export function CourtBlockScreen() {
       });
       setDone(true);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      void queryClient.invalidateQueries({ queryKey: ['reservationsWeek'] });
+      void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     } catch (e) {
       if (e instanceof AppRpcError && e.code === 'SLOT_TAKEN') setConflict(true);
       else setError(e);

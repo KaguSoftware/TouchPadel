@@ -212,7 +212,7 @@ export function RecurringSeriesCreateScreen() {
       setResolutions({});
       setErrorScope('none');
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      void queryClient.invalidateQueries({ queryKey: ['reservationsWeek'] });
+      void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     } catch (e) {
       setError(e);
     } finally {
