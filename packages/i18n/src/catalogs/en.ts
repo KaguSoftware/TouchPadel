@@ -654,6 +654,10 @@ export const en = {
     emailLocked: "Email {email} can't be changed here — it requires re-verification through support.",
     saveChanges: 'Save changes',
     updated: 'Profile updated',
+    // Edit profile > Save, once the 6-digit code for a CHANGED number comes
+    // back (app/verify-otp.tsx, mode `link`, from=edit). Distinct from
+    // auth.phoneVerified, which confirms a number the guest already had.
+    phoneUpdated: 'Phone number updated',
     completeProfileNudge: 'Add your phone number so the desk can reach you about your bookings.',
     // A phone sign-up (dormant OTP scaffold) has a verified phone but no name yet.
     completeNameNudge: 'Add your name so the desk knows who booked.',

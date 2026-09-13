@@ -622,6 +622,7 @@ export const ar: Messages = {
     emailLocked: 'البريد {email} لا يمكن تغييره هنا — يتطلب إعادة تحقق عبر الدعم.',
     saveChanges: 'حفظ التغييرات',
     updated: 'تم تحديث الملف',
+    phoneUpdated: 'تم تحديث رقم الهاتف',
     completeProfileNudge: 'أضف رقم هاتفك ليتمكن موظفو الاستقبال من التواصل معك بشأن حجوزاتك.',
     completeNameNudge: 'أضف اسمك ليعرف موظفو الاستقبال صاحب الحجز.',
     currentPassword: 'كلمة المرور الحالية',

@@ -303,3 +303,42 @@ export function validatePhone(iso: string, national: string): PhoneValidation {
   if (digits.length < 4 || dial.length + digits.length > 15) return 'PHONE_INVALID';
   return null;
 }
+
+/**
+ * Does saving this phone number need a 6-digit code first?
+ *
+ * Changing the number the desk dials is a contact-detail change, and until now
+ * Save wrote whatever was typed. With phone OTP switched on, a CHANGED number
+ * has to prove itself: the code goes to the new number, and `profiles.phone`
+ * is only rewritten once it comes back (app/verify-otp.tsx, mode `link`).
+ *
+ * Three conditions, all required:
+ *
+ *  - `enabled` — EXPO_PUBLIC_PHONE_OTP is on. While the scaffold is dormant
+ *    there is no vendor to deliver anything, so demanding a code would simply
+ *    make the phone field unsaveable (docs/client/phone-otp-activation.md).
+ *  - the number actually CHANGED. Editing only the name, or re-saving the same
+ *    number written differently, must not spend a message — the comparison is
+ *    on composed E.164, so `00964…` and `+964…` are the same number.
+ *  - the new number is an Iraqi mobile. The SMS gate (0069) refuses every other
+ *    prefix, so a code could never arrive; those fall through to a direct save
+ *    and are judged by `validatePhone` alone, exactly as before.
+ *
+ * Pure and RN-free so the rule is unit-tested rather than inferred from a
+ * screen. `next`/`current` are stored E.164 (or anything `parsePhone` accepts).
+ */
+export function phoneChangeNeedsCode(args: {
+  enabled: boolean;
+  current: string | null | undefined;
+  next: string;
+}): boolean {
+  if (!args.enabled) return false;
+  const cur = parsePhone(args.current);
+  const nxt = parsePhone(args.next);
+  const currentE164 = composePhone(cur.iso, cur.national);
+  const nextE164 = composePhone(nxt.iso, nxt.national);
+  if (!nextE164 || nextE164 === currentE164) return false;
+  // Iraqi mobile: '+964' then 7 and nine more digits. Kept as a local test
+  // rather than importing @touch/core so this module stays dependency-free.
+  return /^\+9647\d{9}$/.test(nextE164);
+}
