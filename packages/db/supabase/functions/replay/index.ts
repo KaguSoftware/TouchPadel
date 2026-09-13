@@ -52,6 +52,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_guest_phone: p.guestPhone ?? null,
       p_guest_id: p.guestId ?? null,
       p_notes: p.notes ?? null,
+      p_players: p.players ?? null,
       p_client_ref: p.clientRef ?? null,
       ...common(c),
     }),

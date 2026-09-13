@@ -185,6 +185,8 @@ export const reservationCreatePayloadSchema = z
     guestName: z.string().min(1).max(200).optional(),
     guestPhone: z.string().min(3).max(30).optional(),
     notes: z.string().max(1000).optional(),
+    /** Group size (0090): optional, 1..8; absent = unknown, never a guessed default. */
+    players: z.number().int().min(1).max(8).optional(),
     // NOTE: no rate_rule_id / price_iqd — the server prices the slot and stamps provenance.
   })
   .strict()

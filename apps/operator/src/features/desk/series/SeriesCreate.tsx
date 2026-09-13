@@ -47,6 +47,16 @@ function seriesIdempotencyKey(): string {
 
 type Phase = 'ready' | 'checking' | 'conflictsFound' | 'busy' | 'error';
 
+/**
+ * Group size (0090), same control as the create dialog: nothing preselected,
+ * 2 and 4 one click away, 'other' opens the full 1..8 list. Sent on
+ * create_series ONLY — never through seriesRpcArgs, which preview_series (no
+ * such parameter) and draftKey() share.
+ */
+type PlayersPick = '' | '2' | '4' | 'other';
+type PlayersCount = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
+const PLAYER_COUNTS: readonly PlayersCount[] = ['1', '2', '3', '4', '5', '6', '7', '8'];
+
 /** How much of the form the operator has asked about, and may therefore be told about. */
 type ErrorScope = 'none' | 'pattern' | 'all';
 
@@ -82,6 +92,10 @@ export function RecurringSeriesCreateScreen() {
   const [walkInName, setWalkInName] = useState('');
   const [walkInPhone, setWalkInPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [playersPick, setPlayersPick] = useState<PlayersPick>('');
+  const [playersOther, setPlayersOther] = useState<PlayersCount | ''>('');
+  const players: number | null =
+    playersPick === '2' ? 2 : playersPick === '4' ? 4 : playersPick === 'other' && playersOther ? Number(playersOther) : null;
   /*
    * Whether each box below holds something the operator typed into it. While
    * one does not, the customer search mirrors every keystroke into it: a search
@@ -203,6 +217,7 @@ export function RecurringSeriesCreateScreen() {
         p_guest_name: (walkInName.trim() || customer?.name) ?? null,
         p_guest_phone: (walkInPhone.trim() || customer?.phone) ?? null,
         p_notes: notes.trim() || null,
+        p_players: players,
         p_resolutions: resolutionsForRpc(occurrences, resolutions),
         p_idempotency_key: seriesIdempotencyKey(),
         p_device_id: deviceId(),
@@ -314,6 +329,31 @@ export function RecurringSeriesCreateScreen() {
                   />
                 </Field>
               </div>
+              {/* group: a <label> around a set of buttons forwards the click to the first of them — see Field. */}
+              <Field label={tr('op.desk.players')} optional group>
+                <div role="group" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+                  <SegmentedControl<PlayersPick>
+                    value={playersPick}
+                    onChange={setPlayersPick}
+                    options={[
+                      { value: '2', label: formatNumber(2, locale), disabled: busy },
+                      { value: '4', label: formatNumber(4, locale), disabled: busy },
+                      { value: 'other', label: tr('op.desk.playersOther'), disabled: busy },
+                    ]}
+                  />
+                  {playersPick === 'other' && (
+                    <Select<PlayersCount>
+                      value={playersOther}
+                      disabled={busy}
+                      aria-label={tr('op.desk.playersOther')}
+                      placeholder={tr('op.desk.playersOther')}
+                      onChange={setPlayersOther}
+                      options={PLAYER_COUNTS.map((n) => ({ value: n, label: formatNumber(Number(n), locale) }))}
+                      style={{ inlineSize: 'auto', minInlineSize: '6rem' }}
+                    />
+                  )}
+                </div>
+              </Field>
               <Field label={tr('ws.courtDesk.series.notes')} style={{ marginBlockEnd: 0 }}>
                 <input style={inputStyle} value={notes} disabled={busy} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
               </Field>

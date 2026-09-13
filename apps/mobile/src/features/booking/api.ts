@@ -5,7 +5,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { parseHoldResult, type BookingRow, type HoldResult } from './logic';
+import { isPlayers, parseHoldResult, type BookingRow, type HoldResult } from './logic';
 
 type Client = SupabaseClient<Database>;
 
@@ -28,10 +28,18 @@ export async function holdSlot(client: Client, args: HoldSlotArgs): Promise<Hold
   return parseHoldResult(data);
 }
 
-/** app.confirm_booking (0008/0021) — hold -> confirmed booking. */
-export async function confirmBooking(client: Client, holdId: string) {
+/**
+ * app.confirm_booking (0008/0021/0090) — hold -> confirmed booking.
+ *
+ * `players` is the optional group size. The key is OMITTED when unset rather
+ * than sent as null, so a build that never asks the question makes a request
+ * byte-identical to today's, and a new app against a hosted schema that has
+ * not taken 0090 yet keeps confirming.
+ */
+export async function confirmBooking(client: Client, holdId: string, players?: number) {
   const { data, error } = await client.schema('app').rpc('confirm_booking', {
     p_hold_id: holdId,
+    ...(isPlayers(players) ? { p_players: players } : {}),
   });
   if (error) throw error;
   return data as { duplicate?: boolean; reservation_id?: string; price_iqd?: number | null };
