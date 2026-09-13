@@ -290,7 +290,11 @@ export function groupByStart(slots: readonly Slot[]): GridCell[] {
  */
 export function venuePhoneOf(settings: unknown): string | null {
   const p = (settings as { phone?: unknown } | null | undefined)?.phone;
-  return typeof p === 'string' && p.trim().length > 0 ? p : null;
+  if (typeof p !== 'string' || p.trim().length === 0) return null;
+  // Venue numbers are seeded with the `00` international access prefix;
+  // normalize to `+` so display and dialing both use E.164-ish form.
+  const stripped = p.replace(/[^\d+]/g, '');
+  return stripped.startsWith('00') ? `+${stripped.slice(2)}` : stripped;
 }
 
 // ── Merged capacity grid (design 2026-08-31) ─────────────────────────────────

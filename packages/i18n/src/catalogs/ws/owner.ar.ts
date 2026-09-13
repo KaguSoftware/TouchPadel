@@ -165,6 +165,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
     rotateNote: 'تدوير الرمز يُبطل البطاقة المطبوعة في الصالة فورًا. أعد الطباعة واستبدل البطاقة قبل الخدمة التالية.',
     refusedRotate: 'تدوير رموز الطاولات',
     printOne: 'طباعة هذه البطاقة',
+    destination: 'البطاقات المطبوعة تفتح',
     printAll: 'طباعة كل البطاقات',
     artworkTitle: 'تصميم الطباعة',
     tablesTitle: 'الطاولات',

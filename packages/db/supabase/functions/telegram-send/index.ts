@@ -13,6 +13,10 @@
  *                         reply_markup (the callback needs both for editMessageText)
  *        429           -> stay 'queued', scheduled_for = now + retry_after
  *        network / 5xx -> stay 'queued', last_error, backoff min(5s * 2^attempts, 5min)
+ *        400 + migrate_to_chat_id -> the group became a supergroup: follow it once
+ *                         (row chat_id, and cafe_settings.telegram_chat_id when it still
+ *                         holds the old id, so taps keep passing 0039's chat check),
+ *                         then resend in the same pass
  *        other 4xx     -> 'failed' (bad token / chat not found / parse error: retrying
  *                         cannot help; the owner re-queues via app.retry_telegram_outbox)
  *        attempts >= 8 -> 'failed' whatever the error
@@ -25,6 +29,7 @@
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
 import { json } from '../_shared/http.ts';
 import { keyboardByKind, renderByKind, type Lang } from '../_shared/telegram.ts';
+import { migrateToChatId } from '../_shared/telegramDiagnose.ts';
 
 const CLAIM_LIMIT = 50;
 const RETRY_CAP = 8; // mirrors attempts < 8 in app.claim_due_telegram
@@ -45,11 +50,12 @@ interface TgResponse {
   result?: { message_id?: number };
   error_code?: number;
   description?: string;
-  parameters?: { retry_after?: number };
+  parameters?: { retry_after?: number; migrate_to_chat_id?: number };
 }
 
 type SendOutcome =
   | { kind: 'ok'; messageId: number | null }
+  | { kind: 'migrated'; newChatId: string; description: string }
   | { kind: 'rate_limited'; retryAfterSec: number; description: string }
   | { kind: 'transient'; description: string }
   | { kind: 'permanent'; description: string };
@@ -76,6 +82,8 @@ async function sendMessage(token: string, body: Record<string, unknown>): Promis
   }
   const code = data?.error_code ?? res.status;
   const description = `HTTP ${code}: ${data?.description ?? res.statusText ?? 'unknown'}`;
+  const newChatId = migrateToChatId(data);
+  if (newChatId) return { kind: 'migrated', newChatId, description };
   if (code === 429) {
     return { kind: 'rate_limited', retryAfterSec: data?.parameters?.retry_after ?? 5, description };
   }
@@ -154,7 +162,25 @@ Deno.serve(async (req) => {
       };
       if (replyMarkup) body.reply_markup = replyMarkup;
 
-      const outcome = await sendMessage(token, body);
+      let outcome = await sendMessage(token, body);
+      if (outcome.kind === 'migrated') {
+        const newChatId = outcome.newChatId;
+        console.warn(`outbox ${row.id}: chat ${row.chat_id} migrated to ${newChatId}`);
+        // Only move the setting if nobody has changed it since this row was enqueued.
+        const { data: current } = await db.from('cafe_settings').select('value').eq('key', 'telegram_chat_id').maybeSingle();
+        if (current?.value === row.chat_id) {
+          const { error: settingErr } = await db
+            .from('cafe_settings')
+            .update({ value: newChatId, updated_at: new Date().toISOString() })
+            .eq('key', 'telegram_chat_id');
+          if (settingErr) console.error('telegram_chat_id follow failed:', settingErr.message);
+        }
+        await db.from('telegram_outbox').update({ chat_id: newChatId }).eq('id', row.id);
+        body.chat_id = newChatId;
+        outcome = await sendMessage(token, body);
+        // A second migration answer cannot be followed again in this pass.
+        if (outcome.kind === 'migrated') outcome = { kind: 'permanent', description: outcome.description };
+      }
       const exhausted = row.attempts >= RETRY_CAP; // attempts already bumped by the claim
       let patch: Record<string, unknown>;
 

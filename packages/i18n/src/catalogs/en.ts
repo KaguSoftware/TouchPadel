@@ -654,6 +654,10 @@ export const en = {
     emailLocked: "Email {email} can't be changed here — it requires re-verification through support.",
     saveChanges: 'Save changes',
     updated: 'Profile updated',
+    // Edit profile > Save, once the 6-digit code for a CHANGED number comes
+    // back (app/verify-otp.tsx, mode `link`, from=edit). Distinct from
+    // auth.phoneVerified, which confirms a number the guest already had.
+    phoneUpdated: 'Phone number updated',
     completeProfileNudge: 'Add your phone number so the desk can reach you about your bookings.',
     // A phone sign-up (dormant OTP scaffold) has a verified phone but no name yet.
     completeNameNudge: 'Add your name so the desk knows who booked.',
@@ -1545,10 +1549,10 @@ export const en = {
       howToFind: 'How to find it',
       steps: {
         1: 'Open BotFather in Telegram and create a bot (or use the existing one).',
-        2: 'Add the bot to the staff group and make it an admin.',
-        3: 'Send any message in the group.',
-        4: 'Open https://api.telegram.org/bot<TOKEN>/getUpdates in a browser.',
-        5: 'Copy the negative "chat" → "id" value and paste it above.',
+        2: 'Add the bot to the staff group. It does not need to be an admin.',
+        3: 'The group appears under Detected groups on this page within a few seconds.',
+        4: 'Press Use this group, then Send test message.',
+        5: 'Nothing appears? Run Diagnose, re-register the webhook, then remove the bot from the group and add it again.',
       },
       lang: 'Message language',
       langAr: 'Arabic',

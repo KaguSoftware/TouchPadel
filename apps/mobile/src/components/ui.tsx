@@ -663,9 +663,15 @@ export function SegmentedControl<T extends string | number>({
    */
   pinOrder?: boolean;
 }) {
-  const { colors, fonts, tracking } = useTheme();
+  const { colors, appearance, fonts, tracking } = useTheme();
   const { dir } = useLocale();
   const reduceMotion = useReduceMotion();
+  // Android has no glass card behind this control (iOS's BlurView + translucent
+  // tint give the track's own fill enough edge definition on its own); in light
+  // mode `seg` (#E4E9F1) sits within ~1.1:1 of the opaque card behind it and all
+  // but disappears. A border pulls it back into view without faking iOS's glass.
+  const trackBorder =
+    Platform.OS === 'android' && appearance === 'light' ? colors.line2 : undefined;
   // A pinned track lays out LTR whatever the app does, so its measured frames
   // read left-to-right and the thumb must not fold them back.
   const rtl = dir === 'rtl' && !pinOrder;
@@ -746,6 +752,7 @@ export function SegmentedControl<T extends string | number>({
         backgroundColor: colors.seg,
         borderRadius: fit ? 10 : radius.cell,
         padding: 3,
+        ...(trackBorder ? { borderWidth: 1, borderColor: trackBorder } : null),
       }}
     >
       {thumb ? (

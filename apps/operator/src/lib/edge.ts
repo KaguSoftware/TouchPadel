@@ -12,7 +12,8 @@ export type EdgeFunctionName =
   | 'analytics-posthog'
   | 'analytics-insights'
   | 'staff-admin'
-  | 'desk-customer-create';
+  | 'desk-customer-create'
+  | 'telegram-diagnose';
 
 export type EdgeErrorCode =
   'NOT_CONFIGURED' | 'FORBIDDEN' | 'AUTH_REQUIRED' | 'UPSTREAM' | 'RATE_LIMITED' | 'UNKNOWN';

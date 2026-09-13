@@ -1418,6 +1418,61 @@ commit on top of this work.
 duplicate probe file; `check:rpc-registry` green; workflows parse; eslint on the script green.
 Not runnable here: the db vitest suite, `check:authz/locks/safeupdate/invariants` (Docker).
 
+## Day 20 (2026-09-13) — Telegram had never delivered: an e2e run overwrote the group id on hosted
+
+**Symptom:** no staff-group notification ever arrived; every outbox row since 09-05 failed with
+`HTTP 400: Bad Request: chat not found`.
+
+**Root cause (proven from hosted, read-only):** `cafe_settings.telegram_chat_id` was
+`-1001234567890` — the operator field's placeholder. `audit_log` `settings.cafe`, **2026-09-03
+08:58:06, actor `Dev Owner`**: `-5203171937` → `-1001234567890`, then `telegram_enabled` → false
+0.26 s later. That is `e2e/tests/operator-cafe-admin.spec.ts` case (d) verbatim. It reached hosted
+because `e2e/playwright.config.ts` had `reuseExistingServer: true` on the operator (and, in dev
+mode, the web) server: a `pnpm --filter @touch/operator dev` already on :5174 reads
+`apps/operator/.env` (**hosted**), and `localEnv` only applies to servers Playwright starts. Two
+runs (08:57, 09:13) also left on hosted: bookings `caf08374…` and `d1a39250…` (confirmed, for
+09-04, now past) and closed date `2027-01-01` in opening hours; a sold-out toggle netted out.
+**Not cleaned up — owner decision.** The single outbox row that ever sent (a waiter call queued
+08-30 to the real group, delivered 09-05 22:22 once the 403 fix landed) got tapped on 09-06 and
+every tap was refused `wrong_chat` — the setting no longer matched the group.
+
+**Built:**
+
+- `e2e/playwright.config.ts`: `reuseExistingServer: false` for both servers (a running dev
+  server now fails loudly instead of routing the suite to hosted).
+- **`telegram-diagnose`** edge function (owner, `verify_jwt = true`): `diagnose` runs token → getMe →
+  saved settings (flags the placeholder) → getChat (flags `chat not found` and supergroup
+  `migrate_to_chat_id`) → getChatMember → getWebhookInfo → outbox (stale snapshot vs failing) →
+  allowlist; `register_webhook` sets the webhook with the secret and `allowed_updates`
+  `[callback_query, my_chat_member]`. Pure logic in `_shared/telegramDiagnose.ts`.
+- **Migration 0091**: `app.retry_telegram_outbox` re-targets the row at the CURRENT chat id (it
+  re-sent to the enqueue snapshot, so fixing the setting never fixed Retry); new `telegram_chats`
+  (manager|owner read, service-role write).
+- `telegram-callback` records `my_chat_member` into `telegram_chats` and follows a
+  `migrate_to_chat_id` message; `telegram-send` follows a migration answer once (row + setting)
+  and resends.
+- Operator Settings → Telegram: **Detected groups** (pick the group; replaces the getUpdates
+  steps, which 409 once a webhook exists) and **Diagnose** (per-check sentences EN/AR, "Use the
+  new ID", "Re-register webhook"); outbox list shows each row's `chat_id`.
+
+**Shipped:** commits `6c60004` + `7cfe27f` (0091 lock/statement timeouts — the migration gate
+caught it) pushed to `two` and fast-forwarded onto `main`; tag **`operator-v0.2.10`** pushed for
+the desktop release. **Hosted NOT yet migrated:** the harness refused `supabase db push` as a
+production deploy. The `main` push queued *DB migrate* (0090 push_immediate_delivery + 0091) and
+*Functions deploy* behind the `staging` approval — approve DB migrate FIRST, then Functions (the
+new callback writes `telegram_chats`, which 0091 creates). Until then the new Telegram screens in
+0.2.10 error on the owner's Telegram page only.
+
+**To make it live (owner):** approve the two workflows (or run `supabase db push --linked` and
+deploy `telegram-diagnose telegram-send telegram-callback` locally). Then Settings →
+Telegram → Diagnose → Re-register webhook → remove and re-add `@touchcafe_orders_bot` in *Touch
+Cafe — Orders* → Use this group → Send test. The allowlist still maps only Parsa → `Dev Owner`.
+
+**Checks:** turbo typecheck + lint green; tests green except the known Windows-only
+`sms-provider` path failures; new: 27 pure diagnose tests, 7 operator tests, a Docker-bound retry
+case in `telegram.test.ts` and `telegram_chats` rows in the RLS matrix (**not run — no Docker**).
+Edge functions: transpile-parse clean; **`deno check` not run (no deno here).**
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,

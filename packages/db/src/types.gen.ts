@@ -2587,6 +2587,7 @@ export type Database = {
       notification_outbox: {
         Row: {
           attempts: number
+          claimed_at: string | null
           created_at: string
           id: number
           kind: string
@@ -2598,6 +2599,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          claimed_at?: string | null
           created_at?: string
           id?: never
           kind: string
@@ -2609,6 +2611,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          claimed_at?: string | null
           created_at?: string
           id?: never
           kind?: string
@@ -4143,6 +4146,30 @@ export type Database = {
           tg_first_name?: string
           tg_user_id?: number
           tg_username?: string | null
+        }
+        Relationships: []
+      }
+      telegram_chats: {
+        Row: {
+          bot_status: string
+          chat_id: string
+          title: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          bot_status: string
+          chat_id: string
+          title?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          bot_status?: string
+          chat_id?: string
+          title?: string | null
+          type?: string
+          updated_at?: string
         }
         Relationships: []
       }

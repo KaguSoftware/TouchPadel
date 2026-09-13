@@ -11,6 +11,7 @@ import {
   parsePhone,
   sanitizeNationalInput,
   stripTrunk,
+  phoneChangeNeedsCode,
   validatePhone,
 } from '../phone';
 
@@ -258,5 +259,36 @@ describe('input helpers', () => {
 
   it('is display only — never changes what gets stored', () => {
     expect(composePhone('TR', formatNational('TR', '5551234567'))).toBe('+905551234567');
+  });
+});
+
+describe('phoneChangeNeedsCode', () => {
+  const IQ = '+9647701234567';
+  const OTHER = '+9647509876543';
+
+  it('never asks for a code while the OTP scaffold is dormant', () => {
+    expect(phoneChangeNeedsCode({ enabled: false, current: IQ, next: OTHER })).toBe(false);
+  });
+
+  it('asks when an Iraqi mobile actually changes', () => {
+    expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: OTHER })).toBe(true);
+    expect(phoneChangeNeedsCode({ enabled: true, current: null, next: OTHER })).toBe(true);
+  });
+
+  it('spends nothing when the number is unchanged, however it was written', () => {
+    for (const current of [IQ, '009647701234567', '0770 123 4567']) {
+      expect(phoneChangeNeedsCode({ enabled: true, current, next: IQ })).toBe(false);
+    }
+  });
+
+  it('skips the code for a number the SMS gate could never deliver to', () => {
+    // Non-Iraqi, and an Iraqi landline: allowed_prefixes / the mobile rule
+    // refuse both, so demanding a code would make the field unsaveable.
+    expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: '+905551234567' })).toBe(false);
+    expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: '+9641234567' })).toBe(false);
+  });
+
+  it('treats an empty new number as nothing to verify (validatePhone rejects it)', () => {
+    expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: '' })).toBe(false);
   });
 });

@@ -107,11 +107,7 @@ describe('the recorded sequence: flip under the shade, then dismiss', () => {
 
   it('shows the new page colour for the whole time the shade is down', () => {
     const seen = replay();
-    expect(seen.slice(0, 3)).toEqual([
-      'new-page-colour',
-      'new-page-colour',
-      'new-page-colour',
-    ]);
+    expect(seen.slice(0, 3)).toEqual(['new-page-colour', 'new-page-colour', 'new-page-colour']);
   });
 
   it('keeps the cover up until a frame has actually presented', () => {
@@ -149,9 +145,11 @@ describe('the call site (lost once, in the merge afe7f57 of 2026-09-09)', () => 
       'frameRepaints({ repaintPending: repaint.current, appState: appStateRef.current })',
     );
     expect(call).toBeGreaterThan(-1);
-    // After `endFrameEXP()` of the COURT surface (the first one in the loop),
-    // not before: the frame has to have been issued for the flag to mean anything.
-    const present = court3d.indexOf('main.gl.endFrameEXP();');
+    // After the COURT surface's frame has been presented (the first present in
+    // the loop), not before: the frame has to have gone out for the flag to mean
+    // anything — and to a live context, which `presentFrame` is what establishes
+    // (surfaceLiveness.ts).
+    const present = court3d.indexOf('if (!presentFrame(main.gl)) {');
     expect(present).toBeGreaterThan(-1);
     expect(present).toBeLessThan(call);
     // And it clears both halves: the ref the loop reads and the state the cover

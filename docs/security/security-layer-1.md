@@ -140,6 +140,8 @@ Decide them first; the boxes then become ordinary tasks.
       ⚠ **GitHub silently ignores an owner it cannot resolve**, so a file that looks like a control can
       enforce nothing. The team must exist AND "Require review from Code Owners" must be on the `main`
       ruleset. Confirm with a test PR. (SEC-01 · SEC)
+      ⚠ *2026-09-13* **It does not route the workflows that deploy.** `operator-release.yml` (ships to every till),
+      `functions-deploy.yml` and `db-ops.yml` are not listed — add them. See `security-audit-2026-09-13.md` H1.
 - [ ] **Re-verify required reviewers on the `staging` GitHub Environment.** They were enabled on 2026-08-27,
       before the secrets went in (`HANDOFF.md:542-546`) — the correct order. But this is a GitHub UI setting
       with **no repo artifact**: it can be edited or deleted at any time leaving no git trace, and the job it
@@ -251,11 +253,15 @@ have to make on every pull request forever.
       precisely because it leaves no migration and no audit trail.
       ⚠ Missing secrets produce a **warning annotation**, not a silent pass: a drift job that never runs is
       the original failure with extra steps. (SEC-03 · DEV)
-- [x] Data-only dump of the ledger tables + `db diff` in the job log — DONE — DEV, 2026-09-04.
+- [~] Data-only dump of the ledger tables + `db diff` in the job log — DONE — DEV, 2026-09-04.
       Both added to `db-migrate.yml`. The diff is printed into the **job summary**, where the person
       approving the environment gate actually looks. The ledger dump (`audit_log`, `stock_ledger`,
       `payments` — the three with UPDATE/DELETE revoked) is retained 30 days: with no PITR rehearsal and no
       staging, it is the only "before" that will exist. It is evidence, not a restore path. (SEC-02 · DEV)
+      ⚠ *2026-09-13* **Reopened — the dump is not of those three tables.** `db-migrate.yml:153-162` dumps
+      `--schema app`, and all three live in `public`. What it captures is `app.secrets` (the table-token secret's
+      fallback store), `sms_sends`, `pin_attempts` and `rpc_replays`, in a 30-day artifact any repo reader can
+      download. Delete the existing artifacts; dump the public ledger tables. The diff half stands. (M7)
 ### Database invariants
 - [x] **Every view is `security_invoker = on`** — DONE — DEV, **VERIFIED 2026-09-07**.
       First execution: **12 views · 8 `security_invoker=on` · 4 owner-rights**, exactly the four named
@@ -311,6 +317,10 @@ have to make on every pull request forever.
       `sandbox: true` is as dangerous as an inverted one, and Electron's defaults have changed across
       majors. Also asserts `will-navigate`, `setWindowOpenHandler` and `will-attach-webview` stay wired.
       Negative-tested. (SEC-30 · DEV)
+      ⚠ *2026-09-13* **A missing REQUIRED setting is only caught if the word vanishes from every file.** The
+      patterns are matched against the joined text of all main-process sources, so removing the settings from the
+      main window still passes while they appear in `print-receipt.ts` or `window-security.ts` (reproduced on a
+      copy). A flipped value is caught. Scope the check to the main window. (L23)
 - [x] **Web security-header e2e assertions** — DONE — **RUN FOR THE FIRST TIME 2026-09-07, 6/6 green.**
       It earned its keep immediately: **the first run is what found the headers above were not shipping
       at all.** Four other things had to be fixed before it could pass, none of which was a security
@@ -432,6 +442,8 @@ The baseline each of the three clients needs before feature work stacks on top.
       3. The e2e that asserts headers on a live response had never executed — no container runtime.
       The CSP nonce was genuinely fine throughout; it comes from `proxy.ts`, which is why the
       2026-09-04 spot-check of `script-src` looked right and the rest was never looked at.
+      ⚠ *2026-09-13* **…on the paths the proxy matches.** The matcher skips any path beginning `api` or containing a
+      dot; measured on production, `/api/t` and `/x.y/t` render the table page with **no CSP**. (M3)
       **Now:** wired into `headers()` for `/:path*`, plus `TABLE_ROUTE_HEADERS` on `/t/:path*` AND on
       `/:locale(en|ar)/t` — the route the 307 actually lands on, which the original never covered.
       Confirmed on the wire and by 6 green e2e assertions. (SEC-25 · FE2)
@@ -454,6 +466,9 @@ The baseline each of the three clients needs before feature work stacks on top.
       NOT FIXED: an XSS in the guest app could still read it. Closing that means never sending the token to
       the client at all — a route handler calling the RPC server-side as the guest — which is a real
       refactor of the ordering boot and is **not** done. (SEC-25 · FE2)
+      ⚠ *2026-09-13* **Twice, not once** — `LocaleSwitcher.tsx:33` also puts `/{other}/t/{token}` into the server HTML,
+      so a copied language link still shares the credential (L2). And the `[token]` fallback cannot exchange: it sets
+      the cookie during render, which Next 16 rejects, so a guest who reaches it gets the error page (L1).
 - [x] `Referrer-Policy: no-referrer` on `/t/*` — DONE, **re-verified on the wire 2026-09-07**.
       ⚠ **The 2026-09-04 half of this box was wrong twice.** Neither header shipped at all until
       2026-09-07 (the constants were imported and never returned — see the headers box above), so
@@ -465,6 +480,8 @@ The baseline each of the three clients needs before feature work stacks on top.
       Confirmed on the wire. `Lax` not `Strict` on purpose: a guest following the QR from a messaging app
       arrives cross-site, and `Strict` would drop the cookie on the one navigation that matters.
       (SEC-25 · FE2)
+      ⚠ *2026-09-13* True of `tp-table` only. The Supabase auth cookie carrying the anonymous guest's refresh token
+      (`src/lib/supabase/client.ts:13`) uses `@supabase/ssr` defaults: not `Secure`, 400 days. (L3)
 - [x] **Next image optimizer allowlist narrowed** — DONE — DEV, 2026-09-04.
       The `*.supabase.co` wildcard made the optimizer an open proxy: anyone could pass
       `/_next/image?url=https://<their-project>.supabase.co/…` and have this origin fetch, resize, cache and
@@ -538,6 +555,9 @@ The baseline each of the three clients needs before feature work stacks on top.
       ⚠ **Signing protects a device only once that device runs a binary containing the certificate**, so
       this must ship in a store release before it protects anyone. Until then the Expo account password is
       still load-bearing. (SEC-23 · FE1)
+      ⚠ *2026-09-13* **Nothing records that the two human steps happened**, and no copy of the key is on the dev
+      machine. Confirm it is in the password manager and EAS **before the store build** — or regenerate and commit a
+      new certificate first, because a shipped binary rejects every update its certificate's key cannot sign. (M15)
 ---
 
 ## Exit criteria — Layer 1 is done when

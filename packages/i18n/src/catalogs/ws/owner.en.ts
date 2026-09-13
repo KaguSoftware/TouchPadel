@@ -172,6 +172,7 @@ export const ownerEn = {
     rotateNote: 'Rotating a code retires the printed card in the room at once. Reprint and replace the card before the next service.',
     refusedRotate: 'Rotating table codes',
     printOne: 'Print this card',
+    destination: 'Printed cards open',
     printAll: 'Print all cards',
     artworkTitle: 'Print artwork',
     tablesTitle: 'Tables',

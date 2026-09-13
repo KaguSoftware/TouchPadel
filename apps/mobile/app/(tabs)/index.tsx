@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -108,6 +108,13 @@ const BACK_SHIFT = BACK_BTN + PICK_PILL_PAD_X * 2;
  * has no such job over the court.
  */
 const PICK_PILL_TINT = { iosDark: 0.45, iosLight: 0.35, other: 0.94 } as const;
+/**
+ * How long the booking sheet's prewarm waits for the court's first frame before
+ * giving up on it and mounting anyway. See `sheetPrewarmed` below: the wait is
+ * what keeps the sheet's mount off the court's own first paint, and this is only
+ * the floor under a court that neither paints nor reports itself unavailable.
+ */
+const PREWARM_BACKSTOP_MS = 2000;
 /** The on-net button (prototype: 16 px padding round a 16 px line, top = tape − 24). */
 const CTA_H = 48;
 /** Room under the flat fallback court for the "reserve in the app" footer line. */
@@ -166,7 +173,8 @@ const COURT_GAP = 8;
  */
 function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }) {
   const { t } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, appearance } = useTheme();
+  const dark = appearance === 'dark';
   const [now, setNow] = useState(() => new Date());
   // NOT in a transition. Transition work on this tab waits behind the rally's
   // frame loop for React's 5 s Normal-priority deadline (see the note in
@@ -178,15 +186,15 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
   }, []);
   const info = useMemo(() => openNowInfo(settings, now), [settings, now]);
   if (!info) return null;
+  const glass = withAlpha(
+    colors.bg,
+    Platform.OS === 'ios' ? PICK_PILL_TINT[dark ? 'iosDark' : 'iosLight'] : PICK_PILL_TINT.other,
+  );
   return (
-    // On its own plate. The header used to sit under a reading shade that ran
-    // the width of the page; that shade is gone (it made the top of the page a
-    // different picture from the bottom), and this is the one string it was
-    // really carrying — 11 pt `mut`, which over a full-strength band measures
-    // 2.69:1 in dark and cannot be left on the artwork. A card plate is what
-    // the paused note and the back button already use, so `mut` on `card` is a
-    // pairing the design has ruled on rather than a new one. It also stops
-    // being a loose label and starts being the chip it always looked like.
+    // On its own plate — the same frosted glass as the "Pick a time" capsule
+    // (BlurView on iOS + a translucent `colors.bg` tint, opaque tint on
+    // Android) rather than a flat `card` fill, so the two floating labels over
+    // the court read as one material.
     <View
       style={{
         flexDirection: 'row',
@@ -197,11 +205,19 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
         paddingTop: 5,
         paddingBottom: 5,
         borderRadius: radius.pill,
-        backgroundColor: colors.card,
-        borderWidth: StyleSheet.hairlineWidth,
+        overflow: 'hidden',
+        borderWidth: dark ? StyleSheet.hairlineWidth : 0,
         borderColor: colors.line,
       }}
     >
+      {Platform.OS === 'ios' ? (
+        <BlurView
+          intensity={40}
+          tint={dark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: glass }]} />
       <View
         style={{
           width: 7,
@@ -390,15 +406,43 @@ export default function BookHomeScreen() {
    * card sits 360 px down at zero opacity, takes no touches and is hidden from
    * screen readers) and never unmounts again. The tap is then only the spring.
    * `runAfterInteractions` keeps it out of the way of whatever is animating,
-   * and the transition lets React time-slice the build so the rally keeps its
-   * frames through it.
+   * and the rally rides the build out on its capped clock (rallyClock.ts): the
+   * frames it costs are frames dropped, never a jump.
    *
-   * The transition is safe HERE and nowhere else on this screen. Transition
-   * work waits behind the rally's frame loop for React's 5 s Normal-priority
-   * deadline (the long note in useAvailabilityBooking has the whole story), so
-   * anything the guest is waiting on must not use one. Nobody is waiting on
-   * this: arriving late costs only a first open that pays the mount it would
-   * have paid anyway.
+   * NOT IN A TRANSITION, ANY MORE. It was, on the reasoning that nobody is
+   * waiting on a prewarm so it may as well be time-sliced — and that reasoning
+   * had the runtime wrong twice over. React's scheduler on this platform is the
+   * native RuntimeScheduler, where a transition is a NormalPriority task that
+   * cannot start while the rally's frame loop keeps an ImmediatePriority task
+   * waiting, and it is not sliced when it finally does: it lands whole, at the
+   * five-second expiry. So on any phone that cannot draw the court inside a
+   * display frame the prewarm arrived AFTER the guest had already tapped —
+   * which put the mount, five queries and two round trips back under the finger
+   * this whole mechanism exists to keep them off (owner's colleague, 2026-09-12:
+   * a weaker Android phone could not change the date for five seconds).
+   *
+   * Court3D's frame loop no longer starves that queue (its `startLoop` carries
+   * the mechanism), so an ordinary update lands within a frame or two of the
+   * tab settling — which is what this wanted all along. The mount still costs
+   * what it costs; it is simply paid before the tap again.
+   *
+   * BUT AFTER THE COURT, NOT ALONGSIDE IT. `runAfterInteractions` alone put this
+   * mount — the biggest single piece of JS the tab runs — in the same window as
+   * the court's own context creation and scene build, and now that the loop
+   * shares the thread fairly the court waited its turn behind it: the first
+   * arrival on the tab got visibly slower on a slow bundle (owner, 2026-09-12,
+   * Expo Go). The court is what the guest came to see and the sheet is what they
+   * might ask for next, so the order is: paint the court, then build the sheet
+   * (`onFirstFrame`, Court3D). Nothing is lost by waiting — the "check
+   * availability" button lives INSIDE the stage the first frame lifts, so there
+   * is no tap to beat until the court is up, and the prewarm then runs under the
+   * entrance fade, which is native-driven and does not care.
+   *
+   * The backstop is for a court that never paints and never fails either — no
+   * `onFirstFrame`, no `onUnavailable`. Nothing known reaches it (a dead context
+   * raises the flat court), but a prewarm silently disabled by an exotic GL state
+   * would be a slow first open with no signal, so it is time-boxed rather than
+   * conditional on GL working at all.
    *
    * The cost is that a closed sheet keeps its queries: one extra
    * `court_availability` read a minute while this tab is open, and the
@@ -407,14 +451,23 @@ export default function BookHomeScreen() {
    * skeleton.
    */
   const [sheetPrewarmed, setSheetPrewarmed] = useState(false);
+  const [courtPainted, setCourtPainted] = useState(false);
+  const onCourtPainted = useCallback(() => setCourtPainted(true), []);
   useFocusEffect(
     useCallback(() => {
       if (sheetPrewarmed) return;
-      const handle = InteractionManager.runAfterInteractions(() => {
-        startTransition(() => setSheetPrewarmed(true));
-      });
-      return () => handle.cancel();
-    }, [sheetPrewarmed]),
+      // The court is up (or there will never be one): build the sheet now, out
+      // of the way of whatever is still animating.
+      if (courtPainted || glUnavailable) {
+        const handle = InteractionManager.runAfterInteractions(() => setSheetPrewarmed(true));
+        return () => handle.cancel();
+      }
+      // Still waiting on the first frame. This effect re-runs the moment it
+      // lands, which clears the timer below — so the backstop only ever fires
+      // for a court that never arrived at all.
+      const timer = setTimeout(() => setSheetPrewarmed(true), PREWARM_BACKSTOP_MS);
+      return () => clearTimeout(timer);
+    }, [sheetPrewarmed, courtPainted, glUnavailable]),
   );
   const onUnavailable = useCallback(() => setGlUnavailable(true), []);
   const onCourtSize = useCallback((size: { width: number; height: number }) => {
@@ -832,6 +885,7 @@ export default function BookHomeScreen() {
             reduceMotion={reduceMotion}
             onSize={onCourtSize}
             onUnavailable={onUnavailable}
+            onFirstFrame={onCourtPainted}
           >
             {net ? (
               // Post to post on the tape, centred on it, following it through the

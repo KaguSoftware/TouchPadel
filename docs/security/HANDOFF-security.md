@@ -1,6 +1,10 @@
 # Security programme — handoff
 
-**Written** 2026-09-07 · **Updated** 2026-09-09 (session 4) · **Branch** `kemal`
+**Written** 2026-09-07 · **Updated** 2026-09-13 (session 5 — audit, docs only) · **Branch** `two`
+
+> **Session 5 (2026-09-13) — a pre-launch audit found this programme's docs wrong in 21 places, and 44 new
+> findings.** Read §10 and `security-audit-2026-09-13.md` first. The most urgent items are not code: the dev seed
+> staff accounts on the live project (C1), the release token and tag protection (H1), and the OTA signing key (M15).
 
 > **Session 4 corrected three things this file said.** Read §9 first if you are picking up mid-stream:
 > sessions 2-3's work IS committed and merged (`97b356c`), `E2E_PROD_BUILD=1` IS wired into CI, and the
@@ -16,6 +20,7 @@ is blocked on what, and what to do next** — not the checklists themselves.
 | File | What it is |
 |---|---|
 | **this file** | current state, decisions, next steps |
+| `docs/security/security-audit-2026-09-13.md` | **the 2026-09-13 pre-launch audit** — 44 findings with evidence, tonight's list, the patch plan, and every doc claim it corrected |
 | `docs/security/macbook-docker-checks.md` | **what has actually been EXECUTED**, with numbers. The most load-bearing file here. |
 | `docs/security/security-layer-1.md` | the foundation slice — 60 boxes |
 | `docs/security/security-general.md` | the full programme — phases 0–9 |
@@ -264,6 +269,7 @@ Recorded rather than silently closed:
    leakage, analytics capture, browser history, screenshots and shared links. An XSS in the guest
    app could still read it. Closing that means never sending the token to the client — a real
    refactor of the ordering boot.
+   ⚠ *2026-09-13* **Twice** — also in the language switcher's server-rendered link (audit L2).
 5. **`extension_in_public` did not appear in the Security Advisor run.** Either the list was
    filtered to CRITICAL, or the hosted DB differs from the repo — which would be drift, a bigger
    finding than the four waived views. Re-run unfiltered.
@@ -518,6 +524,8 @@ RPC coverage ratcheted **138/141 → 141/144**; the 3 uncovered are the document
    2026-09-07 — freshly published advisories, not a dependency change. It is deliberately NOT bundled
    into this change set: a dependency bump on the guest-facing app deserves its own PR and its own
    verification. **It is the most urgent thing in this file.**
+   ✅ *2026-09-13* **Resolved** — `next@16.3.4` is installed and the gate passes (13 high/critical, all waived,
+   0 blocking).
 2. ⛔ **`pnpm turbo lint` is RED on `main`** and not because of the security lane:
    `apps/mobile/src/components/Court3D.tsx:107` imports `frameRepaints` and never uses it
    (`@typescript-eslint/no-unused-vars`, an error not a warning). Introduced by `2829d14`. One line.
@@ -554,4 +562,67 @@ RPC coverage ratcheted **138/141 → 141/144**; the 3 uncovered are the document
 5. **The 250 ms PIN floor is a constant, not a `venue_setting`.** Deliberate — a tunable security floor
    is one somebody eventually tunes to zero — but it is a decision, so it is recorded rather than buried.
 
-*Kagu Web Studio · Touch Padel Phase 1 · 2026-09-09*
+---
+
+## 10 · Session 5 (2026-09-13) — pre-launch audit; docs corrected
+
+**What it was.** A read-only audit of everything that landed after session 4, plus a re-check of this programme's
+claims, run on the day the app was due to ship. Four parallel code audits (web · mobile · db/functions ·
+desktop/CI), the repo's own gates, gitleaks, and read-only header checks against the public web deployment.
+**Nothing was written to any hosted system and no code was changed** — only documents. The full record, with
+confidence tags and file:line evidence, is **`docs/security/security-audit-2026-09-13.md`**.
+
+### State, measured 2026-09-13
+
+- `check-public-env-names`, `check-history-secrets`, `check-data-hygiene` and `check-dependency-audit` all PASS;
+  gitleaks over full history, invoked as CI does: 367 commits, 0 leaks; local secret values matched against every
+  built client artifact: 0 hits.
+- `next@16.3.4` is installed, so §9's two critical Next RCEs are closed. Electron 33's waivers expire **2026-10-15**.
+- `apps/mobile` typecheck is **red on `two`** (`TabsLayout.android.tsx:182`) — CI is not green until it is fixed.
+- The hosted project was reported at 89/89 on 2026-09-12 (`HANDOFF.md` Day 19). Not re-verified here.
+- `security-general.md` after reconciliation: **78 done · 103 open · 8 partial** (was 83 · 83 · 3) — five false ticks
+  reopened as `[~]`, twenty new boxes added, every change marked ⚠ *2026-09-13* in place.
+
+### What the docs got wrong
+
+Twenty-one claims, all corrected in place; the full table is audit §5. The ones that change what somebody does next:
+
+1. **The PIN lockout does not engage through the money RPCs** (0086's box). The callers raise `PIN_INVALID` after
+   `verify_manager_pin` returns NULL, which rolls the attempt row back — 0011's failure, one call up. (H3)
+2. **Guests *can* write order notes** — through `create_guest_order` → `add_order_items`, uncapped and
+   unsanitised. (M5)
+3. **"Deep links cannot carry an action"** — the token branch reaches `setSession`: login CSRF. (M1)
+4. **The production CSP** does not cover paths the proxy matcher skips — measured on `/api/t`. (M3)
+5. **The "ledger snapshot"** dumps the `app` schema, including `app.secrets`, into a 30-day artifact. (M7)
+6. **"PINs ≥ 6 digits"** is set-time only; PINs hashed before 0078 still verify. (C1)
+7. **SEC-23** is done in code; what is open is where the private key is. (M15)
+8. **"Quit to desktop takes a manager PIN"** (`install-runbook.md`) — removed in `6bec87d`. (M13)
+
+### The new findings that matter tonight
+
+| | Finding | Who |
+|---|---|---|
+| **C1** | Dev seed staff accounts (shared password committed) very likely active on the live project | human — dashboard + operator admin |
+| **H1** | Tag push → unsigned auto-update to every till; `RELEASES_GH_TOKEN` carries `admin:org` | human (GitHub) + a workflow edit |
+| **H2** | One malformed LAN frame crashes the till | code, then `operator-v0.2.3` after H1 |
+| **M1, M2** | Mobile login CSRF; `reset-password` accepts any session | code, before the store build |
+| **M15** | OTA signing key custody unknown | human, before the store build |
+| — | Privacy notice and account-deletion pages do not exist (store blocker, SEC-17) | code + owner sign-off |
+
+Everything else, and the order to do it in: audit §3 (tonight) and §4 (Patch 1 this week, Patch 2 next week,
+before handover).
+
+### Deliberately not done in this session
+
+- **No code fix was made** — the session was asked for an audit and a plan, then for the docs to be corrected.
+- **No hosted setting was read.** C1's accounts, the auth toggles, Vercel env, GitHub rules and artifacts are all
+  "verify" items for someone with access.
+- **`config.toml:119` and the `db-migrate.yml` snapshot comment are still wrong.** Both are code files, and editing
+  `config.toml` triggers `functions-deploy.yml` on merge, so they are left for the M8 and M7 fixes.
+- **`docs/client/phone-otp-activation.md:67`** still tells the owner to reuse the committed test OTP on the hosted
+  project — a client document, flagged rather than edited. (M8)
+- **Uncommitted push-notification work was in progress in the same tree** during the audit
+  (`20260913000090_push_immediate_delivery.sql`, `functions/send-push/index.ts`, `features/profile/push.ts`,
+  `tests/push-claim-lease.test.ts`). It belongs to another lane and was not reviewed.
+
+*Kagu Web Studio · Touch Padel Phase 1 · 2026-09-13*

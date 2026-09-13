@@ -2,6 +2,8 @@
  * Telegram (owner, operator-slice.md §3f): enable switch, group chat id,
  * language, "send test" (enqueue → poll the outbox row for 20 s), outbox
  * viewer, and a webhook-health line from `telegram_last_callback_at`.
+ * Detected groups (pick the group the bot was added to) and Diagnose (ask
+ * Telegram what is wrong) arrived with migration 0091.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -17,6 +19,8 @@ import { PageHeader, StatusBadge } from '../../../components/kit';
 import { SettingsGroup, SettingsRow, settingField } from '../settings/SettingsList';
 import { isValidChatId, normalizeChatId } from './chatId';
 import { OUTBOX_QUERY_KEY, OutboxList, StatusChip, type OutboxRow, type OutboxStatus } from './OutboxList';
+import { DetectedGroups } from './DetectedGroups';
+import { DiagnosePanel } from './DiagnosePanel';
 
 const POLL_MS = 2_000;
 const POLL_FOR_MS = 20_000;
@@ -53,10 +57,15 @@ export function TelegramSettings() {
 
   async function saveChatId() {
     if (chatId === null) return;
-    const value = chatId.trim() === '' ? null : chatId.trim();
+    await storeChatId(chatId.trim() === '' ? null : chatId.trim());
+  }
+
+  /** Save a chat id picked from Detected groups or offered by Diagnose; the field follows. */
+  async function storeChatId(value: string | null) {
     if (value !== null && !isValidChatId(value)) return;
     try {
       await setSetting.mutateAsync({ key: 'telegram_chat_id', value });
+      setChatId(value ?? '');
       toast.ok(tr('op.toast.saved'));
     } catch (e) {
       toast.err(e);
@@ -73,7 +82,7 @@ export function TelegramSettings() {
       pollTimer.current = setInterval(async () => {
         const { data } = await supabase
           .from('telegram_outbox')
-          .select('id, kind, status, attempts, last_error, created_at, sent_at')
+          .select('id, kind, chat_id, status, attempts, last_error, created_at, sent_at')
           .eq('id', outbox_id)
           .maybeSingle();
         const row = (data ?? null) as OutboxRow | null;
@@ -201,6 +210,12 @@ export function TelegramSettings() {
             </SettingsRow>
           </SettingsGroup>
 
+          <DetectedGroups
+            currentChatId={settings.telegram_chat_id ?? null}
+            busy={setSetting.isPending}
+            onUse={(id) => void storeChatId(id)}
+          />
+
           <SettingsGroup title={tr('ws.manager.settings.telegram.check')}>
             <SettingsRow
               description={
@@ -246,6 +261,8 @@ export function TelegramSettings() {
               )}
             </SettingsRow>
           </SettingsGroup>
+
+          <DiagnosePanel onUseChatId={storeChatId} />
         </div>
       )}
 

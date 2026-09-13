@@ -32,6 +32,8 @@ export type OutboxStatus = 'queued' | 'sent' | 'failed' | 'skipped';
 export interface OutboxRow {
   id: number;
   kind: string;
+  /** The group this row is addressed to (snapshot at enqueue; Retry re-targets it at the saved group, 0091). */
+  chat_id: string;
   status: OutboxStatus;
   attempts: number;
   last_error: string | null;
@@ -69,7 +71,7 @@ export function OutboxList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('telegram_outbox')
-        .select('id, kind, status, attempts, last_error, created_at, sent_at')
+        .select('id, kind, chat_id, status, attempts, last_error, created_at, sent_at')
         .order('created_at', { ascending: false })
         .limit(20);
       if (error) throw error;
@@ -97,6 +99,15 @@ export function OutboxList() {
         <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
           <StatusChip status={r.status} />
           <span dir="ltr">{r.kind}</span>
+        </span>
+      ),
+    },
+    {
+      key: 'chat',
+      header: tr('op.telegram.chatId'),
+      render: (r) => (
+        <span dir="ltr" style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+          {r.chat_id}
         </span>
       ),
     },
