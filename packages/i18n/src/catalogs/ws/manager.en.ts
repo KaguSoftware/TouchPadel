@@ -225,7 +225,7 @@ export const managerEn = {
           OUTBOX_QUEUED: 'The latest message is on its way.',
           OUTBOX_STALE: '{count} unsent messages were addressed to {chatId}, not the saved group. Retry sends them to the saved group.',
           OUTBOX_FAILING: 'The latest message failed: {error}',
-          ALLOWLIST_OK: '{count} Telegram users may use the buttons.',
+          ALLOWLIST_OK: 'Telegram users allowed to use the buttons: {count}.',
           ALLOWLIST_EMPTY: 'Nobody is allowed to use the buttons yet, so every tap is refused.',
           ALLOWLIST_INACTIVE_STAFF: '{count} allowed Telegram users are linked to inactive staff, so their taps are refused.',
           SKIPPED: 'Not checked. Fix the item above first.',

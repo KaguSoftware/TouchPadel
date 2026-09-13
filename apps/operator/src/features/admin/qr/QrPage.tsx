@@ -18,7 +18,7 @@ import { printWithMode } from '../../../components/GlobalStyles';
 import { Button, ErrorText, card } from '../../../components/ui';
 import { AsyncStateWrapper, EmptyState, MessagePresenter, PageHeader, PermissionRefusedNotice, StatusBadge, Toolbar, asyncStatus } from '../../../components/kit';
 import { QrCard } from './QrCard';
-import { guestTableUrl } from './qrCardGeometry';
+import { guestTableUrl, resolveGuestSiteUrl } from './qrCardGeometry';
 import { NEW_TABLE, TableForm, type TableDraft } from './TableForm';
 import { TABLE_QR_QUERY_KEY, TABLES_QUERY_KEY, type TableTokenRow } from './queries';
 
@@ -42,7 +42,8 @@ export function QrPage() {
   const { staff } = useAuth();
   // Capability matrix, not an inline role comparison — see lib/auth.tsx.
   const canRotate = can(staff?.role, 'rotateTableToken');
-  const siteUrl = import.meta.env.VITE_GUEST_SITE_URL;
+  // Never a localhost card in a release build — see resolveGuestSiteUrl.
+  const siteUrl = resolveGuestSiteUrl(import.meta.env.VITE_GUEST_SITE_URL, import.meta.env.PROD);
   const [editing, setEditing] = useState<TableDraft | null>(null);
   const [rotating, setRotating] = useState<{ done: number; total: number } | null>(null);
   /** While set, only this table's card is printed. */
@@ -164,7 +165,9 @@ export function QrPage() {
         {!canRotate && <PermissionRefusedNotice action={tr('ws.owner.tables.refusedRotate')} requiredRole="owner" style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />}
         <Toolbar style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--tp-sp-2)' }}>
           <MessagePresenter tone="refused" icon="alert" message={tr('ws.owner.tables.rotateNote')} />
-          {!siteUrl && <MessagePresenter tone="error" message={tr('op.qr.noSiteUrl')} />}
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+            {tr('ws.owner.tables.destination')} <bdi dir="ltr" data-testid="qr-destination" style={{ fontWeight: 600, color: 'var(--tp-fg)' }}>{siteUrl}</bdi>
+          </p>
           <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.qr.printHint')}</p>
         </Toolbar>
         <ErrorText error={bell.error} />

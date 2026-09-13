@@ -221,7 +221,7 @@ export const managerAr: DeepMessages<typeof managerEn> = {
           OUTBOX_QUEUED: 'آخر رسالة في الطريق.',
           OUTBOX_STALE: '{count} رسائل غير مُرسلة كانت موجّهة إلى {chatId} لا إلى المجموعة المحفوظة. «إعادة المحاولة» ترسلها إلى المجموعة المحفوظة.',
           OUTBOX_FAILING: 'فشلت آخر رسالة: {error}',
-          ALLOWLIST_OK: '{count} من مستخدمي تيليغرام يحق لهم استخدام الأزرار.',
+          ALLOWLIST_OK: 'مستخدمو تيليغرام المسموح لهم باستخدام الأزرار: {count}.',
           ALLOWLIST_EMPTY: 'لا أحد مسموح له باستخدام الأزرار بعد، فكل ضغطة تُرفض.',
           ALLOWLIST_INACTIVE_STAFF: '{count} من مستخدمي تيليغرام المسموح لهم مرتبطون بموظفين غير نشطين، فتُرفض ضغطاتهم.',
           SKIPPED: 'لم يُفحص. أصلح البند أعلاه أولًا.',

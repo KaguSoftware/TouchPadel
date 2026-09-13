@@ -109,6 +109,46 @@ export function cardLayout(tableNumber: string): CardLayout {
   };
 }
 
+/**
+ * Where a printed card sends the guest when nothing better is configured: the
+ * live guest site on Vercel. Swap here (and in the OPERATOR_GUEST_SITE_URL
+ * release secret) when touch-padel.com is recovered.
+ */
+export const DEFAULT_GUEST_SITE_URL = 'https://touch-padel-web.vercel.app';
+
+const LOOPBACK_OR_PRIVATE =
+  /^(localhost|0\.0\.0\.0|127(\.\d{1,3}){3}|\[?::1\]?|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2})$|\.local$/i;
+
+/**
+ * The guest-site origin printed into QR cards.
+ *
+ * A card is printed once and screwed to a table, so a wrong origin is a dead
+ * card for months. `VITE_GUEST_SITE_URL` is baked in at build time, and the
+ * dev `.env` holds `http://localhost:3000` — a card printed from a build that
+ * picked that up opens nothing on a guest's phone. So in a PRODUCTION build:
+ *   - unset, unparseable, or a loopback / private-network host → the live site
+ *   - http → https
+ * In dev (and e2e, where the local web app IS the guest site) an explicit
+ * localhost is honoured; unset still falls back to the live site.
+ * Any path (`/en/`, `/ar`) is dropped: `/t/<token>` picks the locale itself.
+ */
+export function resolveGuestSiteUrl(raw: string | undefined, isProduction: boolean): string {
+  const value = raw?.trim();
+  if (!value) return DEFAULT_GUEST_SITE_URL;
+  let url: URL;
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`);
+  } catch {
+    return DEFAULT_GUEST_SITE_URL;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return DEFAULT_GUEST_SITE_URL;
+  if (isProduction) {
+    if (LOOPBACK_OR_PRIVATE.test(url.hostname)) return DEFAULT_GUEST_SITE_URL;
+    url.protocol = 'https:';
+  }
+  return url.origin;
+}
+
 /** Guest URL printed into the card; `null` when the site origin is not configured. */
 export function guestTableUrl(siteUrl: string | undefined, token: string): string | null {
   const origin = siteUrl?.trim().replace(/\/+$/, '');
