@@ -1454,8 +1454,16 @@ every tap was refused `wrong_chat` — the setting no longer matched the group.
   steps, which 409 once a webhook exists) and **Diagnose** (per-check sentences EN/AR, "Use the
   new ID", "Re-register webhook"); outbox list shows each row's `chat_id`.
 
-**To make it live (owner):** `supabase db push --linked` (0091) + deploy `telegram-diagnose
-telegram-send telegram-callback` (or push to main and approve *Functions deploy*). Then Settings →
+**Shipped:** commits `6c60004` + `7cfe27f` (0091 lock/statement timeouts — the migration gate
+caught it) pushed to `two` and fast-forwarded onto `main`; tag **`operator-v0.2.10`** pushed for
+the desktop release. **Hosted NOT yet migrated:** the harness refused `supabase db push` as a
+production deploy. The `main` push queued *DB migrate* (0090 push_immediate_delivery + 0091) and
+*Functions deploy* behind the `staging` approval — approve DB migrate FIRST, then Functions (the
+new callback writes `telegram_chats`, which 0091 creates). Until then the new Telegram screens in
+0.2.10 error on the owner's Telegram page only.
+
+**To make it live (owner):** approve the two workflows (or run `supabase db push --linked` and
+deploy `telegram-diagnose telegram-send telegram-callback` locally). Then Settings →
 Telegram → Diagnose → Re-register webhook → remove and re-add `@touchcafe_orders_bot` in *Touch
 Cafe — Orders* → Use this group → Send test. The allowlist still maps only Parsa → `Dev Owner`.
 
