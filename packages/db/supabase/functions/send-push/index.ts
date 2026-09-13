@@ -1,15 +1,19 @@
 /**
  * send-push — outbox sender for Expo push notifications.
  *
- * Invoked by Supabase cron every minute (service-role Authorization header; see
- * packages/db/README.md "Edge functions"). Flow:
- *   1. app.claim_due_notifications(limit) — due, unsent, attempts < 5,
- *      SKIP LOCKED; claiming increments `attempts` (migration 0024).
+ * Invoked through app.push_nudge (service-role Authorization header; see
+ * packages/db/README.md "Edge functions") — the moment a booking notification
+ * is queued, and by the tp_push_sweep cron every 30 s (migration 0090). Flow:
+ *   1. app.claim_due_notifications(limit) — due, unsent, attempts < 5, not
+ *      claimed in the last 60 s, SKIP LOCKED; claiming increments `attempts`
+ *      and stamps `claimed_at` (0024, lease 0090). Overlapping invocations
+ *      therefore never send the same row twice — as long as this function
+ *      finishes inside the lease, which is what EXPO_TIMEOUT_MS guarantees.
  *   2. Resolve each row's CURRENT expo_push_token + preferred_lang from
  *      profiles (tokens rot, language is a live preference) and court names.
  *   3. Batch to https://exp.host/--/api/v2/push/send (max 100/request).
- *   4. Per-ticket: ok -> sent_at; error -> last_error (row retries on the next
- *      cron run until the attempts cap of 5); DeviceNotRegistered also clears
+ *   4. Per-ticket: ok -> sent_at; error -> last_error (row retries once its
+ *      lease runs out, until the attempts cap of 5); DeviceNotRegistered also clears
  *      the profile's token so future bookings stop enqueueing.
  */
 import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.ts';
@@ -19,6 +23,22 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EXPO_BATCH_SIZE = 100;
 const CLAIM_LIMIT = 100;
 const RETRY_CAP = 5; // mirrors the attempts < 5 filter in app.claim_due_notifications
+/**
+ * Upper bound on one Expo request, reply body included. Without it a stalled
+ * connection keeps this invocation alive until the platform's own limit
+ * (minutes), long past the 60 s claim lease (0090) — and the next sweep then
+ * re-claims rows this invocation may still deliver: a duplicate. 15 s is far
+ * above Expo's normal sub-second answer and keeps the worst-case invocation
+ * (cold start + reads + this + per-row stamps) near half the lease. A timed-out
+ * batch takes the transport-failure path below and is retried after the lease.
+ */
+const EXPO_TIMEOUT_MS = 15_000;
+/**
+ * Must equal ANDROID_CHANNEL in apps/mobile/src/features/profile/push.ts — the
+ * channel the app creates at boot. Named explicitly rather than left to Expo's
+ * fallback, so the importance the app configured (MAX) is the one that applies.
+ */
+const ANDROID_CHANNEL_ID = 'default';
 
 type Lang = 'en' | 'ar';
 
@@ -171,6 +191,13 @@ Deno.serve(async (req) => {
         title: s.title,
         body: s.body(courtName, when),
         sound: 'default',
+        // Expo's default is `normal` on Android (iOS already gets high), and
+        // Android defers normal-priority messages while the phone dozes, then
+        // releases them together when it wakes: the "10 minutes late" and "three
+        // at once" reports of 2026-09-13. Every kind here shows a visible
+        // notification, which is the condition Android sets for high priority.
+        priority: 'high',
+        channelId: ANDROID_CHANNEL_ID,
         data,
       },
     });
@@ -184,12 +211,14 @@ Deno.serve(async (req) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(chunk.map((p) => p.message)),
+        signal: AbortSignal.timeout(EXPO_TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`expo push HTTP ${res.status}`);
       tickets = (await res.json()).data ?? [];
     } catch (e) {
-      // Whole-batch transport failure: rows stay unsent (attempts already
-      // bumped by the claim) and retry next minute up to the cap.
+      // Whole-batch transport failure (timeout included): rows stay unsent
+      // (attempts already bumped by the claim) and are retried by the sweep
+      // once their 60 s lease runs out, up to the cap.
       const msg = e instanceof Error ? e.message : String(e);
       failed += chunk.length;
       await db

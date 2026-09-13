@@ -2587,6 +2587,7 @@ export type Database = {
       notification_outbox: {
         Row: {
           attempts: number
+          claimed_at: string | null
           created_at: string
           id: number
           kind: string
@@ -2598,6 +2599,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          claimed_at?: string | null
           created_at?: string
           id?: never
           kind: string
@@ -2609,6 +2611,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          claimed_at?: string | null
           created_at?: string
           id?: never
           kind?: string

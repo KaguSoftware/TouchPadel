@@ -56,8 +56,9 @@ export type PushRegistrationResult = 'registered' | 'denied' | 'unavailable' | '
 
 /**
  * Android 8+ shows nothing (and plays nothing) for a notification whose channel
- * does not exist. send-push sends no channelId, so Expo delivers on 'default';
- * the channel is created here, before the first token is ever requested, and
+ * does not exist. send-push names this channel on every message
+ * (ANDROID_CHANNEL_ID there — keep the two equal); the channel is created
+ * here, before the first token is ever requested, and
  * again at every boot (idempotent) so an install that predates it catches up.
  */
 const ANDROID_CHANNEL = 'default';
