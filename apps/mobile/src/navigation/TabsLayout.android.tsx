@@ -167,19 +167,23 @@ function AndroidTabs() {
                 />
               )
             : undefined,
-        // `alignSelf: 'flex-start'` (not a fixed height): items stretch to fill their
-        // row by default, so the pressable's background/ripple box reached down through
-        // the `paddingBottom: insets.bottom` strip below and visually merged with the
-        // system nav bar. Sizing to content instead keeps it clear of that strip without
-        // fighting the bar's own height math.
-        tabBarItemStyle: { paddingTop: 2, alignSelf: 'flex-start' },
+        // Items stretch to fill the tab bar row by default — including the
+        // `paddingBottom: insets.bottom` strip below, where the system nav bar sits.
+        // A fixed height keeps the item (and its ripple/background) confined to the
+        // bar's own content area, clear of that strip.
+        tabBarItemStyle: { paddingTop: 2, height: TAB_BAR_BASE - 4 },
         // expo-router's BottomTabItem defaults to `android_ripple: { borderless: true }`,
-        // an unbounded circular ripple that ignores the tab item's own box — on this
+        // an unbounded gray circle that ignores the tab item's box — on this
         // absolutely-positioned edge-to-edge bar it painted past the bar into the
-        // system nav bar below. A bounded, non-borderless ripple keeps Android's own
-        // clipping confined to the pressable's rect instead of a stray circle.
-        tabBarButton: (props) => (
-          <Pressable {...props} android_ripple={{ borderless: false, color: colors.line }} />
+        // system nav bar below. `borderless: false` makes Android clip the ripple
+        // to the pressable's own rect instead, keeping the original gray highlight
+        // but confined to the (now correctly sized) tab item.
+        tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
+          <Pressable
+            {...props}
+            android_ripple={{ color: colors.line, borderless: false }}
+            style={[props.style, { borderRadius: radius.pill, overflow: 'hidden' }]}
+          />
         ),
         tabBarHideOnKeyboard: true,
         sceneStyle: { backgroundColor: colors.bg },

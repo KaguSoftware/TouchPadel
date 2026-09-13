@@ -173,7 +173,8 @@ const COURT_GAP = 8;
  */
 function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }) {
   const { t } = useLocale();
-  const { colors, fonts } = useTheme();
+  const { colors, fonts, appearance } = useTheme();
+  const dark = appearance === 'dark';
   const [now, setNow] = useState(() => new Date());
   // NOT in a transition. Transition work on this tab waits behind the rally's
   // frame loop for React's 5 s Normal-priority deadline (see the note in
@@ -185,15 +186,15 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
   }, []);
   const info = useMemo(() => openNowInfo(settings, now), [settings, now]);
   if (!info) return null;
+  const glass = withAlpha(
+    colors.bg,
+    Platform.OS === 'ios' ? PICK_PILL_TINT[dark ? 'iosDark' : 'iosLight'] : PICK_PILL_TINT.other,
+  );
   return (
-    // On its own plate. The header used to sit under a reading shade that ran
-    // the width of the page; that shade is gone (it made the top of the page a
-    // different picture from the bottom), and this is the one string it was
-    // really carrying — 11 pt `mut`, which over a full-strength band measures
-    // 2.69:1 in dark and cannot be left on the artwork. A card plate is what
-    // the paused note and the back button already use, so `mut` on `card` is a
-    // pairing the design has ruled on rather than a new one. It also stops
-    // being a loose label and starts being the chip it always looked like.
+    // On its own plate — the same frosted glass as the "Pick a time" capsule
+    // (BlurView on iOS + a translucent `colors.bg` tint, opaque tint on
+    // Android) rather than a flat `card` fill, so the two floating labels over
+    // the court read as one material.
     <View
       style={{
         flexDirection: 'row',
@@ -204,11 +205,19 @@ function OpenNowPill({ settings }: { settings: VenueSettingsPublic | undefined }
         paddingTop: 5,
         paddingBottom: 5,
         borderRadius: radius.pill,
-        backgroundColor: colors.card,
-        borderWidth: StyleSheet.hairlineWidth,
+        overflow: 'hidden',
+        borderWidth: dark ? StyleSheet.hairlineWidth : 0,
         borderColor: colors.line,
       }}
     >
+      {Platform.OS === 'ios' ? (
+        <BlurView
+          intensity={40}
+          tint={dark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: glass }]} />
       <View
         style={{
           width: 7,
