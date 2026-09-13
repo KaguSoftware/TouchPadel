@@ -49,7 +49,7 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
   en: {
     booking_confirmed: {
       title: 'Booking confirmed',
-      body: (court, when) => `${court} — ${when}. See you on court!`,
+      body: (court, when) => `You're booked on ${court} at ${when}. See you there!`,
     },
     booking_reminder: {
       title: 'Your game is in 3 hours',
@@ -57,14 +57,14 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     },
     booking_cancelled: {
       title: 'Booking cancelled',
-      body: (court, when) => `${court} — ${when} was cancelled.`,
+      body: (court, when) => `Your booking on ${court} at ${when} has been cancelled.`,
     },
     // Deliberately not worded as a cancellation, and deliberately not
     // accusatory: the guest may well have been there and the desk may well
     // have got it wrong, so it says what happened and where to take it.
     booking_no_show: {
       title: 'Booking closed',
-      body: (court, when) => `${court} — ${when} was closed as a no-show. Speak to the desk if that is wrong.`,
+      body: (court, when) => `Your booking on ${court} at ${when} was closed as a no-show. Speak to the desk if that is wrong.`,
     },
     // Settings > "Send a test notification" (app.send_test_push, migration 0070).
     test: {
@@ -75,7 +75,7 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
   ar: {
     booking_confirmed: {
       title: 'تم تأكيد الحجز',
-      body: (court, when) => `${court} — ${when}. نراك في الملعب!`,
+      body: (court, when) => `تم حجزك في ${court} الساعة ${when}. نراك هناك!`,
     },
     booking_reminder: {
       title: 'مباراتك بعد ٣ ساعات',
@@ -83,11 +83,11 @@ const STRINGS: Record<Lang, Record<string, { title: string; body: (court: string
     },
     booking_cancelled: {
       title: 'تم إلغاء الحجز',
-      body: (court, when) => `${court} — ${when} تم إلغاؤه.`,
+      body: (court, when) => `تم إلغاء حجزك في ${court} الساعة ${when}.`,
     },
     booking_no_show: {
       title: 'تم إغلاق الحجز',
-      body: (court, when) => `${court} — ${when} أُغلق لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
+      body: (court, when) => `تم إغلاق حجزك في ${court} الساعة ${when} لعدم الحضور. راجع الاستقبال إذا كان ذلك غير صحيح.`,
     },
     test: {
       title: 'إشعار تجريبي',

@@ -1,9 +1,18 @@
 import { Linking } from 'react-native';
 import { captureException } from './telemetry';
 
+/**
+ * Normalize a phone number to E.164-ish form: strip everything but digits and
+ * a leading +, then convert the `00` international access prefix to `+`.
+ */
+export function normalizePhone(phone: string): string {
+  const stripped = phone.replace(/[^\d+]/g, '');
+  return stripped.startsWith('00') ? `+${stripped.slice(2)}` : stripped;
+}
+
 /** `tel:` URL with everything but digits and a leading + stripped. */
 export function telUrl(phone: string): string {
-  return `tel:${phone.replace(/[^\d+]/g, '')}`;
+  return `tel:${normalizePhone(phone)}`;
 }
 
 /**
