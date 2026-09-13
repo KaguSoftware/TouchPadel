@@ -41,7 +41,7 @@ export function buildCourtsInsightsData(
   const seg = (rows: readonly { key: string; n: number; bookingsTotal: number }[], label: (k: string) => string) =>
     rows
       .filter((s) => s.bookingsTotal >= 8)
-      .map((s) => ({ segment: label(s.key), n: s.n, bookings_total: s.bookingsTotal, rate_pct: s.bookingsTotal > 0 ? Math.round((s.n / s.bookingsTotal) * 1000) / 10 : null }))
+      .map((s) => ({ label: label(s.key), n: s.n, bookings_total: s.bookingsTotal, rate_pct: s.bookingsTotal > 0 ? Math.round((s.n / s.bookingsTotal) * 1000) / 10 : null }))
       .sort((a, b) => (b.rate_pct ?? 0) - (a.rate_pct ?? 0))
       .slice(0, 8);
   const e = raw.endings;

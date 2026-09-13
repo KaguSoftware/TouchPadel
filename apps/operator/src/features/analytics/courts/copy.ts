@@ -38,6 +38,29 @@ const SERIES_KEY: Record<string, MessageKey> = {
   single: 'ws.analytics.courts.series.single',
 };
 
+const LEAD_SHORT: Record<string, MessageKey> = {
+  lt2h: 'ws.analytics.courts.buckets.leadShort.lt2h',
+  '2_6h': 'ws.analytics.courts.buckets.leadShort.h2to6',
+  '6_24h': 'ws.analytics.courts.buckets.leadShort.h6to24',
+  '1_3d': 'ws.analytics.courts.buckets.leadShort.d1to3',
+  '3_7d': 'ws.analytics.courts.buckets.leadShort.d3to7',
+  '7d_plus': 'ws.analytics.courts.buckets.leadShort.d7plus',
+};
+const NOTICE_SHORT: Record<string, MessageKey> = {
+  after_start: 'ws.analytics.courts.buckets.noticeShort.afterStart',
+  lt2h: 'ws.analytics.courts.buckets.noticeShort.lt2h',
+  '2_6h': 'ws.analytics.courts.buckets.noticeShort.h2to6',
+  '6_24h': 'ws.analytics.courts.buckets.noticeShort.h6to24',
+  '1_3d': 'ws.analytics.courts.buckets.noticeShort.d1to3',
+  '3d_plus': 'ws.analytics.courts.buckets.noticeShort.d3plus',
+};
+
+/** The short form of a lead-time or notice bucket, for chart axes where the full label collides. */
+export function shortBucket(tr: Tr, dimension: 'byLeadTime' | 'byNotice', key: string): string {
+  const k = dimension === 'byLeadTime' ? LEAD_SHORT[key] : NOTICE_SHORT[key];
+  return k ? tr(k) : key;
+}
+
 /** A breakdown key, in words. Exported so the loss cards label their bars the same way. */
 export function segmentLabel(tr: Tr, f: Formatters, dimension: EndingsDimension | 'byPlayers', key: string): string {
   switch (dimension) {

@@ -9,7 +9,6 @@
 import {
   RELIABLE_COVERAGE,
   buildCourtsBasis,
-  pickLocale,
   isThinCourtsPeriod,
   mineCourtPatterns,
   pctDelta,
@@ -109,15 +108,17 @@ function pct(booked: number, open: number): number | null {
   return open > 0 ? Math.round((booked / open) * 1000) / 10 : null;
 }
 
+/** Whole points: the tile prints an integer, and a 0.3-point move printed as "0%" would mislead in red. */
 function pointDelta(cur: number | null, prev: number | null): number | null {
-  return cur == null || prev == null ? null : Math.round((cur - prev) * 10) / 10;
+  return cur == null || prev == null ? null : Math.round(cur - prev);
 }
 
-function cells(heat: readonly CourtsHeatCell[]): OccupancyCell[] {
+/** A heat cell's open minutes are ONE court's; the venue books every court in that hour. */
+function cells(heat: readonly CourtsHeatCell[], courts: number): OccupancyCell[] {
   return heat.map((c) => ({
     dow: c.dow,
     hour: c.hour,
-    occupancyPct: pct(c.bookedMinutes, c.openMinutes),
+    occupancyPct: pct(c.bookedMinutes, c.openMinutes * courts),
     bookings: c.bookings,
     bookedMinutes: c.bookedMinutes,
     openMinutes: c.openMinutes,
@@ -126,7 +127,7 @@ function cells(heat: readonly CourtsHeatCell[]): OccupancyCell[] {
   }));
 }
 
-function rollupBy<K extends 'hour' | 'dow'>(heat: readonly CourtsHeatCell[], key: K, size: number) {
+function rollupBy<K extends 'hour' | 'dow'>(heat: readonly CourtsHeatCell[], key: K, size: number, courts: number) {
   const out = Array.from({ length: size }, (_, i) => ({ [key]: i, bookings: 0, bookedMinutes: 0, openMinutes: 0 }) as Record<K, number> & {
     bookings: number;
     bookedMinutes: number;
@@ -137,7 +138,7 @@ function rollupBy<K extends 'hour' | 'dow'>(heat: readonly CourtsHeatCell[], key
     if (!row) continue;
     row.bookings += c.bookings;
     row.bookedMinutes += c.bookedMinutes;
-    row.openMinutes += c.openMinutes;
+    row.openMinutes += c.openMinutes * courts;
   }
   return out.map((r) => ({ ...r, occupancyPct: pct(r.bookedMinutes, r.openMinutes) }));
 }
@@ -146,6 +147,8 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
   const { summary, endings, guests, cafe, summaryPrev, cafePrev } = raw;
   const k = summary.kpis;
   const kp = summaryPrev?.kpis ?? null;
+  // With a court filter the RPC reports one court; without it, every active court.
+  const courts = Math.max(1, raw.courtId ? 1 : summary.courtsCount);
 
   const bookingDates = summary.byDay.filter((d) => d.bookings > 0).map((d) => d.date);
   const bookingDatesPrev = (summaryPrev?.byDay ?? []).filter((d) => d.bookings > 0).map((d) => d.date);
@@ -199,17 +202,7 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
     byType: g.byType,
   });
 
-  // Court subjects in the miner's sentences read as names, not ids: the copy
-  // adapter is built before any data exists, so the name map is grafted here.
-  const namedCopy: CourtPatternsCopy = {
-    ...copy,
-    segment: (dimension, key) => {
-      if (dimension !== 'byCourt') return copy.segment(dimension, key);
-      const c = courtNames.get(key);
-      return c ? pickLocale({ en: c.nameEn, ar: c.nameAr }, copy.locale) || key : key;
-    },
-  };
-
+  // Court subjects read as names: the miner resolves them from `courtNames` itself.
   const patterns = mineCourtPatterns(
     {
       heatmap: summary.heatmap,
@@ -239,7 +232,7 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
       itemNames,
     },
     0,
-    namedCopy,
+    copy,
   );
 
   return {
@@ -251,9 +244,9 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
     compareReliable,
     noOpeningHours: summary.openMinutes === 0,
     deltas,
-    cells: cells(summary.heatmap),
-    byHour: rollupBy(summary.heatmap, 'hour', 24),
-    byDow: rollupBy(summary.heatmap, 'dow', 7),
+    cells: cells(summary.heatmap, courts),
+    byHour: rollupBy(summary.heatmap, 'hour', 24, courts),
+    byDow: rollupBy(summary.heatmap, 'dow', 7, courts),
     patterns,
     courtNames,
     itemNames,

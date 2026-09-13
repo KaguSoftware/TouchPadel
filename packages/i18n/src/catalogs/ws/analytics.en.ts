@@ -37,6 +37,7 @@ export const analyticsEn = {
       cancelRate: 'Cancellation rate',
       noShowRate: 'No-show rate',
       attachRate: 'Cafe attach',
+      revPerOpenHourShort: 'Per open hour',
       nOfN: '{n} of {total}',
     },
     cards: {
@@ -66,6 +67,8 @@ export const analyticsEn = {
       lossByType: 'Losses by guest type',
       lateRevenue: 'Freed by late cancellations',
       medianNotice: 'Median notice',
+      medianLead: 'Median lead time',
+      medianOffset: 'Median offset from the start',
       returning: 'Returning and new',
       frequency: 'Visits per guest',
       regulars: 'Regulars',
@@ -86,6 +89,9 @@ export const analyticsEn = {
       orders: 'Orders',
       share: 'Share',
       losses: 'Losses',
+      minutesShort: '{n} min',
+      hoursShort: '{n} h',
+      daysShort: '{n} days',
     },
     buckets: {
       lead: {
@@ -95,6 +101,22 @@ export const analyticsEn = {
         d1to3: '1 to 3 days',
         d3to7: '3 to 7 days',
         d7plus: 'Over a week',
+      },
+      leadShort: {
+        lt2h: '< 2 h',
+        h2to6: '2 to 6 h',
+        h6to24: '6 to 24 h',
+        d1to3: '1 to 3 d',
+        d3to7: '3 to 7 d',
+        d7plus: '7 d +',
+      },
+      noticeShort: {
+        afterStart: 'After start',
+        lt2h: '< 2 h',
+        h2to6: '2 to 6 h',
+        h6to24: '6 to 24 h',
+        d1to3: '1 to 3 d',
+        d3plus: '3 d +',
       },
       notice: {
         afterStart: 'After the start',

@@ -34,6 +34,7 @@ export const analyticsAr: DeepMessages<typeof analyticsEn> = {
       cancelRate: 'نسبة الإلغاء',
       noShowRate: 'نسبة عدم الحضور',
       attachRate: 'ارتباط الكافيه',
+      revPerOpenHourShort: 'لكل ساعة فتح',
       nOfN: '{n} من {total}',
     },
     cards: {
@@ -63,6 +64,8 @@ export const analyticsAr: DeepMessages<typeof analyticsEn> = {
       lossByType: 'الخسائر حسب نوع الضيف',
       lateRevenue: 'ما حرّرته الإلغاءات المتأخرة',
       medianNotice: 'وسيط الإشعار',
+      medianLead: 'وسيط المهلة',
+      medianOffset: 'الوسيط بالنسبة إلى البداية',
       returning: 'العائدون والجدد',
       frequency: 'الزيارات لكل ضيف',
       regulars: 'الزبائن الدائمون',
@@ -83,6 +86,9 @@ export const analyticsAr: DeepMessages<typeof analyticsEn> = {
       orders: 'الطلبات',
       share: 'الحصة',
       losses: 'الخسائر',
+      minutesShort: '{n} د',
+      hoursShort: '{n} س',
+      daysShort: '{n} يوم',
     },
     buckets: {
       lead: {
@@ -92,6 +98,22 @@ export const analyticsAr: DeepMessages<typeof analyticsEn> = {
         d1to3: 'من يوم إلى 3 أيام',
         d3to7: 'من 3 إلى 7 أيام',
         d7plus: 'أكثر من أسبوع',
+      },
+      leadShort: {
+        lt2h: '< 2 س',
+        h2to6: '2 إلى 6 س',
+        h6to24: '6 إلى 24 س',
+        d1to3: '1 إلى 3 أيام',
+        d3to7: '3 إلى 7 أيام',
+        d7plus: '7 أيام +',
+      },
+      noticeShort: {
+        afterStart: 'بعد البداية',
+        lt2h: '< 2 س',
+        h2to6: '2 إلى 6 س',
+        h6to24: '6 إلى 24 س',
+        d1to3: '1 إلى 3 أيام',
+        d3plus: '3 أيام +',
       },
       notice: {
         afterStart: 'بعد البداية',

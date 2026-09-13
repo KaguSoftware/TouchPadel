@@ -24,7 +24,7 @@ export function PulseSection({ raw, derived, state, f, vsLabel }: SectionProps &
     key: CourtKpiKey,
     fmt: (n: number) => string,
     tip: string,
-    opts: { unavailable?: boolean; note?: string } = {},
+    opts: { unavailable?: boolean; note?: string; invert?: boolean } = {},
   ) => (
     <Kpi
       label={label}
@@ -34,6 +34,7 @@ export function PulseSection({ raw, derived, state, f, vsLabel }: SectionProps &
       vsLabel={vsLabel}
       tip={tip}
       compare={cmp(key, fmt)}
+      invert={opts.invert}
       note={opts.note}
       loading={loading}
       unavailable={broken || opts.unavailable}
@@ -50,8 +51,8 @@ export function PulseSection({ raw, derived, state, f, vsLabel }: SectionProps &
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--tp-sp-2-5)' }}>
         {tile(tr('ws.analytics.courts.kpi.revPerOpenHour'), k?.revPerOpenHourIqd == null ? '—' : f.money(k.revPerOpenHourIqd), 'revPerOpenHour', f.money, tr('ws.analytics.courts.tips.revPerOpenHour'), { unavailable: noHours })}
-        {tile(tr('ws.analytics.courts.kpi.cancelRate'), k ? rateText(tr, f, k.cancellationRatePct, k.cancellations, k.bookedTotal) : '—', 'cancellationRate', f.pct, tr('ws.analytics.courts.tips.cancelRate'))}
-        {tile(tr('ws.analytics.courts.kpi.noShowRate'), k ? rateText(tr, f, k.noShowRatePct, k.noShows, k.bookedTotal) : '—', 'noShowRate', f.pct, tr('ws.analytics.courts.tips.noShowRate'))}
+        {tile(tr('ws.analytics.courts.kpi.cancelRate'), k ? rateText(tr, f, k.cancellationRatePct, k.cancellations, k.bookedTotal) : '—', 'cancellationRate', f.pct, tr('ws.analytics.courts.tips.cancelRate'), { invert: true })}
+        {tile(tr('ws.analytics.courts.kpi.noShowRate'), k ? rateText(tr, f, k.noShowRatePct, k.noShows, k.bookedTotal) : '—', 'noShowRate', f.pct, tr('ws.analytics.courts.tips.noShowRate'), { invert: true })}
         {tile(tr('ws.analytics.courts.kpi.attachRate'), cafe ? rateText(tr, f, cafe.attachPct, cafe.linkedBookings, cafe.liveBookings) : '—', 'attachRate', f.pct, tr('ws.analytics.courts.tips.attachRate'))}
       </div>
     </div>

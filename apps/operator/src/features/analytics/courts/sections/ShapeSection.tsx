@@ -6,9 +6,9 @@ import { ShareBars } from '../../charts/ShareBars';
 import { StackedBars } from '../../charts/StackedBars';
 import { barTwin, seriesTwin } from '../../charts/twins';
 import { ZoneGrid } from '../../Zone';
-import { segmentLabel } from '../copy';
+import { shortBucket } from '../copy';
 import { StatPair } from '../cards/StatPair';
-import { rateText } from '../format';
+import { rateText, spanText } from '../format';
 import type { SectionProps } from './types';
 
 export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionProps) {
@@ -16,14 +16,14 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
   const demand = raw?.demand;
   const empty = state === 'ready' && (raw?.summary.kpis.bookings ?? 0) === 0;
   const durationRows = (demand?.durations ?? []).map((d) => ({ label: tr('ws.analytics.courts.buckets.duration', { n: f.num(d.durationMin) }), value: d.bookings }));
-  const leadRows = (demand?.leadTime.buckets ?? []).map((b) => ({ label: segmentLabel(tr, f, 'byLeadTime', b.bucket), value: b.bookings }));
+  const leadRows = (demand?.leadTime.buckets ?? []).map((b) => ({ label: shortBucket(tr, 'byLeadTime', b.bucket), value: b.bookings }));
   const series = [
     { key: 'mobile', name: tr('ws.analytics.courts.series.mobile') },
     { key: 'desk', name: tr('ws.analytics.courts.series.desk') },
   ];
   // Bookings by start hour split by channel, from the summary heat cells (one
   // source, no second RPC): the split itself comes from the sources block.
-  const sourceRows = (demand?.leadTime.buckets ?? []).map((b) => ({ label: segmentLabel(tr, f, 'byLeadTime', b.bucket), mobile: b.mobile, desk: b.desk }));
+  const sourceRows = (demand?.leadTime.buckets ?? []).map((b) => ({ label: shortBucket(tr, 'byLeadTime', b.bucket), mobile: b.mobile, desk: b.desk }));
   const playersRows = (demand?.players.rows ?? []).map((p) => ({
     label: p.players == null ? tr('ws.analytics.courts.buckets.players.unknown') : p.players === 1 ? tr('ws.analytics.courts.buckets.players.one') : tr('ws.analytics.courts.buckets.players.n', { n: f.num(p.players) }),
     value: p.bookings,
@@ -54,14 +54,14 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
         <ChartCard
           title={tr('ws.analytics.courts.cards.leadTime')}
           tip={tr('ws.analytics.courts.tips.leadTime')}
-          note={demand?.leadTime.medianMin != null ? `${tr('ws.analytics.courts.cards.medianNotice')}: ${f.duration(demand.leadTime.medianMin * 60)}` : undefined}
+          note={demand?.leadTime.medianMin != null ? `${tr('ws.analytics.courts.cards.medianLead')}: ${spanText(tr, f, demand.leadTime.medianMin)}` : undefined}
           state={empty ? 'empty' : state}
           refreshing={refreshing}
           emptyKey="ws.analytics.courts.empty.bookings"
           height={200}
           twin={barTwin(leadRows, tr('ws.analytics.courts.cards.leadTime'), tr('ws.analytics.courts.units.bookings'), `lead-time-${rangeLabel}`)}
         >
-          <CountBars rows={leadRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.bookings')} tickFontSize={10} />
+          <CountBars rows={leadRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.bookings')} />
         </ChartCard>
         <ChartCard
           title={tr('ws.analytics.courts.cards.sourceByHour')}
@@ -72,7 +72,7 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
           height={200}
           twin={seriesTwin(sourceRows, tr('ws.analytics.courts.cards.leadTime'), series, `channel-by-lead-${rangeLabel}`)}
         >
-          <StackedBars rows={sourceRows} series={series} format={(n) => f.num(n)} tickFontSize={10} />
+          <StackedBars rows={sourceRows} series={series} format={(n) => f.num(n)} />
         </ChartCard>
       </ZoneGrid>
       <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>

@@ -29,6 +29,7 @@ export function Kpi({
   note,
   tip,
   compare,
+  invert = false,
   estimated,
   loading,
   unavailable,
@@ -50,20 +51,17 @@ export function Kpi({
   tip?: ReactNode;
   /** Both figures behind the delta, read on hover / focus / tap. */
   compare?: KpiCompare;
+  /** Up is bad (a cancellation rate): a rise reads in the danger tone, a fall in the accent. */
+  invert?: boolean;
   estimated?: boolean;
   loading?: boolean;
   f: Formatters;
 }) {
   const { tr } = useLocale();
   const shownDelta = unavailable ? null : delta;
-  const tone =
-    shownDelta == null
-      ? 'var(--tp-muted-fg)'
-      : shownDelta > 0
-        ? 'var(--tp-accent)'
-        : shownDelta < 0
-          ? 'var(--tp-danger)'
-          : 'var(--tp-muted-fg)';
+  const good = shownDelta == null ? null : invert ? shownDelta < 0 : shownDelta > 0;
+  const bad = shownDelta == null ? null : invert ? shownDelta > 0 : shownDelta < 0;
+  const tone = good ? 'var(--tp-accent)' : bad ? 'var(--tp-danger)' : 'var(--tp-muted-fg)';
   const deltaText = shownDelta == null ? (unavailable ? '' : (reason ?? '')) : `${f.signedPct(shownDelta)} ${vsLabel ?? ''}`;
   return (
     <div style={{ ...card, minInlineSize: 0 }}>

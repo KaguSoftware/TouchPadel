@@ -15,6 +15,7 @@ import { barTwin, heatTwin, seriesTwin } from '../../charts/twins';
 import { ZoneGrid } from '../../Zone';
 import { weekdayName } from '../../copy';
 import type { CourtItemRow } from '../shape';
+import { spanText } from '../format';
 import type { SectionProps } from './types';
 
 const TIMING_LABEL: Record<string, 'before30' | 'before0' | 'firstHalf' | 'secondHalf' | 'after0' | 'after30'> = {
@@ -94,7 +95,7 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
         <CardShell
           title={tr('ws.analytics.cross.orderTiming')}
           tip={tr('ws.analytics.cross.tips.orderTiming')}
-          note={cafe?.orderTiming.medianOffsetMin != null ? `${tr('ws.analytics.courts.cards.medianNotice')}: ${f.num(Math.round(cafe.orderTiming.medianOffsetMin))} ${tr('ws.analytics.courts.units.minutes').toLowerCase()}` : undefined}
+          note={cafe?.orderTiming.medianOffsetMin != null ? `${tr('ws.analytics.courts.cards.medianOffset')}: ${spanText(tr, f, Math.abs(cafe.orderTiming.medianOffsetMin))}` : undefined}
           state={cardState === 'ready' && timing.every((t) => t.value === 0) ? 'empty' : cardState}
           refreshing={refreshing}
           emptyKey={emptyKey}

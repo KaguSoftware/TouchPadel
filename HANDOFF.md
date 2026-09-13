@@ -1473,6 +1473,34 @@ Cafe — Orders* → Use this group → Send test. The allowlist still maps only
 case in `telegram.test.ts` and `telegram_chats` rows in the RLS matrix (**not run — no Docker**).
 Edge functions: transpile-parse clean; **`deno check` not run (no deno here).**
 
+## Day 25 (2026-09-13) — Analytics becomes a Management rail row with Courts and Cafe tabs
+
+Parsa's call: Analytics leaves Observe and sits under the management panel on the workspace's own rail
+(`OWNER_PRIMARY`), opening a layout route with two tabs. `/analytics` redirects to `/analytics/courts`; the search
+params (`range, from, to, cmp, court`) are validated once on the layout and survive a tab switch.
+
+- **Courts tab** (`features/analytics/courts/`): eight zones over five owner-only RPCs from migration 0093
+  (`analytics_courts_summary / demand / endings / guests / cafe`). Guests are anonymous counts only (identity lives in a
+  CTE and is never emitted; SEC-29 still passes). Every rate prints as "n of N" below twenty bookings. The occupancy
+  heatmap's open minutes come from `app.analytics_open_cells` over the same business-day window as the bookings, keyed
+  by calendar weekday like the opening hours; a cell's open minutes are ONE court's, so the client divides by the
+  court count. Cafe attach uses `tabs.reservation_id` (the till's booking anchor); QR orders never link.
+- **Group size**: `players` (1..8, NULL = unknown) on reservations and series (0092), captured at the desk dialog,
+  the series dialog and the mobile review screen with no preselected value. The mobile app omits the key when unset.
+- **Cafe tab** re-skinned on the shared `AnalyticsBar`: one filter row, the once-a-month settings behind More,
+  explanations behind info buttons (`InfoTip`, the app's first tooltip primitive: hover, focus and tap, Escape,
+  logical placement), the dual-axis chart split into two synced single-axis charts, `analytics_hourly` and
+  `analytics_price_bands` finally rendered, and a table/CSV twin on every chart.
+- **AI**: the insights edge function takes `scope: 'cafe' | 'courts'` (missing = cafe); stored sets carry a `scope`
+  column (0094). Court patterns are mined deterministically in `@touch/core` (`courtPatterns.ts`) and the judge only
+  rewords them.
+- **Local stack**: `pnpm db:reset && pnpm db:fixtures` then the scratch seed used for the screenshots is not checked
+  in; the analytics tabs need real bookings and linked tabs to show anything.
+- Pre-existing, not fixed: `features/reports/CourtsReport.tsx` declares snake_case view columns while
+  `report_courts` emits camelCase (every view renders the same columns); `packages/ui` `operatorChartColors` has no
+  consumer (charts use `features/analytics/charts/colors.ts`); `stored-fields.test.ts` still lacks
+  `notification_outbox.claimed_at` from another session's 0090.
+
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
   identities — GitHub `KaguSoftware`, Supabase org `touch padel`, Vercel `bau-engs-projects`,

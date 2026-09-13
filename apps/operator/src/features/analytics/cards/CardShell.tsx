@@ -78,7 +78,8 @@ export function CardShell({
         </div>
         {actions && <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexShrink: 0 }}>{actions}</div>}
       </div>
-      {note && <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{note}</p>}
+      {/* A div, not a paragraph: a note may carry a link or a small share bar. */}
+      {note && <div style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{note}</div>}
       {state === 'loading' && <Skeleton lines={skeletonLines} />}
       {state === 'empty' && <p style={muted}>{tr(emptyKey)}</p>}
       {state === 'unconfigured' && <p style={muted}>{tr('analytics.notices.noPosthog')}</p>}
