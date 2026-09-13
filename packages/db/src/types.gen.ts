@@ -366,6 +366,7 @@ export type Database = {
           p_guest_name?: string
           p_guest_phone?: string
           p_hold_id: string
+          p_players?: number
         }
         Returns: Json
       }
@@ -406,6 +407,7 @@ export type Database = {
           p_idempotency_key?: string
           p_notes?: string
           p_pattern: string
+          p_players?: number
           p_resolutions?: Json
           p_start_time: string
           p_starts_on: string
@@ -1024,6 +1026,7 @@ export type Database = {
           p_idempotency_key?: string
           p_kind: Database["public"]["Enums"]["reservation_kind"]
           p_notes?: string
+          p_players?: number
           p_price_override_iqd?: number
           p_start_at: string
         }
@@ -3320,6 +3323,7 @@ export type Database = {
           idempotency_key: string | null
           notes: string | null
           pattern: string
+          players: number | null
           start_time: string
           starts_on: string
           weekdays: number[]
@@ -3339,6 +3343,7 @@ export type Database = {
           idempotency_key?: string | null
           notes?: string | null
           pattern: string
+          players?: number | null
           start_time: string
           starts_on: string
           weekdays?: number[]
@@ -3358,6 +3363,7 @@ export type Database = {
           idempotency_key?: string | null
           notes?: string | null
           pattern?: string
+          players?: number | null
           start_time?: string
           starts_on?: string
           weekdays?: number[]
@@ -3406,6 +3412,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["reservation_kind"]
           notes: string | null
           period: unknown
+          players: number | null
           price_iqd: number | null
           rate_rule_id: string | null
           series_id: string | null
@@ -3434,6 +3441,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["reservation_kind"]
           notes?: string | null
           period?: unknown
+          players?: number | null
           price_iqd?: number | null
           rate_rule_id?: string | null
           series_id?: string | null
@@ -3462,6 +3470,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["reservation_kind"]
           notes?: string | null
           period?: unknown
+          players?: number | null
           price_iqd?: number | null
           rate_rule_id?: string | null
           series_id?: string | null
