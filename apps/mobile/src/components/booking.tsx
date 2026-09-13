@@ -695,8 +695,11 @@ export function ListHeading({
  *
  * These read as chips and shipped as chips — numbers that looked tappable and
  * were not (owner, 2026-09-11). They pick the list now, so each one is a real
- * tab: the selected one keeps the blue tint the "upcoming" chip always had, and
- * the others drop to the muted fill. The hit target is padded out with
+ * tab. The selected one used to be a pale tint one step off the unselected
+ * fill — nearly invisible, in both themes — so it now takes the same solid
+ * brand-blue fill the primary button uses (`Button`'s `primary` variant),
+ * fixed across light/dark rather than the theme-flipping `colors.blue`, with
+ * white icon/label for real contrast. The hit target is padded out with
  * `hitSlop` rather than by growing the pill, so the header looks as it did.
  */
 export function FilterChip({
@@ -707,7 +710,7 @@ export function FilterChip({
 }: {
   icon: ComponentType<IconProps>;
   label: string;
-  /** The tab whose list is on screen: blue tint, and announced as selected. */
+  /** The tab whose list is on screen: solid brand fill, and announced as selected. */
   selected: boolean;
   onPress: () => void;
 }) {
@@ -725,23 +728,23 @@ export function FilterChip({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
-        paddingStart: 9,
-        paddingEnd: 10,
-        paddingTop: 5,
-        paddingBottom: 5,
+        paddingStart: 10,
+        paddingEnd: 11,
+        paddingTop: 6,
+        paddingBottom: 6,
         borderRadius: radius.pill,
-        backgroundColor: selected ? colors.tint : colors.sub,
+        backgroundColor: selected ? brand.blue : colors.sub,
         borderWidth: 1,
-        borderColor: selected ? colors.line2 : colors.line,
+        borderColor: selected ? brand.blue : colors.line,
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <Icon size={12} color={selected ? colors.blue : colors.fnt} strokeWidth={2.2} />
+      <Icon size={13} color={selected ? brand.white : colors.fnt} strokeWidth={2.2} />
       <Text
         style={{
           fontFamily: fonts.body700,
-          fontSize: 11,
-          color: selected ? colors.mut2 : colors.mut,
+          fontSize: 12,
+          color: selected ? brand.white : colors.mut,
         }}
       >
         {label}
