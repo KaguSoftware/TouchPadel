@@ -1,22 +1,29 @@
 /**
- * THE STAGE IS NEVER UP OVER A SURFACE THAT MAY BE EMPTY.
+ * THE STAGE IS UP EXACTLY WHILE THE COURT'S SURFACE HAS A PICTURE ON IT.
  *
  * Court3D's `reveal` carries the whole stage — both GL surfaces AND the caller's
- * on-net "check availability" button, which is a plain view. So the rule is one
- * rule: the stage goes down when we leave, and comes up when a frame has been
- * drawn. Break it in either direction and the guest sees it:
+ * on-net "check availability" button, which is a plain view. Break the rule in
+ * either direction and the guest sees it:
  *
- *   · left UP over a surface the platform quietly took away → the button sits
- *     alone on the page for as long as it takes a new context to arrive, and is
- *     then taken away again by that context's own arm;
- *   · pulled DOWN over a court that is already drawing → the court blinks out.
+ *   · UP over a surface with no picture → the button sits alone on the page,
+ *     over an empty court, until a replacement context has drawn;
+ *   · DOWN over a court that has one → the page arrives without its court, or
+ *     the court blinks out.
  *
- * The second one shipped: `needsSurface` asks the focus effect to remount both
- * GLViews, and Android answers a tab return with a fresh surface BY ITSELF,
- * often before the focus event reaches JS. The remount then landed on top of a
- * court that had already drawn and been revealed — so the button appeared for
- * ~50 ms on the way into the tab and vanished (owner, 2026-09-12, Android, in
- * the store build as well as in Expo Go).
+ * Every one of those shipped. The stage used to go down on every blur, so each
+ * tab return showed the page first and the court a frame-loop round trip later
+ * — and on Android a whole new context later, because the tab navigator was
+ * destroying the court's surface on every switch (owner, 2026-09-13: "for a
+ * really short time the court isn't loaded and the rest of the page is loaded
+ * already"). And a dead expo-gl context does not throw, so the frame drawn into
+ * one lifted the stage anyway, with the button on it and nothing under it.
+ * Before that, a remount landing on a court that had already drawn put the
+ * button up for ~50 ms and took it away again (owner, 2026-09-12).
+ *
+ * So: leaving the tab does not touch the stage (the surface keeps its frame);
+ * a surface is ASKED whether it is alive (surfaceLiveness.ts) — while hidden, on
+ * the way back, and by every frame — and only a dead one takes the stage down,
+ * while nobody is looking; nothing lifts it but a frame a live context took.
  *
  * Court3D cannot be mounted under plain node (expo-gl, three), so the checks are
  * on the source, as staleCover.test.ts's call-site check is.
@@ -31,23 +38,64 @@ const court3d = readFileSync(
   'utf8',
 );
 
+/** The source from `start` up to the first `end` after it. */
+function between(start: string, end: string): string {
+  const from = court3d.indexOf(start);
+  expect(from, start).toBeGreaterThan(-1);
+  const to = court3d.indexOf(end, from + start.length);
+  expect(to, end).toBeGreaterThan(from);
+  return court3d.slice(from, to);
+}
+
+/** The focus effect's cleanup: what runs when the guest leaves the tab. */
+function blurCleanup(): string {
+  const effect = between('useFocusEffect(', 'const sub = AppState.addEventListener(');
+  const cleanup = effect.indexOf('return () => {');
+  expect(cleanup).toBeGreaterThan(-1);
+  return effect.slice(cleanup);
+}
+
 describe('a replacement surface is only asked for when there is none', () => {
   it('drops the request as soon as a surface attaches', () => {
-    const at = court3d.indexOf('needsSurface.current = false;');
-    expect(at).toBeGreaterThan(-1);
-    // Inside attach's success path, after the surface has been recorded.
-    const recorded = court3d.indexOf(
+    // Inside attach's success path, after the surface has been recorded — and
+    // the grace-period remount goes with it: the platform answered first.
+    const attach = between('const attach = useCallback(', 'const onCourtContext = useCallback(');
+    const recorded = attach.indexOf(
       'surfaces.current[kind] = { gl, renderer, width: w, height: h };',
     );
     expect(recorded).toBeGreaterThan(-1);
-    expect(recorded).toBeLessThan(at);
+    const dropped = attach.indexOf('needsSurface.current = false;', recorded);
+    expect(dropped).toBeGreaterThan(recorded);
+    expect(attach.indexOf('clearSurfaceTimer();', recorded)).toBeGreaterThan(recorded);
   });
 
   it('never remounts the GLViews over a live court surface', () => {
-    const bump = court3d.indexOf('setGlGeneration((n) => n + 1);\n      }');
-    expect(bump).toBeGreaterThan(-1);
-    // The focus effect's bump is guarded on the court surface being gone.
-    expect(court3d.slice(bump - 400, bump)).toContain('if (!surfaces.current.court)');
+    // The one remount a lost surface can cause lives in requestSurface, and it
+    // re-checks for a surface at the moment it would fire.
+    const request = between(
+      'const requestSurface = useCallback(',
+      'const surfaceLost = useCallback(',
+    );
+    const guard = request.indexOf('if (!focusedRef.current || surfaces.current.court) return;');
+    const bump = request.indexOf('setGlGeneration((n) => n + 1);');
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(bump);
+    // And the focus effect only asks when there is none.
+    const effect = between('useFocusEffect(', 'return () => {');
+    expect(effect).toMatch(
+      /if \(surfaces\.current\.court\) needsSurface\.current = false;\s*else requestSurface\(\);/,
+    );
+  });
+
+  it('gives the platform its chance to hand a surface back first', () => {
+    // Android re-creates a destroyed TextureView surface by itself; a remount
+    // on the spot throws that one away and can land on it as it attaches.
+    const request = between(
+      'const requestSurface = useCallback(',
+      'const surfaceLost = useCallback(',
+    );
+    expect(request).toContain('SURFACE_GRACE_MS');
+    expect(court3d).toMatch(/const SURFACE_GRACE_MS = \d+;/);
   });
 });
 
@@ -69,13 +117,63 @@ describe('the stage', () => {
     );
   });
 
-  it('goes down on the way out, unconditionally', () => {
-    // A conditional arm ("keep it up if the surface is alive") is what put the
-    // button on screen over a destroyed Android surface. iOS-only truths do not
-    // get to decide this.
-    const blur = court3d.indexOf('armReveal();\n      };');
-    expect(blur).toBeGreaterThan(-1);
-    expect(court3d.slice(blur - 80, blur)).not.toContain('if (');
+  it('stays up on the way out of the tab', () => {
+    // THE REPORTED BUG. An arm here put the stage down on every blur, and the
+    // tab is on screen again before JS hears it is focused — so every return
+    // showed the page without its court until the loop had drawn again.
+    const cleanup = blurCleanup();
+    expect(cleanup).not.toContain('armReveal(');
+    // What it does instead: take the backstop down (a first build's entrance
+    // must not be spent off screen) and start watching the surface.
+    expect(cleanup).toContain('clearRevealTimer();');
+    expect(cleanup).toContain('startSurfaceProbe();');
+  });
+
+  it('goes down for a surface found dead while the tab is hidden', () => {
+    // The other half of staying up: what can still take the surface while the
+    // guest is away (a push onto the root stack) must take the stage down
+    // BEFORE they are back, where the guard above is off.
+    const probe = between(
+      'const startSurfaceProbe = useCallback(',
+      'const renderFrame = useCallback(',
+    );
+    expect(probe).toContain('setInterval(');
+    expect(probe).toContain("else if (!contextAlive(main.gl)) surfaceLost('hidden');");
+    const lost = between(
+      'const surfaceLost = useCallback(',
+      'const startSurfaceProbe = useCallback(',
+    );
+    expect(lost).toContain('armReveal();');
+    // And the focus effect stops the watch: someone is looking again.
+    expect(between('useFocusEffect(', 'return () => {')).toContain('stopSurfaceProbe();');
+  });
+
+  it('lifts only for a frame a live context took', () => {
+    // A dead expo-gl context answers every call with `undefined` instead of
+    // throwing, so a frame drawn into one used to lift the stage — the button
+    // over an empty court. The present is checked before anything believes it.
+    const frame = between('const renderFrame = useCallback(', 'const startLoop = useCallback(');
+    const present = frame.indexOf('if (!presentFrame(main.gl)) {');
+    expect(present).toBeGreaterThan(-1);
+    expect(frame.slice(present, present + 120)).toMatch(/surfaceLost\('frame'\);\s*return;/);
+    for (const believer of ['showStage();', 'firstFrameCb.current?.();', 'frameRepaints(']) {
+      expect(frame.indexOf(believer), believer).toBeGreaterThan(present);
+    }
+    // No bare present left anywhere in the loop.
+    expect(frame).not.toMatch(/\.gl\.endFrameEXP\(\);/);
+  });
+
+  it('keeps the scene when only the surface is lost', () => {
+    // The scene never belonged to the context; `attach` reuses it. Rebuilding it
+    // for a lost surface would turn a cut into a few hundred ms and a fade.
+    const lost = between(
+      'const surfaceLost = useCallback(',
+      'const startSurfaceProbe = useCallback(',
+    );
+    expect(lost).not.toContain('teardown(');
+    expect(lost).not.toContain('court.current = null');
+    expect(lost).toContain("detach('court');");
+    expect(lost).toContain("detach('ball');");
   });
 
   it('cuts back in on a return and fades only on a first build', () => {

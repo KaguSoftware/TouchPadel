@@ -1,8 +1,10 @@
+import { forwardRef } from 'react';
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { InnerScreen, ScreenContext, type ScreenProps } from 'react-native-screens';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, useTheme } from '../theme';
 import { TabBookIcon, TabBookingsIcon, TabProfileIcon } from '../components/icons';
@@ -39,6 +41,44 @@ function TabLabel({ text, focused }: { text: string; focused: boolean }) {
 }
 
 /**
+ * EVERY TAB SCREEN STAYS WHERE IT IS IN THE NATIVE HIERARCHY — because moving
+ * one takes it out of the window, and the Book tab's court dies with that.
+ *
+ * With detaching turned off (`detachInactiveScreens`, below), bottom-tabs
+ * renders each tab as a plain view — hidden with `display: 'none'` when
+ * blurred — and gives it `zIndex: isFocused ? 0 : -1` (expo-router's vendored
+ * BottomTabView). That zIndex is the problem. Fabric ORDERS siblings by it
+ * (sliceChildShadowNodeViewPairs.cpp), so every switch reorders the tabs, and
+ * the differ expresses a reorder as REMOVE + INSERT of the screen that moved
+ * (Differentiator.cpp) — which, working through the algorithm RN 0.86 runs by
+ * default, is always the one being LEFT. Android's `removeViewAt` detaches it
+ * from the window, the court's TextureView releases its SurfaceTexture, and
+ * expo-gl destroys the GL context with it (GLView.kt,
+ * `onSurfaceTextureDestroyed`). Every return to the Book tab then waited for a
+ * brand-new context, a new renderer and every shader compiled again before the
+ * court could draw — while the page around it was already there (owner,
+ * 2026-09-13: "for a really short time the court isn't loaded and the rest of
+ * the page is loaded already").
+ *
+ * react-native-screens strips exactly this zIndex from its NATIVE screens, for
+ * exactly this reason (its Screen.tsx, issue #2345), but not from the plain-view
+ * branch the tabs take here. This puts the same one line on that branch through
+ * `ScreenContext`, the library's own hook for swapping the screen component.
+ *
+ * Nothing needs the zIndex. A blurred tab is `display: 'none'`, which Fabric maps
+ * to `View.INVISIBLE` with a zero-size frame (SurfaceMountingManager.kt), so it
+ * neither draws nor takes a touch whatever its order. That holds for as long as
+ * tab switches are not animated — with an `animation` on the tabs, two screens
+ * are visible at once and the order would matter again.
+ */
+const StableOrderScreen = forwardRef<View, ScreenProps>(function StableOrderScreen(
+  { style, ...rest },
+  ref,
+) {
+  return <InnerScreen {...rest} ref={ref} style={[style, { zIndex: undefined }]} />;
+});
+
+/**
  * Bottom tabs per the design: Bookings / Book / Profile, translucent bar
  * floating over the content, display-face labels, green active icon and dot. expo-router
  * `Tabs` per the native-feel convention — platform behavior (state
@@ -50,6 +90,15 @@ function TabLabel({ text, focused }: { text: string; focused: boolean }) {
  * phones without a home indicator.
  */
 export default function TabsLayoutAndroid() {
+  // Around the navigator, so every tab screen it renders is a StableOrderScreen.
+  return (
+    <ScreenContext.Provider value={StableOrderScreen}>
+      <AndroidTabs />
+    </ScreenContext.Provider>
+  );
+}
+
+function AndroidTabs() {
   const { t } = useLocale();
   const { colors, appearance } = useTheme();
   const insets = useSafeAreaInsets();
@@ -78,9 +127,14 @@ export default function TabsLayoutAndroid() {
        * which Fabric maps to `View.INVISIBLE` (SurfaceMountingManager.kt) —
        * still attached to the window, so the SurfaceTexture and the context
        * live, and still skipped by the draw, so nothing is composited for a tab
-       * nobody is looking at. The return is then only the entrance fade, which
-       * is exactly what iOS has always done: `NativeTabs` keeps the surface, and
-       * this is the one platform where the court was paying for the difference.
+       * nobody is looking at.
+       *
+       * NECESSARY, NOT SUFFICIENT. This alone did not keep the surface: the
+       * zIndex bottom-tabs puts on each screen reordered them natively on every
+       * switch, and a reorder detaches the screen that moved — see
+       * StableOrderScreen above, which is the other half. With both, a return to
+       * the tab shows the court it left, which is what iOS has always done:
+       * `NativeTabs` keeps the surface.
        *
        * The court's frame loop is gated on router focus, not on this, so a
        * hidden tab still draws nothing and costs no battery. What it does keep
