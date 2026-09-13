@@ -40,6 +40,7 @@ import {
   workspaceOwnsPath,
   workspacesForRole,
   type NavItem,
+  type SectionKey,
   type WorkspaceKey,
 } from '../lib/workspaces';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
@@ -399,7 +400,11 @@ function WorkspaceNav({
   const canSwitch = available.length > 1;
   // Inside a section the rail IS the section: its name, its list, and one way
   // back. Read from the path, so the rail and the screen can never disagree.
-  const section = sectionForPath(workspace, path);
+  // The last section only breaks ties: the reports screen belongs to both
+  // Financial and Observe, and its tabs must not flip the rail between them.
+  const [lastSection, setLastSection] = useState<SectionKey | null>(null);
+  const section = sectionForPath(workspace, path, lastSection);
+  if ((section?.key ?? null) !== lastSection) setLastSection(section?.key ?? null);
   const sections = (workspace.sections ?? []).filter((sec) => canAccess(staff?.role, sec.home));
 
   return (

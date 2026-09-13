@@ -115,7 +115,7 @@ describe('sections', () => {
     // Reports and analytics left the top level: each now sits in the section
     // that owns the question it answers.
     expect(owner.groups[0]!.items.map((i) => i.to)).toEqual(['/panel']);
-    expect(owner.sections?.map((s) => s.key)).toEqual(['financial', 'observation', 'setup']);
+    expect(owner.sections?.map((s) => s.key)).toEqual(['financial', 'observation', 'stock', 'setup']);
   });
 
   it('every section opens on its own first rail item, so the rail can lead back to it', () => {
@@ -138,6 +138,10 @@ describe('sections', () => {
     // Bookings and tills are section screens even though other workspaces own them too.
     expect(sectionForPath(owner, '/desk/today')?.key).toBe('observation');
     expect(sectionForPath(owner, '/till/tabs')?.key).toBe('observation');
+
+    expect(sectionForPath(owner, '/stock')?.key).toBe('stock');
+    expect(sectionForPath(owner, '/stock/variance')?.key).toBe('stock');
+    expect(sectionForPath(owner, '/reports/stock')?.key).toBe('stock');
 
     expect(sectionForPath(owner, '/setup')?.key).toBe('setup');
     expect(sectionForPath(owner, '/admin/settings/trading')?.key).toBe('setup');
@@ -177,6 +181,36 @@ describe('sections', () => {
     expect(workspaceOwnsPath('owner', '/admin/promotions')).toBe(true);
   });
 
+  it('prints the reports as one Reports row in Financial and in Observe, not a row per report', () => {
+    const reportRows = (key: string) =>
+      sectionRailItems((owner.sections ?? []).find((s) => s.key === key)!).filter((i) => i.to.startsWith('/reports'));
+    expect(reportRows('financial').map((i) => i.labelKey)).toEqual(['reports']);
+    expect(reportRows('observation').map((i) => i.labelKey)).toEqual(['reports']);
+    // Each lands on the report its section is about.
+    expect(reportRows('financial')[0]!.to).toBe('/reports/revenue');
+    expect(reportRows('observation')[0]!.to).toBe('/reports/staff');
+  });
+
+  it('keeps the rail in the section the owner came from when a report tab changes', () => {
+    for (const path of ['/reports/revenue', '/reports/courts', '/reports/cafe', '/reports/stock', '/reports/staff']) {
+      expect(sectionForPath(owner, path, 'financial')?.key, path).toBe('financial');
+      expect(sectionForPath(owner, path, 'observation')?.key, path).toBe('observation');
+    }
+    // Stock owns its own report, so from Stock that tab keeps the Stock rail.
+    expect(sectionForPath(owner, '/reports/stock', 'stock')?.key).toBe('stock');
+    // A section that does not own the path is no tie-break at all.
+    expect(sectionForPath(owner, '/reports/revenue', 'setup')?.key).toBe('financial');
+    expect(sectionForPath(owner, '/admin/staff', 'financial')?.key).toBe('setup');
+  });
+
+  it('sends a cold report link to the most specific owner', () => {
+    expect(sectionForPath(owner, '/reports/revenue')?.key).toBe('financial');
+    expect(sectionForPath(owner, '/reports/staff')?.key).toBe('observation');
+    expect(sectionForPath(owner, '/reports/stock')?.key).toBe('stock');
+    // Courts and cafe are nobody's landing row: first listed prefix owner wins.
+    expect(sectionForPath(owner, '/reports/courts')?.key).toBe('financial');
+  });
+
   it('leaves no /reports child stranded outside a section', () => {
     for (const path of ['/reports/revenue', '/reports/courts', '/reports/cafe', '/reports/stock', '/reports/staff']) {
       expect(sectionForPath(owner, path), path).not.toBeNull();
@@ -188,6 +222,8 @@ describe('workspaceOwnsPath', () => {
   it("keeps management on /ops, which is also the manager's home", () => {
     expect(workspaceOwnsPath('owner', '/ops')).toBe(true);
     expect(workspaceOwnsPath('owner', '/admin/staff')).toBe(true);
+    // The stock module is a Management section now, so it keeps the owner rail.
+    expect(workspaceOwnsPath('owner', '/stock/counts')).toBe(true);
     // /kds is nowhere on the owner's rail: following that link does hand the
     // shell over to the prep workspace.
     expect(workspaceOwnsPath('owner', '/kds')).toBe(false);

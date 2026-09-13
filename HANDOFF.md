@@ -1177,8 +1177,9 @@ unset secret, ±300 s, constant-time). Pure halves `verify.ts` / `otp.ts` run un
 bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `_shared/sms/*` (moved
 out of the hook 2026-09-12 so every edge function texts through ONE function, `sendSms()`): `log` (default, spends
 nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender — Asiacell requires
-sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (**the owner's choice, decided
-2026-09-12, SMS only — `OTPIQ_PROVIDER=sms`, no WhatsApp**; contract checked against the vendor's API reference the same day). `tests/sms-provider.test.ts` pins
+sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (decided 2026-09-12, superseded the next day; dormant), **`whatsapp` — Meta's official Cloud API, the owner's
+choice 2026-09-13, no reseller, no SMS fallback**: authentication template per language picked from `profiles.preferred_lang`,
+Graph v26.0, Meta error code + detail in the send log's `error`. `tests/sms-provider.test.ts` pins
 selection, each adapter against a mocked fetch, and the boundary (no other function file may name a vendor host or
 secret) — swapping vendors is `secrets set SMS_PROVIDER=…`, adding one is one adapter file. `_shared/phone.ts`
 is the edge copy of the new `@touch/core` normaliser, parity-tested on one fixture table.

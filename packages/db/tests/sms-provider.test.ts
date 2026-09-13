@@ -22,6 +22,7 @@ import { sendSms, smsFromEnv, SmsProviderError, SMS_PROVIDERS } from '../supabas
 import { logProvider } from '../supabase/functions/_shared/sms/log.ts';
 import { OTPIQ_SEND_URL, otpiqProvider } from '../supabase/functions/_shared/sms/otpiq.ts';
 import { TWILIO_API_BASE, twilioProvider } from '../supabase/functions/_shared/sms/twilio.ts';
+import { WHATSAPP_GRAPH_BASE, whatsappProvider } from '../supabase/functions/_shared/sms/whatsapp.ts';
 
 const envOf = (vars: Record<string, string | undefined>) => (name: string) => vars[name];
 const ARGS = { to: '+9647701234567', body: 'Touch Padel: 123456\nرمز الدخول: 123456', code: '123456' };
@@ -64,8 +65,16 @@ describe('smsFromEnv: SMS_PROVIDER picks the adapter, everything else is log', (
     expect(console.warn).toHaveBeenCalledTimes(2);
   });
 
+  it('whatsapp needs WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID', () => {
+    expect(smsFromEnv(envOf({ SMS_PROVIDER: 'whatsapp', WHATSAPP_ACCESS_TOKEN: 't' })).name).toBe('log');
+    expect(smsFromEnv(envOf({ SMS_PROVIDER: 'whatsapp', WHATSAPP_ACCESS_TOKEN: 't', WHATSAPP_PHONE_NUMBER_ID: '1' })).name).toBe('whatsapp');
+    expect(console.warn).toHaveBeenCalledTimes(1);
+  });
+
   it('every listed adapter name is constructible', () => {
     const full = envOf({
+      WHATSAPP_ACCESS_TOKEN: 't',
+      WHATSAPP_PHONE_NUMBER_ID: '1',
       OTPIQ_API_KEY: 'k',
       TWILIO_ACCOUNT_SID: 'AC1',
       TWILIO_AUTH_TOKEN: 't',
@@ -178,6 +187,77 @@ describe('otpiq adapter (docs.otpiq.com/api-reference/messaging/post)', () => {
   });
 });
 
+// ── 2. contract: whatsapp (Meta Cloud API) ──────────────────────────────────
+describe('whatsapp adapter (Meta Cloud API authentication template)', () => {
+  const env = { accessToken: 'EAAG…', phoneNumberId: '123456789012345', templateName: 'touch_otp' };
+  const ok = {
+    messaging_product: 'whatsapp',
+    contacts: [{ input: '9647701234567', wa_id: '9647701234567' }],
+    messages: [{ id: 'wamid.HBgNOTY0NzcwMTIzNDU2NxUCABEYEjQ0QTA0', message_status: 'accepted' }],
+  };
+
+  it('posts the documented template request and maps the message id', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, ok));
+    const res = await whatsappProvider(env).send({ ...ARGS, lang: 'en' });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${WHATSAPP_GRAPH_BASE}/v26.0/123456789012345/messages`);
+    expect(init.method).toBe('POST');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer EAAG…');
+    expect(JSON.parse(init.body as string)).toEqual({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: '9647701234567', // digits, no '+'
+      type: 'template',
+      template: {
+        name: 'touch_otp',
+        language: { code: 'en' },
+        components: [
+          { type: 'body', parameters: [{ type: 'text', text: '123456' }] },
+          { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: '123456' }] },
+        ],
+      },
+    });
+    expect(res).toEqual({ id: ok.messages[0]!.id, channel: 'whatsapp' });
+    expect(init.body as string).not.toContain('Touch Padel'); // Meta's template text, not ours
+  });
+
+  it('picks the template language from lang, falls back to the default (ar), honours code overrides and version', async () => {
+    const langOf = () => JSON.parse((fetchMock.mock.lastCall as [string, RequestInit])[1].body as string).template.language.code;
+    fetchMock.mockResolvedValue(jsonResponse(200, ok));
+    await whatsappProvider(env).send(ARGS);
+    expect(langOf()).toBe('ar');
+    await whatsappProvider({ ...env, defaultLang: 'en' }).send(ARGS);
+    expect(langOf()).toBe('en');
+    await whatsappProvider({ ...env, langCodes: { en: 'en_US' } }).send({ ...ARGS, lang: 'en' });
+    expect(langOf()).toBe('en_US');
+    await whatsappProvider({ ...env, graphVersion: 'v27.0' }).send(ARGS);
+    expect((fetchMock.mock.lastCall as [string, RequestInit])[0]).toContain('/v27.0/');
+  });
+
+  it.each([
+    [401, { error: { message: 'Error validating access token: Session has expired', type: 'OAuthException', code: 190, fbtrace_id: 'A' } }, '(190)', 'Session has expired'],
+    [400, { error: { message: '(#131026) Message Undeliverable', type: 'OAuthException', code: 131026, error_data: { messaging_product: 'whatsapp', details: 'Message Undeliverable.' }, fbtrace_id: 'B' } }, '(131026)', 'Message Undeliverable.'],
+    [400, { error: { message: '(#132001) Template name does not exist in the translation', code: 132001, error_subcode: 2494010, fbtrace_id: 'C' } }, '(132001/2494010)', 'Template name does not exist'],
+    [429, { error: { message: '(#130429) Rate limit hit', code: 130429, fbtrace_id: 'D' } }, '(130429)', 'Rate limit hit'],
+  ])('%i -> SmsProviderError(whatsapp, status) with the Meta code and detail', async (status, body, codeFragment, textFragment) => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(status, body));
+    const err = await whatsappProvider(env).send(ARGS).catch((e) => e);
+    expect(err).toBeInstanceOf(SmsProviderError);
+    expect(err.provider).toBe('whatsapp');
+    expect(err.status).toBe(status);
+    expect(err.message).toContain(`whatsapp ${status} ${codeFragment}`);
+    expect(err.message).toContain(textFragment);
+  });
+
+  it('a non-JSON error body still fails closed', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('gateway timeout', { status: 504 }));
+    const err = await whatsappProvider(env).send(ARGS).catch((e) => e);
+    expect(err).toBeInstanceOf(SmsProviderError);
+    expect(err.message).toBe('whatsapp 504 (no code): send failed');
+  });
+});
+
 // ── 2. contract: twilio ─────────────────────────────────────────────────────
 describe('twilio adapter', () => {
   const env = { accountSid: 'AC123', authToken: 'tok', from: 'TouchPadel' };
@@ -244,7 +324,11 @@ describe('boundary: only _shared/sms knows the vendors', () => {
   const FUNCTIONS = resolve(here, '../supabase/functions');
   const SEAM = 'functions/_shared/sms/';
   // Anything that would let a second file talk to a vendor directly.
-  const VENDOR_TOKENS = ['api.otpiq.com', 'api.twilio.com', 'SMS_PROVIDER', 'OTPIQ_', 'TWILIO_', 'otpiqProvider', 'twilioProvider', 'logProvider'];
+  const VENDOR_TOKENS = [
+    'api.otpiq.com', 'api.twilio.com', 'graph.facebook.com',
+    'SMS_PROVIDER', 'OTPIQ_', 'TWILIO_', 'WHATSAPP_',
+    'otpiqProvider', 'twilioProvider', 'whatsappProvider', 'logProvider',
+  ];
 
   // Comments may NAME a vendor or a secret (headers document them); code may not.
   const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');

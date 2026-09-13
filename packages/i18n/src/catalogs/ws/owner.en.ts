@@ -190,20 +190,17 @@ export const ownerEn = {
     emptyBody: 'Add a table to print its card.',
   },
   // ---------------------------------------------------------------------
-  // Management's two new sections (apps/operator/src/lib/workspaces.ts).
+  // Management's Financial and Observe sections (apps/operator/src/lib/workspaces.ts).
   // ---------------------------------------------------------------------
   financialHome: {
     title: 'Financial',
     lead: 'Every figure here is money that moved. Nothing on this screen is an estimate, and nothing here is editable — the prices that produce these figures are set further down the list.',
     cards: {
-      revenue: 'Everything taken over a period, split by what produced it and how it was paid.',
-      courtIncome: 'Court bookings as money: hours sold, the rate each was sold at and what went uncollected.',
-      cafeSales: 'The cafe on its own — items sold, discounts given and what each category returned.',
+      reports: 'Revenue, court income and cafe sales over any period, one tab each, with drill-through and CSV export.',
       cashDrawer: 'Every time the drawer opened and why. The physical trail behind the cash figure.',
       dayClose: 'Expected against counted, and the variance on each closed day.',
       rates: 'What an hour on a court costs, by day and time. Changes apply to future bookings only.',
       menuPrices: 'Cafe prices. A change here moves tomorrow’s cafe revenue, not today’s.',
-      stockValue: 'What is sitting on the shelves, what it cost and what waste removed.',
     },
     headline: {
       title: 'This month so far',
@@ -211,14 +208,14 @@ export const ownerEn = {
     },
   },
   observationHome: {
-    title: 'Observation',
+    title: 'Observe',
     lead: 'Watching the venue rather than counting it — what is happening, what the pattern has been, and the decisions waiting on you.',
     cards: {
       floorNow: 'Right now: courts in play, tabs open, arrivals due and anything overdue.',
       patterns: 'The shape over time — which hours fill, which items move, what is fading.',
       bookings: 'The booking record itself. Search it, open one, see who changed it.',
       tills: 'Open and settled tabs across the floor, and what each is carrying.',
-      staffActivity: 'Who worked, what they authorised and where the discretion was used.',
+      reports: 'Opens on staff activity — who worked, what they authorised, where discretion was used. The other reports are one tab away.',
       requests: 'Leave, shift swaps, advances and record corrections waiting on your confirmation.',
       marketing: 'Campaigns, who they reached and what they returned.',
       audit: 'The full trail. Where you go when one of the screens above raises a question.',

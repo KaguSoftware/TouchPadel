@@ -1,6 +1,6 @@
 /**
- * The landing screen shared by Management's three sections (Financial,
- * Observation, Setup).
+ * The landing screen shared by Management's card-led sections (Financial,
+ * Observe, Setup). Stock lands on the /stock module itself instead.
  *
  * A section's rail can only print a name, and a name is not an answer: "Tables
  * & QR" does not tell an owner that this is where a lost table card is
