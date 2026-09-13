@@ -135,12 +135,15 @@ export function AiInsightsCard({
       title={tr('analytics.insights.title')}
       state={state === 'ready' && shown.length === 0 && busy === null ? 'empty' : state}
       emptyKey="analytics.insights.empty"
+      tip={tr('analytics.insights.source')}
       note={
-        <>
-          {tr('analytics.insights.source')}
-          {basisLine && ` · ${tr('analytics.insights.basis')}: ${basisLine}`}
-          {thin && ` · ${tr('analytics.notices.thinPeriod')}`}
-        </>
+        basisLine || thin ? (
+          <>
+            {basisLine && `${tr('analytics.insights.basis')}: ${basisLine}`}
+            {basisLine && thin && ' · '}
+            {thin && tr('analytics.notices.thinPeriod')}
+          </>
+        ) : undefined
       }
       actions={
         <>

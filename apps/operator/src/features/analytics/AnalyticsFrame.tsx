@@ -1,21 +1,18 @@
 /**
  * The frame both analytics tabs share: the page title with the date range
- * under it, then the Courts | Cafe strip. Everything below (filters, zones)
- * belongs to the tab. The frame scrolls away; a tab's own filter bar is what
- * stays sticky.
+ * under it. The Courts | Cafe strip, the filters and the zone jump-nav live in
+ * the sticky AnalyticsBar each tab renders right below, so the tabs stay in
+ * reach however far down the page the owner has scrolled.
  */
 import type { ReactNode } from 'react';
 import { PageHeader } from '../../components/kit';
 import { useLocale } from '../../lib/i18n';
-import { AnalyticsTabs, type AnalyticsTab } from './AnalyticsTabs';
 
-export function AnalyticsFrame({ tab, subtitle, children }: { tab: AnalyticsTab; subtitle?: ReactNode; children: ReactNode }) {
+export function AnalyticsFrame({ subtitle, children }: { subtitle?: ReactNode; children: ReactNode }) {
   const { tr } = useLocale();
   return (
     <div style={{ minInlineSize: '1024px', paddingInline: 'var(--tp-sp-4)', paddingBlockEnd: 'var(--tp-sp-6)' }}>
-      <PageHeader title={tr('analytics.title')} subtitle={subtitle}>
-        <AnalyticsTabs value={tab} />
-      </PageHeader>
+      <PageHeader title={tr('analytics.title')} subtitle={subtitle} />
       {children}
     </div>
   );

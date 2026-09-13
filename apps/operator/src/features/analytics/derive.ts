@@ -61,6 +61,8 @@ import type {
   SoldItemRow,
   TableActivityRow,
   TopItemRow,
+  HourlyCell,
+  PriceBandSalesRow,
 } from './shape';
 
 export type EngagementStatus = 'loading' | 'ready' | 'unconfigured' | 'error';
@@ -105,6 +107,10 @@ export interface RawAnalytics {
   margins: ItemMargins;
   promoSales: PromoSales;
   menu: MenuSnapshotRow[];
+  /** Till orders by business weekday and hour (app.analytics_hourly). */
+  hourly: HourlyCell[];
+  /** Units and revenue per price band from till data (app.analytics_price_bands). */
+  priceBandSales: PriceBandSalesRow[];
   engagementStatus: EngagementStatus;
   floor: string | null;
   posthog: PosthogWindow | null;

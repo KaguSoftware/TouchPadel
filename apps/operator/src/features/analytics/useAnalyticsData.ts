@@ -272,6 +272,8 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     { key: ['itemMargins', from, to], fn: () => analyticsRpc.itemMargins(from, to) },
     { key: ['promo', from, to], fn: () => analyticsRpc.promo(from, to) },
     { key: ['menuSnapshot'], fn: () => analyticsRpc.menuSnapshot() },
+    { key: ['hourly', from, to], fn: () => analyticsRpc.hourly(from, to) },
+    { key: ['priceBands', from, to], fn: () => analyticsRpc.priceBands(from, to) },
   ];
 
   const sql = useQueries({
@@ -364,6 +366,8 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
       margins: S.parseItemMargins(parts[5]),
       promoSales: S.parsePromoSales(parts[6]),
       menu: S.parseMenuSnapshot(parts[7]),
+      hourly: S.parseHourly(parts[8]),
+      priceBandSales: S.parsePriceBandSales(parts[9]),
       engagementStatus: engagement,
       floor: posthogData?.floor ?? settingFloor,
       posthog: posthogData?.configured ? posthogData.now : null,
