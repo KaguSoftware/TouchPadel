@@ -139,6 +139,8 @@ const GUEST_DATA: Record<string, Record<string, Field>> = {
     id: n, profile_id: n, kind: n,
     payload: { category: 'User content', why: 'the text of the push queued for this guest', onDelete: 'row' },
     scheduled_for: n, sent_at: n, attempts: n, last_error: n, created_at: n,
+    // 0090: the delivery lease, a timestamp with no guest content.
+    claimed_at: n,
   },
   promotion_redemptions: {
     id: n, promotion_id: n, tab_id: n, adjustment_id: n, customer_id: n,
