@@ -172,16 +172,21 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
  * requests to confirm and marketing to run — and finally the audit log, which
  * is where you go when one of the others raised a question.
  *
- * `/till/tabs` carries no activePrefix on purpose: it used to be '/till', which
- * would now also light this row while the owner is on /till/drawer over in
- * Financial, and the rail would claim they were in two sections at once.
+ * Bookings and Tills open Observe's OWN boards, not the desk calendar and the
+ * cashier's tab board (owner call, 2026-09-13). Those are workstations; these
+ * are view-only readings of what is active, what is not and what the day adds
+ * up to, and every write on them is a "go to workspace" button away.
+ *
+ * The working screens stay listed as hidden rows only so that a drill-through
+ * which still lands on them (Floor now's cluster buttons) keeps this rail
+ * instead of dropping the owner onto Management's bare top level.
  */
 const OWNER_OBSERVATION: readonly NavItem[] = [
   { to: '/observation', labelKey: 'overview', icon: 'grid', exact: true },
   { to: '/ops', labelKey: 'floorNow', icon: 'dashboard' },
   { to: '/analytics', labelKey: 'patterns', icon: 'trendUp' },
-  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
-  { to: '/till/tabs', labelKey: 'tills', icon: 'receipt' },
+  { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
+  { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
   { to: '/reports/staff', labelKey: 'staffActivity', icon: 'users' },
   { to: '/observation/requests', labelKey: 'requests', icon: 'bell' },
   { to: '/marketing', labelKey: 'marketing', icon: 'spark', activePrefix: '/marketing' },
@@ -189,6 +194,11 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
   // Opened from the marketing panel, not from the rail. See NavItem.hidden.
   { to: '/admin/promotions', labelKey: 'promotions', icon: 'tag', hidden: true },
   { to: '/admin/telegram', labelKey: 'telegram', icon: 'phone', hidden: true },
+  // Reached only by drilling through from Floor now; see the note above.
+  // `/till/tabs` carries no activePrefix: '/till' would also light this row on
+  // /till/drawer over in Financial.
+  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk', hidden: true },
+  { to: '/till/tabs', labelKey: 'tills', icon: 'receipt', hidden: true },
 ];
 
 /**

@@ -135,7 +135,10 @@ describe('sections', () => {
     expect(sectionForPath(owner, '/marketing')?.key).toBe('observation');
     expect(sectionForPath(owner, '/ops')?.key).toBe('observation');
     expect(sectionForPath(owner, '/analytics')?.key).toBe('observation');
-    // Bookings and tills are section screens even though other workspaces own them too.
+    // Bookings and tills are Observe's own view-only boards...
+    expect(sectionForPath(owner, '/observation/courts')?.key).toBe('observation');
+    expect(sectionForPath(owner, '/observation/tills')?.key).toBe('observation');
+    // ...and the working screens behind them still keep the rail on a drill-through.
     expect(sectionForPath(owner, '/desk/today')?.key).toBe('observation');
     expect(sectionForPath(owner, '/till/tabs')?.key).toBe('observation');
 
@@ -172,13 +175,23 @@ describe('sections', () => {
   it('hides the screens that are opened from inside another screen', () => {
     const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
     const hidden = observation.items.filter((i) => i.hidden).map((i) => i.to);
-    // Promotions and Telegram are reached from the marketing panel.
-    expect(hidden).toEqual(['/admin/promotions', '/admin/telegram']);
+    // Promotions and Telegram are reached from the marketing panel; the desk and
+    // the tab board only by drilling through from Floor now.
+    expect(hidden).toEqual(['/admin/promotions', '/admin/telegram', '/desk', '/till/tabs']);
     // Hidden rows never print...
     expect(sectionRailItems(observation).map((i) => i.to)).not.toContain('/admin/promotions');
     // ...but the section still owns them, so the rail survives the trip.
     expect(sectionForPath(owner, '/admin/promotions')?.key).toBe('observation');
     expect(workspaceOwnsPath('owner', '/admin/promotions')).toBe(true);
+  });
+
+  it("rails Observe's bookings and tills to the view-only boards, not the workstations", () => {
+    const observation = (owner.sections ?? []).find((s) => s.key === 'observation')!;
+    const rail = sectionRailItems(observation);
+    expect(rail.find((i) => i.labelKey === 'bookings')?.to).toBe('/observation/courts');
+    expect(rail.find((i) => i.labelKey === 'tills')?.to).toBe('/observation/tills');
+    expect(rail.map((i) => i.to)).not.toContain('/desk');
+    expect(rail.map((i) => i.to)).not.toContain('/till/tabs');
   });
 
   it('puts every report in exactly one section: money in Financial, staff in Observe, stock in Stock', () => {

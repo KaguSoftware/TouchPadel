@@ -184,9 +184,9 @@ export const kitAr: DeepMessages<typeof kitEn> = {
     scaleNote: 'التظليل مقارنةً بأكثر أيام الشهر ازدحاماً.',
     busiest: 'الأكثر ازدحاماً: {date} · {count}',
     bookings: '{count} حجوزات',
-    bookingsOne: 'حجز واحد',
+    bookingsOne: '{count} حجز',
     tabs: '{count} حسابات',
-    tabsOne: 'حساب واحد',
+    tabsOne: '{count} حساب',
   },
   common: {
     on: 'مفعّل',

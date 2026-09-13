@@ -97,7 +97,7 @@ export function MonthHeatCalendar({
                   aria-selected={d === date}
                   title={spoken}
                   onClick={() => onPick(d)}
-                  className="tp-cal-day"
+                  className="tp-tile"
                   style={{
                     position: 'relative',
                     minBlockSize: '4.75rem',
