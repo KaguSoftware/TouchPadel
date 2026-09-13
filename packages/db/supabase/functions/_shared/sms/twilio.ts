@@ -13,6 +13,8 @@
  */
 import { SmsProviderError, type SmsChannel, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
 
+export const TWILIO_API_BASE = 'https://api.twilio.com/2010-04-01';
+
 export function twilioProvider(env: {
   accountSid: string;
   authToken: string;
@@ -24,17 +26,14 @@ export function twilioProvider(env: {
     async send(args: SmsSendArgs): Promise<SmsSendResult> {
       const to = channel === 'whatsapp' ? `whatsapp:${args.to}` : args.to;
       const form = new URLSearchParams({ To: to, From: env.from, Body: args.body });
-      const res = await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(env.accountSid)}/Messages.json`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Basic ${btoa(`${env.accountSid}:${env.authToken}`)}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: form,
+      const res = await fetch(`${TWILIO_API_BASE}/Accounts/${encodeURIComponent(env.accountSid)}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(`${env.accountSid}:${env.authToken}`)}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-      );
+        body: form,
+      });
       const data = (await res.json().catch(() => ({}))) as { sid?: string; message?: string; code?: number };
       if (!res.ok) {
         throw new SmsProviderError('twilio', `twilio ${res.status}${data.code ? ` (${data.code})` : ''}: ${data.message ?? 'send failed'}`, res.status);
