@@ -251,13 +251,16 @@ test.describe('operator cafe admin', () => {
 
   test('(e) analytics renders sales-only and says PostHog is missing', async ({ page }) => {
     await signIn(page, SEED_STAFF.owner);
-    await page.goto(`${OPERATOR_URL}/analytics?range=7d`);
+    await page.goto(`${OPERATOR_URL}/analytics/cafe?range=7d`);
 
-    // The page title lives in the control deck, not a heading; the ZONES are the
-    // headings. Wait on the deck, then assert every zone rendered.
-    await expect(page.getByText('Analytics', { exact: true }).first()).toBeVisible({
+    // Analytics is a Management rail row with two tabs; the cafe tab is the one
+    // this case is about. The page h1 is the wait target (the rail row is also
+    // called "Analytics", so a bare text match would resolve to the link).
+    await expect(page.getByRole('heading', { level: 1, name: 'Analytics' })).toBeVisible({
       timeout: 60_000,
     });
+    await expect(page).toHaveURL(/\/analytics\/cafe\?range=7d/);
+    await expect(page.getByRole('tab', { name: 'Cafe' })).toHaveAttribute('aria-selected', 'true');
     for (const zone of ['Pulse', 'Insights', 'Menu', 'Sales & engagement', 'Time']) {
       await expect(page.getByRole('heading', { name: zone, exact: true })).toBeVisible();
     }

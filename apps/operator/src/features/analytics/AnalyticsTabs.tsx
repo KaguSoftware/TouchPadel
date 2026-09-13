@@ -10,6 +10,7 @@ import type { KeyboardEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useLocale } from '../../lib/i18n';
 import { Icon, type IconName } from '../../components/icons';
+import { validateSearch } from './search';
 
 export type AnalyticsTab = 'courts' | 'cafe';
 
@@ -24,7 +25,9 @@ export function AnalyticsTabs({ value }: { value: AnalyticsTab }) {
 
   const open = (id: AnalyticsTab) => {
     const target = ANALYTICS_TABS.find((t) => t.id === id);
-    if (target && id !== value) void navigate({ to: target.path, search: (prev) => prev });
+    // Re-validating the current params (rather than spreading them) keeps the
+    // typed search shape and drops anything another route left in the URL.
+    if (target && id !== value) void navigate({ to: target.path, search: (prev) => validateSearch(prev as Record<string, unknown>) });
   };
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {

@@ -18,8 +18,8 @@
  *     agree" — every row states an IQD figure or sets the price that produces
  *     one. Revenue, court income, cafe sales, the drawer, the day close,
  *     rates, menu prices.
- *   * Observe (key `observation`) answers "what is happening, what has the pattern been, who
- *     did it, what is waiting on me" — the floor now, patterns, bookings,
+ *   * Observe (key `observation`) answers "what is happening, who did it, what
+ *     is waiting on me" — the floor now, bookings,
  *     tills, staff activity, staff requests, marketing, the audit log.
  *   * Stock answers "what is on the shelves, what came in, what went out and
  *     what is it worth" — the whole /stock module plus the stock value report.

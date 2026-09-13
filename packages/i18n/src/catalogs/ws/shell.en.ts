@@ -97,7 +97,7 @@ export const shellEn = {
     reports: 'Reports',
     audit: 'Audit log',
     panel: 'Management panel',
-    analytics: 'Cafe analytics',
+    analytics: 'Analytics',
     staff: 'Staff',
     courts: 'Courts',
     tables: 'Tables & QR',
@@ -112,7 +112,6 @@ export const shellEn = {
     stockValue: 'Stock value',
     // Observation section rows.
     floorNow: 'Floor now',
-    patterns: 'Analytics',
     staffActivity: 'Staff activity',
     requests: 'Requests',
     marketing: 'Marketing',

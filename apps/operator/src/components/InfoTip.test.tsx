@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { InfoTip } from './InfoTip';
 import { LocaleProvider } from '../lib/i18n';
@@ -7,7 +7,15 @@ import { LocaleProvider } from '../lib/i18n';
 // The InfoTip is the one explanation surface every workspace shares, and its
 // whole point is that mouse, keyboard and finger all reach the same panel.
 // Each path is asserted separately: a regression in one is invisible from the
-// others. Timers are faked so the 120ms open / 80ms close windows are exact.
+// others.
+//
+// Two clocks on purpose. The hover timing suite fakes timers and drives the
+// pointer with fireEvent so the 120ms open / 80ms close windows are exact;
+// user-event cannot run under plain fake timers here (testing-library's async
+// wrapper waits on a faked setTimeout it only auto-advances for jest, and
+// `shouldAdvanceTime` would make exact millisecond assertions racy). The
+// interaction suite keeps real timers and user-event for the same reason the
+// Switch test does: a click there is a real click.
 
 const LOCALE_KEY = 'touch-operator-locale';
 
@@ -19,18 +27,17 @@ function panel(): HTMLElement {
   return screen.getByRole('tooltip');
 }
 
-beforeEach(() => {
-  vi.useFakeTimers();
-  localStorage.removeItem(LOCALE_KEY);
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-});
+function settle(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function setup() {
-  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  return userEvent.setup();
 }
+
+beforeEach(() => {
+  localStorage.removeItem(LOCALE_KEY);
+});
 
 describe('InfoTip', () => {
   it('mounts the tooltip while closed and points aria-describedby at it', () => {
@@ -42,36 +49,6 @@ describe('InfoTip', () => {
     expect(trigger.getAttribute('aria-describedby')).toBe(tip.id);
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(tip.textContent).toBe('What this figure counts.');
-  });
-
-  it('opens on hover after the delay and closes after unhover', async () => {
-    const user = setup();
-    renderTip();
-    const trigger = screen.getByRole('button');
-
-    await user.hover(trigger);
-    expect(panel().dataset.open).toBe('false');
-    act(() => vi.advanceTimersByTime(119));
-    expect(panel().dataset.open).toBe('false');
-    act(() => vi.advanceTimersByTime(1));
-    expect(panel().dataset.open).toBe('true');
-
-    await user.unhover(trigger);
-    expect(panel().dataset.open).toBe('true');
-    act(() => vi.advanceTimersByTime(80));
-    expect(panel().dataset.open).toBe('false');
-  });
-
-  it('does not open when the pointer leaves before the delay', async () => {
-    const user = setup();
-    renderTip();
-    const trigger = screen.getByRole('button');
-
-    await user.hover(trigger);
-    act(() => vi.advanceTimersByTime(60));
-    await user.unhover(trigger);
-    act(() => vi.advanceTimersByTime(500));
-    expect(panel().dataset.open).toBe('false');
   });
 
   it('opens on focus and closes on blur', () => {
@@ -94,7 +71,7 @@ describe('InfoTip', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
 
     await user.unhover(trigger);
-    act(() => vi.advanceTimersByTime(500));
+    await act(() => settle(150));
     expect(panel().dataset.open).toBe('true');
 
     // A second click releases it.
@@ -191,6 +168,57 @@ describe('InfoTip', () => {
   it('uses a custom label for the default trigger', () => {
     renderTip(<InfoTip content="x" label="About occupancy" />);
     expect(screen.getByRole('button', { name: 'About occupancy' })).toBeTruthy();
+  });
+});
+
+describe('InfoTip hover timing', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('opens on hover after the delay and closes after unhover', () => {
+    renderTip();
+    const trigger = screen.getByRole('button');
+
+    fireEvent.pointerEnter(trigger);
+    expect(panel().dataset.open).toBe('false');
+    act(() => vi.advanceTimersByTime(119));
+    expect(panel().dataset.open).toBe('false');
+    act(() => vi.advanceTimersByTime(1));
+    expect(panel().dataset.open).toBe('true');
+
+    fireEvent.pointerLeave(trigger);
+    expect(panel().dataset.open).toBe('true');
+    act(() => vi.advanceTimersByTime(79));
+    expect(panel().dataset.open).toBe('true');
+    act(() => vi.advanceTimersByTime(1));
+    expect(panel().dataset.open).toBe('false');
+  });
+
+  it('does not open when the pointer leaves before the delay', () => {
+    renderTip();
+    const trigger = screen.getByRole('button');
+
+    fireEvent.pointerEnter(trigger);
+    act(() => vi.advanceTimersByTime(60));
+    fireEvent.pointerLeave(trigger);
+    act(() => vi.advanceTimersByTime(500));
+    expect(panel().dataset.open).toBe('false');
+  });
+
+  it('stays open while the pointer is inside the panel', () => {
+    renderTip();
+    const trigger = screen.getByRole('button');
+
+    fireEvent.pointerEnter(trigger);
+    act(() => vi.advanceTimersByTime(120));
+    fireEvent.pointerLeave(trigger);
+    fireEvent.pointerEnter(panel());
+    act(() => vi.advanceTimersByTime(500));
+    expect(panel().dataset.open).toBe('true');
+
+    fireEvent.pointerLeave(panel());
+    act(() => vi.advanceTimersByTime(80));
+    expect(panel().dataset.open).toBe('false');
   });
 });
 

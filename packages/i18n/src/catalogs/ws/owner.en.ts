@@ -213,7 +213,6 @@ export const ownerEn = {
     lead: 'Watching the venue rather than counting it — what is happening, what the pattern has been, and the decisions waiting on you.',
     cards: {
       floorNow: 'Right now: courts in play, tabs open, arrivals due and anything overdue.',
-      patterns: 'The shape over time — which hours fill, which items move, what is fading.',
       bookings: 'Which courts are in play and which are free, the night in two-hour rows, and a month shaded by how busy each day was.',
       tills: 'Which tables are occupied, what the open tabs are carrying, and what was settled — day by day.',
       staffActivity: 'Who worked, what they authorised and where the discretion was used.',

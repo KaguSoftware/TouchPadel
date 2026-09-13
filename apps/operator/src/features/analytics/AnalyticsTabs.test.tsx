@@ -22,8 +22,8 @@ describe('AnalyticsTabs', () => {
     renderTabs('cafe');
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((t) => t.textContent)).toEqual(['Courts', 'Cafe']);
-    expect(screen.getByRole('tab', { name: 'Cafe' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: 'Courts' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('tab', { name: 'Cafe' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Courts' }).getAttribute('aria-selected')).toBe('false');
   });
 
   it('navigates to the other tab and keeps the search params', async () => {
@@ -31,7 +31,7 @@ describe('AnalyticsTabs', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Courts' }));
     expect(navigate).toHaveBeenCalledWith({ to: '/analytics/courts', search: expect.any(Function) });
     const search = navigate.mock.calls[0]![0].search as (prev: unknown) => unknown;
-    expect(search({ range: '7d', cmp: '4w' })).toEqual({ range: '7d', cmp: '4w' });
+    expect(search({ range: '7d', cmp: '4w', court: 'not-a-uuid' })).toEqual({ range: '7d', cmp: '4w' });
   });
 
   it('does not navigate when the current tab is clicked again', async () => {
