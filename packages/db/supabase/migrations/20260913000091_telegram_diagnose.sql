@@ -34,6 +34,9 @@
 --
 -- Additive; no data rewritten. Owner RPC signature unchanged.
 
+set lock_timeout = '3s';
+set statement_timeout = '60s';
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 1. Retry targets the current chat
 -- ═══════════════════════════════════════════════════════════════════════════
