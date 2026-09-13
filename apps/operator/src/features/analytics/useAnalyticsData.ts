@@ -314,14 +314,14 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   });
 
   const storedInsights = useQuery({
-    queryKey: [ANALYTICS_KEY, 'storedInsights', from, to, compareBasis, locale],
-    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale),
+    queryKey: [ANALYTICS_KEY, 'storedInsights', 'cafe', from, to, compareBasis, locale],
+    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale, 'cafe'),
     enabled: ready,
     staleTime: 30_000,
   });
   const storedPatterns = useQuery({
-    queryKey: [ANALYTICS_KEY, 'storedPatterns', from, to, locale],
-    queryFn: () => fetchStoredPatterns(from, to, locale),
+    queryKey: [ANALYTICS_KEY, 'storedPatterns', 'cafe', from, to, locale],
+    queryFn: () => fetchStoredPatterns(from, to, locale, 'cafe'),
     enabled: ready,
     staleTime: 30_000,
   });

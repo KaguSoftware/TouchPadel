@@ -11,7 +11,7 @@
  * only the first time, a refetch keeps the previous render dimmed in place.
  */
 import { useCallback, useMemo } from 'react';
-import { useQueries, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   businessTodayISO,
   isLiveRange,
@@ -25,9 +25,10 @@ import {
 } from '@touch/core';
 import type { Json } from '@touch/db';
 import { VENUE_TZ, type Locale } from '@touch/i18n';
+import { fetchRejections, fetchStoredInsights, fetchStoredPatterns } from '../../../lib/analyticsApi';
 import { useCafeSettings } from '../../../lib/settings';
 import type { AnalyticsSearch } from '../search';
-import { REFRESH_KEY, REFRESH_OPTIONS, usePageVisible, useStoredNumber } from '../useAnalyticsData';
+import { REFRESH_KEY, REFRESH_OPTIONS, usePageVisible, useStoredNumber, type StoredSets } from '../useAnalyticsData';
 import { courtsRpc, type CourtsRpcName } from './api';
 import { deriveCourts, type DerivedCourts, type RawCourts } from './derive';
 import * as S from './shape';
@@ -60,6 +61,8 @@ export interface CourtsData {
   raw: RawCourts | null;
   derived: DerivedCourts | null;
   state: CourtsState;
+  /** The stored AI sets for this window, scope 'courts'. */
+  stored: StoredSets;
   refetchAll: () => void;
 }
 
@@ -68,7 +71,7 @@ interface Spec {
   range: DateRange;
 }
 
-export function useCourtsData(search: AnalyticsSearch, _locale: Locale, copy: CourtPatternsCopy): CourtsData {
+export function useCourtsData(search: AnalyticsSearch, locale: Locale, copy: CourtPatternsCopy): CourtsData {
   const queryClient = useQueryClient();
   const settings = useCafeSettings();
   const ready = settings.isSuccess || settings.isError;
@@ -143,8 +146,34 @@ export function useCourtsData(search: AnalyticsSearch, _locale: Locale, copy: Co
 
   const derived = useMemo(() => (raw ? deriveCourts(raw, copy) : null), [raw, copy]);
 
+  const { from, to } = range;
+  const storedInsights = useQuery({
+    queryKey: [...KEY, 'storedInsights', from, to, compareBasis, locale],
+    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale, 'courts'),
+    enabled: ready,
+    staleTime: 30_000,
+  });
+  const storedPatterns = useQuery({
+    queryKey: [...KEY, 'storedPatterns', from, to, locale],
+    queryFn: () => fetchStoredPatterns(from, to, locale, 'courts'),
+    enabled: ready,
+    staleTime: 30_000,
+  });
+  const rejections = useQuery({
+    queryKey: ['analytics', 'rejections'],
+    queryFn: fetchRejections,
+    enabled: ready,
+    staleTime: 30_000,
+  });
+
   const refetchAll = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: [...KEY] });
+  }, [queryClient]);
+
+  const reloadStored = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: [...KEY, 'storedInsights'] });
+    void queryClient.invalidateQueries({ queryKey: [...KEY, 'storedPatterns'] });
+    void queryClient.invalidateQueries({ queryKey: ['analytics', 'rejections'] });
   }, [queryClient]);
 
   return {
@@ -167,6 +196,13 @@ export function useCourtsData(search: AnalyticsSearch, _locale: Locale, copy: Co
       firstLoad,
       refreshing,
       error,
+    },
+    stored: {
+      insights: storedInsights.data ?? [],
+      patterns: storedPatterns.data ?? null,
+      rejections: rejections.data ?? [],
+      loading: storedInsights.isPending || storedPatterns.isPending || rejections.isPending,
+      reload: reloadStored,
     },
     refetchAll,
   };

@@ -19,8 +19,10 @@ import { Zone, ZoneGrid } from '../Zone';
 import { makeFormatters } from '../format';
 import type { AnalyticsSearch } from '../search';
 import type { CardState } from '../cards/CardShell';
+import { AiInsightsCard } from '../cards/AiInsightsCard';
 import { CourtPatternsCard } from './cards/CourtPatternsCard';
 import { courtPatternsCopy } from './copy';
+import { buildCourtsInsightsData } from './payload';
 import { CrossSection } from './sections/CrossSection';
 import { CourtsSection } from './sections/CourtsSection';
 import { GuestsSection } from './sections/GuestsSection';
@@ -93,8 +95,28 @@ export function CourtsTab() {
       </Zone>
 
       <Zone zone={COURT_ZONES[1]!}>
-        <ZoneGrid columns={1}>
-          <CourtPatternsCard patterns={derived?.patterns ?? []} state={cardState} refreshing={state.refreshing} tip={tr('ws.analytics.courts.tips.patterns')} />
+        <ZoneGrid columns={2}>
+          <AiInsightsCard
+            scope="courts"
+            range={data.range}
+            compareBasis={data.compareBasis}
+            buildData={(extras) => (raw && derived ? buildCourtsInsightsData(raw, derived, locale, tr, extras) : null)}
+            note={derived?.thin ? tr('ws.analytics.courts.notices.thin') : undefined}
+            tip={tr('ws.analytics.courts.tips.patterns')}
+            stored={data.stored}
+            state={cardState}
+            refreshing={state.refreshing}
+            f={f}
+          />
+          <CourtPatternsCard
+            patterns={derived?.patterns ?? []}
+            state={cardState}
+            refreshing={state.refreshing}
+            tip={tr('ws.analytics.courts.tips.patterns')}
+            range={data.range}
+            compareBasis={data.compareBasis}
+            stored={data.stored}
+          />
         </ZoneGrid>
       </Zone>
 

@@ -11,14 +11,15 @@
  */
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { pickLocale } from '@touch/core';
+import { describeBasis, isThinPeriod, pickLocale } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
 import { SegmentedControl } from '../../../components/kit';
 import { AnalyticsBar } from '../AnalyticsBar';
 import { AnalyticsFrame } from '../AnalyticsFrame';
 import { Notices } from '../Notices';
 import { Zone, ZoneGrid, CAFE_ZONES } from '../Zone';
-import { weekdayName } from '../copy';
+import { basisCopy, weekdayName } from '../copy';
+import { buildInsightsData } from '../payload';
 import { sumBy } from '../derive';
 import { makeFormatters } from '../format';
 import { useAnalyticsData } from '../useAnalyticsData';
@@ -87,6 +88,8 @@ export function CafeTab() {
   const mutedReason = derived && !derived.salesDeltaReliable ? tr('analytics.kpi.mutedReason') : undefined;
   const name = (id: string, en: string, ar: string) => pickLocale({ en, ar }, locale) || id;
   const compare = (current: string, previous: string): KpiCompare => ({ label: vsLabel, current, previous });
+  const basisLine = derived ? describeBasis(derived.basis, basisCopy(tr, f)) : '';
+  const thin = derived ? isThinPeriod(derived.basis) : false;
   const prev = raw?.posthogPrev ?? null;
 
   const bestSellerRows = (raw?.bestSellers ?? [])
@@ -271,7 +274,24 @@ export function CafeTab() {
         <ZoneGrid columns={1}>
           <OverviewCard derived={derived} preset={data.preset} state={salesState} f={f} />
           <ZoneGrid columns={2}>
-            <AiInsightsCard raw={raw} derived={derived} stored={data.stored} state={salesState} f={f} />
+            <AiInsightsCard
+              scope="cafe"
+              range={data.range}
+              compareBasis={data.compareBasis}
+              buildData={(extras) => (raw && derived ? buildInsightsData(raw, derived, locale, extras) : null)}
+              note={
+                basisLine || thin ? (
+                  <>
+                    {basisLine && `${tr('analytics.insights.basis')}: ${basisLine}`}
+                    {basisLine && thin && ' · '}
+                    {thin && tr('analytics.notices.thinPeriod')}
+                  </>
+                ) : undefined
+              }
+              stored={data.stored}
+              state={salesState}
+              f={f}
+            />
             <PatternsCard raw={raw} derived={derived} stored={data.stored} state={salesState} f={f} />
           </ZoneGrid>
         </ZoneGrid>

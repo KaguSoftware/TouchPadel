@@ -76,7 +76,20 @@ export function posthogQueries(
 // analytics-insights
 // ---------------------------------------------------------------------------
 export type InsightsMode = 'insights' | 'patterns' | 'revalidate' | 'replace_rejected';
-export type InsightKind = 'profit' | 'conversion' | 'pricing' | 'movement' | 'structural' | 'summary';
+export type InsightKind =
+  | 'profit'
+  | 'conversion'
+  | 'pricing'
+  | 'movement'
+  | 'structural'
+  | 'summary'
+  // Courts scope (migration 0094 / edge scope 'courts').
+  | 'occupancy'
+  | 'reliability'
+  | 'demand'
+  | 'attach';
+/** Which tab's data a request or a stored set belongs to. Missing = 'cafe' (the original page). */
+export type InsightsScope = 'cafe' | 'courts';
 export type InsightConfidence = 'high' | 'medium' | 'low';
 
 export interface Insight {
@@ -132,13 +145,35 @@ export interface InsightsData {
   coverage?: JsonRow;
 }
 
+/** The courts tab's `data` block: aggregates and display names only, never an identifier. */
+export interface CourtsInsightsData {
+  kpis: JsonRow;
+  compare?: JsonRow;
+  coverage?: JsonRow;
+  basis: { salesDays: number; weekdayCounts: { day: number; days: number }[] } | null;
+  per_court: JsonRow[];
+  by_day: JsonRow[];
+  heatmap_top: JsonRow[];
+  heatmap_bottom: JsonRow[];
+  demand: JsonRow;
+  endings: JsonRow;
+  guests: JsonRow | null;
+  cafe: JsonRow | null;
+  patterns?: PatternCandidateWire[];
+  prior_insights?: string[];
+  rejections: string[];
+  excluded_names: string[];
+}
+
 export interface InsightsRequest {
   mode: InsightsMode;
   lang: 'ar' | 'en';
   range_from: string;
   range_to: string;
   compare_basis: 'prev' | '4w' | '52w';
-  data: InsightsData;
+  /** Defaults to 'cafe' on the server, so older clients keep working. */
+  scope?: InsightsScope;
+  data: InsightsData | CourtsInsightsData;
 }
 
 export interface InsightsResponse {
@@ -187,6 +222,7 @@ export const analyticsRpc = {
     to: string;
     basis: 'prev' | '4w' | '52w';
     locale: 'ar' | 'en';
+    scope: InsightsScope;
     insights: Insight[];
   }) =>
     appRpc<string>('save_analytics_insights', {
@@ -194,13 +230,15 @@ export const analyticsRpc = {
       p_range_to: args.to,
       p_compare_basis: args.basis,
       p_locale: args.locale,
+      p_scope: args.scope,
       p_insights: args.insights,
     }),
-  savePatterns: (args: { from: string; to: string; locale: 'ar' | 'en'; patterns: JudgedPattern[] }) =>
+  savePatterns: (args: { from: string; to: string; locale: 'ar' | 'en'; scope: InsightsScope; patterns: JudgedPattern[] }) =>
     appRpc<string>('save_analytics_patterns', {
       p_range_from: args.from,
       p_range_to: args.to,
       p_locale: args.locale,
+      p_scope: args.scope,
       p_patterns: args.patterns,
     }),
   rejectInsight: (text: string, reason?: string) =>
@@ -247,6 +285,7 @@ export async function fetchStoredInsights(
   to: string,
   basis: string,
   locale: string,
+  scope: InsightsScope = 'cafe',
   limit = 6,
 ): Promise<StoredInsightsRow[]> {
   const { data, error } = await supabase
@@ -256,6 +295,7 @@ export async function fetchStoredInsights(
     .eq('range_to', to)
     .eq('compare_basis', basis)
     .eq('locale', locale)
+    .eq('scope', scope)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw new Error(error.message);
@@ -266,6 +306,7 @@ export async function fetchStoredPatterns(
   from: string,
   to: string,
   locale: string,
+  scope: InsightsScope = 'cafe',
 ): Promise<StoredPatternsRow | null> {
   const { data, error } = await supabase
     .from('analytics_patterns')
@@ -273,6 +314,7 @@ export async function fetchStoredPatterns(
     .eq('range_from', from)
     .eq('range_to', to)
     .eq('locale', locale)
+    .eq('scope', scope)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
