@@ -20,7 +20,8 @@ import { AnalyticsBar } from '../AnalyticsBar';
 import { AnalyticsFrame } from '../AnalyticsFrame';
 import { Notices } from '../Notices';
 import { Zone, ZoneGrid, CAFE_ZONES } from '../Zone';
-import { basisCopy, weekdayName } from '../copy';
+import { basisCopy, patternsCopy, weekdayName } from '../copy';
+import { mineCafeCandidates, toPatternWire } from '../patterns';
 import { buildInsightsData } from '../payload';
 import { sumBy } from '../derive';
 import { makeFormatters } from '../format';
@@ -307,7 +308,16 @@ export function CafeTab() {
             scope="cafe"
             range={data.range}
             compareBasis={data.compareBasis}
-            buildData={(extras) => (raw && derived && allState === 'ready' ? buildInsightsData(raw, derived, locale, extras) : null)}
+            live={data.live}
+            buildData={(extras) =>
+              raw && derived && allState === 'ready'
+                ? buildInsightsData(raw, derived, locale, {
+                    ...extras,
+                    // The Patterns card's level-0 candidates, as ground truth the model may not bend.
+                    patterns: mineCafeCandidates(raw, derived, 0, patternsCopy(tr, f, locale)).map(toPatternWire),
+                  })
+                : null
+            }
             note={
               basisLine || thin ? (
                 <>

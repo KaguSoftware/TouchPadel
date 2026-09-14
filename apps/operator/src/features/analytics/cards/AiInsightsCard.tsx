@@ -9,6 +9,11 @@
  *             filter knows about it), THEN {mode:'replace_rejected'}, then save.
  * A degraded response (no GROQ key) still carries templated findings — the card
  * says so rather than pretending a model spoke.
+ *
+ * Stored sets are keyed by court (0098): with the Courts tab filtered to one
+ * court the card reads and writes that court's set, never the venue-wide one.
+ * On a live range (today still inside it) the numbers keep moving under a
+ * stored set, so the card prints when the shown set was generated.
  */
 import { useRef, useState, type ReactNode } from 'react';
 import type { CompareBasis, DateRange } from '@touch/core';
@@ -48,6 +53,8 @@ export function AiInsightsCard({
   scope,
   range,
   compareBasis,
+  courtId = null,
+  live = false,
   buildData,
   note,
   tip,
@@ -59,6 +66,10 @@ export function AiInsightsCard({
   scope: InsightsScope;
   range: DateRange;
   compareBasis: CompareBasis;
+  /** The Courts tab's filter (0098): the set is stored and read under this court; null = venue-wide. */
+  courtId?: string | null;
+  /** The range still includes today: the numbers move, so say when the set was generated. */
+  live?: boolean;
   buildData: (extras: InsightsExtras) => InsightsData | CourtsInsightsData | null;
   /** STATE under the title (basis line, thin-sample warning). */
   note?: ReactNode;
@@ -76,10 +87,10 @@ export function AiInsightsCard({
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<unknown>(null);
   const [degraded, setDegraded] = useState(false);
-  const [live, setLive] = useState<Insight[] | null>(null);
+  const [fresh, setFresh] = useState<Insight[] | null>(null);
 
   const latest = stored.insights[0] ?? null;
-  const shown = live ?? latest?.insights ?? [];
+  const shown = fresh ?? latest?.insights ?? [];
   const rejectedTexts = stored.rejections.map((r) => r.text);
   const ready = state === 'ready';
 
@@ -90,6 +101,7 @@ export function AiInsightsCard({
       basis: compareBasis,
       locale: locale as Locale,
       scope,
+      courtId,
       insights: list,
     });
     stored.reload();
@@ -111,7 +123,7 @@ export function AiInsightsCard({
         data,
       });
       setDegraded(res.degraded);
-      setLive(res.insights);
+      setFresh(res.insights);
       await save(res.insights);
       if (mode === 'replace_rejected' && res.insights.length === 0) toast.info(tr('analytics.insights.noReplacement'));
     } catch (err) {
@@ -150,7 +162,7 @@ export function AiInsightsCard({
       stored.reload();
       toast.ok(tr('analytics.insights.rejected'));
       const remaining = shown.filter((i) => i.text !== insight.text);
-      setLive(remaining);
+      setFresh(remaining);
       await run('replace_rejected', remaining.map((i) => i.text));
     } catch (err) {
       setError(err);
@@ -187,6 +199,9 @@ export function AiInsightsCard({
     >
       <div style={{ display: 'grid', gap: '0.5rem' }}>
         {degraded && <p style={{ ...muted, color: 'var(--tp-danger)' }}>{tr('analytics.insights.degraded')}</p>}
+        {live && fresh === null && latest && shown.length > 0 && (
+          <p style={muted}>{tr('analytics.insights.generatedAt', { date: f.dateTime(latest.created_at) })}</p>
+        )}
         {busy === 'replace' && <p style={muted}>{tr('analytics.insights.replacing')}</p>}
         <ErrorText error={error} />
         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '0.45rem' }}>

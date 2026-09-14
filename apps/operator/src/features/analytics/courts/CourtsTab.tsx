@@ -27,6 +27,7 @@ import { AiInsightsCard } from '../cards/AiInsightsCard';
 import { useVenueRevenue } from '../useVenueRevenue';
 import { CourtPatternsCard } from './cards/CourtPatternsCard';
 import { courtPatternsCopy } from './copy';
+import { toPatternWire } from '../patterns';
 import { buildCourtsInsightsData } from './payload';
 import { CrossSection } from './sections/CrossSection';
 import { CourtsSection } from './sections/CourtsSection';
@@ -107,7 +108,13 @@ export function CourtsTab() {
             scope="courts"
             range={data.range}
             compareBasis={data.compareBasis}
-            buildData={(extras) => (raw && derived && allState === 'ready' ? buildCourtsInsightsData(raw, derived, locale, tr, extras) : null)}
+            courtId={data.courtId}
+            live={data.live}
+            buildData={(extras) =>
+              raw && derived && allState === 'ready'
+                ? buildCourtsInsightsData(raw, derived, locale, tr, { ...extras, patterns: derived.patterns.map(toPatternWire) })
+                : null
+            }
             note={derived?.thin ? tr('ws.analytics.courts.notices.thin') : undefined}
             tip={tr('ws.analytics.courts.tips.patterns')}
             stored={data.stored}
@@ -122,6 +129,7 @@ export function CourtsTab() {
             tip={tr('ws.analytics.courts.tips.patterns')}
             range={data.range}
             compareBasis={data.compareBasis}
+            courtId={data.courtId}
             stored={data.stored}
           />
         </ZoneGrid>

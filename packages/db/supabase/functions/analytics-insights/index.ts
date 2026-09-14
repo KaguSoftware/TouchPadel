@@ -1,58 +1,65 @@
 /**
  * analytics-insights — owner-only, STATELESS LLM layer over the analytics data
- * (db-slice.md Wave 4; contract in the reconciled plan §1.2). The operator
- * gathers SQL (app.analytics_*) + PostHog data first and POSTs it here; the
- * function never reads or writes the database — persistence is the operator's
- * job through the owner's save_analytics_* / reject_insight RPCs.
+ * (db-slice.md Wave 4; contract in _shared/insightsContract.ts, shared byte-for-
+ * byte with @touch/core). The operator gathers SQL (app.analytics_*) + PostHog
+ * data first and POSTs it here; the function never reads or writes the database
+ * — persistence is the operator's job through the owner's save_analytics_* /
+ * reject_insight RPCs.
  *
  * Request  POST {mode:'insights'|'patterns'|'revalidate'|'replace_rejected',
  *                lang:'ar'|'en', range_from, range_to, compare_basis:'prev'|'4w'|'52w',
  *                scope?:'cafe'|'courts' (missing = 'cafe'; old clients keep working),
- *                data: cafe  {kpis, daily, best_sellers, margins, bought_together, price_bands,
- *                             promo, engagement?, prior_insights?:string[], rejections:string[],
- *                             patterns?:PatternCandidate[], basis?:{salesDays, weekdayCounts},
- *                             excluded_names?:string[], compare?:{...}, coverage?:{...}}
- *                      courts {kpis, compare?, coverage?, basis, per_court[], by_day[],
- *                             heatmap_top[], heatmap_bottom[], demand, endings, guests|null,
- *                             cafe|null, patterns?, prior_insights?, rejections, excluded_names}
- *                             (aggregates and display names only; no identifiers of any kind)
+ *                data: CafeInsightsPayload | CourtsInsightsPayload}
+ *                (aggregates and display names only; no identifiers of any kind)
  * Response 200 {degraded:boolean, model:string|null,
- *               insights:[{text, kind, subjects, metrics, confidence, status?}],
- *               resolved?:string[], patterns?:[{id, text, kind, subjects, metrics, confidence, sampleLabel}]}
- *          400 INVALID_REQUEST · 401 AUTH_REQUIRED · 403 FORBIDDEN · 502 {error:'UPSTREAM'}
+ *               insights:InsightWire[] (+status), resolved?:string[],
+ *               patterns?:JudgedPatternWire[]}
+ *          400 INVALID_REQUEST · 401 AUTH_REQUIRED · 403 FORBIDDEN · 429 LLM_* · 502 {error:'UPSTREAM'}
  *
  *  - No GROQ_API_KEY → 200 {degraded:true, model:null} with deterministic
- *    templated sentences built from `data` (best seller, thinnest-margin costed
- *    item, top pair, promo uplift, busiest day; courts: fullest and emptiest
- *    open hour, cancellation rate with its worst segment, cafe attach with the
- *    lowest-attach court); `patterns` mode phrases the operator-mined
- *    candidates with their `fallbackText`.
+ *    templated sentences built from `data` (_shared/insightsFallback.ts);
+ *    `patterns` mode phrases the operator-mined candidates with `fallbackText`.
  *  - With Groq: raw fetch to the OpenAI-compatible endpoint, JSON mode, five
- *    directed scan angles per scope (cafe: profit / conversion / pricing /
- *    movement / structural; courts: occupancy / reliability / demand / attach /
- *    movement) for `insights` + `replace_rejected`, one revalidate call, and a
- *    smaller judge model for `patterns`. 25 s budget for the whole request.
- *  - Post-model gates (shared copy of packages/core insightsText.ts):
- *    isStrongFinding → drop owner rejections (normalizeFinding, the SQL twin of
- *    app.normalize_finding) → dropLowConfidenceClaims when `data.basis` is
- *    present → dropExcludedMentions → rankFindings (money cited) → cap 8.
+ *    directed scan angles per scope for `insights` + `replace_rejected`, one
+ *    revalidate call, and a smaller judge model for `patterns`. 25 s budget for
+ *    the whole request.
+ *  - THE PAGE AND THE MODEL READ THE SAME NUMBERS. The payload is the typed
+ *    contract the cards render from; the deterministic `patterns` travel inside
+ *    it as ground truth; the floors in the prompt are the contract's constants;
+ *    and the gate (_shared/insightsGate.ts) drops any finding citing an IQD
+ *    amount the payload does not contain, so nothing is scaled, projected or
+ *    summed on the way to the owner. Ranking is confidence, then sample —
+ *    never money.
  */
 import { createServiceClient } from '../_shared/supabase.ts';
 import { json } from '../_shared/http.ts';
 import { requireStaffRole } from '../_shared/auth.ts';
 import {
+  MIN_ATTACH_BOOKINGS,
+  MIN_CELL_OPEN_DAYS,
+  MIN_ITEM_UNITS,
+  MIN_ITEM_VIEWS,
+  MIN_RATE_DENOM,
+  type CafeInsightsPayload,
+  type CourtsInsightsPayload,
+  type FindingBasisWire,
+  type InsightConfidence,
+  type InsightKind,
+  type InsightWire,
+  type InsightsScope,
+  type JudgedPatternWire,
+  type PatternCandidateWire,
+} from '../_shared/insightsContract.ts';
+import { collectAmounts, gateInsights } from '../_shared/insightsGate.ts';
+import { templatedInsights } from '../_shared/insightsFallback.ts';
+import {
   MAX_FINDINGS,
   MIN_TREND_DAYS,
   MIN_WEEKDAY_DAYS,
-  dropExcludedMentions,
-  dropLowConfidenceClaims,
-  dropRejectedFindings,
   isStrongFinding,
   latinDigits,
   normalizeFinding,
-  rankFindings,
   rejectionKeys,
-  type FindingBasis,
 } from '../_shared/insightsText.ts';
 
 // ---------------------------------------------------------------------------
@@ -65,119 +72,43 @@ const JUDGE_MODEL = Deno.env.get('GROQ_JUDGE_MODEL') || 'llama-3.1-8b-instant';
 const BUDGET_MS = 25_000;
 
 /**
- * SEC-29 (0079) — per-request token tally.
- *
- * Module scope is safe here BECAUSE the accumulator is reset at the top of every
- * request and an edge instance serves one request at a time. It is flushed to
- * app.llm_record_usage once, at the end, rather than per model call: one
- * `insights` request fans out to six calls and six round trips to the database
- * to bill them would cost more than the calls.
+ * SEC-29 (0079) — per-request token tally, created in the handler and threaded
+ * through every `chat()` call. Never module scope: an edge instance can serve
+ * two requests at once, and a shared accumulator would bill one owner's calls
+ * to the other. Flushed to app.llm_record_usage once, at the end.
  */
-const tally = { calls: 0, prompt: 0, completion: 0 };
+interface Tally {
+  calls: number;
+  prompt: number;
+  completion: number;
+}
+
 const MAX_SPAN_DAYS = 400;
 const MAX_ITEM_ROWS = 40;
 const MAX_SECONDARY_ROWS = 25;
 const MAX_REJECTED_EXAMPLES = 15;
 const MAX_PATTERN_CANDIDATES = 40;
-/** Courts scope: rows the model reads per block, and the floors its prompt states. */
+/** Courts scope: rows the model reads per block. The floors come from the contract. */
 const MAX_COURT_ROWS = 12;
 const MAX_HEAT_ROWS = 12;
-const COURTS_MIN_CELL_OPEN_DAYS = 4;
-const COURTS_MIN_RATE_DENOM = 20;
-const COURTS_MIN_ATTACH_BOOKINGS = 10;
 
 const configured = () => Boolean(API_KEY);
 
 type Lang = 'ar' | 'en';
 type Mode = 'insights' | 'patterns' | 'revalidate' | 'replace_rejected';
-type Confidence = 'high' | 'medium' | 'low';
-/** Which analytics the request describes; the cafe menu (the original) or the padel courts. */
-type Scope = 'cafe' | 'courts';
+type Scope = InsightsScope;
 const KINDS = [
   'profit', 'conversion', 'pricing', 'movement', 'structural', // cafe angles
   'occupancy', 'reliability', 'demand', 'attach', // courts angles ('movement' is shared)
   'summary',
-] as const;
-type Kind = (typeof KINDS)[number];
+] as const satisfies readonly InsightKind[];
+type Kind = InsightKind;
 
-interface Insight {
-  text: string;
-  kind: Kind;
-  subjects: string[];
-  metrics: Record<string, number | string>;
-  confidence: Confidence;
-  /** revalidate: 'ongoing' (still true) | 'new'; other modes: 'new'. */
-  status?: 'ongoing' | 'new';
-}
-
-interface PatternCandidate {
-  id: string;
-  kind: string;
-  subjects: string[];
-  metrics: Record<string, number | string>;
-  confidence: Confidence;
-  sampleLabel: string;
-  desc?: string;
-  hint?: string;
-  fallbackText: string;
-}
-
-interface JudgedPattern extends PatternCandidate {
-  text: string;
-}
+type Insight = InsightWire;
+type PatternCandidate = PatternCandidateWire;
+type JudgedPattern = JudgedPatternWire;
 
 type Row = Record<string, unknown>;
-
-interface CafeData {
-  kpis: Row;
-  daily: Row[];
-  best_sellers: Row[];
-  margins: Row | null;
-  bought_together: Row[];
-  price_bands: Row[];
-  promo: Row | null;
-  engagement?: Row;
-  prior_insights: string[];
-  rejections: string[];
-  patterns: PatternCandidate[];
-  basis: FindingBasis | null;
-  excluded_names: string[];
-  compare?: Row;
-  coverage?: Row;
-}
-
-/**
- * Courts scope. Everything is an aggregate the operator computed from the five
- * app.analytics_courts_* RPCs; court names are display names, guests are counts.
- */
-interface CourtsData {
-  kpis: Row;
-  /** { from, to, basis, reliable, kpis } for the comparison window. */
-  compare?: Row;
-  /** { days, days_with_data, ratio }. */
-  coverage?: Row;
-  /** bookingDays mapped to salesDays by the client. */
-  basis: FindingBasis | null;
-  /** <= MAX_COURT_ROWS: name, bookings, occupancy_pct, revenue_iqd, rev_per_open_hour_iqd, ... */
-  per_court: Row[];
-  /** business_date, bookings, revenue_iqd, cancellations, no_shows. */
-  by_day: Row[];
-  /** <= MAX_HEAT_ROWS each: weekday, hour, occupancy_pct, bookings, open_days. */
-  heatmap_top: Row[];
-  heatmap_bottom: Row[];
-  /** { durations, lead_time, sources, hold_funnel, players, series }. */
-  demand: Row;
-  /** { cancellations: {total, rate_pct, by_notice, by_actor, top_segments}, no_shows: {...} }. */
-  endings: Row;
-  /** { identities, returning_pct, visit_buckets, regulars, lapsing_regulars, regulars_bookings_pct }. */
-  guests: Row | null;
-  /** { attach_pct, cafe_per_booking_iqd, per_court, top_items_per_court, order_timing, value_per_court_hour }. */
-  cafe: Row | null;
-  prior_insights: string[];
-  rejections: string[];
-  patterns: PatternCandidate[];
-  excluded_names: string[];
-}
 
 interface ReqBase {
   mode: Mode;
@@ -188,17 +119,19 @@ interface ReqBase {
 }
 interface CafeReq extends ReqBase {
   scope: 'cafe';
-  data: CafeData;
+  data: CafeInsightsPayload;
 }
 interface CourtsReq extends ReqBase {
   scope: 'courts';
-  data: CourtsData;
+  data: CourtsInsightsPayload;
 }
 /** `scope` discriminates `data`; the gates only touch the fields both shapes share. */
 type Req = CafeReq | CourtsReq;
 
 // ---------------------------------------------------------------------------
-// Validation
+// Validation — tolerant: a missing block is an empty one, never a 400. The
+// parsers return the CONTRACT types; the casts on nested rows are the one place
+// the wire is trusted, and the fallback and the gate read only what they check.
 // ---------------------------------------------------------------------------
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isIsoDate = (s: unknown): s is string =>
@@ -207,8 +140,10 @@ const rows = (v: unknown): Row[] => (Array.isArray(v) ? v.filter((x) => x && typ
 const obj = (v: unknown): Row | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Row) : null);
 const strings = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
+const rowsAs = <T,>(v: unknown): T[] => rows(v) as unknown as T[];
+const objAs = <T,>(v: unknown): T | null => obj(v) as unknown as T | null;
 
-function parseBasis(v: unknown): FindingBasis | null {
+function parseBasis(v: unknown): FindingBasisWire | null {
   const b = obj(v);
   if (!b || typeof b.salesDays !== 'number' || !Array.isArray(b.weekdayCounts)) return null;
   return {
@@ -229,8 +164,8 @@ function parsePatterns(v: unknown): PatternCandidate[] {
       kind: typeof p.kind === 'string' ? p.kind : 'co-move',
       subjects: strings(p.subjects),
       metrics: obj(p.metrics) as Record<string, number | string> ?? {},
-      confidence: (['high', 'medium', 'low'] as const).includes(p.confidence as Confidence)
-        ? (p.confidence as Confidence)
+      confidence: (['high', 'medium', 'low'] as const).includes(p.confidence as InsightConfidence)
+        ? (p.confidence as InsightConfidence)
         : 'low',
       sampleLabel: typeof p.sampleLabel === 'string' ? p.sampleLabel : '',
       desc: typeof p.desc === 'string' ? p.desc : typeof p.hint === 'string' ? p.hint : undefined,
@@ -238,41 +173,41 @@ function parsePatterns(v: unknown): PatternCandidate[] {
     }));
 }
 
-function parseCafeData(d: Row, patterns: PatternCandidate[]): CafeData {
+function parseCafeData(d: Row, patterns: PatternCandidate[]): CafeInsightsPayload {
+  const margins = obj(d.margins);
   return {
-    kpis: obj(d.kpis) ?? {},
-    daily: rows(d.daily),
-    best_sellers: rows(d.best_sellers),
-    margins: obj(d.margins),
-    bought_together: rows(d.bought_together),
-    price_bands: rows(d.price_bands),
-    promo: obj(d.promo),
-    engagement: obj(d.engagement) ?? undefined,
+    kpis: (obj(d.kpis) ?? {}) as unknown as CafeInsightsPayload['kpis'],
+    daily: rowsAs<CafeInsightsPayload['daily'][number]>(d.daily),
+    best_sellers: rowsAs<CafeInsightsPayload['best_sellers'][number]>(d.best_sellers),
+    margins: margins ? ({ ...margins, items: rows(margins.items) } as unknown as CafeInsightsPayload['margins']) : null,
+    bought_together: rowsAs<CafeInsightsPayload['bought_together'][number]>(d.bought_together),
+    price_bands: rowsAs<CafeInsightsPayload['price_bands'][number]>(d.price_bands),
+    promo: objAs<NonNullable<CafeInsightsPayload['promo']>>(d.promo),
+    engagement: objAs<NonNullable<CafeInsightsPayload['engagement']>>(d.engagement) ?? undefined,
     prior_insights: strings(d.prior_insights),
     rejections: strings(d.rejections),
     patterns,
     basis: parseBasis(d.basis),
     excluded_names: strings(d.excluded_names),
-    compare: obj(d.compare) ?? undefined,
-    coverage: obj(d.coverage) ?? undefined,
+    compare: objAs<NonNullable<CafeInsightsPayload['compare']>>(d.compare) ?? undefined,
+    coverage: objAs<NonNullable<CafeInsightsPayload['coverage']>>(d.coverage) ?? undefined,
   };
 }
 
-/** Tolerant like the cafe parser: a missing block is an empty one, never a 400. */
-function parseCourtsData(d: Row, patterns: PatternCandidate[]): CourtsData {
+function parseCourtsData(d: Row, patterns: PatternCandidate[]): CourtsInsightsPayload {
   return {
-    kpis: obj(d.kpis) ?? {},
-    compare: obj(d.compare) ?? undefined,
-    coverage: obj(d.coverage) ?? undefined,
+    kpis: (obj(d.kpis) ?? {}) as unknown as CourtsInsightsPayload['kpis'],
+    compare: objAs<NonNullable<CourtsInsightsPayload['compare']>>(d.compare) ?? undefined,
+    coverage: objAs<NonNullable<CourtsInsightsPayload['coverage']>>(d.coverage) ?? undefined,
     basis: parseBasis(d.basis),
-    per_court: rows(d.per_court),
-    by_day: rows(d.by_day),
-    heatmap_top: rows(d.heatmap_top),
-    heatmap_bottom: rows(d.heatmap_bottom),
-    demand: obj(d.demand) ?? {},
-    endings: obj(d.endings) ?? {},
-    guests: obj(d.guests),
-    cafe: obj(d.cafe),
+    per_court: rowsAs<CourtsInsightsPayload['per_court'][number]>(d.per_court),
+    by_day: rowsAs<CourtsInsightsPayload['by_day'][number]>(d.by_day),
+    heatmap_top: rowsAs<CourtsInsightsPayload['heatmap_top'][number]>(d.heatmap_top),
+    heatmap_bottom: rowsAs<CourtsInsightsPayload['heatmap_bottom'][number]>(d.heatmap_bottom),
+    demand: (obj(d.demand) ?? {}) as unknown as CourtsInsightsPayload['demand'],
+    endings: (obj(d.endings) ?? {}) as unknown as CourtsInsightsPayload['endings'],
+    guests: objAs<NonNullable<CourtsInsightsPayload['guests']>>(d.guests),
+    cafe: objAs<NonNullable<CourtsInsightsPayload['cafe']>>(d.cafe),
     prior_insights: strings(d.prior_insights),
     rejections: strings(d.rejections),
     patterns,
@@ -307,223 +242,23 @@ function parseBody(body: unknown): Req | string {
   return { ...base, scope, data: parseCafeData(d, patterns) };
 }
 
-// ---------------------------------------------------------------------------
-// Formatting (Latin digits both languages; IQD has no decimals)
-// ---------------------------------------------------------------------------
 const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : Number(v) || 0);
-const fmt = (v: unknown) => Math.round(n(v)).toLocaleString('en-US');
-const money = (v: unknown, lang: Lang) => (lang === 'ar' ? `${fmt(v)} د.ع` : `${fmt(v)} IQD`);
-const nameOf = (r: Row, lang: Lang, prefix = 'name') =>
-  String((lang === 'ar' ? r[`${prefix}_ar`] : r[`${prefix}_en`]) ?? r[`${prefix}_en`] ?? r[`${prefix}_ar`] ?? '');
-
-const WEEKDAYS = {
-  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-  ar: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
-};
-const EXTRA_WEEKDAYS = [
-  { day: 0, name: 'الاحد' },
-  { day: 1, name: 'الإثنين' },
-  { day: 3, name: 'الاربعاء' },
-];
 
 // ---------------------------------------------------------------------------
-// Degraded (no key) — deterministic templated sentences so the card still renders
-// ---------------------------------------------------------------------------
-function templatedInsights(req: Req): Insight[] {
-  return req.scope === 'courts' ? templatedCourtsInsights(req) : templatedCafeInsights(req);
-}
-
-function templatedCafeInsights(req: CafeReq): Insight[] {
-  const { lang, data } = req;
-  const out: Insight[] = [];
-  const ar = lang === 'ar';
-
-  const best = data.best_sellers[0];
-  if (best && n(best.qty) > 0) {
-    const name = nameOf(best, lang);
-    out.push({
-      text: ar
-        ? `${name} كان الأكثر مبيعاً: ${fmt(best.qty)} وحدة بإيراد ${money(best.revenue_iqd, lang)} (${n(best.share_pct)}% من الكمية المباعة).`
-        : `${name} was the best seller: ${fmt(best.qty)} sold for ${money(best.revenue_iqd, lang)} (${n(best.share_pct)}% of units).`,
-      kind: 'summary',
-      subjects: [name],
-      metrics: { qty: n(best.qty), revenue_iqd: n(best.revenue_iqd), share_pct: n(best.share_pct) },
-      confidence: 'high',
-    });
-  }
-
-  const costed = rows(data.margins?.items).filter((i) => i.has_cost === true && n(i.qty) > 0);
-  if (costed.length) {
-    const worst = costed.reduce((a, b) => (n(b.margin_pct) < n(a.margin_pct) ? b : a));
-    const name = nameOf(worst, lang);
-    const below = n(worst.margin_iqd) < 0;
-    out.push({
-      text: ar
-        ? below
-          ? `${name} يُباع بأقل من كلفته: هامش ${fmt(worst.margin_iqd)} د.ع على ${fmt(worst.qty)} وحدة — راجع السعر أو الكلفة.`
-          : `${name} صاحب أضعف هامش بين الأصناف المُكلَّفة: ${n(worst.margin_pct)}% (${money(worst.margin_iqd, lang)} من ${money(worst.revenue_iqd, lang)}) — فكّر برفع السعر أو خفض الكلفة.`
-        : below
-          ? `${name} sells below cost: margin ${fmt(worst.margin_iqd)} IQD across ${fmt(worst.qty)} units — review its price or cost.`
-          : `${name} has the thinnest margin among costed items: ${n(worst.margin_pct)}% (${money(worst.margin_iqd, lang)} of ${money(worst.revenue_iqd, lang)}) — consider a small price rise or a cheaper portion.`,
-      kind: 'profit',
-      subjects: [name],
-      metrics: { margin_pct: n(worst.margin_pct), margin_iqd: n(worst.margin_iqd), qty: n(worst.qty) },
-      confidence: n(worst.qty) >= 5 ? 'medium' : 'low',
-    });
-  }
-
-  const pair = data.bought_together[0];
-  if (pair && n(pair.both) > 0) {
-    const a = nameOf(pair, lang, 'name_a');
-    const b = nameOf(pair, lang, 'name_b');
-    out.push({
-      text: ar
-        ? `${a} و${b} طُلبا معاً ${fmt(pair.both)} مرة (رفع ${n(pair.lift).toFixed(1)}×) — جرّب اقتراح أحدهما عند إضافة الآخر.`
-        : `${a} and ${b} were ordered together ${fmt(pair.both)} times (lift ${n(pair.lift).toFixed(1)}×) — try suggesting one when the other is added.`,
-      kind: 'structural',
-      subjects: [a, b],
-      metrics: { both: n(pair.both), lift: n(pair.lift), confidence_ab: n(pair.confidence_ab) },
-      confidence: n(pair.both) >= 10 ? 'medium' : 'low',
-    });
-  }
-
-  if (data.promo && n(data.promo.qty) > 0) {
-    const p = data.promo;
-    out.push({
-      text: ar
-        ? `الأصناف المروَّجة باعت ${fmt(p.qty)} وحدة بإيراد ${money(p.revenue_iqd, lang)} مقابل خصومات بقيمة ${money(p.discount_iqd, lang)} في ${fmt(p.orders)} طلب.`
-        : `Promoted items sold ${fmt(p.qty)} units for ${money(p.revenue_iqd, lang)}, giving away ${money(p.discount_iqd, lang)} in discounts across ${fmt(p.orders)} orders.`,
-      kind: 'pricing',
-      subjects: [],
-      metrics: { qty: n(p.qty), revenue_iqd: n(p.revenue_iqd), discount_iqd: n(p.discount_iqd), orders: n(p.orders) },
-      confidence: 'medium',
-    });
-  }
-
-  const busiest = data.daily.filter((d) => n(d.revenue_iqd) > 0)
-    .reduce<Row | null>((a, b) => (!a || n(b.revenue_iqd) > n(a.revenue_iqd) ? b : a), null);
-  if (busiest) {
-    const date = String(busiest.business_date ?? '');
-    out.push({
-      text: ar
-        ? `أعلى يوم مبيعاً كان ${date}: ${money(busiest.revenue_iqd, lang)} عبر ${fmt(busiest.orders)} طلب.`
-        : `Busiest day was ${date}: ${money(busiest.revenue_iqd, lang)} across ${fmt(busiest.orders)} orders.`,
-      kind: 'movement',
-      subjects: [date],
-      metrics: { revenue_iqd: n(busiest.revenue_iqd), orders: n(busiest.orders) },
-      confidence: 'high',
-    });
-  }
-  return out;
-}
-
-// Courts rows carry display names only; `name` is the contract, name_en/name_ar the fallback.
-const courtName = (r: Row, lang: Lang) => (typeof r.name === 'string' && r.name) || nameOf(r, lang);
-const hourLabel = (h: unknown) => `${String(Math.round(n(h))).padStart(2, '0')}:00`;
-const weekdayLabel = (day: unknown, lang: Lang) => WEEKDAYS[lang][n(day)] ?? String(day ?? '');
-const slotLabel = (cell: Row, lang: Lang) => `${weekdayLabel(cell.weekday ?? cell.dow, lang)} ${hourLabel(cell.hour)}`;
-
-/** An endings segment however the client labelled it: a ready label, a court name, or a dimension + key. */
-function segmentLabel(seg: Row, lang: Lang): string {
-  if (typeof seg.label === 'string' && seg.label) return seg.label;
-  const named = courtName(seg, lang);
-  if (named) return named;
-  const dim = String(seg.dim ?? seg.dimension ?? '');
-  if (dim === 'dow' || dim === 'weekday') return weekdayLabel(seg.key, lang);
-  if (dim === 'hour') return hourLabel(seg.key);
-  return String(seg.key ?? '');
-}
-const segmentRate = (seg: Row) =>
-  seg.rate_pct != null ? n(seg.rate_pct) : n(seg.bookings_total) > 0 ? Math.round((n(seg.n) * 1000) / n(seg.bookings_total)) / 10 : 0;
-
-function templatedCourtsInsights(req: CourtsReq): Insight[] {
-  const { lang, data } = req;
-  const out: Insight[] = [];
-  const ar = lang === 'ar';
-  const openCells = (cells: Row[]) => cells.filter((c) => n(c.open_days) > 0);
-
-  const fullest = openCells(data.heatmap_top)
-    .reduce<Row | null>((a, b) => (!a || n(b.occupancy_pct) > n(a.occupancy_pct) ? b : a), null);
-  if (fullest && n(fullest.bookings) > 0) {
-    const slot = slotLabel(fullest, lang);
-    out.push({
-      text: ar
-        ? `أكثر ساعة امتلاءً كانت ${slot}: إشغال ${n(fullest.occupancy_pct)}% عبر ${fmt(fullest.open_days)} يوم مفتوح (${fmt(fullest.bookings)} حجز)؛ الطلب هنا يفوق العرض، ففكّر برفع سعر هذه الساعة أو توجيه الحجوزات إلى الساعة المجاورة.`
-        : `Fullest open hour was ${slot}: ${n(fullest.occupancy_pct)}% occupancy across ${fmt(fullest.open_days)} open days (${fmt(fullest.bookings)} bookings); demand outruns supply here, so consider pricing this hour up or steering bookings to the hour beside it.`,
-      kind: 'occupancy',
-      subjects: [slot],
-      metrics: { occupancy_pct: n(fullest.occupancy_pct), bookings: n(fullest.bookings), open_days: n(fullest.open_days) },
-      confidence: n(fullest.open_days) >= COURTS_MIN_CELL_OPEN_DAYS ? 'high' : 'low',
-    });
-  }
-
-  const emptiest = openCells(data.heatmap_bottom)
-    .reduce<Row | null>((a, b) => (!a || n(b.occupancy_pct) < n(a.occupancy_pct) ? b : a), null);
-  if (emptiest) {
-    const slot = slotLabel(emptiest, lang);
-    out.push({
-      text: ar
-        ? `أقل ساعة إشغالاً كانت ${slot}: إشغال ${n(emptiest.occupancy_pct)}% عبر ${fmt(emptiest.open_days)} يوم مفتوح (${fmt(emptiest.bookings)} حجز)؛ سعر مخفّض خارج الذروة أو حجز ثابت أسبوعي قد يملؤها.`
-        : `Emptiest open hour was ${slot}: ${n(emptiest.occupancy_pct)}% occupancy across ${fmt(emptiest.open_days)} open days (${fmt(emptiest.bookings)} bookings); a cheaper off-peak rate or a standing weekly booking would fill it.`,
-      kind: 'occupancy',
-      subjects: [slot],
-      metrics: { occupancy_pct: n(emptiest.occupancy_pct), bookings: n(emptiest.bookings), open_days: n(emptiest.open_days) },
-      confidence: n(emptiest.open_days) >= COURTS_MIN_CELL_OPEN_DAYS ? 'medium' : 'low',
-    });
-  }
-
-  const canc = obj(data.endings.cancellations);
-  if (canc && n(canc.total) > 0) {
-    const seg = rows(canc.top_segments)[0];
-    const label = seg ? segmentLabel(seg, lang) : '';
-    const worst = seg && label ? { label, rate: segmentRate(seg) } : null;
-    out.push({
-      text: ar
-        ? `أُلغي ${fmt(canc.total)} حجزاً (${n(canc.rate_pct)}% من كل الحجوزات)${worst ? `، والأسوأ في ${worst.label} بنسبة ${worst.rate}%` : ''}؛ اطلب تأكيداً قبل يوم من الموعد حيث تتكرر الإلغاءات.`
-        : `${fmt(canc.total)} bookings were cancelled (${n(canc.rate_pct)}% of all bookings)${worst ? `, worst in ${worst.label} at ${worst.rate}%` : ''}; ask for a confirmation the day before where it clusters.`,
-      kind: 'reliability',
-      subjects: worst ? [worst.label] : [],
-      metrics: { cancellations: n(canc.total), rate_pct: n(canc.rate_pct), ...(worst ? { segment_rate_pct: worst.rate } : {}) },
-      confidence: n(canc.total) >= COURTS_MIN_RATE_DENOM ? 'medium' : 'low',
-    });
-  }
-
-  const cafe = data.cafe;
-  const attachCourts = cafe
-    ? rows(cafe.per_court).filter((c) => c.attach_pct != null && n(c.live_bookings ?? c.bookings) > 0 && courtName(c, lang))
-    : [];
-  if (cafe && cafe.attach_pct != null && attachCourts.length) {
-    const lowest = attachCourts.reduce((a, b) => (n(b.attach_pct) < n(a.attach_pct) ? b : a));
-    const name = courtName(lowest, lang);
-    out.push({
-      text: ar
-        ? `نسبة ربط الكافيه بالحجوزات ${n(cafe.attach_pct)}%، والأدنى في ${name} بنسبة ${n(lowest.attach_pct)}%؛ فتح حساب كافيه عند الوصول لحجوزات هذا الملعب هو أرخص طريقة لرفعها.`
-        : `Cafe attach is ${n(cafe.attach_pct)}% of bookings, lowest on ${name} at ${n(lowest.attach_pct)}%; opening a cafe tab at check-in for that court's bookings is the cheapest lift.`,
-      kind: 'attach',
-      subjects: [name],
-      metrics: { attach_pct: n(cafe.attach_pct), court_attach_pct: n(lowest.attach_pct) },
-      confidence: n(lowest.live_bookings ?? lowest.bookings) >= COURTS_MIN_ATTACH_BOOKINGS ? 'medium' : 'low',
-    });
-  }
-  return out;
-}
-
-// ---------------------------------------------------------------------------
-// Post-model gates
+// Post-model gate (pure; _shared/insightsGate.ts). `amounts` is every number in
+// the payload the model read, so a cited IQD figure must be one it was given.
 // ---------------------------------------------------------------------------
 function gate(items: Insight[], req: Req, cap = MAX_FINDINGS): Insight[] {
-  const byText = new Map<string, Insight>();
-  for (const it of items) {
-    const key = normalizeFinding(it.text);
-    if (key && !byText.has(key)) byText.set(key, it);
-  }
-  let texts = [...byText.values()].map((i) => i.text).filter(isStrongFinding);
-  texts = dropRejectedFindings(texts, rejectionKeys(req.data.rejections)).kept;
-  if (req.data.basis) {
-    texts = dropLowConfidenceClaims(texts, req.data.basis, WEEKDAYS, { extraWeekdayNames: EXTRA_WEEKDAYS }).kept;
-  }
-  texts = dropExcludedMentions(texts, req.data.excluded_names);
-  return rankFindings(texts, cap).map((t) => byText.get(normalizeFinding(t))!);
+  return gateInsights(
+    items,
+    {
+      rejections: req.data.rejections,
+      basis: req.data.basis,
+      excludedNames: req.data.excluded_names,
+      amounts: collectAmounts(payload(req)),
+    },
+    cap,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -540,6 +275,7 @@ async function chat(
   user: string,
   model: string,
   deadline: number,
+  tally: Tally,
 ): Promise<string> {
   const remaining = deadline - Date.now();
   if (remaining < 1500) throw new UpstreamError(504, 'budget exhausted');
@@ -566,9 +302,9 @@ async function chat(
       choices?: { message?: { content?: string } }[];
       usage?: { prompt_tokens?: number; completion_tokens?: number };
     };
-    // SEC-29 (0079): the bill is denominated in these and they were being
-    // thrown away. Accumulated per request and flushed once at the end, so a
-    // spend cap has something real to measure.
+    // SEC-29 (0079): the bill is denominated in these. Accumulated on the
+    // request's own tally and flushed once at the end, so a spend cap has
+    // something real to measure.
     tally.calls += 1;
     tally.prompt += parsed.usage?.prompt_tokens ?? 0;
     tally.completion += parsed.usage?.completion_tokens ?? 0;
@@ -595,21 +331,24 @@ function parseJson(content: string): unknown {
   }
 }
 
+/** A finding as the model (or a stored set) shaped it; `sample` is the count it rests on. */
 function toInsight(raw: unknown, fallbackKind: Kind): Insight | null {
   if (typeof raw === 'string') {
-    return { text: raw.trim(), kind: fallbackKind, subjects: [], metrics: {}, confidence: 'medium' };
+    return { text: raw.trim(), kind: fallbackKind, subjects: [], metrics: {}, confidence: 'medium', sample: null };
   }
   const r = obj(raw);
   if (!r || typeof r.text !== 'string') return null;
   const kind = (KINDS as readonly string[]).includes(String(r.kind)) ? (r.kind as Kind) : fallbackKind;
-  const confidence = (['high', 'medium', 'low'] as const).includes(r.confidence as Confidence)
-    ? (r.confidence as Confidence)
+  const confidence = (['high', 'medium', 'low'] as const).includes(r.confidence as InsightConfidence)
+    ? (r.confidence as InsightConfidence)
     : 'medium';
   const metrics: Record<string, number | string> = {};
   for (const [k, v] of Object.entries(obj(r.metrics) ?? {})) {
     if (typeof v === 'number' || typeof v === 'string') metrics[k] = v;
   }
-  return { text: r.text.trim(), kind, subjects: strings(r.subjects).slice(0, 6), metrics, confidence };
+  const sampleRaw = typeof r.sample === 'number' ? r.sample : typeof r.sample === 'string' ? Number(latinDigits(r.sample).replace(/[^\d.]/g, '')) : NaN;
+  const sample = Number.isFinite(sampleRaw) && sampleRaw >= 0 ? Math.round(sampleRaw) : null;
+  return { text: r.text.trim(), kind, subjects: strings(r.subjects).slice(0, 6), metrics, confidence, sample };
 }
 
 function parseInsightArray(content: string, key: string, fallbackKind: Kind): Insight[] {
@@ -624,23 +363,36 @@ function parseInsightArray(content: string, key: string, fallbackKind: Kind): In
 const CAFE_FINDING_SHAPE = `Each finding is an object:
 {"text": "<one sentence for the owner>", "kind": "profit|conversion|pricing|movement|structural",
  "subjects": ["<item or category names the finding is about>"],
- "metrics": {"<figure name>": <number>}, "confidence": "high|medium|low"}`;
+ "metrics": {"<figure name>": <number>}, "confidence": "high|medium|low",
+ "sample": <the count the finding rests on — units sold, views, orders or days, as a number>}`;
 
 const COURTS_FINDING_SHAPE = `Each finding is an object:
 {"text": "<one sentence for the owner>", "kind": "occupancy|reliability|demand|attach|movement",
  "subjects": ["<court names, weekdays or hours the finding is about>"],
- "metrics": {"<figure name>": <number>}, "confidence": "high|medium|low"}`;
+ "metrics": {"<figure name>": <number>}, "confidence": "high|medium|low",
+ "sample": <the count the finding rests on — bookings, open days or booked slots, as a number>}`;
 
 const findingShape = (scope: Scope) => (scope === 'courts' ? COURTS_FINDING_SHAPE : CAFE_FINDING_SHAPE);
+
+/** The money rule, both scopes: a figure is quoted, never made. */
+const MONEY_RULES = `Every finding must cite a specific number from the data AND carry a concrete action; never just restate a
+number. CITE AN IQD AMOUNT ONLY AS IT APPEARS IN THE DATA; never scale, estimate or project one — no "per month",
+no "approximately", no sum of two figures. A finding whose amount is not in the data is dropped unread. NEVER
+FORECAST: describe what happened in the range, never what will happen.`;
+
+/** The deterministic patterns travel with the data and are the ground truth the model may not bend. */
+const PATTERNS_RULE = `"patterns" are REAL statistical patterns already computed from these same numbers (each with its metrics,
+sample and confidence). They are ground truth: never contradict one, never recompute one, and never restate one as
+a finding of your own — a finding may build ON a pattern, not repeat it.`;
 
 function languageRules(lang: Lang): string {
   return lang === 'ar'
     ? `WRITE THE "text" OF EVERY FINDING IN ARABIC — plain Modern Standard Arabic a cafe owner in Iraq reads
 naturally, no dialect slang, no English words except item names as given. Use LATIN digits (0-9) for every
 number, never Arabic-Indic digits. Write amounts as "12,500 د.ع" (number, space, د.ع). Keep item names exactly
-as their name_ar in the data (fall back to name_en when name_ar is missing).`
+as their "name" in the data.`
     : `WRITE THE "text" OF EVERY FINDING IN ENGLISH. Use Latin digits and write amounts as "12,500 IQD".
-Keep item names exactly as their name_en in the data.`;
+Keep item names exactly as their "name" in the data.`;
 }
 
 function courtsLanguageRules(lang: Lang): string {
@@ -664,20 +416,23 @@ function courtsDataContext(req: CourtsReq): string {
 the front desk; the venue's cafe runs a QR-code menu and the desk can link a cafe tab to a booking. Currency is
 Iraqi dinar (IQD), integer amounts, no decimals. You receive, for the date range ${req.range_from}..${req.range_to}:
 - "kpis": headline totals (bookings, booked_minutes, occupancy_pct, revenue_iqd, rev_per_open_hour_iqd,
-  cancellations, no_shows, booked_total, cancellation_rate_pct, no_show_rate_pct, mobile_bookings, desk_bookings,
-  holds_expired, booking_days, courts_count), and "compare": the same figures for the comparison window (basis
-  "${req.compare_basis}": prev = the period before this one, 4w = four weeks earlier, 52w = the same period last
-  year). NAME that window in any period-over-period sentence; calling it the wrong thing makes the finding false.
+  price_per_booked_hour_iqd, cancellations, no_shows, booked_total, cancellation_rate_pct, no_show_rate_pct,
+  mobile_bookings, desk_bookings, holds_expired, booking_days, courts_count), and "compare": the same figures for
+  the comparison window under "kpis" plus the signed "deltas" (basis "${req.compare_basis}": prev = the period
+  before this one, 4w = four weeks earlier, 52w = the same period last year). NAME that window in any
+  period-over-period sentence; calling it the wrong thing makes the finding false.
 - "per_court": per court: bookings, occupancy_pct, revenue_iqd, rev_per_open_hour_iqd, cancellations, no_shows,
   attach_pct, cafe_per_linked_iqd.
 - "by_day": per business day: bookings, revenue_iqd, cancellations, no_shows.
-- "heatmap_top" / "heatmap_bottom": the fullest and the emptiest weekday-by-hour cells of OPEN time: weekday
-  (0 = Sunday), hour, occupancy_pct, bookings, open_days (how many such days were open in the range).
+- "heatmap_top" / "heatmap_bottom": the fullest and the emptiest weekday-by-hour cells of OPEN time, venue-wide:
+  weekday (0 = Sunday) with its weekday_label, hour, occupancy_pct, bookings, open_days (how many such days were
+  open in the range). There is no per-court heatmap.
 - "demand": durations (bookings per slot length), lead_time (how far ahead people book), sources (app versus
-  desk), hold_funnel (app holds placed, expired, converted), players (group size where recorded), series
+  desk), hold_funnel (app holds ended, converted, pending), players (group size where recorded), series
   (standing weekly bookings).
 - "endings": cancellations (total, rate_pct, by_notice = how long before the slot, by_actor = who cancelled,
-  top_segments = where cancellations cluster) and no_shows (total, rate_pct, top_segments).
+  top_segments = where cancellations cluster, each with dim, label, n, bookings_total and rate_pct) and no_shows
+  (total, rate_pct, top_segments).
 - "guests" (may be null): identities, returning_pct, visit_buckets, regulars, lapsing_regulars,
   regulars_bookings_pct. Counts only; there are no people in this data.
 - "cafe" (null when nothing is linked): attach_pct, cafe_per_booking_iqd, per_court, top_items_per_court,
@@ -686,10 +441,12 @@ Iraqi dinar (IQD), integer amounts, no decimals. You receive, for the date range
 - "coverage": how much of the period has booking data. Below 0.9 the totals are INCOMPLETE; missing days, not
   lost business, so never call a gap a decline.
 - "basis": salesDays (days with bookings) and weekdayCounts.
+- "patterns": see below.
 
 DEFINITIONS, use them exactly:
 - A LIVE booking is confirmed, arrived or completed. booked_total = live + cancelled + no-show;
-  cancellation_rate_pct and no_show_rate_pct are shares of booked_total.
+  cancellation_rate_pct and no_show_rate_pct are shares of booked_total, and a rate is null when its
+  denominator is under ${MIN_RATE_DENOM}: then say "n of N", never a percentage.
 - occupancy_pct = booked minutes over open minutes. Opening hours are venue-wide: every court is open the same
   hours, so a court with low occupancy is a court guests did not pick, not a court that was closed.
 - ATTACH = the share of live bookings with a till-linked cafe tab. QR orders from the phone never link to a
@@ -698,26 +455,24 @@ DEFINITIONS, use them exactly:
 - players = null means the group size was not recorded, never that nobody played.
 
 SAMPLE SIZE IS A HARD GATE. Never make a weekday claim unless that weekday appears at least ${MIN_WEEKDAY_DAYS}
-times in basis.weekdayCounts. Never build a finding on a heat cell with fewer than ${COURTS_MIN_CELL_OPEN_DAYS}
-open days, on a rate whose denominator is under ${COURTS_MIN_RATE_DENOM} bookings, or on a court's attach with
-fewer than ${COURTS_MIN_ATTACH_BOOKINGS} bookings. When basis.salesDays is under ${MIN_TREND_DAYS}, describe no
-trend, rise or fall at all. When a finding rests on a subset of the period, state the sample inside the sentence.
-Dropping a thin finding costs nothing; publishing one costs the owner's trust.
+times in basis.weekdayCounts. Never build a finding on a heat cell with fewer than ${MIN_CELL_OPEN_DAYS}
+open days, on a rate whose denominator is under ${MIN_RATE_DENOM} bookings, or on a court's attach with
+fewer than ${MIN_ATTACH_BOOKINGS} bookings. When basis.salesDays is under ${MIN_TREND_DAYS}, describe no
+trend, rise or fall at all. When a finding rests on a subset of the period, state the sample inside the sentence
+and put the count in "sample". Dropping a thin finding costs nothing; publishing one costs the owner's trust.
 
-Every finding must cite a specific number from the data AND carry a concrete action; never just restate a
-number. ATTACH THE MONEY: end every finding with what acting on it is roughly worth per month in IQD, scaled to
-30 days from the range length and priced from the venue's own figures (revenue_iqd over booked_minutes, or a
-court's rev_per_open_hour_iqd); say "approximately" / "تقريباً". A finding with no amount is dropped. NEVER
-FORECAST: describe what happened in the range, never what will happen. NEVER NAME A PERSON: guests appear only
-as counts, and no name, phone number or identifier of any kind may appear in a finding.
+${MONEY_RULES} NEVER NAME A PERSON: guests appear only as counts, and no name, phone number or identifier of any
+kind may appear in a finding.
+
+${PATTERNS_RULE}
 
 WRITE FOR A VENUE OWNER, NOT AN ANALYST. Never name the internal fields ("heatmap_top", "endings", "kpis"…).
 Do NOT restate what the dashboard already shows (occupancy per court, the busiest hour, the totals). Each finding
 must expose a TENSION the owner would not catch from the boards: an open hour that sits empty while the same
-hour on another day is full, a court that lags the others in the same hours, late cancellations that free hours
-nobody rebooks, app holds that expire without converting, a segment that no-shows far above the base rate, a
-court whose bookings rarely link a cafe tab, a reversal versus the comparison window. If many courts or slots
-share a problem, that is ONE finding about the group with combined money.
+hour on another day is full, late cancellations that free hours nobody rebooks, app holds that expire without
+converting, a segment that no-shows far above the base rate, a court whose bookings rarely link a cafe tab, a
+reversal versus the comparison window. If many courts or slots share a problem, that is ONE finding about the
+group, citing the figures as given.
 
 ${courtsLanguageRules(req.lang)}
 
@@ -728,43 +483,52 @@ function cafeDataContext(req: CafeReq): string {
   return `You are a menu analytics advisor for a cafe with a QR-code digital menu (guests order from their
 phone at the table; there is no online payment — they pay at the desk). Currency is Iraqi dinar (IQD), integer
 amounts, no decimals. You receive, for the date range ${req.range_from}..${req.range_to}:
-- "kpis": headline totals, and "compare": the same figures for the comparison window (basis "${req.compare_basis}":
-  prev = the period before this one, 4w = four weeks earlier, 52w = the same period last year). NAME that window
-  in any period-over-period sentence; calling it the wrong thing makes the finding false.
-- "daily": per business day — revenue_iqd (money actually paid, net of refunds), orders, items_qty, tabs_settled,
-  discount_iqd, waiter calls where present.
-- "best_sellers": per item — qty, revenue_iqd, share_pct, orders.
-- "margins": per item — cost_iqd, margin_iqd, margin_pct, has_cost, plus "coverage" (share of revenue whose
-  items have a cost entered). PROFIT IS THE LANGUAGE, NOT REVENUE: a popular low-margin item ("يبيع كثيراً لكن لا
-  يربح" / "sells a lot but earns little") is where the money usually is; an item with a negative margin_iqd is
-  sold below cost — always worth a finding. When coverage.revenue_with_cost_pct is low, a profit finding speaks
-  ONLY for the costed items — say so. When "margins" is null or every has_cost is false: never mention cost,
-  margin or profit, and never estimate them.
-- "bought_together": item pairs — both (co-occurrences), lift, confidence_ab/ba.
-- "price_bands": units and revenue per list-price band.
+- "kpis": headline totals (total_sales_iqd = cafe money actually paid, net of refunds; tabs, orders, items_qty,
+  cash_iqd, card_iqd, discount_iqd, refunds_iqd, qr_orders, till_orders, qr_share_pct, sessions, views,
+  median_seconds, waiter_calls, basket_to_call_pct), and "compare": the same figures for the comparison window
+  under "kpis" plus the signed "deltas" (basis "${req.compare_basis}": prev = the period before this one, 4w =
+  four weeks earlier, 52w = the same period last year). NAME that window in any period-over-period sentence;
+  calling it the wrong thing makes the finding false.
+- "daily": per business day — revenue_iqd (net of refunds), tabs, orders, items_qty, discount_iqd, refunds_iqd,
+  waiter_calls.
+- "best_sellers": per item — name, qty, revenue_iqd, share_pct.
+- "margins": per item — name, qty, revenue_iqd, has_cost, cost_iqd, margin_iqd, margin_pct, quadrant,
+  losing_money, plus "coverage" (share of revenue whose items have a cost entered). PROFIT IS THE LANGUAGE, NOT
+  REVENUE: a popular low-margin item ("يبيع كثيراً لكن لا يربح" / "sells a lot but earns little") is where the
+  money usually is; an item with a negative margin_iqd is sold below cost — always worth a finding. When
+  coverage.revenue_with_cost_pct is low, a profit finding speaks ONLY for the costed items — say so. When
+  "margins" is null or every has_cost is false: never mention cost, margin or profit, and never estimate them.
+- "bought_together": item pairs — a, b, both (co-occurrences), confidence_pct (of orders with a, the share that
+  also had b), lift.
+- "price_bands": views, units sold and conv_pct per list-price band (min_iqd..max_iqd).
 - "promo": what the featured/discounted items sold and the discount given away (discount_iqd).
-- "engagement" (may be absent — PostHog not configured): item views, adds to basket, abandoned views bucketed by
-  dwell (5-10 s: photo/appeal weak; 10-20 s: description not convincing; 20 s+: read everything and still did not
-  order — content or price), funnel, sessions. Sales are the ground truth for demand; a views→sale ratio above
-  100% means guests order WITHOUT opening the page (an exposure problem, never a success).
+- "engagement" (may be absent — guest analytics not configured): funnel (sessions per step), item_conversion
+  (per item: views, carts, sold, conv_pct — the looked-versus-bought table), abandoned (per item: views that did
+  not order, by dwell — dwell_under_10s: photo/appeal weak; dwell_10_20s: description not convincing;
+  dwell_over_20s: read everything and still did not order — content or price). Sales are the ground truth for
+  demand; a conv_pct above 100 means guests order WITHOUT opening the page (an exposure problem, never a
+  success).
 - "coverage": how much of the period has sales data. Below 0.9 the totals are INCOMPLETE — missing days, not lost
   business — so never call a gap a decline.
 - "basis": salesDays and weekdayCounts.
+- "patterns": see below.
 
 SAMPLE SIZE IS A HARD GATE. Never make a weekday claim unless that weekday appears at least ${MIN_WEEKDAY_DAYS}
-times in basis.weekdayCounts. Never build a finding on fewer than 5 sold units or 5 views. When basis.salesDays
-is under ${MIN_TREND_DAYS}, describe no trend, rise or fall at all. When a finding rests on a subset of the period,
-state the sample inside the sentence. Dropping a thin finding costs nothing; publishing one costs the owner's trust.
+times in basis.weekdayCounts. Never build a finding on fewer than ${MIN_ITEM_UNITS} sold units or
+${MIN_ITEM_VIEWS} views. When basis.salesDays is under ${MIN_TREND_DAYS}, describe no trend, rise or fall at
+all. When a finding rests on a subset of the period, state the sample inside the sentence and put the count in
+"sample". Dropping a thin finding costs nothing; publishing one costs the owner's trust.
 
-Every finding must cite a specific number from the data AND carry a concrete action — never just restate a
-number. ATTACH THE MONEY: end every finding with what acting on it is roughly worth per month in IQD, scaled to
-30 days from the range length; say "approximately" / "تقريباً". A finding with no amount is dropped.
+${MONEY_RULES}
+
+${PATTERNS_RULE}
 
 WRITE FOR A CAFE OWNER, NOT AN ANALYST. Never name the internal fields ("best_sellers", "price_bands", "kpis"…).
 Do NOT restate what the dashboard already shows (rankings, best sellers, most viewed). Each finding must expose a
 TENSION the owner would not catch from the tables: viewed a lot but rarely sold, a band that barely converts, a
 dwell-time signal, a reversal versus the comparison window, a discount not moving sales, a popular item beaten on
-profit by a quieter one. If many items share a problem, that is ONE finding about the group with combined money.
+profit by a quieter one. If many items share a problem, that is ONE finding about the group, citing the figures
+as given.
 
 ${languageRules(req.lang)}
 
@@ -791,15 +555,15 @@ return {"findings":[]}.`,
   {
     id: 'pricing',
     focus: `THIS PASS: PRICE AND DISCOUNT STRUCTURE ONLY ("price_bands", "promo"). Find a band that draws
-attention but sells poorly and what that costs per month; a band that quietly outperforms; whether the promo
-discount actually moves sales — a discount that does not is margin given away for nothing, say so with the amount.`,
+attention but sells poorly; a band that quietly outperforms; whether the promo discount actually moves sales — a
+discount that does not is margin given away for nothing, say so with the discount_iqd figure as given.`,
   },
   {
     id: 'movement',
     focus: `THIS PASS: CHANGE OVER TIME ONLY ("kpis" vs "compare", "daily", "prior_insights"). Name the comparison
-window exactly. Find a headline figure that moved materially and what it is worth per month; a REVERSAL where two
-figures moved in opposite directions; follow-ups on prior_insights — did earlier advice land? Respect coverage and
-the trend gate.`,
+window exactly. Find a headline figure that moved materially, citing both windows' figures as given; a REVERSAL
+where two figures moved in opposite directions; follow-ups on prior_insights — did earlier advice land? Respect
+coverage and the trend gate.`,
   },
   {
     id: 'structural',
@@ -815,16 +579,16 @@ const COURTS_SCAN_ANGLES: ScanAngle[] = [
     id: 'occupancy',
     focus: `THIS PASS: WHERE THE COURTS SIT EMPTY OR FULL ONLY ("heatmap_top", "heatmap_bottom", "per_court",
 "by_day"). Find dead open hours (a slot that barely books while the same hour on other days fills), saturated
-slots where demand is being turned away, a court that lags the others in the same hours, and the weekday shape;
-price each at the venue's own rate per month. A cell with fewer than ${COURTS_MIN_CELL_OPEN_DAYS} open days is
-not evidence. If both heatmaps are empty, return {"findings":[]}; never estimate occupancy.`,
+slots where demand is being turned away, and the weekday shape; cite the venue's own figures as given. A cell
+with fewer than ${MIN_CELL_OPEN_DAYS} open days is not evidence. If both heatmaps are empty, return
+{"findings":[]}; never estimate occupancy.`,
   },
   {
     id: 'reliability',
     focus: `THIS PASS: CANCELLATIONS AND NO-SHOWS ONLY ("endings", "per_court"). Read the notice buckets (a late
 cancellation frees hours nobody rebooks), who cancels (guest versus desk), and the segments that cancel or
-no-show far above the base rate; put a monthly IQD figure on the court hours freed too late to resell. A rate on
-fewer than ${COURTS_MIN_RATE_DENOM} bookings is not evidence. If "endings" is absent or empty, return
+no-show far above the base rate; the late_revenue_iqd figure is the money freed too late, cite it as given. A
+rate on fewer than ${MIN_RATE_DENOM} bookings is not evidence. If "endings" is absent or empty, return
 {"findings":[]}; never estimate a rate.`,
   },
   {
@@ -840,17 +604,17 @@ the share of the week standing bookings lock up and whether they show up. If "de
     focus: `THIS PASS: THE CAFE ON TOP OF THE COURT ONLY ("cafe", "per_court"). Find the courts whose bookings
 rarely link a cafe tab against the venue attach rate, the spend per booking, what each court's players order,
 when orders land (before, during or after the slot), and the combined court-plus-cafe value per open hour; the
-gap between the best and the worst court is the money. Attach on fewer than ${COURTS_MIN_ATTACH_BOOKINGS}
-bookings is not evidence, and QR orders never link, so never call a low attach "nobody ordered". If "cafe" is
-null, return {"findings":[]}; never estimate cafe spend.`,
+gap between the best and the worst court is the finding, cited as given. Attach on fewer than
+${MIN_ATTACH_BOOKINGS} bookings is not evidence, and QR orders never link, so never call a low attach "nobody
+ordered". If "cafe" is null, return {"findings":[]}; never estimate cafe spend.`,
   },
   {
     id: 'movement',
     focus: `THIS PASS: CHANGE OVER TIME ONLY ("kpis" vs "compare", "by_day", "prior_insights"). Name the comparison
-window exactly. Find a headline figure that moved materially and what it is worth per month; a REVERSAL where two
-figures moved in opposite directions (more bookings but less revenue per open hour, fewer cancellations but more
-no-shows); follow-ups on prior_insights: did earlier advice land? Respect coverage and the trend gate; describe
-what happened, never what will happen. If "compare" is null, return {"findings":[]}.`,
+window exactly. Find a headline figure that moved materially, citing both windows' figures as given; a REVERSAL
+where two figures moved in opposite directions (more bookings but less revenue per open hour, fewer
+cancellations but more no-shows); follow-ups on prior_insights: did earlier advice land? Respect coverage and
+the trend gate; describe what happened, never what will happen. If "compare" is null, return {"findings":[]}.`,
   },
 ];
 
@@ -859,9 +623,10 @@ const scanAngles = (scope: Scope): ScanAngle[] => (scope === 'courts' ? COURTS_S
 function generateSystem(req: Req, angle: ScanAngle): string {
   return `${dataContext(req)}
 
-Return AT MOST ${MAX_FINDINGS} findings ordered by money at stake, biggest first. Fewer is fine; two sharp
-findings beat eight padded ones. The user message includes "already_found": findings from earlier passes — do
-NOT repeat or rephrase any of them. DIG: cross two tables against each other before you emit anything.
+Return AT MOST ${MAX_FINDINGS} findings ordered by confidence, then by the sample they rest on, strongest first.
+Fewer is fine; two sharp findings beat eight padded ones. The user message includes "already_found": findings
+from earlier passes — do NOT repeat or rephrase any of them. DIG: cross two tables against each other before you
+emit anything.
 
 === FOCUS OF THIS PASS: ${angle.id.toUpperCase()} ===
 ${angle.focus}
@@ -878,8 +643,8 @@ You are re-checking an existing set of findings ("existing") against the LATEST 
 - "ongoing": findings STILL TRUE now — keep them, updating figures to current values.
 - "resolved": findings that NO LONGER hold (improved or reversed) — briefly restate what changed (plain strings).
 - "added": NEW distinct findings not covered by the existing set.
-Hold "ongoing" and "added" to the full strength bar (sample, material number, action, IQD per month). "ongoing"
-plus "added" must not exceed ${MAX_FINDINGS}.
+Hold "ongoing" and "added" to the full strength bar (sample, material number, action, amounts only as given).
+"ongoing" plus "added" must not exceed ${MAX_FINDINGS}.
 ${rejectionsBlock(req)}
 Respond with ONLY a JSON object: {"ongoing":[finding…],"resolved":["…"],"added":[finding…]}.`;
 }
@@ -925,7 +690,7 @@ Respond with ONLY a JSON object: {"kept":[{"id":"<candidate id>","sentence":"…
   }
   return `You are the quality gate for a cafe menu "patterns" feature (QR-code digital menu, Iraqi dinar).
 You receive "candidates": REAL statistical patterns already computed from the data (correlation, market-basket
-lift, weekday over-indexing, a locale skew, a cost-based margin movement). The numbers are ground truth — never
+lift, weekday over-indexing, a price cliff, a cost-based margin movement). The numbers are ground truth — never
 recompute or adjust them. Your ONLY job is judgment + phrasing.
 
 Each candidate carries "sampleLabel" (how much data it rests on) and "confidence". Include the sampleLabel inside
@@ -949,10 +714,16 @@ function payload(req: Req, angle?: Kind): Row {
   return req.scope === 'courts' ? courtsPayload(req, angle) : cafePayload(req, angle);
 }
 
+/** The mined patterns as the model reads them: the statistics without the templated sentence. */
+function patternsForModel(patterns: readonly PatternCandidate[]): Row[] {
+  return patterns.map(({ fallbackText: _f, hint: _h, ...c }) => c as unknown as Row);
+}
+
 // Emptied rather than deleted: a present-but-empty key says "exists, not this
-// pass's subject"; a missing key would invite the model to invent it.
+// pass's subject"; a missing key would invite the model to invent it. The
+// patterns stay in every pass: they are ground truth, not a subject.
 function trimTo(base: Row, want: string[]): Row {
-  const keep = new Set(['range', 'compare_basis', 'lang', 'kpis', 'coverage', 'basis', ...want]);
+  const keep = new Set(['range', 'compare_basis', 'lang', 'kpis', 'coverage', 'basis', 'patterns', ...want]);
   const out: Row = {};
   for (const [k, v] of Object.entries(base)) {
     out[k] = keep.has(k) ? v : Array.isArray(v) ? [] : v && typeof v === 'object' ? null : v;
@@ -978,7 +749,8 @@ function courtsPayload(req: CourtsReq, angle?: Kind): Row {
     endings: d.endings,
     guests: d.guests,
     cafe: d.cafe,
-    prior_insights: d.prior_insights.slice(0, MAX_FINDINGS),
+    patterns: patternsForModel(d.patterns ?? []),
+    prior_insights: (d.prior_insights ?? []).slice(0, MAX_FINDINGS),
   };
   if (!angle) return base;
   const WANT: Partial<Record<Kind, string[]>> = {
@@ -1004,14 +776,19 @@ function cafePayload(req: CafeReq, angle?: Kind): Row {
     basis: d.basis,
     daily: d.daily,
     best_sellers: d.best_sellers.slice(0, MAX_ITEM_ROWS),
-    margins: d.margins
-      ? { ...d.margins, items: rows(d.margins.items).slice(0, MAX_ITEM_ROWS) }
-      : null,
+    margins: d.margins ? { ...d.margins, items: d.margins.items.slice(0, MAX_ITEM_ROWS) } : null,
     bought_together: d.bought_together.slice(0, MAX_SECONDARY_ROWS),
     price_bands: d.price_bands,
     promo: d.promo,
-    engagement: d.engagement ?? null,
-    prior_insights: d.prior_insights.slice(0, MAX_FINDINGS),
+    engagement: d.engagement
+      ? {
+          ...d.engagement,
+          item_conversion: (d.engagement.item_conversion ?? []).slice(0, MAX_SECONDARY_ROWS),
+          abandoned: (d.engagement.abandoned ?? []).slice(0, MAX_SECONDARY_ROWS),
+        }
+      : null,
+    patterns: patternsForModel(d.patterns ?? []),
+    prior_insights: (d.prior_insights ?? []).slice(0, MAX_FINDINGS),
   };
   if (!angle) return base;
   const WANT: Partial<Record<Kind, string[]>> = {
@@ -1028,7 +805,7 @@ function cafePayload(req: CafeReq, angle?: Kind): Row {
 // ---------------------------------------------------------------------------
 // Modes
 // ---------------------------------------------------------------------------
-async function runScan(req: Req, alreadyFound: string[], deadline: number): Promise<Insight[]> {
+async function runScan(req: Req, alreadyFound: string[], deadline: number, tally: Tally): Promise<Insight[]> {
   const found: Insight[] = [];
   const known = new Set(alreadyFound.map(normalizeFinding));
   for (const angle of scanAngles(req.scope)) {
@@ -1040,6 +817,7 @@ async function runScan(req: Req, alreadyFound: string[], deadline: number): Prom
         JSON.stringify({ ...payload(req, angle.id), already_found: [...alreadyFound, ...found.map((f) => f.text)] }),
         MODEL,
         deadline,
+        tally,
       );
     } catch (err) {
       // Nothing collected yet → the whole request is an upstream failure.
@@ -1057,18 +835,19 @@ async function runScan(req: Req, alreadyFound: string[], deadline: number): Prom
   return found;
 }
 
-async function modeInsights(req: Req, deadline: number) {
-  const alreadyFound = req.mode === 'replace_rejected' ? req.data.prior_insights : [];
-  const found = await runScan(req, alreadyFound, deadline);
+async function modeInsights(req: Req, deadline: number, tally: Tally) {
+  const alreadyFound = req.mode === 'replace_rejected' ? (req.data.prior_insights ?? []) : [];
+  const found = await runScan(req, alreadyFound, deadline, tally);
   return { insights: gate(found, req).map((i) => ({ ...i, status: 'new' as const })) };
 }
 
-async function modeRevalidate(req: Req, deadline: number) {
+async function modeRevalidate(req: Req, deadline: number, tally: Tally) {
   const content = await chat(
     revalidateSystem(req),
-    JSON.stringify({ ...payload(req), existing: req.data.prior_insights }),
+    JSON.stringify({ ...payload(req), existing: req.data.prior_insights ?? [] }),
     MODEL,
     deadline,
+    tally,
   );
   const parsed = obj(parseJson(content)) ?? {};
   const ongoing = parseInsightArray(JSON.stringify({ x: parsed.ongoing ?? [] }), 'x', 'summary')
@@ -1081,18 +860,19 @@ async function modeRevalidate(req: Req, deadline: number) {
 
 function phraseFallback(req: Req): JudgedPattern[] {
   const banned = rejectionKeys(req.data.rejections);
-  return req.data.patterns
+  return (req.data.patterns ?? [])
     .filter((p) => isStrongFinding(p.fallbackText) && !banned.has(normalizeFinding(p.fallbackText)))
-    .map((p) => ({ ...p, text: p.fallbackText }));
+    .map(({ fallbackText, desc: _d, hint: _h, ...p }) => ({ ...p, text: fallbackText }));
 }
 
-async function modePatterns(req: Req, deadline: number): Promise<{ patterns: JudgedPattern[]; degraded: boolean }> {
-  if (!req.data.patterns.length) return { patterns: [], degraded: false };
-  const candidates = req.data.patterns.map(({ fallbackText: _f, ...c }) => c);
-  const content = await chat(judgeSystem(req.lang, req.scope), JSON.stringify({ candidates }), JUDGE_MODEL, deadline);
+async function modePatterns(req: Req, deadline: number, tally: Tally): Promise<{ patterns: JudgedPattern[]; degraded: boolean }> {
+  const all = req.data.patterns ?? [];
+  if (!all.length) return { patterns: [], degraded: false };
+  const candidates = all.map(({ fallbackText: _f, ...c }) => c);
+  const content = await chat(judgeSystem(req.lang, req.scope), JSON.stringify({ candidates }), JUDGE_MODEL, deadline, tally);
   const parsed = obj(parseJson(content));
   const keptRaw = Array.isArray(parsed?.kept) ? (parsed!.kept as unknown[]) : [];
-  const byId = new Map(req.data.patterns.map((p) => [p.id, p]));
+  const byId = new Map(all.map((p) => [p.id, p]));
   const banned = rejectionKeys(req.data.rejections);
   const out: JudgedPattern[] = [];
   const used = new Set<string>();
@@ -1104,7 +884,8 @@ async function modePatterns(req: Req, deadline: number): Promise<{ patterns: Jud
     const cand = byId.get(id);
     if (!cand || used.has(id) || !isStrongFinding(text) || banned.has(normalizeFinding(text))) continue;
     used.add(id);
-    out.push({ ...cand, text });
+    const { fallbackText: _f, desc: _d, hint: _h, ...rest } = cand;
+    out.push({ ...rest, text });
   }
   return { patterns: out, degraded: false };
 }
@@ -1135,13 +916,13 @@ Deno.serve(async (req) => {
     if (parsed.mode === 'revalidate') {
       // Keep the stored set (minus rejections) — age alone is not a reason to drop it.
       const prior = gate(
-        parsed.data.prior_insights.map((text) => toInsight(text, 'summary')!),
+        (parsed.data.prior_insights ?? []).map((text) => toInsight(text, 'summary')!),
         parsed,
       ).map((i) => ({ ...i, status: 'ongoing' as const }));
       return json({ degraded: true, model: null, insights: prior, resolved: [] });
     }
     if (parsed.mode === 'replace_rejected') {
-      const known = new Set(parsed.data.prior_insights.map(normalizeFinding));
+      const known = new Set((parsed.data.prior_insights ?? []).map(normalizeFinding));
       return json({
         degraded: true,
         model: null,
@@ -1154,9 +935,7 @@ Deno.serve(async (req) => {
   // SEC-29 (0079): the quota gate. Deliberately AFTER the degraded path above —
   // templated sentences cost nothing and must keep working when the budget is
   // spent, so the card still renders. Only the paid path is gated.
-  tally.calls = 0;
-  tally.prompt = 0;
-  tally.completion = 0;
+  const tally: Tally = { calls: 0, prompt: 0, completion: 0 };
   const budget = await service.schema('app').rpc('llm_begin_request');
   if (budget.error) {
     const code = budget.error.message ?? 'LLM_BUDGET';
@@ -1178,15 +957,15 @@ Deno.serve(async (req) => {
   try {
     switch (parsed.mode) {
       case 'patterns': {
-        const r = await modePatterns(parsed, deadline);
+        const r = await modePatterns(parsed, deadline, tally);
         return json({ degraded: false, model: JUDGE_MODEL, insights: [], patterns: r.patterns });
       }
       case 'revalidate': {
-        const r = await modeRevalidate(parsed, deadline);
+        const r = await modeRevalidate(parsed, deadline, tally);
         return json({ degraded: false, model: MODEL, ...r });
       }
       default: {
-        const r = await modeInsights(parsed, deadline);
+        const r = await modeInsights(parsed, deadline, tally);
         return json({ degraded: false, model: MODEL, ...r });
       }
     }

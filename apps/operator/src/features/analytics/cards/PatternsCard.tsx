@@ -5,14 +5,15 @@
  * a successful judge pass simply replaces those sentences with better ones.
  */
 import { useMemo, useState } from 'react';
-import { minePatterns, type PatternCandidate, type PatternLevel } from '@touch/core';
+import type { PatternCandidate, PatternLevel } from '@touch/core';
 import type { Locale, MessageKey } from '@touch/i18n';
 import { Button, ErrorText, Spinner } from '../../../components/ui';
 import { useLocale } from '../../../lib/i18n';
-import { analyticsRpc, insights as callInsights, type JudgedPattern, type PatternCandidateWire } from '../../../lib/analyticsApi';
+import { analyticsRpc, insights as callInsights, type JudgedPattern } from '../../../lib/analyticsApi';
 import { patternsCopy } from '../copy';
 import type { Derived, RawAnalytics } from '../derive';
 import type { Formatters } from '../format';
+import { mineCafeCandidates, toPatternWire } from '../patterns';
 import type { StoredSets } from '../useAnalyticsData';
 import { CardShell, muted, type CardState } from './CardShell';
 import { StatusBadge } from '../../../components/kit';
@@ -24,19 +25,6 @@ const KIND_KEY: Record<string, MessageKey> = {
   segment: 'analytics.patterns.kinds.segment',
   margin: 'analytics.patterns.kinds.margin',
 };
-
-function toWire(c: PatternCandidate): PatternCandidateWire {
-  return {
-    id: c.id,
-    kind: c.kind,
-    subjects: c.subjects,
-    metrics: c.metrics,
-    confidence: c.confidence,
-    sampleLabel: c.sampleLabel,
-    desc: c.desc,
-    fallbackText: c.fallbackText,
-  };
-}
 
 export function PatternsCard({
   raw,
@@ -58,25 +46,11 @@ export function PatternsCard({
   const [error, setError] = useState<unknown>(null);
   const [degraded, setDegraded] = useState(false);
 
-  const candidates = useMemo<PatternCandidate[]>(() => {
-    if (!raw || !derived) return [];
-    const costs = new Map<string, { priceIqd: number; costIqd: number }>();
-    for (const m of raw.menu) if (m.costIqd !== null && m.priceIqd > 0) costs.set(m.id, { priceIqd: m.priceIqd, costIqd: m.costIqd });
-    return minePatterns(
-      {
-        soldByDay: raw.soldByDay.map((r) => ({ id: r.id, date: r.date, qty: r.qty, revenueIqd: r.revenueIqd })),
-        recordedDays: raw.daily.map((d) => d.date),
-        priceBands: derived.priceBands,
-        // The language-preference query was cut with its card: no audiences to mine.
-        locales: undefined,
-        costs,
-        names: derived.names,
-        keep: derived.keep,
-      },
-      level,
-      patternsCopy(tr, f, locale),
-    );
-  }, [raw, derived, level, tr, f, locale]);
+  // The same miner the insights payload carries as ground truth (../patterns.ts).
+  const candidates = useMemo<PatternCandidate[]>(
+    () => (raw && derived ? mineCafeCandidates(raw, derived, level, patternsCopy(tr, f, locale)) : []),
+    [raw, derived, level, tr, f, locale],
+  );
 
   const storedRows = stored.patterns?.patterns ?? [];
   const byId = new Map((judged ?? storedRows).map((p) => [p.id, p]));
@@ -95,15 +69,8 @@ export function PatternsCard({
         compare_basis: raw.compareBasis,
         scope: 'cafe',
         data: {
-          kpis: {},
-          daily: [],
-          best_sellers: [],
-          margins: null,
-          bought_together: [],
-          price_bands: [],
-          promo: null,
           rejections: stored.rejections.map((r) => r.text),
-          patterns: candidates.map(toWire),
+          patterns: candidates.map(toPatternWire),
         },
       });
       setDegraded(res.degraded);

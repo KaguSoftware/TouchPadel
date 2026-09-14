@@ -670,4 +670,56 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     const direct = await svc.from('analytics_insights').update({ scope: 'x' }).eq('id', cafe.data as string);
     expect(direct.error?.message ?? '').toContain('analytics_insights_scope_check');
   });
+
+  it('0098 court key: a courts set saves and reads under its court, the venue-wide set is NULL, a cafe set never takes a court', async () => {
+    const court = await svc.from('courts').select('id').order('sort_order').limit(1).single();
+    expect(court.error).toBeNull();
+    const courtId = (court.data as { id: string }).id;
+    const base = { p_range_from: from, p_range_to: to, p_locale: 'en' };
+
+    const keyed = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [{ text: 'this court sits empty Sunday 10:00' }], p_scope: 'courts', p_court_id: courtId,
+    }).then(outcome);
+    expect(keyed.ok, keyed.errorMessage).toBe(true);
+    const venueWide = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [{ text: 'the venue fills Friday evenings' }], p_scope: 'courts',
+    }).then(outcome);
+    expect(venueWide.ok, venueWide.errorMessage).toBe(true);
+    const ids = [keyed.data as string, venueWide.data as string];
+
+    // Reads split on the key exactly as the operator filters them.
+    const byCourt = await owner.from('analytics_insights').select('id, court_id').in('id', ids).eq('court_id', courtId);
+    expect(byCourt.data).toEqual([{ id: keyed.data, court_id: courtId }]);
+    const byVenue = await owner.from('analytics_insights').select('id, court_id').in('id', ids).is('court_id', null);
+    expect(byVenue.data).toEqual([{ id: venueWide.data, court_id: null }]);
+
+    const cafeWithCourt = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [], p_scope: 'cafe', p_court_id: courtId,
+    }).then(outcome);
+    expect(cafeWithCourt.ok).toBe(false);
+    expect(cafeWithCourt.errorMessage).toContain('INVALID_ARGUMENT');
+    const unknownCourt = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [], p_scope: 'courts', p_court_id: '00000000-0000-4000-8000-000000000000',
+    }).then(outcome);
+    expect(unknownCourt.ok).toBe(false);
+    expect(unknownCourt.errorMessage).toContain('INVALID_ARGUMENT');
+
+    const patKeyed = await appRpc(owner, 'save_analytics_patterns', {
+      ...base, p_patterns: [{ id: 'dead-slot:h:10-11|wd:0', text: 'Sunday 10:00-11:00 runs at 5% occupancy' }], p_scope: 'courts', p_court_id: courtId,
+    }).then(outcome);
+    expect(patKeyed.ok, patKeyed.errorMessage).toBe(true);
+    const patRow = await owner.from('analytics_patterns').select('scope, court_id').eq('id', patKeyed.data as string).single();
+    expect(patRow.data).toEqual({ scope: 'courts', court_id: courtId });
+    const patCafeWithCourt = await appRpc(owner, 'save_analytics_patterns', { ...base, p_patterns: [], p_court_id: courtId }).then(outcome);
+    expect(patCafeWithCourt.ok).toBe(false);
+    expect(patCafeWithCourt.errorMessage).toContain('INVALID_ARGUMENT');
+
+    // The CHECK holds even for the service role: a cafe row can never carry a court.
+    const cafeRow = await appRpc(owner, 'save_analytics_insights', { ...base, p_compare_basis: 'prev', p_insights: [] }).then(outcome);
+    expect(cafeRow.ok, cafeRow.errorMessage).toBe(true);
+    const direct = await svc.from('analytics_insights').update({ court_id: courtId }).eq('id', cafeRow.data as string);
+    expect(direct.error?.message ?? '').toContain('analytics_insights_court_scope_check');
+    const directPat = await svc.from('analytics_patterns').update({ court_id: courtId }).eq('id', patKeyed.data as string).eq('scope', 'cafe');
+    expect(directPat.error).toBeNull(); // no cafe row matched: nothing to violate
+  });
 });

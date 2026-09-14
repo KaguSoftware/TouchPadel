@@ -158,15 +158,16 @@ export function useCourtsData(search: AnalyticsSearch, locale: Locale, copy: Cou
   const derived = useMemo(() => (raw ? deriveCourts(raw, copy) : null), [raw, copy]);
 
   const { from, to } = range;
+  // Keyed by court (0098): a set generated with court A selected is court A's.
   const storedInsights = useQuery({
-    queryKey: [...COURTS_KEY, 'storedInsights', from, to, compareBasis, locale],
-    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale, 'courts'),
+    queryKey: [...COURTS_KEY, 'storedInsights', from, to, compareBasis, locale, courtId ?? ''],
+    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale, 'courts', courtId),
     enabled: ready,
     staleTime: 30_000,
   });
   const storedPatterns = useQuery({
-    queryKey: [...COURTS_KEY, 'storedPatterns', from, to, locale],
-    queryFn: () => fetchStoredPatterns(from, to, locale, 'courts'),
+    queryKey: [...COURTS_KEY, 'storedPatterns', from, to, locale, courtId ?? ''],
+    queryFn: () => fetchStoredPatterns(from, to, locale, 'courts', courtId),
     enabled: ready,
     staleTime: 30_000,
   });

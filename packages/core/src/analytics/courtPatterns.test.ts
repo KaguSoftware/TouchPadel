@@ -270,9 +270,9 @@ describe('thin samples, ranking, widening, locale', () => {
 
   it('finds at level 2 what level 0 does not, and clamps the level', () => {
     expect(MAX_COURT_PATTERN_LEVEL).toBe(3);
-    // 6 of 20 = 30% vs 10% base: ratio 3 but n and total sit under the level-0 floors (8, 25).
+    // 6 of 18 = 33% vs 10% base: ratio 3.3 but n and total sit under the level-0 floors (MIN_ENDING_N 8, MIN_RATE_DENOM 20).
     const endings: CourtPatternsInput['endings'] = {
-      cancellations: { byDow: [{ key: '0', n: 6, bookingsTotal: 20 }] },
+      cancellations: { byDow: [{ key: '0', n: 6, bookingsTotal: 18 }] },
       noShows: {},
       cancellationsTotal: 30,
       noShowsTotal: 0,

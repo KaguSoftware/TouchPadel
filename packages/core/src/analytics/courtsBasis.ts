@@ -9,19 +9,20 @@
  * Pure arithmetic, no I/O.
  */
 import { dayOfWeekOfDate } from '../time/tz';
+import {
+  MIN_ATTACH_BOOKINGS,
+  MIN_CELL_OPEN_DAYS,
+  MIN_ENDING_N,
+  MIN_IDENTITIES,
+  MIN_PLAYERS_KNOWN_SHARE,
+  MIN_RATE_DENOM,
+} from './insightsContract';
 import { type FindingBasis, MIN_WEEKDAY_DAYS, THIN_PERIOD_DAYS } from './insightsText';
 import { datesInRange, type DateRange } from './range';
 
-/** A rate is shown as a percentage only on at least this many booked slots; below it, "n of N". */
-export const MIN_RATE_DENOM = 20;
-/** A heatmap cell needs this many open days before its occupancy means anything. */
-export const MIN_CELL_OPEN_DAYS = 4;
-/** Guest buckets (returning / new / regulars) need this many identities to be read as a mix. */
-export const MIN_IDENTITIES = 15;
-/** A court or slot needs this many live bookings before its cafe attach rate is compared. */
-export const MIN_ATTACH_BOOKINGS = 10;
-/** Players-per-booking averages need this share of bookings with a known player count. */
-export const MIN_PLAYERS_KNOWN_SHARE = 0.5;
+// The floors live in ./insightsContract.ts (shared byte-for-byte with the edge
+// function) and are re-exported here so every court reader keeps one import.
+export { MIN_ATTACH_BOOKINGS, MIN_CELL_OPEN_DAYS, MIN_ENDING_N, MIN_IDENTITIES, MIN_PLAYERS_KNOWN_SHARE, MIN_RATE_DENOM };
 
 export type CourtsBasis = {
   /** Days in the picked range. */

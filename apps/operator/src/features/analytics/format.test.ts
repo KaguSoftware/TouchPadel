@@ -34,6 +34,13 @@ describe('makeFormatters', () => {
     expect(en.dateRange('2026-08-01', '2026-08-01')).toMatch(/^1 Aug$/);
     expect(en.dateRange('2026-08-01', '2026-08-10')).toContain('–');
   });
+  it('prints a timestamp as day, month and venue-local time', () => {
+    // 10:05 UTC is 13:05 in Baghdad (UTC+3, no DST).
+    expect(en.dateTime('2026-08-12T10:05:00Z')).toMatch(/12 Aug.*13:05/);
+    expect(ar.dateTime('2026-08-12T10:05:00Z')).toMatch(/13:05/);
+    expect(en.dateTime('2026-08-12T22:30:00Z')).toMatch(/13 Aug.*01:30/);
+    expect(en.dateTime('not a date')).toBe('');
+  });
   it('maps JS weekday indexes', () => {
     expect(en.weekday(0)).toBe('Sun');
     expect(en.weekday(1)).toBe('Mon');

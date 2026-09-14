@@ -42,7 +42,7 @@ vi.mock('../../../lib/settings', () => ({
 vi.mock('../../../lib/analyticsApi', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   // The venue revenue tile reads the cafe's daily sales on the cafe tab's own key.
-  analyticsRpc: { dailySales: vi.fn() },
+  analyticsRpc: { dailySales: vi.fn(), saveInsights: vi.fn(), savePatterns: vi.fn() },
   fetchStoredInsights: vi.fn(),
   fetchStoredPatterns: vi.fn(),
   fetchRejections: vi.fn(),
@@ -58,7 +58,7 @@ vi.mock('../../../lib/queries', async (importOriginal) => ({
 
 import { ConfirmProvider } from '../../../components/ConfirmDialog';
 import { ToastProvider } from '../../../components/toast';
-import { analyticsRpc, fetchRejections, fetchStoredInsights, fetchStoredPatterns } from '../../../lib/analyticsApi';
+import { analyticsRpc, fetchRejections, fetchStoredInsights, fetchStoredPatterns, insights as callInsights } from '../../../lib/analyticsApi';
 import { fetchActiveCourts } from '../../../lib/queries';
 import { courtsRpc } from './api';
 import { CourtsTab } from './CourtsTab';
@@ -99,6 +99,8 @@ beforeEach(() => {
   rpc.mockReset();
   delete searchState.court;
   vi.mocked(analyticsRpc.dailySales).mockResolvedValue([] as never);
+  vi.mocked(analyticsRpc.saveInsights).mockResolvedValue('set-1');
+  vi.mocked(analyticsRpc.savePatterns).mockResolvedValue('set-2');
   vi.mocked(fetchActiveCourts).mockResolvedValue([
     { id: COURT_A, name_en: 'Court A', name_ar: 'ملعب أ', duration_options: [60, 90], sort_order: 0 },
     { id: COURT_B, name_en: 'Court B', name_ar: 'ملعب ب', duration_options: [60, 90], sort_order: 1 },
@@ -151,6 +153,35 @@ describe('CourtsTab', () => {
     expect(within(afterLate).getByText('80,000 IQD')).toBeTruthy();
     expect(within(afterLate).getByText('40,000 IQD')).toBeTruthy();
     expect(within(afterLate).getByText('50,000 IQD', { selector: 'strong' })).toBeTruthy();
+  });
+
+  it('stores a generated set under the selected court and reads the stored sets by that court', async () => {
+    searchState.court = COURT_A;
+    serveFixtures();
+    vi.mocked(callInsights).mockResolvedValue({
+      degraded: true,
+      model: null,
+      insights: [{ text: 'Court A fills Friday 20:00 with 12 bookings', kind: 'occupancy', subjects: ['Court A'], metrics: {}, confidence: 'medium', sample: 12, status: 'new' }],
+    });
+    renderTab();
+    await waitFor(() => expect(skeletons()).toBe(0), { timeout: 5000 });
+    // The stored sets were asked for with the court key, never the venue-wide NULL.
+    expect(fetchStoredInsights).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'prev', 'en', 'courts', COURT_A);
+    expect(fetchStoredPatterns).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'en', 'courts', COURT_A);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Generate insights' }));
+    await waitFor(() => expect(analyticsRpc.saveInsights).toHaveBeenCalledTimes(1));
+    expect(analyticsRpc.saveInsights).toHaveBeenCalledWith(expect.objectContaining({ scope: 'courts', courtId: COURT_A }));
+    // The payload the model read carried the mined patterns as ground truth and
+    // court NAMES; a pattern's own id may embed the court key, nothing else does.
+    const req = vi.mocked(callInsights).mock.calls[0]![0];
+    expect(req.scope).toBe('courts');
+    const data = req.data as { patterns?: unknown[]; per_court: { name: string }[] };
+    expect(Array.isArray(data.patterns)).toBe(true);
+    expect(data.per_court.map((c) => c.name)).toEqual(['Court A', 'Court B']);
+    expect(JSON.stringify({ ...data, patterns: undefined })).not.toContain(COURT_A);
+    expect(JSON.stringify(data)).not.toMatch(/court_id|guest_id|phone/);
+    expect(screen.getByText('Court A fills Friday 20:00 with 12 bookings')).toBeTruthy();
   });
 
   it('lists the fixture courts in the court filter and writes a choice to the URL', async () => {

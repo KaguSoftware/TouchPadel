@@ -890,6 +890,7 @@ export type Database = {
       save_analytics_insights: {
         Args: {
           p_compare_basis: string
+          p_court_id?: string
           p_insights: Json
           p_locale: string
           p_range_from: string
@@ -900,6 +901,7 @@ export type Database = {
       }
       save_analytics_patterns: {
         Args: {
+          p_court_id?: string
           p_locale: string
           p_patterns: Json
           p_range_from: string
@@ -1518,6 +1520,7 @@ export type Database = {
       analytics_insights: {
         Row: {
           compare_basis: string
+          court_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -1529,6 +1532,7 @@ export type Database = {
         }
         Insert: {
           compare_basis?: string
+          court_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1540,6 +1544,7 @@ export type Database = {
         }
         Update: {
           compare_basis?: string
+          court_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1551,6 +1556,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "analytics_insights_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "analytics_insights_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -1561,6 +1573,7 @@ export type Database = {
       }
       analytics_patterns: {
         Row: {
+          court_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -1571,6 +1584,7 @@ export type Database = {
           scope: string
         }
         Insert: {
+          court_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1581,6 +1595,7 @@ export type Database = {
           scope?: string
         }
         Update: {
+          court_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1591,6 +1606,13 @@ export type Database = {
           scope?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "analytics_patterns_court_id_fkey"
+            columns: ["court_id"]
+            isOneToOne: false
+            referencedRelation: "courts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "analytics_patterns_created_by_fkey"
             columns: ["created_by"]
