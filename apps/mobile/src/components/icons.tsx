@@ -127,17 +127,6 @@ export const LockIcon = (p: IconProps) => (
 export const SlidersIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 6.5h16M4 12h16M4 17.5h16M15.5 4.5v4M8.5 10v4M13 15.5v4']} {...p} />
 );
-export const GearIcon = ({ size = 16, color, strokeWidth = 2 }: IconProps) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
-    <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={strokeWidth} />
-    <Path
-      d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.55 1.55M7.15 16.85l-1.55 1.55M18.4 18.4l-1.55-1.55M7.15 7.15L5.6 5.6"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-    />
-  </Svg>
-);
 export const RoofIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 11.5L12 4.5l8 7M6.5 9.8V19h11V9.8']} {...p} />
 );
