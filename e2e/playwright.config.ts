@@ -76,24 +76,35 @@ export default defineConfig({
       // the same shape of false green as the header constants that were
       // imported and never used (see docs/security/HANDOFF-security.md §2).
       //
-      // `reuseExistingServer` is false here on purpose: reusing a dev server
-      // already listening on :3000 is exactly how a "prod" run silently measures
-      // the dev build instead.
+      // `reuseExistingServer` is false on purpose, in both modes: reusing a dev
+      // server already listening on :3000 is how a "prod" run silently measures
+      // the dev build instead — and apps/web/.env.local points at the HOSTED
+      // project, so a reused `next dev` also sends the guest flows there
+      // (`localEnv` only reaches a server Playwright starts). See the operator
+      // entry below for what that did on 2026-09-03.
       command:
         process.env.E2E_PROD_BUILD === '1'
           ? 'pnpm --filter @touch/web build && pnpm --filter @touch/web start'
           : 'pnpm --filter @touch/web dev',
       url: `${WEB_URL}/en`,
       cwd: ROOT,
-      reuseExistingServer: process.env.E2E_PROD_BUILD !== '1',
+      reuseExistingServer: false,
       timeout: 600_000, // a cold `next build` is slower than a dev compile
       env: localEnv,
     },
     {
+      // `reuseExistingServer` is false on purpose. apps/operator/.env points at
+      // the HOSTED project, and `localEnv` only reaches a server Playwright
+      // starts itself: a `pnpm --filter @touch/operator dev` already listening
+      // on :5174 was reused, and on 2026-09-03 this suite signed in as the
+      // seeded Dev Owner against hosted, saved the placeholder Telegram chat id
+      // over the real group and switched Telegram off (audit_log settings.cafe),
+      // plus left test bookings behind. Stop the dev server before `pnpm e2e`;
+      // vite's strictPort makes a clash fail loudly instead.
       command: 'pnpm --filter @touch/operator dev',
       url: OPERATOR_URL,
       cwd: ROOT,
-      reuseExistingServer: true,
+      reuseExistingServer: false,
       timeout: 120_000,
       env: localEnv,
     },

@@ -178,6 +178,8 @@ enabled = false
 verify_jwt = false                          # Telegram carries no Supabase JWT; secret_token header is the auth
 [functions.telegram-send]
 verify_jwt = true                           # pg_net posts with the service-role JWT
+[functions.telegram-diagnose]
+verify_jwt = true                           # owner session JWT; the body re-checks the staff row
 [functions.analytics-posthog]
 verify_jwt = true
 [functions.analytics-insights]
