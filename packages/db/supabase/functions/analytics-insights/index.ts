@@ -7,10 +7,15 @@
  *
  * Request  POST {mode:'insights'|'patterns'|'revalidate'|'replace_rejected',
  *                lang:'ar'|'en', range_from, range_to, compare_basis:'prev'|'4w'|'52w',
- *                data:{kpis, daily, best_sellers, margins, bought_together, price_bands,
- *                      promo, engagement?, prior_insights?:string[], rejections:string[],
- *                      patterns?:PatternCandidate[], basis?:{salesDays, weekdayCounts},
- *                      excluded_names?:string[], compare?:{...}, coverage?:{...}}}
+ *                scope?:'cafe'|'courts' (missing = 'cafe'; old clients keep working),
+ *                data: cafe  {kpis, daily, best_sellers, margins, bought_together, price_bands,
+ *                             promo, engagement?, prior_insights?:string[], rejections:string[],
+ *                             patterns?:PatternCandidate[], basis?:{salesDays, weekdayCounts},
+ *                             excluded_names?:string[], compare?:{...}, coverage?:{...}}
+ *                      courts {kpis, compare?, coverage?, basis, per_court[], by_day[],
+ *                             heatmap_top[], heatmap_bottom[], demand, endings, guests|null,
+ *                             cafe|null, patterns?, prior_insights?, rejections, excluded_names}
+ *                             (aggregates and display names only; no identifiers of any kind)
  * Response 200 {degraded:boolean, model:string|null,
  *               insights:[{text, kind, subjects, metrics, confidence, status?}],
  *               resolved?:string[], patterns?:[{id, text, kind, subjects, metrics, confidence, sampleLabel}]}
@@ -18,12 +23,15 @@
  *
  *  - No GROQ_API_KEY → 200 {degraded:true, model:null} with deterministic
  *    templated sentences built from `data` (best seller, thinnest-margin costed
- *    item, top pair, promo uplift, busiest day); `patterns` mode phrases the
- *    operator-mined candidates with their `fallbackText`.
+ *    item, top pair, promo uplift, busiest day; courts: fullest and emptiest
+ *    open hour, cancellation rate with its worst segment, cafe attach with the
+ *    lowest-attach court); `patterns` mode phrases the operator-mined
+ *    candidates with their `fallbackText`.
  *  - With Groq: raw fetch to the OpenAI-compatible endpoint, JSON mode, five
- *    directed scan angles (profit / conversion / pricing / movement / structural)
- *    for `insights` + `replace_rejected`, one revalidate call, and a smaller
- *    judge model for `patterns`. 25 s budget for the whole request.
+ *    directed scan angles per scope (cafe: profit / conversion / pricing /
+ *    movement / structural; courts: occupancy / reliability / demand / attach /
+ *    movement) for `insights` + `replace_rejected`, one revalidate call, and a
+ *    smaller judge model for `patterns`. 25 s budget for the whole request.
  *  - Post-model gates (shared copy of packages/core insightsText.ts):
  *    isStrongFinding → drop owner rejections (normalizeFinding, the SQL twin of
  *    app.normalize_finding) → dropLowConfidenceClaims when `data.basis` is
@@ -71,13 +79,25 @@ const MAX_ITEM_ROWS = 40;
 const MAX_SECONDARY_ROWS = 25;
 const MAX_REJECTED_EXAMPLES = 15;
 const MAX_PATTERN_CANDIDATES = 40;
+/** Courts scope: rows the model reads per block, and the floors its prompt states. */
+const MAX_COURT_ROWS = 12;
+const MAX_HEAT_ROWS = 12;
+const COURTS_MIN_CELL_OPEN_DAYS = 4;
+const COURTS_MIN_RATE_DENOM = 20;
+const COURTS_MIN_ATTACH_BOOKINGS = 10;
 
 const configured = () => Boolean(API_KEY);
 
 type Lang = 'ar' | 'en';
 type Mode = 'insights' | 'patterns' | 'revalidate' | 'replace_rejected';
 type Confidence = 'high' | 'medium' | 'low';
-const KINDS = ['profit', 'conversion', 'pricing', 'movement', 'structural', 'summary'] as const;
+/** Which analytics the request describes; the cafe menu (the original) or the padel courts. */
+type Scope = 'cafe' | 'courts';
+const KINDS = [
+  'profit', 'conversion', 'pricing', 'movement', 'structural', // cafe angles
+  'occupancy', 'reliability', 'demand', 'attach', // courts angles ('movement' is shared)
+  'summary',
+] as const;
 type Kind = (typeof KINDS)[number];
 
 interface Insight {
@@ -108,7 +128,7 @@ interface JudgedPattern extends PatternCandidate {
 
 type Row = Record<string, unknown>;
 
-interface Data {
+interface CafeData {
   kpis: Row;
   daily: Row[];
   best_sellers: Row[];
@@ -126,14 +146,56 @@ interface Data {
   coverage?: Row;
 }
 
-interface Req {
+/**
+ * Courts scope. Everything is an aggregate the operator computed from the five
+ * app.analytics_courts_* RPCs; court names are display names, guests are counts.
+ */
+interface CourtsData {
+  kpis: Row;
+  /** { from, to, basis, reliable, kpis } for the comparison window. */
+  compare?: Row;
+  /** { days, days_with_data, ratio }. */
+  coverage?: Row;
+  /** bookingDays mapped to salesDays by the client. */
+  basis: FindingBasis | null;
+  /** <= MAX_COURT_ROWS: name, bookings, occupancy_pct, revenue_iqd, rev_per_open_hour_iqd, ... */
+  per_court: Row[];
+  /** business_date, bookings, revenue_iqd, cancellations, no_shows. */
+  by_day: Row[];
+  /** <= MAX_HEAT_ROWS each: weekday, hour, occupancy_pct, bookings, open_days. */
+  heatmap_top: Row[];
+  heatmap_bottom: Row[];
+  /** { durations, lead_time, sources, hold_funnel, players, series }. */
+  demand: Row;
+  /** { cancellations: {total, rate_pct, by_notice, by_actor, top_segments}, no_shows: {...} }. */
+  endings: Row;
+  /** { identities, returning_pct, visit_buckets, regulars, lapsing_regulars, regulars_bookings_pct }. */
+  guests: Row | null;
+  /** { attach_pct, cafe_per_booking_iqd, per_court, top_items_per_court, order_timing, value_per_court_hour }. */
+  cafe: Row | null;
+  prior_insights: string[];
+  rejections: string[];
+  patterns: PatternCandidate[];
+  excluded_names: string[];
+}
+
+interface ReqBase {
   mode: Mode;
   lang: Lang;
   range_from: string;
   range_to: string;
   compare_basis: string;
-  data: Data;
 }
+interface CafeReq extends ReqBase {
+  scope: 'cafe';
+  data: CafeData;
+}
+interface CourtsReq extends ReqBase {
+  scope: 'courts';
+  data: CourtsData;
+}
+/** `scope` discriminates `data`; the gates only touch the fields both shapes share. */
+type Req = CafeReq | CourtsReq;
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -176,6 +238,48 @@ function parsePatterns(v: unknown): PatternCandidate[] {
     }));
 }
 
+function parseCafeData(d: Row, patterns: PatternCandidate[]): CafeData {
+  return {
+    kpis: obj(d.kpis) ?? {},
+    daily: rows(d.daily),
+    best_sellers: rows(d.best_sellers),
+    margins: obj(d.margins),
+    bought_together: rows(d.bought_together),
+    price_bands: rows(d.price_bands),
+    promo: obj(d.promo),
+    engagement: obj(d.engagement) ?? undefined,
+    prior_insights: strings(d.prior_insights),
+    rejections: strings(d.rejections),
+    patterns,
+    basis: parseBasis(d.basis),
+    excluded_names: strings(d.excluded_names),
+    compare: obj(d.compare) ?? undefined,
+    coverage: obj(d.coverage) ?? undefined,
+  };
+}
+
+/** Tolerant like the cafe parser: a missing block is an empty one, never a 400. */
+function parseCourtsData(d: Row, patterns: PatternCandidate[]): CourtsData {
+  return {
+    kpis: obj(d.kpis) ?? {},
+    compare: obj(d.compare) ?? undefined,
+    coverage: obj(d.coverage) ?? undefined,
+    basis: parseBasis(d.basis),
+    per_court: rows(d.per_court),
+    by_day: rows(d.by_day),
+    heatmap_top: rows(d.heatmap_top),
+    heatmap_bottom: rows(d.heatmap_bottom),
+    demand: obj(d.demand) ?? {},
+    endings: obj(d.endings) ?? {},
+    guests: obj(d.guests),
+    cafe: obj(d.cafe),
+    prior_insights: strings(d.prior_insights),
+    rejections: strings(d.rejections),
+    patterns,
+    excluded_names: strings(d.excluded_names),
+  };
+}
+
 function parseBody(body: unknown): Req | string {
   const b = obj(body);
   if (!b) return 'body must be a JSON object';
@@ -185,6 +289,9 @@ function parseBody(body: unknown): Req | string {
   }
   const lang = b.lang === 'en' ? 'en' : b.lang === 'ar' ? 'ar' : null;
   if (!lang) return "lang must be 'ar' or 'en'";
+  // Missing = the original cafe contract; anything present must be one of the two.
+  const scope: Scope | null = b.scope === undefined ? 'cafe' : b.scope === 'cafe' || b.scope === 'courts' ? b.scope : null;
+  if (!scope) return "scope must be 'cafe' or 'courts'";
   if (!isIsoDate(b.range_from) || !isIsoDate(b.range_to)) return 'range_from/range_to must be YYYY-MM-DD';
   const span = (Date.parse(`${b.range_to}T00:00:00Z`) - Date.parse(`${b.range_from}T00:00:00Z`)) / 86_400_000;
   if (span < 0) return 'range_to is before range_from';
@@ -195,30 +302,9 @@ function parseBody(body: unknown): Req | string {
   if (!d) return 'data must be an object';
   const patterns = parsePatterns(d.patterns);
   if (mode === 'patterns' && !Array.isArray(d.patterns)) return 'patterns mode requires data.patterns';
-  return {
-    mode,
-    lang,
-    range_from: b.range_from,
-    range_to: b.range_to,
-    compare_basis,
-    data: {
-      kpis: obj(d.kpis) ?? {},
-      daily: rows(d.daily),
-      best_sellers: rows(d.best_sellers),
-      margins: obj(d.margins),
-      bought_together: rows(d.bought_together),
-      price_bands: rows(d.price_bands),
-      promo: obj(d.promo),
-      engagement: obj(d.engagement) ?? undefined,
-      prior_insights: strings(d.prior_insights),
-      rejections: strings(d.rejections),
-      patterns,
-      basis: parseBasis(d.basis),
-      excluded_names: strings(d.excluded_names),
-      compare: obj(d.compare) ?? undefined,
-      coverage: obj(d.coverage) ?? undefined,
-    },
-  };
+  const base: ReqBase = { mode, lang, range_from: b.range_from, range_to: b.range_to, compare_basis };
+  if (scope === 'courts') return { ...base, scope, data: parseCourtsData(d, patterns) };
+  return { ...base, scope, data: parseCafeData(d, patterns) };
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +330,10 @@ const EXTRA_WEEKDAYS = [
 // Degraded (no key) — deterministic templated sentences so the card still renders
 // ---------------------------------------------------------------------------
 function templatedInsights(req: Req): Insight[] {
+  return req.scope === 'courts' ? templatedCourtsInsights(req) : templatedCafeInsights(req);
+}
+
+function templatedCafeInsights(req: CafeReq): Insight[] {
   const { lang, data } = req;
   const out: Insight[] = [];
   const ar = lang === 'ar';
@@ -322,6 +412,97 @@ function templatedInsights(req: Req): Insight[] {
       subjects: [date],
       metrics: { revenue_iqd: n(busiest.revenue_iqd), orders: n(busiest.orders) },
       confidence: 'high',
+    });
+  }
+  return out;
+}
+
+// Courts rows carry display names only; `name` is the contract, name_en/name_ar the fallback.
+const courtName = (r: Row, lang: Lang) => (typeof r.name === 'string' && r.name) || nameOf(r, lang);
+const hourLabel = (h: unknown) => `${String(Math.round(n(h))).padStart(2, '0')}:00`;
+const weekdayLabel = (day: unknown, lang: Lang) => WEEKDAYS[lang][n(day)] ?? String(day ?? '');
+const slotLabel = (cell: Row, lang: Lang) => `${weekdayLabel(cell.weekday ?? cell.dow, lang)} ${hourLabel(cell.hour)}`;
+
+/** An endings segment however the client labelled it: a ready label, a court name, or a dimension + key. */
+function segmentLabel(seg: Row, lang: Lang): string {
+  if (typeof seg.label === 'string' && seg.label) return seg.label;
+  const named = courtName(seg, lang);
+  if (named) return named;
+  const dim = String(seg.dim ?? seg.dimension ?? '');
+  if (dim === 'dow' || dim === 'weekday') return weekdayLabel(seg.key, lang);
+  if (dim === 'hour') return hourLabel(seg.key);
+  return String(seg.key ?? '');
+}
+const segmentRate = (seg: Row) =>
+  seg.rate_pct != null ? n(seg.rate_pct) : n(seg.bookings_total) > 0 ? Math.round((n(seg.n) * 1000) / n(seg.bookings_total)) / 10 : 0;
+
+function templatedCourtsInsights(req: CourtsReq): Insight[] {
+  const { lang, data } = req;
+  const out: Insight[] = [];
+  const ar = lang === 'ar';
+  const openCells = (cells: Row[]) => cells.filter((c) => n(c.open_days) > 0);
+
+  const fullest = openCells(data.heatmap_top)
+    .reduce<Row | null>((a, b) => (!a || n(b.occupancy_pct) > n(a.occupancy_pct) ? b : a), null);
+  if (fullest && n(fullest.bookings) > 0) {
+    const slot = slotLabel(fullest, lang);
+    out.push({
+      text: ar
+        ? `أكثر ساعة امتلاءً كانت ${slot}: إشغال ${n(fullest.occupancy_pct)}% عبر ${fmt(fullest.open_days)} يوم مفتوح (${fmt(fullest.bookings)} حجز)؛ الطلب هنا يفوق العرض، ففكّر برفع سعر هذه الساعة أو توجيه الحجوزات إلى الساعة المجاورة.`
+        : `Fullest open hour was ${slot}: ${n(fullest.occupancy_pct)}% occupancy across ${fmt(fullest.open_days)} open days (${fmt(fullest.bookings)} bookings); demand outruns supply here, so consider pricing this hour up or steering bookings to the hour beside it.`,
+      kind: 'occupancy',
+      subjects: [slot],
+      metrics: { occupancy_pct: n(fullest.occupancy_pct), bookings: n(fullest.bookings), open_days: n(fullest.open_days) },
+      confidence: n(fullest.open_days) >= COURTS_MIN_CELL_OPEN_DAYS ? 'high' : 'low',
+    });
+  }
+
+  const emptiest = openCells(data.heatmap_bottom)
+    .reduce<Row | null>((a, b) => (!a || n(b.occupancy_pct) < n(a.occupancy_pct) ? b : a), null);
+  if (emptiest) {
+    const slot = slotLabel(emptiest, lang);
+    out.push({
+      text: ar
+        ? `أقل ساعة إشغالاً كانت ${slot}: إشغال ${n(emptiest.occupancy_pct)}% عبر ${fmt(emptiest.open_days)} يوم مفتوح (${fmt(emptiest.bookings)} حجز)؛ سعر مخفّض خارج الذروة أو حجز ثابت أسبوعي قد يملؤها.`
+        : `Emptiest open hour was ${slot}: ${n(emptiest.occupancy_pct)}% occupancy across ${fmt(emptiest.open_days)} open days (${fmt(emptiest.bookings)} bookings); a cheaper off-peak rate or a standing weekly booking would fill it.`,
+      kind: 'occupancy',
+      subjects: [slot],
+      metrics: { occupancy_pct: n(emptiest.occupancy_pct), bookings: n(emptiest.bookings), open_days: n(emptiest.open_days) },
+      confidence: n(emptiest.open_days) >= COURTS_MIN_CELL_OPEN_DAYS ? 'medium' : 'low',
+    });
+  }
+
+  const canc = obj(data.endings.cancellations);
+  if (canc && n(canc.total) > 0) {
+    const seg = rows(canc.top_segments)[0];
+    const label = seg ? segmentLabel(seg, lang) : '';
+    const worst = seg && label ? { label, rate: segmentRate(seg) } : null;
+    out.push({
+      text: ar
+        ? `أُلغي ${fmt(canc.total)} حجزاً (${n(canc.rate_pct)}% من كل الحجوزات)${worst ? `، والأسوأ في ${worst.label} بنسبة ${worst.rate}%` : ''}؛ اطلب تأكيداً قبل يوم من الموعد حيث تتكرر الإلغاءات.`
+        : `${fmt(canc.total)} bookings were cancelled (${n(canc.rate_pct)}% of all bookings)${worst ? `, worst in ${worst.label} at ${worst.rate}%` : ''}; ask for a confirmation the day before where it clusters.`,
+      kind: 'reliability',
+      subjects: worst ? [worst.label] : [],
+      metrics: { cancellations: n(canc.total), rate_pct: n(canc.rate_pct), ...(worst ? { segment_rate_pct: worst.rate } : {}) },
+      confidence: n(canc.total) >= COURTS_MIN_RATE_DENOM ? 'medium' : 'low',
+    });
+  }
+
+  const cafe = data.cafe;
+  const attachCourts = cafe
+    ? rows(cafe.per_court).filter((c) => c.attach_pct != null && n(c.live_bookings ?? c.bookings) > 0 && courtName(c, lang))
+    : [];
+  if (cafe && cafe.attach_pct != null && attachCourts.length) {
+    const lowest = attachCourts.reduce((a, b) => (n(b.attach_pct) < n(a.attach_pct) ? b : a));
+    const name = courtName(lowest, lang);
+    out.push({
+      text: ar
+        ? `نسبة ربط الكافيه بالحجوزات ${n(cafe.attach_pct)}%، والأدنى في ${name} بنسبة ${n(lowest.attach_pct)}%؛ فتح حساب كافيه عند الوصول لحجوزات هذا الملعب هو أرخص طريقة لرفعها.`
+        : `Cafe attach is ${n(cafe.attach_pct)}% of bookings, lowest on ${name} at ${n(lowest.attach_pct)}%; opening a cafe tab at check-in for that court's bookings is the cheapest lift.`,
+      kind: 'attach',
+      subjects: [name],
+      metrics: { attach_pct: n(cafe.attach_pct), court_attach_pct: n(lowest.attach_pct) },
+      confidence: n(lowest.live_bookings ?? lowest.bookings) >= COURTS_MIN_ATTACH_BOOKINGS ? 'medium' : 'low',
     });
   }
   return out;
@@ -440,10 +621,17 @@ function parseInsightArray(content: string, key: string, fallbackKind: Kind): In
 // ---------------------------------------------------------------------------
 // Prompts (adapted from UpperDeck insights.ts; IQD / Arabic-first)
 // ---------------------------------------------------------------------------
-const FINDING_SHAPE = `Each finding is an object:
+const CAFE_FINDING_SHAPE = `Each finding is an object:
 {"text": "<one sentence for the owner>", "kind": "profit|conversion|pricing|movement|structural",
  "subjects": ["<item or category names the finding is about>"],
  "metrics": {"<figure name>": <number>}, "confidence": "high|medium|low"}`;
+
+const COURTS_FINDING_SHAPE = `Each finding is an object:
+{"text": "<one sentence for the owner>", "kind": "occupancy|reliability|demand|attach|movement",
+ "subjects": ["<court names, weekdays or hours the finding is about>"],
+ "metrics": {"<figure name>": <number>}, "confidence": "high|medium|low"}`;
+
+const findingShape = (scope: Scope) => (scope === 'courts' ? COURTS_FINDING_SHAPE : CAFE_FINDING_SHAPE);
 
 function languageRules(lang: Lang): string {
   return lang === 'ar'
@@ -455,7 +643,88 @@ as their name_ar in the data (fall back to name_en when name_ar is missing).`
 Keep item names exactly as their name_en in the data.`;
 }
 
+function courtsLanguageRules(lang: Lang): string {
+  return lang === 'ar'
+    ? `WRITE THE "text" OF EVERY FINDING IN ARABIC: plain Modern Standard Arabic a padel venue owner in Iraq reads
+naturally, no dialect slang, no English words except court and item names as given. Use LATIN digits (0-9) for
+every number, never Arabic-Indic digits. Write amounts as "12,500 د.ع" (number, space, د.ع). Keep court and item
+names exactly as their "name" in the data.`
+    : `WRITE THE "text" OF EVERY FINDING IN ENGLISH. Use Latin digits and write amounts as "12,500 IQD".
+Keep court and item names exactly as their "name" in the data.`;
+}
+
 function dataContext(req: Req): string {
+  return req.scope === 'courts' ? courtsDataContext(req) : cafeDataContext(req);
+}
+
+function courtsDataContext(req: CourtsReq): string {
+  const courts = n(req.data.kpis.courts_count);
+  const venue = courts > 0 ? `a padel venue with ${courts} courts` : 'a padel venue';
+  return `You are a bookings analytics advisor for ${venue} in Iraq. Courts are booked through the mobile app or at
+the front desk; the venue's cafe runs a QR-code menu and the desk can link a cafe tab to a booking. Currency is
+Iraqi dinar (IQD), integer amounts, no decimals. You receive, for the date range ${req.range_from}..${req.range_to}:
+- "kpis": headline totals (bookings, booked_minutes, occupancy_pct, revenue_iqd, rev_per_open_hour_iqd,
+  cancellations, no_shows, booked_total, cancellation_rate_pct, no_show_rate_pct, mobile_bookings, desk_bookings,
+  holds_expired, booking_days, courts_count), and "compare": the same figures for the comparison window (basis
+  "${req.compare_basis}": prev = the period before this one, 4w = four weeks earlier, 52w = the same period last
+  year). NAME that window in any period-over-period sentence; calling it the wrong thing makes the finding false.
+- "per_court": per court: bookings, occupancy_pct, revenue_iqd, rev_per_open_hour_iqd, cancellations, no_shows,
+  attach_pct, cafe_per_linked_iqd.
+- "by_day": per business day: bookings, revenue_iqd, cancellations, no_shows.
+- "heatmap_top" / "heatmap_bottom": the fullest and the emptiest weekday-by-hour cells of OPEN time: weekday
+  (0 = Sunday), hour, occupancy_pct, bookings, open_days (how many such days were open in the range).
+- "demand": durations (bookings per slot length), lead_time (how far ahead people book), sources (app versus
+  desk), hold_funnel (app holds placed, expired, converted), players (group size where recorded), series
+  (standing weekly bookings).
+- "endings": cancellations (total, rate_pct, by_notice = how long before the slot, by_actor = who cancelled,
+  top_segments = where cancellations cluster) and no_shows (total, rate_pct, top_segments).
+- "guests" (may be null): identities, returning_pct, visit_buckets, regulars, lapsing_regulars,
+  regulars_bookings_pct. Counts only; there are no people in this data.
+- "cafe" (null when nothing is linked): attach_pct, cafe_per_booking_iqd, per_court, top_items_per_court,
+  order_timing (before, during or after the slot), value_per_court_hour (court plus linked cafe revenue per open
+  hour).
+- "coverage": how much of the period has booking data. Below 0.9 the totals are INCOMPLETE; missing days, not
+  lost business, so never call a gap a decline.
+- "basis": salesDays (days with bookings) and weekdayCounts.
+
+DEFINITIONS, use them exactly:
+- A LIVE booking is confirmed, arrived or completed. booked_total = live + cancelled + no-show;
+  cancellation_rate_pct and no_show_rate_pct are shares of booked_total.
+- occupancy_pct = booked minutes over open minutes. Opening hours are venue-wide: every court is open the same
+  hours, so a court with low occupancy is a court guests did not pick, not a court that was closed.
+- ATTACH = the share of live bookings with a till-linked cafe tab. QR orders from the phone never link to a
+  booking, so a low attach means "not linked", never "did not order".
+- lead_time excludes standing (series) bookings; they are booked once and repeat.
+- players = null means the group size was not recorded, never that nobody played.
+
+SAMPLE SIZE IS A HARD GATE. Never make a weekday claim unless that weekday appears at least ${MIN_WEEKDAY_DAYS}
+times in basis.weekdayCounts. Never build a finding on a heat cell with fewer than ${COURTS_MIN_CELL_OPEN_DAYS}
+open days, on a rate whose denominator is under ${COURTS_MIN_RATE_DENOM} bookings, or on a court's attach with
+fewer than ${COURTS_MIN_ATTACH_BOOKINGS} bookings. When basis.salesDays is under ${MIN_TREND_DAYS}, describe no
+trend, rise or fall at all. When a finding rests on a subset of the period, state the sample inside the sentence.
+Dropping a thin finding costs nothing; publishing one costs the owner's trust.
+
+Every finding must cite a specific number from the data AND carry a concrete action; never just restate a
+number. ATTACH THE MONEY: end every finding with what acting on it is roughly worth per month in IQD, scaled to
+30 days from the range length and priced from the venue's own figures (revenue_iqd over booked_minutes, or a
+court's rev_per_open_hour_iqd); say "approximately" / "تقريباً". A finding with no amount is dropped. NEVER
+FORECAST: describe what happened in the range, never what will happen. NEVER NAME A PERSON: guests appear only
+as counts, and no name, phone number or identifier of any kind may appear in a finding.
+
+WRITE FOR A VENUE OWNER, NOT AN ANALYST. Never name the internal fields ("heatmap_top", "endings", "kpis"…).
+Do NOT restate what the dashboard already shows (occupancy per court, the busiest hour, the totals). Each finding
+must expose a TENSION the owner would not catch from the boards: an open hour that sits empty while the same
+hour on another day is full, a court that lags the others in the same hours, late cancellations that free hours
+nobody rebooks, app holds that expire without converting, a segment that no-shows far above the base rate, a
+court whose bookings rarely link a cafe tab, a reversal versus the comparison window. If many courts or slots
+share a problem, that is ONE finding about the group with combined money.
+
+${courtsLanguageRules(req.lang)}
+
+${findingShape(req.scope)}`;
+}
+
+function cafeDataContext(req: CafeReq): string {
   return `You are a menu analytics advisor for a cafe with a QR-code digital menu (guests order from their
 phone at the table; there is no online payment — they pay at the desk). Currency is Iraqi dinar (IQD), integer
 amounts, no decimals. You receive, for the date range ${req.range_from}..${req.range_to}:
@@ -499,10 +768,12 @@ profit by a quieter one. If many items share a problem, that is ONE finding abou
 
 ${languageRules(req.lang)}
 
-${FINDING_SHAPE}`;
+${findingShape(req.scope)}`;
 }
 
-const SCAN_ANGLES: { id: Kind; focus: string }[] = [
+type ScanAngle = { id: Kind; focus: string };
+
+const CAFE_SCAN_ANGLES: ScanAngle[] = [
   {
     id: 'profit',
     focus: `THIS PASS: PROFIT AND COST ONLY ("margins"). Find items selling below cost or near zero margin; a
@@ -538,7 +809,54 @@ engagement and thin sales or the reverse; a structural gap. Single-item observat
   },
 ];
 
-function generateSystem(req: Req, angle: (typeof SCAN_ANGLES)[number]): string {
+// Five angles so a press stays five model calls, the same as the cafe scope.
+const COURTS_SCAN_ANGLES: ScanAngle[] = [
+  {
+    id: 'occupancy',
+    focus: `THIS PASS: WHERE THE COURTS SIT EMPTY OR FULL ONLY ("heatmap_top", "heatmap_bottom", "per_court",
+"by_day"). Find dead open hours (a slot that barely books while the same hour on other days fills), saturated
+slots where demand is being turned away, a court that lags the others in the same hours, and the weekday shape;
+price each at the venue's own rate per month. A cell with fewer than ${COURTS_MIN_CELL_OPEN_DAYS} open days is
+not evidence. If both heatmaps are empty, return {"findings":[]}; never estimate occupancy.`,
+  },
+  {
+    id: 'reliability',
+    focus: `THIS PASS: CANCELLATIONS AND NO-SHOWS ONLY ("endings", "per_court"). Read the notice buckets (a late
+cancellation frees hours nobody rebooks), who cancels (guest versus desk), and the segments that cancel or
+no-show far above the base rate; put a monthly IQD figure on the court hours freed too late to resell. A rate on
+fewer than ${COURTS_MIN_RATE_DENOM} bookings is not evidence. If "endings" is absent or empty, return
+{"findings":[]}; never estimate a rate.`,
+  },
+  {
+    id: 'demand',
+    focus: `THIS PASS: HOW PEOPLE BOOK ONLY ("demand", "per_court"): lead time, app versus desk, the hold funnel
+(an expired hold is a guest who wanted the slot and left), slot lengths, group size where recorded, standing
+weekly series. Find where the app loses bookings the desk keeps, a slot length booked far more than the others,
+the share of the week standing bookings lock up and whether they show up. If "demand" is absent, return
+{"findings":[]}; never estimate conversion.`,
+  },
+  {
+    id: 'attach',
+    focus: `THIS PASS: THE CAFE ON TOP OF THE COURT ONLY ("cafe", "per_court"). Find the courts whose bookings
+rarely link a cafe tab against the venue attach rate, the spend per booking, what each court's players order,
+when orders land (before, during or after the slot), and the combined court-plus-cafe value per open hour; the
+gap between the best and the worst court is the money. Attach on fewer than ${COURTS_MIN_ATTACH_BOOKINGS}
+bookings is not evidence, and QR orders never link, so never call a low attach "nobody ordered". If "cafe" is
+null, return {"findings":[]}; never estimate cafe spend.`,
+  },
+  {
+    id: 'movement',
+    focus: `THIS PASS: CHANGE OVER TIME ONLY ("kpis" vs "compare", "by_day", "prior_insights"). Name the comparison
+window exactly. Find a headline figure that moved materially and what it is worth per month; a REVERSAL where two
+figures moved in opposite directions (more bookings but less revenue per open hour, fewer cancellations but more
+no-shows); follow-ups on prior_insights: did earlier advice land? Respect coverage and the trend gate; describe
+what happened, never what will happen. If "compare" is null, return {"findings":[]}.`,
+  },
+];
+
+const scanAngles = (scope: Scope): ScanAngle[] => (scope === 'courts' ? COURTS_SCAN_ANGLES : CAFE_SCAN_ANGLES);
+
+function generateSystem(req: Req, angle: ScanAngle): string {
   return `${dataContext(req)}
 
 Return AT MOST ${MAX_FINDINGS} findings ordered by money at stake, biggest first. Fewer is fine; two sharp
@@ -578,10 +896,33 @@ period counts as repeating it. Returning fewer findings is better than returning
 `;
 }
 
-function judgeSystem(lang: Lang): string {
+function judgeSystem(lang: Lang, scope: Scope): string {
   const langLine = lang === 'ar'
     ? 'Write each sentence in plain Modern Standard Arabic with Latin digits; amounts as "12,500 د.ع".'
     : 'Write each sentence in plain English with Latin digits; amounts as "12,500 IQD".';
+  if (scope === 'courts') {
+    return `You are the quality gate for a padel venue's court bookings "patterns" feature (courts booked through a
+mobile app and a front desk, a cafe on site, Iraqi dinar).
+You receive "candidates": REAL statistical patterns already computed from the bookings (a dead or a saturated
+open slot, a shift against the comparison window, a cluster of cancellations or no-shows in one segment, regulars
+lapsing as a count, a court whose bookings rarely link a cafe tab, a court's cafe basket). Occupancy,
+cancellations and no-shows, lead time, guests as counts and cafe attach are the vocabulary. The numbers are
+ground truth; never recompute or adjust them. Your ONLY job is judgment + phrasing.
+
+Each candidate carries "sampleLabel" (how much data it rests on) and "confidence". Include the sampleLabel inside
+the sentence verbatim, and match the STRENGTH OF THE CLAIM to the confidence: high → state it and recommend the
+action; medium → an emerging signal with a cheap, reversible action; low → a hypothesis to watch, never a
+confident instruction. A thin sample is not a reason to reject.
+
+KEEP a candidate only if a smart venue owner would find it genuinely NON-OBVIOUS and ACTIONABLE. REJECT anything
+obvious (evenings fuller than mornings, a closed hour that is empty, a lift barely above 1), circular, an
+artifact of overall volume, or unusable. Never name a person; guests are counts. Keeping nothing is a valid
+answer.
+
+For every KEPT candidate write ONE sentence: the relationship in plain words, the single most telling number
+from its metrics, and a concrete action. ${langLine}
+Respond with ONLY a JSON object: {"kept":[{"id":"<candidate id>","sentence":"…"}]}.`;
+  }
   return `You are the quality gate for a cafe menu "patterns" feature (QR-code digital menu, Iraqi dinar).
 You receive "candidates": REAL statistical patterns already computed from the data (correlation, market-basket
 lift, weekday over-indexing, a locale skew, a cost-based margin movement). The numbers are ground truth — never
@@ -605,6 +946,53 @@ Respond with ONLY a JSON object: {"kept":[{"id":"<candidate id>","sentence":"…
 // Payload trimming (what the model actually reads per angle)
 // ---------------------------------------------------------------------------
 function payload(req: Req, angle?: Kind): Row {
+  return req.scope === 'courts' ? courtsPayload(req, angle) : cafePayload(req, angle);
+}
+
+// Emptied rather than deleted: a present-but-empty key says "exists, not this
+// pass's subject"; a missing key would invite the model to invent it.
+function trimTo(base: Row, want: string[]): Row {
+  const keep = new Set(['range', 'compare_basis', 'lang', 'kpis', 'coverage', 'basis', ...want]);
+  const out: Row = {};
+  for (const [k, v] of Object.entries(base)) {
+    out[k] = keep.has(k) ? v : Array.isArray(v) ? [] : v && typeof v === 'object' ? null : v;
+  }
+  return out;
+}
+
+function courtsPayload(req: CourtsReq, angle?: Kind): Row {
+  const d = req.data;
+  const base: Row = {
+    range: { from: req.range_from, to: req.range_to },
+    compare_basis: req.compare_basis,
+    lang: req.lang,
+    kpis: d.kpis,
+    compare: d.compare ?? null,
+    coverage: d.coverage ?? null,
+    basis: d.basis,
+    per_court: d.per_court.slice(0, MAX_COURT_ROWS),
+    by_day: d.by_day,
+    heatmap_top: d.heatmap_top.slice(0, MAX_HEAT_ROWS),
+    heatmap_bottom: d.heatmap_bottom.slice(0, MAX_HEAT_ROWS),
+    demand: d.demand,
+    endings: d.endings,
+    guests: d.guests,
+    cafe: d.cafe,
+    prior_insights: d.prior_insights.slice(0, MAX_FINDINGS),
+  };
+  if (!angle) return base;
+  const WANT: Partial<Record<Kind, string[]>> = {
+    occupancy: ['per_court', 'by_day', 'heatmap_top', 'heatmap_bottom'],
+    reliability: ['endings', 'per_court'],
+    demand: ['demand', 'per_court'],
+    attach: ['cafe', 'per_court'],
+    movement: ['compare', 'by_day', 'prior_insights'],
+    summary: [],
+  };
+  return trimTo(base, WANT[angle] ?? []);
+}
+
+function cafePayload(req: CafeReq, angle?: Kind): Row {
   const d = req.data;
   const base: Row = {
     range: { from: req.range_from, to: req.range_to },
@@ -626,9 +1014,7 @@ function payload(req: Req, angle?: Kind): Row {
     prior_insights: d.prior_insights.slice(0, MAX_FINDINGS),
   };
   if (!angle) return base;
-  // Emptied rather than deleted: a present-but-empty key says "exists, not this
-  // pass's subject"; a missing key would invite the model to invent it.
-  const WANT: Record<Kind, string[]> = {
+  const WANT: Partial<Record<Kind, string[]>> = {
     profit: ['margins', 'best_sellers'],
     conversion: ['engagement', 'best_sellers'],
     pricing: ['price_bands', 'promo', 'best_sellers'],
@@ -636,12 +1022,7 @@ function payload(req: Req, angle?: Kind): Row {
     structural: ['bought_together', 'best_sellers', 'engagement', 'price_bands'],
     summary: [],
   };
-  const keep = new Set(['range', 'compare_basis', 'lang', 'kpis', 'coverage', 'basis', ...WANT[angle]]);
-  const out: Row = {};
-  for (const [k, v] of Object.entries(base)) {
-    out[k] = keep.has(k) ? v : Array.isArray(v) ? [] : v && typeof v === 'object' ? null : v;
-  }
-  return out;
+  return trimTo(base, WANT[angle] ?? []);
 }
 
 // ---------------------------------------------------------------------------
@@ -650,7 +1031,7 @@ function payload(req: Req, angle?: Kind): Row {
 async function runScan(req: Req, alreadyFound: string[], deadline: number): Promise<Insight[]> {
   const found: Insight[] = [];
   const known = new Set(alreadyFound.map(normalizeFinding));
-  for (const angle of SCAN_ANGLES) {
+  for (const angle of scanAngles(req.scope)) {
     if (deadline - Date.now() < 3000) break; // return what we have rather than time out
     let content: string;
     try {
@@ -708,7 +1089,7 @@ function phraseFallback(req: Req): JudgedPattern[] {
 async function modePatterns(req: Req, deadline: number): Promise<{ patterns: JudgedPattern[]; degraded: boolean }> {
   if (!req.data.patterns.length) return { patterns: [], degraded: false };
   const candidates = req.data.patterns.map(({ fallbackText: _f, ...c }) => c);
-  const content = await chat(judgeSystem(req.lang), JSON.stringify({ candidates }), JUDGE_MODEL, deadline);
+  const content = await chat(judgeSystem(req.lang, req.scope), JSON.stringify({ candidates }), JUDGE_MODEL, deadline);
   const parsed = obj(parseJson(content));
   const keptRaw = Array.isArray(parsed?.kept) ? (parsed!.kept as unknown[]) : [];
   const byId = new Map(req.data.patterns.map((p) => [p.id, p]));

@@ -10,35 +10,63 @@
  * A degraded response (no GROQ key) still carries templated findings — the card
  * says so rather than pretending a model spoke.
  */
-import { useRef, useState } from 'react';
-import { describeBasis, isThinPeriod } from '@touch/core';
+import { useRef, useState, type ReactNode } from 'react';
+import type { CompareBasis, DateRange } from '@touch/core';
 import type { Locale } from '@touch/i18n';
 import { Button, ErrorText, Spinner } from '../../../components/ui';
 import { useConfirm } from '../../../components/ConfirmDialog';
 import { useToast } from '../../../components/toast';
 import { useLocale } from '../../../lib/i18n';
-import { analyticsRpc, insights as callInsights, type Insight } from '../../../lib/analyticsApi';
-import { basisCopy } from '../copy';
-import type { Derived, RawAnalytics } from '../derive';
+import {
+  analyticsRpc,
+  insights as callInsights,
+  type CourtsInsightsData,
+  type Insight,
+  type InsightsData,
+  type InsightsScope,
+} from '../../../lib/analyticsApi';
 import type { Formatters } from '../format';
-import { buildInsightsData } from '../payload';
 import type { StoredSets } from '../useAnalyticsData';
 import { CardShell, muted, type CardState } from './CardShell';
 import { StatusBadge } from '../../../components/kit';
 
 type Busy = null | 'generate' | 'recheck' | 'replace';
 
+export interface InsightsExtras {
+  priorInsights?: string[];
+  rejections: string[];
+}
+
+/**
+ * The card is scope-agnostic: the tab that owns the numbers hands in a
+ * `buildData` that assembles the payload from its own raw/derived state, the
+ * window the set is stored under, and the state line (basis, thin sample)
+ * that stays visible under the title. `null` from `buildData` means the tab
+ * has no data yet and the buttons stay disabled.
+ */
 export function AiInsightsCard({
-  raw,
-  derived,
+  scope,
+  range,
+  compareBasis,
+  buildData,
+  note,
+  tip,
   stored,
   state,
+  refreshing,
   f,
 }: {
-  raw: RawAnalytics | null;
-  derived: Derived | null;
+  scope: InsightsScope;
+  range: DateRange;
+  compareBasis: CompareBasis;
+  buildData: (extras: InsightsExtras) => InsightsData | CourtsInsightsData | null;
+  /** STATE under the title (basis line, thin-sample warning). */
+  note?: ReactNode;
+  /** EXPLANATION behind the info button (where the findings come from). */
+  tip?: ReactNode;
   stored: StoredSets;
   state: CardState;
+  refreshing?: boolean;
   f: Formatters;
 }) {
   const { tr, locale } = useLocale();
@@ -53,32 +81,34 @@ export function AiInsightsCard({
   const latest = stored.insights[0] ?? null;
   const shown = live ?? latest?.insights ?? [];
   const rejectedTexts = stored.rejections.map((r) => r.text);
-  const ready = raw !== null && derived !== null;
+  const ready = state === 'ready';
 
   async function save(list: Insight[]) {
-    if (!raw) return;
     await analyticsRpc.saveInsights({
-      from: raw.range.from,
-      to: raw.range.to,
-      basis: raw.compareBasis,
+      from: range.from,
+      to: range.to,
+      basis: compareBasis,
       locale: locale as Locale,
+      scope,
       insights: list,
     });
     stored.reload();
   }
 
   async function run(mode: 'insights' | 'revalidate' | 'replace_rejected', prior?: string[]) {
-    if (!raw || !derived) return;
+    const data = buildData({ priorInsights: prior, rejections: rejectedTexts });
+    if (!data) return;
     setBusy(mode === 'insights' ? 'generate' : mode === 'revalidate' ? 'recheck' : 'replace');
     setError(null);
     try {
       const res = await callInsights({
         mode,
         lang: locale as 'ar' | 'en',
-        range_from: raw.range.from,
-        range_to: raw.range.to,
-        compare_basis: raw.compareBasis,
-        data: buildInsightsData(raw, derived, locale, { priorInsights: prior, rejections: rejectedTexts }),
+        range_from: range.from,
+        range_to: range.to,
+        compare_basis: compareBasis,
+        scope,
+        data,
       });
       setDegraded(res.degraded);
       setLive(res.insights);
@@ -127,21 +157,14 @@ export function AiInsightsCard({
     }
   }
 
-  const basisLine = derived ? describeBasis(derived.basis, basisCopy(tr, f)) : '';
-  const thin = derived ? isThinPeriod(derived.basis) : false;
-
   return (
     <CardShell
       title={tr('analytics.insights.title')}
       state={state === 'ready' && shown.length === 0 && busy === null ? 'empty' : state}
+      refreshing={refreshing}
       emptyKey="analytics.insights.empty"
-      note={
-        <>
-          {tr('analytics.insights.source')}
-          {basisLine && ` · ${tr('analytics.insights.basis')}: ${basisLine}`}
-          {thin && ` · ${tr('analytics.notices.thinPeriod')}`}
-        </>
-      }
+      tip={tip ?? tr('analytics.insights.source')}
+      note={note}
       actions={
         <>
           {busy && <Spinner size="xs" label={tr('analytics.insights.checking')} />}

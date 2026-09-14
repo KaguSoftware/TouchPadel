@@ -1177,8 +1177,9 @@ unset secret, ±300 s, constant-time). Pure halves `verify.ts` / `otp.ts` run un
 bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `_shared/sms/*` (moved
 out of the hook 2026-09-12 so every edge function texts through ONE function, `sendSms()`): `log` (default, spends
 nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender — Asiacell requires
-sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (**the owner's choice, decided
-2026-09-12, SMS only — `OTPIQ_PROVIDER=sms`, no WhatsApp**; contract checked against the vendor's API reference the same day). `tests/sms-provider.test.ts` pins
+sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (decided 2026-09-12, superseded the next day; dormant), **`whatsapp` — Meta's official Cloud API, the owner's
+choice 2026-09-13, no reseller, no SMS fallback**: authentication template per language picked from `profiles.preferred_lang`,
+Graph v26.0, Meta error code + detail in the send log's `error`. `tests/sms-provider.test.ts` pins
 selection, each adapter against a mocked fetch, and the boundary (no other function file may name a vendor host or
 secret) — swapping vendors is `secrets set SMS_PROVIDER=…`, adding one is one adapter file. `_shared/phone.ts`
 is the edge copy of the new `@touch/core` normaliser, parity-tested on one fixture table.
@@ -1471,6 +1472,34 @@ Cafe — Orders* → Use this group → Send test. The allowlist still maps only
 `sms-provider` path failures; new: 27 pure diagnose tests, 7 operator tests, a Docker-bound retry
 case in `telegram.test.ts` and `telegram_chats` rows in the RLS matrix (**not run — no Docker**).
 Edge functions: transpile-parse clean; **`deno check` not run (no deno here).**
+
+## Day 25 (2026-09-13) — Analytics becomes a Management rail row with Courts and Cafe tabs
+
+Parsa's call: Analytics leaves Observe and sits under the management panel on the workspace's own rail
+(`OWNER_PRIMARY`), opening a layout route with two tabs. `/analytics` redirects to `/analytics/courts`; the search
+params (`range, from, to, cmp, court`) are validated once on the layout and survive a tab switch.
+
+- **Courts tab** (`features/analytics/courts/`): eight zones over five owner-only RPCs from migration 0093
+  (`analytics_courts_summary / demand / endings / guests / cafe`). Guests are anonymous counts only (identity lives in a
+  CTE and is never emitted; SEC-29 still passes). Every rate prints as "n of N" below twenty bookings. The occupancy
+  heatmap's open minutes come from `app.analytics_open_cells` over the same business-day window as the bookings, keyed
+  by calendar weekday like the opening hours; a cell's open minutes are ONE court's, so the client divides by the
+  court count. Cafe attach uses `tabs.reservation_id` (the till's booking anchor); QR orders never link.
+- **Group size**: `players` (1..8, NULL = unknown) on reservations and series (0092), captured at the desk dialog,
+  the series dialog and the mobile review screen with no preselected value. The mobile app omits the key when unset.
+- **Cafe tab** re-skinned on the shared `AnalyticsBar`: one filter row, the once-a-month settings behind More,
+  explanations behind info buttons (`InfoTip`, the app's first tooltip primitive: hover, focus and tap, Escape,
+  logical placement), the dual-axis chart split into two synced single-axis charts, `analytics_hourly` and
+  `analytics_price_bands` finally rendered, and a table/CSV twin on every chart.
+- **AI**: the insights edge function takes `scope: 'cafe' | 'courts'` (missing = cafe); stored sets carry a `scope`
+  column (0094). Court patterns are mined deterministically in `@touch/core` (`courtPatterns.ts`) and the judge only
+  rewords them.
+- **Local stack**: `pnpm db:reset && pnpm db:fixtures` then the scratch seed used for the screenshots is not checked
+  in; the analytics tabs need real bookings and linked tabs to show anything.
+- Pre-existing, not fixed: `features/reports/CourtsReport.tsx` declares snake_case view columns while
+  `report_courts` emits camelCase (every view renders the same columns); `packages/ui` `operatorChartColors` has no
+  consumer (charts use `features/analytics/charts/colors.ts`); `stored-fields.test.ts` still lacks
+  `notification_outbox.claimed_at` from another session's 0090.
 
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different

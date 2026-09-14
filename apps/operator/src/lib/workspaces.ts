@@ -11,16 +11,20 @@
  * in one 17-row column, so the two things an owner opens daily sat in the
  * same undifferentiated stack as the nine they open twice a year.
  *
- * Management's sections are now FINANCIAL, OBSERVATION and SETUP, and the cut
- * is by the question being asked rather than by screen type:
+ * Management's sections are now FINANCIAL, OBSERVE, STOCK and SETUP, and the
+ * cut is by the question being asked rather than by screen type:
  *
  *   * Financial answers "how much came in, how much went out, does the cash
  *     agree" — every row states an IQD figure or sets the price that produces
  *     one. Revenue, court income, cafe sales, the drawer, the day close,
- *     rates, menu prices, stock value.
- *   * Observation answers "what is happening, what has the pattern been, who
- *     did it, what is waiting on me" — the floor now, patterns, bookings,
+ *     rates, menu prices.
+ *   * Observe (key `observation`) answers "what is happening, who did it, what
+ *     is waiting on me" — the floor now, bookings,
  *     tills, staff activity, staff requests, marketing, the audit log.
+ *   * Stock answers "what is on the shelves, what came in, what went out and
+ *     what is it worth" — the whole /stock module plus the stock value report.
+ *     It used to be a single Financial row, which buried ten screens behind
+ *     one figure.
  *   * Setup stays what it was: configuration, not a reading of the business.
  *
  * The old Operations section is GONE, dissolved into the two above. It was the
@@ -43,8 +47,10 @@ export interface NavItem {
     | 'overview' | 'bookings' | 'tills' | 'dayClose' | 'menu' | 'rates' | 'promotions' | 'stock' | 'reports' | 'audit'
     | 'panel' | 'analytics' | 'staff' | 'courts' | 'tables' | 'settings' | 'guestSite'
     // Management's Financial / Observation sections (see the header note).
-    | 'revenue' | 'courtIncome' | 'cafeSales' | 'menuPrices' | 'stockValue'
-    | 'floorNow' | 'patterns' | 'staffActivity' | 'requests' | 'marketing' | 'telegram';
+    | 'menuPrices'
+    | 'floorNow' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
+    // Management's Stock section.
+    | 'inventory' | 'stockValue';
   icon: IconName;
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
@@ -67,7 +73,7 @@ export interface NavGroup {
   items: readonly NavItem[];
 }
 
-export type SectionKey = 'financial' | 'observation' | 'setup';
+export type SectionKey = 'financial' | 'observation' | 'stock' | 'setup';
 
 /**
  * A named part of a workspace with its own landing screen and its own rail.
@@ -124,13 +130,16 @@ const MANAGER_SETUP: readonly NavItem[] = [
 ];
 
 /**
- * Management's own rail is now one row. The panel is the headline every other
- * screen in the workspace elaborates; reports and analytics moved into the
- * sections that own the question they answer (revenue → Financial, patterns
- * → Observation) rather than sitting above the split as loose peers.
+ * Management's own rail is two rows. The panel is the headline every other
+ * screen in the workspace elaborates, and Analytics is the one reading that
+ * spans the whole business (courts and cafe on two tabs), so it sits above the
+ * split rather than inside Observe (owner call, 2026-09-13). Reports stayed in
+ * the sections that own the question they answer (revenue → Financial).
+ * `activePrefix` keeps the row lit on both tabs (/analytics/courts, /cafe).
  */
 const OWNER_PRIMARY: readonly NavItem[] = [
   { to: '/panel', labelKey: 'panel', icon: 'dashboard' },
+  { to: '/analytics', labelKey: 'analytics', icon: 'trendUp', activePrefix: '/analytics' },
 ];
 
 /**
@@ -139,44 +148,48 @@ const OWNER_PRIMARY: readonly NavItem[] = [
  * Order is the money's own path: what was earned (revenue, then the two
  * sources that make it up), then what is physically in the drawer and whether
  * it agrees at the close, then the prices that will produce tomorrow's
- * figures, then the value sitting on the shelves.
+ * figures. The value sitting on the shelves moved to Stock.
  *
- * Every /reports child except staff lives here, which is deliberate: a report
- * that states IQD is a financial instrument, and /reports alone redirects to
- * /reports/courts, so the bare path lands inside this section rather than
- * nowhere.
+ * The money reports (revenue, courts, cafe) are ONE Reports row: they share a
+ * screen whose tabs move between them, so a row per tab printed the same
+ * navigation twice. Its '/reports' prefix claims courts and cafe; staff
+ * activity and stock value have exact rows in Observe and Stock, which win
+ * over a prefix in `sectionForPath`. Every report lives in one section only,
+ * and the tabs show only the reports of the section you are in.
  */
 const OWNER_FINANCIAL: readonly NavItem[] = [
   { to: '/financial', labelKey: 'overview', icon: 'grid', exact: true },
-  { to: '/reports/revenue', labelKey: 'revenue', icon: 'chart' },
-  { to: '/reports/courts', labelKey: 'courtIncome', icon: 'court' },
-  { to: '/reports/cafe', labelKey: 'cafeSales', icon: 'cake' },
+  { to: '/reports/revenue', labelKey: 'reports', icon: 'chart', activePrefix: '/reports' },
   { to: '/till/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
   { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
   { to: '/admin/menu', labelKey: 'menuPrices', icon: 'layers', activePrefix: '/admin/menu' },
-  { to: '/reports/stock', labelKey: 'stockValue', icon: 'package' },
 ];
 
 /**
  * OBSERVATION — watching the venue rather than counting it.
  *
- * Order is by how far back you are looking: right now (the floor), the shape
- * over time (patterns), then the three live records you inspect (bookings,
- * tills, staff activity), then the two things that WAIT ON THE OWNER — staff
- * requests to confirm and marketing to run — and finally the audit log, which
- * is where you go when one of the others raised a question.
+ * Order is by how far back you are looking: right now (the floor), then the
+ * live records you inspect (bookings, tills, staff activity), then the two
+ * things that WAIT ON THE OWNER — staff requests to confirm and marketing to
+ * run — and finally the audit log, which is where you go when one of the
+ * others raised a question. The shape over time (Analytics) is no longer a
+ * row here: it is on Management's own rail, see OWNER_PRIMARY.
  *
- * `/till/tabs` carries no activePrefix on purpose: it used to be '/till', which
- * would now also light this row while the owner is on /till/drawer over in
- * Financial, and the rail would claim they were in two sections at once.
+ * Bookings and Tills open Observe's OWN boards, not the desk calendar and the
+ * cashier's tab board (owner call, 2026-09-13). Those are workstations; these
+ * are view-only readings of what is active, what is not and what the day adds
+ * up to, and every write on them is a "go to workspace" button away.
+ *
+ * The working screens stay listed as hidden rows only so that a drill-through
+ * which still lands on them (Floor now's cluster buttons) keeps this rail
+ * instead of dropping the owner onto Management's bare top level.
  */
 const OWNER_OBSERVATION: readonly NavItem[] = [
   { to: '/observation', labelKey: 'overview', icon: 'grid', exact: true },
   { to: '/ops', labelKey: 'floorNow', icon: 'dashboard' },
-  { to: '/analytics', labelKey: 'patterns', icon: 'trendUp' },
-  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
-  { to: '/till/tabs', labelKey: 'tills', icon: 'receipt' },
+  { to: '/observation/courts', labelKey: 'bookings', icon: 'calendar' },
+  { to: '/observation/tills', labelKey: 'tills', icon: 'receipt' },
   { to: '/reports/staff', labelKey: 'staffActivity', icon: 'users' },
   { to: '/observation/requests', labelKey: 'requests', icon: 'bell' },
   { to: '/marketing', labelKey: 'marketing', icon: 'spark', activePrefix: '/marketing' },
@@ -184,6 +197,23 @@ const OWNER_OBSERVATION: readonly NavItem[] = [
   // Opened from the marketing panel, not from the rail. See NavItem.hidden.
   { to: '/admin/promotions', labelKey: 'promotions', icon: 'tag', hidden: true },
   { to: '/admin/telegram', labelKey: 'telegram', icon: 'phone', hidden: true },
+  // Reached only by drilling through from Floor now; see the note above.
+  // `/till/tabs` carries no activePrefix: '/till' would also light this row on
+  // /till/drawer over in Financial.
+  { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk', hidden: true },
+  { to: '/till/tabs', labelKey: 'tills', icon: 'receipt', hidden: true },
+];
+
+/**
+ * STOCK — the shelves. The /stock module already carries its own grouped
+ * sub-nav (daily, setup, review) beside the screen, so the rail does not
+ * repeat those ten rows: one row owns the whole /stock subtree and lands on
+ * on-hand, and the second is the stock value report, which lives under
+ * /reports but answers a stock question.
+ */
+const OWNER_STOCK: readonly NavItem[] = [
+  { to: '/stock', labelKey: 'inventory', icon: 'package', activePrefix: '/stock' },
+  { to: '/reports/stock', labelKey: 'stockValue', icon: 'chart' },
 ];
 
 const OWNER_SETUP: readonly NavItem[] = [
@@ -198,6 +228,7 @@ const OWNER_SETUP: readonly NavItem[] = [
 const OWNER_SECTIONS: readonly NavSection[] = [
   { key: 'financial', home: '/financial', icon: 'banknote', items: OWNER_FINANCIAL },
   { key: 'observation', home: '/observation', icon: 'eye', items: OWNER_OBSERVATION },
+  { key: 'stock', home: '/stock', icon: 'package', items: OWNER_STOCK },
   { key: 'setup', home: '/setup', icon: 'settings', items: OWNER_SETUP },
 ];
 
@@ -281,7 +312,8 @@ export function saveWorkspace(key: WorkspaceKey): void {
  */
 export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/kds') return 'prep';
-  if (path === '/panel' || path.startsWith('/reports/revenue') || path === '/analytics') return 'owner';
+  if (path === '/panel' || path.startsWith('/reports/revenue')) return 'owner';
+  if (path === '/analytics' || path.startsWith('/analytics/')) return 'owner';
   if (path === '/setup' || path.startsWith('/setup/')) return 'owner';
   // The section homes. /observation/requests is owner-only too, so the whole
   // subtree resolves here rather than only its landing screen.
@@ -311,14 +343,28 @@ export function workspaceItems(ws: Workspace): readonly NavItem[] {
 
 /**
  * The section `path` sits inside, or null when it belongs to the workspace's
- * own rail. Derived from the URL rather than remembered, so a deep link, a
- * reload and a drill-through all land on the rail that matches the screen.
+ * own rail. Derived from the URL, so a deep link, a reload and a drill-through
+ * all land on the rail that matches the screen.
+ *
+ * When rows in two sections match, the most specific one wins: a row whose
+ * `to` IS the path beats a prefix, and a longer prefix beats a shorter one.
+ * Financial's Reports row claims '/reports', but /reports/stock is Stock's and
+ * /reports/staff is Observe's.
  */
 export function sectionForPath(ws: Workspace, path: string): NavSection | null {
+  const bare = path.replace(/[?#].*$/, '').replace(/\/+$/, '') || '/';
+  let best: NavSection | null = null;
+  let bestScore = -1;
   for (const section of ws.sections ?? []) {
-    if (section.items.some((item) => isNavActive(item, path))) return section;
+    const matches = section.items.filter((item) => isNavActive(item, path));
+    if (matches.length === 0) continue;
+    const score = Math.max(...matches.map((item) => (item.to === bare ? Number.MAX_SAFE_INTEGER : (item.activePrefix ?? item.to).length)));
+    if (score > bestScore) {
+      best = section;
+      bestScore = score;
+    }
   }
-  return null;
+  return best;
 }
 
 /**

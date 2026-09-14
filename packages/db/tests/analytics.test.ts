@@ -541,4 +541,48 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     const mgrPat = await manager.from('analytics_patterns').select('id').eq('id', patterns.data as string);
     expect(mgrPat.data).toHaveLength(0);
   });
+
+  it('0094 scope: save with courts reads back courts, the default is cafe, anything else is INVALID_ARGUMENT', async () => {
+    const base = { p_range_from: from, p_range_to: to, p_locale: 'en' };
+
+    const courts = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [{ text: 'court 1 fills Friday evenings' }], p_scope: 'courts',
+    }).then(outcome);
+    expect(courts.ok, courts.errorMessage).toBe(true);
+    const courtsRow = await owner.from('analytics_insights').select('scope').eq('id', courts.data as string).single();
+    expect(courtsRow.data).toEqual({ scope: 'courts' });
+
+    const cafe = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [{ text: 'latte leads' }],
+    }).then(outcome);
+    expect(cafe.ok, cafe.errorMessage).toBe(true);
+    const cafeRow = await owner.from('analytics_insights').select('scope').eq('id', cafe.data as string).single();
+    expect(cafeRow.data).toEqual({ scope: 'cafe' });
+
+    const badScope = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [], p_scope: 'x',
+    }).then(outcome);
+    expect(badScope.ok).toBe(false);
+    expect(badScope.errorMessage).toContain('INVALID_ARGUMENT');
+
+    const patCourts = await appRpc(owner, 'save_analytics_patterns', {
+      ...base, p_patterns: [{ text: 'Thursday 20:00 is saturated' }], p_scope: 'courts',
+    }).then(outcome);
+    expect(patCourts.ok, patCourts.errorMessage).toBe(true);
+    const patCourtsRow = await owner.from('analytics_patterns').select('scope').eq('id', patCourts.data as string).single();
+    expect(patCourtsRow.data).toEqual({ scope: 'courts' });
+
+    const patCafe = await appRpc(owner, 'save_analytics_patterns', { ...base, p_patterns: [] }).then(outcome);
+    expect(patCafe.ok, patCafe.errorMessage).toBe(true);
+    const patCafeRow = await owner.from('analytics_patterns').select('scope').eq('id', patCafe.data as string).single();
+    expect(patCafeRow.data).toEqual({ scope: 'cafe' });
+
+    const patBad = await appRpc(owner, 'save_analytics_patterns', { ...base, p_patterns: [], p_scope: 'x' }).then(outcome);
+    expect(patBad.ok).toBe(false);
+    expect(patBad.errorMessage).toContain('INVALID_ARGUMENT');
+
+    // The scope CHECK holds even for the service role: the two words are the whole vocabulary.
+    const direct = await svc.from('analytics_insights').update({ scope: 'x' }).eq('id', cafe.data as string);
+    expect(direct.error?.message ?? '').toContain('analytics_insights_scope_check');
+  });
 });

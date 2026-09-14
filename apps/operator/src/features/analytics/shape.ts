@@ -253,6 +253,47 @@ export function parseMenuSnapshot(json: unknown): MenuSnapshotRow[] {
     .filter((r) => r.id !== '');
 }
 
+export interface HourlyCell {
+  /** Weekday of the BUSINESS day, 0 = Sunday. */
+  dow: number;
+  /** Venue-local clock hour of placed_at. */
+  hour: number;
+  orders: number;
+  qty: number;
+  revenueIqd: number;
+}
+
+/** app.analytics_hourly: till orders by (business dow, local hour). */
+export function parseHourly(json: unknown): HourlyCell[] {
+  return arr(json).map((r) => {
+    const o = obj(r);
+    return { dow: num(o.dow), hour: num(o.hour), orders: num(o.orders), qty: num(o.qty), revenueIqd: num(o.revenue_iqd) };
+  });
+}
+
+export type PriceBandKey = 'lt3000' | '3000_5999' | '6000_9999' | 'gte10000';
+
+export interface PriceBandSalesRow {
+  band: PriceBandKey;
+  itemIds: string[];
+  qty: number;
+  revenueIqd: number;
+}
+
+const BAND_KEYS: readonly PriceBandKey[] = ['lt3000', '3000_5999', '6000_9999', 'gte10000'];
+
+/** app.analytics_price_bands: units and revenue sold per list-price band, from till data alone. */
+export function parsePriceBandSales(json: unknown): PriceBandSalesRow[] {
+  return arr(json)
+    .map((r) => {
+      const o = obj(r);
+      const band = str(o.band) as PriceBandKey;
+      return { band, itemIds: arr(o.items).map(str), qty: num(o.qty), revenueIqd: num(o.revenue_iqd) };
+    })
+    .filter((r) => BAND_KEYS.includes(r.band))
+    .sort((a, b) => BAND_KEYS.indexOf(a.band) - BAND_KEYS.indexOf(b.band));
+}
+
 // ---------------------------------------------------------------------------
 // PostHog
 // ---------------------------------------------------------------------------

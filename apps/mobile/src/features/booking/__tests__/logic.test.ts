@@ -7,7 +7,10 @@ import {
   cancelledBookings,
   endedNotice,
   isLiveHold,
+  isPlayers,
   parseHoldResult,
+  PLAYER_COUNTS,
+  PLAYER_OPTIONS,
   playedCount,
   playedGames,
   secondsUntil,
@@ -352,5 +355,23 @@ describe('visiblePast (Clear history)', () => {
     const original = [...rows];
     visiblePast(rows, '2026-09-01T12:00:00Z');
     expect(rows).toEqual(original);
+  });
+});
+
+describe('players (0090)', () => {
+  it('offers 2 and 4 as the one-tap sizes and 1..8 under other', () => {
+    expect([...PLAYER_OPTIONS]).toEqual([2, 4]);
+    expect([...PLAYER_COUNTS]).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it('isPlayers accepts integers 1..8 only', () => {
+    for (const n of PLAYER_COUNTS) expect(isPlayers(n)).toBe(true);
+    expect(isPlayers(0)).toBe(false);
+    expect(isPlayers(9)).toBe(false);
+    expect(isPlayers(2.5)).toBe(false);
+    expect(isPlayers('4')).toBe(false);
+    expect(isPlayers(null)).toBe(false);
+    expect(isPlayers(undefined)).toBe(false);
+    expect(isPlayers(Number.NaN)).toBe(false);
   });
 });

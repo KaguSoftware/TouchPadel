@@ -42,13 +42,13 @@ export const courtDeskEn = {
 
   // 06.2 Calendar
   calendar: {
-    lead: 'Day and week across all courts. Click a free slot to book; drag a booking to move it.',
+    lead: 'A day across all courts, or zoom out to the month. Click a free slot to book; drag a booking to move it.',
     view: 'View',
     prev: 'Previous',
     next: 'Next',
     keys: 'Arrow keys move the date',
     keyDay: 'day view',
-    keyWeek: 'week view',
+    keyMonth: 'month view',
     block: 'Block court',
     series: 'New series',
     moveTo: 'Move to {court} at {time}',

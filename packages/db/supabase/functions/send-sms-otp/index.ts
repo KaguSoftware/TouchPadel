@@ -34,7 +34,7 @@
  * text a guest. Swapping vendors is a secrets change (SMS_PROVIDER + keys),
  * not an edit here — see _shared/sms/types.ts for the contract and recipe.
  *
- * Secrets: SEND_SMS_HOOK_SECRET, SMS_PROVIDER (log | twilio | otpiq) and the
+ * Secrets: SEND_SMS_HOOK_SECRET, SMS_PROVIDER (log | twilio | otpiq | whatsapp) and the
  * chosen vendor's keys — see supabase/functions/.env.example.
  */
 import { json } from '../_shared/http.ts';
@@ -89,9 +89,19 @@ Deno.serve(async (req) => {
     return json(hookError(statusForRefusal(reason), reason), statusForRefusal(reason));
   }
 
+  // The guest's language, for vendors with per-language templates (Meta
+  // WhatsApp). Best effort: a brand-new phone sign-up has the default row, a
+  // missing profile or a query error simply leaves it unset.
+  let lang: 'en' | 'ar' | undefined;
+  if (payload.userId) {
+    const prof = await service.from('profiles').select('preferred_lang').eq('id', payload.userId).maybeSingle();
+    const v = prof.data?.preferred_lang;
+    if (v === 'en' || v === 'ar') lang = v;
+  }
+
   try {
     const result = await sendSms(
-      { to: payload.phoneE164, body: renderTemplate(payload.otp), code: payload.otp },
+      { to: payload.phoneE164, body: renderTemplate(payload.otp), code: payload.otp, lang },
       env,
     );
     await service.schema('app').rpc('sms_send_result', {

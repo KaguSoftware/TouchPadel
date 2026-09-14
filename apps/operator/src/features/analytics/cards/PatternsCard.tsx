@@ -96,6 +96,7 @@ export function PatternsCard({
         range_from: raw.range.from,
         range_to: raw.range.to,
         compare_basis: raw.compareBasis,
+        scope: 'cafe',
         data: {
           kpis: {},
           daily: [],
@@ -112,7 +113,7 @@ export function PatternsCard({
       const out = res.patterns ?? [];
       setJudged(out);
       if (out.length > 0) {
-        await analyticsRpc.savePatterns({ from: raw.range.from, to: raw.range.to, locale: locale as Locale, patterns: out });
+        await analyticsRpc.savePatterns({ from: raw.range.from, to: raw.range.to, locale: locale as Locale, scope: 'cafe', patterns: out });
         stored.reload();
       }
     } catch (err) {

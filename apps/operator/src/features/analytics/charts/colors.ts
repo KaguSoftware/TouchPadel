@@ -56,6 +56,11 @@ export const BLUE = SERIES_1;
 export const HIGHLIGHT = SERIES_1;
 /** The un-emphasised bars beside a HIGHLIGHT one. */
 export const BAR_MUTED = '#8E9FBE';
+/**
+ * The hover wash Recharts paints under the bar the pointer is on: the accent
+ * at 6% so the bar visibly responds without a second colour appearing.
+ */
+export const BAR_CURSOR = 'rgba(51, 96, 171, 0.06)';
 
 // ---------------------------------------------------------------------------
 // Chrome — recessive, and wearing text tokens rather than series colours

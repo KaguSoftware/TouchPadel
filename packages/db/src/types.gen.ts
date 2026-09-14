@@ -177,6 +177,26 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Record<string, unknown>
       }
+      analytics_courts_cafe: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      analytics_courts_demand: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      analytics_courts_endings: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      analytics_courts_guests: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      analytics_courts_summary: {
+        Args: { p_court_id?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
       analytics_daily_sales: {
         Args: { p_from: string; p_to: string }
         Returns: Json
@@ -192,6 +212,15 @@ export type Database = {
         Returns: Json
       }
       analytics_menu_snapshot: { Args: never; Returns: Json }
+      analytics_open_cells: {
+        Args: { p_ts_from: string; p_ts_to: string; p_tz: string }
+        Returns: {
+          dow: number
+          hour: number
+          open_days: number
+          open_minutes: number
+        }[]
+      }
       analytics_price_bands: {
         Args: { p_basis?: string; p_from: string; p_to: string }
         Returns: Json
@@ -366,6 +395,7 @@ export type Database = {
           p_guest_name?: string
           p_guest_phone?: string
           p_hold_id: string
+          p_players?: number
         }
         Returns: Json
       }
@@ -406,6 +436,7 @@ export type Database = {
           p_idempotency_key?: string
           p_notes?: string
           p_pattern: string
+          p_players?: number
           p_resolutions?: Json
           p_start_time: string
           p_starts_on: string
@@ -803,6 +834,7 @@ export type Database = {
           p_locale: string
           p_range_from: string
           p_range_to: string
+          p_scope?: string
         }
         Returns: string
       }
@@ -812,6 +844,7 @@ export type Database = {
           p_patterns: Json
           p_range_from: string
           p_range_to: string
+          p_scope?: string
         }
         Returns: string
       }
@@ -1024,6 +1057,7 @@ export type Database = {
           p_idempotency_key?: string
           p_kind: Database["public"]["Enums"]["reservation_kind"]
           p_notes?: string
+          p_players?: number
           p_price_override_iqd?: number
           p_start_at: string
         }
@@ -1429,6 +1463,7 @@ export type Database = {
           locale: string
           range_from: string
           range_to: string
+          scope: string
         }
         Insert: {
           compare_basis?: string
@@ -1439,6 +1474,7 @@ export type Database = {
           locale?: string
           range_from: string
           range_to: string
+          scope?: string
         }
         Update: {
           compare_basis?: string
@@ -1449,6 +1485,7 @@ export type Database = {
           locale?: string
           range_from?: string
           range_to?: string
+          scope?: string
         }
         Relationships: [
           {
@@ -1469,6 +1506,7 @@ export type Database = {
           patterns: Json
           range_from: string
           range_to: string
+          scope: string
         }
         Insert: {
           created_at?: string
@@ -1478,6 +1516,7 @@ export type Database = {
           patterns: Json
           range_from: string
           range_to: string
+          scope?: string
         }
         Update: {
           created_at?: string
@@ -1487,6 +1526,7 @@ export type Database = {
           patterns?: Json
           range_from?: string
           range_to?: string
+          scope?: string
         }
         Relationships: [
           {
@@ -3320,6 +3360,7 @@ export type Database = {
           idempotency_key: string | null
           notes: string | null
           pattern: string
+          players: number | null
           start_time: string
           starts_on: string
           weekdays: number[]
@@ -3339,6 +3380,7 @@ export type Database = {
           idempotency_key?: string | null
           notes?: string | null
           pattern: string
+          players?: number | null
           start_time: string
           starts_on: string
           weekdays?: number[]
@@ -3358,6 +3400,7 @@ export type Database = {
           idempotency_key?: string | null
           notes?: string | null
           pattern?: string
+          players?: number | null
           start_time?: string
           starts_on?: string
           weekdays?: number[]
@@ -3406,6 +3449,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["reservation_kind"]
           notes: string | null
           period: unknown
+          players: number | null
           price_iqd: number | null
           rate_rule_id: string | null
           series_id: string | null
@@ -3434,6 +3478,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["reservation_kind"]
           notes?: string | null
           period?: unknown
+          players?: number | null
           price_iqd?: number | null
           rate_rule_id?: string | null
           series_id?: string | null
@@ -3462,6 +3507,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["reservation_kind"]
           notes?: string | null
           period?: unknown
+          players?: number | null
           price_iqd?: number | null
           rate_rule_id?: string | null
           series_id?: string | null

@@ -2213,6 +2213,15 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'analytics_price_bands', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'analytics_promo', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'analytics_sold_items', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
+
+  // ── owner only: the Courts analytics family (0093, app.analytics_guard) ──
+  // DROP 8. Same guard, same prologue; p_court_id is optional and unknown
+  // ids yield empty sections, so the date pair alone is a safe probe.
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_cafe', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_demand', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_endings', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_guests', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_summary', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
   {
     kind: 'rpc', schema: 'app', name: 'save_analytics_patterns',
     // Inverted range -> INVALID_RANGE, so owner never reaches the INSERT.

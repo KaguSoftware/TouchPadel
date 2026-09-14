@@ -16,9 +16,13 @@
  * `code` to `to`, reports the vendor's message id / channel / cost when known,
  * and throws SmsProviderError on any failure. The WORDING of the message is
  * per vendor: Twilio sends `body` verbatim; OTPIQ's verification type wraps
- * the code in the vendor's own template and ignores `body`.
+ * the code in the vendor's own template and ignores `body`; Meta's WhatsApp
+ * Cloud API sends the approved authentication template for `lang`.
  */
 export type SmsChannel = 'sms' | 'whatsapp' | 'telegram' | 'log';
+
+/** The app's two languages — what a per-language vendor template is picked by. */
+export type SmsLang = 'en' | 'ar';
 
 export interface SmsSendArgs {
   /** E.164 with '+'. */
@@ -27,6 +31,8 @@ export interface SmsSendArgs {
   body: string;
   /** The bare code, for vendors whose verification endpoint takes the code rather than a body. */
   code: string;
+  /** The guest's language when the caller knows it (profiles.preferred_lang); vendors with per-language templates use it. */
+  lang?: SmsLang;
 }
 
 export interface SmsSendResult {

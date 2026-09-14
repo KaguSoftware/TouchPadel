@@ -60,12 +60,14 @@ export const shellEn = {
   // spilling all fourteen destinations into its own column.
   section: {
     financial: 'Financial',
-    observation: 'Observation',
+    observation: 'Observe',
+    stock: 'Stock',
     setup: 'Setup',
   },
   sectionLead: {
     financial: 'Money in, money out, and whether the cash agrees',
     observation: 'The floor now, the pattern behind it, and what is waiting on you',
+    stock: 'On hand, deliveries, waste, counts and what the shelves are worth',
     setup: 'Staff, courts, tables and how the venue is configured',
   },
   workspaceLead: {
@@ -95,23 +97,21 @@ export const shellEn = {
     reports: 'Reports',
     audit: 'Audit log',
     panel: 'Management panel',
-    analytics: 'Cafe analytics',
+    analytics: 'Analytics',
     staff: 'Staff',
     courts: 'Courts',
     tables: 'Tables & QR',
     settings: 'Venue settings',
     guestSite: 'Guest site',
-    // Financial section rows. 'revenue'/'stockValue' are distinct from the old
-    // 'reports'/'stock': the row names the FIGURE the owner came for, not the
-    // screen that happens to show it.
-    revenue: 'Revenue',
-    courtIncome: 'Court income',
-    cafeSales: 'Cafe sales',
+    // Financial section rows. The reports are one 'reports' row, with a tab
+    // per report on the screen itself.
     menuPrices: 'Menu prices',
+    // Stock section rows. 'inventory' owns the whole /stock module, which
+    // keeps its own sub-nav; 'stockValue' is the /reports/stock figure.
+    inventory: 'Inventory',
     stockValue: 'Stock value',
     // Observation section rows.
     floorNow: 'Floor now',
-    patterns: 'Patterns',
     staffActivity: 'Staff activity',
     requests: 'Requests',
     marketing: 'Marketing',

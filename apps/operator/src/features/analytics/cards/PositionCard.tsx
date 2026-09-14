@@ -35,13 +35,8 @@ export function PositionCard({ derived, state, f }: { derived: Derived | null; s
       title={tr('analytics.position.title')}
       state={state === 'ready' && (!pos || !pos.hasData) ? 'empty' : state}
       emptyKey="analytics.empty.position"
-      note={
-        pos && pos.hasData ? (
-          <>
-            {tr('analytics.position.asOf', { date: f.date(pos.positionAsOf, true) })} · {tr('analytics.position.assumption')}
-          </>
-        ) : undefined
-      }
+      note={pos && pos.hasData ? tr('analytics.position.asOf', { date: f.date(pos.positionAsOf, true) }) : undefined}
+      tip={tr('analytics.position.assumption')}
       actions={pos && pos.hasData ? <StatusBadge size="sm" tone="neutral" dot={false} label={tr(strengthKey(pos.overallRho, pos.significant))} /> : undefined}
     >
       {pos && (

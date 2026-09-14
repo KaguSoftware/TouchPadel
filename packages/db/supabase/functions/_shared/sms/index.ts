@@ -10,15 +10,16 @@
 import { logProvider } from './log.ts';
 import { otpiqProvider } from './otpiq.ts';
 import { twilioProvider } from './twilio.ts';
-import { SmsProviderError, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
+import { whatsappProvider } from './whatsapp.ts';
+import { SmsProviderError, type SmsLang, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
 
-export type { SmsChannel, SmsProvider, SmsSendArgs, SmsSendResult } from './types.ts';
+export type { SmsChannel, SmsLang, SmsProvider, SmsSendArgs, SmsSendResult } from './types.ts';
 export { SmsProviderError } from './types.ts';
 
 export type EnvGetter = (name: string) => string | undefined;
 
 /** Known adapter names, i.e. the legal values of SMS_PROVIDER. */
-export const SMS_PROVIDERS = ['log', 'twilio', 'otpiq'] as const;
+export const SMS_PROVIDERS = ['log', 'twilio', 'otpiq', 'whatsapp'] as const;
 
 export interface SmsSent extends SmsSendResult {
   /** Which adapter delivered — what the send log stamps. */
@@ -53,6 +54,23 @@ export function smsFromEnv(get: EnvGetter): SmsProvider {
     const from = get('TWILIO_FROM') ?? '';
     if (accountSid && authToken && from) return twilioProvider({ accountSid, authToken, from });
     console.warn('[sms] SMS_PROVIDER=twilio but TWILIO_* secrets are incomplete; using log');
+    return logProvider(isLocal);
+  }
+  if (name === 'whatsapp') {
+    const accessToken = get('WHATSAPP_ACCESS_TOKEN') ?? '';
+    const phoneNumberId = get('WHATSAPP_PHONE_NUMBER_ID') ?? '';
+    if (accessToken && phoneNumberId) {
+      const defaultLang = get('WHATSAPP_DEFAULT_LANG')?.trim();
+      return whatsappProvider({
+        accessToken,
+        phoneNumberId,
+        templateName: get('WHATSAPP_TEMPLATE_NAME')?.trim() || 'touch_otp',
+        langCodes: { en: get('WHATSAPP_TEMPLATE_LANG_EN'), ar: get('WHATSAPP_TEMPLATE_LANG_AR') },
+        defaultLang: defaultLang === 'en' || defaultLang === 'ar' ? (defaultLang as SmsLang) : undefined,
+        graphVersion: get('WHATSAPP_GRAPH_VERSION'),
+      });
+    }
+    console.warn('[sms] SMS_PROVIDER=whatsapp but WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID are incomplete; using log');
     return logProvider(isLocal);
   }
   if (name === 'otpiq') {

@@ -9,7 +9,7 @@ import type { MessageKey } from '@touch/i18n';
 import { useLocale } from '../../../lib/i18n';
 import type { Derived } from '../derive';
 import type { Formatters } from '../format';
-import { CardShell, muted, type CardState } from './CardShell';
+import { CardShell, type CardState } from './CardShell';
 import { StatusBadge } from '../../../components/kit';
 
 const QUADRANTS: readonly MenuQuadrant[] = ['star', 'plowhorse', 'puzzle', 'dog'];
@@ -36,6 +36,15 @@ export function MenuMatrixCard({ derived, state, f }: { derived: Derived | null;
       title={tr('analytics.matrix.title')}
       state={state === 'ready' && (!me || !me.hasData) ? 'empty' : state}
       emptyKey="analytics.empty.matrix"
+      tip={
+        <span style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          {QUADRANTS.map((q) => (
+            <span key={q}>
+              <strong>{tr(TITLE[q])}</strong>: {tr(ACTION[q])}
+            </span>
+          ))}
+        </span>
+      }
       note={
         me && me.hasData ? (
           <>
@@ -59,7 +68,6 @@ export function MenuMatrixCard({ derived, state, f }: { derived: Derived | null;
                   <strong style={{ fontSize: 'var(--tp-fs-sm)' }}>{tr(TITLE[q])}</strong>
                   <StatusBadge size="sm" dot={false} tone={q === 'star' ? 'success' : q === 'dog' ? 'danger' : 'neutral'} label={f.num(me.counts[q])} />
                 </div>
-                <p style={{ ...muted, marginBlock: '0.25rem' }}>{tr(ACTION[q])}</p>
                 <ul style={{ margin: 0, paddingInlineStart: '1rem', fontSize: 'var(--tp-fs-sm)' }}>
                   {items.slice(0, 4).map((i) => (
                     <li key={i.id} style={{ color: i.losingMoney ? 'var(--tp-danger)' : undefined }}>

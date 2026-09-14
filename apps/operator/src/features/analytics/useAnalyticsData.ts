@@ -93,7 +93,7 @@ export function useStoredNumber(key: string, fallback: number, accept: (n: numbe
 }
 
 /** `document.hidden`, so auto-refresh can stop while the tab is in the background. */
-function usePageVisible(): boolean {
+export function usePageVisible(): boolean {
   const [visible, setVisible] = useState(() => (typeof document === 'undefined' ? true : !document.hidden));
   useEffect(() => {
     const onChange = () => setVisible(!document.hidden);
@@ -272,6 +272,8 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     { key: ['itemMargins', from, to], fn: () => analyticsRpc.itemMargins(from, to) },
     { key: ['promo', from, to], fn: () => analyticsRpc.promo(from, to) },
     { key: ['menuSnapshot'], fn: () => analyticsRpc.menuSnapshot() },
+    { key: ['hourly', from, to], fn: () => analyticsRpc.hourly(from, to) },
+    { key: ['priceBands', from, to], fn: () => analyticsRpc.priceBands(from, to) },
   ];
 
   const sql = useQueries({
@@ -312,14 +314,14 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   });
 
   const storedInsights = useQuery({
-    queryKey: [ANALYTICS_KEY, 'storedInsights', from, to, compareBasis, locale],
-    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale),
+    queryKey: [ANALYTICS_KEY, 'storedInsights', 'cafe', from, to, compareBasis, locale],
+    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale, 'cafe'),
     enabled: ready,
     staleTime: 30_000,
   });
   const storedPatterns = useQuery({
-    queryKey: [ANALYTICS_KEY, 'storedPatterns', from, to, locale],
-    queryFn: () => fetchStoredPatterns(from, to, locale),
+    queryKey: [ANALYTICS_KEY, 'storedPatterns', 'cafe', from, to, locale],
+    queryFn: () => fetchStoredPatterns(from, to, locale, 'cafe'),
     enabled: ready,
     staleTime: 30_000,
   });
@@ -364,6 +366,8 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
       margins: S.parseItemMargins(parts[5]),
       promoSales: S.parsePromoSales(parts[6]),
       menu: S.parseMenuSnapshot(parts[7]),
+      hourly: S.parseHourly(parts[8]),
+      priceBandSales: S.parsePriceBandSales(parts[9]),
       engagementStatus: engagement,
       floor: posthogData?.floor ?? settingFloor,
       posthog: posthogData?.configured ? posthogData.now : null,

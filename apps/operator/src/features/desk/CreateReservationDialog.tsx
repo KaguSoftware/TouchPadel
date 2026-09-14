@@ -8,17 +8,26 @@
  * 'Duration' (option values are minutes), button 'Create booking'.
  */
 import { useState } from 'react';
-import { formatDateTime } from '@touch/i18n';
+import { formatDateTime, formatNumber } from '@touch/i18n';
 import { clientRef } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError } from '../../lib/appRpc';
 import type { CourtRow } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, ErrorText, Field, Modal, Select, inputStyle } from '../../components/ui';
-import { ConflictNotice, MessagePresenter } from '../../components/kit';
+import { ConflictNotice, MessagePresenter, SegmentedControl } from '../../components/kit';
 import { CustomerPicker, type PickedCustomer } from './customers/CustomerPicker';
 
 export type CreateKind = 'booking' | 'maintenance';
+
+/**
+ * Group size (0090). '' is the resting state: nothing is preselected, because a
+ * prefilled 4 would be recorded as fact for every booking the desk never asked
+ * about. 2 and 4 are one click; 'other' opens the full 1..8 list.
+ */
+type PlayersPick = '' | '2' | '4' | 'other';
+type PlayersCount = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
+const PLAYER_COUNTS: readonly PlayersCount[] = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
 export function CreateReservationDialog({
   courtId,
@@ -43,10 +52,15 @@ export function CreateReservationDialog({
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [playersPick, setPlayersPick] = useState<PlayersPick>('');
+  const [playersOther, setPlayersOther] = useState<PlayersCount | ''>('');
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [conflict, setConflict] = useState(false);
+
+  const players: number | null =
+    playersPick === '2' ? 2 : playersPick === '4' ? 4 : playersPick === 'other' && playersOther ? Number(playersOther) : null;
 
   async function submit() {
     setBusy(true);
@@ -64,6 +78,8 @@ export function CreateReservationDialog({
         ...(guestPhone.trim() ? { guestPhone: guestPhone.trim() } : {}),
         ...(customer ? { guestId: customer.id } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
+        // Booking kind only: maintenance has no group, and absent means unknown.
+        ...(kind === 'booking' && players !== null ? { players } : {}),
       });
       onCreated();
     } catch (e) {
@@ -143,6 +159,31 @@ export function CreateReservationDialog({
           </Field>
           <Field label={tr('op.desk.guestPhone')}>
             <input style={inputStyle} dir="ltr" inputMode="tel" value={guestPhone} disabled={busy} onChange={(e) => setGuestPhone(e.target.value)} />
+          </Field>
+          {/* group: a <label> around a set of buttons forwards the click to the first of them — see Field. */}
+          <Field label={tr('op.desk.players')} optional group>
+            <div role="group" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+              <SegmentedControl<PlayersPick>
+                value={playersPick}
+                onChange={setPlayersPick}
+                options={[
+                  { value: '2', label: formatNumber(2, locale), disabled: busy },
+                  { value: '4', label: formatNumber(4, locale), disabled: busy },
+                  { value: 'other', label: tr('op.desk.playersOther'), disabled: busy },
+                ]}
+              />
+              {playersPick === 'other' && (
+                <Select<PlayersCount>
+                  value={playersOther}
+                  disabled={busy}
+                  aria-label={tr('op.desk.playersOther')}
+                  placeholder={tr('op.desk.playersOther')}
+                  onChange={setPlayersOther}
+                  options={PLAYER_COUNTS.map((n) => ({ value: n, label: formatNumber(Number(n), locale) }))}
+                  style={{ inlineSize: 'auto', minInlineSize: '6rem' }}
+                />
+              )}
+            </div>
           </Field>
         </>
       )}

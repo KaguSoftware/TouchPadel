@@ -103,7 +103,7 @@ export function ConversionTable({
       title={tr('analytics.conversion.title')}
       state={state === 'ready' && rows.length === 0 ? 'empty' : state}
       emptyKey="analytics.empty.conversion"
-      note={tr('analytics.conversion.howToRead')}
+      tip={tr('analytics.conversion.howToRead')}
       actions={
         <>
           {/* One search control in the app, not a bare input per card. */}

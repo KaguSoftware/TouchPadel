@@ -1,18 +1,18 @@
 /**
- * Jump nav for the five zones. Lives on the inline-end side of the control deck
+ * Jump nav for a tab's zones. Lives on the inline-end side of the sticky bar
  * (desktop only) and highlights whichever zone the scroll-spy reports.
  */
+import { useMemo } from 'react';
 import { useLocale } from '../../lib/i18n';
-import { ZONES, useZoneSpy } from './Zone';
+import { useZoneSpy, type ZoneDef } from './Zone';
 
-const IDS = ZONES.map((z) => z.id);
-
-export function ZoneNav() {
+export function ZoneNav({ zones }: { zones: readonly ZoneDef[] }) {
   const { tr } = useLocale();
-  const active = useZoneSpy(IDS);
+  const ids = useMemo(() => zones.map((z) => z.id), [zones]);
+  const active = useZoneSpy(ids);
   return (
     <nav aria-label={tr('analytics.deck.jumpTo')} style={{ display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-      {ZONES.map((zone) => {
+      {zones.map((zone) => {
         const selected = zone.id === active;
         return (
           <button
@@ -38,7 +38,7 @@ export function ZoneNav() {
             <span aria-hidden="true" style={{ opacity: 0.7, marginInlineEnd: 'var(--tp-sp-1-5)' }}>
               {zone.ordinal}
             </span>
-            {tr(zone.titleKey)}
+            {tr(zone.navKey ?? zone.titleKey)}
           </button>
         );
       })}

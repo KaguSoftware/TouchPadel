@@ -16,7 +16,7 @@ export function HiddenGems({ derived, state, f }: { derived: Derived | null; sta
       title={tr('analytics.cards.hiddenGems')}
       state={state === 'ready' && gems.length === 0 ? 'empty' : state}
       emptyKey="analytics.empty.engagement"
-      note={tr('analytics.cards.hiddenGemsHint')}
+      tip={tr('analytics.cards.hiddenGemsHint')}
     >
       <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '0.25rem' }}>
         {gems.map((g) => (
