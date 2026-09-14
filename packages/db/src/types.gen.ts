@@ -203,6 +203,10 @@ export type Database = {
       }
       analytics_excluded: { Args: never; Returns: string[] }
       analytics_guard: { Args: never; Returns: undefined }
+      analytics_guest_ident: {
+        Args: { p_guest_id: string; p_guest_phone: string }
+        Returns: string
+      }
       analytics_hourly: {
         Args: { p_from: string; p_to: string }
         Returns: Json
@@ -212,9 +216,16 @@ export type Database = {
         Returns: Json
       }
       analytics_menu_snapshot: { Args: never; Returns: Json }
-      analytics_open_cells: {
-        Args: { p_ts_from: string; p_ts_to: string; p_tz: string }
+      analytics_open_minutes: {
+        Args: {
+          p_court_id?: string
+          p_start_hour: number
+          p_ts_from: string
+          p_ts_to: string
+          p_tz: string
+        }
         Returns: {
+          court_id: string
           dow: number
           hour: number
           open_days: number
@@ -236,18 +247,27 @@ export type Database = {
         }
         Returns: {
           business_date: string
+          cost_iqd: number
+          cost_total_iqd: number
           discount_line_iqd: number
           discount_source: string
           guest_session_id: string
+          line_adj_iqd: number
           line_total_iqd: number
           list_line_iqd: number
           list_price_iqd: number
           menu_item_id: string
+          net_line_iqd: number
+          net_qty: number
           order_id: string
           order_item_id: string
           placed_at: string
           qty: number
+          refund_iqd: number
+          refund_qty: number
+          settled_at: string
           source: Database["public"]["Enums"]["order_source"]
+          tab_adj_iqd: number
           tab_id: string
           unit_price_iqd: number
           variant_id: string
@@ -314,6 +334,25 @@ export type Database = {
             Args: { p_at: string; p_start_hour: number; p_tz: string }
             Returns: string
           }
+      cafe_net_lines: {
+        Args: { p_tab_ids: string[] }
+        Returns: {
+          cost_iqd: number
+          cost_total_iqd: number
+          gross_iqd: number
+          line_discount_iqd: number
+          menu_item_id: string
+          net_iqd: number
+          order_id: string
+          order_item_id: string
+          qty: number
+          refund_iqd: number
+          refund_qty: number
+          tab_discount_iqd: number
+          tab_id: string
+          variant_id: string
+        }[]
+      }
       cafe_setting: { Args: { p_key: string }; Returns: Json }
       cafe_setting_bool: { Args: { p_key: string }; Returns: boolean }
       cafe_setting_int: { Args: { p_key: string }; Returns: number }
@@ -338,6 +377,23 @@ export type Database = {
         }[]
       }
       cafe_setting_text: { Args: { p_key: string }; Returns: string }
+      cafe_settled_tabs: {
+        Args: { p_ts_from?: string; p_ts_to?: string }
+        Returns: {
+          cafe_gross_iqd: number
+          cafe_net_iqd: number
+          court_iqd: number
+          discount_iqd: number
+          goods_iqd: number
+          refunds_iqd: number
+          reservation_id: string
+          settled_at: string
+          subtotal_iqd: number
+          tab_id: string
+          tax_iqd: number
+          total_iqd: number
+        }[]
+      }
       cancel_reservation: {
         Args: { p_reason?: string; p_reservation_id: string }
         Returns: Json
@@ -446,6 +502,10 @@ export type Database = {
       }
       current_open_day: { Args: never; Returns: string }
       current_open_day_locked: { Args: never; Returns: string }
+      current_unit_cost: {
+        Args: { p_item_id: string; p_variant_id: string }
+        Returns: number
+      }
       customer_counts: { Args: { p_customer_id: string }; Returns: Json }
       customer_flags_json: { Args: { p_customer_id: string }; Returns: Json }
       customer_record: { Args: { p_customer_id: string }; Returns: Json }
@@ -1144,6 +1204,8 @@ export type Database = {
       }
       upsert_court: {
         Args: {
+          p_active_from?: string
+          p_active_to?: string
           p_description_ar?: string
           p_description_en?: string
           p_duration_options?: number[]
@@ -1647,6 +1709,8 @@ export type Database = {
       }
       courts: {
         Row: {
+          active_from: string | null
+          active_to: string | null
           description_ar: string | null
           description_en: string | null
           duration_options: number[]
@@ -1659,6 +1723,8 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          active_from?: string | null
+          active_to?: string | null
           description_ar?: string | null
           description_en?: string | null
           duration_options?: number[]
@@ -1671,6 +1737,8 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          active_from?: string | null
+          active_to?: string | null
           description_ar?: string | null
           description_en?: string | null
           duration_options?: number[]
@@ -2709,6 +2777,7 @@ export type Database = {
       }
       order_items: {
         Row: {
+          cost_iqd: number | null
           discount_pct: number
           discount_source: string | null
           id: string
@@ -2726,6 +2795,7 @@ export type Database = {
           voided: boolean
         }
         Insert: {
+          cost_iqd?: number | null
           discount_pct?: number
           discount_source?: string | null
           id?: string
@@ -2743,6 +2813,7 @@ export type Database = {
           voided?: boolean
         }
         Update: {
+          cost_iqd?: number | null
           discount_pct?: number
           discount_source?: string | null
           id?: string

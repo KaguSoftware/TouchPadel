@@ -162,7 +162,8 @@ export interface ItemMarginRow extends ItemRef {
 
 export interface ItemMargins {
   basis: string;
-  costAsOf: string;
+  /** 0095: 'line_snapshot' — the cost stamped on each line when it was sold. */
+  costBasis: string;
   items: ItemMarginRow[];
   coverage: { revenueWithCostPct: number; itemsWithCost: number; itemsTotal: number };
 }
@@ -172,7 +173,7 @@ export function parseItemMargins(json: unknown): ItemMargins {
   const cov = obj(o.coverage);
   return {
     basis: str(o.basis),
-    costAsOf: str(o.cost_as_of),
+    costBasis: str(o.cost_basis),
     items: arr(o.items)
       .map((r) => {
         const i = obj(r);

@@ -24,6 +24,7 @@ export const ownerAr: DeepMessages<typeof ownerEn> = {
       revenue: 'الإيرادات',
       padelRevenue: 'إيرادات البادل',
       cafeRevenue: 'إيرادات المقهى',
+      cafeNet: 'صافي المقهى بعد المبالغ المستردة',
       cash: 'نقدًا',
       card: 'بطاقة',
       bookings: 'الحجوزات',

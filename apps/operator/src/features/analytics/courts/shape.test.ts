@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   LEAD_BUCKETS,
-  NOTICE_BUCKETS,
   TIMING_BUCKETS,
   VISIT_BUCKETS,
   parseCourtsCafe,
@@ -92,11 +91,11 @@ describe('parseCourtsSummary', () => {
     expect(s.byDay[0]).toEqual({ date: '2026-09-01', closed: false, bookings: 6, bookedMinutes: 450, revenueIqd: 150000, cancellations: 2, noShows: 0 });
     expect(s.byDay[3]).toEqual({ date: '2026-09-04', closed: false, bookings: 9, bookedMinutes: 675, revenueIqd: 225000, cancellations: 1, noShows: 1 });
     expect(s.heatmap).toEqual([
-      { dow: 1, hour: 18, openMinutes: 120, openDays: 1, bookedMinutes: 30, bookings: 1, revenueIqd: 10000, cancellations: 0, noShows: 0, holdsExpired: 0 },
-      { dow: 1, hour: 19, openMinutes: 120, openDays: 1, bookedMinutes: 60, bookings: 1, revenueIqd: 20000, cancellations: 0, noShows: 0, holdsExpired: 0 },
+      { dow: 1, hour: 18, openMinutes: 240, openDays: 1, bookedMinutes: 30, bookings: 1, revenueIqd: 10000, cancellations: 0, noShows: 0, holdsExpired: 0 },
+      { dow: 1, hour: 19, openMinutes: 240, openDays: 1, bookedMinutes: 60, bookings: 1, revenueIqd: 20000, cancellations: 0, noShows: 0, holdsExpired: 0 },
       { dow: 2, hour: 3, openMinutes: 0, openDays: 0, bookedMinutes: 0, bookings: 0, revenueIqd: 0, cancellations: 0, noShows: 0, holdsExpired: 0 },
-      { dow: 5, hour: 18, openMinutes: 120, openDays: 1, bookedMinutes: 60, bookings: 1, revenueIqd: 20000, cancellations: 1, noShows: 0, holdsExpired: 1 },
-      { dow: 5, hour: 20, openMinutes: 120, openDays: 1, bookedMinutes: 120, bookings: 2, revenueIqd: 40000, cancellations: 0, noShows: 1, holdsExpired: 2 },
+      { dow: 5, hour: 18, openMinutes: 240, openDays: 1, bookedMinutes: 60, bookings: 1, revenueIqd: 20000, cancellations: 1, noShows: 0, holdsExpired: 1 },
+      { dow: 5, hour: 20, openMinutes: 240, openDays: 1, bookedMinutes: 120, bookings: 2, revenueIqd: 40000, cancellations: 0, noShows: 1, holdsExpired: 2 },
     ]);
   });
 
@@ -210,10 +209,13 @@ describe('parseCourtsDemand', () => {
 describe('parseCourtsEndings', () => {
   it('maps the fixture to exact camelCase objects', () => {
     const e = parseCourtsEndings(endingsJson);
+    expect(e.policyWindowMin).toBe(240);
     expect(e.cancellations.total).toBe(12);
     expect(e.cancellations.revenueIqd).toBe(300000);
     expect(e.cancellations.lateRevenueIqd).toBe(50000);
     expect(e.cancellations.medianNoticeMin).toBe(180);
+    expect(e.cancellations.cancelledInPeriod).toEqual({ n: 10, revenueIqd: 250000 });
+    expect(e.cancellations.resold).toEqual({ cancelled: 6, resoldN: 4, recoveredIqd: 80000, emptyN: 2, lostIqd: 40000 });
     expect(e.cancellations.byHour).toEqual([{ key: '20', n: 6, bookingsTotal: 24 }]);
     expect(e.cancellations.byDow).toEqual([{ key: '5', n: 5, bookingsTotal: 18 }]);
     expect(e.cancellations.bySource).toEqual([
@@ -235,7 +237,9 @@ describe('parseCourtsEndings', () => {
     expect(e.noShows.lateRevenueIqd).toBe(0);
     expect(e.noShows.medianNoticeMin).toBeNull();
     expect(e.noShows.byActor).toEqual([]);
-    expect(e.noShows.byNotice.every((n) => n.n === 0)).toBe(true);
+    expect(e.noShows.byNotice).toEqual([]);
+    expect(e.noShows.cancelledInPeriod).toEqual({ n: 0, revenueIqd: 0 });
+    expect(e.noShows.resold).toEqual({ cancelled: 0, resoldN: 0, recoveredIqd: 0, emptyN: 0, lostIqd: 0 });
     expect(e.noShows.byPlayers).toEqual([
       { key: '4', n: 2, bookingsTotal: 12 },
       { key: '', n: 2, bookingsTotal: 28 },
@@ -255,17 +259,15 @@ describe('parseCourtsEndings', () => {
     expect(Object.keys(e.cancellations.byHour[0]!)).toEqual(['key', 'n', 'bookingsTotal']);
   });
 
-  it('returns the notice buckets in fixed order with zeros for the missing ones', () => {
+  it('keeps the notice buckets in server order with their edges and the policy line', () => {
     const e = parseCourtsEndings(endingsJson);
-    expect(e.cancellations.byNotice.map((b) => b.bucket)).toEqual([...NOTICE_BUCKETS]);
-    expect(e.cancellations.byNotice).toEqual([
-      { bucket: 'after_start', n: 1 },
-      { bucket: 'lt2h', n: 5 },
-      { bucket: '2_6h', n: 0 },
-      { bucket: '6_24h', n: 0 },
-      { bucket: '1_3d', n: 3 },
-      { bucket: '3d_plus', n: 0 },
-    ]);
+    expect(e.cancellations.byNotice.map((b) => b.bucket)).toEqual(['after_start', '0_120', '120_240', '240_360', '360_1440', '1440_4320', '4320_plus']);
+    expect(e.cancellations.byNotice[0]).toEqual({ bucket: 'after_start', loMin: null, hiMin: 0, n: 1, policyEdge: false });
+    expect(e.cancellations.byNotice[3]).toEqual({ bucket: '240_360', loMin: 240, hiMin: 360, n: 0, policyEdge: true });
+    expect(e.cancellations.byNotice[6]).toEqual({ bucket: '4320_plus', loMin: 4320, hiMin: null, n: 3, policyEdge: false });
+    expect(e.cancellations.byNotice.filter((b) => b.policyEdge)).toHaveLength(1);
+    // A row without a key is dropped, never rendered as an empty bar.
+    expect(parseCourtsEndings({ cancellations: { by_notice: [{ n: 4 }, { bucket: 'x', n: 1 }] } }).cancellations.byNotice.map((b) => b.bucket)).toEqual(['x']);
   });
 
   it('folds an unknown actor into unknown', () => {
@@ -288,8 +290,10 @@ describe('parseCourtsEndings', () => {
       expect(g.byCourt).toEqual([]);
       expect(g.byActor).toEqual([]);
       expect(g.byPlayers).toEqual([]);
-      expect(g.byNotice).toEqual(NOTICE_BUCKETS.map((bucket) => ({ bucket, n: 0 })));
+      expect(g.byNotice).toEqual([]);
+      expect(g.resold.cancelled).toBe(0);
     }
+    expect(e.policyWindowMin).toBe(0);
   });
 });
 
@@ -349,6 +353,8 @@ describe('parseCourtsCafe', () => {
       attachPct: 31.3,
       settledLinked: 14,
       cafeIqd: 420000,
+      cafeGrossIqd: 450000,
+      refundsIqd: 30000,
       cafePerLinkedIqd: 28000,
       cafePerBookingIqd: 8750,
       courtIqd: 1200000,
@@ -367,6 +373,8 @@ describe('parseCourtsCafe', () => {
         attachPct: 50,
         settledLinked: 9,
         cafeIqd: 270000,
+        cafeGrossIqd: 290000,
+        refundsIqd: 20000,
         cafePerLinkedIqd: 30000,
         cafePerBookingIqd: 15000,
         courtIqd: 450000,
@@ -384,6 +392,8 @@ describe('parseCourtsCafe', () => {
         attachPct: 20,
         settledLinked: 5,
         cafeIqd: 150000,
+        cafeGrossIqd: 160000,
+        refundsIqd: 10000,
         cafePerLinkedIqd: 25000,
         cafePerBookingIqd: 5000,
         courtIqd: 750000,

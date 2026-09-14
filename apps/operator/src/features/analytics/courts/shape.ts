@@ -283,8 +283,20 @@ export function parseCourtsDemand(json: unknown): CourtsDemand {
 // ---------------------------------------------------------------------------
 // analytics_courts_endings
 // ---------------------------------------------------------------------------
-export type NoticeBucketKey = 'after_start' | 'lt2h' | '2_6h' | '6_24h' | '1_3d' | '3d_plus';
-export const NOTICE_BUCKETS: readonly NoticeBucketKey[] = ['after_start', 'lt2h', '2_6h', '6_24h', '1_3d', '3d_plus'];
+/**
+ * A notice bucket as the server (0097) shapes it: the boundaries are
+ * {0, 2 h, 6 h, 1 d, 3 d} plus the venue's own cancellation policy, so the
+ * keys are dynamic ("120_240") and the row carries its own edges in minutes.
+ * `loMin` null = cancelled after the slot began; `hiMin` null = open-ended.
+ */
+export interface NoticeRow {
+  bucket: string;
+  loMin: number | null;
+  hiMin: number | null;
+  n: number;
+  /** This bucket starts at the venue's policy line. */
+  policyEdge: boolean;
+}
 
 export interface Segment {
   key: string;
@@ -309,12 +321,18 @@ export interface EndingGroup {
   /** Cancellations only. */
   lateRevenueIqd: number;
   medianNoticeMin: number | null;
-  byNotice: { bucket: NoticeBucketKey; n: number }[];
+  byNotice: NoticeRow[];
   byActor: { actor: 'guest' | 'staff' | 'unknown'; n: number }[];
+  /** Cancellations by the day they were CANCELLED (the rest sit on the slot's day). */
+  cancelledInPeriod: { n: number; revenueIqd: number };
+  /** Late cancellations (inside the policy window) and what became of the slot. */
+  resold: { cancelled: number; resoldN: number; recoveredIqd: number; emptyN: number; lostIqd: number };
   /** No-shows only. */
   byPlayers: Segment[];
 }
 export interface CourtsEndings {
+  /** venue_settings.cancellation_window_hours × 60. */
+  policyWindowMin: number;
   cancellations: EndingGroup;
   noShows: EndingGroup;
 }
@@ -335,7 +353,8 @@ function segments(v: unknown): Segment[] {
 
 function endingGroup(v: unknown): EndingGroup {
   const g = obj(v);
-  const notice = arr(g.by_notice).map((r) => ({ bucket: str(obj(r).bucket) as NoticeBucketKey, n: num(obj(r).n) }));
+  const inPeriod = obj(g.cancelled_in_period);
+  const resold = obj(g.resold);
   return {
     total: num(g.total),
     revenueIqd: num(g.revenue_iqd),
@@ -349,7 +368,15 @@ function endingGroup(v: unknown): EndingGroup {
     byType: segments(g.by_type),
     lateRevenueIqd: num(g.late_revenue_iqd),
     medianNoticeMin: numOrNull(g.median_notice_min),
-    byNotice: NOTICE_BUCKETS.map((bucket) => notice.find((n) => n.bucket === bucket) ?? { bucket, n: 0 }),
+    // Server order, server keys: the policy line moves the buckets.
+    byNotice: arr(g.by_notice)
+      .map((r) => {
+        const n = obj(r);
+        return { bucket: str(n.bucket), loMin: numOrNull(n.lo_min), hiMin: numOrNull(n.hi_min), n: num(n.n), policyEdge: bool(n.policy_edge) };
+      })
+      .filter((n) => n.bucket !== ''),
+    cancelledInPeriod: { n: num(inPeriod.n), revenueIqd: num(inPeriod.revenue_iqd) },
+    resold: { cancelled: num(resold.cancelled), resoldN: num(resold.resold_n), recoveredIqd: num(resold.recovered_iqd), emptyN: num(resold.empty_n), lostIqd: num(resold.lost_iqd) },
     byActor: arr(g.by_actor).map((r) => {
       const a = str(obj(r).actor);
       return { actor: (a === 'guest' || a === 'staff' ? a : 'unknown') as 'guest' | 'staff' | 'unknown', n: num(obj(r).n) };
@@ -360,7 +387,7 @@ function endingGroup(v: unknown): EndingGroup {
 
 export function parseCourtsEndings(json: unknown): CourtsEndings {
   const o = obj(json);
-  return { cancellations: endingGroup(o.cancellations), noShows: endingGroup(o.no_shows) };
+  return { policyWindowMin: num(o.policy_window_min), cancellations: endingGroup(o.cancellations), noShows: endingGroup(o.no_shows) };
 }
 
 // ---------------------------------------------------------------------------
@@ -423,7 +450,10 @@ export interface AttachBlock {
   linkedBookings: number;
   attachPct: number | null;
   settledLinked: number;
+  /** Cafe money NET of refunds (0097); the 0093 gross figure is `cafeGrossIqd`. */
   cafeIqd: number;
+  cafeGrossIqd: number;
+  refundsIqd: number;
   cafePerLinkedIqd: number | null;
   cafePerBookingIqd: number | null;
   courtIqd: number;
@@ -467,6 +497,8 @@ function attachBlock(v: unknown): AttachBlock {
     attachPct: numOrNull(a.attach_pct),
     settledLinked: num(a.settled_linked),
     cafeIqd: num(a.cafe_iqd),
+    cafeGrossIqd: num(a.cafe_gross_iqd),
+    refundsIqd: num(a.refunds_iqd),
     cafePerLinkedIqd: numOrNull(a.cafe_per_linked_iqd),
     cafePerBookingIqd: numOrNull(a.cafe_per_booking_iqd),
     courtIqd: num(a.court_iqd),

@@ -106,27 +106,28 @@ describe('deriveCourts: opening hours and cells', () => {
     expect(deriveCourts(raw({ summary: none }), copy).noOpeningHours).toBe(true);
   });
 
-  it('computes occupancy per cell over every court and leaves a closed cell null', () => {
-    // A cell's open minutes are ONE court's; the fixture venue has two courts.
+  it('computes occupancy per cell from the venue-wide open minutes and leaves a closed cell null', () => {
+    // Since 0097 a cell's open minutes already cover every court: 240 = two courts × 120.
     const d = deriveCourts(raw(), copy);
     expect(d.cells).toEqual([
-      { dow: 1, hour: 18, occupancyPct: 12.5, bookings: 1, bookedMinutes: 30, openMinutes: 120, openDays: 1, revenueIqd: 10000 },
-      { dow: 1, hour: 19, occupancyPct: 25, bookings: 1, bookedMinutes: 60, openMinutes: 120, openDays: 1, revenueIqd: 20000 },
+      { dow: 1, hour: 18, occupancyPct: 12.5, bookings: 1, bookedMinutes: 30, openMinutes: 240, openDays: 1, revenueIqd: 10000 },
+      { dow: 1, hour: 19, occupancyPct: 25, bookings: 1, bookedMinutes: 60, openMinutes: 240, openDays: 1, revenueIqd: 20000 },
       { dow: 2, hour: 3, occupancyPct: null, bookings: 0, bookedMinutes: 0, openMinutes: 0, openDays: 0, revenueIqd: 0 },
-      { dow: 5, hour: 18, occupancyPct: 25, bookings: 1, bookedMinutes: 60, openMinutes: 120, openDays: 1, revenueIqd: 20000 },
-      { dow: 5, hour: 20, occupancyPct: 50, bookings: 2, bookedMinutes: 120, openMinutes: 120, openDays: 1, revenueIqd: 40000 },
+      { dow: 5, hour: 18, occupancyPct: 25, bookings: 1, bookedMinutes: 60, openMinutes: 240, openDays: 1, revenueIqd: 20000 },
+      { dow: 5, hour: 20, occupancyPct: 50, bookings: 2, bookedMinutes: 120, openMinutes: 240, openDays: 1, revenueIqd: 40000 },
     ]);
   });
 
-  it('uses a single court as the denominator when the court filter is on', () => {
+  it('never rescales by the court count: the server already narrowed the open minutes to the filtered court', () => {
     const d = deriveCourts(raw({ courtId: 'court-a' }), copy);
-    expect(d.cells[0]?.occupancyPct).toBe(25);
-    expect(d.cells[4]?.occupancyPct).toBe(100);
+    expect(d.cells[0]?.occupancyPct).toBe(12.5);
+    expect(d.cells[4]?.occupancyPct).toBe(50);
+    expect(d.byHour[18]?.openMinutes).toBe(480);
   });
 
   it('rounds cell occupancy to one decimal', () => {
     const s = parseCourtsSummary({ ...summaryJson, heatmap: [{ dow: 0, hour: 9, open_minutes: 180, open_days: 3, booked_minutes: 100, bookings: 2 }] });
-    expect(deriveCourts(raw({ summary: s }), copy).cells[0]?.occupancyPct).toBe(27.8);
+    expect(deriveCourts(raw({ summary: s }), copy).cells[0]?.occupancyPct).toBe(55.6);
   });
 
   it('rolls the cells up by hour and by weekday, summing minutes and bookings', () => {
@@ -134,7 +135,7 @@ describe('deriveCourts: opening hours and cells', () => {
     expect(d.byHour).toHaveLength(24);
     expect(d.byHour.map((h) => h.hour)).toEqual(Array.from({ length: 24 }, (_, i) => i));
     // 18:00 holds the first half of the split booking on Monday plus Friday's hour.
-    // openMinutes here is venue-wide: each cell's minutes times the two courts.
+    // openMinutes is the venue-wide figure the server sent, summed across the two cells.
     expect(d.byHour[18]).toEqual({ hour: 18, bookings: 2, bookedMinutes: 90, openMinutes: 480, occupancyPct: 18.8 });
     expect(d.byHour[19]).toEqual({ hour: 19, bookings: 1, bookedMinutes: 60, openMinutes: 240, occupancyPct: 25 });
     expect(d.byHour[20]).toEqual({ hour: 20, bookings: 2, bookedMinutes: 120, openMinutes: 240, occupancyPct: 50 });

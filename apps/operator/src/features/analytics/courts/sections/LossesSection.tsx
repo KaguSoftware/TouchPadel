@@ -7,7 +7,7 @@ import { StackedBars } from '../../charts/StackedBars';
 import { barTwin, seriesTwin } from '../../charts/twins';
 import { ZoneGrid } from '../../Zone';
 import { weekdayName } from '../../copy';
-import { segmentLabel, shortBucket } from '../copy';
+import { noticeLabel, segmentLabel, shortBucket } from '../copy';
 import { StatPair } from '../cards/StatPair';
 import { spanText } from '../format';
 import type { EndingGroup, Segment } from '../shape';
@@ -35,7 +35,7 @@ export function LossesSection({ raw, state, refreshing, f, rangeLabel }: Section
   const byLead = e ? join(e.cancellations.byLeadTime, e.noShows.byLeadTime, leadKeys, (k) => shortBucket(tr, 'byLeadTime', k)) : [];
   const bySource = e ? join(e.cancellations.bySource, e.noShows.bySource, ['mobile', 'desk'], (k) => segmentLabel(tr, f, 'bySource', k)) : [];
   const byType = e ? join(e.cancellations.byType, e.noShows.byType, ['returning', 'new', 'unidentified'], (k) => segmentLabel(tr, f, 'byType', k)) : [];
-  const noticeRows = (e?.cancellations.byNotice ?? []).map((b) => ({ label: shortBucket(tr, 'byNotice', b.bucket), value: b.n }));
+  const noticeRows = (e?.cancellations.byNotice ?? []).map((b) => ({ label: noticeLabel(tr, f, b), value: b.n }));
   const actors = (e?.cancellations.byActor ?? []).map((a) => ({ key: a.actor, label: tr(`ws.analytics.courts.series.${a.actor}`), value: a.n }));
   const stacked = (title: string, tip: string, rows: ReturnType<typeof join>, file: string, height = 200, tickFontSize = 11) => (
     <ChartCard

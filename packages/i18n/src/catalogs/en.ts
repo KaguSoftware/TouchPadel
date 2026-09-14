@@ -1730,6 +1730,7 @@ export const en = {
       INVALID_DURATIONS: 'Duration options must be 30–300 minutes in 15-minute steps.',
       COURT_HAS_FUTURE_RESERVATIONS:
         'This court still has upcoming bookings — move or cancel them at the desk first.',
+      INVALID_ACTIVE_WINDOW: 'The court\'s last active day cannot be before its first.',
       COURT_IN_USE: 'That court still has bookings or price rules. Deactivate it instead — it leaves the calendar and the guest app, and the reports keep its name.',
       NAME_REQUIRED: 'Both the English and Arabic names are required.',
       UNIT_LOCKED: 'The unit is locked — the ledger already holds quantities in it.',

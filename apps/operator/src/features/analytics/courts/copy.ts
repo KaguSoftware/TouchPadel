@@ -7,6 +7,8 @@ import { pickLocale, type CourtPatternsCopy, type EndingsDimension } from '@touc
 import type { Locale, MessageKey } from '@touch/i18n';
 import { weekdayName, type Tr } from '../copy';
 import type { Formatters } from '../format';
+import { spanText } from './format';
+import type { NoticeRow } from './shape';
 
 const LEAD_KEY: Record<string, MessageKey> = {
   lt2h: 'ws.analytics.courts.buckets.lead.lt2h',
@@ -54,6 +56,18 @@ const NOTICE_SHORT: Record<string, MessageKey> = {
   '1_3d': 'ws.analytics.courts.buckets.noticeShort.d1to3',
   '3d_plus': 'ws.analytics.courts.buckets.noticeShort.d3plus',
 };
+
+/**
+ * A notice bucket's axis label from its own edges (0097): "after start",
+ * "< 2 h", "2 h–4 h", "3 days+". The keys are dynamic because the venue's
+ * policy window is one of the boundaries.
+ */
+export function noticeLabel(tr: Tr, f: Formatters, row: Pick<NoticeRow, 'loMin' | 'hiMin'>): string {
+  if (row.loMin == null) return tr('ws.analytics.courts.buckets.noticeShort.afterStart');
+  if (row.hiMin == null) return `${spanText(tr, f, row.loMin)}+`;
+  if (row.loMin === 0) return `< ${spanText(tr, f, row.hiMin)}`;
+  return `${spanText(tr, f, row.loMin)}–${spanText(tr, f, row.hiMin)}`;
+}
 
 /** The short form of a lead-time or notice bucket, for chart axes where the full label collides. */
 export function shortBucket(tr: Tr, dimension: 'byLeadTime' | 'byNotice', key: string): string {

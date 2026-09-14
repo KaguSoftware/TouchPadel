@@ -3,7 +3,7 @@ import { FIGURE_KEYS, FIGURES, figuresIn, figuresToCsvRows, mapFigures, panelIsE
 
 describe('figure metadata', () => {
   it('covers the twelve panel figures, each in exactly one group', () => {
-    expect(FIGURE_KEYS).toHaveLength(12);
+    expect(FIGURE_KEYS).toHaveLength(13);
     const all = [...figuresIn('headline'), ...figuresIn('padel'), ...figuresIn('cafe')].map((f) => f.key);
     expect([...all].sort()).toEqual([...FIGURE_KEYS].sort());
   });

@@ -1,8 +1,9 @@
 /**
  * Shared fixtures for the courts analytics tests: the snake_case JSON the five
- * `app.analytics_courts_*` RPCs return (migration 0093, plan section 7), small
- * but shaped like production. Two courts, a seven-day window and its compare
- * window, a closed heat cell and a 90-minute booking split across two cells,
+ * `app.analytics_courts_*` RPCs return (migrations 0093 + 0097), small but
+ * shaped like production. Two courts, a seven-day window and its compare
+ * window, a closed heat cell and a 90-minute booking split across two cells
+ * (heat-cell open minutes are VENUE-WIDE: both courts, 120 each),
  * lead / notice / visit / timing buckets with some keys missing (the parsers
  * fill the fixed order), a players row with a null group size, and a cafe
  * payload with one variant where no tab was ever linked to a booking.
@@ -107,12 +108,12 @@ export const summaryJson: Json = {
   by_day: days(9, 7, 7),
   heatmap: [
     // A 90-minute booking from 18:30: 30 minutes in the 18:00 cell, 60 in the 19:00 cell.
-    { dow: 1, hour: 18, open_minutes: 120, open_days: 1, booked_minutes: 30, bookings: 1, revenue_iqd: 10000, cancellations: 0, no_shows: 0, holds_expired: 0 },
-    { dow: 1, hour: 19, open_minutes: 120, open_days: 1, booked_minutes: 60, bookings: 1, revenue_iqd: 20000, cancellations: 0, no_shows: 0, holds_expired: 0 },
+    { dow: 1, hour: 18, open_minutes: 240, open_days: 1, booked_minutes: 30, bookings: 1, revenue_iqd: 10000, cancellations: 0, no_shows: 0, holds_expired: 0 },
+    { dow: 1, hour: 19, open_minutes: 240, open_days: 1, booked_minutes: 60, bookings: 1, revenue_iqd: 20000, cancellations: 0, no_shows: 0, holds_expired: 0 },
     // Closed cell: no open minutes, so no occupancy.
     { dow: 2, hour: 3, open_minutes: 0, open_days: 0, booked_minutes: 0, bookings: 0, revenue_iqd: 0, cancellations: 0, no_shows: 0, holds_expired: 0 },
-    { dow: 5, hour: 18, open_minutes: 120, open_days: 1, booked_minutes: 60, bookings: 1, revenue_iqd: 20000, cancellations: 1, no_shows: 0, holds_expired: 1 },
-    { dow: 5, hour: 20, open_minutes: 120, open_days: 1, booked_minutes: 120, bookings: 2, revenue_iqd: 40000, cancellations: 0, no_shows: 1, holds_expired: 2 },
+    { dow: 5, hour: 18, open_minutes: 240, open_days: 1, booked_minutes: 60, bookings: 1, revenue_iqd: 20000, cancellations: 1, no_shows: 0, holds_expired: 1 },
+    { dow: 5, hour: 20, open_minutes: 240, open_days: 1, booked_minutes: 120, bookings: 2, revenue_iqd: 40000, cancellations: 0, no_shows: 1, holds_expired: 2 },
   ],
 };
 
@@ -188,17 +189,25 @@ export const demandJson: Json = {
 
 /** analytics_courts_endings. Court A cancels 9 of 29 against 12 of 64 overall: an ending cluster. */
 export const endingsJson: Json = {
+  // A 4-hour policy: the buckets carry their edges and the policy line.
+  policy_window_min: 240,
   cancellations: {
     total: 12,
     revenue_iqd: 300000,
     late_revenue_iqd: 50000,
     median_notice_min: 180,
-    // 2_6h, 6_24h and 3d_plus missing: zero-filled in the fixed order.
     by_notice: [
-      { bucket: 'lt2h', n: 5 },
-      { bucket: 'after_start', n: 1 },
-      { bucket: '1_3d', n: 3 },
+      { bucket: 'after_start', lo_min: null, hi_min: 0, n: 1, policy_edge: false },
+      { bucket: '0_120', lo_min: 0, hi_min: 120, n: 5, policy_edge: false },
+      { bucket: '120_240', lo_min: 120, hi_min: 240, n: 0, policy_edge: false },
+      { bucket: '240_360', lo_min: 240, hi_min: 360, n: 0, policy_edge: true },
+      { bucket: '360_1440', lo_min: 360, hi_min: 1440, n: 0, policy_edge: false },
+      { bucket: '1440_4320', lo_min: 1440, hi_min: 4320, n: 3, policy_edge: false },
+      { bucket: '4320_plus', lo_min: 4320, hi_min: null, n: 3, policy_edge: false },
     ],
+    cancelled_in_period: { n: 10, revenue_iqd: 250000 },
+    // Six late cancellations: four slots were booked again, two stayed empty.
+    resold: { cancelled: 6, resold_n: 4, recovered_iqd: 80000, empty_n: 2, lost_iqd: 40000 },
     // 'system' is not a known actor and comes back as 'unknown'.
     by_actor: [
       { actor: 'guest', n: 8 },
@@ -286,6 +295,8 @@ const courtAAttach = {
   attach_pct: 50,
   settled_linked: 9,
   cafe_iqd: 270000,
+  cafe_gross_iqd: 290000,
+  refunds_iqd: 20000,
   cafe_per_linked_iqd: 30000,
   cafe_per_booking_iqd: 15000,
   court_iqd: 450000,
@@ -303,6 +314,8 @@ const courtBAttach = {
   attach_pct: 20,
   settled_linked: 5,
   cafe_iqd: 150000,
+  cafe_gross_iqd: 160000,
+  refunds_iqd: 10000,
   cafe_per_linked_iqd: 25000,
   cafe_per_booking_iqd: 5000,
   court_iqd: 750000,
@@ -320,6 +333,8 @@ export const cafeJson: Json = {
     attach_pct: 31.3,
     settled_linked: 14,
     cafe_iqd: 420000,
+    cafe_gross_iqd: 450000,
+    refunds_iqd: 30000,
     cafe_per_linked_iqd: 28000,
     cafe_per_booking_iqd: 8750,
     court_iqd: 1200000,
@@ -377,10 +392,12 @@ export const cafeNoLinksJson: Json = {
     attach_pct: 0,
     settled_linked: 0,
     cafe_iqd: 0,
+    cafe_gross_iqd: 0,
+    refunds_iqd: 0,
     cafe_per_linked_iqd: null,
     cafe_per_booking_iqd: 0,
   },
-  per_court: [courtAAttach, courtBAttach].map((c) => ({ ...c, linked_bookings: 0, attach_pct: 0, settled_linked: 0, cafe_iqd: 0, cafe_per_linked_iqd: null, cafe_per_booking_iqd: 0 })),
+  per_court: [courtAAttach, courtBAttach].map((c) => ({ ...c, linked_bookings: 0, attach_pct: 0, settled_linked: 0, cafe_iqd: 0, cafe_gross_iqd: 0, refunds_iqd: 0, cafe_per_linked_iqd: null, cafe_per_booking_iqd: 0 })),
   top_items: [],
   items: [],
   linked_orders_total: 0,
