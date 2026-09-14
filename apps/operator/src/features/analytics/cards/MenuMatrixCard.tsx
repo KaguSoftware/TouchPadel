@@ -29,7 +29,14 @@ const ACTION: Record<MenuQuadrant, MessageKey> = {
 export function MenuMatrixCard({ derived, state, f }: { derived: Derived | null; state: CardState; f: Formatters }) {
   const { tr, locale } = useLocale();
   const me = derived?.menuEngineering ?? null;
-  const noCost = me ? Math.max(0, me.coverage.soldItems - me.coverage.costedItems) : 0;
+  // Coverage from the server's margin rows (the same rows the matrix is built on).
+  const cov = derived?.marginsCoverage ?? null;
+  const noCost = cov ? Math.max(0, cov.itemsTotal - cov.itemsWithCost) : 0;
+  // Sold below cost — the single most urgent thing this card can say (same
+  // maths as the retired overview card: the worst first, the loss summed).
+  const below = me ? me.items.filter((i) => i.losingMoney).sort((a, b) => a.profitIqd - b.profitIqd) : [];
+  const lost = Math.abs(below.reduce((s, i) => s + i.profitIqd, 0));
+  const itemName = (i: { id: string; nameEn: string; nameAr: string }) => pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.id;
 
   return (
     <CardShell
@@ -46,14 +53,21 @@ export function MenuMatrixCard({ derived, state, f }: { derived: Derived | null;
         </span>
       }
       note={
-        me && me.hasData ? (
+        me && me.hasData && cov ? (
           <>
-            {tr('analytics.matrix.coverage', { pct: f.num(Math.round(me.coverage.revenueRatio * 100)) })}
+            {tr('analytics.matrix.coverage', { pct: f.num(Math.round(cov.revenueWithCostPct)) })}
             {noCost > 0 && ` · ${tr('analytics.matrix.noCost', { count: f.num(noCost) })}`}{' '}
             <Link to="/admin/menu" style={{ color: 'var(--tp-accent)' }}>
               {tr('analytics.matrix.setupLink')}
             </Link>
             {!me.coverage.reliable && ` · ${tr('analytics.matrix.unreliable')}`}
+            {below.length > 0 && (
+              <span style={{ display: 'block', color: 'var(--tp-danger)' }}>
+                {below.length === 1
+                  ? tr('analytics.matrix.belowCostOne', { name: itemName(below[0]!), money: f.money(below[0]!.unitMarginIqd), lost: f.money(lost) })
+                  : tr('analytics.matrix.belowCostMany', { count: f.num(below.length), names: below.slice(0, 2).map(itemName).join(', '), lost: f.money(lost) })}
+              </span>
+            )}
           </>
         ) : undefined
       }

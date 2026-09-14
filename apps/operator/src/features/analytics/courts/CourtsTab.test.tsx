@@ -14,9 +14,11 @@ import { LocaleProvider } from '../../../lib/i18n';
 // beforeEach: a value set inside a vi.mock factory is wiped before the first test.
 
 const navigate = vi.fn();
+/** The URL search the tab reads; a test sets `court` on it before rendering. */
+const searchState: { range: string; court?: string } = { range: '30d' };
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
-  useSearch: () => ({ range: '30d' }),
+  useSearch: () => searchState,
   Link: ({ to, children, ...rest }: { to: string; children: ReactNode; className?: string }) => (
     <a href={to} {...rest}>
       {children}
@@ -39,6 +41,8 @@ vi.mock('../../../lib/settings', () => ({
 // the supabase client directly; the rest of the module stays real.
 vi.mock('../../../lib/analyticsApi', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
+  // The venue revenue tile reads the cafe's daily sales on the cafe tab's own key.
+  analyticsRpc: { dailySales: vi.fn() },
   fetchStoredInsights: vi.fn(),
   fetchStoredPatterns: vi.fn(),
   fetchRejections: vi.fn(),
@@ -46,13 +50,19 @@ vi.mock('../../../lib/analyticsApi', async (importOriginal) => ({
 }));
 
 vi.mock('./api', () => ({ courtsRpc: vi.fn() }));
+// The court filter lists the venue's courts, not the filtered payload's.
+vi.mock('../../../lib/queries', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  fetchActiveCourts: vi.fn(),
+}));
 
 import { ConfirmProvider } from '../../../components/ConfirmDialog';
 import { ToastProvider } from '../../../components/toast';
-import { fetchRejections, fetchStoredInsights, fetchStoredPatterns } from '../../../lib/analyticsApi';
+import { analyticsRpc, fetchRejections, fetchStoredInsights, fetchStoredPatterns } from '../../../lib/analyticsApi';
+import { fetchActiveCourts } from '../../../lib/queries';
 import { courtsRpc } from './api';
 import { CourtsTab } from './CourtsTab';
-import { COURT_A, cafeNoLinksJson, fixtureFor } from './fixtures';
+import { COURT_A, COURT_B, cafeNoLinksJson, fixtureFor } from './fixtures';
 
 const rpc = vi.mocked(courtsRpc);
 
@@ -87,6 +97,12 @@ beforeEach(() => {
   navigate.mockReset();
   mutate.mockReset();
   rpc.mockReset();
+  delete searchState.court;
+  vi.mocked(analyticsRpc.dailySales).mockResolvedValue([] as never);
+  vi.mocked(fetchActiveCourts).mockResolvedValue([
+    { id: COURT_A, name_en: 'Court A', name_ar: 'ملعب أ', duration_options: [60, 90], sort_order: 0 },
+    { id: COURT_B, name_en: 'Court B', name_ar: 'ملعب ب', duration_options: [60, 90], sort_order: 1 },
+  ]);
   vi.mocked(fetchStoredInsights).mockResolvedValue([]);
   vi.mocked(fetchStoredPatterns).mockResolvedValue(null);
   vi.mocked(fetchRejections).mockResolvedValue([]);
@@ -103,7 +119,8 @@ describe('CourtsTab', () => {
       expect(screen.getByRole('heading', { level: 2, name })).toBeTruthy();
     }
 
-    // Every window and every RPC was asked for exactly once: five current, four compare.
+    // Every window and every RPC was asked for exactly once: five current, four
+    // compare. The venue revenue tile shares the summary keys, so no tenth call.
     expect(rpc).toHaveBeenCalledTimes(9);
     expect(rpc.mock.calls.filter(([name]) => name === 'analytics_courts_guests')).toHaveLength(1);
     expect(rpc).toHaveBeenCalledWith('analytics_courts_summary', expect.objectContaining({ from: expect.any(String), to: expect.any(String), courtId: undefined }));
@@ -112,8 +129,14 @@ describe('CourtsTab', () => {
     const pulse = screen.getByRole('region', { name: 'Pulse' });
     const bookingsTile = within(pulse).getByText('Bookings').closest('div')!;
     expect(within(bookingsTile).getByText('48', { selector: 'strong' })).toBeTruthy();
-    // Court revenue lands in money form.
-    expect(within(pulse).getByText('1,200,000 IQD', { selector: 'strong' })).toBeTruthy();
+    // Court revenue lands in money form, twice: the court tile and the venue tile (the cafe is empty here).
+    expect(within(pulse).getAllByText('1,200,000 IQD', { selector: 'strong' })).toHaveLength(2);
+    const venueTile = within(pulse).getByText('Venue revenue').closest('div')!;
+    expect(within(venueTile).getByText('1,200,000 IQD', { selector: 'strong' })).toBeTruthy();
+    expect(within(venueTile).getByText('0 cafe · 1.2M courts')).toBeTruthy();
+    // Price per booked hour is the tenth tile.
+    const priceTile = within(pulse).getByText('Price per booked hour').closest('div')!;
+    expect(within(priceTile).getByText('20,000 IQD', { selector: 'strong' })).toBeTruthy();
     // No error surfaced anywhere.
     expect(screen.queryByRole('alert')).toBeNull();
 
@@ -122,7 +145,12 @@ describe('CourtsTab', () => {
     const losses = screen.getByRole('region', { name: 'Losses' });
     expect(within(losses).getByText('Losses by court')).toBeTruthy();
     expect(within(losses).getByText('Losses by booking length')).toBeTruthy();
-    expect(within(losses).getByText(/12 cancelled by slot day · 10 cancelled during this period · Freed by late cancellations: 50,000 IQD/)).toBeTruthy();
+    expect(within(losses).getByText(/12 cancelled by slot day · 10 cancelled during this period/)).toBeTruthy();
+    // After late cancellations: four slots resold for 80,000, two left empty for 40,000, 50,000 freed.
+    const afterLate = within(losses).getByText('After late cancellations').closest('section') ?? losses;
+    expect(within(afterLate).getByText('80,000 IQD')).toBeTruthy();
+    expect(within(afterLate).getByText('40,000 IQD')).toBeTruthy();
+    expect(within(afterLate).getByText('50,000 IQD', { selector: 'strong' })).toBeTruthy();
   });
 
   it('lists the fixture courts in the court filter and writes a choice to the URL', async () => {
@@ -141,6 +169,36 @@ describe('CourtsTab', () => {
     expect(navigate).toHaveBeenCalledWith({ to: '/analytics/courts', search: expect.objectContaining({ range: '30d', court: COURT_A }) });
   });
 
+  it('keeps every court in the filter while one is selected, so A can switch to B', async () => {
+    searchState.court = COURT_A;
+    serveFixtures();
+    renderTab();
+    await waitFor(() => expect(skeletons()).toBe(0), { timeout: 5000 });
+    const select = screen.getAllByLabelText('Court')[0]!;
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['All courts', 'Court A', 'Court B']);
+    expect((select as HTMLSelectElement).value).toBe(COURT_A);
+    // The filtered payload was asked for court A; the venue revenue tile still asks venue-wide.
+    expect(rpc).toHaveBeenCalledWith('analytics_courts_summary', expect.objectContaining({ courtId: COURT_A }));
+    expect(rpc).toHaveBeenCalledWith('analytics_courts_summary', expect.objectContaining({ from: expect.any(String), to: expect.any(String) }));
+    expect(rpc.mock.calls.some(([name, args]) => name === 'analytics_courts_summary' && args.courtId === undefined)).toBe(true);
+  });
+
+  it('breaks only the section whose RPC rejected', async () => {
+    serveFixtures();
+    rpc.mockImplementation(async (name, { from }) => {
+      if (name === 'analytics_courts_guests') throw new Error('boom');
+      return fixtureFor(name, from >= todayMinus(35) ? 'current' : 'compare') as never;
+    });
+    renderTab();
+    await waitFor(() => expect(skeletons()).toBe(0), { timeout: 5000 });
+    const guests = screen.getByRole('region', { name: 'Guests' });
+    expect(within(guests).getAllByRole('alert').length).toBeGreaterThan(0);
+    const pulse = screen.getByRole('region', { name: 'Pulse' });
+    expect(within(pulse).queryByRole('alert')).toBeNull();
+    expect(within(within(pulse).getByText('Bookings').closest('div')!).getByText('48', { selector: 'strong' })).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Losses' })).queryByRole('alert')).toBeNull();
+  });
+
   it('renders the error state with a retry control when an RPC rejects', async () => {
     rpc.mockRejectedValue(new Error('boom'));
     renderTab();
@@ -154,7 +212,7 @@ describe('CourtsTab', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Pulse' })).toBeTruthy();
     // Every tile shows the dash glyph (U+2014) rather than a figure it does not have.
     const pulse = screen.getByRole('region', { name: 'Pulse' });
-    expect(within(pulse).getAllByText('\u2014', { selector: 'strong' }).length).toBe(8);
+    expect(within(pulse).getAllByText('\u2014', { selector: 'strong' }).length).toBe(10);
 
     // Retry asks the server again.
     serveFixtures();

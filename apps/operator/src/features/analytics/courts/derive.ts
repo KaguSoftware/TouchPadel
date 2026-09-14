@@ -46,6 +46,7 @@ export type CourtKpiKey =
   | 'occupancy'
   | 'revenue'
   | 'revPerOpenHour'
+  | 'pricePerBookedHour'
   | 'cancellationRate'
   | 'noShowRate'
   | 'attachRate';
@@ -185,6 +186,7 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
     occupancy: rate(k.occupancyPct, kp?.occupancyPct),
     revenue: money(k.revenueIqd, kp?.revenueIqd),
     revPerOpenHour: money(k.revPerOpenHourIqd ?? 0, kp?.revPerOpenHourIqd),
+    pricePerBookedHour: money(k.pricePerBookedHourIqd ?? 0, kp?.pricePerBookedHourIqd),
     cancellationRate: rate(k.cancellationRatePct, kp?.cancellationRatePct),
     noShowRate: rate(k.noShowRatePct, kp?.noShowRatePct),
     attachRate: rate(cafe.attach.attachPct, cafePrev?.attach.attachPct),

@@ -20,14 +20,25 @@ const obj = (v: unknown): Record<string, unknown> =>
 // ---------------------------------------------------------------------------
 // SQL
 // ---------------------------------------------------------------------------
+/** One business day of app.analytics_daily_sales (0095): money on the SETTLE day, counts on their event clocks. */
 export interface DailySalesRow {
   date: string;
+  /** Cafe NET revenue: total − court fee − refunds. */
   revenueIqd: number;
+  /** Cafe revenue before refunds (total − court fee). */
+  cafeGrossIqd: number;
+  /** Court fees paid on cafe tabs, for reconciliation with the courts tab. */
+  courtFeesIqd: number;
+  /** Refunds of the tabs settled that day, whenever they were made. */
+  refundsIqd: number;
+  /** Payments − refunds by method; cash + card = gross + court fees − refunds. */
   cashIqd: number;
   cardIqd: number;
   tabs: number;
   orders: number;
+  /** Units net of itemised refunds. */
   itemsQty: number;
+  /** Discounts stamped on the settled tabs. */
   discountIqd: number;
   visits: number;
   guestOrders: number;
@@ -41,6 +52,9 @@ export function parseDailySales(json: unknown): DailySalesRow[] {
     return {
       date: str(o.business_date),
       revenueIqd: num(o.revenue_iqd),
+      cafeGrossIqd: num(o.cafe_gross_iqd),
+      courtFeesIqd: num(o.court_fees_iqd),
+      refundsIqd: num(o.refunds_iqd),
       cashIqd: num(o.cash_iqd),
       cardIqd: num(o.card_iqd),
       tabs: num(o.tabs_settled),
@@ -272,29 +286,6 @@ export function parseHourly(json: unknown): HourlyCell[] {
   });
 }
 
-export type PriceBandKey = 'lt3000' | '3000_5999' | '6000_9999' | 'gte10000';
-
-export interface PriceBandSalesRow {
-  band: PriceBandKey;
-  itemIds: string[];
-  qty: number;
-  revenueIqd: number;
-}
-
-const BAND_KEYS: readonly PriceBandKey[] = ['lt3000', '3000_5999', '6000_9999', 'gte10000'];
-
-/** app.analytics_price_bands: units and revenue sold per list-price band, from till data alone. */
-export function parsePriceBandSales(json: unknown): PriceBandSalesRow[] {
-  return arr(json)
-    .map((r) => {
-      const o = obj(r);
-      const band = str(o.band) as PriceBandKey;
-      return { band, itemIds: arr(o.items).map(str), qty: num(o.qty), revenueIqd: num(o.revenue_iqd) };
-    })
-    .filter((r) => BAND_KEYS.includes(r.band))
-    .sort((a, b) => BAND_KEYS.indexOf(a.band) - BAND_KEYS.indexOf(b.band));
-}
-
 // ---------------------------------------------------------------------------
 // PostHog
 // ---------------------------------------------------------------------------
@@ -391,22 +382,6 @@ export function parseBasketToCall(r?: PosthogQueryResult): BasketToCall {
   };
 }
 
-export interface TableActivityRow {
-  table: string;
-  sessions: number;
-  views: number;
-  waiterCalls: number;
-  orders: number;
-}
-export const parseTableActivity = (r?: PosthogQueryResult): TableActivityRow[] =>
-  rowsToObjects(r).map((o) => ({
-    table: str(o.table_number),
-    sessions: num(o.sessions),
-    views: num(o.views),
-    waiterCalls: num(o.waiter_calls),
-    orders: num(o.orders),
-  }));
-
 export interface HeatCell {
   dow: number;
   hour: number;
@@ -420,19 +395,6 @@ export const parseHeatmap = (r?: PosthogQueryResult): HeatCell[] =>
     views: num(o.views),
     sessions: num(o.sessions),
   }));
-
-export interface PeakHourRow {
-  hour: number;
-  views: number;
-  sessions: number;
-}
-export function parsePeakHours(r?: PosthogQueryResult): PeakHourRow[] {
-  const by = new Map(rowsToObjects(r).map((o) => [num(o.hour), o]));
-  return Array.from({ length: 24 }, (_, h) => {
-    const o = by.get(h);
-    return { hour: h, views: o ? num(o.views) : 0, sessions: o ? num(o.sessions) : 0 };
-  });
-}
 
 export interface PromoSurface {
   kind: 'featured' | 'suggested';
@@ -509,20 +471,3 @@ export const parseCategoryPopularity = (r?: PosthogQueryResult): CategoryPopRow[
       sessions: num(o.sessions),
     }))
     .filter((x) => x.id !== '');
-
-export interface LocalePref {
-  locale: string;
-  sessions: number;
-  medianSeconds: number;
-  topItems: { id: string; name: string; sessions: number; rate: number }[];
-}
-export const parseLocalePreferences = (r?: PosthogQueryResult): LocalePref[] =>
-  rowsToObjects(r).map((o) => ({
-    locale: str(o.locale),
-    sessions: num(o.sessions),
-    medianSeconds: num(o.median_seconds),
-    topItems: arr(o.top_items).map((t) => {
-      const x = obj(t);
-      return { id: str(x.item_id), name: str(x.item_name), sessions: num(x.sessions), rate: num(x.rate) };
-    }),
-  }));

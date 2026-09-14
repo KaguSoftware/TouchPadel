@@ -55,6 +55,7 @@ export function buildCourtsInsightsData(
       occupancy_pct: k.occupancyPct,
       revenue_iqd: k.revenueIqd,
       rev_per_open_hour_iqd: k.revPerOpenHourIqd,
+      price_per_booked_hour_iqd: k.pricePerBookedHourIqd,
       cancellations: k.cancellations,
       no_shows: k.noShows,
       booked_total: k.bookedTotal,

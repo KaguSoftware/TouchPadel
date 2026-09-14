@@ -15,6 +15,7 @@ import { barTwin, seriesTwin } from '../../charts/twins';
 import { ZoneGrid } from '../../Zone';
 import { weekdayName } from '../../copy';
 import { noticeLabel, segmentLabel, shortBucket } from '../copy';
+import { StatPair } from '../cards/StatPair';
 import { rateText, spanText } from '../format';
 import { lossChartRows, lossRates, segmentKeys, type LossRateRow } from '../losses';
 import type { Segment } from '../shape';
@@ -110,25 +111,37 @@ export function LossesSection({ raw, derived, state, refreshing, f, rangeLabel }
             skeletonLines={2}
             note={
               e
-                ? `${f.num(e.cancellations.total)} ${tr('ws.analytics.courts.cards.bySlotDay')} · ${f.num(e.cancellations.cancelledInPeriod.n)} ${tr('ws.analytics.courts.cards.cancelledInPeriod')} · ${tr('ws.analytics.courts.cards.lateRevenue')}: ${f.money(e.cancellations.lateRevenueIqd)}`
+                ? `${f.num(e.cancellations.total)} ${tr('ws.analytics.courts.cards.bySlotDay')} · ${f.num(e.cancellations.cancelledInPeriod.n)} ${tr('ws.analytics.courts.cards.cancelledInPeriod')}`
                 : undefined
             }
           >
             <ShareBars segments={actors} format={(n) => f.num(n)} pct={(n) => f.pct(n)} />
           </CardShell>
+          <StatPair
+            title={tr('ws.analytics.courts.cards.afterLate')}
+            tip={tr('ws.analytics.courts.tips.afterLate', { window: spanText(tr, f, e?.policyWindowMin ?? 0) })}
+            state={state === 'ready' && (e?.cancellations.resold.cancelled ?? 0) === 0 ? 'empty' : state}
+            refreshing={refreshing}
+            emptyKey="ws.analytics.courts.empty.lateCancellations"
+            items={[
+              { label: tr('ws.analytics.courts.cards.resold'), value: f.num(e?.cancellations.resold.resoldN ?? 0), sub: f.money(e?.cancellations.resold.recoveredIqd ?? 0) },
+              { label: tr('ws.analytics.courts.cards.leftEmpty'), value: f.num(e?.cancellations.resold.emptyN ?? 0), sub: f.money(e?.cancellations.resold.lostIqd ?? 0) },
+              { label: tr('ws.analytics.courts.cards.lateRevenue'), value: f.money(e?.cancellations.lateRevenueIqd ?? 0) },
+            ]}
+          />
+        </ZoneGrid>
+      </div>
+      <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
+        <ZoneGrid columns={2}>
           {stacked(tr('ws.analytics.courts.cards.lossByWeekday'), tr('ws.analytics.courts.tips.losses'), byDow, 'losses-by-weekday', 180)}
-        </ZoneGrid>
-      </div>
-      <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
-        <ZoneGrid columns={2}>
           {stacked(tr('ws.analytics.courts.cards.lossByCourt'), tr('ws.analytics.courts.tips.losses'), byCourt, 'losses-by-court', 180)}
-          {stacked(tr('ws.analytics.courts.cards.lossByDuration'), tr('ws.analytics.courts.tips.losses'), byDuration, 'losses-by-length', 180)}
         </ZoneGrid>
       </div>
       <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
-        <ZoneGrid columns={2}>
+        <ZoneGrid columns={3}>
           {stacked(tr('ws.analytics.courts.cards.lossBySource'), tr('ws.analytics.courts.tips.losses'), bySource, 'losses-by-channel', 160)}
           {stacked(tr('ws.analytics.courts.cards.lossByType'), tr('ws.analytics.courts.tips.returning'), byType, 'losses-by-guest-type', 160)}
+          {stacked(tr('ws.analytics.courts.cards.lossByDuration'), tr('ws.analytics.courts.tips.losses'), byDuration, 'losses-by-length', 160)}
         </ZoneGrid>
       </div>
     </>

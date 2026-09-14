@@ -6,12 +6,16 @@
  * The tab is designed to stay honest on thin data: every rate prints as
  * "n of N" below its floor, every miner returns nothing below its sample
  * tier, comparisons mute when the compare window has gaps, and occupancy
- * shows a dash with a visible link when no opening hours are set.
+ * shows a dash with a visible link when no opening hours are set. Every
+ * section declares the RPCs it reads (`NEEDS`), so one failing RPC breaks
+ * one section, never the page.
  */
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
+import { QK, fetchActiveCourts } from '../../../lib/queries';
 import { AnalyticsBar } from '../AnalyticsBar';
 import { AnalyticsFrame } from '../AnalyticsFrame';
 import { Notices } from '../Notices';
@@ -20,6 +24,7 @@ import { makeFormatters } from '../format';
 import type { AnalyticsSearch } from '../search';
 import type { CardState } from '../cards/CardShell';
 import { AiInsightsCard } from '../cards/AiInsightsCard';
+import { useVenueRevenue } from '../useVenueRevenue';
 import { CourtPatternsCard } from './cards/CourtPatternsCard';
 import { courtPatternsCopy } from './copy';
 import { buildCourtsInsightsData } from './payload';
@@ -30,8 +35,19 @@ import { LossesSection } from './sections/LossesSection';
 import { PulseSection } from './sections/PulseSection';
 import { ShapeSection } from './sections/ShapeSection';
 import { WhenSection } from './sections/WhenSection';
-import { useCourtsData } from './useCourtsData';
+import { useCourtsData, type CourtsQueryKey } from './useCourtsData';
 import { COURT_ZONES } from './zones';
+
+/** The RPCs each section reads. */
+const NEEDS = {
+  pulse: ['analytics_courts_summary', 'analytics_courts_cafe'],
+  when: ['analytics_courts_summary'],
+  shape: ['analytics_courts_demand', 'analytics_courts_summary'],
+  courts: ['analytics_courts_summary', 'analytics_courts_cafe'],
+  losses: ['analytics_courts_endings', 'analytics_courts_summary'],
+  guests: ['analytics_courts_guests'],
+  cross: ['analytics_courts_cafe', 'analytics_courts_summary'],
+} satisfies Record<string, readonly CourtsQueryKey[]>;
 
 export function CourtsTab() {
   const { tr, locale } = useLocale();
@@ -42,38 +58,29 @@ export function CourtsTab() {
   // takes an empty map here and the miner resolves names from its own input.
   const copy = useMemo(() => courtPatternsCopy(tr, f, locale, new Map()), [tr, f, locale]);
   const data = useCourtsData(search, locale, copy);
-  const { raw, derived, state } = data;
+  const { raw, derived, state, stateFor } = data;
+  const venue = useVenueRevenue(data.range, data.compareRange);
+  // The filter's options come from the venue's courts, not from the filtered
+  // payload: with court A selected the payload lists only A, and B would vanish.
+  const activeCourts = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts, staleTime: 60_000 });
 
   const setSearch = (next: Partial<AnalyticsSearch>) => {
     void navigate({ to: '/analytics/courts', search: { ...search, ...next } });
   };
 
-  const cardState: CardState = state.firstLoad ? 'loading' : state.error ? 'error' : 'ready';
+  // The "all" aggregate the Insights and Patterns cards read: they need every RPC.
+  const allState: CardState = state.loading ? 'loading' : state.error ? 'error' : 'ready';
   const vsLabel = tr('analytics.kpi.vs', { range: f.dateRange(data.compareRange.from, data.compareRange.to) });
   const rangeLabel = `${data.range.from}_${data.range.to}`;
-  const courts = (raw?.summary.perCourt ?? []).map((c) => ({ id: c.courtId, label: pickLocale({ en: c.nameEn, ar: c.nameAr }, locale) || c.courtId }));
-  const section = { raw, derived, state: cardState, refreshing: state.refreshing, f, rangeLabel };
+  const courts = (activeCourts.data ?? []).map((c) => ({ id: c.id, label: pickLocale({ en: c.name_en, ar: c.name_ar }, locale) || c.id }));
+  const section = (keys: readonly CourtsQueryKey[]) => ({ raw, derived, state: stateFor(keys), refreshing: state.refreshing, f, rangeLabel });
 
   return (
     <AnalyticsFrame subtitle={f.dateRange(data.range.from, data.range.to)}>
-      <AnalyticsBar
-        tab="courts"
-        search={search}
-        setSearch={setSearch}
-        zones={COURT_ZONES}
-        compareBasis={data.compareBasis}
-        courts={courts}
-        deck={{
-          startHour: data.startHour,
-          live: data.live,
-          refreshMinutes: data.refreshMinutes,
-          setRefreshMinutes: data.setRefreshMinutes,
-          autoRefreshActive: data.autoRefreshActive,
-        }}
-      />
+      <AnalyticsBar tab="courts" search={search} setSearch={setSearch} zones={COURT_ZONES} compareBasis={data.compareBasis} courts={courts} deck={{ startHour: data.startHour }} />
       <Notices
         lines={[
-          ...(derived?.noOpeningHours
+          ...(derived?.noOpeningHours && stateFor(NEEDS.when) === 'ready'
             ? [
                 <span key="hours">
                   {tr('ws.analytics.courts.notices.noHours')}{' '}
@@ -83,7 +90,7 @@ export function CourtsTab() {
                 </span>,
               ]
             : []),
-          ...(derived?.thin ? [tr('ws.analytics.courts.notices.thin')] : []),
+          ...(derived?.thin && stateFor(NEEDS.when) === 'ready' ? [tr('ws.analytics.courts.notices.thin')] : []),
           ...(derived && !derived.compareReliable && raw?.summaryPrev ? [tr('ws.analytics.courts.notices.compareMuted')] : []),
           ...(state.settingsError != null ? [tr('errors.generic')] : []),
         ]}
@@ -91,7 +98,7 @@ export function CourtsTab() {
       />
 
       <Zone zone={COURT_ZONES[0]!}>
-        <PulseSection {...section} vsLabel={vsLabel} />
+        <PulseSection {...section(NEEDS.pulse)} vsLabel={vsLabel} venue={venue} />
       </Zone>
 
       <Zone zone={COURT_ZONES[1]!}>
@@ -100,17 +107,17 @@ export function CourtsTab() {
             scope="courts"
             range={data.range}
             compareBasis={data.compareBasis}
-            buildData={(extras) => (raw && derived ? buildCourtsInsightsData(raw, derived, locale, tr, extras) : null)}
+            buildData={(extras) => (raw && derived && allState === 'ready' ? buildCourtsInsightsData(raw, derived, locale, tr, extras) : null)}
             note={derived?.thin ? tr('ws.analytics.courts.notices.thin') : undefined}
             tip={tr('ws.analytics.courts.tips.patterns')}
             stored={data.stored}
-            state={cardState}
+            state={allState}
             refreshing={state.refreshing}
             f={f}
           />
           <CourtPatternsCard
-            patterns={derived?.patterns ?? []}
-            state={cardState}
+            patterns={allState === 'ready' ? (derived?.patterns ?? []) : []}
+            state={allState}
             refreshing={state.refreshing}
             tip={tr('ws.analytics.courts.tips.patterns')}
             range={data.range}
@@ -121,27 +128,27 @@ export function CourtsTab() {
       </Zone>
 
       <Zone zone={COURT_ZONES[2]!}>
-        <WhenSection {...section} />
+        <WhenSection {...section(NEEDS.when)} />
       </Zone>
 
       <Zone zone={COURT_ZONES[3]!}>
-        <ShapeSection {...section} />
+        <ShapeSection {...section(NEEDS.shape)} />
       </Zone>
 
       <Zone zone={COURT_ZONES[4]!}>
-        <CourtsSection {...section} selectedCourtId={data.courtId} />
+        <CourtsSection {...section(NEEDS.courts)} selectedCourtId={data.courtId} />
       </Zone>
 
       <Zone zone={COURT_ZONES[5]!}>
-        <LossesSection {...section} />
+        <LossesSection {...section(NEEDS.losses)} />
       </Zone>
 
       <Zone zone={COURT_ZONES[6]!}>
-        <GuestsSection {...section} />
+        <GuestsSection {...section(NEEDS.guests)} />
       </Zone>
 
       <Zone zone={COURT_ZONES[7]!}>
-        <CrossSection {...section} selectedCourtId={data.courtId} />
+        <CrossSection {...section(NEEDS.cross)} selectedCourtId={data.courtId} />
       </Zone>
     </AnalyticsFrame>
   );

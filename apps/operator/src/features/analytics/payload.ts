@@ -21,14 +21,19 @@ export function buildInsightsData(
 ): InsightsData {
   const k = derived.kpis;
   const me = derived.menuEngineering;
+  const meById = new Map(me.items.map((i) => [i.id, i]));
 
   return {
     kpis: {
       total_sales_iqd: k.salesIqd,
       tabs: k.tabs,
-      covers_estimated: k.coversEstimated,
-      per_person_iqd: k.perPersonIqd,
-      visits: k.visits,
+      cash_iqd: k.cashIqd,
+      card_iqd: k.cardIqd,
+      discount_iqd: k.discountIqd,
+      refunds_iqd: k.refundsIqd,
+      qr_orders: k.qrOrders,
+      till_orders: k.tillOrders,
+      qr_share_pct: k.qrShare.pct,
       sessions: k.sessions,
       views: k.views,
       median_seconds: k.medianSeconds,
@@ -40,19 +45,34 @@ export function buildInsightsData(
       .filter((b) => derived.keep(b.id))
       .slice(0, 15)
       .map((b) => ({ name: name(derived, b.id, locale), qty: b.qty, revenue_iqd: b.revenueIqd, share_pct: b.sharePct })),
-    margins: me.hasData
+    // The SERVER margin rows (net revenue, the cost snapshotted on each line)
+    // with the matrix's verdict per item; the model reads the same rows the
+    // menu matrix does.
+    margins: raw.margins.items.length > 0
       ? {
-          margin_pct: me.totals.marginPct,
-          profit_iqd: me.totals.profitIqd,
-          avg_unit_margin_iqd: me.avgUnitMarginIqd,
-          items: me.items.slice(0, 20).map((i) => ({
-            name: name(derived, i.id, locale),
-            qty: i.qty,
-            unit_margin_iqd: i.unitMarginIqd,
-            margin_pct: i.marginPct,
-            quadrant: i.quadrant,
-            losing_money: i.losingMoney,
-          })),
+          cost_basis: raw.margins.costBasis,
+          coverage: {
+            revenue_with_cost_pct: raw.margins.coverage.revenueWithCostPct,
+            items_with_cost: raw.margins.coverage.itemsWithCost,
+            items_total: raw.margins.coverage.itemsTotal,
+          },
+          margin_pct: me.hasData ? me.totals.marginPct : null,
+          profit_iqd: me.hasData ? me.totals.profitIqd : null,
+          avg_unit_margin_iqd: me.hasData ? me.avgUnitMarginIqd : null,
+          items: raw.margins.items
+            .filter((i) => derived.keep(i.id))
+            .slice(0, 20)
+            .map((i) => ({
+              name: name(derived, i.id, locale),
+              qty: i.qty,
+              revenue_iqd: i.revenueIqd,
+              has_cost: i.hasCost,
+              cost_iqd: i.costIqd,
+              margin_iqd: i.marginIqd,
+              margin_pct: i.marginPct,
+              quadrant: meById.get(i.id)?.quadrant ?? null,
+              losing_money: meById.get(i.id)?.losingMoney ?? false,
+            })),
         }
       : null,
     bought_together: derived.pairs.map((p) => ({
@@ -74,7 +94,6 @@ export function buildInsightsData(
     engagement: raw.posthog
       ? {
           funnel: raw.posthog.funnel.map((s) => ({ step: s.step, sessions: s.sessions })),
-          locale_split: raw.posthog.localePreferences.map((l) => ({ locale: l.locale, sessions: l.sessions })),
           abandoned: derived.abandoned.slice(0, 10).map((a) => ({ name: name(derived, a.id, locale), total: a.total, long: a.b20plus })),
         }
       : undefined,

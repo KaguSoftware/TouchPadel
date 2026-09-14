@@ -4,13 +4,11 @@
  * its inline-end side, then ONE filter row: period (custom dates only when
  * "custom" is chosen), the comparison basis, the court filter on the Courts
  * tab, and a "More" disclosure for the once-a-month settings. Range, compare
- * and court live in the URL (`AnalyticsSearch`); the refresh interval and the
- * covers multiplier are per-device preferences; the business-day hour and the
- * exclusions are cafe-wide settings.
+ * and court live in the URL (`AnalyticsSearch`); the business-day hour and
+ * the exclusions are cafe-wide settings.
  *
  * Explanations (what a comparison basis means, what the business day is) sit
- * behind info buttons; STATE (auto-refresh running, a failed setting write)
- * stays visible on the row.
+ * behind info buttons; STATE (a failed setting write) stays visible on the row.
  */
 import { useCallback, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { BUSINESS_DAY_START_OPTIONS, RANGE_PRESETS, isIsoDate, type CompareBasis, type RangePreset } from '@touch/core';
@@ -21,12 +19,10 @@ import { InfoTip } from '../../components/InfoTip';
 import { Icon } from '../../components/icons';
 import { useLocale } from '../../lib/i18n';
 import { useSetCafeSetting } from '../../lib/settings';
-import { COVERS_MULTIPLIER_OPTIONS } from '../../lib/coversMultiplier';
 import { AnalyticsTabs, type AnalyticsTab } from './AnalyticsTabs';
 import { ExcludedItemsModal } from './ExcludedItemsModal';
 import { MorePanel } from './MorePanel';
 import { ZoneNav } from './ZoneNav';
-import { REFRESH_OPTIONS } from './useAnalyticsData';
 import type { ZoneDef } from './Zone';
 import type { AnalyticsSearch } from './search';
 import type { MenuSnapshotRow } from './shape';
@@ -105,13 +101,7 @@ function Group({ label, tip, children, style }: { label?: ReactNode; tip?: React
 /** The once-a-month settings behind "More"; the cafe block only exists on the cafe tab. */
 export interface BarDeck {
   startHour: number;
-  live: boolean;
-  refreshMinutes: number;
-  setRefreshMinutes: (n: number) => void;
-  autoRefreshActive: boolean;
   cafe?: {
-    coversMultiplier: number;
-    setCoversMultiplier: (n: number) => void;
     excludedIds: readonly string[];
     menu: readonly MenuSnapshotRow[];
   };
@@ -149,9 +139,7 @@ export function AnalyticsBar({
   const moreId = useId();
   const closeMore = useCallback(() => setMoreOpen(false), []);
   const customValid = isIsoDate(customFrom) && isIsoDate(customTo) && customFrom <= customTo;
-  const nonDefault =
-    (deck ? Number(deck.refreshMinutes > 0) + Number(deck.startHour !== 4) : 0) +
-    (deck?.cafe ? Number(deck.cafe.coversMultiplier !== 1) + Number(deck.cafe.excludedIds.length > 0) : 0);
+  const nonDefault = (deck ? Number(deck.startHour !== 4) : 0) + (deck?.cafe ? Number(deck.cafe.excludedIds.length > 0) : 0);
 
   return (
     <div style={bar}>
@@ -250,48 +238,15 @@ export function AnalyticsBar({
                 />
               </Group>
               <ErrorText error={setSetting.error} />
-              <Group label={tr('analytics.deck.refresh')}>
-                <Select<string>
-                  value={String(deck.refreshMinutes)}
-                  onChange={(v) => deck.setRefreshMinutes(Number(v))}
-                  options={REFRESH_OPTIONS.map((n) => ({
-                    value: String(n),
-                    label: n === 0 ? tr('analytics.deck.refreshOff') : tr('analytics.deck.min', { n }),
-                  }))}
-                  disabled={!deck.live}
-                  style={small}
-                  aria-label={tr('analytics.deck.refresh')}
-                />
-              </Group>
               {deck.cafe && (
-                <>
-                  <Group label={tr('analytics.deck.covers')}>
-                    <Select<string>
-                      value={String(deck.cafe.coversMultiplier)}
-                      onChange={(v) => deck.cafe?.setCoversMultiplier(Number(v))}
-                      options={COVERS_MULTIPLIER_OPTIONS.map((n) => ({ value: String(n), label: `× ${n}` }))}
-                      style={small}
-                      aria-label={tr('analytics.deck.covers')}
-                    />
-                  </Group>
-                  <Group>
-                    <Button onClick={() => { setMoreOpen(false); setExcludedOpen(true); }} style={{ minBlockSize: 'var(--tp-row-h)', fontSize: 'var(--tp-fs-sm)' }}>
-                      {tr('analytics.deck.excluded')}
-                      {deck.cafe.excludedIds.length > 0 ? ` (${deck.cafe.excludedIds.length})` : ''}
-                    </Button>
-                  </Group>
-                </>
+                <Group>
+                  <Button onClick={() => { setMoreOpen(false); setExcludedOpen(true); }} style={{ minBlockSize: 'var(--tp-row-h)', fontSize: 'var(--tp-fs-sm)' }}>
+                    {tr('analytics.deck.excluded')}
+                    {deck.cafe.excludedIds.length > 0 ? ` (${deck.cafe.excludedIds.length})` : ''}
+                  </Button>
+                </Group>
               )}
             </MorePanel>
-          </Group>
-        )}
-
-        {deck?.autoRefreshActive && (
-          <Group>
-            <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-accent)' }}>
-              <span aria-hidden="true">● </span>
-              {tr('analytics.deck.refresh')} · {tr('analytics.deck.min', { n: deck.refreshMinutes })}
-            </span>
           </Group>
         )}
       </div>

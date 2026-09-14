@@ -67,11 +67,8 @@ export function PatternsCard({
         soldByDay: raw.soldByDay.map((r) => ({ id: r.id, date: r.date, qty: r.qty, revenueIqd: r.revenueIqd })),
         recordedDays: raw.daily.map((d) => d.date),
         priceBands: derived.priceBands,
-        locales: raw.posthog?.localePreferences.map((l) => ({
-          locale: l.locale,
-          sessions: l.sessions,
-          topItems: l.topItems.map((t) => ({ id: t.id, rate: t.rate })),
-        })),
+        // The language-preference query was cut with its card: no audiences to mine.
+        locales: undefined,
         costs,
         names: derived.names,
         keep: derived.keep,
