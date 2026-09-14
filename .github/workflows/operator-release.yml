@@ -111,14 +111,14 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # No `version:` here — the root package.json's `packageManager` pins pnpm,
       # and giving both makes action-setup fail with "Multiple versions of pnpm
       # specified" (first release run, 2026-09-07). Same shape as ci.yml.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -173,7 +173,7 @@ jobs:
         run: pnpm exec electron-builder --win nsis --config electron-builder.config.cjs --publish always
 
       # A debugging copy. The public release is the real output.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: operator-windows-${{ env.VERSION }}
           path: |
@@ -191,14 +191,14 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # No `version:` here — the root package.json's `packageManager` pins pnpm,
       # and giving both makes action-setup fail with "Multiple versions of pnpm
       # specified" (first release run, 2026-09-07). Same shape as ci.yml.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -271,7 +271,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: pnpm exec electron-builder --mac --config electron-builder.config.cjs --publish always
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: operator-macos-${{ env.VERSION }}
           path: |
