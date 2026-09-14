@@ -42,7 +42,10 @@ import { courtDaySummary, didNotHappen, isOnSchedule, schedulePlacement } from '
 
 /** Two-hour rows (owner call): the shape of the night, not the minute. */
 const BAND_MIN = 120;
-const BAND_REM = 5;
+const BAND_REM = 3;
+/** Time gutter and the narrowest a court column gets before the board scrolls. */
+const GUTTER_REM = 4;
+const COURT_MIN_REM = 7.5;
 
 export function CourtsObserveScreen() {
   const { tr } = useLocale();
@@ -415,14 +418,14 @@ function ScheduleBoard({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `4.5rem repeat(${courts.length}, minmax(9.5rem, 1fr))`,
-          minInlineSize: `${4.5 + courts.length * 9.5}rem`,
+          gridTemplateColumns: `${GUTTER_REM}rem repeat(${courts.length}, minmax(${COURT_MIN_REM}rem, 1fr))`,
+          minInlineSize: `${GUTTER_REM + courts.length * COURT_MIN_REM}rem`,
           borderBlockStart: '1px solid var(--tp-border)',
         }}
       >
         <div />
         {courts.map((c) => (
-          <div key={c.id} style={{ fontWeight: 700, textAlign: 'center', paddingBlock: 'var(--tp-sp-2)', borderBlockEnd: '1px solid var(--tp-border)', borderInlineStart: '1px solid var(--tp-border)' }}>
+          <div key={c.id} title={pickName(locale, c)} style={{ fontWeight: 700, fontSize: 'var(--tp-fs-sm)', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingInline: 'var(--tp-sp-1)', paddingBlock: 'var(--tp-sp-1)', borderBlockEnd: '1px solid var(--tp-border)', borderInlineStart: '1px solid var(--tp-border)' }}>
             {pickName(locale, c)}
           </div>
         ))}
@@ -435,11 +438,12 @@ function ScheduleBoard({
                 position: 'absolute',
                 insetBlockStart: `${i * BAND_REM}rem`,
                 insetInlineStart: 0,
-                paddingInline: 'var(--tp-sp-2)',
-                paddingBlockStart: 'var(--tp-sp-1)',
+                paddingInline: 'var(--tp-sp-1-5)',
+                paddingBlockStart: '0.125rem',
                 fontSize: 'var(--tp-fs-xs)',
                 color: 'var(--tp-muted-fg)',
                 fontVariantNumeric: 'tabular-nums',
+                whiteSpace: 'nowrap',
               }}
             >
               {formatTime(wallTimeToUtc(date, openMin + i * BAND_MIN, tz), locale, tz)}
@@ -465,7 +469,9 @@ function ScheduleBoard({
                 const tone = r.status === 'no_show' ? 'danger' : reservationTone(r);
                 const name =
                   r.kind === 'maintenance' ? (r.notes ?? tr('op.desk.maintenance')) : r.kind === 'hold' ? tr('op.desk.hold') : (r.guest_name ?? tr('op.desk.walkIn'));
-                const minutes = (new Date(r.end_at).getTime() - new Date(r.start_at).getTime()) / 60_000;
+                // Rows are short, so a block shows only what its height holds: one line, name over time, or the badge row too.
+                const blockRem = p.height * heightRem;
+                const lines = blockRem >= 4 ? 3 : blockRem >= 2 ? 2 : 1;
                 return (
                   <button
                     key={r.id}
@@ -482,27 +488,28 @@ function ScheduleBoard({
                       color: TONE_FG[tone],
                       border: `1px ${r.kind === 'maintenance' || r.status === 'no_show' ? 'dashed' : 'solid'} ${TONE_EDGE[tone]}`,
                       borderRadius: 'var(--tp-radius-ctl)',
-                      paddingBlock: '0.2rem',
-                      paddingInline: '0.45rem',
+                      paddingBlock: lines === 1 ? 0 : '0.125rem',
+                      paddingInline: '0.375rem',
                       textAlign: 'start',
                       font: 'inherit',
                       fontSize: 'var(--tp-fs-xs)',
-                      lineHeight: 1.3,
+                      lineHeight: 1.2,
                       overflow: 'hidden',
                       cursor: 'pointer',
                       display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.1rem',
+                      flexDirection: lines === 1 ? 'row' : 'column',
+                      alignItems: lines === 1 ? 'center' : 'stretch',
+                      gap: lines === 1 ? '0.35rem' : '0.05rem',
                       opacity: r.status === 'no_show' || r.status === 'completed' ? 0.75 : 1,
                     }}
                   >
-                    <strong style={{ fontSize: 'var(--tp-fs-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <strong style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <bdi>{name}</bdi>
                     </strong>
-                    <bdi style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}
+                    <bdi style={{ flexShrink: lines === 1 ? 0 : 1, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: lines === 1 ? 0.8 : 1 }}>
+                      {lines === 1 ? formatTime(new Date(r.start_at), locale, tz) : formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}
                     </bdi>
-                    {minutes >= 90 && r.kind === 'booking' && (
+                    {lines === 3 && r.kind === 'booking' && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                         <ReservationBadge reservation={r} size="sm" />
                         {r.price_iqd != null && <Money amount={r.price_iqd} style={{ fontSize: 'var(--tp-fs-xs)' }} />}

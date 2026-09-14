@@ -44,6 +44,7 @@ export function ObservationHomeScreen() {
   return (
     <SectionHome
       sectionKey="observation"
+      fullWidth
       title={tr('ws.owner.observationHome.title')}
       lead={tr('ws.owner.observationHome.lead')}
       card={(key) => tr(`ws.owner.observationHome.cards.${key as CardKey}`)}

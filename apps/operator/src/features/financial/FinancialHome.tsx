@@ -48,6 +48,7 @@ export function FinancialHomeScreen() {
   return (
     <SectionHome
       sectionKey="financial"
+      fullWidth
       title={tr('ws.owner.financialHome.title')}
       lead={tr('ws.owner.financialHome.lead')}
       card={(key) => tr(`ws.owner.financialHome.cards.${key as CardKey}`)}
