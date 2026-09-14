@@ -40,6 +40,7 @@ import { BoughtTogether } from '../cards/BoughtTogether';
 import { PromoPerformance } from '../cards/PromoPerformance';
 import { LocalePrefs } from '../cards/LocalePrefs';
 import { ChartCard } from '../charts/ChartCard';
+import { barTwin, heatTwin } from '../charts/twins';
 import { HBarChart } from '../charts/HBarChart';
 import { CountBars } from '../charts/CountBars';
 import { SalesTrendChart } from '../charts/SalesTrendChart';
@@ -109,23 +110,9 @@ export function CafeTab() {
   const tillCells = (raw?.hourly ?? []).map((c) => ({ dow: c.dow, hour: c.hour, value: tillMeasure === 'orders' ? c.orders : c.revenueIqd }));
   const tillFormat = (n: number) => (tillMeasure === 'orders' ? `${f.num(n)} ${tr('ws.analytics.cafe.toggleOrders').toLowerCase()}` : f.money(n));
   const viewCells = (raw?.posthog?.heatmap ?? []).map((c) => ({ dow: c.dow, hour: c.hour, value: c.views }));
-  const heatTwin = (cells: readonly { dow: number; hour: number; value: number }[], label: string, file: string) => ({
-    columns: [
-      { key: 'day', label: tr('ws.reports.filters.group') },
-      { key: 'hour', label: tr('analytics.cards.peakHours') },
-      { key: 'value', label, numeric: true },
-    ],
-    rows: [...cells].sort((a, b) => a.dow - b.dow || a.hour - b.hour).map((c) => ({ day: weekdayName(tr, c.dow), hour: f.hour(c.hour), value: c.value })),
-    file,
-  });
-  const barTwin = (rows: readonly { label: string; value: number }[], label: string, file: string) => ({
-    columns: [
-      { key: 'label', label: '' },
-      { key: 'value', label, numeric: true },
-    ],
-    rows: rows.map((r) => ({ label: r.label, value: r.value })),
-    file,
-  });
+  // The shared twin builders (charts/twins.ts), so both tabs hand the table view the same rows.
+  const heatCells = (cells: readonly { dow: number; hour: number; value: number }[]) =>
+    [...cells].sort((a, b) => a.dow - b.dow || a.hour - b.hour).map((c) => ({ day: weekdayName(tr, c.dow), hour: f.hour(c.hour), value: c.value }));
   const rangeLabel = `${data.range.from}_${data.range.to}`;
   const bandRows = (raw?.priceBandSales ?? []).map((b) => ({ label: tr(`ws.analytics.cafe.bands.${BAND_KEY[b.band]}`), value: b.qty }));
 
@@ -213,6 +200,7 @@ export function CafeTab() {
               delta={derived?.deltas.calls ?? null}
               vsLabel={vsLabel}
               tip={tr('ws.analytics.cafe.tips.calls')}
+              neutral
               compare={raw ? compare(f.num(k?.waiterCalls ?? 0), f.num(sumBy(raw.dailyPrev, (r) => r.waiterCalls))) : undefined}
               loading={state.salesLoading}
               unavailable={salesBroken}
@@ -248,6 +236,7 @@ export function CafeTab() {
               delta={derived?.deltas.median ?? null}
               vsLabel={vsLabel}
               tip={tr('ws.analytics.cafe.tips.median')}
+              neutral
               compare={prev ? compare(f.duration(k?.medianSeconds ?? 0), f.duration(prev.sessionStats.medianSeconds)) : undefined}
               loading={engState === 'loading'}
               unavailable={engBroken}
@@ -353,7 +342,7 @@ export function CafeTab() {
               title={tr('analytics.cards.bestSellers')}
               state={salesState === 'ready' && bestSellerRows.length === 0 ? 'empty' : salesState}
               emptyKey="analytics.empty.sales"
-              twin={barTwin(bestSellerRows, tr('analytics.cards.revenue'), `best-sellers-${rangeLabel}`)}
+              twin={barTwin(bestSellerRows, tr('analytics.conversion.item'), tr('analytics.cards.revenue'), `best-sellers-${rangeLabel}`)}
             >
               <HBarChart rows={bestSellerRows} format={(n) => f.compact(n)} name={tr('analytics.cards.revenue')} />
             </ChartCard>
@@ -370,7 +359,7 @@ export function CafeTab() {
               title={tr('analytics.cards.tableActivity')}
               state={engState === 'ready' && tableRows.length === 0 ? 'empty' : engState}
               emptyKey="analytics.empty.engagement"
-              twin={barTwin(tableRows, tr('analytics.cards.sessions'), `table-activity-${rangeLabel}`)}
+              twin={barTwin(tableRows, tr('analytics.cards.tableActivity'), tr('analytics.cards.sessions'), `table-activity-${rangeLabel}`)}
             >
               <HBarChart rows={tableRows} format={(n) => f.num(n)} axisWidth={70} name={tr('analytics.cards.sessions')} />
             </ChartCard>
@@ -395,7 +384,7 @@ export function CafeTab() {
               state={salesState === 'ready' && bandRows.every((b) => b.value === 0) ? 'empty' : salesState}
               emptyKey="analytics.empty.sales"
               height={200}
-              twin={barTwin(bandRows, tr('analytics.cards.quantity'), `price-band-sales-${rangeLabel}`)}
+              twin={barTwin(bandRows, tr('ws.analytics.cafe.priceBandSales'), tr('analytics.cards.quantity'), `price-band-sales-${rangeLabel}`)}
             >
               <CountBars rows={bandRows} format={(n) => f.num(n)} name={tr('analytics.cards.quantity')} emphasise="none" />
             </ChartCard>
@@ -403,7 +392,7 @@ export function CafeTab() {
               title={tr('analytics.cards.categoryPop')}
               state={engState === 'ready' && categoryRows.length === 0 ? 'empty' : engState}
               emptyKey="analytics.empty.engagement"
-              twin={barTwin(categoryRows, tr('analytics.cards.sessions'), `categories-${rangeLabel}`)}
+              twin={barTwin(categoryRows, tr('analytics.cards.categoryPop'), tr('analytics.cards.sessions'), `categories-${rangeLabel}`)}
             >
               <HBarChart rows={categoryRows} format={(n) => f.num(n)} name={tr('analytics.cards.sessions')} />
             </ChartCard>
@@ -431,7 +420,7 @@ export function CafeTab() {
               ]}
             />
           }
-          twin={heatTwin(tillCells, tillMeasure === 'orders' ? tr('ws.analytics.cafe.toggleOrders') : tr('ws.analytics.cafe.toggleRevenue'), `orders-heatmap-${rangeLabel}`)}
+          twin={heatTwin(heatCells(tillCells), tr('ws.reports.filters.group'), tr('analytics.cards.peakHours'), tillMeasure === 'orders' ? tr('ws.analytics.cafe.toggleOrders') : tr('ws.analytics.cafe.toggleRevenue'), `orders-heatmap-${rangeLabel}`)}
         >
           <WeekHeatmap cells={tillCells} f={f} format={tillFormat} unit={tr('ws.analytics.cafe.tillHeatmap')} hint={tr('ws.analytics.heatmap.hint')} />
         </ChartCard>
@@ -442,7 +431,7 @@ export function CafeTab() {
             state={engState === 'ready' && viewCells.length === 0 ? 'empty' : engState}
             emptyKey="analytics.empty.heatmap"
             height={230}
-            twin={heatTwin(viewCells, tr('analytics.cards.viewsSeries'), `views-heatmap-${rangeLabel}`)}
+            twin={heatTwin(heatCells(viewCells), tr('ws.reports.filters.group'), tr('analytics.cards.peakHours'), tr('analytics.cards.viewsSeries'), `views-heatmap-${rangeLabel}`)}
           >
             <WeekHeatmap
               cells={viewCells}
@@ -459,7 +448,7 @@ export function CafeTab() {
               title={tr('analytics.cards.peakHours')}
               state={engState === 'ready' && (raw?.posthog?.peakHours.some((h) => h.views > 0) ?? false) === false ? 'empty' : engState}
               emptyKey="analytics.empty.engagement"
-              twin={barTwin((raw?.posthog?.peakHours ?? []).map((h) => ({ label: f.hour(h.hour), value: h.views })), tr('analytics.cards.viewsSeries'), `peak-hours-${rangeLabel}`)}
+              twin={barTwin((raw?.posthog?.peakHours ?? []).map((h) => ({ label: f.hour(h.hour), value: h.views })), tr('analytics.cards.peakHours'), tr('analytics.cards.viewsSeries'), `peak-hours-${rangeLabel}`)}
             >
               <PeakHoursChart rows={raw?.posthog?.peakHours ?? []} f={f} />
             </ChartCard>

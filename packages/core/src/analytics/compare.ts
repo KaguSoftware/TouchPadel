@@ -172,8 +172,12 @@ export type MomentumResult = {
   previousDays: number;
 };
 
-/** Ignore items too small in both periods to read a trend from. */
-export const MOMENTUM_MIN_VIEWS = 5;
+/**
+ * Ignore items too small to read a trend from: under twenty views a "+200%"
+ * is three people, and the card would rank noise. Same floor as the rate
+ * denominators on the courts tab.
+ */
+export const MOMENTUM_MIN_VIEWS = 20;
 
 /**
  * Per-item interest momentum: distinct-session views this window vs the comparison window.

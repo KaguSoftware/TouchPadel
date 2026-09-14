@@ -45,7 +45,7 @@ export function PulseSection({ raw, derived, state, f, vsLabel }: SectionProps &
     <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--tp-sp-2-5)' }}>
         {tile(tr('ws.analytics.courts.kpi.bookings'), f.num(k?.bookings ?? 0), 'bookings', f.num, tr('ws.analytics.courts.tips.bookings'))}
-        {tile(tr('ws.analytics.courts.kpi.bookedHours'), hoursText(f, k?.bookedMinutes ?? 0), 'bookedHours', (n) => f.num(Math.round(n * 10) / 10), tr('ws.analytics.courts.tips.bookedHours'))}
+        {tile(tr('ws.analytics.courts.kpi.bookedHours'), hoursText(f, k?.bookedMinutes ?? 0), 'bookedHours', (n) => f.num1(n), tr('ws.analytics.courts.tips.bookedHours'))}
         {tile(tr('ws.analytics.courts.kpi.occupancy'), k?.occupancyPct == null ? '—' : f.pct(k.occupancyPct), 'occupancy', f.pct, tr('ws.analytics.courts.tips.occupancy'), { unavailable: noHours })}
         {tile(tr('ws.analytics.courts.kpi.revenue'), f.money(k?.revenueIqd ?? 0), 'revenue', f.money, tr('ws.analytics.courts.tips.revenue'))}
       </div>

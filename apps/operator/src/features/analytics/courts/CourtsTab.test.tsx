@@ -116,6 +116,13 @@ describe('CourtsTab', () => {
     expect(within(pulse).getByText('1,200,000 IQD', { selector: 'strong' })).toBeTruthy();
     // No error surfaced anywhere.
     expect(screen.queryByRole('alert')).toBeNull();
+
+    // Losses as rates: the two new breakdowns render, and "who cancelled" says
+    // both counts (by slot day, and cancelled during the period) with the freed money.
+    const losses = screen.getByRole('region', { name: 'Losses' });
+    expect(within(losses).getByText('Losses by court')).toBeTruthy();
+    expect(within(losses).getByText('Losses by booking length')).toBeTruthy();
+    expect(within(losses).getByText(/12 cancelled by slot day · 10 cancelled during this period · Freed by late cancellations: 50,000 IQD/)).toBeTruthy();
   });
 
   it('lists the fixture courts in the court filter and writes a choice to the URL', async () => {

@@ -212,6 +212,12 @@ describe('deriveCourts: basis, names and patterns', () => {
     for (const call of segment.mock.calls) expect(call[0]).not.toBe('byCourt');
   });
 
+  it('keeps the notice buckets away from the ending-cluster miner: they are shares of cancellations, not rates of bookings', () => {
+    const segment = vi.fn(copy.segment);
+    deriveCourts(raw(), { ...copy, segment });
+    for (const call of segment.mock.calls) expect(call[0]).not.toBe('byNotice');
+  });
+
   it('mines nothing from an empty venue and never throws', () => {
     const empty = raw({
       summary: parseCourtsSummary({}),

@@ -23,6 +23,24 @@ describe('rankPairs', () => {
     expect(rankPairs([{ a: 'p', b: 'q', count: 3, aCount: 3, bCount: 10 }], 0)).toEqual([]);
   });
 
+  it('drops a pair that happens no more than chance and ranks by lift before count', () => {
+    const pairs = rankPairs([
+      // water with everything: lift 1.04, popular but meaningless
+      { a: 'water', b: 'latte', count: 40, aCount: 80, bCount: 48, orders: 100 },
+      // a real combo: lift 4
+      { a: 'kahi', b: 'geymar', count: 8, aCount: 10, bCount: 20, orders: 100 },
+      // lift 2, more co-orders than the combo above but a weaker link
+      { a: 'tea', b: 'baklava', count: 12, aCount: 30, bCount: 20, orders: 100 },
+      // no order total: lift unknown, kept, sorted last
+      { a: 'p', b: 'q', count: 30, aCount: 30, bCount: 30 },
+    ]);
+    expect(pairs.map((p) => [p.a, p.b, p.lift])).toEqual([
+      ['kahi', 'geymar', 4],
+      ['baklava', 'tea', 2],
+      ['p', 'q', null],
+    ]);
+  });
+
   it('never divides by a solo count smaller than the pair count', () => {
     expect(rankPairs([{ a: 'p', b: 'q', count: 4, aCount: 0, bCount: 2 }])[0]?.confidencePct).toBe(100);
   });

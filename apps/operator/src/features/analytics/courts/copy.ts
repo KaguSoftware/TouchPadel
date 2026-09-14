@@ -146,7 +146,7 @@ export function courtPatternsCopy(
       attachHigh: (subject, attachPct, venuePct, bookings) =>
         tr(p('fallback.attachHigh'), { subject, pct: f.pct(attachPct), venue: f.pct(venuePct), n: f.num(bookings) }),
       courtBasket: (item, lift, linkedWith, linkedTotal) =>
-        tr(p('fallback.courtBasket'), { item, lift: f.num(Math.round(lift * 10) / 10), with: f.num(linkedWith), total: f.num(linkedTotal) }),
+        tr(p('fallback.courtBasket'), { item, lift: f.num1(lift), with: f.num(linkedWith), total: f.num(linkedTotal) }),
     },
   };
 }

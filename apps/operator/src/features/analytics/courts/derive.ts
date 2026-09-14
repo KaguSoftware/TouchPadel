@@ -208,7 +208,9 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
       courtsCount: summary.courtsCount,
       perCourt: summary.perCourt.map((c) => ({ courtId: c.courtId, bookings: c.bookings, bookedTotal: c.bookedTotal, cancellations: c.cancellations, noShows: c.noShows })),
       endings: {
-        cancellations: { ...segs(endings.cancellations), byNotice: endings.cancellations.byNotice.map((n) => ({ key: n.bucket, n: n.n, bookingsTotal: endings.cancellations.total })) },
+        // by_notice is a share OF cancellations, not a rate of bookings: it never
+        // feeds the ending-cluster miner, whose ratio needs a booked total.
+        cancellations: segs(endings.cancellations),
         noShows: segs(endings.noShows),
         cancellationsTotal: endings.cancellations.total,
         noShowsTotal: endings.noShows.total,

@@ -11,6 +11,8 @@ export interface Formatters {
   money: (iqd: number) => string;
   /** "1,234" */
   num: (n: number) => string;
+  /** "3.4" — at most one decimal, for averages and hours; `num` would round 6.5 hours to "7". */
+  num1: (n: number) => string;
   /** "1.2K", "3.4M" */
   compact: (n: number) => string;
   /** "42%" — one decimal only when |n| < 10 and not integer. */
@@ -66,6 +68,7 @@ export function makeFormatters(locale: Locale): Formatters {
       return `${v < 0 ? minus : ''}${body} ${unit}`;
     },
     num: (n) => nf.format(Math.round(n)),
+    num1: (n) => nf1.format(n),
     compact: (n) => compactNf.format(n),
     pct: (n) => {
       const abs = Math.abs(n);

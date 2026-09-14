@@ -224,7 +224,7 @@ export const en = {
       timeDesc: 'When guests come and what language they use.',
     },
     kpi: {
-      sales: 'Item sales',
+      sales: 'Cafe sales',
       salesNote: 'Before tab discounts',
       covers: 'Covers',
       estimated: 'estimate',
@@ -426,8 +426,8 @@ export const en = {
       peakHours: 'Peak hours',
       bestSellers: 'Best sellers',
       lookedNotBought: 'Looked, not bought',
-      dwellShort: 'Under 5 s',
-      dwellMedium: '5–20 s',
+      dwellShort: 'Under 10 s',
+      dwellMedium: '10–20 s',
       dwellLong: 'Over 20 s',
       tableActivity: 'Table activity',
       funnel: 'Engagement funnel',
@@ -443,6 +443,13 @@ export const en = {
       viewsSeries: 'Menu views',
       callsSeries: 'Waiter calls',
       quantity: 'Qty',
+    },
+    // The engagement funnel's four steps (PostHog session funnel), by event.
+    funnel: {
+      pageview: 'Opened the menu',
+      itemViewed: 'Viewed an item',
+      addedToBasket: 'Added to basket',
+      orderSubmitted: 'Ordered',
     },
     weekdays: {
       mon: 'Monday',

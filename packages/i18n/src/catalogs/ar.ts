@@ -208,7 +208,7 @@ export const ar: Messages = {
       timeDesc: 'متى يأتي الضيوف وأي لغة يستخدمون.',
     },
     kpi: {
-      sales: 'مبيعات الأصناف',
+      sales: 'مبيعات الكافيه',
       salesNote: 'قبل خصومات الحساب',
       covers: 'عدد الضيوف',
       estimated: 'تقديري',
@@ -416,8 +416,8 @@ export const ar: Messages = {
       peakHours: 'ساعات الذروة',
       bestSellers: 'الأكثر مبيعًا',
       lookedNotBought: 'شوهد ولم يُشترَ',
-      dwellShort: 'أقل من ٥ ثوانٍ',
-      dwellMedium: '٥–٢٠ ثانية',
+      dwellShort: 'أقل من ١٠ ثوانٍ',
+      dwellMedium: '١٠–٢٠ ثانية',
       dwellLong: 'أكثر من ٢٠ ثانية',
       tableActivity: 'نشاط الطاولات',
       funnel: 'قمع التفاعل',
@@ -433,6 +433,13 @@ export const ar: Messages = {
       viewsSeries: 'مشاهدات القائمة',
       callsSeries: 'نداءات النادل',
       quantity: 'الكمية',
+    },
+    // خطوات قمع التفاعل الأربع (قمع جلسات PostHog)، حسب الحدث.
+    funnel: {
+      pageview: 'فتح القائمة',
+      itemViewed: 'شاهد صنفًا',
+      addedToBasket: 'أضاف إلى السلة',
+      orderSubmitted: 'طلب',
     },
     weekdays: {
       mon: 'الاثنين',

@@ -11,6 +11,12 @@ describe('makeFormatters', () => {
     expect(ar.money(12500)).toMatch(/12[,٬]500 د\.ع$/);
     expect(en.money(-500)).toBe('−500 IQD');
   });
+  it('keeps one decimal where the figure has one', () => {
+    expect(en.num1(6.5)).toBe('6.5');
+    expect(en.num1(3.456)).toBe('3.5');
+    expect(en.num1(3)).toBe('3');
+    expect(ar.num1(2.25)).toMatch(/^2[.٫]3$/);
+  });
   it('formats percentages and signed deltas', () => {
     expect(en.pct(42)).toBe('42%');
     expect(en.pct(3.25)).toBe('3.3%');
