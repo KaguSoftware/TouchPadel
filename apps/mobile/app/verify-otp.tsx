@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatIraqiNational } from '@touch/core';
+import { displayPhone } from '../src/features/profile/phone';
 import { isolate } from '@touch/i18n';
 import { supabase } from '../src/lib/supabase';
 import { resendPhoneLink, sendPhoneOtp, verifyPhoneLink, verifyPhoneOtp } from '../src/features/auth/api';
@@ -149,7 +149,7 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
       <Stack.Screen options={{ title: t('auth.otpTitle') }} />
       <FormScreen>
         <Title plain>{t('auth.otpTitle')}</Title>
-        <Hint style={{ marginTop: 8 }}>{t('auth.otpBody', { phone: isolate(formatIraqiNational(phone)) })}</Hint>
+        <Hint style={{ marginTop: 8 }}>{t('auth.otpBody', { phone: isolate(displayPhone(phone)) })}</Hint>
         <CodeInput
           label={t('auth.otpLabel')}
           value={code}

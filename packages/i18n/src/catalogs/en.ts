@@ -138,7 +138,7 @@ export const en = {
     phoneSignInBody: "We'll send a 6-digit code to your WhatsApp. No password needed.",
     phoneLinkBody: "We'll send a 6-digit code to this number's WhatsApp to confirm it's yours.",
     phoneNationalPlaceholder: '0770 123 4567',
-    phoneOtpInvalid: 'Enter an Iraqi mobile number, like 0770 123 4567.',
+    phoneOtpInvalid: 'Enter a valid phone number, and check the country code.',
     sendCode: 'Send code',
     otpTitle: 'Enter the code',
     otpBody: 'We sent a 6-digit code to {phone} on WhatsApp.',

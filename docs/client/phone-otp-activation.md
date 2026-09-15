@@ -17,7 +17,8 @@ Send SMS hook ON and signature-verified, gate `enabled = false`, OTPIQ secrets s
 answered refusals with their own HTTP status, which GoTrue swallows into a generic 500 ("Unexpected status code
 returned from hook: 403"); it now answers HTTP 200 with the reason in the body, the only shape GoTrue relays. **Not yet
 done:** the store-review test number (§C step 7) is NOT configured on hosted, since GoTrue sent it to the hook.
-Development build profile and local `.env` now have `EXPO_PUBLIC_PHONE_OTP=on`; production stays off.
+Development build profile and local `.env` now have `EXPO_PUBLIC_PHONE_OTP=on`; production stays off. **Gate opened
+the same day:** `enabled = true`, every country (`allowed_prefixes = '{""}'`), 5 per number and 500 per day.
 
 ---
 
@@ -30,7 +31,7 @@ Development build profile and local `.env` now have `EXPO_PUBLIC_PHONE_OTP=on`; 
 | A3 | **Meta setup (for the move to WhatsApp; not needed to launch)** | In Meta Business Suite / WhatsApp Manager: (1) **Business verification** of Touch's legal entity (company registration documents; one to two weeks). (2) A **phone number dedicated to WhatsApp Business** — it must not be on a personal WhatsApp; it becomes the sender. (3) The WhatsApp Business Account (WABA) with that number, display name "Touch Padel" approved. (4) An **AUTHENTICATION template** named `touch_otp`, created in **both** `en` and `ar`, copy-code button, "do not share" line on, expiry line 5 min; note the exact language codes Meta shows. (5) A **System User** with the `whatsapp_business_messaging` permission and a **permanent access token**; a payment method on the WABA. Hand over: the token, the Phone Number ID (not the number), the template name and language codes — via `secrets set` on the owner's machine. |
 | A4 | **Scope (D4b)** | **Decided 2026-09-12: the default button.** With the flag on, "Continue with phone" is the green CTA at the top of Welcome, Sign in and Create account; email + social sit below it. With the flag off the screens are exactly as shipped. |
 | A5 | **Desk-account claim (D4c)** | Yes = run §D. No = staff correct numbers first; desk-created walk-ins keep signing in by "forgot password" (real email) only. |
-| A6 | **Iraq-only (D4d)** | Keep `{964}` (recommended) or list the extra country codes. |
+| A6 | **Countries (D4d)** | **Decided 2026-09-15: every country.** Hosted `allowed_prefixes = '{""}'` (an empty prefix matches every number); the app's phone field has a picker for every country with a dial code, Iraq first. The per-number (5/day) and project (500/day) caps and OTPIQ's spending threshold are what stand between a bot and the bill now. Fresh or local stacks still default to `{964}` from migration 0069. |
 | A7 | **Hand over the vendor API key** | Never in chat or a shared document — see `API.md` "How to hand these over". |
 | A8 | **Written record** | Decisions D4a–D4d recorded alongside D1–D3 (the social sign-in decisions); it is a vendor addition outside the SOW, like social sign-in. |
 
@@ -44,7 +45,7 @@ select app.phone_canon(phone) as canon, count(*), array_agg(id)
   from profiles where phone is not null
  group by 1 having count(*) > 1;
 
--- 2. Profile phones that are NOT an Iraqi mobile (would fail the strict mobile gate).
+-- 2. Profile phones that are NOT an Iraqi mobile (informational since D4d opened every country; §D still needs Iraqi mobiles).
 select id, full_name, phone from profiles
  where phone is not null and app.phone_canon(phone) !~ '^7\d{9}$';
 
@@ -89,7 +90,7 @@ worth a desk correction before §D.
    ```sql
    update app.sms_limits
       set enabled = true,
-          allowed_prefixes = '{964}',      -- D4d
+          allowed_prefixes = '{""}',       -- D4d: every country (2026-09-15); '{964}' for Iraq only
           per_phone_per_day = 5,
           daily_total = 500,               -- raise once real volume is known
           updated_at = now();

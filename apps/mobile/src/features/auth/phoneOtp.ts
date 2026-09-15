@@ -10,7 +10,7 @@
  * docs/design/phone-otp-2026-09-05.md and docs/client/phone-otp-activation.md.
  */
 import type { MessageKey } from '@touch/i18n';
-import { toE164Iraq } from '@touch/core';
+import { composePhone, validatePhone } from '../profile/phone';
 import { errorMessageOf, isTransportError } from '../../lib/network';
 
 export const OTP_LENGTH = 6;
@@ -35,9 +35,17 @@ export function phoneOtpEnabled(): boolean {
 
 export type PhoneValidation = 'PHONE_INVALID' | null;
 
-/** Strict: an Iraqi mobile in any accepted shape, else PHONE_INVALID (a code to a typo is money spent on nothing). */
-export function validatePhoneInput(raw: string): { e164: string | null; error: PhoneValidation } {
-  const e164 = toE164Iraq(raw);
+/**
+ * A number from ANY country (owner decision 2026-09-15: phone sign-in is open
+ * worldwide; the SMS gate's allowed_prefixes is '{""}'). The country comes
+ * from the picker, the national digits from the field; the same length rule
+ * the profile phone uses decides, and the result is the E.164 GoTrue expects.
+ * Anything it cannot turn into a number is PHONE_INVALID before a paid code
+ * is requested.
+ */
+export function validatePhoneInput(iso: string, national: string): { e164: string | null; error: PhoneValidation } {
+  if (validatePhone(iso, national) !== null) return { e164: null, error: 'PHONE_INVALID' };
+  const e164 = composePhone(iso, national);
   return e164 ? { e164, error: null } : { e164: null, error: 'PHONE_INVALID' };
 }
 

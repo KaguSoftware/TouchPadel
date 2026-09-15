@@ -28,16 +28,24 @@ describe('parsePhoneOtpFlag', () => {
   });
 });
 
-describe('validatePhoneInput', () => {
-  it('accepts an Iraqi mobile in any written shape and returns E.164', () => {
-    for (const raw of ['07701234567', '0770 123 4567', '+964 770 123 4567', '009647701234567', '٠٧٧٠١٢٣٤٥٦٧']) {
-      expect(validatePhoneInput(raw)).toEqual({ e164: '+9647701234567', error: null });
-    }
+describe('validatePhoneInput (any country, since 2026-09-15)', () => {
+  it('joins the picked country and the national digits into E.164, trunk zero dropped', () => {
+    expect(validatePhoneInput('IQ', '0770 123 4567')).toEqual({ e164: '+9647701234567', error: null });
+    expect(validatePhoneInput('IQ', '7701234567')).toEqual({ e164: '+9647701234567', error: null });
+    expect(validatePhoneInput('GB', '07700 900123')).toEqual({ e164: '+447700900123', error: null });
+    expect(validatePhoneInput('AE', '50 123 4567')).toEqual({ e164: '+971501234567', error: null });
+    expect(validatePhoneInput('US', '(415) 555-2671')).toEqual({ e164: '+14155552671', error: null });
+    expect(validatePhoneInput('BR', '11 91234 5678')).toEqual({ e164: '+5511912345678', error: null });
   });
 
-  it('refuses anything that is not an Iraqi mobile (a code to a typo is paid for)', () => {
-    for (const raw of ['0770123456', '077012345678', '017712345', '+995419010203', '', 'abc']) {
-      expect(validatePhoneInput(raw)).toEqual({ e164: null, error: 'PHONE_INVALID' });
+  it('refuses what cannot be a number before a paid code is requested', () => {
+    for (const [iso, national] of [
+      ['IQ', ''],
+      ['IQ', 'abc'],
+      ['IQ', '123'], // under 4 national digits
+      ['US', '1234567890123456'], // past E.164's 15 digits
+    ] as const) {
+      expect(validatePhoneInput(iso, national), `${iso} ${national}`).toEqual({ e164: null, error: 'PHONE_INVALID' });
     }
   });
 });

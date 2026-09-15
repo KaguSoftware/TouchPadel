@@ -123,7 +123,7 @@ export const ar: Messages = {
     phoneSignInBody: 'سنرسل رمزًا من 6 أرقام إلى واتساب. لا حاجة لكلمة مرور.',
     phoneLinkBody: 'سنرسل رمزًا من 6 أرقام إلى واتساب هذا الرقم للتأكد من أنه يخصّك.',
     phoneNationalPlaceholder: '0770 123 4567',
-    phoneOtpInvalid: 'أدخل رقم هاتف عراقي، مثل 0770 123 4567.',
+    phoneOtpInvalid: 'أدخل رقم هاتف صحيحًا، وتحقّق من رمز الدولة.',
     sendCode: 'إرسال الرمز',
     otpTitle: 'أدخل الرمز',
     otpBody: 'أرسلنا رمزًا من 6 أرقام عبر واتساب إلى {phone}.',
