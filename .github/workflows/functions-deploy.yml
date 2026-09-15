@@ -1,0 +1,102 @@
+name: Functions deploy (staging)
+
+# Deploys every edge function under packages/db/supabase/functions to the
+# hosted project, so the functions the app code and the migrations rely on
+# cannot fall behind `main` the way they did before 2026-09-12 (three functions
+# never deployed, `replay` a version behind). Same secrets and the same human
+# gate as the migration push: the `staging` environment's required reviewers.
+#
+# A SEPARATE workflow, not a job in db-migrate.yml: `paths` is workflow-level,
+# and a function-only commit must not queue a reviewer-gated migration run.
+# Ordering with the schema is by trigger overlap — a commit that touches both
+# starts both; the reviewer approves the migration first.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/db/supabase/functions/**'
+      - 'packages/db/supabase/config.toml'
+
+concurrency:
+  group: functions-deploy
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    name: Deploy edge functions to staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Mirrors db-migrate.yml: an unconfigured repo skips with a notice rather
+      # than failing every function commit red.
+      - name: Preflight — are the deploy secrets configured?
+        id: preflight
+        env:
+          ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "${ACCESS_TOKEN:-}" ] || missing="${missing} SUPABASE_ACCESS_TOKEN"
+          [ -n "${PROJECT_REF:-}" ]  || missing="${missing} PROJECT_REF"
+          if [ -n "${missing}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Functions deploy skipped::Missing repository secrets:${missing}"
+            exit 0
+          fi
+          if ! printf '%s' "${PROJECT_REF}" | grep -Eq '^[a-z0-9]{15,40}$'; then
+            echo "::error title=Bad PROJECT_REF::Expected a bare Supabase project ref."
+            exit 1
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      # `link` needs no database password for a functions deploy; the CLI only
+      # talks to the Management API here.
+      - name: Link to staging project
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: supabase link --project-ref "${{ secrets.PROJECT_REF }}"
+
+      # No function name = every directory under supabase/functions that is a
+      # valid slug (`_shared` is not, and is skipped). `verify_jwt` per function
+      # comes from config.toml — telegram-callback and send-sms-otp must stay
+      # false (their callers carry no Supabase JWT; each has its own secret).
+      - name: Deploy every function
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: supabase functions deploy
+
+      - name: Record what is now deployed
+        if: steps.preflight.outputs.configured == 'true'
+        working-directory: packages/db
+        run: |
+          set -euo pipefail
+          supabase functions list | tee /tmp/functions-list.txt
+          {
+            echo "### Edge functions on the hosted project after this run"
+            echo
+            echo '```'
+            cat /tmp/functions-list.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # The two webhook receivers must not have verify_jwt turned on by a
+          # deploy that forgot config.toml.
+          for fn in telegram-callback send-sms-otp; do
+            if grep -E "^\s*\S+\s*\|\s*${fn}\s*\|" /tmp/functions-list.txt | grep -qi 'true'; then
+              echo "::error title=verify_jwt::${fn} is deployed with verify_jwt = true; its caller carries no Supabase JWT"
+              exit 1
+            fi
+          done

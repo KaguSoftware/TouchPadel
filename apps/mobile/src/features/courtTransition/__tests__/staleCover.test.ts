@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { courtRegionShows, coverRequired, framePresents, frameRepaints } from '../staleCover';
 
@@ -104,11 +107,7 @@ describe('the recorded sequence: flip under the shade, then dismiss', () => {
 
   it('shows the new page colour for the whole time the shade is down', () => {
     const seen = replay();
-    expect(seen.slice(0, 3)).toEqual([
-      'new-page-colour',
-      'new-page-colour',
-      'new-page-colour',
-    ]);
+    expect(seen.slice(0, 3)).toEqual(['new-page-colour', 'new-page-colour', 'new-page-colour']);
   });
 
   it('keeps the cover up until a frame has actually presented', () => {
@@ -120,5 +119,43 @@ describe('the recorded sequence: flip under the shade, then dismiss', () => {
   it('releases the court once the frame presents on return', () => {
     // And it must not stay covered forever: the last steps are the real court.
     expect(replay().slice(-1)).toEqual(['stale-surface']);
+  });
+});
+
+describe('the call site (lost once, in the merge afe7f57 of 2026-09-09)', () => {
+  // The block that clears the cover lives inside Court3D's render loop, which
+  // cannot be mounted under plain node (expo-gl, three). So the test is on the
+  // SOURCE: the merge dropped exactly this block, and with it gone the cover
+  // was raised on every theme flip and never taken down again — a flat
+  // page-colour rectangle where the court had been, for the rest of the
+  // session. This is the check that would have caught it.
+  const court3d = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '../../../components/Court3D.tsx'),
+    'utf8',
+  );
+
+  it('imports frameRepaints', () => {
+    expect(court3d).toMatch(
+      /import \{ frameRepaints \} from '\.\.\/features\/courtTransition\/staleCover';/,
+    );
+  });
+
+  it('clears the cover from the render loop, after the court frame has gone out', () => {
+    const call = court3d.indexOf(
+      'frameRepaints({ repaintPending: repaint.current, appState: appStateRef.current })',
+    );
+    expect(call).toBeGreaterThan(-1);
+    // After the COURT surface's frame has been presented (the first present in
+    // the loop), not before: the frame has to have gone out for the flag to mean
+    // anything — and to a live context, which `presentFrame` is what establishes
+    // (surfaceLiveness.ts).
+    const present = court3d.indexOf('if (!presentFrame(main.gl)) {');
+    expect(present).toBeGreaterThan(-1);
+    expect(present).toBeLessThan(call);
+    // And it clears both halves: the ref the loop reads and the state the cover
+    // is mounted on. Either alone leaves the cover up.
+    const after = court3d.slice(call, call + 400);
+    expect(after).toContain('repaint.current = false;');
+    expect(after).toContain('setStale(false);');
   });
 });

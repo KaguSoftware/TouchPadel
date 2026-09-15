@@ -35,7 +35,7 @@ const up = await stackAvailable();
 
 type Figure = { key: string; value: number; previous: number | null; changeAbs: number | null; changePct: number | null };
 type RevenueRow = {
-  period: string; padelIqd: number; cafeIqd: number; totalIqd: number; cashIqd: number; cardIqd: number;
+  period: string; padelIqd: number; cafeIqd: number; cafeNetIqd: number; totalIqd: number; cashIqd: number; cardIqd: number;
   discountsIqd: number; voidsIqd: number; refundsIqd: number; taxIqd: number; orders: number; bookings: number;
 };
 type Column = { key: string; labelEn: string; labelAr: string; kind: string };
@@ -254,7 +254,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
 
     const byKey = Object.fromEntries(d.figures.map((f) => [f.key, f]));
     expect(Object.keys(byKey).sort()).toEqual(
-      ['avgOrderValue', 'bookings', 'cafeRevenue', 'card', 'cash', 'discounts', 'noShows', 'orders', 'padelRevenue', 'refunds', 'revenue', 'waste'].sort(),
+      ['avgOrderValue', 'bookings', 'cafeNet', 'cafeRevenue', 'card', 'cash', 'discounts', 'noShows', 'orders', 'padelRevenue', 'refunds', 'revenue', 'waste'].sort(),
     );
     for (const f of d.figures) {
       expect(Number.isInteger(f.value), f.key).toBe(true);
@@ -266,6 +266,9 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(byKey.revenue!.value).toBe(byKey.padelRevenue!.value + byKey.cafeRevenue!.value);
     expect(byKey.padelRevenue!.value).toBeGreaterThanOrEqual(reservationPrice);
     expect(byKey.cafeRevenue!.value).toBeGreaterThanOrEqual(tabTotal);
+    // 0096: cafeNet is the cafe figure after refunds, read from the same helper Analytics uses.
+    expect(byKey.cafeNet!.value).toBeLessThanOrEqual(byKey.cafeRevenue!.value);
+    expect(byKey.cafeNet!.value).toBeGreaterThanOrEqual(byKey.cafeRevenue!.value - byKey.refunds!.value);
     expect(byKey.bookings!.value).toBeGreaterThanOrEqual(1);
     expect(byKey.orders!.value).toBeGreaterThanOrEqual(1);
     expect(byKey.avgOrderValue!.value).toBe(Math.round(byKey.cafeRevenue!.value / byKey.orders!.value));
@@ -322,7 +325,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
 
     expect(d.comparison).toBeNull();
     expect(d.columns.map((c) => c.key)).toEqual([
-      'period', 'padelIqd', 'cafeIqd', 'totalIqd', 'cashIqd', 'cardIqd',
+      'period', 'padelIqd', 'cafeIqd', 'cafeNetIqd', 'totalIqd', 'cashIqd', 'cardIqd',
       'discountsIqd', 'voidsIqd', 'refundsIqd', 'taxIqd', 'orders', 'bookings',
     ]);
     for (const c of d.columns) {
@@ -344,6 +347,14 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     const tabDay = d.rows.find((r) => r.period === today)!;
     expect(tabDay, `no row for ${today}`).toBeDefined();
     expect(Number(tabDay.cafeIqd)).toBeGreaterThanOrEqual(tabTotal);
+    expect(Number(tabDay.cafeNetIqd)).toBeLessThanOrEqual(Number(tabDay.cafeIqd));
+    // 0096: Reports and Analytics read the SAME helper, so the day agrees to the dinar.
+    const daily = await appRpc(owner, 'analytics_daily_sales', { p_from: from, p_to: to }).then(outcome);
+    expect(daily.ok, daily.errorMessage).toBe(true);
+    const dailyRow = (daily.data as { business_date: string; cafe_gross_iqd: number; cafe_net_iqd: number; discount_iqd: number }[]).find((r) => r.business_date === today)!;
+    expect(Number(tabDay.cafeIqd)).toBe(Number(dailyRow.cafe_gross_iqd));
+    expect(Number(tabDay.cafeNetIqd)).toBe(Number(dailyRow.cafe_net_iqd));
+    expect(Number(tabDay.discountsIqd)).toBe(Number(dailyRow.discount_iqd));
     expect(Number(tabDay.cashIqd)).toBeGreaterThanOrEqual(tabTotal);
     expect(Number(tabDay.orders)).toBeGreaterThanOrEqual(1);
     const bookDay = d.rows.find((r) => r.period === bookingDay)!;
@@ -398,6 +409,8 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(Number(row.bookedMinutes)).toBe(60);
     expect(Number(row.revenueIqd)).toBe(reservationPrice);
     expect(Number(row.availableMinutes)).toBeGreaterThan(0);
+    // 0097: available minutes are per court; one court filtered = the total.
+    expect(Number(d.totals.availableMinutes)).toBe(Number(row.availableMinutes));
     expect(Number(row.occupancyPct)).toBeCloseTo((60 * 100) / Number(row.availableMinutes), 1);
     expect(Number(row.peakBookings) + Number(row.offPeakBookings)).toBe(1);
     expect(Number(row.cancellations)).toBe(0);
@@ -525,7 +538,12 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     const byCourt = await appRpc(manager, 'report_drill', { p_figure: `court:${courtId}`, p_key: null, p_from: from, p_to: to }).then(outcome);
     expect((byCourt.data as { transactions: Drill[] }).transactions.map((t) => t.id)).toEqual([reservationId]);
 
-    for (const fig of ['revenue', 'padelRevenue', 'cafeRevenue', 'cash', 'card']) {
+    const net = await appRpc(owner, 'report_drill', { p_figure: 'cafeNet', p_key: null, p_from: from, p_to: to }).then(outcome);
+    expect(net.ok, net.errorMessage).toBe(true);
+    const ntx = (net.data as { transactions: Drill[] }).transactions;
+    expect(ntx.find((t) => t.id === tabId)?.amountIqd).toBe(tabTotal); // nothing refunded on this tab
+
+    for (const fig of ['revenue', 'padelRevenue', 'cafeRevenue', 'cafeNet', 'cash', 'card']) {
       const m = await appRpc(manager, 'report_drill', { p_figure: fig, p_key: null, p_from: from, p_to: to }).then(outcome);
       expect(m.errorMessage, `${fig} as manager`).toContain('FORBIDDEN');
     }

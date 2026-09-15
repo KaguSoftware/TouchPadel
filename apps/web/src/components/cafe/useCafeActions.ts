@@ -94,7 +94,7 @@ export function useCafeActions(d: CafeActionsDeps) {
         discount_pct: line.discount_pct,
       });
     },
-    [basket, toasts, tr, d],
+    [basket, toasts, tr],
   );
 
   const removeLine = useCallback(

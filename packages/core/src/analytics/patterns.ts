@@ -2,8 +2,8 @@
  * Deterministic pattern miner for the analytics "Patterns" card.
  *
  * This file does the MATH — never an LLM. It computes statistically-grounded candidate
- * patterns (share correlation, market-basket lift, weekday over-indexing, segment skews,
- * margin drift), each with its supporting numbers, sample size and a strength score. The
+ * patterns (share correlation, market-basket lift, weekday over-indexing, a price cliff, a
+ * locale split, margin drift), each with its supporting numbers, sample size and a strength score. The
  * model's only job downstream (the `analytics-insights` edge function) is to reject the
  * obvious ones and phrase the survivors; without it, `fallbackText` renders.
  *
@@ -19,7 +19,7 @@
 import { iqd } from '../money/iqd';
 import { pickLocale, type Locale } from '../i18n/pickLocale';
 import { dayOfWeekOfDate } from '../time/tz';
-import { tallyBaskets } from './basket';
+import type { BasketTally } from './basket';
 import { assertCount, type ItemNames, refOf } from './compare';
 import type { PriceBandBounds, PriceBandSales } from './priceBands';
 
@@ -68,12 +68,13 @@ export type PatternsInput = {
   soldByDay: readonly SoldByDayRow[];
   /** Business dates with any sales at all — the shared day axis. */
   recordedDays: readonly string[];
-  /** Item ids per order (distinct-ified inside); omit when unavailable. */
-  baskets?: readonly (readonly string[])[];
+  /**
+   * Pair co-occurrence tally (`tallyBaskets`, or the SQL bought-together rows folded into
+   * the same shape); omit (or null) and no basket pattern is mined.
+   */
+  pairTally?: BasketTally | null;
   /** From `buildPriceBands`; omit when engagement data is absent. */
   priceBands?: readonly PriceBandSales[];
-  /** Views → real sales for discounted vs full-price items; omit when unknown. */
-  discount?: { discounted: { views: number; sold: number }; regular: { views: number; sold: number } } | null;
   /** Two (or more) menu-language audiences; the two largest are compared. */
   locales?: readonly LocaleAudience[];
   /** Only items WITH a cost; an empty/absent map mines no margin patterns. */
@@ -87,7 +88,6 @@ export type PatternsCopy = {
   weekday: (dow: number) => string;
   bandLabel: (band: PriceBandBounds) => string;
   localeLabel: (locale: string) => string;
-  discountSubject: string;
   marginSubject: string;
   sample: {
     days: (n: number) => string;
@@ -103,8 +103,6 @@ export type PatternsCopy = {
     basket: (a: string, b: string, confidencePct: number, lift: number, count: number) => string;
     weekdaySkew: (item: string, weekday: string, itemDayPct: number, houseDayPct: number, index: number, days: number) => string;
     priceCliff: (bestBand: string, bestPerView: number, worstBand: string, worstPerView: number) => string;
-    discountLift: (discountedPct: number, regularPct: number) => string;
-    discountNoLift: (discountedPct: number, regularPct: number) => string;
     localeSplit: (aLabel: string, aItem: string, aPct: number, bLabel: string, bItem: string, bPct: number) => string;
     marginUp: (earlyPct: number, latePct: number, days: number, driver: string | null) => string;
     marginDown: (earlyPct: number, latePct: number, days: number, driver: string | null) => string;
@@ -122,7 +120,6 @@ export const DEFAULT_PATTERNS_COPY_EN: PatternsCopy = {
   bandLabel: (b) =>
     b.maxIqd === null ? `${enNum.format(b.minIqd)}+ IQD` : `${enNum.format(b.minIqd)}–${enNum.format(b.maxIqd - 1)} IQD`,
   localeLabel: (l) => (l === 'ar' ? 'Arabic' : l === 'en' ? 'English' : l),
-  discountSubject: 'Discounts',
   marginSubject: 'Gross margin',
   sample: {
     days: (n) => `${n} days`,
@@ -142,11 +139,7 @@ export const DEFAULT_PATTERNS_COPY_EN: PatternsCopy = {
     weekdaySkew: (item, wd, itemPct, housePct, index, days) =>
       `${item} skews to ${wd}: ${itemPct}% of its sales land that day vs ${housePct}% of all sales (${index}× the house level, over ${days} ${wd}s) — an item-specific rhythm, not just a busy day.`,
     priceCliff: (best, bestPer, worst, worstPer) =>
-      `${best} items sell ${bestPer} units per view while ${worst} items sell ${worstPer} — the cheap band is ordered without browsing, the pricey band is browsed far more than it is bought.`,
-    discountLift: (d, r) =>
-      `Discounted items turn ${d} of every 100 views into sales vs ${r} for full price — discounts genuinely sell; use them selectively.`,
-    discountNoLift: (d, r) =>
-      `Discounts are not lifting sales (${d} sales per 100 views discounted vs ${r} full price) — review presentation instead of price.`,
+      `${best} items sell ${bestPer} units per view while ${worst} items sell ${worstPer} — the ${worst} band is browsed far more than it is bought; look at what those pages promise.`,
     localeSplit: (aL, aI, aP, bL, bI, bP) =>
       `${aL}-menu guests gravitate to ${aI} (${aP}% of their sessions) while ${bL}-menu guests gravitate to ${bI} (${bP}%) — feature a different item per language.`,
     marginUp: (e, l, days, driver) =>
@@ -193,12 +186,17 @@ type Thresholds = {
  * looser floors. Every level keeps a real significance floor — loosening never means inventing.
  */
 const LEVELS: readonly Thresholds[] = [
-  { minDays: 8, minItemDays: 4, minItemQty: 12, minShareCorr: 0.55, minBasketSupport: 5, minLift: 1.6, minWeekdayQty: 8, minWeekdayIndex: 1.7, minWeekdayDays: 5, minSegmentViews: 30 },
-  { minDays: 6, minItemDays: 3, minItemQty: 8, minShareCorr: 0.5, minBasketSupport: 4, minLift: 1.45, minWeekdayQty: 6, minWeekdayIndex: 1.55, minWeekdayDays: 3, minSegmentViews: 20 },
-  { minDays: 5, minItemDays: 3, minItemQty: 6, minShareCorr: 0.45, minBasketSupport: 3, minLift: 1.35, minWeekdayQty: 5, minWeekdayIndex: 1.45, minWeekdayDays: 2, minSegmentViews: 14 },
+  { minDays: 14, minItemDays: 4, minItemQty: 12, minShareCorr: 0.7, minBasketSupport: 5, minLift: 1.6, minWeekdayQty: 8, minWeekdayIndex: 1.7, minWeekdayDays: 5, minSegmentViews: 30 },
+  { minDays: 10, minItemDays: 3, minItemQty: 8, minShareCorr: 0.6, minBasketSupport: 4, minLift: 1.45, minWeekdayQty: 6, minWeekdayIndex: 1.55, minWeekdayDays: 3, minSegmentViews: 20 },
+  { minDays: 8, minItemDays: 3, minItemQty: 6, minShareCorr: 0.55, minBasketSupport: 3, minLift: 1.35, minWeekdayQty: 5, minWeekdayIndex: 1.45, minWeekdayDays: 2, minSegmentViews: 14 },
 ];
 
 export const MAX_PATTERN_LEVEL = LEVELS.length;
+
+/** Co-movement is mined over the top items by quantity only: pairs grow as n², the signal does not. */
+export const CO_MOVE_MAX_ITEMS = 25;
+/** ... and at most this many co-movement candidates survive a level, strongest first. */
+export const CO_MOVE_MAX_CANDIDATES = 8;
 
 /** Sample thresholds per pattern shape: `[medium, high]`; below `medium` tiers as `low`. */
 export const SAMPLE_TIERS = {
@@ -292,8 +290,11 @@ function mineCoMovement(sold: readonly SoldByDayRow[], recordedDays: readonly st
     totalQty.set(row.id, (totalQty.get(row.id) ?? 0) + row.qty);
   }
 
+  // The top items by quantity, then id order so a tie is deterministic.
   const items = [...qtyByItem.keys()]
     .filter((id) => (daysActive.get(id) ?? 0) >= t.minItemDays && (totalQty.get(id) ?? 0) >= t.minItemQty)
+    .sort((a, b) => (totalQty.get(b) ?? 0) - (totalQty.get(a) ?? 0) || a.localeCompare(b))
+    .slice(0, CO_MOVE_MAX_ITEMS)
     .sort();
   const shareByItem = new Map<string, number[]>();
   for (const id of items) {
@@ -313,8 +314,10 @@ function mineCoMovement(sold: readonly SoldByDayRow[], recordedDays: readonly st
       const rawCorr = pearson(qtyByItem.get(a)!, qtyByItem.get(b)!);
       // A share correlation that flips sign vs raw is an artifact — demand both agree.
       if (Math.sign(shareCorr) !== Math.sign(rawCorr) || rawCorr === 0) continue;
-
+      // "Inverse" is a claim about QUANTITIES replacing each other, so the raw quantities
+      // must anti-correlate at the same floor; two shares can diverge while both sell more.
       const positive = shareCorr > 0;
+      if (!positive && rawCorr > -t.minShareCorr) continue;
       const strength = Math.min(1, Math.abs(shareCorr));
       const an = c.name(a);
       const bn = c.name(b);
@@ -345,17 +348,17 @@ function mineCoMovement(sold: readonly SoldByDayRow[], recordedDays: readonly st
       });
     }
   }
-  return out;
+  return out.sort((x, y) => y.score - x.score || x.id.localeCompare(y.id)).slice(0, CO_MOVE_MAX_CANDIDATES);
 }
 
 // ---------- family 2: market-basket lift ----------
 
-function mineBasketLift(baskets: readonly (readonly string[])[], keep: (id: string) => boolean, c: Ctx): PatternCandidate[] {
+function mineBasketLift(tally: BasketTally, keep: (id: string) => boolean, c: Ctx): PatternCandidate[] {
   const { t, copy } = c;
-  const tally = tallyBaskets(baskets, keep);
   if (tally.orders < 4) return [];
   const out: PatternCandidate[] = [];
   for (const p of tally.pairs) {
+    if (!keep(p.a) || !keep(p.b) || p.a === p.b) continue;
     if (p.count < t.minBasketSupport) continue;
     const lift = (p.count * tally.orders) / (p.aCount * p.bCount);
     if (lift < t.minLift) continue;
@@ -457,7 +460,7 @@ function mineWeekdaySkew(sold: readonly SoldByDayRow[], recordedDays: readonly s
   return out;
 }
 
-// ---------- family 4: segment skews (price band / discount / locale) ----------
+// ---------- family 4: segment skews (price band / locale) ----------
 
 function mineSegmentSkews(input: PatternsInput, keep: (id: string) => boolean, c: Ctx): PatternCandidate[] {
   const { t, copy } = c;
@@ -501,45 +504,9 @@ function mineSegmentSkews(input: PatternsInput, keep: (id: string) => boolean, c
           `"${bestLabel}" sells ${round1(conv(best))} units per view (${best.sold} sold, ${best.views} views); ` +
           `"${worstLabel}" sells ${round1(conv(worst))} (${worst.sold} sold, ${worst.views} views). Views are QR ` +
           `sessions that opened the item, sold is every unit including guests who never scanned; a value above 1× ` +
-          `means the band is ordered WITHOUT being browsed. Phrase it as "N sales per view" or "N×", never "N%".`,
+          `means the band is ordered WITHOUT being browsed. The bands are named by the numbers, not by price: ` +
+          `do not assume the cheaper band is the one that sells. Phrase it as "N sales per view" or "N×", never "N%".`,
         fallbackText: copy.fallback.priceCliff(bestLabel, round1(conv(best)), worstLabel, round1(conv(worst))),
-      });
-    }
-  }
-
-  // Discount lift: does a discount actually SELL more?
-  const disc = input.discount?.discounted;
-  const reg = input.discount?.regular;
-  if (disc && reg && disc.views >= t.minSegmentViews && reg.views >= t.minSegmentViews && disc.sold + reg.sold > 0) {
-    const dc = conv(disc);
-    const rc = conv(reg);
-    const ratio = rc > 0 ? dc / rc : Infinity;
-    if (ratio >= 1.4 || ratio <= 0.7) {
-      const better = ratio >= 1.4;
-      const sample = disc.views + reg.views;
-      const strength = Math.min(1, Math.abs(Math.log2(Number.isFinite(ratio) && ratio > 0 ? ratio : 2)));
-      out.push({
-        id: idKey('segment', ['discount']),
-        kind: 'segment',
-        subjects: [copy.discountSubject],
-        subjectIds: [],
-        metrics: {
-          discountedSalesPerViewPct: pct(dc),
-          discountedSold: disc.sold,
-          regularSalesPerViewPct: pct(rc),
-          regularSold: reg.sold,
-          ratio: round1(Number.isFinite(ratio) ? ratio : 0),
-        },
-        sampleSize: sample,
-        confidence: tier(sample, ...SAMPLE_TIERS.segmentViews),
-        sampleLabel: copy.sample.views(sample),
-        strength,
-        score: strength * Math.log2(sample + 2),
-        desc:
-          `Discounted items turn ${pct(dc)}% of views into real SALES (${disc.sold} sold on ${disc.views} views) vs ` +
-          `${pct(rc)}% for full-price (${reg.sold} sold on ${reg.views} views) — discounts ` +
-          `${better ? 'clearly lift' : 'do NOT lift (and may hurt)'} actual sales.`,
-        fallbackText: better ? copy.fallback.discountLift(pct(dc), pct(rc)) : copy.fallback.discountNoLift(pct(dc), pct(rc)),
       });
     }
   }
@@ -793,7 +760,7 @@ export function minePatterns(
 
   const all = [
     ...mineCoMovement(sold, recordedDays, c),
-    ...(input.baskets ? mineBasketLift(input.baskets, keep, c) : []),
+    ...(input.pairTally ? mineBasketLift(input.pairTally, keep, c) : []),
     ...mineWeekdaySkew(sold, recordedDays, c),
     ...mineSegmentSkews(input, keep, c),
     ...mineMarginPatterns(sold, recordedDays, costs, c),

@@ -21,7 +21,8 @@ import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { useBack } from '../src/navigation/back';
 import { space, useTheme } from '../src/theme';
-import { Button, ErrorText, Field, FormScreen, Hint, LinkText, Screen, Title } from '../src/components/ui';
+import { Button, ErrorText, FormScreen, Hint, LinkText, Screen, Title } from '../src/components/ui';
+import { CodeInput } from '../src/components/CodeInput';
 import { useToast } from '../src/components/overlays';
 
 type Mode = 'signin' | 'link';
@@ -40,13 +41,16 @@ type Mode = 'signin' | 'link';
  *           (the verify-email precedent).
  *   link    verifyOtp(type 'phone_change') on a signed-in account, then the
  *           verified number is written to profiles.phone too — it is the one
- *           the desk should be calling.
+ *           the desk should be calling. Reached from Profile ("Verify phone
+ *           number") and, with `from=edit`, from Edit profile's Save when the
+ *           guest CHANGED their number — that save is not committed until the
+ *           code lands here, so this write is what completes it.
  *
  * iOS fills the field from Messages (textContentType oneTimeCode); Android
  * needs the SMS Retriever hash in the message body for auto-read, which would
  * push the template past one segment — manual entry / paste there.
  */
-function VerifyOtpForm({ mode, phone }: { mode: Mode; phone: string }) {
+function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?: string }) {
   const { t } = useLocale();
   const router = useRouter();
   const back = useBack();
@@ -90,7 +94,10 @@ function VerifyOtpForm({ mode, phone }: { mode: Mode; phone: string }) {
           await updateOwnProfile(supabase, user.id, { phone });
           void queryClient.invalidateQueries({ queryKey: profileKeys.own });
         }
-        toast(t('auth.phoneVerified'), 'info');
+        toast(t(from === 'edit' ? 'profile.phoneUpdated' : 'auth.phoneVerified'), 'info');
+        // From Edit profile the guest came THROUGH that form, so land back on
+        // the Profile tab rather than leaving the half-finished editor on the
+        // stack for a back-swipe to return to.
         router.replace('/(tabs)/profile');
         return;
       }
@@ -143,18 +150,19 @@ function VerifyOtpForm({ mode, phone }: { mode: Mode; phone: string }) {
       <FormScreen>
         <Title plain>{t('auth.otpTitle')}</Title>
         <Hint style={{ marginTop: 8 }}>{t('auth.otpBody', { phone: isolate(formatIraqiNational(phone)) })}</Hint>
-        <Field
+        <CodeInput
           label={t('auth.otpLabel')}
           value={code}
           onChangeText={(v) => {
             const next = sanitizeOtpInput(v);
             setCode(next);
+            // A wrong code leaves its message on screen; the moment the guest
+            // starts correcting it, the red boxes go back to neutral.
+            if (error) setError(null);
             if (next.length === OTP_LENGTH) void onSubmit(next);
           }}
-          keyboardType="number-pad"
-          autoComplete="one-time-code"
-          textContentType="oneTimeCode"
-          maxLength={OTP_LENGTH}
+          length={OTP_LENGTH}
+          error={!!error}
           autoFocus
           onSubmitEditing={() => void onSubmit()}
         />
@@ -188,7 +196,7 @@ function VerifyOtpForm({ mode, phone }: { mode: Mode; phone: string }) {
 }
 
 export default function VerifyOtpScreen() {
-  const params = useLocalSearchParams<{ phone?: string; mode?: string }>();
+  const params = useLocalSearchParams<{ phone?: string; mode?: string; from?: string }>();
   const { session, initializing } = useAuth();
   const mode: Mode = params.mode === 'link' ? 'link' : 'signin';
   const phone = typeof params.phone === 'string' ? params.phone : '';
@@ -196,7 +204,7 @@ export default function VerifyOtpScreen() {
   if (mode === 'link') {
     return (
       <RequireSession>
-        <VerifyOtpForm mode="link" phone={phone} />
+        <VerifyOtpForm mode="link" phone={phone} from={params.from} />
       </RequireSession>
     );
   }

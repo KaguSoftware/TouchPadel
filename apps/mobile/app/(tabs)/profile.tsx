@@ -8,6 +8,7 @@ import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
 import { hasRealEmail, phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
+import { hasPasswordSignIn } from '../../src/features/profile/changePasswordFlow';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
@@ -18,7 +19,7 @@ import { callPhone } from '../../src/lib/phone';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
-import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon } from '../../src/components/icons';
+import { GearIcon, LockIcon, PencilIcon, PhoneIcon, TrashIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 
@@ -278,7 +279,10 @@ export default function ProfileScreen() {
             />
             {/* No password exists for a phone-only account, and a desk-created
               walk-in's synthetic address has no mailbox to recover to. */}
-            {hasRealEmail(session?.user) ? (
+            {/* …and only for an account that HAS a password: a guest who only
+              ever signed in with Google or Apple has none, and for them every
+              "current password" is wrong — the row looked broken, not absent. */}
+            {hasRealEmail(session?.user) && hasPasswordSignIn(session?.user) ? (
               <MenuRow
                 icon={<LockIcon size={15} color={colors.gstrong} />}
                 label={t('profile.changePassword')}
@@ -295,7 +299,7 @@ export default function ProfileScreen() {
               />
             ) : null}
             <MenuRow
-              icon={<SlidersIcon size={15} color={colors.gstrong} />}
+              icon={<GearIcon size={15} color={colors.gstrong} />}
               label={t('settings.title')}
               onPress={() => router.push('/settings')}
             />
@@ -304,18 +308,33 @@ export default function ProfileScreen() {
               label={t('profile.callVenue')}
               onPress={onCallVenue}
               disabled={settings.isLoading}
+            />
+            {/* SEC-16. Last in the list and rendered in the error colour: both
+              stores require account deletion to be reachable from inside the
+              app, and this row is the path. It pushes a screen with a typed
+              confirmation rather than opening a dialog — the act is not
+              undoable, and an Alert is what a mis-tap dismisses by habit. */}
+            <MenuRow
+              icon={<TrashIcon size={15} color={colors.redtext} />}
+              iconBg={colors.redtint}
+              label={t('profile.deleteAccount')}
+              onPress={() => router.push('/delete-account')}
               last
             />
           </View>
 
           <ErrorText>{error}</ErrorText>
 
+          {/* A quiet outline, not a red one. Signing out is reversible and the
+              native alert already marks it destructive; painted red it stood
+              next to Delete account as a second alarm, and in dark mode coral
+              text in a blue outline on navy did not read as anything (owner,
+              2026-09-11). The one red on this screen is the row that earns it. */}
           <Button
             label={t('auth.signOut')}
             variant="secondary"
             size="medium"
             onPress={confirmSignOut}
-            labelColor={colors.redtext}
             style={{ marginTop: space.m, backgroundColor: 'transparent' }}
           />
         </ScrollView>

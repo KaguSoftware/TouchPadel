@@ -97,7 +97,7 @@ export function BookingDetailScreen() {
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['reservation', id] });
     void queryClient.invalidateQueries({ queryKey: ['reservations'] });
-    void queryClient.invalidateQueries({ queryKey: ['reservationsWeek'] });
+    void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     void queryClient.invalidateQueries({ queryKey: ['series'] });
   }
 

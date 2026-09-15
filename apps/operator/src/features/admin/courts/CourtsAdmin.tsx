@@ -38,6 +38,9 @@ interface CourtAdminRow {
   duration_options: number[];
   sort_order: number;
   is_active: boolean;
+  /** 0097: the days the court counts as open for occupancy; NULL = unbounded. */
+  active_from: string | null;
+  active_to: string | null;
 }
 
 /** ALL rows incl. inactive — deliberately not QK.courts (active-only, other shape). */
@@ -46,7 +49,7 @@ const ALL_COURTS_KEY = ['courts', 'all'] as const;
 async function fetchAllCourts(): Promise<CourtAdminRow[]> {
   const { data, error } = await supabase
     .from('courts')
-    .select('id, name_en, name_ar, description_en, description_ar, indoor, photo_path, duration_options, sort_order, is_active')
+    .select('id, name_en, name_ar, description_en, description_ar, indoor, photo_path, duration_options, sort_order, is_active, active_from, active_to')
     .order('sort_order');
   if (error) throw error;
   return data as CourtAdminRow[];
@@ -206,6 +209,10 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
         p_photo_path: photo,
         p_duration_options: durations,
         p_is_active: active,
+        // 0097: the window is passed back unchanged; the server stamps active_to
+        // on deactivation and clears it when the court comes back.
+        p_active_from: court?.active_from ?? null,
+        p_active_to: court?.active_to ?? null,
       });
       toast.ok(tr('op.toast.saved'));
       onDone();
@@ -261,6 +268,8 @@ function CourtForm({ court, onDone, onCancel }: { court: CourtAdminRow | null; o
         p_photo_path: photo,
         p_duration_options: durations,
         p_is_active: false,
+        p_active_from: court.active_from,
+        p_active_to: court.active_to,
       });
       toast.ok(tr('op.toast.saved'));
       onDone();

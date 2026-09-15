@@ -1,22 +1,31 @@
 /**
- * The five numbered zones of the dashboard (operator-slice.md §5.3) plus the
+ * The numbered zones of a dashboard tab (operator-slice.md §5.3) plus the
  * scroll-spy that drives `ZoneNav`. One IntersectionObserver for all sections;
  * the topmost intersecting section wins, so a tall zone stays selected while it
- * fills the viewport.
+ * fills the viewport. Each tab declares its own zone list (CAFE_ZONES here,
+ * COURT_ZONES beside the courts tab) and hands it to Zone / ZoneNav.
+ *
+ * The zone's one-line description used to print beside the heading; it is an
+ * explanation, not state, so it now sits behind the info button (read on
+ * hover, focus or tap) and the heading row stays one line of type.
  */
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import type { MessageKey } from '@touch/i18n';
+import { InfoTip } from '../../components/InfoTip';
 import { useLocale } from '../../lib/i18n';
 
 export interface ZoneDef {
   id: string;
-  /** "01".."05" — a stable ordinal, not a translated string. */
+  /** "01".."08" — a stable ordinal, not a translated string. */
   ordinal: string;
   titleKey: MessageKey;
+  /** The explanation behind the heading's info button. */
   descKey: MessageKey;
+  /** Shorter label for the jump pill; falls back to the title. */
+  navKey?: MessageKey;
 }
 
-export const ZONES: readonly ZoneDef[] = [
+export const CAFE_ZONES: readonly ZoneDef[] = [
   { id: 'pulse', ordinal: '01', titleKey: 'analytics.zones.pulse', descKey: 'analytics.zones.pulseDesc' },
   { id: 'ai', ordinal: '02', titleKey: 'analytics.zones.ai', descKey: 'analytics.zones.aiDesc' },
   { id: 'menu', ordinal: '03', titleKey: 'analytics.zones.menu', descKey: 'analytics.zones.menuDesc' },
@@ -56,7 +65,7 @@ export function useZoneSpy(ids: readonly string[]): string {
 
 const headRow: CSSProperties = {
   display: 'flex',
-  alignItems: 'baseline',
+  alignItems: 'center',
   gap: 'var(--tp-sp-2-5)',
   marginBlockEnd: 'var(--tp-sp-3)',
   borderBlockEnd: '1px solid var(--tp-border)',
@@ -65,8 +74,9 @@ const headRow: CSSProperties = {
 
 export function Zone({ zone, children }: { zone: ZoneDef; children: ReactNode }) {
   const { tr } = useLocale();
+  const title = tr(zone.titleKey);
   return (
-    <section id={`zone-${zone.id}`} aria-labelledby={`zone-${zone.id}-title`} style={{ marginBlockEnd: 'var(--tp-sp-6)', scrollMarginBlockStart: '5rem' }}>
+    <section id={`zone-${zone.id}`} aria-labelledby={`zone-${zone.id}-title`} style={{ marginBlockEnd: 'var(--tp-sp-6)', scrollMarginBlockStart: '6.5rem' }}>
       <div style={headRow}>
         {/* --tp-muted is a SURFACE step (86% lightness); as ink on the page
             ground the ordinal was all but invisible. */}
@@ -74,9 +84,9 @@ export function Zone({ zone, children }: { zone: ZoneDef; children: ReactNode })
           {zone.ordinal}
         </span>
         <h2 id={`zone-${zone.id}-title`} style={{ margin: 0, fontSize: 'var(--tp-fs-xl)' }}>
-          {tr(zone.titleKey)}
+          {title}
         </h2>
-        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(zone.descKey)}</span>
+        <InfoTip content={tr(zone.descKey)} label={tr('ws.analytics.tips.about', { title })} />
       </div>
       {children}
     </section>

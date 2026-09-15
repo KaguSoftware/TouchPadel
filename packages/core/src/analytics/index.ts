@@ -11,5 +11,8 @@ export * from './priceBands';
 export * from './basket';
 export * from './overview';
 export * from './patterns';
+export * from './insightsContract';
+export * from './courtsBasis';
+export * from './courtPatterns';
 export * from './insightsText';
 export * from './exclusions';

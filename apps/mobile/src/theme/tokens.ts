@@ -67,6 +67,13 @@ export interface Palette {
   redline: string;
   redtext: string;
   redtext2: string;
+  /**
+   * The FILLED destructive surface — the Delete account confirm button, the
+   * error toast, the offline bar — with white on it. Light is the design's
+   * #B42318; dark is its own value, because #B42318 on the blue-mode navy
+   * (1.6:1 against `card`) was a muddy block rather than a red action.
+   */
+  danger: string;
   /** Translucent tab-bar background. */
   tabBg: string;
   // court illustration (courts home)
@@ -112,6 +119,7 @@ export const palettes: Record<'light' | 'dark', Palette> = {
     redline: '#ECC7C2',
     redtext: '#B42318',
     redtext2: '#7A2E26',
+    danger: '#B42318',
     tabBg: '#FFFFFFF2',
     crtTurf: '#7D9FD8',
     crtTurfLine: '#3360AB',
@@ -161,10 +169,23 @@ export const palettes: Record<'light' | 'dark', Palette> = {
     ambline: '#7B5714',
     ambtext: '#E9BF72',
     ambstrong: '#E3AF4F',
-    redtint: '#5A110C',
-    redline: '#871A12',
-    redtext: '#ED8078',
-    redtext2: '#F2A29C',
+    // A dusky ROSE, not a red. The first cut was a maroon block with coral on
+    // it (#5A110C / #ED8078) and read as an alarm wherever it appeared — the
+    // Delete account row, the cancel outline, the cancelled pill (owner,
+    // 2026-09-11: "too aggressive, make it passive, something that suits the
+    // blue"). So the family is desaturated toward the navy: the tint sits at
+    // the page's own lightness (L20) with a rose cast, the line one step up,
+    // and the text a soft rose that still carries body copy — 5.1:1 on `card`,
+    // 6.2:1 on `redtint`. The one strong red left in dark is `danger`, the
+    // filled surface of an action that is actually destructive.
+    redtint: '#4A2A3A',
+    redline: '#7A4658',
+    redtext: '#E9A6AA',
+    redtext2: '#F0B0B4',
+    // Brighter and a touch warmer than the light-mode red, so it reads as red
+    // against the navy rather than sinking into it (2.0:1 against `card`,
+    // 2.4:1 against `bg`), and still 5.1:1 under white text.
+    danger: '#C93B30',
     tabBg: '#1C355EF2',
     // The court is the brand blue itself, marked out in white.
     crtTurf: '#3360AB',
@@ -202,6 +223,11 @@ export const brand = {
   navyLine: '#274982',
   navyTrack: '#234276',
   white: '#FFFFFF',
+  /**
+   * The light-mode destructive fill. Surfaces that follow the theme read
+   * `colors.danger` (the palette token) instead — this stays only for what is
+   * genuinely theme-invariant.
+   */
   danger: '#B42318',
   /** Countdown bar when nearly out of time. */
   dangerSoft: '#ED8078',

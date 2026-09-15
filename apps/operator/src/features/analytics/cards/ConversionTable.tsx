@@ -4,7 +4,11 @@
  * The two halves come from DIFFERENT populations — a guest who never scanned
  * still shows up in "sold" — so the card states that in `howToRead` and marks
  * rows with sales but no views rather than printing an impossible ratio.
- * Sortable, searchable, CSV-exportable, collapsed to 15 rows.
+ * Sortable, searchable, CSV-exportable, collapsed to 15 rows. Conversion is
+ * CAPPED at 100%: an item sold more often than its page was opened wears the
+ * "sold without a view" chip instead of an impossible ratio. Hidden gems
+ * (rarely seen, bought when seen — core `hiddenGems`) carry a badge and a
+ * one-click filter; they used to be a card of their own.
  *
  * This was a hand-rolled <table> with `<th onClick>` headers — no button, no
  * tabindex, no focus ring, so on the one screen an owner reads at a laptop the
@@ -27,11 +31,14 @@ const COLLAPSED = 15;
 
 export function ConversionTable({
   rows,
+  hiddenGemIds,
   state,
   f,
   rangeLabel,
 }: {
   rows: readonly ItemConversion[];
+  /** Ids of the hidden gems (core `hiddenGems` over the same rows). */
+  hiddenGemIds?: ReadonlySet<string>;
   state: CardState;
   f: Formatters;
   rangeLabel: string;
@@ -41,28 +48,45 @@ export function ConversionTable({
   const [asc, setAsc] = useState(false);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [gemsOnly, setGemsOnly] = useState(false);
 
   const named = useMemo(
-    () => rows.map((r) => ({ ...r, name: pickLocale({ en: r.nameEn, ar: r.nameAr }, locale) || r.id })),
-    [rows, locale],
+    () => rows.map((r) => ({ ...r, name: pickLocale({ en: r.nameEn, ar: r.nameAr }, locale) || r.id, gem: hiddenGemIds?.has(r.id) ?? false })),
+    [rows, locale, hiddenGemIds],
   );
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    const list = needle === '' ? named : named.filter((r) => r.name.toLowerCase().includes(needle));
+    const pool = gemsOnly ? named.filter((r) => r.gem) : named;
+    const list = needle === '' ? pool : pool.filter((r) => r.name.toLowerCase().includes(needle));
     const dir = asc ? 1 : -1;
     return [...list].sort((a, b) => {
       if (sort === 'name') return a.name.localeCompare(b.name) * dir;
       const pick = (r: typeof a) => (sort === 'views' ? r.views : sort === 'carts' ? r.carts : sort === 'sold' ? r.sold : r.convPct);
       return (pick(a) - pick(b)) * dir;
     });
-  }, [named, search, sort, asc]);
+  }, [named, search, sort, asc, gemsOnly]);
 
   const shown = expanded ? filtered : filtered.slice(0, COLLAPSED);
 
   type Row = (typeof named)[number];
   const columns: Column<Row>[] = [
-    { key: 'name', header: tr('analytics.conversion.item'), sortable: true, truncate: true, truncateTitle: (r) => r.name },
+    {
+      key: 'name',
+      header: tr('analytics.conversion.item'),
+      sortable: true,
+      truncate: true,
+      truncateTitle: (r) => r.name,
+      render: (r) =>
+        r.gem ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+            {r.name}
+            <StatusBadge size="sm" tone="success" dot={false} label={tr('analytics.conversion.hiddenGem')} />
+          </span>
+        ) : (
+          r.name
+        ),
+    },
     {
       key: 'views',
       header: tr('analytics.conversion.views'),
@@ -79,7 +103,18 @@ export function ConversionTable({
       numeric: true,
       // Two different populations: a guest who never scanned still lands in
       // "sold", so a ratio here would be arithmetic on incompatible counts.
-      render: (r) => (r.views === 0 && r.sold > 0 ? <StatusBadge size="sm" tone="warn" label={tr('analytics.conversion.soldWithoutView')} /> : f.pct(r.convPct)),
+      // Above 100% the figure is capped and the chip says why.
+      render: (r) =>
+        r.views === 0 && r.sold > 0 ? (
+          <StatusBadge size="sm" tone="warn" label={tr('analytics.conversion.soldWithoutView')} />
+        ) : r.sold > r.views ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+            {f.pct(100)}
+            <StatusBadge size="sm" tone="warn" dot={false} label={tr('analytics.conversion.soldWithoutView')} />
+          </span>
+        ) : (
+          f.pct(r.convPct)
+        ),
     },
   ];
 
@@ -93,7 +128,7 @@ export function ConversionTable({
         tr('analytics.conversion.sold'),
         tr('analytics.conversion.conv'),
       ],
-      filtered.map((r) => [r.name, r.views, r.carts, r.sold, Math.round(r.convPct)]),
+      filtered.map((r) => [r.name, r.views, r.carts, r.sold, Math.min(100, Math.round(r.convPct))]),
     );
     downloadCsv(`conversion-${rangeLabel}.csv`, csv);
   }
@@ -103,7 +138,7 @@ export function ConversionTable({
       title={tr('analytics.conversion.title')}
       state={state === 'ready' && rows.length === 0 ? 'empty' : state}
       emptyKey="analytics.empty.conversion"
-      note={tr('analytics.conversion.howToRead')}
+      tip={tr('analytics.conversion.howToRead')}
       actions={
         <>
           {/* One search control in the app, not a bare input per card. */}
@@ -122,6 +157,9 @@ export function ConversionTable({
             }}
           >
             {tr('analytics.conversion.leastSold')}
+          </Button>
+          <Button size="sm" kind={gemsOnly ? 'primary' : undefined} aria-pressed={gemsOnly} onClick={() => setGemsOnly((v) => !v)}>
+            {tr('analytics.conversion.onlyHiddenGems')}
           </Button>
           <Button size="sm" icon="fileText" onClick={exportCsv}>
             {tr('analytics.conversion.csv')}

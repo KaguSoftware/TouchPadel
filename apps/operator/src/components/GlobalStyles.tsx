@@ -150,8 +150,41 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-tile:hover:not(:disabled) { border-color: var(--tp-accent); background: var(--tp-accent-soft); }
 .tp-tile:active:not(:disabled) { transform: scale(0.99); }
 .tp-tile:disabled { cursor: not-allowed; }
+/* The report switcher (features/reports/ReportTabs). Filled when open, so the
+   current report reads from across the room, not from a 2px underline. */
+.tp-report-tab {
+  display: flex; align-items: center; gap: var(--tp-sp-2);
+  padding-block: var(--tp-sp-2); padding-inline: var(--tp-sp-2) var(--tp-sp-3);
+  border: 1px solid var(--tp-border); border-radius: var(--tp-radius-ctl);
+  background: var(--tp-surface); color: var(--tp-fg);
+  font: inherit; font-size: var(--tp-fs-md); font-weight: 600; text-align: start;
+  cursor: pointer; min-inline-size: 0;
+  transition: background var(--tp-dur-fast) var(--tp-ease-out), border-color var(--tp-dur-fast) var(--tp-ease-out), color var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-report-tab:hover:not([aria-selected='true']) { border-color: var(--tp-accent); background: var(--tp-accent-soft); }
+.tp-report-tab[aria-selected='true'] { background: var(--tp-accent); border-color: var(--tp-accent); color: var(--tp-accent-contrast); cursor: default; }
+.tp-report-tab-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  inline-size: 2rem; block-size: 2rem; border-radius: 50%;
+  background: var(--tp-accent-soft); color: var(--tp-accent-soft-fg);
+}
+.tp-report-tab[aria-selected='true'] .tp-report-tab-icon { background: color-mix(in srgb, var(--tp-accent-contrast) 20%, transparent); color: inherit; }
 .tp-link { color: var(--tp-accent); text-decoration: none; }
 .tp-link:hover { text-decoration: underline; }
+
+/* ---- info tip (components/InfoTip.tsx) ---- */
+/* Always mounted so aria-describedby resolves while closed; hidden by
+   visibility + opacity, never display, and only opacity transitions: the
+   operator caused it, so nothing may move (DESIGN.md Motion). Geometry and
+   surface tokens are inline on the instance; this is the state machine. */
+.tp-infotip {
+  position: fixed; z-index: var(--tp-z-popover);
+  visibility: hidden; opacity: 0; pointer-events: none;
+  transition: opacity var(--tp-dur-fast) var(--tp-ease-out);
+}
+.tp-infotip[data-open='true'] { visibility: visible; opacity: 1; pointer-events: auto; }
+.tp-infotip-trigger { color: var(--tp-muted-fg); }
+.tp-infotip-trigger:hover:not(:disabled), .tp-infotip-trigger:focus-visible { color: var(--tp-fg); }
 
 /* ---- navigation rail ---- */
 .tp-nav-item {

@@ -27,7 +27,8 @@
     "security:audit": "node scripts/security/check-dependency-audit.mjs",
     "security:data": "node scripts/security/check-data-hygiene.mjs",
     "security:web": "node scripts/security/check-web-security.mjs",
-    "security": "pnpm security:env-names && pnpm security:history && pnpm security:audit && pnpm security:data && pnpm security:web && pnpm --filter @touch/operator-shell check:electron && pnpm --filter @touch/db check:rpc-registry"
+    "security:quiet-errors": "node scripts/security/check-quiet-errors.mjs",
+    "security": "pnpm security:env-names && pnpm security:history && pnpm security:audit && pnpm security:data && pnpm security:web && pnpm security:quiet-errors && pnpm --filter @touch/operator-shell check:electron && pnpm --filter @touch/db check:rpc-registry"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

@@ -1,8 +1,7 @@
 /**
  * Cafe tab of VenueSettingsScreen (operator-slice.md §3g): business-day start
  * hour (owner), waiter-call cooldown (`set_waiter_call_cooldown`), analytics
- * excluded items (owner), covers multiplier (per station, localStorage),
- * engagement floor. Every write goes through the RPCs it always did.
+ * excluded items (owner), engagement floor. Every write goes through the RPCs it always did.
  *
  * Laid out as three grouped lists rather than five equal cards (rulebook 2.5):
  * the settings are grouped by the thing they change — the trading day, the
@@ -16,11 +15,6 @@ import { supabase } from '../../../lib/supabase';
 import { appRpc } from '../../../lib/appRpc';
 import { useAuth, can } from '../../../lib/auth';
 import { useLocale } from '../../../lib/i18n';
-import {
-  COVERS_MULTIPLIER_OPTIONS,
-  readCoversMultiplier,
-  writeCoversMultiplier,
-} from '../../../lib/coversMultiplier';
 import { useCafeSettings, useSetCafeSetting } from '../../../lib/settings';
 import { useToast } from '../../../components/toast';
 import { Button, ErrorText, Field, Select, Skeleton, inputStyle } from '../../../components/ui';
@@ -106,16 +100,6 @@ export function CafeSettingsTab() {
     excluded !== null &&
     (excluded.size !== settings.analytics_excluded_item_ids.length ||
       settings.analytics_excluded_item_ids.some((id) => !excluded.has(id)));
-
-  // --- covers multiplier (station-local) ---
-  // Shared with the analytics control deck via lib/coversMultiplier — the two
-  // used to keep separate option lists and separate defaults for the SAME key.
-  const [coversMult, setCoversMult] = useState(readCoversMultiplier);
-  function changeCoversMult(next: string) {
-    const n = Number(next);
-    setCoversMult(n);
-    writeCoversMultiplier(n);
-  }
 
   // --- engagement floor (owner) ---
   const [floor, setFloor] = useState<string | null>(null);
@@ -268,17 +252,6 @@ export function CafeSettingsTab() {
             </div>
           </SettingsRow>
         ) : null}
-
-        <SettingsRow end={<StatusBadge size="sm" tone="neutral" label={tr('ws.manager.settings.stationOnly')} />}>
-          <Field label={tr('op.settings.coversMult')} hint={tr('op.settings.coversMultHint')} style={settingField}>
-            <Select
-              value={String(coversMult)}
-              style={{ maxInlineSize: '10rem' }}
-              options={COVERS_MULTIPLIER_OPTIONS.map((v) => ({ value: String(v), label: `×${v}` }))}
-              onChange={changeCoversMult}
-            />
-          </Field>
-        </SettingsRow>
 
         <SettingsRow
           end={

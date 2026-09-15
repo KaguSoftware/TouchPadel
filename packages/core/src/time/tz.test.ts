@@ -72,3 +72,41 @@ describe('localParts / wallTimeToUtc round-trip', () => {
     expect(() => wallTimeToUtc('2026-09-07', 30.5, TZ)).toThrow();
   });
 });
+
+/**
+ * `localParts` memoises by (zone, exact instant) so the availability grid stops
+ * paying for ~600 ICU calls per trading night (see tz.ts). These pin the two
+ * ways a cache like that goes wrong: keyed too loosely, or stale across a
+ * transition.
+ */
+describe('localParts memoisation', () => {
+  it('keeps zones apart for the same instant', () => {
+    const instant = new Date('2026-09-05T22:30:00Z');
+    expect(localParts(instant, TZ).minutesOfDay).toBe(90); // 01:30 Baghdad
+    expect(localParts(instant, 'UTC').minutesOfDay).toBe(22 * 60 + 30);
+    expect(localParts(instant, TZ).minutesOfDay).toBe(90); // still Baghdad's answer
+  });
+
+  it('returns an equal decomposition on the second ask', () => {
+    const instant = new Date('2026-06-15T10:45:00Z');
+    expect(localParts(instant, TZ)).toEqual(localParts(instant, TZ));
+  });
+
+  it('follows a DST transition instant by instant', () => {
+    const NY = 'America/New_York';
+    // 2026-03-08: 02:00 EST -> 03:00 EDT. Either side of 07:00 UTC.
+    const before = localParts(new Date('2026-03-08T06:59:00Z'), NY);
+    const after = localParts(new Date('2026-03-08T07:01:00Z'), NY);
+    expect(before.minutesOfDay).toBe(1 * 60 + 59); // 01:59 EST
+    expect(after.minutesOfDay).toBe(3 * 60 + 1); // 03:01 EDT
+  });
+
+  it('stays correct once the cache has evicted (bounded at 512)', () => {
+    const first = new Date('2026-04-01T00:00:00Z');
+    const seen = localParts(first, TZ);
+    for (let i = 1; i <= 600; i++) {
+      localParts(new Date(first.getTime() + i * 60_000), TZ);
+    }
+    expect(localParts(first, TZ)).toEqual(seen);
+  });
+});

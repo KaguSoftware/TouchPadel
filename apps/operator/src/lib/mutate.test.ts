@@ -128,6 +128,19 @@ describe('DIRECT_RPC', () => {
     expect(call.args.p_guest_id).toBeNull();
   });
 
+  it('reservation.create sends p_players as null when unset and the number when set (0090)', () => {
+    const base = {
+      clientRef: 'DESK-01-01J5XABCDEFGHJKMNPQRSTVWXY',
+      courtId: UUID_A,
+      kind: 'booking',
+      startAt: '2026-09-07T15:00:00.000Z',
+      endAt: '2026-09-07T16:00:00.000Z',
+      guestName: 'Walk-in',
+    };
+    expect(DIRECT_RPC['reservation.create'](base, KEY, DEV).args.p_players).toBeNull();
+    expect(DIRECT_RPC['reservation.create']({ ...base, players: 4 }, KEY, DEV).args.p_players).toBe(4);
+  });
+
   it('waiter_call.action routes ack vs resolve', () => {
     expect(DIRECT_RPC['waiter_call.action']({ callId: UUID_A, action: 'ack' }, KEY, DEV).fn).toBe(
       'ack_waiter_call',

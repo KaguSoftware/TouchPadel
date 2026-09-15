@@ -5,6 +5,8 @@ import {
   dropExcludedMentions,
   dropLowConfidenceClaims,
   dropRejectedFindings,
+  dropUncitedAmounts,
+  findingAmounts,
   findingImpact,
   isStrongFinding,
   latinDigits,
@@ -12,6 +14,7 @@ import {
   normalizeFinding,
   rankFindings,
   rejectionKeys,
+  TREND_WORDS,
 } from './insightsText';
 
 const WEEKDAYS = {
@@ -87,18 +90,62 @@ describe('findingImpact', () => {
   });
 });
 
+describe('findingAmounts / dropUncitedAmounts', () => {
+  it('lists every cited amount in order, duplicates kept', () => {
+    expect(findingAmounts('lost 3,000 IQD on 200 units worth 900,000 IQD, again 3,000 IQD')).toEqual([3000, 900_000, 3000]);
+    expect(findingAmounts('12 units, 40 views')).toEqual([]);
+  });
+
+  it('drops a finding whose amounts are not all in the data, keeps one with no amount', () => {
+    const data = new Set([12_500, 900_000]);
+    const { kept, dropped } = dropUncitedAmounts(
+      [
+        'Kahi brought 12,500 IQD',
+        'Kahi is worth approximately 375,000 IQD per month',
+        'Kahi sold 12 units',
+        'Kahi brought 12,500 IQD of 900,000 IQD',
+        'الكاهي جلب ١٢٬٥٠٠ د.ع',
+      ],
+      data,
+    );
+    expect(kept).toEqual(['Kahi brought 12,500 IQD', 'Kahi sold 12 units', 'Kahi brought 12,500 IQD of 900,000 IQD', 'الكاهي جلب ١٢٬٥٠٠ د.ع']);
+    expect(dropped).toEqual(['Kahi is worth approximately 375,000 IQD per month']);
+  });
+});
+
 describe('rankFindings', () => {
-  it('sorts by money at stake, stable on ties, capped', () => {
-    const findings = ['no money here', 'worth 5,000 IQD', 'worth 90,000 IQD', 'another without', 'worth 5,000 IQD too'];
-    expect(rankFindings(findings)).toEqual([
-      'worth 90,000 IQD',
-      'worth 5,000 IQD',
-      'worth 5,000 IQD too',
-      'no money here',
-      'another without',
+  const f = (text: string, confidence: 'high' | 'medium' | 'low', sample: number | null = null) => ({ text, confidence, sample });
+
+  it('sorts by confidence, then sample, then arrival; money does not rank', () => {
+    const findings = [
+      f('low but rich 9,000,000 IQD', 'low', 500),
+      f('medium small sample', 'medium', 5),
+      f('high no sample', 'high'),
+      f('medium big sample', 'medium', 40),
+      f('high with sample', 'high', 12),
+      f('medium small sample too', 'medium', 5),
+    ];
+    expect(rankFindings(findings).map((x) => x.text)).toEqual([
+      'high with sample',
+      'high no sample',
+      'medium big sample',
+      'medium small sample',
+      'medium small sample too',
+      'low but rich 9,000,000 IQD',
     ]);
-    expect(rankFindings(findings, 2)).toEqual(['worth 90,000 IQD', 'worth 5,000 IQD']);
-    expect(rankFindings(Array.from({ length: 20 }, (_, i) => `f${i} 1 IQD`))).toHaveLength(MAX_FINDINGS);
+    expect(rankFindings(findings, 2).map((x) => x.text)).toEqual(['high with sample', 'high no sample']);
+    expect(rankFindings(Array.from({ length: 20 }, (_, i) => f(`f${i}`, 'medium', i)))).toHaveLength(MAX_FINDINGS);
+  });
+});
+
+describe('TREND_WORDS', () => {
+  it('matches past and progressive movement, never the imperative stems a recommendation uses', () => {
+    for (const t of ['Sales dropped 20%', 'Views are falling', 'Revenue fell', 'Orders rose', 'Kahi is rising', 'Margin improved', 'Tabs increased 10%']) {
+      expect(TREND_WORDS.test(t), t).toBe(true);
+    }
+    for (const t of ['Drop the price by 500 IQD', 'Improve the photo of Kahi', 'Increase the exposure of Kahi', 'Fall back to the desk menu', 'A price rise of 500 IQD would pay']) {
+      expect(TREND_WORDS.test(t), t).toBe(false);
+    }
   });
 });
 

@@ -9,10 +9,13 @@ import type { FunnelStep } from '../shape';
 import type { Formatters } from '../format';
 import { BLUE } from './colors';
 
+/** The four steps of the PostHog session funnel (analytics-posthog `funnel`), by their raw event names. */
 const STEP_KEYS: Record<string, MessageKey> = {
-  view: 'analytics.kpi.views',
-  basket: 'analytics.cards.funnel',
-  call: 'analytics.kpi.calls',
+  pageview: 'analytics.funnel.pageview',
+  $pageview: 'analytics.funnel.pageview',
+  item_viewed: 'analytics.funnel.itemViewed',
+  item_added_to_basket: 'analytics.funnel.addedToBasket',
+  order_submitted: 'analytics.funnel.orderSubmitted',
 };
 
 export function FunnelBars({ steps, f }: { steps: readonly FunnelStep[]; f: Formatters }) {

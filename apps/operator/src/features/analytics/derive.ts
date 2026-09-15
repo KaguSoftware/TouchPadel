@@ -18,6 +18,7 @@ import {
   makeKeepFilter,
   pctDelta,
   rankPairs,
+  rateOrCount,
   salesCoverage,
   salesVsEngagement,
   RELIABLE_COVERAGE,
@@ -52,15 +53,13 @@ import type {
   HeatCell,
   ItemMargins,
   ItemViewWithPrice,
-  LocalePref,
   MenuSnapshotRow,
-  PeakHourRow,
   PromoSales,
   PromoSurface,
   SessionStats,
   SoldItemRow,
-  TableActivityRow,
   TopItemRow,
+  HourlyCell,
 } from './shape';
 
 export type EngagementStatus = 'loading' | 'ready' | 'unconfigured' | 'error';
@@ -72,14 +71,11 @@ export interface PosthogWindow {
   abandoned: AbandonedRow[];
   funnel: FunnelStep[];
   basketToCall: BasketToCall;
-  tableActivity: TableActivityRow[];
   heatmap: HeatCell[];
-  peakHours: PeakHourRow[];
   promo: PromoSurface[];
   itemViewsWithPrice: ItemViewWithPrice[];
   sessionStats: SessionStats;
   categoryPopularity: CategoryPopRow[];
-  localePreferences: LocalePref[];
 }
 
 export interface PosthogCompareWindow {
@@ -95,7 +91,6 @@ export interface RawAnalytics {
   compareBasis: CompareBasis;
   compareRange: DateRange;
   todayISO: string;
-  coversMultiplier: number;
   excludedIds: readonly string[];
   daily: DailySalesRow[];
   dailyPrev: DailySalesRow[];
@@ -105,6 +100,8 @@ export interface RawAnalytics {
   margins: ItemMargins;
   promoSales: PromoSales;
   menu: MenuSnapshotRow[];
+  /** Till orders by business weekday and hour (app.analytics_hourly). */
+  hourly: HourlyCell[];
   engagementStatus: EngagementStatus;
   floor: string | null;
   posthog: PosthogWindow | null;
@@ -112,11 +109,17 @@ export interface RawAnalytics {
 }
 
 export interface Kpis {
+  /** Cafe net revenue on the settle day. */
   salesIqd: number;
   tabs: number;
-  coversEstimated: number | null;
-  perPersonIqd: number | null;
-  visits: number;
+  cashIqd: number;
+  cardIqd: number;
+  discountIqd: number;
+  refundsIqd: number;
+  qrOrders: number;
+  tillOrders: number;
+  /** QR orders over all orders; pct null under the twenty-order floor. */
+  qrShare: { pct: number | null; n: number; d: number };
   sessions: number;
   views: number;
   medianSeconds: number;
@@ -125,7 +128,7 @@ export interface Kpis {
   basketToCallSample: number;
 }
 
-export type KpiKey = 'sales' | 'tabs' | 'visits' | 'views' | 'median' | 'calls' | 'basket';
+export type KpiKey = 'sales' | 'tabs' | 'cashCard' | 'discounts' | 'refunds' | 'qrShare' | 'views' | 'median' | 'calls' | 'basket';
 
 export interface Derived {
   names: ItemNames;
@@ -144,6 +147,8 @@ export interface Derived {
   momentum: MomentumResult;
   abandoned: AbandonedView[];
   menuEngineering: MenuEngineering;
+  /** The server's cost coverage over the sold items (app.analytics_item_margins). */
+  marginsCoverage: ItemMargins['coverage'];
   menuPosition: MenuPositionAnalysis;
   priceBands: PriceBandSales[];
   pairs: ItemPair[];
@@ -158,10 +163,11 @@ export function sumBy<T>(rows: readonly T[], pick: (r: T) => number): number {
   return s;
 }
 
-export function buildNames(menu: readonly MenuSnapshotRow[], sold: readonly SoldItemRow[]): ItemNames {
+export function buildNames(menu: readonly MenuSnapshotRow[], sold: readonly SoldItemRow[], margins: readonly ItemRef[] = []): ItemNames {
   const names = new Map<string, ItemRef>();
   for (const m of menu) names.set(m.id, { id: m.id, nameEn: m.nameEn, nameAr: m.nameAr });
   for (const s of sold) if (!names.has(s.id)) names.set(s.id, { id: s.id, nameEn: s.nameEn, nameAr: s.nameAr });
+  for (const m of margins) if (!names.has(m.id)) names.set(m.id, { id: m.id, nameEn: m.nameEn, nameAr: m.nameAr });
   return names;
 }
 
@@ -178,16 +184,8 @@ export function soldTotalsOf(sold: readonly SoldItemRow[], keep: (id: string) =>
   return [...by.values()];
 }
 
-function salesWithin(daily: readonly DailySalesRow[], win: EngagementWindow): number {
-  if (win.empty) return 0;
-  return sumBy(
-    daily.filter((d) => d.date >= win.from && d.date <= win.to),
-    (d) => d.revenueIqd,
-  );
-}
-
 export function derive(raw: RawAnalytics): Derived {
-  const names = buildNames(raw.menu, raw.soldByDay);
+  const names = buildNames(raw.menu, raw.soldByDay, raw.margins.items);
   const keep = makeKeepFilter(new Set(raw.excludedIds));
 
   const datesWithSales = raw.daily.filter((d) => d.revenueIqd > 0 || d.orders > 0).map((d) => d.date);
@@ -212,19 +210,30 @@ export function derive(raw: RawAnalytics): Derived {
   const tabsPrev = sumBy(raw.dailyPrev, (d) => d.tabs);
   const waiterCalls = sumBy(raw.daily, (d) => d.waiterCalls);
   const waiterCallsPrev = sumBy(raw.dailyPrev, (d) => d.waiterCalls);
+  const cashIqd = sumBy(raw.daily, (d) => d.cashIqd);
+  const cardIqd = sumBy(raw.daily, (d) => d.cardIqd);
+  const cashCardPrev = sumBy(raw.dailyPrev, (d) => d.cashIqd + d.cardIqd);
+  const discountIqd = sumBy(raw.daily, (d) => d.discountIqd);
+  const discountPrev = sumBy(raw.dailyPrev, (d) => d.discountIqd);
+  const refundsIqd = sumBy(raw.daily, (d) => d.refundsIqd);
+  const refundsPrev = sumBy(raw.dailyPrev, (d) => d.refundsIqd);
+  const qrOrders = sumBy(raw.daily, (d) => d.guestOrders);
+  const tillOrders = sumBy(raw.daily, (d) => d.tillOrders);
+  const qrShare = rateOrCount(qrOrders, qrOrders + tillOrders);
+  const qrSharePrev = rateOrCount(sumBy(raw.dailyPrev, (d) => d.guestOrders), sumBy(raw.dailyPrev, (d) => d.guestOrders + d.tillOrders));
 
-  const visits = hasEng ? ph.sessionStats.visits : 0;
   const views = hasEng ? sumBy(ph.dailyEngagement, (d) => d.views) : 0;
-  const coversEstimated = hasEng && visits > 0 ? Math.round(visits * raw.coversMultiplier) : null;
-  const perPersonIqd =
-    coversEstimated && coversEstimated > 0 ? Math.round(salesWithin(raw.daily, engNow) / coversEstimated) : null;
 
   const kpis: Kpis = {
     salesIqd,
     tabs,
-    coversEstimated,
-    perPersonIqd,
-    visits,
+    cashIqd,
+    cardIqd,
+    discountIqd,
+    refundsIqd,
+    qrOrders,
+    tillOrders,
+    qrShare,
     sessions: hasEng ? ph.sessionStats.sessions : 0,
     views,
     medianSeconds: hasEng ? ph.sessionStats.medianSeconds : 0,
@@ -238,7 +247,11 @@ export function derive(raw: RawAnalytics): Derived {
   const deltas: Record<KpiKey, number | null> = {
     sales: pctDelta(salesIqd, salesPrev),
     tabs: pctDelta(tabs, tabsPrev),
-    visits: engDelta(visits, prev?.sessionStats.visits),
+    cashCard: pctDelta(cashIqd + cardIqd, cashCardPrev),
+    discounts: pctDelta(discountIqd, discountPrev),
+    refunds: pctDelta(refundsIqd, refundsPrev),
+    // A rate: whole points, never a percentage of a percentage; null under either floor.
+    qrShare: qrShare.pct != null && qrSharePrev.pct != null ? Math.round(qrShare.pct - qrSharePrev.pct) : null,
     views: engDelta(views, prev ? sumBy(prev.dailyEngagement, (d) => d.views) : undefined),
     median: engDelta(kpis.medianSeconds, prev?.sessionStats.medianSeconds),
     calls: pctDelta(waiterCalls, waiterCallsPrev),
@@ -267,9 +280,12 @@ export function derive(raw: RawAnalytics): Derived {
       )
     : [];
 
-  const costed = raw.menu
+  // The matrix reads the SERVER margins (0095): net revenue per item and the
+  // cost snapshotted on each line, so a cost changed last week does not
+  // rewrite last month. avg_price_iqd stands in as the list price.
+  const costed = raw.margins.items
     .filter((m) => keep(m.id))
-    .map((m) => ({ id: m.id, nameEn: m.nameEn, nameAr: m.nameAr, defaultPriceIqd: m.priceIqd, costIqd: m.costIqd }));
+    .map((m) => ({ id: m.id, nameEn: m.nameEn, nameAr: m.nameAr, defaultPriceIqd: m.avgPriceIqd, costIqd: m.costIqd }));
   const menuEngineering = buildMenuEngineering(soldTotals, costed, { popularityRule: 0.7, reliableCoverage: 0.6 });
 
   const slots = buildMenuSlots(
@@ -290,15 +306,15 @@ export function derive(raw: RawAnalytics): Derived {
 
   const prices = new Map<string, number>();
   for (const m of raw.menu) if (m.priceIqd > 0) prices.set(m.id, m.priceIqd);
-  const priceBands = hasEng
-    ? buildPriceBands(
-        ph.itemViewsWithPrice.map((v) => ({ id: v.id, priceIqd: v.priceIqd, views: v.sessions })),
-        soldTotals,
-        prices,
-        keep,
-        { names },
-      )
-    : [];
+  // Always built: without guest analytics the views side is simply empty and
+  // the card still shows what sold in each band from the till alone.
+  const priceBands = buildPriceBands(
+    hasEng ? ph.itemViewsWithPrice.map((v) => ({ id: v.id, priceIqd: v.priceIqd, views: v.sessions })) : [],
+    soldTotals,
+    prices,
+    keep,
+    { names },
+  );
 
   const pairs = rankPairs(
     raw.boughtTogether
@@ -350,6 +366,7 @@ export function derive(raw: RawAnalytics): Derived {
     momentum,
     abandoned,
     menuEngineering,
+    marginsCoverage: raw.margins.coverage,
     menuPosition,
     priceBands,
     pairs,

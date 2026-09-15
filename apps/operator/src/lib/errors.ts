@@ -103,6 +103,7 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   // Courts admin (0062) + delete (0074).
   'INVALID_DURATIONS',
   'COURT_HAS_FUTURE_RESERVATIONS',
+  'INVALID_ACTIVE_WINDOW',
   // CourtsAdmin intercepts this via courtUsageFromError to show the counts and
   // offer Deactivate, so this string is the net under that path, not the path.
   'COURT_IN_USE',

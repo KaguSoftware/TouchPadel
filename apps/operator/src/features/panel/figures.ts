@@ -1,6 +1,6 @@
 /**
  * Management panel figure model (spec 06.39). Maps the `panel_headline`
- * result onto the twelve figures the panel knows, with their display kind,
+ * result onto the thirteen figures the panel knows, with their display kind,
  * the report each opens, and whether a rise is bad (refunds, waste, no-shows).
  * Pure: no formatting, no arithmetic — the server's `changeAbs` / `changePct`
  * are rendered as given.
@@ -11,6 +11,7 @@ export const FIGURE_KEYS = [
   'revenue',
   'padelRevenue',
   'cafeRevenue',
+  'cafeNet',
   'cash',
   'card',
   'bookings',
@@ -43,6 +44,8 @@ export const FIGURES: Record<FigureKey, FigureMeta> = {
   bookings: { key: 'bookings', kind: 'count', report: '/reports/courts', group: 'padel' },
   noShows: { key: 'noShows', kind: 'count', invert: true, report: '/reports/courts', group: 'padel' },
   cafeRevenue: { key: 'cafeRevenue', kind: 'money', report: '/reports/cafe', group: 'cafe' },
+  // 0096: the cafe after its refunds, the same figure the Analytics "Cafe sales" tile shows.
+  cafeNet: { key: 'cafeNet', kind: 'money', report: '/reports/cafe', group: 'cafe' },
   orders: { key: 'orders', kind: 'count', report: '/reports/cafe', group: 'cafe' },
   avgOrderValue: { key: 'avgOrderValue', kind: 'money', report: '/reports/cafe', group: 'cafe' },
   discounts: { key: 'discounts', kind: 'money', invert: true, report: '/reports/revenue', group: 'cafe' },

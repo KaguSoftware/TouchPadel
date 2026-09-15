@@ -5,7 +5,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@touch/db';
-import { parseHoldResult, type BookingRow, type HoldResult } from './logic';
+import { isPlayers, parseHoldResult, type BookingRow, type HoldResult } from './logic';
 
 type Client = SupabaseClient<Database>;
 
@@ -28,22 +28,37 @@ export async function holdSlot(client: Client, args: HoldSlotArgs): Promise<Hold
   return parseHoldResult(data);
 }
 
-/** app.confirm_booking (0008/0021) — hold -> confirmed booking. */
-export async function confirmBooking(client: Client, holdId: string) {
+/**
+ * app.confirm_booking (0008/0021/0090) — hold -> confirmed booking.
+ *
+ * `players` is the optional group size. The key is OMITTED when unset rather
+ * than sent as null, so a build that never asks the question makes a request
+ * byte-identical to today's, and a new app against a hosted schema that has
+ * not taken 0090 yet keeps confirming.
+ */
+export async function confirmBooking(client: Client, holdId: string, players?: number) {
   const { data, error } = await client.schema('app').rpc('confirm_booking', {
     p_hold_id: holdId,
+    ...(isPlayers(players) ? { p_players: players } : {}),
   });
   if (error) throw error;
   return data as { duplicate?: boolean; reservation_id?: string; price_iqd?: number | null };
 }
 
-/** app.cancel_reservation (0008) — guest cancel inside policy. */
+/**
+ * app.cancel_reservation (0008/0088) — guest cancel inside policy.
+ *
+ * `cancelled_by` comes back as 'guest' from this path by construction; the
+ * screens read it off the refetched row rather than from here, because the
+ * same column on a booking the DESK cancelled is the case that matters and
+ * that one never passes through this function.
+ */
 export async function cancelReservation(client: Client, reservationId: string) {
   const { data, error } = await client.schema('app').rpc('cancel_reservation', {
     p_reservation_id: reservationId,
   });
   if (error) throw error;
-  return data as { reservation_id?: string; status?: string };
+  return data as { reservation_id?: string; status?: string; cancelled_by?: string };
 }
 
 /**
@@ -65,7 +80,7 @@ export async function releaseHold(client: Client, reservationId: string) {
 export async function fetchMyReservations(client: Client): Promise<BookingRow[]> {
   const { data, error } = await client
     .from('reservations')
-    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at')
+    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at, cancelled_by')
     .order('start_at', { ascending: false })
     .limit(100);
   if (error) throw error;
@@ -76,7 +91,7 @@ export async function fetchMyReservations(client: Client): Promise<BookingRow[]>
 export async function fetchReservationById(client: Client, id: string): Promise<BookingRow | null> {
   const { data, error } = await client
     .from('reservations')
-    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at')
+    .select('id, court_id, kind, status, start_at, end_at, price_iqd, hold_expires_at, cancelled_by')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;

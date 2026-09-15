@@ -1,11 +1,18 @@
-// Owner-only (ROUTE_ROLES): exposes item costs/margins and each AI re-check bills Groq.
-// `lazyRouteComponent` keeps Recharts (and the whole analytics feature) out of the
-// main bundle, so a till or KDS station never downloads a charting library.
-import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
+/**
+ * `/analytics` LAYOUT route — Management's Analytics, on the workspace's own
+ * rail with two tabs, /analytics/courts and /analytics/cafe (children attach
+ * in main.tsx via routes/analytics/_children.ts).
+ *
+ * Owner-only (ROUTE_ROLES): it exposes item costs/margins and each AI re-check
+ * bills Groq. The search params (range, dates, compare basis, court filter)
+ * are validated here once and inherited by both tabs, so switching tabs keeps
+ * the owner on the same period. Each tab is a `lazyRouteComponent`, which
+ * keeps Recharts (and the whole analytics feature) out of the main bundle, so
+ * a till or KDS station never downloads a charting library.
+ */
+import { Outlet, createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute, RequireRole } from './__root';
 import { validateSearch, type AnalyticsSearch } from '../features/analytics/search';
-
-const LazyAnalyticsPage = lazyRouteComponent(() => import('../features/analytics/AnalyticsPage'), 'AnalyticsPage');
 
 export const analyticsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -13,7 +20,16 @@ export const analyticsRoute = createRoute({
   validateSearch: (raw: Record<string, unknown>): AnalyticsSearch => validateSearch(raw),
   component: () => (
     <RequireRole route="/analytics">
-      <LazyAnalyticsPage />
+      <Outlet />
     </RequireRole>
   ),
+});
+
+/** `/analytics` alone → the Courts tab, carrying the search params along. */
+export const analyticsIndexRoute = createRoute({
+  getParentRoute: () => analyticsRoute,
+  path: '/',
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: '/analytics/courts', search, replace: true });
+  },
 });

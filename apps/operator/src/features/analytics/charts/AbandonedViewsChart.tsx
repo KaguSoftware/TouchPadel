@@ -1,6 +1,7 @@
 /**
  * "Looked, not bought" — per item, the abandoned views split by how long the
- * guest stayed on the item (5–10 s / 10–20 s / 20 s+). Day-level suppression is
+ * guest stayed on the item: 5–10 s (the legend says "under 10 s": views shorter
+ * than 5 s are not counted as a read at all), 10–20 s, 20 s+. Day-level suppression is
  * already applied by `abandonedViewsNet`, so every bar here is a view on a day
  * the item did NOT sell.
  */

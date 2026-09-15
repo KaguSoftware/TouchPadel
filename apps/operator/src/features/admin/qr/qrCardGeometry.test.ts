@@ -8,8 +8,10 @@ import {
   QR_X,
   QR_Y,
   QUIET_MODULES,
+  DEFAULT_GUEST_SITE_URL,
   cardLayout,
   guestTableUrl,
+  resolveGuestSiteUrl,
   numberSize,
   qrModules,
   qrPath,
@@ -128,5 +130,45 @@ describe('guestTableUrl', () => {
   it('is null when the site URL is unset (never print localhost by accident)', () => {
     expect(guestTableUrl(undefined, 'tok')).toBeNull();
     expect(guestTableUrl('  ', 'tok')).toBeNull();
+  });
+});
+
+describe('resolveGuestSiteUrl — a printed card never opens localhost', () => {
+  const LIVE = 'https://touch-padel-web.vercel.app';
+
+  it('the default is the live guest site', () => {
+    expect(DEFAULT_GUEST_SITE_URL).toBe(LIVE);
+  });
+
+  it.each([undefined, '', '   ', 'not a url at all ::'])('unset or unparseable (%j) falls back to the live site', (raw) => {
+    expect(resolveGuestSiteUrl(raw, true)).toBe(LIVE);
+    expect(resolveGuestSiteUrl(raw, false)).toBe(LIVE);
+  });
+
+  it.each([
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://0.0.0.0:3000',
+    'http://[::1]:3000',
+    'http://192.168.1.20:3000',
+    'http://10.0.0.5',
+    'http://172.20.1.1',
+    'http://touch-desk.local',
+  ])('a production build replaces %s with the live site', (raw) => {
+    expect(resolveGuestSiteUrl(raw, true)).toBe(LIVE);
+  });
+
+  it('dev and e2e keep an explicit localhost (the local web app is the guest site there)', () => {
+    expect(resolveGuestSiteUrl('http://localhost:3000', false)).toBe('http://localhost:3000');
+  });
+
+  it('keeps a real origin, upgrades http, drops the locale path and trailing slashes', () => {
+    expect(resolveGuestSiteUrl('http://touch-padel-web.vercel.app/en/', true)).toBe(LIVE);
+    expect(resolveGuestSiteUrl('touch-padel-web.vercel.app', true)).toBe(LIVE);
+    expect(resolveGuestSiteUrl('https://touch-padel.com/', true)).toBe('https://touch-padel.com');
+  });
+
+  it('the card URL built from it is the live table link', () => {
+    expect(guestTableUrl(resolveGuestSiteUrl('http://localhost:3000', true), COMPACT_TOKEN)).toBe(`${LIVE}/t/${COMPACT_TOKEN}`);
   });
 });

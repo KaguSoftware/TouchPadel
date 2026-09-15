@@ -167,8 +167,6 @@ export const en = {
     openNow: 'Open now · {hours}',
     closedNow: 'Closed right now',
     reserveFooter: 'Reserve in the app · pay at the desk on arrival',
-    // The 3D rally holds with the ball in a player's hand after a while idle (battery).
-    rallyPaused: 'No audience, so the rally is paused. Tap to play on.',
     courtPhoto: 'Court photo',
     fromPrice: 'From {price}',
     perHour: '{price} / hr',
@@ -206,11 +204,7 @@ export const en = {
         w52: 'The same weekdays, 364 days earlier.',
       },
       businessDay: 'Business day starts at',
-      refresh: 'Auto-refresh',
-      refreshOff: 'Off',
-      min: '{n} min',
       excluded: 'Excluded items',
-      covers: 'Covers multiplier',
       jumpTo: 'Jump to',
     },
     zones: {
@@ -223,15 +217,18 @@ export const en = {
       sales: 'Sales & engagement',
       salesDesc: 'Sales next to how guests use the menu.',
       time: 'Time',
-      timeDesc: 'When guests come and what language they use.',
+      timeDesc: 'When orders are placed and when the menu is opened.',
     },
     kpi: {
-      sales: 'Item sales',
-      salesNote: 'Before tab discounts',
-      covers: 'Covers',
-      estimated: 'estimate',
-      perPerson: 'Per person',
-      visits: 'Unique visits',
+      sales: 'Cafe sales',
+      venueRevenue: 'Venue revenue',
+      venueSplit: '{cafe} cafe · {courts} courts',
+      cashCard: 'Cash / card',
+      cashShare: '{pct} cash',
+      discounts: 'Discounts given',
+      refunds: 'Refunds',
+      qrShare: 'QR share of orders',
+      qrSplit: '{qr} QR · {till} till',
       views: 'Menu views',
       median: 'Median session',
       calls: 'Waiter calls',
@@ -249,54 +246,10 @@ export const en = {
       thinPeriod: 'Short period — treat conclusions as hints, not facts.',
       coverage: '{missing} days with no sales recorded (closed?)',
     },
-    overview: {
-      title: 'Overview',
-      toneStrong: 'Strong',
-      toneSteady: 'Steady',
-      toneSoft: 'Soft',
-      toneWatch: 'Needs attention',
-      strengths: 'Working well',
-      push: 'Worth pushing',
-      watch: 'Keep an eye on',
-      headlineUp: 'Sales up {pct}% versus the comparison period.',
-      headlineDown: 'Sales down {pct}% versus the comparison period.',
-      headlineFlat: 'Sales flat versus the comparison period.',
-      headlineNoCompare: 'No comparison period available yet.',
-      noData: 'Not enough data for an overview yet.',
-      // Templates for core `buildOverview` (OverviewCopy) — the operator maps these in.
-      copy: {
-        periodToday: 'today',
-        period7d: 'in the last 7 days',
-        period30d: 'in the last 30 days',
-        period90d: 'in the last 90 days',
-        periodCustom: 'in the selected period',
-        headlineGood: 'Things look good {period} — most indicators are up.',
-        headlineWeak: '{period} some indicators slipped — worth a look at the items below.',
-        headlineMixed: '{period} the picture is mixed — some things are working, others need attention.',
-        headlineNeutral: '{period} the picture is steady — no clear rise or fall.',
-        metricUp: '{label} up {pct}%.',
-        metricDown: '{label} down {pct}%.',
-        bestSeller: 'Best seller: {name} ({qty} sold{money}).',
-        pushWinner: '{name} sells strongly — keep it featured on the menu and in suggestions.',
-        pushHighIntent: '{name} converts when seen (about {perTen} sales per 10 views) — try moving it higher on the menu.',
-        abandonedLongReads: '{name} gets looked at but not ordered ({total} times); {long} people read it for 20 s+ and gave up — the description or price may be the issue.',
-        abandonedQuickClose: '{name} gets looked at but not ordered ({total} times); most close it within seconds — the photo or first impression may be weak.',
-        deadItem: '{name} was viewed {views} times but never sold — review how it is presented.',
-        profitSummary: 'Gross margin {pct}% — {money} gross profit{partial}.',
-        profitPartial: ', across {items} costed items covering {pct}% of revenue',
-        belowCostOne: '{name} sells below cost ({money} per unit) — {lost} lost over the period; fix the price or portion cost now.',
-        belowCostMany: '{count} items sell below cost ({names}…) — {lost} lost over the period; fix price/portion cost now.',
-        plowhorse: '{name} sells a lot but earns little: {money} per unit vs a menu average of {avg}{partial} — trim its portion cost or nudge the price up.',
-        plowhorsePartial: ' (among costed items)',
-        puzzle: '{name} earns {money} per unit but sells little ({qty}) — move it up the menu and remind staff; the cheapest profit gain is here.',
-        dogs: '{count} items sell little and earn little ({money} total) — consider dropping them; the kitchen gets simpler too.',
-      },
-    },
     insights: {
       title: 'AI insights',
       generate: 'Generate insights',
       recheck: 'Re-check',
-      retry: 'Try again',
       checking: 'Checking the data…',
       reject: 'Don’t want findings like this',
       rejectPrompt: 'Hide this finding and similar ones in future?',
@@ -305,9 +258,7 @@ export const en = {
       noReplacement: 'No replacement finding this time.',
       history: 'Earlier findings',
       basis: 'Based on',
-      resolved: 'Resolved',
       ongoing: 'Ongoing',
-      new: 'New',
       generatedAt: 'Generated {date}',
       empty: 'No findings yet — generate the first set.',
       degraded: 'AI model unavailable — showing templated findings from the numbers.',
@@ -340,13 +291,6 @@ export const en = {
         weekdays: '{n} {day}s',
         views: '{n} views',
       },
-      templates: {
-        coMove: '{a} and {b} rise and fall together.',
-        basket: '{a} is ordered with {b} in {pct}% of its orders.',
-        time: '{item} sells best on {day}.',
-        segment: '{locale}-speaking guests order {item} more often.',
-        margin: '{item} earns a {pct}% margin — worth featuring.',
-      },
       empty: 'No clear patterns in this period.',
     },
     matrix: {
@@ -361,12 +305,12 @@ export const en = {
         puzzle: 'Profitable but overlooked — feature it or move it up the menu.',
         dog: 'Neither popular nor profitable — rework or remove.',
       },
-      popularity: 'Popularity',
-      margin: 'Margin',
       coverage: 'Cost known for {pct}% of sold items',
       noCost: '{count} sold items have no cost',
       setupLink: 'Add costs in Menu items',
       unreliable: 'Too few costs entered for a reliable matrix.',
+      belowCostOne: '{name} sells below cost ({money} per unit) — {lost} lost over the period; fix the price or the portion cost.',
+      belowCostMany: '{count} items sell below cost ({names}…) — {lost} lost over the period; fix the prices or the portion costs.',
     },
     position: {
       title: 'Menu position',
@@ -395,9 +339,9 @@ export const en = {
       carts: 'Added to basket',
       sold: 'Sold',
       conv: 'Conversion',
-      sourceMenu: 'Menu (QR) · viewers',
-      sourceTill: 'Till · all guests',
       leastSold: 'Least sold first',
+      hiddenGem: 'Hidden gem',
+      onlyHiddenGems: 'Hidden gems only',
       csv: 'Export CSV',
       howToRead:
         'Views come from the QR menu; sales come from the till and include guests who never scanned.',
@@ -409,8 +353,6 @@ export const en = {
     },
     cards: {
       topProfit: 'Top profit',
-      hiddenGems: 'Hidden gems',
-      hiddenGemsHint: 'Rarely viewed, but bought when seen',
       momentum: 'Momentum',
       rising: 'Rising',
       fading: 'Fading',
@@ -423,28 +365,27 @@ export const en = {
       followThrough: 'Follow-through',
       clicks: 'Clicks',
       sessions: 'Sessions',
-      locale: 'Language preference',
       heatmap: 'Week heatmap',
-      peakHours: 'Peak hours',
       bestSellers: 'Best sellers',
       lookedNotBought: 'Looked, not bought',
-      dwellShort: 'Under 5 s',
-      dwellMedium: '5–20 s',
+      dwellShort: 'Under 10 s',
+      dwellMedium: '10–20 s',
       dwellLong: 'Over 20 s',
-      tableActivity: 'Table activity',
       funnel: 'Engagement funnel',
-      priceBands: 'Price-band conversion',
-      bandLow: 'Under 5,000',
-      bandMid: '5,000–10,000',
-      bandHigh: 'Over 10,000',
+      priceBands: 'Price bands',
       categoryPop: 'Category popularity',
       salesVsEngagement: 'Sales vs engagement',
-      busiest: 'Busiest',
-      quiet: 'Quiet',
       revenue: 'Sales',
       viewsSeries: 'Menu views',
       callsSeries: 'Waiter calls',
       quantity: 'Qty',
+    },
+    // The engagement funnel's four steps (PostHog session funnel), by event.
+    funnel: {
+      pageview: 'Opened the menu',
+      itemViewed: 'Viewed an item',
+      addedToBasket: 'Added to basket',
+      orderSubmitted: 'Ordered',
     },
     weekdays: {
       mon: 'Monday',
@@ -499,6 +440,13 @@ export const en = {
     slotInPast: 'That time has already passed.',
     upcoming: 'Upcoming',
     past: 'Past',
+    // The heading over the Played tab's list. 'Past' is everything that
+    // is over, cancellations included; 'Played' is only the games the desk
+    // closed as played, which is what that tab filters to.
+    played: 'Played',
+    // The Cancelled tab. `cancelled` above is a sentence ("Booking cancelled."),
+    // so the tab and its heading get their own one-word string.
+    cancelledTab: 'Cancelled',
     stateFree: 'Free',
     stateHeld: 'Held',
     stateBooked: 'Booked',
@@ -533,6 +481,11 @@ export const en = {
     heldForYou: 'Slot held for you',
     holdExplainer: 'Nobody else can take this slot while you check out. If the timer runs out, it goes back on the grid.',
     price: 'Price',
+    players: {
+      title: 'Players',
+      optional: 'Optional',
+      other: 'Other',
+    },
     payAtDeskTitle: 'Pay at the desk',
     payAtDeskBody: 'Your court is reserved now. You pay at reception when you arrive — there is no online payment in this app.',
     policyLine: 'Free cancellation until {hours} hours before your slot. Inside that window, changes are handled by the desk. Repeated no-shows may limit app booking.',
@@ -567,6 +520,8 @@ export const en = {
     historyClearedToast: 'Booking history cleared',
     noHistoryTitle: 'No past games',
     noHistoryBody: 'Games you have played will be listed here once they are over.',
+    noCancelledTitle: 'Nothing cancelled',
+    noCancelledBody: 'Bookings you or the desk cancel will be listed here.',
     // "More life" pass (owner, 2026-09-05): My bookings stopped being a flat
     // list — a hero card for the next game, counted section headings, and a
     // timeline down Past. These are the strings that pass carries.
@@ -579,6 +534,7 @@ export const en = {
     startsInDays: 'In {count} days',
     upcomingCount: '{count} upcoming',
     playedCount: '{count} played',
+    cancelledCount: '{count} cancelled',
     weeklySeries: 'Weekly series',
     bookingRef: 'Booking {ref}',
     priceAtDesk: 'Price · at desk',
@@ -586,6 +542,21 @@ export const en = {
     freeCancelUntil: 'Free cancellation until {when}.',
     windowClosedTitle: 'Cancellation window closed',
     windowClosedBody: 'The free window ended at {when}. The desk can still help with changes.',
+    // WHO cancelled it (0088). "This booking was cancelled" is true of both
+    // endings and useful for neither — it tells a guest who cancelled it
+    // themselves something they already know, and tells one whose court the
+    // venue took back nothing at all. The short pair captions a row on My
+    // reservations > Cancelled; the notices carry the detail screen.
+    cancelledByYou: 'Cancelled by you',
+    cancelledByVenue: 'Cancelled by the venue',
+    cancelledByYouNotice: 'You cancelled this booking, and the slot went back on the grid.',
+    // "Were not expecting", not "were not told": the desk also cancels for
+    // guests who phone in, and calling that an unexplained cancellation would
+    // send someone to reception over a booking they ended themselves.
+    cancelledByVenueNotice:
+      'The venue cancelled this booking, and the slot went back on the grid. Speak to the desk if you were not expecting that.',
+    // The fallback, kept for cancellations from before the actor was recorded:
+    // saying nothing about who is honest, and guessing would not be.
     cancelledNotice: 'This booking was cancelled. The slot has been released back to the grid.',
     // A no-show is closed by the venue, not by the guest — so it says who did
     // it and where to take it, rather than leaving a booking that has quietly
@@ -631,6 +602,10 @@ export const en = {
     emailLocked: "Email {email} can't be changed here — it requires re-verification through support.",
     saveChanges: 'Save changes',
     updated: 'Profile updated',
+    // Edit profile > Save, once the 6-digit code for a CHANGED number comes
+    // back (app/verify-otp.tsx, mode `link`, from=edit). Distinct from
+    // auth.phoneVerified, which confirms a number the guest already had.
+    phoneUpdated: 'Phone number updated',
     completeProfileNudge: 'Add your phone number so the desk can reach you about your bookings.',
     // A phone sign-up (dormant OTP scaffold) has a verified phone but no name yet.
     completeNameNudge: 'Add your name so the desk knows who booked.',
@@ -639,6 +614,27 @@ export const en = {
     confirmNewPassword: 'Confirm new password',
     updatePassword: 'Update password',
     fillAllFields: 'Fill in all three fields.',
+    // Change password: each failure named for what it was. The proof sign-in
+    // used to borrow auth.invalidCredentials ("Email or password…") on a screen
+    // with no email field (owner, 2026-09-11).
+    currentPasswordWrong: 'Current password is incorrect.',
+    newPasswordSame: 'New password must be different from your current one.',
+    passwordChangeUnavailable:
+      'Password change is not available right now. Sign out and use "Forgot password" instead.',
+    // SEC-16 — in-app account deletion. Both stores require a path to this from
+    // INSIDE the app; a support email or a web form does not satisfy either.
+    deleteAccount: 'Delete account',
+    deleteHeading: 'This cannot be undone.',
+    // Says what SURVIVES as well as what goes. app.delete_my_account (0077)
+    // anonymises the bookings rather than removing them, because the venue's
+    // books have to keep adding up — a guest who is told "everything is
+    // deleted" and later sees the court still reserved has been misled.
+    deleteBody:
+      'Your account, your name and your phone number are deleted immediately, and you are signed out everywhere. Bookings you have already made stay in the venue\u2019s records with no name attached to them, because the venue has to keep its own accounts.',
+    deleteTypePrompt: 'Type {word} below to confirm.',
+    // The word the guest types. LOCALISED, and deliberately not the RPC's
+    // p_confirm token — see features/profile/deletion.ts.
+    deleteConfirmWord: 'DELETE',
   },
   settings: {
     title: 'Settings',
@@ -989,6 +985,8 @@ export const en = {
       kindBooking: 'Booking',
       kindHold: 'Hold',
       kindMaintenance: 'Maintenance',
+      players: 'Players',
+      playersOther: 'Other',
       create: 'Create booking',
       created: 'Booking created.',
       closedToday: 'The venue is closed on this date.',
@@ -1501,10 +1499,10 @@ export const en = {
       howToFind: 'How to find it',
       steps: {
         1: 'Open BotFather in Telegram and create a bot (or use the existing one).',
-        2: 'Add the bot to the staff group and make it an admin.',
-        3: 'Send any message in the group.',
-        4: 'Open https://api.telegram.org/bot<TOKEN>/getUpdates in a browser.',
-        5: 'Copy the negative "chat" → "id" value and paste it above.',
+        2: 'Add the bot to the staff group. It does not need to be an admin.',
+        3: 'The group appears under Detected groups on this page within a few seconds.',
+        4: 'Press Use this group, then Send test message.',
+        5: 'Nothing appears? Run Diagnose, re-register the webhook, then remove the bot from the group and add it again.',
       },
       lang: 'Message language',
       langAr: 'Arabic',
@@ -1549,8 +1547,6 @@ export const en = {
       cooldownHint: 'A table cannot call again until this many seconds have passed.',
       excludedItems: 'Analytics excluded items',
       excludedHint: 'Hidden from analytics only — still sold normally.',
-      coversMult: 'Covers multiplier',
-      coversMultHint: 'Estimated guests per tab, used for the covers estimate on this station.',
       engagementFloor: 'Engagement data since',
       readOnly: 'Read-only',
       engagementFloorHint:
@@ -1675,6 +1671,7 @@ export const en = {
       INVALID_DURATIONS: 'Duration options must be 30–300 minutes in 15-minute steps.',
       COURT_HAS_FUTURE_RESERVATIONS:
         'This court still has upcoming bookings — move or cancel them at the desk first.',
+      INVALID_ACTIVE_WINDOW: 'The court\'s last active day cannot be before its first.',
       COURT_IN_USE: 'That court still has bookings or price rules. Deactivate it instead — it leaves the calendar and the guest app, and the reports keep its name.',
       NAME_REQUIRED: 'Both the English and Arabic names are required.',
       UNIT_LOCKED: 'The unit is locked — the ledger already holds quantities in it.',

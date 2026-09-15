@@ -3,6 +3,9 @@
 **Version** 2.0 · **Date** 2026-08-30 · **Supersedes** Phase 1 Security Audit Checklist v1.0 (2026-08-29)
 **Companions** `docs/scope/touch-padel-phase1-scope-of-work.txt` (the contract) · Security Layer v1.1 (the build standard) · `docs/security/security-layer-1.md` (the foundation slice)
 **Verified against** the repository at commit `3a6d8f5`, 2026-08-30 — 55 tables, 55 migrations, 21 DB suites.
+**Corrected** 2026-09-13 against branch `two` @ `2d6436d` — each correction is marked ⚠ *2026-09-13* in place, and
+boxes whose tick turned out false are reopened as `[~]`. Evidence and finding IDs (C1, H1–H3, M1–M17, L1–L23):
+`docs/security/security-audit-2026-09-13.md`.
 
 > **Why v2.0 exists.** v1.0 claimed "verified against the repository, 2026-08-29" but carried findings copied
 > from `docs/design/padel-backend-audit-2026-08-27.md` — a document whose own header says it is report-only.
@@ -160,15 +163,25 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - **Guest order notes are capped and never rendered as HTML.** `z.string().max(500)` and `.max(1000)` in
   `packages/core/src/schemas/mutations.ts:94,187`; no `dangerouslySetInnerHTML` anywhere in `apps/web` or
   `apps/operator`.
+  ⚠ *2026-09-13* **The caps are client-side only.** `app.create_guest_order` hands the guest's `p_items` to
+  `app.add_order_items`, which inserts `notes` verbatim (`0041:217-221`) — no server length cap, no `safe_text`. A
+  script bypasses the Zod schema. Still never rendered as HTML. (M5)
 - **The role matrix is overwhelmingly negative.** `tests/rls-matrix.ts` asserts 116 `denied` and 42 `guarded`
   outcomes against a single `allowed` — it is a must-not suite, which is what Security Layer §4.3 demands.
 - **Mobile tokens are in the OS keystore.** A chunking `expo-secure-store` adapter is the Supabase auth storage
   (`apps/mobile/src/lib/secureStorage.ts`, wired at `supabase.ts:33`). `AsyncStorage` is used only for the
   TanStack query cache, which excludes `my-bookings` and is wiped on sign-out after a real cross-account leak
   was found and fixed (`queryClient.ts:87-110`).
+  ⚠ *2026-09-13* The persisted cache also holds `own-profile` (id, name, phone) — `queryClient.ts:145-148` excludes
+  only `my-bookings` and `reservation` (L12) — and the wipe runs on `SIGNED_OUT` only, so a session *replaced*
+  through `setSession` (M1) is never wiped.
 - **Deep links cannot carry an action.** `deepLink.ts` is a pure parser recognising exactly three auth shapes;
   anything else parses to `null`, so "an ordinary `touchpadel://bookings` share link must never be mistaken for
   a callback".
+  ⚠ *2026-09-13* **Not true of the third shape.** `deepLink.ts:81-85` accepts `#access_token=…&refresh_token=…` on
+  any auth path and `useAuthDeepLink.ts:65` passes it to `setSession`, so a crafted link signs the phone into the
+  attacker's account (login CSRF). The client is PKCE-only and nothing issues implicit-flow links — delete the
+  branch. (M1)
 - **No client opens a direct Postgres connection.** Every client reaches data through the Supabase URL; there is
   no `postgres://` or `:5432` in any client path.
 
@@ -213,11 +226,23 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 *(Full detail and ordering in `security-layer-1.md`. Summary here.)*
 
+- [ ] ★ **Added 2026-09-13 — remove the dev seed staff accounts from the hosted project.** It was seeded on 2026-08-24
+      (`git show 84c70bb:HANDOFF.md:60-62`) with `owner|manager|cashier|prep|desk@dev.touch.local`, whose shared
+      password is committed (`packages/db/tests/helpers.ts:20`); nothing records their removal, and
+      `scripts/create-operator-owner.mjs` may have added `owner@touchpadel.local` with committed defaults. Pre-0078
+      PINs still verify. Create real accounts first, move the till's sign-in, then `set_staff_active(false)` on the
+      dev rows (it ends their sessions), delete their auth users, reset every manager/owner PIN, repoint the Telegram
+      allowlist, and read the Audit log for `staff.*` events. Outside service hours. **[verify]** (C1 · SEC+DEV)
 - [ ] ★ Enable MFA org-wide: GitHub, Supabase, Vercel, PostHog, Expo, Apple, Google. Recovery codes sealed to the client's owner, not a Kagu inbox. **2026-09-01:** the Expo/EAS, Apple Developer and Google Cloud accounts that social sign-in and the store release need do not exist yet (`API.md` §8 placeholders); each falls under this item the day it is created, Google Play included. (SEC-40 · CLIENT+SEC)
 - [ ] Add `.github/CODEOWNERS` routing `packages/db/supabase/migrations/` and `.github/workflows/db-migrate.yml` to the technical lead; enable "Require review from Code Owners" on `main`. **Confirmed missing.** (SEC-01 · SEC)
+      ⚠ *2026-09-13* **The file now exists** (migrations, `db-migrate.yml`, `ci.yml`, `.security/`, `scripts/security/`)
+      but does **not** cover `operator-release.yml` — the workflow that ships to every till — nor `functions-deploy.yml`
+      or `db-ops.yml`. Still inert until branch protection and "Require review from Code Owners" are on. (H1)
 - [ ] Add required reviewers to the `staging` GitHub Environment **before** the deploy secrets go in — without them the gate in `db-migrate.yml` is a no-op. (SEC-02 · DEV)
 - [x] ★ `[CI]` `gitleaks` over full history — DONE, DEV, 2026-09-04. `.gitleaks.toml` + the `secrets` job in `ci.yml` (fetch-depth 0, pinned 8.30.1 binary). 123 commits, 10 findings, **zero real leaks**, all allowlisted by exact value. *(Layer 1 Block 2 · Secrets.)* (SEC-24 · DEV)
 - [x] Rotate anything gitleaks finds — **nothing to rotate**, DEV, 2026-09-04. The hosted `service_role` key lives only in untracked `.env.local`; `git log --all -S` over the full object graph confirms it was never committed. *(Layer 1 Block 2.)* (SEC-24 · DEV)
+      ⚠ *2026-09-13* Still never committed (gitleaks: 367 commits, 0 leaks) — but it sits in `apps/web/.env.local`,
+      where no web code uses it, and Turbopack has copied it into `apps/web/.next/cache/`. Remove both. (L8)
 - [x] ★ `[CI]` Built-artifact secret grep — DONE, DEV, 2026-09-04. `scripts/security/check-artifact-secrets.mjs`, wired into the three jobs that already build each client. Fails on a JWT whose **decoded** payload claims `service_role`, any `sb_secret_*`, or a real-project token with an unexpected role — the bare-word grep in this box fires 168 times on a clean tree and is not implementable as written. **Also fails when nothing was built.** *(Layer 1 Block 2.)* `[FREEZE]` still applies to the final release builds — §16. (SEC-24 · DEV)
 - [ ] ★ Supabase → Auth → Attack Protection: CAPTCHA on, token passed on `signInAnonymously`. **Nothing
       captcha-related exists in the repo** (0 hits); the only throttle today is `[auth.rate_limit]
@@ -226,8 +251,12 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       is the one production call site and every table session boots through it. Do **not** disable anonymous
       sign-in; add the CAPTCHA token to that call. 0048's `ACCOUNT_REQUIRED` is scoped to `app.hold_slot`
       alone, so court booking needs a real account while table sessions do not. (SEC-05 · DEV)
+      ⚠ *2026-09-13* Order matters: switching CAPTCHA on **before** that call — and the mobile sign-up — sends a token
+      breaks café sign-in on the spot.
 - [ ] ★ Replace the auth redirect allowlist with exact production URLs — no wildcards, no `localhost`, no `exp://*` in the hosted project. (SEC-05 · DEV) **Verified still open 2026-09-01 (Prompt C, report-only):** hosted list = `https://localhost:3000`, `touchpadel://verify-email`, `touchpadel://reset-password`, `exp://192.168.1.108:8081/--/*` — the last is a wildcard LAN entry for Expo Go email-link tests; removal + Site URL fix are scheduled for release week (`docs/client/social-auth-setup-2026-09-01.md`, Prompt D Task 4).
 - [ ] ★ Leaked-password protection on; JWT expiry 30 minutes with refresh rotation and reuse detection. (SEC-05, SEC-35 · DEV) **Verified 2026-09-01: leaked-password protection OFF and CAPTCHA OFF while anonymous sign-ins are ON** — the MAU-inflation combination Supabase's own inline warning names.
+      ⚠ *2026-09-13* Same session: set the minimum password length to 8 (`config.toml` sets none, GoTrue's default is
+      6, the app enforces 8 — L11) and turn on "Secure password change", which the `reset-password` fix relies on (M2).
 - [ ] Set Supabase member roles: SEC and DEV Owner/Admin; FE1 and FE2 Developer with **no SQL Editor access**. With one project, access control *is* environment separation. (SEC-37 · SEC)
 - [ ] Ask the client for the domain today and delegate DNS. Blocks the privacy URL, the deletion URL, auth redirects, HSTS and QR cards. (SEC-06 · CLIENT)
 - [ ] Ask the client for the PC policy in writing: BitLocker, OS auto-updates, 5-minute screen lock, no shared Windows admin account, **guest wifi on a separate VLAN from the POS**. (SEC-41 · CLIENT)
@@ -241,13 +270,21 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 - [x] ★ **Live-migration procedure** — DONE, DEV, 2026-09-04. Not a document: a rule in `check:migrations` requiring `set lock_timeout = '3s'; set statement_timeout = '60s';` at the top of every NEW migration, with `lock_timeout = 0` rejected. Written up in `layer-1-rules-and-decisions.md` §6. *(Layer 1 Block 3.)* (SEC-02 · DEV)
 - [x] ★ `[CI]` **`check:migrations`, scoped to lock-taking DDL** — DONE, DEV, 2026-09-04; **executed 2026-09-07**. Independently reproduced this section's audit (57 non-CONCURRENTLY indexes, 11 `add constraint` without `NOT VALID`, `0039:71`). Scoped to files changed against the merge base, exactly as this box demands, with `MIGRATION-RISK-ACCEPTED:` as the escape hatch. All four behaviours negative-tested. *(Layer 1 Block 2.)* (SEC-02 · DEV)
-- [x] **Ledger dump + printed `db diff`** — DONE, DEV, 2026-09-04. Both in `db-migrate.yml`; the diff goes to the **job summary**, where the person approving the environment gate actually looks. `audit_log` / `stock_ledger` / `payments` retained 30 days. Evidence, not a restore path. *(Layer 1 Block 2.)* (SEC-02 · DEV)
+- [~] **Ledger dump + printed `db diff`** — DONE, DEV, 2026-09-04. Both in `db-migrate.yml`; the diff goes to the **job summary**, where the person approving the environment gate actually looks. `audit_log` / `stock_ledger` / `payments` retained 30 days. Evidence, not a restore path. *(Layer 1 Block 2.)* (SEC-02 · DEV)
+      ⚠ *2026-09-13* **Reopened — the dump is not of the ledgers.** `db-migrate.yml:153-162` runs
+      `supabase db dump --data-only --schema app`; `audit_log`, `stock_ledger` and `payments` are in `public`. What it
+      does capture is `app.secrets` (the table-token secret's fallback store), `sms_sends`, `pin_attempts` and
+      `rpc_replays`, uploaded as a 30-day artifact any repo reader can download — failed runs included. Delete the
+      existing `ledger-snapshot-*` artifacts and dump the public ledger tables. The diff half stands. (M7)
 - [x] **`timeout-minutes: 15` on `db-migrate`** — DONE, DEV, 2026-09-04. GitHub's default is 360 minutes. This is the outer bound; `lock_timeout = '3s'` is the real control. *(Layer 1 Block 3.)* (SEC-02 · DEV)
 - [ ] `[FREEZE]` Re-verify that required reviewers are still enabled on the `staging` GitHub Environment. It is an out-of-repo setting with no git trace, and it is the only thing between a merge to `main` and the client's production database. (SEC-02 · SEC)
 - [ ] ★ Bring the hosted project to the local migration head through that gated procedure. This has already
       bitten once: `db-migrate.yml` silently skipped from day 1 for want of secrets, and **the hosted DB drifted
       eight migrations behind** before anyone noticed (`HANDOFF.md:544-545`). Every green-gate claim about a
       drifted database is a claim about a database the venue does not use. (SEC-03 · DEV)
+      ⚠ *2026-09-13* **Reported done 2026-09-12** — `HANDOFF.md` Day 19: ledger 89/89, 0 pending, all 10 functions
+      deployed, verified with the CLI by the owner. Not re-verified in the 2026-09-13 audit (no hosted access); tick
+      it once the nightly `db-drift.yml` run is seen green.
 - [x] ★ `[CI]` **Nightly `supabase db diff --linked`** — DONE, DEV, 2026-09-04. `.github/workflows/db-drift.yml`, 02:00 Asia/Baghdad. Two checks: `migration list` catches the hosted project being BEHIND, a non-empty `db diff` catches hand-editing. Missing secrets raise a warning annotation, not a silent pass. *(Layer 1 Block 2.)* (SEC-03 · DEV)
 - [ ] Re-run the DB suite against the hosted project through a restricted role, never `service_role` from a laptop. (SEC-03 · DEV)
 - [x] `[CI]` **Every view is `security_invoker = on`** — DONE, DEV; **VERIFIED 2026-09-07, first execution**: 12 views · 8 invoker · 4 owner-rights, exactly the named allowlist. Any NEW invoker-off view fails. *(Layer 1 Block 2.)* (SEC-04 · DEV)
@@ -258,6 +295,18 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - [x] **Production rows read only through a masked, audited definer function** — DONE, SEC, 2026-09-04. `layer-1-rules-and-decisions.md` §1, with §2 (who may reach the hosted project) as the control that enforces it — a read cannot be caught after the fact, so access is limited instead. DDL through the SQL Editor IS caught, by the nightly drift job. *(Layer 1 Block 3.)* (SEC-37 · SEC)
 - [ ] ★ Write down **the rule that has no exception** (Security Layer §1.1) and give it a check: never add a column, form field, note field or log line that could hold a card number. **Nothing in the repo states or enforces this today.** Add it to the PR checklist and to the guest-field allowlist test. (SEC-20 · SEC)
 - [ ] Restrict direct database connections on the hosted project so clients reach data only through the API and the pooler. No client opens a raw Postgres socket today, but the port posture is a dashboard setting nobody has checked. (SEC-04 · DEV)
+- [ ] **Added 2026-09-13 — pin the Supabase CLI in the production workflows.** `db-migrate.yml`, `db-drift.yml`,
+      `db-ops.yml` and `functions-deploy.yml` run `supabase/setup-cli@v1` with `version: latest` while holding the
+      access token and DB password; only `ci.yml` pins a version. Pin it, SHA-pin the action, and add
+      `permissions: contents: read` to the five workflows that set none. (M14 · DEV)
+- [ ] **Added 2026-09-13 — `config.toml` must never be pushed to this project again.** It enables phone sign-up with a
+      committed test OTP (`:108-111`), an enabled placeholder Twilio block and the local `site_url`; its own comment
+      (`:119`) says it is never pushed, but `supabase config push` was run against this project on 2026-08-24. Move the
+      test pair out of the file and correct the comment (editing `config.toml` triggers `functions-deploy.yml`).
+      (M8 · DEV)
+- [ ] **Added 2026-09-13 — the DB test harness must refuse a non-local URL.** `tests/helpers.ts` and
+      `scripts/check-rpc-authz.mjs` take the URL and service key from `packages/db/.env` — the same file where
+      `qr-artwork.mjs` needs the live key — so the destructive suite can run against the client's database. (L21 · DEV)
 - [x] **`client-data/` intake rule** — DONE, DEV, 2026-09-04. Written up (§3 of the rules doc) and **enforced** by `check-data-hygiene.mjs`. ⚠ This section said "currently clean"; it was not — the client's own hosting-account email was already in both packs (`634462a`, `e4f2acc`). Business contact, not guest data, grandfathered explicitly. **Raise it with the client so the acceptance is theirs.** *(Layer 1 Block 3.)* (SEC-37 · DEV)
 - [~] **Record the residual risk in writing and have the client sign it** — **WRITTEN, AWAITING SIGNATURE.** `layer-1-rules-and-decisions.md` §5: the risk stated plainly, the six controls now reducing it and what each cannot catch, and a signature block. No control removes it — only a second project does, which is D1. Original text: — with one project, a bad migration reaches live guest data with no rehearsal. See **D1**. (SEC-37 · SEC)
 
@@ -362,6 +411,10 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       *Note: **release** needed no work. `app.release_hold` (0060) is already holds-only and owner-only.*
       (SEC-11 · DEV)
 - [ ] Keep the 0048 regression suite green and named in the handover pack: anonymous refused, concurrent-hold cap, horizon, cross-caller idempotency, create-vs-move price equality. (SEC-07/08/09 · DEV)
+- [ ] **Added 2026-09-13 — cap a guest's upcoming confirmed bookings.** `hold_slot` caps live holds (`0048:315-322`);
+      `confirm_booking` (`0059`) caps nothing, so one account can hold → confirm → repeat until every court is booked
+      to the horizon, at no cost with pay-at-venue. A `venue_settings` limit checked in `hold_slot`. Migration.
+      (M9 · DEV)
 
 ---
 
@@ -412,8 +465,61 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       WORKING while being unsettable through the product. Now `719264` / `380517`, with `DEV_PINS`, the
       e2e specs, the operator's client-side check and the README moved to match.
       8 tests in `pin-strength.test.ts`. (SEC-13 · DEV)
-- [ ] Make every PIN failure path return the same code, message and delay; audit every lockout and every manager-cleared lock. (SEC-13 · DEV)
-- [ ] Write and test the **quiet-error rule**: no stack traces, no raw Postgres errors, no "user 4412 not found" that confirms which accounts exist — the same generic message whether the account exists or not, with the full error going to the tracker. A guest must never see a constraint name. (SEC-36 · FE1+FE2)
+      ⚠ *2026-09-13* **Not retroactive.** 0078 changed `set_staff_pin` only; `verify_manager_pin` never calls
+      `app.pin_is_weak`, so any PIN hashed before 0078 — the hosted project was seeded with `111111` / `222222` on
+      2026-08-24 — still authorises until it is reset. Reject weak candidates at verify time too. (C1)
+- [~] ~~Make every PIN failure path return the same code, message and delay; audit every lockout and every
+      manager-cleared lock.~~ — **done 2026-09-09, migration 0086.**
+      **Code and message were already uniform** and are left alone: `verify_manager_pin` returns NULL for
+      every non-match and all five money callers turn that into the single code PIN_INVALID.
+      `verify_own_pin`'s FORBIDDEN / NO_PIN_SET are NOT an oracle — they tell the caller about the caller —
+      and NO_PIN_SET is load-bearing for the SEC-34 lock screen, so collapsing them was refused.
+      **The DELAY leak was real.** `verify_manager_pin` ran TWO bcrypt scans, and only the second
+      (`limit 1`) could stop early — so a CORRECT pin came back measurably sooner than a wrong one.
+      Collapsed to one aggregate that always evaluates every candidate: constant work, and roughly half
+      the bcrypt cost on the happy path. Both verifiers now also pad to a 250 ms floor
+      (`app.pin_delay_floor`) on EVERY exit including the PIN_LOCKED raise, so a lockout is not the fast
+      answer either. ⚠ Cost stated plainly: every manager authorisation now takes ≥250 ms.
+      **The lockout is audited** as `staff.pin_locked` — written at the failure that REACHES the threshold,
+      not at the raise, because `raise` rolls the insert back with it (the 0011 lesson). Writing it at the
+      raise site was tried first and `entity_id` being NOT NULL then aborted the whole transaction and
+      silently disabled the lockout; the test caught it on its first run.
+      **`app.clear_pin_lockout`** (manager/owner, audited as `staff.pin_lockout_cleared`) gives a lockout a
+      release valve — there was none, and a cashier sitting out five minutes with a queue is how a shared
+      manager PIN gets learned. It deletes only in-window FAILED attempts; the successful ones are the
+      record of who authorised what.
+      12 tests in `pin-uniformity.test.ts`; the single-scan SHAPE is locked by `check:invariants` instead,
+      because the delay floor masks it from any behavioural test — mutation-proven in both directions.
+      Also fixed here: `idle-lock.test.ts`'s cleanup had never run for the life of the suite
+      (`svc.from('pin_attempts')` resolves to `public`, PGRST205; the table is in `app`). (SEC-13 · DEV)
+      ⚠ *2026-09-13* **Reopened — the lockout never engages on the paths that matter.** `verify_manager_pin` records
+      the attempt and returns NULL, but `apply_discount` (`0049:154-156`), `refund` (`0044:201-203`),
+      `void_after_send` (`0032:621-623`), `override_price` and `write_off_expired` then **raise** `PIN_INVALID`, and
+      the raise rolls the `pin_attempts` row — and the `staff.pin_locked` audit row — back with it: the 0011 failure
+      again, one call up. The PIN is checked before the tab/payment lookup, so `PIN_INVALID` vs `TAB_NOT_FOUND` is a
+      clean oracle; any cashier session can brute-force the manager PIN with no lockout and no trace. Every lockout
+      test calls `verify_manager_pin` directly. Fix: a typed failure instead of a raise (or a committed verify step
+      plus a short-lived approval). Migration, Patch 1. (H3)
+- [ ] **Added 2026-09-13 — keep typed PINs out of `sync_replays`.** `replay/index.ts:419-428` records the full payload
+      — `pin` included — on every non-conflict RPC error, into an append-only table managers and owners can read.
+      Strip `pin` before `record()` (function deploy); purge the existing rows (migration). (M6 · DEV)
+- [x] ~~Write and test the **quiet-error rule**: no stack traces, no raw Postgres errors, no "user 4412 not
+      found" that confirms which accounts exist — the same generic message whether the account exists or
+      not, with the full error going to the tracker. A guest must never see a constraint name.~~ —
+      **done 2026-09-09**, `scripts/security/check-quiet-errors.mjs`, wired into CI as
+      `pnpm security:quiet-errors`, and the PR checklist line now names it.
+      The audit found the three mappers already correct — `mapErrorToKey`, `rpcErrorKey`,
+      `errorToMessageKey` all fall back to a generic key — so the rule was not at risk from them. It is at
+      risk from the NEXT screen, where `catch (e) { setError(e.message) }` reads as diligence in review and
+      turns no test red. One real hit fixed: `useOrders.loadError` on the guest café app was typed
+      `string | null` and held the raw PostgREST message; nothing rendered it YET, which is exactly why it
+      was worth fixing — the type invited it. Now a `MessageKey`, which cannot be rendered without `tr()`.
+      apps/operator is deliberately OUT of scope (staff terminal; its CrashScreen shows the error in a
+      collapsed `<details>` on purpose) and the reason is in the script header.
+      **Mutation-tested both ways**, and the first version of the state pattern was found by that run to
+      miss `setError((err as Error).message)` — the cast form, which is the shape that actually occurs.
+      A `__DEV__`-guarded debug line is recognised rather than waived, because Metro strips the branch
+      from a release build; removing that guard makes the gate fire. (SEC-36 · FE1+FE2)
 - [x] ~~Audit the private broadcast payloads the KDS and floor view receive: assert prep never receives a
       price, total or guest field~~ — **done 2026-09-07**, `packages/db/scripts/check-broadcast-payloads.mjs`,
       wired into CI. The audit found the payloads already correct: all 11 `realtime.send` call sites use
@@ -445,6 +551,10 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       only by `app.add_order_items`, a till RPC no guest can call. **Guests cannot write order notes**,
       and notes never enter the `analytics-insights` payload anyway — it carries aggregates, menu names
       and prior insights.
+      ⚠ *2026-09-13* **Half of that trace is wrong.** `create_guest_order` passes `p_items` straight to
+      `app.add_order_items`, which inserts each item's `notes` verbatim (`0041:217-221`) — **guests can write order
+      notes**, uncapped server-side and unsanitised (M5). Whether notes reach the `analytics-insights` payload was not
+      re-checked; the menu-name and `prior_insights` surfaces stand.
       The item is still worth doing for the surfaces that DO reach the prompt: menu item names
       (manager-authored) and `prior_insights` (model output fed back into a prompt — a real loop).
       Rewrite the box against those before working it. Control/bidi stripping itself now exists as
@@ -469,7 +579,31 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       server-side can retract a signed JWT; shortening that is the SEC-05 dashboard box in Phase 0.
       6 tests, including a refresh token captured before the deactivation failing afterwards — and one
       asserting it WORKED before, so the test cannot pass vacuously.
-      Still open, client-side: drop the operator's Realtime channel on the next role-resolution failure. (SEC-35 · DEV)
+      ✅ **Client half done 2026-09-09.** `apps/operator/src/lib/roleResolution.ts` + `auth.tsx`. The
+      operator re-resolves the staff role every 60s and on window focus, and on a DEFINITE revocation
+      calls `removeAllChannels()` then `realtime.setAuth()` — which is the only thing that stops a
+      channel that was already SUBSCRIBED, since Realtime authorises a private topic at subscribe time
+      and never re-authorises an open one. That turns the "up to jwt_expiry" exposure above into ~60s,
+      and 60s is the number the leaver drill will measure.
+      The load-bearing part is the three-way split: `fetchStaff` used to return `null` for a revocation
+      AND for a failed query, so a two-second wifi drop would have thrown a trading till onto the
+      "you are not staff" screen — which is precisely why nothing dared re-check on a timer before.
+      'unknown' now changes nothing at all; only 'revoked' drops the channel. 16 tests, three mutants
+      caught. (SEC-35 · DEV)
+- [ ] **Added 2026-09-13 — Telegram authority must follow `staff.is_active`.** The void path checks
+      `telegram_staff.is_active` only (`0039:407`), so a deactivated manager can still void from the group. (L14 · DEV)
+- [ ] **Added 2026-09-13 — a `staff-admin` password reset must end the account's sessions.** `index.ts:142` calls
+      `updateUserById` and nothing revokes the refresh tokens; `app.revoke_user_sessions` (0081) exists. (L19 · DEV)
+- [ ] **Added 2026-09-13 — narrow what a guest reads from `reservations`.** The table-wide grant (`0008:682`) exposes
+      `notes`, `created_by_staff_id`, `cancellation_reason`, `device_id` and `idempotency_key` on the guest's own rows;
+      `cancellation_reason` (0088) is unbounded and unsanitised. Column grants + `safe_text`. **[likely]** (L15 · DEV)
+- [ ] **Added 2026-09-13 — registry and gate accuracy.** `rpc-allowlist.json:27,33` lists the staff-guarded
+      `heartbeat` and `log_replay` as public by design, so `check:authz` never proves their guard (L17);
+      `functions-deploy.yml:87-99` greps `functions list` for a `verify_jwt` value it does not print, so that assertion
+      cannot fail (L16); RLS is off on `app.sms_limits` / `app.sms_sends` (L18). (SEC-12 · DEV)
+- [ ] **Added 2026-09-13 — de-duplicate customers on verified phones only.** Guests can set any `profiles.phone`;
+      `find_customer_by_phone` (0065) returns the oldest match and `desk-customer-create` answers 409 with it, so a
+      squatter blocks the real customer and receives the desk's link. **[likely]** (M10 · DEV)
 
 ---
 
@@ -526,9 +660,32 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       the reservations scrub from 0077 turns exactly two of them red and nothing else, so they are not
       vacuous. The whole-table sweep uses a per-run marker — a fixed literal tripped over residue from an
       earlier run and would have been flaky. (SEC-15 · DEV)
-- [ ] ★ `[FREEZE]` Build the in-app deletion screen with a typed confirmation; on success clear every chunk of the secure-store adapter, delete the push token locally and server-side, route to signed-out. No email, no support ticket. (SEC-16 · FE1)
+- [x] ★ `[FREEZE]` ~~Build the in-app deletion screen with a typed confirmation; on success clear every
+      chunk of the secure-store adapter, delete the push token locally and server-side, route to
+      signed-out. No email, no support ticket.~~ — **done 2026-09-09.** `apps/mobile/app/delete-account.tsx`,
+      reached from a Profile menu row; registered on the ROOT stack so UIKit draws its own back item.
+      The confirmation word is LOCALISED (`profile.deleteConfirmWord`, DELETE / حذف) and is deliberately
+      NOT the RPC's `p_confirm` token: making an Arabic-first app's guest type a Latin word to close their
+      account is a comprehension test, not a confirmation.
+      **The order is the security property** and it is a pure function (`features/profile/deletion.ts`):
+      the server delete goes FIRST, so a failure on a flaky connection leaves the device untouched and the
+      guest can simply press the button again; every local step after it is best-effort and unconditional,
+      because once the RPC returns the account is gone and the only correct behaviour is to finish the
+      teardown. The purge sweeps the supabase-js session key — DERIVED the way supabase-js derives it
+      (`lib/authStorageKey.ts`), since pinning a different `storageKey` would sign out every existing
+      install — plus a blind sweep to `PURGE_SWEEP_LIMIT` for orphan chunks a torn write leaves with no
+      manifest, plus `tp.historyClearedAt.<uid>`, whose KEY contains the guest's auth uuid and which no
+      sign-out path touches. `tp.locale` / `tp.appearance` are deliberately kept: deleting an account is
+      not a factory reset. Expo's own push token is surrendered locally
+      (`unregisterPushTokenLocally`) as well as server-side, because 0077 can only null the column.
+      21 tests in `deletion.test.ts`, mutation-checked: moving the server call after the local steps turns
+      the "leaves the device untouched" test red. (SEC-16 · FE1)
 - [ ] `[FREEZE]` Verify on a physical device of each platform: delete, force-quit, reopen, still signed out, old token refused. (SEC-16 · FE1)
 - [ ] ★ `[FREEZE]` Publish a **web** deletion-request page on the real domain, both locales. Google Play requires a URL reachable without installing the app. (SEC-17 · FE2)
+      ⚠ *2026-09-13* Neither this page nor the privacy notice exists in `apps/web`; the interim
+      `touch-padel-web.vercel.app/{ar,en}/privacy` proposed in `social-auth-setup-2026-09-01.md` was never built
+      (`/en/privacy` → 404 on production). Both stores need these URLs at submission — build them on the current
+      origin now and move them with the domain.
 - [ ] ★ `[FREEZE]` Publish the privacy notice in Arabic and English, matching the code: the exact stored-field list, the processors, the legal basis, a contact address. Arabic is the default locale, so it is the primary text. (SEC-17 · FE2)
 - [ ] ★ Register universal / app links against the real domain. **The redirect bug is fixed — do not redo it**
       (`api.ts:24-25` + `redirects.ts` `Linking.createURL()` + `useAuthDeepLink` mounted at `_layout.tsx:73`;
@@ -538,6 +695,15 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       **dev** project only; and fix `site_url = "http://localhost:3000"` (`config.toml:53`) on the hosted
       project — **still `http://localhost:3000` on 2026-09-01** (Prompt C reading; Prompt D Task 4 sets it). (SEC-18 · FE1)
 - [ ] `[FREEZE]` Verify the full reset flow on one iOS and one Android device from a cold install; record the build number. (SEC-18 · FE1)
+- [ ] ★ **Added 2026-09-13 — auth deep links must not carry a session.** Delete the `tokens` branch of `deepLink.ts`
+      (`:81-85`) so a crafted `#access_token=…&refresh_token=…` link cannot sign the phone into another account; add
+      the test. Before the store build. (M1 · FE1)
+- [ ] ★ **Added 2026-09-13 — `reset-password` only after a recovery exchange.** `app/reset-password.tsx:43` accepts any
+      session, so an unlocked phone can set a new password without the current one. Before the store build.
+      (M2 · FE1)
+- [ ] **Added 2026-09-13 — block the template's Android permissions.** `SYSTEM_ALERT_WINDOW` and
+      `READ/WRITE_EXTERNAL_STORAGE` come from the prebuild template; add `android.blockedPermissions` and check the
+      AAB manifest. **[likely]** (L10 · FE1)
 - [ ] ★ `[FREEZE]` **Social sign-in audiences (added 2026-09-01):** Supabase → Auth → Providers — the Client-ID lists must be **exact and minimal**. Apple: `com.kagu.touchpadel` (+ `host.exp.Exponent` during development only). Google: the Web client id + the iOS client id, nothing else — Android tokens carry the Web id as `aud`, so no Android id is ever listed. GoTrue's audience check is the only thing that stops an id token minted for another app from signing in here. Read the two fields via the report-only Chrome prompts C/D in `docs/client/social-auth-setup-2026-09-01.md`; `packages/db/supabase/config.toml` `[auth.external.*]` mirrors the intended lists locally. (SEC-05 · SEC)
 - [ ] ★ `[FREEZE]` **Remove `host.exp.Exponent` from the Apple Client IDs before the store build** (Prompt D Task 4). It is Expo Go's bundle id: while listed, a token minted inside Expo Go by anyone signs in as its holder's own Apple identity — a guest account with no privilege, but not a production audience. (SEC-05 · SEC)
 - [ ] **"Skip nonce check" stays OFF on both providers, by design.** The app mints a nonce per attempt (`apps/mobile/src/features/auth/providers/nonce.ts`: raw → GoTrue, SHA-256 hex → provider), so a replayed id token is refused. Turning it ON for Google is the documented fallback ONLY after the one-file library swap to `@react-native-google-signin` (no nonce support) or a proven SDK nonce defect — and only with SEC sign-off, a HANDOFF entry, and the client omitting `nonce`. `config.toml` pins `skip_nonce_check = false` locally; the hosted toggle has to be looked at (Prompt C reports it). (SEC-05 · SEC)
@@ -557,7 +723,16 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       arbitrary notification to that guest's phone. The column is now write-only to clients; only the
       service role (`send-push`) reads it back. Asserted for all eight principals in the RLS matrix
       alongside `pin_hash`. (SEC-21 · FE1)
+      ⚠ *2026-09-13* **"Cleared on sign-out" holds for a user-initiated sign-out only.** An involuntary `SIGNED_OUT`
+      (refresh failure, password changed elsewhere) clears nothing, `clearPushToken` never sees an error (supabase-js
+      returns `{ error }`), and `expo_push_token` is not unique — the next account on that phone can receive the
+      previous guest's pushes. Null the token on every other profile when one registers. (L9)
 - [ ] Sign EAS Updates and reject unsigned manifests. An OTA channel pushes code to every guest phone with no store review — the highest-leverage credential in the mobile lane. (SEC-23 · FE1)
+      ⚠ *2026-09-13* **The code half is done** — `app.config.ts:159-160` enforces `certs/certificate.pem`. **What is
+      open is the key:** `eas-update-signing.md` left the private key in a session scratchpad with three manual steps
+      and no record that they happened, and no copy is on the dev machine. Confirm it is stored (password manager +
+      EAS secret) **before the store build**, or regenerate and commit a new certificate first — a binary carrying a
+      certificate whose key is lost rejects every OTA patch. **[verify]** (M15)
 - [x] ~~`[CI]` Encode the stored-field allowlist as a `packages/db` test asserting the exact column set of
       the guest-facing tables~~ — **done 2026-09-07.** `packages/db/tests/stored-fields.test.ts`.
       `GUEST_DATA` declares every column of all 8 guest-linked tables with its store data-safety category,
@@ -597,9 +772,20 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       instance of that exact shape in this repository (the unused header constants, the grep that matched
       an unused import, and now a missing script name). The script is now registered and passes;
       mutation-tested by flipping `sandbox: true` to `false`, which it catches. (SEC-30 · DEV)
+      ⚠ *2026-09-13* **It catches a flip, not a removal.** The REQUIRED patterns are matched against the joined text of
+      every main-process file, so deleting `contextIsolation`, `sandbox` and `nodeIntegration` from the main window
+      still passes while those words appear in `print-receipt.ts` or `window-security.ts` (reproduced on a copy).
+      Scope the check to the main window's options. (L23)
 - [ ] Buy an OV or EV code-signing certificate, key in a cloud HSM, not on a laptop. Issuance takes days — start now. (SEC-14 · DEV)
 - [ ] Sign the installer and binaries; configure the updater to verify the publisher against the certificate and refuse a mismatch. (SEC-14 · DEV)
 - [ ] Prove it: install the signed build with no SmartScreen prompt, then serve a tampered `.exe` and show the updater refuses. (SEC-14 · DEV)
+- [ ] ★ **Added 2026-09-13 — close the release trust chain before the next operator release.** Until the build is
+      signed, electron-updater verifies nothing, so whoever can push an `operator-v*` tag ships code to every till
+      within 6 hours: `operator-release.yml` has no `environment:` gate and is not in CODEOWNERS, and
+      `RELEASES_GH_TOKEN` — a personal gh OAuth token with `repo` + `workflow` + `admin:org` — is handed to
+      `electron-builder` after an install that runs dependency scripts. A fine-grained token (`contents: write` on
+      `touchpadel-releases` only) and **revoke** the old one; a tag ruleset; a reviewed environment; the workflow
+      into CODEOWNERS. (H1 · DEV)
 - [x] ~~Encrypt the queue at rest with `safeStorage` (DPAPI-backed), and refuse to trade offline if
       `isEncryptionAvailable()` is false~~ — **done 2026-09-07**, queue schema v4.
       ⚠ **This one was real and worse than the box says.** A queued PIN-gated mutation carries the TYPED
@@ -613,6 +799,8 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       sale rather than writing plaintext. A row that cannot be decrypted later is PARKED as failed and
       stays visible to a manager, never skipped in silence and never replayed with a null body.
       6 new tests, including one asserting a queued PIN is unreadable in the raw file. (SEC-32 · DEV)
+      ⚠ *2026-09-13* "The queue at rest" means `mutation_queue.payload` only. `ref_cache` in the same file is plaintext
+      JSON (`queue.ts:424-427`) — see the purge box below (M11).
 - [x] ~~**Encrypt or remove `pin_cache`.**~~ — **already done** (reconciled 2026-09-07). The box
       describes a state that no longer exists: `src/main/pin-cache.ts` stores scrypt hashes whose SALT is
       encrypted with `safeStorage` (DPAPI), and **fails closed** — if encryption is unavailable the
@@ -634,12 +822,16 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       park the row, `listBlockingRows` surfaces it, and `resolveRow` records WHO dismissed it and when —
       the row is never deleted. Terminal rows are skipped by `peekNext` so one poisoned write cannot wedge
       every later sale, and they still block day close. (SEC-32 · DEV)
-- [x] ~~Purge on confirmed sync, and assert the local schema cannot store the guest list~~ — **done
+- [~] ~~Purge on confirmed sync, and assert the local schema cannot store the guest list~~ — **done
       2026-09-07.** The assertion is the part that was missing: `local-data-surface.test.ts` pins the
       exact table set of `queue.db` and fails on any COLUMN matching guest/customer/profile/phone/email/
       full_name in any of them. The venue PC is the one machine in this system with no RLS in front of
       its storage; "cache the customer list so search works offline" is a reasonable-sounding commit that
       now cannot land quietly. (SEC-32 · DEV)
+      ⚠ *2026-09-13* **Reopened — the guest list is already stored, inside a blob.** `ref_cache.payload` is plaintext
+      JSON (`queue.ts:424-427`) and the cached reservations carry `guest_name`, `guest_phone` and `notes`; the test
+      reads table and column *names*, so it cannot see them. Encrypt `ref_cache`, or drop phone and notes from the
+      projection. (M11)
 - [ ] Stamp both the client's action time and the server's receipt time on a queued write and reconcile on replay. The venue PC's clock is managed by nobody. (SEC-32 · DEV)
 - [x] ~~`[SOW]` Assert the day cannot be closed while unsynced items remain — **D7**~~ — **already
       done** (reconciled 2026-09-07). Enforced server-side (`DAY_UNSYNCED`, 0020) and surfaced by
@@ -648,7 +840,22 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       **already done** (reconciled 2026-09-07). `queueStatus()` returns
       `degraded: !rendererOnline || workerUnreachable` — two independent witnesses, the renderer's
       heartbeat verdict and the sync worker's own transport failures. Nothing is hard-coded. (SEC-32 · DEV)
-- [ ] Stop `station.ts:37-42` defaulting a misconfigured machine into a working station identity. A station with no `station.json` should refuse to trade, not guess. (SEC-32 · DEV)
+- [x] ~~Stop `station.ts:37-42` defaulting a misconfigured machine into a working station identity. A
+      station with no `station.json` should refuse to trade, not guess.~~ — **done 2026-09-09.**
+      The guessed id was `TILL1`, a perfectly good station id, and that was the bug: `station_id`
+      prefixes every idempotency key, is the `p_device_id` that keys the manager-PIN rate limiter, and
+      is the device on every audit row. Two misconfigured machines calling themselves TILL1 shared all
+      three with the real till. It is now `UNCONFIGURED`, which is deliberately not a plausible id.
+      **The hole that actually traded** was not the missing-file path (the renderer already shows the
+      setup screen for that) but a PRESENT file with no `station_id`: `raw.station_id ?? 'TILL1'` came
+      back `configured: true` with NO error, so a mistyped station.json traded happily under another
+      till's identity. A missing/blank `station_id`, and a `mode` this build does not know (`"KDS"`,
+      wrong case, silently became a kiosked `till`), are now both `configError` — a broken install, not
+      an invitation to pick something.
+      `canTrade()` is the same rule for the MAIN process, which had no equivalent check and would have
+      queued, printed and served the LAN under whatever identity `loadStation` returned; it now guards
+      `enqueue`, `lanStatus` and the receipt printer. It does NOT refuse to boot: the setup screen that
+      fixes the problem is rendered by that very window. 14 tests in `station.test.ts`. (SEC-32 · DEV)
 - [x] ★ ~~Strip control bytes and Unicode bidi overrides from guest text at write time~~ — **done
       2026-09-07, migration 0080.** `app.safe_line` (names, phones) and `app.safe_text` (notes, keeps
       line breaks) over a shared control class: C0/C1, zero-width, and every bidi override and isolate.
@@ -660,6 +867,9 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       `reservation_series` are covered too.
       Verified against the real attack: `Ali<U+202E>gnp.exe` stores and renders as `Alignp.exe` instead
       of displaying as `Aliexe.png`. 8 tests. (SEC-27 · DEV)
+      ⚠ *2026-09-13* **Not the only guest-writable text.** `order_items.notes` is written by anonymous café guests
+      through `create_guest_order` → `add_order_items` (`0041:217-221`), with no trigger and no server cap — it reaches
+      the KDS and Telegram. (M5)
 - [x] ★ ~~Whitelist bytes on every **text field entering the W3 ESC/POS builder**~~ — **NOT APPLICABLE
       as written; closed 2026-09-07 by proving the property instead.**
       There is no text field entering the ESC/POS builder. The receipt is composed as HTML, rendered by an
@@ -675,6 +885,12 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       escapes a frame, and a second case asserts the only `ESC` sequences OUTSIDE the framed payload are
       `ESC @` and `ESC d`. This is what the box means by exempting the framed raster payload. (SEC-27 · DEV)
 - [ ] ★ Bind the LAN KDS server to the POS interface, not `0.0.0.0`, and require a bearer token minted at pairing and rotated on each shell start. Bind: done (`pickLanBind`, first RFC1918 IPv4, `lan_bind` override). Minted at pairing: done 2026-09-05 — the till mints a 50-bit pairing code at first run (`main/first-run.ts`), shows it behind the manager PIN, and the kitchen screen proves it with a real handshake before saving (`main/lan-discover.ts`). Rotation on each shell start is NOT done (a rotated key would strand every paired kitchen screen; needs a re-pair flow first). (SEC-31 · DEV)
+      ⚠ *2026-09-13* **An unauthenticated peer can crash the till.** `lan-kds-server.ts:105-156` puts no `error`
+      listener on accepted or rejected sockets and the main process has no `uncaughtException` handler, so one
+      malformed frame (`0x83 0x00`) from any host on the LAN kills the till mid-service; `maxPayload` is the 100 MB
+      default. Fix both and release only after the release-trust-chain box above (H2). First-run discovery also
+      presents the pairing code to every host that answers the sweep (`lan-discover.ts:60`), so a rogue listener
+      harvests the PSK (L22).
 - [x] ~~Restrict the printer socket to the shell's host, and never expose the print endpoint through the
       KDS server~~ — **done 2026-09-07** (assertion added; the property already held).
       The printer transport DIALS OUT (`net.createConnection`) and never listens, so there is no print
@@ -683,7 +899,33 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       `status.update`) and none is a print. `local-data-surface.test.ts` now pins both: the frame set is
       asserted exactly, the KDS modules are asserted never to import the print module, and the transport
       is asserted to contain no `createServer`/`listen`. (SEC-31 · DEV)
-- [ ] Resolve the self-unlock PIN gap: PINs exist only for `manager`/`owner` today, so a cashier has nothing to unlock with. Either lock returns to the staff picker with the account password, or add a **separate** unlock PIN in a separate column with a verification function that can never satisfy an approval RPC. Do not reuse the manager PIN. (SEC-34 · FE2)
+- [x] ~~Resolve the self-unlock PIN gap: PINs exist only for `manager`/`owner` today, so a cashier has
+      nothing to unlock with.~~ — **done 2026-09-09, migration 0087.**
+      **Decision: the account password, not a second PIN** — the box's first route. A separate unlock PIN
+      means a new column, a new verification function, a new set-PIN flow and a second PIN-shaped secret
+      beside the manager PIN, all to buy back an availability inconvenience; and two similar secrets on
+      one keypad is how people type one into the other's prompt. The account password meanwhile CANNOT
+      satisfy an approval RPC structurally and for free: every approval path takes `p_pin` and calls
+      `verify_manager_pin` against `staff.pin_hash`, which a GoTrue re-auth never touches. The separation
+      the box asks a new function to guarantee is a property this route simply has.
+      Both credentials were already implemented; what was missing was knowing WHICH to show BEFORE the
+      person guesses. The screen fell back to the password only AFTER a failed PIN attempt — so a cashier
+      had to fail at a credential they were never issued, in front of a queue, which is the moment the
+      lock becomes a nuisance and the manager's PIN gets learned. `app.has_own_pin()` answers about the
+      caller alone and takes no argument, so it cannot be pointed at another account; the lock now opens
+      on the right field, says why, and stays there on the next idle timeout.
+      6 tests in `self-unlock.test.ts`, mutation-proven — a role-based implementation (`role in
+      ('manager','owner')`) and one without the `is_active` predicate each turn a test red. (SEC-34 · FE2)
+- [ ] **Added 2026-09-13 — the renderer must not persist the staff session.** `apps/operator/src/lib/supabase.ts:47`
+      uses default auth options, so the refresh token lands in `localStorage` — plaintext LevelDB under `%APPDATA%` —
+      while the main process deliberately keeps it in memory. `persistSession: false` + a main-side store. (M12 · DEV)
+- [ ] **Added 2026-09-13 — sign off or reverse "Quit to desktop without a PIN".** `6bec87d` removed the manager PIN
+      (deliberate; `design-arch.md` §2.5): anyone at the till can now end service — the heartbeat stops and the venue
+      degrades — and quitting installs a waiting update. `quitApp` and `installUpdate` are the only bridge methods
+      with no gate. `install-runbook.md` corrected 2026-09-13. (M13 · DEV+CLIENT)
+- [ ] **Added 2026-09-13 — a CSP and a permission handler for the operator renderer.** `apps/operator/index.html` has
+      no CSP and the shell registers no `setPermissionRequestHandler`; on Electron 33 an XSS would have no ceiling.
+      (M16 · DEV)
 
 ---
 
@@ -691,13 +933,28 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 
 > `apps/web` currently ships **zero security headers**, has **no `middleware.ts`**, and has **no lint script**.
 > This is the least-defended surface in the system and the only one with no login.
+>
+> ⚠ *2026-09-13* **Stale since 2026-09-07:** headers ship (measured on production), `proxy.ts` is Next 16's
+> middleware, and `apps/web` has a lint script. It is still the only surface with no login.
 
-- [x] ★ `[FREEZE]` **Production headers shipped** — DONE, **2026-09-07**. HSTS (2y, includeSubDomains, preload), nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, COOP, plus a per-request nonce CSP with `'strict-dynamic'` and no `unsafe-inline`. 🔴 **Layer 1 ticked this on 2026-09-04 while shipping NOTHING** — the constants were imported into `next.config.ts` and never returned. Found by the first run of the header e2e, confirmed on the wire with `curl`; the gate that missed it now inspects the returned array and is negative-tested. `[FREEZE]` still applies against the real domain. (SEC-25 · FE2)
+- [~] ★ `[FREEZE]` **Production headers shipped** — DONE, **2026-09-07**. HSTS (2y, includeSubDomains, preload), nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, COOP, plus a per-request nonce CSP with `'strict-dynamic'` and no `unsafe-inline`. 🔴 **Layer 1 ticked this on 2026-09-04 while shipping NOTHING** — the constants were imported into `next.config.ts` and never returned. Found by the first run of the header e2e, confirmed on the wire with `curl`; the gate that missed it now inspects the returned array and is negative-tested. `[FREEZE]` still applies against the real domain. (SEC-25 · FE2)
+      ⚠ *2026-09-13* **Reopened — the CSP does not reach every path that renders the table page.** The proxy matcher
+      (`proxy.ts:157`) skips any path beginning `api` or containing a dot, and `[locale]` has no
+      `dynamicParams = false`; measured on production, `/api/t` and `/x.y/t` return the table page with **no CSP**
+      (the static headers still apply). `dynamicParams = false`, a matcher that excludes only real static paths, and
+      an e2e case for `/api/t`. (M3)
 - [x] ★ **Table token exchanged for a cookie** — DONE 2026-09-04, **e2e-verified 2026-09-07**. `proxy.ts` 307s `/t/{token}` → `/{locale}/t` with an `HttpOnly; Secure; SameSite=Lax` cookie — a redirect rather than `replaceState`, which is stronger: the token never enters history at all. Printed QR cards unaffected. ⚠ **Known residual:** the token still appears once in the RSC payload because `useTableSession` needs it to call `open_table_session` (`layer-1-rules-and-decisions.md` §7). Fixed: Referer, analytics, history, screenshots, shared links. Not fixed: an XSS in the guest app could still read it. (SEC-25 · FE2)
+      ⚠ *2026-09-13* **Twice, not once:** `LocaleSwitcher.tsx:33` also renders `/{other}/t/{token}` into the server
+      HTML until hydration, so a copied language link carries the credential (L2). The `[token]` fallback route sets
+      the cookie during render, which Next 16 rejects — it errors instead of exchanging (L1). And the proxy accepts any
+      string as a token (L6).
 - [x] **`Referrer-Policy: no-referrer` on the table routes** — DONE, **verified on the wire 2026-09-07**, on `/t/{token}` AND on `/{locale}/t` where the 307 lands — the second was missing from the original. (SEC-25 · FE2)
 - [x] **Token kept out of analytics** — DONE 2026-09-04. PostHog `sanitize_properties` redacts `/t/<token>` from `$current_url`, `$pathname` and `$referrer`; autocapture and session recording were already off. Asserted by the e2e token-leak test, which checks `Referer` on **every** request. ⚠ **The SOW question is separate and still open — see D4.** (SEC-25 · FE2)
 - [x] **Cookies are `HttpOnly; Secure; SameSite=Lax`** — DONE, confirmed on the wire and asserted by e2e. `Lax` not `Strict` on purpose: a guest following the QR from a messaging app arrives cross-site, and `Strict` would drop the cookie on the one navigation that matters. (SEC-25 · FE2)
-- [x] ~~Add the **cafe abuse limits** Security Layer §6.2 asks for~~ — **mostly done 2026-09-07,
+      ⚠ *2026-09-13* True of `tp-table` only. The Supabase auth cookie that carries the anonymous guest's refresh token
+      (`src/lib/supabase/client.ts:13`, default `@supabase/ssr` options) is not `Secure` and lives 400 days. Pass
+      `cookieOptions`. (L3)
+- [~] ~~Add the **cafe abuse limits** Security Layer §6.2 asks for~~ — **mostly done 2026-09-07,
       migration 0082.** `venue_settings.guest_orders_per_minute` (6),
       `guest_items_per_order` (40) and `tab_confirm_threshold_iqd` (150,000), enforced by BEFORE triggers
       on `orders` and `order_items` rather than by editing `create_guest_order` — 0076's lesson about
@@ -709,7 +966,17 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       6 tests, including the cross-session isolation case.
       **Still open: the per-IP limit.** Postgres never sees the client IP — it sees PostgREST — so it
       belongs in front of the site, with the box below. Solving it here would have been pretence. (SEC-25 · FE2+DEV)
+      ⚠ *2026-09-13* **Reopened — per session is not enough.** Opening another table's session (or signing in
+      anonymously again) resets the count (`0082:70-72`), so a script alternates tables at 6 orders/minute each;
+      nothing exposes `guest_orders_per_minute` to staff, and the only in-app stops are closing the day or degraded
+      mode. Per-table and per-user limits, a close-table-sessions RPC and an operator kill switch (migration, M4); a
+      gated `db-ops.yml` pause action until then. Guest `notes` also need `safe_text` and a cap (M5).
 - [ ] Put rate limiting and bot protection in front of the public site and the auth endpoints. (SEC-25 · FE2)
+- [ ] **Added 2026-09-13 — web hygiene, each under an hour.** Delete `public/brand/Touch Cafe Menu Final
+      (standalone).html` — 764 KB of inline script served without a CSP (L4); only exchange tokens of the expected
+      shape (L6); `poweredByHeader: false`, the local image pattern behind a dev check, and a `media-src` (L7); PostHog
+      `disable_external_dependency_loading`, surveys, tours, heatmaps and exception capture off, scrubbing moved to
+      `before_send` (L5). (SEC-25 · FE2)
 - [x] Add e2e cases asserting each header, no inline script without a nonce, and no token substring in
       the captured analytics payload — DONE, **first executed 2026-09-07, 6/6 green**
       (`e2e/tests/web-security-headers.spec.ts`). This suite is what found that the static security
@@ -769,6 +1036,10 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
 - [ ] Prove the scrubbing: put a test phone number into a scratch guest name, force an exception on that screen, search the tracker for it, expect zero hits. Repeat for a fake PIN. (SEC-36 · SEC)
 - [ ] Write the retention schedule the standard never states: analytics, error tracker, Telegram history and the LLM provider all need a period. The audit log is forever **by design** — that one is correct. (SEC-19 · SEC)
 - [ ] Implement guest anonymisation after the agreed inactivity window (Security Layer §5.2 proposes 24 months) and write the window into the privacy notice. (SEC-19 · SEC)
+- [ ] **Added 2026-09-13 — before phone OTP is activated:** the SMS `log` provider must not print numbers and codes
+      on hosted (`_shared/sms/index.ts:47-48` treats a missing `SUPABASE_ENV` as local; `log.ts:16` logs both) and a
+      misconfigured provider must fail closed (M17); `allowed_prefixes` should admit Iraqi mobiles only (L20);
+      reviewers get an OTP pair that is not in the repository (M8). (SEC-22 · DEV)
 
 ---
 
@@ -813,7 +1084,7 @@ Re-scored against the repository on 2026-08-30. **Seven of v1.0's twenty-one are
 | 01 | No service key in any shipped bundle (SEC-24) | **OPEN** | Run the artifact grep yourself on the release builds. A hit is a stop-ship. |
 | 02 | `gitleaks` over full history is clean (SEC-24) | **OPEN** | Run it. It prints findings or nothing. |
 | 03 | MFA on every production account (SEC-40) | **OPEN** | Open each provider's settings and look. |
-| 04 | Hosted database is at the migration head (SEC-03) | **OPEN** | The nightly `db diff --linked` job is green. |
+| 04 | Hosted database is at the migration head (SEC-03) | **OPEN** — ⚠ *2026-09-13*: reported 89/89 on 2026-09-12 (`HANDOFF.md` Day 19), not re-verified | The nightly `db diff --linked` job is green. |
 | 05 | Migration safety procedure in place (SEC-02) | **OPEN** | Open a test PR with a `DROP COLUMN` and watch CI refuse it. |
 | 06 | Anonymous sessions cannot hold courts (SEC-07) | ✅ **0048/C1** | Ask for the `booking-hardening` test. It exists and is green. |
 | 07 | Idempotency keys scoped to the caller (SEC-08) | ✅ **0048/H3 + 0049** | Ask for the cross-caller test. `IDEMPOTENCY_CONFLICT`. |
@@ -825,7 +1096,7 @@ Re-scored against the repository on 2026-08-30. **Seven of v1.0's twenty-one are
 | 13 | Privacy notice and web deletion page live (SEC-17) | **OPEN** | Open both URLs in Arabic and English. **Store blocker.** |
 | 14 | Password reset works on a real device (SEC-18) | **OPEN** | Do it yourself from a cold install. **Store blocker.** |
 | 15 | Auth hardening on (SEC-05) | **OPEN** — read 2026-09-01: captcha OFF, leaked-password protection OFF, `localhost` + `exp://` still in the redirect list | Dashboard toggles — look at them. |
-| 16 | Production headers and CSP live (SEC-25) | ⚠ **WAS FALSELY GREEN — fixed 2026-09-07** | The 2026-09-04 tick was wrong: the header set was written and *imported* into `next.config.ts` but never returned, so **zero** static headers shipped while the gate stayed green (it grepped for the constant's name, which an unused import satisfies). Now wired, gate strengthened and negative-tested, 6/6 e2e green. Do the third-column check yourself: `curl -I` the domain and read them. |
+| 16 | Production headers and CSP live (SEC-25) | ⚠ **WAS FALSELY GREEN — fixed 2026-09-07** · **PARTIAL again 2026-09-13** — no CSP on `/api/t` or dotted paths (M3) | The 2026-09-04 tick was wrong: the header set was written and *imported* into `next.config.ts` but never returned, so **zero** static headers shipped while the gate stayed green (it grepped for the constant's name, which an unused import satisfies). Now wired, gate strengthened and negative-tested, 6/6 e2e green. Do the third-column check yourself: `curl -I` the domain and read them. |
 | 17 | Table token is not a bearer credential in a URL (SEC-25) | **OPEN** | Scan a QR and look at the address bar. **New gate.** |
 | 18 | Table-token secret rotatable without reprinting (SEC-26) | **OPEN** | Ask for the test where a token signed with the previous secret still verifies. |
 | 19 | Guest text cannot reach the printer as commands (SEC-27) | **OPEN** | Order a note containing a drawer-kick sequence; watch the drawer stay shut. |
@@ -835,8 +1106,9 @@ Re-scored against the repository on 2026-08-30. **Seven of v1.0's twenty-one are
 | 23 | Disabling a staff account ends their sessions (SEC-35) | **PARTIAL** | DB half done (`0003:50`). Disable a test account and watch a live session die. |
 | 24 | The SOW deviations are settled in writing (D1–D7) | **OPEN** | Read the signed variation. **New gate.** |
 | 25 | Social provider audiences exact, `host.exp.Exponent` gone, "Skip nonce check" OFF (SEC-05) | **PARTIAL** — 2026-09-01: audiences exact and the Google toggle OFF (Prompt C); `host.exp.Exponent` still listed on purpose until release week | Open Supabase → Auth → Providers and read the two Client-ID fields and the Google toggle. **New gate 2026-09-01** — social sign-in is a vendor addition; this gate protects the whole auth surface, not just the feature. |
+| 26 | Dev seed staff accounts absent from the hosted project (C1) | **OPEN** — added 2026-09-13 | Supabase → Auth → Users: no `@dev.touch.local` and no `owner@touchpadel.local`; every manager/owner PIN reset on or after 2026-09-13. |
 
-**Eighteen of these you can verify entirely by yourself, with no code reading:** 1, 2, 3, 5, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17, 19, 20, 24, 25. That is the point of the third column — pick the evidence that does not need your expertise.
+**Nineteen of these you can verify entirely by yourself, with no code reading:** 1, 2, 3, 5, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17, 19, 20, 24, 25, 26. That is the point of the third column — pick the evidence that does not need your expertise.
 
 ---
 
@@ -868,7 +1140,7 @@ something that works. Land these in the first week and thirteen boxes become per
 - [x] **Every definer function pins `search_path`** (SEC-04) — **executed 2026-09-07**: 215/215
 - [x] **RPC registry** (SEC-12) — has now fired in anger twice (0070; then 0072/0073/0074, eleven at once)
 - [~] **Authz sweep coverage counter** (SEC-12) — the ratchet is DONE and enforced; the **gap is not**. 72 of 139 covered as of 2026-09-07 (up from 60/127). `override_price`, `void_after_send`, `apply_pct_discount`, `merge_tabs`, `split_by_item` and the `analytics_*` family are still asserted by nobody.
-- [x] **`check:electron`** (SEC-30) — window hardening cannot regress
+- [x] **`check:electron`** (SEC-30) — window hardening cannot regress — ⚠ *2026-09-13*: a *removed* setting still can (L23)
 - [x] ~~Guest-field allowlist drift test (SEC-20)~~ — **built 2026-09-07**, `packages/db/tests/stored-fields.test.ts`. No longer blocks the store data-safety forms in §08; those now need only a human in the two consoles.
 - [x] **No real-format phone numbers in seeds or fixtures** (SEC-37) — `check-data-hygiene.mjs`
 - [x] ~~A **pull-request template** carrying the Security Layer §11.4 checklist~~ — **done 2026-09-07**,
@@ -900,7 +1172,7 @@ final artifact.
 
 **Before handover · 2026-10-04 · one day**
 - [ ] Artifact secret grep on the final web and desktop builds (SEC-24)
-- [ ] Headers and CSP against the production domain (SEC-25)
+- [ ] Headers and CSP against the production domain (SEC-25) — including `/api/t` and a dotted path (M3)
 - [ ] Power-cut drill, twice, on the venue's own PC, with the switching test inside it (SEC-39)
 - [ ] Backup restore drill, dated and timed (SEC-38)
 - [ ] Leaver test on real machines, elapsed time recorded (SEC-35)

@@ -11,6 +11,12 @@ describe('makeFormatters', () => {
     expect(ar.money(12500)).toMatch(/12[,٬]500 د\.ع$/);
     expect(en.money(-500)).toBe('−500 IQD');
   });
+  it('keeps one decimal where the figure has one', () => {
+    expect(en.num1(6.5)).toBe('6.5');
+    expect(en.num1(3.456)).toBe('3.5');
+    expect(en.num1(3)).toBe('3');
+    expect(ar.num1(2.25)).toMatch(/^2[.٫]3$/);
+  });
   it('formats percentages and signed deltas', () => {
     expect(en.pct(42)).toBe('42%');
     expect(en.pct(3.25)).toBe('3.3%');
@@ -27,6 +33,13 @@ describe('makeFormatters', () => {
     expect(en.date('2026-08-12', true)).toMatch(/2026/);
     expect(en.dateRange('2026-08-01', '2026-08-01')).toMatch(/^1 Aug$/);
     expect(en.dateRange('2026-08-01', '2026-08-10')).toContain('–');
+  });
+  it('prints a timestamp as day, month and venue-local time', () => {
+    // 10:05 UTC is 13:05 in Baghdad (UTC+3, no DST).
+    expect(en.dateTime('2026-08-12T10:05:00Z')).toMatch(/12 Aug.*13:05/);
+    expect(ar.dateTime('2026-08-12T10:05:00Z')).toMatch(/13:05/);
+    expect(en.dateTime('2026-08-12T22:30:00Z')).toMatch(/13 Aug.*01:30/);
+    expect(en.dateTime('not a date')).toBe('');
   });
   it('maps JS weekday indexes', () => {
     expect(en.weekday(0)).toBe('Sun');

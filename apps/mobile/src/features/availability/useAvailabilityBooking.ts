@@ -14,7 +14,7 @@
  * a TRADING NIGHT (09:00 through the small hours of the next date), not a
  * calendar day — see assembleTradingNight.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { isolate } from '@touch/i18n';
 import { useLocale } from '../../i18n/LocaleProvider';
@@ -23,7 +23,7 @@ import {
   useCourtsBroadcast,
   useDayGrid,
   useIsDegraded,
-  usePrefetchAdjacentDays,
+  useWarmDayGrids,
   useVenueSettings,
   type DayGrid,
 } from './hooks';
@@ -60,6 +60,12 @@ export interface AvailabilityBooking {
   selectDate: (date: string) => void;
   durationMin: number;
   setDurationMin: (minutes: number) => void;
+  /**
+   * Identity of the grid ON SCREEN — the day and duration `cells` was actually
+   * built for. Screens reset the grid's scroll offset on it, so the list goes
+   * back to the top when the day or the duration changes.
+   */
+  gridKey: string;
   /** Offered durations across courts (falls back to 60/90). */
   durations: number[];
   day: DayGrid;
@@ -110,6 +116,11 @@ export function useAvailabilityBooking(
 
   // One minute tick drives "past" cells and the day strip. The heavy grid
   // build (useDayGrid) is data-driven only; applying the clock is O(cells).
+  //
+  // NOT in a transition, for the reason the grid is not deferred either — see
+  // the long note below: transition work on this screen waits out a five-second
+  // deadline behind the rally's frame loop, and a clock that is five seconds
+  // late is worse than one dropped frame a minute.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -137,15 +148,64 @@ export function useAvailabilityBooking(
   }, [tzDates, date]);
 
   const [durationMin, setDurationMin] = useState(60);
-  const day = useDayGrid(date);
-  // Warm the chips either side, so the usual next tap paints from cache instead
-  // of waiting on a round trip.
-  usePrefetchAdjacentDays(tzDates, date);
+
+  /**
+   * THE GRID IS BUILT ON THE TAP, NOT DEFERRED. A note, because the obvious
+   * React answer here is wrong on this screen and was tried.
+   *
+   * `date` and `durationMin` were briefly fed through `useDeferredValue`, so
+   * that the chip lit up at once and the expensive half — assembling a trading
+   * night, merging both courts, laying out every cell — followed at TRANSITION
+   * priority, time-sliced, leaving frames for the court's rally (Court3D draws
+   * it from a rAF loop on this same thread).
+   *
+   * That reasoning assumes the host eventually gives React's scheduler a clear
+   * window, and a self-rescheduling frame loop did not: the new day's times
+   * arrived a full five seconds after the chip was tapped (owner, 2026-09-10).
+   * Smooth, and useless.
+   *
+   * The five seconds were not a coincidence and the mechanism is worth naming,
+   * because it governs everything else on this tab: React's scheduler here is
+   * the native RuntimeScheduler, whose queue is a min-heap on task expiry —
+   * ImmediatePriority (every timer, and `requestAnimationFrame` IS a timer in
+   * bridgeless RN) expires at once, NormalPriority (transitions, passive
+   * effects, any setState off a promise) in five seconds. A frame loop that
+   * always had its next timer queued therefore held the head of that queue
+   * until the expiry. Court3D's `startLoop` no longer does that — it asks for
+   * the next frame after drawing this one, which leaves the queue empty for the
+   * gap — and its header carries the full story.
+   *
+   * A tap is still the right place for this work regardless: a touch is a
+   * DISCRETE event, so what it sets renders synchronously and is never in that
+   * queue at all.
+   *
+   * So the selection drives the grid directly and the work lands on the tap,
+   * where it can be seen and measured. What made that affordable is everything
+   * else: the ICU caching in @touch/core's `localParts` (620 formatToParts per
+   * night down to 41), memoised cells that a re-render skips, the strip's rows
+   * in one request, and `useWarmDayGrids` building every other chip ahead of
+   * time — so the usual tap finds its grid already assembled and does nothing
+   * at all. The rally rides the rest out on its capped clock (rallyClock.ts):
+   * a frame or two dropped, never a jump.
+   */
+  // The strip goes in whole: its busy ranges come down in ONE request, so
+  // moving between chips is never a round trip.
+  const day = useDayGrid(date, tzDates);
+  // And every OTHER chip's grid is assembled while the guest is reading this
+  // one, so the tap that follows is neither a fetch nor a build.
+  useWarmDayGrids(tzDates, date);
   useCourtsBroadcast(); // live slot_changed -> availability invalidation
 
   const [notice, setNotice] = useState<AvailabilityNotice>(null);
   const [error, setError] = useState<string | null>(null);
   const hold = useHoldSlot();
+  // Pulled out as their own values: `hold` and `day` are rebuilt by react-query
+  // on every render, so depending on the objects would give `onTapCell` a new
+  // identity each time — and a stable identity is what lets the memoised cells
+  // skip a re-render (see onTapCell).
+  const holdPending = hold.isPending;
+  const holdMutate = hold.mutate;
+  const refetchDay = day.refetch;
 
   // Transient state belongs to the day/duration it happened on.
   useEffect(() => {
@@ -190,8 +250,15 @@ export function useAvailabilityBooking(
 
   const isClosedDate = (d: string) => (day.settings?.closed_dates ?? []).includes(d);
 
-  const onTapCell = (cell: MergedCell) => {
-    if (hold.isPending) return; // one hold at a time — no double-tap races
+  /**
+   * STABLE across renders, deliberately — `SlotCell` is memoised and takes this
+   * function itself rather than a per-cell closure, so a re-render of the
+   * surface (the day strip's selection moving, the minute tick, a refetch flag)
+   * skips all ~34 cells instead of re-running them. A new identity here would
+   * quietly undo that; see the note on SlotCell.
+   */
+  const onTapCell = useCallback((cell: MergedCell) => {
+    if (holdPending) return; // one hold at a time — no double-tap races
     setError(null);
     if (cell.state === 'blocked') return setNotice('blocked');
     if (cell.state === 'horizon') return setNotice('horizon');
@@ -227,7 +294,7 @@ export function useAvailabilityBooking(
       return;
     }
 
-    hold.mutate(
+    holdMutate(
       { courtId: cell.courtId, startAt: cell.startAt, durationMin },
       {
         onSuccess: (result) => {
@@ -260,13 +327,25 @@ export function useAvailabilityBooking(
           } else {
             setError(t(mapErrorToKey(err)));
           }
-          day.refetch();
+          refetchDay();
         },
       },
     );
-  };
+  }, [
+    holdPending,
+    holdMutate,
+    durationMin,
+    courts.data,
+    session,
+    profileGate,
+    origin,
+    phone,
+    refetchDay,
+    router,
+    t,
+  ]);
 
-  const subFor = (cell: MergedCell): string => {
+  const subFor = useCallback((cell: MergedCell): string => {
     switch (cell.state) {
       case 'free':
         // A free slot with no price cannot be taken online, but the desk can
@@ -286,14 +365,17 @@ export function useAvailabilityBooking(
       default:
         return '—';
     }
-  };
+  }, [locale, t]);
 
-  const capacityLineFor = (cell: MergedCell): string =>
-    cell.state === 'free'
-      ? cell.freeCount > 1
-        ? t('booking.capacityFree', { count: cell.freeCount })
-        : t('booking.capacityOne')
-      : '';
+  const capacityLineFor = useCallback(
+    (cell: MergedCell): string =>
+      cell.state === 'free'
+        ? cell.freeCount > 1
+          ? t('booking.capacityFree', { count: cell.freeCount })
+          : t('booking.capacityOne')
+        : '',
+    [t],
+  );
 
   const onCall = () => {
     if (!phone) return;
@@ -312,6 +394,7 @@ export function useAvailabilityBooking(
     },
     durationMin,
     setDurationMin,
+    gridKey: `${date}|${durationMin}`,
     durations,
     day,
     cells,

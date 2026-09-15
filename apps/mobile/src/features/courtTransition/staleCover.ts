@@ -24,6 +24,12 @@
  * shade that call is a no-op — the cover came off over a framebuffer still
  * holding the old palette, which is exactly the white band the video shows.
  * A frame only counts while the app is active.
+ *
+ * CALLED FROM EXACTLY ONE PLACE: `renderFrame` in components/Court3D.tsx,
+ * immediately after the court surface's `endFrameEXP`. If nothing imports
+ * `frameRepaints`, that call has been lost — it was, in the merge afe7f57
+ * (2026-09-09), and the cover then stayed up forever after any theme flip. The
+ * test alongside this file reads Court3D.tsx and fails when the call is gone.
  */
 
 /** What the component knows when it is deciding whether to cover the court. */

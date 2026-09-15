@@ -1293,6 +1293,22 @@ export const matrix: MatrixRule[] = [
     note: 'RPC-only (app.set_telegram_staff, owner) — a client insert would be a self-grant',
     drop: 4,
   },
+  {
+    kind: 'select',
+    name: 'telegram_chats',
+    expect: ex<SelectExpectation>('silence', { anon: 'denied', manager: 'rows', owner: 'rows' }),
+    note: '0091 detected groups: the operator picks the staff group from these',
+    drop: 7,
+  },
+  {
+    kind: 'write',
+    name: 'telegram_chats',
+    op: 'insert',
+    payload: { chat_id: '-570092', type: 'group', bot_status: 'member' },
+    expect: ex<WriteExpectation>('denied'),
+    note: 'written only by telegram-callback (service role) — a client insert could plant a group the owner then picks',
+    drop: 7,
+  },
 
   // ── analytics LLM tables: owner reads only, RPC-only writes ───────────────
   {
@@ -2197,6 +2213,15 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'analytics_price_bands', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'analytics_promo', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'analytics_sold_items', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
+
+  // ── owner only: the Courts analytics family (0093, app.analytics_guard) ──
+  // DROP 8. Same guard, same prologue; p_court_id is optional and unknown
+  // ids yield empty sections, so the date pair alone is a safe probe.
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_cafe', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_demand', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_endings', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_guests', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
+  { kind: 'rpc', schema: 'app', name: 'analytics_courts_summary', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 8 },
   {
     kind: 'rpc', schema: 'app', name: 'save_analytics_patterns',
     // Inverted range -> INVALID_RANGE, so owner never reaches the INSERT.
@@ -2213,6 +2238,17 @@ export const matrix: MatrixRule[] = [
 
   // ── owner only: staff administration ──────────────────────────────────────
   { kind: 'rpc', schema: 'app', name: 'clear_staff_pin', args: { p_staff_id: NIL_UUID }, expect: OWNER_ONLY, drop: 7 },
+  {
+    // 0086/SEC-13. Releases a staff member locked out by five failed PIN
+    // attempts. MANAGER_UP, not OWNER_ONLY: the lockout happens mid-service and
+    // the owner is not always on the floor — an unclearable lock is why the
+    // shift lead ends up sharing a PIN, which is the outcome the whole PIN
+    // regime exists to prevent. It is audited, which is what makes delegating
+    // it safe. Probed with NIL_UUID: every principal that passes the role guard
+    // then meets STAFF_NOT_FOUND, which counts as 'execute'.
+    kind: 'rpc', schema: 'app', name: 'clear_pin_lockout',
+    args: { p_staff_id: NIL_UUID }, expect: MANAGER_UP, drop: 8,
+  },
   { kind: 'rpc', schema: 'app', name: 'rename_staff', args: { p_staff_id: NIL_UUID, p_display_name: 'matrix probe' }, expect: OWNER_ONLY, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'set_staff_active', args: { p_staff_id: NIL_UUID, p_active: false }, expect: OWNER_ONLY, drop: 7 },
   {
@@ -2359,6 +2395,14 @@ export const matrix: MatrixRule[] = [
   },
   { kind: 'rpc', schema: 'app', name: 'menu_availability', args: {}, expect: SELF_ANON_OK, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'staff_role', args: {}, expect: SELF_ANON_OK, drop: 7 },
+  {
+    // 0087/SEC-34. Self-answering, like staff_role beside it: no argument, so
+    // every principal may call it and each learns one boolean about itself.
+    // anon and both guest shapes get a plain `false` rather than a refusal —
+    // there is nothing to refuse when the answer is about the caller.
+    kind: 'rpc', schema: 'app', name: 'has_own_pin',
+    args: {}, expect: SELF_ANON_OK, drop: 8,
+  },
   { kind: 'rpc', schema: 'app', name: 'is_own_session', args: { p_session_id: NIL_UUID }, expect: SELF_AUTHED, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'item_active_groups', args: { p_item_id: NIL_UUID, p_chosen_modifier_ids: [] }, expect: SELF_AUTHED, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'order_is_callers', args: { p_order_id: NIL_UUID }, expect: SELF_AUTHED, drop: 7 },

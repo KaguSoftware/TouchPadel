@@ -2,6 +2,14 @@
 
 **Security Layer 1, Block 4 · Mobile (SEC-23)** · 2026-09-04
 
+> ⚠ **Status 2026-09-13 — the steps under "What you must do" are not recorded as done.** Code signing is enforced
+> (`app.config.ts:159-160`), but nothing records that the private key reached the password manager or EAS, and a
+> filename search of the dev machine found no copy. **Before the next store build:** confirm the key is stored and
+> that a signed `eas update` reaches an internal build carrying this certificate — or, if the key is lost, generate a
+> new keypair, commit the new `certificate.pem`, and build with that. A binary whose certificate's key is lost
+> rejects every OTA update, so every post-launch fix would have to go through store review.
+> (`security-audit-2026-09-13.md` M15)
+
 ## Why
 
 An OTA channel pushes JavaScript to every guest phone **with no store review in

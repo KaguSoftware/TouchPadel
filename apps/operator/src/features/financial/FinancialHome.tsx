@@ -4,7 +4,7 @@
  *
  * The section answers one question in three tenses: what came in (revenue and
  * its two sources), whether the cash agrees (drawer, day close), and what the
- * prices will produce next (rates, menu, stock value). The cards follow that
+ * prices will produce next (rates, menu). The cards follow that
  * order rather than alphabetical or by screen type.
  *
  * The band above them is the month so far, read straight from `panel_headline`
@@ -25,8 +25,8 @@ import { Panel, presetPeriod } from '../../components/kit';
 import { figuresIn, mapFigures, type PanelHeadline } from '../panel/figures';
 
 type CardKey =
-  | 'revenue' | 'courtIncome' | 'cafeSales' | 'cashDrawer'
-  | 'dayClose' | 'rates' | 'menuPrices' | 'stockValue';
+  | 'reports' | 'cashDrawer'
+  | 'dayClose' | 'rates' | 'menuPrices';
 
 export function FinancialHomeScreen() {
   const { tr, locale } = useLocale();
@@ -48,6 +48,7 @@ export function FinancialHomeScreen() {
   return (
     <SectionHome
       sectionKey="financial"
+      fullWidth
       title={tr('ws.owner.financialHome.title')}
       lead={tr('ws.owner.financialHome.lead')}
       card={(key) => tr(`ws.owner.financialHome.cards.${key as CardKey}`)}

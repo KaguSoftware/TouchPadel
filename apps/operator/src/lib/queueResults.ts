@@ -23,8 +23,8 @@ export const RESULT_INVALIDATIONS: Record<string, readonly (readonly string[])[]
   'payment.record': [['tab'], ['tabs'], ['day']],
   'ticket.status': [['tickets']],
   'adjustment.apply': [['tab'], ['tabs']],
-  'reservation.create': [['reservations'], ['reservationsWeek']],
-  'reservation.update': [['reservations'], ['reservationsWeek']],
+  'reservation.create': [['reservations'], ['reservationsMonth']],
+  'reservation.update': [['reservations'], ['reservationsMonth']],
   'waiter_call.action': [['waiterCalls']],
   'stock.waste': [['stock']],
 };

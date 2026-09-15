@@ -1174,15 +1174,21 @@ nothing typed reads the new objects — run `db:types` at the next reset.
 
 **Edge function `send-sms-otp`** (`verify_jwt = false`; Standard-Webhooks HMAC-SHA256 is the auth, fail-closed on an
 unset secret, ±300 s, constant-time). Pure halves `verify.ts` / `otp.ts` run under vitest on Node 22's webcrypto; the
-bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `providers/*`: `log`
-(default, spends nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender —
-Asiacell requires sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (written from the
-vendor's public client libraries; the runbook re-verifies the request shape before opening the gate). `_shared/phone.ts`
+bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `_shared/sms/*` (moved
+out of the hook 2026-09-12 so every edge function texts through ONE function, `sendSms()`): `log` (default, spends
+nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender — Asiacell requires
+sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (decided 2026-09-12, superseded the next day; dormant), **`whatsapp` — Meta's official Cloud API, the owner's
+choice 2026-09-13, no reseller, no SMS fallback**: authentication template per language picked from `profiles.preferred_lang`,
+Graph v26.0, Meta error code + detail in the send log's `error`. `tests/sms-provider.test.ts` pins
+selection, each adapter against a mocked fetch, and the boundary (no other function file may name a vendor host or
+secret) — swapping vendors is `secrets set SMS_PROVIDER=…`, adding one is one adapter file. `_shared/phone.ts`
 is the edge copy of the new `@touch/core` normaliser, parity-tested on one fixture table.
 
 **Mobile.** `@touch/core` `phone/iraq.ts` (`phoneCanon` twin of SQL 0065, strict `toE164Iraq`, national formatter);
 `features/auth/phoneOtp.ts` (flag grammar, validation, `hasRealEmail`, `mapOtpError` for GoTrue codes AND the hook's
-relayed refusal reasons); five GoTrue calls in `api.ts`; screens `phone-sign-in.tsx` (fixed +964 chip, `signin` /
+relayed refusal reasons); five GoTrue calls in `api.ts`; **D4b decided 2026-09-12: phone is the default method** — with the flag on it is the
+green CTA at the top of `welcome.tsx`, `sign-in.tsx` and `sign-up.tsx` (email/social below; flag off = screens exactly
+as shipped); screens `phone-sign-in.tsx` (fixed +964 chip, `signin` /
 `link` modes) and `verify-otp.tsx` (iOS autofill, auto-submit at 6, 30 s resend, ungated in sign-in mode for the same
 reason verify-email is); entry buttons on welcome / sign-in; Profile gains **Verify phone number** for email/social
 users (sets `auth.users.phone` via `phone_change`, then rewrites `profiles.phone` to the number that proved itself)
@@ -1268,7 +1274,8 @@ activity, requests, marketing, audit log), **Setup** (unchanged). The old Operat
 **Hosted correction (verified 2026-09-07 via `supabase migration list --linked`): hosted is at 0070**, not
 the 0059 the Day 17 entry recorded — 0060–0070 were pushed between 2026-09-06 and 09-07. Pending:
 **0071–0075** (dry-run confirms exactly those five). `replay` is still **v1 (2026-08-27)** — the day-14
-redeploy is still owed.
+redeploy is still owed. *(Day 19 correction: the Gotchas line written later the same day records
+the replay redeploy done and hosted at 0075; the probe on 2026-09-12 confirms 0072–0076 present.)*
 
 ## Day 18, continued (2026-09-07) — the first operator release was cut
 
@@ -1333,6 +1340,166 @@ and `latest.yml` (`version: 0.2.2`); the stable link
 `…/releases/latest/download/Touch-Padel-Operator-Setup.exe` 302s to it and `/download` on the guest
 site serves it. Unsigned (SmartScreen prompt once per machine) until a cert exists. Machines that
 installed the broken 0.2.0 do NOT self-update (that build never reached the updater) — reinstall by hand.
+
+## Day 19 (2026-09-12) — "desk changes do nothing on the phone": the hosted ledger was stuck
+
+The owner reported that booking changes on the desktop app never reached the mobile app. Three
+read-only audits (desk write path, phone read path, backend) found the code wired end to end —
+desk → queue → `replay` → `app.*`; phone ← `court_availability` poll + `courts` broadcast +
+`reservations`. **The break was entirely in what is deployed to the hosted project**, verified with
+anon-key probes (PGRST202 = function missing, 42501 = exists but denied):
+
+1. **Two stranded migrations blocked every push since 2026-09-07.** `20260904000069_btree_gist_schema_fix`
+   and `20260906000071_booking_integrity` (kemal's Phase 2, merged via PR #19 AFTER
+   `20260907000071..75` had been pushed by hand) sort before versions already on the remote
+   ledger; `supabase db push` refuses out-of-order files unless `--include-all`. So manual pushes
+   AND the CI `db-migrate` job failed from that merge on. **Exact hosted ledger, read with the
+   right CLI account on 2026-09-12:** applied through 0075 plus **0088** (applied by hand on
+   09-11, so `reservations.cancelled_by` DOES exist); NOT applied: 20260904000069,
+   20260906000071, 0076–0087, 0089. Live `mark_reservation` is the 0075 body (no temporal guard);
+   `btree_gist` is still in `public`. (The anon-key probes earlier that day had read "0077 and
+   0087 missing" correctly but inferred "therefore 0088 missing" — wrong: 0088 was applied out
+   of order by hand.)
+2. **What the phone actually lost:** not the booking list (`cancelled_by` is there) but every
+   booking inside the 48 h horizon — see 3 — plus the 0076–0087 behaviour (no-show temporal
+   guard, account deletion, PIN uniformity, sanitising, …) and the desk's customer creation.
+3. **Hosted `is_degraded()` = true** — `TILL-01` (last beat 2026-09-11 13:01 UTC) and `TEST-AM`
+   (09-09), both `is_till`, both stale → every slot inside the 48 h horizon "desk only", holds
+   refused. Fourth occurrence. **Cleared 2026-09-12 ~14:45 UTC** (the 0057 sweep via
+   `db query --linked`; `is_degraded()` → false; `DEV-DEV1`/`DESK-01` rows left as they are).
+4. **Edge functions:** `desk-customer-create`, `staff-admin`, `apple-revoke` never deployed (404),
+   so the desk could not create a guest account and its bookings stayed unlinked walk-ins.
+5. **The Supabase CLI on the dev machine is logged in as a different account**
+   (`petitati.ist@gmail.com`'s project only; `--linked` commands 403). Hosted ops therefore go
+   through CI or after `supabase login` with the touch-padel-org account.
+
+**Late-apply hazard, and the fix (migration 0089).** 0071 and 0075/0076 both
+`create or replace app.mark_reservation`; 0076 already contains 0071's guard ("0076 = 0075 +
+0071"). Applying 0071 after 0076 would revert the 0075 half (cancelled_at stamping). Grep
+confirmed no other 0071 object is redefined by 0072–0088, and 0071's constraints are
+`if not exists … not valid` + validate, so **`20260912000089_mark_reservation_reassert.sql`**
+re-issues the 0076 body/comment/grants and the ledger order stops mattering. 0071 is NOT
+renamed (ledger repair on every stack; conditional constraints).
+
+**Guards so it cannot recur:**
+- `packages/db/scripts/check-migrations.mjs` now fails a PR whose NEW migration sorts before the
+  newest version on the merge base (`migration-out-of-order`) or shares a 14-digit version
+  (`migration-duplicate-version`). Neither is waivable by `MIGRATION-RISK-ACCEPTED`. The script
+  also judges UNTRACKED migration files locally (git diff never listed them, so a fresh file
+  passed silently).
+- `db-migrate.yml`: `workflow_dispatch` input `include_all` (default false) → `db push --yes
+  --include-all`; push-to-main stays a plain push that fails loudly.
+- **New `functions-deploy.yml`**: every edge function deploys on push to `main` touching
+  `supabase/functions/**` or `config.toml` (and on dispatch), behind the `staging` gate; asserts
+  `telegram-callback` + `send-sms-otp` keep `verify_jwt = false`.
+- **New `db-ops.yml`** (dispatch only, `staging` gate): `clear-stale-till` (the 0057 sweep via
+  `db query --linked`, one statement per call, prints `is_degraded()`), `migration-list`.
+
+**Owner runbook: `docs/client/hosted-catchup-2026-09-12.md`** — Path A (GitHub: DB Migrate with
+`include_all = true` → Functions deploy → DB ops clear-stale-till), Path B (local CLI, correct
+account, from `packages/db`), the read-only verification curls, the venue note (only the real
+till in *Till* mode), and the walk-in-vs-linked-guest explanation. **Done on hosted this session
+(after the owner ran `supabase login` with the right account):** the stale-till sweep
+(`is_degraded()` false). **The owner then ran `db push --linked --include-all --yes` (all 15
+applied) and `functions deploy` (all 10 functions) the same day. Verified afterwards with the
+CLI: ledger 89/89, 0 pending; live `mark_reservation` = 0089 comment; `btree_gist` in
+`extensions` with `reservations_no_overlap` intact; the three 0071 constraints validated;
+`reservations_sanitise` trigger present; `replay` v3, `desk-customer-create`/`staff-admin`/
+`apple-revoke` v1 ACTIVE, `telegram-callback` + `send-sms-otp` `verify_jwt=false`;
+`is_degraded()` false.** Not yet done: the on-device desk → phone round trip in the runbook.
+
+Product gap recorded, not built: desk walk-ins (`guest_id` NULL) are busy slots on the phone but
+in nobody's My Bookings; the desk must pick/create the customer. Phone-number claim = D4c (open).
+
+Also merged: branch `two` (Ameen: Android push testing, placeholders, Android perf) as a merge
+commit on top of this work.
+
+**Gate:** `check:migrations` PASS on 0089 and FAIL (non-waivable) on a back-dated and a
+duplicate probe file; `check:rpc-registry` green; workflows parse; eslint on the script green.
+Not runnable here: the db vitest suite, `check:authz/locks/safeupdate/invariants` (Docker).
+
+## Day 20 (2026-09-13) — Telegram had never delivered: an e2e run overwrote the group id on hosted
+
+**Symptom:** no staff-group notification ever arrived; every outbox row since 09-05 failed with
+`HTTP 400: Bad Request: chat not found`.
+
+**Root cause (proven from hosted, read-only):** `cafe_settings.telegram_chat_id` was
+`-1001234567890` — the operator field's placeholder. `audit_log` `settings.cafe`, **2026-09-03
+08:58:06, actor `Dev Owner`**: `-5203171937` → `-1001234567890`, then `telegram_enabled` → false
+0.26 s later. That is `e2e/tests/operator-cafe-admin.spec.ts` case (d) verbatim. It reached hosted
+because `e2e/playwright.config.ts` had `reuseExistingServer: true` on the operator (and, in dev
+mode, the web) server: a `pnpm --filter @touch/operator dev` already on :5174 reads
+`apps/operator/.env` (**hosted**), and `localEnv` only applies to servers Playwright starts. Two
+runs (08:57, 09:13) also left on hosted: bookings `caf08374…` and `d1a39250…` (confirmed, for
+09-04, now past) and closed date `2027-01-01` in opening hours; a sold-out toggle netted out.
+**Not cleaned up — owner decision.** The single outbox row that ever sent (a waiter call queued
+08-30 to the real group, delivered 09-05 22:22 once the 403 fix landed) got tapped on 09-06 and
+every tap was refused `wrong_chat` — the setting no longer matched the group.
+
+**Built:**
+
+- `e2e/playwright.config.ts`: `reuseExistingServer: false` for both servers (a running dev
+  server now fails loudly instead of routing the suite to hosted).
+- **`telegram-diagnose`** edge function (owner, `verify_jwt = true`): `diagnose` runs token → getMe →
+  saved settings (flags the placeholder) → getChat (flags `chat not found` and supergroup
+  `migrate_to_chat_id`) → getChatMember → getWebhookInfo → outbox (stale snapshot vs failing) →
+  allowlist; `register_webhook` sets the webhook with the secret and `allowed_updates`
+  `[callback_query, my_chat_member]`. Pure logic in `_shared/telegramDiagnose.ts`.
+- **Migration 0091**: `app.retry_telegram_outbox` re-targets the row at the CURRENT chat id (it
+  re-sent to the enqueue snapshot, so fixing the setting never fixed Retry); new `telegram_chats`
+  (manager|owner read, service-role write).
+- `telegram-callback` records `my_chat_member` into `telegram_chats` and follows a
+  `migrate_to_chat_id` message; `telegram-send` follows a migration answer once (row + setting)
+  and resends.
+- Operator Settings → Telegram: **Detected groups** (pick the group; replaces the getUpdates
+  steps, which 409 once a webhook exists) and **Diagnose** (per-check sentences EN/AR, "Use the
+  new ID", "Re-register webhook"); outbox list shows each row's `chat_id`.
+
+**Shipped:** commits `6c60004` + `7cfe27f` (0091 lock/statement timeouts — the migration gate
+caught it) pushed to `two` and fast-forwarded onto `main`; tag **`operator-v0.2.10`** pushed for
+the desktop release. **Hosted NOT yet migrated:** the harness refused `supabase db push` as a
+production deploy. The `main` push queued *DB migrate* (0090 push_immediate_delivery + 0091) and
+*Functions deploy* behind the `staging` approval — approve DB migrate FIRST, then Functions (the
+new callback writes `telegram_chats`, which 0091 creates). Until then the new Telegram screens in
+0.2.10 error on the owner's Telegram page only.
+
+**To make it live (owner):** approve the two workflows (or run `supabase db push --linked` and
+deploy `telegram-diagnose telegram-send telegram-callback` locally). Then Settings →
+Telegram → Diagnose → Re-register webhook → remove and re-add `@touchcafe_orders_bot` in *Touch
+Cafe — Orders* → Use this group → Send test. The allowlist still maps only Parsa → `Dev Owner`.
+
+**Checks:** turbo typecheck + lint green; tests green except the known Windows-only
+`sms-provider` path failures; new: 27 pure diagnose tests, 7 operator tests, a Docker-bound retry
+case in `telegram.test.ts` and `telegram_chats` rows in the RLS matrix (**not run — no Docker**).
+Edge functions: transpile-parse clean; **`deno check` not run (no deno here).**
+
+## Day 25 (2026-09-13) — Analytics becomes a Management rail row with Courts and Cafe tabs
+
+Parsa's call: Analytics leaves Observe and sits under the management panel on the workspace's own rail
+(`OWNER_PRIMARY`), opening a layout route with two tabs. `/analytics` redirects to `/analytics/courts`; the search
+params (`range, from, to, cmp, court`) are validated once on the layout and survive a tab switch.
+
+- **Courts tab** (`features/analytics/courts/`): eight zones over five owner-only RPCs from migration 0093
+  (`analytics_courts_summary / demand / endings / guests / cafe`). Guests are anonymous counts only (identity lives in a
+  CTE and is never emitted; SEC-29 still passes). Every rate prints as "n of N" below twenty bookings. The occupancy
+  heatmap's open minutes come from `app.analytics_open_cells` over the same business-day window as the bookings, keyed
+  by calendar weekday like the opening hours; a cell's open minutes are ONE court's, so the client divides by the
+  court count. Cafe attach uses `tabs.reservation_id` (the till's booking anchor); QR orders never link.
+- **Group size**: `players` (1..8, NULL = unknown) on reservations and series (0092), captured at the desk dialog,
+  the series dialog and the mobile review screen with no preselected value. The mobile app omits the key when unset.
+- **Cafe tab** re-skinned on the shared `AnalyticsBar`: one filter row, the once-a-month settings behind More,
+  explanations behind info buttons (`InfoTip`, the app's first tooltip primitive: hover, focus and tap, Escape,
+  logical placement), the dual-axis chart split into two synced single-axis charts, `analytics_hourly` and
+  `analytics_price_bands` finally rendered, and a table/CSV twin on every chart.
+- **AI**: the insights edge function takes `scope: 'cafe' | 'courts'` (missing = cafe); stored sets carry a `scope`
+  column (0094). Court patterns are mined deterministically in `@touch/core` (`courtPatterns.ts`) and the judge only
+  rewords them.
+- **Local stack**: `pnpm db:reset && pnpm db:fixtures` then the scratch seed used for the screenshots is not checked
+  in; the analytics tabs need real bookings and linked tabs to show anything.
+- Pre-existing, not fixed: `features/reports/CourtsReport.tsx` declares snake_case view columns while
+  `report_courts` emits camelCase (every view renders the same columns); `packages/ui` `operatorChartColors` has no
+  consumer (charts use `features/analytics/charts/colors.ts`); `stored-fields.test.ts` still lacks
+  `notification_outbox.claimed_at` from another session's 0090.
 
 ## File map (key files)
 - `API.md` — every external credential, **plus §8: which account owns what** (four different
@@ -1507,8 +1674,15 @@ installed the broken 0.2.0 do NOT self-update (that build never reached the upda
 - ~~OPERATOR C1 heartbeat~~ FIXED wave 2 (renderer sender). ~~C2 no write goes through the
   queue~~ FIXED day 14. ~~C3 stock UI~~ **FIXED day 14 (2026-09-03)**: all three audit
   criticals are closed; the Module-5 acceptance script passes as an e2e.
-- ~~HOSTED IS BEHIND~~ **CAUGHT UP 2026-09-07: hosted at 0075 (0 pending) and `replay` redeployed
-  (v2).** Two traps from that day: (1) `supabase db push` run from the REPO ROOT fails with "Remote
+- ~~HOSTED IS BEHIND AGAIN (2026-09-12)~~ **CAUGHT UP 2026-09-12: 89/89 migrations, all 10 edge
+  functions deployed, `is_degraded()` false** (it had been at 0075 + 0088 with 20260904000069,
+  20260906000071, 0076–0087 stranded and three functions never deployed). Cause: an out-of-order migration
+  blocks `db push` silently — see Day 19 and `docs/client/hosted-catchup-2026-09-12.md` (owner runs
+  it; CI now gates version order). **Rule for every client build: no mobile/operator build that reads
+  a new column or RPC ships before `supabase migration list --linked` shows 0 pending.** The dev
+  machine's CLI is logged in as the wrong account (`petitati.ist@gmail.com`) — re-`login` before any
+  `--linked` command. ~~CAUGHT UP 2026-09-07~~: hosted was at 0075 and `replay` redeployed (v2) that
+  day. Two traps from that day: (1) `supabase db push` run from the REPO ROOT fails with "Remote
   migration versions not found in local migrations directory" and then *suggests* `migration repair
   --status reverted <every version>` — **never run that**; it would mark the whole hosted history as
   undone. Run every `supabase` command from `packages/db`. (2) The 0071–0075 gap was user-visible:

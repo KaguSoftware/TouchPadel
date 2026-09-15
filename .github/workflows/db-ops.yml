@@ -1,0 +1,110 @@
+name: DB ops (staging)
+
+# Owner-run, one-click operations against the hosted project that would
+# otherwise need a Supabase CLI login on a developer machine. Manual trigger
+# only; every job sits behind the `staging` environment's required reviewers,
+# exactly like a migration push.
+#
+# clear-stale-till — the degraded-mode trap (HANDOFF "RUNNING THE OPERATOR
+# AGAINST HOSTED PUTS PRODUCTION INTO DEGRADED MODE"). `app.is_degraded()` is
+# "a till row exists in device_heartbeats AND none of them is fresh". A station
+# installed in Till mode and then switched off leaves a stale row behind, and
+# from then on every guest sees "Venue connection lost" with every slot inside
+# the protected horizon refused. This is the same SQL as
+# packages/db/scripts/clear-dev-till.mjs, run through the Management API. A till
+# that beat within the last hour is never touched.
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Which operation to run'
+        type: choice
+        required: true
+        default: clear-stale-till
+        options:
+          - clear-stale-till
+          - migration-list
+
+concurrency:
+  group: db-ops
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: ${{ inputs.task }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Preflight — are the deploy secrets configured?
+        env:
+          ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          [ -n "${ACCESS_TOKEN:-}" ] || { echo "::error::SUPABASE_ACCESS_TOKEN is not set"; exit 1; }
+          [ -n "${PROJECT_REF:-}" ]  || { echo "::error::PROJECT_REF is not set"; exit 1; }
+          printf '%s' "${PROJECT_REF}" | grep -Eq '^[a-z0-9]{15,40}$' || { echo "::error::Bad PROJECT_REF"; exit 1; }
+
+      - name: Link to staging project
+        working-directory: packages/db
+        run: supabase link --project-ref "${{ secrets.PROJECT_REF }}"
+
+      # One statement per call: `db query` returns only the last result of a
+      # multi-statement input (HANDOFF gotcha), and the whole point is to SEE
+      # each answer in the log.
+      - name: Clear stale till heartbeats
+        if: inputs.task == 'clear-stale-till'
+        working-directory: packages/db
+        run: |
+          set -euo pipefail
+          echo "== till rows before"
+          supabase db query --linked "select device_id, is_till, last_seen_at, now() - last_seen_at as age from device_heartbeats where is_till or device_id like 'TILL%' order by last_seen_at desc"
+          echo "== delete stale till rows (older than 1 hour)"
+          supabase db query --linked "delete from device_heartbeats where (is_till or device_id like 'TILL%') and last_seen_at < now() - interval '1 hour'"
+          echo "== close the open degraded period"
+          supabase db query --linked "select app.sweep_degraded_periods()"
+          echo "== is the venue still degraded?"
+          supabase db query --linked "select app.is_degraded() as degraded" | tee /tmp/degraded.txt
+          {
+            echo "### clear-stale-till"
+            echo
+            echo '`app.is_degraded()` after the sweep:'
+            echo '```'
+            cat /tmp/degraded.txt
+            echo '```'
+            echo
+            echo 'If it still reads `true`, a till row beat within the last hour: that station is'
+            echo 'live and the venue is degraded because it stopped since. Start it, or reinstall'
+            echo 'that machine in Desk mode if it is not the till.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Show the migration ledger
+        if: inputs.task == 'migration-list'
+        working-directory: packages/db
+        run: |
+          set -euo pipefail
+          supabase migration list --linked | tee /tmp/migration-list.txt
+          {
+            echo "### Migration ledger — local files vs hosted project"
+            echo
+            echo '```'
+            cat /tmp/migration-list.txt
+            echo '```'
+            echo
+            echo 'A row with a Local version and no Remote version is a migration the hosted'
+            echo 'project has not applied. If it sorts BEFORE a remote version, a plain push is'
+            echo 'refused: dispatch DB Migrate with `include_all = true`.'
+          } >> "$GITHUB_STEP_SUMMARY"

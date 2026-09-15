@@ -1,6 +1,7 @@
 # Security Layer 1 — standing rules, decisions and residual risk
 
 **Version** 1.0 · **Date** 2026-09-04 · **Owner** DEV
+**Corrected** 2026-09-13 — §7 and §8, marked ⚠ in place (`security-audit-2026-09-13.md`)
 **Parent** `docs/security/security-layer-1.md`
 
 The boxes in Layer 1 that are *rules* rather than code. A rule that lives only in
@@ -185,6 +186,10 @@ once in the HTML. Verified, not assumed.
 - **Fixed:** `Referer` leakage, analytics capture, browser history, screenshots,
   shared links.
 - **Not fixed:** an XSS in the guest app could still read it.
+- ⚠ *2026-09-13* **It appears twice, not once.** `LocaleSwitcher.tsx:33` also renders
+  `/{other}/t/{token}` into the server HTML until hydration, so a copied language
+  link still carries the credential — "shared links" above is only partly fixed.
+  (audit L2)
 
 Closing that means never sending the token to the client — a route handler would
 read the cookie server-side and call the RPC as the guest, whose Supabase session
@@ -205,7 +210,7 @@ None of these can be written into the repository. Each needs somebody signed in.
 | The `@KaguSoftware/tech-leads` team | GitHub → Teams | CODEOWNERS silently ignores an owner it cannot resolve |
 | Required reviewers on `staging` | GitHub → Environments | No repo artifact; verify by looking, add to the freeze pass |
 | Supabase member roles | Supabase → Organization | §2 above |
-| CAPTCHA on | Supabase → Auth → Attack Protection | ⚠ Do **not** disable anonymous sign-in — it is the cafe's guest identity |
+| CAPTCHA on | Supabase → Auth → Attack Protection | ⚠ Do **not** disable anonymous sign-in — it is the cafe's guest identity. ⚠ *2026-09-13* And do not switch CAPTCHA on until the web table session and the mobile sign-up send a token — it breaks café sign-in |
 | Auth redirect allowlist | Supabase → Auth → URL Configuration | Exact production URLs. No wildcards, no `localhost`, no `exp://*` |
 | Leaked-password protection; JWT 30 min + refresh rotation | Supabase → Auth | |
 | `site_url` off `http://localhost:3000` | Supabase → Auth | `config.toml:53` is the local value; the hosted one is separate |
@@ -217,6 +222,11 @@ None of these can be written into the repository. Each needs somebody signed in.
 | Apple Team ID | Apple Developer | Fill `APPLE_TEAM_ID`; `TEAMID-UNSET` fails closed today |
 | PITR on the Supabase tier | Supabase → Billing | SOW promises it; if the tier lacks it that is a contract gap |
 | Account ownership at handover | All of the above | Longest-lead item in the project |
+| ⚠ *2026-09-13* Remove the dev seed staff accounts | Supabase → Auth, operator admin | `@dev.touch.local` and `owner@touchpadel.local`. Real accounts and the till's sign-in first, then deactivate, delete, and reset every manager/owner PIN (audit C1) |
+| ⚠ *2026-09-13* Swap **and revoke** `RELEASES_GH_TOKEN`; tag ruleset for `operator-v*` | GitHub | The current secret is a personal OAuth token with `admin:org`; overwriting the secret does not revoke it (H1) |
+| ⚠ *2026-09-13* Delete the `ledger-snapshot-*` artifacts | GitHub → Actions | They hold the `app` schema, including `app.secrets` (M7) |
+| ⚠ *2026-09-13* Confirm custody of the EAS Update private key | Password manager, EAS | Before the store build — or regenerate the keypair (M15) |
+| ⚠ *2026-09-13* Minimum password length 8; "Secure password change" on | Supabase → Auth | With the leaked-password row above (L11, M2) |
 
 ---
 

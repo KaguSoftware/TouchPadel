@@ -80,14 +80,14 @@ moves. To re-do setup on a machine, delete `station.json` and relaunch.
 
 - Till and KDS run full kiosk (no frame, no menu); the desk keeps a frame.
 - The window is **not closable**: staff leave via the sidebar's
-  **Quit to desktop**, which takes a manager PIN. (Online it verifies against
-  the server; during an outage it accepts a manager PIN that has been used
-  successfully on this station in the last 14 days.)
+  **Quit to desktop**, which asks for confirmation only. Since 2026-09-09
+  (`6bec87d`) it no longer takes a manager PIN, so anyone at the station can
+  close it — and a waiting update installs on the way out.
 - The same **Quit to desktop** sits in the top corner of the sign-in screen, so
-  a station that is signed out can still be closed. Signed out there is no
-  server to check against, so it accepts only a manager PIN used successfully
-  on this station in the last 14 days — on a machine that has never been signed
-  in, close it from Task Manager instead.
+  a station that is signed out can still be closed, again without a PIN.
+- ⚠ *Corrected 2026-09-13* — this section said both took a manager PIN. Whether
+  quitting should need one again is an open security decision
+  (`docs/security/security-general.md` §09).
 - Launch-on-boot registers itself on every packaged start
   (`app.setLoginItemSettings`); no Task Scheduler entry needed.
 
@@ -106,8 +106,8 @@ moves. To re-do setup on a machine, delete `station.json` and relaunch.
 Automatic. Every packaged station checks the public releases repo 30 s after
 launch and every 6 hours, downloads a newer installer silently, and then
 waits: the sidebar shows **Update ready** (the kitchen screen shows a pill).
-Tapping it restarts into the new version; **Quit to desktop** (manager PIN)
-also installs a waiting update on the way out, as does an OS shutdown. No
+Tapping it restarts into the new version; **Quit to desktop** (no PIN since
+2026-09-09) also installs a waiting update on the way out, as does an OS shutdown. No
 scheduled update windows — a restart mid-ticket is the operator's call.
 `queue.db` and `station.json` live in `%APPDATA%` and survive every update.
 

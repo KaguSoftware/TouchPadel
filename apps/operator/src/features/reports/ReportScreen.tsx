@@ -15,10 +15,9 @@
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { appRpc, type AppFunctionName } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
-import { Button, Tabs } from '../../components/ui';
+import { Button } from '../../components/ui';
 import {
   AsyncStateWrapper,
   ComparisonControl,
@@ -38,6 +37,7 @@ import {
 } from '../../components/kit';
 import { downloadCsv } from '../analytics/csv';
 import { HourBars } from './HourBars';
+import { ReportTabs } from './ReportTabs';
 import { ReportFilterBar, type FilterField, type ReportView } from './ReportFilterBar';
 import { ReportTable } from './ReportTable';
 import { columnLabel, toDataColumns } from './columns';
@@ -64,13 +64,6 @@ export type ReportRpc = Extract<AppFunctionName, `report_${string}`>;
  * totals row stays on screen with the figures it totals.
  */
 
-const REPORT_TABS: readonly { id: ReportName; path: '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff' }[] = [
-  { id: 'revenue', path: '/reports/revenue' },
-  { id: 'courts', path: '/reports/courts' },
-  { id: 'cafe', path: '/reports/cafe' },
-  { id: 'stock', path: '/reports/stock' },
-  { id: 'staff', path: '/reports/staff' },
-];
 
 export interface ReportScreenProps {
   name: ReportName;
@@ -91,7 +84,6 @@ export interface ReportScreenProps {
 
 export function ReportScreen({ name, rpc, views, fields, enabled = true, notice, intro, sortable = true, defaultSort, rowExtra, extraControls }: ReportScreenProps) {
   const { tr, locale } = useLocale();
-  const navigate = useNavigate();
   const [period, setPeriodState] = useState<Period>(() => presetPeriod('thisMonth'));
   const [compare, setCompare] = useState<ComparisonMode>('none');
   const [group, setGroupState] = useState<ReportGroup>('day');
@@ -219,15 +211,7 @@ export function ReportScreen({ name, rpc, views, fields, enabled = true, notice,
           </>
         }
       >
-        <Tabs<ReportName>
-          value={name}
-          onChange={(id) => {
-            const target = REPORT_TABS.find((t) => t.id === id);
-            if (target) void navigate({ to: target.path });
-          }}
-          items={REPORT_TABS.map((t) => ({ id: t.id, label: tr(`ws.reports.nav.${t.id}`) }))}
-          style={{ marginBlockEnd: 0 }}
-        />
+        <ReportTabs value={name} />
       </PageHeader>
       {notice}
       <Toolbar

@@ -30,7 +30,7 @@ export function BoughtTogether({ derived, state, f }: { derived: Derived | null;
             </span>
             <span style={{ ...muted, marginInlineStart: '0.4rem' }}>
               {tr('analytics.cards.withX', { pct: f.num(p.confidencePct) })}
-              {p.lift != null && ` · ×${p.lift}`} · {f.num(p.count)}
+              {p.lift != null && ` · ×${f.num1(p.lift)}`} · {f.num(p.count)}
             </span>
           </li>
         ))}

@@ -76,6 +76,7 @@ export interface CourtScene {
 }
 
 export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
+  const __tScene = Date.now();
   const shadows = quality === 'full';
   const trailN = quality === 'full' ? TRAIL_N : 0;
   const disposables: { dispose(): void }[] = [];
@@ -297,7 +298,9 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
   // rim highlights, lofted collar and wrapped lime grip (racket.ts). One shared
   // build; each player gets the rig — mount (stance) → pivot (hand) → lay (the
   // top-view cheat) → the racket — and the rally drives all three per frame.
+  const __tRacket = Date.now();
   const kit = buildRacketKit(quality);
+  console.log('[courtperf] racketKit', Date.now() - __tRacket, 'ms');
   disposables.push(...kit.disposables);
   const rackets = PLAYERS.map((pl) => {
     const rig = kit.create(pl.hand);
@@ -365,6 +368,7 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
   shade.rotation.x = -Math.PI / 2;
   overlay.add(shade);
 
+  console.log('[courtperf] buildCourtScene total', Date.now() - __tScene, 'ms', 'quality=' + quality);
   return {
     scene,
     overlay,

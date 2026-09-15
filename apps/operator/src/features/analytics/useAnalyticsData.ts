@@ -1,8 +1,11 @@
 /**
- * The single data hook behind `/analytics` (operator-slice.md §5.1–5.2).
+ * The single data hook behind `/analytics/cafe` (operator-slice.md §5.1–5.2).
  *
  *  - `useQueries` over the jsonb `app.analytics_*` RPCs for the CURRENT and the
  *    COMPARE window (one uniform `Json` result type keeps the tuple typed).
+ *    Every query is NAMED (`SqlKey`), and the hook exposes its status per
+ *    name: a card declares the queries it needs and `stateFor` answers for
+ *    those alone, so one failing RPC breaks one card, not the page.
  *  - PostHog goes through ONE batched edge round-trip per window inside a single
  *    react-query entry: the batch response is keyed BY QUERY NAME, so the compare
  *    window cannot share the same envelope — it is a second batch in the same
@@ -11,8 +14,10 @@
  *    its business-day start hour decides which calendar day "today" is, and so
  *    the whole range; on failure the migration defaults are used, never a stall.
  *  - Raw payloads -> `shape.ts` -> `derive.ts`, memoised once per data change.
+ *    `raw` parses whatever has arrived (every parser yields an empty shape for
+ *    `undefined`), so the cards whose queries landed render while the rest load.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   businessTodayISO,
@@ -41,6 +46,7 @@ import {
   type StoredPatternsRow,
 } from '../../lib/analyticsApi';
 import { useCafeSettings } from '../../lib/settings';
+import type { CardState } from './cards/CardShell';
 import type { AnalyticsSearch } from './search';
 import {
   derive,
@@ -51,62 +57,17 @@ import {
   type RawAnalytics,
 } from './derive';
 import * as S from './shape';
-import {
-  COVERS_MULTIPLIER_KEY,
-  DEFAULT_COVERS_MULTIPLIER,
-  isCoversMultiplier,
-} from '../../lib/coversMultiplier';
 
-export const REFRESH_KEY = 'tp-analytics-refresh';
-export const REFRESH_OPTIONS = [0, 1, 2, 5] as const;
 /** Deep pool: the conversion table and the momentum join both want more than the top 10. */
 const TOP_LIMIT = 80;
 
-const ANALYTICS_KEY = 'analytics';
+export const ANALYTICS_KEY = 'analytics';
 
-function readNumber(key: string, fallback: number, accept: (n: number) => boolean): number {
-  try {
-    const raw = localStorage.getItem(key);
-    const n = raw === null ? NaN : Number(raw);
-    return Number.isFinite(n) && accept(n) ? n : fallback;
-  } catch {
-    return fallback;
-  }
-}
+/** The named SQL queries of the cafe tab; the query keys below are `[ANALYTICS_KEY, <name>, from, to]`. */
+export type SqlKey = 'dailySales' | 'dailySalesPrev' | 'soldItems' | 'bestSellers' | 'boughtTogether' | 'itemMargins' | 'promo' | 'menuSnapshot' | 'hourly';
+export const SQL_KEYS: readonly SqlKey[] = ['dailySales', 'dailySalesPrev', 'soldItems', 'bestSellers', 'boughtTogether', 'itemMargins', 'promo', 'menuSnapshot', 'hourly'];
 
-/** Number kept in localStorage; a private-mode failure simply falls back. */
-export function useStoredNumber(key: string, fallback: number, accept: (n: number) => boolean) {
-  const [value, setValue] = useState(() => readNumber(key, fallback, accept));
-  const set = useCallback(
-    (next: number) => {
-      if (!accept(next)) return;
-      setValue(next);
-      try {
-        localStorage.setItem(key, String(next));
-      } catch {
-        /* ignore - the choice just does not survive a reload */
-      }
-    },
-    [key, accept],
-  );
-  return [value, set] as const;
-}
-
-/** `document.hidden`, so auto-refresh can stop while the tab is in the background. */
-function usePageVisible(): boolean {
-  const [visible, setVisible] = useState(() => (typeof document === 'undefined' ? true : !document.hidden));
-  useEffect(() => {
-    const onChange = () => setVisible(!document.hidden);
-    document.addEventListener('visibilitychange', onChange);
-    return () => document.removeEventListener('visibilitychange', onChange);
-  }, []);
-  return visible;
-}
-
-// Was `n >= 1 && n <= 10`, which accepted values neither picker offers and
-// which the settings screen then silently rewrote to 1.
-const acceptCovers = isCoversMultiplier;
-const acceptRefresh = (n: number) => (REFRESH_OPTIONS as readonly number[]).includes(n);
+export type QueryStatus = 'loading' | 'ready' | 'error';
 
 /** The named PostHog templates the dashboard needs for the selected window. */
 function currentWindowQueries(range: DateRange): PosthogQuery[] {
@@ -117,14 +78,11 @@ function currentWindowQueries(range: DateRange): PosthogQuery[] {
     'abandoned_by_dwell',
     'funnel',
     'basket_to_call',
-    'table_activity',
     'week_heatmap',
-    'peak_hours',
     'promo_engagement',
     'item_views_with_price',
     'session_stats',
     'category_popularity',
-    'locale_preferences',
   ];
   const deep: ReadonlySet<PosthogQueryName> = new Set<PosthogQueryName>([
     'top_viewed_items',
@@ -165,14 +123,11 @@ function toWindow(res: PosthogBatchResponse): PosthogWindow {
     abandoned: S.parseAbandoned(r.abandoned_by_dwell),
     funnel: S.parseFunnel(r.funnel),
     basketToCall: S.parseBasketToCall(r.basket_to_call),
-    tableActivity: S.parseTableActivity(r.table_activity),
     heatmap: S.parseHeatmap(r.week_heatmap),
-    peakHours: S.parsePeakHours(r.peak_hours),
     promo: S.parsePromoEngagement(r.promo_engagement),
     itemViewsWithPrice: S.parseItemViewsWithPrice(r.item_views_with_price),
     sessionStats: S.parseSessionStats(r.session_stats),
     categoryPopularity: S.parseCategoryPopularity(r.category_popularity),
-    localePreferences: S.parseLocalePreferences(r.locale_preferences),
   };
 }
 
@@ -190,10 +145,14 @@ export interface AnalyticsState {
   settingsLoading: boolean;
   /** The café-settings read failed; defaults are in use. */
   settingsError: unknown;
+  /** Any SQL query still pending (the "all" aggregate the Insights and Patterns cards read). */
   salesLoading: boolean;
+  /** The first SQL error, if any (the "all" aggregate). */
   salesError: unknown;
   engagement: EngagementStatus;
   engagementError: unknown;
+  /** Per-query status, by name. */
+  sql: Record<SqlKey, QueryStatus>;
 }
 
 export interface StoredSets {
@@ -213,16 +172,25 @@ export interface AnalyticsData {
   live: boolean;
   startHour: number;
   excludedIds: readonly string[];
-  coversMultiplier: number;
-  setCoversMultiplier: (n: number) => void;
-  refreshMinutes: number;
-  setRefreshMinutes: (n: number) => void;
-  autoRefreshActive: boolean;
   raw: RawAnalytics | null;
   derived: Derived | null;
   state: AnalyticsState;
   stored: StoredSets;
+  /** The card state for a card that needs these queries (and, with `eng`, the PostHog batch). */
+  stateFor: (keys: readonly SqlKey[], eng?: boolean) => CardState;
+  /** The first error among these queries. */
+  errorFor: (keys: readonly SqlKey[]) => unknown;
   refetchAll: () => void;
+}
+
+/** Card state from a set of query statuses plus the optional engagement status. */
+export function cardStateOf(statuses: readonly QueryStatus[], engagement: EngagementStatus | null): CardState {
+  if (engagement === 'loading') return 'loading';
+  if (statuses.some((s) => s === 'loading')) return 'loading';
+  if (engagement === 'unconfigured') return 'unconfigured';
+  if (engagement === 'error') return 'error';
+  if (statuses.some((s) => s === 'error')) return 'error';
+  return 'ready';
 }
 
 export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): AnalyticsData {
@@ -237,14 +205,6 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   const excludedIds = settings.settings.analytics_excluded_item_ids;
   const settingFloor = settings.settings.analytics_engagement_floor;
 
-  const [coversMultiplier, setCoversMultiplier] = useStoredNumber(
-    COVERS_MULTIPLIER_KEY,
-    DEFAULT_COVERS_MULTIPLIER,
-    acceptCovers,
-  );
-  const [refreshMinutes, setRefreshMinutes] = useStoredNumber(REFRESH_KEY, 0, acceptRefresh);
-  const visible = usePageVisible();
-
   const todayISO = businessTodayISO(new Date(), startHour, VENUE_TZ);
   const resolved = useMemo(
     () => resolveRange({ range: search.range, from: search.from, to: search.to }, todayISO),
@@ -256,22 +216,22 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   const compareRange = useMemo(() => resolveCompare(compareBasis, range).range, [compareBasis, range]);
   const live = isLiveRange(range, todayISO);
 
-  const autoRefreshActive = ready && live && refreshMinutes > 0 && visible;
-  const refetchInterval: number | false = autoRefreshActive ? refreshMinutes * 60_000 : false;
-
   const { from, to } = range;
   const prevFrom = compareRange.from;
   const prevTo = compareRange.to;
 
-  const sqlSpecs: { key: (string | number)[]; fn: () => Promise<Json> }[] = [
-    { key: ['dailySales', from, to], fn: () => analyticsRpc.dailySales(from, to) },
-    { key: ['dailySalesPrev', prevFrom, prevTo], fn: () => analyticsRpc.dailySales(prevFrom, prevTo) },
-    { key: ['soldItems', from, to], fn: () => analyticsRpc.soldItems(from, to) },
-    { key: ['bestSellers', from, to], fn: () => analyticsRpc.bestSellers(from, to, 20) },
-    { key: ['boughtTogether', from, to], fn: () => analyticsRpc.boughtTogether(from, to) },
-    { key: ['itemMargins', from, to], fn: () => analyticsRpc.itemMargins(from, to) },
-    { key: ['promo', from, to], fn: () => analyticsRpc.promo(from, to) },
-    { key: ['menuSnapshot'], fn: () => analyticsRpc.menuSnapshot() },
+  // The exact keys matter: useVenueRevenue subscribes to ['analytics','dailySales',from,to]
+  // and react-query dedupes the two subscriptions into one fetch.
+  const sqlSpecs: { name: SqlKey; key: (string | number)[]; fn: () => Promise<Json> }[] = [
+    { name: 'dailySales', key: ['dailySales', from, to], fn: () => analyticsRpc.dailySales(from, to) },
+    { name: 'dailySalesPrev', key: ['dailySales', prevFrom, prevTo], fn: () => analyticsRpc.dailySales(prevFrom, prevTo) },
+    { name: 'soldItems', key: ['soldItems', from, to], fn: () => analyticsRpc.soldItems(from, to) },
+    { name: 'bestSellers', key: ['bestSellers', from, to], fn: () => analyticsRpc.bestSellers(from, to, 20) },
+    { name: 'boughtTogether', key: ['boughtTogether', from, to], fn: () => analyticsRpc.boughtTogether(from, to) },
+    { name: 'itemMargins', key: ['itemMargins', from, to], fn: () => analyticsRpc.itemMargins(from, to) },
+    { name: 'promo', key: ['promo', from, to], fn: () => analyticsRpc.promo(from, to) },
+    { name: 'menuSnapshot', key: ['menuSnapshot'], fn: () => analyticsRpc.menuSnapshot() },
+    { name: 'hourly', key: ['hourly', from, to], fn: () => analyticsRpc.hourly(from, to) },
   ];
 
   const sql = useQueries({
@@ -280,7 +240,6 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
       queryFn: spec.fn,
       enabled: ready,
       staleTime: 30_000,
-      refetchInterval,
     })),
   });
 
@@ -289,7 +248,6 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     enabled: ready,
     staleTime: 30_000,
     retry: false,
-    refetchInterval,
     queryFn: async () => {
       const now = await posthogQueries(currentWindowQueries(range), startHour);
       if (!now.configured) {
@@ -312,14 +270,14 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   });
 
   const storedInsights = useQuery({
-    queryKey: [ANALYTICS_KEY, 'storedInsights', from, to, compareBasis, locale],
-    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale),
+    queryKey: [ANALYTICS_KEY, 'storedInsights', 'cafe', from, to, compareBasis, locale],
+    queryFn: () => fetchStoredInsights(from, to, compareBasis, locale, 'cafe'),
     enabled: ready,
     staleTime: 30_000,
   });
   const storedPatterns = useQuery({
-    queryKey: [ANALYTICS_KEY, 'storedPatterns', from, to, locale],
-    queryFn: () => fetchStoredPatterns(from, to, locale),
+    queryKey: [ANALYTICS_KEY, 'storedPatterns', 'cafe', from, to, locale],
+    queryFn: () => fetchStoredPatterns(from, to, locale, 'cafe'),
     enabled: ready,
     staleTime: 30_000,
   });
@@ -330,6 +288,8 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     staleTime: 30_000,
   });
 
+  const statusOf = (i: number): QueryStatus => (!ready || sql[i]!.isPending ? 'loading' : sql[i]!.isError ? 'error' : 'ready');
+  const sqlStatus = Object.fromEntries(sqlSpecs.map((s, i) => [s.name, statusOf(i)])) as Record<SqlKey, QueryStatus>;
   const salesLoading = !ready || sql.some((q) => q.isPending);
   const salesError: unknown = sql.find((q) => q.isError)?.error ?? null;
 
@@ -344,17 +304,17 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
   const sqlStamp = sql.map((q) => q.dataUpdatedAt).join(',');
   const phStamp = posthog.dataUpdatedAt;
   const posthogData = posthog.data;
+  const anyData = ready && sql.some((q) => q.data !== undefined);
 
   const raw = useMemo<RawAnalytics | null>(() => {
-    if (salesLoading || salesError) return null;
-    const parts = sql.map((q) => q.data as Json);
+    if (!anyData) return null;
+    const parts = sql.map((q) => q.data as Json | undefined);
     return {
       preset,
       range,
       compareBasis,
       compareRange,
       todayISO,
-      coversMultiplier,
       excludedIds,
       daily: S.parseDailySales(parts[0]),
       dailyPrev: S.parseDailySales(parts[1]),
@@ -364,6 +324,7 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
       margins: S.parseItemMargins(parts[5]),
       promoSales: S.parsePromoSales(parts[6]),
       menu: S.parseMenuSnapshot(parts[7]),
+      hourly: S.parseHourly(parts[8]),
       engagementStatus: engagement,
       floor: posthogData?.floor ?? settingFloor,
       posthog: posthogData?.configured ? posthogData.now : null,
@@ -371,22 +332,7 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     };
     // `sqlStamp`/`phStamp` stand in for the query data identities (stable per fetch).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    salesLoading,
-    salesError,
-    sqlStamp,
-    phStamp,
-    posthogData,
-    engagement,
-    coversMultiplier,
-    excludedIds,
-    settingFloor,
-    preset,
-    range,
-    compareBasis,
-    compareRange,
-    todayISO,
-  ]);
+  }, [anyData, sqlStamp, phStamp, posthogData, engagement, excludedIds, settingFloor, preset, range, compareBasis, compareRange, todayISO]);
 
   const derived = useMemo(() => (raw ? derive(raw) : null), [raw]);
 
@@ -400,6 +346,19 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     void queryClient.invalidateQueries({ queryKey: [ANALYTICS_KEY, 'rejections'] });
   }, [queryClient]);
 
+  const stateFor = (keys: readonly SqlKey[], eng = false): CardState =>
+    cardStateOf(
+      keys.map((k) => sqlStatus[k]),
+      eng ? engagement : null,
+    );
+  const errorFor = (keys: readonly SqlKey[]): unknown => {
+    for (const k of keys) {
+      const q = sql[sqlSpecs.findIndex((s) => s.name === k)];
+      if (q?.isError) return q.error;
+    }
+    return null;
+  };
+
   return {
     preset,
     range,
@@ -409,11 +368,6 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
     live,
     startHour,
     excludedIds,
-    coversMultiplier,
-    setCoversMultiplier,
-    refreshMinutes,
-    setRefreshMinutes,
-    autoRefreshActive,
     raw,
     derived,
     state: {
@@ -423,6 +377,7 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
       salesError,
       engagement,
       engagementError: engagement === 'error' ? posthog.error : null,
+      sql: sqlStatus,
     },
     stored: {
       insights: storedInsights.data ?? [],
@@ -431,6 +386,8 @@ export function useAnalyticsData(search: AnalyticsSearch, locale: Locale): Analy
       loading: storedInsights.isPending || storedPatterns.isPending || rejections.isPending,
       reload: reloadStored,
     },
+    stateFor,
+    errorFor,
     refetchAll,
   };
 }

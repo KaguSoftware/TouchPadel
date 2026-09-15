@@ -21,17 +21,34 @@
  * itself never sits under an animated opacity (a UIVisualEffectView beneath
  * an alpha < 1 ancestor does not render its blur until alpha hits 1, which
  * would pop it in at p = 0.45): the card's transform lives on the outer view
- * and only the tint, border and content fade in inside it.
+ * and only the tint, border and content fade in inside it. At REST the blur
+ * is parked a full card-height down inside the card's clip — outside it, so
+ * nothing renders — and the drop shadow sits on a plate under the content's
+ * fade, so a closed card leaves nothing on the stage. It has to: the card is
+ * mounted long before it is asked for (`sheetPrewarmed`, app/(tabs)/index.tsx)
+ * and at p = 0 it is only 360 pt down, so its top ~100 pt still stand above
+ * the tab bar. With the blur and shadow outside the fade, that strip was a
+ * permanent frosted band over the court (owner, 2026-09-11) — and a blur
+ * resampling a GL surface that redraws every frame is exactly the stack
+ * Court3D's header records as freezing the rally on device.
  *
  * On a short phone the card caps itself to the stage and the grid shrinks
  * (min 96 pt) instead of the card overflowing under the title or tab bar.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  Animated,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDayNumber, formatTime, formatWeekdayShort } from '@touch/i18n';
+import { formatDayNumber, formatTime, formatWeekdayShort, isolate } from '@touch/i18n';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useAvailabilityBooking } from '../features/availability/useAvailabilityBooking';
 import { mapErrorToKey } from '../features/booking/errors';
@@ -47,6 +64,7 @@ import {
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
 import { DayChip, SlotCell } from './booking';
+import { WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
 
@@ -94,8 +112,6 @@ export interface BookingSheetProps {
   isOpen: boolean;
   /** A hold call is in flight — the caller keeps the sheet mounted and the back button idle. */
   onBusyChange?: (busy: boolean) => void;
-  /** Any touch inside the card (tap, scroll, drag) — the court behind keeps its rally going. */
-  onInteraction?: () => void;
 }
 
 export function BookingSheet({
@@ -104,7 +120,6 @@ export function BookingSheet({
   bottomInset,
   isOpen,
   onBusyChange,
-  onInteraction,
 }: BookingSheetProps) {
   const { t, locale, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
@@ -145,11 +160,10 @@ export function BookingSheet({
   //
   // A date that is NOT cached shows the skeleton first, so its list mounts
   // fresh at 0 anyway and the ref below is simply null that time round.
-  const gridKey = `${a.date}|${a.durationMin}`;
   const gridRef = useRef<ScrollView>(null);
   useEffect(() => {
     gridRef.current?.scrollTo({ y: 0, animated: false });
-  }, [gridKey]);
+  }, [a.gridKey]);
 
   // Sheet: direction-aware PITCH ease (remapped inside its 0.25 → 1 slice).
   const sheet = useMemo(() => {
@@ -160,8 +174,14 @@ export function BookingSheet({
       translateY: table(SPEC.sheet.move, SPEC.sheet.y, ease),
       scale: table(SPEC.sheet.move, SPEC.sheet.scale, ease),
       opacity: table(SPEC.sheet.fade, [0, 1]),
+      // Where the blur is PARKED: a full card-height below the card at rest
+      // (the clip's height is at most `cardMaxH`, so it is entirely outside
+      // the clip and draws nothing), riding up into place over the tint's own
+      // fade slice. Its edge therefore crosses the card's on-stage top only in
+      // the second half of that window, under a tint already past 50 %.
+      blurPark: table(SPEC.sheet.fade, [cardMaxH, 0]),
     };
-  }, [progress, direction]);
+  }, [progress, direction, cardMaxH]);
 
   // Staggers are linear, so they depend only on how many pills there are.
   const pillCount = a.tzDates.length;
@@ -284,11 +304,29 @@ export function BookingSheet({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingStart: PAD, paddingEnd: PAD, paddingBottom: 14 }}
       >
+        {/*
+          Keyed by POSITION, not by start time.
+
+          The grid is a fixed two-column ladder of identical cells that is
+          re-derived whole on every day chip and every duration tap, and no cell
+          carries state of its own — so a key is only telling React which cell to
+          reuse. Keying on the start time answered "none of them" for a day
+          change (new night, all new times), which unmounted every one of the ~34
+          cells and built ~34 more in the same commit. Position answers "the one
+          in the same slot", so the same views stay put and take new text.
+
+          That commit runs on the JS thread the court's rally is drawn from
+          (Court3D), so a teardown-and-rebuild is frames the animation does not
+          get — the court freezing on a date change is exactly what this and the
+          ICU caching in @touch/core's localParts are between them fixing
+          (owner, 2026-09-10). Duration taps already reconciled in place, since
+          60 and 90 minutes share nearly all their start times; days now do too.
+        */}
         {a.rows.map((row, r) => {
           const e = rows[Math.min(r, SPEC.grid.sharedFromRow)]!;
           return (
             <Animated.View
-              key={row[0]?.startAt.toISOString() ?? r}
+              key={r}
               style={{
                 flexDirection: 'row',
                 gap: 6,
@@ -297,15 +335,15 @@ export function BookingSheet({
                 transform: [{ translateY: e.translateY }, { scale: e.scale }],
               }}
             >
-              {row.map((cell) => (
+              {row.map((cell, c) => (
                 <SlotCell
-                  key={cell.startAt.toISOString()}
+                  key={c}
                   compact
                   cell={cell}
                   time={formatTime(cell.startAt, locale, a.tz)}
                   sub={a.subFor(cell)}
                   capacityLine={a.capacityLineFor(cell)}
-                  onPress={() => a.onTapCell(cell)}
+                  onPress={a.onTapCell}
                 />
               ))}
               {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
@@ -338,18 +376,39 @@ export function BookingSheet({
       {cardW > 0 ? (
         <Animated.View
           pointerEvents={isOpen ? 'auto' : 'none'}
-          onTouchStart={onInteraction}
+          // Hidden from screen readers whenever the sheet is not the view,
+          // which is now most of the time: the caller mounts this card long
+          // before the guest asks for it, so that opening costs nothing (see
+          // `sheetPrewarmed` in app/(tabs)/index.tsx). At p = 0 it is 360 px
+          // down at zero opacity and takes no touches — but a day pill and
+          // thirty times are all perfectly reachable by TalkBack unless they
+          // are taken out of the tree as well. This also covers the closing
+          // animation, where the card has visibly gone but is still mounted.
+          accessibilityElementsHidden={!isOpen}
+          importantForAccessibility={isOpen ? 'auto' : 'no-hide-descendants'}
           style={{
             width: cardW,
             maxHeight: cardMaxH,
             borderRadius: CARD_RADIUS,
-            // The shadow stays on THIS view and the clip on the wrapper below:
-            // `overflow: 'hidden'` here would clip the card's own 50 px drop
-            // shadow away along with the overflow.
-            boxShadow: shadow,
+            // No shadow on this view: it lives on the plate below, under the
+            // content's fade, so a closed card casts nothing onto the stage.
+            // A shadow here — outside `sheet.opacity` — painted a 50 pt haze
+            // above the tab bar at rest, where the card's top still sits.
             transform: [{ translateY: sheet.translateY }, { scale: sheet.scale }],
           }}
         >
+          {/* The card's drop shadow, on a plate of its own: OUTSIDE the clip
+              wrapper (so `overflow: 'hidden'` does not crop it) and UNDER the
+              content's fade (so it is gone at rest). A view with no fill draws
+              only the shadow ring — boxShadow paints outside the border box, as
+              CSS does. */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { borderRadius: CARD_RADIUS, boxShadow: shadow, opacity: sheet.opacity },
+            ]}
+          />
           {/* The clip carries `maxHeight` too. Bounded only by the parent, this
               wrapper's `flexShrink: 1` could still measure taller than the cap,
               and the excess — the grid's last rows — escaped the clip and drew
@@ -363,11 +422,21 @@ export function BookingSheet({
             }}
           >
             {Platform.OS === 'ios' ? (
-              <BlurView
-                intensity={50}
-                tint={dark ? 'dark' : 'light'}
-                style={StyleSheet.absoluteFill}
-              />
+              // PARKED, NOT FADED. The blur may never sit under an animated
+              // opacity (header), so at rest it is slid below the clip instead
+              // — entirely outside it, so nothing renders — and rides back up
+              // over the tint's own fade slice. Native-driven, like every other
+              // node that reads p.
+              <Animated.View
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFill, { transform: [{ translateY: sheet.blurPark }] }]}
+              >
+                <BlurView
+                  intensity={50}
+                  tint={dark ? 'dark' : 'light'}
+                  style={StyleSheet.absoluteFill}
+                />
+              </Animated.View>
             ) : null}
             <Animated.View
               accessibilityViewIsModal={isOpen}
@@ -463,6 +532,72 @@ export function BookingSheet({
                 />
               </Animated.View>
 
+              {/* THE VENUE NOTICE — here, small, and nowhere else on the Book
+                  tab. The till's heartbeat going stale used to raise an amber
+                  banner over the court itself, on a tab the guest may only be
+                  browsing at midnight; the fact matters at the moment of
+                  booking and not before (owner, 2026-09-11). One line under
+                  the picker, with the venue's number bold and tappable — the
+                  whole row dials, so the touch target is the row and not a
+                  few digits. Enters with the picker. The cells themselves
+                  already say "desk only" for the protected days, and a tap on
+                  one opens the notice sheet with its own Call button. */}
+              {a.degraded ? (
+                <Animated.View
+                  style={{
+                    marginTop: 6,
+                    paddingStart: PAD,
+                    paddingEnd: PAD,
+                    opacity: pills[pillCount]!.opacity,
+                  }}
+                >
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={a.phone ? t('profile.callVenue') : undefined}
+                    disabled={!a.phone}
+                    onPress={a.onCall}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      opacity: pressed ? 0.7 : 1,
+                    })}
+                  >
+                    <WifiOffIcon size={12} color={colors.ambstrong} />
+                    <Text
+                      numberOfLines={2}
+                      style={{
+                        flex: 1,
+                        fontFamily: fonts.body600,
+                        fontSize: 11,
+                        lineHeight: 15,
+                        color: colors.ambtext,
+                      }}
+                    >
+                      {(() => {
+                        if (!a.phone) return t('degraded.bannerCourts');
+                        // Latin digits inside an Arabic sentence: isolated, or
+                        // the bidi algorithm reorders the number's groups
+                        // against the RTL paragraph (as DegradedBanner does).
+                        const wrapped = isolate(a.phone);
+                        const [before, ...rest] = t('degraded.bannerAvailability', {
+                          phone: wrapped,
+                        }).split(wrapped);
+                        return [
+                          before,
+                          <Text
+                            key="phone"
+                            style={{ fontFamily: fonts.body800, textDecorationLine: 'underline' }}
+                          >
+                            {wrapped}
+                          </Text>,
+                          rest.join(wrapped),
+                        ];
+                      })()}
+                    </Text>
+                  </Pressable>
+                </Animated.View>
+              ) : null}
 
               {/* Time grid: four rows visible, vertical scroll; rows pass under
                   the card's clipped edge. The one block that gives way on a short stage */}

@@ -6,8 +6,16 @@
  * TELEGRAM_WEBHOOK_SECRET (unset secret => every request is 401: fail closed).
  *
  * Flow per update:
- *   - not a callback_query           -> 200 {ok:true} (ignored; allowed_updates
- *                                       is set to callback_query only anyway)
+ *   - my_chat_member (0091)          -> upsert telegram_chats {chat_id, title, type,
+ *                                       bot_status} for groups/supergroups, 200. This
+ *                                       is how the operator's "Detected groups" list
+ *                                       learns the group id (getUpdates is dead once a
+ *                                       webhook exists). Needs allowed_updates to carry
+ *                                       my_chat_member — telegram-diagnose registers it.
+ *   - message.migrate_to_chat_id     -> the group became a supergroup: move the
+ *                                       telegram_chats row and, if it still holds the
+ *                                       old id, cafe_settings.telegram_chat_id, 200
+ *   - anything else not a callback_query -> 200 {ok:true} (ignored)
  *   - callback_data off-contract     -> answerCallbackQuery 'غير معروف', 200
  *   - app.telegram_apply_action(action, ref_id, {tg_user_id, first_name, username},
  *     chat_id) with the service client (idempotent: a double tap yields
@@ -45,9 +53,20 @@ interface CallbackQuery {
   message?: { message_id: number; chat: { id: number | string } };
   data?: string;
 }
+interface TgChat {
+  id: number | string;
+  title?: string;
+  type?: string;
+}
+interface ChatMemberUpdated {
+  chat: TgChat;
+  new_chat_member?: { status?: string };
+}
 interface Update {
   update_id?: number;
   callback_query?: CallbackQuery;
+  my_chat_member?: ChatMemberUpdated;
+  message?: { chat: TgChat; migrate_to_chat_id?: number | string };
 }
 interface ApplyResult {
   result: 'applied' | 'duplicate' | 'invalid' | 'not_found' | 'refused';
@@ -80,6 +99,62 @@ function secretMatches(req: Request): boolean {
   return diff === 0;
 }
 
+const GROUP_TYPES = new Set(['group', 'supergroup']);
+
+/** my_chat_member → telegram_chats (0091). Groups only: a private chat with the bot is not a staff group. */
+async function recordChatMember(m: ChatMemberUpdated): Promise<Response> {
+  if (!m.chat || !GROUP_TYPES.has(m.chat.type ?? '')) return json({ ok: true, ignored: 'not a group' });
+  try {
+    const db = createServiceClient();
+    const { error } = await db.from('telegram_chats').upsert(
+      {
+        chat_id: String(m.chat.id),
+        title: m.chat.title ?? null,
+        type: m.chat.type,
+        bot_status: m.new_chat_member?.status ?? 'unknown',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'chat_id' },
+    );
+    if (error) console.error('telegram_chats upsert failed:', error.message);
+    return json({ ok: !error });
+  } catch (e) {
+    console.error('telegram-callback my_chat_member:', e instanceof Error ? e.message : String(e));
+    return json({ ok: false });
+  }
+}
+
+/** A basic group upgraded to a supergroup: its id changed. Follow it. */
+async function recordMigration(oldId: string, newId: string): Promise<Response> {
+  try {
+    const db = createServiceClient();
+    const { data: prev } = await db.from('telegram_chats').select('title, bot_status').eq('chat_id', oldId).maybeSingle();
+    await db.from('telegram_chats').upsert(
+      {
+        chat_id: newId,
+        title: prev?.title ?? null,
+        type: 'supergroup',
+        bot_status: prev?.bot_status ?? 'member',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'chat_id' },
+    );
+    await db.from('telegram_chats').delete().eq('chat_id', oldId);
+    const { data: current } = await db.from('cafe_settings').select('value').eq('key', 'telegram_chat_id').maybeSingle();
+    if (current?.value === oldId) {
+      const { error } = await db
+        .from('cafe_settings')
+        .update({ value: newId, updated_at: new Date().toISOString() })
+        .eq('key', 'telegram_chat_id');
+      if (error) console.error('telegram_chat_id follow failed:', error.message);
+    }
+    return json({ ok: true, migrated: newId });
+  } catch (e) {
+    console.error('telegram-callback migrate:', e instanceof Error ? e.message : String(e));
+    return json({ ok: false });
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   if (!secretMatches(req)) return json({ error: 'unauthorized' }, 401);
@@ -92,6 +167,12 @@ Deno.serve(async (req) => {
   } catch {
     return json({ ok: true, ignored: 'invalid JSON' });
   }
+  if (update?.my_chat_member) return recordChatMember(update.my_chat_member);
+  const migratedTo = update?.message?.migrate_to_chat_id;
+  if (migratedTo !== undefined && migratedTo !== null && update.message) {
+    return recordMigration(String(update.message.chat.id), String(migratedTo));
+  }
+
   const cq = update?.callback_query;
   if (!cq || typeof cq.id !== 'string') return json({ ok: true });
 

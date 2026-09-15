@@ -37,21 +37,35 @@ export async function fetchCourts(client: Client): Promise<CourtRow[]> {
 }
 
 /**
- * Busy ranges overlapping one venue-local day, via the no-PII
- * court_availability view (0008). Overlap test: start < dayEnd AND end > dayStart.
+ * Busy ranges overlapping a RANGE of venue-local days, via the no-PII
+ * court_availability view (0008). Overlap test: start < windowEnd AND end > windowStart.
+ *
+ * The whole day strip in ONE request, rather than one request per chip. The
+ * view returns only what is BUSY — bookings, holds, maintenance — so a week of
+ * it is a couple of hundred rows on a two-court venue, which is one round trip
+ * of much the same size as a single day's. Per-day fetching meant every day
+ * chip the guest had not already visited waited on the network before it could
+ * show anything, and over a phone connection that is the second-plus the guest
+ * sees (owner, 2026-09-10). The grid for each date is still assembled
+ * separately; only the fetch is shared.
+ *
+ * `toDate` is INCLUSIVE, and its window runs 36 h past that day's midnight —
+ * enough to cover the trading night's post-midnight tail whatever the offset,
+ * and the same margin the single-day version used.
  */
-export async function fetchDayAvailability(
+export async function fetchAvailabilityWindow(
   client: Client,
-  date: string,
+  fromDate: string,
+  toDate: string,
   tz: string,
 ): Promise<AvailabilityRow[]> {
-  const dayStart = wallTimeToUtc(date, 0, tz);
-  const dayEnd = new Date(dayStart.getTime() + 36 * 3_600_000); // covers DST-less +1 day safely
+  const windowStart = wallTimeToUtc(fromDate, 0, tz);
+  const windowEnd = new Date(wallTimeToUtc(toDate, 0, tz).getTime() + 36 * 3_600_000);
   const { data, error } = await client
     .from('court_availability')
     .select('court_id, start_at, end_at, kind')
-    .lt('start_at', dayEnd.toISOString())
-    .gt('end_at', dayStart.toISOString());
+    .lt('start_at', windowEnd.toISOString())
+    .gt('end_at', windowStart.toISOString());
   if (error) throw error;
   return (data ?? []) as AvailabilityRow[];
 }

@@ -114,11 +114,29 @@ export const BackChevronIcon = (p: IconProps) => <StrokeIcon d={['M15 6l-6 6 6 6
 export const PencilIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 20l1.2-4.2L16.5 4.5a2.05 2.05 0 012.9 2.9L8.2 18.8 4 20z']} {...p} />
 );
+/**
+ * SEC-16 — the delete-account row. Not directional, so no `flip`: a bin is the
+ * same shape in both reading orders.
+ */
+export const TrashIcon = (p: IconProps) => (
+  <StrokeIcon d={['M4 7h16M10 4h4M9.5 11v6M14.5 11v6M6 7l1 12.5h10L18 7']} {...p} />
+);
 export const LockIcon = (p: IconProps) => (
   <StrokeIcon d={['M8 10.5V8a4 4 0 018 0v2.5M5.5 10.5h13V20h-13v-9.5z']} {...p} />
 );
 export const SlidersIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 6.5h16M4 12h16M4 17.5h16M15.5 4.5v4M8.5 10v4M13 15.5v4']} {...p} />
+);
+export const GearIcon = ({ size = 16, color, strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessible={false}>
+    <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={strokeWidth} />
+    <Path
+      d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.55 1.55M7.15 16.85l-1.55 1.55M18.4 18.4l-1.55-1.55M7.15 7.15L5.6 5.6"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+    />
+  </Svg>
 );
 export const RoofIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 11.5L12 4.5l8 7M6.5 9.8V19h11V9.8']} {...p} />

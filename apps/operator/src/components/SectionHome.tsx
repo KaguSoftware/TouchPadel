@@ -1,6 +1,6 @@
 /**
- * The landing screen shared by Management's three sections (Financial,
- * Observation, Setup).
+ * The landing screen shared by Management's card-led sections (Financial,
+ * Observe, Setup). Stock lands on the /stock module itself instead.
  *
  * A section's rail can only print a name, and a name is not an answer: "Tables
  * & QR" does not tell an owner that this is where a lost table card is
@@ -39,6 +39,7 @@ export function SectionHome({
   lead,
   card,
   children,
+  fullWidth = false,
 }: {
   sectionKey: SectionKey;
   title: string;
@@ -46,13 +47,15 @@ export function SectionHome({
   /** Card copy for a destination, keyed by its nav labelKey. */
   card: (labelKey: string) => string;
   children?: ReactNode;
+  /** Drop the 64rem reading measure and use the whole content area. */
+  fullWidth?: boolean;
 }) {
   const { tr } = useLocale();
   const { staff } = useAuth();
   const items = sectionDestinations(sectionKey).filter((item) => canAccess(staff?.role, item.to));
 
   return (
-    <div style={{ maxInlineSize: '64rem' }}>
+    <div style={fullWidth ? undefined : { maxInlineSize: '64rem' }}>
       <PageHeader title={title} subtitle={lead} />
       {children}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: 'var(--tp-sp-3)' }}>

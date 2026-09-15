@@ -86,23 +86,24 @@ function SignInScreen() {
     <Screen gutter={20} edges={[]}>
       <FormScreen>
         <Title plain>{t('auth.signIn')}</Title>
-        <SocialSignInBlock
-          available={social.available}
-          busyProvider={social.busyProvider}
-          disabled={busy || holdBusy}
-          onPress={(provider) => void social.signInWith(provider)}
-          style={{ marginTop: 14 }}
-        />
-        {/* Phone OTP entry — dormant vendor-addition scaffold (2026-09-05); off unless EXPO_PUBLIC_PHONE_OTP=on. */}
+        {/* Phone OTP — the default method when the flag is on (owner decision D4b, 2026-09-12): first and green;
+            social and email follow. Off unless EXPO_PUBLIC_PHONE_OTP=on, in which case nothing here renders. */}
         {phoneOtp ? (
           <Button
             label={t('auth.continueWithPhone')}
             onPress={() => router.push('/phone-sign-in')}
             disabled={busy || holdBusy || social.busyProvider !== null}
-            variant="secondary"
-            style={{ marginTop: hasSocial(social.available) ? 10 : 14 }}
+            variant="cta"
+            style={{ marginTop: 14 }}
           />
         ) : null}
+        <SocialSignInBlock
+          available={social.available}
+          busyProvider={social.busyProvider}
+          disabled={busy || holdBusy}
+          onPress={(provider) => void social.signInWith(provider)}
+          style={{ marginTop: phoneOtp ? 10 : 14 }}
+        />
         {hasSocial(social.available) || phoneOtp ? (
           <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}

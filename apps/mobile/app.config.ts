@@ -161,10 +161,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   runtimeVersion: { policy: 'appVersion' },
   backgroundColor: '#FFFFFF',
-  // The padel ball on a Touch Blue tile — the brand deck's ball beziers, the
-  // same design as the operator desktop icon. Rendered from assets/brand/*.svg
-  // by `pnpm --filter @touch/mobile icons`; to swap in official art, drop a
-  // 1024x1024 PNG on assets/icon.png (see assets/README.md). Square and
+  // The full-colour Touch Padel lockup on white (owner, 2026-09-12) — the same
+  // mark as the web app's icon. Rendered from docs/brand/ by
+  // `pnpm --filter @touch/mobile icons` (see assets/README.md). Square and
   // full-bleed on purpose: iOS and Android apply their own corner masks.
   icon: './assets/icon.png',
   ios: {
@@ -201,12 +200,25 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.kagu.touchpadel',
-    // Layered launcher icon: the ball (inside the 66 % safe zone) over a solid
-    // Touch Blue, plus the white silhouette Android 13+ tints for themed icons.
+    // FCM — Android push credentials. Android push IS Firebase Cloud Messaging,
+    // so without this file expo-notifications cannot mint a token at all and
+    // every Android notification silently never sends.
+    //
+    // NOT committed (.gitignore): it is a config file rather than a secret — it
+    // ships inside every APK — but it belongs to one Firebase project and does
+    // not want to be edited by hand in a repo. Locally it is read from disk;
+    // on EAS Build the env var holds the path to the uploaded file secret, so
+    // the cloud build does not need it in git. Set with:
+    //   eas env:create --name GOOGLE_SERVICES_JSON --type file ...
+    // The matching FCM V1 SERVICE ACCOUNT KEY is a real secret and lives only
+    // in EAS credentials (`eas credentials --platform android`), never here.
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
+    // Layered launcher icon: the lockup (inside the 66 % safe zone) over white,
+    // plus the white silhouette Android 13+ tints for themed icons.
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       monochromeImage: './assets/adaptive-icon-monochrome.png',
-      backgroundColor: '#3360AB',
+      backgroundColor: '#FFFFFF',
     },
   },
   plugins,

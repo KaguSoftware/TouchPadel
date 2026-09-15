@@ -3,9 +3,12 @@
  * pairs, margin coverage, price bands, menu snapshot, the owner gate, the
  * LLM tables' RPCs and the app.normalize_finding <-> @touch/core parity.
  *
- * Seeds a real journey through the RPCs (guest order -> cash settle -> waiter
- * call) on the current business day, then reconciles the analytics output
- * against the raw rows the service role can read.
+ * Seeds a real journey through the RPCs (guest order -> 10% whole-tab
+ * discount -> cash settle -> one unit refunded -> waiter call) on the current
+ * business day, then reconciles the analytics output against the raw rows the
+ * service role can read. Since 0095 every cafe money figure is NET on the
+ * settle day: goods = subtotal - discount, cafe_net = total - court - refunds,
+ * and the tab's discount and refunds are allocated down to its lines.
  *
  * Runs against the live local stack; skips itself when the stack is down.
  */
@@ -26,6 +29,7 @@ import {
   ensureTillFresh,
   setCafeSetting,
   snapshotCafeSettings,
+  DEV_PINS,
 } from './helpers';
 import { normalizeFinding } from '../../core/src/analytics/insightsText';
 
@@ -36,6 +40,13 @@ const FIXTURE_CAPPUCCINO = 'f1f70000-0000-4000-8000-00000000e002'; // menu_item_
 type Daily = {
   business_date: string;
   revenue_iqd: number;
+  cafe_gross_iqd: number;
+  cafe_net_iqd: number;
+  goods_iqd: number;
+  court_fees_iqd: number;
+  refunds_iqd: number;
+  item_refunds_iqd: number;
+  promo_discount_iqd: number;
   cash_iqd: number;
   card_iqd: number;
   tabs_settled: number;
@@ -102,15 +113,40 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     if (!res.ok) throw new Error(`seed order failed: ${res.errorMessage}`);
     const d = res.data as { order_id: string; tab_id: string; total_iqd: number };
     tabId = d.tab_id;
-    paymentAmount = Number(d.total_iqd); // 20,000
+    expect(Number(d.total_iqd)).toBe(20_000);
+
+    // 10% off the whole tab: goods 20,000 -> 18,000. The allocation engine
+    // must hand 800 of it to the costed line (8,000) and 1,200 to the other.
+    const disc = await appRpc(manager, 'apply_discount', {
+      p_tab_id: tabId,
+      p_kind: 'discount_percent',
+      p_value: 1_000, // basis points
+      p_pin: DEV_PINS.manager,
+      p_reason_code: 'test',
+    }).then(outcome);
+    if (!disc.ok) throw new Error(`seed discount failed: ${disc.errorMessage}`);
 
     const settled = await appRpc(cashier, 'settle_tab', {
       p_tab_id: tabId,
       p_method: 'cash',
-      p_tendered_iqd: paymentAmount,
+      p_tendered_iqd: 20_000,
       p_idempotency_key: testIdemKey('payment.settle'),
     }).then(outcome);
     if (!settled.ok) throw new Error(`seed settle failed: ${settled.errorMessage}`);
+    const pay = settled.data as { payment_id: string; total_iqd: number };
+    paymentAmount = Number(pay.total_iqd); // 18,000
+
+    // One unit of the costed item comes back: its net unit price is 3,600.
+    const { data: lines } = await svc.from('order_items').select('id, menu_item_id').eq('order_id', d.order_id);
+    const costedLine = (lines as { id: string; menu_item_id: string }[]).find((l) => l.menu_item_id === costed.itemId)!;
+    const refund = await appRpc(manager, 'refund', {
+      p_payment_id: pay.payment_id,
+      p_amount_iqd: 3_600,
+      p_pin: DEV_PINS.manager,
+      p_reason_code: 'test',
+      p_items: [{ order_item_id: costedLine.id, qty: 1 }],
+    }).then(outcome);
+    if (!refund.ok) throw new Error(`seed refund failed: ${refund.errorMessage}`);
 
     const call = await appRpc(guest.client, 'raise_waiter_call', { p_reason: 'bill' }).then(outcome);
     if (!call.ok) throw new Error(`seed call failed: ${call.errorMessage}`);
@@ -131,40 +167,65 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     await restoreSettings?.();
   });
 
-  it('analytics_daily_sales: revenue reconciles with payments - refunds of the business day; calls / tabs / orders counted', async () => {
+  it('analytics_daily_sales: one definition per number, on the settle day', async () => {
     const res = await appRpc(owner, 'analytics_daily_sales', { p_from: from, p_to: to }).then(outcome);
     expect(res.ok, res.errorMessage).toBe(true);
     const rows = res.data as Daily[];
     const today = rows.find((r) => r.business_date === day);
     expect(today, `no row for business day ${day}`).toBeDefined();
 
-    // Raw truth for the same window (service role): every payment / refund,
-    // whichever suite wrote it — revenue is revenue.
-    const { data: pays } = await svc
-      .from('payments')
-      .select('id, amount_iqd, method')
-      .gte('created_at', window.ts_from)
-      .lt('created_at', window.ts_to);
-    type Pay = { id: string; amount_iqd: number; method: string };
-    const payRows = pays as Pay[];
-    const { data: refs } = await svc
-      .from('refunds')
-      .select('amount_iqd, payment_id')
-      .gte('created_at', window.ts_from)
-      .lt('created_at', window.ts_to);
+    // Raw truth (service role): every tab SETTLED in the window, whichever
+    // suite wrote it, with its stamped breakdown and its refunds.
+    type Tab = { id: string; subtotal_iqd: number; discount_iqd: number; court_iqd: number; total_iqd: number; tax_iqd: number };
+    const { data: tabs } = await svc
+      .from('tabs')
+      .select('id, subtotal_iqd, discount_iqd, court_iqd, total_iqd, tax_iqd')
+      .eq('status', 'settled')
+      .is('merged_into_tab_id', null)
+      .gte('settled_at', window.ts_from)
+      .lt('settled_at', window.ts_to);
+    const tabRows = (tabs ?? []) as Tab[];
+    const tabIds = tabRows.map((t) => t.id);
+    const { data: pays } = await svc.from('payments').select('id, tab_id, amount_iqd, method').in('tab_id', tabIds);
+    type Pay = { id: string; tab_id: string; amount_iqd: number; method: string };
+    const payRows = (pays ?? []) as Pay[];
+    const { data: refs } = await svc.from('refunds').select('amount_iqd, payment_id').in('payment_id', payRows.map((p) => p.id));
     const refRows = (refs ?? []) as { amount_iqd: number; payment_id: string }[];
-    const paidBy = (m?: string) =>
-      payRows.filter((p) => !m || p.method === m).reduce((s, p) => s + Number(p.amount_iqd), 0);
-    const refundedBy = (m?: string) =>
-      refRows
-        .filter((r) => !m || payRows.find((p) => p.id === r.payment_id)?.method === m)
-        .reduce((s, r) => s + Number(r.amount_iqd), 0);
+    const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+    const gross = sum(tabRows.map((t) => Number(t.total_iqd) - Number(t.court_iqd)));
+    const goods = sum(tabRows.map((t) => Number(t.subtotal_iqd) - Number(t.discount_iqd)));
+    const court = sum(tabRows.map((t) => Number(t.court_iqd)));
+    const refunded = sum(refRows.map((r) => Number(r.amount_iqd)));
+    const paidBy = (m: string) => sum(payRows.filter((p) => p.method === m).map((p) => Number(p.amount_iqd)));
+    const refundedBy = (m: string) =>
+      sum(refRows.filter((r) => payRows.find((p) => p.id === r.payment_id)?.method === m).map((r) => Number(r.amount_iqd)));
 
-    expect(Number(today!.revenue_iqd)).toBe(paidBy() - refundedBy());
+    // The tested identities of 0095.
+    expect(Number(today!.revenue_iqd)).toBe(Number(today!.cafe_net_iqd));
+    expect(Number(today!.cafe_gross_iqd)).toBe(gross);
+    expect(Number(today!.goods_iqd)).toBe(goods);
+    expect(Number(today!.court_fees_iqd)).toBe(court);
+    expect(Number(today!.refunds_iqd)).toBe(refunded);
+    expect(Number(today!.cafe_net_iqd)).toBe(gross - refunded);
+    // cash + card = gross + court − refunds holds for every tab settle_tab paid
+    // (paid = total by construction). The shared day also carries suites'
+    // hand-planted settled tabs with no payment, so the exact form is asserted
+    // on this suite's own tab and the day is checked against the raw payments.
+    const mine = tabRows.find((t) => t.id === tabId)!;
+    const minePaid = sum(payRows.filter((p) => p.tab_id === tabId).map((p) => Number(p.amount_iqd)));
+    const mineRefunded = sum(refRows.filter((r) => payRows.find((p) => p.id === r.payment_id)?.tab_id === tabId).map((r) => Number(r.amount_iqd)));
+    expect(minePaid - mineRefunded).toBe(Number(mine.total_iqd) - Number(mine.court_iqd) + Number(mine.court_iqd) - mineRefunded);
+    expect(minePaid - mineRefunded).toBe(14_400);
     expect(Number(today!.cash_iqd)).toBe(paidBy('cash') - refundedBy('cash'));
     expect(Number(today!.card_iqd)).toBe(paidBy('card') - refundedBy('card'));
-    expect(Number(today!.revenue_iqd)).toBeGreaterThanOrEqual(paymentAmount);
-    expect(Number(today!.cash_iqd) + Number(today!.card_iqd)).toBeLessThanOrEqual(Number(today!.revenue_iqd) + refundedBy());
+    expect(Number(today!.discount_iqd)).toBe(sum(tabRows.map((t) => Number(t.discount_iqd))));
+    expect(Number(today!.discount_iqd)).toBeGreaterThanOrEqual(2_000);
+    expect(Number(today!.refunds_iqd)).toBeGreaterThanOrEqual(3_600);
+    expect(Number(today!.item_refunds_iqd)).toBeGreaterThanOrEqual(3_600);
+    expect(Number(today!.item_refunds_iqd)).toBeLessThanOrEqual(Number(today!.refunds_iqd));
+    expect(Number(today!.cafe_gross_iqd)).toBeGreaterThanOrEqual(paymentAmount);
+    expect(Number(today!.tax_iqd)).toBe(sum(tabRows.map((t) => Number(t.tax_iqd))));
+    expect(Number.isInteger(today!.promo_discount_iqd)).toBe(true);
 
     const { count: calls } = await svc
       .from('waiter_calls')
@@ -174,19 +235,12 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     expect(today!.waiter_calls).toBe(calls);
     expect(today!.waiter_calls).toBeGreaterThanOrEqual(1);
 
-    const { count: settledTabs } = await svc
-      .from('tabs')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'settled')
-      .gte('settled_at', window.ts_from)
-      .lt('settled_at', window.ts_to);
-    expect(today!.tabs_settled).toBe(settledTabs);
+    expect(today!.tabs_settled).toBe(tabRows.length);
     expect(today!.orders).toBeGreaterThanOrEqual(1);
     expect(today!.guest_orders).toBeGreaterThanOrEqual(1);
-    expect(today!.items_qty).toBeGreaterThanOrEqual(3);
+    // Units are net of the refunded one: 2 + 1 - 1 from this suite.
+    expect(today!.items_qty).toBeGreaterThanOrEqual(2);
     expect(today!.visits).toBeGreaterThanOrEqual(1);
-    expect(Number.isInteger(today!.discount_iqd)).toBe(true);
-    expect(Number.isInteger(today!.tax_iqd)).toBe(true);
     // Every row in the range is a business day inside [from, to], ascending.
     for (const r of rows) {
       expect(r.business_date >= from && r.business_date <= to).toBe(true);
@@ -206,8 +260,9 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     const rows = best.data as Best[];
     const mine = rows.find((r) => r.menu_item_id === costed.itemId);
     expect(mine).toBeDefined();
-    expect(Number(mine!.qty)).toBeGreaterThanOrEqual(2);
-    expect(Number(mine!.revenue_iqd)).toBeGreaterThanOrEqual(8_000);
+    // 2 sold, 1 refunded: one NET unit, worth its discounted price.
+    expect(Number(mine!.qty)).toBe(1);
+    expect(Number(mine!.revenue_iqd)).toBe(3_600);
     expect(mine!.orders).toBeGreaterThanOrEqual(1);
     expect(mine!.name_ar.length).toBeGreaterThan(0);
     const totalQty = rows.reduce((s, r) => s + Number(r.qty), 0);
@@ -217,18 +272,40 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
 
     const sold = await appRpc(owner, 'analytics_sold_items', { p_from: from, p_to: to, p_basis: 'settled' }).then(outcome);
     expect(sold.ok, sold.errorMessage).toBe(true);
-    type Sold = { business_date: string; menu_item_id: string; qty: number; revenue_iqd: number; list_revenue_iqd: number; discount_iqd: number };
+    type Sold = { business_date: string; menu_item_id: string; qty: number; revenue_iqd: number; list_revenue_iqd: number; discount_iqd: number; refund_iqd: number };
     const soldRows = sold.data as Sold[];
     const c = soldRows.find((r) => r.menu_item_id === costed.itemId && r.business_date === day)!;
     const u = soldRows.find((r) => r.menu_item_id === uncosted.itemId && r.business_date === day)!;
     expect(c).toBeDefined();
     expect(u).toBeDefined();
-    expect(Number(c.qty)).toBeGreaterThanOrEqual(2);
-    expect(Number(u.qty)).toBeGreaterThanOrEqual(1);
-    for (const r of [c, u]) {
-      expect(Number(r.list_revenue_iqd)).toBe(Number(r.revenue_iqd) + Number(r.discount_iqd));
-      expect(Number(r.discount_iqd)).toBe(0); // no promo on these items
+    // The whole-tab discount allocated pro-rata (800 / 1,200 of 2,000), the
+    // itemised refund on the line it named, and list = net + discount + refund.
+    expect({ qty: Number(c.qty), revenue: Number(c.revenue_iqd), list: Number(c.list_revenue_iqd), discount: Number(c.discount_iqd), refund: Number(c.refund_iqd) })
+      .toEqual({ qty: 1, revenue: 3_600, list: 8_000, discount: 800, refund: 3_600 });
+    expect({ qty: Number(u.qty), revenue: Number(u.revenue_iqd), list: Number(u.list_revenue_iqd), discount: Number(u.discount_iqd), refund: Number(u.refund_iqd) })
+      .toEqual({ qty: 1, revenue: 10_800, list: 12_000, discount: 1_200, refund: 0 });
+    for (const r of soldRows) {
+      expect(Number(r.list_revenue_iqd)).toBe(Number(r.revenue_iqd) + Number(r.discount_iqd) + Number(r.refund_iqd));
     }
+
+    // Σ item net revenue = Σ goods − Σ refunds, exactly, on this suite's tab
+    // (the service role reads the allocation engine directly) …
+    const { data: netLines, error: nlErr } = await svc.schema('app').rpc('cafe_net_lines', { p_tab_ids: [tabId] });
+    expect(nlErr).toBeNull();
+    type NetLine = { menu_item_id: string; qty: number; gross_iqd: number; line_discount_iqd: number; tab_discount_iqd: number; refund_qty: number; refund_iqd: number; net_iqd: number; cost_iqd: number | null; cost_total_iqd: number | null };
+    const nl = netLines as NetLine[];
+    expect(nl).toHaveLength(2);
+    expect(nl.reduce((s, l) => s + Number(l.net_iqd), 0)).toBe(18_000 - 3_600);
+    expect(nl.reduce((s, l) => s + Number(l.tab_discount_iqd), 0)).toBe(2_000);
+    const cl = nl.find((l) => l.menu_item_id === costed.itemId)!;
+    expect(cl).toMatchObject({ qty: 2, gross_iqd: 8_000, line_discount_iqd: 0, tab_discount_iqd: 800, refund_qty: 1, refund_iqd: 3_600, net_iqd: 3_600, cost_iqd: 900, cost_total_iqd: 900 });
+    // … and, over the whole shared day, item net can only fall short of the
+    // stamped goods (a line voided after settlement keeps its money on the tab).
+    const daily = await appRpc(owner, 'analytics_daily_sales', { p_from: from, p_to: to }).then(outcome);
+    const dayRow = (daily.data as Daily[]).find((r) => r.business_date === day)!;
+    const itemNet = soldRows.filter((r) => r.business_date === day).reduce((s, r) => s + Number(r.revenue_iqd), 0);
+    expect(itemNet).toBeLessThanOrEqual(Number(dayRow.goods_iqd) - Number(dayRow.item_refunds_iqd));
+    expect(itemNet).toBeGreaterThanOrEqual(14_400);
 
     const badBasis = await appRpc(owner, 'analytics_best_sellers', { p_from: from, p_to: to, p_basis: 'paid' }).then(outcome);
     expect(badBasis.errorMessage).toContain('INVALID_ARGUMENT');
@@ -278,9 +355,10 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
       cost_iqd: number | null; cost_total_iqd: number | null; margin_iqd: number | null;
       margin_pct: number | null; has_cost: boolean;
     };
-    const d = res.data as { basis: string; cost_as_of: string; items: Item[]; coverage: { revenue_with_cost_pct: number; items_with_cost: number; items_total: number } };
+    const d = res.data as { basis: string; cost_basis: string; items: Item[]; coverage: { revenue_with_cost_pct: number; items_with_cost: number; items_total: number } };
     expect(d.basis).toBe('settled');
-    expect(d.cost_as_of).toBeTruthy();
+    // 0095: the cost is the one snapshotted on each line, not today's.
+    expect(d.cost_basis).toBe('line_snapshot');
 
     const c = d.items.find((i) => i.menu_item_id === costed.itemId)!;
     const u = d.items.find((i) => i.menu_item_id === uncosted.itemId)!;
@@ -288,8 +366,10 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     expect(u).toBeDefined();
 
     expect(c.has_cost).toBe(true);
+    expect(Number(c.qty)).toBe(1); // net of the refunded unit
     expect(Number(c.cost_iqd)).toBe(900);
     expect(Number(c.cost_total_iqd)).toBe(900 * Number(c.qty));
+    expect(Number(c.revenue_iqd)).toBe(3_600);
     expect(Number(c.margin_iqd)).toBe(Number(c.revenue_iqd) - 900 * Number(c.qty));
     expect(Number(c.margin_pct)).toBeCloseTo((Number(c.margin_iqd) * 100) / Number(c.revenue_iqd), 1);
     expect(Number(c.avg_price_iqd)).toBe(Math.round(Number(c.revenue_iqd) / Number(c.qty)));
@@ -299,7 +379,7 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     expect(u.cost_total_iqd).toBeNull();
     expect(u.margin_iqd).toBeNull();
     expect(u.margin_pct).toBeNull();
-    expect(Number(u.revenue_iqd)).toBeGreaterThanOrEqual(12_000);
+    expect(Number(u.revenue_iqd)).toBe(10_800); // 12,000 less its 1,200 share of the tab discount
 
     // Coverage recomputed from the item list.
     const withCost = d.items.filter((i) => i.has_cost);
@@ -319,8 +399,8 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     expect(bands.map((b) => b.band)).toEqual(['lt3000', '3000_5999', '6000_9999', 'gte10000']);
     expect(bands[1]!.items).toContain(costed.itemId); // 4,000
     expect(bands[3]!.items).toContain(uncosted.itemId); // 12,000
-    expect(Number(bands[1]!.qty)).toBeGreaterThanOrEqual(2);
-    expect(Number(bands[3]!.revenue_iqd)).toBeGreaterThanOrEqual(12_000);
+    expect(Number(bands[1]!.qty)).toBeGreaterThanOrEqual(1);
+    expect(Number(bands[3]!.revenue_iqd)).toBeGreaterThanOrEqual(10_800);
     for (const b of bands) {
       expect(Array.isArray(b.items)).toBe(true);
       expect(Number.isInteger(Number(b.qty))).toBe(true);
@@ -354,7 +434,7 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     }
   });
 
-  it('analytics_hourly / analytics_promo answer for the range (shape only)', async () => {
+  it('analytics_hourly (settled, net) reconciles with the daily rows; analytics_promo stays gross', async () => {
     const hourly = await appRpc(owner, 'analytics_hourly', { p_from: from, p_to: to }).then(outcome);
     expect(hourly.ok, hourly.errorMessage).toBe(true);
     type Hour = { dow: number; hour: number; orders: number; qty: number; revenue_iqd: number };
@@ -366,6 +446,11 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
       expect(x.hour).toBeGreaterThanOrEqual(0);
       expect(x.hour).toBeLessThanOrEqual(23);
     }
+    // Settled basis: the hourly money is the same net line money sold_items carries.
+    const sold = await appRpc(owner, 'analytics_sold_items', { p_from: from, p_to: to, p_basis: 'settled' }).then(outcome);
+    const soldNet = (sold.data as { revenue_iqd: number }[]).reduce((s, r) => s + Number(r.revenue_iqd), 0);
+    expect(h.reduce((s, x) => s + Number(x.revenue_iqd), 0)).toBe(soldNet);
+
     const promo = await appRpc(owner, 'analytics_promo', { p_from: from, p_to: to }).then(outcome);
     expect(promo.ok, promo.errorMessage).toBe(true);
     const p = promo.data as { qty: number; list_revenue_iqd: number; revenue_iqd: number; discount_iqd: number; by_day: unknown[] };
@@ -540,5 +625,101 @@ describe.skipIf(!up)('analytics (0034: owner sales analytics + LLM tables)', () 
     expect(pat.data).toHaveLength(1);
     const mgrPat = await manager.from('analytics_patterns').select('id').eq('id', patterns.data as string);
     expect(mgrPat.data).toHaveLength(0);
+  });
+
+  it('0094 scope: save with courts reads back courts, the default is cafe, anything else is INVALID_ARGUMENT', async () => {
+    const base = { p_range_from: from, p_range_to: to, p_locale: 'en' };
+
+    const courts = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [{ text: 'court 1 fills Friday evenings' }], p_scope: 'courts',
+    }).then(outcome);
+    expect(courts.ok, courts.errorMessage).toBe(true);
+    const courtsRow = await owner.from('analytics_insights').select('scope').eq('id', courts.data as string).single();
+    expect(courtsRow.data).toEqual({ scope: 'courts' });
+
+    const cafe = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [{ text: 'latte leads' }],
+    }).then(outcome);
+    expect(cafe.ok, cafe.errorMessage).toBe(true);
+    const cafeRow = await owner.from('analytics_insights').select('scope').eq('id', cafe.data as string).single();
+    expect(cafeRow.data).toEqual({ scope: 'cafe' });
+
+    const badScope = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [], p_scope: 'x',
+    }).then(outcome);
+    expect(badScope.ok).toBe(false);
+    expect(badScope.errorMessage).toContain('INVALID_ARGUMENT');
+
+    const patCourts = await appRpc(owner, 'save_analytics_patterns', {
+      ...base, p_patterns: [{ text: 'Thursday 20:00 is saturated' }], p_scope: 'courts',
+    }).then(outcome);
+    expect(patCourts.ok, patCourts.errorMessage).toBe(true);
+    const patCourtsRow = await owner.from('analytics_patterns').select('scope').eq('id', patCourts.data as string).single();
+    expect(patCourtsRow.data).toEqual({ scope: 'courts' });
+
+    const patCafe = await appRpc(owner, 'save_analytics_patterns', { ...base, p_patterns: [] }).then(outcome);
+    expect(patCafe.ok, patCafe.errorMessage).toBe(true);
+    const patCafeRow = await owner.from('analytics_patterns').select('scope').eq('id', patCafe.data as string).single();
+    expect(patCafeRow.data).toEqual({ scope: 'cafe' });
+
+    const patBad = await appRpc(owner, 'save_analytics_patterns', { ...base, p_patterns: [], p_scope: 'x' }).then(outcome);
+    expect(patBad.ok).toBe(false);
+    expect(patBad.errorMessage).toContain('INVALID_ARGUMENT');
+
+    // The scope CHECK holds even for the service role: the two words are the whole vocabulary.
+    const direct = await svc.from('analytics_insights').update({ scope: 'x' }).eq('id', cafe.data as string);
+    expect(direct.error?.message ?? '').toContain('analytics_insights_scope_check');
+  });
+
+  it('0098 court key: a courts set saves and reads under its court, the venue-wide set is NULL, a cafe set never takes a court', async () => {
+    const court = await svc.from('courts').select('id').order('sort_order').limit(1).single();
+    expect(court.error).toBeNull();
+    const courtId = (court.data as { id: string }).id;
+    const base = { p_range_from: from, p_range_to: to, p_locale: 'en' };
+
+    const keyed = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [{ text: 'this court sits empty Sunday 10:00' }], p_scope: 'courts', p_court_id: courtId,
+    }).then(outcome);
+    expect(keyed.ok, keyed.errorMessage).toBe(true);
+    const venueWide = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [{ text: 'the venue fills Friday evenings' }], p_scope: 'courts',
+    }).then(outcome);
+    expect(venueWide.ok, venueWide.errorMessage).toBe(true);
+    const ids = [keyed.data as string, venueWide.data as string];
+
+    // Reads split on the key exactly as the operator filters them.
+    const byCourt = await owner.from('analytics_insights').select('id, court_id').in('id', ids).eq('court_id', courtId);
+    expect(byCourt.data).toEqual([{ id: keyed.data, court_id: courtId }]);
+    const byVenue = await owner.from('analytics_insights').select('id, court_id').in('id', ids).is('court_id', null);
+    expect(byVenue.data).toEqual([{ id: venueWide.data, court_id: null }]);
+
+    const cafeWithCourt = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [], p_scope: 'cafe', p_court_id: courtId,
+    }).then(outcome);
+    expect(cafeWithCourt.ok).toBe(false);
+    expect(cafeWithCourt.errorMessage).toContain('INVALID_ARGUMENT');
+    const unknownCourt = await appRpc(owner, 'save_analytics_insights', {
+      ...base, p_compare_basis: 'prev', p_insights: [], p_scope: 'courts', p_court_id: '00000000-0000-4000-8000-000000000000',
+    }).then(outcome);
+    expect(unknownCourt.ok).toBe(false);
+    expect(unknownCourt.errorMessage).toContain('INVALID_ARGUMENT');
+
+    const patKeyed = await appRpc(owner, 'save_analytics_patterns', {
+      ...base, p_patterns: [{ id: 'dead-slot:h:10-11|wd:0', text: 'Sunday 10:00-11:00 runs at 5% occupancy' }], p_scope: 'courts', p_court_id: courtId,
+    }).then(outcome);
+    expect(patKeyed.ok, patKeyed.errorMessage).toBe(true);
+    const patRow = await owner.from('analytics_patterns').select('scope, court_id').eq('id', patKeyed.data as string).single();
+    expect(patRow.data).toEqual({ scope: 'courts', court_id: courtId });
+    const patCafeWithCourt = await appRpc(owner, 'save_analytics_patterns', { ...base, p_patterns: [], p_court_id: courtId }).then(outcome);
+    expect(patCafeWithCourt.ok).toBe(false);
+    expect(patCafeWithCourt.errorMessage).toContain('INVALID_ARGUMENT');
+
+    // The CHECK holds even for the service role: a cafe row can never carry a court.
+    const cafeRow = await appRpc(owner, 'save_analytics_insights', { ...base, p_compare_basis: 'prev', p_insights: [] }).then(outcome);
+    expect(cafeRow.ok, cafeRow.errorMessage).toBe(true);
+    const direct = await svc.from('analytics_insights').update({ court_id: courtId }).eq('id', cafeRow.data as string);
+    expect(direct.error?.message ?? '').toContain('analytics_insights_court_scope_check');
+    const directPat = await svc.from('analytics_patterns').update({ court_id: courtId }).eq('id', patKeyed.data as string).eq('scope', 'cafe');
+    expect(directPat.error).toBeNull(); // no cafe row matched: nothing to violate
   });
 });

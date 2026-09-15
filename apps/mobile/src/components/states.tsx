@@ -232,7 +232,7 @@ export function EmptyState({
  * screen when it appeared.
  */
 export function OfflineBanner({ message }: { message: string }) {
-  const { fonts } = useTheme();
+  const { colors, fonts } = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <View
@@ -245,7 +245,7 @@ export function OfflineBanner({ message }: { message: string }) {
         start: 0,
         end: 0,
         zIndex: 20,
-        backgroundColor: brand.danger,
+        backgroundColor: colors.danger,
         paddingTop: insets.top + 6,
         paddingBottom: 8,
         paddingStart: space.l,

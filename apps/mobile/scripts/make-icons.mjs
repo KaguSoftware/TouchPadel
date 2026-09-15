@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Render the mobile app's launcher + notification art from assets/brand/*.svg
- * with Playwright's bundled Chromium — the route apps/operator-shell/scripts/
- * make-icon.mjs and packages/ui/scripts/render-cafe-icons.mjs already take, so
- * the SVGs are the only art the repo carries by hand and the PNGs are derived.
+ * Render the mobile app's launcher + notification art with Playwright's
+ * bundled Chromium — the route apps/operator-shell/scripts/make-icon.mjs and
+ * packages/ui/scripts/render-cafe-icons.mjs already take, so the brand files
+ * are the only art the repo carries by hand and the PNGs are derived.
  *
  *   pnpm --filter @touch/mobile icons
  *
@@ -13,12 +13,13 @@
  *   adaptive-icon-monochrome.png 1024x1024 alpha    android.adaptiveIcon.monochromeImage
  *   notification-icon.png          96x96   alpha    expo-notifications plugin `icon`
  *
- * The splash image is assets/logo-white.png (the wordmark), not rendered here.
+ * The launcher icons are the full-colour Touch Padel lockup
+ * (docs/brand/touch_padel_logo_transparent.png) on white — owner decision
+ * 2026-09-12, replacing the padel-ball placeholder. The notification glyph stays
+ * the ball (brand/notification.svg): a wordmark is illegible at 24 dp.
+ * The splash image is assets/logo-white.png, not rendered here.
  *
- * SWAPPING IN OFFICIAL ART: replace the SVG(s) and re-run, or drop a finished
- * 1024x1024 PNG straight onto assets/icon.png (and the two adaptive layers if
- * the shape changes). Either way the next EAS build picks it up — icons are
- * native, an OTA update does not carry them.
+ * Icons are native — an OTA update does not carry them; the next EAS build does.
  *
  * `playwright` resolves from the repo root (the e2e devDependency); run
  * `pnpm e2e:install` once if Chromium is missing.
@@ -34,20 +35,41 @@ const { chromium } = require('playwright');
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ASSETS = path.resolve(here, '..', 'assets');
 const BRAND = path.join(ASSETS, 'brand');
+const LOGO = path.resolve(here, '..', '..', '..', 'docs', 'brand', 'touch_padel_logo_transparent.png');
 
-/** [source svg, output png, size, transparent] */
+const dataUri = async (file, mime) =>
+  `data:${mime};base64,${(await fs.readFile(file)).toString('base64')}`;
+
+// Logo width as a share of the canvas. The iOS icon keeps a margin clear of
+// the squircle mask. The adaptive layers keep the lockup's diagonal inside
+// Android's safe circle (66 dp of 108 dp ≈ 61 % of the canvas), so every
+// launcher mask keeps the whole mark.
+const ICON_LOGO_WIDTH = 0.84;
+const ADAPTIVE_LOGO_WIDTH = 0.56;
+
+/** [output png, size, html body background, <img> markup] */
+const logoJob = (out, background, width, filter = 'none') => async () => {
+  const src = await dataUri(LOGO, 'image/png');
+  return [out, 1024, background,
+    `<img src="${src}" style="width:${Math.round(1024 * width)}px;filter:${filter}">`];
+};
+const svgJob = (svg, out, size) => async () => {
+  const src = await dataUri(path.join(BRAND, svg), 'image/svg+xml');
+  return [out, size, 'transparent', `<img src="${src}" style="width:${size}px;height:${size}px">`];
+};
+
 const JOBS = [
-  ['icon.svg', 'icon.png', 1024, false],
-  ['adaptive-foreground.svg', 'adaptive-icon.png', 1024, true],
-  ['adaptive-monochrome.svg', 'adaptive-icon-monochrome.png', 1024, true],
-  ['notification.svg', 'notification-icon.png', 96, true],
+  logoJob('icon.png', '#FFFFFF', ICON_LOGO_WIDTH),
+  logoJob('adaptive-icon.png', 'transparent', ADAPTIVE_LOGO_WIDTH),
+  logoJob('adaptive-icon-monochrome.png', 'transparent', ADAPTIVE_LOGO_WIDTH, 'brightness(0) invert(1)'),
+  svgJob('notification.svg', 'notification-icon.png', 96),
 ];
 
-const page = (dataUri, size, transparent) => `<!doctype html><html><head><style>
-  html,body{margin:0;background:${transparent ? 'transparent' : '#3360AB'}}
-  body{width:${size}px;height:${size}px;overflow:hidden}
-  img{display:block;width:${size}px;height:${size}px}
-</style></head><body><img src="${dataUri}"></body></html>`;
+const page = (size, background, img) => `<!doctype html><html><head><style>
+  html,body{margin:0;background:${background}}
+  body{width:${size}px;height:${size}px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  img{display:block}
+</style></head><body>${img}</body></html>`;
 
 let browser;
 try {
@@ -57,11 +79,11 @@ try {
   throw error;
 }
 try {
-  for (const [src, out, size, transparent] of JOBS) {
-    const svg = await fs.readFile(path.join(BRAND, src), 'utf8');
-    const dataUri = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+  for (const job of JOBS) {
+    const [out, size, background, img] = await job();
+    const transparent = background === 'transparent';
     const tab = await browser.newPage({ viewport: { width: size, height: size }, deviceScaleFactor: 1 });
-    await tab.setContent(page(dataUri, size, transparent), { waitUntil: 'networkidle' });
+    await tab.setContent(page(size, background, img), { waitUntil: 'networkidle' });
     await tab.screenshot({
       path: path.join(ASSETS, out),
       clip: { x: 0, y: 0, width: size, height: size },

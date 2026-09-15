@@ -29,17 +29,21 @@
  * per number", or "stop now". The gate ships DISABLED, so this function
  * refuses every send until the runbook flips app.sms_limits.enabled.
  *
- * Secrets: SEND_SMS_HOOK_SECRET, SMS_PROVIDER (log | twilio | otpiq) and the
+ * THE VENDOR IS BEHIND ONE FUNCTION. This file never names a vendor: it calls
+ * `sendSms()` from _shared/sms, the single seam every edge function uses to
+ * text a guest. Swapping vendors is a secrets change (SMS_PROVIDER + keys),
+ * not an edit here — see _shared/sms/types.ts for the contract and recipe.
+ *
+ * Secrets: SEND_SMS_HOOK_SECRET, SMS_PROVIDER (log | twilio | otpiq | whatsapp) and the
  * chosen vendor's keys — see supabase/functions/.env.example.
  */
 import { json } from '../_shared/http.ts';
+import { sendSms, SmsProviderError } from '../_shared/sms/index.ts';
 import { createServiceClient } from '../_shared/supabase.ts';
 import { hookError, parseHookPayload, renderTemplate, statusForRefusal } from './otp.ts';
-import { providerFromEnv } from './providers/index.ts';
-import { SmsProviderError } from './providers/types.ts';
 import { headersOf, verifyStandardWebhook } from './verify.ts';
 
-const provider = providerFromEnv((name) => Deno.env.get(name));
+const env = (name: string) => Deno.env.get(name);
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(hookError(405, 'METHOD_NOT_ALLOWED'), 405);
@@ -85,37 +89,49 @@ Deno.serve(async (req) => {
     return json(hookError(statusForRefusal(reason), reason), statusForRefusal(reason));
   }
 
+  // The guest's language, for vendors with per-language templates (Meta
+  // WhatsApp). Best effort: a brand-new phone sign-up has the default row, a
+  // missing profile or a query error simply leaves it unset.
+  let lang: 'en' | 'ar' | undefined;
+  if (payload.userId) {
+    const prof = await service.from('profiles').select('preferred_lang').eq('id', payload.userId).maybeSingle();
+    const v = prof.data?.preferred_lang;
+    if (v === 'en' || v === 'ar') lang = v;
+  }
+
   try {
-    const result = await provider.send({
-      to: payload.phoneE164,
-      body: renderTemplate(payload.otp),
-      code: payload.otp,
-    });
+    const result = await sendSms(
+      { to: payload.phoneE164, body: renderTemplate(payload.otp), code: payload.otp, lang },
+      env,
+    );
     await service.schema('app').rpc('sms_send_result', {
       p_send_id: decision.send_id,
       p_status: 'sent',
-      p_provider: provider.name,
+      p_provider: result.provider,
       p_channel: result.channel ?? null,
       p_provider_msg_id: result.id ?? null,
       p_error: null,
       p_cost_iqd: result.costIqd ?? null,
     });
+    if (typeof result.remainingCredit === 'number') {
+      console.log(`[send-sms-otp] ${result.provider} remaining credit ${result.remainingCredit}`);
+    }
     return json({}, 200);
   } catch (error) {
-    const message =
+    // sendSms only ever rejects with SmsProviderError; the fallback covers a
+    // throw from the stamp RPC client itself.
+    const failure =
       error instanceof SmsProviderError
-        ? error.message
-        : error instanceof Error
-          ? error.message
-          : String(error);
-    console.error(`[send-sms-otp] ${provider.name} send failed: ${message}`);
+        ? error
+        : new SmsProviderError('unknown', error instanceof Error ? error.message : String(error));
+    console.error(`[send-sms-otp] ${failure.provider} send failed: ${failure.message}`);
     await service.schema('app').rpc('sms_send_result', {
       p_send_id: decision.send_id,
       p_status: 'failed',
-      p_provider: provider.name,
+      p_provider: failure.provider,
       p_channel: null,
       p_provider_msg_id: null,
-      p_error: message.slice(0, 500),
+      p_error: failure.message.slice(0, 500),
       p_cost_iqd: null,
     });
     return json(hookError(500, 'SMS_SEND_FAILED'), 500);

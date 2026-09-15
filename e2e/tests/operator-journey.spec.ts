@@ -177,11 +177,12 @@ test.describe('operator journeys', () => {
       '2,000 IQD',
     );
   });
-  test('court_desk: week view shows the whole week, and an override records a reason', async ({
+  test('court_desk: the month calendar shows the booking, and an override records a reason', async ({
     page,
   }) => {
-    // SOW L307 asks for a day AND week calendar across all courts; the desk was
-    // day-only. SOW L313 requires a reason on every override — the RPCs have
+    // SOW L307 asks for more than a day calendar; the desk's zoomed-out level is
+    // now a month (it replaced the week view, owner call 2026-09-13). SOW L313
+    // requires a reason on every override — the RPCs have
     // taken one since 0048 and the desk never passed it, so every move, extend
     // and status change was audited as the generic 'staff_op'.
     const name = `E2E Week ${Date.now()}`;
@@ -196,6 +197,7 @@ test.describe('operator journeys', () => {
 
       // Book tomorrow so every slot is in the future.
       await page.getByRole('button', { name: '›' }).click();
+      const tomorrow = await page.getByLabel('Date').inputValue();
       await expect(page.getByTitle('Free').first()).toBeVisible();
       await page.getByTitle('Free').nth(8).click();
       const dialog = page.getByRole('dialog', { name: 'New booking' });
@@ -214,17 +216,15 @@ test.describe('operator journeys', () => {
         .single();
       reservationId = (made as { id: string }).id;
 
-      // The same booking is visible in the week view, which is the point of
-      // having one: the day grid answers "what is court 2 doing at 19:00", the
-      // week answers "are we free on Saturday".
-      // 'Week' also matches the week-view chips' accessible names, so anchor it.
-      await page.getByRole('button', { name: 'Week', exact: true }).click();
-      await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible({
-        timeout: 15_000,
-      });
+      // Zoom out: tomorrow's square in the month counts the booking just made.
+      await page.getByRole('button', { name: 'Month', exact: true }).click();
+      const square = page.locator(`[data-cal-date="${tomorrow}"]`);
+      await expect(square).not.toHaveAttribute('aria-label', /· 0 bookings$/, { timeout: 15_000 });
 
-      // Open it from the week grid — the SAME detail modal, so move, shorten,
-      // extend and cancel all work here without a second code path.
+      // Pressing the day zooms back into its grid, where the booking opens the
+      // SAME detail modal — move, shorten, extend and cancel all work from here.
+      await square.click();
+      await expect(page.getByTitle('Free').first()).toBeVisible();
       await page.getByRole('button', { name: new RegExp(name) }).first().click();
       const actions = page.getByRole('dialog', { name });
       await expect(actions).toBeVisible();

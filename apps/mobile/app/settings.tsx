@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import { AppState, Linking, ScrollView, View } from 'react-native';
 import { Text } from '../src/i18n/text';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
@@ -10,6 +10,7 @@ import { isolate, type Locale } from '@touch/i18n';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import {
   getPushPermissionState,
+  permissionStateAfter,
   registerPushToken,
   type PushPermissionState,
 } from '../src/features/profile/push';
@@ -56,13 +57,38 @@ export default function SettingsScreen() {
   const [pushState, setPushState] = useState<PushPermissionState>('undetermined');
   const [busyPush, setBusyPush] = useState(false);
 
+  /**
+   * Re-probe on every foreground, not just on mount.
+   *
+   * The denied branch sends the guest to system settings. Coming back, the
+   * screen is still mounted, so a one-shot mount probe kept showing "turned
+   * off" (with the same button) after they had just turned it ON — and, worse,
+   * nothing registered a token, so the permission they had granted delivered
+   * nothing. Re-probing here closes both halves: the state catches up, and a
+   * grant made outside the app registers on return.
+   */
   useEffect(() => {
     let cancelled = false;
-    void getPushPermissionState().then((state) => {
-      if (!cancelled) setPushState(state);
+    const probe = () => {
+      void getPushPermissionState().then((state) => {
+        if (cancelled) return;
+        setPushState(state);
+        // Permission granted while we were away: mint and store the token.
+        // Silent — the OS dialog has already been answered.
+        if (state === 'granted') {
+          void registerPushToken({ prompt: false }).then((result) =>
+            addBreadcrumb('push.register', { result, reason: 'settings-foreground' }),
+          );
+        }
+      });
+    };
+    probe();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') probe();
     });
     return () => {
       cancelled = true;
+      sub.remove();
     };
   }, []);
 
@@ -75,9 +101,15 @@ export default function SettingsScreen() {
   const onEnablePush = async () => {
     setBusyPush(true);
     const result = await registerPushToken();
-    setPushState(
-      result === 'registered' ? 'granted' : result === 'denied' ? 'denied' : 'unavailable',
-    );
+    addBreadcrumb('push.register', { result, reason: 'settings-button' });
+    // `failed` is NOT `unavailable`: the phone can do push, something went
+    // wrong (no network, a token mint that threw). Saying "not available on
+    // this device" there is a lie the guest cannot act on, so permissionStateAfter
+    // keeps whatever the OS still reports and flags it as an error instead.
+    const observed = result === 'failed' ? await getPushPermissionState() : 'unavailable';
+    const next = permissionStateAfter(result, observed);
+    setPushState(next.state);
+    if (next.errored) toast(t('errors.generic'), 'error');
     setBusyPush(false);
   };
 

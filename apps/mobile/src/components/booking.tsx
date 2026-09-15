@@ -4,7 +4,7 @@
  * pay-at-desk card, degraded banners, day chips and merged slot cells.
  * Stateless — all data arrives as props (spec §06).
  */
-import type { ComponentType, ReactNode } from 'react';
+import { memo, type ComponentType, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '../i18n/text';
 import { formatDayNumber, formatMonthShort, isolate, type MessageKey } from '@touch/i18n';
@@ -690,39 +690,66 @@ export function ListHeading({
   );
 }
 
-/** A counted fact under the page title ("3 upcoming", "12 played"). */
-export function StatChip({
+/**
+ * A counted tab under the page title ("14 upcoming", "1 played", "2 cancelled").
+ *
+ * These read as chips and shipped as chips — numbers that looked tappable and
+ * were not (owner, 2026-09-11). They pick the list now, so each one is a real
+ * tab. The selected one used to be a pale tint one step off the unselected
+ * fill — nearly invisible, in both themes — so it now takes the same solid
+ * brand-blue fill the primary button uses (`Button`'s `primary` variant),
+ * fixed across light/dark rather than the theme-flipping `colors.blue`, with
+ * white icon/label for real contrast. The hit target is padded out with
+ * `hitSlop` rather than by growing the pill, so the header looks as it did.
+ */
+export function FilterChip({
   icon: Icon,
   label,
-  accent = false,
+  selected,
+  onPress,
 }: {
   icon: ComponentType<IconProps>;
   label: string;
-  /** The upcoming chip, which is the live one, takes the blue tint. */
-  accent?: boolean;
+  /** The tab whose list is on screen: solid brand fill, and announced as selected. */
+  selected: boolean;
+  onPress: () => void;
 }) {
   const { colors, fonts } = useTheme();
   return (
-    <View
-      style={{
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
+      onPress={onPress}
+      // Vertical only: the chips sit 7 px apart, so padding them sideways would
+      // overlap the neighbour's hit area and steal its taps.
+      hitSlop={{ top: 12, bottom: 12 }}
+      style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
-        paddingStart: 9,
-        paddingEnd: 10,
-        paddingTop: 5,
-        paddingBottom: 5,
+        paddingStart: 10,
+        paddingEnd: 11,
+        paddingTop: 6,
+        paddingBottom: 6,
         borderRadius: radius.pill,
-        backgroundColor: accent ? colors.tint : colors.sub,
+        backgroundColor: selected ? brand.blue : colors.sub,
         borderWidth: 1,
-        borderColor: colors.line,
-      }}
+        borderColor: selected ? brand.blue : colors.line,
+        opacity: pressed ? 0.7 : 1,
+      })}
     >
-      <Icon size={12} color={accent ? colors.blue : colors.fnt} strokeWidth={2.2} />
-      <Text style={{ fontFamily: fonts.body700, fontSize: 11, color: accent ? colors.mut2 : colors.mut }}>
+      <Icon size={13} color={selected ? brand.white : colors.fnt} strokeWidth={2.2} />
+      <Text
+        style={{
+          fontFamily: fonts.body700,
+          fontSize: 12,
+          color: selected ? brand.white : colors.mut,
+        }}
+      >
         {label}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -815,6 +842,7 @@ export function PastBookingRow({
   when,
   price,
   status,
+  note,
   first,
   last,
   onPress,
@@ -823,6 +851,14 @@ export function PastBookingRow({
   when: string;
   price: string | null;
   status: string;
+  /**
+   * One line under the metadata saying something the badge cannot: today, WHO
+   * cancelled a cancelled booking (0088). Pre-translated, like `when` and
+   * `price` — this stays presentational. Null renders nothing, which is what
+   * a cancellation with no recorded actor gets: the badge is then the whole
+   * truth, and a caption guessing at "you" or "the venue" would not be.
+   */
+  note?: string | null;
   first: boolean;
   last: boolean;
   onPress: () => void;
@@ -878,6 +914,24 @@ export function PastBookingRow({
             <MetaItem icon={ClockIcon} text={when} color={colors.fnt} size={11} />
             {price ? <MetaItem icon={TagIcon} text={price} color={colors.fnt} size={11} /> : null}
           </View>
+          {note ? (
+            // Its own line rather than a third metadata pair: this is not
+            // another fact about the booking, it is what happened to it. Muted
+            // — the badge beside it already carries the colour, and a red
+            // "Cancelled by you" would alarm somebody about their own tap.
+            <Text
+              numberOfLines={2}
+              style={{
+                marginTop: 4,
+                fontFamily: fonts.body700,
+                fontSize: 11,
+                lineHeight: 15,
+                color: colors.mut,
+              }}
+            >
+              {note}
+            </Text>
+          ) : null}
         </View>
         <StatusPill status={status} />
       </Pressable>
@@ -1070,7 +1124,22 @@ export function DayChip({
  * (each `flex: 1`); a wrapping row with `flexGrow` stretched an odd last cell
  * to the full width, which the design's `repeat(2, 1fr)` never does.
  */
-export function SlotCell({
+/**
+ * MEMOISED, and its `onPress` takes the cell rather than closing over it.
+ *
+ * A trading night is up to ~34 of these, and every re-render of the surface
+ * around them — the day strip's selection moving, the minute tick, a refetch
+ * flag flipping — used to re-run all ~34 component bodies for a picture that
+ * had not changed. On the Book tab that is the JS thread the court's rally is
+ * drawn from, so it was frames off the animation for nothing.
+ *
+ * `memo` only earns that back if the props are shallow-equal, which is why the
+ * handler is `(cell) => void` and not `() => void`: an `onPress={() => tap(cell)}`
+ * at the call site is a new function on every render and would defeat it on its
+ * own. The other props are the cell (a stable object off the memoised grid) and
+ * three strings, which compare by value.
+ */
+export const SlotCell = memo(function SlotCell({
   cell,
   time,
   sub,
@@ -1085,7 +1154,8 @@ export function SlotCell({
   sub: string;
   /** "2 courts free" / "1 court left" — empty when not free. */
   capacityLine: string;
-  onPress?: () => void;
+  /** Handed the cell it was pressed on — see the note above on why. */
+  onPress?: (cell: MergedCell) => void;
   /**
    * The booking sheet's cell (court → booking transition, 2026-09-01): min
    * height 46, radius 12, 8×4 padding, a 2 pt border and 15 / 11 / 9.5 pt in
@@ -1104,7 +1174,7 @@ export function SlotCell({
       accessibilityRole="button"
       accessibilityState={{ disabled: !tappable }}
       disabled={!tappable}
-      onPress={onPress}
+      onPress={onPress ? () => onPress(cell) : undefined}
       style={({ pressed }) => ({
         flex: 1,
         alignItems: 'center',
@@ -1157,18 +1227,26 @@ export function SlotCell({
       ) : null}
     </Pressable>
   );
-}
+});
 
 // ── List row (profile menu rows) ────────────────────────────────────────────
 
 export function MenuRow({
   icon,
+  iconBg,
   label,
   onPress,
   last,
   disabled,
 }: {
   icon: ReactNode;
+  /**
+   * The disc behind the icon. Green (`gtint`) by default, which is right for
+   * every ordinary row and wrong for the one destructive row: a red trash icon
+   * on a green disc, in dark mode coral on olive (owner, 2026-09-11). That row
+   * passes `redtint` so the icon has its own ground in both themes.
+   */
+  iconBg?: string;
   label: string;
   onPress: () => void;
   last?: boolean;
@@ -1201,7 +1279,7 @@ export function MenuRow({
             width: 30,
             height: 30,
             borderRadius: 9,
-            backgroundColor: colors.gtint,
+            backgroundColor: iconBg ?? colors.gtint,
             alignItems: 'center',
             justifyContent: 'center',
           }}
