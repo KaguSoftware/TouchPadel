@@ -7,7 +7,7 @@
  */
 import { pickLocale, type Locale } from '@touch/core';
 import type { CafeInsightsPayload, PatternCandidateWire } from '../../lib/analyticsApi';
-import { sumBy, type Derived, type RawAnalytics } from './derive';
+import { avgOrderValue, sumBy, type Derived, type RawAnalytics } from './derive';
 
 const name = (derived: Derived, id: string, locale: Locale): string => {
   const ref = derived.names.get(id);
@@ -41,6 +41,9 @@ export function buildInsightsData(
       card_iqd: k.cardIqd,
       discount_iqd: k.discountIqd,
       refunds_iqd: k.refundsIqd,
+      waste_iqd: k.wasteIqd,
+      cafe_gross_iqd: k.cafeGrossIqd,
+      avg_order_value_iqd: k.avgOrderValueIqd,
       qr_orders: k.qrOrders,
       till_orders: k.tillOrders,
       qr_share_pct: k.qrShare.pct,
@@ -58,6 +61,7 @@ export function buildInsightsData(
       items_qty: d.itemsQty,
       discount_iqd: d.discountIqd,
       refunds_iqd: d.refundsIqd,
+      waste_iqd: d.wasteIqd,
       waiter_calls: d.waiterCalls,
     })),
     best_sellers: raw.bestSellers
@@ -158,6 +162,9 @@ export function buildInsightsData(
         card_iqd: sumBy(prev, (d) => d.cardIqd),
         discount_iqd: sumBy(prev, (d) => d.discountIqd),
         refunds_iqd: sumBy(prev, (d) => d.refundsIqd),
+        waste_iqd: sumBy(prev, (d) => d.wasteIqd),
+        cafe_gross_iqd: sumBy(prev, (d) => d.cafeGrossIqd),
+        avg_order_value_iqd: avgOrderValue(sumBy(prev, (d) => d.cafeGrossIqd), sumBy(prev, (d) => d.orders)),
         waiter_calls: sumBy(prev, (d) => d.waiterCalls),
       },
       deltas: { ...derived.deltas },

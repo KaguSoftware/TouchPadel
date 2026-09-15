@@ -44,6 +44,8 @@ export interface DailySalesRow {
   guestOrders: number;
   tillOrders: number;
   waiterCalls: number;
+  /** Stock written off that day, at its movement cost (0099): the panel's waste figure, by day. */
+  wasteIqd: number;
 }
 
 export function parseDailySales(json: unknown): DailySalesRow[] {
@@ -65,6 +67,7 @@ export function parseDailySales(json: unknown): DailySalesRow[] {
       guestOrders: num(o.guest_orders),
       tillOrders: num(o.till_orders),
       waiterCalls: num(o.waiter_calls),
+      wasteIqd: num(o.waste_iqd),
     };
   });
 }

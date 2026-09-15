@@ -50,6 +50,10 @@ vi.mock('../../../lib/analyticsApi', async (importOriginal) => ({
 }));
 
 vi.mock('./api', () => ({ courtsRpc: vi.fn() }));
+vi.mock('../../../lib/appRpc', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  appRpc: vi.fn(),
+}));
 // The court filter lists the venue's courts, not the filtered payload's.
 vi.mock('../../../lib/queries', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -61,6 +65,7 @@ import { ToastProvider } from '../../../components/toast';
 import { analyticsRpc, fetchRejections, fetchStoredInsights, fetchStoredPatterns, insights as callInsights } from '../../../lib/analyticsApi';
 import { fetchActiveCourts } from '../../../lib/queries';
 import { courtsRpc } from './api';
+import { appRpc } from '../../../lib/appRpc';
 import { CourtsTab } from './CourtsTab';
 import { COURT_A, COURT_B, cafeNoLinksJson, fixtureFor } from './fixtures';
 
@@ -136,6 +141,9 @@ describe('CourtsTab', () => {
     const venueTile = within(pulse).getByText('Venue revenue').closest('div')!;
     expect(within(venueTile).getByText('1,200,000 IQD', { selector: 'strong' })).toBeTruthy();
     expect(within(venueTile).getByText('0 cafe · 1.2M courts')).toBeTruthy();
+    // The no-show count the panel shows sits under the rate.
+    const noShowTile = within(pulse).getByText('No-show rate').closest('div')!;
+    expect(within(noShowTile).getByText('4 no-shows')).toBeTruthy();
     // Price per booked hour is the tenth tile.
     const priceTile = within(pulse).getByText('Price per booked hour').closest('div')!;
     expect(within(priceTile).getByText('20,000 IQD', { selector: 'strong' })).toBeTruthy();
@@ -168,6 +176,15 @@ describe('CourtsTab', () => {
     // The stored sets were asked for with the court key, never the venue-wide NULL.
     expect(fetchStoredInsights).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'prev', 'en', 'courts', COURT_A);
     expect(fetchStoredPatterns).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'en', 'courts', COURT_A);
+    // Court figures open their transactions for the selected court; venue revenue stays venue-wide.
+    vi.mocked(appRpc).mockResolvedValue({ transactions: [] } as never);
+    const pulse = screen.getByRole('region', { name: 'Pulse' });
+    await userEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind No-show rate' }));
+    await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'noShows', p_key: `court:${COURT_A}` })));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1)!);
+    await userEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind Venue revenue' }));
+    await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'revenue', p_key: null })));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Close' }).at(-1)!);
 
     await userEvent.click(screen.getByRole('button', { name: 'Generate insights' }));
     await waitFor(() => expect(analyticsRpc.saveInsights).toHaveBeenCalledTimes(1));

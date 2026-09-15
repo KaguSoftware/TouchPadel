@@ -120,6 +120,12 @@ export interface CafeKpisWire {
   card_iqd: number;
   discount_iqd: number;
   refunds_iqd: number;
+  /** Stock written off, at cost. */
+  waste_iqd: number;
+  /** Cafe revenue before refunds. */
+  cafe_gross_iqd: number;
+  /** Cafe revenue before refunds over orders, rounded; 0 with no orders. */
+  avg_order_value_iqd: number;
   qr_orders: number;
   till_orders: number;
   qr_share_pct: number | null;
@@ -138,6 +144,8 @@ export interface CafeDailyWire {
   items_qty: number;
   discount_iqd: number;
   refunds_iqd: number;
+  /** Stock written off, at cost. */
+  waste_iqd: number;
   waiter_calls: number;
 }
 
@@ -229,6 +237,10 @@ export interface CafeCompareKpisWire {
   card_iqd: number;
   discount_iqd: number;
   refunds_iqd: number;
+  /** Stock written off, at cost. */
+  waste_iqd: number;
+  cafe_gross_iqd: number;
+  avg_order_value_iqd: number;
   waiter_calls: number;
 }
 

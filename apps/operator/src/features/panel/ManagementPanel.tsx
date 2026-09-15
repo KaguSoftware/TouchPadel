@@ -4,15 +4,22 @@
  * server sends (nothing estimated, nothing editable), and opens every figure
  * down to its transactions through `report_drill`.
  *
+ * The default window is the one Analytics opens on: the last 30 days, ending
+ * on the venue's business day (a 01:00 visit still belongs to the evening
+ * before), compared with the 30 days before that. So the owner lands on the
+ * same numbers in both places.
+ *
  * Layout: a dense headline band (revenue, cash, card), then two columns —
  * padel against cafe — as figure rows, not a grid of identical cards.
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatIQD, formatNumber } from '@touch/i18n';
+import { businessTodayISO, normalizeBusinessDayStart, resolveRange } from '@touch/core';
+import { VENUE_TZ, formatIQD, formatNumber } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
+import { useCafeSettings } from '../../lib/settings';
 import { Button, Skeleton } from '../../components/ui';
 import {
   AsyncStateWrapper,
@@ -42,7 +49,14 @@ export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
 export function ManagementPanelScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
-  const [period, setPeriod] = useState<Period>(() => presetPeriod('thisMonth'));
+  // Analytics' calendar: its business-day start hour decides which day "today" is.
+  const settings = useCafeSettings();
+  const settingsReady = settings.isSuccess || settings.isError;
+  const todayISO = businessTodayISO(new Date(), normalizeBusinessDayStart(settings.settings.analytics_business_day_start_hour), VENUE_TZ);
+  const today = useMemo(() => localMidnight(todayISO), [todayISO]);
+  const defaultPeriod = useMemo<Period>(() => resolveRange({ range: '30d' }, todayISO).range, [todayISO]);
+  const [picked, setPeriod] = useState<Period | null>(null);
+  const period = picked ?? defaultPeriod;
   const [compare, setCompare] = useState<ComparisonMode>('previousPeriod');
   const [drill, setDrill] = useState<FigureKey | null>(null);
 
@@ -51,6 +65,8 @@ export function ManagementPanelScreen() {
     queryFn: () => appRpc<PanelHeadline>('panel_headline', { p_from: period.from, p_to: period.to, p_compare: compare }),
     // Safety net under realtime: the owner reads this after hours, a minute is fine.
     refetchInterval: 60_000,
+    // Until the settings settle, "today" (and so the default window) is not known yet.
+    enabled: picked !== null || settingsReady,
   });
   const figures = useMemo(() => mapFigures(headlineQ.data), [headlineQ.data]);
   const status = asyncStatus(headlineQ, panelIsEmpty);
@@ -87,7 +103,7 @@ export function ManagementPanelScreen() {
         actions={<ExportButton onExport={exportCsv} disabled={status !== 'ready'} />}
       />
       <Toolbar end={<ComparisonControl mode={compare} onChange={setCompare} disabled={headlineQ.isFetching} />}>
-        <DateRangeControl period={period} onChange={setPeriod} disabled={headlineQ.isFetching} />
+        <DateRangeControl period={period} onChange={setPeriod} disabled={headlineQ.isFetching} now={today} />
       </Toolbar>
 
       <AsyncStateWrapper
@@ -100,7 +116,7 @@ export function ManagementPanelScreen() {
             icon="chart"
             title={tr('ws.owner.panel.emptyTitle')}
             body={tr('ws.owner.panel.emptyBody')}
-            action={<Button onClick={() => setPeriod(presetPeriod('last30'))}>{tr('ws.kit.dateRange.last30')}</Button>}
+            action={<WiderRange period={period} today={today} onPick={setPeriod} />}
           />
         }
       >
@@ -240,6 +256,20 @@ function FigureRows({
       })}
     </ul>
   );
+}
+
+/** A 'YYYY-MM-DD' as a local-midnight Date, so the kit presets count from the business day. */
+function localMidnight(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y!, (m ?? 1) - 1, d ?? 1);
+}
+
+/** The empty state's way out: the last 30 days, or last month when that is what is already showing. */
+function WiderRange({ period, today, onPick }: { period: Period; today: Date; onPick: (p: Period) => void }) {
+  const { tr } = useLocale();
+  const last30 = presetPeriod('last30', today);
+  const preset = last30.from === period.from && last30.to === period.to ? 'lastMonth' : 'last30';
+  return <Button onClick={() => onPick(presetPeriod(preset, today))}>{tr(`ws.kit.dateRange.${preset}`)}</Button>;
 }
 
 function PanelSkeleton() {

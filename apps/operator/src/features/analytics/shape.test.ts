@@ -20,9 +20,9 @@ describe('shape - SQL', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ date: '2026-08-01', revenueIqd: 12500, tabs: 3, waiterCalls: 0 });
     // 0095 fields default to zero when absent and read when present.
-    expect(rows[0]).toMatchObject({ cafeGrossIqd: 0, courtFeesIqd: 0, refundsIqd: 0 });
-    expect(parseDailySales([{ business_date: '2026-08-02', revenue_iqd: 9000, cafe_gross_iqd: 10000, refunds_iqd: 1000, court_fees_iqd: 40000 }])[0]).toMatchObject({
-      revenueIqd: 9000, cafeGrossIqd: 10000, refundsIqd: 1000, courtFeesIqd: 40000,
+    expect(rows[0]).toMatchObject({ cafeGrossIqd: 0, courtFeesIqd: 0, refundsIqd: 0, wasteIqd: 0 });
+    expect(parseDailySales([{ business_date: '2026-08-02', revenue_iqd: 9000, cafe_gross_iqd: 10000, refunds_iqd: 1000, court_fees_iqd: 40000, waste_iqd: 2500 }])[0]).toMatchObject({
+      revenueIqd: 9000, cafeGrossIqd: 10000, refundsIqd: 1000, courtFeesIqd: 40000, wasteIqd: 2500,
     });
     expect(rows[1]!.date).toBe('');
     expect(parseDailySales(null)).toEqual([]);

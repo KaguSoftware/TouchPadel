@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../../lib/i18n';
 
@@ -52,11 +52,16 @@ vi.mock('../../../lib/analyticsApi', async (importOriginal) => ({
   insights: vi.fn(),
 }));
 vi.mock('../courts/api', () => ({ courtsRpc: vi.fn() }));
+vi.mock('../../../lib/appRpc', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  appRpc: vi.fn(),
+}));
 
 import { ConfirmProvider } from '../../../components/ConfirmDialog';
 import { ToastProvider } from '../../../components/toast';
 import { analyticsRpc, fetchRejections, fetchStoredInsights, fetchStoredPatterns, posthogQueries } from '../../../lib/analyticsApi';
 import { courtsRpc } from '../courts/api';
+import { appRpc } from '../../../lib/appRpc';
 import { summaryJson } from '../courts/fixtures';
 import { cafeFixtureFor } from '../fixtures';
 import { CafeTab } from './CafeTab';
@@ -127,6 +132,21 @@ describe('CafeTab', () => {
     expect(within(tile('Cash / card')).getByText('630,000 / 350,000', { selector: 'strong' })).toBeTruthy();
     expect(within(tile('Cash / card')).getByText('64% cash')).toBeTruthy();
     expect(within(tile('Refunds')).getByText('70,000 IQD', { selector: 'strong' })).toBeTruthy();
+    // 0099: waste sits in the money row, the panel's figure summed by day.
+    expect(within(tile('Waste')).getByText('21,000 IQD', { selector: 'strong' })).toBeTruthy();
+    // The panel's cafe figures: before refunds (under the sales figure), orders, and their average.
+    expect(within(tile('Cafe sales')).getByText('770,000 IQD before refunds')).toBeTruthy();
+    expect(within(tile('Orders')).getByText('84', { selector: 'strong' })).toBeTruthy();
+    expect(within(tile('Average order value')).getByText('9,167 IQD', { selector: 'strong' })).toBeTruthy();
+
+    // A tile opens the panel's transaction list for its figure, over the page's dates.
+    vi.mocked(appRpc).mockResolvedValue({ transactions: [{ id: 't1', at: '2026-09-01T10:00:00Z', kind: 'tab', label: 'Table 4', amountIqd: 12000 }] } as never);
+    fireEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind Cafe sales' }));
+    await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'cafeNet', p_key: null })));
+    expect(await screen.findByText('Cafe sales — transactions')).toBeTruthy();
+    expect(await screen.findByText('Table 4')).toBeTruthy();
+    fireEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind Card' }));
+    await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'card' })));
     expect(within(tile('QR share of orders')).getByText('33%', { selector: 'strong' })).toBeTruthy();
     expect(within(tile('QR share of orders')).getByText('28 QR · 56 till')).toBeTruthy();
     // The retired cards are gone.
