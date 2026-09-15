@@ -33,6 +33,7 @@ import { TabRail } from './TabRail';
 import { CategoryStrip, MenuItemGrid, TileLegend } from './TillGrid';
 import { Basket } from './Basket';
 import { ItemSheet } from './ItemSheet';
+import { LineNoteDialog } from './LineNoteDialog';
 import { NewTabDialog } from './NewTabDialog';
 import { TabDetailPanel } from './TabDetailPanel';
 import { OfflineTabPanel } from './OfflineTabPanel';
@@ -55,6 +56,8 @@ export function TillScreen() {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [sheetItem, setSheetItem] = useState<ItemRow | null>(null);
+  /** Basket line key whose note dialog is open — the line itself is read from `basket`. */
+  const [noteLineKey, setNoteLineKey] = useState<string | null>(null);
   const [basket, setBasket] = useState<BasketLine[]>([]);
   const [sendError, setSendError] = useState<unknown>(null);
   const [sending, setSending] = useState(false);
@@ -167,6 +170,10 @@ export function TillScreen() {
 
   function bumpBasketQty(key: string, delta: number) {
     setBasket((b) => b.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0));
+  }
+
+  function setLineNotes(key: string, notes: string) {
+    setBasket((b) => b.map((l) => (l.key === key ? { ...l, notes } : l)));
   }
 
   // ---- send basket ----------------------------------------------------------
@@ -286,6 +293,10 @@ export function TillScreen() {
   // empty case already says so in the basket's own body, so only the missing
   // tab needs stating here.
   const sendBlockedReason = !hasActiveTab ? tr('ws.cashier.till.tile.noTab') : undefined;
+  // Derived, not held: removing the line (or clearing the basket, or switching
+  // tabs) under an open note dialog closes it rather than leaving a dialog
+  // editing a line that no longer exists.
+  const noteLine = basket.find((l) => l.key === noteLineKey) ?? null;
 
   return (
     <div
@@ -394,6 +405,7 @@ export function TillScreen() {
             canSend={hasActiveTab && basket.length > 0}
             blockedReason={sendBlockedReason}
             onBump={bumpBasketQty}
+            onNote={setNoteLineKey}
             onRemove={(key) => setBasket((b) => b.filter((x) => x.key !== key))}
             onClear={() => setBasket([])}
             onSend={() => void sendBasket()}
@@ -460,6 +472,16 @@ export function TillScreen() {
           onAdd={(line) => {
             setBasket((b) => [...b, line]);
             setSheetItem(null);
+          }}
+        />
+      )}
+      {noteLine && (
+        <LineNoteDialog
+          line={noteLine}
+          onClose={() => setNoteLineKey(null)}
+          onSave={(notes) => {
+            setLineNotes(noteLine.key, notes);
+            setNoteLineKey(null);
           }}
         />
       )}

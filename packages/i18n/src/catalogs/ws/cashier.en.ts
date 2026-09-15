@@ -56,6 +56,41 @@ export const cashierEn = {
       sending: 'Sending…',
       switching: 'Switching tabs discards unsent lines. Send or clear first.',
     },
+    note: {
+      title: 'Line note',
+      add: 'Add a note',
+      edit: 'Edit note',
+      free: 'Anything else',
+      freePlaceholder: 'Type it the way the kitchen should read it…',
+      preview: 'The kitchen reads:',
+      empty: 'No note — the line prints plain.',
+      clear: 'Clear',
+      save: 'Save note',
+      group: {
+        drinks: 'Drinks',
+        food: 'Food',
+        service: 'Service',
+      },
+      preset: {
+        extraShot: 'Extra espresso shot',
+        decaf: 'Decaf',
+        oatMilk: 'Oat milk',
+        noIce: 'No ice',
+        extraIce: 'Extra ice',
+        noSugar: 'No sugar',
+        extraHot: 'Extra hot',
+        noOnion: 'No onion',
+        sauceOnSide: 'Sauce on the side',
+        extraSauce: 'Extra sauce',
+        noSalt: 'No salt',
+        wellDone: 'Well done',
+        extraSpicy: 'Extra spicy',
+        allergy: 'Allergy — ask the guest',
+        takeaway: 'Takeaway',
+        serveFirst: 'Serve first',
+        serveLast: 'Serve last',
+      },
+    },
     help: {
       open: 'Keyboard shortcuts',
       title: 'Keyboard shortcuts',
@@ -109,7 +144,25 @@ export const cashierEn = {
     removeAsk: 'Remove?',
     removeConfirm: 'Yes, remove',
     removeKeep: 'Keep',
-    removeBlocked: 'A payment is to be made for this table.',
+    /*
+     * One line per way a tab is held, because four of the five are not
+     * payments and "a payment is to be made" sent the cashier looking for
+     * money that was not there. Each names the thing holding the tab and the
+     * move that clears it. `unknown` is the row this device cannot see inside
+     * — it says so rather than inventing a cause.
+     */
+    removeBlocked: {
+      settling: 'This tab is being settled — finish taking the payment instead.',
+      orders: 'Something has been ordered on this tab. Settle it, or void the lines first.',
+      payments: 'This tab has been paid against. Refund the payment before it can go.',
+      adjustments: 'A discount or charge is recorded on this tab. Settle it instead.',
+      reservation: 'This tab belongs to a booking, and the court fee is owed on it. Settle it instead.',
+      unknown: 'This tab cannot be removed. Open it on the till to see what is on it.',
+    },
+    // The reason prompt the confirm opens — the same picker a cancelled
+    // booking goes through, because both are a record being taken back.
+    removeAction: 'remove this tab',
+    removeConsequence: '{name} will be closed as cancelled — not settled, and not merged. Nothing has been ordered on it, so nothing is refunded. Scanning the table again opens a fresh tab.',
   },
 
   detail: {
