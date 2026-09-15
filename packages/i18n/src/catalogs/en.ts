@@ -64,6 +64,7 @@ export const en = {
     newHereLead: 'New here?',
     createAccountLink: 'Create an account',
     alreadyLead: 'Already playing with us?',
+    privacyLead: 'How we handle your details',
     passwordMinPlaceholder: 'Password (min 8 characters)',
     // Field-level validation (spec 05.3/05.4) — rendered on the field it concerns.
     nameRequired: 'Enter your full name.',
@@ -636,6 +637,12 @@ export const en = {
     // The word the guest types. LOCALISED, and deliberately not the RPC's
     // p_confirm token — see features/profile/deletion.ts.
     deleteConfirmWord: 'DELETE',
+    // Shown only to an account with a Sign in with Apple identity, on iOS: the
+    // Apple sheet appears when they press delete (Guideline 5.1.1(v) revocation).
+    deleteAppleNote:
+      'You signed in with Apple, so Apple will ask you to confirm. This also removes Touch Padel’s access to your Apple ID.',
+    // The guest dismissed that Apple sheet. Nothing was deleted.
+    deleteAppleCancelled: 'Your account was not deleted. Confirm with Apple to continue.',
   },
   settings: {
     title: 'Settings',
@@ -660,6 +667,10 @@ export const en = {
     venue: 'Venue',
     versionLine: '{name} · v{version} ({build})',
     phoneUnavailable: "The venue hasn't published a phone number yet.",
+    about: 'About',
+    privacyPolicy: 'Privacy policy',
+    support: 'Support',
+    linkFailed: "Couldn't open the page. Check your connection and try again.",
     // "Send a test notification" (owner request 2026-09-06): a real push via
     // app.send_test_push — the outcomes are the RPC's own error codes.
     sendTestPush: 'Send a test notification',
@@ -811,6 +822,158 @@ export const en = {
     macSoon: 'Mac: coming soon',
     smartScreenNote:
       'Windows may show "Windows protected your PC" the first time. Choose "More info", then "Run anyway".',
+  },
+  // Public, indexable /privacy and /support pages (apps/web/app/[locale]/privacy|support):
+  // the App Store Connect Privacy Policy URL and Support URL for the Touch Padel app.
+  // Written from what the app actually does — change the copy when the app changes.
+  // The venue phone and hours are rendered from venue_settings_public, never typed here.
+  legal: {
+    lastUpdated: 'Last updated: 15 September 2026',
+    nav: {
+      label: 'Related pages',
+      privacy: 'Privacy Policy',
+      support: 'Support',
+      otherLanguage: 'العربية',
+    },
+    contact: {
+      phoneLead: 'Front desk phone:',
+      noPhone: 'Contact the front desk at the venue.',
+      hours: 'Opening hours',
+    },
+    privacy: {
+      title: 'Privacy Policy',
+      metaDescription:
+        'What the Touch Padel app and website collect, why, who sees it, and how to delete your account.',
+      intro:
+        'This policy explains what information the Touch Padel app and this website collect, how it is used, and the choices you have. The app does one job — booking padel courts at our venue — so the policy is short.',
+      who: {
+        title: 'Who we are',
+        body: 'Touch Padel is a padel venue in Iraq with two courts. We operate the Touch Padel app for iPhone and Android and this website. The app was built for us by Kagu Software. In this policy, “we” and “us” mean Touch Padel.',
+      },
+      collect: {
+        title: 'What we collect',
+        accountLead: 'Your account.',
+        account:
+          'Your first name and surname, your phone number, your password and your preferred language. Your phone number is required. Your password is stored only in hashed form, so nobody at the venue can read it.',
+        codesLead: 'Verification codes.',
+        codes:
+          'When you create an account, reset your password or change your phone number, we send a one-time code to that number on WhatsApp through a messaging provider. The provider receives your phone number and the code only to deliver it.',
+        bookingsLead: 'Your bookings.',
+        bookings:
+          'The court, date, time, duration and price, the number of players if you enter it, the booking reference, and its status: upcoming, played, cancelled or no-show.',
+        pushLead: 'Notification token.',
+        push: 'If you allow notifications, your device gives the app a push token. We store it to send you booking confirmations, reminders, cancellations and no-show notices.',
+        providersLead: 'Sign in with Apple or Google (optional).',
+        providers:
+          'If you choose one of these, we receive your name, your email address and an account ID from that provider. Apple may give us a private relay address instead of your real email. We never receive your Apple or Google password.',
+        notCollected:
+          'The app does not collect your location, contacts or photos, and it has no advertising, no tracking and no third-party analytics or crash reporting. There is no online payment, so we never collect card details.',
+        website:
+          'This website: the café menu pages can use privacy-friendly analytics (PostHog, hosted in the EU) to count page views. It sets no cookies, keeps only an anonymous identifier in your browser’s storage, never identifies you and does not record your screen. The privacy and support pages do not load it, and the app does not use it.',
+      },
+      use: {
+        title: 'How we use it',
+        lead: 'We use your information only to run your bookings and keep you informed about them:',
+        account: 'to create your account, confirm your phone number and let you sign in;',
+        bookings: 'to take, show and manage your court bookings;',
+        desk: 'so the front desk knows who booked and can contact you about a booking;',
+        notify: 'to send the notifications you allowed;',
+        rules: 'to apply the venue’s booking rules, such as the cancellation window and limits after repeated no-shows.',
+        never: 'We do not use your information for advertising and we do not sell it.',
+      },
+      share: {
+        title: 'Who can see it',
+        staff:
+          'Venue staff. Front-desk staff and managers at Touch Padel can see your bookings, your name, your phone number and your email address if we have one. They can also keep notes about you and your bookings.',
+        processorsLead: 'Service providers that run parts of the service for us, only on our instructions:',
+        supabase: 'Supabase — database, sign-in and server hosting (Frankfurt, Germany);',
+        push: 'Expo, Apple Push Notification service and Firebase Cloud Messaging — delivering notifications to your device;',
+        signIn: 'Apple and Google — only if you choose to sign in with them;',
+        whatsapp: 'a WhatsApp messaging provider — delivering verification codes;',
+        vercel: 'Vercel — hosting this website;',
+        posthog: 'PostHog (EU) — website page-view analytics, as described above.',
+        noSale:
+          'We do not sell your information, share it for advertising, or let anyone use it to track you across other apps or websites.',
+      },
+      retention: {
+        title: 'How long we keep it',
+        active: 'We keep your account information for as long as you have an account.',
+        deleted:
+          'When you delete your account, your login, name, phone number, email address and linked Apple or Google sign-in are removed immediately, and you are signed out on every device. Your notification token, staff notes about you and any notifications waiting to be sent are deleted too.',
+        bookings:
+          'Bookings you have already made stay in the venue’s records with no name, phone number or notes attached, because the venue has to keep its own accounts. They can no longer be linked to you.',
+        apple:
+          'If you used Sign in with Apple, deleting your account on an iPhone asks Apple to confirm and then revokes Touch Padel’s access to your Apple ID. You can also remove Touch Padel from the list of apps using your Apple ID in your Apple account settings.',
+      },
+      rights: {
+        title: 'Your choices',
+        edit: 'See and change your name and phone number in the app under Profile → Edit profile. A new phone number is confirmed with a code.',
+        language: 'Change the app language under Profile → Settings.',
+        notifications: 'Turn notifications on or off at any time in your device settings.',
+        delete: 'Delete your account in the app: Profile → Delete account, then type the confirmation word.',
+        desk: 'If you cannot use the app, or want to ask what information we hold about you, correct it or delete it, contact the front desk.',
+      },
+      children: {
+        title: 'Children',
+        body: 'The app is not directed at children under 13, and we do not knowingly collect information from them. If you think a child has created an account, contact the front desk and we will delete it.',
+      },
+      changes: {
+        title: 'Changes to this policy',
+        body: 'If we change this policy, we will update this page and the “Last updated” date at the top.',
+      },
+      contactSection: {
+        title: 'Contact',
+        body: 'Questions about this policy or your information? Contact the Touch Padel front desk.',
+      },
+    },
+    support: {
+      title: 'Support',
+      metaDescription:
+        'Help with booking courts, paying, cancelling and managing your account in the Touch Padel app.',
+      intro: 'Help with the Touch Padel app. If you cannot find your answer here, contact the front desk.',
+      about: {
+        title: 'What the app does',
+        body: 'Touch Padel lets you book one of the two padel courts at our venue in Iraq, in 60-minute slots, see your upcoming and past bookings, and get reminders before you play. The app is in English and Arabic.',
+      },
+      booking: {
+        title: 'Booking and paying',
+        choose: 'On the Book tab, choose a court, a date and a free time, then confirm.',
+        find: 'Your booking appears under My Reservations with its booking reference.',
+        pay: 'There is no online payment. You pay at the front desk when you arrive.',
+        notify: 'If you allow notifications, you get a confirmation when you book and a reminder before your slot.',
+      },
+      cancel: {
+        title: 'Cancelling',
+        free: 'You can cancel for free in the app until 4 hours before your slot.',
+        late: 'Less than 4 hours before, contact the front desk to change or cancel.',
+        noShow:
+          'If you do not come and have not cancelled, the venue may mark the booking as a no-show. Repeated no-shows may limit booking in the app.',
+      },
+      account: {
+        title: 'Account help',
+        forgotLead: 'Forgot your password?',
+        forgot:
+          'On the sign-in screen, tap “Forgot password?”, enter your account’s phone number, and we send a code to its WhatsApp. Enter the code, then choose a new password.',
+        noCodeLead: 'No code arrived?',
+        noCode:
+          'Codes are sent on WhatsApp only, so the number must have WhatsApp. Check the country code and try again.',
+        phoneLead: 'Changing your phone number.',
+        phone: 'Go to Profile → Edit profile, enter the new number, and confirm it with the code sent to its WhatsApp.',
+        socialLead: 'Signed up with Apple or Google?',
+        social: 'Use the same button again to sign in.',
+      },
+      delete: {
+        title: 'Deleting your account',
+        how: 'In the app, go to Profile → Delete account and type the confirmation word.',
+        what: 'Your account, name and phone number are deleted immediately and you are signed out everywhere. Bookings you have already made stay in the venue’s records with no name attached.',
+        desk: 'If you cannot open the app, ask the front desk to delete your account.',
+        more: 'What is deleted and what is kept',
+      },
+      contactSection: {
+        title: 'Contact us',
+        body: 'For anything else, contact the Touch Padel front desk.',
+      },
+    },
   },
   seo: {
     siteTitle: 'Touch Cafe — Menu',

@@ -98,10 +98,11 @@ export async function updateOwnProfile(
  *   ALREADY_DELETED        the tombstone is already stamped
  *   CONFIRMATION_REQUIRED  should be unreachable from this function
  *
- * `apple_revoke_pending` comes back true when the account carried a Sign in
- * with Apple identity. Apple requires the app to revoke that token on deletion
- * and we cannot yet — the .p8 key is blocked on Apple Developer enrolment — so
- * the debt is recorded on the audit row. See functions/apple-revoke/index.ts.
+ * `apple_revoke_pending` comes back true whenever the account carried a Sign in
+ * with Apple identity. The RPC has no way to know that revokeAppleAuthorization
+ * (below) already ran, so its audit row says pending for every Apple account;
+ * the deletion flow (deletion.ts) revokes BEFORE this call, while the session
+ * JWT that apple-revoke authenticates with still exists.
  */
 export async function deleteAccount(
   client: Client,
@@ -117,6 +118,37 @@ export async function deleteAccount(
   await client.auth.signOut({ scope: 'local' });
 
   return data as { deleted: boolean; apple_revoke_pending: boolean };
+}
+
+/**
+ * Sign in with Apple token revocation (App Store Guideline 5.1.1(v)). Posts a
+ * fresh authorizationCode to the apple-revoke edge function, which exchanges it
+ * with Apple and revokes the grant. MUST run before deleteAccount: the function
+ * authenticates with the session JWT that dies with the account.
+ *
+ * Throws on any non-2xx (501 NOT_CONFIGURED, 502 APPLE_*, network). The thrown
+ * message names the function's error code when the body can be read — for
+ * telemetry only; it never contains the code sent.
+ */
+export async function revokeAppleAuthorization(client: Client, authorizationCode: string): Promise<void> {
+  const { data, error } = await client.functions.invoke<{ revoked?: boolean }>('apple-revoke', {
+    body: { authorizationCode },
+  });
+  if (error) {
+    let code: string | null = null;
+    // FunctionsHttpError carries the raw Response as `context`.
+    const context = (error as { context?: { json?: () => Promise<unknown> } }).context;
+    if (context && typeof context.json === 'function') {
+      try {
+        const body = (await context.json()) as { error?: unknown } | null;
+        if (body && typeof body.error === 'string') code = body.error;
+      } catch {
+        // not JSON — keep the client's message
+      }
+    }
+    throw new Error(`apple-revoke failed: ${code ?? error.message}`);
+  }
+  if (!data?.revoked) throw new Error('apple-revoke failed: no revoked flag');
 }
 
 /** Change password for the signed-in guest (design 2026-08-31). */

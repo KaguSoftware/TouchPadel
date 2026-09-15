@@ -13,7 +13,11 @@
     "lint": "eslint .",
     "build": "expo export --platform ios --platform android --output-dir dist",
     "doctor": "npx --yes expo-doctor@latest",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "store": "node store/render.mjs",
+    "store:copy-check": "node store/copy-check.mjs",
+    "store:strings-check": "node store/strings-check.mjs",
+    "store:chrome-prompt": "node store/chrome-prompt.mjs"
   },
   "dependencies": {
     "@expo/ui": "~57.0.18",

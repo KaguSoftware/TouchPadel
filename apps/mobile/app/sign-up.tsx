@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { isPhoneTaken, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
@@ -11,6 +11,7 @@ import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue
 import { classifyUpdateFailure } from '../src/features/profile/changePasswordFlow';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space } from '../src/theme';
+import { legalUrl } from '../src/lib/legal';
 import {
   Button,
   ErrorText,
@@ -173,6 +174,14 @@ function SignUpScreen() {
           // Reached from Profile as well as Welcome — always land on sign-in.
           onPress={() => router.replace('/sign-in')}
           style={{ marginTop: 18 }}
+        />
+        <FooterLink
+          lead={t('auth.privacyLead')}
+          label={t('settings.privacyPolicy')}
+          onPress={() =>
+            void Linking.openURL(legalUrl('privacy', locale)).catch(() => toast(t('settings.linkFailed'), 'error'))
+          }
+          style={{ marginTop: 14 }}
         />
       </FormScreen>
     </Screen>

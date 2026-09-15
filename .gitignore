@@ -63,3 +63,11 @@ apps/mobile/google-services.json
 google-services.json
 credentials.json
 *.jks
+
+# Store screenshot renders. The generator (apps/mobile/store/) is the source of truth,
+# but the 6.9" set actually uploaded to App Store Connect is committed, so the images the
+# listing shows can be found and diffed from any machine (owner decision 2026-09-15).
+# Other sizes (iphone-6.5, play-phone) and --html dumps stay local.
+!apps/mobile/store/out/
+apps/mobile/store/out/*
+!apps/mobile/store/out/iphone-6.9/
