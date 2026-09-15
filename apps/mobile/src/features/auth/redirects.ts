@@ -1,5 +1,5 @@
 import * as Linking from 'expo-linking';
-import { RESET_REDIRECT, VERIFY_REDIRECT } from './api';
+import { VERIFY_REDIRECT } from './api';
 
 /**
  * Where GoTrue should send the browser after it has processed an auth email.
@@ -22,9 +22,5 @@ export function verifyRedirect(): string {
   return Linking.createURL('verify-email');
 }
 
-export function resetRedirect(): string {
-  return Linking.createURL('reset-password');
-}
-
 /** Re-exported so the built-app targets stay discoverable from one place. */
-export { RESET_REDIRECT, VERIFY_REDIRECT };
+export { VERIFY_REDIRECT };

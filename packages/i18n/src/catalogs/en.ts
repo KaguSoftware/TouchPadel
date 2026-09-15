@@ -39,22 +39,23 @@ export const en = {
     // Signing out is a deliberate act: a native alert confirms before dropping the
     // session, matching PetApp's Cancel / destructive-Sign-out shape.
     signOutConfirm: "You'll need to log back in to see your bookings.",
-    // SOW: email + password with verification is the contractual path. Phone/OTP
-    // login exists as a DORMANT vendor-addition scaffold (2026-09-05, keys under
-    // "Phone OTP" below; docs/design/phone-otp-2026-09-05.md) behind
-    // EXPO_PUBLIC_PHONE_OTP — off until the owner activates it.
+    // Owner decision 2026-09-15: guests create an account with phone + password
+    // (one WhatsApp code confirms the number) and sign in with phone + password.
+    // Email sign-up / sign-in are gone from the guest app; the email keys that
+    // remain serve old emailed links and older accounts' password change.
     emailLabel: 'Email',
     passwordLabel: 'Password',
     placeholder: 'you@example.com',
     forgotPassword: 'Forgot password?',
     verifyEmailSent: 'We sent a verification link to {email}. Check your inbox.',
     resetEmailSent: 'We sent a password reset link to {email}.',
-    invalidCredentials: 'Email or password is incorrect.',
+    invalidCredentials: 'Phone number or password is incorrect.',
     pinPrompt: 'Manager PIN required',
     pinInvalid: 'Incorrect PIN.',
     sessionExpired: 'Your session has expired. Please sign in again.',
-    fullNameLabel: 'Full name',
     phoneLabel: 'Phone number',
+    firstNameLabel: 'First name',
+    lastNameLabel: 'Surname',
     confirmPasswordLabel: 'Confirm password',
     preferredLanguage: 'Preferred language',
     noAccount: 'New here? Create an account',
@@ -66,7 +67,11 @@ export const en = {
     passwordMinPlaceholder: 'Password (min 8 characters)',
     // Field-level validation (spec 05.3/05.4) — rendered on the field it concerns.
     nameRequired: 'Enter your full name.',
-    emailInvalid: 'Enter a valid email address.',
+    firstNameRequired: 'Enter your first name.',
+    lastNameRequired: 'Enter your surname.',
+    passwordRequired: 'Enter your password.',
+    // Sign-up: a confirmed account already owns this number.
+    phoneTaken: 'This number already has an account. Sign in instead.',
     phoneRequired: 'Enter your phone number.',
     phoneInvalid: "That doesn't look like a phone number.",
     // Country-code picker on every phone field. Iraq is the default (the venue's
@@ -84,9 +89,7 @@ export const en = {
     verifyEmailTitle: 'Verify your email',
     resendEmail: 'Resend verification email',
     resendEmailDone: 'Verification email sent again.',
-    backToSignIn: 'Back to sign in',
     resetPasswordTitle: 'Reset password',
-    sendResetLink: 'Send reset link',
     newPasswordLabel: 'New password',
     passwordUpdated: 'Your password has been updated.',
     passwordMismatch: 'Passwords do not match.',
@@ -109,9 +112,8 @@ export const en = {
     verifiedBody: "You're all set, {name}.",
     verifiedPending: "Let's finish booking {label}.",
     continueCta: 'Continue',
-    forgotIntro: "Enter your account email and we'll send a reset link.",
-    // Deliberately does not disclose whether the account exists (spec 05.7).
-    resetSubmitted: 'If an account exists for that email, a reset link is on its way. Check your inbox.',
+    forgotIntro: "Enter your account's phone number and we'll send a code to its WhatsApp.",
+    resetNoAccount: 'No account uses this number. Check the country code, or create an account.',
     welcomeBack: 'Welcome back',
     welcomeToApp: 'Welcome to Touch Padel',
     // Social sign-in (vendor addition 2026-09-01; SOW L259-260 lists it as not
@@ -119,25 +121,20 @@ export const en = {
     // button self-localises; continueWithApple is its busy-placeholder a11y label.
     continueWithGoogle: 'Continue with Google',
     continueWithApple: 'Continue with Apple',
-    orContinueWithEmail: 'or continue with email',
     completeProfileTitle: 'Complete profile',
     completeProfileBody: 'One last step before you book. We need a phone number the desk can reach you on.',
     phoneRationale: 'The desk calls this number about your booking.',
     completeProfileCta: 'Save and continue',
     profileIncompleteNotice: 'Add your phone number to reserve — the desk needs it to confirm your booking.',
     addPhoneLink: 'Add phone number',
-    googlePlayServices: 'Google Play services are not available on this device. Sign in with your email instead.',
-    socialFailed: "Couldn't sign you in with {provider}. Try again or use your email.",
+    googlePlayServices: 'Google Play services are not available on this device. Sign in with your phone number instead.',
+    socialFailed: "Couldn't sign you in with {provider}. Try again or use your phone number.",
     appleUnavailable: 'Sign in with Apple is not available on this device.',
-    // Phone OTP (dormant vendor-addition scaffold 2026-09-05; shown only with
-    // EXPO_PUBLIC_PHONE_OTP=on). The number is always an Iraqi mobile: the
-    // prefix is fixed, the guest types the national 07XX part.
-    continueWithPhone: 'Continue with phone',
+    // Phone codes (WhatsApp via OTPIQ): confirming a sign-up, recovering a
+    // password, and linking a number to a social account.
     orContinueWithPhone: 'or continue with your phone number',
     phoneSignInTitle: 'Your phone number',
-    phoneSignInBody: "We'll send a 6-digit code to your WhatsApp. No password needed.",
     phoneLinkBody: "We'll send a 6-digit code to this number's WhatsApp to confirm it's yours.",
-    phoneNationalPlaceholder: '0770 123 4567',
     phoneOtpInvalid: 'Enter a valid phone number, and check the country code.',
     sendCode: 'Send code',
     otpTitle: 'Enter the code',
@@ -147,8 +144,8 @@ export const en = {
     otpInvalid: "That code isn't right or has expired. Check it, or send a new one.",
     otpTooMany: 'Too many codes requested. Wait a while and try again.',
     // Codes go out on WhatsApp only (owner decision 2026-09-15): the usual cause is a number without WhatsApp.
-    otpSendFailed: "We couldn't send the code. Check that this number has WhatsApp, or sign in with your email.",
-    phoneSignInUnavailable: 'Phone sign-in is not available right now. Use your email instead.',
+    otpSendFailed: "We couldn't send the code. Check that this number has WhatsApp, then try again.",
+    phoneSignInUnavailable: "Phone codes aren't available right now. Try again in a little while.",
     resendCode: 'Resend code',
     resendCodeIn: 'Resend code in {seconds}s',
     codeSentAgain: 'We sent a new code to your WhatsApp.',

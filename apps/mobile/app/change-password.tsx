@@ -5,12 +5,13 @@ import { useBack } from '../src/navigation/back';
 import { useAuth } from '../src/features/auth/context';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { supabase } from '../src/lib/supabase';
-import { signIn } from '../src/features/auth/api';
+import { signIn, signInWithPhone } from '../src/features/auth/api';
 import { changePassword } from '../src/features/profile/api';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import {
   classifySignInFailure,
   classifyUpdateFailure,
+  passwordProofOf,
 } from '../src/features/profile/changePasswordFlow';
 import { captureException } from '../src/lib/telemetry';
 import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/ui';
@@ -47,8 +48,9 @@ function ChangePasswordScreen() {
     // The server refuses an unchanged password too (same_password); saying so
     // here saves the round trip and the vaguer message.
     if (next === current) return setNextError(t('profile.newPasswordSame'));
-    const email = session?.user.email;
-    if (!email) return setError(t('auth.sessionExpired'));
+    // Phone accounts prove it by number, older email accounts by email.
+    const proof = passwordProofOf(session?.user);
+    if (!proof) return setError(t('auth.sessionExpired'));
 
     setBusy(true);
     try {
@@ -57,13 +59,14 @@ function ChangePasswordScreen() {
       // screen with no email field, and for failures that were not the
       // password at all (changePasswordFlow.ts). Now each is named.
       try {
-        await signIn(supabase, email, current);
+        if (proof.kind === 'phone') await signInWithPhone(supabase, proof.phone, current);
+        else await signIn(supabase, proof.email, current);
       } catch (err) {
         switch (classifySignInFailure(err)) {
           case 'wrong-password':
             return setCurrentError(t('profile.currentPasswordWrong'));
           case 'email-not-confirmed':
-            return setError(t('auth.verifyEmailSent', { email }));
+            return setError(t('auth.verifyEmailSent', { email: proof.kind === 'email' ? proof.email : '' }));
           default:
             captureException(err, { label: 'changePassword.proof' });
             return setError(t(mapErrorToKey(err)));

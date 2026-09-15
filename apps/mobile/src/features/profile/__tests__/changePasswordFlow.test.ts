@@ -3,6 +3,7 @@ import {
   classifySignInFailure,
   classifyUpdateFailure,
   hasPasswordSignIn,
+  passwordProofOf,
 } from '../changePasswordFlow';
 
 describe('classifySignInFailure', () => {
@@ -65,6 +66,11 @@ describe('hasPasswordSignIn', () => {
     expect(hasPasswordSignIn({ app_metadata: { provider: 'email' } })).toBe(true);
   });
 
+  it('is true for a phone + password account (every guest sign-up since 2026-09-15)', () => {
+    expect(hasPasswordSignIn({ app_metadata: { provider: 'phone', providers: ['phone'] } })).toBe(true);
+    expect(hasPasswordSignIn({ app_metadata: { provider: 'phone' } })).toBe(true);
+  });
+
   it('is false for a social-only or anonymous account — nothing to change', () => {
     expect(hasPasswordSignIn({ app_metadata: { provider: 'google', providers: ['google'] } })).toBe(
       false,
@@ -72,5 +78,28 @@ describe('hasPasswordSignIn', () => {
     expect(hasPasswordSignIn({ app_metadata: { provider: 'apple' } })).toBe(false);
     expect(hasPasswordSignIn({ app_metadata: null })).toBe(false);
     expect(hasPasswordSignIn(null)).toBe(false);
+  });
+});
+
+describe('passwordProofOf', () => {
+  it('re-authenticates a phone account by its number, with the + GoTrue strips', () => {
+    expect(
+      passwordProofOf({ phone: '9647701234567', email: '', app_metadata: { providers: ['phone'] } }),
+    ).toEqual({ kind: 'phone', phone: '+9647701234567' });
+  });
+
+  it('re-authenticates an older email account by its email', () => {
+    expect(
+      passwordProofOf({ email: 'sara@example.com', phone: '', app_metadata: { providers: ['email'] } }),
+    ).toEqual({ kind: 'email', email: 'sara@example.com' });
+  });
+
+  it('has nothing to prove for social-only, a synthetic desk address, or no user', () => {
+    expect(passwordProofOf({ email: 'a@b.co', app_metadata: { providers: ['google'] } })).toBeNull();
+    expect(
+      passwordProofOf({ email: '7701234567@guest.touch.local', app_metadata: { providers: ['email'] } }),
+    ).toBeNull();
+    expect(passwordProofOf({ phone: '', app_metadata: { providers: ['phone'] } })).toBeNull();
+    expect(passwordProofOf(null)).toBeNull();
   });
 });

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   GUEST_EMAIL_DOMAIN,
   OTP_LENGTH,
+  classifyPhoneSignIn,
   hasRealEmail,
+  isNoAccountForPhone,
+  isPhoneTaken,
   mapOtpError,
   parsePhoneOtpFlag,
   sanitizeOtpInput,
@@ -10,9 +13,10 @@ import {
 } from '../phoneOtp';
 
 /**
- * Phone OTP is a DORMANT scaffold: these pin the three things that must hold
- * before anyone flips it on — the flag is strict, the number gate is strict,
- * and every refusal the hook or GoTrue can send has copy.
+ * Phone is the only way to create an account (2026-09-15). These pin that the
+ * flag is strict, a number is checked before a paid code is asked for, every
+ * refusal the hook or GoTrue can send has copy, and the sign-up / sign-in /
+ * recovery screens can tell their failures apart.
  */
 
 describe('parsePhoneOtpFlag', () => {
@@ -110,5 +114,29 @@ describe('mapOtpError', () => {
   it('is generic for anything else', () => {
     expect(mapOtpError(new Error('kaboom'))).toBe('errors.generic');
     expect(mapOtpError(undefined)).toBe('errors.generic');
+  });
+});
+
+describe('phone + password failures', () => {
+  it('isPhoneTaken: a confirmed account already owns the number, by code or message', () => {
+    expect(isPhoneTaken({ code: 'phone_exists', message: 'x' })).toBe(true);
+    expect(isPhoneTaken({ code: 'user_already_exists', message: 'x' })).toBe(true);
+    expect(isPhoneTaken(new Error('User already registered'))).toBe(true);
+    expect(isPhoneTaken({ code: 'weak_password', message: 'x' })).toBe(false);
+    expect(isPhoneTaken(undefined)).toBe(false);
+  });
+
+  it('classifyPhoneSignIn: wrong credentials vs a sign-up whose code was never entered', () => {
+    expect(classifyPhoneSignIn({ code: 'invalid_credentials', message: 'x' })).toBe('wrong-credentials');
+    expect(classifyPhoneSignIn(new Error('Invalid login credentials'))).toBe('wrong-credentials');
+    expect(classifyPhoneSignIn({ code: 'phone_not_confirmed', message: 'x' })).toBe('phone-not-confirmed');
+    expect(classifyPhoneSignIn(new Error('Phone not confirmed'))).toBe('phone-not-confirmed');
+    expect(classifyPhoneSignIn(new Error('Network request failed'))).toBe('other');
+  });
+
+  it('isNoAccountForPhone: recovery to an unknown number, not a switched-off provider', () => {
+    expect(isNoAccountForPhone({ code: 'otp_disabled', message: 'Signups not allowed for otp' })).toBe(true);
+    expect(isNoAccountForPhone({ code: 'otp_disabled', message: 'OTP is disabled' })).toBe(false);
+    expect(isNoAccountForPhone(new Error('SMS_DISABLED'))).toBe(false);
   });
 });
