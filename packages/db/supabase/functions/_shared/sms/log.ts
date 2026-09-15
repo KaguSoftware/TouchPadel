@@ -1,10 +1,10 @@
 /**
- * `log` provider — sends nothing. The default when SMS_PROVIDER is unset or
- * unknown, so a misconfigured deploy can never spend money; the caller still
- * gets a result (channel 'log', cost 0) so the flow is observable end to end.
- * The code is logged ONLY under `supabase functions serve` (no SUPABASE_ENV)
- * — never on hosted, where the function log is readable by every dashboard
- * member.
+ * `log` provider — sends nothing. The default when SMS_PROVIDER is unset, so
+ * an unconfigured deploy can never spend money; the caller still gets a result
+ * (channel 'log', cost 0) so the flow is observable end to end. The code is
+ * logged ONLY under `supabase functions serve` (isLocalRuntime: SUPABASE_URL
+ * is the local gateway) — never on hosted, where the function log is readable
+ * by every dashboard member.
  */
 import type { SmsProvider, SmsSendArgs, SmsSendResult } from './types.ts';
 

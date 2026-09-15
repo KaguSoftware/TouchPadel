@@ -8,9 +8,10 @@
  * user.phone is the NEW number GoTrue is confirming.
  *
  * The hook's error contract: a JSON body `{ error: { http_code, message } }`
- * with a non-2xx status makes GoTrue fail the client's signInWithOtp with
- * that status and message — which is how a refusal reason reaches the app
- * (features/auth/phoneOtp.ts maps the message back to copy).
+ * sent with HTTP **200** makes GoTrue fail the client's signInWithOtp with
+ * `http_code` and `message` — which is how a refusal reason reaches the app
+ * (features/auth/phoneOtp.ts maps the message back to copy). A non-2xx status
+ * is NOT relayed: GoTrue answers the client a generic 500 instead.
  */
 import { e164FromGotrue, phoneCanon } from '../_shared/phone.ts';
 

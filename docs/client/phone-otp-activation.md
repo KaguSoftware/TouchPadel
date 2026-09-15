@@ -4,11 +4,20 @@ Everything needed to switch phone sign-in on is already built and tested, dorman
 (design note: `docs/design/phone-otp-2026-09-05.md`). This page is the checklist that turns it on, in order.
 Nothing before §C changes what guests see.
 
-**Status:** dormant since 2026-09-05. Not activated. **A1 re-decided 2026-09-13: WhatsApp through Meta's official
-Cloud API, no reseller** (supersedes the 2026-09-12 "OTPIQ, SMS only" call; the OTPIQ secrets on the project can be
-unset once the WhatsApp ones are in). No SMS channel at all: a number without WhatsApp cannot get a code and uses email.
-**A4 decided 2026-09-12: phone is the default method** (green CTA on Welcome, Sign in and Create account; email and
-social stay as the alternatives). A2 no longer applies (sender ids are an SMS concept). A3 is now REQUIRED. A5, A6 still open.
+**Status:** dormant since 2026-09-05. Not activated. **A1 decided 2026-09-15: launch on OTPIQ, WhatsApp only
+(`OTPIQ_PROVIDER=whatsapp`, sent from OTPIQ's own WhatsApp account, no Meta setup, no SMS fallback: numbers without
+WhatsApp use email); move to Meta's
+official WhatsApp Cloud API, under Touch's own name, once Touch's Meta setup (A3) is done.** The WhatsApp adapter is already built and
+tested; the move is one `secrets set` (§C "Moving to WhatsApp"). This supersedes both earlier calls (2026-09-12
+"OTPIQ SMS only", 2026-09-13 "Meta only"). **A4 decided 2026-09-12: phone is the default method** (green CTA on
+Welcome, Sign in and Create account; email and social stay as the alternatives). A2 and A3 run in parallel; A5, A6 still open.
+
+**Hosted state checked 2026-09-15** (probe with the gate closed; nothing sent, no user created): Phone provider ON,
+Send SMS hook ON and signature-verified, gate `enabled = false`, OTPIQ secrets set. **Found and fixed:** the hook
+answered refusals with their own HTTP status, which GoTrue swallows into a generic 500 ("Unexpected status code
+returned from hook: 403"); it now answers HTTP 200 with the reason in the body, the only shape GoTrue relays. **Not yet
+done:** the store-review test number (§C step 7) is NOT configured on hosted, since GoTrue sent it to the hook.
+Development build profile and local `.env` now have `EXPO_PUBLIC_PHONE_OTP=on`; production stays off.
 
 ---
 
@@ -16,9 +25,9 @@ social stay as the alternatives). A2 no longer applies (sender ids are an SMS co
 
 | # | Decision / item | Notes |
 |---|---|---|
-| A1 | **Provider and channel (D4a)** | **Decided 2026-09-13: Meta WhatsApp Cloud API directly** (`SMS_PROVIDER=whatsapp`). The WhatsApp Business Account is Touch's; Meta bills per authentication message on Touch's card. No SMS, no fallback. OTPIQ and Twilio stay as dormant adapters (a secrets change away). |
-| A2 | **Alphanumeric sender id** | **Not applicable to WhatsApp** — the sender is the verified business's display name. Only needed if an SMS adapter is ever switched on. |
-| A3 | **Meta setup (REQUIRED, the long pole)** | In Meta Business Suite / WhatsApp Manager: (1) **Business verification** of Touch's legal entity (company registration documents; one to two weeks). (2) A **phone number dedicated to WhatsApp Business** — it must not be on a personal WhatsApp; it becomes the sender. (3) The WhatsApp Business Account (WABA) with that number, display name "Touch Padel" approved. (4) An **AUTHENTICATION template** named `touch_otp`, created in **both** `en` and `ar`, copy-code button, "do not share" line on, expiry line 5 min; note the exact language codes Meta shows. (5) A **System User** with the `whatsapp_business_messaging` permission and a **permanent access token**; a payment method on the WABA. Hand over: the token, the Phone Number ID (not the number), the template name and language codes — via `secrets set` on the owner's machine. |
+| A1 | **Provider and channel (D4a)** | **Decided 2026-09-15. Now: OTPIQ, WhatsApp only** (`SMS_PROVIDER=otpiq`, `OTPIQ_PROVIDER=whatsapp`; codes arrive from OTPIQ's verified WhatsApp account under OTPIQ's name, OTP-only, no Meta setup; **numbers without WhatsApp get no code** and sign in with email; Touch's OTPIQ account, cost on Touch's invoice). **Next: Meta WhatsApp Cloud API directly** (`SMS_PROVIDER=whatsapp`; Touch's WABA, Meta bills per authentication message) once A3 is done. Twilio stays as a dormant adapter. |
+| A2 | **Alphanumeric sender id (SMS only — not used while `OTPIQ_PROVIDER=whatsapp`)** | Request "TouchPadel" in the OTPIQ dashboard: needs an Iraqi company licence plus proof the brand belongs to the company. Approval 1–3 days Asiacell, 1–3 weeks Zain/Korek. **Leave `OTPIQ_SENDER_ID` unset until approved** — an unapproved id fails every send ("SenderID not found"); without one OTPIQ sends from a generic number. Not used by WhatsApp. |
+| A3 | **Meta setup (for the move to WhatsApp; not needed to launch)** | In Meta Business Suite / WhatsApp Manager: (1) **Business verification** of Touch's legal entity (company registration documents; one to two weeks). (2) A **phone number dedicated to WhatsApp Business** — it must not be on a personal WhatsApp; it becomes the sender. (3) The WhatsApp Business Account (WABA) with that number, display name "Touch Padel" approved. (4) An **AUTHENTICATION template** named `touch_otp`, created in **both** `en` and `ar`, copy-code button, "do not share" line on, expiry line 5 min; note the exact language codes Meta shows. (5) A **System User** with the `whatsapp_business_messaging` permission and a **permanent access token**; a payment method on the WABA. Hand over: the token, the Phone Number ID (not the number), the template name and language codes — via `secrets set` on the owner's machine. |
 | A4 | **Scope (D4b)** | **Decided 2026-09-12: the default button.** With the flag on, "Continue with phone" is the green CTA at the top of Welcome, Sign in and Create account; email + social sit below it. With the flag off the screens are exactly as shipped. |
 | A5 | **Desk-account claim (D4c)** | Yes = run §D. No = staff correct numbers first; desk-created walk-ins keep signing in by "forgot password" (real email) only. |
 | A6 | **Iraq-only (D4d)** | Keep `{964}` (recommended) or list the extra country codes. |
@@ -51,10 +60,9 @@ worth a desk correction before §D.
 1. **Secrets** (hosted):
    ```bash
    pnpm exec supabase secrets set SEND_SMS_HOOK_SECRET='v1,whsec_…'   # generated in step 4, paste here
-   pnpm exec supabase secrets set SMS_PROVIDER=whatsapp WHATSAPP_ACCESS_TOKEN=… WHATSAPP_PHONE_NUMBER_ID=… \
-     WHATSAPP_TEMPLATE_NAME=touch_otp WHATSAPP_TEMPLATE_LANG_EN=en WHATSAPP_TEMPLATE_LANG_AR=ar WHATSAPP_DEFAULT_LANG=ar
-   pnpm exec supabase secrets unset OTPIQ_API_KEY OTPIQ_PROVIDER   # the 2026-09-12 reseller setup, no longer used
-   # dormant alternatives: SMS_PROVIDER=otpiq OTPIQ_API_KEY=… | SMS_PROVIDER=twilio TWILIO_ACCOUNT_SID=… TWILIO_AUTH_TOKEN=… TWILIO_FROM=…
+   pnpm exec supabase secrets set SMS_PROVIDER=otpiq OTPIQ_API_KEY=… OTPIQ_PROVIDER=whatsapp
+   # alternatives: OTPIQ_PROVIDER=whatsapp-sms (SMS for numbers without WhatsApp) | =sms (SMS only)
+   # OTPIQ_SENDER_ID=TouchPadel only AFTER OTPIQ approves it (A2); WhatsApp secrets: see "Moving to WhatsApp" below
    ```
 2. **Migration 0069** is applied by the normal CI migrate (`.github/workflows/db-migrate.yml`); confirm
    `select enabled from app.sms_limits;` returns `false`.
@@ -68,13 +76,15 @@ worth a desk correction before §D.
    OTP length 6, minimum interval between resends 60 s.
 7. **Store-review number:** Dashboard → Phone provider → Test OTPs: add the reviewer's demo number and a fixed code
    (App Store / Play reviewers cannot receive Iraqi SMS). `9647700000001 = 123456` matches local dev.
-8. **WhatsApp — one live send** before opening the gate. The adapter (`functions/_shared/sms/whatsapp.ts`) matches
-   Meta's Cloud API contract as read on 2026-09-13 (Graph v26.0) and is pinned by `packages/db/tests/sms-provider.test.ts`,
-   but Touch's WABA, template approval and token have not been exercised. Send one code to a staff phone with
-   `enabled = true` for that phone's window, read `app.sms_sends`. Meta error codes in `error`: `190` = token
-   expired/invalid; `132001` = template not approved or missing in that language (check both `en` and `ar`);
-   `131026` = that number has no WhatsApp (expected for some guests — they use email); `130429` / `131056` = pace.
-   Test in BOTH languages: switch the staff profile's `preferred_lang` between sends.
+8. **OTPIQ — one live send** before opening the gate. The adapter (`functions/_shared/sms/otpiq.ts`) matches the
+   vendor's published API reference (read 2026-09-12) and is pinned by `packages/db/tests/sms-provider.test.ts`, but the
+   account itself has not been exercised. Send one code to a staff phone with `enabled = true` for that phone's window,
+   read `app.sms_sends`. In `error`: `misconfigured: missing OTPIQ_API_KEY` = the secret is not set; `otpiq 400` with
+   "trial mode" = the account has no credit yet and only delivers to the owner's own number; "SenderID not found / not
+   accepted" = `OTPIQ_SENDER_ID` is set before approval (unset it); `otpiq 401` = wrong key. The function log prints the
+   remaining credit after every successful send. The log's `channel` is `whatsapp`. Test once with a number that has
+   WhatsApp (code arrives from OTPIQ's account) and once with one that does not (no code arrives; confirm in the OTPIQ
+   dashboard that the failure is reported, so the guest-facing "couldn't send" path is understood).
 9. **Open the gate:**
    ```sql
    update app.sms_limits
@@ -100,13 +110,40 @@ worth a desk correction before §D.
 14. **Paper:** update `docs/security/security-general.md` D5 (SEC-22) with the written decision; add the day to
     `HANDOFF.md`.
 
+### Moving to WhatsApp (Meta Cloud API) — when A3 is done
+
+No code and no deploy. OTPIQ keeps sending until the last command.
+
+1. **Stage the WhatsApp secrets** alongside the OTPIQ ones. Nothing reads them while `SMS_PROVIDER=otpiq`:
+   ```bash
+   pnpm exec supabase secrets set WHATSAPP_ACCESS_TOKEN=… WHATSAPP_PHONE_NUMBER_ID=… WHATSAPP_TEMPLATE_NAME=touch_otp \
+     WHATSAPP_TEMPLATE_LANG_EN=en WHATSAPP_TEMPLATE_LANG_AR=ar WHATSAPP_DEFAULT_LANG=ar
+   ```
+   The two language codes must equal what WhatsApp Manager shows for the approved template (`en` or `en_US`).
+2. **Switch:** `pnpm exec supabase secrets set SMS_PROVIDER=whatsapp`
+3. **Check the first sends** in `app.sms_sends` (provider `whatsapp`, channel `whatsapp`), in BOTH languages: switch a
+   staff profile's `preferred_lang` between two sends. In `error`: `misconfigured: missing …` = a staged secret is
+   absent; `(190)` = token expired or invalid; `(132001)` = template not approved in that language; `(131026)` = that
+   number has no WhatsApp; `(130429)` / `(131056)` = pace.
+4. **Back out** at any moment: `pnpm exec supabase secrets set SMS_PROVIDER=otpiq` (the OTPIQ secrets are still there).
+5. **After a quiet week:** `pnpm exec supabase secrets unset OTPIQ_API_KEY OTPIQ_PROVIDER OTPIQ_SENDER_ID`, and rotate
+   the key in the OTPIQ dashboard if the account is closed. Until then OTPIQ is the rollback.
+
+**What changes for guests.** The code arrives on WhatsApp from "Touch Padel" instead of from OTPIQ, in their app
+language, with a copy-code button. Numbers without WhatsApp still get no code (as on OTPIQ `whatsapp`): they sign in
+with email. If that
+share turns out large, stay on OTPIQ, or ask for a WhatsApp-then-OTPIQ chain in the seam (about thirty lines, not built).
+
+A typo is safe: a misspelled `SMS_PROVIDER`, or a vendor named without its secrets, fails every send with the reason in
+`app.sms_sends.error` and the function log. It never falls back to silently sending nothing.
+
 ### Swapping the vendor (two minutes, no code)
 
 Every edge function texts through ONE function, `sendSms()` in `functions/_shared/sms/index.ts`; no other file knows a
 vendor's hostname or secret names (a test fails if one does). So:
 
 - **To an adapter that already exists** (`log`, `twilio`, `otpiq`, `whatsapp`): `pnpm exec supabase secrets set SMS_PROVIDER=<name>`
-  plus that vendor's keys. Edge functions pick up new secrets on their next cold start; nothing to deploy.
+  plus that vendor's keys. The hook reads the secrets on every send; nothing to deploy.
 - **To a new vendor:** one file `functions/_shared/sms/<vendor>.ts` implementing `SmsProvider` (`send({to, body, code})`,
   throw `SmsProviderError` on any non-2xx), one branch in `smsFromEnv` (`index.ts`), its secret names in
   `functions/.env.example`, and a block in `tests/sms-provider.test.ts` mirroring the OTPIQ one. Then
@@ -115,6 +152,7 @@ vendor's hostname or secret names (a test fails if one does). So:
   wording and the channel. Twilio sends our bilingual template verbatim; OTPIQ's verification type wraps the code in the
   vendor's own template; Meta sends the approved authentication template in the guest's language. The app never sees the
   difference — except that WhatsApp has no SMS fallback, so a number without WhatsApp fails and the guest uses email.
+- **A misconfigured provider fails loudly** (`misconfigured: …` in the send log), so the swap cannot silently stop codes.
 
 ### Rollback (any time, in reverse, each step independent)
 

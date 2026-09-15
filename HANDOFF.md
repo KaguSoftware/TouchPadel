@@ -1177,9 +1177,12 @@ unset secret, ±300 s, constant-time). Pure halves `verify.ts` / `otp.ts` run un
 bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `_shared/sms/*` (moved
 out of the hook 2026-09-12 so every edge function texts through ONE function, `sendSms()`): `log` (default, spends
 nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender — Asiacell requires
-sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), `otpiq` (decided 2026-09-12, superseded the next day; dormant), **`whatsapp` — Meta's official Cloud API, the owner's
-choice 2026-09-13, no reseller, no SMS fallback**: authentication template per language picked from `profiles.preferred_lang`,
-Graph v26.0, Meta error code + detail in the send log's `error`. `tests/sms-provider.test.ts` pins
+sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), **`otpiq` — the launch vendor, WhatsApp only (`OTPIQ_PROVIDER=whatsapp`, OTPIQ's own WhatsApp account, no SMS fallback; owner decision 2026-09-15)**, and **`whatsapp` — Meta's official Cloud API, the
+planned successor** once Touch's Meta setup is done (authentication template per language picked from
+`profiles.preferred_lang`, Graph v26.0, no SMS fallback). The move is `secrets set SMS_PROVIDER=whatsapp` with the
+WhatsApp secrets staged beforehand (runbook §C "Moving to WhatsApp"). 2026-09-15 hardening: selection fails closed on
+a misspelled provider or missing secrets (was a silent `log` fallback), and local-vs-hosted now reads `SUPABASE_URL`
+(the old `SUPABASE_ENV` check is not injected on hosted, so hosted would have been treated as local). `tests/sms-provider.test.ts` pins
 selection, each adapter against a mocked fetch, and the boundary (no other function file may name a vendor host or
 secret) — swapping vendors is `secrets set SMS_PROVIDER=…`, adding one is one adapter file. `_shared/phone.ts`
 is the edge copy of the new `@touch/core` normaliser, parity-tested on one fixture table.
