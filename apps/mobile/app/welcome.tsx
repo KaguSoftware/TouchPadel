@@ -11,7 +11,6 @@ import { pickLocale } from '@touch/core';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { mirror } from '../src/i18n/direction';
 import { clearPendingSlot, usePendingSlot } from '../src/features/booking/pendingSlot';
-import { phoneOtpEnabled } from '../src/features/auth/phoneOtp';
 import { brand, radius, useTheme } from '../src/theme';
 import { Button } from '../src/components/ui';
 import { useBack } from '../src/navigation/back';
@@ -30,7 +29,6 @@ function WelcomeScreen() {
   const router = useRouter();
   const back = useBack();
   const insets = useSafeAreaInsets();
-  const phoneOtp = phoneOtpEnabled();
   const { fonts } = useTheme();
   const pending = usePendingSlot();
 
@@ -120,16 +118,7 @@ function WelcomeScreen() {
       </View>
 
       <View style={{ paddingStart: 20, paddingEnd: 20, paddingBottom: 26 + insets.bottom, gap: 9 }}>
-        {/* Phone OTP — the DEFAULT method once the flag is on (owner decision D4b, 2026-09-12): the green CTA
-            on top; email sign-in / sign-up become the alternatives. Off (EXPO_PUBLIC_PHONE_OTP unset): the
-            layout below is exactly what shipped — Sign in, Create account (CTA), Keep browsing. */}
-        {phoneOtp ? (
-          <Button
-            label={t('auth.continueWithPhone')}
-            onPress={() => router.push('/phone-sign-in')}
-            variant="cta"
-          />
-        ) : null}
+        {/* Both lead to phone + password (2026-09-15): Create account is the green CTA, as designed. */}
         <Button
           label={t('auth.signIn')}
           onPress={() => router.push('/sign-in')}
@@ -137,17 +126,7 @@ function WelcomeScreen() {
           style={{ backgroundColor: brand.white, borderWidth: 0 }}
           labelColor={brand.welcomeInk}
         />
-        {phoneOtp ? (
-          <Button
-            label={t('auth.signUp')}
-            onPress={() => router.push('/sign-up')}
-            variant="secondary"
-            style={{ backgroundColor: `${brand.white}22`, borderColor: `${brand.white}55` }}
-            labelColor={brand.white}
-          />
-        ) : (
-          <Button label={t('auth.signUp')} onPress={() => router.push('/sign-up')} variant="cta" />
-        )}
+        <Button label={t('auth.signUp')} onPress={() => router.push('/sign-up')} variant="cta" />
         <Button
           label={t('auth.keepBrowsing')}
           onPress={() => {

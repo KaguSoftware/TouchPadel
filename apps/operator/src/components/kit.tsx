@@ -1360,23 +1360,26 @@ export function DateRangeControl({
   onChange,
   presets = ['today', 'yesterday', 'thisWeek', 'lastWeek', 'thisMonth', 'lastMonth', 'last30'],
   disabled,
+  now,
 }: {
   period: Period;
   onChange: (p: Period) => void;
   presets?: readonly Exclude<PeriodPreset, 'custom'>[];
   disabled?: boolean;
+  /** The day presets count back from. Defaults to the station clock; pass the venue's business day to match Analytics. */
+  now?: Date;
 }) {
   const { tr } = useLocale();
   const [draft, setDraft] = useState<Period>(period);
   useEffect(() => setDraft(period), [period]);
   const active = useMemo(() => presets.find((p) => {
-    const pp = presetPeriod(p);
+    const pp = presetPeriod(p, now);
     return pp.from === period.from && pp.to === period.to;
-  }), [presets, period]);
+  }), [presets, period, now]);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }} role="group">
       {presets.map((p) => (
-        <Button key={p} size="sm" aria-pressed={active === p} disabled={disabled} onClick={() => onChange(presetPeriod(p))}>
+        <Button key={p} size="sm" aria-pressed={active === p} disabled={disabled} onClick={() => onChange(presetPeriod(p, now))}>
           {tr(`ws.kit.dateRange.${p}`)}
         </Button>
       ))}

@@ -7,8 +7,8 @@ import { isolate, isolateLtr } from '@touch/i18n';
 import { useLocale } from '../../src/i18n/LocaleProvider';
 import { useAuth } from '../../src/features/auth/context';
 import { profileGateState } from '../../src/features/auth/social';
-import { hasRealEmail, phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
-import { hasPasswordSignIn } from '../../src/features/profile/changePasswordFlow';
+import { phoneOtpEnabled } from '../../src/features/auth/phoneOtp';
+import { passwordProofOf } from '../../src/features/profile/changePasswordFlow';
 import { supabase } from '../../src/lib/supabase';
 import { signOut } from '../../src/features/auth/api';
 import { useOwnProfile } from '../../src/features/profile/hooks';
@@ -277,20 +277,19 @@ export default function ProfileScreen() {
               label={t('profile.editProfile')}
               onPress={() => router.push('/profile-edit')}
             />
-            {/* No password exists for a phone-only account, and a desk-created
-              walk-in's synthetic address has no mailbox to recover to. */}
-            {/* …and only for an account that HAS a password: a guest who only
-              ever signed in with Google or Apple has none, and for them every
-              "current password" is wrong — the row looked broken, not absent. */}
-            {hasRealEmail(session?.user) && hasPasswordSignIn(session?.user) ? (
+            {/* Only for an account that HAS a password — a phone sign-up, or an
+              older email account. A guest who only ever signed in with Google or
+              Apple has none, and for them every "current password" is wrong — the
+              row looked broken, not absent. A desk-created walk-in's synthetic
+              address has nothing to prove either. */}
+            {passwordProofOf(session?.user) ? (
               <MenuRow
                 icon={<LockIcon size={15} color={colors.gstrong} />}
                 label={t('profile.changePassword')}
                 onPress={() => router.push('/change-password')}
               />
             ) : null}
-            {/* Phone OTP scaffold (dormant): an email / social account verifies
-              its number once so a later phone sign-in lands on THIS account. */}
+            {/* A social account with no verified number proves one here. */}
             {phoneOtpEnabled() && !session?.user.phone ? (
               <MenuRow
                 icon={<PhoneIcon size={15} color={colors.gstrong} />}

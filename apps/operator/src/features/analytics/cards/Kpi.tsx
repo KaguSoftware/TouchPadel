@@ -7,9 +7,12 @@
  * text button that opens an InfoTip with both figures and the window they are
  * measured against, so the tile itself stays one number and one signed change.
  * `tip` (an explanation of what is counted) hangs off the label the same way.
+ * `drills` are the ways into the transactions behind the figure (0099: the
+ * management panel's drill, so both screens list the same rows); a tile with
+ * two figures (cash / card) names each.
  */
 import type { ReactNode } from 'react';
-import { Skeleton, card } from '../../../components/ui';
+import { Button, Skeleton, card } from '../../../components/ui';
 import { InfoTip } from '../../../components/InfoTip';
 import { useLocale } from '../../../lib/i18n';
 import type { Formatters } from '../format';
@@ -19,6 +22,12 @@ export interface KpiCompare {
   label: string;
   current: string;
   previous: string;
+}
+
+export interface KpiDrill {
+  /** Names the figure when a tile carries more than one; a lone drill reads "Transactions". */
+  label?: string;
+  onOpen: () => void;
 }
 
 export function Kpi({
@@ -35,6 +44,7 @@ export function Kpi({
   loading,
   unavailable,
   vsLabel,
+  drills,
   f,
 }: {
   /** The query behind this tile failed — show a dash, never a misleading 0. */
@@ -58,6 +68,8 @@ export function Kpi({
   neutral?: boolean;
   estimated?: boolean;
   loading?: boolean;
+  /** Open the transactions behind the figure. Hidden while loading or unavailable. */
+  drills?: readonly KpiDrill[];
   f: Formatters;
 }) {
   const { tr } = useLocale();
@@ -105,6 +117,22 @@ export function Kpi({
         <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: tone }}>{deltaText}</span>
       )}
       {note && <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{note}</span>}
+      {drills && drills.length > 0 && !loading && !unavailable && (
+        <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1)', marginBlockStart: 'var(--tp-sp-1)', marginInlineStart: 'calc(-1 * var(--tp-sp-2))' }}>
+          {drills.map((d, i) => (
+            <Button
+              key={d.label ?? i}
+              size="sm"
+              kind="ghost"
+              iconEnd="arrowUpRight"
+              onClick={d.onOpen}
+              aria-label={tr('ws.analytics.drill.openAria', { figure: d.label ?? label })}
+            >
+              {drills.length > 1 && d.label ? d.label : tr('ws.analytics.drill.open')}
+            </Button>
+          ))}
+        </span>
+      )}
     </div>
   );
 }

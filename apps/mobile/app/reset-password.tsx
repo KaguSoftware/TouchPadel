@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { updatePassword } from '../src/features/auth/api';
 import { useAuth } from '../src/features/auth/context';
+import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { radius, space, useTheme } from '../src/theme';
@@ -14,9 +15,10 @@ import { Button, ErrorText, Field, FormScreen, Hint, Screen, Title } from '../sr
 const LINK_GRACE_MS = 4000;
 
 /**
- * Reached via the touchpadel://reset-password deep link from the recovery
- * email (which signs the user into a recovery session). Lives OUTSIDE the
- * (auth) group so its signed-in redirect cannot bounce us away.
+ * Sets a new password on a recovery session: reached from app/verify-otp.tsx
+ * (mode reset) once the WhatsApp code has signed the guest in, or from an old
+ * touchpadel://reset-password email link. Ungated so a signed-in redirect
+ * cannot bounce us away.
  *
  * States (spec 05.8): ready · busy · invalidLink · error · success. The form
  * used to render unconditionally; with no recovery session the update failed
@@ -27,6 +29,7 @@ export default function ResetPasswordScreen() {
   const { colors, fonts } = useTheme();
   const router = useRouter();
   const { session, initializing } = useAuth();
+  const { continueAfterAuth, holdBusy } = usePostAuthContinue();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -71,7 +74,9 @@ export default function ResetPasswordScreen() {
             <Button
               label={t('common.ok')}
               variant="primary"
-              onPress={() => router.replace('/(tabs)')}
+              // A slot tapped before signing in is still held for them.
+              onPress={continueAfterAuth}
+              busy={holdBusy}
               style={{ marginTop: space.l }}
             />
           </>

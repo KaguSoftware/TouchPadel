@@ -3,9 +3,9 @@
  * the contract and the swap recipe). Callers pass an env getter rather than
  * reading Deno.env here so the module stays pure and runs under vitest.
  *
- * Provider selection from secrets. Unknown / unset => `log` (spends nothing),
- * with one console line per call so a hosted deploy that forgot SMS_PROVIDER is
- * visible in the function log rather than silently "working".
+ * Provider selection from secrets: see smsFromEnv. Unset => `log` (spends
+ * nothing); a named vendor with missing secrets, or an unknown name, fails
+ * every send loudly rather than falling back to `log`.
  */
 import { logProvider } from './log.ts';
 import { otpiqProvider } from './otpiq.ts';
@@ -42,47 +42,78 @@ export async function sendSms(args: SmsSendArgs, get: EnvGetter): Promise<SmsSen
   }
 }
 
-/** The adapter SMS_PROVIDER names, built from secrets. Exported for the contract test and for callers that only need the name. */
+/**
+ * True only when this clearly runs under `supabase functions serve`: the
+ * platform URL points at the local gateway. Anything else, including a
+ * missing URL, counts as HOSTED so the log adapter redacts the code.
+ * (Supabase injects no environment-name variable on hosted, so the URL is the
+ * signal both runtimes share.)
+ */
+export function isLocalRuntime(get: EnvGetter): boolean {
+  const url = (get('SUPABASE_URL') ?? '').trim();
+  return /^http:\/\/(kong|localhost|127\.0\.0\.1|host\.docker\.internal)(:\d+)?(\/|$)/.test(url);
+}
+
+/**
+ * An adapter that refuses every send. Used when SMS_PROVIDER names a vendor
+ * whose secrets are incomplete, or names no known vendor: the send log then
+ * shows `failed` with the reason, instead of a silent "sent" through `log`
+ * while no guest receives anything. This is what makes a vendor swap safe to
+ * do with one command: a typo is loud on the very first code.
+ */
+function misconfigured(name: string, reason: string): SmsProvider {
+  console.error(`[sms] SMS_PROVIDER=${name} is misconfigured: ${reason}`);
+  return {
+    name,
+    send(): Promise<SmsSendResult> {
+      return Promise.reject(new SmsProviderError(name, `misconfigured: ${reason}`));
+    },
+  };
+}
+
+/**
+ * The adapter SMS_PROVIDER names, built from secrets. Exported for the
+ * contract test and for callers that only need the name.
+ *   unset or "log"          -> log (spends nothing; the shipped default)
+ *   a known name, keys set  -> that vendor
+ *   a known name, keys gone -> misconfigured (every send fails, reason logged)
+ *   an unknown name         -> misconfigured
+ * Only the chosen vendor's secrets are read, so the next vendor's secrets can
+ * sit on the project in advance and the swap is `secrets set SMS_PROVIDER=…`.
+ */
 export function smsFromEnv(get: EnvGetter): SmsProvider {
   const name = (get('SMS_PROVIDER') ?? '').trim().toLowerCase();
-  // `supabase functions serve` sets no SUPABASE_ENV; hosted sets "production".
-  const isLocal = !get('SUPABASE_ENV') || get('SUPABASE_ENV') === 'local';
+  const has = (key: string) => (get(key) ?? '').trim() !== '';
+  const missing = (keys: string[]) => keys.filter((k) => !has(k));
 
-  if (name === 'twilio') {
-    const accountSid = get('TWILIO_ACCOUNT_SID') ?? '';
-    const authToken = get('TWILIO_AUTH_TOKEN') ?? '';
-    const from = get('TWILIO_FROM') ?? '';
-    if (accountSid && authToken && from) return twilioProvider({ accountSid, authToken, from });
-    console.warn('[sms] SMS_PROVIDER=twilio but TWILIO_* secrets are incomplete; using log');
-    return logProvider(isLocal);
+  if (name === '' || name === 'log') return logProvider(isLocalRuntime(get));
+
+  if (name === 'otpiq') {
+    const gone = missing(['OTPIQ_API_KEY']);
+    if (gone.length) return misconfigured(name, `missing ${gone.join(', ')}`);
+    return otpiqProvider({ apiKey: get('OTPIQ_API_KEY')!.trim(), provider: get('OTPIQ_PROVIDER'), senderId: get('OTPIQ_SENDER_ID') });
   }
   if (name === 'whatsapp') {
-    const accessToken = get('WHATSAPP_ACCESS_TOKEN') ?? '';
-    const phoneNumberId = get('WHATSAPP_PHONE_NUMBER_ID') ?? '';
-    if (accessToken && phoneNumberId) {
-      const defaultLang = get('WHATSAPP_DEFAULT_LANG')?.trim();
-      return whatsappProvider({
-        accessToken,
-        phoneNumberId,
-        templateName: get('WHATSAPP_TEMPLATE_NAME')?.trim() || 'touch_otp',
-        langCodes: { en: get('WHATSAPP_TEMPLATE_LANG_EN'), ar: get('WHATSAPP_TEMPLATE_LANG_AR') },
-        defaultLang: defaultLang === 'en' || defaultLang === 'ar' ? (defaultLang as SmsLang) : undefined,
-        graphVersion: get('WHATSAPP_GRAPH_VERSION'),
-      });
-    }
-    console.warn('[sms] SMS_PROVIDER=whatsapp but WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID are incomplete; using log');
-    return logProvider(isLocal);
+    const gone = missing(['WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID']);
+    if (gone.length) return misconfigured(name, `missing ${gone.join(', ')}`);
+    const defaultLang = get('WHATSAPP_DEFAULT_LANG')?.trim();
+    return whatsappProvider({
+      accessToken: get('WHATSAPP_ACCESS_TOKEN')!.trim(),
+      phoneNumberId: get('WHATSAPP_PHONE_NUMBER_ID')!.trim(),
+      templateName: get('WHATSAPP_TEMPLATE_NAME')?.trim() || 'touch_otp',
+      langCodes: { en: get('WHATSAPP_TEMPLATE_LANG_EN'), ar: get('WHATSAPP_TEMPLATE_LANG_AR') },
+      defaultLang: defaultLang === 'en' || defaultLang === 'ar' ? (defaultLang as SmsLang) : undefined,
+      graphVersion: get('WHATSAPP_GRAPH_VERSION'),
+    });
   }
-  if (name === 'otpiq') {
-    const apiKey = get('OTPIQ_API_KEY') ?? '';
-    if (apiKey) {
-      return otpiqProvider({ apiKey, provider: get('OTPIQ_PROVIDER'), senderId: get('OTPIQ_SENDER_ID') });
-    }
-    console.warn('[sms] SMS_PROVIDER=otpiq but OTPIQ_API_KEY is unset; using log');
-    return logProvider(isLocal);
+  if (name === 'twilio') {
+    const gone = missing(['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM']);
+    if (gone.length) return misconfigured(name, `missing ${gone.join(', ')}`);
+    return twilioProvider({
+      accountSid: get('TWILIO_ACCOUNT_SID')!.trim(),
+      authToken: get('TWILIO_AUTH_TOKEN')!.trim(),
+      from: get('TWILIO_FROM')!.trim(),
+    });
   }
-  if (name && name !== 'log') {
-    console.warn(`[sms] unknown SMS_PROVIDER "${name}"; using log`);
-  }
-  return logProvider(isLocal);
+  return misconfigured(name, `unknown provider (expected one of ${SMS_PROVIDERS.join(', ')})`);
 }

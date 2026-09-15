@@ -15,7 +15,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { describeBasis, isThinPeriod, pctDelta, pickLocale } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
-import { SegmentedControl } from '../../../components/kit';
+import { ExportButton, SegmentedControl } from '../../../components/kit';
 import { AnalyticsBar } from '../AnalyticsBar';
 import { AnalyticsFrame } from '../AnalyticsFrame';
 import { Notices } from '../Notices';
@@ -23,7 +23,7 @@ import { Zone, ZoneGrid, CAFE_ZONES } from '../Zone';
 import { basisCopy, patternsCopy, weekdayName } from '../copy';
 import { mineCafeCandidates, toPatternWire } from '../patterns';
 import { buildInsightsData } from '../payload';
-import { sumBy } from '../derive';
+import { avgOrderValue, sumBy } from '../derive';
 import { makeFormatters } from '../format';
 import { useAnalyticsData, type SqlKey } from '../useAnalyticsData';
 import { useVenueRevenue } from '../useVenueRevenue';
@@ -48,6 +48,9 @@ import { AbandonedViewsChart } from '../charts/AbandonedViewsChart';
 import { FunnelBars } from '../charts/FunnelBars';
 import { PriceBandBars, bandLabel } from '../charts/PriceBandBars';
 import { WeekHeatmap } from '../charts/WeekHeatmap';
+import { downloadCsv, toCsv } from '../csv';
+import { useAnalyticsDrill } from '../drill';
+import { pulseCsvRows, type PulseFigure } from '../pulseCsv';
 
 /** The queries each card needs; `eng` adds the PostHog batch. */
 const NEEDS = {
@@ -73,6 +76,7 @@ export function CafeTab() {
   const { raw, derived, state, stateFor, errorFor } = data;
   const venue = useVenueRevenue(data.range, data.compareRange);
   const [tillMeasure, setTillMeasure] = useState<'orders' | 'revenue'>('orders');
+  const drill = useAnalyticsDrill(data.range);
 
   const setSearch = (next: Partial<AnalyticsSearch>) => {
     void navigate({ to: '/analytics/cafe', search: { ...search, ...next } });
@@ -95,7 +99,7 @@ export function CafeTab() {
   const prev = raw?.posthogPrev ?? null;
   const reliable = derived?.salesDeltaReliable ?? false;
   /** A money delta, muted (null) when the sales comparison is unreliable or the baseline never arrived. */
-  const moneyDelta = (key: 'sales' | 'tabs' | 'cashCard' | 'discounts' | 'refunds' | 'calls') => (reliable && hasPrev ? (derived?.deltas[key] ?? null) : null);
+  const moneyDelta = (key: 'sales' | 'tabs' | 'cashCard' | 'discounts' | 'refunds' | 'waste' | 'orders' | 'avgOrderValue' | 'calls') => (reliable && hasPrev ? (derived?.deltas[key] ?? null) : null);
   const prevSum = (pick: (r: NonNullable<typeof raw>['dailyPrev'][number]) => number) => (raw && hasPrev ? sumBy(raw.dailyPrev, pick) : null);
   const cmp = (current: string, previous: number | null, fmt: (n: number) => string) => (previous == null ? undefined : compare(current, fmt(previous)));
   const cashTotal = (k?.cashIqd ?? 0) + (k?.cardIqd ?? 0);
@@ -130,6 +134,37 @@ export function CafeTab() {
     rows: bands.map((b) => ({ label: bandLabel(f, b), views: engOnly === 'ready' ? b.views : null, sold: b.sold, revenue: b.revenueIqd })),
     file: `price-bands-${rangeLabel}`,
   };
+  const pulseFigures = (): PulseFigure[] => {
+    const p = prevSum;
+    const eng = engOnly === 'ready';
+    const ordersPrev = p((r) => r.orders);
+    const grossPrev = p((r) => r.cafeGrossIqd);
+    return [
+      { label: tr('analytics.kpi.sales'), value: k?.salesIqd ?? null, previous: p((r) => r.revenueIqd) },
+      { label: tr('ws.owner.panel.figures.cafeRevenue'), value: k?.cafeGrossIqd ?? null, previous: grossPrev },
+      { label: tr('analytics.kpi.venueRevenue'), value: venue.current?.venueIqd ?? null, previous: venue.previous?.venueIqd ?? null },
+      { label: tr('ws.analytics.drill.cash'), value: k?.cashIqd ?? null, previous: p((r) => r.cashIqd) },
+      { label: tr('ws.analytics.drill.card'), value: k?.cardIqd ?? null, previous: p((r) => r.cardIqd) },
+      { label: tr('analytics.kpi.discounts'), value: k?.discountIqd ?? null, previous: p((r) => r.discountIqd) },
+      { label: tr('analytics.kpi.refunds'), value: k?.refundsIqd ?? null, previous: p((r) => r.refundsIqd) },
+      { label: tr('analytics.kpi.waste'), value: k?.wasteIqd ?? null, previous: p((r) => r.wasteIqd) },
+      { label: tr('analytics.kpi.tabs'), value: k?.tabs ?? null, previous: p((r) => r.tabs) },
+      { label: tr('analytics.kpi.orders'), value: k?.orders ?? null, previous: ordersPrev },
+      { label: tr('analytics.kpi.avgOrderValue'), value: k?.avgOrderValueIqd ?? null, previous: grossPrev != null && ordersPrev != null ? avgOrderValue(grossPrev, ordersPrev) : null },
+      { label: tr('analytics.kpi.qrShare'), value: k?.qrShare.pct ?? null, previous: null },
+      { label: tr('analytics.kpi.calls'), value: k?.waiterCalls ?? null, previous: p((r) => r.waiterCalls) },
+      { label: tr('analytics.kpi.views'), value: eng ? (k?.views ?? null) : null, previous: eng && prev ? sumBy(prev.dailyEngagement, (r) => r.views) : null },
+      { label: tr('analytics.kpi.median'), value: eng ? (k?.medianSeconds ?? null) : null, previous: eng && prev ? prev.sessionStats.medianSeconds : null },
+      { label: tr('analytics.kpi.basketToCall'), value: eng ? (k?.basketToCallPct ?? null) : null, previous: eng && prev ? prev.basketToCall.pct : null },
+    ];
+  };
+  const exportPulse = () => {
+    const csv = toCsv(
+      [tr('ws.analytics.pulseCsv.figure'), tr('ws.analytics.pulseCsv.value'), tr('ws.analytics.pulseCsv.previous'), tr('ws.analytics.pulseCsv.changeAbs'), tr('ws.analytics.pulseCsv.changePct')],
+      pulseCsvRows(pulseFigures()),
+    );
+    downloadCsv(`cafe-pulse-${rangeLabel}.csv`, csv);
+  };
   const hiddenGemIds = useMemo(() => new Set((derived?.hiddenGems ?? []).map((g) => g.id)), [derived]);
 
   return (
@@ -159,9 +194,9 @@ export function CafeTab() {
       />
 
       {/* ---------------- 01 Pulse: the money row, then the activity row ---------------- */}
-      <Zone zone={CAFE_ZONES[0]!}>
+      <Zone zone={CAFE_ZONES[0]!} actions={<ExportButton onExport={exportPulse} disabled={moneyState !== 'ready'} />}>
         <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--tp-sp-2-5)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 'var(--tp-sp-2-5)' }}>
             <Kpi
               label={tr('analytics.kpi.sales')}
               value={f.money(k?.salesIqd ?? 0)}
@@ -170,6 +205,8 @@ export function CafeTab() {
               vsLabel={vsLabel}
               tip={tr('ws.analytics.cafe.tips.sales')}
               compare={cmp(f.money(k?.salesIqd ?? 0), prevSum((r) => r.revenueIqd), f.money)}
+              note={k ? tr('ws.analytics.grossNote', { amount: f.money(k.cafeGrossIqd) }) : undefined}
+              drills={[{ onOpen: () => drill.open({ figure: 'cafeNet', label: tr('analytics.kpi.sales') }) }]}
               loading={moneyState === 'loading'}
               unavailable={moneyState === 'error'}
               f={f}
@@ -183,6 +220,7 @@ export function CafeTab() {
               tip={tr('ws.analytics.venue.revenueTip')}
               note={venue.current ? tr('analytics.kpi.venueSplit', { cafe: f.compact(venue.current.cafeIqd), courts: f.compact(venue.current.courtsIqd) }) : undefined}
               compare={venue.current && venue.previous ? compare(f.money(venue.current.venueIqd), f.money(venue.previous.venueIqd)) : undefined}
+              drills={[{ onOpen: () => drill.open({ figure: 'revenue', label: tr('analytics.kpi.venueRevenue') }) }]}
               loading={venue.state === 'loading'}
               unavailable={venue.state === 'error'}
               f={f}
@@ -196,6 +234,10 @@ export function CafeTab() {
               tip={tr('ws.analytics.cafe.tips.cashCard')}
               note={cashShare != null ? tr('analytics.kpi.cashShare', { pct: f.pct(cashShare) }) : undefined}
               compare={cmp(f.money(cashTotal), prevSum((r) => r.cashIqd + r.cardIqd), f.money)}
+              drills={[
+                { label: tr('ws.analytics.drill.cash'), onOpen: () => drill.open({ figure: 'cash', label: tr('ws.analytics.drill.cash') }) },
+                { label: tr('ws.analytics.drill.card'), onOpen: () => drill.open({ figure: 'card', label: tr('ws.analytics.drill.card') }) },
+              ]}
               loading={moneyState === 'loading'}
               unavailable={moneyState === 'error'}
               f={f}
@@ -209,6 +251,7 @@ export function CafeTab() {
               tip={tr('ws.analytics.cafe.tips.discounts')}
               compare={cmp(f.money(k?.discountIqd ?? 0), prevSum((r) => r.discountIqd), f.money)}
               invert
+              drills={[{ onOpen: () => drill.open({ figure: 'discounts', label: tr('analytics.kpi.discounts') }) }]}
               loading={moneyState === 'loading'}
               unavailable={moneyState === 'error'}
               f={f}
@@ -222,12 +265,27 @@ export function CafeTab() {
               tip={tr('ws.analytics.cafe.tips.refunds')}
               compare={cmp(f.money(k?.refundsIqd ?? 0), prevSum((r) => r.refundsIqd), f.money)}
               invert
+              drills={[{ onOpen: () => drill.open({ figure: 'refunds', label: tr('analytics.kpi.refunds') }) }]}
+              loading={moneyState === 'loading'}
+              unavailable={moneyState === 'error'}
+              f={f}
+            />
+            <Kpi
+              label={tr('analytics.kpi.waste')}
+              value={f.money(k?.wasteIqd ?? 0)}
+              delta={moneyDelta('waste')}
+              reason={mutedReason}
+              vsLabel={vsLabel}
+              tip={tr('ws.analytics.cafe.tips.waste')}
+              compare={cmp(f.money(k?.wasteIqd ?? 0), prevSum((r) => r.wasteIqd), f.money)}
+              invert
+              drills={[{ onOpen: () => drill.open({ figure: 'waste', label: tr('analytics.kpi.waste') }) }]}
               loading={moneyState === 'loading'}
               unavailable={moneyState === 'error'}
               f={f}
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 'var(--tp-sp-2-5)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--tp-sp-2-5)' }}>
             <Kpi
               label={tr('analytics.kpi.tabs')}
               value={f.num(k?.tabs ?? 0)}
@@ -235,6 +293,34 @@ export function CafeTab() {
               vsLabel={vsLabel}
               tip={tr('ws.analytics.cafe.tips.tabs')}
               compare={cmp(f.num(k?.tabs ?? 0), prevSum((r) => r.tabs), f.num)}
+              loading={moneyState === 'loading'}
+              unavailable={moneyState === 'error'}
+              f={f}
+            />
+            <Kpi
+              label={tr('analytics.kpi.orders')}
+              value={f.num(k?.orders ?? 0)}
+              delta={moneyDelta('orders')}
+              vsLabel={vsLabel}
+              tip={tr('ws.analytics.cafe.tips.orders')}
+              compare={cmp(f.num(k?.orders ?? 0), prevSum((r) => r.orders), f.num)}
+              drills={[{ onOpen: () => drill.open({ figure: 'orders', label: tr('analytics.kpi.orders') }) }]}
+              loading={moneyState === 'loading'}
+              unavailable={moneyState === 'error'}
+              f={f}
+            />
+            <Kpi
+              label={tr('analytics.kpi.avgOrderValue')}
+              value={f.money(k?.avgOrderValueIqd ?? 0)}
+              delta={moneyDelta('avgOrderValue')}
+              reason={mutedReason}
+              vsLabel={vsLabel}
+              tip={tr('ws.analytics.cafe.tips.avgOrderValue')}
+              compare={(() => {
+                const g = prevSum((r) => r.cafeGrossIqd);
+                const o = prevSum((r) => r.orders);
+                return cmp(f.money(k?.avgOrderValueIqd ?? 0), g != null && o != null ? avgOrderValue(g, o) : null, f.money);
+              })()}
               loading={moneyState === 'loading'}
               unavailable={moneyState === 'error'}
               f={f}
@@ -481,6 +567,7 @@ export function CafeTab() {
           </ChartCard>
         </div>
       </Zone>
+      {drill.layer}
     </AnalyticsFrame>
   );
 }

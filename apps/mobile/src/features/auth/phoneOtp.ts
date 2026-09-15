@@ -1,16 +1,20 @@
 /**
- * Phone OTP — the PURE half (no RN / expo / supabase imports; unit-tested under
- * node like social.ts). The Supabase calls live in ./api.ts, the screens are
- * app/phone-sign-in.tsx and app/verify-otp.tsx.
+ * Phone auth — the PURE half (no RN / expo / supabase imports; unit-tested under
+ * node like social.ts). The Supabase calls live in ./api.ts; the screens are
+ * app/sign-up.tsx, app/sign-in.tsx, app/forgot-password.tsx, app/verify-otp.tsx
+ * and app/phone-sign-in.tsx (linking a number to a social account).
  *
- * DORMANT vendor-addition scaffold (2026-09-05). SOW L259-260 excludes
- * phone/SMS one-time-code login; the owner asked for the base to exist so
- * activation is configuration, not code. Nothing renders unless
- * EXPO_PUBLIC_PHONE_OTP=on (eas.json per profile / .env locally) — see
- * docs/design/phone-otp-2026-09-05.md and docs/client/phone-otp-activation.md.
+ * Owner decision 2026-09-15: an account is created with a phone number and a
+ * password, confirmed ONCE by a WhatsApp code; every later sign-in is phone +
+ * password. Email sign-up / sign-in are gone from the guest app. The code is
+ * spent again only to recover a forgotten password or to link a number.
+ *
+ * EXPO_PUBLIC_PHONE_OTP now gates only the optional number-linking flows
+ * (Profile → Verify phone number, Edit profile's number change); sign-up,
+ * sign-in and password recovery are phone-only and never hidden.
  */
 import type { MessageKey } from '@touch/i18n';
-import { toE164Iraq } from '@touch/core';
+import { composePhone, validatePhone } from '../profile/phone';
 import { errorMessageOf, isTransportError } from '../../lib/network';
 
 export const OTP_LENGTH = 6;
@@ -35,9 +39,17 @@ export function phoneOtpEnabled(): boolean {
 
 export type PhoneValidation = 'PHONE_INVALID' | null;
 
-/** Strict: an Iraqi mobile in any accepted shape, else PHONE_INVALID (a code to a typo is money spent on nothing). */
-export function validatePhoneInput(raw: string): { e164: string | null; error: PhoneValidation } {
-  const e164 = toE164Iraq(raw);
+/**
+ * A number from ANY country (owner decision 2026-09-15: phone sign-in is open
+ * worldwide; the SMS gate's allowed_prefixes is '{""}'). The country comes
+ * from the picker, the national digits from the field; the same length rule
+ * the profile phone uses decides, and the result is the E.164 GoTrue expects.
+ * Anything it cannot turn into a number is PHONE_INVALID before a paid code
+ * is requested.
+ */
+export function validatePhoneInput(iso: string, national: string): { e164: string | null; error: PhoneValidation } {
+  if (validatePhone(iso, national) !== null) return { e164: null, error: 'PHONE_INVALID' };
+  const e164 = composePhone(iso, national);
   return e164 ? { e164, error: null } : { e164: null, error: 'PHONE_INVALID' };
 }
 
@@ -119,4 +131,37 @@ export function mapOtpError(err: unknown): MessageKey {
     return 'auth.phoneSignInUnavailable';
   }
   return 'errors.generic';
+}
+
+function isCodeOrMessage(err: unknown, codes: string[], pattern: RegExp): boolean {
+  const code = codeOf(err);
+  if (code && codes.includes(code)) return true;
+  return pattern.test(errorMessageOf(err) ?? '');
+}
+
+/** Sign-up refused because a CONFIRMED account already owns the number. */
+export function isPhoneTaken(err: unknown): boolean {
+  return isCodeOrMessage(err, ['phone_exists', 'user_already_exists'], /already (registered|exists)/i);
+}
+
+export type PhoneSignInFailure = 'wrong-credentials' | 'phone-not-confirmed' | 'other';
+
+/**
+ * Why a phone + password sign-in failed. An unconfirmed number means the
+ * sign-up's code was never entered: the screen sends a fresh one and takes the
+ * guest to the code step rather than blaming the password.
+ */
+export function classifyPhoneSignIn(err: unknown): PhoneSignInFailure {
+  if (isCodeOrMessage(err, ['invalid_credentials'], /invalid login credentials/i)) return 'wrong-credentials';
+  if (isCodeOrMessage(err, ['phone_not_confirmed'], /phone not confirmed/i)) return 'phone-not-confirmed';
+  return 'other';
+}
+
+/**
+ * Forgot password asked for a code to a number no account uses. GoTrue answers
+ * `otp_disabled` "Signups not allowed for otp" when shouldCreateUser is false —
+ * the SAME code as a switched-off provider, so the message decides.
+ */
+export function isNoAccountForPhone(err: unknown): boolean {
+  return /signups not allowed/i.test(errorMessageOf(err) ?? '');
 }

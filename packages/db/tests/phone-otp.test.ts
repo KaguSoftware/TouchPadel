@@ -16,6 +16,9 @@
  * change). Limits are restored and every row this file writes is removed in
  * afterAll.
  */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { stackAvailable, serviceClient, anonClient, signedInClient, appRpc, SEED_STAFF } from './helpers';
@@ -62,6 +65,30 @@ describe('phone normaliser: edge-function copy agrees with @touch/core', () => {
     expect(e164FromGotrue('9647701234567')).toBe('+9647701234567');
     expect(e164FromGotrue('')).toBeNull();
     expect(e164FromGotrue(undefined)).toBeNull();
+  });
+});
+
+// ── pure: the hook's HTTP status contract with GoTrue ───────────────────────
+describe('send-sms-otp index.ts answers every refusal with HTTP 200', () => {
+  // GoTrue relays `{ error: { http_code, message } }` only from a 200/202
+  // response; any other status becomes a generic 500 and the app loses the
+  // reason (observed on hosted 2026-09-15). 429/503 would also be retried.
+  const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../supabase/functions/send-sms-otp/index.ts'), 'utf8');
+
+  it('never sends hookError() with a non-200 status, except to a non-POST caller', () => {
+    const calls = [...src.matchAll(/json\(\s*hookError\(([^)]*)\)\s*,\s*([^)]+)\)/g)].map((m) => ({ args: m[1]!, status: m[2]!.trim() }));
+    const offenders = calls.filter((c) => c.status !== '200' && !c.args.includes('METHOD_NOT_ALLOWED'));
+    expect(offenders).toEqual([]);
+  });
+
+  it('routes every refusal through refuse(), which is pinned to 200', () => {
+    expect(src).toMatch(/function refuse\(httpCode: number, message: string\): Response \{\s*return json\(hookError\(httpCode, message\), 200\);/);
+    for (const reason of ['UNAUTHORIZED', 'BAD_REQUEST', 'SMS_SEND_FAILED']) {
+      expect(src).toContain(`refuse(`);
+      expect(src).toContain(`'${reason}'`);
+    }
+    expect(src).toContain('return refuse(statusForRefusal(reason), reason);');
+    expect(src).not.toMatch(/,\s*(401|400|403|429|500|503)\)\s*;/);
   });
 });
 

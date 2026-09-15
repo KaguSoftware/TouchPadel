@@ -245,7 +245,7 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
   // -------------------------------------------------------------------------
   // panel_headline
   // -------------------------------------------------------------------------
-  it('panel_headline: revenue = padel + cafe, both include the fixture, cash reconciles with payments - refunds', async () => {
+  it('panel_headline: revenue = padel + cafe net, both include the fixture, cash reconciles with payments - refunds', async () => {
     const res = await appRpc(owner, 'panel_headline', { p_from: from, p_to: to, p_compare: 'none' }).then(outcome);
     expect(res.ok, res.errorMessage).toBe(true);
     const d = res.data as { period: { from: string; to: string }; comparison: null; figures: Figure[] };
@@ -263,7 +263,8 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
       expect(f.changePct, f.key).toBeNull();
     }
 
-    expect(byKey.revenue!.value).toBe(byKey.padelRevenue!.value + byKey.cafeRevenue!.value);
+    // 0099: revenue counts the cafe after refunds, like the Analytics venue revenue tile.
+    expect(byKey.revenue!.value).toBe(byKey.padelRevenue!.value + byKey.cafeNet!.value);
     expect(byKey.padelRevenue!.value).toBeGreaterThanOrEqual(reservationPrice);
     expect(byKey.cafeRevenue!.value).toBeGreaterThanOrEqual(tabTotal);
     // 0096: cafeNet is the cafe figure after refunds, read from the same helper Analytics uses.
@@ -272,6 +273,12 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(byKey.bookings!.value).toBeGreaterThanOrEqual(1);
     expect(byKey.orders!.value).toBeGreaterThanOrEqual(1);
     expect(byKey.avgOrderValue!.value).toBe(Math.round(byKey.cafeRevenue!.value / byKey.orders!.value));
+
+    // 0099: the Analytics Cafe tab's waste is the panel's waste, day by day.
+    const dailyWaste = await appRpc(owner, 'analytics_daily_sales', { p_from: from, p_to: to }).then(outcome);
+    expect(dailyWaste.ok, dailyWaste.errorMessage).toBe(true);
+    const wasteSum = (dailyWaste.data as { waste_iqd: number }[]).reduce((s, r) => s + Number(r.waste_iqd), 0);
+    expect(wasteSum).toBe(byKey.waste!.value);
 
     // Raw truth for the same window (service role): every payment / refund.
     const { data: pays } = await svc
@@ -340,7 +347,8 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     }
     for (const r of d.rows) {
       expect(r.period >= from && r.period <= to, r.period).toBe(true);
-      expect(Number(r.totalIqd)).toBe(Number(r.padelIqd) + Number(r.cafeIqd));
+      // 0099: the total counts the cafe after refunds.
+      expect(Number(r.totalIqd)).toBe(Number(r.padelIqd) + Number(r.cafeNetIqd));
     }
     expect(d.rows.map((r) => r.period)).toEqual([...d.rows.map((r) => r.period)].sort());
 
@@ -542,6 +550,14 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(net.ok, net.errorMessage).toBe(true);
     const ntx = (net.data as { transactions: Drill[] }).transactions;
     expect(ntx.find((t) => t.id === tabId)?.amountIqd).toBe(tabTotal); // nothing refunded on this tab
+
+    // 0099: revenue lists each tab once, at its net amount, so its rows add up to the headline.
+    const rev = await appRpc(owner, 'report_drill', { p_figure: 'revenue', p_key: null, p_from: from, p_to: to }).then(outcome);
+    expect(rev.ok, rev.errorMessage).toBe(true);
+    const rtx = (rev.data as { transactions: Drill[] }).transactions;
+    expect(rtx.filter((t) => t.id === tabId)).toHaveLength(1);
+    expect(Number(rtx.find((t) => t.id === tabId)!.amountIqd)).toBe(Number(ntx.find((t) => t.id === tabId)!.amountIqd));
+    expect(rtx.some((t) => t.id === reservationId)).toBe(true);
 
     for (const fig of ['revenue', 'padelRevenue', 'cafeRevenue', 'cafeNet', 'cash', 'card']) {
       const m = await appRpc(manager, 'report_drill', { p_figure: fig, p_key: null, p_from: from, p_to: to }).then(outcome);

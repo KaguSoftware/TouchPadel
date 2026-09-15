@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatIraqiNational } from '@touch/core';
+import { displayPhone } from '../src/features/profile/phone';
 import { isolate } from '@touch/i18n';
 import { supabase } from '../src/lib/supabase';
-import { resendPhoneLink, sendPhoneOtp, verifyPhoneLink, verifyPhoneOtp } from '../src/features/auth/api';
+import {
+  resendPhoneLink,
+  resendSignUpCode,
+  sendPasswordResetCode,
+  verifyPhoneLink,
+  verifyPhoneOtp,
+} from '../src/features/auth/api';
 import {
   OTP_LENGTH,
   RESEND_COOLDOWN_S,
@@ -12,10 +18,9 @@ import {
   phoneOtpEnabled,
   sanitizeOtpInput,
 } from '../src/features/auth/phoneOtp';
-import { needsProfileCompletion } from '../src/features/auth/social';
 import { useAuth } from '../src/features/auth/context';
 import { RequireSession } from '../src/features/auth/RequireSession';
-import { fetchOwnProfile, updateOwnProfile } from '../src/features/profile/api';
+import { updateOwnProfile } from '../src/features/profile/api';
 import { profileKeys } from '../src/features/profile/hooks';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { useLocale } from '../src/i18n/LocaleProvider';
@@ -25,26 +30,32 @@ import { Button, ErrorText, FormScreen, Hint, LinkText, Screen, Title } from '..
 import { CodeInput } from '../src/components/CodeInput';
 import { useToast } from '../src/components/overlays';
 
-type Mode = 'signin' | 'link';
+type Mode = 'signup' | 'reset' | 'link';
 
 /**
- * Code entry (phone OTP — DORMANT vendor-addition scaffold 2026-09-05). Reached
- * from phone-sign-in with the E.164 number and the mode; a code was JUST sent,
- * so the resend cooldown starts on mount (same 30 s pattern as verify-email).
+ * Code entry. Reached with the E.164 number and the mode; a code was JUST
+ * sent, so the resend cooldown starts on mount (same 30 s pattern as
+ * verify-email).
  *
- *   signin  verifyOtp(type 'sms') -> the same post-auth continuation the email
- *           and social paths use, except a profile with no name (a first phone
- *           sign-up — the trigger has no email local part to fall back on) is
- *           routed to complete-profile first, exactly like a phone-less Apple
- *           sign-in (D3). No RequireNoSession here on purpose: the session
- *           lands mid-screen and the redirect would race the continuation
- *           (the verify-email precedent).
+ *   signup  verifyOtp(type 'sms') confirms the number of a phone + password
+ *           sign-up (app/sign-up.tsx, or sign-in finding it unconfirmed) and
+ *           returns the session -> the same post-auth continuation every other
+ *           path uses. The name and language came with the sign-up, so there
+ *           is no complete-profile step. This is the ONLY code a guest spends
+ *           to get in; later sign-ins are phone + password.
+ *   reset   verifyOtp(type 'sms') on a recovery code (app/forgot-password.tsx)
+ *           signs the guest in, then app/reset-password.tsx sets the new
+ *           password on that session.
  *   link    verifyOtp(type 'phone_change') on a signed-in account, then the
  *           verified number is written to profiles.phone too — it is the one
  *           the desk should be calling. Reached from Profile ("Verify phone
  *           number") and, with `from=edit`, from Edit profile's Save when the
  *           guest CHANGED their number — that save is not committed until the
  *           code lands here, so this write is what completes it.
+ *
+ * signup / reset carry no RequireNoSession on purpose: the session lands
+ * mid-screen and the redirect would race the continuation (the verify-email
+ * precedent).
  *
  * iOS fills the field from Messages (textContentType oneTimeCode); Android
  * needs the SMS Retriever hash in the message body for auto-read, which would
@@ -102,19 +113,13 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
         return;
       }
       await verifyPhoneOtp(supabase, phone, value);
-      const profile = await queryClient.fetchQuery({
-        queryKey: profileKeys.own,
-        queryFn: () => fetchOwnProfile(supabase),
-        staleTime: 0,
-      });
-      if (needsProfileCompletion(profile)) {
-        // First phone sign-up: no name yet. complete-profile's 'continue' mode
-        // runs continueAfterAuth() itself after the save (pending slot included).
-        toast(t('auth.welcomeToApp'), 'info');
-        router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
+      // The profile row was written at sign-up; drop any signed-out cache of it.
+      void queryClient.invalidateQueries({ queryKey: profileKeys.own });
+      if (mode === 'reset') {
+        router.replace('/reset-password');
         return;
       }
-      toast(t('auth.welcomeBack'), 'info');
+      toast(t('auth.welcomeToApp'), 'info');
       continueAfterAuth();
     } catch (err) {
       submitted.current = false;
@@ -131,7 +136,8 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
     setNotice(null);
     try {
       if (mode === 'link') await resendPhoneLink(supabase, phone);
-      else await sendPhoneOtp(supabase, phone);
+      else if (mode === 'reset') await sendPasswordResetCode(supabase, phone);
+      else await resendSignUpCode(supabase, phone);
       setNotice(t('auth.codeSentAgain'));
       setCooldownEnd(Date.now() + RESEND_COOLDOWN_S * 1000);
       setSecondsLeft(RESEND_COOLDOWN_S);
@@ -149,7 +155,7 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
       <Stack.Screen options={{ title: t('auth.otpTitle') }} />
       <FormScreen>
         <Title plain>{t('auth.otpTitle')}</Title>
-        <Hint style={{ marginTop: 8 }}>{t('auth.otpBody', { phone: isolate(formatIraqiNational(phone)) })}</Hint>
+        <Hint style={{ marginTop: 8 }}>{t('auth.otpBody', { phone: isolate(displayPhone(phone)) })}</Hint>
         <CodeInput
           label={t('auth.otpLabel')}
           value={code}
@@ -198,18 +204,17 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
 export default function VerifyOtpScreen() {
   const params = useLocalSearchParams<{ phone?: string; mode?: string; from?: string }>();
   const { session, initializing } = useAuth();
-  const mode: Mode = params.mode === 'link' ? 'link' : 'signin';
+  const mode: Mode = params.mode === 'link' ? 'link' : params.mode === 'reset' ? 'reset' : 'signup';
   const phone = typeof params.phone === 'string' ? params.phone : '';
-  if (!phoneOtpEnabled() || !phone) return <Redirect href={mode === 'link' ? '/(tabs)' : '/sign-in'} />;
   if (mode === 'link') {
+    if (!phoneOtpEnabled() || !phone) return <Redirect href="/(tabs)" />;
     return (
       <RequireSession>
         <VerifyOtpForm mode="link" phone={phone} from={params.from} />
       </RequireSession>
     );
   }
-  // Deliberately ungated (see the header); only a user who already holds a
-  // session BEFORE arriving is sent on — that is not this flow.
-  if (!initializing && session && !params.phone) return <Redirect href="/(tabs)" />;
-  return <VerifyOtpForm mode="signin" phone={phone} />;
+  if (!phone) return <Redirect href={!initializing && session ? '/(tabs)' : '/sign-in'} />;
+  // Deliberately ungated otherwise (see the header): the session lands here.
+  return <VerifyOtpForm mode={mode} phone={phone} />;
 }

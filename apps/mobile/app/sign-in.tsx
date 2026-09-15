@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
-import { signIn } from '../src/features/auth/api';
+import { resendSignUpCode, signInWithPhone } from '../src/features/auth/api';
 import { linkErrorParam } from '../src/features/auth/deepLink';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
-import { phoneOtpEnabled } from '../src/features/auth/phoneOtp';
+import { classifyPhoneSignIn, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
 import { SocialSignInBlock } from '../src/components/social';
+import { PhoneField } from '../src/components/phone';
+import { DEFAULT_ISO } from '../src/features/profile/phone';
 import { mapErrorToKey } from '../src/features/booking/errors';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space } from '../src/theme';
@@ -25,29 +27,31 @@ import {
 import { useToast } from '../src/components/overlays';
 
 /**
- * Sign in (design 2026-08-31). Errors are distinguished (spec 05.4): invalid
- * credentials render on the password field, an unverified email forwards to
- * the verification screen, and a transport failure renders as such below.
+ * Sign in: phone + password (owner decision 2026-09-15; email sign-in removed).
+ * No code is sent here — the number was confirmed once, at sign-up. Errors are
+ * distinguished (spec 05.4): wrong credentials render on the password field; a
+ * number whose sign-up code was never entered gets a fresh code and goes to
+ * the code step; anything else renders below.
  *
- * Continue with Apple / Google sit above the form (vendor addition 2026-09-01;
- * SOW L259-260 lists social sign-in as not included — email/password remains
- * the contractual path). Hidden where unavailable (Google in Expo Go).
+ * Continue with Apple / Google sit above the form (vendor addition 2026-09-01).
+ * Hidden where unavailable (Google in Expo Go).
  */
 function SignInScreen() {
   const { t } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
-  const [email, setEmail] = useState('');
+  const [iso, setIso] = useState(DEFAULT_ISO);
+  const [national, setNational] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // useAuthDeepLink lands here when a verification link is dead, so the user is
+  // useAuthDeepLink lands here when an old emailed link is dead, so the user is
   // told why instead of finding themselves back on sign-in for no visible reason.
   const linkError = linkErrorParam(useLocalSearchParams<{ authError?: string }>().authError);
-  const phoneOtp = phoneOtpEnabled();
-  // Same landing as the email path: welcome-back toast, then the pending slot
+  // Same landing as the phone path: welcome-back toast, then the pending slot
   // (hold + Review) or the tabs. A phone-less first social sign-in is routed to
   // complete-profile by the hook instead.
   const social = useSocialSignIn({
@@ -59,23 +63,36 @@ function SignInScreen() {
   });
 
   const onSubmit = async () => {
-    setBusy(true);
     setError(null);
+    setPhoneError(null);
     setPasswordError(null);
     social.clearError();
+    const { e164 } = validatePhoneInput(iso, national);
+    if (!e164) return setPhoneError(t(national.trim() ? 'auth.phoneOtpInvalid' : 'auth.phoneRequired'));
+    if (!password) return setPasswordError(t('auth.passwordRequired'));
+    setBusy(true);
     try {
-      await signIn(supabase, email, password);
+      await signInWithPhone(supabase, e164, password);
       toast(t('auth.welcomeBack'), 'info');
       // Pending slot -> hold + Review; otherwise the tabs.
       continueAfterAuth();
     } catch (err) {
-      const message = err instanceof Error ? err.message : '';
-      if (/invalid login credentials/i.test(message)) {
-        setPasswordError(t('auth.invalidCredentials'));
-      } else if (/email not confirmed/i.test(message)) {
-        router.push({ pathname: '/verify-email', params: { email } });
-      } else {
-        setError(t(mapErrorToKey(err)));
+      switch (classifyPhoneSignIn(err)) {
+        case 'wrong-credentials':
+          setPasswordError(t('auth.invalidCredentials'));
+          break;
+        case 'phone-not-confirmed':
+          // The sign-up's code was never entered. The password was right (GoTrue
+          // checks it first), so finishing the confirmation is all that is owed.
+          try {
+            await resendSignUpCode(supabase, e164);
+            router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signup' } });
+          } catch (resendErr) {
+            setError(t(mapOtpError(resendErr)));
+          }
+          break;
+        default:
+          setError(t(mapErrorToKey(err)));
       }
     } finally {
       setBusy(false);
@@ -86,35 +103,23 @@ function SignInScreen() {
     <Screen gutter={20} edges={[]}>
       <FormScreen>
         <Title plain>{t('auth.signIn')}</Title>
-        {/* Phone OTP — the default method when the flag is on (owner decision D4b, 2026-09-12): first and green;
-            social and email follow. Off unless EXPO_PUBLIC_PHONE_OTP=on, in which case nothing here renders. */}
-        {phoneOtp ? (
-          <Button
-            label={t('auth.continueWithPhone')}
-            onPress={() => router.push('/phone-sign-in')}
-            disabled={busy || holdBusy || social.busyProvider !== null}
-            variant="cta"
-            style={{ marginTop: 14 }}
-          />
-        ) : null}
         <SocialSignInBlock
           available={social.available}
           busyProvider={social.busyProvider}
           disabled={busy || holdBusy}
           onPress={(provider) => void social.signInWith(provider)}
-          style={{ marginTop: phoneOtp ? 10 : 14 }}
+          style={{ marginTop: 14 }}
         />
-        {hasSocial(social.available) || phoneOtp ? (
-          <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
+        {hasSocial(social.available) ? (
+          <LabeledDivider label={t('auth.orContinueWithPhone')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
-        <Field
-          placeholder={t('auth.emailLabel')}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoComplete="email"
-          textContentType="emailAddress"
-          style={{ marginTop: 6 }}
+        <PhoneField
+          placeholder={t('auth.phoneLabel')}
+          iso={iso}
+          onChangeIso={setIso}
+          national={national}
+          onChangeNational={setNational}
+          error={phoneError}
         />
         <Field
           placeholder={t('auth.passwordLabel')}

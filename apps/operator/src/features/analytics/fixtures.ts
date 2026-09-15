@@ -19,7 +19,7 @@ export const COMPARE_RANGE = { from: '2026-08-25', to: '2026-08-31' } as const;
 
 type Json = Record<string, unknown>;
 
-/** One business day: cafe net 100,000; gross 110,000; refunds 10,000; court fees 40,000; cash + card = 140,000. */
+/** One business day: cafe net 100,000; gross 110,000; refunds 10,000; court fees 40,000; cash + card = 140,000; waste 3,000. */
 function day(date: string, scale = 1): Json {
   return {
     business_date: date,
@@ -42,6 +42,7 @@ function day(date: string, scale = 1): Json {
     guest_orders: 4,
     till_orders: 8,
     waiter_calls: 2,
+    waste_iqd: 3000 * scale,
   };
 }
 

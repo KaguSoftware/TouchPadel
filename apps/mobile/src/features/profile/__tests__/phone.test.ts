@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   COUNTRIES,
+  displayPhone,
+  PRIMARY_BY_DIAL,
   DEFAULT_ISO,
   composePhone,
   countryByIso,
@@ -79,6 +81,31 @@ describe('parsePhone', () => {
     // +964 must not be shortened to +96 or +9 by a first-match scan.
     expect(parsePhone('+9647701234567').iso).toBe('IQ');
     expect(parsePhone('+447700900123').iso).toBe('GB');
+  });
+
+  it('resolves a shared dial code to its main country, never an alphabetically earlier territory', () => {
+    expect(parsePhone('+447700900123').iso).toBe('GB'); // not Guernsey / Isle of Man / Jersey
+    expect(parsePhone('+390612345678').iso).toBe('IT'); // not Vatican City
+    expect(parsePhone('+61412345678').iso).toBe('AU'); // not Christmas / Cocos Islands
+    expect(parsePhone('+79161234567').iso).toBe('KZ'); // unchanged from before the full list
+    expect(parsePhone('+14155552671').iso).toBe('CA'); // unchanged from before the full list
+  });
+
+  it('every shared dial code has a main country that exists and uses that code', () => {
+    const byDial = new Map<string, string[]>();
+    for (const c of COUNTRIES) byDial.set(c.dial, [...(byDial.get(c.dial) ?? []), c.iso]);
+    for (const [dial, isos] of byDial) {
+      if (isos.length < 2) continue;
+      expect(PRIMARY_BY_DIAL[dial], `shared +${dial}: ${isos.join(', ')}`).toBeDefined();
+      expect(isos).toContain(PRIMARY_BY_DIAL[dial]);
+    }
+  });
+
+  it('covers the whole world: every inhabited country a guest could dial from is pickable', () => {
+    expect(COUNTRIES.length).toBeGreaterThanOrEqual(240);
+    for (const iso of ['BR', 'MX', 'NG', 'KE', 'AR', 'VN', 'PH', 'BD', 'ET', 'CL', 'XK', 'SS']) {
+      expect(countryByIso(iso).iso, iso).toBe(iso);
+    }
   });
 
   it('keeps the digits of an unattributable + number rather than dropping them', () => {
@@ -262,6 +289,16 @@ describe('input helpers', () => {
   });
 });
 
+describe('displayPhone', () => {
+  it('shows the country code then the national grouping, for any country', () => {
+    expect(displayPhone('+9647701234567')).toBe('+964 770 123 4567');
+    expect(displayPhone('+447700900123')).toBe('+44 7700 900123');
+    expect(displayPhone('+14155552671')).toBe('+1 (415) 555 2671');
+    expect(displayPhone('')).toBe('');
+    expect(displayPhone(null)).toBe('');
+  });
+});
+
 describe('phoneChangeNeedsCode', () => {
   const IQ = '+9647701234567';
   const OTHER = '+9647509876543';
@@ -270,9 +307,11 @@ describe('phoneChangeNeedsCode', () => {
     expect(phoneChangeNeedsCode({ enabled: false, current: IQ, next: OTHER })).toBe(false);
   });
 
-  it('asks when an Iraqi mobile actually changes', () => {
+  it('asks when the number actually changes, from any country (gate open worldwide 2026-09-15)', () => {
     expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: OTHER })).toBe(true);
     expect(phoneChangeNeedsCode({ enabled: true, current: null, next: OTHER })).toBe(true);
+    expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: '+905551234567' })).toBe(true);
+    expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: '+447700900123' })).toBe(true);
   });
 
   it('spends nothing when the number is unchanged, however it was written', () => {
@@ -281,11 +320,8 @@ describe('phoneChangeNeedsCode', () => {
     }
   });
 
-  it('skips the code for a number the SMS gate could never deliver to', () => {
-    // Non-Iraqi, and an Iraqi landline: allowed_prefixes / the mobile rule
-    // refuse both, so demanding a code would make the field unsaveable.
-    expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: '+905551234567' })).toBe(false);
-    expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: '+9641234567' })).toBe(false);
+  it('skips the code for something that is not a number at all (validatePhone rejects it)', () => {
+    expect(phoneChangeNeedsCode({ enabled: true, current: IQ, next: '+964123' })).toBe(false);
   });
 
   it('treats an empty new number as nothing to verify (validatePhone rejects it)', () => {

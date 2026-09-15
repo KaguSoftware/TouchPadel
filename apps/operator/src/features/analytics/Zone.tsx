@@ -72,7 +72,7 @@ const headRow: CSSProperties = {
   paddingBlockEnd: 'var(--tp-sp-1-5)',
 };
 
-export function Zone({ zone, children }: { zone: ZoneDef; children: ReactNode }) {
+export function Zone({ zone, actions, children }: { zone: ZoneDef; /** Controls at the end of the heading row (the Pulse CSV). */ actions?: ReactNode; children: ReactNode }) {
   const { tr } = useLocale();
   const title = tr(zone.titleKey);
   return (
@@ -87,6 +87,7 @@ export function Zone({ zone, children }: { zone: ZoneDef; children: ReactNode })
           {title}
         </h2>
         <InfoTip content={tr(zone.descKey)} label={tr('ws.analytics.tips.about', { title })} />
+        {actions && <span style={{ marginInlineStart: 'auto' }}>{actions}</span>}
       </div>
       {children}
     </section>

@@ -116,6 +116,14 @@ export interface Kpis {
   cardIqd: number;
   discountIqd: number;
   refundsIqd: number;
+  /** Stock written off, at cost (the panel's waste figure). */
+  wasteIqd: number;
+  /** Cafe revenue before refunds (the panel's cafe revenue). */
+  cafeGrossIqd: number;
+  /** Orders placed, voided left out. */
+  orders: number;
+  /** Cafe revenue before refunds over orders, rounded; 0 with no orders (the panel's average order value). */
+  avgOrderValueIqd: number;
   qrOrders: number;
   tillOrders: number;
   /** QR orders over all orders; pct null under the twenty-order floor. */
@@ -128,7 +136,7 @@ export interface Kpis {
   basketToCallSample: number;
 }
 
-export type KpiKey = 'sales' | 'tabs' | 'cashCard' | 'discounts' | 'refunds' | 'qrShare' | 'views' | 'median' | 'calls' | 'basket';
+export type KpiKey = 'sales' | 'tabs' | 'cashCard' | 'discounts' | 'refunds' | 'waste' | 'orders' | 'avgOrderValue' | 'qrShare' | 'views' | 'median' | 'calls' | 'basket';
 
 export interface Derived {
   names: ItemNames;
@@ -155,6 +163,11 @@ export interface Derived {
   salesVsEngagement: SalesVsEngagementDay[];
   basis: DataBasis;
   categoryNames: Map<string, { nameEn: string; nameAr: string }>;
+}
+
+/** The panel's average order value: cafe revenue before refunds over orders, rounded; 0 with no orders. */
+export function avgOrderValue(cafeGrossIqd: number, orders: number): number {
+  return orders > 0 ? Math.round(cafeGrossIqd / orders) : 0;
 }
 
 export function sumBy<T>(rows: readonly T[], pick: (r: T) => number): number {
@@ -217,6 +230,13 @@ export function derive(raw: RawAnalytics): Derived {
   const discountPrev = sumBy(raw.dailyPrev, (d) => d.discountIqd);
   const refundsIqd = sumBy(raw.daily, (d) => d.refundsIqd);
   const refundsPrev = sumBy(raw.dailyPrev, (d) => d.refundsIqd);
+  const wasteIqd = sumBy(raw.daily, (d) => d.wasteIqd);
+  const wastePrev = sumBy(raw.dailyPrev, (d) => d.wasteIqd);
+  const cafeGrossIqd = sumBy(raw.daily, (d) => d.cafeGrossIqd);
+  const orders = sumBy(raw.daily, (d) => d.orders);
+  const ordersPrev = sumBy(raw.dailyPrev, (d) => d.orders);
+  const avgOrderValueIqd = avgOrderValue(cafeGrossIqd, orders);
+  const avgOrderValuePrev = avgOrderValue(sumBy(raw.dailyPrev, (d) => d.cafeGrossIqd), ordersPrev);
   const qrOrders = sumBy(raw.daily, (d) => d.guestOrders);
   const tillOrders = sumBy(raw.daily, (d) => d.tillOrders);
   const qrShare = rateOrCount(qrOrders, qrOrders + tillOrders);
@@ -231,6 +251,10 @@ export function derive(raw: RawAnalytics): Derived {
     cardIqd,
     discountIqd,
     refundsIqd,
+    wasteIqd,
+    cafeGrossIqd,
+    orders,
+    avgOrderValueIqd,
     qrOrders,
     tillOrders,
     qrShare,
@@ -250,6 +274,9 @@ export function derive(raw: RawAnalytics): Derived {
     cashCard: pctDelta(cashIqd + cardIqd, cashCardPrev),
     discounts: pctDelta(discountIqd, discountPrev),
     refunds: pctDelta(refundsIqd, refundsPrev),
+    waste: pctDelta(wasteIqd, wastePrev),
+    orders: pctDelta(orders, ordersPrev),
+    avgOrderValue: ordersPrev > 0 ? pctDelta(avgOrderValueIqd, avgOrderValuePrev) : null,
     // A rate: whole points, never a percentage of a percentage; null under either floor.
     qrShare: qrShare.pct != null && qrSharePrev.pct != null ? Math.round(qrShare.pct - qrSharePrev.pct) : null,
     views: engDelta(views, prev ? sumBy(prev.dailyEngagement, (d) => d.views) : undefined),

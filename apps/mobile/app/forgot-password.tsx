@@ -1,40 +1,52 @@
 import { useState } from 'react';
-import { View } from 'react-native';
-import { Text } from '../src/i18n/text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Text } from '../src/i18n/text';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { supabase } from '../src/lib/supabase';
-import { sendPasswordReset } from '../src/features/auth/api';
-import { resetRedirect } from '../src/features/auth/redirects';
+import { sendPasswordResetCode } from '../src/features/auth/api';
 import { linkErrorParam } from '../src/features/auth/deepLink';
-import { mapErrorToKey } from '../src/features/booking/errors';
+import { isNoAccountForPhone, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
+import { DEFAULT_ISO } from '../src/features/profile/phone';
 import { useLocale } from '../src/i18n/LocaleProvider';
-import { radius, space, useTheme } from '../src/theme';
-import { Button, ErrorText, Field, FormScreen, Screen, Title } from '../src/components/ui';
+import { space, useTheme } from '../src/theme';
+import { PhoneField } from '../src/components/phone';
+import { Button, ErrorText, FormScreen, Screen, Title } from '../src/components/ui';
 
 /**
- * Forgot password (design 2026-08-31). The submitted state deliberately does
- * NOT disclose whether the account exists (spec 05.7).
+ * Forgot password, by phone (2026-09-15; the emailed reset link went with
+ * email sign-in). A WhatsApp code to the account's number signs the guest in
+ * (app/verify-otp.tsx, mode reset), and app/reset-password.tsx then sets the
+ * new password on that session. Also how an account made by the old
+ * code-only phone sign-in gets its first password.
+ *
+ * A number no account uses is said plainly: sign-up already refuses a taken
+ * number, so hiding it here would protect nothing and strand a guest who
+ * picked the wrong country code.
  */
 function ForgotPasswordScreen() {
   const { t } = useLocale();
   const { colors, fonts } = useTheme();
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [iso, setIso] = useState(DEFAULT_ISO);
+  const [national, setNational] = useState('');
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Where useAuthDeepLink sends a dead recovery link — a new one is one tap away.
+  // Where useAuthDeepLink sends a dead recovery link from an old email.
   const linkError = linkErrorParam(useLocalSearchParams<{ authError?: string }>().authError);
 
   const onSubmit = async () => {
-    setBusy(true);
     setError(null);
+    setFieldError(null);
+    const { e164 } = validatePhoneInput(iso, national);
+    if (!e164) return setFieldError(t(national.trim() ? 'auth.phoneOtpInvalid' : 'auth.phoneRequired'));
+    setBusy(true);
     try {
-      await sendPasswordReset(supabase, email, resetRedirect());
-      setSent(true);
+      await sendPasswordResetCode(supabase, e164);
+      router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'reset' } });
     } catch (err) {
-      setError(t(mapErrorToKey(err)));
+      if (isNoAccountForPhone(err)) setFieldError(t('auth.resetNoAccount'));
+      else setError(t(mapOtpError(err)));
     } finally {
       setBusy(false);
     }
@@ -46,71 +58,39 @@ function ForgotPasswordScreen() {
         <Title plain size={24}>
           {t('auth.resetPasswordTitle')}
         </Title>
-        {sent ? (
-          <>
-            <View
-              style={{
-                marginTop: space.m,
-                backgroundColor: colors.gtint,
-                borderWidth: 1,
-                borderColor: colors.gline,
-                borderRadius: radius.button,
-                padding: space.m,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: fonts.body400,
-                  fontSize: 13,
-                  lineHeight: 21,
-                  color: colors.gtext2,
-                }}
-              >
-                {t('auth.resetSubmitted')}
-              </Text>
-            </View>
-            <Button
-              label={t('auth.backToSignIn')}
-              variant="secondary"
-              size="medium"
-              // A dead recovery link lands here with no history beneath it.
-              onPress={() => router.replace('/sign-in')}
-              style={{ marginTop: space.sm }}
-            />
-          </>
-        ) : (
-          <>
-            <Text
-              style={{
-                fontFamily: fonts.body400,
-                fontSize: 13,
-                lineHeight: 20,
-                color: colors.mut,
-                marginTop: 8,
-              }}
-            >
-              {t('auth.forgotIntro')}
-            </Text>
-            <Field
-              placeholder={t('auth.emailLabel')}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoComplete="email"
-              textContentType="emailAddress"
-              style={{ marginTop: 2 }}
-              onSubmitEditing={() => void onSubmit()}
-            />
-            <ErrorText>{error ?? (linkError ? t(linkError) : null)}</ErrorText>
-            <Button
-              label={t('auth.sendResetLink')}
-              onPress={() => void onSubmit()}
-              busy={busy}
-              variant="primary"
-              style={{ marginTop: space.sm }}
-            />
-          </>
-        )}
+        <Text
+          style={{
+            fontFamily: fonts.body400,
+            fontSize: 13,
+            lineHeight: 20,
+            color: colors.mut,
+            marginTop: 8,
+          }}
+        >
+          {t('auth.forgotIntro')}
+        </Text>
+        <PhoneField
+          placeholder={t('auth.phoneLabel')}
+          iso={iso}
+          onChangeIso={(next) => {
+            setIso(next);
+            setFieldError(null);
+          }}
+          national={national}
+          onChangeNational={(next) => {
+            setNational(next);
+            setFieldError(null);
+          }}
+          error={fieldError}
+        />
+        <ErrorText>{error ?? (linkError ? t(linkError) : null)}</ErrorText>
+        <Button
+          label={t('auth.sendCode')}
+          onPress={() => void onSubmit()}
+          busy={busy}
+          variant="primary"
+          style={{ marginTop: space.sm }}
+        />
       </FormScreen>
     </Screen>
   );

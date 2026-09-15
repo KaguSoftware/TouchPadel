@@ -10,11 +10,16 @@ import { LocaleProvider } from '../../lib/i18n';
 const navigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
+vi.mock('../../lib/settings', () => ({
+  useCafeSettings: () => ({ isSuccess: true, isError: false, settings: { analytics_business_day_start_hour: 4 } }),
+}));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   appRpc: vi.fn(),
 }));
 
+import { VENUE_TZ } from '@touch/i18n';
+import { addDays, businessTodayISO } from '@touch/core';
 import { appRpc } from '../../lib/appRpc';
 import { ManagementPanelScreen } from './ManagementPanel';
 
@@ -46,6 +51,14 @@ describe('ManagementPanelScreen — four states', () => {
     expect(rpc).toHaveBeenCalledWith('panel_headline', expect.objectContaining({ p_compare: 'previousPeriod' }));
   });
 
+  it('opens on the window Analytics opens on: the last 30 days, ending on the business day', () => {
+    rpc.mockReturnValue(new Promise(() => {}));
+    renderPanel();
+    const today = businessTodayISO(new Date(), 4, VENUE_TZ);
+    expect(rpc).toHaveBeenCalledWith('panel_headline', { p_from: addDays(today, -29), p_to: today, p_compare: 'previousPeriod' });
+    expect(screen.getByRole('button', { name: 'Last 30 days', pressed: true })).toBeTruthy();
+  });
+
   it('ready: renders the server figures verbatim, with comparison', async () => {
     rpc.mockResolvedValue({
       figures: [
@@ -74,8 +87,8 @@ describe('ManagementPanelScreen — four states', () => {
     renderPanel();
     expect(await screen.findByText('No trading in this period')).toBeTruthy();
     expect(screen.getByText('Nothing was sold or booked between these dates. Pick another period.')).toBeTruthy();
-    // The empty state offers a wider range on top of the preset strip.
-    expect(screen.getAllByRole('button', { name: 'Last 30 days' }).length).toBeGreaterThan(1);
+    // The default is already the last 30 days, so the way out is last month, on top of the preset strip.
+    expect(screen.getAllByRole('button', { name: 'Last month' }).length).toBeGreaterThan(1);
   });
 
   it('error: surfaces the failure with a retry', async () => {

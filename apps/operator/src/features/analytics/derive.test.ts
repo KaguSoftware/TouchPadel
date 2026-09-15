@@ -34,15 +34,20 @@ function raw(over: Partial<RawAnalytics> = {}): RawAnalytics {
 }
 
 describe('derive: pulse figures', () => {
-  it('sums the settle-day money rows: net sales, cash and card, discounts, refunds', () => {
+  it('sums the settle-day money rows: net sales, cash and card, discounts, refunds, waste', () => {
     const d = derive(raw());
-    expect(d.kpis).toMatchObject({ salesIqd: 700000, tabs: 70, cashIqd: 630000, cardIqd: 350000, discountIqd: 35000, refundsIqd: 70000, waiterCalls: 14 });
+    expect(d.kpis).toMatchObject({ salesIqd: 700000, tabs: 70, cashIqd: 630000, cardIqd: 350000, discountIqd: 35000, refundsIqd: 70000, wasteIqd: 21000, waiterCalls: 14 });
     // cash + card = gross + court fees − refunds, per day and so in total.
     expect(d.kpis.cashIqd + d.kpis.cardIqd).toBe(7 * (110000 + 40000 - 10000));
     expect(d.deltas.sales).toBe(25);
     expect(d.deltas.cashCard).toBe(25);
     expect(d.deltas.discounts).toBe(25);
     expect(d.deltas.refunds).toBe(25);
+    expect(d.deltas.waste).toBe(25);
+    // The panel's cafe figures: gross before refunds, orders, and gross over orders.
+    expect(d.kpis).toMatchObject({ cafeGrossIqd: 770000, orders: 84, avgOrderValueIqd: 9167 });
+    expect(d.deltas.orders).toBe(0);
+    expect(d.deltas.avgOrderValue).toBe(25);
   });
 
   it('reports the QR share as a rate above the twenty-order floor and as a count below it', () => {

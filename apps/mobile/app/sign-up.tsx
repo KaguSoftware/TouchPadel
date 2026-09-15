@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
-import { phoneOtpEnabled } from '../src/features/auth/phoneOtp';
+import { isPhoneTaken, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
 import type { Locale } from '@touch/i18n';
 import { supabase } from '../src/lib/supabase';
-import { signUp, validateSignUp } from '../src/features/auth/api';
-import { verifyRedirect } from '../src/features/auth/redirects';
+import { signUpWithPhone, validateSignUp } from '../src/features/auth/api';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
-import { mapErrorToKey } from '../src/features/booking/errors';
+import { classifyUpdateFailure } from '../src/features/profile/changePasswordFlow';
 import { useLocale } from '../src/i18n/LocaleProvider';
 import { space } from '../src/theme';
 import {
@@ -25,41 +24,39 @@ import {
   Title,
 } from '../src/components/ui';
 import { PhoneField } from '../src/components/phone';
-import { composePhone, DEFAULT_ISO, validatePhone } from '../src/features/profile/phone';
+import { DEFAULT_ISO } from '../src/features/profile/phone';
 import { SocialSignInBlock } from '../src/components/social';
 import { useToast } from '../src/components/overlays';
 
+type FieldErrors = { firstName?: string; lastName?: string; phone?: string; password?: string };
+
 /**
- * Create account (design 2026-08-31): name · email · password · phone ·
- * preferred language — four fields in the design's order, no confirm-password
- * (spec 05.3). Validation renders on the field it concerns.
+ * Create account. Phone is the only way to make one (owner decision
+ * 2026-09-15; email sign-up removed): first name · surname · phone · password
+ * · preferred language. Submitting sends ONE WhatsApp code to confirm the
+ * number (app/verify-otp.tsx, mode signup); every later sign-in is phone +
+ * password with no code. Validation renders on the field it concerns, in the
+ * form's order.
  *
- * Continue with Apple / Google sit above the form (vendor addition 2026-09-01;
- * SOW L259-260 lists social sign-in as not included). A social sign-up needs no
- * email verification — provider emails are verified — so it never lands on
- * verify-email; a missing phone is collected on complete-profile instead.
+ * Continue with Apple / Google sit above the form (vendor addition 2026-09-01).
+ * A social sign-up has no phone, so complete-profile collects one before the
+ * first booking.
  */
 function SignUpScreen() {
   const { t, locale, setLocale } = useLocale();
   const router = useRouter();
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  // Country + national digits; `signUp` receives the composed E.164.
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  // Country + national digits; the API receives the composed E.164.
   const [iso, setIso] = useState(DEFAULT_ISO);
   const [national, setNational] = useState('');
+  const [password, setPassword] = useState('');
   const [preferredLang, setPreferredLang] = useState<Locale>(locale);
   const [busy, setBusy] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<{
-    name?: string;
-    email?: string;
-    password?: string;
-    phone?: string;
-  }>({});
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
   const { continueAfterAuth, holdBusy } = usePostAuthContinue();
-  const phoneOtp = phoneOtpEnabled();
   const social = useSocialSignIn({
     onComplete: () => {
       toast(t('auth.welcomeBack'), 'info');
@@ -72,26 +69,28 @@ function SignUpScreen() {
     setError(null);
     setFieldErrors({});
     social.clearError();
-    const phone = composePhone(iso, national);
-    const invalid = validateSignUp({ fullName, email, password, phone });
-    if (invalid === 'NAME_REQUIRED') return setFieldErrors({ name: t('auth.nameRequired') });
-    if (invalid === 'EMAIL_INVALID') return setFieldErrors({ email: t('auth.emailInvalid') });
-    if (invalid === 'PASSWORD_TOO_SHORT') return setFieldErrors({ password: t('auth.passwordTooShort') });
+    const invalid = validateSignUp({ firstName, lastName, phoneNational: national, password });
+    if (invalid === 'FIRST_NAME_REQUIRED') return setFieldErrors({ firstName: t('auth.firstNameRequired') });
+    if (invalid === 'LAST_NAME_REQUIRED') return setFieldErrors({ lastName: t('auth.lastNameRequired') });
     if (invalid === 'PHONE_REQUIRED') return setFieldErrors({ phone: t('auth.phoneRequired') });
-    if (invalid) return setError(t('errors.validation'));
-    // Length check runs LAST so the field order of the form is the order the
-    // guest is corrected in — name, email, password, then the phone.
-    if (validatePhone(iso, national)) return setFieldErrors({ phone: t('auth.phoneInvalid') });
+    const { e164 } = validatePhoneInput(iso, national);
+    // A code to a number that cannot be one is paid for; stop at the field.
+    if (!e164) return setFieldErrors({ phone: t('auth.phoneOtpInvalid') });
+    if (invalid === 'PASSWORD_TOO_SHORT') return setFieldErrors({ password: t('auth.passwordTooShort') });
     setBusy(true);
     try {
-      await signUp(supabase, { fullName, email, phone, password, preferredLang }, verifyRedirect());
+      await signUpWithPhone(supabase, { firstName, lastName, phone: e164, password, preferredLang });
       // The chosen language becomes the app language — strings, faces and
       // layout direction switch in one commit, under a short crossfade, before
-      // the verify screen comes up.
+      // the code screen comes up.
       await setLocale(preferredLang);
-      router.replace({ pathname: '/verify-email', params: { email } });
+      router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signup' } });
     } catch (err) {
-      setError(t(mapErrorToKey(err)));
+      if (isPhoneTaken(err)) return setFieldErrors({ phone: t('auth.phoneTaken') });
+      if (classifyUpdateFailure(err) === 'weak-password') {
+        return setFieldErrors({ password: t('auth.passwordTooShort') });
+      }
+      setError(t(mapOtpError(err)));
     } finally {
       setBusy(false);
     }
@@ -101,50 +100,42 @@ function SignUpScreen() {
     <Screen gutter={20} edges={[]}>
       <FormScreen>
         <Title plain>{t('auth.signUp')}</Title>
-        {/* Phone OTP — the default method when the flag is on (owner decision D4b, 2026-09-12). A phone
-            sign-up IS the phone sign-in flow (GoTrue creates the account on first verify), so the same
-            screen serves both. Off unless EXPO_PUBLIC_PHONE_OTP=on, in which case nothing here renders. */}
-        {phoneOtp ? (
-          <Button
-            label={t('auth.continueWithPhone')}
-            onPress={() => router.push('/phone-sign-in')}
-            disabled={busy || holdBusy || social.busyProvider !== null}
-            variant="cta"
-            style={{ marginTop: 14 }}
-          />
-        ) : null}
         <SocialSignInBlock
           available={social.available}
           busyProvider={social.busyProvider}
           disabled={busy || holdBusy}
           onPress={(provider) => void social.signInWith(provider)}
-          style={{ marginTop: phoneOtp ? 10 : 14 }}
+          style={{ marginTop: 14 }}
         />
-        {hasSocial(social.available) || phoneOtp ? (
-          <LabeledDivider label={t('auth.orContinueWithEmail')} style={{ marginTop: 18, marginBottom: 4 }} />
+        {hasSocial(social.available) ? (
+          <LabeledDivider label={t('auth.orContinueWithPhone')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
         <Field
-          placeholder={t('auth.fullNameLabel')}
-          value={fullName}
-          onChangeText={setFullName}
+          placeholder={t('auth.firstNameLabel')}
+          value={firstName}
+          onChangeText={setFirstName}
           autoCapitalize="words"
-          autoComplete="name"
-          textContentType="name"
-          error={fieldErrors.name}
+          autoComplete="given-name"
+          textContentType="givenName"
+          error={fieldErrors.firstName}
           style={{ marginTop: 6 }}
         />
         <Field
-          placeholder={t('auth.emailLabel')}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoComplete="email"
-          textContentType="emailAddress"
-          importantForAutofill="yes"
-          autoCorrect={false}
-          spellCheck={false}
-          secureTextEntry={false}
-          error={fieldErrors.email}
+          placeholder={t('auth.lastNameLabel')}
+          value={lastName}
+          onChangeText={setLastName}
+          autoCapitalize="words"
+          autoComplete="family-name"
+          textContentType="familyName"
+          error={fieldErrors.lastName}
+        />
+        <PhoneField
+          placeholder={t('auth.phoneLabel')}
+          iso={iso}
+          onChangeIso={setIso}
+          national={national}
+          onChangeNational={setNational}
+          error={fieldErrors.phone}
         />
         <Field
           placeholder={t('auth.passwordMinPlaceholder')}
@@ -154,14 +145,6 @@ function SignUpScreen() {
           autoComplete="new-password"
           textContentType="newPassword"
           error={fieldErrors.password}
-        />
-        <PhoneField
-          placeholder={t('auth.phoneLabel')}
-          iso={iso}
-          onChangeIso={setIso}
-          national={national}
-          onChangeNational={setNational}
-          error={fieldErrors.phone}
         />
         <View style={{ marginTop: space.sm }}>
           <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>

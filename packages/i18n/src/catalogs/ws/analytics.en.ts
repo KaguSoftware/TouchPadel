@@ -40,6 +40,7 @@ export const analyticsEn = {
       attachRate: 'Cafe attach',
       revPerOpenHourShort: 'Per open hour',
       nOfN: '{n} of {total}',
+      noShowsCount: '{n} no-shows',
     },
     cards: {
       heatmap: 'Occupancy by weekday and hour',
@@ -297,12 +298,33 @@ export const analyticsEn = {
       cashCard: 'Cash and card taken on the tabs settled in the period, refunds taken off. Court fees paid on a cafe tab are included, so the two add up to the money that reached the till.',
       discounts: 'Whole-tab and line discounts stamped on the tabs settled in the period, as the bills showed them.',
       refunds: 'Refunds against the tabs settled in the period, whenever they were made.',
+      orders: 'Orders placed in the period, from the till and the QR menu, voided orders left out. The same figure as Orders on the management panel.',
+      avgOrderValue: 'Cafe revenue before refunds divided by orders. The same figure as Average order value on the management panel.',
+      waste: 'Stock written off in the period (spills, spoilage, expired stock and lines voided after they were made), at what the stock cost. The same figure as Waste on the management panel.',
       qrShare: 'Orders placed from the QR menu as a share of all orders (QR plus till). Shown as a count until there are twenty orders.',
       views: 'Menu item views on the QR menu.',
       median: 'Median length of a guest menu session.',
       calls: 'Waiter calls raised from the QR menu, counted from the till database.',
       basketToCall: 'Guest sessions that built a basket and then called a waiter or ordered, as a share of sessions with a basket.',
     },
+  },
+  // Cafe sales tile: the figure before refunds, as the management panel shows it.
+  grossNote: '{amount} before refunds',
+  // A pulse tile opens the transactions behind it (report_drill), as the management panel does.
+  drill: {
+    open: 'Transactions',
+    openAria: 'Open the transactions behind {figure}',
+    title: '{figure} — transactions',
+    cash: 'Cash',
+    card: 'Card',
+  },
+  // The Pulse zone's CSV: one row per tile figure.
+  pulseCsv: {
+    figure: 'Figure',
+    value: 'Value',
+    previous: 'Previous',
+    changeAbs: 'Change',
+    changePct: 'Change %',
   },
   // Venue revenue on both pulse rows.
   venue: {
