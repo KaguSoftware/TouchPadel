@@ -6,7 +6,7 @@
  * pair (lift 3.3, well over the 1.3 floor), no promo, a few till hours. Test-only: nothing here is imported by
  * the app.
  */
-import type { SqlKey } from './useAnalyticsData';
+import type { SqlKey } from './shape';
 
 export const ITEM_LATTE = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 export const ITEM_KAHI = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';

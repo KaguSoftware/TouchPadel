@@ -8,6 +8,13 @@
 import type { ItemRef } from '@touch/core';
 import type { PosthogQueryResult } from '../../lib/analyticsApi';
 
+/**
+ * The named SQL queries of the cafe tab. Lives here, not in useAnalyticsData,
+ * so the fixtures (and packages/db's insights-fallback test) can name a query
+ * without pulling the React hook and its component imports into their graph.
+ */
+export type SqlKey = 'dailySales' | 'dailySalesPrev' | 'soldItems' | 'bestSellers' | 'boughtTogether' | 'itemMargins' | 'promo' | 'menuSnapshot' | 'hourly';
+
 export const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
   return Number.isFinite(n) ? n : 0;

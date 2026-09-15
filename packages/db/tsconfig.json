@@ -4,7 +4,19 @@
     "types": ["node"],
     // Edge-function modules import each other with explicit `.ts` (Deno's rule);
     // the vitest suites that import their PURE halves pull those in transitively.
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    // tests/insights-fallback.test.ts feeds the REAL operator payload builders into
+    // the edge fallback. @touch/i18n is not a dependency of this package, so it is
+    // mapped to source here exactly as vitest.config.ts aliases it.
+    "paths": {
+      "@touch/i18n": ["../i18n/src/index.ts"]
+    }
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "vitest.config.ts",
+    // Those builders reach apps/operator/src/lib/supabase.ts, which reads import.meta.env.
+    "../../apps/operator/src/vite-env.d.ts"
+  ]
 }

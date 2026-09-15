@@ -151,7 +151,7 @@ async function revokeAppleIfNeeded(
   if (!fx.reauthApple || !fx.revokeApple) return { status: 'unsupported', error: null };
   const failed = (err: unknown, step: string) => ({
     status: 'failed' as const,
-    error: `${step}: ${err instanceof Error ? err.message : String(err)}`,
+    error: `${step}: ${err instanceof Error ? err.message : String(err)}`, // QUIET-ERROR-OK: appleRevokeError is telemetry only (captureException in delete-account.tsx), never shown
   });
 
   let reauth: AppleReauth;

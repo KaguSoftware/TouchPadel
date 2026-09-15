@@ -57,14 +57,15 @@ import {
   type RawAnalytics,
 } from './derive';
 import * as S from './shape';
+import type { SqlKey } from './shape';
 
 /** Deep pool: the conversion table and the momentum join both want more than the top 10. */
 const TOP_LIMIT = 80;
 
 export const ANALYTICS_KEY = 'analytics';
 
-/** The named SQL queries of the cafe tab; the query keys below are `[ANALYTICS_KEY, <name>, from, to]`. */
-export type SqlKey = 'dailySales' | 'dailySalesPrev' | 'soldItems' | 'bestSellers' | 'boughtTogether' | 'itemMargins' | 'promo' | 'menuSnapshot' | 'hourly';
+/** The named SQL queries of the cafe tab (defined in ./shape); the query keys below are `[ANALYTICS_KEY, <name>, from, to]`. */
+export type { SqlKey };
 export const SQL_KEYS: readonly SqlKey[] = ['dailySales', 'dailySalesPrev', 'soldItems', 'bestSellers', 'boughtTogether', 'itemMargins', 'promo', 'menuSnapshot', 'hourly'];
 
 export type QueryStatus = 'loading' | 'ready' | 'error';
