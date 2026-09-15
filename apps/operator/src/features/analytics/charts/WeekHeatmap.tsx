@@ -24,6 +24,10 @@ export interface HeatValue {
   value: number;
   /** `false` hatches the cell (venue closed); default open. */
   open?: boolean;
+  /** Under the sample floor: painted muted, never the peak, and read out with `label`. */
+  thin?: boolean;
+  /** Readout text for a thin cell ("3 of 7") in place of the formatted value. */
+  label?: string;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
@@ -51,7 +55,7 @@ export function WeekHeatmap({
 }) {
   const { tr } = useLocale();
   const byKey = new Map(cells.map((c) => [`${c.dow}:${c.hour}`, c]));
-  const max = cells.reduce((m, c) => Math.max(m, c.open === false ? 0 : c.value), 0);
+  const max = cells.reduce((m, c) => Math.max(m, c.open === false || c.thin ? 0 : c.value), 0);
   const [active, setActive] = useState<string | null>(null);
   const activeCell = active ? byKey.get(active) : undefined;
   const activeParts = active?.split(':').map(Number) ?? [];
@@ -62,7 +66,9 @@ export function WeekHeatmap({
     ? `${weekdayName(tr, activeDow)} ${f.hour(activeHour)} · ${
         activeCell?.open === false
           ? tr('ws.analytics.heatmap.closed')
-          : `${format(activeCell?.value ?? 0)}${max > 0 ? ` · ${tr('ws.analytics.heatmap.ofPeak', { pct: f.pct(((activeCell?.value ?? 0) / max) * 100) })}` : ''}`
+          : activeCell?.thin
+            ? (activeCell.label ?? format(activeCell.value))
+            : `${format(activeCell?.value ?? 0)}${max > 0 ? ` · ${tr('ws.analytics.heatmap.ofPeak', { pct: f.pct(((activeCell?.value ?? 0) / max) * 100) })}` : ''}`
       }`
     : hint;
 
@@ -131,18 +137,23 @@ function Row({
         const key = `${dow}:${hour}`;
         const cell = byKey.get(key);
         const closed = cell?.open === false;
+        const thin = Boolean(cell?.thin);
         const value = closed ? 0 : (cell?.value ?? 0);
-        const peak = max > 0 && value === max;
+        const peak = !thin && max > 0 && value === max;
         const isActive = active === key;
         return (
           <span
             key={hour}
+            data-dow={dow}
+            data-hour={hour}
+            data-thin={thin ? 'true' : undefined}
             onPointerEnter={() => onActive(key)}
             style={{
               blockSize: '1.1rem',
               ...(closed
                 ? closedGround
-                : { background: peak ? HEAT_RAMP[HEAT_RAMP.length - 1] : heatColor(max > 0 ? value / max : 0) }),
+                : { background: peak ? HEAT_RAMP[HEAT_RAMP.length - 1] : heatColor(max > 0 ? Math.min(1, value / max) : 0) }),
+              opacity: thin ? 0.35 : undefined,
               border: `1px solid ${isActive ? 'var(--tp-accent)' : GRID}`,
               borderRadius: '2px',
               boxShadow: isActive ? '0 0 0 1px var(--tp-accent)' : undefined,

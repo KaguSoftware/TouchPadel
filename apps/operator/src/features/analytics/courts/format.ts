@@ -14,12 +14,12 @@ export function rateText(tr: Tr, f: Formatters, pct: number | null, n: number, d
 }
 
 export function hoursText(f: Formatters, minutes: number): string {
-  return f.num(Math.round(minutes / 6) / 10);
+  return f.num1(minutes / 60);
 }
 
 /** A span in minutes as people say it: "45 min", "5.5 h", "2 days". */
 export function spanText(tr: Tr, f: Formatters, minutes: number): string {
   if (minutes < 90) return tr('ws.analytics.courts.units.minutesShort', { n: f.num(Math.round(minutes)) });
-  if (minutes < 48 * 60) return tr('ws.analytics.courts.units.hoursShort', { n: f.num(Math.round(minutes / 6) / 10) });
-  return tr('ws.analytics.courts.units.daysShort', { n: f.num(Math.round(minutes / 144) / 10) });
+  if (minutes < 48 * 60) return tr('ws.analytics.courts.units.hoursShort', { n: f.num1(minutes / 60) });
+  return tr('ws.analytics.courts.units.daysShort', { n: f.num1(minutes / 1440) });
 }

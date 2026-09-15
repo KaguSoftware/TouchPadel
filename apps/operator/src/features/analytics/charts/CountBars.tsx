@@ -14,6 +14,8 @@ export interface CountBarRow {
   value: number;
   /** Force emphasis (defaults to the maximum value). */
   highlight?: boolean;
+  /** Under the sample floor: painted muted and never the peak. */
+  thin?: boolean;
 }
 
 export function CountBars({
@@ -35,11 +37,12 @@ export function CountBars({
   emphasise?: 'max' | 'rows' | 'none';
 }) {
   const { dir } = useLocale();
-  const max = rows.reduce((m, r) => Math.max(m, r.value), 0);
+  const max = rows.reduce((m, r) => (r.thin ? m : Math.max(m, r.value)), 0);
   const data = rows.map((r) => ({
     label: r.label,
     value: r.value,
-    peak: emphasise === 'rows' ? Boolean(r.highlight) : emphasise === 'max' ? max > 0 && r.value === max : false,
+    thin: Boolean(r.thin),
+    peak: r.thin ? false : emphasise === 'rows' ? Boolean(r.highlight) : emphasise === 'max' ? max > 0 && r.value === max : false,
   }));
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -55,7 +58,7 @@ export function CountBars({
         />
         <Bar dataKey="value" name={name} radius={[2, 2, 0, 0]} maxBarSize={24}>
           {data.map((d, i) => (
-            <Cell key={`${d.label}-${i}`} fill={emphasise === 'none' ? HIGHLIGHT : d.peak ? HIGHLIGHT : BAR_MUTED} />
+            <Cell key={`${d.label}-${i}`} fill={d.thin ? BAR_MUTED : emphasise === 'none' ? HIGHLIGHT : d.peak ? HIGHLIGHT : BAR_MUTED} fillOpacity={d.thin ? 0.35 : 1} />
           ))}
         </Bar>
       </BarChart>

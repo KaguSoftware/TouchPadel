@@ -6,7 +6,7 @@
  * channel must never be colour alone. A 1px surface stroke stands in for the
  * 2px gap between segments that dataviz asks for.
  */
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useLocale } from '../../../lib/i18n';
 import { AXIS, BAR_CURSOR, GRID, SERIES, SURFACE } from './colors';
 
@@ -15,7 +15,7 @@ export interface StackedSeries {
   name: string;
 }
 
-export type StackedRow = { label: string } & Record<string, number | string>;
+export type StackedRow = { label: string } & Record<string, number | string | boolean>;
 
 export function StackedBars({
   rows,
@@ -23,6 +23,7 @@ export function StackedBars({
   format,
   tickFontSize = 11,
   interval = 0,
+  thinKey,
 }: {
   rows: readonly StackedRow[];
   /** At most three; order fixes the hue. */
@@ -30,6 +31,8 @@ export function StackedBars({
   format: (n: number) => string;
   tickFontSize?: number;
   interval?: number;
+  /** A boolean row field: rows where it is true are painted muted (a thin sample, not a small value). */
+  thinKey?: string;
 }) {
   const { dir } = useLocale();
   return (
@@ -56,7 +59,11 @@ export function StackedBars({
             strokeWidth={1}
             maxBarSize={24}
             radius={i === series.length - 1 ? [2, 2, 0, 0] : undefined}
-          />
+          >
+            {rows.map((r, j) => (
+              <Cell key={`${s.key}-${j}`} fillOpacity={thinKey && r[thinKey] === true ? 0.35 : 1} />
+            ))}
+          </Bar>
         ))}
       </BarChart>
     </ResponsiveContainer>

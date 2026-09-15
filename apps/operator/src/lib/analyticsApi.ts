@@ -10,6 +10,7 @@
  *  - SQL: jsonb-returning `app.analytics_*` (owner|manager; business day and
  *    exclusions applied server-side from cafe_settings).
  */
+import type { CafeInsightsPayload, CourtsInsightsPayload, InsightWire, InsightsScope, JudgedPatternWire, PatternCandidateWire } from '@touch/core';
 import type { Json } from '@touch/db';
 import { appRpc } from './appRpc';
 import { callEdge, type CallEdgeOptions } from './edge';
@@ -73,97 +74,37 @@ export function posthogQueries(
 }
 
 // ---------------------------------------------------------------------------
-// analytics-insights
+// analytics-insights — the contract lives in @touch/core (insightsContract.ts,
+// byte-shared with the edge function); this file re-exports it under the
+// names the operator has always used, so the page and the model read one type.
 // ---------------------------------------------------------------------------
+export type {
+  CafeInsightsPayload,
+  CourtsInsightsPayload,
+  EndingSegmentWire,
+  InsightConfidence,
+  InsightKind,
+  InsightsScope,
+  InsightWire,
+  JudgedPatternWire,
+  PatternCandidateWire,
+} from '@touch/core';
 export type InsightsMode = 'insights' | 'patterns' | 'revalidate' | 'replace_rejected';
-export type InsightKind =
-  | 'profit'
-  | 'conversion'
-  | 'pricing'
-  | 'movement'
-  | 'structural'
-  | 'summary'
-  // Courts scope (migration 0094 / edge scope 'courts').
-  | 'occupancy'
-  | 'reliability'
-  | 'demand'
-  | 'attach';
-/** Which tab's data a request or a stored set belongs to. Missing = 'cafe' (the original page). */
-export type InsightsScope = 'cafe' | 'courts';
-export type InsightConfidence = 'high' | 'medium' | 'low';
-
-export interface Insight {
-  text: string;
-  kind: InsightKind;
-  subjects: string[];
-  metrics: Record<string, number | string>;
-  confidence: InsightConfidence;
-  /** revalidate: 'ongoing' (still true) | 'new'; other modes 'new'. */
-  status?: 'ongoing' | 'new';
-}
-
-/** Candidate as the edge function expects it (core `PatternCandidate` is a superset). */
-export interface PatternCandidateWire {
-  id: string;
-  kind: string;
-  subjects: string[];
-  metrics: Record<string, number | string>;
-  confidence: InsightConfidence;
-  sampleLabel: string;
-  desc?: string;
-  hint?: string;
-  fallbackText: string;
-}
-
-export interface JudgedPattern {
-  id: string;
-  text: string;
-  kind: string;
-  subjects: string[];
-  metrics: Record<string, number | string>;
-  confidence: InsightConfidence;
-  sampleLabel: string;
+/** One finding as the card shows it and the table stores it. */
+export type Insight = InsightWire;
+/** A candidate the judge kept, with its sentence. */
+export type JudgedPattern = JudgedPatternWire;
+/** The cafe tab's `data` block. */
+export type InsightsData = CafeInsightsPayload;
+/** The courts tab's `data` block: aggregates and display names only, never an identifier. */
+export type CourtsInsightsData = CourtsInsightsPayload;
+/** `patterns` mode reads only the candidates and the owner's rejections; the edge treats every other block as empty. */
+export interface PatternsOnlyData {
+  rejections: string[];
+  patterns: PatternCandidateWire[];
 }
 
 export type JsonRow = Record<string, unknown>;
-
-export interface InsightsData {
-  kpis: JsonRow;
-  daily: JsonRow[];
-  best_sellers: JsonRow[];
-  margins: JsonRow | null;
-  bought_together: JsonRow[];
-  price_bands: JsonRow[];
-  promo: JsonRow | null;
-  engagement?: JsonRow;
-  prior_insights?: string[];
-  rejections: string[];
-  patterns?: PatternCandidateWire[];
-  basis?: { salesDays: number; weekdayCounts: { day: number; days: number }[] } | null;
-  excluded_names?: string[];
-  compare?: JsonRow;
-  coverage?: JsonRow;
-}
-
-/** The courts tab's `data` block: aggregates and display names only, never an identifier. */
-export interface CourtsInsightsData {
-  kpis: JsonRow;
-  compare?: JsonRow;
-  coverage?: JsonRow;
-  basis: { salesDays: number; weekdayCounts: { day: number; days: number }[] } | null;
-  per_court: JsonRow[];
-  by_day: JsonRow[];
-  heatmap_top: JsonRow[];
-  heatmap_bottom: JsonRow[];
-  demand: JsonRow;
-  endings: JsonRow;
-  guests: JsonRow | null;
-  cafe: JsonRow | null;
-  patterns?: PatternCandidateWire[];
-  prior_insights?: string[];
-  rejections: string[];
-  excluded_names: string[];
-}
 
 export interface InsightsRequest {
   mode: InsightsMode;
@@ -173,7 +114,7 @@ export interface InsightsRequest {
   compare_basis: 'prev' | '4w' | '52w';
   /** Defaults to 'cafe' on the server, so older clients keep working. */
   scope?: InsightsScope;
-  data: InsightsData | CourtsInsightsData;
+  data: InsightsData | CourtsInsightsData | PatternsOnlyData;
 }
 
 export interface InsightsResponse {
@@ -217,12 +158,14 @@ export const analyticsRpc = {
   promo: (from: string, to: string) => appRpc<Json>('analytics_promo', { p_from: from, p_to: to }),
   menuSnapshot: () => appRpc<Json>('analytics_menu_snapshot', {}),
 
+  /** `courtId` (0098): the Courts tab's filter; null = the venue-wide set. Only with scope 'courts'. */
   saveInsights: (args: {
     from: string;
     to: string;
     basis: 'prev' | '4w' | '52w';
     locale: 'ar' | 'en';
     scope: InsightsScope;
+    courtId?: string | null;
     insights: Insight[];
   }) =>
     appRpc<string>('save_analytics_insights', {
@@ -231,14 +174,16 @@ export const analyticsRpc = {
       p_compare_basis: args.basis,
       p_locale: args.locale,
       p_scope: args.scope,
+      p_court_id: args.courtId ?? null,
       p_insights: args.insights,
     }),
-  savePatterns: (args: { from: string; to: string; locale: 'ar' | 'en'; scope: InsightsScope; patterns: JudgedPattern[] }) =>
+  savePatterns: (args: { from: string; to: string; locale: 'ar' | 'en'; scope: InsightsScope; courtId?: string | null; patterns: JudgedPattern[] }) =>
     appRpc<string>('save_analytics_patterns', {
       p_range_from: args.from,
       p_range_to: args.to,
       p_locale: args.locale,
       p_scope: args.scope,
+      p_court_id: args.courtId ?? null,
       p_patterns: args.patterns,
     }),
   rejectInsight: (text: string, reason?: string) =>
@@ -280,22 +225,25 @@ function asArray<T>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
 }
 
+/** A stored set belongs to one court or to the venue (court_id NULL); a court's set never shows venue-wide, nor the reverse. */
 export async function fetchStoredInsights(
   from: string,
   to: string,
   basis: string,
   locale: string,
   scope: InsightsScope = 'cafe',
+  courtId: string | null = null,
   limit = 6,
 ): Promise<StoredInsightsRow[]> {
-  const { data, error } = await supabase
+  const q = supabase
     .from('analytics_insights')
     .select('id, created_at, range_from, range_to, compare_basis, locale, insights')
     .eq('range_from', from)
     .eq('range_to', to)
     .eq('compare_basis', basis)
     .eq('locale', locale)
-    .eq('scope', scope)
+    .eq('scope', scope);
+  const { data, error } = await (courtId ? q.eq('court_id', courtId) : q.is('court_id', null))
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw new Error(error.message);
@@ -307,14 +255,16 @@ export async function fetchStoredPatterns(
   to: string,
   locale: string,
   scope: InsightsScope = 'cafe',
+  courtId: string | null = null,
 ): Promise<StoredPatternsRow | null> {
-  const { data, error } = await supabase
+  const q = supabase
     .from('analytics_patterns')
     .select('id, created_at, range_from, range_to, locale, patterns')
     .eq('range_from', from)
     .eq('range_to', to)
     .eq('locale', locale)
-    .eq('scope', scope)
+    .eq('scope', scope);
+  const { data, error } = await (courtId ? q.eq('court_id', courtId) : q.is('court_id', null))
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

@@ -86,6 +86,7 @@ export const reportsAr: DeepMessages<typeof reportsEn> = {
     revenue_iqd: 'الإيراد',
     padel_iqd: 'البادل',
     cafe_iqd: 'المقهى',
+    cafe_net_iqd: 'صافي المقهى',
     cash_iqd: 'نقدًا',
     card_iqd: 'بطاقة',
     bookings: 'الحجوزات',

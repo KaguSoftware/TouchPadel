@@ -84,6 +84,7 @@ export const reportsEn = {
     revenue_iqd: 'Revenue',
     padel_iqd: 'Padel',
     cafe_iqd: 'Cafe',
+    cafe_net_iqd: 'Cafe net',
     cash_iqd: 'Cash',
     card_iqd: 'Card',
     bookings: 'Bookings',

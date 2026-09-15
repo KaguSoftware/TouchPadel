@@ -1,6 +1,6 @@
 /** 08 Court and cafe: what bookings buy from the cafe, from tabs the till linked to a booking. */
 import { useState } from 'react';
-import { pickLocale } from '@touch/core';
+import { MIN_RATE_DENOM, pickLocale } from '@touch/core';
 import { useLocale } from '../../../../lib/i18n';
 import { Select } from '../../../../components/ui';
 import { DataTable, type Column } from '../../../../components/kit';
@@ -48,12 +48,36 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
     courtFee: c.bookedMinutes > 0 ? Math.round((c.courtIqd * 60) / c.bookedMinutes) : 0,
     cafe: c.bookedMinutes > 0 ? Math.round((c.cafeIqd * 60) / c.bookedMinutes) : 0,
   }));
-  const attachCells = (cafe?.attachCells ?? []).map((c) => ({ dow: c.dow, hour: c.hour, value: c.liveBookings > 0 ? (c.linkedBookings / c.liveBookings) * 100 : 0 }));
+  // Twenty-booking floor: a cell or group under it is muted and reads as "n of N".
+  const nOfN = (n: number, total: number) => tr('ws.analytics.courts.kpi.nOfN', { n: f.num(n), total: f.num(total) });
+  const attachCells = (cafe?.attachCells ?? []).map((c) => ({
+    dow: c.dow,
+    hour: c.hour,
+    value: c.liveBookings > 0 ? (c.linkedBookings / c.liveBookings) * 100 : 0,
+    thin: c.liveBookings < MIN_RATE_DENOM,
+    label: nOfN(c.linkedBookings, c.liveBookings),
+  }));
   const playersRows = (cafe?.byPlayers ?? []).map((p) => ({
     label: p.players == null ? tr('ws.analytics.courts.buckets.players.unknown') : p.players === 1 ? tr('ws.analytics.courts.buckets.players.one') : tr('ws.analytics.courts.buckets.players.n', { n: f.num(p.players) }),
     value: p.linked > 0 ? Math.round(p.cafeIqd / p.linked) : 0,
+    thin: p.linked < MIN_RATE_DENOM,
+    linked: p.linked,
   }));
-  const durationRows = (cafe?.byDuration ?? []).map((d) => ({ label: tr('ws.analytics.courts.buckets.duration', { n: f.num(d.durationMin) }), value: d.linked > 0 ? Math.round(d.cafeIqd / d.linked) : 0 }));
+  const durationRows = (cafe?.byDuration ?? []).map((d) => ({
+    label: tr('ws.analytics.courts.buckets.duration', { n: f.num(d.durationMin) }),
+    value: d.linked > 0 ? Math.round(d.cafeIqd / d.linked) : 0,
+    thin: d.linked < MIN_RATE_DENOM,
+    linked: d.linked,
+  }));
+  const spendTwin = (rows: readonly { label: string; value: number; linked: number }[], labelHeader: string, file: string) => ({
+    columns: [
+      { key: 'label', label: labelHeader },
+      { key: 'value', label: tr('ws.analytics.cross.perLinked'), numeric: true },
+      { key: 'linked', label: tr('ws.analytics.courts.units.bookings'), numeric: true },
+    ],
+    rows: rows.map((r) => ({ label: r.label, value: r.value, linked: r.linked })),
+    file,
+  });
 
   const [orderCourt, setOrderCourt] = useState<string>('');
   const courtForOrders = orderCourt || selectedCourtId || courts[0]?.courtId || '';
@@ -148,7 +172,7 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
           emptyKey={emptyKey}
           height={230}
           twin={heatTwin(
-            [...attachCells].sort((a, b) => a.dow - b.dow || a.hour - b.hour).map((c) => ({ day: weekdayName(tr, c.dow), hour: f.hour(c.hour), value: Math.round(c.value) })),
+            [...attachCells].sort((a, b) => a.dow - b.dow || a.hour - b.hour).map((c) => ({ day: weekdayName(tr, c.dow), hour: f.hour(c.hour), value: c.thin ? c.label : Math.round(c.value) })),
             tr('ws.reports.filters.group'),
             tr('ws.analytics.courts.cards.byHour'),
             tr('ws.analytics.courts.kpi.attachRate'),
@@ -167,7 +191,7 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
             refreshing={refreshing}
             emptyKey={cardState === 'ready' && !noLinks && !noBookings ? 'ws.analytics.courts.empty.players' : emptyKey}
             height={180}
-            twin={barTwin(playersRows, tr('ws.analytics.courts.cards.players'), tr('ws.analytics.cross.perLinked'), `cafe-spend-by-players-${rangeLabel}`)}
+            twin={spendTwin(playersRows, tr('ws.analytics.courts.cards.players'), `cafe-spend-by-players-${rangeLabel}`)}
           >
             <CountBars rows={playersRows} format={(n) => f.compact(n)} name={tr('ws.analytics.cross.perLinked')} emphasise="none" />
           </ChartCard>
@@ -178,7 +202,7 @@ export function CrossSection({ raw, state, refreshing, f, rangeLabel, selectedCo
             refreshing={refreshing}
             emptyKey={emptyKey}
             height={180}
-            twin={barTwin(durationRows, tr('ws.analytics.courts.cards.duration'), tr('ws.analytics.cross.perLinked'), `cafe-spend-by-duration-${rangeLabel}`)}
+            twin={spendTwin(durationRows, tr('ws.analytics.courts.cards.duration'), `cafe-spend-by-duration-${rangeLabel}`)}
           >
             <CountBars rows={durationRows} format={(n) => f.compact(n)} name={tr('ws.analytics.cross.perLinked')} emphasise="none" />
           </ChartCard>

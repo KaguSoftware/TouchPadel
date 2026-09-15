@@ -172,7 +172,7 @@ export function CashDrawerScreen() {
   ];
 
   return (
-    <div style={{ maxInlineSize: 'var(--tp-measure-wide)' }}>
+    <div>
       <PageHeader
         title={tr('ws.cashier.drawer.title')}
         subtitle={tr('ws.cashier.drawer.lead')}

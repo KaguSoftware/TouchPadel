@@ -46,6 +46,7 @@ export type CourtKpiKey =
   | 'occupancy'
   | 'revenue'
   | 'revPerOpenHour'
+  | 'pricePerBookedHour'
   | 'cancellationRate'
   | 'noShowRate'
   | 'attachRate';
@@ -113,12 +114,12 @@ function pointDelta(cur: number | null, prev: number | null): number | null {
   return cur == null || prev == null ? null : Math.round(cur - prev);
 }
 
-/** A heat cell's open minutes are ONE court's; the venue books every court in that hour. */
-function cells(heat: readonly CourtsHeatCell[], courts: number): OccupancyCell[] {
+/** A heat cell's open minutes are VENUE-WIDE since 0097 (every court in courts_in, summed): no rescaling here. */
+function cells(heat: readonly CourtsHeatCell[]): OccupancyCell[] {
   return heat.map((c) => ({
     dow: c.dow,
     hour: c.hour,
-    occupancyPct: pct(c.bookedMinutes, c.openMinutes * courts),
+    occupancyPct: pct(c.bookedMinutes, c.openMinutes),
     bookings: c.bookings,
     bookedMinutes: c.bookedMinutes,
     openMinutes: c.openMinutes,
@@ -127,7 +128,7 @@ function cells(heat: readonly CourtsHeatCell[], courts: number): OccupancyCell[]
   }));
 }
 
-function rollupBy<K extends 'hour' | 'dow'>(heat: readonly CourtsHeatCell[], key: K, size: number, courts: number) {
+function rollupBy<K extends 'hour' | 'dow'>(heat: readonly CourtsHeatCell[], key: K, size: number) {
   const out = Array.from({ length: size }, (_, i) => ({ [key]: i, bookings: 0, bookedMinutes: 0, openMinutes: 0 }) as Record<K, number> & {
     bookings: number;
     bookedMinutes: number;
@@ -138,7 +139,7 @@ function rollupBy<K extends 'hour' | 'dow'>(heat: readonly CourtsHeatCell[], key
     if (!row) continue;
     row.bookings += c.bookings;
     row.bookedMinutes += c.bookedMinutes;
-    row.openMinutes += c.openMinutes * courts;
+    row.openMinutes += c.openMinutes;
   }
   return out.map((r) => ({ ...r, occupancyPct: pct(r.bookedMinutes, r.openMinutes) }));
 }
@@ -147,8 +148,6 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
   const { summary, endings, guests, cafe, summaryPrev, cafePrev } = raw;
   const k = summary.kpis;
   const kp = summaryPrev?.kpis ?? null;
-  // With a court filter the RPC reports one court; without it, every active court.
-  const courts = Math.max(1, raw.courtId ? 1 : summary.courtsCount);
 
   const bookingDates = summary.byDay.filter((d) => d.bookings > 0).map((d) => d.date);
   const bookingDatesPrev = (summaryPrev?.byDay ?? []).filter((d) => d.bookings > 0).map((d) => d.date);
@@ -187,6 +186,7 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
     occupancy: rate(k.occupancyPct, kp?.occupancyPct),
     revenue: money(k.revenueIqd, kp?.revenueIqd),
     revPerOpenHour: money(k.revPerOpenHourIqd ?? 0, kp?.revPerOpenHourIqd),
+    pricePerBookedHour: money(k.pricePerBookedHourIqd ?? 0, kp?.pricePerBookedHourIqd),
     cancellationRate: rate(k.cancellationRatePct, kp?.cancellationRatePct),
     noShowRate: rate(k.noShowRatePct, kp?.noShowRatePct),
     attachRate: rate(cafe.attach.attachPct, cafePrev?.attach.attachPct),
@@ -210,7 +210,9 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
       courtsCount: summary.courtsCount,
       perCourt: summary.perCourt.map((c) => ({ courtId: c.courtId, bookings: c.bookings, bookedTotal: c.bookedTotal, cancellations: c.cancellations, noShows: c.noShows })),
       endings: {
-        cancellations: { ...segs(endings.cancellations), byNotice: endings.cancellations.byNotice.map((n) => ({ key: n.bucket, n: n.n, bookingsTotal: endings.cancellations.total })) },
+        // by_notice is a share OF cancellations, not a rate of bookings: it never
+        // feeds the ending-cluster miner, whose ratio needs a booked total.
+        cancellations: segs(endings.cancellations),
         noShows: segs(endings.noShows),
         cancellationsTotal: endings.cancellations.total,
         noShowsTotal: endings.noShows.total,
@@ -244,9 +246,9 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
     compareReliable,
     noOpeningHours: summary.openMinutes === 0,
     deltas,
-    cells: cells(summary.heatmap, courts),
-    byHour: rollupBy(summary.heatmap, 'hour', 24, courts),
-    byDow: rollupBy(summary.heatmap, 'dow', 7, courts),
+    cells: cells(summary.heatmap),
+    byHour: rollupBy(summary.heatmap, 'hour', 24),
+    byDow: rollupBy(summary.heatmap, 'dow', 7),
     patterns,
     courtNames,
     itemNames,

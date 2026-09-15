@@ -268,7 +268,7 @@ test.describe('operator cafe admin', () => {
     // Sales come from OUR till data, so this KPI must render even with no
     // PostHog project — that is the whole "sales-only mode" contract.
     // exact: the tile's info tooltips are always in the DOM and open with the same words.
-    await expect(page.getByText('Item sales', { exact: true })).toBeVisible();
+    await expect(page.getByText('Cafe sales', { exact: true })).toBeVisible();
     await expect(
       page.getByText('Guest analytics are not configured yet', { exact: false }).first(),
     ).toBeVisible();

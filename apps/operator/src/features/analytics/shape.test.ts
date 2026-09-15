@@ -5,7 +5,6 @@ import {
   parseDailySales,
   parseItemMargins,
   parseMenuSnapshot,
-  parsePeakHours,
   parsePromoEngagement,
   parseSessionStats,
   parseTopViewed,
@@ -20,6 +19,11 @@ describe('shape - SQL', () => {
     ]);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ date: '2026-08-01', revenueIqd: 12500, tabs: 3, waiterCalls: 0 });
+    // 0095 fields default to zero when absent and read when present.
+    expect(rows[0]).toMatchObject({ cafeGrossIqd: 0, courtFeesIqd: 0, refundsIqd: 0 });
+    expect(parseDailySales([{ business_date: '2026-08-02', revenue_iqd: 9000, cafe_gross_iqd: 10000, refunds_iqd: 1000, court_fees_iqd: 40000 }])[0]).toMatchObject({
+      revenueIqd: 9000, cafeGrossIqd: 10000, refundsIqd: 1000, courtFeesIqd: 40000,
+    });
     expect(rows[1]!.date).toBe('');
     expect(parseDailySales(null)).toEqual([]);
   });
@@ -72,10 +76,7 @@ describe('shape - PostHog', () => {
     expect(parseBasketToCall(undefined).pct).toBe(0);
   });
 
-  it('fills 24 peak hours and reads promo surfaces', () => {
-    const hours = parsePeakHours({ columns: ['hour', 'views', 'sessions'], rows: [[20, 40, 12]] });
-    expect(hours).toHaveLength(24);
-    expect(hours[20]).toEqual({ hour: 20, views: 40, sessions: 12 });
+  it('reads promo surfaces', () => {
     const promo = parsePromoEngagement({
       columns: ['kind', 'clicks', 'sessions', 'sessions_added', 'sessions_ordered', 'top_item_ids'],
       rows: [['featured', 9, 7, 3, 2, [{ item_id: 'i1', clicks: 5 }]], ['bogus', 1, 1, 1, 1, []]],

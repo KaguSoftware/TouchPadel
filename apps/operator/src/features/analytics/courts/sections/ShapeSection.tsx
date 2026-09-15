@@ -2,7 +2,6 @@
 import { useLocale } from '../../../../lib/i18n';
 import { ChartCard } from '../../charts/ChartCard';
 import { CountBars } from '../../charts/CountBars';
-import { ShareBars } from '../../charts/ShareBars';
 import { StackedBars } from '../../charts/StackedBars';
 import { barTwin, seriesTwin } from '../../charts/twins';
 import { ZoneGrid } from '../../Zone';
@@ -21,8 +20,8 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
     { key: 'mobile', name: tr('ws.analytics.courts.series.mobile') },
     { key: 'desk', name: tr('ws.analytics.courts.series.desk') },
   ];
-  // Bookings by start hour split by channel, from the summary heat cells (one
-  // source, no second RPC): the split itself comes from the sources block.
+  // The lead-time buckets split by channel: how far ahead app bookings are made
+  // against desk bookings, from the demand block (one source, no second RPC).
   const sourceRows = (demand?.leadTime.buckets ?? []).map((b) => ({ label: shortBucket(tr, 'byLeadTime', b.bucket), mobile: b.mobile, desk: b.desk }));
   const playersRows = (demand?.players.rows ?? []).map((p) => ({
     label: p.players == null ? tr('ws.analytics.courts.buckets.players.unknown') : p.players === 1 ? tr('ws.analytics.courts.buckets.players.one') : tr('ws.analytics.courts.buckets.players.n', { n: f.num(p.players) }),
@@ -30,24 +29,30 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
   }));
   const playersKnownPct = demand && demand.players.known + demand.players.unknown > 0 ? (demand.players.known / (demand.players.known + demand.players.unknown)) * 100 : 0;
   const playersEmpty = state === 'ready' && (demand?.players.known ?? 0) === 0;
-  const seriesSegments = demand
-    ? [
-        { key: 'standing', label: tr('ws.analytics.courts.series.standing'), value: demand.series.seriesBookings },
-        { key: 'single', label: tr('ws.analytics.courts.series.single'), value: demand.series.singleBookings },
-      ]
-    : [];
   const funnel = demand?.holdFunnel;
+  // Revenue per booked hour, per length: the twin's third column and the card's note.
+  const durationTwin = {
+    columns: [
+      { key: 'label', label: tr('ws.analytics.courts.cards.duration') },
+      { key: 'value', label: tr('ws.analytics.courts.units.bookings'), numeric: true },
+      { key: 'perHour', label: tr('ws.analytics.courts.cards.revPerBookedHour'), numeric: true },
+    ],
+    rows: (demand?.durations ?? []).map((d) => ({ label: tr('ws.analytics.courts.buckets.duration', { n: f.num(d.durationMin) }), value: d.bookings, perHour: d.revenuePerHourIqd })),
+    file: `durations-${rangeLabel}`,
+  };
+  const durationNote = (demand?.durations ?? []).filter((d) => d.revenuePerHourIqd != null).map((d) => `${tr('ws.analytics.courts.buckets.duration', { n: f.num(d.durationMin) })}: ${f.money(d.revenuePerHourIqd ?? 0)}`);
   return (
     <>
       <ZoneGrid columns={3}>
         <ChartCard
           title={tr('ws.analytics.courts.cards.duration')}
           tip={tr('ws.analytics.courts.tips.duration')}
+          note={durationNote.length > 0 ? `${tr('ws.analytics.courts.cards.revPerBookedHour')} · ${durationNote.join(' · ')}` : undefined}
           state={empty ? 'empty' : state}
           refreshing={refreshing}
           emptyKey="ws.analytics.courts.empty.bookings"
           height={200}
-          twin={barTwin(durationRows, tr('ws.analytics.courts.cards.duration'), tr('ws.analytics.courts.units.bookings'), `durations-${rangeLabel}`)}
+          twin={durationTwin}
         >
           <CountBars rows={durationRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.bookings')} />
         </ChartCard>
@@ -114,11 +119,6 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
           />
         </div>
       </div>
-      {seriesSegments.length > 0 && demand && demand.series.seriesBookings > 0 && (
-        <div style={{ marginBlockStart: 'var(--tp-sp-3)', maxInlineSize: '40rem' }}>
-          <ShareBars segments={seriesSegments} format={(n) => f.num(n)} pct={(n) => f.pct(n)} />
-        </div>
-      )}
     </>
   );
 }

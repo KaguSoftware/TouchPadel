@@ -7,6 +7,8 @@ import { pickLocale, type CourtPatternsCopy, type EndingsDimension } from '@touc
 import type { Locale, MessageKey } from '@touch/i18n';
 import { weekdayName, type Tr } from '../copy';
 import type { Formatters } from '../format';
+import { spanText } from './format';
+import type { NoticeRow } from './shape';
 
 const LEAD_KEY: Record<string, MessageKey> = {
   lt2h: 'ws.analytics.courts.buckets.lead.lt2h',
@@ -15,14 +17,6 @@ const LEAD_KEY: Record<string, MessageKey> = {
   '1_3d': 'ws.analytics.courts.buckets.lead.d1to3',
   '3_7d': 'ws.analytics.courts.buckets.lead.d3to7',
   '7d_plus': 'ws.analytics.courts.buckets.lead.d7plus',
-};
-const NOTICE_KEY: Record<string, MessageKey> = {
-  after_start: 'ws.analytics.courts.buckets.notice.afterStart',
-  lt2h: 'ws.analytics.courts.buckets.notice.lt2h',
-  '2_6h': 'ws.analytics.courts.buckets.notice.h2to6',
-  '6_24h': 'ws.analytics.courts.buckets.notice.h6to24',
-  '1_3d': 'ws.analytics.courts.buckets.notice.d1to3',
-  '3d_plus': 'ws.analytics.courts.buckets.notice.d3plus',
 };
 const TYPE_KEY: Record<string, MessageKey> = {
   returning: 'ws.analytics.courts.type.returning',
@@ -46,18 +40,21 @@ const LEAD_SHORT: Record<string, MessageKey> = {
   '3_7d': 'ws.analytics.courts.buckets.leadShort.d3to7',
   '7d_plus': 'ws.analytics.courts.buckets.leadShort.d7plus',
 };
-const NOTICE_SHORT: Record<string, MessageKey> = {
-  after_start: 'ws.analytics.courts.buckets.noticeShort.afterStart',
-  lt2h: 'ws.analytics.courts.buckets.noticeShort.lt2h',
-  '2_6h': 'ws.analytics.courts.buckets.noticeShort.h2to6',
-  '6_24h': 'ws.analytics.courts.buckets.noticeShort.h6to24',
-  '1_3d': 'ws.analytics.courts.buckets.noticeShort.d1to3',
-  '3d_plus': 'ws.analytics.courts.buckets.noticeShort.d3plus',
-};
+/**
+ * A notice bucket's axis label from its own edges (0097): "after start",
+ * "< 2 h", "2 h–4 h", "3 days+". The keys are dynamic because the venue's
+ * policy window is one of the boundaries.
+ */
+export function noticeLabel(tr: Tr, f: Formatters, row: Pick<NoticeRow, 'loMin' | 'hiMin'>): string {
+  if (row.loMin == null) return tr('ws.analytics.courts.buckets.noticeShort.afterStart');
+  if (row.hiMin == null) return `${spanText(tr, f, row.loMin)}+`;
+  if (row.loMin === 0) return `< ${spanText(tr, f, row.hiMin)}`;
+  return `${spanText(tr, f, row.loMin)}–${spanText(tr, f, row.hiMin)}`;
+}
 
-/** The short form of a lead-time or notice bucket, for chart axes where the full label collides. */
-export function shortBucket(tr: Tr, dimension: 'byLeadTime' | 'byNotice', key: string): string {
-  const k = dimension === 'byLeadTime' ? LEAD_SHORT[key] : NOTICE_SHORT[key];
+/** The short form of a lead-time bucket, for chart axes where the full label collides. */
+export function shortBucket(tr: Tr, dimension: 'byLeadTime', key: string): string {
+  const k = dimension === 'byLeadTime' ? LEAD_SHORT[key] : undefined;
   return k ? tr(k) : key;
 }
 
@@ -67,7 +64,8 @@ export function segmentLabel(tr: Tr, f: Formatters, dimension: EndingsDimension 
     case 'byLeadTime':
       return LEAD_KEY[key] ? tr(LEAD_KEY[key]) : key;
     case 'byNotice':
-      return NOTICE_KEY[key] ? tr(NOTICE_KEY[key]) : key;
+      // Dynamic keys since 0097 ("120_240"); the losses section labels them from their edges.
+      return key;
     case 'byType':
       return TYPE_KEY[key] ? tr(TYPE_KEY[key]) : key;
     case 'bySource':
@@ -132,7 +130,7 @@ export function courtPatternsCopy(
       attachHigh: (subject, attachPct, venuePct, bookings) =>
         tr(p('fallback.attachHigh'), { subject, pct: f.pct(attachPct), venue: f.pct(venuePct), n: f.num(bookings) }),
       courtBasket: (item, lift, linkedWith, linkedTotal) =>
-        tr(p('fallback.courtBasket'), { item, lift: f.num(Math.round(lift * 10) / 10), with: f.num(linkedWith), total: f.num(linkedTotal) }),
+        tr(p('fallback.courtBasket'), { item, lift: f.num1(lift), with: f.num(linkedWith), total: f.num(linkedTotal) }),
     },
   };
 }

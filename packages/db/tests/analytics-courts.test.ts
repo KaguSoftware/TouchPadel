@@ -1,5 +1,5 @@
 /**
- * 0093 — Courts analytics (five owner-only jsonb RPCs + app.analytics_open_cells).
+ * 0093/0097 — Courts analytics (five owner-only jsonb RPCs + app.analytics_open_minutes).
  *
  * Seeds a known fixture through the real RPCs on two fresh courts and asserts
  * the guards, the shapes and the arithmetic against raw rows the service role
@@ -14,10 +14,17 @@
  *   C1  desk booking cancelled by staff a week ahead              (cancellation)
  *   N1  desk booking backdated a day, marked no_show              (no-show)
  *   X1  desk booking backdated two days, marked completed, with a
- *       linked cafe tab settled in cash                           (live, attach)
- * Court B carries one plain desk booking so the court filter has something to
- * exclude. One walk-in cafe tab (no reservation) proves unlinked orders stay
- * out of the attach figures and in all_orders_total.
+ *       linked cafe tab (10% off, settled in cash, one unit refunded) (live, attach)
+ *   MT  a one-hour maintenance block                               (open minutes −60)
+ * The account guest's profile carries the SAME phone as D1/D2, so the three
+ * live identified bookings are ONE person (0097 identity).
+ * Court B carries one plain desk booking plus a cancel-then-rebook: C2 is
+ * cancelled two hours before its slot (inside the venue's 4-hour policy) and
+ * the slot is booked again afterwards. Court C is active but its window ended
+ * a week ago (active_to), before the range starts, so it accrues no open
+ * minutes at all. One walk-in cafe tab
+ * (no reservation) proves unlinked orders stay out of the attach figures and
+ * in all_orders_total.
  *
  * Venue timezone is Asia/Baghdad (UTC+3, no DST); futureSlot() gives each
  * booking its own local hour on the same future day.
@@ -36,6 +43,7 @@ import {
   testIdemKey,
   outcome,
   SEED_STAFF,
+  DEV_PINS,
   createTestCourt,
   createTestMenuItem,
   createTestCafeTable,
@@ -72,8 +80,13 @@ type RawRes = {
 };
 
 const LOCAL_OFFSET_MS = 3 * 3_600_000; // Asia/Baghdad
+const BUSINESS_START_HOUR = 4; // cafe_settings default; the seed does not override it
 const local = (at: string | Date | number) => new Date(new Date(at).getTime() + LOCAL_OFFSET_MS);
-const cellOf = (at: string | Date | number) => ({ dow: local(at).getUTCDay(), hour: local(at).getUTCHours() });
+/** Heat cells key the BUSINESS weekday (0097): the local day shifted back by the start hour. */
+const cellOf = (at: string | Date | number) => ({
+  dow: new Date(local(at).getTime() - BUSINESS_START_HOUR * 3_600_000).getUTCDay(),
+  hour: local(at).getUTCHours(),
+});
 const LIVE = new Set(['confirmed', 'arrived', 'completed']);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const shiftDays = (d: Date, days: number) => new Date(d.getTime() + days * 86_400_000);
@@ -108,10 +121,12 @@ describe.skipIf(!up)('0093 courts analytics', () => {
 
   let courtA: string;
   let courtB: string;
+  let courtC: string;
   let guestUid: string;
   let phone: string;
-  let ids: { D1: string; D2: string; M1: string; H1: string; C1: string; N1: string; X1: string; B1: string };
-  let tab: { id: string; total_iqd: number; court_iqd: number };
+  let policyMin: number;
+  let ids: { D1: string; D2: string; M1: string; H1: string; C1: string; N1: string; X1: string; B1: string; C2: string; R2: string; MT: string };
+  let tab: { id: string; total_iqd: number; court_iqd: number; discount_iqd: number };
   let item: Awaited<ReturnType<typeof createTestMenuItem>>;
   let from: string;
   let to: string;
@@ -191,8 +206,14 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     await ensureTestRateRule(svc);
     courtA = await createTestCourt(svc, `Courts A ${Date.now()}`);
     courtB = await createTestCourt(svc, `Courts B ${Date.now()}`);
+    courtC = await createTestCourt(svc, `Courts C ${Date.now()}`);
     // A phone nobody else on this stack has used, so the identity is new on every run.
     phone = `+96477${Date.now().toString().slice(-8)}`;
+    // The account guest carries that same phone: desk bookings under it are theirs.
+    const prof = await svc.from('profiles').update({ phone }).eq('id', guestUid);
+    if (prof.error) throw new Error(`seed profile phone failed: ${prof.error.message}`);
+    const { data: vs } = await svc.from('venue_settings').select('cancellation_window_hours').limit(1).single();
+    policyMin = Number((vs as { cancellation_window_hours: number }).cancellation_window_hours) * 60;
 
     const D1 = await deskBooking(courtA, 90, { p_guest_name: NAME_DESK, p_guest_phone: phone, p_players: 4 });
     const D2 = await deskBooking(courtA, 60, { p_guest_name: NAME_DESK, p_guest_phone: phone, p_players: 4 });
@@ -220,7 +241,49 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     if (!done.ok) throw new Error(`seed completed failed: ${done.errorMessage}`);
 
     const B1 = await deskBooking(courtB, 60, { p_guest_name: NAME_WALKIN });
-    ids = { D1, D2, M1, H1, C1, N1, X1, B1 };
+
+    // Court B: a late cancellation whose slot was booked again (0097 resold).
+    const C2 = await deskBooking(courtB, 60, { p_guest_name: NAME_WALKIN });
+    const c2Cancel = await appRpc(desk, 'cancel_reservation', { p_reservation_id: C2, p_reason: 'staff_op' }).then(outcome);
+    if (!c2Cancel.ok) throw new Error(`seed C2 cancel failed: ${c2Cancel.errorMessage}`);
+    // Move the slot to two hours from now and the cancellation to a minute ago,
+    // so the notice (~2 h) is inside the policy window and the rebooking below
+    // is created AFTER the cancellation.
+    const c2Start = new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000 + 2 * 3_600_000);
+    const c2End = new Date(c2Start.getTime() + 60 * 60_000);
+    const c2Move = await svc
+      .from('reservations')
+      .update({ start_at: c2Start.toISOString(), end_at: c2End.toISOString(), cancelled_at: new Date(Date.now() - 60_000).toISOString() })
+      .eq('id', C2);
+    if (c2Move.error) throw new Error(`seed C2 move failed: ${c2Move.error.message}`);
+    const { data: r2, error: r2Err } = await svc
+      .from('reservations')
+      .insert({
+        court_id: courtB, kind: 'booking', status: 'confirmed', source: 'desk',
+        start_at: c2Start.toISOString(), end_at: c2End.toISOString(),
+        guest_name: NAME_WALKIN, price_iqd: 40_000, created_by_staff_id: null,
+      })
+      .select('id')
+      .single();
+    if (r2Err) throw new Error(`seed R2 failed: ${r2Err.message}`);
+    const R2 = (r2 as { id: string }).id;
+
+    // Court A: a one-hour maintenance block inside the range and the opening hours.
+    const mtSlot = futureSlot();
+    const { data: mt, error: mtErr } = await svc
+      .from('reservations')
+      .insert({ court_id: courtA, kind: 'maintenance', status: 'confirmed', source: 'desk', start_at: mtSlot.start.toISOString(), end_at: mtSlot.plus(60).toISOString() })
+      .select('id')
+      .single();
+    if (mtErr) throw new Error(`seed maintenance failed: ${mtErr.message}`);
+    const MT = (mt as { id: string }).id;
+
+    // Court C: active, but its window ended a week ago (before the range).
+    const weekAgo = iso(shiftDays(new Date(), -7));
+    const cRet = await svc.from('courts').update({ active_to: weekAgo }).eq('id', courtC);
+    if (cRet.error) throw new Error(`seed court C failed: ${cRet.error.message}`);
+
+    ids = { D1, D2, M1, H1, C1, N1, X1, B1, C2, R2, MT };
 
     // Cafe: one tab linked to X1 (two of the item, settled in cash) and one walk-in tab.
     item = await createTestMenuItem(svc, 'courts', ITEM_PRICE);
@@ -237,6 +300,11 @@ describe.skipIf(!up)('0093 courts analytics', () => {
       p_idempotency_key: testIdemKey('order.add_items'),
     }).then(outcome);
     if (!added.ok) throw new Error(`seed till_add_items failed: ${added.errorMessage}`);
+    // 10% off the goods (never the court fee), then one of the two units refunded.
+    const disc = await appRpc(manager, 'apply_discount', {
+      p_tab_id: tabId, p_kind: 'discount_percent', p_value: 1_000, p_pin: DEV_PINS.manager, p_reason_code: 'test',
+    }).then(outcome);
+    if (!disc.ok) throw new Error(`seed discount failed: ${disc.errorMessage}`);
     const settled = await appRpc(cashier, 'settle_tab', {
       p_tab_id: tabId,
       p_method: 'cash',
@@ -244,7 +312,16 @@ describe.skipIf(!up)('0093 courts analytics', () => {
       p_idempotency_key: testIdemKey('payment.record'),
     }).then(outcome);
     if (!settled.ok) throw new Error(`seed settle_tab failed: ${settled.errorMessage}`);
-    const { data: t } = await svc.from('tabs').select('id, total_iqd, court_iqd').eq('id', tabId).single();
+    const { data: line } = await svc.from('order_items').select('id').eq('menu_item_id', item.itemId).limit(1).single();
+    const refund = await appRpc(manager, 'refund', {
+      p_payment_id: (settled.data as { payment_id: string }).payment_id,
+      p_amount_iqd: 6_300,
+      p_pin: DEV_PINS.manager,
+      p_reason_code: 'test',
+      p_items: [{ order_item_id: (line as { id: string }).id, qty: 1 }],
+    }).then(outcome);
+    if (!refund.ok) throw new Error(`seed refund failed: ${refund.errorMessage}`);
+    const { data: t } = await svc.from('tabs').select('id, total_iqd, court_iqd, discount_iqd').eq('id', tabId).single();
     tab = t as typeof tab;
 
     const walkIn = await appRpc(cashier, 'open_tab', {
@@ -303,10 +380,12 @@ describe.skipIf(!up)('0093 courts analytics', () => {
       const maxOk = await appRpc(owner, fn, { p_from: '2020-01-01', p_to: '2021-02-04' }).then(outcome);
       expect(maxOk.ok, `${fn} at 400 days: ${maxOk.errorMessage}`).toBe(true);
     }
-    const helper = await appRpc(owner, 'analytics_open_cells', {
-      p_ts_from: new Date().toISOString(), p_ts_to: new Date().toISOString(), p_tz: 'Asia/Baghdad',
+    const helper = await appRpc(owner, 'analytics_open_minutes', {
+      p_ts_from: new Date().toISOString(), p_ts_to: new Date().toISOString(), p_tz: 'Asia/Baghdad', p_start_hour: 4, p_court_id: null,
     });
     expect(helper.error?.message).toMatch(/permission denied|not find/i);
+    const ident = await appRpc(owner, 'analytics_guest_ident', { p_guest_id: null, p_guest_phone: null });
+    expect(ident.error?.message).toMatch(/permission denied|not find/i);
   });
 
   it('p_court_id narrows every surface; an unknown court is empty, a malformed one is refused', async () => {
@@ -315,7 +394,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     expect(a.per_court.map((c) => c.court_id)).toEqual([courtA]);
     const b = await ownerData<{ courts_count: number; per_court: { court_id: string }[]; kpis: { bookings: number } }>('analytics_courts_summary', courtB);
     expect(b.per_court.map((c) => c.court_id)).toEqual([courtB]);
-    expect(b.kpis.bookings).toBe(1);
+    expect(b.kpis.bookings).toBe(2); // B1 and the rebooked R2
 
     const none = '00000000-0000-4000-8000-000000000000';
     const s = await ownerData<{ courts_count: number; per_court: unknown[]; kpis: { bookings: number; booked_total: number } }>('analytics_courts_summary', none);
@@ -370,6 +449,19 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     expect(s.open_minutes).toBeGreaterThan(0);
     expect(s.kpis.occupancy_pct).toBe(Number(((270 * 100) / s.open_minutes).toFixed(1)));
     expect(s.kpis.rev_per_open_hour_iqd).toBe(Math.round((revenue * 60) / s.open_minutes));
+
+    // 0097: the maintenance hour on court A is not open time. Court B has none.
+    const sB = await ownerData<{ open_minutes: number; per_court: { open_minutes: number }[] }>('analytics_courts_summary', courtB);
+    expect(s.open_minutes).toBe(sB.open_minutes - 60);
+    expect(sB.per_court[0]!.open_minutes).toBe(sB.open_minutes);
+    // A court whose window ended before the range accrues nothing, and its rates have no denominator.
+    const sC = await ownerData<{ open_minutes: number; per_court: { open_minutes: number; occupancy_pct: number | null; rev_per_open_hour_iqd: number | null }[] }>('analytics_courts_summary', courtC);
+    expect(sC.open_minutes).toBe(0);
+    expect(sC.per_court[0]).toMatchObject({ open_minutes: 0, occupancy_pct: null, rev_per_open_hour_iqd: null });
+    // Venue-wide: the heatmap's open minutes are the venue's, and they sum to the KPI.
+    const all = await ownerData<{ open_minutes: number; per_court: { open_minutes: number }[]; heatmap: { open_minutes: number }[] }>('analytics_courts_summary');
+    expect(all.heatmap.reduce((acc, c) => acc + c.open_minutes, 0)).toBe(all.open_minutes);
+    expect(all.per_court.reduce((acc, c) => acc + c.open_minutes, 0)).toBe(all.open_minutes);
 
     const pc = s.per_court[0]!;
     expect(Object.keys(pc).sort()).toEqual([
@@ -495,10 +587,14 @@ describe.skipIf(!up)('0093 courts analytics', () => {
   // Endings
   // -------------------------------------------------------------------------
   it('endings: the staff cancellation lands in by_actor and by_notice; the no-show does not; segments carry booked_total', async () => {
+    type Notice = { bucket: string; lo_min: number | null; hi_min: number | null; n: number; policy_edge: boolean };
     const e = await ownerData<{
+      policy_window_min: number;
       cancellations: {
         total: number; revenue_iqd: number; late_revenue_iqd: number; median_notice_min: number | null;
-        by_notice: { bucket: string; n: number }[]; by_actor: { actor: string; n: number }[];
+        by_notice: Notice[]; by_actor: { actor: string; n: number }[];
+        cancelled_in_period: { n: number; revenue_iqd: number };
+        resold: { cancelled: number; resold_n: number; recovered_iqd: number; empty_n: number; lost_iqd: number };
         by_hour: Row[]; by_dow: Row[]; by_court: (Row & { court_id: string; name_en: string; name_ar: string })[];
         by_source: Row[]; by_duration: Row[]; by_lead_time: Row[]; by_series: Row[]; by_type: Row[];
       };
@@ -511,11 +607,28 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     const c1 = rows.find((r) => r.id === ids.C1)!;
     const n1 = rows.find((r) => r.id === ids.N1)!;
 
+    expect(e.policy_window_min).toBe(policyMin);
+    expect(policyMin).toBe(240); // seed.sql: cancellation_window_hours = 4
     expect(e.cancellations).toMatchObject({ total: 1, revenue_iqd: Number(c1.price_iqd), late_revenue_iqd: 0 });
     expect(e.cancellations.median_notice_min).toBeGreaterThan(3 * 1440);
-    expect(e.cancellations.by_notice.map((b) => b.bucket)).toEqual(['after_start', 'lt2h', '2_6h', '6_24h', '1_3d', '3d_plus']);
-    expect(e.cancellations.by_notice.map((b) => b.n)).toEqual([0, 0, 0, 0, 0, 1]);
+    // 0097: buckets from {0,120,360,1440,4320} ∪ {policy}, with the policy edge marked.
+    expect(e.cancellations.by_notice.map((b) => b.bucket)).toEqual(['after_start', '0_120', '120_240', '240_360', '360_1440', '1440_4320', '4320_plus']);
+    expect(e.cancellations.by_notice.map((b) => [b.lo_min, b.hi_min])).toEqual([[null, 0], [0, 120], [120, 240], [240, 360], [360, 1440], [1440, 4320], [4320, null]]);
+    expect(e.cancellations.by_notice.map((b) => b.n)).toEqual([0, 0, 0, 0, 0, 0, 1]);
+    expect(e.cancellations.by_notice.filter((b) => b.policy_edge).map((b) => b.bucket)).toEqual(['240_360']);
     expect(e.cancellations.by_actor).toEqual([{ actor: 'guest', n: 0 }, { actor: 'staff', n: 1 }, { actor: 'unknown', n: 0 }]);
+    // C1 was cancelled a moment ago: it is in the period by cancelled_at too.
+    expect(e.cancellations.cancelled_in_period).toEqual({ n: 1, revenue_iqd: Number(c1.price_iqd) });
+    // A week's notice is not late: nothing to resell.
+    expect(e.cancellations.resold).toEqual({ cancelled: 0, resold_n: 0, recovered_iqd: 0, empty_n: 0, lost_iqd: 0 });
+
+    // Court B: C2 was cancelled ~2 h before its slot (inside the 4 h policy) and R2 took the slot.
+    const eB = await ownerData<typeof e>('analytics_courts_endings', courtB);
+    const c2 = (await rawRows(courtB)).find((r) => r.id === ids.C2)!;
+    expect(eB.cancellations).toMatchObject({ total: 1, late_revenue_iqd: Number(c2.price_iqd) });
+    expect(eB.cancellations.by_notice.find((b) => b.bucket === '120_240')!.n).toBe(1);
+    expect(eB.cancellations.resold).toEqual({ cancelled: 1, resold_n: 1, recovered_iqd: 40_000, empty_n: 0, lost_iqd: 0 });
+    expect(eB.cancellations.cancelled_in_period.n).toBe(1);
 
     const court = e.cancellations.by_court.find((r) => r.court_id === courtA)!;
     expect(court).toMatchObject({ key: courtA, n: 1, bookings_total: 6 });
@@ -527,9 +640,10 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     expect(e.cancellations.by_duration.find((r) => r.key === '60')).toEqual({ key: '60', n: 1, bookings_total: 5 });
     expect(e.cancellations.by_duration.find((r) => r.key === '90')).toEqual({ key: '90', n: 0, bookings_total: 1 });
     expect(e.cancellations.by_type.map((r) => r.key)).toEqual(['returning', 'new', 'unidentified']);
+    // D1, D2 and M1 are ONE person (0097): the first is new, the other two return.
     expect(e.cancellations.by_type).toEqual([
-      { key: 'returning', n: 0, bookings_total: 1 },
-      { key: 'new', n: 0, bookings_total: 2 },
+      { key: 'returning', n: 0, bookings_total: 2 },
+      { key: 'new', n: 0, bookings_total: 1 },
       { key: 'unidentified', n: 1, bookings_total: 3 },
     ]);
     const c1Cell = cellOf(c1.start_at);
@@ -553,7 +667,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
   // -------------------------------------------------------------------------
   // Guests
   // -------------------------------------------------------------------------
-  it('guests: two identities, one returning booking, visit buckets, weeks; nothing identifying leaves', async () => {
+  it('guests: the app account and the desk phone are one identity, two returning bookings, visit buckets, weeks', async () => {
     const g = await ownerData<{
       lookback_days: number; regular_window_days: number; lapse_days: number;
       identified_bookings: number; unidentified_bookings: number; identities: number;
@@ -563,20 +677,22 @@ describe.skipIf(!up)('0093 courts analytics', () => {
       by_week: { week_start: string; new_identities: number; returning_identities: number; bookings: number }[];
     }>('analytics_courts_guests', courtA);
 
+    // Three live bookings under one phone / account = one identity with three
+    // visits: a regular (>= 3 in 90 days), not lapsing, always the same slot day.
     expect(g).toMatchObject({
       lookback_days: 180, regular_window_days: 90, lapse_days: 28,
-      identified_bookings: 3, unidentified_bookings: 1, identities: 2,
-      returning_bookings: 1, new_bookings: 2, returning_pct: 33.3,
-      regulars: 0, lapsing_regulars: 0, regulars_bookings_pct: 0, regulars_fixed_slot_pct: null,
+      identified_bookings: 3, unidentified_bookings: 1, identities: 1,
+      returning_bookings: 2, new_bookings: 1, returning_pct: 66.7,
+      regulars: 1, lapsing_regulars: 0, regulars_bookings_pct: 75,
     });
     expect(g.visit_buckets).toEqual([
-      { bucket: '1', identities: 1, bookings: 1 },
-      { bucket: '2_3', identities: 1, bookings: 2 },
+      { bucket: '1', identities: 0, bookings: 0 },
+      { bucket: '2_3', identities: 1, bookings: 3 },
       { bucket: '4_6', identities: 0, bookings: 0 },
       { bucket: '7_plus', identities: 0, bookings: 0 },
     ]);
     expect(g.by_week.reduce((acc, w) => acc + w.bookings, 0)).toBe(4);
-    expect(g.by_week.reduce((acc, w) => acc + w.new_identities, 0)).toBe(2);
+    expect(g.by_week.reduce((acc, w) => acc + w.new_identities, 0)).toBe(1);
     expect(g.by_week.reduce((acc, w) => acc + w.returning_identities, 0)).toBeLessThanOrEqual(1);
     for (const w of g.by_week) expect(new Date(`${w.week_start}T00:00:00Z`).getUTCDay()).toBe(1); // ISO weeks start Monday
   });
@@ -584,7 +700,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
   // -------------------------------------------------------------------------
   // Cafe
   // -------------------------------------------------------------------------
-  it('cafe: attach 1 of 4, cafe money is the tab total less the court fee, timing bucket, top item, walk-in excluded', async () => {
+  it('cafe: attach 1 of 4, cafe money is NET of the discount and the refund, timing bucket, top item, walk-in excluded', async () => {
     const c = await ownerData<{
       attach: Record<string, number | null>;
       per_court: Record<string, unknown>[];
@@ -599,26 +715,30 @@ describe.skipIf(!up)('0093 courts analytics', () => {
     const rows = await rawRows(courtA);
     const live = rows.filter((r) => LIVE.has(r.status));
     const courtIqd = live.reduce((acc, r) => acc + Number(r.price_iqd ?? 0), 0);
-    const cafeIqd = Number(tab.total_iqd) - Number(tab.court_iqd);
-    expect(cafeIqd).toBe(2 * ITEM_PRICE);
+    // 2 × 7,000 goods, 10% off = 12,600 gross; one unit (6,300) refunded = 6,300 net.
+    const cafeGross = Number(tab.total_iqd) - Number(tab.court_iqd);
+    expect(Number(tab.discount_iqd)).toBe(1_400);
+    expect(cafeGross).toBe(12_600);
+    const cafeIqd = cafeGross - 6_300;
 
     expect(Object.keys(c.attach).sort()).toEqual([
-      'attach_pct', 'booked_minutes', 'cafe_iqd', 'cafe_per_booking_iqd', 'cafe_per_linked_iqd', 'combined_per_booked_hour_iqd',
-      'combined_per_open_hour_iqd', 'court_iqd', 'linked_bookings', 'live_bookings', 'open_minutes', 'settled_linked',
+      'attach_pct', 'booked_minutes', 'cafe_gross_iqd', 'cafe_iqd', 'cafe_per_booking_iqd', 'cafe_per_linked_iqd', 'combined_per_booked_hour_iqd',
+      'combined_per_open_hour_iqd', 'court_iqd', 'linked_bookings', 'live_bookings', 'open_minutes', 'refunds_iqd', 'settled_linked',
     ]);
     expect(c.attach).toMatchObject({
-      live_bookings: 4, linked_bookings: 1, attach_pct: 25, settled_linked: 1, cafe_iqd: cafeIqd,
+      live_bookings: 4, linked_bookings: 1, attach_pct: 25, settled_linked: 1, cafe_iqd: cafeIqd, cafe_gross_iqd: cafeGross, refunds_iqd: 6_300,
       cafe_per_linked_iqd: cafeIqd, cafe_per_booking_iqd: Math.round(cafeIqd / 4), court_iqd: courtIqd, booked_minutes: 270,
       combined_per_booked_hour_iqd: Math.round(((courtIqd + cafeIqd) * 60) / 270),
     });
     expect(c.attach.open_minutes).toBeGreaterThan(0);
     expect(c.attach.combined_per_open_hour_iqd).toBe(Math.round(((courtIqd + cafeIqd) * 60) / c.attach.open_minutes!));
     expect(c.per_court).toHaveLength(1);
-    expect(c.per_court[0]).toMatchObject({ court_id: courtA, live_bookings: 4, linked_bookings: 1, cafe_iqd: cafeIqd, open_minutes: c.attach.open_minutes });
+    expect(c.per_court[0]).toMatchObject({ court_id: courtA, live_bookings: 4, linked_bookings: 1, cafe_iqd: cafeIqd, cafe_gross_iqd: cafeGross, refunds_iqd: 6_300, open_minutes: c.attach.open_minutes });
 
+    // Item figures are net too: one kept unit at its discounted price.
     expect(c.top_items).toEqual([{
       court_id: courtA, item_id: item.itemId, name_en: expect.any(String), name_ar: expect.any(String),
-      qty: 2, revenue_iqd: 2 * ITEM_PRICE, linked_orders_with_item: 1,
+      qty: 1, revenue_iqd: cafeIqd, linked_orders_with_item: 1,
     }]);
     const it = c.items.find((i) => i.item_id === item.itemId)!;
     expect(it.linked_orders_with_item).toBe(1);
@@ -628,7 +748,7 @@ describe.skipIf(!up)('0093 courts analytics', () => {
 
     // X1 ended two days ago and the order was placed now: after_30plus, and the median offset says so.
     expect(c.order_timing.buckets.map((b) => b.bucket)).toEqual(['before_30plus', 'before_0_30', 'first_half', 'second_half', 'after_0_30', 'after_30plus']);
-    expect(c.order_timing.buckets.map((b) => [b.orders, b.revenue_iqd])).toEqual([[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, 2 * ITEM_PRICE]]);
+    expect(c.order_timing.buckets.map((b) => [b.orders, b.revenue_iqd])).toEqual([[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [1, cafeIqd]]);
     expect(c.order_timing.median_offset_min).toBeGreaterThan(48 * 60);
 
     expect(c.attach_cells.reduce((acc, x) => acc + x.live_bookings, 0)).toBe(4);

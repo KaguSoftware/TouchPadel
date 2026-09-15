@@ -30,6 +30,7 @@ export function Kpi({
   tip,
   compare,
   invert = false,
+  neutral = false,
   estimated,
   loading,
   unavailable,
@@ -53,6 +54,8 @@ export function Kpi({
   compare?: KpiCompare;
   /** Up is bad (a cancellation rate): a rise reads in the danger tone, a fall in the accent. */
   invert?: boolean;
+  /** Neither direction is good (waiter calls, session length): the delta stays muted. */
+  neutral?: boolean;
   estimated?: boolean;
   loading?: boolean;
   f: Formatters;
@@ -61,7 +64,7 @@ export function Kpi({
   const shownDelta = unavailable ? null : delta;
   const good = shownDelta == null ? null : invert ? shownDelta < 0 : shownDelta > 0;
   const bad = shownDelta == null ? null : invert ? shownDelta > 0 : shownDelta < 0;
-  const tone = good ? 'var(--tp-accent)' : bad ? 'var(--tp-danger)' : 'var(--tp-muted-fg)';
+  const tone = neutral ? 'var(--tp-muted-fg)' : good ? 'var(--tp-accent)' : bad ? 'var(--tp-danger)' : 'var(--tp-muted-fg)';
   const deltaText = shownDelta == null ? (unavailable ? '' : (reason ?? '')) : `${f.signedPct(shownDelta)} ${vsLabel ?? ''}`;
   return (
     <div style={{ ...card, minInlineSize: 0 }}>

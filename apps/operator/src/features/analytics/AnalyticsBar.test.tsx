@@ -56,9 +56,7 @@ describe('AnalyticsBar', () => {
   });
 
   it('opens the More panel, keeps it open through a setting write, and closes on Escape', async () => {
-    renderBar({
-      deck: { startHour: 4, live: true, refreshMinutes: 0, setRefreshMinutes: vi.fn(), autoRefreshActive: false },
-    });
+    renderBar({ deck: { startHour: 4 } });
     const more = screen.getByRole('button', { name: 'More' });
     expect(more.getAttribute('aria-expanded')).toBe('false');
     await userEvent.click(more);

@@ -10,13 +10,10 @@ import type { Locale, MessageKey } from '@touch/i18n';
 import { StatusBadge } from '../../../../components/kit';
 import { Button, ErrorText, Spinner } from '../../../../components/ui';
 import { useLocale } from '../../../../lib/i18n';
-import { analyticsRpc, insights as callInsights, type JudgedPattern, type PatternCandidateWire } from '../../../../lib/analyticsApi';
+import { analyticsRpc, insights as callInsights, type JudgedPattern } from '../../../../lib/analyticsApi';
 import { CardShell, muted, type CardState } from '../../cards/CardShell';
+import { toPatternWire } from '../../patterns';
 import type { StoredSets } from '../../useAnalyticsData';
-
-function toWire(c: CourtPatternCandidate): PatternCandidateWire {
-  return { id: c.id, kind: c.kind, subjects: c.subjects, metrics: c.metrics, confidence: c.confidence, sampleLabel: c.sampleLabel, desc: c.desc, fallbackText: c.fallbackText };
-}
 
 const KIND_KEY: Record<CourtPatternKind, MessageKey> = {
   'dead-slot': 'ws.analytics.courts.patterns.kinds.deadSlot',
@@ -37,6 +34,7 @@ export function CourtPatternsCard({
   tip,
   range,
   compareBasis,
+  courtId = null,
   stored,
 }: {
   patterns: readonly CourtPatternCandidate[];
@@ -45,6 +43,8 @@ export function CourtPatternsCard({
   tip: string;
   range: DateRange;
   compareBasis: CompareBasis;
+  /** The tab's court filter (0098): the judged set is stored under this court; null = venue-wide. */
+  courtId?: string | null;
   stored: StoredSets;
 }) {
   const { tr, locale } = useLocale();
@@ -70,26 +70,15 @@ export function CourtPatternsCard({
         compare_basis: compareBasis,
         scope: 'courts',
         data: {
-          kpis: {},
-          basis: null,
-          per_court: [],
-          by_day: [],
-          heatmap_top: [],
-          heatmap_bottom: [],
-          demand: {},
-          endings: {},
-          guests: null,
-          cafe: null,
           rejections: stored.rejections.map((r) => r.text),
-          patterns: shown.map(toWire),
-          excluded_names: [],
+          patterns: shown.map(toPatternWire),
         },
       });
       setDegraded(res.degraded);
       const out = res.patterns ?? [];
       setJudged(out);
       if (out.length > 0) {
-        await analyticsRpc.savePatterns({ from: range.from, to: range.to, locale: locale as Locale, scope: 'courts', patterns: out });
+        await analyticsRpc.savePatterns({ from: range.from, to: range.to, locale: locale as Locale, scope: 'courts', courtId, patterns: out });
         stored.reload();
       }
     } catch (err) {

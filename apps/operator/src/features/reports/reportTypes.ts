@@ -51,7 +51,7 @@ export interface ReportFilters {
 /** Column keys with a catalog label (`ws.reports.columns.*`). Anything else falls back to the server label or the key. */
 export const COLUMN_LABEL_KEYS = [
   'date', 'period', 'business_date', 'court', 'hour', 'category', 'item', 'staff', 'method', 'source',
-  'revenue_iqd', 'padel_iqd', 'cafe_iqd', 'cash_iqd', 'card_iqd', 'bookings', 'orders', 'aov_iqd',
+  'revenue_iqd', 'padel_iqd', 'cafe_iqd', 'cafe_net_iqd', 'cash_iqd', 'card_iqd', 'bookings', 'orders', 'aov_iqd',
   'discounts_iqd', 'voids_iqd', 'refunds_iqd', 'tax_iqd', 'rate', 'occupancy_pct', 'utilisation_pct',
   'available_hours', 'booked_hours', 'revenue_per_hour_iqd', 'cancellations', 'no_shows',
   'cancellation_rate_pct', 'no_show_rate_pct', 'peak_iqd', 'off_peak_iqd', 'peak_bookings',

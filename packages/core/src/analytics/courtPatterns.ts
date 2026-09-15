@@ -20,7 +20,7 @@
  * so the widening levels, tiers and small helpers are re-declared here with court numbers.
  */
 import { pickLocale, type Locale } from '../i18n/pickLocale';
-import { type CourtsBasis, MIN_ATTACH_BOOKINGS, MIN_CELL_OPEN_DAYS } from './courtsBasis';
+import { type CourtsBasis, MIN_ATTACH_BOOKINGS, MIN_CELL_OPEN_DAYS, MIN_ENDING_N, MIN_RATE_DENOM } from './courtsBasis';
 import type { PatternCandidate, PatternConfidence, PatternLevel } from './patterns';
 
 export type CourtPatternKind =
@@ -200,7 +200,7 @@ type Thresholds = {
  * at the next level). Level 0 holds the plan's floors; loosening never means inventing.
  */
 const LEVELS: readonly Thresholds[] = [
-  { minCellOpenDays: MIN_CELL_OPEN_DAYS, deadRelOcc: 0.15, deadVenueOcc: 0.4, deadAbsOcc: 0.1, deadAbsOpenDays: 6, saturatedOcc: 0.9, shiftPoints: 5, shiftMinBookings: 30, endingRatio: 1.6, endingMinN: 8, endingMinTotal: 25, lapsingMin: 3, lapsingShare: 0.2, attachMinVenue: 0.2, attachMinBookings: MIN_ATTACH_BOOKINGS, attachLowRatio: 0.5, attachHighRatio: 1.5, basketLift: 1.5, basketSupport: 5 },
+  { minCellOpenDays: MIN_CELL_OPEN_DAYS, deadRelOcc: 0.15, deadVenueOcc: 0.4, deadAbsOcc: 0.1, deadAbsOpenDays: 6, saturatedOcc: 0.9, shiftPoints: 5, shiftMinBookings: 30, endingRatio: 1.6, endingMinN: MIN_ENDING_N, endingMinTotal: MIN_RATE_DENOM, lapsingMin: 3, lapsingShare: 0.2, attachMinVenue: 0.2, attachMinBookings: MIN_ATTACH_BOOKINGS, attachLowRatio: 0.5, attachHighRatio: 1.5, basketLift: 1.5, basketSupport: 5 },
   { minCellOpenDays: 3, deadRelOcc: 0.18, deadVenueOcc: 0.35, deadAbsOcc: 0.12, deadAbsOpenDays: 5, saturatedOcc: 0.85, shiftPoints: 4, shiftMinBookings: 20, endingRatio: 1.45, endingMinN: 6, endingMinTotal: 18, lapsingMin: 2, lapsingShare: 0.15, attachMinVenue: 0.15, attachMinBookings: 7, attachLowRatio: 0.6, attachHighRatio: 1.4, basketLift: 1.4, basketSupport: 4 },
   { minCellOpenDays: 2, deadRelOcc: 0.2, deadVenueOcc: 0.3, deadAbsOcc: 0.15, deadAbsOpenDays: 4, saturatedOcc: 0.8, shiftPoints: 3, shiftMinBookings: 15, endingRatio: 1.35, endingMinN: 5, endingMinTotal: 12, lapsingMin: 2, lapsingShare: 0.1, attachMinVenue: 0.1, attachMinBookings: 5, attachLowRatio: 0.65, attachHighRatio: 1.3, basketLift: 1.3, basketSupport: 3 },
 ];

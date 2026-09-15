@@ -5,7 +5,7 @@
 import type { ChartTwin } from './ChartCard';
 
 export function barTwin(
-  rows: readonly { label: string; value: number | null }[],
+  rows: readonly { label: string; value: number | string | null }[],
   labelHeader: string,
   valueHeader: string,
   file: string,
@@ -34,7 +34,7 @@ export function seriesTwin(
 }
 
 export function heatTwin(
-  cells: readonly { day: string; hour: string; value: number | null }[],
+  cells: readonly { day: string; hour: string; value: number | string | null }[],
   dayHeader: string,
   hourHeader: string,
   valueHeader: string,

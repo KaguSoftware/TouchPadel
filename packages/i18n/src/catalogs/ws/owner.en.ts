@@ -22,6 +22,7 @@ export const ownerEn = {
       revenue: 'Revenue',
       padelRevenue: 'Padel revenue',
       cafeRevenue: 'Cafe revenue',
+      cafeNet: 'Cafe net of refunds',
       cash: 'Cash',
       card: 'Card',
       bookings: 'Bookings',
