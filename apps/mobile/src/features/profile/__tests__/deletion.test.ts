@@ -13,7 +13,13 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 
-import { confirmationMatches, runAccountDeletion, type DeletionEffects } from '../deletion';
+import {
+  DeletionCancelledError,
+  confirmationMatches,
+  hasAppleIdentity,
+  runAccountDeletion,
+  type DeletionEffects,
+} from '../deletion';
 import { authStorageKeyFor } from '../../../lib/authStorageKey';
 import { chunkKeyNames, PURGE_SWEEP_LIMIT } from '../../../lib/chunk';
 import { historyClearedKey } from '../../booking/historyKeys';
@@ -124,6 +130,171 @@ describe('runAccountDeletion — the local steps are best-effort', () => {
       deleteServerSide: async () => ({ deleted: true, apple_revoke_pending: true }),
     });
     expect((await runAccountDeletion(fx)).appleRevokePending).toBe(true);
+  });
+});
+
+describe('runAccountDeletion — Sign in with Apple revocation (Guideline 5.1.1(v))', () => {
+  /** An Apple account on iOS: both re-auth and revoke wired, recording their order. */
+  function appleEffects(over: Partial<DeletionEffects> = {}) {
+    const fx = effects({
+      deleteServerSide: async () => {
+        fx.calls.push('server');
+        return { deleted: true, apple_revoke_pending: true };
+      },
+      hasAppleIdentity: true,
+      reauthApple: async () => {
+        fx.calls.push('apple-reauth');
+        return { status: 'code', authorizationCode: 'one-time-code' };
+      },
+      revokeApple: async (code) => {
+        fx.calls.push(`apple-revoke:${code}`);
+      },
+      ...over,
+    });
+    return fx;
+  }
+
+  it('re-authenticates, revokes with the fresh code, THEN deletes', async () => {
+    // Revoke must precede the delete: apple-revoke authenticates with the
+    // session JWT, which dies with the account.
+    const fx = appleEffects();
+    const out = await runAccountDeletion(fx);
+    expect(fx.calls).toEqual([
+      'apple-reauth',
+      'apple-revoke:one-time-code',
+      'server',
+      'push',
+      'secure-store',
+      'caches',
+    ]);
+    expect(out.deleted).toBe(true);
+    expect(out.appleRevoke).toBe('revoked');
+    expect(out.appleRevokePending).toBe(false);
+    expect(out.appleRevokeError).toBeNull();
+  });
+
+  it('deletes NOTHING when the guest cancels the Apple sheet', async () => {
+    const revokeApple = vi.fn();
+    const fx = appleEffects({
+      reauthApple: async () => ({ status: 'cancelled' }),
+      revokeApple,
+    });
+    await expect(runAccountDeletion(fx)).rejects.toBeInstanceOf(DeletionCancelledError);
+    expect(revokeApple).not.toHaveBeenCalled();
+    expect(fx.calls).toEqual([]);
+  });
+
+  it('still deletes the account when the revoke call fails (never held hostage)', async () => {
+    const fx = appleEffects({
+      revokeApple: async () => {
+        fx.calls.push('apple-revoke');
+        throw new Error('apple-revoke failed: NOT_CONFIGURED');
+      },
+    });
+    const out = await runAccountDeletion(fx);
+    expect(fx.calls).toEqual(['apple-reauth', 'apple-revoke', 'server', 'push', 'secure-store', 'caches']);
+    expect(out.deleted).toBe(true);
+    expect(out.appleRevoke).toBe('failed');
+    expect(out.appleRevokePending).toBe(true);
+    expect(out.appleRevokeError).toBe('revoke: apple-revoke failed: NOT_CONFIGURED');
+  });
+
+  it('still deletes when the Apple sheet itself errors (not a cancel)', async () => {
+    const revokeApple = vi.fn();
+    const fx = appleEffects({
+      reauthApple: async () => {
+        throw new Error('ERR_REQUEST_NOT_HANDLED');
+      },
+      revokeApple,
+    });
+    const out = await runAccountDeletion(fx);
+    expect(revokeApple).not.toHaveBeenCalled();
+    expect(fx.calls).toContain('server');
+    expect(out.appleRevoke).toBe('failed');
+    expect(out.appleRevokePending).toBe(true);
+  });
+
+  it('never shows the Apple sheet to an account without an Apple identity', async () => {
+    const reauthApple = vi.fn();
+    const revokeApple = vi.fn();
+    const fx = effects({ hasAppleIdentity: false, reauthApple, revokeApple });
+    const out = await runAccountDeletion(fx);
+    expect(reauthApple).not.toHaveBeenCalled();
+    expect(revokeApple).not.toHaveBeenCalled();
+    expect(fx.calls).toEqual(['server', 'push', 'secure-store', 'caches']);
+    expect(out.appleRevoke).toBe('not-needed');
+    expect(out.appleRevokePending).toBe(false);
+  });
+
+  it('skips revocation on a device that cannot re-authenticate (Android) and deletes', async () => {
+    const fx = appleEffects({ reauthApple: undefined, revokeApple: undefined });
+    const out = await runAccountDeletion(fx);
+    expect(fx.calls).toEqual(['server', 'push', 'secure-store', 'caches']);
+    expect(out.appleRevoke).toBe('unsupported');
+    expect(out.appleRevokePending).toBe(true);
+  });
+
+  it('a server refusal after a successful revoke still throws and touches nothing local', async () => {
+    const fx = appleEffects({
+      deleteServerSide: async () => {
+        throw new Error('ALREADY_DELETED');
+      },
+    });
+    await expect(runAccountDeletion(fx)).rejects.toThrow('ALREADY_DELETED');
+    expect(fx.calls).toEqual(['apple-reauth', 'apple-revoke:one-time-code']);
+  });
+});
+
+describe('hasAppleIdentity', () => {
+  it('reads the identities list', () => {
+    expect(hasAppleIdentity({ identities: [{ provider: 'email' }, { provider: 'apple' }] })).toBe(true);
+    expect(hasAppleIdentity({ identities: [{ provider: 'google' }] })).toBe(false);
+  });
+
+  it('falls back to GoTrue app_metadata when identities are absent', () => {
+    expect(hasAppleIdentity({ app_metadata: { provider: 'email', providers: ['email', 'apple'] } })).toBe(true);
+    expect(hasAppleIdentity({ identities: null, app_metadata: { provider: 'apple' } })).toBe(true);
+    expect(hasAppleIdentity({ app_metadata: { provider: 'email', providers: ['email'] } })).toBe(false);
+  });
+
+  it('is false with no user', () => {
+    expect(hasAppleIdentity(null)).toBe(false);
+    expect(hasAppleIdentity(undefined)).toBe(false);
+    expect(hasAppleIdentity({})).toBe(false);
+  });
+});
+
+describe('revokeAppleAuthorization', () => {
+  it('posts the code to apple-revoke and resolves on revoked', async () => {
+    const { revokeAppleAuthorization } = await import('../api');
+    const invoke = vi.fn().mockResolvedValue({ data: { revoked: true }, error: null });
+    await revokeAppleAuthorization({ functions: { invoke } } as never, 'the-code');
+    expect(invoke).toHaveBeenCalledWith('apple-revoke', { body: { authorizationCode: 'the-code' } });
+  });
+
+  it('throws with the function error code on a non-2xx, without the authorization code', async () => {
+    const { revokeAppleAuthorization } = await import('../api');
+    const context = new Response(JSON.stringify({ error: 'NOT_CONFIGURED' }), { status: 501 });
+    const invoke = vi.fn().mockResolvedValue({
+      data: null,
+      error: Object.assign(new Error('Edge Function returned a non-2xx status code'), { context }),
+    });
+    const err = await revokeAppleAuthorization({ functions: { invoke } } as never, 'the-code').catch((e: Error) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe('apple-revoke failed: NOT_CONFIGURED');
+    expect((err as Error).message).not.toContain('the-code');
+  });
+});
+
+describe('the deletion screen wires Apple revocation', () => {
+  it('passes the Apple re-auth and revoke effects, iOS-gated', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const screen = readFileSync(join(__dirname, '..', '..', '..', '..', 'app', 'delete-account.tsx'), 'utf8');
+    expect(screen).toContain('hasAppleIdentity: appleUser');
+    expect(screen).toMatch(/reauthApple:\s*canReauthApple\s*\?/);
+    expect(screen).toContain('revokeAppleAuthorization(supabase, authorizationCode)');
+    expect(screen).toContain("Platform.OS === 'ios'");
   });
 });
 

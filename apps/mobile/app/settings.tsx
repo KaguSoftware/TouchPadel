@@ -22,9 +22,10 @@ import { supabase } from '../src/lib/supabase';
 import { errorMessageOf } from '../src/lib/network';
 import { addBreadcrumb } from '../src/lib/telemetry';
 import { callPhone } from '../src/lib/phone';
+import { legalUrl, type LegalPage } from '../src/lib/legal';
 import { radius, space, useTheme, type AppearancePreference } from '../src/theme';
 import { Button, Card, Hint, MicroLabel, Screen, SegmentedControl } from '../src/components/ui';
-import { BellIcon, GlobeIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
+import { BellIcon, GlobeIcon, LockIcon, MoonIcon, PhoneIcon } from '../src/components/icons';
 import { useToast } from '../src/components/overlays';
 
 /**
@@ -163,6 +164,10 @@ export default function SettingsScreen() {
       // Isolated: an RTL paragraph would otherwise reorder the number groups.
       if (!ok) toast(t('errors.callFailed', { phone: isolate(phone) }), 'error');
     });
+  };
+
+  const openLegal = (page: LegalPage) => {
+    void Linking.openURL(legalUrl(page, locale)).catch(() => toast(t('settings.linkFailed'), 'error'));
   };
 
   // Expo Go reports ITS OWN native version; the app's comes from the config.
@@ -365,6 +370,27 @@ export default function SettingsScreen() {
                 paddingEnd: 18,
                 borderRadius: radius.pill,
               }}
+            />
+          </View>
+        </Card>
+
+        {/* About: the privacy policy has to be reachable in the app (5.1.1(i)). */}
+        <Card style={{ padding: space.m }}>
+          {groupLabel(<LockIcon size={13} color={colors.gstrong} />, t('settings.about'))}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+            <Button
+              label={t('settings.privacyPolicy')}
+              variant="secondary"
+              size="compact"
+              onPress={() => openLegal('privacy')}
+              style={{ flexGrow: 1 }}
+            />
+            <Button
+              label={t('settings.support')}
+              variant="secondary"
+              size="compact"
+              onPress={() => openLegal('support')}
+              style={{ flexGrow: 1 }}
             />
           </View>
         </Card>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useBack } from '../src/navigation/back';
 import { Text } from '../src/i18n/text';
@@ -7,8 +7,16 @@ import { useLocale } from '../src/i18n/LocaleProvider';
 import { useAuth } from '../src/features/auth/context';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { supabase } from '../src/lib/supabase';
-import { deleteAccount } from '../src/features/profile/api';
-import { confirmationMatches, runAccountDeletion } from '../src/features/profile/deletion';
+import { deleteAccount, revokeAppleAuthorization } from '../src/features/profile/api';
+import {
+  DeletionCancelledError,
+  confirmationMatches,
+  hasAppleIdentity,
+  runAccountDeletion,
+  type AppleReauth,
+} from '../src/features/profile/deletion';
+import { requestAppleAuthorizationCode } from '../src/features/auth/providers/apple';
+import { SocialAuthError } from '../src/features/auth/social';
 import { purgeLocalIdentity } from '../src/features/profile/localPurge';
 import { secureKeysToPurge } from '../src/features/profile/purgeKeys';
 import { unregisterPushTokenLocally } from '../src/features/profile/push';
@@ -37,7 +45,24 @@ import { Button, ErrorText, Field, FormScreen, Screen } from '../src/components/
  * `Alert` is exactly what a mis-tap dismisses by muscle memory. Typing a word
  * cannot be done by accident. The word is LOCALISED — an Arabic-first app must
  * not make its guest transliterate a Latin word to close their account.
+ *
+ * SIGN IN WITH APPLE (Guideline 5.1.1(v)). On iOS, an account with an Apple
+ * identity sees the Apple sheet after pressing delete; its one-time code goes
+ * to the apple-revoke function BEFORE the account is deleted. Cancelling the
+ * sheet deletes nothing; any other Apple failure still deletes the account
+ * (deletion.ts, step 0).
  */
+
+/** The Apple sheet, with a cancel told apart from a failure. */
+async function reauthAppleForDeletion(): Promise<AppleReauth> {
+  try {
+    return { status: 'code', authorizationCode: await requestAppleAuthorizationCode() };
+  } catch (err) {
+    if (err instanceof SocialAuthError && err.code === 'CANCELLED') return { status: 'cancelled' };
+    throw err;
+  }
+}
+
 function DeleteAccountScreen() {
   const { t } = useLocale();
   const router = useRouter();
@@ -53,6 +78,10 @@ function DeleteAccountScreen() {
 
   const word = t('profile.deleteConfirmWord');
   const armed = confirmationMatches(typed, word);
+  const appleUser = hasAppleIdentity(session?.user);
+  // Apple is iOS-only (D2): Android cannot show the sheet, so revocation is
+  // skipped there and the audit row's apple_revoke_pending is the record.
+  const canReauthApple = Platform.OS === 'ios';
 
   const onDelete = async () => {
     if (!armed || busy) return;
@@ -72,12 +101,25 @@ function DeleteAccountScreen() {
         // purgeLocalIdentity builds its own list; this is what it will sweep,
         // reported so a failure names the store rather than just "local".
         secureKeys: secureKeysToPurge(process.env.EXPO_PUBLIC_SUPABASE_URL),
+        hasAppleIdentity: appleUser,
+        reauthApple: canReauthApple ? reauthAppleForDeletion : undefined,
+        revokeApple: canReauthApple
+          ? (authorizationCode) => revokeAppleAuthorization(supabase, authorizationCode)
+          : undefined,
       });
 
       addBreadcrumb('account.delete.done', {
+        appleRevoke: outcome.appleRevoke,
         appleRevokePending: outcome.appleRevokePending,
         failures: outcome.failures,
       });
+      // The account is gone either way; the tracker needs to see Apple refusing
+      // (e.g. NOT_CONFIGURED, invalid_client) because the store obligation is unmet.
+      if (outcome.appleRevoke === 'failed') {
+        captureException(new Error(`account deletion: Apple revocation failed (${outcome.appleRevokeError ?? 'unknown'})`), {
+          scope: 'account.delete.apple',
+        });
+      }
       // The account is gone whatever these say; they are for the tracker, not
       // the guest, who has no action left to take (SEC-36).
       if (outcome.failures.length > 0) {
@@ -91,6 +133,13 @@ function DeleteAccountScreen() {
       // one is gated and would flash its redirect on the way past.
       router.replace('/welcome');
     } catch (err) {
+      if (err instanceof DeletionCancelledError) {
+        // The guest backed out of the Apple sheet. Not an error for the tracker.
+        addBreadcrumb('account.delete.apple_cancelled');
+        setError(t('profile.deleteAppleCancelled'));
+        setBusy(false);
+        return;
+      }
       // The server refused and NOTHING on the device has been touched — the
       // guest still has their account and can simply press the button again.
       captureException(err, { scope: 'account.delete' });
@@ -135,6 +184,20 @@ function DeleteAccountScreen() {
             {t('profile.deleteBody')}
           </Text>
         </View>
+
+        {appleUser && canReauthApple ? (
+          <Text
+            style={{
+              fontFamily: fonts.body400,
+              fontSize: 12.5,
+              lineHeight: 20,
+              color: colors.mut,
+              marginBottom: space.m,
+            }}
+          >
+            {t('profile.deleteAppleNote')}
+          </Text>
+        ) : null}
 
         <Text
           style={{

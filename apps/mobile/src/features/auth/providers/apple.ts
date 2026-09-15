@@ -24,3 +24,8 @@ export async function isAppleSignInAvailable(): Promise<boolean> {
 export async function requestAppleCredential(_hashedNonce: string): Promise<AppleCredential> {
   throw new SocialAuthError('UNAVAILABLE', 'apple', 'Sign in with Apple is iOS only');
 }
+
+/** Account deletion's Apple re-auth. iOS only; the deletion flow never calls this elsewhere. */
+export async function requestAppleAuthorizationCode(): Promise<string> {
+  throw new SocialAuthError('UNAVAILABLE', 'apple', 'Sign in with Apple is iOS only');
+}

@@ -1,19 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { makeT, isolate, type Locale, type MessageKey } from '@touch/i18n';
+import { makeT, isolate, type Locale } from '@touch/i18n';
 import type { VenueOpeningHours } from '@/lib/menu';
-import { todayHours, weekHours, type DayKey } from '@/lib/cafe/hours';
-
-const DAY_LABEL: Record<DayKey, MessageKey> = {
-  mon: 'cafe.days.mon',
-  tue: 'cafe.days.tue',
-  wed: 'cafe.days.wed',
-  thu: 'cafe.days.thu',
-  fri: 'cafe.days.fri',
-  sat: 'cafe.days.sat',
-  sun: 'cafe.days.sun',
-};
+import { DAY_LABEL, todayHours, weekHours } from '@/lib/cafe/hours';
 
 /**
  * The design's footer: a blue field with a shallow arched top that caps the

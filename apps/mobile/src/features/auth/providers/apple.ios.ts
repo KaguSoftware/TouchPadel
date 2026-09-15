@@ -52,6 +52,25 @@ export async function requestAppleCredential(hashedNonce: string): Promise<Apple
   };
 }
 
+/**
+ * A fresh one-time authorizationCode for the SAME Apple ID, used only by account
+ * deletion (features/profile/deletion.ts): the server exchanges it and revokes
+ * the grant (functions/apple-revoke). No scopes and no nonce — nothing here
+ * signs anyone in. Cancellation surfaces as SocialAuthError CANCELLED.
+ */
+export async function requestAppleAuthorizationCode(): Promise<string> {
+  let credential: AppleAuthentication.AppleAuthenticationCredential;
+  try {
+    credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+  } catch (error) {
+    throw normalizeAppleError(error);
+  }
+  if (!credential.authorizationCode) {
+    throw new SocialAuthError('FAILED', 'apple', 'Apple returned no authorization code');
+  }
+  return credential.authorizationCode;
+}
+
 function normalizeAppleError(error: unknown): SocialAuthError {
   if (error instanceof SocialAuthError) return error;
   const code =

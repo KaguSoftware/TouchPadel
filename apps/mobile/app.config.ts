@@ -114,7 +114,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'TouchPadel',
   slug: 'touchpadel',
   scheme: 'touchpadel',
-  version: '0.1.0',
+  version: '1.0.0',
   // EAS project @parsa-mansouri/touchpadel, created by `eas init` on 2026-09-01 on
   // Parsa's PERSONAL Expo account (the org question came before this line was set).
   // Handover item: transfer the project to a Kagu org in expo.dev, then change this.
@@ -130,7 +130,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // `newArchEnabled` left the schema in SDK 55: the New Architecture is the only one.
   // EAS Update (expo-updates, added eba8353 for the eas.json channels): store
   // binaries poll this URL on their profile's channel. 'appVersion' pins each
-  // store version (0.1.0) to its own update runtime, so an OTA can never land
+  // store version (1.0.0) to its own update runtime, so an OTA can never land
   // on incompatible natives. The development profile has no channel — the dev
   // client ignores this block.
   updates: {
