@@ -31,6 +31,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Dependabot was removed for the deployment phase. Version updates are
+      # switched on by nothing more than this file existing on main, so a
+      # cherry-pick or a copied .github folder would quietly bring the weekly
+      # PRs back. Re-enabling it is a decision, made by deleting this step.
+      - name: No Dependabot config
+        run: |
+          if [ -e .github/dependabot.yml ] || [ -e .github/dependabot.yaml ]; then
+            echo "::error::Dependabot config found. It was removed on purpose; see docs/security/security-layer-1.md."
+            exit 1
+          fi
+
       # The official gitleaks ACTION is deliberately not used: it requires a paid
       # GITLEAKS_LICENSE for organisation-owned repositories, and this repo is
       # org-owned. Without the licence the step fails on licensing rather than on
