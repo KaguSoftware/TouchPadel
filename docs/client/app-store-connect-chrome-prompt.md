@@ -115,6 +115,7 @@ In the language picker choose **Add Language → Arabic**, then with Arabic sele
   **unrestricted web access: No**, **user-generated content: No**, **messaging and chat: No**,
   **advertising: No**, parental controls: No, age assurance: No. Not "Made for Kids". The result must be **4+**.
   If it comes out higher, stop and report which answer caused it.
+- **Regulated Medical Device** declaration (EU/EEA, UK, US): the app is **not** a regulated medical device.
 - **App Store Regulations & Permits → Digital Services Act (trader status):** if it already shows a status,
   leave it. If it asks for one, **stop and ask me.** It publishes a name, address, phone and email on EU
   storefronts, and I decide whose.

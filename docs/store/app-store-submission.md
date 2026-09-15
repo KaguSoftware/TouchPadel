@@ -7,8 +7,10 @@ agent that types all of this in is `docs/client/app-store-connect-chrome-prompt.
 
 - App Store Connect app: **6809045183**, team **BR42V976FS**, bundle id **`com.kagu.touchpadel`**
 - Version: **1.0.0** (`apps/mobile/app.config.ts`). The App Store Connect version record must say the same
-- Build number: EAS remote with `autoIncrement` (build 8 was 2026-09-11, so the next is ≥ 9)
+- Build number: EAS remote with `autoIncrement`. Builds 4–9 in App Store Connect are all **0.1.0** (newest 9, 2026-09-13), so the first 1.0.0 build is ≥ 10
 - Target submission Wed 2026-09-16, hard stop Fri 2026-09-18
+- Sign in with Apple key for revocation: **created 2026-09-15**, Key ID `34Y63525H2` ("Touch Padel SIWA Revoke"). The .p8 is downloaded by the owner only
+- App Store Connect state after the first browser run: `docs/client/app-store-connect-chrome-prompt-2.md` finishes the rest
 
 ---
 
@@ -19,7 +21,7 @@ agent that types all of this in is `docs/client/app-store-connect-chrome-prompt.
 | 1 | Privacy and Support pages are live | `curl -sI https://touch-padel-web.vercel.app/en/privacy` (and `/ar/privacy`, `/en/support`, `/ar/support`) returns 200 |
 | 2 | apple-revoke is deployed with its four secrets | Delete a throwaway Sign-in-with-Apple account on TestFlight, then Supabase → Edge Functions → apple-revoke → Logs shows `[apple-revoke] revoked`. The audit row still says `apple_revoke_pending: true`, because `delete_my_account` has no "revoked" parameter. That's expected |
 | 3 | The review account exists on the hosted project | `node scripts/create-review-account.mjs` prints `Signed in with phone + password: OK` |
-| 4 | A build ≥ 9 with version 1.0.0 is processed | App Store Connect → TestFlight shows it with no "Missing Compliance" |
+| 4 | A build ≥ 10 with version 1.0.0 is processed | App Store Connect → TestFlight shows it with no "Missing Compliance" |
 | 5 | The desk knows "App Review" bookings are test bookings | Tell them |
 
 ---
@@ -31,8 +33,8 @@ agent that types all of this in is `docs/client/app-store-connect-chrome-prompt.
 | Name | Touch Padel (EN) · تتش بادل (AR) |
 | Bundle ID | `com.kagu.touchpadel` |
 | SKU | `touch-padel-ios` (already fixed when the record was created; leave whatever is there) |
-| Primary language | English (U.S.) |
-| Localizations | English (U.S.), Arabic |
+| Primary language | **Arabic** (as the record was created; left as is on 2026-09-15). English (U.S.) is a second localization |
+| Localizations | Arabic (primary), English (U.S.) |
 | Primary category | **Sports** |
 | Secondary category | **Health & Fitness** |
 | Content rights | Does **not** contain, show or access third-party content |
@@ -40,13 +42,13 @@ agent that types all of this in is `docs/client/app-store-connect-chrome-prompt.
 | Price | **Free** |
 | In-App Purchases | **None.** The app takes no money. Guests pay at the venue's front desk for a service used in person, which is outside IAP (Guideline 3.1.3(e), goods and services used outside the app) |
 | Made for Kids | No |
+| Regulated medical device | **Not** a regulated medical device (EU/EEA, UK, US declaration) |
 
 ### Availability — all territories (owner decision 2026-09-15)
 
-Includes the EU, so App Store Connect asks for **Digital Services Act trader status** (App Information → App Store
-Regulations & Permits, or Business). A business publishing a venue's app **is a trader**. Apple then shows the
-trader's address, phone and email on EU storefronts. That is the owner's call on whose details go there (Kagu or
-Touch). If the status is not already set on the account, the browser agent stops and asks.
+All countries and regions, including future ones. The account's EU Digital Services Act status for this app is
+already **non-trader** ("This developer has identified itself as a non-trader for this app."), so no trader
+contact details are published. Revisit it with the owner if Touch or Kagu should be declared a trader.
 
 When the domain moves, change the Privacy Policy and Support URLs in App Store Connect. That needs no new build.
 Also set `EXPO_PUBLIC_SITE_URL` for the next build so the in-app links follow.
