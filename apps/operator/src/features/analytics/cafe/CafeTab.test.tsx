@@ -128,7 +128,9 @@ describe('CafeTab', () => {
     expect(within(tile('Cafe sales')).getByText('700,000 IQD', { selector: 'strong' })).toBeTruthy();
     // Venue revenue = cafe net 700,000 + the venue-wide court revenue 1,200,000.
     expect(within(tile('Venue revenue')).getByText('1,900,000 IQD', { selector: 'strong' })).toBeTruthy();
-    expect(within(tile('Venue revenue')).getByText('700K cafe · 1.2M courts')).toBeTruthy();
+    // Case-insensitive: en-GB compact notation is '700K' in older ICU and '700k' in
+    // the newer CLDR that CI's Node 22 ships. The figure is what is under test.
+    expect(within(tile('Venue revenue')).getByText(/^700K cafe · 1\.2M courts$/i)).toBeTruthy();
     expect(within(tile('Cash / card')).getByText('630,000 / 350,000', { selector: 'strong' })).toBeTruthy();
     expect(within(tile('Cash / card')).getByText('64% cash')).toBeTruthy();
     expect(within(tile('Refunds')).getByText('70,000 IQD', { selector: 'strong' })).toBeTruthy();
