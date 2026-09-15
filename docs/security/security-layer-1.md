@@ -206,6 +206,10 @@ have to make on every pull request forever.
       One true-negative suppressed with a reason: the audit-log test asserting how the till *renders* the
       role name `service_role`. (SEC-24 · DEV)
 - [x] **`pnpm audit --audit-level=high` + Dependabot** — DONE, DEV, 2026-09-04.
+      ⚠ **Dependabot REMOVED 2026-09-15 for the deployment phase.** `.github/dependabot.yml` is deleted and
+      the `No Dependabot config` step in `ci.yml` fails if it returns. The audit gate below still runs, so
+      nothing patches the backlog automatically any more: every waiver in `.security/audit-waivers.json`
+      now needs a person to do the upgrade before it expires — **electron first, 2026-10-15**.
       ⚠ Bare `pnpm audit --audit-level=high` goes **red on arrival** (14 high, 2 critical, all transitive),
       so it lands wrapped in `scripts/security/check-dependency-audit.mjs` on the same principle this file
       applies to migrations — grandfather what is committed, guard what arrives.
@@ -214,8 +218,8 @@ have to make on every pull request forever.
       waivers are reported so the file shrinks as upgrades land. All three behaviours verified.
       **The one that matters is `electron@33.4.11` — 7 high advisories, fixed only at ≥38.8.6/39.8.10,
       including a context-isolation bypass. That is the binary on the venue PC. Waived to 2026-10-15 and it
-      belongs in the Block 4 desktop lane, not here.** Dependabot groups by "does it ship" so the backlog
-      arrives as a handful of reviewable PRs, not thirty unread ones. (SEC-24 · DEV)
+      belongs in the Block 4 desktop lane, not here.** ~~Dependabot groups by "does it ship" so the backlog
+      arrives as a handful of reviewable PRs, not thirty unread ones.~~ (removed 2026-09-15, see above) (SEC-24 · DEV)
 - [x] Confirm `.env*`, `.env.remote` and `station.json` are absent from git **history** — DONE, DEV,
       2026-09-04. `scripts/security/check-history-secrets.mjs` walks `--diff-filter=A` over `--all`: 994
       paths, clean. Four `.env.example` files (deliberate) and a root `.npmrc` holding only pnpm settings.

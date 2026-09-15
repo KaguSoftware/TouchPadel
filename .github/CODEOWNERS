@@ -39,6 +39,7 @@
 # no more review than a typo fix.
 /.github/workflows/ci.yml           @KaguSoftware/tech-leads
 /.github/CODEOWNERS                 @KaguSoftware/tech-leads
+/.github/dependabot.y*ml           @KaguSoftware/tech-leads
 /.gitleaks.toml                     @KaguSoftware/tech-leads
 /.security/                         @KaguSoftware/tech-leads
 /scripts/security/                  @KaguSoftware/tech-leads

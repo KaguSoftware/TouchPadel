@@ -753,7 +753,7 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       region, retention, legal basis and contract status; sign PostHog's DPA; get Groq zero-retention in
       writing. **See D4 — PostHog on the guest web app is outside the SOW.** (SEC-19 · SEC)
 - [ ] Decide Telegram explicitly: strip the payload to ticket number and table (no notes, no totals) and disclose it, or replace it. Live order contents currently go to a consumer messaging platform under no agreement. (SEC-19 · SEC)
-- [ ] `[CI]` Add the CI secret gates permanently: artifact grep, gitleaks over history, `pnpm audit --audit-level=high`, Dependabot, and a check that no `NEXT_PUBLIC_`/`EXPO_PUBLIC_` name matches `/SECRET|KEY|TOKEN|PIN|HMAC/`. (SEC-24 · DEV)
+- [ ] `[CI]` Add the CI secret gates permanently: artifact grep, gitleaks over history, `pnpm audit --audit-level=high`, ~~Dependabot~~ (removed 2026-09-15), and a check that no `NEXT_PUBLIC_`/`EXPO_PUBLIC_` name matches `/SECRET|KEY|TOKEN|PIN|HMAC/`. (SEC-24 · DEV)
 
 ---
 
@@ -1131,7 +1131,7 @@ something that works. Land these in the first week and thirteen boxes become per
 
 - [x] **`gitleaks` over full history** (SEC-24) — `.gitleaks.toml` + the `secrets` job, 2026-09-04
 - [x] **Built-artifact secret grep** on all three clients (SEC-24) — `check-artifact-secrets.mjs`, fails when nothing was built
-- [x] **`pnpm audit` + Dependabot** (SEC-24) — `check-dependency-audit.mjs` with dated, per-advisory waivers in `.security/audit-waivers.json`; an expired waiver fails the build
+- [x] **`pnpm audit`** (SEC-24) — `check-dependency-audit.mjs` with dated, per-advisory waivers in `.security/audit-waivers.json`; an expired waiver fails the build. **Dependabot removed 2026-09-15** for deployment; CI fails if `.github/dependabot.yml` returns, and waivers are now upgraded by hand before they expire
 - [x] **`NEXT_PUBLIC_` / `EXPO_PUBLIC_` naming check** (SEC-24) — `check-public-env-names.mjs`, over `git ls-files`
 - [x] **Lint rule: no `service_role` in client paths** (SEC-24) — `clientSecrets` in `@touch/config/eslint`, wired into all four client packages; `apps/web` now has a lint script. ⚠ **Running lint matters as much as having it:** on 2026-09-07 it was already reporting `'STATIC_SECURITY_HEADERS' is defined but never used` — the finding that the entire web header set was not shipping — and nobody had re-run it.
 - [x] **`check:migrations`** (SEC-02) — scoped to changed files, lock-taking DDL included
@@ -1240,7 +1240,7 @@ grep -c "kind: 'rpc'" packages/db/tests/rls-matrix.ts
 
 # gates that should exist and did not at v2.0 — every line should eventually print something
 grep -ril gitleaks . --exclude-dir=node_modules | head
-ls .github/CODEOWNERS .github/PULL_REQUEST_TEMPLATE.md .github/dependabot.yml 2>/dev/null
+ls .github/CODEOWNERS .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null   # dependabot.yml removed on purpose 2026-09-15
 grep -n "headers()" apps/web/next.config.ts
 grep -rn "service_role" packages/config apps/*/eslint.config.mjs 2>/dev/null
 ```

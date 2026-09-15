@@ -19,7 +19,7 @@ import { callPhone } from '../../src/lib/phone';
 import { brand, radius, space, useTheme } from '../../src/theme';
 import { Button, Card, ErrorText, Screen, Title } from '../../src/components/ui';
 import { MenuRow } from '../../src/components/booking';
-import { GearIcon, LockIcon, PencilIcon, PhoneIcon, TrashIcon } from '../../src/components/icons';
+import { LockIcon, PencilIcon, PhoneIcon, SlidersIcon, TrashIcon } from '../../src/components/icons';
 import { ErrorState, SkeletonList } from '../../src/components/states';
 import { useToast } from '../../src/components/overlays';
 
@@ -298,7 +298,7 @@ export default function ProfileScreen() {
               />
             ) : null}
             <MenuRow
-              icon={<GearIcon size={15} color={colors.gstrong} />}
+              icon={<SlidersIcon size={15} color={colors.gstrong} />}
               label={t('settings.title')}
               onPress={() => router.push('/settings')}
             />
