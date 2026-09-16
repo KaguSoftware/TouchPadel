@@ -277,7 +277,7 @@ export function CountScreen() {
                 aria-label={tr('ws.manager.stock.onHand.table.show')}
                 options={[
                   { value: 'all', label: tr('ws.kit.common.all') },
-                  { value: 'left', label: tr('ws.manager.stock.count.left') },
+                  { value: 'left', label: tr('ws.manager.stock.count.notEntered') },
                   { value: 'entered', label: tr('ws.manager.stock.count.enteredFilter') },
                 ]}
               />

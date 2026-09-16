@@ -65,7 +65,7 @@ export function Expiry() {
   function exportCsv() {
     const headers = [
       tr('op.stock.ingredient'),
-      tr('ws.manager.stock.expiry.left'),
+      tr('ws.manager.stock.expiry.remaining'),
       tr('op.stock.unitLabel'),
       tr('ws.manager.stock.expiry.expiryDate'),
       tr('ws.manager.stock.expiry.worth'),
@@ -86,7 +86,7 @@ export function Expiry() {
 
   const base: Column<SummaryBatch>[] = [
     { key: 'ingredient', header: tr('op.stock.ingredient'), render: (b) => <bdi style={{ fontWeight: 600 }}>{nameOf(b)}</bdi> },
-    { key: 'left', header: tr('ws.manager.stock.expiry.left'), numeric: true, render: (b) => <bdi>{fmt.qty(b.qtyRemaining, b.unit)}</bdi> },
+    { key: 'left', header: tr('ws.manager.stock.expiry.remaining'), numeric: true, render: (b) => <bdi>{fmt.qty(b.qtyRemaining, b.unit)}</bdi> },
     { key: 'worth', header: tr('ws.manager.stock.expiry.worth'), numeric: true, render: (b) => <Money amount={b.valueIqd} /> },
   ];
 
