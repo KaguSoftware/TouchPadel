@@ -1,6 +1,6 @@
 import { StrictMode, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { RouterProvider, createRouter, useNavigate } from '@tanstack/react-router';
+import { RouterProvider, createHashHistory, createRouter, useNavigate } from '@tanstack/react-router';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { PERSIST_BUSTER, makePersister, shouldPersistQuery } from './lib/persist';
@@ -34,6 +34,7 @@ import { AppErrorBoundary, CrashPanel, NotFoundPanel } from './components/CrashS
 import { captureException, installGlobalHandlers } from './lib/telemetry';
 import { initQueueResults } from './lib/queueResults';
 import { initOfflineTabRetirement } from './lib/offlineTabs';
+import { isElectron } from './lib/mutate';
 
 // Code-based route tree for the shell phase. TODO(FE2): switch to file-based codegen
 // (@tanstack/router-plugin generating routeTree.gen.ts) once typed search params land.
@@ -79,6 +80,12 @@ function RouteNotFoundScreen() {
 
 const router = createRouter({
   routeTree,
+  // The shell loads index.html from file://, where a pushState path such as
+  // /till becomes file:///C:/till — fine until anything reloads (Ctrl+R, the
+  // crash panel's Reload, the shell's render-process-gone recovery), which then
+  // asks the disk for a file that does not exist and leaves a white window.
+  // Hash history keeps the document URL on index.html. Browsers keep real paths.
+  ...(isElectron() ? { history: createHashHistory() } : {}),
   defaultErrorComponent: RouteErrorScreen,
   defaultNotFoundComponent: RouteNotFoundScreen,
   // Report before rendering the panel, so a screen that crashes in a loop still

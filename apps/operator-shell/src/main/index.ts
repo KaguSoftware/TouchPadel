@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
 import { IPC, type PrintResult } from '../ipc-channels';
 import {
@@ -24,7 +25,7 @@ import { getAuthState, setAuthState } from './auth-state';
 import { observePin, unlockPinOffline } from './pin-cache';
 import { printReceiptHtml } from './print/print-receipt';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
-import { mayNavigateTo, mayOpenExternally, type NavigationPolicy } from './window-security';
+import { mayNavigateTo, mayOpenExternally, shouldRecoverToRenderer, type NavigationPolicy } from './window-security';
 import {
   IpcValidationError,
   validateAuthState,
@@ -195,13 +196,23 @@ function createWindow(): BrowserWindow {
 
   if (devServerUrl) {
     void win.loadURL(devServerUrl);
-  } else if (app.isPackaged) {
-    // The SPA rides as extraResources/renderer (electron-builder.yml) — loaded
-    // from disk, never a URL: the UI boots with zero network (design-arch §2).
-    void win.loadFile(path.join(process.resourcesPath, 'renderer', 'index.html'));
   } else {
-    // Monorepo-local `pnpm build` of apps/operator, for `electron .` smoke runs.
-    void win.loadFile(path.join(__dirname, '../../../operator/dist/index.html'));
+    const rendererFile = app.isPackaged
+      ? // The SPA rides as extraResources/renderer (electron-builder.yml) — loaded
+        // from disk, never a URL: the UI boots with zero network (design-arch §2).
+        path.join(process.resourcesPath, 'renderer', 'index.html')
+      : // Monorepo-local `pnpm build` of apps/operator, for `electron .` smoke runs.
+        path.join(__dirname, '../../../operator/dist/index.html');
+    void win.loadFile(rendererFile);
+
+    // A reload of a URL that is not index.html used to end on a white window
+    // (window-security.ts shouldRecoverToRenderer). Put the renderer back.
+    const rendererUrl = pathToFileURL(rendererFile).href;
+    win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, url, isMainFrame) => {
+      if (!shouldRecoverToRenderer({ url, errorCode, isMainFrame }, rendererUrl)) return;
+      console.error('[window] load failed, returning to the renderer:', url, errorDescription);
+      void win.loadFile(rendererFile);
+    });
   }
 
   // Crash recovery (design-arch.md §2.5): renderer gone → reload. Note this

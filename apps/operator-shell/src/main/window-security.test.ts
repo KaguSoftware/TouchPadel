@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mayNavigateTo, mayOpenExternally, type NavigationPolicy } from './window-security';
+import { mayNavigateTo, mayOpenExternally, shouldRecoverToRenderer, type NavigationPolicy } from './window-security';
 
 // The window had no will-navigate handler at all, so nothing stopped the
 // renderer moving the top-level frame to remote content with the preload — and
@@ -74,5 +74,31 @@ describe('mayOpenExternally', () => {
   it('refuses junk', () => {
     expect(mayOpenExternally('', prod)).toBe(false);
     expect(mayOpenExternally('https:// broken', prod)).toBe(false);
+  });
+});
+
+describe('shouldRecoverToRenderer', () => {
+  const renderer = 'file:///C:/Program%20Files/Touch%20Padel/resources/renderer/index.html';
+  const failed = (url: string, errorCode = -6, isMainFrame = true) => ({ url, errorCode, isMainFrame });
+
+  it('recovers a reload of a stale history path (the Windows white screen)', () => {
+    expect(shouldRecoverToRenderer(failed('file:///C:/till'), renderer)).toBe(true);
+  });
+
+  it('recovers the macOS spelling of the same path', () => {
+    expect(
+      shouldRecoverToRenderer(failed('file:///till'), 'file:///Applications/Touch.app/Contents/Resources/renderer/index.html'),
+    ).toBe(true);
+  });
+
+  it('does not reload index.html into itself when the renderer is missing', () => {
+    expect(shouldRecoverToRenderer(failed(renderer), renderer)).toBe(false);
+    expect(shouldRecoverToRenderer(failed(`${renderer}#/till`), renderer)).toBe(false);
+  });
+
+  it('ignores superseded loads, subframes and non-file URLs', () => {
+    expect(shouldRecoverToRenderer(failed('file:///C:/till', -3), renderer)).toBe(false);
+    expect(shouldRecoverToRenderer(failed('file:///C:/till', -6, false), renderer)).toBe(false);
+    expect(shouldRecoverToRenderer(failed('http://localhost:5174/till', -102), renderer)).toBe(false);
   });
 });
