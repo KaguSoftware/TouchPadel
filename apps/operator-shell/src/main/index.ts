@@ -380,7 +380,8 @@ if (gotTheLock) {
       guardIpc('quitApp', () => {
         setTimeout(() => {
           // A downloaded update installs on the way out. app.exit() skips
-          // will-quit, so autoInstallOnAppQuit alone would never fire here.
+          // will-quit, so autoInstallOnAppQuit alone would never fire here;
+          // installOnQuit quits itself, and exits hard if that quit stalls.
           if (!updater?.installOnQuit()) app.exit(0);
         }, 50); // let the reply reach the renderer
         return { ok: true as const };
@@ -461,6 +462,11 @@ if (gotTheLock) {
       onReady: (info) => {
         if (!win.isDestroyed()) win.webContents.send(IPC.updateReady, info);
       },
+      allowClose: () => {
+        for (const w of BrowserWindow.getAllWindows()) w.setClosable(true);
+      },
+      exit: (code) => app.exit(code),
+      logFile: path.join(app.getPath('userData'), 'updater.log'),
     });
 
     // A second launch should surface the station that is already trading, not

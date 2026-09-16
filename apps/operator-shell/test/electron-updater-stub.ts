@@ -11,6 +11,8 @@ class StubUpdater extends EventEmitter {
   autoDownload = false;
   autoInstallOnAppQuit = false;
   allowPrerelease = true;
+  autoRunAppAfterInstall = true;
+  logger: unknown = console;
   /** Set by a test to make the next check reject. */
   failNextCheck: Error | null = null;
 
@@ -36,4 +38,6 @@ export function __reset(): void {
   __calls.length = 0;
   autoUpdater.removeAllListeners();
   autoUpdater.failNextCheck = null;
+  autoUpdater.autoRunAppAfterInstall = true;
+  autoUpdater.logger = console;
 }
