@@ -370,9 +370,6 @@ export function Court3D({
   const boxOffsetY = patternBox?.offsetY ?? 0;
   // Fixed for the life of the scene: the tier shapes what gets built.
   const quality = useRef(qualityProp ?? detectCourtQuality()).current;
-  useEffect(() => {
-    console.log('[courtperf] quality tier =', quality, 'propOverride =', qualityProp ?? 'none');
-  }, [quality, qualityProp]);
   /** Wall-clock mark for the current context attach, for [courtperf]. */
   const attachAt = useRef<number | null>(null);
   const court = useRef<CourtScene | null>(null);
@@ -764,7 +761,6 @@ export function Court3D({
       }
       scene.update(t, value, ease.current(value));
       const __first = attachAt.current !== null;
-      const __tDraw = __first ? Date.now() : 0;
       main.renderer.render(scene.scene, scene.camera);
       // DID A SURFACE TAKE IT? A dead expo-gl context does not throw; it answers
       // every call with `undefined`, so this frame "drew" whether or not there
@@ -777,15 +773,6 @@ export function Court3D({
         return;
       }
       if (__first) {
-        // First render() after a context attach compiles/links every shader,
-        // so this split separates GPU-driver cost from the JS scene build.
-        console.log(
-          '[courtperf] first render()',
-          Date.now() - __tDraw,
-          'ms | attach -> first frame',
-          Date.now() - (attachAt.current as number),
-          'ms',
-        );
         attachAt.current = null;
       }
       // A frame has gone out — but "gone out" only counts while the app is ACTIVE.
@@ -986,12 +973,8 @@ export function Court3D({
           renderer.setClearColor(0x000000, 0); // see-through: the button shows between the ghosts
         }
         if (!court.current) {
-          const __tBuild = Date.now();
           court.current = buildCourtScene(quality);
-          console.log('[courtperf] scene build (cold)', Date.now() - __tBuild, 'ms');
           pushViewport();
-        } else {
-          console.log('[courtperf] scene REUSED (warm context)');
         }
         // Outside the branch above: Android destroys the surface while the app
         // is backgrounded and hands back a NEW context, but the scene object
@@ -1024,7 +1007,6 @@ export function Court3D({
         clearSurfaceTimer();
         if (kind === 'court') {
           attachAt.current = Date.now();
-          console.log('[courtperf] court context attached (build+renderer done)');
           // A court surface can arrive just after the guest left (it was created
           // on the tab's last visible frame). It gets the same watch as the one
           // it replaced.
