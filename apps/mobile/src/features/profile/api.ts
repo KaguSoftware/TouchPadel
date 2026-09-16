@@ -146,7 +146,7 @@ export async function revokeAppleAuthorization(client: Client, authorizationCode
         // not JSON — keep the client's message
       }
     }
-    throw new Error(`apple-revoke failed: ${code ?? error.message}`);
+    throw new Error(`apple-revoke failed: ${code ?? error.message}`); // QUIET-ERROR-OK: caught in deletion.ts, sent to captureException only, never rendered
   }
   if (!data?.revoked) throw new Error('apple-revoke failed: no revoked flag');
 }

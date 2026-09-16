@@ -140,7 +140,8 @@ describe('CourtsTab', () => {
     expect(within(pulse).getAllByText('1,200,000 IQD', { selector: 'strong' })).toHaveLength(2);
     const venueTile = within(pulse).getByText('Venue revenue').closest('div')!;
     expect(within(venueTile).getByText('1,200,000 IQD', { selector: 'strong' })).toBeTruthy();
-    expect(within(venueTile).getByText('0 cafe · 1.2M courts')).toBeTruthy();
+    // Case-insensitive: en-GB compact is '1.2M' or '1.2m' depending on the ICU build.
+    expect(within(venueTile).getByText(/^0 cafe · 1\.2M courts$/i)).toBeTruthy();
     // The no-show count the panel shows sits under the rate.
     const noShowTile = within(pulse).getByText('No-show rate').closest('div')!;
     expect(within(noShowTile).getByText('4 no-shows')).toBeTruthy();

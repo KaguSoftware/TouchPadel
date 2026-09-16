@@ -31,7 +31,10 @@ import {
 } from './helpers';
 
 const TILL_TABLE = fixtureTableId(8); // T8
-const WALKIN_NAME = 'E2E Walk-in';
+// No digits in a guest name: the desk strips them as the operator types
+// (deskLogic sanitizeName), so 'E2E Walk-in' would be saved as 'EE Walk-in'
+// and every lookup below would miss it.
+const WALKIN_NAME = 'Playwright Walk-in';
 
 async function signIn(page: Page, email: string) {
   await page.goto(OPERATOR_URL);
@@ -185,7 +188,8 @@ test.describe('operator journeys', () => {
     // requires a reason on every override — the RPCs have
     // taken one since 0048 and the desk never passed it, so every move, extend
     // and status change was audited as the generic 'staff_op'.
-    const name = `E2E Week ${Date.now()}`;
+    // Letters only, for the same reason as WALKIN_NAME: the timestamp is spelled a-j.
+    const name = `Playwright Week ${String(Date.now()).replace(/\d/g, (d) => 'abcdefghij'[Number(d)]!)}`;
     let reservationId: string | null = null;
 
     try {

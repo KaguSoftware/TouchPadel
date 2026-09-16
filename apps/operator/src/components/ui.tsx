@@ -131,6 +131,17 @@ export function Button(props: ButtonProps) {
    * only once it was already too late to matter.
    */
   const hasGlyphSlot = icon !== undefined || 'busy' in props;
+  /*
+   * …and the reserved slot has to be reserved at BOTH ends, or it un-centres
+   * the label it was added to hold still. A button with no glyph of its own —
+   * every `<Button kind="primary" busy>Confirm</Button>` in a modal footer —
+   * got an empty 14-16px box plus a 0.45rem gap in front of its text and
+   * nothing behind it, so `justify-content: center` centred the pair and left
+   * the WORD sitting right of the button's middle. The mirror spacer is
+   * inert: it exists only when this button can never paint a glyph at the end
+   * (no `icon`, no `iconEnd`) and it is the same size as the slot it balances.
+   */
+  const needsEndSpacer = hasGlyphSlot && Boolean(children) && icon === undefined && iconEnd === undefined;
   // No transition. `busy` flips true on the operator's own click, so a fade
   // here would animate the press itself — the exact case the motion rule
   // excludes, on the highest-frequency control in the building. The reserved
@@ -179,6 +190,7 @@ export function Button(props: ButtonProps) {
       {/* Stays mounted while busy for the same reason: dropping it narrowed the
           button mid-press and pulled the label with it. */}
       {iconEnd && <Icon name={iconEnd} size={iconSize} style={glyphFade} />}
+      {needsEndSpacer && <span aria-hidden="true" style={{ inlineSize: `${iconSize}px`, flex: '0 0 auto' }} />}
     </button>
   );
 
