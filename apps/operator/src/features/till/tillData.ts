@@ -268,6 +268,8 @@ export interface TabDetail {
   id: string;
   status: string;
   label: string | null;
+  /** Absent on a detail cached before the column joined the select. */
+  opened_at?: string | null;
   subtotal_iqd: number | null;
   total_iqd: number | null;
   court_iqd: number;
@@ -283,7 +285,7 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
   const { data, error } = await supabase
     .from('tabs')
     .select(
-      `id, status, label, subtotal_iqd, total_iqd, court_iqd, reservation_id,
+      `id, status, label, opened_at, subtotal_iqd, total_iqd, court_iqd, reservation_id,
        table:cafe_tables(table_number),
        reservation:reservations(guest_name, court:courts(name_en, name_ar)),
        orders (
@@ -331,6 +333,18 @@ export interface BasketLine {
 /** Display estimate for one basket line (unit + modifier deltas) × qty. Never sent to the server. */
 export function basketLineEstimate(l: BasketLine): number {
   return (l.unitPriceIqd + l.modifiers.reduce((s, m) => s + m.priceDeltaIqd * m.qty, 0)) * l.qty;
+}
+
+/**
+ * Whether this role can read court bookings at all. `reservations` is readable
+ * by court_desk, manager and owner only (policy reservations_staff_read, 0008);
+ * for a cashier the booking picker comes back empty whatever is booked, so
+ * offering "Charge to booking" to a cashier offered a list that could never
+ * have anything in it. A UX mirror of the policy — the server stays the
+ * authority, exactly as with lib/auth's permissions.
+ */
+export function canReadBookings(role: string | null | undefined): boolean {
+  return role === 'court_desk' || role === 'manager' || role === 'owner';
 }
 
 /** The label a tab is known by on the floor: table number, guest name or free label. */

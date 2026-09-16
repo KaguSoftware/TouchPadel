@@ -91,3 +91,139 @@ export function nextStatuses(status: CampaignStatus): readonly CampaignStatus[] 
 export function isEditable(status: CampaignStatus): boolean {
   return status === 'draft' || status === 'scheduled';
 }
+
+// ---------------------------------------------------------------------------
+// Lifecycle chores
+// ---------------------------------------------------------------------------
+
+/**
+ * Campaigns whose dates have moved past their status. Nothing moves a
+ * campaign on by itself — app.set_campaign_status is the only writer — so a
+ * campaign "scheduled" for last week stays scheduled until the owner acts.
+ * These are the rows the Observe home lists as waiting, and the rows the
+ * marketing table flags.
+ */
+export function overdueCampaigns(
+  campaigns: readonly Pick<CampaignRow, 'id' | 'status' | 'starts_at' | 'ends_at'>[],
+  nowMs: number,
+): { toStart: string[]; toEnd: string[] } {
+  const toStart: string[] = [];
+  const toEnd: string[] = [];
+  for (const c of campaigns) {
+    if (c.status === 'scheduled' && c.starts_at && Date.parse(c.starts_at) <= nowMs) toStart.push(c.id);
+    if (c.status === 'live' && c.ends_at && Date.parse(c.ends_at) <= nowMs) toEnd.push(c.id);
+  }
+  return { toStart, toEnd };
+}
+
+export type CampaignFilter = 'all' | 'live' | 'scheduled' | 'draft' | 'finished';
+
+export function matchesFilter(status: CampaignStatus, filter: CampaignFilter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'finished') return status === 'ended' || status === 'cancelled';
+  return status === filter;
+}
+
+// ---------------------------------------------------------------------------
+// Dates — venue days, not UTC days
+// ---------------------------------------------------------------------------
+
+
+/** The venue-local calendar date ('YYYY-MM-DD') an instant falls on. */
+export function venueDateOf(iso: string, tz: string): string {
+  // en-CA is the one common locale whose short date IS YYYY-MM-DD.
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: tz });
+}
+
+/**
+ * The editor asks for a start day and a LAST day; the server stores a window
+ * [starts_at, ends_at). The form used to send `new Date('2026-09-20')`, which
+ * is UTC midnight — 03:00 in Baghdad — and used the end date itself as the
+ * exclusive end, so redemptions on the chosen last day were never counted.
+ *
+ * Now the start is the venue's midnight on that day and the end is the venue's
+ * midnight AFTER the last day. Reading back steps one millisecond before the
+ * end, which also shows campaigns saved the old way on the day they were
+ * picked (UTC midnight of D is still D in Baghdad).
+ */
+export function windowToServer(
+  startDate: string,
+  lastDate: string,
+  tz: string,
+  toUtc: (date: string, minutesOfDay: number, tz: string) => Date,
+): { startsAt: string | null; endsAt: string | null } {
+  return {
+    startsAt: startDate ? toUtc(startDate, 0, tz).toISOString() : null,
+    endsAt: lastDate ? toUtc(lastDate, 24 * 60, tz).toISOString() : null,
+  };
+}
+
+export function windowFromServer(
+  startsAt: string | null,
+  endsAt: string | null,
+  tz: string,
+): { startDate: string; lastDate: string } {
+  return {
+    startDate: startsAt ? venueDateOf(startsAt, tz) : '',
+    lastDate: endsAt ? venueDateOf(new Date(Date.parse(endsAt) - 1).toISOString(), tz) : '',
+  };
+}
+
+/** A last day before the start day. Empty either side is not an error. */
+export function windowIsBackwards(startDate: string, lastDate: string): boolean {
+  return Boolean(startDate && lastDate && lastDate < startDate);
+}
+
+
+// ---------------------------------------------------------------------------
+// Audience rules
+// ---------------------------------------------------------------------------
+
+/** The rule shape app.marketing_audience_reach reads. Absent key = no constraint. */
+export interface AudienceRule {
+  minBookings?: number;
+  lastSeenDays?: number;
+  lang?: 'en' | 'ar';
+  hasPhone?: boolean;
+  hasPush?: boolean;
+}
+
+/** Only the keys the server understands, with the types it casts them to. */
+export function readRule(raw: Record<string, unknown> | null | undefined): AudienceRule {
+  const r = raw ?? {};
+  const out: AudienceRule = {};
+  const int = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : typeof v === 'string' && /^\d+$/.test(v) && Number(v) > 0 ? Number(v) : undefined);
+  const minBookings = int(r.minBookings);
+  if (minBookings !== undefined) out.minBookings = minBookings;
+  const lastSeenDays = int(r.lastSeenDays);
+  if (lastSeenDays !== undefined) out.lastSeenDays = lastSeenDays;
+  if (r.lang === 'en' || r.lang === 'ar') out.lang = r.lang;
+  if (r.hasPhone === true) out.hasPhone = true;
+  if (r.hasPush === true) out.hasPush = true;
+  return out;
+}
+
+/** The rule as plain parts, in a fixed order, for "Bookings: at least 3 · Uses Arabic". */
+export type RulePart =
+  | { key: 'minBookings'; count: number }
+  | { key: 'lastSeenDays'; count: number }
+  | { key: 'langEn' | 'langAr' | 'hasPhone' | 'hasPush' };
+
+export function ruleParts(rule: AudienceRule): RulePart[] {
+  const parts: RulePart[] = [];
+  if (rule.minBookings) parts.push({ key: 'minBookings', count: rule.minBookings });
+  if (rule.lastSeenDays) parts.push({ key: 'lastSeenDays', count: rule.lastSeenDays });
+  if (rule.lang === 'en') parts.push({ key: 'langEn' });
+  if (rule.lang === 'ar') parts.push({ key: 'langAr' });
+  if (rule.hasPhone) parts.push({ key: 'hasPhone' });
+  if (rule.hasPush) parts.push({ key: 'hasPush' });
+  return parts;
+}
+
+/** A form's whole-number text: '' is "no limit", anything else must be an integer ≥ 1. */
+export function parseLimit(text: string): { ok: true; value: number | undefined } | { ok: false } {
+  const t = text.trim();
+  if (t === '') return { ok: true, value: undefined };
+  if (!/^\d+$/.test(t) || Number(t) < 1) return { ok: false };
+  return { ok: true, value: Number(t) };
+}

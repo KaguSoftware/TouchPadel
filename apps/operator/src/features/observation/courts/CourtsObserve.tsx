@@ -25,7 +25,7 @@ import { supabase } from '../../../lib/supabase';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button } from '../../../components/ui';
 import { AsyncStateWrapper, DescriptionList, EmptyState, HeadlineFigure, Money, PageHeader, Panel, StatusBadge, TabStatusIndicator, asyncStatus, type Tone } from '../../../components/kit';
-import { Icon } from '../../../components/icons';
+import { ChevronForward, Icon } from '../../../components/icons';
 import { useTradingNight, todayInTz } from '../../desk/useTradingNight';
 import { ReservationBadge, TONE_EDGE, TONE_FG, TONE_SOFT, reservationTone } from '../../desk/deskStatus';
 import { courtAvailability } from '../../desk/deskLogic';
@@ -183,11 +183,8 @@ function DayView({
             value={formatNumber(summary.booked, locale)}
             hint={tr('ws.owner.observe.courts.figures.bookedHint', { hours: formatNumber(Math.round((summary.bookedMinutes / 60) * 10) / 10, locale) })}
           />
-          <HeadlineFigure
-            label={tr('ws.owner.observe.courts.figures.arrived')}
-            value={formatNumber(summary.arrived, locale)}
-            hint={tr('ws.owner.observe.courts.figures.arrivedHint', { count: formatNumber(summary.booked, locale) })}
-          />
+          {/* No "of 3 booked" hint: the booked count is the tile beside it. */}
+          <HeadlineFigure label={tr('ws.owner.observe.courts.figures.arrived')} value={formatNumber(summary.arrived, locale)} />
           {date >= today && <HeadlineFigure label={tr('ws.owner.observe.courts.figures.upcoming')} value={formatNumber(summary.upcoming, locale)} />}
           <HeadlineFigure
             label={tr('ws.owner.observe.courts.figures.noShows')}
@@ -208,9 +205,7 @@ function DayView({
           <>
             {isToday && <CourtsNow courts={courts} reservations={reservations} now={now} tz={tz} onOpen={onOpen} />}
             <Panel title={tr('ws.owner.observe.courts.schedule.title')} padded={false}>
-              <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-                {tr('ws.owner.observe.courts.schedule.lead')}
-              </p>
+              <ScheduleLegend />
               <ScheduleBoard
                 date={date}
                 tz={tz}
@@ -236,8 +231,9 @@ function DayView({
                         <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
                           {pickName(locale, courts.find((c) => c.id === r.court_id))} · <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
                         </span>
-                        <span style={{ marginInlineStart: 'auto' }}>
+                        <span style={{ marginInlineStart: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
                           <ReservationBadge reservation={r} size="sm" />
+                          <ChevronForward size={14} style={{ color: 'var(--tp-muted-fg)' }} />
                         </span>
                       </button>
                     </li>
@@ -293,6 +289,13 @@ function CourtsNow({
     new Date(now).toISOString(),
   );
   const inPlay = states.filter((s) => s.state === 'busy' && s.kind === 'booking').length;
+  // A court that is free with nothing more booked tonight has nothing to say
+  // beyond its name, and on a quiet night that was every card on the board —
+  // a wall of identical "Free · nothing more tonight" tiles pushing the
+  // schedule off the screen. Those courts are named on one line instead, and
+  // the cards are the courts with something happening, busy ones first.
+  const idle = states.filter((s) => s.state !== 'busy' && !s.nextStartAt);
+  const shown = [...states.filter((s) => s.state === 'busy'), ...states.filter((s) => s.state !== 'busy' && s.nextStartAt)];
 
   return (
     <Panel
@@ -303,73 +306,120 @@ function CourtsNow({
         </span>
       }
     >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fill, minmax(13rem, 1fr))' }}>
-        {states.map((s) => {
-          const court = courts.find((c) => c.id === s.courtId);
-          let tone: Tone;
-          let label: string;
-          let line: string;
-          let who: string | null = null;
-          let targetId: string | null = null;
-          if (s.state === 'busy') {
-            const r = reservations.find((x) => x.id === s.reservationId);
-            tone = s.kind === 'booking' ? 'success' : s.kind === 'hold' ? 'info' : 'neutral';
-            label = tr(s.kind === 'booking' ? 'ws.owner.observe.courts.now.inPlay' : s.kind === 'hold' ? 'ws.owner.observe.courts.now.held' : 'ws.owner.observe.courts.now.blocked');
-            line = tr('ws.owner.observe.courts.now.until', { time: formatTime(new Date(s.untilAt), locale, tz) });
-            who = s.kind === 'booking' ? (r?.guest_name ?? tr('op.desk.walkIn')) : (r?.notes ?? null);
-            targetId = s.reservationId;
-          } else {
-            const next = s.nextStartAt ? reservations.find((x) => x.start_at === s.nextStartAt && x.court_id === s.courtId) : null;
-            tone = 'neutral';
-            label = tr('ws.owner.observe.courts.now.free');
-            line = s.nextStartAt ? tr('ws.owner.observe.courts.now.next', { time: formatTime(new Date(s.nextStartAt), locale, tz) }) : tr('ws.owner.observe.courts.now.nextNone');
-            who = next ? (next.kind === 'booking' ? (next.guest_name ?? tr('op.desk.walkIn')) : null) : null;
-            targetId = next?.id ?? null;
-          }
-          const body = (
-            <>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
-                <Icon name="court" size={15} style={{ color: 'var(--tp-muted-fg)', flexShrink: 0 }} />
-                <strong style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pickName(locale, court)}</strong>
-                <span style={{ marginInlineStart: 'auto', flexShrink: 0 }}>
-                  <StatusBadge tone={tone} size="sm" label={label} />
+      {shown.length > 0 && (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fill, minmax(13rem, 1fr))' }}>
+          {shown.map((s) => {
+            const court = courts.find((c) => c.id === s.courtId);
+            let tone: Tone;
+            let label: string;
+            let line: string;
+            let who: string | null = null;
+            let targetId: string | null = null;
+            if (s.state === 'busy') {
+              const r = reservations.find((x) => x.id === s.reservationId);
+              tone = s.kind === 'booking' ? 'success' : s.kind === 'hold' ? 'info' : 'neutral';
+              label = tr(s.kind === 'booking' ? 'ws.owner.observe.courts.now.inPlay' : s.kind === 'hold' ? 'ws.owner.observe.courts.now.held' : 'ws.owner.observe.courts.now.blocked');
+              line = tr('ws.owner.observe.courts.now.until', { time: formatTime(new Date(s.untilAt), locale, tz) });
+              who = s.kind === 'booking' ? (r?.guest_name ?? tr('op.desk.walkIn')) : (r?.notes ?? null);
+              targetId = s.reservationId;
+            } else {
+              const next = s.nextStartAt ? reservations.find((x) => x.start_at === s.nextStartAt && x.court_id === s.courtId) : null;
+              tone = 'neutral';
+              label = tr('ws.owner.observe.courts.now.free');
+              line = s.nextStartAt ? tr('ws.owner.observe.courts.now.next', { time: formatTime(new Date(s.nextStartAt), locale, tz) }) : tr('ws.owner.observe.courts.now.nextNone');
+              who = next ? (next.kind === 'booking' ? (next.guest_name ?? tr('op.desk.walkIn')) : null) : null;
+              targetId = next?.id ?? null;
+            }
+            const body = (
+              <>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+                  <Icon name="court" size={15} style={{ color: 'var(--tp-muted-fg)', flexShrink: 0 }} />
+                  <strong style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pickName(locale, court)}</strong>
+                  <span style={{ marginInlineStart: 'auto', flexShrink: 0 }}>
+                    <StatusBadge tone={tone} size="sm" label={label} />
+                  </span>
                 </span>
-              </span>
-              <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-                {who && (
-                  <>
-                    <bdi style={{ color: 'var(--tp-fg)' }}>{who}</bdi> ·{' '}
-                  </>
-                )}
-                {line}
-              </span>
-            </>
-          );
-          const style = {
-            display: 'grid',
-            // minmax(0, …): a long court name must truncate, not push the badge out.
-            gridTemplateColumns: 'minmax(0, 1fr)',
-            gap: 'var(--tp-sp-1)',
-            textAlign: 'start' as const,
-            font: 'inherit',
-            color: 'inherit',
-            padding: 'var(--tp-sp-3)',
-            borderRadius: 'var(--tp-radius-ctl)',
-            border: `1px solid ${s.state === 'busy' ? TONE_EDGE[tone] : 'var(--tp-border)'}`,
-            background: s.state === 'busy' ? TONE_SOFT[tone] : 'var(--tp-bg)',
-          };
-          return targetId ? (
-            <button key={s.courtId} type="button" className="tp-tile" onClick={() => onOpen(targetId)} style={{ ...style, cursor: 'pointer' }}>
-              {body}
-            </button>
-          ) : (
-            <div key={s.courtId} style={style}>
-              {body}
-            </div>
-          );
-        })}
-      </div>
+                <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                  {who && (
+                    <>
+                      <bdi style={{ color: 'var(--tp-fg)' }}>{who}</bdi> ·{' '}
+                    </>
+                  )}
+                  {line}
+                </span>
+              </>
+            );
+            const style = {
+              display: 'grid',
+              // minmax(0, …): a long court name must truncate, not push the badge out.
+              gridTemplateColumns: 'minmax(0, 1fr)',
+              gap: 'var(--tp-sp-1)',
+              textAlign: 'start' as const,
+              font: 'inherit',
+              color: 'inherit',
+              padding: 'var(--tp-sp-3)',
+              borderRadius: 'var(--tp-radius-ctl)',
+              border: `1px solid ${s.state === 'busy' ? TONE_EDGE[tone] : 'var(--tp-border)'}`,
+              background: s.state === 'busy' ? TONE_SOFT[tone] : 'var(--tp-bg)',
+            };
+            return targetId ? (
+              <button key={s.courtId} type="button" className="tp-tile" onClick={() => onOpen(targetId)} style={{ ...style, cursor: 'pointer' }}>
+                {body}
+              </button>
+            ) : (
+              <div key={s.courtId} style={style}>
+                {body}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {idle.length > 0 && <IdleCourts names={idle.map((s) => pickName(locale, courts.find((c) => c.id === s.courtId)))} spaced={shown.length > 0} />}
     </Panel>
+  );
+}
+
+/** How many idle court names are printed before the rest fold into a count. */
+const IDLE_NAMES_SHOWN = 12;
+
+function IdleCourts({ names, spaced }: { names: string[]; spaced: boolean }) {
+  const { tr, locale } = useLocale();
+  const rest = names.length - IDLE_NAMES_SHOWN;
+  return (
+    <p style={{ marginBlockStart: spaced ? 'var(--tp-sp-3)' : 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'baseline' }}>
+      <span style={{ fontWeight: 600, color: 'var(--tp-fg)' }}>{tr('ws.owner.observe.courts.now.freeRest')}</span>
+      <bdi>{names.slice(0, IDLE_NAMES_SHOWN).join(' · ')}</bdi>
+      {rest > 0 && <span>{tr('ws.owner.observe.courts.now.more', { count: formatNumber(rest, locale) })}</span>}
+    </p>
+  );
+}
+
+/**
+ * What the block colours mean. The schedule drew six tones and two border
+ * styles and explained none of them; the lead above it described the rows
+ * instead.
+ */
+const LEGEND: readonly { key: 'confirmed' | 'pending' | 'arrived' | 'completed' | 'noShow' | 'hold' | 'maintenance'; tone: Tone; dashed?: boolean }[] = [
+  { key: 'confirmed', tone: 'accent' },
+  { key: 'pending', tone: 'warn' },
+  { key: 'arrived', tone: 'success' },
+  { key: 'completed', tone: 'neutral' },
+  { key: 'noShow', tone: 'danger', dashed: true },
+  { key: 'hold', tone: 'info' },
+  { key: 'maintenance', tone: 'neutral', dashed: true },
+];
+
+function ScheduleLegend() {
+  const { tr } = useLocale();
+  return (
+    <ul style={{ listStyle: 'none', margin: 0, paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1) var(--tp-sp-3)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+      {LEGEND.map((l) => (
+        <li key={l.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+          <span aria-hidden style={{ inlineSize: '0.9rem', blockSize: '0.65rem', borderRadius: '3px', background: TONE_SOFT[l.tone], border: `1px ${l.dashed ? 'dashed' : 'solid'} ${TONE_EDGE[l.tone]}` }} />
+          {tr(`ws.owner.observe.courts.schedule.legend.${l.key}`)}
+        </li>
+      ))}
+    </ul>
   );
 }
 

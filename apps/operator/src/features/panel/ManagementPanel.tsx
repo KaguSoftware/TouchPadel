@@ -9,14 +9,25 @@
  * before), compared with the 30 days before that. So the owner lands on the
  * same numbers in both places.
  *
- * Layout: a dense headline band (revenue, cash, card), then two columns —
- * padel against cafe — as figure rows, not a grid of identical cards.
+ * Layout: a headline band in two labelled halves — what was EARNED (revenue)
+ * and what was TAKEN in payments (cash, card) — then three columns of figure
+ * rows: padel, cafe, and the money given away or thrown out.
+ *
+ * Why the halves are labelled: revenue counts a booking on the day it is
+ * played and the cafe after refunds, while cash and card count money on the day
+ * it was received. The band used to print the three side by side, so cash plus
+ * card never came to the revenue beside them and nothing said why. Each half
+ * now says what it counts.
+ *
+ * The subtitle is the period itself and, when comparing, the window the
+ * changes are measured against — `panel_headline` returns it and the screen
+ * used to drop it, so a "+25%" never said "against when".
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { businessTodayISO, normalizeBusinessDayStart, resolveRange } from '@touch/core';
-import { VENUE_TZ, formatIQD, formatNumber } from '@touch/i18n';
+import { VENUE_TZ, formatDate, formatIQD, formatNumber, type Locale } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { useCafeSettings } from '../../lib/settings';
@@ -42,7 +53,7 @@ import { Icon } from '../../components/icons';
 import { downloadCsv, toCsv } from '../analytics/csv';
 import { normalizeColumns, type DrillResult, type ReportRow } from '../reports/reportTypes';
 import { toDataColumns } from '../reports/columns';
-import { figuresIn, figuresToCsvRows, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
+import { FIGURES, figuresIn, figuresToCsvRows, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
 
@@ -99,7 +110,7 @@ export function ManagementPanelScreen() {
     <div>
       <PageHeader
         title={tr('ws.owner.panel.title')}
-        subtitle={tr('ws.owner.panel.lead')}
+        subtitle={periodLine(period, compare === 'none' ? null : (headlineQ.data?.comparison ?? null), locale, tr)}
         actions={<ExportButton onExport={exportCsv} disabled={status !== 'ready'} />}
       />
       <Toolbar end={<ComparisonControl mode={compare} onChange={setCompare} disabled={headlineQ.isFetching} />}>
@@ -120,26 +131,42 @@ export function ManagementPanelScreen() {
           />
         }
       >
-        <section aria-label={tr('ws.owner.panel.headline')} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)', gap: 'var(--tp-sp-3)', marginBlockEnd: 'var(--tp-sp-4)' }}>
-          {figuresIn('headline').map((meta) => {
-            const f = figures.get(meta.key);
-            return (
-              <HeadlineFigure
-                key={meta.key}
-                label={label(meta.key)}
-                value={valueOf(meta, f)}
-                comparison={compare === 'none' || !f ? null : f}
-                format={meta.kind === 'money' ? money : count}
-                invert={meta.invert}
-                drillable={Boolean(f)}
-                onDrill={() => setDrill(meta.key)}
-                busy={headlineQ.isFetching && !headlineQ.data}
-              />
-            );
-          })}
+        <section aria-label={tr('ws.owner.panel.headline')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', gap: 'var(--tp-sp-4)', marginBlockEnd: 'var(--tp-sp-4)' }}>
+          {(
+            [
+              { title: 'ws.owner.panel.earned', hint: 'ws.owner.panel.earnedHint', keys: ['revenue'] },
+              { title: 'ws.owner.panel.taken', hint: 'ws.owner.panel.takenHint', keys: ['cash', 'card'] },
+            ] as const
+          ).map((group) => (
+            <div key={group.title} style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start' }}>
+              <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+                <h2 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700 }}>{tr(group.title)}</h2>
+                <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', maxInlineSize: '60ch' }}>{tr(group.hint)}</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${group.keys.length}, minmax(0, 1fr))`, gap: 'var(--tp-sp-3)' }}>
+                {group.keys.map((key) => {
+                  const meta = FIGURES[key];
+                  const f = figures.get(key);
+                  return (
+                    <HeadlineFigure
+                      key={key}
+                      label={label(key)}
+                      value={valueOf(meta, f)}
+                      comparison={compare === 'none' || !f ? null : f}
+                      format={meta.kind === 'money' ? money : count}
+                      invert={meta.invert}
+                      drillable={Boolean(f)}
+                      onDrill={() => setDrill(key)}
+                      busy={headlineQ.isFetching && !headlineQ.data}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(19rem, 1fr))', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
           <Panel
             title={tr('ws.owner.panel.padel')}
             padded={false}
@@ -154,9 +181,13 @@ export function ManagementPanelScreen() {
           >
             <FigureRows metas={figuresIn('cafe')} figures={figures} compare={compare} label={label} valueOf={valueOf} money={money} count={count} onDrill={setDrill} />
           </Panel>
+          <Panel title={tr('ws.owner.panel.losses')} padded={false}>
+            <FigureRows metas={figuresIn('losses')} figures={figures} compare={compare} label={label} valueOf={valueOf} money={money} count={count} onDrill={setDrill} />
+          </Panel>
         </div>
 
-        <nav aria-label={tr('ws.shell.nav.reports')} style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-4)' }}>
+        <nav aria-label={tr('ws.owner.panel.otherReports')} style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', alignItems: 'center', marginBlockStart: 'var(--tp-sp-4)' }}>
+          <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{tr('ws.owner.panel.otherReports')}</span>
           <Button size="sm" icon="chart" onClick={() => go('/reports/revenue')}>{tr('ws.owner.panel.openRevenue')}</Button>
           <Button size="sm" icon="box" onClick={() => go('/reports/stock')}>{tr('ws.owner.panel.openStock')}</Button>
           <Button size="sm" icon="users" onClick={() => go('/reports/staff')}>{tr('ws.owner.panel.openStaff')}</Button>
@@ -256,6 +287,19 @@ function FigureRows({
       })}
     </ul>
   );
+}
+
+/** "18 Aug – 16 Sep 2026", with the comparison window when there is one. */
+function periodLine(
+  period: Period,
+  comparison: { from: string; to: string } | null,
+  locale: Locale,
+  tr: ReturnType<typeof useLocale>['tr'],
+): string {
+  const day = (iso: string) => formatDate(new Date(`${iso}T12:00:00Z`), locale, 'UTC');
+  return comparison
+    ? tr('ws.owner.panel.periodCompared', { from: day(period.from), to: day(period.to), prevFrom: day(comparison.from), prevTo: day(comparison.to) })
+    : tr('ws.owner.panel.period', { from: day(period.from), to: day(period.to) });
 }
 
 /** A 'YYYY-MM-DD' as a local-midnight Date, so the kit presets count from the business day. */

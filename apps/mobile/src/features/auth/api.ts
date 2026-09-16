@@ -190,7 +190,8 @@ export async function setUserMetadata(client: Client, data: { full_name: string 
 // ── Phone codes ──────────────────────────────────────────────────────────────
 // GoTrue-native: the session these return is the same object every other path
 // stores. Delivery goes through GoTrue's Send SMS hook (functions/send-sms-otp,
-// WhatsApp via OTPIQ), which refuses when app.sms_limits says so — the refusal
+// OTPIQ: WhatsApp first, SMS when the number cannot receive it), which refuses
+// when app.sms_limits says so — the refusal
 // reason reaches the app as the error message and features/auth/phoneOtp.ts
 // maps it to copy. A code is spent only to confirm a new number (sign-up, link)
 // and to recover a forgotten password; sign-in itself is by password.

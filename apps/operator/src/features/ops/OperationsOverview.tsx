@@ -1,53 +1,44 @@
 /**
- * Operations overview (spec 06.21) — the manager's landing screen.
+ * Today (spec 06.21) — the manager's landing screen, and the owner's "Floor
+ * now" under Observe.
  *
  * One read: `app.ops_overview()` (0068), polled every 30 s and invalidated on
- * the 'floor' / 'courts' / 'kds' broadcasts. Every figure on this screen is a
- * server figure; the screen only lays them out and routes onward (bookings →
- * /desk, tills → /till/tabs, stock → /stock, day close, reports, audit log).
+ * the 'floor' / 'courts' / 'kds' broadcasts. Every figure is a server figure,
+ * except the count of writes this station has not synced yet, which only this
+ * machine knows (see opsLogic.ts).
  *
- * WHY THIS LAYOUT (rulebook 2.1: an overview has a primary tier)
+ * WHY THIS LAYOUT
  *
- * The first version printed nineteen figures at one weight in four equal
- * panels. The second promoted six of them into a headline row, which helped and
- * then created its own problem: four of those six are ALARMS, and an alarm is
- * zero on a good day, so the loudest thing on the manager's landing screen was
- * usually four large noughts. The figure count had not actually come down —
- * every number was still on the page, now in two places at two sizes.
+ * The screen answers three questions, top to bottom, in the order a manager
+ * asks them walking in:
  *
- * So the screen is three tiers, and each figure belongs to exactly one job:
+ *  1. **Does anything need me right now?** One list. Each row says how many,
+ *     what, what to do about it in a plain sentence, and has one button that
+ *     goes to the screen that fixes it. On a good day it is one green line.
+ *     The previous version made these chips with a count and two words
+ *     ("390 Tickets late"), and three of the five opened a screen that did not
+ *     show the thing the chip named.
+ *  2. **How is the day going?** One card each for courts, the cafe and stock,
+ *     every figure a row with its number at the end. A row that opens
+ *     something has a chevron and opens exactly those items. Each figure
+ *     appears once per card — the old stock card printed "Low stock 3" as its
+ *     headline and again directly beneath.
+ *  3. **Can the day close, and what happened today?** Day close as the three
+ *     steps it actually takes, beside today's discounts, voids, refunds and
+ *     waste. Then staff activity.
  *
- *  1. **An attention band** — only the alarms that are NON-ZERO, as chips that
- *     each open the list behind them. On a clear floor it collapses to one green
- *     line. This is the tier that answers "do I need to leave the office".
- *  2. **Four clusters**, each a panel with one promoted figure, one visual
- *     matched to what its numbers actually are, its supporting figures, and one
- *     way out. Bookings leads with a real ratio (arrived out of booked); the
- *     kitchen board and stock are sets of OVERLAPPING counts, so they get ranked
- *     ladders rather than stacked bars — see the note on `RatioMeter` for why
- *     stacking either one would have misstated the data; day close is a gate, so
- *     it gets a checklist and no bars at all. This tier answers "what shape is
- *     the day in".
- *  3. **The review tier** — today's exceptions as same-unit bars into the audit
- *     log, and staff activity as the plain table it always was. Nothing here is
- *     urgent; it is what a manager reads on the way to day close.
- *
- * The alarms in tier 1 also appear inside their cluster in tier 2. That
- * repetition is the design, not an oversight: tier 1 is a router and tier 2 is
- * the context, and the reason a cluster no longer has to shout is that the
- * shouting has somewhere else to live.
- *
- * Nothing on this screen is computed from anything else — `alertsFor`,
- * `dayCloseState` and `exceptionBasis` in `opsLogic.ts` only select, order and
- * scale figures the server already sent.
+ * A figure can appear in tier 1 and again in its card. That is intentional:
+ * tier 1 is the to-do list and the card is the context; they answer different
+ * questions and the manager should not have to scroll to the card to act.
  */
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { formatDate, formatDateTime, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale } from '../../lib/i18n';
 import { useBroadcast } from '../../lib/realtime';
+import { touch } from '../../ipc/bridge';
 import { Button } from '../../components/ui';
 import {
   AsyncStateWrapper,
@@ -61,29 +52,19 @@ import {
   type Column,
 } from '../../components/kit';
 import { Icon, type IconName } from '../../components/icons';
-import {
-  DrillBarList,
-  GateList,
-  LeadFigure,
-  MARK,
-  MARK_FG,
-  MARK_SOFT,
-  RatioMeter,
-  SeverityLadder,
-  type DrillBarRow,
-  type GateRow,
-} from './OpsVisuals';
+import { CardTitle, FigureRow, MARK, MARK_FG, MARK_SOFT, RowGroupLabel, RowList, Step } from './OpsVisuals';
 import {
   DAY_CLOSE_TONE,
+  STOCK_HREF,
   alertsFor,
   auditDrillHref,
   dayCloseState,
-  exceptionBasis,
   normalizeOverview,
   tillTabHref,
-  worstSeverity,
   type ExceptionKey,
+  type OpsAlert,
   type OpsAlertKey,
+  type OpsBlockingTab,
   type OpsOverview,
   type OpsStaffRow,
 } from './opsLogic';
@@ -91,10 +72,40 @@ import {
 export const OPS_OVERVIEW_KEY = ['opsOverview'] as const;
 export const OPS_REFETCH_MS = 30_000;
 
+type Go = (href: string) => void;
+
+/**
+ * Writes this station has queued and not yet synced. Read exactly the way the
+ * day-close screen reads them, so both screens agree on whether the day can
+ * close. Browser mode has no queue and reports none.
+ */
+function useQueuedCount(): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      touch
+        .getQueueRows()
+        .then((rows) => {
+          if (!cancelled) setCount(rows.length);
+        })
+        .catch(() => {});
+    };
+    load();
+    const unsubscribe = touch.onQueueUpdate(load);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+  return count;
+}
+
 export function OperationsOverviewScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const queued = useQueuedCount();
 
   const overviewQ = useQuery({
     queryKey: OPS_OVERVIEW_KEY,
@@ -107,15 +118,29 @@ export function OperationsOverviewScreen() {
   useBroadcast({ topic: 'courts', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
   useBroadcast({ topic: 'kds', isPrivate: true, invalidateKeys: [OPS_OVERVIEW_KEY] });
 
-  const go = (href: string) => void navigate({ href });
+  const go: Go = (href) => void navigate({ href });
   const status = asyncStatus(overviewQ, () => false);
   const updatedAt = overviewQ.dataUpdatedAt ? new Date(overviewQ.dataUpdatedAt) : null;
+  const day = overviewQ.data?.dayClose;
+
+  // The page's subtitle is the business day itself — which day this is and
+  // since when — rather than a description of the screen.
+  const subtitle = !day
+    ? undefined
+    : day.open && day.businessDate && day.openedAt
+      ? tr('ws.manager.ops.leadOpen', {
+          date: formatDate(new Date(`${day.businessDate}T00:00:00`), locale),
+          time: formatTime(new Date(day.openedAt), locale),
+        })
+      : day.open
+        ? undefined
+        : tr('ws.manager.ops.leadClosed');
 
   return (
     <div>
       <PageHeader
         title={tr('ws.manager.ops.title')}
-        subtitle={tr('ws.manager.ops.lead')}
+        subtitle={subtitle}
         actions={
           <>
             {updatedAt && (
@@ -135,382 +160,333 @@ export function OperationsOverviewScreen() {
         }
       />
       <AsyncStateWrapper status={status} error={overviewQ.error} onRetry={() => void overviewQ.refetch()}>
-        {overviewQ.data && <Dashboard data={overviewQ.data} go={go} />}
+        {overviewQ.data && <Dashboard data={overviewQ.data} queued={queued} go={go} />}
       </AsyncStateWrapper>
     </div>
   );
 }
 
-function Dashboard({ data, go }: { data: OpsOverview; go: (href: string) => void }) {
+function Dashboard({ data, queued, go }: { data: OpsOverview; queued: number; go: Go }) {
   const { tr } = useLocale();
   return (
     <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-      <AttentionBand data={data} go={go} />
+      <NeedsYouNow data={data} go={go} />
 
-      {/* 16rem, not 20rem: at 20rem a 1440px station fits three of the four
-          clusters and drops day close onto a second row beside a column of empty
-          page. Four columns of ~17rem still hold every ladder row (label, bar,
-          count) without wrapping. */}
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(16rem, 1fr))', alignItems: 'start' }}>
-        <BookingsCluster data={data} go={go} />
-        <CafeCluster data={data} go={go} />
-        <StockCluster data={data} go={go} />
-        <DayCloseCluster data={data} go={go} />
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(15rem, 1fr))', alignItems: 'stretch' }}>
+        <CourtsCard data={data} go={go} />
+        <CafeCard data={data} go={go} />
+        <StockCard data={data} go={go} />
       </div>
 
-      <ExceptionsPanel data={data} go={go} />
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', alignItems: 'start' }}>
+        <ClosingCard data={data} queued={queued} go={go} />
+        <ExceptionsCard data={data} go={go} />
+      </div>
 
-      <Panel title={tr('ws.manager.ops.staff.title')} padded={false}>
-        <StaffPanelBody rows={data.staffActivity} />
+      <Panel title={<CardTitle icon="users">{tr('ws.manager.ops.staff.title')}</CardTitle>} padded={false}>
+        <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.manager.ops.staff.lead')}
+        </p>
+        <StaffTable rows={data.staffActivity} />
       </Panel>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Tier 1 — the attention band
+// 1 — Needs you now
 // ---------------------------------------------------------------------------
 
-const ALERT_LABEL: Record<OpsAlertKey, MessageKey> = {
-  ticketsLate: 'ws.manager.ops.cafe.late',
-  expired: 'ws.manager.ops.stock.expired',
-  low: 'ws.manager.ops.stock.low',
-  noShows: 'ws.manager.ops.bookings.noShows',
-  waiterCalls: 'ws.manager.ops.cafe.waiterCalls',
+const ALERT_COPY: Record<OpsAlertKey, { title: MessageKey; hint: MessageKey; action: MessageKey | null; icon: IconName }> = {
+  dayNotOpen: { title: 'ws.manager.ops.now.dayNotOpen', hint: 'ws.manager.ops.now.dayNotOpenHint', action: 'ws.manager.ops.now.dayNotOpenAction', icon: 'lock' },
+  waiterCalls: { title: 'ws.manager.ops.now.waiterCalls', hint: 'ws.manager.ops.now.waiterCallsHint', action: 'ws.manager.ops.now.waiterCallsAction', icon: 'bell' },
+  ticketsLate: { title: 'ws.manager.ops.now.ticketsLate', hint: 'ws.manager.ops.now.ticketsLateHint', action: null, icon: 'clock' },
+  low: { title: 'ws.manager.ops.now.low', hint: 'ws.manager.ops.now.lowHint', action: 'ws.manager.ops.now.lowAction', icon: 'package' },
+  expired: { title: 'ws.manager.ops.now.expired', hint: 'ws.manager.ops.now.expiredHint', action: 'ws.manager.ops.now.expiredAction', icon: 'package' },
 };
 
-/** The glyph carries the DOMAIN, so "Expired · 1" cannot be read as expired what. */
-const ALERT_ICON: Record<OpsAlertKey, IconName> = {
-  ticketsLate: 'clock',
-  expired: 'package',
-  low: 'package',
-  noShows: 'calendar',
-  waiterCalls: 'bell',
-};
-
-/**
- * The band wears the worst severity present as its GROUND, and the chips inside
- * it stay ordinary buttons on the panel surface.
- *
- * Done the other way round — tinted chips on a plain strip — the chips would
- * have to override `.tp-btn`'s background inline, and an inline background beats
- * the `:hover` rule in the stylesheet, so every chip would have been a control
- * with no hover state at all. Here the severity is on the container, the hover
- * belongs to the button, and neither has to fight the other.
- */
-function AttentionBand({ data, go }: { data: OpsOverview; go: (href: string) => void }) {
-  const { tr, locale } = useLocale();
+function NeedsYouNow({ data, go }: { data: OpsOverview; go: Go }) {
+  const { tr } = useLocale();
   const alerts = alertsFor(data);
-  const worst = worstSeverity(alerts);
-
-  const shell = {
-    border: '1px solid var(--tp-border)',
-    borderRadius: 'var(--tp-radius-panel)',
-    paddingBlock: 'var(--tp-sp-3)',
-    paddingInline: 'var(--tp-sp-3)',
-  } as const;
-
-  if (worst === null) {
-    return (
-      <div style={{ ...shell, background: MARK_SOFT.success, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-        <Icon name="checkCircle" size={17} style={{ color: MARK.success, flex: '0 0 auto' }} />
-        <span style={{ fontWeight: 600, color: MARK_FG.success }}>{tr('ws.kit.empty.nothingToDo')}</span>
-      </div>
-    );
-  }
 
   return (
-    <section style={{ ...shell, background: MARK_SOFT[worst] }}>
-      <h2 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, color: MARK_FG[worst], display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-        <Icon name="alert" size={16} style={{ color: MARK[worst] }} />
-        {tr('ws.manager.ops.attention.title')}
-      </h2>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2-5)' }}>
-        {alerts.map((a) => (
-          <Button key={a.key} size="sm" onClick={() => go(a.href)}>
-            <Icon name={ALERT_ICON[a.key]} size={14} style={{ color: MARK[a.severity] }} />
-            <strong style={{ color: MARK_FG[a.severity], fontVariantNumeric: 'tabular-nums' }}>{formatNumber(a.count, locale)}</strong>
-            {tr(ALERT_LABEL[a.key])}
-          </Button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tier 2 — the four clusters
-// ---------------------------------------------------------------------------
-
-/** Panel chrome every cluster shares: a glyphed title and exactly one way out. */
-function Cluster({
-  icon,
-  title,
-  actionLabel,
-  actionKind,
-  onAction,
-  children,
-}: {
-  icon: IconName;
-  title: string;
-  actionLabel: string;
-  actionKind?: 'primary';
-  onAction: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Panel
-      title={
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-          <Icon name={icon} size={15} style={{ color: 'var(--tp-muted-fg)' }} />
-          {title}
-        </span>
-      }
-      actions={
-        <Button size="sm" kind={actionKind ?? 'ghost'} iconEnd="arrowUpRight" onClick={onAction}>
-          {actionLabel}
-        </Button>
-      }
-    >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>{children}</div>
+    <Panel title={<CardTitle icon={alerts.length === 0 ? 'checkCircle' : 'alert'}>{tr('ws.manager.ops.now.title')}</CardTitle>}>
+      {alerts.length === 0 ? (
+        <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontWeight: 600, color: MARK_FG.success }}>
+          <Icon name="checkCircle" size={18} style={{ color: MARK.success, flex: '0 0 auto' }} />
+          {tr('ws.manager.ops.now.clear')}
+        </p>
+      ) : (
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          {alerts.map((a) => (
+            <AlertRow key={a.key} alert={a} go={go} />
+          ))}
+        </ul>
+      )}
     </Panel>
   );
 }
 
-/** A labelled figure that is not the cluster's lead. Same row shape as a gate. */
-function SupportRow({ label, value, tone = 'neutral' }: { label: string; value: ReactNode; tone?: 'neutral' | 'warn' | 'danger' }) {
+function AlertRow({ alert, go }: { alert: OpsAlert; go: Go }) {
+  const { tr, locale } = useLocale();
+  const copy = ALERT_COPY[alert.key];
+  // "The day is not open" is a state, not a count of one.
+  const showCount = alert.key !== 'dayNotOpen';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)' }}>
-      <span style={{ color: 'var(--tp-muted-fg)', minInlineSize: 0 }}>{label}</span>
-      <span style={{ marginInlineStart: 'auto', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: tone === 'neutral' ? 'var(--tp-fg)' : MARK_FG[tone] }}>
-        {value}
+    <li
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--tp-sp-3)',
+        flexWrap: 'wrap',
+        paddingBlock: 'var(--tp-sp-2)',
+        paddingInline: 'var(--tp-sp-2)',
+        borderRadius: 'var(--tp-radius-ctl)',
+        background: 'var(--tp-surface-2)',
+      }}
+    >
+      <span
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          minInlineSize: '3rem',
+          blockSize: '2.5rem',
+          paddingInline: 'var(--tp-sp-2)',
+          borderRadius: 'var(--tp-radius-ctl)',
+          background: MARK_SOFT[alert.severity],
+          color: MARK_FG[alert.severity],
+          fontSize: 'var(--tp-fs-lg)',
+          fontWeight: 700,
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {showCount ? formatNumber(alert.count, locale) : <Icon name={copy.icon} size={18} style={{ color: MARK[alert.severity] }} />}
       </span>
-    </div>
+      <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', flex: '1 1 16rem', minInlineSize: 0 }}>
+        <strong style={{ color: 'var(--tp-fg)' }}>{tr(copy.title)}</strong>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr(copy.hint)}</span>
+      </span>
+      {copy.action && alert.href && (
+        // One button style for every row: the count block already carries the
+        // severity, and a blue button on some rows and not others read as a
+        // ranking the table order does not make.
+        <Button size="sm" iconEnd="arrowUpRight" onClick={() => go(alert.href!)}>
+          {tr(copy.action)}
+        </Button>
+      )}
+    </li>
   );
 }
 
-/** A prose support line (a timestamp, a name) rather than a figure. */
-function SupportNote({ label, children }: { label: string; children: ReactNode }) {
+// ---------------------------------------------------------------------------
+// 2 — How the day is going
+// ---------------------------------------------------------------------------
+
+/** A card: its rows, then one button to the screen that owns the area. */
+function AreaCard({
+  icon,
+  title,
+  openLabel,
+  onOpen,
+  chevrons,
+  children,
+}: {
+  icon: IconName;
+  title: string;
+  openLabel: string;
+  onOpen: () => void;
+  chevrons: boolean;
+  children: ReactNode;
+}) {
+  // `fill` + an auto margin keep the three cards' buttons on one line even
+  // though the cafe card has more rows than the other two.
   return (
-    <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-      <strong style={{ color: 'var(--tp-fg)' }}>{label}:</strong> {children}
-    </p>
+    <Panel fill title={<CardTitle icon={icon}>{title}</CardTitle>}>
+      <RowList chevrons={chevrons}>{children}</RowList>
+      <div style={{ marginBlockStart: 'auto', paddingBlockStart: 'var(--tp-sp-3)' }}>
+        <Button size="sm" iconEnd="arrowUpRight" onClick={onOpen}>
+          {openLabel}
+        </Button>
+      </div>
+    </Panel>
   );
 }
 
-/**
- * The day's roll: how much of what is booked has actually walked in.
- *
- * `arrived` is a true subset of `today` (which counts `confirmed | arrived |
- * completed`), so "arrived of booked" is a real ratio and gets the one meter on
- * this screen. `noShows` is NOT inside `today` — the SQL excludes `no_show` from
- * it — so it sits beside the meter as its own figure rather than as a slice of
- * it, which is the whole reason this cluster is not a stacked bar. See the note
- * on `RatioMeter`.
- */
-function BookingsCluster({ data, go }: { data: OpsOverview; go: (href: string) => void }) {
+function CourtsCard({ data, go }: { data: OpsOverview; go: Go }) {
   const { tr, locale } = useLocale();
   const b = data.bookings;
+  const court = locale === 'ar' ? (b.nextArrivalCourtAr ?? b.nextArrivalCourtEn) : (b.nextArrivalCourtEn ?? b.nextArrivalCourtAr);
+  const next = b.nextArrivalAt
+    ? [formatTime(new Date(b.nextArrivalAt), locale), court, b.nextArrivalLabel].filter(Boolean).join(' · ')
+    : null;
   return (
-    <Cluster
-      icon="calendar"
-      title={tr('ws.manager.ops.bookings.title')}
-      actionLabel={tr('ws.manager.ops.bookings.open')}
-      onAction={() => go('/desk')}
-    >
-      <LeadFigure label={tr('ws.manager.ops.bookings.today')} value={formatNumber(b.today, locale)} />
-      <RatioMeter
-        label={tr('ws.manager.ops.bookings.arrived')}
-        value={b.arrived}
-        limit={b.today}
-        limitLabel={tr('ws.manager.ops.bookings.ofBooked', { count: formatNumber(b.today, locale) })}
-        tone="success"
+    <AreaCard icon="court" title={tr('ws.manager.ops.courts.title')} openLabel={tr('ws.manager.ops.courts.open')} onOpen={() => go('/desk')} chevrons={false}>
+      <FigureRow label={tr('ws.manager.ops.courts.booked')} value={b.today} />
+      <FigureRow label={tr('ws.manager.ops.courts.arrived')} value={b.arrived} />
+      <FigureRow label={tr('ws.manager.ops.courts.upcoming')} value={b.upcoming} />
+      <FigureRow label={tr('ws.manager.ops.courts.noShows')} value={b.noShows} tone="danger" />
+      <FigureRow label={tr('ws.manager.ops.courts.cancelled')} value={b.cancelledToday} tone="warn" />
+      <FigureRow
+        label={tr('ws.manager.ops.courts.next')}
+        value={
+          next ? (
+            <bdi>{next}</bdi>
+          ) : (
+            <span style={{ fontWeight: 400, color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.ops.courts.nextNone')}</span>
+          )
+        }
       />
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-        <SupportRow label={tr('ws.manager.ops.bookings.upcoming')} value={formatNumber(b.upcoming, locale)} />
-        <SupportRow
-          label={tr('ws.manager.ops.bookings.noShows')}
-          value={formatNumber(b.noShows, locale)}
-          tone={b.noShows > 0 ? 'danger' : 'neutral'}
-        />
-      </div>
-      <SupportNote label={tr('ws.manager.ops.bookings.next')}>
-        {b.nextArrivalAt ? (
-          <bdi>
-            {formatTime(new Date(b.nextArrivalAt), locale)}
-            {b.nextArrivalLabel ? ` · ${b.nextArrivalLabel}` : ''}
-          </bdi>
-        ) : (
-          tr('ws.manager.ops.bookings.nextNone')
-        )}
-      </SupportNote>
-    </Cluster>
+    </AreaCard>
   );
 }
 
-/**
- * The kitchen's board as three independent counts, not a pipeline.
- *
- * It reads like a pipeline — waiting, preparing, late — and it is not one:
- * `ticketsLate` counts tickets whose status is already `queued` or `preparing`,
- * so it OVERLAPS both of the other rows rather than following them. Stacking
- * these would double-count every late ticket. Ranked against each other, a long
- * "late" bar beside a long "waiting" bar says the true thing: nearly everything
- * on the board is past its target.
- *
- * `preparing` is `null` until the payload carries it (the hosted project's
- * `ops_overview` omits it where the local fixtures include it), and a null row
- * prints "—" with no bar rather than a zero the server never sent.
- */
-function CafeCluster({ data, go }: { data: OpsOverview; go: (href: string) => void }) {
-  const { tr, locale } = useLocale();
+function CafeCard({ data, go }: { data: OpsOverview; go: Go }) {
+  const { tr } = useLocale();
   const c = data.cafe;
   return (
-    <Cluster icon="flame" title={tr('ws.manager.ops.cafe.title')} actionLabel={tr('ws.manager.ops.cafe.open')} onAction={() => go('/till/tabs')}>
-      <LeadFigure label={tr('ws.manager.ops.cafe.openTabs')} value={formatNumber(c.openTabs, locale)} />
-      <SeverityLadder
-        caption={tr('ws.manager.ops.cafe.board')}
-        rows={[
-          { key: 'queued', label: tr('ws.manager.ops.cafe.queued'), value: c.ticketsQueued, tone: 'neutral' },
-          { key: 'preparing', label: tr('ws.manager.ops.cafe.preparing'), value: c.ticketsPreparing, tone: 'accent' },
-          { key: 'late', label: tr('ws.manager.ops.cafe.late'), value: c.ticketsLate, tone: 'danger' },
-        ]}
-      />
-      <SupportRow
-        label={tr('ws.manager.ops.cafe.waiterCalls')}
-        value={formatNumber(c.waiterCallsOpen, locale)}
-        tone={c.waiterCallsOpen > 0 ? 'warn' : 'neutral'}
-      />
-    </Cluster>
+    <AreaCard icon="flame" title={tr('ws.manager.ops.cafe.title')} openLabel={tr('ws.manager.ops.cafe.open')} onOpen={() => go('/till/tabs')} chevrons>
+      <FigureRow label={tr('ws.manager.ops.cafe.openTabs')} value={c.openTabs} />
+      <FigureRow label={tr('ws.manager.ops.cafe.ordersToday')} value={c.ordersToday} />
+      <FigureRow label={tr('ws.manager.ops.cafe.waiterCalls')} value={c.waiterCallsOpen} tone="warn" onOpen={() => go('/till/tabs')} />
+      {/* These three overlap — a late ticket is also a waiting or preparing
+          one — so they are listed, never added up. */}
+      <RowGroupLabel>{tr('ws.manager.ops.cafe.kitchen')}</RowGroupLabel>
+      <FigureRow label={tr('ws.manager.ops.cafe.queued')} value={c.ticketsQueued} />
+      <FigureRow label={tr('ws.manager.ops.cafe.preparing')} value={c.ticketsPreparing} />
+      <FigureRow label={tr('ws.manager.ops.cafe.late')} value={c.ticketsLate} tone="danger" />
+    </AreaCard>
   );
 }
 
-/**
- * Four flag counts, ranked against the largest. Not a stacked bar: one item can
- * be both low and below par, so these do not add up to anything.
- *
- * The pairs are kept in their original order — quantity (low, below par) then
- * freshness (expiring soon, expired) — rather than sorted by severity or by
- * value, so the row a manager is looking for is always in the same place.
- */
-function StockCluster({ data, go }: { data: OpsOverview; go: (href: string) => void }) {
+function StockCard({ data, go }: { data: OpsOverview; go: Go }) {
   const { tr, locale } = useLocale();
   const s = data.stock;
   return (
-    <Cluster icon="package" title={tr('ws.manager.ops.stock.title')} actionLabel={tr('ws.manager.ops.stock.open')} onAction={() => go('/stock')}>
-      <LeadFigure label={tr('ws.manager.ops.stock.low')} value={formatNumber(s.low, locale)} tone={s.low > 0 ? 'danger' : 'neutral'} />
-      <SeverityLadder
-        rows={[
-          { key: 'low', label: tr('ws.manager.ops.stock.low'), value: s.low, tone: 'danger' },
-          { key: 'belowPar', label: tr('ws.manager.ops.stock.belowPar'), value: s.belowPar, tone: 'warn' },
-          { key: 'expiringSoon', label: tr('ws.manager.ops.stock.expiringSoon'), value: s.expiringSoon, tone: 'warn' },
-          { key: 'expired', label: tr('ws.manager.ops.stock.expired'), value: s.expired, tone: 'danger' },
-        ]}
+    <AreaCard icon="package" title={tr('ws.manager.ops.stock.title')} openLabel={tr('ws.manager.ops.stock.open')} onOpen={() => go('/stock')} chevrons>
+      <FigureRow label={tr('ws.manager.ops.stock.low')} value={s.low} tone="danger" onOpen={() => go(STOCK_HREF.low)} />
+      <FigureRow label={tr('ws.manager.ops.stock.belowPar')} value={s.belowPar} tone="warn" onOpen={() => go(STOCK_HREF.belowPar)} />
+      <FigureRow label={tr('ws.manager.ops.stock.expiringSoon')} value={s.expiringSoon} tone="warn" onOpen={() => go(STOCK_HREF.expiringSoon)} />
+      <FigureRow label={tr('ws.manager.ops.stock.expired')} value={s.expired} tone="danger" onOpen={() => go(STOCK_HREF.expired)} />
+      {s.openAlerts !== null && (
+        <FigureRow label={tr('ws.manager.ops.stock.alerts')} value={s.openAlerts} tone="warn" onOpen={() => go(STOCK_HREF.alerts)} />
+      )}
+      <FigureRow
+        label={tr('ws.manager.ops.stock.lastCount')}
+        value={s.lastCountAt ? <bdi>{formatDateTime(new Date(s.lastCountAt), locale)}</bdi> : tr('ws.manager.ops.stock.neverCounted')}
+        onOpen={() => go(STOCK_HREF.lastCount)}
       />
-      <SupportNote label={tr('ws.manager.ops.stock.lastCount')}>
-        {s.lastCountAt ? <bdi>{formatDateTime(new Date(s.lastCountAt), locale)}</bdi> : tr('ws.manager.ops.stock.neverCounted')}
-      </SupportNote>
-    </Cluster>
+    </AreaCard>
   );
 }
 
+// ---------------------------------------------------------------------------
+// 3 — Closing the day, and what happened today
+// ---------------------------------------------------------------------------
+
 /**
- * How many blocking tabs get their own shortcut before the rest fold into a
- * link. A busy floor returns every open tab, and eight chips carrying raw table
- * tokens ("Tab T-RP-1788631290913-1") buried the two gate rows that are the
- * actual answer. The count is already stated exactly on the gate row above; the
- * chips are a convenience for the short list, not the list itself.
+ * How many open tabs get their own button before the rest fold into one. The
+ * exact count is already in the step's status; the buttons are a shortcut.
  */
 const BLOCKING_TABS_SHOWN = 4;
 
-/**
- * Day close leads with the STATE rather than a number, because "3 tabs and 0
- * queued writes" is a sum the manager should not have to do — the answer is
- * either "you can close" or "here is what is in the way".
- *
- * The four state words are the day-close screen's own, so the overview and its
- * destination agree.
- */
-function DayCloseCluster({ data, go }: { data: OpsOverview; go: (href: string) => void }) {
+function tabName(t: OpsBlockingTab, tr: ReturnType<typeof useLocale>['tr']): string {
+  if (t.tableNumber) return tr('ws.manager.ops.close.tab', { label: t.tableNumber });
+  return t.guestName ?? t.label ?? t.id.slice(0, 8);
+}
+
+function ClosingCard({ data, queued, go }: { data: OpsOverview; queued: number; go: Go }) {
   const { tr, locale } = useLocale();
   const d = data.dayClose;
-  const state = dayCloseState(d);
-  const tone = DAY_CLOSE_TONE[state];
-  const gates: GateRow[] = [
-    { key: 'tabs', label: tr('ws.manager.ops.dayClose.blockingTabs'), count: d.blockingCount, clearLabel: tr('ws.kit.common.none'), tone: 'danger' },
-    { key: 'queued', label: tr('ws.manager.ops.dayClose.queued'), count: d.queued, clearLabel: tr('ws.kit.common.none'), tone: 'warn' },
-  ];
+  const state = dayCloseState(d, queued);
+
   return (
-    <Cluster
-      icon="lock"
-      title={tr('ws.manager.ops.dayClose.title')}
-      actionLabel={tr('ws.manager.ops.dayClose.go')}
-      actionKind="primary"
-      onAction={() => go('/admin/day-close')}
+    <Panel
+      title={<CardTitle icon="sun">{tr('ws.manager.ops.close.title')}</CardTitle>}
+      actions={<StatusBadge tone={DAY_CLOSE_TONE[state]} label={tr(`ws.manager.dayClose.state.${state}`)} />}
     >
-      <div>
-        <StatusBadge tone={tone} label={tr(`ws.manager.dayClose.state.${state}`)} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-          {d.open && d.openedAt && <bdi>{tr('ws.manager.ops.dayClose.openSince', { time: formatTime(new Date(d.openedAt), locale) })}</bdi>}
-          {d.businessDate && <bdi>{tr('ws.manager.ops.dayClose.businessDate', { date: formatDate(new Date(`${d.businessDate}T00:00:00`), locale) })}</bdi>}
+      {!d.open ? (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'start' }}>
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.ops.close.closedLead')}</p>
+          <Button kind="primary" size="sm" iconEnd="arrowUpRight" onClick={() => go('/admin/day-close')}>
+            {tr('ws.manager.ops.close.openDay')}
+          </Button>
         </div>
-      </div>
-      <GateList gates={gates} />
-      {d.blockingTabs.length > 0 && (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-          {d.blockingTabs.slice(0, BLOCKING_TABS_SHOWN).map((t) => (
-            <li key={t.id}>
-              <Button size="sm" kind="soft" icon="receipt" onClick={() => go(tillTabHref(t.id))}>
-                {tr('ws.manager.ops.dayClose.tab', { label: t.label ?? t.id.slice(0, 8) })}
-              </Button>
-            </li>
-          ))}
-          {d.blockingTabs.length > BLOCKING_TABS_SHOWN && (
-            <li>
-              <Button size="sm" kind="ghost" iconEnd="arrowUpRight" onClick={() => go('/admin/day-close')}>
-                {tr('ws.manager.ops.dayClose.moreTabs', { count: formatNumber(d.blockingTabs.length - BLOCKING_TABS_SHOWN, locale) })}
-              </Button>
-            </li>
-          )}
-        </ul>
+      ) : (
+        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
+          <Step
+            index={1}
+            title={tr('ws.manager.ops.close.stepTabs')}
+            done={d.blockingCount === 0}
+            tone="danger"
+            status={
+              d.blockingCount === 0
+                ? tr('ws.manager.ops.close.tabsDone')
+                : tr('ws.manager.ops.close.tabsLeft', { count: formatNumber(d.blockingCount, locale) })
+            }
+          >
+            {d.blockingTabs.length > 0 && (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
+                {d.blockingTabs.slice(0, BLOCKING_TABS_SHOWN).map((t) => (
+                  <li key={t.id} style={{ minInlineSize: 0, maxInlineSize: '100%' }}>
+                    <Button size="sm" kind="soft" icon="receipt" onClick={() => go(tillTabHref(t.id))} style={{ maxInlineSize: '100%' }}>
+                      <bdi style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tabName(t, tr)}</bdi>
+                    </Button>
+                  </li>
+                ))}
+                {d.blockingTabs.length > BLOCKING_TABS_SHOWN && (
+                  <li>
+                    <Button size="sm" kind="ghost" onClick={() => go('/till/tabs')}>
+                      {tr('ws.manager.ops.close.moreTabs', { count: formatNumber(d.blockingTabs.length - BLOCKING_TABS_SHOWN, locale) })}
+                    </Button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </Step>
+          <Step
+            index={2}
+            title={tr('ws.manager.ops.close.stepSync')}
+            done={queued === 0}
+            tone="warn"
+            status={queued === 0 ? tr('ws.manager.ops.close.syncDone') : tr('ws.manager.ops.close.syncLeft', { count: formatNumber(queued, locale) })}
+          />
+          <Step index={3} title={tr('ws.manager.ops.close.stepCount')} done={false} tone={state === 'ready' ? 'success' : 'neutral'}>
+            <Button kind={state === 'ready' ? 'primary' : 'default'} size="sm" iconEnd="arrowUpRight" onClick={() => go('/admin/day-close')}>
+              {tr('ws.manager.ops.close.go')}
+            </Button>
+          </Step>
+        </ol>
       )}
-    </Cluster>
+    </Panel>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Tier 3 — the review tier
-// ---------------------------------------------------------------------------
+const EXCEPTION_KEYS = ['discounts', 'voids', 'refunds', 'waste'] as const satisfies readonly ExceptionKey[];
 
-const EXCEPTION_KEYS = ['discounts', 'voids', 'refunds', 'waste'] as const;
-
-function ExceptionsPanel({ data, go }: { data: OpsOverview; go: (href: string) => void }) {
+function ExceptionsCard({ data, go }: { data: OpsOverview; go: Go }) {
   const { tr, locale } = useLocale();
-  // `waste` is absent from the 0068 contract; an absent figure is no row rather
+  // `waste` can be absent from the payload; an absent figure is no row rather
   // than a zero the server never sent.
   const present = EXCEPTION_KEYS.filter((k) => data.exceptions[k] !== null);
-  const figures = present.map((k) => data.exceptions[k]!);
-  const basis = exceptionBasis(figures);
-
-  const rows: DrillBarRow<ExceptionKey>[] = present.map((k, i) => {
-    const f = figures[i]!;
-    const raw = basis?.by === 'amount' ? (f.amountIqd ?? 0) : f.count;
-    return {
-      key: k,
-      label: tr(`ws.manager.ops.exceptions.${k}`),
-      value: f.amountIqd === null ? formatNumber(f.count, locale) : <Money amount={f.amountIqd} />,
-      hint: tr('ws.manager.ops.exceptions.count', { count: formatNumber(f.count, locale) }),
-      fraction: basis ? raw / basis.max : 0,
-      title: tr('ws.kit.drill.title'),
-    };
-  });
-
   return (
-    <Panel title={tr('ws.manager.ops.exceptions.title')}>
+    <Panel title={<CardTitle icon="fileText">{tr('ws.manager.ops.exceptions.title')}</CardTitle>}>
       <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>
         {tr('ws.manager.ops.exceptions.lead')}
       </p>
-      <DrillBarList rows={rows} onDrill={(k) => go(auditDrillHref(k))} />
+      <RowList chevrons>
+        {present.map((k) => {
+          const f = data.exceptions[k]!;
+          return (
+            <FigureRow
+              key={k}
+              label={tr(`ws.manager.ops.exceptions.${k}`)}
+              hint={tr('ws.manager.ops.exceptions.count', { count: formatNumber(f.count, locale) })}
+              value={f.amountIqd === null ? f.count : <Money amount={f.amountIqd} />}
+              onOpen={() => go(auditDrillHref(k))}
+            />
+          );
+        })}
+      </RowList>
       <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
         <Button size="sm" icon="chart" onClick={() => go('/reports/courts')}>
           {tr('ws.manager.ops.reports')}
@@ -523,29 +499,17 @@ function ExceptionsPanel({ data, go }: { data: OpsOverview; go: (href: string) =
   );
 }
 
-function StaffPanelBody({ rows }: { rows: OpsStaffRow[] }) {
-  const { tr } = useLocale();
-  return (
-    <>
-      <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-        {tr('ws.manager.ops.staff.lead')}
-      </p>
-      <StaffTable rows={rows} />
-    </>
-  );
-}
-
 /**
- * Deliberately NOT given the bars every other list on this screen got. The lead
- * copy says "Activity, not a ranking", and a proportional bar beside each
- * person's order count is exactly how a table becomes a leaderboard.
+ * Deliberately a plain table with no bars: a proportional bar beside each
+ * person's order count is exactly how a record of the shift becomes a
+ * leaderboard.
  */
 function StaffTable({ rows }: { rows: OpsStaffRow[] }) {
   const { tr, locale } = useLocale();
   if (rows.length === 0) {
     return (
       <div style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', paddingBlockEnd: 'var(--tp-sp-3)' }}>
-        {/* Nobody has clocked anything yet is not a fault and not a filter. */}
+        {/* Nobody has recorded anything yet is not a fault and not a filter. */}
         <EmptyState compact kind="nothingToDo" icon="users" title={tr('ws.manager.ops.staff.empty')} />
       </div>
     );

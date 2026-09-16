@@ -43,7 +43,8 @@ export function CustomerPicker({
   onQueryChange,
   label,
   disabled,
-  showCreateLink = true,
+  autoFocus,
+  showCreateLink = false,
 }: {
   value: PickedCustomer | null;
   onChange: (next: PickedCustomer | null) => void;
@@ -55,6 +56,12 @@ export function CustomerPicker({
   onQueryChange?: (query: string) => void;
   label?: string;
   disabled?: boolean;
+  autoFocus?: boolean;
+  /**
+   * Off by default: the picker lives inside a booking dialog and the series
+   * form, and following a link out of either threw away everything typed so
+   * far. Creating an account has its own screen under Customers.
+   */
   showCreateLink?: boolean;
 }) {
   const { tr } = useLocale();
@@ -99,6 +106,7 @@ export function CustomerPicker({
         placeholder={tr('ws.courtDesk.create.searchPlaceholder')}
         aria-label={tr('ws.courtDesk.create.customer')}
         busy={search.isFetching}
+        autoFocus={autoFocus}
       />
       {search.enabled && (
         <div style={{ ...card, marginBlockStart: '0.4rem', paddingBlock: '0.3rem', paddingInline: '0.3rem', display: 'grid', gap: '2px' }}>
@@ -153,7 +161,7 @@ export function CustomerPicker({
       )}
       {showCreateLink && (
         <p style={{ marginBlockStart: '0.35rem', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-          <Link to="/desk/customers/new" style={{ color: 'var(--tp-accent)', fontWeight: 600 }}>
+          <Link to="/desk/customers/new" style={{ color: 'var(--tp-accent)', fontWeight: 600, textDecoration: 'none' }}>
             {tr('ws.courtDesk.create.createCustomer')}
           </Link>
         </p>

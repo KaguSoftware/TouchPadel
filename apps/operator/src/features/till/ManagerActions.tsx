@@ -70,7 +70,6 @@ export function RefundDialog({
   const payment = payments.find((p) => p.id === paymentId);
   const max = payment?.amount_iqd ?? 0;
   const valid = !!payment && amount > 0 && amount <= max;
-  const namedItems = Object.values(items).some((q) => q > 0);
   /*
    * Rulebook 4.3, in the order the cashier meets them. The permission case is
    * NOT repeated here: PermissionRefusedNotice already names the role at the
@@ -141,12 +140,9 @@ export function RefundDialog({
           <p style={muted}>{tr('op.till.refundNoPayments')}</p>
         ) : (
           <>
-            <MessagePresenter
-              tone={namedItems ? 'info' : 'refused'}
-              icon="package"
-              message={tr('ws.cashier.refund.consequence')}
-              style={{ marginBlockEnd: 'var(--tp-sp-3)' }}
-            />
+            {/* Info, not a warning: a money-only refund is a legitimate choice,
+                and the dialog opened on an amber box before anything was done. */}
+            <MessagePresenter tone="info" icon="package" message={tr('ws.cashier.refund.consequence')} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
             <Field label={tr('op.till.refundPayment')}>
               <Select
                 value={paymentId}
@@ -282,7 +278,7 @@ export function OverridePriceDialog({
           <bdi>{label}</bdi>
         </p>
         <div style={{ ...kvRow, ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>
-          <span>{tr('op.till.overrideCurrent', { amount: '' }).trim()}</span>
+          <span>{tr('op.till.overrideCurrentLabel')}</span>
           <Money amount={currentUnitPriceIqd} />
         </div>
         <Field label={tr('op.till.overrideNew')}>
@@ -400,7 +396,8 @@ export function MergeTabsDialog({
           <Select
             value={donorId}
             onChange={setDonorId}
-            options={[{ value: '', label: tr('ws.cashier.merge.donor') }, ...candidates.map((t) => ({ value: t.id, label: nameOf(t) }))]}
+            placeholder={tr('ws.cashier.merge.choose')}
+            options={candidates.map((t) => ({ value: t.id, label: nameOf(t) }))}
           />
         </Field>
       )}

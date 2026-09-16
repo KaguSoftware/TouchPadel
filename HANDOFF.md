@@ -1177,7 +1177,7 @@ unset secret, ±300 s, constant-time). Pure halves `verify.ts` / `otp.ts` run un
 bilingual template is pinned ≤ 70 UTF-16 units (Arabic ⇒ UCS-2, one segment). Provider seam `_shared/sms/*` (moved
 out of the hook 2026-09-12 so every edge function texts through ONE function, `sendSms()`): `log` (default, spends
 nothing, code redacted on hosted), `twilio` (registered alphanumeric sender or `whatsapp:` sender — Asiacell requires
-sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), **`otpiq` — the launch vendor, WhatsApp only (`OTPIQ_PROVIDER=whatsapp`, OTPIQ's own WhatsApp account, no SMS fallback; owner decision 2026-09-15)**, and **`whatsapp` — Meta's official Cloud API, the
+sender-id registration since 2026-07-01, Zain/Korek drop numeric senders), **`otpiq` — the launch vendor, WhatsApp → SMS (`OTPIQ_PROVIDER=whatsapp-sms`, OTPIQ's own WhatsApp account first, OTPIQ's own SMS leg when the number cannot receive WhatsApp; owner decision 2026-09-16, amending the 2026-09-15 "WhatsApp only" — the channel reported to `app.sms_sends` is the FIRST of the routing string, so a fallback SMS still logs `whatsapp`)**, and **`whatsapp` — Meta's official Cloud API, the
 planned successor** once Touch's Meta setup is done (authentication template per language picked from
 `profiles.preferred_lang`, Graph v26.0, no SMS fallback). The move is `secrets set SMS_PROVIDER=whatsapp` with the
 WhatsApp secrets staged beforehand (runbook §C "Moving to WhatsApp"). 2026-09-15 hardening: selection fails closed on

@@ -1,10 +1,21 @@
 import { describe, it, expect } from 'vitest';
+import { makeT } from '@touch/i18n';
 import {
   EMPTY_FILTER,
   actionFamilies,
   actionFamily,
+  ACTION_KEYS,
+  FAMILY_KEYS,
   actorLabel,
   auditCsv,
+  codeToKey,
+  familyOptions,
+  humanizeField,
+  isActionCode,
+  isTechnicalField,
+  knownActionKey,
+  knownFamilyKey,
+  recordName,
   diffFields,
   formatValue,
   inPeriod,
@@ -221,5 +232,80 @@ describe('auditCsv', () => {
     expect(headers).toHaveLength(10);
     expect(rows[0]![1]).toBe('Dev Owner');
     expect(rows[0]![9]).toBe('sold_out: false → true');
+  });
+});
+
+describe('plain language', () => {
+  it('turns a stored code into a catalog key segment', () => {
+    expect(codeToKey('menu.item.sold_out')).toBe('menuItemSoldOut');
+    expect(codeToKey('table_token.prev_secret_cleared')).toBe('tableTokenPrevSecretCleared');
+    expect(codeToKey('telegram.w.ack')).toBe('telegramWAck');
+  });
+
+  it('knows the actions the server writes and says so for a new one', () => {
+    expect(knownActionKey('tab.settle')).toBe('tabSettle');
+    expect(knownActionKey('brand.new_thing')).toBeNull();
+    expect(knownFamilyKey('order_item')).toBe('orderItem');
+    expect(knownFamilyKey('zzz')).toBeNull();
+  });
+
+  it('has words in both languages for every known action and area', () => {
+    // A key in the list with no catalog entry would print the raw key path.
+    for (const locale of ['en', 'ar'] as const) {
+      const t = makeT(locale);
+      for (const a of ACTION_KEYS) {
+        const key = `ws.manager.audit.actions.${codeToKey(a)}`;
+        expect(t(key as never), `${locale} ${a}`).not.toBe(key);
+      }
+      for (const f of FAMILY_KEYS) {
+        const key = `ws.manager.audit.families.${codeToKey(f)}`;
+        expect(t(key as never), `${locale} ${f}`).not.toBe(key);
+      }
+    }
+  });
+
+  it('offers every known area in the filter, plus any new one in the data', () => {
+    // The area filter now runs on the server; options built from the loaded
+    // page alone collapsed to the chosen area the moment it was chosen.
+    const options = familyOptions([row({ action: 'menu.item.update' }), row({ action: 'zzz.new' })]);
+    expect(options).toContain('reservation');
+    expect(options).toContain('zzz');
+  });
+
+  it('only treats an exact known action as a server filter', () => {
+    expect(isActionCode('discount.apply')).toBe(true);
+    expect(isActionCode(' discount.apply ')).toBe(true);
+    expect(isActionCode('discount')).toBe(false);
+    expect(isActionCode('refund')).toBe(false);
+  });
+
+  it('leaves ids, keys and secrets out of the on-screen change list', () => {
+    for (const f of ['id', 'day_session_id', 'idempotency_key', 'table_token', 'secret', 'photo_blur']) {
+      expect(isTechnicalField(f), f).toBe(true);
+    }
+    for (const f of ['sold_out', 'name_en', 'price_iqd', 'status', 'settled_at']) {
+      expect(isTechnicalField(f), f).toBe(false);
+    }
+  });
+
+  it('humanizes a column name', () => {
+    expect(humanizeField('sold_out')).toBe('Sold out');
+    expect(humanizeField('total_iqd')).toBe('Total (IQD)');
+  });
+
+  it('names the record from the row itself, in the reader\'s language', () => {
+    expect(recordName(null, { name_en: 'Latte', name_ar: 'لاتيه' }, 'ar')).toBe('لاتيه');
+    expect(recordName({ guest_name: 'Omar' }, null, 'en')).toBe('Omar');
+    expect(recordName({ id: 'x' }, { id: 'x', status: 'settled' }, 'en')).toBeNull();
+  });
+
+  it('searches the words the screen shows as well as the codes', () => {
+    expect(matchesAudit(row(), { ...EMPTY_FILTER, query: 'discount given' }, ['Discount given'])).toBe(true);
+    expect(matchesAudit(row({ actor_name: 'Sara' }), { ...EMPTY_FILTER, query: 'sara' })).toBe(true);
+  });
+
+  it('finds a person as the PIN holder too, as the server filter does', () => {
+    const r = row({ actor_id: 'cashier-1', authorizer_id: 'manager-1' });
+    expect(matchesAudit(r, { ...EMPTY_FILTER, actorId: 'manager-1' })).toBe(true);
   });
 });

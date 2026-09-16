@@ -14,6 +14,7 @@ import { appRpc } from '../../../lib/appRpc';
 import { QK, fetchActiveCourts, fetchVenueSettings } from '../../../lib/queries';
 import { useToast } from '../../../components/toast';
 import { useLocale, pickName } from '../../../lib/i18n';
+import { canAccess, useAuth } from '../../../lib/auth';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../../components/ui';
 import { AsyncStateWrapper, BookingStatusIndicator, CustomerFlagBadge, DescriptionList, EmptyState, MessagePresenter, Money, PageHeader, Panel, TabStatusIndicator, type CustomerFlagType } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
@@ -58,6 +59,8 @@ export function CustomerRecordScreen() {
   }
 
   const counts = rec?.counts ?? { bookings: 0, cancellations: 0, noShows: 0, cafeOrders: 0 };
+  const { staff } = useAuth();
+  const canBook = canAccess(staff?.role, '/desk');
 
   return (
     <div>
@@ -67,26 +70,30 @@ export function CustomerRecordScreen() {
         subtitle={
           rec ? (
             <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              {rec.flags.length === 0 ? <span>{tr('ws.courtDesk.record.noFlags')}</span> : rec.flags.map((f, i) => <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />)}
+              {rec.flags.map((f, i) => (
+                <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} size="md" />
+              ))}
               <Button size="sm" kind="ghost" icon="tag" onClick={() => setFlagsOpen(true)}>
-                {tr('ws.courtDesk.record.editFlags')}
+                {rec.flags.length === 0 ? tr('ws.courtDesk.record.addFlags') : tr('ws.courtDesk.record.editFlags')}
               </Button>
             </span>
           ) : undefined
         }
         actions={
           <>
-            <Link to="/desk/customers" className="tp-btn" data-kind="ghost" data-size="md">
-              {tr('ws.courtDesk.common.back')}
-            </Link>
+            <Button kind="ghost" icon="chevronStart" onClick={() => void navigate({ to: '/desk/customers' })}>
+              {tr('ws.courtDesk.record.backToSearch')}
+            </Button>
             {params.attach && (
               <Button kind="primary" icon="userPlus" onClick={attach}>
                 {params.attach === 'booking' ? tr('ws.courtDesk.customers.attachBooking') : tr('ws.courtDesk.customers.attachTab')}
               </Button>
             )}
-            <Link to="/desk" className="tp-btn" data-kind="default" data-size="md">
-              <Icon name="plus" size={16} /> {tr('ws.courtDesk.record.newBooking')}
-            </Link>
+            {canBook && (
+              <Button kind={params.attach ? 'default' : 'primary'} icon="calendar" onClick={() => void navigate({ to: '/desk', search: { customer: id } as never })}>
+                {tr('ws.courtDesk.record.newBooking')}
+              </Button>
+            )}
           </>
         }
       />
@@ -110,11 +117,15 @@ export function CustomerRecordScreen() {
                 />
               </Panel>
               <BookingsPanel title={tr('ws.courtDesk.record.upcoming')} empty={tr('ws.courtDesk.record.upcomingEmpty')} rows={rec.upcoming} tz={tz} courtName={courtName} />
-              <BookingsPanel title={tr('ws.courtDesk.record.history')} empty={tr('ws.courtDesk.record.historyEmpty')} rows={rec.history} tz={tz} courtName={courtName} />
-              <Panel title={tr('ws.courtDesk.record.cafe')} padded={rec.cafeOrders.length === 0}>
-                {rec.cafeOrders.length === 0 ? (
-                  <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.record.cafeEmpty')}</p>
-                ) : (
+              {/* Sections with nothing in them are left out rather than drawn
+                  as a titled box saying "none": the counts above already say
+                  zero. Series in particular: customer_record does not fill it
+                  yet (0065), so "No recurring series" was stated about
+                  customers who have one. */}
+              {rec.history.length > 0 && <BookingsPanel title={tr('ws.courtDesk.record.history')} empty={tr('ws.courtDesk.record.historyEmpty')} rows={rec.history} tz={tz} courtName={courtName} />}
+              {rec.cafeOrders.length > 0 && (
+              <Panel title={tr('ws.courtDesk.record.cafe')} padded={false}>
+                {(
                   <table className="tp-table" data-dense="true">
                     <thead>
                       <tr>
@@ -141,10 +152,10 @@ export function CustomerRecordScreen() {
                   </table>
                 )}
               </Panel>
+              )}
+              {rec.series.length > 0 && (
               <Panel title={tr('ws.courtDesk.record.series')}>
-                {rec.series.length === 0 ? (
-                  <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.record.seriesEmpty')}</p>
-                ) : (
+                {(
                   <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '0.35rem' }}>
                     {rec.series.map((s) => (
                       <li key={s.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -156,7 +167,7 @@ export function CustomerRecordScreen() {
                           </bdi>
                           {s.occurrences !== undefined && <> · {tr('ws.courtDesk.record.occurrences', { count: formatNumber(s.occurrences, locale) })}</>}
                         </span>
-                        <Link to="/desk/series/$id" params={{ id: s.id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)' }}>
+                        <Link to="/desk/series/$id" params={{ id: s.id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
                           {tr('ws.courtDesk.common.open')}
                         </Link>
                       </li>
@@ -164,6 +175,7 @@ export function CustomerRecordScreen() {
                   </ul>
                 )}
               </Panel>
+              )}
             </div>
             <NoteList customerId={id} notes={rec.notes} tz={tz} onChanged={invalidate} />
           </div>

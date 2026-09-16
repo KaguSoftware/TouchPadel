@@ -6,9 +6,13 @@
  * (owner call, 2026-09-13). It says what is active, what is not, and what the
  * day adds up to:
  *
- *   * the figure strip — open tabs and what they carry, what was settled;
- *   * the tables right now (today only) — occupied, with the running total,
- *     or free;
+ *   * the figure strip — what the open tabs carry, what was settled, voids and
+ *     (today) waiter calls. Each figure once: the count of open tabs is the
+ *     heading of the open-tabs list, so it is not a tile as well, and a
+ *     settled count and a settled total are one tile, not two;
+ *   * the tables right now (today only) — the occupied ones as cards with
+ *     their running total, the free ones as one line of table numbers (a
+ *     card per free table was most of the screen on a quiet night);
  *   * the open tabs, then the settled and void ones, each opening a read-only
  *     panel whose one button moves the station into the cashier workspace.
  *
@@ -224,13 +228,19 @@ export function TillsObserveScreen() {
             <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', paddingBlockEnd: 'var(--tp-sp-4)' }}>
               <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', gridTemplateColumns: 'repeat(auto-fit, minmax(10.5rem, 1fr))' }}>
                 <HeadlineFigure
-                  label={tr('ws.owner.observe.tills.figures.active')}
-                  value={formatNumber(summary.active, locale)}
-                  hint={tr('ws.owner.observe.tills.figures.activeHint', { count: formatNumber(summary.awaiting, locale) })}
+                  label={tr('ws.owner.observe.tills.figures.running')}
+                  value={<Money amount={summary.runningIqd} />}
+                  hint={
+                    summary.awaiting > 0
+                      ? tr('ws.owner.observe.tills.figures.activeHint', { count: formatNumber(summary.awaiting, locale) })
+                      : tr('ws.owner.observe.tills.figures.runningHint')
+                  }
                 />
-                <HeadlineFigure label={tr('ws.owner.observe.tills.figures.running')} value={<Money amount={summary.runningIqd} />} hint={tr('ws.owner.observe.tills.figures.runningHint')} />
-                <HeadlineFigure label={tr('ws.owner.observe.tills.figures.settled')} value={formatNumber(summary.settled, locale)} />
-                <HeadlineFigure label={tr('ws.owner.observe.tills.figures.settledValue')} value={<Money amount={summary.settledIqd} />} />
+                <HeadlineFigure
+                  label={tr('ws.owner.observe.tills.figures.settled')}
+                  value={<Money amount={summary.settledIqd} />}
+                  hint={tr('ws.owner.observe.tills.figures.settledHint', { count: formatNumber(summary.settled, locale) })}
+                />
                 <HeadlineFigure label={tr('ws.owner.observe.tills.figures.voided')} value={formatNumber(summary.voided, locale)} />
                 {isToday && (
                   <HeadlineFigure
@@ -272,64 +282,94 @@ export function TillsObserveScreen() {
 
 function TablesNow({ tables, now, onOpen }: { tables: ReturnType<typeof tablesNow>; now: number; onOpen: (id: string) => void }) {
   const { tr, locale } = useLocale();
-  const occupied = tables.filter((t) => t.tabs.length > 0).length;
+  const occupied = tables.filter((t) => t.tabs.length > 0);
+  const free = tables.filter((t) => t.tabs.length === 0);
   return (
     <Panel
       title={tr('ws.owner.observe.tills.tables.title')}
       actions={
         <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-          {tr('ws.owner.observe.tills.tables.summary', { occupied: formatNumber(occupied, locale), total: formatNumber(tables.length, locale) })}
+          {tr('ws.owner.observe.tills.tables.summary', { occupied: formatNumber(occupied.length, locale), total: formatNumber(tables.length, locale) })}
         </span>
       }
     >
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fill, minmax(8.5rem, 1fr))' }}>
-        {tables.map((t) => {
-          const busy = t.tabs.length > 0;
-          const first = t.tabs[0];
-          const body = (
-            <>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
-                <Icon name="table" size={14} style={{ color: busy ? 'var(--tp-accent-soft-fg)' : 'var(--tp-muted-fg)' }} />
-                <strong>
-                  {tr('op.till.table')} <bdi>{t.tableNumber}</bdi>
-                </strong>
-              </span>
-              {busy && first ? (
-                <>
-                  <Money amount={t.runningIqd} strong />
-                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-accent-soft-fg)' }}>
-                    {t.tabs.length > 1 ? tr('ws.owner.observe.tills.tables.tabsCount', { count: formatNumber(t.tabs.length, locale) }) : ageLabel(first.openedAt, now, tr)}
-                  </span>
-                </>
-              ) : (
-                <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.observe.tills.tables.free')}</span>
-              )}
-            </>
-          );
-          const style = {
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr)',
-            gap: 'var(--tp-sp-1)',
-            textAlign: 'start' as const,
-            font: 'inherit',
-            color: 'inherit',
-            padding: 'var(--tp-sp-2-5, 0.6rem)',
-            borderRadius: 'var(--tp-radius-ctl)',
-            border: `1px solid ${busy ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-            background: busy ? 'var(--tp-accent-soft)' : 'var(--tp-bg)',
-          };
-          return busy && first ? (
-            <button key={t.tableNumber} type="button" className="tp-tile" onClick={() => onOpen(first.id)} style={{ ...style, cursor: 'pointer' }}>
-              {body}
-            </button>
-          ) : (
-            <div key={t.tableNumber} style={{ ...style, opacity: 0.8 }}>
-              {body}
-            </div>
-          );
-        })}
-      </div>
+      {occupied.length === 0 ? (
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.observe.tills.tables.noneOccupied')}</p>
+      ) : (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))' }}>
+          {occupied.map((t) => {
+            const first = t.tabs[0]!;
+            return (
+              <button
+                key={t.tableNumber}
+                type="button"
+                className="tp-tile"
+                onClick={() => onOpen(first.id)}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr)',
+                  gap: 'var(--tp-sp-1)',
+                  textAlign: 'start',
+                  font: 'inherit',
+                  color: 'inherit',
+                  padding: 'var(--tp-sp-2-5, 0.6rem)',
+                  borderRadius: 'var(--tp-radius-ctl)',
+                  border: '1px solid var(--tp-accent)',
+                  background: 'var(--tp-accent-soft)',
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
+                  <Icon name="table" size={14} style={{ color: 'var(--tp-accent-soft-fg)', flexShrink: 0 }} />
+                  <strong style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {tr('op.till.table')} <bdi>{t.tableNumber}</bdi>
+                  </strong>
+                </span>
+                <Money amount={t.runningIqd} strong />
+                <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-accent-soft-fg)' }}>
+                  {t.tabs.length > 1
+                    ? tr('ws.owner.observe.tills.tables.tabsCount', { count: formatNumber(t.tabs.length, locale) })
+                    : ageLabel(first.openedAt, now, (k, p) => tr(k, p))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {free.length > 0 && <FreeTables numbers={free.map((t) => t.tableNumber)} spaced />}
     </Panel>
+  );
+}
+
+/** How many free table numbers are printed before the rest fold into a count. */
+const FREE_TABLES_SHOWN = 40;
+
+/** Free tables as their numbers on one wrapping line: nothing else is true of them. */
+function FreeTables({ numbers, spaced }: { numbers: string[]; spaced: boolean }) {
+  const { tr, locale } = useLocale();
+  const rest = numbers.length - FREE_TABLES_SHOWN;
+  return (
+    <div style={{ marginBlockStart: spaced ? 'var(--tp-sp-3)' : 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)' }}>
+      <span style={{ fontWeight: 600, marginInlineEnd: 'var(--tp-sp-1)' }}>{tr('ws.owner.observe.tills.tables.freeTables')}</span>
+      {numbers.slice(0, FREE_TABLES_SHOWN).map((n) => (
+        <bdi
+          key={n}
+          style={{
+            paddingInline: 'var(--tp-sp-1-5, 0.4rem)',
+            borderRadius: 'var(--tp-radius-ctl)',
+            border: '1px solid var(--tp-border)',
+            color: 'var(--tp-muted-fg)',
+            maxInlineSize: '12rem',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {n}
+        </bdi>
+      ))}
+      {rest > 0 && <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.observe.tills.tables.more', { count: formatNumber(rest, locale) })}</span>}
+    </div>
   );
 }
 
@@ -358,6 +398,13 @@ function TabsPanel({
           <strong>
             <bdi>{r.label}</bdi>
           </strong>
+          {/* On the open list every row is open, so a status column said
+              "Open" eight times; only the one state that differs is named. */}
+          {!closed && r.status === 'awaiting_payment' && (
+            <span style={{ justifySelf: 'start', marginBlock: 'var(--tp-sp-0)' }}>
+              <TabStatusIndicator status={r.status} size="sm" />
+            </span>
+          )}
           {(r.court || (r.guest && r.guest !== r.label)) && (
             <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
               <bdi>{[r.court, r.guest !== r.label ? r.guest : null].filter(Boolean).join(' · ')}</bdi>
@@ -366,7 +413,9 @@ function TabsPanel({
         </span>
       ),
     },
-    { key: 'status', header: tr('ws.owner.observe.tills.cols.status'), render: (r) => <TabStatusIndicator status={r.status} size="sm" /> },
+    ...(closed
+      ? [{ key: 'status', header: tr('ws.owner.observe.tills.cols.status'), render: (r: TabBoardRow) => <TabStatusIndicator status={r.status} size="sm" /> }]
+      : []),
     {
       key: 'source',
       header: tr('ws.owner.observe.tills.cols.source'),
@@ -384,7 +433,7 @@ function TabsPanel({
           <bdi>{formatTime(new Date(r.openedAt), locale)}</bdi>
         ) : (
           <span style={{ display: 'grid' }}>
-            <span>{ageLabel(r.openedAt, now, tr)}</span>
+            <span>{ageLabel(r.openedAt, now, (k, p) => tr(k, p))}</span>
             <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }} dir="ltr">
               {formatTime(new Date(r.openedAt), locale)}
             </span>

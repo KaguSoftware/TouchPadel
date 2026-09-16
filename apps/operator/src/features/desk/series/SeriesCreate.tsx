@@ -8,7 +8,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { formatDate, formatNumber, formatTimeRange, VENUE_TZ } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { clientRef, deviceId, station } from '../../../lib/idem';
@@ -72,6 +72,7 @@ export interface PatternErrors {
 export function RecurringSeriesCreateScreen() {
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings });
   const courtsQ = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts });
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
@@ -262,13 +263,15 @@ export function RecurringSeriesCreateScreen() {
               style={{ marginBlockEnd: '0.75rem' }}
             />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <Link to="/desk/series/$id" params={{ id: result.seriesId }} className="tp-btn" data-kind="primary" data-size="md">
+              <Button kind="primary" iconEnd="chevronEnd" onClick={() => void navigate({ to: '/desk/series/$id', params: { id: result.seriesId } })}>
                 {tr('ws.courtDesk.series.openSeries')}
-              </Link>
-              <Link to="/desk" className="tp-btn" data-kind="default" data-size="md">
+              </Button>
+              <Button icon="calendar" onClick={() => void navigate({ to: '/desk' })}>
                 {tr('ws.courtDesk.block.openCalendar')}
-              </Link>
-              <Button onClick={() => setResult(null)}>{tr('ws.courtDesk.series.title')}</Button>
+              </Button>
+              <Button icon="plus" onClick={() => setResult(null)}>
+                {tr('ws.courtDesk.series.another')}
+              </Button>
             </div>
           </Panel>
         ) : (
@@ -392,6 +395,13 @@ export function RecurringSeriesCreateScreen() {
                     tz={tz}
                     disabled={busy}
                     onResolve={(date, action, courtId) => setResolutions((prev) => ({ ...prev, [date]: action === 'skip' ? { date, action } : { date, action, courtId: courtId! } }))}
+                    onUnresolve={(date) =>
+                      setResolutions((prev) => {
+                        const next = { ...prev };
+                        delete next[date];
+                        return next;
+                      })
+                    }
                   />
                 </>
               )}
@@ -424,9 +434,9 @@ export function RecurringSeriesCreateScreen() {
                   </span>
                 )}
                 <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginInlineStart: 'auto' }}>
-                  <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
+                  <Button kind="ghost" onClick={() => void navigate({ to: '/desk' })}>
                     {tr('common.cancel')}
-                  </Link>
+                  </Button>
                   <Button icon="search" busy={checking} disabled={busy} onClick={checkClashes}>
                     {preview ? tr('ws.courtDesk.series.recheck') : tr('ws.courtDesk.series.checkClashes')}
                   </Button>
@@ -593,6 +603,7 @@ export function ClashPreviewList({
   tz,
   disabled,
   onResolve,
+  onUnresolve,
 }: {
   occurrences: readonly SeriesOccurrencePreview[];
   courts: readonly CourtRow[];
@@ -600,6 +611,8 @@ export function ClashPreviewList({
   tz: string;
   disabled?: boolean;
   onResolve: (date: string, action: 'skip' | 'moveCourt', courtId?: string) => void;
+  /** Take a resolution back, so the clash can be decided again. */
+  onUnresolve: (date: string) => void;
 }) {
   const { tr, locale } = useLocale();
   const courtName = (id: string) => pickName(locale, courts.find((c) => c.id === id)) || id;
@@ -632,7 +645,12 @@ export function ClashPreviewList({
                   ) : res ? (
                     <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       <StatusBadge size="sm" tone="neutral" label={res.action === 'skip' ? tr('ws.courtDesk.series.resolution.skip') : tr('ws.courtDesk.series.resolution.moveCourt', { court: courtName(res.courtId) })} />
-                      <Button size="sm" kind="ghost" icon="undo" disabled={disabled} onClick={() => onResolve(o.date, 'skip')} aria-label={tr('ws.courtDesk.series.resolveSkip')} />
+                      {/* This undo used to call onResolve(date, 'skip') under the
+                          label "Skip this date": pressing it on "Moved to Court 2"
+                          silently turned the move into a skip. */}
+                      <Button size="sm" kind="ghost" icon="undo" disabled={disabled} onClick={() => onUnresolve(o.date)}>
+                        {tr('ws.courtDesk.series.undoResolution')}
+                      </Button>
                     </span>
                   ) : (
                     <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>

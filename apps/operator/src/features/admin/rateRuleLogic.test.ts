@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { clockIntervals, coversEveryDay, findOverlaps, overlapsFor, rulesOverlap, validityMeets, type RateRuleLike } from './rateRuleLogic';
+import { clockIntervals, coversEveryDay, findOverlaps, findTies, overlapsFor, rulesOverlap, rulesTie, tiesFor, validityMeets, type RateRuleLike } from './rateRuleLogic';
 
 // Overlap is a WARNING for the manager; app.price_slot decides. The helper must
 // find every pair that competes for a slot and stay quiet for pairs that
@@ -85,5 +85,31 @@ describe('coversEveryDay', () => {
   it('is true only for all seven days', () => {
     expect(coversEveryDay([0, 1, 2, 3, 4, 5, 6])).toBe(true);
     expect(coversEveryDay([1, 2, 3, 4, 5])).toBe(false);
+  });
+});
+
+// A tie is the only overlap worth a warning: app.price_slot settles every
+// other one (court-specific first, then priority) exactly as the manager set up.
+describe('rulesTie / findTies', () => {
+  const base = rule({ id: 'base' });
+  it('does not flag intended layering: a higher-priority peak, or a court rule over all courts', () => {
+    expect(rulesTie(base, rule({ id: 'peak', start_time: '18:00', end_time: '22:00', priority: 10 }))).toBeNull();
+    expect(rulesTie(base, rule({ id: 'c1', court_id: 'court-1' }))).toBeNull();
+  });
+  it('flags two equally specific rules at the same priority covering the same slot', () => {
+    expect(rulesTie(base, rule({ id: 'dup', start_time: '20:00', end_time: '23:00' }))).toBe(0);
+    const c1a = rule({ id: 'c1a', court_id: 'court-1', priority: 5 });
+    const c1b = rule({ id: 'c1b', court_id: 'court-1', priority: 5, days_of_week: [4] });
+    expect(rulesTie(c1a, c1b)).toBe(4);
+  });
+  it('still needs a real overlap first', () => {
+    expect(rulesTie(rule({ id: 'a', days_of_week: [1] }), rule({ id: 'b', days_of_week: [2] }))).toBeNull();
+  });
+  it('lists each pair once, and names it from either rule', () => {
+    const rules = [base, rule({ id: 'dup' }), rule({ id: 'peak', priority: 9 })];
+    const ties = findTies(rules);
+    expect(ties).toEqual([{ ruleId: 'base', otherId: 'dup', otherName: 'dup', weekday: 0 }]);
+    expect(tiesFor(ties, rules, 'dup')).toEqual([{ ruleId: 'dup', otherId: 'base', otherName: 'base', weekday: 0 }]);
+    expect(tiesFor(ties, rules, 'peak')).toEqual([]);
   });
 });

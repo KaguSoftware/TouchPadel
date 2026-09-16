@@ -1,29 +1,41 @@
 /**
- * Goods received (spec 06.33): one delivery per submit against
- * app.receive_delivery — per line: ingredient, expected, received (short-
- * delivery capture), unit cost and an EXPIRY DATE PER BATCH. One ingredient
- * may be held as several batches with different expiry dates; the server
- * keeps them apart and so does every screen that lists them.
+ * Goods in (spec 06.33): one delivery per submit against
+ * app.receive_delivery — per line: ingredient, ordered, received (short-
+ * delivery capture), cost per unit and an EXPIRY DATE PER BATCH. One
+ * ingredient may be held as several batches with different expiry dates; the
+ * server keeps them apart and so does every screen that lists them.
+ *
+ * What changed for the person holding the invoice:
+ *
+ *  - Cost is asked per the ingredient's own unit ("Cost per g") and prefilled
+ *    from its pack price, with the pack price shown beneath. The old box was
+ *    "Cost/unit (IQD)" with no unit, and invoices quote packs, not grams.
+ *  - A started line that is missing something says what, in place, and holds
+ *    the Record button with the reason. The old screen silently dropped
+ *    half-filled lines when the delivery was recorded.
+ *  - The expiry hint says what a blank box will actually do for THIS
+ *    ingredient (its shelf life, or no expiry at all).
+ *  - The supplier fills itself from the first ingredient's supplier.
  *
  * The RPC takes no idempotency key, so this stays online-only by design
  * (flagged for the offline architect in the day-14 plan).
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
 import { Button, ErrorText, Field, inputStyle } from '../../components/ui';
-import { MessagePresenter, PageHeader, Panel, StatusBadge } from '../../components/kit';
-import { SK, fetchIngredients } from './stockKeys';
+import { MessagePresenter, Money, PageHeader, Panel } from '../../components/kit';
+import { useStockFormat } from './stockUi';
+import { isBlankLine, isShort, lineProblem, parseQty, unitCostFromPack, type DeliveryLineDraft } from './stockLogic';
+import { SK, fetchIngredients, type IngredientRow } from './stockKeys';
 
-interface DraftLine {
+export { isShort } from './stockLogic';
+
+interface DraftLine extends DeliveryLineDraft {
   key: string;
-  ingredientId: string;
-  qtyExpected: string;
-  qtyReceived: string;
-  unitCostIqd: string;
-  expiryDate: string;
 }
 
 const emptyLine = (): DraftLine => ({
@@ -35,15 +47,11 @@ const emptyLine = (): DraftLine => ({
   expiryDate: '',
 });
 
-/** Short-delivery flag for a draft line: the received quantity is below the expected one. */
-export function isShort(l: Pick<DraftLine, 'qtyExpected' | 'qtyReceived'>): boolean {
-  return l.qtyExpected !== '' && l.qtyReceived !== '' && Number(l.qtyReceived) < Number(l.qtyExpected);
-}
-
 export function ReceiveDelivery() {
-  const { tr, locale } = useLocale();
+  const { tr } = useLocale();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
   const [supplier, setSupplier] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
@@ -51,32 +59,47 @@ export function ReceiveDelivery() {
   const [error, setError] = useState<unknown>(null);
 
   const ingredientsQ = useQuery({ queryKey: SK.ingredients, queryFn: fetchIngredients });
+  // Prepared items are made in the kitchen, not delivered — they have their
+  // own form under Waste & production.
   const ingredients = (ingredientsQ.data ?? []).filter((i) => i.is_active && i.kind === 'purchased');
+  const byId = new Map(ingredients.map((i) => [i.id, i]));
 
   function patch(key: string, part: Partial<DraftLine>) {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...part } : l)));
   }
 
-  const validLines = lines.filter((l) => l.ingredientId && Number(l.qtyReceived) > 0 && Number(l.unitCostIqd) >= 0 && l.unitCostIqd !== '');
+  function chooseIngredient(line: DraftLine, id: string) {
+    const ing = byId.get(id);
+    const packUnitCost = ing ? unitCostFromPack(ing.pack_size, ing.pack_cost_iqd) : null;
+    patch(line.key, {
+      ingredientId: id,
+      // Prefill only a box the user has not typed into.
+      unitCostIqd: line.unitCostIqd.trim() === '' && packUnitCost !== null ? String(packUnitCost) : line.unitCostIqd,
+    });
+    if (supplier.trim() === '' && ing?.supplier_name) setSupplier(ing.supplier_name);
+  }
+
+  const started = lines.filter((l) => !isBlankLine(l));
+  const problems = started.filter((l) => lineProblem(l) !== null);
   const shortCount = lines.filter(isShort).length;
-  const dirty = lines.some((l) => l.ingredientId || l.qtyReceived || l.qtyExpected) || supplier !== '' || notes !== '';
+  const canRecord = started.length > 0 && problems.length === 0;
 
   async function submit() {
     setBusy(true);
     setError(null);
     try {
-      const res = await appRpc<{ delivery_id: string; batch_ids: string[] }>('receive_delivery', {
-        p_lines: validLines.map((l) => ({
+      await appRpc<{ delivery_id: string; batch_ids: string[] }>('receive_delivery', {
+        p_lines: started.map((l) => ({
           ingredient_id: l.ingredientId,
-          qty_expected: l.qtyExpected === '' ? null : Number(l.qtyExpected),
+          qty_expected: parseQty(l.qtyExpected),
           qty_received: Number(l.qtyReceived),
           unit_cost_iqd: Number(l.unitCostIqd),
           expiry_date: l.expiryDate || null,
         })),
-        p_supplier_name: supplier || null,
-        p_notes: notes || null,
+        p_supplier_name: supplier.trim() || null,
+        p_notes: notes.trim() || null,
       });
-      toast.ok(tr('op.stock.received', { count: res.batch_ids.length }));
+      toast.ok(tr('ws.manager.stock.goodsIn.recorded'));
       setLines([emptyLine()]);
       setSupplier('');
       setNotes('');
@@ -90,105 +113,171 @@ export function ReceiveDelivery() {
 
   return (
     <div style={{ maxInlineSize: '64rem' }}>
-      <PageHeader
-        title={tr('op.stock.receiveTitle')}
-        subtitle={tr('ws.manager.stock.goodsIn.lead')}
-        actions={
-          <>
-            {dirty && <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} />}
-            {shortCount > 0 && <StatusBadge tone="warn" icon="alert" label={tr('ws.manager.stock.goodsIn.shortTitle')} />}
-          </>
-        }
-      />
+      <PageHeader title={tr('op.stockNav.receive')} subtitle={tr('ws.manager.stock.goodsIn.lead')} />
 
-      <Panel>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-2-5)' }}>
-          <Field label={tr('op.stock.supplier')}>
-            <input style={inputStyle} value={supplier} disabled={busy} onChange={(e) => setSupplier(e.target.value)} />
-          </Field>
-          <Field label={tr('op.common.notes')}>
-            <input style={inputStyle} value={notes} disabled={busy} onChange={(e) => setNotes(e.target.value)} />
-          </Field>
-        </div>
-      </Panel>
+      <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        <Panel>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))', columnGap: 'var(--tp-sp-2-5)' }}>
+            <Field label={tr('ws.manager.stock.goodsIn.supplier')} optional>
+              <input style={inputStyle} value={supplier} disabled={busy} onChange={(e) => setSupplier(e.target.value)} />
+            </Field>
+            <Field label={tr('ws.manager.stock.goodsIn.notes')} optional>
+              <input style={inputStyle} value={notes} disabled={busy} placeholder={tr('ws.manager.stock.goodsIn.notesPlaceholder')} onChange={(e) => setNotes(e.target.value)} />
+            </Field>
+          </div>
+        </Panel>
 
-      <Panel title={tr('ws.manager.stock.goodsIn.lines')} style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
-        {shortCount > 0 && (
-          <MessagePresenter tone="refused" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead', { count: shortCount })} style={{ marginBlockEnd: 'var(--tp-sp-3)' }} />
-        )}
-        {lines.map((l) => {
-          const short = isShort(l);
-          return (
-            <div
-              key={l.key}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr 1fr 1.2fr auto',
-                gap: 'var(--tp-sp-1-5)',
-                alignItems: 'end',
-                marginBlockEnd: 'var(--tp-sp-1-5)',
-                paddingBlockEnd: 'var(--tp-sp-1-5)',
-                borderBlockEnd: '1px solid var(--tp-border)',
-              }}
+        <Panel title={tr('ws.manager.stock.goodsIn.linesTitle')}>
+          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            {lines.map((l, i) => (
+              <LineEditor
+                key={l.key}
+                index={i}
+                line={l}
+                ingredients={ingredients}
+                ingredient={byId.get(l.ingredientId) ?? null}
+                busy={busy}
+                removable={lines.length > 1}
+                onChoose={(id) => chooseIngredient(l, id)}
+                onPatch={(part) => patch(l.key, part)}
+                onRemove={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
+              />
+            ))}
+          </ol>
+
+          {shortCount > 0 && (
+            <MessagePresenter tone="info" icon="alert" message={tr('ws.manager.stock.goodsIn.shortLead')} style={{ marginBlockStart: 'var(--tp-sp-3)' }} />
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBlockStart: 'var(--tp-sp-3)', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+            <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
+              {tr('ws.manager.stock.goodsIn.addLine')}
+            </Button>
+            <Button
+              kind="primary"
+              icon="box"
+              busy={busy}
+              disabled={!canRecord}
+              disabledReason={started.length === 0 ? tr('ws.manager.stock.goodsIn.recordEmpty') : tr('ws.manager.stock.goodsIn.recordIncomplete')}
+              onClick={() => void submit()}
             >
-              <Field label={tr('op.stock.ingredient')} style={{ marginBlockEnd: 0 }}>
-                <select style={inputStyle} value={l.ingredientId} disabled={busy} onChange={(e) => patch(l.key, { ingredientId: e.target.value })}>
-                  <option value="">—</option>
-                  {ingredients.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {pickName(locale, i)} ({i.unit})
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label={tr('op.stock.qtyExpected')} style={{ marginBlockEnd: 0 }}>
-                <input style={inputStyle} dir="ltr" inputMode="decimal" value={l.qtyExpected} disabled={busy} onChange={(e) => patch(l.key, { qtyExpected: e.target.value })} />
-              </Field>
-              <Field
-                label={tr('op.stock.qtyReceived')}
-                style={{ marginBlockEnd: 0 }}
-                error={short ? tr('op.stock.short', { qty: Number(l.qtyExpected) - Number(l.qtyReceived) }) : undefined}
-              >
-                <input
-                  style={{ ...inputStyle, borderColor: short ? 'var(--tp-warn)' : undefined }}
-                  dir="ltr"
-                  inputMode="decimal"
-                  value={l.qtyReceived}
-                  disabled={busy}
-                  onChange={(e) => patch(l.key, { qtyReceived: e.target.value })}
-                />
-              </Field>
-              <Field label={tr('op.stock.unitCost')} style={{ marginBlockEnd: 0 }}>
-                <input style={inputStyle} dir="ltr" inputMode="numeric" value={l.unitCostIqd} disabled={busy} onChange={(e) => patch(l.key, { unitCostIqd: e.target.value })} />
-              </Field>
-              <Field label={tr('op.stock.expiry')} hint={tr('ws.manager.stock.goodsIn.expiryHint')} style={{ marginBlockEnd: 0 }}>
-                <input style={inputStyle} type="date" dir="ltr" value={l.expiryDate} disabled={busy} onChange={(e) => patch(l.key, { expiryDate: e.target.value })} />
-              </Field>
-              <div style={{ paddingBlockEnd: 'var(--tp-sp-0)' }}>
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  icon="x"
-                  disabled={busy || lines.length === 1}
-                  aria-label={tr('ws.manager.stock.goodsIn.removeLine')}
-                  onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-                />
-              </div>
-            </div>
-          );
-        })}
+              {tr('ws.manager.stock.goodsIn.record')}
+            </Button>
+          </div>
+          <ErrorText error={error} />
+        </Panel>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBlockStart: 'var(--tp-sp-2)', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-          <Button icon="plus" disabled={busy} onClick={() => setLines((ls) => [...ls, emptyLine()])}>
-            {tr('op.stock.addLine')}
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>
+          {tr('ws.manager.stock.goodsIn.afterwards')}{' '}
+          <Button kind="ghost" size="sm" iconEnd="arrowUpRight" onClick={() => void navigate({ to: '/stock' })}>
+            {tr('op.stockNav.onHand')}
           </Button>
-          <Button kind="primary" icon="package" busy={busy} disabled={validLines.length === 0} onClick={() => void submit()}>
-            {tr('op.stock.receiveBtn')}
-          </Button>
-        </div>
-        <ErrorText error={error} />
-      </Panel>
+        </p>
+      </div>
     </div>
+  );
+}
+
+function LineEditor({
+  index,
+  line,
+  ingredients,
+  ingredient,
+  busy,
+  removable,
+  onChoose,
+  onPatch,
+  onRemove,
+}: {
+  index: number;
+  line: DraftLine;
+  ingredients: IngredientRow[];
+  ingredient: IngredientRow | null;
+  busy: boolean;
+  removable: boolean;
+  onChoose: (id: string) => void;
+  onPatch: (part: Partial<DraftLine>) => void;
+  onRemove: () => void;
+}) {
+  const { tr, locale } = useLocale();
+  const fmt = useStockFormat();
+  const problem = lineProblem(line);
+  const short = isShort(line);
+  const unit = ingredient ? fmt.unit(ingredient.unit) : null;
+  const withUnit = (label: string) => (unit ? `${label} (${unit})` : label);
+
+  const expiryHint = !ingredient
+    ? undefined
+    : ingredient.shelf_life_days !== null
+      ? tr('ws.manager.stock.goodsIn.expiryAuto', { days: fmt.num(ingredient.shelf_life_days) })
+      : tr('ws.manager.stock.goodsIn.expiryNone');
+
+  return (
+    <li
+      style={{
+        display: 'grid',
+        gap: 'var(--tp-sp-1-5)',
+        paddingBlock: 'var(--tp-sp-2)',
+        paddingInline: 'var(--tp-sp-2-5)',
+        borderRadius: 'var(--tp-radius-ctl)',
+        border: '1px solid var(--tp-border)',
+        background: 'var(--tp-surface-2)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--tp-sp-2)' }}>
+        <Field label={tr('ws.manager.stock.goodsIn.ingredient')} style={{ marginBlockEnd: 0, flex: 1, minInlineSize: 0 }} error={problem === 'ingredient' ? tr('ws.manager.stock.goodsIn.problem.ingredient') : undefined}>
+          <select style={inputStyle} value={line.ingredientId} disabled={busy} onChange={(e) => onChoose(e.target.value)}>
+            <option value="">{tr('ws.manager.stock.goodsIn.choose')}</option>
+            {ingredients.map((i) => (
+              <option key={i.id} value={i.id}>
+                {pickName(locale, i)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Button
+          kind="ghost"
+          size="sm"
+          icon="x"
+          disabled={busy || !removable}
+          aria-label={tr('ws.manager.stock.goodsIn.removeLine', { n: fmt.num(index + 1) })}
+          title={tr('ws.manager.stock.goodsIn.removeLine', { n: fmt.num(index + 1) })}
+          onClick={onRemove}
+          style={{ marginBlockEnd: '0.3rem' }}
+        />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))', gap: 'var(--tp-sp-2)', alignItems: 'start' }}>
+        <Field label={withUnit(tr('ws.manager.stock.goodsIn.received'))} style={{ marginBlockEnd: 0 }} error={problem === 'received' ? tr('ws.manager.stock.goodsIn.problem.received') : undefined}>
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyReceived} disabled={busy} onChange={(e) => onPatch({ qtyReceived: e.target.value })} />
+        </Field>
+        <Field
+          label={withUnit(tr('ws.manager.stock.goodsIn.ordered'))}
+          optional
+          style={{ marginBlockEnd: 0 }}
+          error={problem === 'ordered' ? tr('ws.manager.stock.goodsIn.problem.ordered') : undefined}
+          hint={short ? <span style={{ color: 'var(--tp-warn-fg)', fontWeight: 600 }}>{tr('ws.manager.stock.goodsIn.short', { qty: fmt.num(Number(line.qtyExpected) - Number(line.qtyReceived)) })}</span> : undefined}
+        >
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.qtyExpected} disabled={busy} onChange={(e) => onPatch({ qtyExpected: e.target.value })} />
+        </Field>
+        <Field
+          label={unit ? tr('ws.manager.stock.goodsIn.costPer', { unit }) : tr('ws.manager.stock.goodsIn.cost')}
+          style={{ marginBlockEnd: 0 }}
+          error={problem === 'cost' ? tr('ws.manager.stock.goodsIn.problem.cost') : undefined}
+          hint={
+            ingredient && ingredient.pack_size !== null && ingredient.pack_cost_iqd !== null ? (
+              <bdi>
+                {tr('ws.manager.stock.goodsIn.packPrice', { size: fmt.qty(ingredient.pack_size, ingredient.unit) })} <Money amount={ingredient.pack_cost_iqd} />
+              </bdi>
+            ) : undefined
+          }
+        >
+          <input style={inputStyle} dir="ltr" inputMode="decimal" value={line.unitCostIqd} disabled={busy} onChange={(e) => onPatch({ unitCostIqd: e.target.value })} />
+        </Field>
+        <Field label={tr('ws.manager.stock.goodsIn.expiry')} optional hint={expiryHint} style={{ marginBlockEnd: 0 }}>
+          <input style={inputStyle} type="date" dir="ltr" value={line.expiryDate} disabled={busy} onChange={(e) => onPatch({ expiryDate: e.target.value })} />
+        </Field>
+      </div>
+    </li>
   );
 }
 

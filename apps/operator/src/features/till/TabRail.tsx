@@ -3,8 +3,13 @@
  * stop, ↑/↓ move, Enter/Space select; hover or focus prefetches the tab detail
  * so switching paints instantly. Offline tabs (queued opens) list after the
  * server ones with their own label.
+ *
+ * The heading carries the count. The "arrow keys move, Enter selects" line
+ * that sat under every rail of two or more tabs is gone: it is in the keyboard
+ * help (?), and on screen it was the same sentence all shift long.
  */
 import { useEffect, useRef, useState } from 'react';
+import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
 import { Button } from '../../components/ui';
 import { Kbd, TabStatusIndicator } from '../../components/kit';
@@ -39,7 +44,7 @@ export function TabRail({
   onNew: () => void;
   onPrefetch: (id: string) => void;
 }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const entries: RailEntry[] = [
     ...tabs.map((t) => ({
       id: t.id,
@@ -74,9 +79,14 @@ export function TabRail({
   }
 
   return (
-    <section aria-label={tr('op.till.openTabs')} style={{ display: 'grid', gap: 'var(--tp-sp-2)', alignContent: 'start', minInlineSize: 0 }}>
+    <section aria-label={tr('op.till.openTabs')} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--tp-sp-2)', alignContent: 'start', minInlineSize: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-1-5)', minInlineSize: 0 }}>
-        <h2 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{tr('op.till.openTabs')}</h2>
+        <h2 style={{ fontSize: 'var(--tp-fs-md)', fontWeight: 700, display: 'inline-flex', alignItems: 'baseline', gap: 'var(--tp-sp-1-5)' }}>
+          {tr('op.till.openTabs')}
+          {entries.length > 0 && (
+            <span style={{ ...muted, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(entries.length, locale)}</span>
+          )}
+        </h2>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
           <Kbd>F6</Kbd>
           <Button kind="primary" size="lg" onClick={onNew} title={tr('ws.cashier.till.rail.newTab')} style={touchTarget}>
@@ -92,7 +102,10 @@ export function TabRail({
       )}
       {!loading && entries.length === 0 && <p style={muted}>{tr('ws.cashier.till.rail.empty')}</p>}
 
-      <div role="listbox" aria-label={tr('op.till.openTabs')} onKeyDown={onKeyDown} style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+      {/* minmax(0, 1fr): a grid track sizes to its longest label by default,
+          which pushed long tab names — and the + button above — past the
+          column's edge instead of ellipsising them. */}
+      <div role="listbox" aria-label={tr('op.till.openTabs')} onKeyDown={onKeyDown} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--tp-sp-1)' }}>
         {entries.map((entry, i) => {
           const selected = entry.id === selectedId;
           return (
@@ -114,7 +127,9 @@ export function TabRail({
               onClick={() => onSelect(entry.id)}
               style={{
                 display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr)',
                 gap: 'var(--tp-sp-0)',
+                minInlineSize: 0,
                 textAlign: 'start',
                 minBlockSize: 'var(--tp-touch)',
                 paddingBlock: 'var(--tp-sp-2)',
@@ -126,8 +141,8 @@ export function TabRail({
                 font: 'inherit',
               }}
             >
-              <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
-                <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-1-5)', minInlineSize: 0 }}>
+                <strong title={entry.label} style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <bdi>{entry.label}</bdi>
                 </strong>
                 {selected && <Icon name="check" size={14} label={tr('ws.cashier.till.rail.selected')} />}
@@ -152,7 +167,6 @@ export function TabRail({
           );
         })}
       </div>
-      {entries.length > 1 && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.till.rail.hint')}</p>}
     </section>
   );
 }

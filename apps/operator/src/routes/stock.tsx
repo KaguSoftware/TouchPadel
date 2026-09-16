@@ -26,8 +26,16 @@ type StockNavKey =
   | 'alerts'
   | 'expiry';
 
+/**
+ * Grouped by how often staff come here, most often first. Alerts sat under
+ * "Review" beside reports although it is a to-do list; it now sits with the
+ * other every-day screens. The count moved out of "Review" too: it is the one
+ * way stock is corrected, so it leads the group that checks the shelves, and
+ * its results ("Count differences", formerly "Variance") follow it. Setup,
+ * visited least, goes last.
+ */
 const STOCK_GROUPS: readonly {
-  label: 'groupDaily' | 'groupSetup' | 'groupReview';
+  label: 'groupDaily' | 'groupCheck' | 'groupSetup';
   items: readonly { to: string; key: StockNavKey; icon: IconName; exact?: boolean }[];
 }[] = [
   {
@@ -37,6 +45,15 @@ const STOCK_GROUPS: readonly {
       { to: '/stock/receive', key: 'receive', icon: 'box' },
       { to: '/stock/waste', key: 'waste', icon: 'ban' },
       { to: '/stock/expiry', key: 'expiry', icon: 'hourglass' },
+      { to: '/stock/alerts', key: 'alerts', icon: 'bell' },
+    ],
+  },
+  {
+    label: 'groupCheck',
+    items: [
+      { to: '/stock/counts', key: 'counts', icon: 'scale' },
+      { to: '/stock/variance', key: 'variance', icon: 'chart' },
+      { to: '/stock/margins', key: 'margins', icon: 'trendUp' },
     ],
   },
   {
@@ -44,15 +61,6 @@ const STOCK_GROUPS: readonly {
     items: [
       { to: '/stock/ingredients', key: 'ingredients', icon: 'layers' },
       { to: '/stock/recipes', key: 'recipes', icon: 'fileText' },
-    ],
-  },
-  {
-    label: 'groupReview',
-    items: [
-      { to: '/stock/counts', key: 'counts', icon: 'check' },
-      { to: '/stock/variance', key: 'variance', icon: 'scale' },
-      { to: '/stock/margins', key: 'margins', icon: 'trendUp' },
-      { to: '/stock/alerts', key: 'alerts', icon: 'alert' },
     ],
   },
 ];

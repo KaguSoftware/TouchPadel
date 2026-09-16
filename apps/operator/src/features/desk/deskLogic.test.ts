@@ -1,17 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
   allowedMarks,
-  arrivals,
+  arrivalsDue,
+  chargeStateFor,
   courtAvailability,
   groupByStart,
   isOverrideRefusal,
   isVisible,
   nameFromQuery,
-  paymentStatusFor,
+  nightSummary,
   phoneDigitCount,
   phoneFromQuery,
   sanitizeName,
   sanitizePhone,
+  slotTaken,
   toBookingStatus,
 } from './deskLogic';
 import type { ReservationRow } from './deskTypes';
@@ -40,21 +42,22 @@ describe('toBookingStatus', () => {
   });
 });
 
-describe('paymentStatusFor', () => {
+describe('chargeStateFor', () => {
   const r = row({ id: 'r1' });
-  it('is unknown when the tab list has not loaded, when nothing is priced, or when no tab charges it', () => {
-    expect(paymentStatusFor(r, undefined)).toBe('unknown');
-    expect(paymentStatusFor(row({ id: 'r1', price_iqd: null }), [])).toBe('unknown');
-    expect(paymentStatusFor(r, [{ reservation_id: 'other', status: 'settled' }])).toBe('unknown');
+  it('is unknowable (null) when the tabs have not loaded, nothing is priced, or it is not a booking', () => {
+    expect(chargeStateFor(r, undefined)).toBeNull();
+    expect(chargeStateFor(row({ id: 'r1', price_iqd: null }), [])).toBeNull();
+    expect(chargeStateFor(row({ id: 'm', kind: 'maintenance' }), [{ reservation_id: 'm', status: 'settled' }])).toBeNull();
+  });
+  it('is "none" — a fact, not a gap — when the tabs loaded and none charges this booking', () => {
+    expect(chargeStateFor(r, [])).toBe('none');
+    expect(chargeStateFor(r, [{ reservation_id: 'other', status: 'settled' }])).toBe('none');
+    // A voided tab does not count as a charge.
+    expect(chargeStateFor(r, [{ reservation_id: 'r1', status: 'void' }])).toBe('none');
   });
   it('is paid only when a settled tab charges the booking', () => {
-    expect(paymentStatusFor(r, [{ reservation_id: 'r1', status: 'settled' }])).toBe('paid');
-    expect(paymentStatusFor(r, [{ reservation_id: 'r1', status: 'open' }])).toBe('unpaid');
-    // A voided tab does not count as a charge.
-    expect(paymentStatusFor(r, [{ reservation_id: 'r1', status: 'void' }])).toBe('unknown');
-  });
-  it('never reports payment for blocks and holds', () => {
-    expect(paymentStatusFor(row({ id: 'm', kind: 'maintenance' }), [{ reservation_id: 'm', status: 'settled' }])).toBe('unknown');
+    expect(chargeStateFor(r, [{ reservation_id: 'r1', status: 'settled' }])).toBe('paid');
+    expect(chargeStateFor(r, [{ reservation_id: 'r1', status: 'open' }])).toBe('unpaid');
   });
 });
 
@@ -104,23 +107,58 @@ describe('courtAvailability', () => {
   });
 });
 
-describe('arrivals', () => {
-  const now = '2026-09-03T14:30:00.000Z';
-  const horizon = '2026-09-03T15:30:00.000Z';
-  it('lists confirmed bookings starting within the horizon plus everyone already arrived', () => {
-    const out = arrivals(
+describe('arrivalsDue', () => {
+  const now = '2026-09-03T15:10:00.000Z';
+  const horizon = '2026-09-03T16:10:00.000Z';
+  it('splits confirmed bookings into late (started, not arrived) and due within the horizon', () => {
+    const out = arrivalsDue(
       [
-        row({ id: 'soon' }), // 15:00, within the hour
-        row({ id: 'here', status: 'arrived', start_at: '2026-09-03T12:00:00.000Z' }),
-        row({ id: 'far', start_at: '2026-09-03T19:00:00.000Z' }),
-        row({ id: 'past', start_at: '2026-09-03T13:00:00.000Z' }),
+        row({ id: 'late' }), // 15:00–16:00, started ten minutes ago
+        row({ id: 'soon', start_at: '2026-09-03T16:00:00.000Z', end_at: '2026-09-03T17:00:00.000Z' }),
+        row({ id: 'here', status: 'arrived' }),
+        row({ id: 'far', start_at: '2026-09-03T19:00:00.000Z', end_at: '2026-09-03T20:00:00.000Z' }),
+        row({ id: 'over', start_at: '2026-09-03T13:00:00.000Z', end_at: '2026-09-03T14:00:00.000Z' }),
         row({ id: 'block', kind: 'maintenance' }),
-        row({ id: 'done', status: 'completed' }),
       ],
       now,
       horizon,
     );
-    expect(out.map((r) => r.id)).toEqual(['here', 'soon']);
+    expect(out.late.map((r) => r.id)).toEqual(['late']);
+    // Guests already here are done, not due: they are not on the to-do list.
+    expect(out.soon.map((r) => r.id)).toEqual(['soon']);
+  });
+});
+
+describe('nightSummary', () => {
+  it('counts bookings only, arrivals (completed included) and confirmed bookings still to start', () => {
+    const now = '2026-09-03T15:30:00.000Z';
+    expect(
+      nightSummary(
+        [
+          row({ id: 'a', status: 'arrived' }),
+          row({ id: 'b', status: 'completed' }),
+          row({ id: 'c', start_at: '2026-09-03T18:00:00.000Z' }),
+          row({ id: 'd' }), // started, not here
+          row({ id: 'm', kind: 'maintenance' }),
+        ],
+        now,
+      ),
+    ).toEqual({ bookings: 4, arrived: 2, toCome: 1 });
+  });
+});
+
+describe('slotTaken', () => {
+  const at = (iso: string) => Date.parse(iso);
+  const rows = [row({ id: 'r1' }), row({ id: 'gone', status: 'cancelled', start_at: '2026-09-03T17:00:00.000Z', end_at: '2026-09-03T18:00:00.000Z' })];
+  it('reports an overlap on the same court with a reservation that holds it', () => {
+    expect(slotTaken(rows, 'c1', at('2026-09-03T15:30:00Z'), at('2026-09-03T16:30:00Z'))).toBe(true);
+    // Touching ends do not overlap.
+    expect(slotTaken(rows, 'c1', at('2026-09-03T16:00:00Z'), at('2026-09-03T17:00:00Z'))).toBe(false);
+    expect(slotTaken(rows, 'c2', at('2026-09-03T15:30:00Z'), at('2026-09-03T16:30:00Z'))).toBe(false);
+  });
+  it('ignores cancelled rows and the reservation being edited', () => {
+    expect(slotTaken(rows, 'c1', at('2026-09-03T17:00:00Z'), at('2026-09-03T18:00:00Z'))).toBe(false);
+    expect(slotTaken(rows, 'c1', at('2026-09-03T15:30:00Z'), at('2026-09-03T16:30:00Z'), 'r1')).toBe(false);
   });
 });
 

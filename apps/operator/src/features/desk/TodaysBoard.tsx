@@ -1,43 +1,60 @@
 /**
- * 06.1 TodaysBoardScreen — the desk's landing: today's bookings grouped by
- * start time, live court availability, arrivals due within the hour. Same
- * rows, same cache slot and same broadcast as the calendar (useTradingNight),
- * so what the desk promises here is what the calendar shows.
+ * 06.1 TodaysBoardScreen — the desk's landing. Same rows, same cache slot and
+ * same broadcast as the calendar (useTradingNight), so what the desk promises
+ * here is what the calendar shows.
+ *
+ * WHY THIS LAYOUT
+ *
+ * A clerk looks at this screen between guests, often with one in front of
+ * them. It answers three questions, top to bottom:
+ *
+ *  1. **Who is at the door?** Arrivals: bookings that started and are not
+ *     marked arrived (late — still coming, or a no-show?), then everyone due
+ *     within the hour. One click marks a guest arrived. Guests already here are
+ *     not on this list; the old panel mixed them in, so half of the one list the
+ *     desk scans was things already done. And it sat under a list of every
+ *     court, below the fold on a busy venue.
+ *  2. **Can I put a walk-in on a court now?** Courts now, as tiles: free until
+ *     when, or in use until when and by whom. A free tile books that court; a
+ *     busy one opens its booking.
+ *  3. **What does the whole day look like?** Every booking, in start order,
+ *     with its status and whether the court fee is paid. Rows that have ended
+ *     recede. The whole row opens the booking.
+ *
+ * Marking a guest arrived no longer asks for a reason. An arrival is the
+ * normal course of a booking, not an override, and the prompt offered only
+ * "customer request / weather / staff error / duplicate / other" — none of
+ * which is why a guest walks in.
  *
  * `TodaysBoardView` is pure presentation (spec §06.1 data-in / events-out)
  * so its four states are testable without a database.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDate, formatNumber, formatTime, formatTimeRange, VENUE_TZ } from '@touch/i18n';
+import { formatDate, formatNumber, formatTime, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
 import { mutate } from '../../lib/mutate';
 import type { CourtRow } from '../../lib/queries';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Skeleton } from '../../components/ui';
-import {
-  AsyncStateWrapper,
-  BookingStatusIndicator,
-  CustomerFlagBadge,
-  EmptyState,
-  PageHeader,
-  Panel,
-  PaymentStatusIndicator,
-  ReasonCodePrompt,
-  StatusBadge,
-  type AsyncStatus,
-} from '../../components/kit';
-import { Icon } from '../../components/icons';
-import { ReservationBadge, availabilityTone } from './deskStatus';
-import { arrivals, courtAvailability, groupByStart, isVisible, paymentStatusFor, type CourtAvailability } from './deskLogic';
+import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, PageHeader, Panel, StatusBadge, type AsyncStatus } from '../../components/kit';
+import { ChevronForward, Icon, type IconName } from '../../components/icons';
+import { ChargeCell, ReservationBadge } from './deskStatus';
+import { arrivalsDue, chargeStateFor, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, type CourtAvailability } from './deskLogic';
 import type { CustomerFlag, ReservationRow, TabLinkRow } from './deskTypes';
 import { CreateReservationDialog } from './CreateReservationDialog';
-import { OVERRIDE_REASONS } from './ReservationActionsDialog';
-import { todayInTz, useTabLinks, useTradingNight } from './useTradingNight';
+import { todayInTz, tonightInTz, useTabLinks, useTradingNight } from './useTradingNight';
 
 const ARRIVAL_HORIZON_MS = 60 * 60_000;
+/**
+ * Tiles shown before "Show all courts". A venue with a few courts sees them
+ * all; a long list (the dev stack has well over a hundred) would otherwise
+ * push the day's bookings a screen and a half down. Courts in use are always
+ * shown — they are the ones the desk may need to open.
+ */
+const COURT_TILES_SHOWN = 12;
 const CLOCK_TICK_MS = 30_000;
 
 export interface TodaysBoardViewProps {
@@ -58,44 +75,60 @@ export interface TodaysBoardViewProps {
   onRetry: () => void;
   onSelectReservation: (id: string) => void;
   onCreateBooking: () => void;
+  /** A free court tile: book that court from the next half-hour. */
+  onBookCourt: (courtId: string) => void;
   onSearchCustomer: () => void;
-  onOpenCalendar: () => void;
   onMarkArrived: (id: string) => void;
 }
 
 export function TodaysBoardView(p: TodaysBoardViewProps) {
   const { tr, locale } = useLocale();
   const courtName = (id: string) => pickName(locale, p.courts.find((c) => c.id === id));
-  const bookings = useMemo(() => p.reservations.filter((r) => r.kind === 'booking'), [p.reservations]);
-  const groups = useMemo(() => groupByStart(p.reservations), [p.reservations]);
+  const summary = useMemo(() => nightSummary(p.reservations, p.nowIso), [p.reservations, p.nowIso]);
   const availability = useMemo(() => courtAvailability(p.courts.map((c) => c.id), p.reservations, p.nowIso), [p.courts, p.reservations, p.nowIso]);
-  const due = useMemo(() => arrivals(p.reservations, p.nowIso, p.horizonIso), [p.reservations, p.nowIso, p.horizonIso]);
+  const due = useMemo(() => arrivalsDue(p.reservations, p.nowIso, p.horizonIso), [p.reservations, p.nowIso, p.horizonIso]);
+  const dayNoon = new Date(`${p.date}T12:00:00Z`);
+  const ready = p.status === 'ready' || p.status === 'empty';
 
   const header = (
     <PageHeader
       title={tr('ws.courtDesk.board.title')}
-      subtitle={tr('ws.courtDesk.board.subtitle', { date: formatDate(new Date(`${p.date}T12:00:00Z`), locale, 'UTC'), count: formatNumber(bookings.length, locale) })}
+      subtitle={
+        // The day itself, then the three counts that say how it is going —
+        // each a label and its number, so no plural is ever needed.
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1) var(--tp-sp-3)', flexWrap: 'wrap', alignItems: 'baseline' }}>
+          <bdi>
+            {formatWeekdayShort(dayNoon, locale, 'UTC')} · {formatDate(dayNoon, locale, 'UTC')}
+          </bdi>
+          {ready && (
+            <>
+              <SubtitleFigure label={tr('ws.courtDesk.board.summaryBookings')} value={summary.bookings} />
+              <SubtitleFigure label={tr('ws.courtDesk.board.summaryArrived')} value={summary.arrived} />
+              <SubtitleFigure label={tr('ws.courtDesk.board.summaryToCome')} value={summary.toCome} />
+            </>
+          )}
+        </span>
+      }
       actions={
         <>
+          <Button icon="search" onClick={p.onSearchCustomer}>
+            {tr('ws.courtDesk.board.searchCustomer')}
+          </Button>
           <Button
             kind="primary"
             icon="plus"
             onClick={p.onCreateBooking}
-            disabled={p.status !== 'ready' && p.status !== 'empty'}
+            disabled={!ready}
             disabledReason={p.status === 'error' ? tr('ws.courtDesk.board.newBookingBlockedError') : tr('ws.courtDesk.board.newBookingBlockedLoading')}
           >
             {tr('ws.courtDesk.board.newBooking')}
-          </Button>
-          <Button icon="search" onClick={p.onSearchCustomer}>
-            {tr('ws.courtDesk.board.searchCustomer')}
-          </Button>
-          <Button icon="calendar" onClick={p.onOpenCalendar}>
-            {tr('ws.courtDesk.board.openCalendar')}
           </Button>
         </>
       }
     />
   );
+
+  const courtsPanel = <CourtsNow availability={availability} reservations={p.reservations} courtName={courtName} tz={p.tz} live={p.live} onBook={p.onBookCourt} onOpen={p.onSelectReservation} />;
 
   return (
     <div>
@@ -105,13 +138,14 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
         error={p.error}
         onRetry={p.onRetry}
         skeleton={
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(16rem, 1fr)', gap: '1rem' }}>
-            <Skeleton lines={8} blockSize="2.2rem" />
-            <Skeleton lines={5} blockSize="2.2rem" />
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+            <Skeleton lines={3} blockSize="3rem" />
+            <Skeleton lines={2} blockSize="3.5rem" />
+            <Skeleton lines={6} blockSize="2.2rem" />
           </div>
         }
         emptyContent={
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(16rem, 1fr)', gap: '1rem', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
             <EmptyState
               icon="calendar"
               title={tr('ws.courtDesk.board.emptyTitle')}
@@ -122,31 +156,41 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                 </Button>
               }
             />
-            <AvailabilityStrip availability={availability} courtName={courtName} tz={p.tz} live={p.live} />
+            {courtsPanel}
           </div>
         }
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(16rem, 1fr)', gap: '1rem', alignItems: 'start' }}>
-          <Panel title={tr('ws.courtDesk.board.bookings')} padded={false}>
-            <table className="tp-table" data-dense="true" aria-label={tr('ws.courtDesk.board.bookings')}>
-              <thead>
-                <tr>
-                  <th>{tr('ws.courtDesk.board.time')}</th>
-                  <th>{tr('ws.courtDesk.board.court')}</th>
-                  <th>{tr('ws.courtDesk.board.customer')}</th>
-                  <th>{tr('ws.courtDesk.board.status')}</th>
-                  <th>{tr('ws.courtDesk.board.payment')}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map((g) =>
-                  g.rows.map((r, i) => (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+          <ArrivalsPanel
+            due={due}
+            reservations={p.reservations}
+            nowIso={p.nowIso}
+            tz={p.tz}
+            courtName={courtName}
+            flagsByGuest={p.flagsByGuest}
+            markingId={p.markingId}
+            onMarkArrived={p.onMarkArrived}
+            onOpen={p.onSelectReservation}
+          />
+          {courtsPanel}
+          <Panel title={<PanelTitle icon="calendar">{tr('ws.courtDesk.board.bookings')}</PanelTitle>} padded={false}>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="tp-table" data-dense="true" aria-label={tr('ws.courtDesk.board.bookings')}>
+                <thead>
+                  <tr>
+                    <th>{tr('ws.courtDesk.board.time')}</th>
+                    <th>{tr('ws.courtDesk.board.court')}</th>
+                    <th>{tr('ws.courtDesk.board.customer')}</th>
+                    <th>{tr('ws.courtDesk.board.status')}</th>
+                    <th>{tr('ws.courtDesk.board.payment')}</th>
+                    <th aria-label={tr('ws.courtDesk.common.actions')} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortByStart(p.reservations).map((r) => (
                     <BoardRow
                       key={r.id}
                       r={r}
-                      first={i === 0}
-                      groupSize={g.rows.length}
                       courtName={courtName(r.court_id)}
                       tz={p.tz}
                       nowIso={p.nowIso}
@@ -156,58 +200,348 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                       onSelect={() => p.onSelectReservation(r.id)}
                       onMarkArrived={() => p.onMarkArrived(r.id)}
                     />
-                  )),
-                )}
-              </tbody>
-            </table>
-          </Panel>
-          <div style={{ display: 'grid', gap: '1rem' }}>
-            <AvailabilityStrip availability={availability} courtName={courtName} tz={p.tz} live={p.live} />
-            <Panel title={tr('ws.courtDesk.board.arrivals')} padded={false}>
-              <p style={{ paddingBlock: '0.5rem', paddingInline: '0.85rem', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)', borderBlockEnd: '1px solid var(--tp-border)' }}>
-                {tr('ws.courtDesk.board.arrivalsLead')}
-              </p>
-              {due.length === 0 ? (
-                <p style={{ paddingBlock: '0.9rem', paddingInline: '0.85rem', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.courtDesk.board.arrivalsEmpty')}</p>
-              ) : (
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                  {due.map((r) => (
-                    <li
-                      key={r.id}
-                      className="tp-row"
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingBlock: '0.45rem', paddingInline: '0.85rem', borderBlockEnd: '1px solid var(--tp-border)' }}
-                    >
-                      <div style={{ minInlineSize: 0, flex: 1 }}>
-                        <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          <bdi>{r.guest_name ?? tr('ws.courtDesk.board.walkIn')}</bdi>
-                        </div>
-                        <div style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
-                          <bdi>{courtName(r.court_id)}</bdi> · <bdi>{formatTime(new Date(r.start_at), locale, p.tz)}</bdi>
-                        </div>
-                      </div>
-                      {r.status === 'arrived' ? (
-                        <BookingStatusIndicator status="arrived" size="sm" />
-                      ) : (
-                        <Button size="sm" icon="check" busy={p.markingId === r.id} onClick={() => p.onMarkArrived(r.id)}>
-                          {tr('ws.courtDesk.board.markArrived')}
-                        </Button>
-                      )}
-                    </li>
                   ))}
-                </ul>
-              )}
-            </Panel>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          </Panel>
         </div>
       </AsyncStateWrapper>
     </div>
   );
 }
 
+function SubtitleFigure({ label, value }: { label: string; value: number }) {
+  const { locale } = useLocale();
+  return (
+    <span>
+      {label} <strong style={{ color: 'var(--tp-fg)', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(value, locale)}</strong>
+    </span>
+  );
+}
+
+function PanelTitle({ icon, children }: { icon: IconName; children: ReactNode }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+      <Icon name={icon} size={16} style={{ color: 'var(--tp-muted-fg)' }} />
+      {children}
+    </span>
+  );
+}
+
+function guestLabel(r: ReservationRow, tr: ReturnType<typeof useLocale>['tr']): string {
+  if (r.kind === 'maintenance') return r.notes ?? tr('ws.courtDesk.board.blocked');
+  if (r.kind === 'hold') return tr('ws.courtDesk.board.hold');
+  return r.guest_name ?? tr('ws.courtDesk.board.walkIn');
+}
+
+const minutesBetween = (a: string, b: string) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60_000));
+
+// ---------------------------------------------------------------------------
+// 1 — Arrivals
+// ---------------------------------------------------------------------------
+
+function ArrivalsPanel({
+  due,
+  reservations,
+  nowIso,
+  tz,
+  courtName,
+  flagsByGuest,
+  markingId,
+  onMarkArrived,
+  onOpen,
+}: {
+  due: ReturnType<typeof arrivalsDue>;
+  reservations: readonly ReservationRow[];
+  nowIso: string;
+  tz: string;
+  courtName: (id: string) => string;
+  flagsByGuest?: ReadonlyMap<string, readonly CustomerFlag[]>;
+  markingId?: string | null;
+  onMarkArrived: (id: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  const { tr, locale } = useLocale();
+  const nothing = due.late.length === 0 && due.soon.length === 0;
+  // With nobody due, say when the next guest is — the question that follows.
+  const next = nothing ? sortByStart(reservations).find((r) => r.kind === 'booking' && r.status === 'confirmed' && r.start_at > nowIso) : undefined;
+
+  return (
+    <Panel title={<PanelTitle icon="users">{tr('ws.courtDesk.board.arrivals')}</PanelTitle>}>
+      {nothing ? (
+        <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', color: 'var(--tp-muted-fg)' }}>
+          <Icon name="checkCircle" size={18} style={{ color: 'var(--tp-success-mark)', flex: '0 0 auto' }} />
+          <span style={{ color: 'var(--tp-fg)', fontWeight: 600 }}>{tr('ws.courtDesk.board.arrivalsEmpty')}</span>
+          {next && (
+            <bdi>
+              {tr('ws.courtDesk.board.nextArrival', {
+                time: formatTime(new Date(next.start_at), locale, tz),
+                name: guestLabel(next, tr),
+                court: courtName(next.court_id),
+              })}
+            </bdi>
+          )}
+        </p>
+      ) : (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+          {due.late.length > 0 && (
+            <ArrivalGroup title={tr('ws.courtDesk.board.lateTitle')} hint={tr('ws.courtDesk.board.lateHint')}>
+              {due.late.map((r) => (
+                <ArrivalRow
+                  key={r.id}
+                  r={r}
+                  tone="warn"
+                  when={tr('ws.courtDesk.board.startedAgo', { minutes: formatNumber(minutesBetween(r.start_at, nowIso), locale) })}
+                  tz={tz}
+                  courtName={courtName(r.court_id)}
+                  flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
+                  marking={markingId === r.id}
+                  onMarkArrived={() => onMarkArrived(r.id)}
+                  onOpen={() => onOpen(r.id)}
+                />
+              ))}
+            </ArrivalGroup>
+          )}
+          {due.soon.length > 0 && (
+            <ArrivalGroup title={tr('ws.courtDesk.board.soonTitle')}>
+              {due.soon.map((r) => (
+                <ArrivalRow
+                  key={r.id}
+                  r={r}
+                  tone="neutral"
+                  when={tr('ws.courtDesk.board.startsIn', { minutes: formatNumber(minutesBetween(nowIso, r.start_at), locale) })}
+                  tz={tz}
+                  courtName={courtName(r.court_id)}
+                  flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
+                  marking={markingId === r.id}
+                  onMarkArrived={() => onMarkArrived(r.id)}
+                  onOpen={() => onOpen(r.id)}
+                />
+              ))}
+            </ArrivalGroup>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function ArrivalGroup({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section>
+      <h3 style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: 'var(--tp-muted-fg)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{title}</h3>
+      {hint && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-0)' }}>{hint}</p>}
+      <ul style={{ listStyle: 'none', margin: 0, marginBlockStart: 'var(--tp-sp-2)', padding: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>{children}</ul>
+    </section>
+  );
+}
+
+function ArrivalRow({
+  r,
+  tone,
+  when,
+  tz,
+  courtName,
+  flags,
+  marking,
+  onMarkArrived,
+  onOpen,
+}: {
+  r: ReservationRow;
+  tone: 'warn' | 'neutral';
+  when: string;
+  tz: string;
+  courtName: string;
+  flags?: readonly CustomerFlag[];
+  marking: boolean;
+  onMarkArrived: () => void;
+  onOpen: () => void;
+}) {
+  const { tr, locale } = useLocale();
+  const name = guestLabel(r, tr);
+  return (
+    <li
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--tp-sp-3)',
+        flexWrap: 'wrap',
+        paddingBlock: 'var(--tp-sp-2)',
+        paddingInline: 'var(--tp-sp-3)',
+        borderRadius: 'var(--tp-radius-ctl)',
+        background: 'var(--tp-surface-2)',
+      }}
+    >
+      <span style={{ display: 'grid', minInlineSize: '6.5rem' }}>
+        <strong style={{ fontSize: 'var(--tp-fs-lg)', fontVariantNumeric: 'tabular-nums' }}>
+          <bdi>{formatTime(new Date(r.start_at), locale, tz)}</bdi>
+        </strong>
+        {/* The time on the clock face is the fact; how long ago / how soon is
+            what the desk acts on, and late is the only one that is tinted. */}
+        <span style={{ fontSize: 'var(--tp-fs-xs)', fontWeight: 600, color: tone === 'warn' ? 'var(--tp-warn-fg)' : 'var(--tp-muted-fg)' }}>{when}</span>
+      </span>
+      <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', flex: '1 1 14rem', minInlineSize: 0 }}>
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: 'var(--tp-fs-md)' }}>
+            <bdi>{name}</bdi>
+          </strong>
+          {flags?.map((f, i) => (
+            <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
+          ))}
+        </span>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', display: 'inline-flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+          <bdi>{courtName}</bdi>
+          {r.guest_phone && (
+            <bdi dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {r.guest_phone}
+            </bdi>
+          )}
+        </span>
+      </span>
+      <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', marginInlineStart: 'auto' }}>
+        <Button kind="ghost" iconEnd="chevronEnd" onClick={onOpen} aria-label={`${tr('ws.courtDesk.board.open')} ${name}`}>
+          {tr('ws.courtDesk.board.open')}
+        </Button>
+        <Button kind="primary" icon="check" busy={marking} onClick={onMarkArrived}>
+          {tr('ws.courtDesk.board.markArrived')}
+        </Button>
+      </span>
+    </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2 — Courts now
+// ---------------------------------------------------------------------------
+
+function CourtsNow({
+  availability,
+  reservations,
+  courtName,
+  tz,
+  live,
+  onBook,
+  onOpen,
+}: {
+  availability: readonly CourtAvailability[];
+  reservations: readonly ReservationRow[];
+  courtName: (id: string) => string;
+  tz: string;
+  live: boolean;
+  onBook: (courtId: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  const { tr, locale } = useLocale();
+  const free = availability.filter((a) => a.state === 'free').length;
+  const [showAll, setShowAll] = useState(false);
+  const long = availability.length > COURT_TILES_SHOWN;
+  const shown = useMemo(() => {
+    if (!long || showAll) return availability;
+    const room = Math.max(0, COURT_TILES_SHOWN - (availability.length - free));
+    let freeLeft = room;
+    // Court order is kept: the desk learns where a court sits in the grid.
+    return availability.filter((a) => a.state === 'busy' || freeLeft-- > 0);
+  }, [availability, long, showAll, free]);
+  return (
+    <Panel
+      title={<PanelTitle icon="court">{tr('ws.courtDesk.board.availability')}</PanelTitle>}
+      actions={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+          <span>
+            {tr('ws.courtDesk.board.freeNow')}{' '}
+            <strong style={{ color: 'var(--tp-fg)', fontVariantNumeric: 'tabular-nums' }}>
+              {tr('ws.courtDesk.board.freeOf', { free: formatNumber(free, locale), total: formatNumber(availability.length, locale) })}
+            </strong>
+          </span>
+          {/* Both states carry a glyph; neither pulses — live is steady, and its label says so. */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: live ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)' }}>
+            <Icon name={live ? 'checkCircle' : 'clock'} size={12} />
+            {live ? tr('ws.courtDesk.board.live') : tr('ws.courtDesk.board.polling')}
+          </span>
+        </span>
+      }
+    >
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-2)', gridTemplateColumns: 'repeat(auto-fill, minmax(12rem, 1fr))' }}>
+        {shown.map((a) => {
+          const busy = a.state === 'busy' ? reservations.find((r) => r.id === a.reservationId) : undefined;
+          const line =
+            a.state === 'busy'
+              ? tr(a.kind === 'maintenance' ? 'ws.courtDesk.board.busyBlocked' : 'ws.courtDesk.board.busyUntil', { time: formatTime(new Date(a.untilAt), locale, tz) })
+              : a.nextStartAt
+                ? tr('ws.courtDesk.board.freeUntil', { time: formatTime(new Date(a.nextStartAt), locale, tz) })
+                : tr('ws.courtDesk.board.free');
+          const name = courtName(a.courtId);
+          return (
+            <li key={a.courtId}>
+              <button
+                type="button"
+                className="tp-tile"
+                onClick={() => (a.state === 'busy' ? onOpen(a.reservationId) : onBook(a.courtId))}
+                aria-label={a.state === 'busy' ? `${name} · ${line} · ${tr('ws.courtDesk.board.open')}` : `${name} · ${line} · ${tr('ws.courtDesk.board.bookCourt')}`}
+                style={{
+                  inlineSize: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--tp-sp-2)',
+                  paddingBlock: 'var(--tp-sp-2)',
+                  paddingInline: 'var(--tp-sp-3)',
+                  border: '1px solid var(--tp-border)',
+                  borderRadius: 'var(--tp-radius-ctl)',
+                  background: 'var(--tp-surface)',
+                  color: 'inherit',
+                  font: 'inherit',
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    flex: '0 0 auto',
+                    inlineSize: '0.6rem',
+                    blockSize: '0.6rem',
+                    borderRadius: '50%',
+                    background: a.state === 'free' ? 'var(--tp-success-mark)' : a.kind === 'maintenance' ? 'var(--tp-neutral-mark)' : 'var(--tp-accent)',
+                  }}
+                />
+                <span style={{ display: 'grid', minInlineSize: 0, flex: 1 }}>
+                  <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <bdi>{name}</bdi>
+                  </strong>
+                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: a.state === 'free' ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {line}
+                    {busy && busy.kind === 'booking' && (
+                      <>
+                        {' · '}
+                        <bdi>{guestLabel(busy, tr)}</bdi>
+                      </>
+                    )}
+                  </span>
+                </span>
+                {a.state === 'free' ? (
+                  <Icon name="plus" size={16} style={{ color: 'var(--tp-muted-fg)', flex: '0 0 auto' }} />
+                ) : (
+                  <ChevronForward size={14} style={{ color: 'var(--tp-muted-fg)', flex: '0 0 auto' }} />
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {long && (
+        <Button size="sm" kind="ghost" icon={showAll ? 'chevronDown' : 'plus'} onClick={() => setShowAll((v) => !v)} style={{ marginBlockStart: 'var(--tp-sp-2)' }}>
+          {showAll ? tr('ws.courtDesk.board.showFewerCourts') : tr('ws.courtDesk.board.showAllCourts', { count: formatNumber(availability.length, locale) })}
+        </Button>
+      )}
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 3 — Every booking today
+// ---------------------------------------------------------------------------
+
 function BoardRow({
   r,
-  first,
-  groupSize,
   courtName,
   tz,
   nowIso,
@@ -218,8 +552,6 @@ function BoardRow({
   onMarkArrived,
 }: {
   r: ReservationRow;
-  first: boolean;
-  groupSize: number;
   courtName: string;
   tz: string;
   nowIso: string;
@@ -231,7 +563,8 @@ function BoardRow({
 }) {
   const { tr, locale } = useLocale();
   const inProgress = r.start_at <= nowIso && r.end_at > nowIso;
-  const label = r.kind === 'maintenance' ? (r.notes ?? tr('ws.courtDesk.board.blocked')) : r.kind === 'hold' ? tr('ws.courtDesk.board.hold') : (r.guest_name ?? tr('ws.courtDesk.board.walkIn'));
+  const ended = r.end_at <= nowIso || r.status === 'completed';
+  const label = guestLabel(r, tr);
   return (
     <tr
       data-clickable="true"
@@ -243,20 +576,19 @@ function BoardRow({
           onSelect();
         }
       }}
-      style={{ borderBlockStart: first && groupSize > 1 ? '2px solid var(--tp-border-strong)' : undefined }}
+      // What is over recedes; it stays listed because the desk still settles it.
+      style={{ color: ended ? 'var(--tp-muted-fg)' : undefined }}
     >
-      <td style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: first ? 600 : 400, color: first ? 'var(--tp-fg)' : 'var(--tp-muted-fg)' }}>
+      <td style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: 600 }}>
         <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
-        {inProgress && (
-          <StatusBadge size="sm" tone="success" label={tr('ws.courtDesk.board.live')} style={{ marginInlineStart: '0.4rem' }} />
-        )}
+        {inProgress && <StatusBadge size="sm" tone="success" label={tr('ws.courtDesk.board.onCourtNow')} style={{ marginInlineStart: '0.4rem' }} />}
       </td>
       <td>
         <bdi>{courtName}</bdi>
       </td>
       <td>
         <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <strong>
+          <strong style={{ color: ended ? 'var(--tp-muted-fg)' : 'var(--tp-fg)' }}>
             <bdi>{label}</bdi>
           </strong>
           {r.guest_phone && (
@@ -272,72 +604,20 @@ function BoardRow({
       <td>
         <ReservationBadge reservation={r} size="sm" />
       </td>
-      <td>{r.kind === 'booking' ? <PaymentStatusIndicator paymentStatus={paymentStatusFor(r, tabLinks)} size="sm" /> : null}</td>
+      <td>
+        <ChargeCell state={chargeStateFor(r, tabLinks)} kind={r.kind} />
+      </td>
       <td style={{ textAlign: 'end', whiteSpace: 'nowrap' }}>
-        <span style={{ display: 'inline-flex', gap: '0.3rem' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-          {r.kind === 'booking' && r.status === 'confirmed' && (
+        <span style={{ display: 'inline-flex', gap: '0.3rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          {r.kind === 'booking' && r.status === 'confirmed' && r.end_at > nowIso && (
             <Button size="sm" icon="check" busy={marking} onClick={onMarkArrived}>
               {tr('ws.courtDesk.board.markArrived')}
             </Button>
           )}
-          <Button size="sm" kind="ghost" iconEnd="chevronEnd" onClick={onSelect} aria-label={`${tr('ws.courtDesk.board.open')} ${label}`}>
-            {tr('ws.courtDesk.board.open')}
-          </Button>
+          <Button size="sm" kind="ghost" icon="chevronEnd" onClick={onSelect} aria-label={`${tr('ws.courtDesk.board.open')} ${label}`} />
         </span>
       </td>
     </tr>
-  );
-}
-
-function AvailabilityStrip({
-  availability,
-  courtName,
-  tz,
-  live,
-}: {
-  availability: readonly CourtAvailability[];
-  courtName: (id: string) => string;
-  tz: string;
-  live: boolean;
-}) {
-  const { tr, locale } = useLocale();
-  return (
-    <Panel
-      title={tr('ws.courtDesk.board.availability')}
-      padded={false}
-      actions={
-        /*
-         * This rendered a wifiOff glyph and then hid it with display:'none'
-         * whenever the feed WAS live, so the good state was the only one with
-         * no shape at all (rulebook 10.6). Both states carry a glyph now, and
-         * neither pulses: live is steady, and its label already says so.
-         */
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: live ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)' }}>
-          <Icon name={live ? 'checkCircle' : 'clock'} size={12} />
-          {live ? tr('ws.courtDesk.board.live') : tr('ws.courtDesk.board.polling')}
-        </span>
-      }
-    >
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {availability.map((a) => {
-          const tone = availabilityTone(a);
-          const body =
-            a.state === 'busy'
-              ? tr(a.kind === 'maintenance' ? 'ws.courtDesk.board.busyBlocked' : 'ws.courtDesk.board.busyUntil', { time: formatTime(new Date(a.untilAt), locale, tz) })
-              : a.nextStartAt
-                ? tr('ws.courtDesk.board.freeUntil', { time: formatTime(new Date(a.nextStartAt), locale, tz) })
-                : tr('ws.courtDesk.board.free');
-          return (
-            <li key={a.courtId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', paddingBlock: '0.5rem', paddingInline: '0.85rem', borderBlockEnd: '1px solid var(--tp-border)' }}>
-              <span style={{ fontWeight: 600 }}>
-                <bdi>{courtName(a.courtId)}</bdi>
-              </span>
-              <StatusBadge size="sm" tone={tone} label={body} />
-            </li>
-          );
-        })}
-      </ul>
-    </Panel>
   );
 }
 
@@ -359,17 +639,17 @@ export function TodaysBoardScreen() {
   const [date, setDate] = useState(() => todayInTz(VENUE_TZ));
   const night = useTradingNight(date);
   const { tz, settingsQ, courtsQ, reservationsQ, courts, rows } = night;
-  // Once the venue's timezone arrives, re-anchor "today" to it.
+  // Once the venue's settings arrive, re-anchor "today" to the night that is
+  // trading now — and follow the clock, so the board rolls over at close.
   useEffect(() => {
-    if (settingsQ.data) setDate(todayInTz(settingsQ.data.timezone));
-  }, [settingsQ.data]);
+    if (settingsQ.data) setDate(tonightInTz(settingsQ.data.timezone, settingsQ.data.opening_hours));
+  }, [settingsQ.data, nowMs]);
 
   const visible = useMemo(() => night.reservations.filter((r) => isVisible(r, nowMs)), [night.reservations, nowMs]);
   const bookingIds = useMemo(() => visible.filter((r) => r.kind === 'booking').map((r) => r.id), [visible]);
   const tabLinksQ = useTabLinks(bookingIds);
 
   const [createAt, setCreateAt] = useState<{ courtId: string; startAt: Date } | null>(null);
-  const [pendingArrive, setPendingArrive] = useState<ReservationRow | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
 
   const status: AsyncStatus =
@@ -387,28 +667,47 @@ export function TodaysBoardScreen() {
     void reservationsQ.refetch();
   }
 
-  /** The next free half-hour on any court from now; otherwise send the desk to the calendar. */
-  function createBooking() {
-    const nowIso = new Date(nowMs).toISOString();
-    const avail = courtAvailability(courts.map((c) => c.id), visible, nowIso);
-    const free = avail.find((a) => a.state === 'free');
-    const nextMin = rows.find((min) => wallTimeToUtc(date, min, tz).getTime() >= nowMs);
-    if (!free || nextMin === undefined) {
+  /** The next half-hour row of tonight that has not started, or undefined after the last one. */
+  const nextStart = (): Date | undefined => {
+    const min = rows.find((m) => wallTimeToUtc(date, m, tz).getTime() >= nowMs);
+    return min === undefined ? undefined : wallTimeToUtc(date, min, tz);
+  };
+
+  /** Book a given court from the next half-hour. After the last row of the night, the calendar takes over. */
+  function bookCourt(courtId: string) {
+    const startAt = nextStart();
+    if (!startAt) {
       void navigate({ to: '/desk' });
       return;
     }
-    setCreateAt({ courtId: free.courtId, startAt: wallTimeToUtc(date, nextMin, tz) });
+    setCreateAt({ courtId, startAt });
   }
 
-  async function markArrived(reason: string) {
-    if (!pendingArrive) return;
-    const r = pendingArrive;
-    setPendingArrive(null);
+  /**
+   * "New booking": the first court free for an hour from the next half-hour.
+   * It is only a starting point — court and time are both editable in the
+   * dialog — so when every court is taken it still opens, on the first one.
+   */
+  function createBooking() {
+    const startAt = nextStart();
+    const first = courts[0];
+    if (!startAt || !first) {
+      void navigate({ to: '/desk' });
+      return;
+    }
+    const free = courts.find((c) => !slotTaken(visible, c.id, startAt.getTime(), startAt.getTime() + 60 * 60_000));
+    setCreateAt({ courtId: (free ?? first).id, startAt });
+  }
+
+  async function markArrived(id: string) {
+    const r = visible.find((x) => x.id === id);
+    if (!r) return;
     setMarkingId(r.id);
     // Optimistic, like the calendar dialog: single-row transition, idempotent server-side.
     queryClient.setQueryData(['reservations', date], (list?: ReservationRow[]) => list?.map((row) => (row.id === r.id ? { ...row, status: 'arrived' } : row)));
     try {
-      await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: 'arrived', reason });
+      await mutate('reservation.update', { action: 'mark', reservationId: r.id, status: 'arrived' });
+      toast.ok(tr('ws.courtDesk.board.arrivedToast', { name: r.guest_name ?? tr('ws.courtDesk.board.walkIn') }));
     } catch (e) {
       toast.err(e);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
@@ -437,12 +736,9 @@ export function TodaysBoardScreen() {
         onRetry={retry}
         onSelectReservation={(id) => void navigate({ to: '/desk/bookings/$id', params: { id } })}
         onCreateBooking={createBooking}
+        onBookCourt={bookCourt}
         onSearchCustomer={() => void navigate({ to: '/desk/customers' })}
-        onOpenCalendar={() => void navigate({ to: '/desk' })}
-        onMarkArrived={(id) => {
-          const r = visible.find((x) => x.id === id);
-          if (r) setPendingArrive(r);
-        }}
+        onMarkArrived={(id) => void markArrived(id)}
       />
       {createAt && (
         <CreateReservationDialog
@@ -450,26 +746,15 @@ export function TodaysBoardScreen() {
           startAt={createAt.startAt}
           courts={courts}
           tz={tz}
+          night={{ date, rows, reservations: visible }}
           onClose={() => setCreateAt(null)}
           onCreated={() => {
             setCreateAt(null);
             toast.ok(tr('op.desk.created'));
             void queryClient.invalidateQueries({ queryKey: ['reservations'] });
+            void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
           }}
         />
-      )}
-      {pendingArrive && (
-        <ReasonCodePrompt
-          action={tr('ws.courtDesk.detail.reason.arrived')}
-          reasonCodes={OVERRIDE_REASONS}
-          withNote={false}
-          onSubmit={(code) => void markArrived(code)}
-          onCancel={() => setPendingArrive(null)}
-        >
-          <p style={{ marginBlockEnd: '0.75rem', fontWeight: 600 }}>
-            <bdi>{pendingArrive.guest_name ?? tr('ws.courtDesk.board.walkIn')}</bdi>
-          </p>
-        </ReasonCodePrompt>
       )}
     </>
   );

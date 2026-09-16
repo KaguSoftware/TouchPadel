@@ -239,3 +239,35 @@ describe('workspaceOwnsPath', () => {
     expect(workspaceOwnsPath('manager', '/panel')).toBe(false);
   });
 });
+
+describe('the manager rail', () => {
+  // Grouped by when a manager reaches for each row, and every row named after
+  // the screen it opens. It used to be one ten-row column with "Tills" opening
+  // a page headed "Open tabs".
+  it('groups its rows as Today, Run the day, Records and Setup', () => {
+    expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([
+      [null, ['today']],
+      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose']],
+      ['groupRecords', ['reports', 'audit']],
+      ['groupSetup', ['menu', 'rates', 'promotions']],
+    ]);
+  });
+
+  it('only links screens a manager may open', () => {
+    for (const item of workspaceItems(WORKSPACES.manager)) {
+      expect(canAccess('manager', item.to), item.to).toBe(true);
+    }
+  });
+});
+
+describe('menu editor tabs', () => {
+  // Categories, add-ons and suggested items are tabs of the menu editor but
+  // live beside /admin/menu, so the Menu row must claim them explicitly.
+  it('keeps the Menu row lit on every tab of the menu editor', () => {
+    const menuRow = WORKSPACES.manager.groups.flatMap((g) => g.items).find((i) => i.labelKey === 'menu')!;
+    for (const path of ['/admin/menu', '/admin/categories', '/admin/addons', '/admin/suggested']) {
+      expect(isNavActive(menuRow, path), path).toBe(true);
+    }
+    expect(isNavActive(menuRow, '/admin/rates')).toBe(false);
+  });
+});

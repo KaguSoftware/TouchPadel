@@ -1,8 +1,18 @@
 /**
  * Quick actions from the calendar: arrived / completed / no-show, shorten,
- * extend, move, cancel — each carrying the desk's chosen reason (SOW L313).
- * The full screen with every action and the customer lives at
- * /desk/bookings/$id ("Open booking"); this dialog stays for speed.
+ * extend, move, cancel. The full screen with every action and the customer
+ * lives at /desk/bookings/$id ("Open booking"); this dialog stays for speed.
+ *
+ * Two groups, because they are two different kinds of act:
+ *
+ *  - **What happened** — the guest arrived, the game finished. That is the
+ *    normal course of a booking, it is the click the desk makes most, and it is
+ *    the first and filled button. It used to sit in one row of seven equal
+ *    buttons, under a "Reason for this change" box that also applied to it: an
+ *    arrival audited as "Customer request".
+ *  - **Change or end it** — shorten, extend, move, no-show, cancel. Each of
+ *    these overrides the booking and carries the reason chosen above them
+ *    (SOW L313).
  *
  * e2e selectors kept: dialog named by guest name, label 'Reason for this
  * change', button 'Shorten −30 min', button 'Cancel booking' (click → the
@@ -82,7 +92,11 @@ export function ReservationActionsDialog({
       list?.map((row) => (row.id === r.id ? { ...row, status } : row)),
     );
     onChanged();
-    void mutate('reservation.update', { action: 'mark', reservationId: r.id, status, reason }).catch((e: unknown) => {
+    // Arrived and completed are the normal course of a booking, not an
+    // override: they carry no reason (the server records its own default).
+    // A no-show ends the booking and frees the court, so it carries one.
+    const why = status === 'no_show' ? { reason } : {};
+    void mutate('reservation.update', { action: 'mark', reservationId: r.id, status, ...why }).catch((e: unknown) => {
       toast.err(e);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
     });
@@ -96,6 +110,9 @@ export function ReservationActionsDialog({
   // and no rate rule prices the slot, so the server refuses. Do not offer it.
   const minDurationMin = court?.duration_options?.length ? Math.min(...court.duration_options) : STEP_MIN;
   const title = r.kind === 'maintenance' ? tr('op.desk.maintenance') : r.kind === 'hold' ? tr('op.desk.hold') : (r.guest_name ?? tr('op.desk.walkIn'));
+
+  const canComplete = marks.includes('completed');
+  const canArrive = marks.includes('arrived');
 
   return (
     <Modal
@@ -117,7 +134,7 @@ export function ReservationActionsDialog({
           </Button>
           <Button
             kind="soft"
-            icon="arrowUpRight"
+            iconEnd="chevronEnd"
             disabled={busy}
             onClick={() => {
               onClose();
@@ -129,77 +146,86 @@ export function ReservationActionsDialog({
         </>
       }
     >
-      {r.notes && <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem' }}>{r.notes}</p>}
+      {r.notes && <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: '0.6rem', whiteSpace: 'pre-wrap' }}>{r.notes}</p>}
       <ErrorText error={error} />
-      {live && !showMove && !showCancel && (
-        <Field label={tr('op.desk.overrideReason')}>
-          <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
-            {OVERRIDE_REASONS.map((code) => (
-              <option key={code} value={code}>
-                {tr(`op.reasons.${code}`)}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
-      {live && !showMove && !showCancel && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-          {marks.includes('arrived') && (
-            <Button icon="check" busy={busy} onClick={() => runMark('arrived')}>
-              {tr('op.desk.arrived')}
+
+      {live && !showMove && !showCancel && (canArrive || canComplete) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBlockEnd: '1rem' }}>
+          {canArrive && (
+            <Button kind="primary" size="lg" icon="check" busy={busy} onClick={() => runMark('arrived')}>
+              {tr('ws.courtDesk.detail.arrived')}
             </Button>
           )}
-          {marks.includes('completed') && (
-            <Button busy={busy} onClick={() => runMark('completed')}>
-              {tr('op.desk.completed')}
+          {canComplete && (
+            <Button size="lg" icon="checkCircle" busy={busy} onClick={() => runMark('completed')}>
+              {tr('ws.courtDesk.detail.completed')}
             </Button>
           )}
-          {marks.includes('no_show') && (
-            <Button busy={busy} onClick={() => runMark('no_show')}>
-              {tr('op.desk.noShow')}
-            </Button>
-          )}
-          <Button
-            busy={busy}
-            disabled={durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000}
-            // Rulebook 4.3: the floor is the court's own shortest priced
-            // length, which is not guessable from a greyed button.
-            disabledReason={tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
-            onClick={() =>
-              void run(() =>
-                mutate('reservation.update', {
-                  action: 'extend',
-                  reservationId: r.id,
-                  newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(),
-                  reason,
-                }),
-              )
-            }
-          >
-            {tr('op.desk.shorten30')}
-          </Button>
-          <Button
-            busy={busy}
-            onClick={() =>
-              void run(() =>
-                mutate('reservation.update', {
-                  action: 'extend',
-                  reservationId: r.id,
-                  newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(),
-                  reason,
-                }),
-              )
-            }
-          >
-            {tr('op.desk.extend30')}
-          </Button>
-          <Button busy={busy} onClick={() => setShowMove(true)}>
-            {tr('op.desk.move')}
-          </Button>
-          <Button kind="danger" busy={busy} onClick={() => setShowCancel(true)}>
-            {tr('op.desk.cancelBooking')}
-          </Button>
         </div>
+      )}
+
+      {live && !showMove && !showCancel && (
+        <section style={{ borderBlockStart: canArrive || canComplete ? '1px solid var(--tp-border)' : undefined, paddingBlockStart: canArrive || canComplete ? '0.85rem' : 0 }}>
+          <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockEnd: '0.5rem' }}>{tr('ws.courtDesk.calendar.changeTitle')}</h3>
+          <Field label={tr('op.desk.overrideReason')}>
+            <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
+              {OVERRIDE_REASONS.map((code) => (
+                <option key={code} value={code}>
+                  {tr(`op.reasons.${code}`)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-start' }}>
+            <Button
+              icon="minus"
+              busy={busy}
+              disabled={durationMs - STEP_MIN * 60_000 < minDurationMin * 60_000}
+              // Rulebook 4.3: the floor is the court's own shortest priced
+              // length, which is not guessable from a greyed button.
+              disabledReason={tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
+              onClick={() =>
+                void run(() =>
+                  mutate('reservation.update', {
+                    action: 'extend',
+                    reservationId: r.id,
+                    newEndAt: new Date(new Date(r.end_at).getTime() - STEP_MIN * 60_000).toISOString(),
+                    reason,
+                  }),
+                )
+              }
+            >
+              {tr('op.desk.shorten30')}
+            </Button>
+            <Button
+              icon="plus"
+              busy={busy}
+              onClick={() =>
+                void run(() =>
+                  mutate('reservation.update', {
+                    action: 'extend',
+                    reservationId: r.id,
+                    newEndAt: new Date(new Date(r.end_at).getTime() + STEP_MIN * 60_000).toISOString(),
+                    reason,
+                  }),
+                )
+              }
+            >
+              {tr('op.desk.extend30')}
+            </Button>
+            <Button icon="repeat" busy={busy} onClick={() => setShowMove(true)}>
+              {tr('op.desk.move')}
+            </Button>
+            {marks.includes('no_show') && (
+              <Button icon="eyeOff" busy={busy} onClick={() => runMark('no_show')}>
+                {tr('ws.courtDesk.detail.noShow')}
+              </Button>
+            )}
+            <Button kind="danger" icon="ban" busy={busy} onClick={() => setShowCancel(true)} style={{ marginInlineStart: 'auto' }}>
+              {tr('op.desk.cancelBooking')}
+            </Button>
+          </div>
+        </section>
       )}
       {!live && <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.detail.notLive', { status: tr(`ws.kit.bookingStatus.${r.status as 'completed'}`) })}</p>}
 
@@ -217,10 +243,19 @@ export function ReservationActionsDialog({
           </Field>
           <Field label={tr('op.desk.newStart')}>
             <select style={inputStyle} value={moveStartMin} disabled={busy} onChange={(e) => setMoveStartMin(e.target.value === '' ? '' : Number(e.target.value))}>
-              <option value="">—</option>
+              <option value="">{tr('ws.courtDesk.calendar.sameTime', { time: formatTime(new Date(r.start_at), locale, tz) })}</option>
               {rows.map((min) => (
                 <option key={min} value={min}>
                   {formatTime(wallTimeToUtc(date, min, tz), locale, tz)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={tr('op.desk.overrideReason')}>
+            <select style={inputStyle} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)}>
+              {OVERRIDE_REASONS.map((code) => (
+                <option key={code} value={code}>
+                  {tr(`op.reasons.${code}`)}
                 </option>
               ))}
             </select>

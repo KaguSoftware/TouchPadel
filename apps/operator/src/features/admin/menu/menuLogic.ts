@@ -118,5 +118,87 @@ export function countWithoutCost(
   items: readonly { id: string; is_active: boolean }[],
   costs: ReadonlyMap<string, number>,
 ): number {
-  return items.filter((i) => i.is_active && !costs.has(i.id)).length;
+  return items.filter((i) => lacksCost(i, costs)).length;
+}
+
+/** Whether an item counts as "without a cost": active and no cost row (unknown, never 0). */
+export function lacksCost(item: { id: string; is_active: boolean }, costs: ReadonlyMap<string, number>): boolean {
+  return item.is_active && !costs.has(item.id);
+}
+
+export type ItemListMode = 'category' | 'search' | 'noCost';
+
+export interface ListableItem extends Sortable, Named {
+  category_id: string;
+  is_active: boolean;
+}
+
+/**
+ * The rows the item list shows, and whether they can be reordered.
+ *
+ * Reordering is a within-one-category operation, so it is only offered on the
+ * plain category view. A search looks through EVERY category (searching from
+ * the wrong category used to find nothing and print "1 of 1"), and the
+ * "without a cost" view gathers items from every category too; both show the
+ * category name on each row and turn the arrows off. The cost filter narrows
+ * first, then the search within it.
+ */
+export function itemListView<T extends ListableItem>(
+  items: readonly T[],
+  opts: {
+    categoryId: string | null;
+    search: string;
+    noCostOnly: boolean;
+    costs: ReadonlyMap<string, number>;
+    /** Category id → its position in the category list, so mixed rows keep the menu's order. */
+    categoryRank: ReadonlyMap<string, number>;
+  },
+): { rows: T[]; mode: ItemListMode; reorderable: boolean } {
+  const searching = opts.search.trim() !== '';
+  if (opts.noCostOnly) {
+    const rows = items.filter((i) => lacksCost(i, opts.costs) && matchesSearch(i, opts.search));
+    return { rows: sortAcrossCategories(rows, opts.categoryRank), mode: 'noCost', reorderable: false };
+  }
+  if (searching) {
+    const rows = items.filter((i) => matchesSearch(i, opts.search));
+    return { rows: sortAcrossCategories(rows, opts.categoryRank), mode: 'search', reorderable: false };
+  }
+  return { rows: sortRows(items.filter((i) => i.category_id === opts.categoryId)), mode: 'category', reorderable: true };
+}
+
+/** Rows from several categories: grouped by category, then the category's own order. */
+function sortAcrossCategories<T extends ListableItem>(rows: readonly T[], rank: ReadonlyMap<string, number>): T[] {
+  const r = (id: string) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
+  return [...rows].sort(
+    (a, b) =>
+      r(a.category_id) - r(b.category_id) ||
+      a.sort_order - b.sort_order ||
+      a.name_en.localeCompare(b.name_en) ||
+      a.id.localeCompare(b.id),
+  );
+}
+
+/** The sort_order that puts a NEW row at the end of `rows`. */
+export function nextSortOrder(rows: readonly { sort_order: number }[]): number {
+  return rows.length === 0 ? 0 : Math.max(...rows.map((r) => r.sort_order)) + 1;
+}
+
+export type OrderableState = 'orderable' | 'inactive' | 'soldOut' | 'offToday' | 'blocked';
+
+/**
+ * Can a guest order this item right now, and if not, the first reason. Same
+ * precedence as the server's `menu_item_availability`: the item's own switches
+ * explain the greying before stock does. `offToday` reads the flag against the
+ * station date, exactly as the item list's badge does.
+ */
+export function orderableState(
+  item: { is_active: boolean; sold_out: boolean; unavailable_on: string | null },
+  todayIso: string,
+  blockedByStock: boolean,
+): OrderableState {
+  if (!item.is_active) return 'inactive';
+  if (item.sold_out) return 'soldOut';
+  if (item.unavailable_on === todayIso) return 'offToday';
+  if (blockedByStock) return 'blocked';
+  return 'orderable';
 }

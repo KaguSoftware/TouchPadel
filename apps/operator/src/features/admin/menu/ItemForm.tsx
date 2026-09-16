@@ -1,12 +1,17 @@
 /**
  * One menu item (spec 06.24): name / description / flavour line (bilingual
- * pairs), photo, highlight, cost + margin, sort order, active; then the three
- * availability states — sold out (a switch, stays until switched back), off
- * for today (temporary, restores next day), blocked by stock (READ-ONLY, the
- * server's decision, names the ingredient). Form fields save through
+ * pairs), photo, highlight, cost + margin, active; then the three availability
+ * states — sold out (a switch, stays until switched back), off for today
+ * (temporary, restores next day), blocked by stock (READ-ONLY, the server's
+ * decision, names the ingredient). Form fields save through
  * `upsert_menu_item`; photo / sold-out / cost have dedicated setters that fire
  * immediately for saved items (deferred to the first save for a new one).
  * Unsaved edits block navigation (TanStack `useBlocker`).
+ *
+ * The form had a "Sort order" number field. It did what the list's up/down
+ * arrows do, less safely (a typed number could tie with another item), so it is
+ * gone; the item's own sort_order is sent back unchanged, and a new item goes
+ * to the end of its category.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -16,19 +21,22 @@ import { appRpc } from '../../../lib/appRpc';
 import { removeMedia } from '../../../lib/storage';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { usePermissions } from '../../../lib/auth';
-import { Button, ErrorText, Field, inputStyle } from '../../../components/ui';
+import { Button, ErrorText, Field } from '../../../components/ui';
 import { BilingualFieldPair, MessagePresenter, Money, Panel, StatusBadge } from '../../../components/kit';
 import { MoneyInput } from '../../../components/inputs';
 import { ImageField } from '../../../components/ImageField';
 import { Switch } from '../../../components/Switch';
+import { Icon } from '../../../components/icons';
 import { useToast } from '../../../components/toast';
 import { useConfirm } from '../../../components/ConfirmDialog';
+import { MARK, MARK_FG } from '../../ops/OpsVisuals';
 import { HIGHLIGHT_COLOR, MarginChip } from './chips';
-import { DESCRIPTION_MAX, HOOK_MAX, NAME_MAX, defaultPrice, hookError, nextDayIso } from './menuLogic';
+import { FormBar } from './FormBar';
+import { DESCRIPTION_MAX, HOOK_MAX, NAME_MAX, defaultPrice, hookError, nextDayIso, orderableState } from './menuLogic';
 import { savePhoto } from './photo';
 import { VariantsEditor } from './VariantsEditor';
 import { ItemModifierGroups } from './ItemModifierGroups';
-import type { StockBlock } from './availability';
+import { todayIso, type StockBlock } from './availability';
 import { useAdminMenu, type GroupRow, type Highlight, type ItemRow, type ModifierRow } from './useAdminMenu';
 
 const HIGHLIGHTS: readonly Highlight[] = ['none', 'blue', 'brown'];
@@ -37,21 +45,30 @@ const NO_BLOCK: StockBlock = { blocked: false, ingredients: [] };
 export function ItemForm({
   item,
   categoryId,
+  categoryName,
+  newSortOrder = 0,
   groups,
   modifiers,
   cost,
   stockBlock = NO_BLOCK,
+  today = todayIso(),
   onSaved,
   onDirtyChange,
 }: {
   item: ItemRow | null;
   categoryId: string;
+  /** The item's category, shown under the title. */
+  categoryName?: string;
+  /** sort_order for a NEW item: the end of its category. */
+  newSortOrder?: number;
   groups: GroupRow[];
   modifiers: ModifierRow[];
   /** Known cost from `menu_item_costs`, or null. */
   cost: number | null;
   /** The server's stock decision for this item (read-only state). */
   stockBlock?: StockBlock;
+  /** Station date, the same one the item list reads "off today" against. */
+  today?: string;
   onSaved: (id: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
@@ -66,7 +83,6 @@ export function ItemForm({
   const [desc, setDesc] = useState({ en: item?.description_en ?? '', ar: item?.description_ar ?? '' });
   const [hook, setHook] = useState({ en: item?.hook_en ?? '', ar: item?.hook_ar ?? '' });
   const [highlight, setHighlight] = useState<Highlight>(item?.highlight ?? 'none');
-  const [sortOrder, setSortOrder] = useState(item?.sort_order ?? 0);
   const [isActive, setIsActive] = useState(item?.is_active ?? true);
   const [photo, setPhoto] = useState<string | null>(item?.photo_path ?? null);
   const [costDraft, setCostDraft] = useState<number | null>(cost);
@@ -90,7 +106,6 @@ export function ItemForm({
     hook.en !== (item?.hook_en ?? '') ||
     hook.ar !== (item?.hook_ar ?? '') ||
     highlight !== (item?.highlight ?? 'none') ||
-    sortOrder !== (item?.sort_order ?? 0) ||
     isActive !== (item?.is_active ?? true) ||
     (!item && (pendingPhoto.current !== null || costDraft !== null));
   const dirty = formDirty || (item !== null && costDraft !== cost);
@@ -110,14 +125,14 @@ export function ItemForm({
   });
 
   const hookErr = hookError(hook.en, hook.ar);
-  const valid = name.en.trim() !== '' && name.ar.trim() !== '' && hookErr === null;
+  const namesMissing = name.en.trim() === '' || name.ar.trim() === '';
+  const valid = !namesMissing && hookErr === null;
 
   function discard() {
     setName({ en: item?.name_en ?? '', ar: item?.name_ar ?? '' });
     setDesc({ en: item?.description_en ?? '', ar: item?.description_ar ?? '' });
     setHook({ en: item?.hook_en ?? '', ar: item?.hook_ar ?? '' });
     setHighlight(item?.highlight ?? 'none');
-    setSortOrder(item?.sort_order ?? 0);
     setIsActive(item?.is_active ?? true);
     setCostDraft(cost);
     setError(null);
@@ -189,7 +204,8 @@ export function ItemForm({
         p_name_ar: name.ar.trim(),
         p_description_en: desc.en.trim() || null,
         p_description_ar: desc.ar.trim() || null,
-        p_sort_order: sortOrder,
+        // Order is the list arrows' job (reorder_menu_items); this only keeps it.
+        p_sort_order: item?.sort_order ?? newSortOrder,
         p_is_active: isActive,
         p_hook_en: hook.en.trim(),
         p_hook_ar: hook.ar.trim(),
@@ -227,55 +243,50 @@ export function ItemForm({
   );
 
   const price = item ? defaultPrice(item.menu_item_variants) : null;
-  const offUntil = item?.unavailable_on ? formatDate(new Date(`${nextDayIso(item.unavailable_on)}T00:00:00`), locale) : null;
+  const offToday = item?.unavailable_on === today;
+  const backOn = item?.unavailable_on ? formatDate(new Date(`${nextDayIso(item.unavailable_on)}T00:00:00`), locale) : null;
   const busy = save.isPending;
+
+  // The one reason worth printing under Save is the one that sends the manager
+  // to a field. "Nothing has changed yet" used to sit under BOTH Discard and
+  // Save; the badge already says whether anything has.
+  const saveReason = !dirty
+    ? undefined
+    : namesMissing
+      ? tr('ws.manager.disabled.namesRequired')
+      : hookErr === 'pair'
+        ? tr('op.errors.HOOK_PAIR_MISMATCH')
+        : undefined;
 
   return (
     <div style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
-      {/* Title + save bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-        <div style={{ minInlineSize: 0 }}>
-          <h2 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700 }}>
-            <bdi>{item ? pickName(locale, item) : tr('ws.manager.menu.newItem')}</bdi>
-          </h2>
-          {item && (
-            <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-              {price !== null && (
-                <span>
-                  {tr('op.menu.defaultPrice')}: <Money amount={price} />
-                </span>
-              )}
-              <MarginChip price={price} cost={cost} />
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
-          {dirty && <StatusBadge tone="warn" label={tr('ws.kit.actions.unsaved')} />}
-          <Button kind="ghost" size="sm" disabled={!dirty || busy} disabledReason={!dirty ? tr('ws.manager.disabled.noChanges') : undefined} onClick={discard}>
-            {tr('ws.kit.actions.discard')}
-          </Button>
-          <Button
-            kind="primary"
-            icon="check"
-            busy={busy}
-            disabled={readOnly || !valid || !dirty}
-            // Names and the flavour-line pair are the two things `valid` gates
-            // on; naming the wrong one would send the manager to the wrong field.
-            disabledReason={
-              name.en.trim() === '' || name.ar.trim() === ''
-                ? tr('ws.manager.disabled.namesRequired')
-                : hookErr === 'pair'
-                  ? tr('op.errors.HOOK_PAIR_MISMATCH')
-                  : !dirty
-                    ? tr('ws.manager.disabled.noChanges')
-                    : undefined
-            }
-            onClick={() => save.mutate()}
-          >
-            {tr('ws.kit.actions.save')}
-          </Button>
-        </div>
-      </div>
+      <FormBar
+        title={<bdi>{item ? pickName(locale, item) : tr('ws.manager.menu.newItem')}</bdi>}
+        meta={
+          <>
+            {categoryName && <bdi>{categoryName}</bdi>}
+            {price !== null && (
+              <span>
+                · {tr('op.menu.defaultPrice')}: <Money amount={price} />
+              </span>
+            )}
+            {item && <MarginChip price={price} cost={cost} />}
+          </>
+        }
+        dirty={dirty}
+        actions={
+          <>
+            {dirty && (
+              <Button kind="ghost" disabled={busy} onClick={discard}>
+                {tr('ws.kit.actions.discard')}
+              </Button>
+            )}
+            <Button kind="primary" icon="check" busy={busy} disabled={readOnly || !valid || !dirty} disabledReason={saveReason} onClick={() => save.mutate()}>
+              {tr('ws.kit.actions.save')}
+            </Button>
+          </>
+        }
+      />
       <ErrorText error={error} style={{ marginBlock: 0 }} />
 
       {/* Details */}
@@ -293,9 +304,9 @@ export function ItemForm({
         <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.hookHint', { max: HOOK_MAX })}</p>
       </Panel>
 
-      {/* Photo + highlight + cost / sort / active */}
+      {/* Photo + highlight */}
       <Panel title={tr('ws.manager.menu.form.presentation')}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div style={{ inlineSize: '11rem' }}>
             <ImageField
               label={tr('op.menu.photo')}
@@ -308,105 +319,103 @@ export function ItemForm({
             />
             <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('op.menu.photoHint')}</p>
           </div>
-          <div style={{ minInlineSize: 0 }}>
-            <fieldset style={{ border: 'none', padding: 0, margin: 0, marginBlockEnd: 'var(--tp-sp-3)' }}>
-              <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.menu.highlight')}</legend>
-              <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
-                {HIGHLIGHTS.map((h) => {
-                  const selected = highlight === h;
-                  const label = h === 'none' ? tr('op.menu.highlightNone') : h === 'blue' ? tr('op.menu.highlightBlue') : tr('op.menu.highlightBrown');
-                  return (
-                    <label
-                      key={h}
+          <fieldset style={{ border: 'none', padding: 0, margin: 0, minInlineSize: 0 }}>
+            <legend style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.menu.highlight')}</legend>
+            <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+              {HIGHLIGHTS.map((h) => {
+                const selected = highlight === h;
+                // 'brown' is a stored value; the guest menu paints it green, so
+                // the label names the colour the guest sees (see chips.tsx).
+                const label = h === 'none' ? tr('op.menu.highlightNone') : h === 'blue' ? tr('op.menu.highlightBlue') : tr('op.menu.highlightBrown');
+                return (
+                  <label
+                    key={h}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 'var(--tp-sp-1-5)',
+                      paddingBlock: 'var(--tp-sp-1)',
+                      paddingInline: 'var(--tp-sp-2-5)',
+                      border: `2px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
+                      borderRadius: 'var(--tp-radius-pill)',
+                      cursor: readOnly ? 'not-allowed' : 'pointer',
+                      fontSize: 'var(--tp-fs-sm)',
+                      background: selected ? 'var(--tp-accent-soft)' : undefined,
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="highlight"
+                      value={h}
+                      checked={selected}
+                      disabled={readOnly}
+                      onChange={() => setHighlight(h)}
+                      style={{ position: 'absolute', opacity: 0, inlineSize: 0, blockSize: 0 }}
+                    />
+                    <span
+                      aria-hidden="true"
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 'var(--tp-sp-1-5)',
-                        paddingBlock: 'var(--tp-sp-1)',
-                        paddingInline: 'var(--tp-sp-2-5)',
-                        border: `2px solid ${selected ? 'var(--tp-accent)' : 'var(--tp-border)'}`,
-                        borderRadius: 'var(--tp-radius-pill)',
-                        cursor: readOnly ? 'not-allowed' : 'pointer',
-                        fontSize: 'var(--tp-fs-sm)',
-                        background: selected ? 'var(--tp-accent-soft)' : undefined,
+                        inlineSize: '0.9rem',
+                        blockSize: '0.9rem',
+                        borderRadius: '50%',
+                        background: HIGHLIGHT_COLOR[h],
+                        border: h === 'none' ? '1px dashed var(--tp-muted-fg)' : 'none',
                       }}
-                    >
-                      <input
-                        type="radio"
-                        name="highlight"
-                        value={h}
-                        checked={selected}
-                        disabled={readOnly}
-                        onChange={() => setHighlight(h)}
-                        style={{ position: 'absolute', opacity: 0, inlineSize: 0, blockSize: 0 }}
-                      />
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          inlineSize: '0.9rem',
-                          blockSize: '0.9rem',
-                          borderRadius: '50%',
-                          background: HIGHLIGHT_COLOR[h],
-                          border: h === 'none' ? '1px dashed var(--tp-muted-fg)' : 'none',
-                        }}
-                      />
-                      {label}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-
-            <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <Field label={tr('op.menu.cost')} hint={tr('op.menu.costHint')} style={{ marginBlockEnd: 0 }}>
-                <span onBlur={commitCost} style={{ display: 'inline-block' }}>
-                  <MoneyInput value={costDraft} onChange={setCostDraft} allowEmpty disabled={readOnly || costMutation.isPending} style={{ inlineSize: '13rem' }} />
-                </span>
-              </Field>
-              <Field label={tr('op.menu.sortOrder')} style={{ marginBlockEnd: 0 }}>
-                <input
-                  style={{ ...inputStyle, inlineSize: '5rem' }}
-                  dir="ltr"
-                  type="number"
-                  value={sortOrder}
-                  disabled={readOnly}
-                  onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
-                />
-              </Field>
-              <div style={{ paddingBlockEnd: 'var(--tp-sp-1-5)' }}>
-                <Switch checked={isActive} disabled={readOnly} onChange={setIsActive} label={tr('op.menu.isActive')} />
-              </div>
+                    />
+                    {label}
+                  </label>
+                );
+              })}
             </div>
+          </fieldset>
+        </div>
+      </Panel>
+
+      {/* Cost + active */}
+      <Panel title={tr('ws.manager.menu.form.pricing')}>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-5)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <Field label={tr('op.menu.cost')} hint={tr('op.menu.costHint')} style={{ marginBlockEnd: 0, maxInlineSize: '20rem' }}>
+            <span onBlur={commitCost} style={{ display: 'inline-block' }}>
+              <MoneyInput value={costDraft} onChange={setCostDraft} allowEmpty disabled={readOnly || costMutation.isPending} style={{ inlineSize: '13rem' }} />
+            </span>
+          </Field>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', maxInlineSize: '20rem', paddingBlockStart: 'var(--tp-sp-5)' }}>
+            <Switch checked={isActive} disabled={readOnly} onChange={setIsActive} label={tr('op.menu.isActive')} />
+            <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.menu.form.activeHint')}</p>
           </div>
         </div>
       </Panel>
 
-      {/* Availability — three distinct states */}
+      {/* Availability — can a guest order it now, then the two switches that change that */}
       <Panel title={tr('ws.manager.menu.form.availability')}>
         {item ? (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+            <NowLine state={orderableState(item, today, stockBlock.blocked)} />
+
             <div>
-              <Switch checked={item.sold_out} disabled={readOnly} onChange={setSoldOut} label={tr('op.menu.soldOut')} tone="danger" />
+              <Switch checked={item.sold_out} disabled={readOnly} onChange={setSoldOut} label={tr('op.menu.soldOutShort')} tone="danger" />
               <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-1)' }}>{tr('ws.manager.menu.form.soldOutHint')}</p>
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center', flexWrap: 'wrap' }}>
-              <StatusBadge tone={offUntil ? 'warn' : 'neutral'} icon="clock" label={`${tr('ws.manager.menu.form.offTodayTitle')} · ${tr('ws.kit.common.temporary')}`} />
-              {offUntil ? (
+              {offToday ? (
                 <>
-                  <span style={{ fontSize: 'var(--tp-fs-sm)' }}>
-                    <bdi>{tr('ws.manager.menu.form.offTodayUntil', { date: offUntil })}</bdi>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: MARK_FG.warn }}>
+                    <Icon name="clock" size={15} style={{ color: MARK.warn }} />
+                    <bdi>{tr('ws.manager.menu.form.offTodayUntil', { date: backOn ?? '' })}</bdi>
                   </span>
                   <Button size="sm" busy={availability.isPending} disabled={readOnly} onClick={() => availability.mutate(true)}>
                     {tr('ws.manager.menu.form.restore')}
                   </Button>
                 </>
               ) : (
-                <Button size="sm" busy={availability.isPending} disabled={readOnly} onClick={() => availability.mutate(false)}>
-                  {tr('ws.manager.menu.form.markOff')}
-                </Button>
+                <>
+                  <Button size="sm" icon="clock" busy={availability.isPending} disabled={readOnly} onClick={() => availability.mutate(false)}>
+                    {tr('ws.manager.menu.form.markOff')}
+                  </Button>
+                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', flex: '1 1 12rem' }}>{tr('ws.manager.menu.form.offTodayHint')}</span>
+                </>
               )}
-              <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', flexBasis: '100%' }}>{tr('ws.manager.menu.form.offTodayHint')}</span>
             </div>
 
             {stockBlock.blocked && (
@@ -446,5 +455,21 @@ export function ItemForm({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * The answer the availability panel exists for: can a guest order this right
+ * now, and if not, the first reason. The old panel showed a neutral "Off for
+ * today · Temporary" badge whether or not the item was off, so it read as off.
+ */
+function NowLine({ state }: { state: ReturnType<typeof orderableState> }) {
+  const { tr } = useLocale();
+  const ok = state === 'orderable';
+  return (
+    <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontWeight: 600, color: ok ? MARK_FG.success : MARK_FG.warn }}>
+      <Icon name={ok ? 'checkCircle' : 'ban'} size={18} style={{ color: ok ? MARK.success : MARK.warn, flex: '0 0 auto' }} />
+      {tr(`ws.manager.menu.form.now.${state}`)}
+    </p>
   );
 }

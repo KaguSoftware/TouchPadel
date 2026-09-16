@@ -107,3 +107,29 @@ export function moveInList<T>(list: readonly T[], index: number, direction: 'up'
 export function sameOrder(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i]);
 }
+
+export type ChoiceRule =
+  | { kind: 'exactly'; count: number }
+  | { kind: 'range'; min: number; max: number }
+  | { kind: 'upTo'; max: number };
+
+/**
+ * The group's min/max as the rule a guest meets, so screens can say it in
+ * words ("Required · choose 1", "Optional · choose up to 2") instead of
+ * printing "(0–2)".
+ */
+export function choiceRule(min: number, max: number): ChoiceRule {
+  if (min <= 0) return { kind: 'upTo', max };
+  if (min === max) return { kind: 'exactly', count: min };
+  return { kind: 'range', min, max };
+}
+
+/** The options (in any group) that reveal `groupId`, in a stable order. */
+export function revealersOf<M extends ModifierLike>(
+  groupId: string,
+  reveals: readonly RevealLike[],
+  modifiers: readonly M[],
+): M[] {
+  const ids = new Set(reveals.filter((r) => r.group_id === groupId).map((r) => r.modifier_id));
+  return modifiers.filter((m) => ids.has(m.id));
+}

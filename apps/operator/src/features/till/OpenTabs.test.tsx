@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LocaleProvider } from '../../lib/i18n';
 import { AppRpcError } from '../../lib/appRpc';
-import { OpenTabsBoard, ageLabel, filterBoardRows, type BoardRow } from './OpenTabs';
+import { OpenTabsBoard, ageLabel, boardSummary, filterBoardRows, type BoardRow } from './OpenTabs';
 
 const NOW = Date.parse('2026-09-03T12:00:00Z');
 
@@ -68,7 +68,7 @@ describe('OpenTabsBoard — four states', () => {
     expect(screen.getByRole('heading', { name: 'Open tabs' })).toBeTruthy();
   });
 
-  it('ready: every open tab with status, source, age and total', () => {
+  it('ready: every open tab with its age and running total, and the floor in the subtitle', () => {
     renderBoard({});
     expect(screen.getByText('Table T8')).toBeTruthy();
     expect(screen.getByText('Ali')).toBeTruthy();
@@ -77,6 +77,29 @@ describe('OpenTabsBoard — four states', () => {
     expect(screen.getByText('25 min')).toBeTruthy();
     expect(screen.getByText('2 h 10 min')).toBeTruthy();
     expect(screen.getByText('8,000 IQD')).toBeTruthy();
+    // The situation, not a description of the screen — and said once.
+    expect(screen.getByText('Open: 2 · Waiting for payment: 1')).toBeTruthy();
+    expect(screen.queryByText('2 open')).toBeNull();
+  });
+
+  it('ready: no column that reads the same on every row', () => {
+    renderBoard({});
+    // Every row on this board is open, and most came from the till: a Status
+    // column of "Open" and a Source column of "Till" said nothing.
+    expect(screen.queryByRole('columnheader', { name: 'Status' })).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Source' })).toBeNull();
+    expect(screen.queryByText('Open', { selector: 'span' })).toBeNull();
+    expect(screen.queryByText('Till')).toBeNull();
+  });
+
+  it('says when court fees are missing from the totals, only when a booking tab is listed', () => {
+    renderBoard({});
+    expect(screen.getByText(/Court fees are not in these totals/)).toBeTruthy();
+  });
+
+  it('does not mention court fees when no booking tab is on the board', () => {
+    renderBoard({ rows: [rows[0]!] });
+    expect(screen.queryByText(/Court fees are not in these totals/)).toBeNull();
   });
 
   it('empty: teaches the next action', async () => {
@@ -96,31 +119,60 @@ describe('OpenTabsBoard — four states', () => {
     expect(props.onRetry).toHaveBeenCalledOnce();
   });
 
-  it('selecting a row and merging emit the tab id', async () => {
+  it('opening a row and merging emit the tab id', async () => {
     const user = userEvent.setup();
     const props = renderBoard({});
-    await user.click(screen.getAllByRole('button', { name: 'Open on the till' })[0]!);
+    await user.click(screen.getAllByRole('button', { name: 'Open' })[0]!);
     expect(props.onSelect).toHaveBeenCalledWith('a');
-    await user.click(screen.getAllByRole('button', { name: 'Merge tables' })[1]!);
+    await user.click(screen.getAllByRole('button', { name: 'Merge' })[1]!);
     expect(props.onMerge).toHaveBeenCalledWith('b');
   });
 
-  it('a filter with no matches keeps the table and says so', () => {
+  it('only one primary button on the page — the rows are not a column of blue', () => {
+    const { container } = render(
+      <LocaleProvider>
+        <OpenTabsBoard
+          status="ready"
+          rows={rows}
+          filter="table"
+          query=""
+          now={NOW}
+          onFilter={vi.fn()}
+          onQuery={vi.fn()}
+          onSelect={vi.fn()}
+          onMerge={vi.fn()}
+          onOpenTab={vi.fn()}
+          onRetry={vi.fn()}
+          onRemoveTab={vi.fn()}
+          onDismissRemoveError={vi.fn()}
+        />
+      </LocaleProvider>,
+    );
+    expect(container.querySelectorAll('[data-kind="primary"]').length).toBe(1);
+  });
+
+  it('a search with no matches keeps the table and says so', () => {
     renderBoard({ query: 'zzz' });
-    expect(screen.getByText('No open tabs match this filter.')).toBeTruthy();
+    expect(screen.getByText('No open tabs match this search.')).toBeTruthy();
   });
 });
 
-describe('removing an empty tab from the status badge', () => {
-  /** The badge doubles as the control, so it is addressed by its status text. */
-  const badge = (name: RegExp) => screen.getByRole('button', { name });
+describe('removing an empty tab', () => {
+  const remove = () => screen.getByRole('button', { name: 'Remove' });
+
+  it('is offered on exactly the tabs that can be removed, which say they are empty', () => {
+    renderBoard({});
+    // Row a has nothing on it; row b is being settled.
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1);
+    expect(screen.getAllByText('Nothing on it yet')).toHaveLength(1);
+  });
 
   it('arms on the first press, then asks WHY before it emits the id', async () => {
     const user = userEvent.setup();
     const props = renderBoard({});
     expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
 
-    await user.click(badge(/^Open —/));
+    await user.click(remove());
     await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
     // The confirm opens the reason picker; nothing has been removed yet.
     expect(props.onRemoveTab).not.toHaveBeenCalled();
@@ -138,7 +190,7 @@ describe('removing an empty tab from the status badge', () => {
   it('the reason is the code alone when no note is typed', async () => {
     const user = userEvent.setup();
     const props = renderBoard({});
-    await user.click(badge(/^Open —/));
+    await user.click(remove());
     await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     expect(props.onRemoveTab).toHaveBeenCalledWith('a', 'staff_error');
@@ -147,7 +199,7 @@ describe('removing an empty tab from the status badge', () => {
   it('backing out of the reason keeps the tab and the confirm', async () => {
     const user = userEvent.setup();
     const props = renderBoard({});
-    await user.click(badge(/^Open —/));
+    await user.click(remove());
     await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByText('Reason required')).toBeNull();
@@ -155,13 +207,12 @@ describe('removing an empty tab from the status badge', () => {
     expect(screen.getByRole('button', { name: 'Yes, remove' })).toBeTruthy();
   });
 
-  it('does not remove anything until the confirm is pressed', async () => {
+  it('does not remove anything until the confirm is pressed, and Keep backs out', async () => {
     const user = userEvent.setup();
     const props = renderBoard({});
-    await user.click(badge(/^Open —/));
+    await user.click(remove());
     expect(screen.getByText('Remove?')).toBeTruthy();
     expect(props.onRemoveTab).not.toHaveBeenCalled();
-    // …and 'Keep' backs out without touching the tab.
     await user.click(screen.getByRole('button', { name: 'Keep' }));
     expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
     expect(props.onRemoveTab).not.toHaveBeenCalled();
@@ -170,25 +221,12 @@ describe('removing an empty tab from the status badge', () => {
   it('arming the row does not also open it on the till', async () => {
     const user = userEvent.setup();
     const props = renderBoard({});
-    await user.click(badge(/^Open —/));
+    await user.click(remove());
     expect(props.onSelect).not.toHaveBeenCalled();
   });
 
-  it('a tab with money on it is refused in place, with no confirm offered', async () => {
-    const user = userEvent.setup();
-    const props = renderBoard({});
-    await user.click(badge(/^Awaiting payment —/));
-    expect(screen.getByText('This tab is being settled — finish taking the payment instead.')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
-    expect(props.onRemoveTab).not.toHaveBeenCalled();
-  });
-
-  it('names the thing that actually holds the tab, one sentence per cause', async () => {
-    // The whole set used to collapse into "a payment is to be made", which is
-    // wrong for four of the five and sends the cashier after money that is not
-    // owed.
-    const user = userEvent.setup();
-    const held: BoardRow[] = (['orders', 'adjustments', 'reservation'] as const).map((blocker, i) => ({
+  it('a held tab offers no remove at all, whatever holds it', () => {
+    const held: BoardRow[] = (['orders', 'payments', 'adjustments', 'reservation', 'settling', 'unknown'] as const).map((blocker, i) => ({
       ...rows[0]!,
       id: `held-${blocker}`,
       label: `Table H${i}`,
@@ -196,36 +234,37 @@ describe('removing an empty tab from the status badge', () => {
       blocker,
     }));
     renderBoard({ rows: held });
-    // Arm each in turn; each names its own cause and offers no confirm.
-    const expected = [
-      'Something has been ordered on this tab. Settle it, or void the lines first.',
-      'A discount or charge is recorded on this tab. Settle it instead.',
-      'This tab belongs to a booking, and the court fee is owed on it. Settle it instead.',
-    ];
-    const badges = screen.getAllByRole('button', { name: /^Open —/ });
-    for (const [i, sentence] of expected.entries()) {
-      await user.click(badges[i]!);
-      expect(screen.getByText(sentence)).toBeTruthy();
-      expect(screen.queryByRole('button', { name: 'Yes, remove' })).toBeNull();
-    }
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+    expect(screen.queryByText('Nothing on it yet')).toBeNull();
   });
 
   it('arming a second row disarms the first', async () => {
     const user = userEvent.setup();
-    renderBoard({});
-    await user.click(badge(/^Open —/));
-    expect(screen.getByText('Remove?')).toBeTruthy();
-    await user.click(badge(/^Awaiting payment —/));
-    expect(screen.queryByText('Remove?')).toBeNull();
+    const two: BoardRow[] = [rows[0]!, { ...rows[0]!, id: 'c', label: 'Table T9', table: 'T9' }];
+    renderBoard({ rows: two });
+    const [first, second] = screen.getAllByRole('button', { name: 'Remove' });
+    await user.click(first!);
+    expect(screen.getAllByText('Remove?')).toHaveLength(1);
+    await user.click(second!);
+    expect(screen.getAllByText('Remove?')).toHaveLength(1);
+    // The first row is back to its resting controls.
+    expect(screen.getAllByRole('button', { name: 'Remove' })).toHaveLength(1);
   });
 
-  it('a server refusal lands on the row it belongs to', () => {
+  it('a server refusal lands on the row it belongs to, naming what holds it', () => {
     // The board's rows are a cached read, so a tab can gain an order between
     // the render and the press; the answer must appear where the press was.
     renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_NOT_EMPTY', 'TAB_NOT_EMPTY', undefined, 'orders') } });
-    // …and it is the server's OWN branch that is named: `detail` says which of
-    // the four guards fired, so the answer after the press matches the one the
-    // board gives before it.
+    expect(screen.getByText('Something has been ordered on this tab. Settle it, or void the lines first.')).toBeTruthy();
+  });
+
+  it('a refusal still shows after the refetch made the row un-removable', () => {
+    // The race's other ending: by the time the refusal arrives, the refetch
+    // has the order too, and the row no longer offers Remove.
+    renderBoard({
+      rows: [{ ...rows[0]!, blocker: 'orders' }],
+      removeError: { id: 'a', error: new AppRpcError('TAB_NOT_EMPTY', 'TAB_NOT_EMPTY', undefined, 'orders') },
+    });
     expect(screen.getByText('Something has been ordered on this tab. Settle it, or void the lines first.')).toBeTruthy();
   });
 
@@ -235,36 +274,34 @@ describe('removing an empty tab from the status badge', () => {
   });
 
   it('arming a row drops a refusal that belonged to an earlier press', async () => {
-    // A refusal answers one press against one snapshot. Left standing it read
-    // as the board's permanent opinion of the tab.
     const user = userEvent.setup();
     const props = renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_NOT_EMPTY', 'TAB_NOT_EMPTY') } });
-    await user.click(badge(/^Open —/));
+    await user.click(remove());
     expect(props.onDismissRemoveError).toHaveBeenCalled();
   });
 
   it('a refusal is still visible on the row that is mid-confirm', async () => {
-    // The state a refusal is ACTUALLY seen in: the press leaves the row armed
-    // and removable, so the confirm branch is what re-renders — and it used to
-    // drop the message, which is why a refused removal looked like a dead
-    // button.
+    // A refused removal leaves the row armed and removable, so the confirm
+    // branch is what re-renders — it must carry the message too.
     const user = userEvent.setup();
     renderBoard({ removeError: { id: 'a', error: new AppRpcError('TAB_DAY_MISMATCH', 'TAB_DAY_MISMATCH') } });
-    await user.click(badge(/^Open —/));
+    await user.click(remove());
     expect(screen.getByRole('button', { name: 'Yes, remove' })).toBeTruthy();
     expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
   });
 });
 
 describe('filterBoardRows', () => {
-  it('matches within the chosen facet and sorts rows with that facet first', () => {
-    expect(filterBoardRows(rows, 'table', 't8').map((r) => r.id)).toEqual(['a']);
-    expect(filterBoardRows(rows, 'court', 'court').map((r) => r.id)).toEqual(['b']);
-    expect(filterBoardRows(rows, 'name', 'ali').map((r) => r.id)).toEqual(['b']);
-    expect(filterBoardRows(rows, 'court', '').map((r) => r.id)).toEqual(['b', 'a']);
+  it('the search matches table, court, guest and name whatever the sort', () => {
+    for (const sort of ['table', 'court', 'name'] as const) {
+      expect(filterBoardRows(rows, sort, 't8').map((r) => r.id)).toEqual(['a']);
+      expect(filterBoardRows(rows, sort, 'court').map((r) => r.id)).toEqual(['b']);
+      expect(filterBoardRows(rows, sort, 'ali').map((r) => r.id)).toEqual(['b']);
+    }
   });
-  it('also matches the label so a table search finds a by-name tab typed in full', () => {
-    expect(filterBoardRows(rows, 'table', 'Ali').map((r) => r.id)).toEqual(['b']);
+  it('sorts rows that have the chosen key first', () => {
+    expect(filterBoardRows(rows, 'court', '').map((r) => r.id)).toEqual(['b', 'a']);
+    expect(filterBoardRows(rows, 'table', '').map((r) => r.id)).toEqual(['a', 'b']);
   });
   it('counts table numbers instead of spelling them', () => {
     // table_number is text, so the board used to read 1, 10, 11, 12, 2.
@@ -279,11 +316,21 @@ describe('filterBoardRows', () => {
   });
 });
 
+describe('boardSummary', () => {
+  const tr = (k: string, p?: Record<string, string | number>) => `${k.split('.').pop()}=${p?.count}`;
+  it('names waiting-for-payment only when there is some', () => {
+    expect(boardSummary(rows, tr as never, 'en')).toBe('summaryOpen=2 · summaryAwaiting=1');
+    expect(boardSummary([rows[0]!], tr as never, 'en')).toBe('summaryOpen=1');
+  });
+});
+
 describe('ageLabel', () => {
   const tr = (k: string, p?: Record<string, string | number>) => `${k}:${JSON.stringify(p ?? {})}`;
-  it('renders now / minutes / hours', () => {
+  it('renders now / minutes / hours / days', () => {
     expect(ageLabel(new Date(NOW - 20_000).toISOString(), NOW, tr as never)).toContain('ageNow');
     expect(ageLabel(new Date(NOW - 5 * 60_000).toISOString(), NOW, tr as never)).toContain('"minutes":5');
     expect(ageLabel(new Date(NOW - 125 * 60_000).toISOString(), NOW, tr as never)).toContain('"hours":2,"minutes":5');
+    // "29 h 44 min" wrapped onto three lines of a narrow column.
+    expect(ageLabel(new Date(NOW - (29 * 60 + 44) * 60_000).toISOString(), NOW, tr as never)).toContain('"days":1,"hours":5');
   });
 });

@@ -199,6 +199,22 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-nav-item[data-active='true'] { background: var(--tp-rail-active); color: var(--tp-rail-fg-active); font-weight: 700; }
 .tp-nav-item:focus-visible { outline-color: var(--tp-rail-green); }
 .tp-nav-item svg { opacity: 0.85; }
+/* A collapsible rail group's title (routes/__root.tsx RailGroup). Same 44px
+   row as a destination so it is as easy to hit, but set as a caption — small
+   caps, muted — so it still reads as a heading over rows, not as a row. */
+.tp-rail-group {
+  color: var(--tp-rail-muted); font-size: var(--tp-fs-xs); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.tp-rail-group:hover, .tp-rail-group[aria-expanded='true'] { color: var(--tp-rail-fg); }
+.tp-rail-group-chevron { transition: transform var(--tp-dur-fast) var(--tp-ease-out); }
+.tp-rail-group[aria-expanded='false'] .tp-rail-group-chevron { transform: rotate(-90deg); }
+[dir='rtl'] .tp-rail-group[aria-expanded='false'] .tp-rail-group-chevron { transform: rotate(90deg); }
+.tp-rail-group-body {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows var(--tp-dur-base) var(--tp-ease-settle);
+}
+.tp-rail-group-body[data-open='true'] { grid-template-rows: 1fr; }
 .tp-nav-item[data-active='true'] svg { opacity: 1; color: var(--tp-rail-green); }
 /* The way out of a section rail.
    It used to be styled as the quietest thing on the rail — 11px, --tp-rail-muted,

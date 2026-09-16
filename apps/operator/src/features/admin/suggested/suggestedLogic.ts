@@ -42,3 +42,10 @@ export function suggestionCandidates<T extends CandidateItem>(
     )
     .slice(0, limit);
 }
+
+/** Item id → how many suggestions it has saved. Items with none are absent. */
+export function suggestionCounts(rows: readonly { item_id: string }[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.item_id, (counts.get(r.item_id) ?? 0) + 1);
+  return counts;
+}

@@ -4,8 +4,12 @@ import { FIGURE_KEYS, FIGURES, figuresIn, figuresToCsvRows, mapFigures, panelIsE
 describe('figure metadata', () => {
   it('covers the twelve panel figures, each in exactly one group', () => {
     expect(FIGURE_KEYS).toHaveLength(13);
-    const all = [...figuresIn('headline'), ...figuresIn('padel'), ...figuresIn('cafe')].map((f) => f.key);
+    const all = [...figuresIn('headline'), ...figuresIn('padel'), ...figuresIn('cafe'), ...figuresIn('losses')].map((f) => f.key);
     expect([...all].sort()).toEqual([...FIGURE_KEYS].sort());
+  });
+  it('lists money given away or thrown out as its own group, not under the cafe', () => {
+    expect(figuresIn('losses').map((f) => f.key)).toEqual(['discounts', 'refunds', 'waste']);
+    expect(figuresIn('cafe').map((f) => f.key)).toEqual(['cafeRevenue', 'cafeNet', 'orders', 'avgOrderValue']);
   });
   it('inverts the figures where a rise is bad', () => {
     expect(FIGURES.refunds.invert).toBe(true);

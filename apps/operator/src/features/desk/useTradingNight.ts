@@ -18,6 +18,7 @@ import { cachedQuery } from '../../lib/refCache';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow, type VenueSettingsRow } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
 import { RESERVATION_COLUMNS, type ReservationRow, type TabLinkRow } from './deskTypes';
+import { tradingDateOf, type OpeningHours } from './calendar/monthLogic';
 
 export const DAY_KEYS: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 export const SLOT_MIN = 30;
@@ -25,6 +26,16 @@ export const SLOT_MIN = 30;
 export function todayInTz(tz: string): string {
   // en-CA is the one common locale whose short date IS YYYY-MM-DD.
   return new Date().toLocaleDateString('en-CA', { timeZone: tz });
+}
+
+/**
+ * The trading night that is running now. At 00:40 the calendar date is
+ * already tomorrow, but the courts are still trading last night — and "Today"
+ * used to jump the desk to a grid that opens at 09:00, with the guests on
+ * court right now nowhere on it.
+ */
+export function tonightInTz(tz: string, hours: OpeningHours): string {
+  return tradingDateOf(new Date().toISOString(), tz, hours);
 }
 
 export interface TradingNight {
@@ -90,6 +101,15 @@ export function useTradingNight(date: string): TradingNight {
     refetchInterval: 60_000,
   });
 
+  // The fetch window starts at midnight so the night's own after-midnight tail
+  // is in it — which also brings in the PREVIOUS night's 00:00–02:00 rows.
+  // Those belong to yesterday's grid; drawn here they clamped to the first row.
+  const hours = settingsQ.data?.opening_hours;
+  const nightRows = useMemo(
+    () => (reservationsQ.data ?? []).filter((r) => tradingDateOf(r.start_at, tz, hours) === date),
+    [reservationsQ.data, tz, hours, date],
+  );
+
   useBroadcast({
     topic: 'courts',
     isPrivate: true,
@@ -104,7 +124,7 @@ export function useTradingNight(date: string): TradingNight {
     courtsQ,
     reservationsQ,
     courts: courtsQ.data ?? [],
-    reservations: reservationsQ.data ?? [],
+    reservations: nightRows,
     openMin,
     closeMin,
     rowCount,

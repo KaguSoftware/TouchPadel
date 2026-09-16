@@ -24,7 +24,13 @@ export const FIGURE_KEYS = [
 ] as const;
 export type FigureKey = (typeof FIGURE_KEYS)[number];
 
-export type FigureGroup = 'headline' | 'padel' | 'cafe';
+/**
+ * `losses` is money given away or thrown out: discounts, refunds, waste. They
+ * sat at the bottom of the cafe column, which made that column twice the
+ * padel column's height and left a hole beside it — and a refund or a
+ * discount is not only a cafe matter to an owner reading the list.
+ */
+export type FigureGroup = 'headline' | 'padel' | 'cafe' | 'losses';
 export type ReportPath = '/reports/revenue' | '/reports/courts' | '/reports/cafe' | '/reports/stock' | '/reports/staff';
 
 export interface FigureMeta {
@@ -48,9 +54,9 @@ export const FIGURES: Record<FigureKey, FigureMeta> = {
   cafeNet: { key: 'cafeNet', kind: 'money', report: '/reports/cafe', group: 'cafe' },
   orders: { key: 'orders', kind: 'count', report: '/reports/cafe', group: 'cafe' },
   avgOrderValue: { key: 'avgOrderValue', kind: 'money', report: '/reports/cafe', group: 'cafe' },
-  discounts: { key: 'discounts', kind: 'money', invert: true, report: '/reports/revenue', group: 'cafe' },
-  refunds: { key: 'refunds', kind: 'money', invert: true, report: '/reports/revenue', group: 'cafe' },
-  waste: { key: 'waste', kind: 'money', invert: true, report: '/reports/stock', group: 'cafe' },
+  discounts: { key: 'discounts', kind: 'money', invert: true, report: '/reports/revenue', group: 'losses' },
+  refunds: { key: 'refunds', kind: 'money', invert: true, report: '/reports/revenue', group: 'losses' },
+  waste: { key: 'waste', kind: 'money', invert: true, report: '/reports/stock', group: 'losses' },
 };
 
 /** Figures per group in display order. */
@@ -68,6 +74,10 @@ export interface HeadlineFigureRow {
 
 export interface PanelHeadline {
   figures?: HeadlineFigureRow[] | null;
+  /** The window the figures cover, as the server resolved it. */
+  period?: { from: string; to: string } | null;
+  /** The window the changes are measured against; absent when comparing with nothing. */
+  comparison?: { from: string; to: string } | null;
 }
 
 const KEY_SET: ReadonlySet<string> = new Set(FIGURE_KEYS);

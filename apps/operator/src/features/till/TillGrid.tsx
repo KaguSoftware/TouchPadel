@@ -17,7 +17,7 @@ import { moveInGrid } from './keymap';
 import { quickVariant } from './quickAdd';
 import { deriveTileState, tileInteractive, type TileState } from './tileState';
 import type { CategoryRow, ItemRow } from './tillData';
-import { muted, sectionTitle } from './tillStyles';
+import { muted } from './tillStyles';
 
 export function CategoryStrip({
   categories,
@@ -231,7 +231,7 @@ export function MenuItemGrid({
   );
 }
 
-/** Legend under the grid: the two disabled looks, named. */
+/** Legend under the grid: the two disabled looks, named. Shown only when one of them is on screen. */
 export function TileLegend() {
   const { tr } = useLocale();
   const chip: React.CSSProperties = {
@@ -242,8 +242,7 @@ export function TileLegend() {
     color: 'var(--tp-muted-fg)',
   };
   return (
-    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-1-5)' }} aria-hidden="true">
-      <span style={sectionTitle}>{tr('ws.cashier.till.items')}</span>
+    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', marginBlockStart: 'var(--tp-sp-2)' }} aria-hidden="true">
       <span style={chip}>
         <span style={{ inlineSize: 'var(--tp-sp-3)', blockSize: 'var(--tp-sp-3)', border: '1px dashed var(--tp-border-strong)', borderRadius: 'var(--tp-radius-sm)' }} />
         {tr('ws.cashier.till.tile.unavailable')}

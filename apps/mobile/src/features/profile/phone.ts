@@ -558,9 +558,9 @@ export function validatePhone(iso: string, national: string): PhoneValidation {
  *    on composed E.164, so `00964…` and `+964…` are the same number.
  *  - the new number is a real number (`validatePhone` accepts it). Since
  *    2026-09-15 the code gate accepts every country, so a changed number from
- *    anywhere has to prove itself; before that only Iraqi mobiles did. A
- *    number with no WhatsApp cannot receive the code, and that guest keeps
- *    their current number until they can (the owner's WhatsApp-only call).
+ *    anywhere has to prove itself; before that only Iraqi mobiles did. Since
+ *    2026-09-16 a number with no WhatsApp still gets the code, as an SMS (the
+ *    vendor falls back), so the change is no longer blocked on having WhatsApp.
  *
  * Pure and RN-free so the rule is unit-tested rather than inferred from a
  * screen. `next`/`current` are stored E.164 (or anything `parsePhone` accepts).

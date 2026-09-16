@@ -34,7 +34,8 @@ type FieldErrors = { firstName?: string; lastName?: string; phone?: string; pass
 /**
  * Create account. Phone is the only way to make one (owner decision
  * 2026-09-15; email sign-up removed): first name · surname · phone · password
- * · preferred language. Submitting sends ONE WhatsApp code to confirm the
+ * · preferred language. Submitting sends ONE code — WhatsApp, or SMS when the
+ * number has no WhatsApp — to confirm the
  * number (app/verify-otp.tsx, mode signup); every later sign-in is phone +
  * password with no code. Validation renders on the field it concerns, in the
  * form's order.

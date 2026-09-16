@@ -205,11 +205,12 @@ export function BillView({
             value={`−${formatIQD(p.amount_iqd, locale)}`}
           />
         ))}
-        {totals.due > 0 && (
-          <BillRow
-            label={tr('op.till.remaining', { amount: formatIQD(totals.due, locale) })}
-            value=""
-          />
+        {/* Only after a payment: before one, "still to pay" is the total on
+            the line above, printed twice. It also used to put the amount inside
+            its label with an empty value column, so it sat out of line with
+            every other figure on the bill. */}
+        {payments.length > 0 && totals.due > 0 && (
+          <BillRow label={tr('ws.cashier.payment.stillToPay')} value={formatIQD(totals.due, locale)} strong />
         )}
 
         <p style={{ textAlign: 'center', color: 'var(--tp-muted-fg)', marginBlockStart: '0.8rem' }}>

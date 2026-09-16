@@ -14,6 +14,7 @@
  */
 import { BookingStatusIndicator, StatusBadge, type Tone } from '../../components/kit';
 import { useLocale } from '../../lib/i18n';
+import type { ChargeState } from './deskLogic';
 import type { ReservationKind } from './deskTypes';
 
 /** The tinted ground a labelled block sits on. */
@@ -87,4 +88,14 @@ export function ReservationBadge({ reservation: r, size }: { reservation: Reserv
   if (r.kind === 'booking') return <BookingStatusIndicator status={r.status} size={size} />;
   const kind = (r.kind === 'hold' || r.kind === 'maintenance' ? r.kind : 'booking') satisfies ReservationKind;
   return <StatusBadge size={size} tone={reservationTone(r)} label={tr(`ws.kit.reservationKind.${kind}`)} />;
+}
+
+/** Whether the court fee is paid. Holds and blocks have no fee; unknowable prints "—". */
+export function ChargeCell({ state, kind }: { state: ChargeState | null; kind: string }) {
+  const { tr } = useLocale();
+  if (kind !== 'booking') return null;
+  if (state === null) return <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>;
+  if (state === 'paid') return <StatusBadge size="sm" tone="success" label={tr('ws.courtDesk.board.chargePaid')} />;
+  if (state === 'unpaid') return <StatusBadge size="sm" tone="warn" label={tr('ws.courtDesk.board.chargeUnpaid')} />;
+  return <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.board.chargeNone')}</span>;
 }

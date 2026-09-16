@@ -1,19 +1,43 @@
 /**
- * Category form (name EN/AR, tax group, photo, active) + the standalone
- * /admin/categories page (ordered list with ▲▼ + inline form). Photo goes
- * through `set_category_photo` immediately for saved categories; for a new
- * category the upload is held until the first save.
+ * Category form (name EN/AR, tax group, photo, shown or hidden) + the
+ * standalone /admin/categories page (ordered list with ▲▼ + the form in the
+ * right-hand pane). Photo goes through `set_category_photo` immediately for
+ * saved categories; for a new category the upload is held until the first
+ * save.
+ *
+ * The form opens in the right-hand pane on both screens. On the menu editor it
+ * used to open at the bottom of the category column, below ~50 rows, so the
+ * pencil appeared to do nothing; here it used to be a card list where only the
+ * name was (invisibly) clickable.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useBlocker } from '@tanstack/react-router';
+import { formatNumber } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { removeMedia } from '../../../lib/storage';
 import { useLocale, pickName } from '../../../lib/i18n';
-import { Button, ErrorText, Field, Select, Skeleton, card } from '../../../components/ui';
-import { BilingualFields, SortButtons } from '../../../components/inputs';
+import { usePermissions } from '../../../lib/auth';
+import { Button, ErrorText, Field, Select } from '../../../components/ui';
+import {
+  AsyncStateWrapper,
+  BilingualFieldPair,
+  DataTable,
+  EmptyState,
+  PageHeader,
+  Panel,
+  StatusBadge,
+  asyncStatus,
+  type Column,
+} from '../../../components/kit';
+import { SortButtons } from '../../../components/inputs';
 import { ImageField } from '../../../components/ImageField';
+import { Switch } from '../../../components/Switch';
+import { ChevronForward } from '../../../components/icons';
 import { useToast } from '../../../components/toast';
+import { useConfirm } from '../../../components/ConfirmDialog';
 import { Thumb } from './chips';
+import { FormBar } from './FormBar';
 import { NAME_MAX, reorderedIds, sortRows } from './menuLogic';
 import { savePhoto } from './photo';
 import {
@@ -26,19 +50,26 @@ import {
 export function CategoryForm({
   category,
   taxGroups,
+  itemCount,
   onDone,
   onCancel,
+  onDirtyChange,
 }: {
   category: CategoryRow | null;
   taxGroups: TaxGroupRow[];
+  /** Items in this category, for the line under the title. */
+  itemCount?: number;
   onDone: (id: string) => void;
   onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { tr, locale } = useLocale();
   const toast = useToast();
+  const confirm = useConfirm();
+  const can = usePermissions();
+  const readOnly = !can.editMenu;
   const { refresh } = useAdminMenu();
-  const [nameEn, setNameEn] = useState(category?.name_en ?? '');
-  const [nameAr, setNameAr] = useState(category?.name_ar ?? '');
+  const [name, setName] = useState({ en: category?.name_en ?? '', ar: category?.name_ar ?? '' });
   const [taxGroupId, setTaxGroupId] = useState(category?.tax_group_id ?? taxGroups[0]?.id ?? '');
   const [isActive, setIsActive] = useState(category?.is_active ?? true);
   const [photo, setPhoto] = useState<string | null>(category?.photo_path ?? null);
@@ -50,6 +81,28 @@ export function CategoryForm({
   useEffect(() => {
     if (category) setPhoto(category.photo_path);
   }, [category]);
+
+  // The photo saves on its own for a saved category, so it is not part of "unsaved".
+  const dirty =
+    name.en !== (category?.name_en ?? '') ||
+    name.ar !== (category?.name_ar ?? '') ||
+    taxGroupId !== (category?.tax_group_id ?? taxGroups[0]?.id ?? '') ||
+    isActive !== (category?.is_active ?? true) ||
+    (!category && pendingPhoto.current !== null);
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+
+  useBlocker({
+    shouldBlockFn: async () => {
+      if (!dirty) return false;
+      const leave = await confirm({ title: tr('op.common.unsavedPrompt'), kind: 'danger' });
+      return !leave;
+    },
+    enableBeforeUnload: dirty,
+  });
 
   const photoMutation = useMutation({
     mutationFn: ({ next, previous }: { next: string | null; previous: string | null }) =>
@@ -79,8 +132,8 @@ export function CategoryForm({
     mutationFn: async () => {
       const id = await appRpc<string>('upsert_menu_category', {
         p_id: category?.id ?? null,
-        p_name_en: nameEn.trim(),
-        p_name_ar: nameAr.trim(),
+        p_name_en: name.en.trim(),
+        p_name_ar: name.ar.trim(),
         p_tax_group_id: taxGroupId,
         p_sort_order: category?.sort_order ?? 0,
         p_is_active: isActive,
@@ -92,8 +145,10 @@ export function CategoryForm({
       return id;
     },
     onSuccess: async (id) => {
+      setError(null);
       toast.ok(tr('op.toast.saved'));
       await refresh();
+      onDirtyChange?.(false);
       onDone(id);
     },
     onError: (e) => {
@@ -102,62 +157,86 @@ export function CategoryForm({
     },
   });
 
-  function cancel() {
+  async function cancel() {
+    if (dirty && !(await confirm({ title: tr('op.common.unsavedPrompt'), kind: 'danger' }))) return;
     if (!category && pendingPhoto.current) void removeMedia(pendingPhoto.current);
+    onDirtyChange?.(false);
     onCancel();
   }
 
-  const valid = nameEn.trim() !== '' && nameAr.trim() !== '' && taxGroupId !== '';
+  const namesMissing = name.en.trim() === '' || name.ar.trim() === '';
+  const valid = !namesMissing && taxGroupId !== '';
 
   return (
-    <div style={{ ...card, marginBlockStart: 'var(--tp-sp-2)' }}>
-      <h4 style={{ marginBlockStart: 0 }}>
-        {category ? pickName(locale, category) : tr('op.menu.newCategory')}
-      </h4>
-      <BilingualFields
-        labelEn={tr('op.menu.nameEn')}
-        labelAr={tr('op.menu.nameAr')}
-        en={nameEn}
-        ar={nameAr}
-        onEn={setNameEn}
-        onAr={setNameAr}
-        maxLength={NAME_MAX}
+    <div style={{ minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
+      <FormBar
+        title={<bdi>{category ? pickName(locale, category) : tr('ws.manager.menu.categoryForm.newTitle')}</bdi>}
+        meta={
+          category ? (
+            <>
+              <span>{tr('ws.manager.menu.categoryForm.editTitle')}</span>
+              {itemCount !== undefined && <span>· {tr('ws.manager.menu.categoryForm.itemsCount', { count: formatNumber(itemCount, locale) })}</span>}
+            </>
+          ) : undefined
+        }
+        dirty={dirty}
+        actions={
+          <>
+            <Button kind="ghost" onClick={() => void cancel()} disabled={save.isPending}>
+              {tr('common.cancel')}
+            </Button>
+            <Button
+              kind="primary"
+              icon="check"
+              busy={save.isPending}
+              disabled={readOnly || !valid || !dirty}
+              // Only the reason that sends the manager somewhere: "nothing has
+              // changed" under a greyed Save says nothing the badge doesn't.
+              disabledReason={dirty && namesMissing ? tr('ws.manager.disabled.namesRequired') : undefined}
+              onClick={() => save.mutate()}
+            >
+              {tr('ws.kit.actions.save')}
+            </Button>
+          </>
+        }
       />
-      <Field label={tr('op.menu.taxGroup')}>
-        <Select
-          value={taxGroupId}
-          onChange={setTaxGroupId}
-          options={taxGroups.map((tg) => ({ value: tg.id, label: pickName(locale, tg) }))}
-        />
-      </Field>
-      <ImageField
-        label={tr('op.categories.photo')}
-        value={photo}
-        onChange={onPhotoChange}
-        folder="categories"
-        ownerId={category?.id ?? draftId.current}
-        aspect="16:9"
-        disabled={photoMutation.isPending}
-      />
-      <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlock: '0 0.6rem' }}>
-        {tr('op.categories.photoHint')}
-      </p>
-      <label style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', marginBlockEnd: 'var(--tp-sp-2-5)', alignItems: 'center' }}>
-        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-        {tr('op.categories.active')}
-      </label>
-      <ErrorText error={error} />
-      <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', justifyContent: 'flex-end' }}>
-        <Button onClick={cancel}>{tr('common.cancel')}</Button>
-        <Button kind="primary" disabled={save.isPending || !valid} onClick={() => save.mutate()}>
-          {tr('common.save')}
-        </Button>
-      </div>
+      <ErrorText error={error} style={{ marginBlock: 0 }} />
+
+      <Panel title={tr('ws.manager.menu.form.details')}>
+        <BilingualFieldPair label={tr('ws.manager.menu.form.name')} value={name} onChange={setName} required maxLength={NAME_MAX} disabled={readOnly} />
+        <Field label={tr('op.menu.taxGroup')} hint={tr('op.categories.taxGroupHint')}>
+          <Select
+            value={taxGroupId}
+            onChange={setTaxGroupId}
+            disabled={readOnly}
+            options={taxGroups.map((tg) => ({ value: tg.id, label: pickName(locale, tg) }))}
+          />
+        </Field>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <Switch checked={isActive} disabled={readOnly} onChange={setIsActive} label={tr('op.categories.active')} />
+          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('op.categories.activeHint')}</p>
+        </div>
+      </Panel>
+
+      <Panel title={tr('op.categories.photo')}>
+        <div style={{ maxInlineSize: '22rem' }}>
+          <ImageField
+            label={tr('op.categories.photo')}
+            value={photo}
+            onChange={onPhotoChange}
+            folder="categories"
+            ownerId={category?.id ?? draftId.current}
+            aspect="16:9"
+            disabled={readOnly || photoMutation.isPending}
+          />
+          <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('op.categories.photoHint')}</p>
+        </div>
+      </Panel>
     </div>
   );
 }
 
-/** Reorder categories (optimistic; two `upsert_menu_category` calls, or a renumber on ties). */
+/** Reorder categories (optimistic; one `reorder_menu_categories` call, sort_order only). */
 export function useCategoryReorder() {
   const { tr } = useLocale();
   const toast = useToast();
@@ -189,86 +268,142 @@ export function useCategoryReorder() {
 /** Standalone /admin/categories page. */
 export function CategoryEditor() {
   const { tr, locale } = useLocale();
-  const { data, isPending, error } = useAdminMenu();
+  const confirm = useConfirm();
+  const can = usePermissions();
+  const menu = useAdminMenu();
   const reorder = useCategoryReorder();
   const [editing, setEditing] = useState<string | 'new' | null>(null);
+  const dirtyRef = useRef(false);
+  const onDirtyChange = useCallback((d: boolean) => {
+    dirtyRef.current = d;
+  }, []);
 
-  if (isPending) return <Skeleton lines={5} />;
-  if (error) return <ErrorText error={error} />;
-  const categories = sortRows(data.categories);
-  const editingRow = editing && editing !== 'new' ? categories.find((c) => c.id === editing) ?? null : null;
+  async function guarded(next: string | 'new' | null) {
+    if (dirtyRef.current && next !== editing) {
+      const leave = await confirm({ title: tr('op.common.unsavedPrompt'), kind: 'danger' });
+      if (!leave) return;
+      dirtyRef.current = false;
+    }
+    setEditing(next);
+  }
+
+  const data = menu.data;
+  const categories = useMemo(() => (data ? sortRows(data.categories) : []), [data]);
+  const itemCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const i of data?.items ?? []) counts.set(i.category_id, (counts.get(i.category_id) ?? 0) + 1);
+    return counts;
+  }, [data]);
+  const editingRow = editing && editing !== 'new' ? (categories.find((c) => c.id === editing) ?? null) : null;
+  const status = asyncStatus(menu, () => false);
+
+  const columns: Column<CategoryRow>[] = [
+    {
+      key: 'name',
+      header: tr('op.categories.category'),
+      truncate: true,
+      truncateTitle: (c) => pickName(locale, c),
+      render: (c) => (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+          <Thumb path={c.photo_path} size="2rem" />
+          <bdi style={{ fontWeight: c.id === editing ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>{pickName(locale, c)}</bdi>
+        </span>
+      ),
+    },
+    {
+      key: 'items',
+      header: tr('op.categories.items'),
+      numeric: true,
+      width: '5rem',
+      render: (c) => formatNumber(itemCounts.get(c.id) ?? 0, locale),
+    },
+    {
+      key: 'status',
+      header: tr('op.categories.status'),
+      width: '6.5rem',
+      render: (c) =>
+        c.is_active ? (
+          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('op.categories.shown')}</span>
+        ) : (
+          <StatusBadge size="sm" tone="neutral" label={tr('op.categories.hidden')} />
+        ),
+    },
+    {
+      key: 'order',
+      header: tr('op.categories.order'),
+      align: 'center',
+      width: '5.5rem',
+      render: (c) => {
+        const index = categories.findIndex((r) => r.id === c.id);
+        return (
+          <SortButtons
+            onUp={() => reorder.mutate({ index, direction: 'up' })}
+            onDown={() => reorder.mutate({ index, direction: 'down' })}
+            disabledUp={!can.editMenu || index === 0 || reorder.isPending}
+            disabledDown={!can.editMenu || index === categories.length - 1 || reorder.isPending}
+          />
+        );
+      },
+    },
+    {
+      key: 'open',
+      header: '',
+      width: '2rem',
+      align: 'end',
+      render: () => <ChevronForward size={14} style={{ color: 'var(--tp-muted-fg)' }} />,
+    },
+  ];
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBlockEnd: 'var(--tp-sp-2-5)',
-        }}
-      >
-        <h2 style={{ margin: 0 }}>{tr('op.categories.title')}</h2>
-        <Button kind="primary" onClick={() => setEditing('new')}>
-          {tr('op.menu.newCategory')}
-        </Button>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(16rem, 24rem) 1fr', gap: 'var(--tp-sp-4)' }}>
-        <div>
-          {categories.map((c, index) => (
-            <div
-              key={c.id}
-              style={{
-                ...card,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--tp-sp-2)',
-                marginBlockEnd: 'var(--tp-sp-1-5)',
-                opacity: c.is_active ? 1 : 0.55,
-                borderColor: editing === c.id ? 'var(--tp-accent)' : 'var(--tp-border)',
-              }}
-            >
-              <Thumb path={c.photo_path} />
-              <button
-                type="button"
-                onClick={() => setEditing(c.id)}
-                style={{
-                  flex: 1,
-                  textAlign: 'start',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'inherit',
-                  font: 'inherit',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-              >
-                {pickName(locale, c)}
-              </button>
-              <SortButtons
-                onUp={() => reorder.mutate({ index, direction: 'up' })}
-                onDown={() => reorder.mutate({ index, direction: 'down' })}
-                disabledUp={index === 0 || reorder.isPending}
-                disabledDown={index === categories.length - 1 || reorder.isPending}
+      <PageHeader
+        title={tr('op.categories.title')}
+        subtitle={tr('op.categories.lead')}
+        actions={
+          <Button kind="primary" icon="plus" disabled={!can.editMenu} onClick={() => void guarded('new')}>
+            {tr('op.menu.newCategory')}
+          </Button>
+        }
+      />
+      <AsyncStateWrapper status={status} error={menu.error} onRetry={() => void menu.refetch()}>
+        {data && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', gap: 'var(--tp-sp-4)', alignItems: 'start' }}>
+            {categories.length === 0 ? (
+              <EmptyState icon="grid" title={tr('op.categories.empty')} body={tr('op.categories.emptyBody')} />
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={categories}
+                rowKey={(c) => c.id}
+                selectedKey={editing && editing !== 'new' ? editing : null}
+                onRowClick={(c) => void guarded(c.id)}
+                // The list scrolls inside itself so the form beside it stays in
+                // view whichever row was clicked.
+                maxBlockSize="calc(100vh - 13rem)"
+                aria-label={tr('op.categories.title')}
               />
+            )}
+            <div style={{ minInlineSize: 0 }}>
+              {editing ? (
+                <CategoryForm
+                  key={editing}
+                  category={editingRow}
+                  taxGroups={data.taxGroups}
+                  itemCount={editingRow ? (itemCounts.get(editingRow.id) ?? 0) : undefined}
+                  onDone={(id) => setEditing(id)}
+                  onCancel={() => {
+                    dirtyRef.current = false;
+                    setEditing(null);
+                  }}
+                  onDirtyChange={onDirtyChange}
+                />
+              ) : (
+                <EmptyState icon="note" title={tr('op.categories.pick')} />
+              )}
             </div>
-          ))}
-          {categories.length === 0 && (
-            <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.common.none')}</p>
-          )}
-        </div>
-        <div>
-          {editing && (
-            <CategoryForm
-              key={editing}
-              category={editingRow}
-              taxGroups={data.taxGroups}
-              onDone={(id) => setEditing(id)}
-              onCancel={() => setEditing(null)}
-            />
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+      </AsyncStateWrapper>
     </div>
   );
 }

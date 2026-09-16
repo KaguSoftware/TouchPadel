@@ -2,10 +2,31 @@
  * Promotions list (spec 06.26) — every promotion, active and inactive.
  * Enable / disable is `app.set_promotion_enabled` behind the shared Switch;
  * there is no delete anywhere: switching off keeps the redemption history.
+ *
+ * WHY THIS LAYOUT
+ *
+ * The screen answers "what is running, and what does each one do?".
+ *
+ *  - One lead states the two rules a manager needs before touching anything
+ *    (one promotion per bill, the biggest; off instead of delete). It used to
+ *    be a lead, a bare "109 of 109" and an info banner, three blocks saying
+ *    overlapping things before the first row.
+ *  - Rows are ordered live first, and a filter with counts splits live /
+ *    starting later / off / ended. A count appears beside the filter it
+ *    belongs to, and a result count only while a search narrows the list.
+ *  - Status is ONE cell: the switch and the word that explains it ("Live",
+ *    "Starts 12 Sep 2026", "Ended 3 Sep 2026", "Off"). The old table had a
+ *    Status badge and an Enabled switch side by side, which said "Off" twice.
+ *  - "When" prints dates, weekdays and hours together, so a Fri–Sat
+ *    16:00–19:00 happy hour no longer reads as "No end date" (always on).
+ *  - "Applies to" says how a bill gets it (no code / its code) and what it
+ *    covers, in words. The old chip literally read "What it applies to".
+ *  - A row opens the editor, and has a chevron that says so.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
-import { formatDate, formatNumber } from '@touch/i18n';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useState } from 'react';
+import { formatNumber } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
 import { usePermissions, requiredRoleFor } from '../../../lib/auth';
@@ -15,37 +36,61 @@ import {
   DataTable,
   EmptyState,
   LocalizedRecordText,
-  MessagePresenter,
   Money,
   PageHeader,
   PermissionRefusedNotice,
   ResultCount,
-  StatusBadge,
+  SearchField,
+  SegmentedControl,
   TableSkeleton,
+  Toolbar,
   asyncStatus,
   type Column,
-  type Tone,
 } from '../../../components/kit';
+import { ChevronForward, Icon } from '../../../components/icons';
 import { Switch } from '../../../components/Switch';
-import { hasScope, lifecycle, type PromotionLifecycle } from './promotionLogic';
+import {
+  LIFECYCLES,
+  countByLifecycle,
+  filterPromotions,
+  fromRow,
+  howItApplies,
+  howText,
+  isPromotionFilter,
+  lifecycle,
+  scheduleText,
+  scopeText,
+  sortPromotions,
+  statusText,
+  type PromotionFilter,
+} from './promotionLogic';
 import { PROMOTIONS_KEY, fetchPromotions, type PromotionRow } from './promotionsApi';
 
-const LIFECYCLE_TONE: Record<PromotionLifecycle, Tone> = {
-  live: 'success',
-  scheduled: 'info',
-  expired: 'neutral',
-  disabled: 'neutral',
-};
+const FILTERS = ['all', ...LIFECYCLES] as const satisfies readonly PromotionFilter[];
+
+const muted = { fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' } as const;
 
 export function PromotionsListScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const can = usePermissions();
+  const search = (useSearch({ strict: false }) ?? {}) as { show?: unknown };
+  const filter: PromotionFilter = isPromotionFilter(search.show) ? search.show : 'all';
+  const [query, setQuery] = useState('');
 
   const promosQ = useQuery({ queryKey: PROMOTIONS_KEY, queryFn: fetchPromotions });
   const rows = promosQ.data ?? [];
   const status = asyncStatus(promosQ, (r) => r.length === 0);
+
+  // One clock for the whole render, so a row's filter bucket, sort position
+  // and status word can never disagree.
+  const now = new Date();
+  const counts = countByLifecycle(rows, now);
+  const shown = sortPromotions(filterPromotions(rows, filter, query, now), locale, now);
+
+  const setFilter = (next: PromotionFilter) =>
+    void navigate({ to: '/admin/promotions', search: next === 'all' ? {} : { show: next }, replace: true });
 
   async function setEnabled(id: string, enabled: boolean) {
     await appRpc('set_promotion_enabled', { p_id: id, p_enabled: enabled });
@@ -66,77 +111,96 @@ export function PromotionsListScreen() {
     },
     {
       key: 'value',
-      header: tr('ws.manager.promotions.value'),
+      header: tr('ws.manager.promotions.discount'),
       numeric: true,
       render: (p) => (p.type === 'percent' ? <span dir="ltr">{formatNumber(p.value, locale)}%</span> : <Money amount={p.value} />),
     },
     {
-      key: 'window',
-      header: tr('ws.manager.promotions.window'),
-      render: (p) => <WindowText row={p} />,
+      key: 'when',
+      header: tr('ws.manager.promotions.when'),
+      render: (p) => {
+        const draft = fromRow(p);
+        const text = scheduleText(draft, tr, locale);
+        const always = !draft.startsOn && !draft.endsOn && !draft.hourFrom && (draft.weekdays.length === 0 || draft.weekdays.length === 7);
+        return <bdi style={always ? muted : { fontSize: 'var(--tp-fs-sm)' }}>{text}</bdi>;
+      },
     },
     {
       key: 'applies',
-      header: tr('ws.manager.promotions.applies'),
-      render: (p) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-          <StatusBadge size="sm" tone={p.auto ? 'accent' : 'neutral'} dot={false} label={p.auto ? tr('ws.manager.promotions.auto') : tr('ws.manager.promotions.staffSelected')} />
-          {p.public_code && (
-            <StatusBadge
-              size="sm"
-              tone="neutral"
-              dot={false}
-              icon="tag"
-              label={`${tr('ws.manager.promotions.code', { code: p.public_code })}${p.code_single_use ? ` · ${tr('ws.manager.promotions.singleUse')}` : ''}`}
-            />
-          )}
-          {hasScope({ courtIds: p.scope?.courtIds ?? [], categoryIds: p.scope?.categoryIds ?? [], itemIds: p.scope?.itemIds ?? [] }) && (
-            <StatusBadge size="sm" tone="neutral" dot={false} icon="layers" label={tr('ws.manager.promotions.editor.scopeTitle')} />
-          )}
-        </span>
-      ),
+      header: tr('ws.manager.promotions.appliesTo'),
+      render: (p) => {
+        const draft = fromRow(p);
+        const how = howItApplies(draft);
+        return (
+          <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--tp-sp-1)',
+                fontSize: 'var(--tp-fs-sm)',
+                // The one case worth colour: a code-only promotion with no code
+                // can never apply.
+                color: how.kind === 'missing' ? 'var(--tp-warn-fg)' : 'var(--tp-fg)',
+                fontWeight: how.kind === 'missing' ? 600 : 400,
+              }}
+            >
+              {how.kind !== 'auto' && <Icon name={how.kind === 'missing' ? 'alert' : 'tag'} size={13} />}
+              <bdi>{howText(draft, tr)}</bdi>
+            </span>
+            <span style={muted}>{scopeText(draft.scope, tr, locale)}</span>
+          </span>
+        );
+      },
     },
     {
       key: 'status',
       header: tr('ws.manager.promotions.status'),
+      // No stopPropagation wrapper: DataTable ignores a row click that started
+      // on a control inside a cell, so switching a promotion off does not also
+      // open its editor.
       render: (p) => {
-        const lc = lifecycle(p);
-        return <StatusBadge tone={LIFECYCLE_TONE[lc]} label={tr(`ws.manager.promotions.${lc}`)} size="sm" />;
+        const lc = lifecycle(p, now);
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)', whiteSpace: 'nowrap' }}>
+            <Switch
+              checked={p.enabled}
+              disabled={!can.editPromotions}
+              onChange={(next) => setEnabled(p.id, next)}
+              label={tr('ws.manager.promotions.switchFor', { name: locale === 'ar' ? p.name_ar : p.name_en })}
+              hideLabel
+            />
+            <span
+              style={{
+                fontSize: 'var(--tp-fs-sm)',
+                fontWeight: lc === 'live' ? 600 : 400,
+                color: lc === 'live' ? 'var(--tp-success-fg)' : 'var(--tp-muted-fg)',
+              }}
+            >
+              {statusText(p, tr, locale, now)}
+            </span>
+          </span>
+        );
       },
     },
     {
-      key: 'enabled',
-      header: tr('ws.manager.promotions.enabled'),
+      key: 'open',
+      header: '',
+      width: '2rem',
       align: 'end',
-      // No stopPropagation wrapper: DataTable now ignores a row click that
-      // started on a control inside a cell, so switching a promotion off no
-      // longer also opens its editor.
-      render: (p) => (
-        <Switch
-          checked={p.enabled}
-          disabled={!can.editPromotions}
-          onChange={(next) => setEnabled(p.id, next)}
-          label={`${tr('ws.manager.promotions.enabled')} — ${locale === 'ar' ? p.name_ar : p.name_en}`}
-          hideLabel
-        />
-      ),
+      render: () => <ChevronForward size={16} style={{ color: 'var(--tp-muted-fg)', verticalAlign: 'middle' }} />,
     },
   ];
 
+  const newButton = (
+    <Button kind="primary" icon="plus" disabled={!can.editPromotions} onClick={() => openEditor('new')}>
+      {tr('ws.manager.promotions.create')}
+    </Button>
+  );
+
   return (
     <div>
-      <PageHeader
-        title={tr('ws.manager.promotions.title')}
-        subtitle={tr('ws.manager.promotions.lead')}
-        actions={
-          <Button kind="primary" icon="plus" disabled={!can.editPromotions} onClick={() => openEditor('new')}>
-            {tr('ws.manager.promotions.create')}
-          </Button>
-        }
-      >
-        {/* Rulebook 6.10: the count belongs beside the title, not only under the table. */}
-        <ResultCount shown={rows.length} total={rows.length} />
-        <MessagePresenter tone="info" message={tr('ws.manager.promotions.bestOnly')} />
+      <PageHeader title={tr('ws.manager.promotions.title')} subtitle={tr('ws.manager.promotions.lead')} actions={newButton}>
         {!can.editPromotions && <PermissionRefusedNotice action={tr('ws.manager.promotions.create')} requiredRole={requiredRoleFor('editPromotions')} />}
       </PageHeader>
 
@@ -145,41 +209,39 @@ export function PromotionsListScreen() {
         error={promosQ.error}
         onRetry={() => void promosQ.refetch()}
         skeleton={<TableSkeleton columns={columns} />}
-        emptyContent={
-          <EmptyState
-            icon="tag"
-            title={tr('ws.manager.promotions.empty')}
-            body={tr('ws.manager.promotions.emptyBody')}
-            action={
-              <Button kind="primary" icon="plus" disabled={!can.editPromotions} onClick={() => openEditor('new')}>
-                {tr('ws.manager.promotions.create')}
-              </Button>
-            }
-          />
-        }
+        emptyContent={<EmptyState icon="tag" title={tr('ws.manager.promotions.empty')} body={tr('ws.manager.promotions.emptyBody')} action={newButton} />}
       >
-        <DataTable
-          columns={columns}
-          rows={rows}
-          rowKey={(p) => p.id}
-          onRowClick={(p) => openEditor(p.id)}
-          aria-label={tr('ws.manager.promotions.title')}
-        />
+        <Toolbar>
+          <SegmentedControl
+            aria-label={tr('ws.manager.promotions.filterLabel')}
+            value={filter}
+            onChange={setFilter}
+            options={FILTERS.map((f) => ({
+              value: f,
+              label: (
+                <>
+                  {tr(`ws.manager.promotions.filter.${f}`)}
+                  <span style={{ fontWeight: 400, color: 'var(--tp-muted-fg)', fontVariantNumeric: 'tabular-nums' }}>{formatNumber(counts[f], locale)}</span>
+                </>
+              ),
+            }))}
+          />
+          <SearchField value={query} onChange={setQuery} placeholder={tr('ws.manager.promotions.search')} style={{ inlineSize: '18rem', maxInlineSize: '100%' }} />
+          {query.trim() !== '' && <ResultCount shown={shown.length} total={filter === 'all' ? rows.length : counts[filter]} />}
+        </Toolbar>
+        {shown.length === 0 ? (
+          <EmptyState
+            kind="filtered"
+            title={tr('ws.manager.promotions.noMatch')}
+            onClearFilters={() => {
+              setQuery('');
+              setFilter('all');
+            }}
+          />
+        ) : (
+          <DataTable columns={columns} rows={shown} rowKey={(p) => p.id} onRowClick={(p) => openEditor(p.id)} aria-label={tr('ws.manager.promotions.title')} />
+        )}
       </AsyncStateWrapper>
     </div>
-  );
-}
-
-function WindowText({ row }: { row: PromotionRow }) {
-  const { tr, locale } = useLocale();
-  const from = row.starts_at ? formatDate(new Date(row.starts_at), locale) : null;
-  const to = row.ends_at ? formatDate(new Date(row.ends_at), locale) : null;
-  if (!from && !to) return <span style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.promotions.noEnd')}</span>;
-  return (
-    <span style={{ fontSize: 'var(--tp-fs-sm)' }}>
-      {from && <bdi>{tr('ws.manager.promotions.from', { date: from })}</bdi>}
-      {from && to && ' · '}
-      {to && <bdi>{tr('ws.manager.promotions.until', { date: to })}</bdi>}
-    </span>
   );
 }

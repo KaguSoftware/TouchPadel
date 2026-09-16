@@ -13,8 +13,10 @@ import { mutate } from '../../lib/mutate';
 import { LOCAL_TAB_PREFIX, addOfflineTab } from '../../lib/offlineTabs';
 import { QK, fetchActiveCafeTables } from '../../lib/queries';
 import { useLocale, pickName } from '../../lib/i18n';
+import { useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { MessagePresenter, SearchField } from '../../components/kit';
+import { canReadBookings, type TabListRow } from './tillData';
 import { muted, reasonedFooter, touchTarget } from './tillStyles';
 
 export interface OpenReservationRow {
@@ -134,13 +136,24 @@ export function NewTabDialog({
   onClose,
   onOpened,
   initialReservationId,
+  openTabs = [],
+  onPickExisting,
 }: {
   onClose: () => void;
   onOpened: (tabId: string) => void;
   /** `/till?reservation=<id>` — pre-bind the tab to that booking. */
   initialReservationId?: string;
+  /** The floor's open tabs, so a table that already has one can say so. */
+  openTabs?: readonly Pick<TabListRow, 'id' | 'table'>[];
+  /** Go to a table's existing tab instead of opening a second one. */
+  onPickExisting?: (tabId: string) => void;
 }) {
   const { tr, locale } = useLocale();
+  const { staff } = useAuth();
+  // A cashier cannot read bookings (see canReadBookings), so the picker was a
+  // select that only ever held "No booking". Shown when it can hold something,
+  // or when the desk already chose the booking.
+  const showBookings = canReadBookings(staff?.role) || Boolean(initialReservationId);
   const [tableId, setTableId] = useState('');
   const [label, setLabel] = useState('');
   const [reservationId, setReservationId] = useState(initialReservationId ?? '');
@@ -149,7 +162,7 @@ export function NewTabDialog({
 
   // ACTIVE tables only (QK.activeCafeTables is separate from the QR admin's all-rows key).
   const tablesQ = useQuery({ queryKey: QK.activeCafeTables, queryFn: fetchActiveCafeTables });
-  const reservationsQ = useTodaysOpenReservations();
+  const reservationsQ = useTodaysOpenReservations(canReadBookings(staff?.role) || Boolean(initialReservationId));
   const reservations = reservationsQ.data ?? [];
   const preboundMissing =
     Boolean(initialReservationId) && reservationsQ.isSuccess && !reservations.some((r) => r.id === initialReservationId);
@@ -200,6 +213,11 @@ export function NewTabDialog({
    * is the job it was actually doing. Mirrored by app.open_tab (0084).
    */
   const anchored = Boolean(tableId || reservationId);
+  const chosenTable = (tablesQ.data ?? []).find((t) => t.id === tableId);
+  // Two tabs on one table split its bill in a way nobody asked for; the usual
+  // intent is "add to the table's tab". Said, not blocked — a second party at
+  // a shared table is real.
+  const existing = chosenTable ? openTabs.find((t) => t.table?.table_number === chosenTable.table_number) : undefined;
 
   return (
     <Modal
@@ -217,7 +235,7 @@ export function NewTabDialog({
             kind="primary"
             busy={busy}
             disabled={!anchored}
-            disabledReason={anchored ? undefined : tr('ws.cashier.newTab.needAnchor')}
+            disabledReason={anchored ? undefined : showBookings ? tr('ws.cashier.newTab.needAnchor') : tr('ws.cashier.newTab.needTable')}
             onClick={() => void submit()}
           >
             {tr('op.till.openTabBtn')}
@@ -252,19 +270,38 @@ export function NewTabDialog({
           ))}
         </select>
       </Field>
+      {existing && (
+        <MessagePresenter
+          tone="info"
+          icon="receipt"
+          style={{ marginBlock: 'calc(-1 * var(--tp-sp-1)) var(--tp-sp-3)' }}
+          message={
+            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+              {tr('ws.cashier.newTab.tableHasTab')}
+              {onPickExisting && (
+                <Button size="sm" iconEnd="arrowUpRight" onClick={() => onPickExisting(existing.id)}>
+                  {tr('ws.cashier.newTab.goToTab')}
+                </Button>
+              )}
+            </span>
+          }
+        />
+      )}
       <Field label={tr('op.till.byName')} optional hint={tr('ws.cashier.newTab.nameHint')}>
         <input style={inputStyle} value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} />
       </Field>
-      <Field label={tr('op.till.reservationLabel')}>
-        <select style={inputStyle} value={reservationId} onChange={(e) => setReservationId(e.target.value)}>
-          <option value="">{tr('op.till.noReservation')}</option>
-          {reservations.map((r) => (
-            <option key={r.id} value={r.id}>
-              {reservationOptionLabel(tr, locale, r)}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {showBookings && (
+        <Field label={tr('op.till.reservationLabel')} optional>
+          <select style={inputStyle} value={reservationId} onChange={(e) => setReservationId(e.target.value)}>
+            <option value="">{tr('op.till.noReservation')}</option>
+            {reservations.map((r) => (
+              <option key={r.id} value={r.id}>
+                {reservationOptionLabel(tr, locale, r)}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <ErrorText error={error} />
     </Modal>
   );

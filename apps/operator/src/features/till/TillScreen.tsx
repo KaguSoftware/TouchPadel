@@ -41,7 +41,7 @@ import { KeymapHelp } from './KeymapHelp';
 import { mergeQuickLine, quickVariant } from './quickAdd';
 import { resolveTillKey } from './keymap';
 import { localIsoDate, deriveTileState, tileInteractive } from './tileState';
-import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, type BasketLine, type ItemRow } from './tillData';
+import { OPEN_TABS_QUERY, TILL_MENU_QUERY, basketLineEstimate, fetchTabDetail, tabAnchorLabel, type BasketLine, type ItemRow } from './tillData';
 import type { TillSearch } from './tillSearch';
 import { BASKET_BLOCK_SIZE, muted } from './tillStyles';
 
@@ -297,23 +297,55 @@ export function TillScreen() {
   // tabs) under an open note dialog closes it rather than leaving a dialog
   // editing a line that no longer exists.
   const noteLine = basket.find((l) => l.key === noteLineKey) ?? null;
+  // The legend names the two unavailable looks. It printed under every
+  // category, including the ones with nothing unavailable in them, where it
+  // explained a look the cashier could not see.
+  const showLegend = visibleItems.some((i) => {
+    const state = deriveTileState({ orderable: menuQ.data?.availability[i.id], soldOut: i.sold_out, unavailableOn: i.unavailable_on, hasActiveTab: true, today });
+    return state === 'unavailable' || state === 'blockedByStock';
+  });
+  // Which tab the basket will land on, named where the basket is — the tab
+  // panel saying so from the far side of the screen is not enough.
+  const selectedLabel = (() => {
+    if (!selectedTabId) return null;
+    if (selectedIsOffline) {
+      const ot = offlineTabs.find((t) => `${LOCAL_TAB_PREFIX}${t.idemKey}` === selectedTabId);
+      return ot ? (ot.tableNumber ? `${tr('op.till.table')} ${ot.tableNumber}` : (ot.label ?? null)) : null;
+    }
+    const t = (tabsQ.data ?? []).find((x) => x.id === selectedTabId);
+    return t ? tabAnchorLabel(t, tr('op.till.table'), tr('op.till.forReservation')) : null;
+  })();
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(13rem, 15rem) minmax(0, 1fr) minmax(20rem, 23rem)',
+        // Proportional, so the side columns give way with the menu rather than
+        // before it: with fixed 13–15rem / 20–23rem sides the grid filled both
+        // sides first, and at 1100px the menu and basket were left ~280px and
+        // Send ran over the pay column. At 1440px this is the same ~14rem /
+        // ~23rem split as before.
+        gridTemplateColumns: 'minmax(11rem, 0.6fr) minmax(17rem, 1.6fr) minmax(16rem, 1fr)',
         gap: 'var(--tp-sp-4)',
         blockSize: '100%',
         minBlockSize: 0,
         alignItems: 'stretch',
       }}
     >
-      {/* ---- inline-start: waiter calls + rail ---- */}
-      <aside style={{ minBlockSize: 0, minInlineSize: 0, overflowY: 'auto', overflowX: 'hidden', display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', paddingInlineEnd: 'var(--tp-sp-1)' }}>
+      {/*
+        ---- inline-start: waiter calls + rail ----
+        Two scrollers, not one. With a single scroller eight waiter calls
+        pushed the open-tabs rail below the fold, and the rail is what the
+        cashier reaches for on every sale. The calls keep at most about half
+        the column and scroll inside it; the rail always has the rest.
+      */}
+      <aside style={{ minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-3)', paddingInlineEnd: 'var(--tp-sp-1)' }}>
         <StartShiftBanner />
-        <WaiterCallsPanel status={floorStatus} />
-        <TabRail
+        <div style={{ flex: '0 1 auto', maxBlockSize: '50%', minBlockSize: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+          <WaiterCallsPanel status={floorStatus} />
+        </div>
+        <div style={{ flex: '1 1 auto', minBlockSize: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+          <TabRail
           tabs={tabsQ.data ?? []}
           offlineTabs={offlineTabs}
           selectedId={selectedTabId}
@@ -321,7 +353,8 @@ export function TillScreen() {
           onSelect={(id) => void selectTab(id)}
           onNew={() => setNewTab({})}
           onPrefetch={prefetchTab}
-        />
+          />
+        </div>
       </aside>
 
       {/* ---- centre: filter, categories, grid, basket ---- */}
@@ -383,7 +416,7 @@ export function TillScreen() {
               onOpenSheet={setSheetItem}
               emptyText={filtering ? tr('ws.cashier.till.noMatches', { query: filter.trim() }) : tr('ws.cashier.till.noItems')}
             />
-            <TileLegend />
+            {showLegend && <TileLegend />}
           </div>
         </AsyncStateWrapper>
 
@@ -400,6 +433,7 @@ export function TillScreen() {
         >
           <Basket
             lines={basket}
+            forLabel={selectedLabel}
             sending={sending}
             error={sendError}
             canSend={hasActiveTab && basket.length > 0}
@@ -422,6 +456,7 @@ export function TillScreen() {
       <aside
         style={{
           minBlockSize: 0,
+          minInlineSize: 0,
           display: 'flex',
           flexDirection: 'column',
           borderInlineStart: '1px solid var(--tp-border)',
@@ -445,6 +480,7 @@ export function TillScreen() {
         {selectedTabId && !selectedIsOffline && (
           <TabDetailPanel
             tabId={selectedTabId}
+            unsentCount={basket.length}
             onClosedTab={() => {
               setSelectedTabId(null);
               void queryClient.invalidateQueries({ queryKey: ['tabs'] });
@@ -488,6 +524,11 @@ export function TillScreen() {
       {newTab && (
         <NewTabDialog
           initialReservationId={newTab.reservationId}
+          openTabs={tabsQ.data ?? []}
+          onPickExisting={(tabId) => {
+            setNewTab(null);
+            void selectTab(tabId);
+          }}
           onClose={() => setNewTab(null)}
           onOpened={(tabId) => {
             setNewTab(null);

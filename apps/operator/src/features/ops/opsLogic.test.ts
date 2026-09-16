@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
+  STOCK_HREF,
   alertsFor,
   auditDrillHref,
   dayCloseState,
-  exceptionBasis,
   normalizeCount,
   normalizeOverview,
   tillTabHref,
-  worstSeverity,
 } from './opsLogic';
 
 // The overview renders server figures only. These tests pin the two things
@@ -62,9 +61,36 @@ describe('normalizeOverview', () => {
     expect(o.exceptions.waste).toEqual({ count: 3, amountIqd: 2500 });
     expect(o.dayClose.blockingCount).toBe(2);
     expect(o.dayClose.blockingTabs).toEqual([
-      { id: 't1', label: 'T4' },
-      { id: 't2', label: null },
+      { id: 't1', tableNumber: null, label: 'T4', guestName: null },
+      { id: 't2', tableNumber: null, label: null, guestName: null },
     ]);
+  });
+
+  // The fields 0068 actually sends beyond the contract. The first screen read
+  // none of them and printed raw tab tokens where a table number was available.
+  it('reads the 0068 extras: cancellations, the next court, orders, alerts, and who is on each tab', () => {
+    const o = normalizeOverview({
+      ...contractPayload,
+      bookings: {
+        ...contractPayload.bookings,
+        cancelledToday: 2,
+        nextArrival: { startAt: '2026-09-03T15:00:00Z', guestName: 'Ali', courtNameEn: 'Court 2', courtNameAr: 'الملعب 2' },
+      },
+      cafe: { ...contractPayload.cafe, ordersToday: 41 },
+      stock: { ...contractPayload.stock, openAlerts: 3 },
+      dayClose: { ...contractPayload.dayClose, blockingTabs: [{ id: 't1', label: 'x', tableNumber: '4', guestName: 'Sara' }] },
+    });
+    expect(o.bookings).toMatchObject({ cancelledToday: 2, nextArrivalCourtEn: 'Court 2', nextArrivalCourtAr: 'الملعب 2' });
+    expect(o.cafe.ordersToday).toBe(41);
+    expect(o.stock.openAlerts).toBe(3);
+    expect(o.dayClose.blockingTabs).toEqual([{ id: 't1', tableNumber: '4', label: 'x', guestName: 'Sara' }]);
+  });
+
+  it('keeps an unreported extra as null rather than a zero the server never sent', () => {
+    const o = normalizeOverview(contractPayload);
+    expect(o.bookings.cancelledToday).toBeNull();
+    expect(o.cafe.ordersToday).toBeNull();
+    expect(o.stock.openAlerts).toBeNull();
   });
 
   it('degrades a sparse or malformed payload to zeros and nulls, never throws', () => {
@@ -103,94 +129,80 @@ describe('drill hrefs', () => {
   });
 });
 
-// The grouping helpers decide what the screen's three tiers contain. They only
-// select, order and scale figures normalizeOverview already produced — so what
-// these pin is the SELECTION rules, which is where the readability of the screen
-// actually lives.
+// The selection rules decide what "Needs you now" contains, which is where the
+// readability of the screen actually lives.
 
 describe('alertsFor', () => {
-  it('drops every zero, so a clear floor produces no alerts at all', () => {
+  const openDay = { open: true, businessDate: '2026-09-03', openedAt: '2026-09-03T06:00:00Z', blockingTabs: [] };
+
+  it('drops every zero, so a clear floor on an open day produces no alerts at all', () => {
     const o = normalizeOverview({
-      bookings: { today: 12, arrived: 12, upcoming: 0, noShows: 0 },
+      bookings: { today: 12, arrived: 12, upcoming: 0, noShows: 3 },
       cafe: { openTabs: 3, ticketsQueued: 2, ticketsLate: 0, waiterCallsOpen: 0 },
       stock: { low: 0, belowPar: 5, expiringSoon: 1, expired: 0 },
+      dayClose: openDay,
     });
-    // belowPar 5 and expiringSoon 1 are deliberately NOT alarms: they belong to
-    // the stock cluster, and promoting them would put the band back to noise.
+    // belowPar and expiringSoon belong to the stock card, and no-shows to the
+    // courts card: none of them is something to go and do right now.
     expect(alertsFor(o)).toEqual([]);
-    expect(worstSeverity(alertsFor(o))).toBeNull();
   });
 
-  it('returns the non-zero alarms in table order, worst first', () => {
+  it('returns the standing alarms in table order, never by count', () => {
     const o = normalizeOverview({
-      bookings: { today: 12, arrived: 4, upcoming: 6, noShows: 2 },
-      cafe: { openTabs: 3, ticketsQueued: 2, ticketsLate: 3, waiterCallsOpen: 1 },
-      stock: { low: 4, belowPar: 5, expiringSoon: 1, expired: 7 },
+      cafe: { ticketsLate: 3, waiterCallsOpen: 1 },
+      stock: { low: 4, expired: 7 },
+      dayClose: { ...openDay, open: false },
     });
-    expect(alertsFor(o).map((a) => a.key)).toEqual(['ticketsLate', 'expired', 'low', 'noShows', 'waiterCalls']);
-    // The order is the table's, never the counts': expired is 7 and late is 3,
-    // and late still leads because a guest is waiting on it.
-    expect(alertsFor(o).map((a) => a.count)).toEqual([3, 7, 4, 2, 1]);
+    expect(alertsFor(o).map((a) => a.key)).toEqual(['dayNotOpen', 'waiterCalls', 'ticketsLate', 'low', 'expired']);
+    expect(alertsFor(o).map((a) => a.count)).toEqual([1, 1, 3, 4, 7]);
   });
 
-  it('carries each alarm to the screen that owns it', () => {
-    const o = normalizeOverview({ cafe: { ticketsLate: 1, waiterCallsOpen: 1 }, stock: { low: 1, expired: 1 }, bookings: { noShows: 1 } });
+  it('carries each alarm to the screen that resolves it, and late tickets to none', () => {
+    const o = normalizeOverview({ cafe: { ticketsLate: 1, waiterCallsOpen: 1 }, stock: { low: 1, expired: 1 } });
     expect(Object.fromEntries(alertsFor(o).map((a) => [a.key, a.href]))).toEqual({
-      ticketsLate: '/till/tabs',
-      expired: '/stock',
-      low: '/stock',
-      noShows: '/desk',
+      dayNotOpen: '/admin/day-close',
       waiterCalls: '/till/tabs',
+      // Nothing in this workspace lists late tickets; the tab list does not.
+      ticketsLate: null,
+      low: '/stock?filter=low',
+      expired: '/stock/expiry',
     });
   });
+});
 
-  it('reports the loudest severity present, for the band ground', () => {
-    const warnOnly = normalizeOverview({ cafe: { waiterCallsOpen: 2 } });
-    expect(worstSeverity(alertsFor(warnOnly))).toBe('warn');
-    const withDanger = normalizeOverview({ cafe: { waiterCallsOpen: 2, ticketsLate: 1 } });
-    expect(worstSeverity(alertsFor(withDanger))).toBe('danger');
+describe('stock hrefs', () => {
+  it('opens each stock figure on the screen that lists exactly those items', () => {
+    expect(STOCK_HREF).toEqual({
+      low: '/stock?filter=low',
+      belowPar: '/stock?filter=belowPar',
+      expiringSoon: '/stock/expiry',
+      expired: '/stock/expiry',
+      alerts: '/stock/alerts',
+      lastCount: '/stock/counts',
+    });
   });
 });
 
 describe('dayCloseState', () => {
-  const base = { open: true, businessDate: null, openedAt: null, blockingTabs: [], queued: 0 };
+  const base = { open: true, businessDate: null, openedAt: null, blockingTabs: [] };
 
   it('is closed whenever no business day is open, whatever else is outstanding', () => {
-    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, open: false, blockingTabs: 3, queued: 9 } }).dayClose)).toBe('closed');
+    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, open: false, blockingTabs: 3 } }).dayClose, 9)).toBe('closed');
   });
 
   it('ranks open tabs above a queued write — a tab needs a person, a queue needs the network', () => {
-    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, blockingTabs: 2, queued: 5 } }).dayClose)).toBe('blockedByOpenTabs');
-    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, blockingTabs: [], queued: 5 } }).dayClose)).toBe('blockedByUnsyncedQueue');
+    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, blockingTabs: 2 } }).dayClose, 5)).toBe('blockedByOpenTabs');
+    expect(dayCloseState(normalizeOverview({ dayClose: base }).dayClose, 5)).toBe('blockedByUnsyncedQueue');
   });
 
   it('is ready only when both gates are clear', () => {
-    expect(dayCloseState(normalizeOverview({ dayClose: base }).dayClose)).toBe('ready');
-  });
-});
-
-describe('exceptionBasis', () => {
-  it('scales on money when every figure carries money', () => {
-    expect(
-      exceptionBasis([
-        { count: 2, amountIqd: 15000 },
-        { count: 1, amountIqd: 3000 },
-      ]),
-    ).toEqual({ by: 'amount', max: 15000 });
+    expect(dayCloseState(normalizeOverview({ dayClose: base }).dayClose, 0)).toBe('ready');
   });
 
-  it('falls back to counts when any figure has no amount, so one scale never mixes units', () => {
-    expect(
-      exceptionBasis([
-        { count: 2, amountIqd: 15000 },
-        { count: 9, amountIqd: null },
-      ]),
-    ).toEqual({ by: 'count', max: 9 });
-  });
-
-  it('has no basis at all when there is nothing to draw', () => {
-    expect(exceptionBasis([{ count: 0, amountIqd: 0 }])).toBeNull();
-    expect(exceptionBasis([])).toBeNull();
+  // 0068 never sends a queued count; the old screen read `dayClose.queued` and
+  // so always said "None". The count now comes from this station's queue.
+  it('ignores a queued figure in the payload', () => {
+    expect(dayCloseState(normalizeOverview({ dayClose: { ...base, queued: 7 } }).dayClose, 0)).toBe('ready');
   });
 });
 
