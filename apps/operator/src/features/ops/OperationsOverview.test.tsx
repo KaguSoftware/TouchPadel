@@ -191,7 +191,7 @@ describe('OperationsOverviewScreen', () => {
     rpc.appRpc.mockResolvedValue(payload);
     renderScreen();
     // payload has one blocking tab, so the day is blocked by open tabs.
-    expect(await screen.findByText('Blocked by open tabs')).toBeTruthy();
+    expect(await screen.findByText('Open tabs left')).toBeTruthy();
     expect(screen.getByText('1 still open')).toBeTruthy();
     expect(screen.getByText('Nothing waiting to sync')).toBeTruthy();
     rpc.appRpc.mockResolvedValue({ ...payload, dayClose: { ...payload.dayClose, blockingTabs: [] } });

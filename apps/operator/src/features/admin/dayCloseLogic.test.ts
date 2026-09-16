@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { dayCloseCsv, deriveDayCloseState, varianceMagnitude, varianceSign, type CsvLabels } from './dayCloseLogic';
+import {
+  closeBlock,
+  dayCloseCsv,
+  deriveDayCloseState,
+  describeAdjustmentKind,
+  knownReason,
+  queueErrorCode,
+  queueWriteKey,
+  varianceMagnitude,
+  varianceSign,
+  type CsvLabels,
+} from './dayCloseLogic';
 
 const base = { dayLoaded: true, dayOpen: true, openTabCount: 0, queuedCount: 0, busy: false, closed: false, error: null };
 
@@ -64,17 +75,61 @@ describe('dayCloseCsv', () => {
   it('lays out server figures, the summary with authorisers, then each adjustment', () => {
     const { headers, rows } = dayCloseCsv(labels, close, summary, [
       { adjustment_id: 'a1', tab_id: 't1', kind: 'discount', value: 10, amount_iqd: 5000, reason_code: 'comp', created_at: '', applied_by_name: 'Sara', authorized_by_name: 'Dev Manager' },
-    ], (names) => names.join(', '));
+    ], (names) => names.join(', '), (adj) => `words for ${adj.kind}`);
     expect(headers).toEqual(['Figure', 'Value', 'Count', 'Authorised by']);
     expect(rows).toContainEqual(['Cash expected', 170000, null, null]);
     expect(rows).toContainEqual(['Variance', -2000, null, null]);
     expect(rows).toContainEqual(['Discounts', 15000, 2, 'Dev Manager, Dev Owner']);
-    expect(rows[rows.length - 1]).toEqual(['discount (comp)', 5000, 1, 'Dev Manager']);
+    // The adjustment line carries the screen's words, not the enum.
+    expect(rows[rows.length - 1]).toEqual(['words for discount', 5000, 1, 'Dev Manager']);
   });
 
   it('exports what it has before the close (no close figures yet)', () => {
-    const { rows } = dayCloseCsv(labels, null, summary, [], (n) => n.join(', '));
+    const { rows } = dayCloseCsv(labels, null, summary, [], (n) => n.join(', '), () => '');
     expect(rows.some((r) => r[0] === 'Cash expected')).toBe(false);
     expect(rows.some((r) => r[0] === 'Cash in')).toBe(true);
+  });
+});
+
+describe('plain words for stored codes', () => {
+  it('names the adjustment kind and reads a percentage from basis points', () => {
+    expect(describeAdjustmentKind({ kind: 'discount_percent', value: 1000 })).toEqual({ kind: 'percent', percent: 10 });
+    expect(describeAdjustmentKind({ kind: 'discount_percent', value: 750 })).toEqual({ kind: 'percent', percent: 7.5 });
+    expect(describeAdjustmentKind({ kind: 'discount_amount', value: 1500 })).toEqual({ kind: 'amount', percent: null });
+    expect(describeAdjustmentKind({ kind: 'price_override', value: 9000 })).toEqual({ kind: 'override', percent: null });
+    expect(describeAdjustmentKind({ kind: 'something_new', value: 1 })).toEqual({ kind: 'other', percent: null });
+  });
+
+  it('recognises the reason codes staff pick from and nothing else', () => {
+    expect(knownReason('comp')).toBe('comp');
+    expect(knownReason('customer_request')).toBe('customer_request');
+    expect(knownReason('replay-test')).toBeNull();
+    expect(knownReason(null)).toBeNull();
+  });
+
+  it('maps queue mutation types to a word, with a fallback for new ones', () => {
+    expect(queueWriteKey('payment.record')).toBe('payment');
+    expect(queueWriteKey('order.add_items')).toBe('order');
+    expect(queueWriteKey('reservation.update')).toBe('booking');
+    expect(queueWriteKey('future.thing')).toBe('other');
+  });
+
+  it('pulls the error code off a queue row error', () => {
+    expect(queueErrorCode('ITEM_UNAVAILABLE: the item is sold out')).toBe('ITEM_UNAVAILABLE');
+    expect(queueErrorCode('network down')).toBeNull();
+    expect(queueErrorCode(null)).toBeNull();
+  });
+});
+
+describe('closeBlock', () => {
+  it('names the first step still holding the close, tabs before sync before the count', () => {
+    expect(closeBlock('blockedByOpenTabs', null)).toBe('openTabs');
+    expect(closeBlock('blockedByUnsyncedQueue', 100000)).toBe('unsynced');
+    expect(closeBlock('ready', null)).toBe('noCount');
+    expect(closeBlock('ready', 125000)).toBeNull();
+  });
+
+  it('treats a count of zero as a count, not as missing', () => {
+    expect(closeBlock('ready', 0)).toBeNull();
   });
 });

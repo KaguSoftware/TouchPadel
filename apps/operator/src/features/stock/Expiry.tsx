@@ -1,73 +1,58 @@
 /**
- * Expiry (spec 06.37) — expiring-soon and expired stock. Batches render
+ * Expiry (spec 06.37) — expired and expiring-soon stock. Batches render
  * individually with their own expiry dates, never as one pile; consumption
  * takes the first-expiring batch first. Write-off is PIN-gated with its OWN
  * reason (app.write_off_expired, reason 'expired'), kept apart from spill and
- * spoilage in the variance report. v_expiring_soon uses the venue-configured
- * window; the day chips narrow the view further by the server's `days_left`.
+ * spoilage in the variance report.
+ *
+ * Reads report_stock (0068) rather than the two views: it carries the same
+ * batches plus what each is worth, rounded on the server, which is the number
+ * that makes "throw this out" concrete. The screen used to crash twice over:
+ * On hand cached the views' key with bare ids, and the cost column handed a
+ * fractional per-gram cost to `Money`.
+ *
+ * The 7 / 14 / 30-day chips are gone: the expiring list is already cut at the
+ * venue's window (three days by default, venue_settings.expiring_soon_days),
+ * so every chip showed the same rows. The subtitle says the window instead.
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDate, formatNumber } from '@touch/i18n';
-import { supabase } from '../../lib/supabase';
+import { formatDate } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
-import { usePermissions, requiredRoleFor } from '../../lib/auth';
+import { usePermissions } from '../../lib/auth';
 import { useToast } from '../../components/toast';
 import { Button, PinReasonModal } from '../../components/ui';
-import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, Money, PageHeader, Panel, PermissionRefusedNotice, SegmentedControl, StatusBadge, asyncStatus, type Column } from '../../components/kit';
+import { AsyncStateWrapper, DataTable, EmptyState, ExportButton, Money, PageHeader, Panel, StatusBadge, TableSkeleton, asyncStatus, type Column } from '../../components/kit';
 import { downloadCsv, toCsv } from '../analytics/csv';
-import { SK } from './stockKeys';
-
-interface BatchRow {
-  batch_id: string;
-  ingredient_id: string;
-  name_en: string;
-  name_ar: string;
-  unit: string;
-  qty_remaining: number;
-  unit_cost_iqd: number;
-  expiry_date: string;
-  days_left?: number;
-  days_expired?: number;
-}
-
-type Window = 'all' | '7' | '14' | '30';
+import { CardTitle } from '../ops/OpsVisuals';
+import { useStockFormat } from './stockUi';
+import { SK, fetchExpiryWindow, fetchSummary, type SummaryBatch } from './stockKeys';
 
 export function Expiry() {
   const { tr, locale } = useLocale();
+  const fmt = useStockFormat();
   const queryClient = useQueryClient();
   const toast = useToast();
   const can = usePermissions();
-  const [window, setWindow] = useState<Window>('all');
-  const [writeOff, setWriteOff] = useState<BatchRow | null>(null);
+  const [writeOff, setWriteOff] = useState<SummaryBatch | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  const expiringQ = useQuery({
-    queryKey: SK.expiring,
-    queryFn: async (): Promise<BatchRow[]> => {
-      const { data, error: err } = await supabase.from('v_expiring_soon').select('*').order('expiry_date');
-      if (err) throw err;
-      return data as BatchRow[];
-    },
-  });
-  const expiredQ = useQuery({
-    queryKey: SK.expired,
-    queryFn: async (): Promise<BatchRow[]> => {
-      const { data, error: err } = await supabase.from('v_expired').select('*').order('expiry_date');
-      if (err) throw err;
-      return data as BatchRow[];
-    },
-  });
+  const summaryQ = useQuery({ queryKey: SK.summary, queryFn: fetchSummary });
+  const windowQ = useQuery({ queryKey: SK.expiryWindow, queryFn: fetchExpiryWindow, staleTime: 5 * 60_000 });
+  const expired = summaryQ.data?.expired ?? [];
+  const expiring = summaryQ.data?.expiringSoon ?? [];
+  const nameOf = (b: SummaryBatch) => pickName(locale, { name_en: b.nameEn, name_ar: b.nameAr });
+  const dateOf = (b: SummaryBatch) => formatDate(new Date(`${b.expiryDate}T00:00:00`), locale);
 
   async function submitWriteOff(pin: string, reasonCode: string) {
     if (!writeOff) return;
     setBusy(true);
     setError(null);
     try {
-      await appRpc('write_off_expired', { p_batch_id: writeOff.batch_id, p_pin: pin, p_reason_code: reasonCode });
-      toast.ok(tr('op.toast.saved'));
+      await appRpc('write_off_expired', { p_batch_id: writeOff.batchId, p_pin: pin, p_reason_code: reasonCode });
+      toast.ok(tr('ws.manager.stock.expiry.written', { name: nameOf(writeOff) }));
       setWriteOff(null);
       void queryClient.invalidateQueries({ queryKey: ['stock'] });
     } catch (e) {
@@ -77,132 +62,131 @@ export function Expiry() {
     }
   }
 
-  const expiring = (expiringQ.data ?? []).filter((b) => window === 'all' || (b.days_left ?? 0) <= Number(window));
-  const expired = expiredQ.data ?? [];
-
   function exportCsv() {
-    const headers = [tr('op.stock.ingredient'), tr('ws.manager.stock.expiry.batch'), tr('ws.manager.stock.expiry.remaining'), tr('op.stock.unit'), tr('ws.manager.stock.expiry.unitCost'), tr('op.stock.expiry'), tr('ws.manager.stock.overview.status')];
+    const headers = [
+      tr('op.stock.ingredient'),
+      tr('ws.manager.stock.expiry.left'),
+      tr('op.stock.unitLabel'),
+      tr('ws.manager.stock.expiry.expiryDate'),
+      tr('ws.manager.stock.expiry.worth'),
+      tr('ws.manager.stock.expiry.state'),
+    ];
     const rows = [
-      ...expired.map((b) => [b.name_en, b.batch_id, b.qty_remaining, b.unit, b.unit_cost_iqd, b.expiry_date, 'expired']),
-      ...expiring.map((b) => [b.name_en, b.batch_id, b.qty_remaining, b.unit, b.unit_cost_iqd, b.expiry_date, 'expiring']),
+      ...expired.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), b.expiryDate, b.valueIqd, tr('ws.manager.stock.expiry.stateExpired')]),
+      ...expiring.map((b) => [nameOf(b), b.qtyRemaining, fmt.unit(b.unit), b.expiryDate, b.valueIqd, tr('ws.manager.stock.expiry.stateExpiring')]),
     ];
     downloadCsv('expiry.csv', toCsv(headers, rows));
   }
 
-  const baseColumns = (tone: 'warn' | 'danger'): Column<BatchRow>[] => [
-    {
-      key: 'ingredient',
-      header: tr('op.stock.ingredient'),
-      render: (b) => (
-        <span>
-          <strong>
-            <bdi>{pickName(locale, b)}</bdi>
-          </strong>{' '}
-          <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }} dir="ltr">
-            {b.batch_id.slice(0, 8)}
-          </span>
-        </span>
-      ),
-    },
-    { key: 'remaining', header: tr('ws.manager.stock.expiry.remaining'), numeric: true, render: (b) => <span dir="ltr">{b.qty_remaining} {b.unit}</span> },
-    { key: 'cost', header: tr('ws.manager.stock.expiry.unitCost'), numeric: true, render: (b) => <Money amount={b.unit_cost_iqd} /> },
-    {
-      key: 'expiry',
-      header: tone === 'danger' ? tr('ws.manager.stock.expiry.expiredOn') : tr('ws.manager.stock.expiry.expiresOn'),
-      render: (b) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center' }}>
-          <bdi>{formatDate(new Date(`${b.expiry_date}T00:00:00`), locale)}</bdi>
-          <StatusBadge
-            size="sm"
-            tone={tone}
-            label={tone === 'danger' ? tr('op.stock.daysExpired', { days: formatNumber(b.days_expired ?? 0, locale) }) : tr('op.stock.daysLeft', { days: formatNumber(b.days_left ?? 0, locale) })}
-          />
-        </span>
-      ),
-    },
+  /** "today" / "tomorrow" / "in 3 days" — relative words read faster than a date. */
+  const whenLeft = (days: number) =>
+    days <= 0 ? tr('ws.manager.stock.expiry.today') : days === 1 ? tr('ws.manager.stock.expiry.tomorrow') : tr('ws.manager.stock.expiry.inDays', { days: fmt.num(days) });
+  const whenGone = (days: number) =>
+    days <= 1 ? tr('ws.manager.stock.expiry.yesterday') : tr('ws.manager.stock.expiry.daysAgo', { days: fmt.num(days) });
+
+  const base: Column<SummaryBatch>[] = [
+    { key: 'ingredient', header: tr('op.stock.ingredient'), render: (b) => <bdi style={{ fontWeight: 600 }}>{nameOf(b)}</bdi> },
+    { key: 'left', header: tr('ws.manager.stock.expiry.left'), numeric: true, render: (b) => <bdi>{fmt.qty(b.qtyRemaining, b.unit)}</bdi> },
+    { key: 'worth', header: tr('ws.manager.stock.expiry.worth'), numeric: true, render: (b) => <Money amount={b.valueIqd} /> },
   ];
 
-  const expiredColumns: Column<BatchRow>[] = [
-    ...baseColumns('danger'),
+  const expiredColumns: Column<SummaryBatch>[] = [
+    ...base,
+    {
+      key: 'expiry',
+      header: tr('ws.manager.stock.expiry.expiredOn'),
+      render: (b) => (
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <bdi>{dateOf(b)}</bdi>
+          <StatusBadge size="sm" tone="danger" label={whenGone(b.daysExpired ?? 0)} />
+        </span>
+      ),
+    },
     {
       key: 'writeOff',
       header: '',
       align: 'end',
       render: (b) => (
         <Button kind="danger" size="sm" icon="ban" disabled={busy || !can.adjustStock} onClick={() => setWriteOff(b)}>
-          {tr('op.stock.writeOff')}
+          {tr('ws.manager.stock.expiry.writeOff')}
         </Button>
       ),
     },
   ];
 
+  const expiringColumns: Column<SummaryBatch>[] = [
+    ...base,
+    {
+      key: 'expiry',
+      header: tr('ws.manager.stock.expiry.expiresOn'),
+      render: (b) => (
+        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <bdi>{dateOf(b)}</bdi>
+          <StatusBadge size="sm" tone="warn" label={whenLeft(b.daysLeft ?? 0)} />
+        </span>
+      ),
+    },
+  ];
+
+  const status = asyncStatus(summaryQ, () => false);
+
   return (
     <div>
       <PageHeader
         title={tr('op.stockNav.expiry')}
-        subtitle={tr('ws.manager.stock.expiry.lead')}
+        subtitle={
+          windowQ.data != null
+            ? tr('ws.manager.stock.expiry.lead', { days: fmt.num(windowQ.data) })
+            : tr('ws.manager.stock.expiry.leadNoWindow')
+        }
         actions={<ExportButton onExport={exportCsv} disabled={expired.length + expiring.length === 0} />}
+      />
+
+      <AsyncStateWrapper
+        status={status}
+        error={summaryQ.error}
+        onRetry={() => void summaryQ.refetch()}
+        skeleton={<TableSkeleton columns={expiredColumns} rows={4} />}
       >
-        {!can.adjustStock && <PermissionRefusedNotice action={tr('op.stock.writeOff')} requiredRole={requiredRoleFor('adjustStock')} />}
-      </PageHeader>
-
-      <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
-        <Panel title={tr('op.stock.expiredTitle')} padded={false} actions={<StatusBadge size="sm" tone={expired.length > 0 ? 'danger' : 'neutral'} label={formatNumber(expired.length, locale)} />}>
-          <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.expiry.writeOffLead')}</p>
-          <AsyncStateWrapper
-            compact
-            status={asyncStatus(expiredQ, (d) => d.length === 0)}
-            error={expiredQ.error}
-            onRetry={() => void expiredQ.refetch()}
-            emptyContent={
-              <div style={{ padding: 'var(--tp-sp-3)' }}>
-                <EmptyState compact icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpired')} />
-              </div>
-            }
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
+          <Panel
+            title={<CardTitle icon="ban">{tr('ws.manager.stock.expiry.expiredTitle')}</CardTitle>}
+            padded={false}
           >
-            <DataTable columns={expiredColumns} rows={expired} rowKey={(b) => b.batch_id} aria-label={tr('op.stock.expiredTitle')} />
-          </AsyncStateWrapper>
-        </Panel>
-
-        <Panel
-          title={tr('op.stock.expiringTitle')}
-          padded={false}
-          actions={
-            <>
-              <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.stock.expiry.window')}</span>
-              <SegmentedControl<Window>
-                size="sm"
-                value={window}
-                onChange={setWindow}
-                options={[
-                  { value: 'all', label: tr('ws.kit.common.all') },
-                  { value: '7', label: tr('ws.manager.stock.expiry.days', { days: 7 }) },
-                  { value: '14', label: tr('ws.manager.stock.expiry.days', { days: 14 }) },
-                  { value: '30', label: tr('ws.manager.stock.expiry.days', { days: 30 }) },
-                ]}
-              />
-            </>
-          }
-        >
-          <AsyncStateWrapper
-            compact
-            status={expiringQ.data && expiring.length === 0 ? 'empty' : asyncStatus(expiringQ, (d) => d.length === 0)}
-            error={expiringQ.error}
-            onRetry={() => void expiringQ.refetch()}
-            emptyContent={
+            {expired.length === 0 ? (
               <div style={{ padding: 'var(--tp-sp-3)' }}>
-                <EmptyState compact icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpiring')} />
+                <EmptyState compact kind="nothingToDo" icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpired')} />
               </div>
-            }
-          >
-            <DataTable columns={baseColumns('warn')} rows={expiring} rowKey={(b) => b.batch_id} aria-label={tr('op.stock.expiringTitle')} />
-          </AsyncStateWrapper>
-        </Panel>
-      </div>
+            ) : (
+              <>
+                <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                  {can.adjustStock ? tr('ws.manager.stock.expiry.expiredHint') : tr('ws.manager.stock.expiry.writeOffNotAllowed')}
+                </p>
+                <DataTable columns={expiredColumns} rows={expired} rowKey={(b) => b.batchId} aria-label={tr('ws.manager.stock.expiry.expiredTitle')} />
+              </>
+            )}
+          </Panel>
+
+          <Panel title={<CardTitle icon="hourglass">{tr('ws.manager.stock.expiry.expiringTitle')}</CardTitle>} padded={false}>
+            {expiring.length === 0 ? (
+              <div style={{ padding: 'var(--tp-sp-3)' }}>
+                <EmptyState compact kind="nothingToDo" icon="checkCircle" title={tr('ws.manager.stock.expiry.noneExpiring')} />
+              </div>
+            ) : (
+              <>
+                <p style={{ paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-3)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+                  {tr('ws.manager.stock.expiry.expiringHint')}
+                </p>
+                <DataTable columns={expiringColumns} rows={expiring} rowKey={(b) => b.batchId} aria-label={tr('ws.manager.stock.expiry.expiringTitle')} />
+              </>
+            )}
+          </Panel>
+        </div>
+      </AsyncStateWrapper>
 
       {writeOff && (
         <PinReasonModal
-          title={`${tr('op.stock.writeOff')} — ${pickName(locale, writeOff)}`}
+          title={tr('ws.manager.stock.expiry.writeOffTitle', { name: nameOf(writeOff) })}
           reasons={['expired']}
           busy={busy}
           error={error}
@@ -212,10 +196,8 @@ export function Expiry() {
             setError(null);
           }}
         >
-          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
-            <bdi>
-              {writeOff.qty_remaining} {writeOff.unit} · {formatDate(new Date(`${writeOff.expiry_date}T00:00:00`), locale)}
-            </bdi>
+          <p style={{ fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-2-5)' }}>
+            <bdi>{tr('ws.manager.stock.expiry.writeOffBody', { qty: fmt.qty(writeOff.qtyRemaining, writeOff.unit), date: dateOf(writeOff) })}</bdi>
           </p>
         </PinReasonModal>
       )}

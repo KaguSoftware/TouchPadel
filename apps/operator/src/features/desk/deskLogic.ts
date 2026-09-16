@@ -4,7 +4,7 @@
  * Everything here compares timestamps and maps statuses; nothing computes a
  * price, a duration or a total. The board renders what the server returned.
  */
-import type { BookingStatus, PaymentStatus } from '../../components/kit';
+import type { BookingStatus } from '../../components/kit';
 import type { ReservationRow, TabLinkRow } from './deskTypes';
 
 /** Statuses that occupy a court (the exclusion constraint's own set). */
@@ -20,22 +20,6 @@ const KNOWN: readonly BookingStatus[] = ['pending', 'confirmed', 'arrived', 'com
 /** Server status → the seven-state indicator. Unknown strings render as-is via the indicator. */
 export function toBookingStatus(status: string): BookingStatus | string {
   return (KNOWN as readonly string[]).includes(status) ? (status as BookingStatus) : status;
-}
-
-/**
- * Payment status is never computed here: a booking is `paid` only when the
- * server holds a settled tab that charges it. No tab → unknown, not unpaid.
- */
-export function paymentStatusFor(
-  reservation: Pick<ReservationRow, 'id' | 'price_iqd' | 'kind'>,
-  tabs: readonly TabLinkRow[] | undefined,
-): PaymentStatus {
-  if (reservation.kind !== 'booking') return 'unknown';
-  if (reservation.price_iqd == null || tabs === undefined) return 'unknown';
-  const linked = tabs.filter((t) => t.reservation_id === reservation.id && t.status !== 'void');
-  if (linked.length === 0) return 'unknown';
-  if (linked.some((t) => t.status === 'settled')) return 'paid';
-  return 'unpaid';
 }
 
 /**
@@ -95,18 +79,90 @@ export function courtAvailability(
   });
 }
 
+export interface ArrivalsDue<T> {
+  /** Already started and still not marked arrived — the guest is late, or never came. */
+  late: T[];
+  /** Starting between now and the horizon, not yet arrived. */
+  soon: T[];
+}
+
 /**
- * The arrivals panel: bookings starting between `now` and `horizonIso`
- * that have not arrived yet, plus everything already marked arrived.
+ * The desk's to-do list for the door. Arrivals that already happened are NOT
+ * here: the old panel listed them beside the ones still to come, so the one
+ * list a clerk scans between guests was half things already done. A booking
+ * that started and is still `confirmed` is split out as late, because that is
+ * the question the desk has to answer next (still coming, or a no-show?).
  */
-export function arrivals(reservations: readonly ReservationRow[], nowIso: string, horizonIso: string): ReservationRow[] {
-  return sortByStart(
-    reservations.filter((r) => {
-      if (r.kind !== 'booking') return false;
-      if (r.status === 'arrived') return true;
-      if (r.status !== 'confirmed') return false;
-      return r.start_at >= nowIso && r.start_at <= horizonIso;
-    }),
+export function arrivalsDue(reservations: readonly ReservationRow[], nowIso: string, horizonIso: string): ArrivalsDue<ReservationRow> {
+  const late: ReservationRow[] = [];
+  const soon: ReservationRow[] = [];
+  for (const r of sortByStart(reservations)) {
+    if (r.kind !== 'booking' || r.status !== 'confirmed') continue;
+    if (r.start_at <= nowIso && r.end_at > nowIso) late.push(r);
+    else if (r.start_at > nowIso && r.start_at <= horizonIso) soon.push(r);
+  }
+  return { late, soon };
+}
+
+/** How a booking's court fee stands on the till. */
+export type ChargeState = 'paid' | 'unpaid' | 'none';
+
+/**
+ * Read from the tabs that charge this booking. `null` when that cannot be
+ * known (not a booking, no price, or the tabs were not loaded): the screen
+ * prints "—", never a guess. `none` is a fact, not a gap — the desk can read
+ * tabs, and no tab charges this booking yet.
+ */
+export function chargeStateFor(
+  reservation: Pick<ReservationRow, 'id' | 'price_iqd' | 'kind'>,
+  tabs: readonly TabLinkRow[] | undefined,
+): ChargeState | null {
+  if (reservation.kind !== 'booking' || reservation.price_iqd == null || tabs === undefined) return null;
+  const linked = tabs.filter((t) => t.reservation_id === reservation.id && t.status !== 'void');
+  if (linked.length === 0) return 'none';
+  return linked.some((t) => t.status === 'settled') ? 'paid' : 'unpaid';
+}
+
+export interface NightSummary {
+  bookings: number;
+  arrived: number;
+  /** Confirmed bookings that have not started yet. */
+  toCome: number;
+}
+
+/** The three counts the board's subtitle states. Holds and blocks are not bookings. */
+export function nightSummary(reservations: readonly ReservationRow[], nowIso: string): NightSummary {
+  let bookings = 0;
+  let arrived = 0;
+  let toCome = 0;
+  for (const r of reservations) {
+    if (r.kind !== 'booking') continue;
+    bookings += 1;
+    if (r.status === 'arrived' || r.status === 'completed') arrived += 1;
+    else if (r.status === 'confirmed' && r.start_at > nowIso) toCome += 1;
+  }
+  return { bookings, arrived, toCome };
+}
+
+/**
+ * Whether [startMs, endMs) on `courtId` overlaps a reservation that occupies
+ * the court. The server's exclusion constraint is the control; this only keeps
+ * the create dialog from offering a start time it already knows is taken.
+ */
+export function slotTaken(
+  reservations: readonly Pick<ReservationRow, 'id' | 'court_id' | 'status' | 'start_at' | 'end_at'>[],
+  courtId: string,
+  startMs: number,
+  endMs: number,
+  ignoreId?: string,
+): boolean {
+  return reservations.some(
+    (r) =>
+      r.court_id === courtId &&
+      r.id !== ignoreId &&
+      BLOCKING_STATUSES.has(r.status) &&
+      new Date(r.start_at).getTime() < endMs &&
+      new Date(r.end_at).getTime() > startMs,
   );
 }
 

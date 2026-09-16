@@ -55,6 +55,8 @@ export interface DayAdjustmentRow {
   tab_id: string;
   kind: string;
   value: number | null;
+  /** Null for a whole-bill adjustment; set when it touched one line. */
+  order_item_id?: string | null;
   amount_iqd: number;
   reason_code: string | null;
   created_at: string;
@@ -133,6 +135,8 @@ export function dayCloseCsv(
   summary: DaySummaryRow | null,
   adjustments: readonly DayAdjustmentRow[],
   joinNames: (names: readonly string[]) => string,
+  /** The words the screen shows for an adjustment ("10% off · whole bill · Complimentary"). */
+  describe: (a: DayAdjustmentRow) => string,
 ): { headers: string[]; rows: CsvCell[][] } {
   const headers = [labels.figure, labels.value, labels.count, labels.authorisers];
   const rows: CsvCell[][] = [];
@@ -157,11 +161,102 @@ export function dayCloseCsv(
   }
   for (const a of adjustments) {
     rows.push([
-      `${a.kind}${a.reason_code ? ` (${a.reason_code})` : ''}`,
+      describe(a),
       a.amount_iqd,
       1,
       a.authorized_by_name ?? a.applied_by_name ?? null,
     ]);
   }
   return { headers, rows };
+}
+
+// ---------------------------------------------------------------------------
+// Plain words for what the server stores as codes
+// ---------------------------------------------------------------------------
+
+export type AdjustmentKind = 'percent' | 'amount' | 'override' | 'other';
+
+/**
+ * `tab_adjustments.kind` (the `adjustment_kind` enum, 0002) in the words a
+ * manager uses. The table used to print `discount_percent` verbatim. For a
+ * percentage the stored value is in basis points (1000 = 10%, see
+ * app.apply_discount in 0037), so the percent is value / 100 — a unit
+ * conversion for the label, never a money figure.
+ */
+export function describeAdjustmentKind(a: Pick<DayAdjustmentRow, 'kind' | 'value'>): { kind: AdjustmentKind; percent: number | null } {
+  switch (a.kind) {
+    case 'discount_percent':
+      return { kind: 'percent', percent: a.value == null ? null : a.value / 100 };
+    case 'discount_amount':
+      return { kind: 'amount', percent: null };
+    case 'price_override':
+      return { kind: 'override', percent: null };
+    default:
+      return { kind: 'other', percent: null };
+  }
+}
+
+/** The reason codes staff pick from (op.reasons.*); anything else is shown as typed. */
+export const KNOWN_REASONS = [
+  'customer_request',
+  'weather',
+  'expired',
+  'staff_error',
+  'duplicate',
+  'wrong_item',
+  'changed_mind',
+  'quality',
+  'spill',
+  'comp',
+  'other',
+] as const;
+export type KnownReason = (typeof KNOWN_REASONS)[number];
+
+export function knownReason(code: string | null | undefined): KnownReason | null {
+  return code && (KNOWN_REASONS as readonly string[]).includes(code) ? (code as KnownReason) : null;
+}
+
+/**
+ * The offline queue's mutation types (operator-shell ipc-validate.ts
+ * MUTATION_TYPES) as catalog keys, so a blocking write reads "Payment" rather
+ * than `payment.record`. An unknown type falls back to a generic word.
+ */
+export const QUEUE_WRITE_KEY = {
+  'order.create': 'order',
+  'order.add_items': 'order',
+  'ticket.status': 'ticket',
+  'payment.record': 'payment',
+  'reservation.create': 'booking',
+  'reservation.update': 'booking',
+  'waiter_call.action': 'waiterCall',
+  'stock.waste': 'waste',
+  'tab.open': 'tab',
+  'tab.settle': 'payment',
+  'adjustment.apply': 'discount',
+} as const satisfies Record<string, string>;
+export type QueueWriteKey = (typeof QUEUE_WRITE_KEY)[keyof typeof QUEUE_WRITE_KEY] | 'other';
+
+export function queueWriteKey(mutationType: string): QueueWriteKey {
+  return (QUEUE_WRITE_KEY as Record<string, QueueWriteKey>)[mutationType] ?? 'other';
+}
+
+/** The leading error code of a queue row's last error ("ITEM_UNAVAILABLE: …"), if it has one. */
+export function queueErrorCode(lastError: string | null): string | null {
+  const m = lastError?.match(/^[A-Z][A-Z0-9_]+/);
+  return m ? m[0] : null;
+}
+
+export type CloseBlock = 'openTabs' | 'unsynced' | 'noCount' | null;
+
+/**
+ * Why the close button cannot be pressed, in the order the manager has to deal
+ * with them. A count is required: `close_day` would accept 0, and a forgotten
+ * count used to go through as "short by the whole drawer" because the field
+ * started at 0.
+ */
+export function closeBlock(state: DayCloseState, countedCash: number | null): CloseBlock {
+  if (state === 'blockedByOpenTabs') return 'openTabs';
+  if (state === 'blockedByUnsyncedQueue') return 'unsynced';
+  if (countedCash === null) return 'noCount';
+  return null;
 }

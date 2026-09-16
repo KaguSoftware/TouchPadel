@@ -14,7 +14,7 @@ export function KeymapHelp({ onClose }: { onClose: () => void }) {
       <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 'var(--tp-sp-2) var(--tp-sp-4)', margin: 0, alignItems: 'center' }}>
         {TILL_KEYMAP.map((row) => (
           <div key={row.labelKey} style={{ display: 'contents' }}>
-            <dt style={{ display: 'inline-flex', gap: 'var(--tp-sp-0)', flexWrap: 'wrap' }} dir="ltr">
+            <dt style={{ display: 'inline-flex', gap: 'var(--tp-sp-0)', whiteSpace: 'nowrap' }} dir="ltr">
               {row.keys.map((k, i) => (
                 <Kbd key={i}>{k}</Kbd>
               ))}

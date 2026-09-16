@@ -5,7 +5,7 @@
  * phone come back as codes and land on the field. States: ready · busy · error.
  */
 import { useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { callEdge, EdgeError, type EdgeFunctionName } from '../../../lib/edge';
 import { useToast } from '../../../components/toast';
 import { useLocale } from '../../../lib/i18n';
@@ -158,9 +158,9 @@ export function CustomerCreateScreen() {
           </div>
           <ErrorText error={error} />
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <Link to="/desk/customers" className="tp-btn" data-kind="ghost" data-size="md">
+            <Button kind="ghost" onClick={() => void navigate({ to: '/desk/customers' })}>
               {tr('ws.courtDesk.createCustomer.cancel')}
-            </Link>
+            </Button>
             <Button type="submit" kind="primary" icon="userPlus" busy={busy} disabled={busy}>
               {tr('ws.courtDesk.createCustomer.submit')}
             </Button>

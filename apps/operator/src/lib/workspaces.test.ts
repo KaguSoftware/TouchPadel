@@ -259,3 +259,15 @@ describe('the manager rail', () => {
     }
   });
 });
+
+describe('menu editor tabs', () => {
+  // Categories, add-ons and suggested items are tabs of the menu editor but
+  // live beside /admin/menu, so the Menu row must claim them explicitly.
+  it('keeps the Menu row lit on every tab of the menu editor', () => {
+    const menuRow = WORKSPACES.manager.groups.flatMap((g) => g.items).find((i) => i.labelKey === 'menu')!;
+    for (const path of ['/admin/menu', '/admin/categories', '/admin/addons', '/admin/suggested']) {
+      expect(isNavActive(menuRow, path), path).toBe(true);
+    }
+    expect(isNavActive(menuRow, '/admin/rates')).toBe(false);
+  });
+});

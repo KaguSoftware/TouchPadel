@@ -15,19 +15,31 @@
  * cashier must be able to read WHICH tab this is and reach Pay without
  * scrolling, on a tab with two lines and on one with forty; and the pay target
  * must not move between those two tabs, or between any of the states above.
+ *
+ * What the body leaves out, on purpose:
+ *  - An "Open" badge on an open tab (the only kind the till selects). The
+ *    header says when the tab was opened and where its orders came from.
+ *  - A standing paragraph about voiding sent lines. The void dialog states the
+ *    consequence at the moment it applies.
+ *  - Two always-visible icon buttons on every line. A line opens its own
+ *    "Change price / Void" row when pressed: rare actions, one press away.
+ *  - The promotion box. It took a third of the panel on every tab and is used
+ *    on a few; it opens from "Promotion" among the actions.
+ *  - "Due" twice. The amount still to pay after a part payment is said once,
+ *    in the pay footer beside the buttons that take it.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatIQD } from '@touch/i18n';
+import { formatIQD, formatTime } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { useLocale, pickName } from '../../lib/i18n';
-import { requiredRoleFor, usePermissions } from '../../lib/auth';
+import { useAuth, usePermissions } from '../../lib/auth';
 import { Button, ErrorText, Field, PinReasonModal, Skeleton, inputStyle } from '../../components/ui';
-import { Kbd, MessagePresenter, Money, PermissionRefusedNotice, ReasonCodePrompt, TabStatusIndicator } from '../../components/kit';
+import { Kbd, MessagePresenter, Money, ReasonCodePrompt, SegmentedControl, StatusBadge, TabStatusIndicator } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { computeTabTotals, discountBreakdown } from './tabTotals';
 import { BillView } from './BillView';
@@ -35,8 +47,9 @@ import { MergeTabsDialog, OverridePriceDialog, RefundDialog } from './ManagerAct
 import { SplitBillDialog } from './SplitBillDialog';
 import { ChargeToBookingDialog } from './ChargeToBookingDialog';
 import { PaymentPane, type PaymentMethod } from './PaymentPane';
-import { TILL_MENU_QUERY, tabDetailQuery, tabAnchorLabel, type TabLineRow } from './tillData';
+import { TILL_MENU_QUERY, canReadBookings, tabDetailQuery, tabAnchorLabel, tabHasWebOrder, type TabLineRow } from './tillData';
 import { kvRow, muted, numeric, sectionTitle } from './tillStyles';
+import { DRAWER_REASONS } from './drawerReasons';
 
 type Overlay =
   | { kind: 'none' }
@@ -53,16 +66,23 @@ type Overlay =
 
 export function TabDetailPanel({
   tabId,
+  unsentCount = 0,
   onClosedTab,
   onSwitchTab,
 }: {
   tabId: string;
+  /** Lines in the till's basket not yet sent to this tab — they are not on its bill. */
+  unsentCount?: number;
   onClosedTab: () => void;
   /** The tab was merged into / replaced by another one — select that instead. */
   onSwitchTab: (id: string) => void;
 }) {
   const { tr, locale } = useLocale();
   const can = usePermissions();
+  const { staff } = useAuth();
+  const bookingsVisible = canReadBookings(staff?.role);
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [openLineId, setOpenLineId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' });
   const [discountKind, setDiscountKind] = useState<'discount_percent' | 'discount_amount'>('discount_percent');
@@ -128,6 +148,8 @@ export function TabDetailPanel({
     setDrawerNoted(false);
     setActionError(null);
     setOverlay({ kind: 'none' });
+    setPromoOpen(false);
+    setOpenLineId(null);
   }, [tabId]);
 
   function refresh() {
@@ -288,6 +310,7 @@ export function TabDetailPanel({
   const allLines = liveOrders.flatMap((o) => o.order_items);
   const partiallyPaid = !settled && totals.paid > 0 && due > 0;
   const overrideLine = overlay.kind === 'override' ? allLines.find((l) => l.id === overlay.lineId) : undefined;
+  const web = tabHasWebOrder(tab);
 
   // Rulebook 4.3 — no dead ends. Only STATE gets a reason here: `busy` is
   // already spoken by the spinner on the control the operator just pressed.
@@ -298,15 +321,12 @@ export function TabDetailPanel({
     /*
      * Three fixed zones (rulebook 5.1), and the outer flex column is what makes
      * them fixed: the identity header and the pay footer are siblings of the
-     * scroller, not passengers inside it. Before this the whole panel scrolled
-     * as one, so Cash and Card sat wherever the line count, the promotion box
-     * and five conditional notices happened to leave them — the pay target
-     * stood somewhere different on a part-paid tab than on a fresh one.
+     * scroller, not passengers inside it.
      */
     <section
       aria-label={tr('ws.cashier.till.regionTab')}
       aria-busy={busy || undefined}
-      style={{ flex: '1 1 auto', blockSize: '100%', minBlockSize: 0, display: 'flex', flexDirection: 'column' }}
+      style={{ flex: '1 1 auto', blockSize: '100%', minBlockSize: 0, minInlineSize: 0, display: 'flex', flexDirection: 'column' }}
     >
       {/* ---- zone 1: identity, always on screen (rulebook 5.2) ---- */}
       <header
@@ -322,35 +342,41 @@ export function TabDetailPanel({
           <h2 style={{ fontSize: 'var(--tp-fs-lg)', fontWeight: 700, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <bdi>{label}</bdi>
           </h2>
-          <TabStatusIndicator status={tab.status} size="sm" />
+          {tab.status !== 'open' && <TabStatusIndicator status={tab.status} size="sm" />}
         </div>
-        {tab.reservation_id && (
-          <span style={{ ...muted, display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
-            <Icon name="calendar" size={13} /> {tr('ws.cashier.detail.chargedTo')}
-            {tab.reservation?.court && (
-              <>
-                {' · '}
-                <bdi>{pickName(locale, tab.reservation.court)}</bdi>
-              </>
-            )}
-          </span>
-        )}
+        <span style={{ ...muted, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+          {tab.opened_at && <span>{tr('ws.cashier.detail.openedAt', { time: formatTime(new Date(tab.opened_at), locale) })}</span>}
+          {web && <StatusBadge tone="info" icon="globe" dot={false} size="sm" label={tr('ws.cashier.tabs.sourceWeb')} />}
+          {tab.reservation_id && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}>
+              <Icon name="calendar" size={13} /> {tr('ws.cashier.detail.chargedTo')}
+              {tab.reservation?.court && (
+                <>
+                  {' · '}
+                  <bdi>{pickName(locale, tab.reservation.court)}</bdi>
+                </>
+              )}
+            </span>
+          )}
+        </span>
       </header>
 
       {/* ---- zone 2: everything that grows ---- */}
       <div style={{ flex: 1, minBlockSize: 0, overflowY: 'auto', display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', paddingBlock: 'var(--tp-sp-3)' }}>
-        {/* ---- lines (TabLineList, sent = not editable, void = waste) ---- */}
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+        {/* ---- lines (sent = not editable, void = waste) ---- */}
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <h3 style={sectionTitle}>{tr('ws.cashier.detail.linesTitle')}</h3>
           {allLines.length === 0 && <p style={muted}>{tr('ws.cashier.detail.noLines')}</p>}
           {liveOrders.map((o) => (
-            <ul key={o.id} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            <ul key={o.id} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-0)' }}>
               {o.order_items.map((line) => (
                 <TabLine
                   key={line.id}
                   line={line}
                   settled={Boolean(settled)}
                   busy={busy}
+                  open={openLineId === line.id}
+                  onToggle={() => setOpenLineId((cur) => (cur === line.id ? null : line.id))}
                   onOverride={() => setOverlay({ kind: 'override', lineId: line.id })}
                   onVoid={() => {
                     setVoidRefused(false);
@@ -361,11 +387,10 @@ export function TabDetailPanel({
               ))}
             </ul>
           ))}
-          {allLines.length > 0 && !settled && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.sentHint')}</p>}
           {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
         </div>
 
-        {/* ---- totals (TabTotals + AppliedPromotionRow) ---- */}
+        {/* ---- totals ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-2)' }}>
           <Row label={tr('common.subtotal')} amount={totals.subtotal} />
           {discounts.manager > 0 && <Row label={tr('ws.cashier.detail.managerDiscount')} amount={-discounts.manager} />}
@@ -382,49 +407,20 @@ export function TabDetailPanel({
           {totals.tax > 0 && <Row label={taxCtx?.taxInclusive ? tr('op.till.taxIncluded') : tr('op.till.tax')} amount={totals.tax} />}
           <Row label={tr('common.total')} amount={totals.total} strong />
           {totals.paid > 0 && <Row label={tr('ws.cashier.detail.paid')} amount={-totals.paid} />}
-          {totals.paid > 0 && !settled && <Row label={tr('ws.cashier.detail.due')} amount={due} strong />}
           {lastChange != null && lastChange > 0 && <Row label={tr('op.till.change')} amount={lastChange} strong tone="success" />}
         </div>
 
-        {/*
-          The five conditional notices. They live inside the scroller, which the
-          pay footer is deliberately not part of, so any combination of them can
-          appear without the Cash button knowing about it.
-        */}
-        {partiallyPaid && <MessagePresenter tone="info" icon="banknote" message={tr('ws.cashier.payment.partiallyPaid', { amount: formatIQD(due, locale) })} />}
         {settled && <MessagePresenter tone="success" message={tr('op.till.paidInFull')} />}
         {drawerNoted && <MessagePresenter tone="success" icon="drawer" message={tr('op.till.drawerNoted')} />}
         <ErrorText error={actionError} />
 
-        {/* ---- promotion (read-only result; the server chose it) ---- */}
-        {!settled && allLines.length > 0 && (
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
-            <h3 style={sectionTitle}>{tr('ws.cashier.detail.promoTitle')}</h3>
-            <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', alignItems: 'end' }}>
-              <Field label={tr('ws.cashier.detail.promoCode')} style={{ marginBlockEnd: 0, flex: 1 }}>
-                <input
-                  style={inputStyle}
-                  value={promoCode}
-                  maxLength={32}
-                  disabled={busy}
-                  placeholder={tr('ws.cashier.detail.promoCodePlaceholder')}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !busy && void applyPromotion()}
-                />
-              </Field>
-              <Button icon="tag" busy={busy} onClick={() => void applyPromotion()}>
-                {tr('ws.cashier.detail.promoApply')}
-              </Button>
-            </div>
-            {promoNotice && <MessagePresenter tone={promoNotice.tone} message={promoNotice.text} />}
-            <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.promoHint')}</p>
-          </div>
-        )}
-
-        {/* ---- actions ---- */}
+        {/* ---- actions, most-used first ---- */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
           <h3 style={sectionTitle}>{tr('ws.cashier.detail.actionsTitle')}</h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)', alignItems: 'flex-start' }}>
+            <Button icon="receipt" disabled={busy} onClick={() => setOverlay({ kind: 'bill' })}>
+              {tr('op.till.bill')}
+            </Button>
             {!settled && (
               <>
                 <Button
@@ -438,46 +434,83 @@ export function TabDetailPanel({
                 <Button icon="tag" disabled={busy} onClick={() => { setPinError(null); setOverlay({ kind: 'discount' }); }}>
                   {tr('ws.cashier.detail.discount')}
                 </Button>
+                {allLines.length > 0 && (
+                  <Button icon="spark" aria-pressed={promoOpen} disabled={busy} onClick={() => setPromoOpen((v) => !v)}>
+                    {tr('ws.cashier.detail.promoTitle')}
+                  </Button>
+                )}
                 <Button icon="merge" disabled={busy} onClick={() => setOverlay({ kind: 'merge' })}>
                   {tr('ws.cashier.detail.merge')}
                 </Button>
-                {!tab.reservation_id && (
+                {!tab.reservation_id && bookingsVisible && (
                   <Button icon="calendar" disabled={busy} onClick={() => setOverlay({ kind: 'charge' })}>
                     {tr('ws.cashier.detail.chargeBooking')}
                   </Button>
                 )}
               </>
             )}
-            <Button icon="receipt" disabled={busy} onClick={() => setOverlay({ kind: 'bill' })}>
-              {tr('op.till.bill')}
-            </Button>
             <Button icon="drawer" disabled={busy} onClick={() => setOverlay({ kind: 'drawer' })}>
               {tr('op.till.openDrawer')}
             </Button>
             {tab.payments.length > 0 && (
+              // The dialog says who may refund when this role may not; the
+              // same notice under the buttons said it twice.
               <Button kind="danger" icon="undo" disabled={busy} onClick={() => setOverlay({ kind: 'refund' })}>
                 {tr('op.till.refund')}
               </Button>
             )}
           </div>
-          {tab.payments.length > 0 && !can.refund && (
-            <PermissionRefusedNotice action={tr('ws.cashier.detail.refundAction')} requiredRole={requiredRoleFor('refund')} />
-          )}
         </div>
+
+        {/* ---- promotion (opened from the actions; the server chooses it) ---- */}
+        {promoOpen && !settled && allLines.length > 0 && (
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', padding: 'var(--tp-sp-2-5)', borderRadius: 'var(--tp-radius-ctl)', background: 'var(--tp-surface-2)' }}>
+            {/* Stacked: side by side in a 20rem column the label wrapped and
+                the placeholder was cut to "Leave empty for". */}
+            <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', justifyItems: 'start' }}>
+              <Field label={tr('ws.cashier.detail.promoCode')} style={{ marginBlockEnd: 0, inlineSize: '100%' }}>
+                <input
+                  style={inputStyle}
+                  value={promoCode}
+                  maxLength={32}
+                  disabled={busy}
+                  autoFocus
+                  placeholder={tr('ws.cashier.detail.promoCodePlaceholder')}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !busy && void applyPromotion()}
+                />
+              </Field>
+              <Button kind="primary" busy={busy} onClick={() => void applyPromotion()}>
+                {tr('ws.cashier.detail.promoApply')}
+              </Button>
+            </div>
+            {promoNotice && <MessagePresenter tone={promoNotice.tone} message={promoNotice.text} />}
+            <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.detail.promoHint')}</p>
+          </div>
+        )}
+        {!promoOpen && promoNotice && <MessagePresenter tone={promoNotice.tone} message={promoNotice.text} />}
       </div>
 
       {/*
         ---- zone 3: the pay footer, pinned ----
-        Cash and Card land on the same two coordinates on every tab in every
-        state, because nothing above them is allowed to push them. The row also
-        reserves the height of a disabled-reason line, so stating the reason
-        cannot move the button the reason is about.
+        Cash and Card land on the same coordinates on every tab in every state:
+        anything that appears in the footer appears ABOVE them, and the footer
+        grows upward from the bottom edge. The row also reserves the height of a
+        disabled-reason line, so stating the reason cannot move the button.
       */}
-      <div style={{ flex: '0 0 auto', borderBlockStart: '1px solid var(--tp-border)', paddingBlock: 'var(--tp-sp-2-5)', display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+      <div style={{ flex: '0 0 auto', borderBlockStart: '1px solid var(--tp-border)', paddingBlock: 'var(--tp-sp-2-5)', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--tp-sp-1-5)' }}>
         {!settled ? (
           <>
-            <h3 style={sectionTitle}>{tr('ws.cashier.payment.title')}</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--tp-sp-1-5)', alignItems: 'start', minBlockSize: '5rem' }}>
+            {unsentCount > 0 && (
+              <MessagePresenter tone="refused" icon="flame" message={tr('ws.cashier.payment.unsentWarning')} />
+            )}
+            {partiallyPaid && (
+              <div style={{ ...kvRow, fontWeight: 700 }}>
+                <span>{tr('ws.cashier.payment.stillToPay')}</span>
+                <Money amount={due} strong />
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 'var(--tp-sp-1-5)', alignItems: 'start', minBlockSize: '5rem' }}>
               <Button
                 kind="primary"
                 size="xl"
@@ -499,7 +532,6 @@ export function TabDetailPanel({
                 size="xl"
                 icon="card"
                 disabled={nothingDue || busy}
-                disabledReason={payBlockedReason}
                 title="F5"
                 aria-label={tr('op.till.payCard')}
                 style={{ inlineSize: '100%' }}
@@ -522,10 +554,17 @@ export function TabDetailPanel({
 
       {/* ---- overlays ---- */}
       {overlay.kind === 'pay' && (
-        <PaymentPane mode={overlay.method} due={due} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t)} />
+        <PaymentPane mode={overlay.method} due={due} unsentCount={unsentCount} busy={busy} error={actionError} onCancel={close} onSettle={(m, a, t) => void settle(m, a, t)} />
       )}
       {overlay.kind === 'split' && (
-        <SplitBillDialog tabId={tabId} lines={allLines} due={due} busy={busy} onSettleShare={(amount) => void settle('cash', amount, amount)} onClose={close} />
+        <SplitBillDialog
+          tabId={tabId}
+          lines={allLines}
+          due={due}
+          busy={busy}
+          onSettleShare={(amount, method) => void settle(method, amount, method === 'cash' ? amount : null)}
+          onClose={close}
+        />
       )}
       {overlay.kind === 'bill' && (
         <BillView
@@ -575,7 +614,7 @@ export function TabDetailPanel({
         />
       )}
       {overlay.kind === 'drawer' && (
-        <ReasonCodePrompt action={tr('ws.cashier.payment.drawerAction')} busy={busy} error={actionError} withNote={false} onSubmit={(code) => void recordDrawerOpen(code)} onCancel={close}>
+        <ReasonCodePrompt action={tr('ws.cashier.payment.drawerAction')} reasonCodes={DRAWER_REASONS} busy={busy} error={actionError} withNote={false} onSubmit={(code) => void recordDrawerOpen(code)} onCancel={close}>
           <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
         </ReasonCodePrompt>
       )}
@@ -602,15 +641,20 @@ export function TabDetailPanel({
           }}
           onSubmit={(pin, reason) => void applyDiscount(pin, reason)}
         >
-          <Field label={tr('op.till.discount')}>
-            <select style={inputStyle} value={discountKind} onChange={(e) => setDiscountKind(e.target.value as typeof discountKind)}>
-              <option value="discount_percent">{tr('op.till.discountPercent')}</option>
-              <option value="discount_amount">{tr('op.till.discountAmount')}</option>
-            </select>
-          </Field>
-          <Field label={tr('op.till.discountValue')}>
+          <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
+            <SegmentedControl<typeof discountKind>
+              value={discountKind}
+              onChange={setDiscountKind}
+              aria-label={tr('op.till.discount')}
+              options={[
+                { value: 'discount_percent', label: tr('op.till.discountPercent') },
+                { value: 'discount_amount', label: tr('op.till.discountAmount') },
+              ]}
+            />
+          </div>
+          <Field label={discountKind === 'discount_percent' ? tr('op.till.discountPercentLabel') : tr('op.till.discountAmountLabel')} hint={tr('op.till.discountPinHint')}>
             <input
-              style={{ ...inputStyle, ...numeric }}
+              style={{ ...inputStyle, ...numeric, textAlign: 'end' }}
               type="number"
               dir="ltr"
               min={1}
@@ -640,36 +684,36 @@ export function TabDetailPanel({
   );
 }
 
+/**
+ * One sent line. Pressing it opens its own row of actions — change the price,
+ * void it — rather than every line carrying two unlabelled icons all shift.
+ */
 function TabLine({
   line,
   settled,
   busy,
+  open,
+  onToggle,
   onOverride,
   onVoid,
 }: {
   line: TabLineRow;
   settled: boolean;
   busy: boolean;
+  open: boolean;
+  onToggle: () => void;
   onOverride: () => void;
   onVoid: () => void;
 }) {
   const { tr, locale } = useLocale();
   const name = `${line.qty}× ${pickName(locale, line.menu_item)}${line.variant ? ` (${pickName(locale, line.variant)})` : ''}`;
-  return (
-    <li
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        gap: '0.4rem',
-        alignItems: 'center',
-        textDecoration: line.voided ? 'line-through' : 'none',
-        color: line.voided ? 'var(--tp-muted-fg)' : 'inherit',
-      }}
-    >
-      <span style={{ minInlineSize: 0, flex: 1 }}>
-        <bdi>{name}</bdi>
+  const actionable = !line.voided && !settled;
+  const body = (
+    <>
+      <span style={{ minInlineSize: 0, flex: 1, textAlign: 'start' }}>
+        <bdi style={{ textDecoration: line.voided ? 'line-through' : 'none' }}>{name}</bdi>
         {line.voided && (
-          <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginInlineStart: '0.4rem', textDecoration: 'none', display: 'inline-block' }}>
+          <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginInlineStart: '0.4rem', display: 'inline-block' }}>
             {tr('ws.cashier.detail.voided')}
           </span>
         )}
@@ -684,15 +728,50 @@ function TabLine({
           </span>
         )}
       </span>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.15rem', flexShrink: 0 }}>
-        <Money amount={line.line_total_iqd} />
-        {!line.voided && !settled && (
-          <>
-            <Button kind="ghost" size="sm" icon="tag" disabled={busy} title={tr('op.till.override')} aria-label={`${tr('op.till.override')} — ${name}`} onClick={onOverride} />
-            <Button kind="ghost" size="sm" icon="ban" disabled={busy} title={tr('ws.cashier.detail.voidLine')} aria-label={`${tr('ws.cashier.detail.voidLine')} — ${name}`} onClick={onVoid} />
-          </>
-        )}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexShrink: 0 }}>
+        <Money amount={line.line_total_iqd} style={line.voided ? { textDecoration: 'line-through' } : undefined} />
+        {actionable && <Icon name="chevronDown" size={14} style={{ color: 'var(--tp-muted-fg)', transform: open ? 'rotate(180deg)' : undefined }} />}
       </span>
+    </>
+  );
+  const rowStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 'var(--tp-sp-2)',
+    alignItems: 'center',
+    inlineSize: '100%',
+    paddingBlock: 'var(--tp-sp-1)',
+    paddingInline: 'var(--tp-sp-1-5)',
+    marginInline: 'calc(-1 * var(--tp-sp-1-5))',
+    boxSizing: 'content-box',
+    color: line.voided ? 'var(--tp-muted-fg)' : 'inherit',
+  } as const;
+  return (
+    <li>
+      {actionable ? (
+        <button
+          type="button"
+          className="tp-tile"
+          aria-expanded={open}
+          aria-label={tr('ws.cashier.detail.lineActions', { name })}
+          onClick={onToggle}
+          style={{ ...rowStyle, border: '1px solid transparent', borderRadius: 'var(--tp-radius-ctl)', background: open ? 'var(--tp-surface-2)' : 'transparent', font: 'inherit' }}
+        >
+          {body}
+        </button>
+      ) : (
+        <div style={rowStyle}>{body}</div>
+      )}
+      {actionable && open && (
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap', paddingBlock: 'var(--tp-sp-1)' }}>
+          <Button size="sm" icon="tag" disabled={busy} aria-label={`${tr('op.till.override')} — ${name}`} onClick={onOverride}>
+            {tr('op.till.override')}
+          </Button>
+          <Button size="sm" kind="danger" icon="ban" disabled={busy} aria-label={`${tr('ws.cashier.detail.voidLine')} — ${name}`} onClick={onVoid}>
+            {tr('ws.cashier.detail.voidLine')}
+          </Button>
+        </div>
+      )}
     </li>
   );
 }

@@ -20,6 +20,7 @@ import { kvRow, muted, numeric, reservedStatusLine, sectionTitle } from './tillS
 
 export function Basket({
   lines,
+  forLabel,
   sending,
   error,
   canSend,
@@ -31,6 +32,8 @@ export function Basket({
   onSend,
 }: {
   lines: readonly BasketLine[];
+  /** The tab the basket will be sent to, or null when none is chosen. */
+  forLabel?: string | null;
   sending: boolean;
   error: unknown;
   canSend: boolean;
@@ -54,6 +57,9 @@ export function Basket({
         minBlockSize: 0,
         display: 'grid',
         gridTemplateRows: 'auto minmax(0, 1fr) auto auto',
+        // An auto column sizes to its widest unbreakable content — the
+        // "Basket for <tab>" heading — and pushed Send past the menu column.
+        gridTemplateColumns: 'minmax(0, 1fr)',
         gap: 'var(--tp-sp-1-5)',
       }}
     >
@@ -61,12 +67,15 @@ export function Basket({
           without a floor under the row the list below it started 0.6rem
           higher on an empty basket than on a full one. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)', minBlockSize: 'var(--tp-sp-6)' }}>
-        <h3 style={sectionTitle}>
-          {tr('ws.cashier.till.basket.title')}
-          {lines.length > 0 && (
-            <span style={{ marginInlineStart: 'var(--tp-sp-1-5)', color: 'var(--tp-accent)' }}>
-              {tr('ws.cashier.till.basket.lines', { count: lines.length })}
-            </span>
+        {/* Which tab this lands on, said where the lines are. The old "1 unsent"
+            counted LINES, so two coffees on one line read as one thing. */}
+        <h3 style={{ ...sectionTitle, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {forLabel ? (
+            <>
+              {tr('ws.cashier.till.basket.titleFor')} <bdi style={{ color: 'var(--tp-fg)' }}>{forLabel}</bdi>
+            </>
+          ) : (
+            tr('ws.cashier.till.basket.title')
           )}
         </h3>
         {lines.length > 0 && (
@@ -82,8 +91,8 @@ export function Basket({
         ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
             {lines.map((l) => (
-              <li key={l.key} style={{ ...kvRow, alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
-                <span style={{ minInlineSize: 0, flex: 1 }}>
+              <li key={l.key} style={{ ...kvRow, alignItems: 'center', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+                <span style={{ minInlineSize: '8rem', flex: 1 }}>
                   <span>
                     {l.qty}× {l.itemName} ({l.variantName})
                   </span>
@@ -99,7 +108,7 @@ export function Basket({
                     </span>
                   )}
                 </span>
-                <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-0)', alignItems: 'center', flexShrink: 0 }}>
+                <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-0)', alignItems: 'center', flexShrink: 0, marginInlineStart: 'auto' }}>
                   <span style={{ ...numeric, marginInlineEnd: 'var(--tp-sp-1)' }}>
                     <bdi>{formatIQD(basketLineEstimate(l), locale)}</bdi>
                   </span>
@@ -147,12 +156,15 @@ export function Basket({
       {/* The Send target is mounted whether or not there is anything to send:
           it is the second-most-pressed control on the till and it must be in
           the same place at the start of a line as at the end of one. */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
-        <span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+        {/* An estimate from the cached menu; the server prices the ticket. One
+            word says that — the two-line disclaimer under it said it at length
+            on every sale. */}
+        <span style={{ display: 'grid' }}>
+          <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.till.basket.estimate')}</span>
           <strong style={numeric}>
             <bdi>{formatIQD(total, locale)}</bdi>
           </strong>
-          <span style={{ display: 'block', ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.till.basket.estimate')}</span>
         </span>
         <Button
           kind="primary"

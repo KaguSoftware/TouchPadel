@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
 import { VENUE_TZ } from '@touch/i18n';
 import { clientRef } from '../../lib/idem';
@@ -33,8 +33,11 @@ export function CourtBlockScreen() {
   const tz = settingsQ.data?.timezone ?? VENUE_TZ;
   const courts = courtsQ.data ?? [];
 
+  const navigate = useNavigate();
+  // Opened from the calendar: start on the day the calendar was showing.
+  const search = useSearch({ strict: false }) as { date?: string };
   const [courtId, setCourtId] = useState('');
-  const [date, setDate] = useState(() => todayInTz(VENUE_TZ));
+  const [date, setDate] = useState(() => search.date ?? todayInTz(VENUE_TZ));
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [reason, setReason] = useState('');
@@ -129,9 +132,9 @@ export function CourtBlockScreen() {
           <Panel>
             <MessagePresenter tone="success" message={tr('ws.courtDesk.block.done')} style={{ marginBlockEnd: '0.75rem' }} />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <Link to="/desk" className="tp-btn" data-kind="primary" data-size="md">
+              <Button kind="primary" icon="calendar" onClick={() => void navigate({ to: '/desk', search: { date } as never })}>
                 {tr('ws.courtDesk.block.openCalendar')}
-              </Link>
+              </Button>
               <Button
                 onClick={() => {
                   setDone(false);
@@ -173,9 +176,9 @@ export function CourtBlockScreen() {
             </div>
             <ErrorText error={error} />
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
+              <Button kind="ghost" onClick={() => void navigate({ to: '/desk', search: { date } as never })}>
                 {tr('common.cancel')}
-              </Link>
+              </Button>
               {/* Left enabled on purpose: a disabled button cannot be pressed,
                   and the press is what asks the form which fields are missing. */}
               <Button

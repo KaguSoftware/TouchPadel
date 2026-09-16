@@ -21,7 +21,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDate, formatIQD } from '@touch/i18n';
+import { formatDate, formatIQD, formatNumber } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
@@ -51,6 +51,11 @@ import {
 } from './requestTypes';
 
 type Filter = 'pending' | 'decided' | 'all';
+
+const ROLES = ['cashier', 'prep', 'court_desk', 'manager', 'owner'] as const;
+function isRole(role: string): role is (typeof ROLES)[number] {
+  return (ROLES as readonly string[]).includes(role);
+}
 
 /** The server takes one status; 'decided' is "answered", which is not one. */
 const STATUS_ARG: Record<Filter, string | null> = { pending: 'pending', decided: null, all: null };
@@ -85,7 +90,7 @@ export function StaffRequestsScreen() {
     mutationFn: ({ id, approve, note }: { id: string; approve: boolean; note: string }) =>
       appRpc('decide_staff_request', { p_id: id, p_approve: approve, p_note: note || null }),
     onSuccess: (_d, vars) => {
-      toast.ok(tr(vars.approve ? 'ws.owner.requests.approve' : 'ws.owner.requests.decline'));
+      toast.ok(tr(vars.approve ? 'ws.owner.requests.toastApproved' : 'ws.owner.requests.toastDeclined'));
       setDeciding(null);
       void qc.invalidateQueries({ queryKey: REQUESTS_QUERY_KEY });
     },
@@ -103,7 +108,18 @@ export function StaffRequestsScreen() {
   };
 
   const columns: Column<StaffRequestRow>[] = [
-    { key: 'staff', header: tr('ws.owner.requests.cols.staff'), render: (r) => r.staff_name, truncateTitle: (r) => r.staff_name },
+    {
+      key: 'staff',
+      header: tr('ws.owner.requests.cols.staff'),
+      // The role says whose rota a leave or a swap touches, without a lookup.
+      render: (r) => (
+        <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+          <bdi style={{ fontWeight: 600 }}>{r.staff_name}</bdi>
+          {isRole(r.staff_role) && <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr(`op.roles.${r.staff_role}`)}</span>}
+        </span>
+      ),
+      truncateTitle: (r) => r.staff_name,
+    },
     {
       key: 'kind',
       header: tr('ws.owner.requests.cols.kind'),
@@ -135,7 +151,9 @@ export function StaffRequestsScreen() {
           <StatusBadge tone={statusTone(r.status)} label={tr(`ws.owner.requests.statuses.${r.status as StaffRequestStatus}`)} />
           {r.decided_by_name && (
             <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-              {tr('ws.owner.requests.decidedBy', { name: r.decided_by_name })}
+              {r.decided_at
+                ? tr('ws.owner.requests.decidedByOn', { name: r.decided_by_name, date: formatDate(new Date(r.decided_at), locale) })
+                : tr('ws.owner.requests.decidedBy', { name: r.decided_by_name })}
             </span>
           )}
           {r.decision_note && (
@@ -167,17 +185,33 @@ export function StaffRequestsScreen() {
   ];
 
   const status = asyncStatus(q, () => rows.length === 0);
+  // Every page carries the venue's pending count, whichever filter asked for it.
+  const pending = q.data?.pending ?? 0;
 
   return (
     <div>
       <PageHeader title={tr('ws.owner.requests.title')} subtitle={tr('ws.owner.requests.lead')} />
-      <Toolbar end={<ResultCount shown={rows.length} total={q.data?.total ?? rows.length} />}>
+      {/* A count only when the list is cut short; "2 of 2" beside two rows said nothing. */}
+      <Toolbar end={q.data && q.data.total > rows.length && filter !== 'decided' ? <ResultCount shown={rows.length} total={q.data.total} /> : undefined}>
         <SegmentedControl<Filter>
           value={filter}
           onChange={setFilter}
           aria-label={tr('ws.owner.requests.title')}
           options={[
-            { value: 'pending', label: tr('ws.owner.requests.filter.pending') },
+            {
+              value: 'pending',
+              label:
+                pending > 0 ? (
+                  <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
+                    {tr('ws.owner.requests.filter.pending')}
+                    <span style={{ minInlineSize: '1.25rem', paddingInline: '0.3rem', borderRadius: '999px', background: 'var(--tp-warn-soft)', color: 'var(--tp-warn-fg)', fontSize: 'var(--tp-fs-xs)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                      {formatNumber(pending, locale)}
+                    </span>
+                  </span>
+                ) : (
+                  tr('ws.owner.requests.filter.pending')
+                ),
+            },
             { value: 'decided', label: tr('ws.owner.requests.filter.decided') },
             { value: 'all', label: tr('ws.owner.requests.filter.all') },
           ]}

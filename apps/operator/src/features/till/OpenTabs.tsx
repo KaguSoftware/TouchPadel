@@ -7,14 +7,37 @@
  * waiter-call region (build plan §0: persistent on the till AND here) and the
  * dialogs. Selecting a tab navigates to /till?tab=<id>.
  *
+ * WHAT CHANGED, AND WHY
+ *
+ *  - The subtitle is the floor right now ("Open: 8 · Waiting for payment: 1")
+ *    rather than a sentence describing the screen, and the count is not
+ *    printed a second time at the end of the toolbar.
+ *  - Status was a column that read "Open" on every row — the board only lists
+ *    open tabs — and the badge was secretly also the remove button, which
+ *    nobody would find. The one status that differs, waiting for payment, is
+ *    a badge on the tab's own cell; removing is a labelled button, offered on
+ *    exactly the tabs that can be removed (nothing on them yet), which the
+ *    tab's cell also says.
+ *  - Source was a column that read "Till" on most rows. A web order is now a
+ *    tag beside the tab name; the default says nothing and is not printed.
+ *  - Age reads in hours and days ("1 d 5 h") and never wraps; the clock time
+ *    under it carries the date when the tab was opened on an earlier day.
+ *  - Every row carried a blue "Open on the till" button, so eight rows were
+ *    eight primary buttons with no hierarchy. The row itself opens the tab;
+ *    its button is an ordinary one with the arrow.
+ *  - The table/court/name control only ever SORTED (and narrowed the search to
+ *    one field, which read like a filter that hid rows). It is now "Sort by";
+ *    the search matches table, court, guest and tab name at once.
+ *
  * Totals: `total_iqd` is stamped by the server at settlement; while a tab is
  * open the board shows the running figure from the same tested mirror the
- * till uses (computeTabTotals) and says so.
+ * till uses (computeTabTotals). That mirror has no court fee, so when a
+ * booking tab is on the board a line says the fee is added at payment.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { formatTime, type MessageKey } from '@touch/i18n';
+import { formatDateTime, formatNumber, formatTime, type MessageKey } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { AppRpcError } from '../../lib/appRpc';
@@ -45,10 +68,11 @@ import { WaiterCallsPanel } from './WaiterCallsPanel';
 import { NewTabDialog } from './NewTabDialog';
 import { MergeTabsDialog } from './ManagerActions';
 import { computeTabTotals } from './tabTotals';
+import { formatElapsed } from './elapsed';
 import { OPEN_TABS_QUERY, TILL_MENU_QUERY, tabAnchorLabel, tabHasWebOrder, tabRemovalBlocker, type TabListRow, type TabRemovalBlocker } from './tillData';
 import { muted } from './tillStyles';
 
-export type TabsFilter = 'table' | 'court' | 'name';
+export type TabsSort = 'table' | 'court' | 'name';
 
 export interface BoardRow {
   id: string;
@@ -63,8 +87,8 @@ export interface BoardRow {
   stamped: boolean;
   web: boolean;
   /**
-   * What holds this tab, or null when nothing does and the status badge may
-   * offer to remove it (0085). Named rather than boolean so the board can say
+   * What holds this tab, or null when nothing does and the board may offer to
+   * remove it (0085). Named rather than boolean so a server refusal can say
    * WHICH thing holds it — see tabRemovalBlocker.
    */
   blocker: TabRemovalBlocker | null;
@@ -72,9 +96,8 @@ export interface BoardRow {
 
 /**
  * The message for a refused removal. A TAB_NOT_EMPTY carries the branch that
- * fired in `detail`, so the answer after the press is the same sentence the
- * board would have shown before it; anything else falls through to the shared
- * code-to-message map.
+ * fired in `detail`, so the answer names the thing that holds the tab;
+ * anything else falls through to the shared code-to-message map.
  */
 export function removalErrorKey(error: unknown): MessageKey {
   if (error instanceof AppRpcError && error.code === 'TAB_NOT_EMPTY') {
@@ -84,64 +107,62 @@ export function removalErrorKey(error: unknown): MessageKey {
   return errorToMessageKey(error);
 }
 
-/** Elapsed label for a server timestamp — display only. */
-export function ageLabel(openedAt: string, now: number, tr: (k: 'ws.cashier.tabs.age' | 'ws.cashier.tabs.ageHours' | 'ws.cashier.tabs.ageNow', p?: Record<string, string | number>) => string): string {
-  const minutes = Math.max(0, Math.floor((now - new Date(openedAt).getTime()) / 60_000));
-  if (minutes < 1) return tr('ws.cashier.tabs.ageNow');
-  if (minutes < 60) return tr('ws.cashier.tabs.age', { minutes });
-  return tr('ws.cashier.tabs.ageHours', { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
-}
+/** Elapsed label for a server timestamp — display only. See elapsed.ts. */
+export const ageLabel = formatElapsed;
 
-/** Rows that match the facet + query; sorted by the facet's key. Pure, tested via the board test. */
-export function filterBoardRows(rows: readonly BoardRow[], filter: TabsFilter, query: string): BoardRow[] {
+/**
+ * Rows that match the query, ordered by the chosen key. The query matches
+ * table, court, guest and the tab's own name together — a cashier typing "Ali"
+ * or "7" should not first have to say which of those it is. Pure, tested.
+ */
+export function filterBoardRows(rows: readonly BoardRow[], sort: TabsSort, query: string): BoardRow[] {
   const q = query.trim().toLowerCase();
-  const facet = (r: BoardRow): string => (filter === 'table' ? (r.table ?? '') : filter === 'court' ? (r.court ?? '') : (r.guest ?? r.label));
+  const key = (r: BoardRow): string => (sort === 'table' ? (r.table ?? '') : sort === 'court' ? (r.court ?? '') : (r.guest ?? r.label));
   const matches = (r: BoardRow): boolean => {
     if (!q) return true;
-    return facet(r).toLowerCase().includes(q) || r.label.toLowerCase().includes(q);
+    return [r.table, r.court, r.guest, r.label].some((v) => (v ?? '').toLowerCase().includes(q));
   };
   // `table_number` is text, so a plain localeCompare orders the board 1, 10,
   // 11, 12, 2 — the numeric collator counts instead. Court and guest are prose
   // and stay on the plain comparison.
-  const compare = filter === 'table' ? compareTableNumbers : (x: string, y: string) => x.localeCompare(y);
+  const compare = sort === 'table' ? compareTableNumbers : (x: string, y: string) => x.localeCompare(y);
   return rows
     .filter(matches)
     .sort((a, b) => {
-      const fa = facet(a);
-      const fb = facet(b);
+      const fa = key(a);
+      const fb = key(b);
       if (fa && !fb) return -1;
       if (!fa && fb) return 1;
       return compare(fa, fb) || a.openedAt.localeCompare(b.openedAt);
     });
 }
 
+/** "Open: 8 · Waiting for payment: 1" — the second half only when it is not zero. */
+export function boardSummary(rows: readonly Pick<BoardRow, 'status'>[], tr: (k: MessageKey, p?: Record<string, string | number>) => string, locale: 'en' | 'ar'): string {
+  const awaiting = rows.filter((r) => r.status === 'awaiting_payment').length;
+  const open = tr('ws.cashier.tabs.summaryOpen', { count: formatNumber(rows.length, locale) });
+  return awaiting > 0 ? `${open} · ${tr('ws.cashier.tabs.summaryAwaiting', { count: formatNumber(awaiting, locale) })}` : open;
+}
+
+function sameLocalDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 /**
- * The Status cell, which doubles as the remove control (0085).
+ * The remove control (0085), for a tab with nothing on it.
  *
- * A tab opened on the wrong table used to have no way off the board: settling
- * it for zero invents a sale and merging it invents a group. So the badge that
- * says "Open" is also the button that takes it back — press once to arm,
- * confirm to remove. Two presses, both on the thing already being looked at,
- * and no dialog: this is the screen a cashier uses standing up.
+ * Press once to arm, confirm, then say why — the same reason picker a
+ * cancelled booking goes through, because a tab that vanishes from the board
+ * with no recorded reason is the one act the audit log could not explain the
+ * next morning. No dialog before the reason: this is the screen a cashier uses
+ * standing up.
  *
- * The blocked case is deliberately reachable rather than dead. A badge that
- * simply does not respond teaches nothing, so pressing a held tab answers the
- * question instead — one red line, in the cell, naming the thing that holds it
- * (tabRemovalBlocker) and the move that clears it. That is also where a server
- * refusal lands, in the same words for the same cause:
- * the board's copy of a tab is a cached read, so a waiter's order can arrive
- * between the render and the press, and the answer to that race must appear in
- * exactly the same place as the answer to the ordinary case.
- *
- * The refusal is rendered by BOTH branches, and that is the whole point. It
- * used to hang off the resting branch alone, which is the one state a refusal
- * can never be seen in: a refused removal leaves the row armed and removable,
- * so the confirm branch re-rendered and the message the server sent — a stale
- * day session, a tab that gained an order a second ago — was dropped on the
- * floor. The cashier pressed "Yes, remove", the tab stayed, and the till said
- * nothing at all.
+ * A refusal is rendered in BOTH branches. The board's rows are a cached read,
+ * so a waiter's order can land between the render and the press; the server
+ * then refuses, the row stays armed and removable, and the message the server
+ * sent must still be visible in the branch that re-renders.
  */
-function TabStatusCell({
+function RemoveTabControl({
   row,
   armed,
   busy,
@@ -164,8 +185,9 @@ function TabStatusCell({
     color: 'var(--tp-danger-fg)',
     fontSize: 'var(--tp-fs-xs)',
     lineHeight: 1.3,
-    maxInlineSize: '12rem',
+    maxInlineSize: '14rem',
     textWrap: 'balance',
+    textAlign: 'start',
   };
 
   const refusal = error != null && (
@@ -177,9 +199,9 @@ function TabStatusCell({
 
   if (armed && row.blocker === null) {
     return (
-      <span style={{ display: 'grid', justifyItems: 'start', gap: '0.3rem' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap' }}>
-          <StatusBadge tone="danger" icon="trash" size="sm" label={tr('ws.cashier.tabs.removeAsk')} />
+      <span style={{ display: 'grid', justifyItems: 'end', gap: '0.3rem' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-danger-fg)' }}>{tr('ws.cashier.tabs.removeAsk')}</span>
           <Button size="sm" kind="danger" busy={busy} onClick={onConfirm}>
             {tr('ws.cashier.tabs.removeConfirm')}
           </Button>
@@ -193,23 +215,11 @@ function TabStatusCell({
   }
 
   return (
-    <span style={{ display: 'grid', justifyItems: 'start', gap: '0.3rem' }}>
-      <button
-        type="button"
-        onClick={() => onArm(!armed)}
-        // The badge is the accessible name ("Open"); the hidden span appends
-        // what pressing it does, because a control whose whole name is its
-        // current state announces as a label rather than as a button.
-        style={{ border: 0, background: 'none', padding: 0, margin: 0, font: 'inherit', color: 'inherit', cursor: 'pointer' }}
-      >
-        <TabStatusIndicator status={row.status} size="sm" />
-        <span className="tp-sr-only"> — {tr('ws.cashier.tabs.removeArm')}</span>
-      </button>
-      {armed && row.blocker !== null && (
-        <span role="alert" style={warn}>
-          <Icon name="alert" size={12} style={{ marginBlockStart: '0.15rem', flexShrink: 0 }} />
-          {tr(`ws.cashier.tabs.removeBlocked.${row.blocker}`)}
-        </span>
+    <span style={{ display: 'grid', justifyItems: 'end', gap: '0.3rem' }}>
+      {row.blocker === null && (
+        <Button size="sm" kind="ghost" icon="trash" onClick={() => onArm(!armed)}>
+          {tr('ws.cashier.tabs.remove')}
+        </Button>
       )}
       {refusal}
     </span>
@@ -244,11 +254,12 @@ export function OpenTabsBoard({
 }: {
   status: AsyncStatus;
   rows: readonly BoardRow[];
-  filter: TabsFilter;
+  /** The sort key (named `filter` for the existing call sites). */
+  filter: TabsSort;
   query: string;
   now: number;
   error?: unknown;
-  onFilter: (f: TabsFilter) => void;
+  onFilter: (f: TabsSort) => void;
   onQuery: (q: string) => void;
   onSelect: (id: string) => void;
   onMerge: (survivorId: string) => void;
@@ -267,10 +278,7 @@ export function OpenTabsBoard({
   /**
    * Drop a refusal that is no longer being answered. A refusal describes ONE
    * press against ONE snapshot of a tab; without this it outlived both, so a
-   * tab refused once wore the message for the rest of the shift — through
-   * Keep, through arming another row, through every 30-second refetch — and
-   * read as the board's permanent opinion of that tab rather than as the
-   * answer to something the cashier just did.
+   * tab refused once wore the message for the rest of the shift.
    */
   onDismissRemoveError: () => void;
 }) {
@@ -282,18 +290,10 @@ export function OpenTabsBoard({
    * clearest possible way to say they are done with the first.
    */
   const [armedId, setArmedId] = useState<string | null>(null);
-  /*
-   * The tab whose reason is being asked for. Confirming the row does not
-   * remove it — it opens the same reason picker a cancelled booking goes
-   * through, because a tab that vanishes from the board with no recorded
-   * reason is the one destructive act in the till the audit log could not
-   * explain the next morning.
-   */
+  /* The tab whose reason is being asked for. */
   const [reasonFor, setReasonFor] = useState<string | null>(null);
   // Escape backs out of the confirm, the way it backs out of every dialog
-  // here. Not while the reason prompt is up: that dialog owns its own Escape,
-  // and disarming the row underneath it would pull the ground out from under
-  // the thing being answered.
+  // here. Not while the reason prompt is up: that dialog owns its own Escape.
   useEffect(() => {
     if (armedId === null || reasonFor !== null) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setArmedId(null);
@@ -314,89 +314,93 @@ export function OpenTabsBoard({
     }
   }, [rows, reasonFor]);
 
+  const nowDate = new Date(now);
+  const hasBookingTabs = rows.some((r) => r.court !== null);
+
   const columns: Column<BoardRow>[] = [
     {
       key: 'tab',
       header: tr('ws.cashier.tabs.colTab'),
-      render: (r) => (
-        <span style={{ display: 'grid' }}>
-          <strong>
-            <bdi>{r.label}</bdi>
-          </strong>
-          {(r.court || (r.guest && r.guest !== r.label)) && (
-            <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>
-              {[r.court, r.guest !== r.label ? r.guest : null].filter(Boolean).map((p, i) => (
-                <span key={i}>
-                  {i > 0 && ' · '}
-                  <bdi>{p}</bdi>
-                </span>
-              ))}
+      render: (r) => {
+        const sub = [r.court, r.guest && r.guest !== r.label ? r.guest : null].filter((p): p is string => Boolean(p));
+        return (
+          <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
+              <strong style={{ overflowWrap: 'anywhere' }}>
+                <bdi>{r.label}</bdi>
+              </strong>
+              {r.status !== 'open' && <TabStatusIndicator status={r.status} size="sm" />}
+              {r.web && <StatusBadge tone="info" icon="globe" dot={false} size="sm" label={tr('ws.cashier.tabs.sourceWeb')} />}
             </span>
-          )}
-        </span>
-      ),
-    },
-    {
-      key: 'status',
-      header: tr('ws.cashier.tabs.colStatus'),
-      // No stopPropagation: DataTable's own CELL_CONTROL guard already keeps a
-      // <button> inside a cell from firing the row's navigate, by click and by
-      // Enter — so arming a removal cannot also open the tab it is about to
-      // remove.
-      render: (r) => (
-        <TabStatusCell
-          row={r}
-          armed={armedId === r.id}
-          busy={removingId === r.id}
-          error={removeError?.id === r.id ? removeError.error : null}
-          onArm={(next) => {
-            setArmedId(next ? r.id : null);
-            setReasonFor(null);
-            onDismissRemoveError();
-          }}
-          onConfirm={() => setReasonFor(r.id)}
-        />
-      ),
-    },
-    {
-      key: 'source',
-      header: tr('ws.cashier.tabs.colSource'),
-      render: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)', color: r.web ? 'var(--tp-accent)' : 'var(--tp-muted-fg)' }}>
-          <Icon name={r.web ? 'globe' : 'receipt'} size={13} /> {r.web ? tr('ws.cashier.tabs.sourceWeb') : tr('ws.cashier.tabs.sourceTill')}
-        </span>
-      ),
+            {sub.length > 0 && (
+              <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>
+                {sub.map((p, i) => (
+                  <span key={i}>
+                    {i > 0 && ' · '}
+                    <bdi>{p}</bdi>
+                  </span>
+                ))}
+              </span>
+            )}
+            {r.blocker === null && <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>{tr('ws.cashier.tabs.nothingYet')}</span>}
+          </span>
+        );
+      },
     },
     {
       key: 'age',
       header: tr('ws.cashier.tabs.colAge'),
-      render: (r) => (
-        <span style={{ display: 'grid' }}>
-          <span>{ageLabel(r.openedAt, now, tr)}</span>
-          <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }} dir="ltr">
-            {formatTime(new Date(r.openedAt), locale)}
+      width: '9rem',
+      render: (r) => {
+        const opened = new Date(r.openedAt);
+        return (
+          <span style={{ display: 'grid', whiteSpace: 'nowrap' }}>
+            <span>{formatElapsed(r.openedAt, now, tr)}</span>
+            <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)' }}>
+              <bdi>{tr('ws.cashier.tabs.since', { time: sameLocalDay(opened, nowDate) ? formatTime(opened, locale) : formatDateTime(opened, locale) })}</bdi>
+            </span>
           </span>
-        </span>
-      ),
+        );
+      },
     },
     {
       key: 'total',
       header: tr('ws.cashier.tabs.colTotal'),
       numeric: true,
-      render: (r) => <Money amount={r.total} strong={r.stamped} style={r.stamped ? undefined : { color: 'var(--tp-muted-fg)' }} />,
+      width: '8rem',
+      render: (r) => <Money amount={r.total} strong style={{ whiteSpace: 'nowrap' }} />,
     },
     {
       key: 'actions',
-      header: '',
+      header: <span className="tp-sr-only">{tr('ws.cashier.tabs.colActions')}</span>,
       align: 'end',
+      // No stopPropagation: DataTable's own CELL_CONTROL guard already keeps a
+      // <button> inside a cell from firing the row's navigate, by click and by
+      // Enter — so arming a removal cannot also open the tab it is removing.
       render: (r) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)' }} onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" icon="merge" onClick={() => onMerge(r.id)} title={tr('ws.cashier.tabs.survivor')}>
-            {tr('ws.cashier.tabs.merge')}
-          </Button>
-          <Button size="sm" kind="primary" iconEnd="arrowUpRight" onClick={() => onSelect(r.id)}>
-            {tr('ws.cashier.tabs.select')}
-          </Button>
+        <span style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 'var(--tp-sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <RemoveTabControl
+            row={r}
+            armed={armedId === r.id}
+            busy={removingId === r.id}
+            error={removeError?.id === r.id ? removeError.error : null}
+            onArm={(next) => {
+              setArmedId(next ? r.id : null);
+              setReasonFor(null);
+              onDismissRemoveError();
+            }}
+            onConfirm={() => setReasonFor(r.id)}
+          />
+          {armedId !== r.id && (
+            <>
+              <Button size="sm" kind="ghost" icon="merge" onClick={() => onMerge(r.id)}>
+                {tr('ws.cashier.tabs.merge')}
+              </Button>
+              <Button size="sm" iconEnd="arrowUpRight" onClick={() => onSelect(r.id)}>
+                {tr('ws.cashier.tabs.select')}
+              </Button>
+            </>
+          )}
         </span>
       ),
     },
@@ -406,32 +410,34 @@ export function OpenTabsBoard({
     <div>
       <PageHeader
         title={tr('ws.cashier.tabs.title')}
-        subtitle={tr('ws.cashier.tabs.lead')}
+        subtitle={status === 'ready' || status === 'empty' ? boardSummary(rows, tr, locale) : undefined}
         actions={
           <Button kind="primary" icon="plus" onClick={onOpenTab}>
             {tr('ws.cashier.tabs.openTab')}
           </Button>
         }
       />
-      <Toolbar
-        end={
-          status === 'ready' ? (
-            <span style={muted}>{tr('ws.cashier.tabs.count', { count: rows.length })}</span>
-          ) : undefined
-        }
-      >
-        <SegmentedControl<TabsFilter>
-          value={filter}
-          onChange={onFilter}
-          aria-label={tr('ws.cashier.tabs.filter')}
-          options={[
-            { value: 'table', label: tr('ws.cashier.tabs.byTable'), icon: 'table' },
-            { value: 'court', label: tr('ws.cashier.tabs.byCourt'), icon: 'court' },
-            { value: 'name', label: tr('ws.cashier.tabs.byName'), icon: 'user' },
-          ]}
-        />
-        <SearchField value={query} onChange={onQuery} placeholder={tr('ws.cashier.tabs.searchPlaceholder')} style={{ maxInlineSize: '20rem' }} />
-      </Toolbar>
+      {status !== 'empty' && (
+        <Toolbar>
+          <SearchField value={query} onChange={onQuery} placeholder={tr('ws.cashier.tabs.searchPlaceholder')} style={{ maxInlineSize: '20rem' }} />
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+            <span id="open-tabs-sort" style={muted}>
+              {tr('ws.cashier.tabs.filter')}
+            </span>
+            <SegmentedControl<TabsSort>
+              value={filter}
+              onChange={onFilter}
+              aria-labelledby="open-tabs-sort"
+              size="sm"
+              options={[
+                { value: 'table', label: tr('ws.cashier.tabs.byTable') },
+                { value: 'court', label: tr('ws.cashier.tabs.byCourt') },
+                { value: 'name', label: tr('ws.cashier.tabs.byName') },
+              ]}
+            />
+          </span>
+        </Toolbar>
+      )}
 
       <AsyncStateWrapper
         status={status}
@@ -458,7 +464,7 @@ export function OpenTabsBoard({
           emptyContent={tr('ws.cashier.tabs.noMatches')}
           aria-label={tr('ws.cashier.tabs.title')}
         />
-        <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.tabs.runningTotal')}</p>
+        {hasBookingTabs && <p style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginBlockStart: 'var(--tp-sp-2)' }}>{tr('ws.cashier.tabs.courtFeeNote')}</p>}
       </AsyncStateWrapper>
 
       {reasonFor !== null && (
@@ -484,7 +490,7 @@ export function OpenTabsScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<TabsFilter>('table');
+  const [filter, setFilter] = useState<TabsSort>('table');
   const [query, setQuery] = useState('');
   const [newTab, setNewTab] = useState(false);
   const [mergeSurvivor, setMergeSurvivor] = useState<TabListRow | null>(null);
@@ -602,6 +608,11 @@ export function OpenTabsScreen() {
 
       {newTab && (
         <NewTabDialog
+          openTabs={tabsQ.data ?? []}
+          onPickExisting={(tabId) => {
+            setNewTab(false);
+            goToTill(tabId);
+          }}
           onClose={() => setNewTab(false)}
           onOpened={(tabId) => {
             setNewTab(false);

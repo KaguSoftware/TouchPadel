@@ -4,9 +4,23 @@
  * 'courts' broadcast refreshes them. Writes go through mutate(); a move the
  * server refuses renders a ConflictNotice, never a silent revert.
  *
- * The month replaced the week view (owner call, 2026-09-13). The zoom button
- * pulls back from the day to a month of days shaded by how many bookings each
- * holds; pressing a day zooms back into its grid. See calendar/ZoomStage.
+ * The month replaced the week view (owner call, 2026-09-13). The zoom pulls
+ * back from the day to a month of days shaded by how many bookings each holds;
+ * pressing a day zooms back into its grid. See calendar/ZoomStage.
+ *
+ * WHAT THE DESK NEEDS FROM IT, FASTEST FIRST
+ *
+ *  - **Where is now?** Tonight's grid opens scrolled to the current half-hour,
+ *    with a line across every court at the current time. It used to open at
+ *    09:00 every time, so an evening clerk scrolled past twenty-eight rows of
+ *    greyed-out past slots before every walk-in.
+ *  - **Which slot is free?** A free slot shows its time and a plus under the
+ *    pointer, so the target reads before the click, not after.
+ *  - **Which day am I on?** One date control and one label with the weekday.
+ *    The keyboard legend that sat beside it moved into the buttons' tooltips.
+ *  - **Book for a customer.** `?customer=<id>` (from the customer record and
+ *    search) keeps a strip on screen naming who is being booked; the slot the
+ *    clerk picks opens the booking already linked to them.
  *
  * Keyboard: ← → move the date (by a month in month view), D / M switch views.
  * Pointer: drag a live booking onto another cell to move it (reason
@@ -15,8 +29,8 @@
  * booking is not worth the ambiguity at a busy desk.
  *
  * e2e selectors kept: heading 'Desk calendar', buttons '‹' '›' 'Today', the
- * 'Month' / 'Day' zoom button, block buttons named by guest name, closed-day
- * text, time labels.
+ * 'Month' / 'Day' view buttons, slots titled 'Free', label 'Date', block
+ * buttons named by guest name, closed-day text, time labels.
  */
 import {
   useEffect,
@@ -25,21 +39,31 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDate, formatMonthYear, formatTime, formatTimeRange, VENUE_TZ } from '@touch/i18n';
+import {
+  formatDate,
+  formatMonthYear,
+  formatNumber,
+  formatTime,
+  formatTimeRange,
+  formatWeekdayShort,
+  VENUE_TZ,
+} from '@touch/i18n';
 import { mutate } from '../../lib/mutate';
-import { AppRpcError } from '../../lib/appRpc';
+import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
+import { useToast } from '../../components/toast';
 import { Button, inputStyle, type ReasonCode } from '../../components/ui';
 import {
   AsyncStateWrapper,
   ConflictNotice,
+  CustomerFlagBadge,
   EmptyState,
-  Kbd,
   PageHeader,
   ReasonCodePrompt,
+  StatusBadge,
   Toolbar,
   asyncStatus,
 } from '../../components/kit';
@@ -53,13 +77,34 @@ import { fetchBookingCounts } from './calendar/monthFetchers';
 import { shiftMonth } from './calendar/monthLogic';
 import { CreateReservationDialog } from './CreateReservationDialog';
 import { OVERRIDE_REASONS, ReservationActionsDialog } from './ReservationActionsDialog';
-import { SLOT_MIN, todayInTz, useTradingNight } from './useTradingNight';
+import { SLOT_MIN, tonightInTz, todayInTz, useTradingNight } from './useTradingNight';
 import { BLOCKING_STATUSES, isLive, isVisible } from './deskLogic';
-import type { ReservationRow } from './deskTypes';
+import type { CustomerRecord, ReservationRow } from './deskTypes';
+import type { PickedCustomer } from './customers/CustomerPicker';
 
 type View = 'day' | 'month';
 
 const DRAG_THRESHOLD_PX = 6;
+const CLOCK_TICK_MS = 30_000;
+/** One grid row: its height plus the row gap. The now line is placed with it. */
+const ROW_PITCH = 'calc(2.4rem + var(--tp-sp-0))';
+
+/** `/desk?date=YYYY-MM-DD&customer=<id>` — validated at the route (routes/desk/_children.ts). */
+export interface DeskCalendarSearch {
+  date?: string;
+  customer?: string;
+}
+
+/*
+ * The hover state of a free slot. Inline styles cannot say :hover, and a React
+ * hover state would re-render a thousand slot buttons per mouse move; one
+ * scoped rule does it. The label is the slot's own time, from data-hover.
+ */
+const SLOT_CSS = `
+.desk-slot:not(:disabled):hover { background: var(--tp-accent-soft) !important; border-color: var(--tp-accent) !important; border-style: solid !important; }
+.desk-slot:not(:disabled):hover::after { content: '+ ' attr(data-hover); color: var(--tp-accent-soft-fg); font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.45rem; }
+.desk-slot:focus-visible::after { content: '+ ' attr(data-hover); color: var(--tp-accent-soft-fg); font-size: var(--tp-fs-xs); font-weight: 600; padding-inline: 0.45rem; }
+`;
 
 /**
  * The two axes that must survive a scroll to 23:00. Both live in the grid's
@@ -102,7 +147,10 @@ function slotUnderPointer(x: number, y: number): { courtId: string; min: number 
 export function DeskCalendar() {
   const { tr, locale, dir } = useLocale();
   const queryClient = useQueryClient();
-  const [date, setDate] = useState<string>(() => todayInTz(VENUE_TZ));
+  const navigate = useNavigate();
+  const toast = useToast();
+  const search = useSearch({ strict: false }) as DeskCalendarSearch;
+  const [date, setDate] = useState<string>(() => search.date ?? todayInTz(VENUE_TZ));
   const [view, setView] = useState<View>('day');
   const [createAt, setCreateAt] = useState<{ courtId: string; startAt: Date } | null>(null);
   const [selected, setSelected] = useState<ReservationRow | null>(null);
@@ -135,11 +183,47 @@ export function DeskCalendar() {
     fetchCounts: fetchBookingCounts,
   });
 
-  const now = Date.now();
+  // The clock the grid is drawn against: which slots are past, where the now
+  // line sits. Ticks, so an open screen does not keep offering 23:00 at 23:10.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), CLOCK_TICK_MS);
+    return () => clearInterval(t);
+  }, []);
   const reservations = useMemo(
     () => night.reservations.filter((r) => isVisible(r, now)),
     [night.reservations, now],
   );
+
+  const hours = settingsQ.data?.opening_hours;
+  const tonight = settingsQ.data ? tonightInTz(tz, hours) : todayInTz(tz);
+  // Opened without a date: land on the night that is trading now, not on the
+  // calendar date (after midnight those differ).
+  const anchored = useRef(Boolean(search.date));
+  useEffect(() => {
+    if (anchored.current || !settingsQ.data) return;
+    anchored.current = true;
+    setDate(tonightInTz(settingsQ.data.timezone, settingsQ.data.opening_hours));
+  }, [settingsQ.data]);
+
+  // Booking FOR a customer (from their record or the customer search).
+  const bookForQ = useQuery({
+    queryKey: ['customer', search.customer ?? ''],
+    enabled: Boolean(search.customer),
+    queryFn: () =>
+      appRpc<CustomerRecord | null>('customer_record', { p_customer_id: search.customer }),
+    retry: false,
+  });
+  const bookFor: PickedCustomer | null =
+    search.customer && bookForQ.data
+      ? {
+          id: bookForQ.data.customer.id,
+          name: bookForQ.data.customer.full_name,
+          phone: bookForQ.data.customer.phone,
+          flags: bookForQ.data.flags,
+        }
+      : null;
+  const stopBookingFor = () => void navigate({ to: '/desk', search: { date } as never });
 
   function rowIndexOf(iso: string): number {
     const min = (new Date(iso).getTime() - dayStart.getTime()) / 60_000;
@@ -267,6 +351,7 @@ export function DeskCalendar() {
       });
       setPendingMove(null);
       void queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     } catch (e) {
       if (e instanceof AppRpcError && e.code === 'SLOT_TAKEN') {
         setMoveConflict(pendingMove);
@@ -294,6 +379,45 @@ export function DeskCalendar() {
           ? 'ready'
           : 'loading';
 
+  // Minutes past the grid's opening that `now` sits at, when now is inside
+  // tonight's grid; otherwise null and no line is drawn.
+  const nowMinInGrid = (() => {
+    if (date !== tonight || rowCount === 0) return null;
+    const m = (now - dayStart.getTime()) / 60_000 - openMin;
+    return m >= 0 && m < rowCount * SLOT_MIN ? m : null;
+  })();
+
+  /*
+   * Open tonight's grid at the current half-hour (one row of context above).
+   * Offsets, not getBoundingClientRect: the zoom back in from the month scales
+   * the grid while it arrives, and a measured rectangle would be the scaled one.
+   * Once per date, so the desk's own scrolling is never taken back.
+   */
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  const scrolledFor = useRef<string | null>(null);
+  const gridReady =
+    view === 'day' && dayStatus === 'ready' && gridStatus === 'ready' && !closed && rowCount > 0;
+  useEffect(() => {
+    if (!gridReady || scrolledFor.current === date) return;
+    const box = gridScrollRef.current;
+    if (!box) return;
+    scrolledFor.current = date;
+    if (nowMinInGrid === null) return;
+    const row = Math.max(0, Math.floor(nowMinInGrid / SLOT_MIN) - 1);
+    const cell = box.querySelector<HTMLElement>(`[data-slot-min="${rows[row]}"]`);
+    const column = cell?.parentElement;
+    const head = box.querySelector<HTMLElement>('[data-grid-head]');
+    if (!cell || !column) return;
+    box.scrollTop = column.offsetTop + cell.offsetTop - (head?.offsetHeight ?? 0);
+  }, [gridReady, date, nowMinInGrid, rows]);
+  useEffect(() => {
+    // Leaving the day view unmounts the grid; coming back should land on now again.
+    if (view !== 'day') scrolledFor.current = null;
+  }, [view]);
+
+  const dayNoon = new Date(`${date}T12:00:00Z`);
+  const dayCount = reservations.filter((r) => r.kind === 'booking').length;
+
   return (
     /*
      * The screen owns main's full height and hands ALL of it to the grid, so
@@ -303,50 +427,48 @@ export function DeskCalendar() {
      * waits are which court a column is and which date they are looking at.
      */
     <div style={{ display: 'flex', flexDirection: 'column', blockSize: '100%', minBlockSize: 0 }}>
+      <style>{SLOT_CSS}</style>
       <PageHeader
         style={{ flexShrink: 0 }}
         title={tr('desk.title')}
-        subtitle={tr('ws.courtDesk.calendar.lead')}
+        subtitle={
+          view === 'month'
+            ? tr('ws.courtDesk.calendar.leadMonth')
+            : tr('ws.courtDesk.calendar.lead')
+        }
         actions={
           <>
-            <Link to="/desk/series/new" className="tp-btn" data-kind="default" data-size="md">
-              <Icon name="repeat" size={16} /> {tr('ws.courtDesk.calendar.series')}
-            </Link>
-            <Link to="/desk/block" className="tp-btn" data-kind="default" data-size="md">
-              <Icon name="ban" size={16} /> {tr('ws.courtDesk.calendar.block')}
-            </Link>
+            <Button icon="repeat" onClick={() => void navigate({ to: '/desk/series/new' })}>
+              {tr('ws.courtDesk.calendar.series')}
+            </Button>
+            <Button
+              icon="ban"
+              onClick={() => void navigate({ to: '/desk/block', search: { date } as never })}
+            >
+              {tr('ws.courtDesk.calendar.block')}
+            </Button>
             <Button
               kind="ghost"
               icon="refresh"
-              onClick={() => void queryClient.invalidateQueries({ queryKey: ['reservations'] })}
+              busy={reservationsQ.isFetching && reservationsQ.data !== undefined}
+              onClick={() => {
+                void queryClient.invalidateQueries({ queryKey: ['reservations'] });
+                void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
+              }}
             >
               {tr('op.common.refresh')}
             </Button>
           </>
         }
       >
-        <Toolbar
-          style={{ marginBlockEnd: 0 }}
-          end={
-            <span
-              style={{
-                display: 'inline-flex',
-                gap: '0.4rem',
-                alignItems: 'center',
-                color: 'var(--tp-muted-fg)',
-                fontSize: 'var(--tp-fs-xs)',
-              }}
-            >
-              <Kbd>←</Kbd>
-              <Kbd>→</Kbd> {tr('ws.courtDesk.calendar.keys')} · <Kbd>D</Kbd>{' '}
-              {tr('ws.courtDesk.calendar.keyDay')} · <Kbd>M</Kbd>{' '}
-              {tr('ws.courtDesk.calendar.keyMonth')}
-            </span>
-          }
-        >
+        <Toolbar style={{ marginBlockEnd: 0 }}>
           <Button
             onClick={() => setDate(shiftDate(date, -1))}
-            title={tr('ws.courtDesk.calendar.prev')}
+            title={
+              view === 'month'
+                ? tr('ws.courtDesk.calendar.prevMonth')
+                : tr('ws.courtDesk.calendar.prev')
+            }
           >
             ‹
           </Button>
@@ -359,38 +481,130 @@ export function DeskCalendar() {
           />
           <Button
             onClick={() => setDate(shiftDate(date, 1))}
-            title={tr('ws.courtDesk.calendar.next')}
+            title={
+              view === 'month'
+                ? tr('ws.courtDesk.calendar.nextMonth')
+                : tr('ws.courtDesk.calendar.next')
+            }
           >
             ›
           </Button>
-          <Button onClick={() => setDate(todayInTz(tz))}>{tr('common.today')}</Button>
+          <Button onClick={() => setDate(tonight)} disabled={date === tonight && view === 'day'}>
+            {tr('common.today')}
+          </Button>
+          {/* One label, the one the date box cannot give: the weekday (or the
+              month), and whether this is tonight. */}
           <span
             style={{
-              color: 'var(--tp-muted-fg)',
-              fontSize: 'var(--tp-fs-sm)',
-              marginInlineStart: '0.25rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--tp-sp-2)',
+              fontWeight: 600,
+              marginInlineStart: 'var(--tp-sp-1)',
             }}
           >
             <bdi>
               {view === 'month'
-                ? formatMonthYear(new Date(`${date}T12:00:00Z`), locale, 'UTC')
-                : formatDate(new Date(`${date}T12:00:00Z`), locale, 'UTC')}
+                ? formatMonthYear(dayNoon, locale, 'UTC')
+                : `${formatWeekdayShort(dayNoon, locale, 'UTC')} · ${formatDate(dayNoon, locale, 'UTC')}`}
             </bdi>
+            {view === 'day' && date === tonight && (
+              <StatusBadge size="sm" tone="accent" label={tr('ws.courtDesk.calendar.tonight')} />
+            )}
+            {view === 'day' && dayStatus === 'ready' && (
+              <span
+                style={{
+                  fontWeight: 400,
+                  color: 'var(--tp-muted-fg)',
+                  fontSize: 'var(--tp-fs-sm)',
+                }}
+              >
+                {tr('ws.courtDesk.calendar.dayCount')}{' '}
+                <strong style={{ color: 'var(--tp-fg)' }}>{formatNumber(dayCount, locale)}</strong>
+              </span>
+            )}
           </span>
-          <Button
-            kind={view === 'month' ? 'soft' : 'default'}
-            icon={view === 'month' ? 'zoomIn' : 'zoomOut'}
-            onClick={() => setView(view === 'month' ? 'day' : 'month')}
-            title={
-              view === 'month'
-                ? tr('ws.kit.calendar.zoomInHint')
-                : tr('ws.kit.calendar.zoomOutHint')
-            }
+          <span
+            style={{ marginInlineStart: 'auto', display: 'inline-flex', gap: 'var(--tp-sp-1)' }}
+            role="group"
+            aria-label={tr('ws.courtDesk.calendar.view')}
           >
-            {view === 'month' ? tr('op.desk.viewDay') : tr('ws.kit.calendar.month')}
-          </Button>
+            <Button
+              icon="zoomIn"
+              aria-pressed={view === 'day'}
+              onClick={() => setView('day')}
+              title={tr('ws.courtDesk.calendar.keyDayHint')}
+            >
+              {tr('op.desk.viewDay')}
+            </Button>
+            <Button
+              icon="zoomOut"
+              aria-pressed={view === 'month'}
+              onClick={() => setView('month')}
+              title={tr('ws.courtDesk.calendar.keyMonthHint')}
+            >
+              {tr('ws.kit.calendar.month')}
+            </Button>
+          </span>
         </Toolbar>
       </PageHeader>
+
+      {search.customer && (
+        <div
+          role="status"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--tp-sp-3)',
+            flexWrap: 'wrap',
+            flexShrink: 0,
+            marginBlockEnd: 'var(--tp-sp-3)',
+            paddingBlock: 'var(--tp-sp-2)',
+            paddingInline: 'var(--tp-sp-3)',
+            borderRadius: 'var(--tp-radius-ctl)',
+            background: 'var(--tp-accent-soft)',
+            color: 'var(--tp-accent-soft-fg)',
+          }}
+        >
+          <Icon name="user" size={18} />
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--tp-sp-2)',
+              flexWrap: 'wrap',
+              fontWeight: 600,
+            }}
+          >
+            {bookFor ? (
+              <>
+                <bdi>{tr('ws.courtDesk.calendar.bookingFor', { name: bookFor.name })}</bdi>
+                {bookFor.flags.map((f, i) => (
+                  <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
+                ))}
+              </>
+            ) : bookForQ.isError ? (
+              tr('ws.courtDesk.calendar.bookingForMissing')
+            ) : (
+              '…'
+            )}
+          </span>
+          <span style={{ fontSize: 'var(--tp-fs-sm)' }}>
+            {view === 'month'
+              ? tr('ws.courtDesk.calendar.bookingForMonth')
+              : tr('ws.courtDesk.calendar.bookingForHint')}
+          </span>
+          <Button
+            size="sm"
+            kind="ghost"
+            icon="x"
+            onClick={stopBookingFor}
+            style={{ marginInlineStart: 'auto' }}
+          >
+            {tr('ws.courtDesk.calendar.bookingForStop')}
+          </Button>
+        </div>
+      )}
 
       {moveConflict && (
         <ConflictNotice
@@ -418,7 +632,7 @@ export function DeskCalendar() {
             >
               <MonthHeatCalendar
                 date={date}
-                today={todayInTz(tz)}
+                today={tonight}
                 counts={month.counts}
                 max={month.max}
                 loading={month.isPending}
@@ -463,11 +677,22 @@ export function DeskCalendar() {
             }
           >
             {closed || rowCount === 0 ? (
-              <EmptyState icon="ban" title={tr('op.desk.closedToday')} />
+              <EmptyState
+                icon="ban"
+                title={tr('op.desk.closedToday')}
+                body={tr('ws.courtDesk.calendar.closedBody')}
+                action={
+                  date !== tonight ? (
+                    <Button onClick={() => setDate(tonight)}>{tr('common.today')}</Button>
+                  ) : undefined
+                }
+              />
             ) : (
-              <div style={{ flex: 1, minBlockSize: 0, overflow: 'auto' }}>
+              <div ref={gridScrollRef} style={{ flex: 1, minBlockSize: 0, overflow: 'auto' }}>
                 <div
                   style={{
+                    // Positioned so a column's offsetTop is measured from here (scroll to now).
+                    position: 'relative',
                     display: 'grid',
                     gridTemplateColumns: `4.5rem repeat(${courts.length}, minmax(11rem, 1fr))`,
                     gap: 'var(--tp-sp-0)',
@@ -477,6 +702,7 @@ export function DeskCalendar() {
                 >
                   {/* Above both sticky axes, or the time labels slide out from under it. */}
                   <div
+                    data-grid-head
                     style={{ ...STICKY_HEAD, insetInlineStart: 0, zIndex: 'var(--tp-z-sticky)' }}
                   />
                   {courts.map((c) => (
@@ -515,6 +741,26 @@ export function DeskCalendar() {
                         {formatTime(wallTimeToUtc(date, min, tz), locale, tz)}
                       </div>
                     ))}
+                    {nowMinInGrid !== null && (
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: 'absolute',
+                          insetInlineEnd: 'var(--tp-sp-1)',
+                          insetBlockStart: `calc(${nowMinInGrid / SLOT_MIN} * ${ROW_PITCH} - 0.55rem)`,
+                          paddingInline: 'var(--tp-sp-1)',
+                          borderRadius: 'var(--tp-radius-sm)',
+                          background: 'var(--tp-danger-mark)',
+                          color: 'var(--tp-danger-contrast)',
+                          fontSize: 'var(--tp-fs-xs)',
+                          fontWeight: 700,
+                          lineHeight: '1.1rem',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {formatTime(new Date(now), locale, tz)}
+                      </span>
+                    )}
                   </div>
 
                   {courts.map((c) => {
@@ -536,6 +782,21 @@ export function DeskCalendar() {
                           position: 'relative',
                         }}
                       >
+                        {nowMinInGrid !== null && (
+                          // Above the slots, below the bookings (they paint later),
+                          // and never in the way of a click.
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              position: 'absolute',
+                              insetInline: 0,
+                              insetBlockStart: `calc(${nowMinInGrid / SLOT_MIN} * ${ROW_PITCH})`,
+                              blockSize: '2px',
+                              background: 'var(--tp-danger-mark)',
+                              pointerEvents: 'none',
+                            }}
+                          />
+                        )}
                         {rows.map((min, i) => {
                           const startAt = wallTimeToUtc(date, min, tz);
                           const past = startAt.getTime() < now;
@@ -561,6 +822,8 @@ export function DeskCalendar() {
                             <button
                               key={min}
                               type="button"
+                              className="desk-slot"
+                              data-hover={formatTime(startAt, locale, tz)}
                               {...common}
                               disabled={past && !drag}
                               onClick={() => {
@@ -584,6 +847,8 @@ export function DeskCalendar() {
                                 cursor: past ? 'default' : 'pointer',
                                 opacity: past && !isTarget ? 'var(--tp-opacity-disabled)' : 1,
                                 padding: 0,
+                                display: 'flex',
+                                alignItems: 'center',
                               }}
                             />
                           );
@@ -686,10 +951,20 @@ export function DeskCalendar() {
           startAt={createAt.startAt}
           courts={courts}
           tz={tz}
+          night={{ date, rows, reservations }}
+          customer={bookFor}
           onClose={() => setCreateAt(null)}
           onCreated={() => {
             setCreateAt(null);
+            toast.ok(
+              bookFor
+                ? tr('ws.courtDesk.calendar.bookedFor', { name: bookFor.name })
+                : tr('op.desk.created'),
+            );
             void queryClient.invalidateQueries({ queryKey: ['reservations'] });
+            void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
+            // A booking-for is one booking: the strip goes once it is made.
+            if (search.customer) stopBookingFor();
           }}
         />
       )}

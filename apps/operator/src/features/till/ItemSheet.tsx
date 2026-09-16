@@ -139,7 +139,12 @@ export function ItemSheet({
       {linkedGroups.map((g) => (
         <div key={g.id} style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
           <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-1)', fontWeight: 600 }}>
-            {pickName(locale, g)} <span style={{ fontWeight: 400 }}>({g.min_select}–{g.max_select})</span>
+            {pickName(locale, g)}{' '}
+            {/* "(1–1)" was the database's min/max; say it the way a person does. */}
+            <span style={{ fontWeight: 400 }}>
+              {g.min_select > 0 ? tr('ws.cashier.till.sheet.required') : tr('ws.cashier.till.sheet.optional')}
+              {g.max_select > 1 && ` · ${tr('ws.cashier.till.sheet.upTo', { max: g.max_select })}`}
+            </span>
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1-5)' }}>
             {modifiers

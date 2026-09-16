@@ -39,6 +39,7 @@ import {
   workspaceForRoute,
   workspaceOwnsPath,
   workspacesForRole,
+  type NavGroup,
   type NavItem,
   type WorkspaceKey,
 } from '../lib/workspaces';
@@ -379,6 +380,91 @@ function RailLink({ item, path }: { item: NavItem; path: string }) {
   );
 }
 
+const RAIL_OPEN_KEY = 'touch-operator-rail-open';
+
+function loadOpenGroups(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(RAIL_OPEN_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveOpenGroup(key: string, open: boolean): void {
+  try {
+    localStorage.setItem(RAIL_OPEN_KEY, JSON.stringify({ ...loadOpenGroups(), [key]: open }));
+  } catch {
+    /* private mode */
+  }
+}
+
+/**
+ * A titled group of rail rows that opens and closes from its title.
+ *
+ * Closed by default so the rail reads as a short list of places (Today, Run
+ * the day, Records, Setup) rather than twelve rows. Two rules keep it from
+ * hiding where the operator is:
+ *
+ *  - The group holding the current screen opens itself, including when the
+ *    operator arrives there from a link on another screen, so the lit row is
+ *    never tucked away inside a closed group.
+ *  - What the operator opened or closed by hand is remembered on this station,
+ *    so a manager who keeps Setup shut does not have to shut it every shift.
+ *
+ * The rows are `inert` while closed, so Tab never lands on something that
+ * cannot be seen. The height animates through a 0fr → 1fr grid track, which
+ * needs no measured height and is cut to nothing by the reduced-motion rule
+ * in GlobalStyles.
+ */
+function RailGroup({ labelKey, items, path }: { labelKey: NonNullable<NavGroup['labelKey']>; items: readonly NavItem[]; path: string }) {
+  const { tr } = useLocale();
+  const holdsActive = items.some((item) => isNavActive(item, path));
+  const [open, setOpen] = useState(() => holdsActive || loadOpenGroups()[labelKey] === true);
+  const listId = `rail-group-${labelKey}`;
+
+  useEffect(() => {
+    if (holdsActive) setOpen(true);
+  }, [holdsActive]);
+
+  const toggle = () => {
+    setOpen((cur) => {
+      saveOpenGroup(labelKey, !cur);
+      return !cur;
+    });
+  };
+
+  return (
+    <div style={{ display: 'grid' }}>
+      <button
+        type="button"
+        className="tp-nav-item tp-rail-group"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={toggle}
+        style={navButtonStyle}
+      >
+        <span style={{ flex: 1, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {tr(`ws.shell.nav.${labelKey}`)}
+        </span>
+        <span className="tp-rail-group-chevron" style={{ display: 'inline-flex' }}>
+          <Icon name="chevronDown" size={14} />
+        </span>
+      </button>
+      <div id={listId} className="tp-rail-group-body" data-open={open ? 'true' : undefined}>
+        <div style={{ overflow: 'hidden', minBlockSize: 0 }} inert={!open}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-0)', paddingBlockStart: 'var(--tp-sp-0)' }}>
+            {items.map((item) => (
+              <RailLink key={item.to} item={item} path={path} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // WorkspaceNav — the rail. Props: items, activeKey, role (spec §07).
 // ---------------------------------------------------------------------------
@@ -469,7 +555,20 @@ function WorkspaceNav({
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-4)', alignContent: 'start' }}>
+      {/* Collapsible groups carry their own 44px title row, so they stack at a
+          small gap; the wide gap is for plain lists that have no title between
+          them. */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          paddingBlock: 'var(--tp-sp-2-5)',
+          paddingInline: RAIL_PAD,
+          display: 'grid',
+          gap: !section && workspace.groups.some((g) => g.labelKey) ? 'var(--tp-sp-1)' : 'var(--tp-sp-4)',
+          alignContent: 'start',
+        }}
+      >
         {section ? (
           <div style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
             {sectionRailItems(section)
@@ -480,20 +579,19 @@ function WorkspaceNav({
           </div>
         ) : (
           <>
-            {workspace.groups.map((group, gi) => (
-              <div key={gi} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-                {group.labelKey && (
-                  <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, paddingInline: RAIL_ITEM_PAD, marginBlockEnd: 'var(--tp-sp-1)' }}>
-                    {tr(`ws.shell.nav.${group.labelKey}`)}
-                  </p>
-                )}
-                {group.items
-                  .filter((item) => canAccess(staff?.role, item.to))
-                  .map((item) => (
+            {workspace.groups.map((group, gi) => {
+              const items = group.items.filter((item) => canAccess(staff?.role, item.to));
+              if (items.length === 0) return null;
+              return group.labelKey ? (
+                <RailGroup key={group.labelKey} labelKey={group.labelKey} items={items} path={path} />
+              ) : (
+                <div key={gi} style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
+                  {items.map((item) => (
                     <RailLink key={item.to} item={item} path={path} />
                   ))}
-              </div>
-            ))}
+                </div>
+              );
+            })}
 
             {/* One row per section, chevron forward: this opens a place, it
                 does not switch a screen. */}

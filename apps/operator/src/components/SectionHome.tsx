@@ -17,7 +17,15 @@
  * offering a link to a refusal is the dead end the rulebook forbids (4.3).
  *
  * `children` renders above the grid: Financial puts its headline figures
- * there, Observation puts what is waiting on a decision.
+ * there, Observation puts what is waiting on a decision. When there is such a
+ * reading above, `screensTitle` heads the grid, so the owner can tell where the
+ * figures stop and the list of screens starts.
+ *
+ * `status` adds one live line to the foot of a card ("Open tabs 4"). A card
+ * that only describes a screen tells the owner where to look; a card that also
+ * says what is there now often saves the click. It is optional per card: a
+ * screen with nothing honest to count (the audit log) gets no line rather
+ * than a decorative one.
  */
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
@@ -38,14 +46,21 @@ export function SectionHome({
   title,
   lead,
   card,
+  status,
+  screensTitle,
   children,
   fullWidth = false,
 }: {
   sectionKey: SectionKey;
   title: string;
-  lead: string;
+  /** Omitted when the rail's own section line already says it. */
+  lead?: string;
   /** Card copy for a destination, keyed by its nav labelKey. */
   card: (labelKey: string) => string;
+  /** A live line at the foot of a card, keyed by nav labelKey; null for none. */
+  status?: (labelKey: string) => ReactNode;
+  /** Heads the card grid when `children` puts a reading above it. */
+  screensTitle?: string;
   children?: ReactNode;
   /** Drop the 64rem reading measure and use the whole content area. */
   fullWidth?: boolean;
@@ -58,6 +73,9 @@ export function SectionHome({
     <div style={fullWidth ? undefined : { maxInlineSize: '64rem' }}>
       <PageHeader title={title} subtitle={lead} />
       {children}
+      {screensTitle && (
+        <h2 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{screensTitle}</h2>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(17rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
         {items.map((item) => (
           <Link
@@ -71,7 +89,7 @@ export function SectionHome({
               padding: 'var(--tp-sp-4)',
               display: 'grid',
               gap: 'var(--tp-sp-2)',
-              alignContent: 'start',
+              gridTemplateRows: 'auto auto 1fr auto',
               color: 'var(--tp-fg)',
               textDecoration: 'none',
               minBlockSize: 'var(--tp-tile-min-block)',
@@ -98,9 +116,31 @@ export function SectionHome({
               {tr(`ws.shell.nav.${item.labelKey}`)}
             </span>
             <span style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{card(item.labelKey)}</span>
+            <CardStatus>{status?.(item.labelKey)}</CardStatus>
           </Link>
         ))}
       </div>
     </div>
+  );
+}
+
+/** The card's live line, pushed to the foot so every card's line sits level. */
+function CardStatus({ children }: { children: ReactNode }) {
+  if (children == null || children === false) return null;
+  return (
+    <span
+      style={{
+        marginBlockStart: 'auto',
+        paddingBlockStart: 'var(--tp-sp-2)',
+        borderBlockStart: '1px solid var(--tp-border)',
+        display: 'flex',
+        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        gap: 'var(--tp-sp-2)',
+        fontSize: 'var(--tp-fs-sm)',
+      }}
+    >
+      {children}
+    </span>
   );
 }

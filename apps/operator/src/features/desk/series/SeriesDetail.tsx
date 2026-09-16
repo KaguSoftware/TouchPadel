@@ -9,7 +9,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { formatDate, formatDateTime, formatNumber, formatTimeRange, VENUE_TZ } from '@touch/i18n';
+import { wallTimeToUtc } from '@touch/core';
+import { formatDate, formatDateTime, formatNumber, formatTime, formatTimeRange, VENUE_TZ } from '@touch/i18n';
 import { appRpc } from '../../../lib/appRpc';
 import { mutate } from '../../../lib/mutate';
 import { QK, fetchActiveCourts, fetchVenueSettings } from '../../../lib/queries';
@@ -17,7 +18,7 @@ import { useToast } from '../../../components/toast';
 import { useLocale, pickName } from '../../../lib/i18n';
 import { Button, ErrorText, Modal, type ReasonCode } from '../../../components/ui';
 import { AsyncStateWrapper, BookingStatusIndicator, DescriptionList, EmptyState, MessagePresenter, PageHeader, Panel, ReasonCodePrompt, StatusBadge } from '../../../components/kit';
-import type { SeriesDetail, SeriesOccurrence } from '../deskTypes';
+import type { CustomerRecord, SeriesDetail, SeriesOccurrence } from '../deskTypes';
 import { cancelScopeCount, occurrenceEditable, summarizeOccurrences } from './seriesLogic';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
@@ -44,6 +45,18 @@ export function SeriesDetailScreen() {
     refetchInterval: 60_000,
   });
   const detail = seriesQ.data ?? null;
+  /*
+   * series_detail carries the guest id but not the account's name, and a
+   * series booked for an account has no guest_name — so the page was titled
+   * "Walk-in" right beside an "Open customer" link. Ask the account.
+   */
+  const guestId = detail?.series.guest_id ?? null;
+  const customerQ = useQuery({
+    queryKey: ['customer', guestId ?? ''],
+    enabled: Boolean(guestId) && !detail?.series.guest_name,
+    queryFn: () => appRpc<CustomerRecord | null>('customer_record', { p_customer_id: guestId }),
+    retry: false,
+  });
   const occurrences = detail?.occurrences ?? [];
   const summary = summarizeOccurrences(occurrences);
   const nowIso = new Date().toISOString();
@@ -84,6 +97,9 @@ export function SeriesDetailScreen() {
   const status = seriesQ.isError && !seriesQ.data ? 'error' : seriesQ.data === undefined ? 'loading' : seriesQ.data === null ? 'empty' : 'ready';
   const s = detail?.series;
   const cancelled = Boolean(s?.cancelled_at);
+  const guestName = s ? (s.guest_name ?? customerQ.data?.customer.full_name ?? null) : null;
+  // "10:00" from the row is wall-clock; print it the way every other time on the desk is printed.
+  const startTimeText = s && /^\d{2}:\d{2}/.test(s.start_time) ? formatTime(wallTimeToUtc(s.starts_on, Number(s.start_time.slice(0, 2)) * 60 + Number(s.start_time.slice(3, 5)), tz), locale, tz) : (s?.start_time ?? '');
   const patternText = s
     ? s.pattern === 'weekdays'
       ? `${tr('ws.courtDesk.seriesDetail.patternLabel.weekdays')} · ${(s.weekdays ?? []).map((d) => tr(`ws.courtDesk.common.weekday.${WEEKDAY_KEYS[d] ?? 'sun'}`)).join(' ')}`
@@ -94,13 +110,13 @@ export function SeriesDetailScreen() {
     <div>
       <PageHeader
         eyebrow={tr('ws.courtDesk.seriesDetail.eyebrow')}
-        title={s ? (s.guest_name ?? tr('ws.courtDesk.common.walkIn')) : tr('ws.courtDesk.seriesDetail.title')}
+        title={s ? (guestName ?? (s.guest_id ? '…' : tr('ws.courtDesk.common.walkIn'))) : tr('ws.courtDesk.seriesDetail.title')}
         subtitle={s ? `${courtName(s.court_id)} · ${patternText}` : undefined}
         actions={
           <>
-            <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
+            <Button kind="ghost" icon="calendar" onClick={() => void navigate({ to: '/desk' })}>
               {tr('ws.courtDesk.detail.backToCalendar')}
-            </Link>
+            </Button>
             {s && !cancelled && (
               <Button
                 kind="danger"
@@ -129,10 +145,10 @@ export function SeriesDetailScreen() {
                     label: tr('ws.courtDesk.seriesDetail.customer'),
                     value: (
                       <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <bdi>{s.guest_name ?? tr('ws.courtDesk.common.walkIn')}</bdi>
+                        <bdi>{guestName ?? (s.guest_id ? '—' : tr('ws.courtDesk.common.walkIn'))}</bdi>
                         {s.guest_phone && <bdi dir="ltr">{s.guest_phone}</bdi>}
                         {s.guest_id && (
-                          <Link to="/desk/customers/$id" params={{ id: s.guest_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)' }}>
+                          <Link to="/desk/customers/$id" params={{ id: s.guest_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
                             {tr('ws.courtDesk.detail.openCustomer')}
                           </Link>
                         )}
@@ -147,7 +163,7 @@ export function SeriesDetailScreen() {
                       </bdi>
                     ),
                   },
-                  { label: tr('ws.courtDesk.series.time'), value: <bdi dir="ltr">{s.start_time.slice(0, 5)}</bdi> },
+                  { label: tr('ws.courtDesk.series.time'), value: <bdi>{startTimeText}</bdi> },
                   { label: tr('ws.courtDesk.series.duration'), value: tr('op.common.minutesShort', { minutes: s.duration_min }) },
                 ]}
               />
@@ -207,7 +223,9 @@ export function SeriesDetailScreen() {
                                 {tr('ws.courtDesk.seriesDetail.openOccurrence')}
                               </Button>
                               {editable && (
-                                <Button size="sm" kind="danger" disabled={busy} onClick={() => setPending({ kind: 'occurrence', occurrence: o })}>
+                                // Quiet, not a red slab per row: the reason prompt is the confirmation,
+                                // and a column of filled danger buttons read as the page's main action.
+                                <Button size="sm" kind="ghost" icon="ban" disabled={busy} onClick={() => setPending({ kind: 'occurrence', occurrence: o })}>
                                   {tr('ws.courtDesk.seriesDetail.cancelOccurrence')}
                                 </Button>
                               )}

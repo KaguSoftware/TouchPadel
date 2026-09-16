@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  choiceRule,
   diffLinks,
   eligibleRevealGroups,
   minMaxError,
   moveInList,
   partitionGroups,
   revealedGroupIds,
+  revealersOf,
   sameOrder,
 } from './addonsLogic';
 
@@ -78,5 +80,33 @@ describe('revealedGroupIds / moveInList / sameOrder', () => {
   it('compares order', () => {
     expect(sameOrder(['a', 'b'], ['a', 'b'])).toBe(true);
     expect(sameOrder(['a', 'b'], ['b', 'a'])).toBe(false);
+  });
+});
+
+describe('choiceRule', () => {
+  it('says optional when nothing is required', () => {
+    expect(choiceRule(0, 2)).toEqual({ kind: 'upTo', max: 2 });
+  });
+  it('says exactly when min equals max', () => {
+    expect(choiceRule(1, 1)).toEqual({ kind: 'exactly', count: 1 });
+  });
+  it('says a range otherwise', () => {
+    expect(choiceRule(1, 3)).toEqual({ kind: 'range', min: 1, max: 3 });
+  });
+});
+
+describe('revealersOf', () => {
+  it('lists the options that reveal a sub-group', () => {
+    const modifiers = [
+      { id: 'make-meal', group_id: 'meal' },
+      { id: 'no-meal', group_id: 'meal' },
+      { id: 'oat', group_id: 'milk' },
+    ];
+    const reveals = [
+      { modifier_id: 'make-meal', group_id: 'drink', sort_order: 0 },
+      { modifier_id: 'oat', group_id: 'side', sort_order: 0 },
+    ];
+    expect(revealersOf('drink', reveals, modifiers).map((m) => m.id)).toEqual(['make-meal']);
+    expect(revealersOf('nothing', reveals, modifiers)).toEqual([]);
   });
 });

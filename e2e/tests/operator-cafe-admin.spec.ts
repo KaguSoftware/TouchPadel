@@ -436,12 +436,16 @@ test.describe('operator cafe admin', () => {
     const search = page.getByRole('searchbox', { name: 'Search' });
     await search.fill('sold_out');
     const firstRow = page.locator('tbody tr').first();
-    await expect(firstRow).toContainText('menu.item.sold_out');
+    // The row names the action in words; the stored code stays on the cell
+    // as data-audit-action, which is what the log is searched by.
+    await expect(firstRow.locator('[data-audit-action]')).toHaveAttribute('data-audit-action', 'menu.item.sold_out');
+    await expect(firstRow).toContainText('Item sold out or back on sale');
     await expect(firstRow).toContainText('Dev Owner');
 
-    // Before/after is a field-level diff, not two blobs of jsonb.
+    // Before/after is a field-level diff, not two blobs of jsonb, with the
+    // column named as a manager reads it.
     await firstRow.getByRole('button', { name: /Changes/ }).click();
-    await expect(page.getByText('sold_out', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Sold out', { exact: true }).first()).toBeVisible();
 
     // Filtering by area narrows to that family and nothing else.
     await firstRow.getByRole('button', { name: 'Hide' }).click();

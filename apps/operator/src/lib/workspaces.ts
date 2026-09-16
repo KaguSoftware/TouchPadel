@@ -54,6 +54,13 @@ export interface NavItem {
   icon: IconName;
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
+  /**
+   * Further prefixes that belong to the same screen family. The menu editor's
+   * tabs (categories, add-ons, suggested items) live beside /admin/menu, not
+   * under it, so without these the Menu row went dark on three of its own four
+   * tabs and a collapsible rail group closed around the screen being edited.
+   */
+  alsoActive?: readonly string[];
   /** Exact match only (for index routes like /desk under /desk/...). */
   exact?: boolean;
   /**
@@ -144,8 +151,11 @@ const MANAGER_RECORDS: readonly NavItem[] = [
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
 ];
 
+/** The menu editor's sibling tabs; see NavItem.alsoActive. */
+const MENU_FAMILY = ['/admin/categories', '/admin/addons', '/admin/suggested'] as const;
+
 const MANAGER_SETUP: readonly NavItem[] = [
-  { to: '/admin/menu', labelKey: 'menu', icon: 'layers', activePrefix: '/admin/menu' },
+  { to: '/admin/menu', labelKey: 'menu', icon: 'layers', activePrefix: '/admin/menu', alsoActive: MENU_FAMILY },
   { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
   { to: '/admin/promotions', labelKey: 'promotions', icon: 'tag' },
 ];
@@ -184,7 +194,7 @@ const OWNER_FINANCIAL: readonly NavItem[] = [
   { to: '/till/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
   { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
   { to: '/admin/rates', labelKey: 'rates', icon: 'scale' },
-  { to: '/admin/menu', labelKey: 'menuPrices', icon: 'layers', activePrefix: '/admin/menu' },
+  { to: '/admin/menu', labelKey: 'menuPrices', icon: 'layers', activePrefix: '/admin/menu', alsoActive: MENU_FAMILY },
 ];
 
 /**
@@ -350,8 +360,8 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
 export function isNavActive(item: NavItem, path: string): boolean {
   const bare = path.replace(/[?#].*$/, '').replace(/\/+$/, '') || '/';
   if (item.exact) return bare === item.to;
-  const prefix = item.activePrefix ?? item.to;
-  return bare === prefix || bare.startsWith(`${prefix}/`);
+  const prefixes = [item.activePrefix ?? item.to, ...(item.alsoActive ?? [])];
+  return prefixes.some((prefix) => bare === prefix || bare.startsWith(`${prefix}/`));
 }
 
 /** Every rail target of a workspace: its own groups and all of its sections. */

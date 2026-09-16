@@ -7,13 +7,21 @@
  *
  * Notes are read-only here: no reservation RPC takes a notes argument
  * (move / extend / cancel / mark only), so there is no honest way to write
- * one. Stated on screen rather than faked.
+ * one. They show when there are some, and nothing pretends to edit them.
+ *
+ * Marking arrived and completed are one click with no reason prompt: they are
+ * the normal course of a booking, not overrides, and the prompt's reasons
+ * ("customer request", "weather"…) did not describe them. Everything that
+ * changes or ends the booking still asks why.
+ *
+ * "Charge on till" shows only to roles that can open the till. The court desk
+ * cannot, and the button used to send the desk to a refusal screen.
  */
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDate, formatDateTime, formatTimeRange, VENUE_TZ } from '@touch/i18n';
+import { formatDate, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
@@ -21,6 +29,7 @@ import { QK, fetchActiveCourts, fetchVenueSettings } from '../../lib/queries';
 import { errorToMessageKey } from '../../lib/errors';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
+import { canAccess, useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Select, inputStyle, type ReasonCode } from '../../components/ui';
 import {
   AsyncStateWrapper,
@@ -31,11 +40,11 @@ import {
   Money,
   PageHeader,
   Panel,
-  PaymentStatusIndicator,
   ReasonCodePrompt,
 } from '../../components/kit';
-import { allowedMarks, isLive, isOverrideRefusal, paymentStatusFor } from './deskLogic';
-import { ReservationBadge } from './deskStatus';
+import { allowedMarks, chargeStateFor, isLive, isOverrideRefusal } from './deskLogic';
+import { tradingDateOf } from './calendar/monthLogic';
+import { ChargeCell, ReservationBadge } from './deskStatus';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import { OVERRIDE_REASONS, STEP_MIN } from './ReservationActionsDialog';
 import { useTabLinks } from './useTradingNight';
@@ -62,6 +71,7 @@ export function BookingDetailScreen() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { staff } = useAuth();
 
   const settingsQ = useQuery({ queryKey: QK.venueSettings, queryFn: fetchVenueSettings });
   const courtsQ = useQuery({ queryKey: QK.courts, queryFn: fetchActiveCourts });
@@ -101,7 +111,8 @@ export function BookingDetailScreen() {
     void queryClient.invalidateQueries({ queryKey: ['series'] });
   }
 
-  async function run(kind: ActionKind, reason: string) {
+  /** `reason` is absent for arrived / completed: the server records its own default. */
+  async function run(kind: ActionKind, reason?: string) {
     if (!r) return;
     setBusy(kind);
     setError(null);
@@ -170,7 +181,11 @@ export function BookingDetailScreen() {
   const durationMs = r ? new Date(r.end_at).getTime() - new Date(r.start_at).getTime() : 0;
   const canShorten = live && durationMs - STEP_MIN * 60_000 >= minDurationMin * 60_000;
   const customer = customerQ.data;
-  const title = !r ? tr('ws.courtDesk.detail.title') : r.kind === 'booking' ? (r.guest_name ?? customer?.customer.full_name ?? tr('ws.courtDesk.detail.walkIn')) : tr(`ws.courtDesk.detail.kindLabel.${r.kind}`);
+  const guestName = r ? (r.guest_name ?? customer?.customer.full_name ?? null) : null;
+  const title = !r ? tr('ws.courtDesk.detail.title') : r.kind === 'booking' ? (guestName ?? tr('ws.courtDesk.detail.walkIn')) : tr(`ws.courtDesk.detail.kindLabel.${r.kind}`);
+  const night = r ? tradingDateOf(r.start_at, tz, settingsQ.data?.opening_hours) : null;
+  const canCharge = canAccess(staff?.role, '/till');
+  const start = r ? new Date(r.start_at) : null;
 
   const actionLabel: Record<ActionKind, string> = {
     move: tr('ws.courtDesk.detail.reason.move'),
@@ -185,29 +200,27 @@ export function BookingDetailScreen() {
   return (
     <div>
       <PageHeader
-        eyebrow={tr('ws.courtDesk.detail.eyebrow')}
+        eyebrow={r && r.kind === 'booking' ? tr('ws.courtDesk.detail.eyebrow') : undefined}
         title={title}
         subtitle={
-          r ? (
+          r && start ? (
             <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <bdi>{court ? pickName(locale, court) : ''}</bdi>
-              <bdi>{formatDate(new Date(r.start_at), locale, tz)}</bdi>
-              <bdi>{formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}</bdi>
+              <bdi>
+                {formatWeekdayShort(start, locale, tz)} · {formatDate(start, locale, tz)}
+              </bdi>
+              <bdi style={{ fontVariantNumeric: 'tabular-nums' }}>{formatTimeRange(start, new Date(r.end_at), locale, tz)}</bdi>
               <ReservationBadge reservation={r} />
             </span>
           ) : undefined
         }
         actions={
           <>
-            <Link to="/desk" className="tp-btn" data-kind="ghost" data-size="md">
-              {tr('ws.courtDesk.detail.backToCalendar')}
-            </Link>
-            {r && r.kind === 'booking' && (
-              <Button
-                icon="receipt"
-                title={tr('ws.courtDesk.detail.chargeCafeLead')}
-                onClick={() => void navigate({ to: '/till', search: { reservation: r.id } as never })}
-              >
+            <Button icon="calendar" onClick={() => void navigate({ to: '/desk', search: (night ? { date: night } : {}) as never })}>
+              {tr('ws.courtDesk.detail.seeOnCalendar')}
+            </Button>
+            {r && r.kind === 'booking' && canCharge && (
+              <Button icon="receipt" title={tr('ws.courtDesk.detail.chargeCafeLead')} onClick={() => void navigate({ to: '/till', search: { reservation: r.id } as never })}>
                 {tr('ws.courtDesk.detail.chargeCafe')}
               </Button>
             )}
@@ -216,11 +229,9 @@ export function BookingDetailScreen() {
       />
 
       {search.customer && (
-        <MessagePresenter
-          tone="refused"
-          message={tr('ws.courtDesk.customers.attachBooking') + ' — ' + tr('ws.courtDesk.detail.notesReadOnly')}
-          style={{ marginBlockEnd: '0.75rem' }}
-        />
+        // Nothing can link a customer to a booking after it is made (no RPC
+        // takes a guest id on an existing reservation). Say what to do instead.
+        <MessagePresenter tone="refused" message={tr('ws.courtDesk.detail.attachUnavailable')} style={{ marginBlockEnd: '0.75rem' }} />
       )}
 
       <AsyncStateWrapper
@@ -232,63 +243,64 @@ export function BookingDetailScreen() {
             icon="calendar"
             title={tr('ws.courtDesk.detail.notFound')}
             action={
-              <Link to="/desk" className="tp-btn" data-kind="default" data-size="md">
-                {tr('ws.courtDesk.detail.backToCalendar')}
-              </Link>
+              <Button onClick={() => void navigate({ to: '/desk' })}>{tr('ws.courtDesk.detail.backToCalendar')}</Button>
             }
           />
         }
       >
-        {r && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 3fr) minmax(18rem, 2fr)', gap: '1rem', alignItems: 'start' }}>
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <Panel>
-                <DescriptionList
-                  columns={2}
-                  items={[
-                    { label: tr('ws.courtDesk.detail.when'), value: <bdi>{formatDateTime(new Date(r.start_at), locale, tz)}</bdi> },
-                    { label: tr('ws.courtDesk.detail.court'), value: <bdi>{court ? pickName(locale, court) : r.court_id}</bdi> },
-                    {
-                      label: tr('ws.courtDesk.detail.customer'),
-                      value: (
-                        <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <bdi>{r.guest_name ?? customer?.customer.full_name ?? tr('ws.courtDesk.detail.walkIn')}</bdi>
-                          {customer?.flags.map((f, i) => (
-                            <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
-                          ))}
-                          {r.guest_id && (
-                            <Link to="/desk/customers/$id" params={{ id: r.guest_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)' }}>
-                              {tr('ws.courtDesk.detail.openCustomer')}
+        {r && start && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1rem', alignItems: 'start' }}>
+            <Panel title={tr('ws.courtDesk.detail.details')}>
+              <DescriptionList
+                columns={2}
+                items={[
+                  ...(r.kind === 'booking'
+                    ? [
+                        {
+                          label: tr('ws.courtDesk.detail.customer'),
+                          value: (
+                            <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <bdi>{guestName ?? tr('ws.courtDesk.detail.walkIn')}</bdi>
+                              {customer?.flags.map((f, i) => (
+                                <CustomerFlagBadge key={`${f.type}-${i}`} flag={f} />
+                              ))}
+                              {r.guest_id && (
+                                <Link to="/desk/customers/$id" params={{ id: r.guest_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, fontSize: 'var(--tp-fs-sm)', textDecoration: 'none' }}>
+                                  {tr('ws.courtDesk.detail.openCustomer')}
+                                </Link>
+                              )}
+                            </span>
+                          ),
+                        },
+                        { label: tr('ws.courtDesk.detail.contact'), value: r.guest_phone ? <bdi dir="ltr">{r.guest_phone}</bdi> : '—' },
+                        { label: tr('ws.courtDesk.detail.price'), value: <Money amount={r.price_iqd} />, numeric: true },
+                        { label: tr('ws.courtDesk.detail.payment'), value: <ChargeCell state={chargeStateFor(r, tabLinksQ.data)} kind={r.kind} /> },
+                      ]
+                    : []),
+                  { label: tr('ws.courtDesk.detail.court'), value: <bdi>{court ? pickName(locale, court) : '—'}</bdi> },
+                  { label: tr('ws.courtDesk.detail.when'), value: <bdi>{formatTimeRange(start, new Date(r.end_at), locale, tz)}</bdi> },
+                  ...(r.source === 'mobile' || r.source === 'desk' ? [{ label: tr('ws.courtDesk.detail.source'), value: tr(`ws.courtDesk.detail.sourceLabel.${r.source}`) }] : []),
+                  ...(r.series_id
+                    ? [
+                        {
+                          label: tr('ws.courtDesk.detail.series'),
+                          value: (
+                            <Link to="/desk/series/$id" params={{ id: r.series_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600, textDecoration: 'none' }}>
+                              {tr('ws.courtDesk.detail.viewSeries')}
                             </Link>
-                          )}
-                        </span>
-                      ),
-                    },
-                    { label: tr('ws.courtDesk.detail.contact'), value: r.guest_phone ? <bdi dir="ltr">{r.guest_phone}</bdi> : '—' },
-                    { label: tr('ws.courtDesk.detail.price'), value: <Money amount={r.price_iqd} />, numeric: true },
-                    { label: tr('ws.courtDesk.detail.payment'), value: <PaymentStatusIndicator paymentStatus={paymentStatusFor(r, tabLinksQ.data)} size="sm" /> },
-                    { label: tr('ws.courtDesk.detail.kind'), value: tr(`ws.courtDesk.detail.kindLabel.${r.kind}`) },
-                    { label: tr('ws.courtDesk.detail.source'), value: r.source === 'mobile' || r.source === 'desk' ? tr(`ws.courtDesk.detail.sourceLabel.${r.source}`) : '—' },
-                    ...(r.series_id
-                      ? [
-                          {
-                            label: tr('ws.courtDesk.detail.series'),
-                            value: (
-                              <Link to="/desk/series/$id" params={{ id: r.series_id }} style={{ color: 'var(--tp-accent)', fontWeight: 600 }}>
-                                {tr('ws.courtDesk.detail.viewSeries')}
-                              </Link>
-                            ),
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
-              </Panel>
-              <Panel title={tr('ws.courtDesk.detail.notes')}>
-                {r.notes ? <p style={{ whiteSpace: 'pre-wrap' }}>{r.notes}</p> : <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.detail.noNotes')}</p>}
-                <p style={{ marginBlockStart: '0.5rem', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.detail.notesReadOnly')}</p>
-              </Panel>
-            </div>
+                          ),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+              {r.notes && (
+                <div style={{ marginBlockStart: '0.75rem', paddingBlockStart: '0.75rem', borderBlockStart: '1px solid var(--tp-border)' }}>
+                  <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: '0.25rem' }}>{tr('ws.courtDesk.detail.notes')}</p>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{r.notes}</p>
+                </div>
+              )}
+            </Panel>
 
             <Panel title={tr('ws.courtDesk.detail.actions')}>
               {done && <MessagePresenter tone="success" message={tr('ws.courtDesk.detail.done')} style={{ marginBlockEnd: '0.75rem' }} />}
@@ -300,34 +312,30 @@ export function BookingDetailScreen() {
               {live && r.kind === 'booking' && (
                 <div style={{ display: 'grid', gap: '0.5rem' }}>
                   {marks.includes('arrived') && (
-                    <Button icon="check" kind="primary" busy={busy === 'arrived'} disabled={busy !== null} onClick={() => setPending('arrived')}>
+                    <Button icon="check" kind="primary" size="lg" busy={busy === 'arrived'} disabled={busy !== null} onClick={() => void run('arrived')}>
                       {tr('ws.courtDesk.detail.arrived')}
                     </Button>
                   )}
                   {marks.includes('completed') && (
-                    <Button icon="checkCircle" busy={busy === 'completed'} disabled={busy !== null} onClick={() => setPending('completed')}>
+                    <Button icon="checkCircle" size="lg" busy={busy === 'completed'} disabled={busy !== null} onClick={() => void run('completed')}>
                       {tr('ws.courtDesk.detail.completed')}
                     </Button>
                   )}
-                  {marks.includes('no_show') && (
-                    <Button icon="eyeOff" busy={busy === 'noShow'} disabled={busy !== null} onClick={() => setPending('noShow')}>
-                      {tr('ws.courtDesk.detail.noShow')}
-                    </Button>
-                  )}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    <Button
-                      icon="minus"
-                      busy={busy === 'shorten'}
-                      disabled={busy !== null || !canShorten}
-                      disabledReason={canShorten ? undefined : tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
-                      onClick={() => setPending('shorten')}
-                    >
+                  <h3 style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 700, marginBlockStart: marks.length > 0 ? '0.5rem' : 0 }}>{tr('ws.courtDesk.calendar.changeTitle')}</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', alignItems: 'start' }}>
+                    <Button icon="minus" busy={busy === 'shorten'} disabled={busy !== null || !canShorten} onClick={() => setPending('shorten')}>
                       {tr('ws.courtDesk.detail.shorten')}
                     </Button>
                     <Button icon="plus" busy={busy === 'extend'} disabled={busy !== null} onClick={() => setPending('extend')}>
                       {tr('ws.courtDesk.detail.extend')}
                     </Button>
                   </div>
+                  {/* Rulebook 4.3, under the pair rather than inside one cell, so the two buttons stay the same height. */}
+                  {!canShorten && (
+                    <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: '-0.25rem' }}>
+                      {tr('ws.courtDesk.detail.shortenFloor', { minutes: tr('ws.courtDesk.common.minutes', { minutes: String(minDurationMin) }) })}
+                    </p>
+                  )}
                   <Button
                     icon="repeat"
                     aria-pressed={showMove}
@@ -361,6 +369,11 @@ export function BookingDetailScreen() {
                         {tr('ws.courtDesk.detail.moveSubmit')}
                       </Button>
                     </div>
+                  )}
+                  {marks.includes('no_show') && (
+                    <Button icon="eyeOff" busy={busy === 'noShow'} disabled={busy !== null} onClick={() => setPending('noShow')}>
+                      {tr('ws.courtDesk.detail.noShow')}
+                    </Button>
                   )}
                   <Button kind="danger" icon="ban" busy={busy === 'cancel'} disabled={busy !== null} onClick={() => setPending('cancel')}>
                     {tr('ws.courtDesk.detail.cancel')}

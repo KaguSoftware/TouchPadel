@@ -26,6 +26,12 @@ export interface AuditRow {
   after: unknown;
   reason_code: string | null;
   device_id: string | null;
+  /**
+   * Display names `app.audit_log_page` (0068) already joins — staff name or,
+   * for a guest, the profile's full name. Absent on the direct-table fallback.
+   */
+  actor_name?: string | null;
+  authorizer_name?: string | null;
 }
 
 /**
@@ -88,13 +94,16 @@ export const EMPTY_FILTER: AuditFilter = {
   onlyMissingReason: false,
 };
 
-export function matchesAudit(row: AuditRow, filter: AuditFilter): boolean {
+export function matchesAudit(row: AuditRow, filter: AuditFilter, words: readonly string[] = []): boolean {
   if (filter.family && actionFamily(row.action) !== filter.family) return false;
-  if (filter.actorId && row.actor_id !== filter.actorId) return false;
+  if (filter.actorId && row.actor_id !== filter.actorId && row.authorizer_id !== filter.actorId) return false;
   if (filter.onlyMissingReason && !missingReason(row)) return false;
   const q = filter.query.trim().toLowerCase();
   if (!q) return true;
-  return [row.action, row.entity, row.entity_id, row.reason_code, row.device_id, row.actor_role]
+  // `words` is what the screen shows for the row (the action in plain
+  // language, the person's name), so a manager can search for what they SEE —
+  // "refund", a name — as well as the stored code the overview links with.
+  return [row.action, row.entity, row.entity_id, row.reason_code, row.device_id, row.actor_role, row.actor_name, ...words]
     .filter((v): v is string => typeof v === 'string')
     .some((v) => v.toLowerCase().includes(q));
 }
@@ -232,4 +241,211 @@ export function auditCsv(
       .join('; '),
   ]);
   return { headers, rows: out };
+}
+
+// ---------------------------------------------------------------------------
+// Plain language (the screen shows words; the CSV keeps the stored codes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every action the migrations write (grep `write_audit` in
+ * packages/db/supabase/migrations), as catalog keys. The table used to print
+ * `tab.settle`, `menu.item.sold_out` and `table_token.prev_secret_cleared` in
+ * a monospace font. A new server action that is not listed here still shows —
+ * under its area's name, with the code beside it — rather than disappearing.
+ */
+export const ACTION_KEYS = [
+  'account.delete',
+  'analytics.insight.reject',
+  'analytics.insight.unreject',
+  'analytics.insights.save',
+  'analytics.patterns.save',
+  'courts.create',
+  'courts.delete',
+  'courts.reorder',
+  'courts.update',
+  'customer.create',
+  'customer.flags_set',
+  'customer.note_add',
+  'customer.note_edit',
+  'day.close',
+  'day.open',
+  'discount.apply',
+  'drawer.open',
+  'marketing.audience_save',
+  'marketing.campaign_save',
+  'marketing.campaign_status',
+  'menu.category.create',
+  'menu.category.photo',
+  'menu.category.reorder',
+  'menu.category.update',
+  'menu.item.addons',
+  'menu.item.availability',
+  'menu.item.cost',
+  'menu.item.create',
+  'menu.item.link_group',
+  'menu.item.photo',
+  'menu.item.reorder',
+  'menu.item.sold_out',
+  'menu.item.update',
+  'menu.modifier.create',
+  'menu.modifier.reorder',
+  'menu.modifier.reveals',
+  'menu.modifier.update',
+  'menu.modifier_group.create',
+  'menu.modifier_group.update',
+  'menu.variant.create',
+  'menu.variant.update',
+  'order_item.void',
+  'payment.refund',
+  'price.override',
+  'promotion.apply',
+  'promotion.drop_on_merge',
+  'promotion.generate_code',
+  'promotion.replace',
+  'promotion.set_enabled',
+  'promotion.upsert',
+  'rates.rule.create',
+  'rates.rule.update',
+  'reservation.cancel',
+  'reservation.confirm',
+  'reservation.create',
+  'reservation.extend',
+  'reservation.hold',
+  'reservation.mark_arrived',
+  'reservation.mark_completed',
+  'reservation.mark_no_show',
+  'reservation.move',
+  'reservation.price_override',
+  'reservation.release',
+  'series.cancel',
+  'series.create',
+  'settings.cafe',
+  'settings.opening_hours',
+  'settings.waiter_cooldown',
+  'staff.active_set',
+  'staff.create',
+  'staff.password_reset',
+  'staff.pin_cleared',
+  'staff.pin_collision',
+  'staff.pin_locked',
+  'staff.pin_lockout_cleared',
+  'staff.pin_set',
+  'staff.rename',
+  'staff.role_set',
+  'staff_request.decide',
+  'staff_request.submit',
+  'staff_request.withdraw',
+  'stock.finalize_count',
+  'stock.ingredient.create',
+  'stock.ingredient.update',
+  'stock.receive_delivery',
+  'stock.recipe.set',
+  'stock.record_production',
+  'stock.record_waste',
+  'stock.start_count',
+  'stock.write_off_expired',
+  'tab.cancel',
+  'tab.merge',
+  'tab.settle',
+  'table.bell',
+  'table.qr_tokens_read',
+  'table.token.rotate',
+  'table.upsert',
+  'table_token.accepted_prev_secret',
+  'table_token.prev_secret_cleared',
+  'table_token.secret_rotated',
+  'telegram.staff_set',
+  'telegram.o.seen',
+  'telegram.o.served',
+  'telegram.o.void',
+  'telegram.w.ack',
+  'telegram.w.done',
+] as const;
+
+/** The areas (dotted prefixes) the known actions fall into. */
+export const FAMILY_KEYS = [
+  'account',
+  'analytics',
+  'courts',
+  'customer',
+  'day',
+  'discount',
+  'drawer',
+  'marketing',
+  'menu',
+  'order_item',
+  'payment',
+  'price',
+  'promotion',
+  'rates',
+  'reservation',
+  'series',
+  'settings',
+  'staff',
+  'staff_request',
+  'stock',
+  'tab',
+  'table',
+  'table_token',
+  'telegram',
+] as const;
+
+/** `menu.item.sold_out` → `menuItemSoldOut`: a stored code as a catalog key segment. */
+export function codeToKey(code: string): string {
+  return code.replace(/[._:-]+([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+}
+
+export function knownActionKey(action: string): string | null {
+  return (ACTION_KEYS as readonly string[]).includes(action) ? codeToKey(action) : null;
+}
+
+export function knownFamilyKey(family: string): string | null {
+  return (FAMILY_KEYS as readonly string[]).includes(family) ? codeToKey(family) : null;
+}
+
+/**
+ * The area filter's options: every known area plus any new one present in the
+ * data. The filter is applied on the server now, so a list built only from the
+ * loaded page would shrink to the chosen area the moment it was chosen.
+ */
+export function familyOptions(rows: readonly AuditRow[]): string[] {
+  return [...new Set<string>([...FAMILY_KEYS, ...actionFamilies(rows)])].sort();
+}
+
+/** An exact, known action code — safe to hand the server as a prefix filter. */
+export function isActionCode(query: string): boolean {
+  return (ACTION_KEYS as readonly string[]).includes(query.trim());
+}
+
+/**
+ * Fields left out of the on-screen before/after list: row ids, foreign keys,
+ * idempotency keys, tokens and secrets. They mean nothing to a manager reading
+ * what changed; the CSV export keeps every field.
+ */
+export function isTechnicalField(field: string): boolean {
+  return field === 'id' || field.endsWith('_id') || field.endsWith('_ids') || /idempotency|token|secret|blur|_hash$/.test(field);
+}
+
+/** `sold_out` → `Sold out`, `price_iqd` → `Price (IQD)`. */
+export function humanizeField(field: string): string {
+  const iqd = field.endsWith('_iqd');
+  const base = (iqd ? field.slice(0, -4) : field).replace(/_/g, ' ').trim();
+  const words = base.charAt(0).toUpperCase() + base.slice(1);
+  return iqd ? `${words} (IQD)` : words;
+}
+
+/**
+ * What the record is called, from the row itself: a menu item's name, a
+ * guest's name, a tab's label. The table used to print the table name and a
+ * uuid (`tabs a173d62b-…`).
+ */
+export function recordName(before: unknown, after: unknown, locale: 'en' | 'ar'): string | null {
+  const src = isRecord(after) ? after : isRecord(before) ? before : null;
+  if (!src) return null;
+  const localized = locale === 'ar' ? src.name_ar : src.name_en;
+  for (const v of [localized, src.name_en, src.display_name, src.guest_name, src.full_name, src.name, src.label, src.table_number]) {
+    if (typeof v === 'string' && v.trim() !== '') return v;
+  }
+  return null;
 }

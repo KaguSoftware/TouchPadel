@@ -14,6 +14,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { formatNumber } from '@touch/i18n';
 import { useLocale } from '../../../lib/i18n';
+import { canAccess, useAuth } from '../../../lib/auth';
 import { Button, Skeleton } from '../../../components/ui';
 import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, FilterChips, MessagePresenter, PageHeader, ResultCount, SearchField, type AsyncStatus } from '../../../components/kit';
 import { Icon } from '../../../components/icons';
@@ -46,6 +47,9 @@ export function CustomerSearchScreen() {
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const search = useCustomerSearch(query, CUSTOMER_SEARCH_LIMIT);
+  // The cashier searches customers too, and cannot open the desk calendar.
+  const { staff } = useAuth();
+  const canBook = canAccess(staff?.role, '/desk');
   const results = search.data ?? [];
 
   const status: AsyncStatus | 'idle' | 'searching' = !search.enabled
@@ -67,7 +71,7 @@ export function CustomerSearchScreen() {
   }
 
   const createLink = (
-    <Link to="/desk/customers/new" className="tp-btn" data-kind="primary" data-size="lg">
+    <Link to="/desk/customers/new" className="tp-btn" data-kind="primary" data-size="lg" style={{ textDecoration: 'none' }}>
       <Icon name="userPlus" size={20} /> {tr('ws.courtDesk.customers.create')}
     </Link>
   );
@@ -158,7 +162,14 @@ export function CustomerSearchScreen() {
         >
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', background: 'var(--tp-surface)', overflow: 'hidden' }}>
             {results.map((c) => (
-              <CustomerResultRow key={c.id} customer={c} attachLabel={params.attach ? (params.attach === 'booking' ? tr('ws.courtDesk.customers.attachBooking') : tr('ws.courtDesk.customers.attachTab')) : null} onAttach={() => attach(c)} onSelect={() => void navigate({ to: '/desk/customers/$id', params: { id: c.id } })} />
+              <CustomerResultRow
+                key={c.id}
+                customer={c}
+                attachLabel={params.attach ? (params.attach === 'booking' ? tr('ws.courtDesk.customers.attachBooking') : tr('ws.courtDesk.customers.attachTab')) : null}
+                onAttach={() => attach(c)}
+                onBook={canBook && !params.attach ? () => void navigate({ to: '/desk', search: { customer: c.id } as never }) : undefined}
+                onSelect={() => void navigate({ to: '/desk/customers/$id', params: { id: c.id } })}
+              />
             ))}
           </ul>
           {/* The RPC caps the list, so a full page is never "all of them" —
@@ -175,16 +186,22 @@ export function CustomerSearchScreen() {
   );
 }
 
-/** CustomerResultRow (spec §07): customer + flags + counts; Open, and Attach when in attach mode. */
+/**
+ * CustomerResultRow (spec §07): customer + flags + counts; Book, Open, and
+ * Attach when in attach mode. "Book" is the reason most searches happen — a
+ * regular at the counter — and it opens the calendar already booking for them.
+ */
 export function CustomerResultRow({
   customer: c,
   attachLabel,
   onAttach,
+  onBook,
   onSelect,
 }: {
   customer: CustomerSearchRow;
   attachLabel: string | null;
   onAttach: () => void;
+  onBook?: () => void;
   onSelect: () => void;
 }) {
   const { tr, locale } = useLocale();
@@ -230,14 +247,32 @@ export function CustomerResultRow({
         </div>
       </div>
       <div style={{ display: 'flex', gap: '1.1rem', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', flex: '0 1 auto' }}>
-        <span>{tr('ws.courtDesk.customers.counts.bookings', { count: formatNumber(counts.bookings, locale) })}</span>
-        <span>{tr('ws.courtDesk.customers.counts.cancellations', { count: formatNumber(counts.cancellations, locale) })}</span>
-        <span>{tr('ws.courtDesk.customers.counts.noShows', { count: formatNumber(counts.noShows, locale) })}</span>
+        <span>
+          {tr('ws.courtDesk.customers.counts.bookingsLabel')} <strong style={{ color: 'var(--tp-fg)' }}>{formatNumber(counts.bookings, locale)}</strong>
+        </span>
+        {/* Only when there are some: "0 cancelled · 0 no-shows" on every row
+            was two figures of noise per customer. A no-show record is the
+            one the desk should notice, so it is the one that is tinted. */}
+        {counts.cancellations > 0 && (
+          <span>
+            {tr('ws.courtDesk.customers.counts.cancellationsLabel')} <strong style={{ color: 'var(--tp-fg)' }}>{formatNumber(counts.cancellations, locale)}</strong>
+          </span>
+        )}
+        {counts.noShows > 0 && (
+          <span>
+            {tr('ws.courtDesk.customers.counts.noShowsLabel')} <strong style={{ color: 'var(--tp-warn-fg)' }}>{formatNumber(counts.noShows, locale)}</strong>
+          </span>
+        )}
       </div>
       <span style={{ display: 'inline-flex', gap: '0.5rem', marginInlineStart: 'auto', flexShrink: 0 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         {attachLabel && (
           <Button size="lg" kind="primary" icon="userPlus" onClick={onAttach}>
             {attachLabel}
+          </Button>
+        )}
+        {onBook && (
+          <Button size="lg" icon="calendar" onClick={onBook}>
+            {tr('ws.courtDesk.customers.book')}
           </Button>
         )}
         <Button size="lg" kind="soft" iconEnd="chevronEnd" onClick={onSelect}>

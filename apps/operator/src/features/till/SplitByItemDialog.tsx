@@ -10,12 +10,13 @@
  * This is the by-item PANEL; SplitBillDialog hosts it beside the even split.
  */
 import { useMemo, useState } from 'react';
-import { formatIQD } from '@touch/i18n';
+import { formatIQD, formatNumber } from '@touch/i18n';
 import { appRpc } from '../../lib/appRpc';
 import { useLocale, pickName } from '../../lib/i18n';
-import { Button, ErrorText, Field, Select, inputStyle } from '../../components/ui';
-import { MessagePresenter, Money } from '../../components/kit';
-import { kvRow, muted, numeric } from './tillStyles';
+import { Button, ErrorText, Select } from '../../components/ui';
+import type { PaymentMethod } from './PaymentPane';
+import { CountStepper, ShareRow } from './SplitParts';
+import { muted, numeric } from './tillStyles';
 
 export interface SplitLine {
   id: string;
@@ -41,7 +42,7 @@ export function SplitByItemPanel({
   due: number;
   busy: boolean;
   /** Take one share as a payment; the tab panel owns settle_tab. */
-  onSettleShare(amountIqd: number): void;
+  onSettleShare(amountIqd: number, method: PaymentMethod): void;
 }) {
   const { tr, locale } = useLocale();
   const live = useMemo(() => lines.filter((l) => !l.voided), [lines]);
@@ -52,6 +53,7 @@ export function SplitByItemPanel({
   const [shares, setShares] = useState<number[] | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
+  const [taken, setTaken] = useState<ReadonlySet<number>>(new Set());
 
   const unassigned = live.filter((l) => assignment[l.id] === undefined || assignment[l.id]! >= parts);
   const ready = live.length > 0 && unassigned.length === 0;
@@ -60,6 +62,7 @@ export function SplitByItemPanel({
     setLoading(true);
     setError(null);
     setShares(null);
+    setTaken(new Set());
     try {
       const groups: string[][] = Array.from({ length: parts }, () => []);
       for (const l of live) {
@@ -85,83 +88,90 @@ export function SplitByItemPanel({
   }
 
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-2-5)' }}>
-      <p style={muted}>{tr('ws.cashier.split.itemHint')}</p>
-      <Field label={tr('ws.cashier.split.people')}>
-        <input
-          style={{ ...inputStyle, inlineSize: '6rem' }}
-          type="number"
-          dir="ltr"
-          min={MIN_PARTS}
-          max={MAX_PARTS}
-          value={parts}
-          onChange={(e) => changeParts(Number(e.target.value) || MIN_PARTS)}
-        />
-      </Field>
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+      <CountStepper label={tr('ws.cashier.split.people')} value={parts} min={MIN_PARTS} max={MAX_PARTS} onChange={changeParts} />
 
-      <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', maxBlockSize: '16rem', overflowY: 'auto' }}>
-        {live.map((l) => {
-          const name = `${l.qty}× ${pickName(locale, l.menu_item)}${l.variant ? ` (${pickName(locale, l.variant)})` : ''}`;
-          const current = assignment[l.id];
-          return (
-            <div
-              key={l.id}
-              className="tp-row"
-              data-selected={current === undefined ? undefined : 'true'}
-              style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-touch)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', borderBlockEnd: '1px solid var(--tp-border)' }}
-            >
-              <span style={{ flex: 1, minInlineSize: 0 }}>
-                <bdi>{name}</bdi>
-              </span>
-              <span style={{ ...muted, ...numeric }}>
-                <bdi>{formatIQD(l.line_total_iqd, locale)}</bdi>
-              </span>
-              <Select
-                value={current === undefined ? '' : String(current)}
-                placeholder={tr('ws.cashier.split.unallocatedHint')}
-                aria-label={tr('ws.cashier.split.assignTo', { name })}
-                onChange={(v) => {
-                  setAssignment((prev) => ({ ...prev, [l.id]: Number(v) }));
-                  setShares(null);
-                }}
-                options={Array.from({ length: parts }, (_, i) => ({
-                  value: String(i),
-                  label: tr('ws.cashier.split.person', { index: i + 1 }),
-                }))}
-                style={{ inlineSize: '9rem' }}
-              />
-            </div>
-          );
-        })}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
+          <span style={{ fontWeight: 600 }}>{tr('ws.cashier.split.whoHadWhat')}</span>
+          {/* Progress, not an alarm: nothing is wrong with a split the cashier
+              has not finished making yet. */}
+          <span style={{ ...muted, fontVariantNumeric: 'tabular-nums' }}>
+            {tr('ws.cashier.split.assignedCount', { done: formatNumber(live.length - unassigned.length, locale), total: formatNumber(live.length, locale) })}
+          </span>
+        </div>
+        <div style={{ border: '1px solid var(--tp-border)', borderRadius: 'var(--tp-radius-panel)', maxBlockSize: '16rem', overflowY: 'auto' }}>
+          {live.map((l) => {
+            const name = `${l.qty}× ${pickName(locale, l.menu_item)}${l.variant ? ` (${pickName(locale, l.variant)})` : ''}`;
+            const current = assignment[l.id];
+            return (
+              <div
+                key={l.id}
+                className="tp-row"
+                data-selected={current === undefined ? undefined : 'true'}
+                style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'center', minBlockSize: 'var(--tp-touch)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', borderBlockEnd: '1px solid var(--tp-border)' }}
+              >
+                <span style={{ flex: 1, minInlineSize: 0 }}>
+                  <bdi>{name}</bdi>
+                </span>
+                <span style={{ ...muted, ...numeric, whiteSpace: 'nowrap' }}>
+                  <bdi>{formatIQD(l.line_total_iqd, locale)}</bdi>
+                </span>
+                <Select
+                  value={current === undefined || current >= parts ? '' : String(current)}
+                  placeholder={tr('ws.cashier.split.choosePerson')}
+                  aria-label={tr('ws.cashier.split.assignTo', { name })}
+                  onChange={(v) => {
+                    setAssignment((prev) => ({ ...prev, [l.id]: Number(v) }));
+                    setShares(null);
+                  }}
+                  options={Array.from({ length: parts }, (_, i) => ({
+                    value: String(i),
+                    label: tr('ws.cashier.split.person', { index: i + 1 }),
+                  }))}
+                  style={{ inlineSize: '11rem' }}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
-
-      {unassigned.length > 0 && (
-        <MessagePresenter tone="refused" message={<>{tr('ws.cashier.split.unallocated', { count: unassigned.length })} {tr('ws.cashier.split.unallocatedHint')}</>} />
-      )}
 
       <ErrorText error={error} />
 
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button kind="primary" busy={loading} disabled={!ready} onClick={() => void compute()}>
+        <Button
+          kind="primary"
+          busy={loading}
+          disabled={!ready}
+          disabledReason={!ready && live.length > 0 ? tr('ws.cashier.split.unallocatedHint') : undefined}
+          onClick={() => void compute()}
+        >
           {tr('ws.cashier.split.compute')}
         </Button>
       </div>
 
       {shares && (
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+        <div style={{ display: 'grid' }}>
           {/* These are the amounts to take, not the goods subtotals: the
               discount, tax and court fee are spread across them by the server. */}
           {shares.map((s, i) => (
-            <div key={i} style={{ ...kvRow, alignItems: 'center' }}>
-              <span>
-                {tr('ws.cashier.split.share', { index: i + 1 })}: <Money amount={s} strong />
-              </span>
-              <Button icon="banknote" disabled={busy || due <= 0 || s > due} onClick={() => onSettleShare(s)}>
-                {tr('ws.cashier.split.settleShare')}
-              </Button>
-            </div>
+            <ShareRow
+              key={i}
+              index={i}
+              amount={s}
+              due={due}
+              busy={busy}
+              taken={taken.has(i)}
+              onSettle={(m) => {
+                setTaken((prev) => new Set(prev).add(i));
+                onSettleShare(s, m);
+              }}
+            />
           ))}
-          <p style={muted}>{tr('ws.cashier.split.remaining', { amount: formatIQD(due, locale) })}</p>
+          <p style={{ ...muted, marginBlockStart: 'var(--tp-sp-2)' }}>
+            {tr('ws.cashier.split.remaining', { amount: formatIQD(due, locale) })} · {tr('ws.cashier.split.itemHint')}
+          </p>
         </div>
       )}
     </div>

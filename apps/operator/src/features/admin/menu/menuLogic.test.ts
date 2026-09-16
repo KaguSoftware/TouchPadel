@@ -3,10 +3,14 @@ import {
   countWithoutCost,
   defaultPrice,
   hookError,
+  itemListView,
+  lacksCost,
   marginBand,
   marginPct,
   matchesSearch,
   nextDayIso,
+  nextSortOrder,
+  orderableState,
   reorderedIds,
   sortRows,
 } from './menuLogic';
@@ -144,5 +148,73 @@ describe('countWithoutCost', () => {
         costs,
       ),
     ).toBe(1);
+  });
+});
+
+describe('itemListView', () => {
+  const items = [
+    { id: 'tea', category_id: 'drinks', sort_order: 1, name_en: 'Tea', name_ar: 'شاي', is_active: true },
+    { id: 'latte', category_id: 'drinks', sort_order: 0, name_en: 'Iced Latte', name_ar: 'لاتيه', is_active: true },
+    { id: 'cake', category_id: 'sweets', sort_order: 0, name_en: 'Latte Cake', name_ar: 'كيك', is_active: true },
+    { id: 'old', category_id: 'sweets', sort_order: 1, name_en: 'Old Latte', name_ar: 'قديم', is_active: false },
+  ];
+  const costs = new Map([['tea', 500]]);
+  // sweets is listed BEFORE drinks, so mixed rows must follow that, not the ids.
+  const categoryRank = new Map([['sweets', 0], ['drinks', 1]]);
+  const base = { categoryId: 'drinks', search: '', noCostOnly: false, costs, categoryRank };
+
+  it('shows the chosen category in its own order, reorderable', () => {
+    const v = itemListView(items, base);
+    expect(v.mode).toBe('category');
+    expect(v.reorderable).toBe(true);
+    expect(v.rows.map((i) => i.id)).toEqual(['latte', 'tea']);
+  });
+
+  it('searches every category, not only the chosen one, and turns reorder off', () => {
+    const v = itemListView(items, { ...base, search: 'latte' });
+    expect(v.mode).toBe('search');
+    expect(v.reorderable).toBe(false);
+    expect(v.rows.map((i) => i.id)).toEqual(['cake', 'old', 'latte']);
+  });
+
+  it('lists active items without a cost from every category', () => {
+    const v = itemListView(items, { ...base, noCostOnly: true });
+    expect(v.mode).toBe('noCost');
+    expect(v.reorderable).toBe(false);
+    // tea has a cost; old is inactive, which the count leaves out too.
+    expect(v.rows.map((i) => i.id)).toEqual(['cake', 'latte']);
+  });
+
+  it('narrows the cost filter by the search', () => {
+    expect(itemListView(items, { ...base, noCostOnly: true, search: 'cake' }).rows.map((i) => i.id)).toEqual(['cake']);
+  });
+
+  it('agrees with countWithoutCost', () => {
+    expect(itemListView(items, { ...base, noCostOnly: true }).rows.length).toBe(countWithoutCost(items, costs));
+    expect(lacksCost(items[0]!, costs)).toBe(false);
+  });
+});
+
+describe('nextSortOrder', () => {
+  it('puts a new row after the last one', () => {
+    expect(nextSortOrder([])).toBe(0);
+    expect(nextSortOrder([{ sort_order: 3 }, { sort_order: 7 }])).toBe(8);
+  });
+});
+
+describe('orderableState', () => {
+  const item = { is_active: true, sold_out: false, unavailable_on: null };
+  it('is orderable when nothing stops it', () => {
+    expect(orderableState(item, '2026-09-16', false)).toBe('orderable');
+  });
+  it('names the item switches ahead of stock', () => {
+    expect(orderableState({ ...item, is_active: false, sold_out: true }, '2026-09-16', true)).toBe('inactive');
+    expect(orderableState({ ...item, sold_out: true }, '2026-09-16', true)).toBe('soldOut');
+    expect(orderableState({ ...item, unavailable_on: '2026-09-16' }, '2026-09-16', true)).toBe('offToday');
+    expect(orderableState(item, '2026-09-16', true)).toBe('blocked');
+  });
+  it('does not call an item off today because of an old date', () => {
+    // The badge that said "Off for today" whether or not the item was off.
+    expect(orderableState({ ...item, unavailable_on: '2026-09-15' }, '2026-09-16', false)).toBe('orderable');
   });
 });

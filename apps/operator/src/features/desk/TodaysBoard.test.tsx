@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LocaleProvider } from '../../lib/i18n';
 import { TodaysBoardView, type TodaysBoardViewProps } from './TodaysBoard';
@@ -40,8 +40,8 @@ function renderView(over: Partial<TodaysBoardViewProps> = {}) {
     onRetry: vi.fn(),
     onSelectReservation: vi.fn(),
     onCreateBooking: vi.fn(),
+    onBookCourt: vi.fn(),
     onSearchCustomer: vi.fn(),
-    onOpenCalendar: vi.fn(),
     onMarkArrived: vi.fn(),
     ...over,
   };
@@ -58,7 +58,7 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     renderView({ status: 'loading' });
     expect(screen.getByRole('heading', { name: 'Today' })).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Search customer' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Find customer' })).toBeTruthy();
   });
 
   it('error: states the failure and offers retry', async () => {
@@ -71,42 +71,83 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     expect(props.onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('empty: teaches the next action and still shows every court as free', async () => {
+  it('empty: teaches the next action and still offers every court as a free tile that books it', async () => {
     const user = userEvent.setup();
     const props = renderView({ status: 'empty' });
     expect(screen.getByText('No bookings today')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Create a booking' }));
     expect(props.onCreateBooking).toHaveBeenCalledTimes(1);
-    // Availability comes from the rows on screen: none, so both courts are free.
-    expect(screen.getAllByText('Free')).toHaveLength(2);
+    // Availability comes from the rows on screen: none, so both courts are free all night.
+    expect(screen.getAllByText('Free until close')).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: /^Court 2 · Free until close · Book this court$/ }));
+    expect(props.onBookCourt).toHaveBeenCalledWith('c2');
   });
 
-  it('ready: lists bookings with court, time, status, payment, flags and arrivals', async () => {
+  it('arrivals: splits late guests from those due within the hour, and leaves out guests already here', async () => {
+    const user = userEvent.setup();
+    const props = renderView({
+      nowIso: '2026-09-03T15:10:00.000Z',
+      horizonIso: '2026-09-03T16:10:00.000Z',
+      reservations: [
+        row({ id: 'late', guest_name: 'Late Guest' }), // 15:00–16:00, started 10 min ago
+        row({ id: 'soon', court_id: 'c2', guest_name: 'Soon Guest', start_at: '2026-09-03T15:40:00.000Z', end_at: '2026-09-03T16:40:00.000Z' }),
+        row({ id: 'here', court_id: 'c2', guest_name: 'Here Already', status: 'arrived', start_at: '2026-09-03T14:00:00.000Z', end_at: '2026-09-03T15:30:00.000Z' }),
+      ],
+    });
+    const arrivals = screen.getByRole('heading', { name: 'Arrivals' }).closest('section')!;
+    const panel = within(arrivals);
+    expect(panel.getByText('Started, not marked arrived')).toBeTruthy();
+    expect(panel.getByText('Started 10 min ago')).toBeTruthy();
+    expect(panel.getByText('Due in the next hour')).toBeTruthy();
+    expect(panel.getByText('In 30 min')).toBeTruthy();
+    expect(panel.queryByText('Here Already')).toBeNull();
+    // Marking arrived is one click — no reason prompt in between.
+    await user.click(panel.getAllByRole('button', { name: 'Mark arrived' })[0]!);
+    expect(props.onMarkArrived).toHaveBeenCalledWith('late');
+    // Header counts: three bookings, one here, one still to start.
+    expect(screen.getByText('Still to come').textContent).toContain('Still to come');
+  });
+
+  it('arrivals: with nobody due, says who is next', () => {
+    renderView({
+      reservations: [row({ id: 'r1', start_at: '2026-09-03T18:00:00.000Z', end_at: '2026-09-03T19:00:00.000Z' })],
+    });
+    expect(screen.getByText('Nobody is due in the next hour.')).toBeTruthy();
+    expect(screen.getByText(/^Next: .* · Sara Ahmed · Court 1$/)).toBeTruthy();
+  });
+
+  it('ready: lists every booking with court, status, court fee and flags; rows and tiles open bookings', async () => {
     const user = userEvent.setup();
     const props = renderView({
       reservations: [
         row({ id: 'r1', guest_id: 'g1' }),
         row({ id: 'r2', court_id: 'c2', status: 'arrived', start_at: '2026-09-03T14:00:00.000Z', end_at: '2026-09-03T15:00:00.000Z', guest_name: 'Omar' }),
+        row({ id: 'r3', start_at: '2026-09-03T19:00:00.000Z', end_at: '2026-09-03T20:00:00.000Z', guest_name: 'Nadia' }),
         row({ id: 'm1', kind: 'maintenance', court_id: 'c2', start_at: '2026-09-03T18:00:00.000Z', end_at: '2026-09-03T19:00:00.000Z', guest_name: null, notes: 'Net repair', price_iqd: null }),
       ],
       tabLinks: [{ reservation_id: 'r1', status: 'settled' }],
       flagsByGuest: new Map([['g1', [{ type: 'vip', label: null }]]]),
     });
-    const table = screen.getByRole('table', { name: 'Bookings' });
-    expect(table.querySelectorAll('tbody tr')).toHaveLength(3);
-    expect(screen.getAllByText('Sara Ahmed').length).toBeGreaterThan(0);
-    expect(screen.getByText('VIP')).toBeTruthy();
-    expect(screen.getByText('Paid')).toBeTruthy();
-    expect(screen.getByText('Net repair')).toBeTruthy();
-    // Court 2 is in use right now (Omar, 14:00–15:00); court 1 is free until 15:00.
-    expect(screen.getByText(/In use until/)).toBeTruthy();
-    expect(screen.getByText(/Free until/)).toBeTruthy();
-    // Arrivals: Omar already arrived, Sara due at 15:00 — her "Mark arrived" is offered.
-    const marks = screen.getAllByRole('button', { name: 'Mark arrived' });
-    expect(marks.length).toBeGreaterThan(0);
-    await user.click(marks[0]!);
-    expect(props.onMarkArrived).toHaveBeenCalledWith('r1');
-    await user.click(screen.getByRole('button', { name: 'Open Omar' }));
+    const table = screen.getByRole('table', { name: 'All bookings today' });
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
+    const t = within(table);
+    expect(t.getByText('VIP')).toBeTruthy();
+    // Court fee: settled tab → Paid; tabs loaded but none charges it → a fact, not "unknown".
+    expect(t.getByText('Paid')).toBeTruthy();
+    expect(t.getAllByText('Not charged yet').length).toBe(2);
+    expect(t.getByText('Net repair')).toBeTruthy();
+    // Court 2 is in use right now (Omar, 14:00–15:00): its tile says so, and opens his booking.
+    const omarTile = screen.getByRole('button', { name: /^Court 2 · In use until .* · Open$/ });
+    await user.click(omarTile);
     expect(props.onSelectReservation).toHaveBeenCalledWith('r2');
+    expect(screen.getByRole('button', { name: /^Court 1 · Free until .* · Book this court$/ })).toBeTruthy();
+    await user.click(t.getByRole('button', { name: 'Open Nadia' }));
+    expect(props.onSelectReservation).toHaveBeenCalledWith('r3');
+  });
+
+  it('court fee prints "—" while the tabs are unknown, never a guess', () => {
+    renderView({ reservations: [row({ id: 'r1' })] });
+    const table = screen.getByRole('table', { name: 'All bookings today' });
+    expect(within(table).getByText('—')).toBeTruthy();
   });
 });

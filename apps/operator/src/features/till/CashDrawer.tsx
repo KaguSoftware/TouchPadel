@@ -11,19 +11,27 @@
  *           `payments` for the open day with their change_iqd.
  *   open    "Open drawer" → ReasonCodePrompt → app.record_drawer_open. Hardware
  *           is out of scope; the RECORD is what day close reconciles against.
- *   close   route to /admin/day-close; PermissionRefusedNotice when
- *           can.closeDay is false (control stays visible).
+ *   close   route to /admin/day-close for a role that can close the day. A
+ *           cashier gets one sentence instead: a greyed button plus a
+ *           four-line "not allowed for your role" box offered them nothing
+ *           they could do, on a screen they open every shift.
+ *
+ * The subtitle is the day this drawer belongs to ("Day opened 5:09 PM"), not
+ * a description of the screen. A cash payment names the tab it was for, so
+ * "18,000 IQD" can be matched to a table when the drawer is counted; the
+ * columns say which way the money went ("Paid in", "Change given").
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { formatTime, type MessageKey } from '@touch/i18n';
+import { formatNumber, formatTime, type MessageKey } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { QK, fetchOpenDay } from '../../lib/queries';
-import { requiredRoleFor, usePermissions } from '../../lib/auth';
+import { usePermissions } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
+import { tabAnchorLabel } from './tillData';
 import { Button, ErrorText } from '../../components/ui';
 import {
   AsyncStateWrapper,
@@ -34,13 +42,13 @@ import {
   Money,
   PageHeader,
   Panel,
-  PermissionRefusedNotice,
   ReasonCodePrompt,
   asyncStatus,
   type Column,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { muted } from './tillStyles';
+import { DRAWER_REASONS } from './drawerReasons';
 
 interface DrawerEvent {
   id: string;
@@ -49,6 +57,8 @@ interface DrawerEvent {
   amount: number | null;
   change: number | null;
   reason: string | null;
+  /** The tab a cash payment was taken on, as the floor names it. */
+  tab: string | null;
   by: string | null;
 }
 
@@ -65,9 +75,14 @@ interface CashPaymentRow {
   amount_iqd: number;
   change_iqd: number | null;
   recorder: { display_name: string } | null;
+  tab: {
+    label: string | null;
+    table: { table_number: string } | null;
+    reservation: { guest_name: string | null } | null;
+  } | null;
 }
 
-async function fetchDrawerEvents(dayId: string, openedAt: string): Promise<DrawerEvent[]> {
+async function fetchDrawerEvents(dayId: string, openedAt: string, tableWord: string, bookingWord: string): Promise<DrawerEvent[]> {
   const [opens, cash] = await Promise.all([
     supabase
       .from('audit_log')
@@ -78,7 +93,7 @@ async function fetchDrawerEvents(dayId: string, openedAt: string): Promise<Drawe
       .limit(200),
     supabase
       .from('payments')
-      .select('id, created_at, amount_iqd, change_iqd, recorder:staff(display_name)')
+      .select('id, created_at, amount_iqd, change_iqd, recorder:staff(display_name), tab:tabs(label, table:cafe_tables(table_number), reservation:reservations(guest_name))')
       .eq('day_session_id', dayId)
       .eq('method', 'cash')
       .order('created_at', { ascending: false })
@@ -93,6 +108,7 @@ async function fetchDrawerEvents(dayId: string, openedAt: string): Promise<Drawe
     amount: null,
     change: null,
     reason: r.reason_code,
+    tab: null,
     by: r.actor_role,
   }));
   const b = (cash.data as unknown as CashPaymentRow[]).map<DrawerEvent>((p) => ({
@@ -102,6 +118,7 @@ async function fetchDrawerEvents(dayId: string, openedAt: string): Promise<Drawe
     amount: p.amount_iqd,
     change: p.change_iqd,
     reason: null,
+    tab: p.tab ? tabAnchorLabel(p.tab, tableWord, bookingWord) : null,
     by: p.recorder?.display_name ?? null,
   }));
   return [...a, ...b].sort((x, y) => y.at.localeCompare(x.at));
@@ -121,7 +138,7 @@ export function CashDrawerScreen() {
   const eventsQ = useQuery({
     queryKey: ['drawerEvents', day?.id ?? null],
     enabled: Boolean(day),
-    queryFn: () => fetchDrawerEvents(day!.id, day!.opened_at),
+    queryFn: () => fetchDrawerEvents(day!.id, day!.opened_at, tr('op.till.table'), tr('op.till.forReservation')),
     refetchInterval: 30_000,
   });
 
@@ -148,29 +165,40 @@ export function CashDrawerScreen() {
    * are the ones that can use the room.
    */
   const columns: Column<DrawerEvent>[] = [
-    { key: 'time', header: tr('ws.cashier.drawer.colTime'), width: '7rem', render: (r) => <span dir="ltr">{formatTime(new Date(r.at), locale)}</span> },
+    { key: 'time', header: tr('ws.cashier.drawer.colTime'), width: '6rem', render: (r) => <span dir="ltr" style={{ whiteSpace: 'nowrap' }}>{formatTime(new Date(r.at), locale)}</span> },
     {
+      // What happened and what for, in one cell: "Cash payment" over the tab
+      // it was taken on, or "Drawer opened" over the reason. Two columns for
+      // this pushed Change and Recorded-by off the panel at 1100px.
       key: 'event',
       header: tr('ws.cashier.drawer.colEvent'),
-      width: '12rem',
-      render: (r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)' }}>
-          <Icon name={r.kind === 'open' ? 'drawer' : 'banknote'} size={14} />
-          {r.kind === 'open' ? tr('ws.cashier.drawer.eventOpen') : tr('ws.cashier.drawer.eventCash')}
-        </span>
-      ),
+      truncate: true,
+      truncateTitle: (r) => (r.kind === 'cash' ? (r.tab ?? '') : r.reason ? tr(`op.reasons.${r.reason}` as MessageKey) : ''),
+      render: (r) => {
+        const detail = r.kind === 'cash' ? r.tab : r.reason ? tr(`op.reasons.${r.reason}` as MessageKey) : null;
+        return (
+          <span style={{ display: 'grid', minInlineSize: 0 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', whiteSpace: 'nowrap' }}>
+              <Icon name={r.kind === 'open' ? 'drawer' : 'banknote'} size={14} />
+              {r.kind === 'open' ? tr('ws.cashier.drawer.eventOpen') : tr('ws.cashier.drawer.eventCash')}
+            </span>
+            {detail && (
+              <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <bdi>{detail}</bdi>
+              </span>
+            )}
+          </span>
+        );
+      },
     },
-    { key: 'amount', header: tr('ws.cashier.drawer.colAmount'), width: '10rem', numeric: true, render: (r) => <Money amount={r.amount} /> },
-    { key: 'change', header: tr('ws.cashier.drawer.colChange'), width: '10rem', numeric: true, render: (r) => <Money amount={r.change} /> },
-    {
-      key: 'reason',
-      header: tr('ws.cashier.drawer.colReason'),
-      render: (r) => (r.reason ? <span>{tr(`op.reasons.${r.reason}` as MessageKey)}</span> : <span style={muted}>—</span>),
-    },
+    { key: 'amount', header: tr('ws.cashier.drawer.colAmount'), width: '8rem', numeric: true, render: (r) => <Money amount={r.amount} style={{ whiteSpace: 'nowrap' }} /> },
+    { key: 'change', header: tr('ws.cashier.drawer.colChange'), width: '8rem', numeric: true, render: (r) => <Money amount={r.change} style={{ whiteSpace: 'nowrap' }} /> },
     {
       key: 'by',
       header: tr('ws.cashier.drawer.colBy'),
-      width: '16rem',
+      width: '10rem',
+      truncate: true,
+      truncateTitle: (r) => r.by ?? '',
       render: (r) =>
         r.by ? (
           <bdi>{r.kind === 'open' ? tr(`op.roles.${r.by}` as MessageKey) : r.by}</bdi>
@@ -196,9 +224,19 @@ export function CashDrawerScreen() {
       <PageHeader
         style={{ flexShrink: 0 }}
         title={tr('ws.cashier.drawer.title')}
-        subtitle={tr('ws.cashier.drawer.lead')}
+        subtitle={day ? tr('ws.cashier.drawer.dayOpenedAt', { time: formatTime(new Date(day.opened_at), locale) }) : undefined}
         actions={
-          <Button kind="primary" icon="drawer" busy={busy} disabled={!day} onClick={() => { setRecorded(false); setReasonOpen(true); }}>
+          <Button
+            kind="primary"
+            icon="drawer"
+            busy={busy}
+            disabled={!day}
+            disabledReason={dayQ.isSuccess && !day ? tr('ws.cashier.drawer.noDay') : undefined}
+            onClick={() => {
+              setRecorded(false);
+              setReasonOpen(true);
+            }}
+          >
             {tr('ws.cashier.drawer.openDrawer')}
           </Button>
         }
@@ -219,13 +257,21 @@ export function CashDrawerScreen() {
               icon="sun"
               title={tr('ws.cashier.drawer.noDay')}
               body={tr('ws.cashier.drawer.noDayBody')}
-              action={<DayCloseLink canClose={can.closeDay} label={tr('ws.cashier.drawer.dayClose')} />}
+              action={can.closeDay ? <DayCloseLink label={tr('ws.cashier.drawer.dayClose')} /> : undefined}
             />
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 22rem)', gap: 'var(--tp-sp-4)', blockSize: '100%', minBlockSize: 0 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) clamp(15rem, 24vw, 22rem)', gap: 'var(--tp-sp-4)', blockSize: '100%', minBlockSize: 0 }}>
               <Panel
                 title={tr('ws.cashier.drawer.events')}
-                actions={eventsQ.data ? <span style={muted}>{tr('ws.cashier.drawer.counts', { count: eventsQ.data.length })}</span> : undefined}
+                actions={
+                  eventsQ.data && eventsQ.data.length > 0 ? (
+                    <span style={muted}>
+                      {tr('ws.cashier.drawer.countCash', { count: formatNumber(eventsQ.data.filter((e) => e.kind === 'cash').length, locale) })}
+                      {' · '}
+                      {tr('ws.cashier.drawer.countOpen', { count: formatNumber(eventsQ.data.filter((e) => e.kind === 'open').length, locale) })}
+                    </span>
+                  ) : undefined
+                }
                 padded={false}
                 fill
               >
@@ -245,15 +291,12 @@ export function CashDrawerScreen() {
               </Panel>
 
               <aside style={{ display: 'grid', gap: 'var(--tp-sp-3)', alignContent: 'start', minBlockSize: 0, overflowY: 'auto' }}>
-                <HeadlineFigure
-                  label={tr('ws.cashier.drawer.float')}
-                  value={<Money amount={day.opening_float_iqd} />}
-                  hint={tr('ws.cashier.drawer.dayOpenedAt', { time: formatTime(new Date(day.opened_at), locale) })}
-                />
+                <HeadlineFigure label={tr('ws.cashier.drawer.float')} value={<Money amount={day.opening_float_iqd} />} hint={tr('ws.cashier.drawer.floatHint')} />
                 <Panel muted>
-                  <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.cashier.drawer.floatHint')}</p>
-                  <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('ws.cashier.drawer.dayCloseHint')}</p>
-                  <DayCloseLink canClose={can.closeDay} label={tr('ws.cashier.drawer.goDayClose')} />
+                  <p style={{ ...muted, marginBlockEnd: can.closeDay ? 'var(--tp-sp-2)' : 0 }}>
+                    {can.closeDay ? tr('ws.cashier.drawer.dayCloseHint') : tr('ws.cashier.drawer.dayCloseByManager')}
+                  </p>
+                  {can.closeDay && <DayCloseLink label={tr('ws.cashier.drawer.goDayClose')} />}
                 </Panel>
               </aside>
             </div>
@@ -262,7 +305,7 @@ export function CashDrawerScreen() {
       </div>
 
       {reasonOpen && (
-        <ReasonCodePrompt action={tr('ws.cashier.drawer.openDrawerAction')} busy={busy} error={error} withNote={false} onSubmit={(code) => void recordOpen(code)} onCancel={() => setReasonOpen(false)}>
+        <ReasonCodePrompt action={tr('ws.cashier.drawer.openDrawerAction')} reasonCodes={DRAWER_REASONS} busy={busy} error={error} withNote={false} onSubmit={(code) => void recordOpen(code)} onCancel={() => setReasonOpen(false)}>
           <p style={{ ...muted, marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.cashier.drawer.openHint')}</p>
         </ReasonCodePrompt>
       )}
@@ -270,22 +313,11 @@ export function CashDrawerScreen() {
   );
 }
 
-/** The route to day close: a link for managers, a visible-but-refused control for cashiers (R9). */
-function DayCloseLink({ canClose, label }: { canClose: boolean; label: string }) {
-  const { tr } = useLocale();
-  if (canClose) {
-    return (
-      <Link to="/admin/day-close" className="tp-btn" data-kind="default" data-size="md" style={{ textDecoration: 'none' }}>
-        <Icon name="lock" size={16} /> {label}
-      </Link>
-    );
-  }
+/** The route to day close, for a role that can close the day. */
+function DayCloseLink({ label }: { label: string }) {
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-1-5)', justifyItems: 'start' }}>
-      <Button icon="lock" disabled>
-        {label}
-      </Button>
-      <PermissionRefusedNotice action={tr('ws.cashier.drawer.dayCloseAction')} requiredRole={requiredRoleFor('closeDay')} />
-    </div>
+    <Link to="/admin/day-close" className="tp-btn" data-kind="default" data-size="md" style={{ textDecoration: 'none' }}>
+      <Icon name="lock" size={16} /> {label}
+    </Link>
   );
 }
