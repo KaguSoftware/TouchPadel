@@ -59,7 +59,6 @@ export const ar: Messages = {
     newHereLead: 'جديد هنا؟',
     createAccountLink: 'أنشئ حسابًا',
     alreadyLead: 'تلعب معنا بالفعل؟',
-    privacyLead: 'كيف نتعامل مع بياناتك',
     passwordMinPlaceholder: 'كلمة المرور (8 أحرف على الأقل)',
     nameRequired: 'أدخل اسمك الكامل.',
     firstNameRequired: 'أدخل اسمك الأول.',

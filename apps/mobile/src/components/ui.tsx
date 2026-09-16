@@ -330,7 +330,8 @@ export function FooterLink({
   onPress,
   style,
 }: {
-  lead: string;
+  /** Omit to render just the bold action line, with no lead sentence above it. */
+  lead?: string;
   label: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
@@ -341,7 +342,7 @@ export function FooterLink({
       accessibilityRole="link"
       // The two lines are one control: read as one sentence, not as a stray
       // fragment followed by a link with no context.
-      accessibilityLabel={`${lead} ${label}`}
+      accessibilityLabel={lead ? `${lead} ${label}` : label}
       onPress={onPress}
       hitSlop={{ top: 10, bottom: 10 }}
       style={({ pressed }) => [
@@ -355,17 +356,19 @@ export function FooterLink({
           weight then rides on `fontWeight` alone — which the bold action below
           would otherwise be the only one to state, leaving these two lines
           looking like different colours rather than different weights. */}
-      <Text
-        style={{
-          fontFamily: fonts.body400,
-          fontWeight: '400',
-          fontSize: 12.5,
-          color: colors.mut,
-          textAlign: 'center',
-        }}
-      >
-        {lead}
-      </Text>
+      {lead ? (
+        <Text
+          style={{
+            fontFamily: fonts.body400,
+            fontWeight: '400',
+            fontSize: 12.5,
+            color: colors.mut,
+            textAlign: 'center',
+          }}
+        >
+          {lead}
+        </Text>
+      ) : null}
       <Text
         style={{
           fontFamily: fonts.body800,
