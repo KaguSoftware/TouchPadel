@@ -1,13 +1,18 @@
 /**
- * Pure helpers for the operations overview (spec 06.21).
+ * Pure helpers for the manager's Today screen (spec 06.21).
  *
  * `app.ops_overview()` (migration 0068, build plan §4) returns one jsonb
- * document. The contract fixes the core keys; a few things the screen wants
- * (next arrival, tickets preparing, role and payments per staff member, a
- * waste exception, the blocking tabs as rows rather than a count) are not in
- * the contract yet. `normalizeOverview` accepts both shapes and fills the gaps
- * with nulls so the screen renders "—" instead of guessing — no figure here is
- * ever computed client-side.
+ * document. `normalizeOverview` accepts the contract shape plus the richer
+ * fields 0068 actually sends (next arrival's court, cancellations, orders
+ * today, open stock alerts, the blocking tabs' table and guest) and fills
+ * anything missing with zeros or nulls, so the screen renders "—" instead of
+ * guessing. No figure here is computed client-side.
+ *
+ * One figure is deliberately NOT read from the server: queued writes. 0068
+ * never sends `dayClose.queued`, and the queue is station-local anyway (the
+ * durable outbox this machine has not synced yet), so the old screen printed
+ * "Queued writes: None" whatever was actually waiting. The screen reads the
+ * queue the same way the day-close screen does and passes the count in.
  */
 
 export interface OpsCount {
@@ -17,7 +22,9 @@ export interface OpsCount {
 
 export interface OpsBlockingTab {
   id: string;
+  tableNumber: string | null;
   label: string | null;
+  guestName: string | null;
 }
 
 export interface OpsStaffRow {
@@ -35,12 +42,17 @@ export interface OpsOverview {
     arrived: number;
     upcoming: number;
     noShows: number;
+    /** `null` when the server does not report it — never drawn as zero. */
+    cancelledToday: number | null;
     /** ISO timestamp of the next arrival, when the server reports one. */
     nextArrivalAt: string | null;
     nextArrivalLabel: string | null;
+    nextArrivalCourtEn: string | null;
+    nextArrivalCourtAr: string | null;
   };
   cafe: {
     openTabs: number;
+    ordersToday: number | null;
     ticketsQueued: number;
     ticketsPreparing: number | null;
     ticketsLate: number;
@@ -51,6 +63,7 @@ export interface OpsOverview {
     belowPar: number;
     expiringSoon: number;
     expired: number;
+    openAlerts: number | null;
     lastCountAt: string | null;
   };
   staffActivity: OpsStaffRow[];
@@ -66,7 +79,6 @@ export interface OpsOverview {
     openedAt: string | null;
     blockingCount: number;
     blockingTabs: OpsBlockingTab[];
-    queued: number;
   };
 }
 
@@ -127,10 +139,15 @@ export function normalizeOverview(raw: unknown): OpsOverview {
   const blockingRaw = dayClose.blockingTabs;
   const blockingTabs: OpsBlockingTab[] = Array.isArray(blockingRaw)
     ? blockingRaw
-        .map((t) => {
-          if (typeof t === 'string') return { id: t, label: null };
+        .map((t): OpsBlockingTab | null => {
+          if (typeof t === 'string') return { id: t, tableNumber: null, label: null, guestName: null };
           if (isRecord(t) && typeof t.id === 'string') {
-            return { id: t.id, label: str(t.label) ?? str(t.table_number) ?? str(t.tableNumber) };
+            return {
+              id: t.id,
+              tableNumber: str(t.tableNumber) ?? str(t.table_number),
+              label: str(t.label),
+              guestName: str(t.guestName) ?? str(t.guest_name),
+            };
           }
           return null;
         })
@@ -144,11 +161,15 @@ export function normalizeOverview(raw: unknown): OpsOverview {
       arrived: num(bookings.arrived),
       upcoming: num(bookings.upcoming),
       noShows: num(bookings.noShows),
+      cancelledToday: numOrNull(bookings.cancelledToday),
       nextArrivalAt: next ? (str(next.startAt) ?? str(next.start_at)) : str(bookings.nextArrivalAt),
       nextArrivalLabel: next ? (str(next.guestName) ?? str(next.guest_name) ?? str(next.label)) : null,
+      nextArrivalCourtEn: next ? str(next.courtNameEn) : null,
+      nextArrivalCourtAr: next ? str(next.courtNameAr) : null,
     },
     cafe: {
       openTabs: num(cafe.openTabs),
+      ordersToday: numOrNull(cafe.ordersToday),
       ticketsQueued: num(cafe.ticketsQueued),
       ticketsPreparing: numOrNull(cafe.ticketsPreparing),
       ticketsLate: num(cafe.ticketsLate),
@@ -159,6 +180,7 @@ export function normalizeOverview(raw: unknown): OpsOverview {
       belowPar: num(stock.belowPar),
       expiringSoon: num(stock.expiringSoon),
       expired: num(stock.expired),
+      openAlerts: numOrNull(stock.openAlerts),
       lastCountAt: str(stock.lastCountAt),
     },
     staffActivity,
@@ -174,7 +196,6 @@ export function normalizeOverview(raw: unknown): OpsOverview {
       openedAt: str(dayClose.openedAt),
       blockingCount,
       blockingTabs,
-      queued: num(dayClose.queued),
     },
   };
 }
@@ -197,31 +218,48 @@ export function tillTabHref(tabId: string): string {
   return `/till?tab=${encodeURIComponent(tabId)}`;
 }
 
+/**
+ * Where each stock figure opens. Low and below par open On hand already
+ * filtered to them (OnHand reads `?filter=`); the two expiry figures open the
+ * expiry screen, which is where a batch is written off.
+ */
+export const STOCK_HREF = {
+  low: '/stock?filter=low',
+  belowPar: '/stock?filter=belowPar',
+  expiringSoon: '/stock/expiry',
+  expired: '/stock/expiry',
+  alerts: '/stock/alerts',
+  lastCount: '/stock/counts',
+} as const;
+
 // ---------------------------------------------------------------------------
-// Grouping (spec 06.21) — which figures lead, and what state the day is in
+// What needs the manager now
 // ---------------------------------------------------------------------------
 
 /**
- * The figures that mean "walk over there now", in the order a manager acts on
- * them, with the screen each one opens.
+ * The things that mean "stop and deal with this", in the order a manager
+ * should deal with them, each with the screen that resolves it.
  *
- * Only these five are alarms. The rest of the overview is the shape of the day —
- * true, worth reading, but not a reason to leave the office — and a screen that
- * prints `0` in a tile the same size as a real problem four times over is why
- * the old layout could not be skimmed. `alertsFor` drops every zero, so the band
- * this feeds is empty on a good day and says so in one line.
+ * Order is by who is waiting: a day that is not open stops the whole till; a
+ * guest is standing at a table; an order is late in front of a guest; then
+ * the shelves. It is never sorted by count — 390 late tickets must not push
+ * one closed day below it.
  *
- * `low` is danger rather than warn on purpose: it means the kitchen is about to
- * run out of something mid-service, which is a harder stop than an expiry date
- * three days out. `belowPar` and `expiringSoon` stay off this list entirely —
- * they belong to the stock cluster, where there is room to read them.
+ * `href: null` means there is nothing in this workspace that fixes it. Late
+ * tickets used to open the tab list, which does not show tickets at all; the
+ * honest answer is "talk to the kitchen", so the row says that and offers no
+ * button that would pretend otherwise.
+ *
+ * No-shows are NOT here any more. A no-show has already happened and nothing on
+ * any screen undoes it; it is a fact about the day, and it lives on the courts
+ * card with the rest of those.
  */
 export const OPS_ALERTS = [
-  { key: 'ticketsLate', severity: 'danger', href: '/till/tabs', count: (o: OpsOverview) => o.cafe.ticketsLate },
-  { key: 'expired', severity: 'danger', href: '/stock', count: (o: OpsOverview) => o.stock.expired },
-  { key: 'low', severity: 'danger', href: '/stock', count: (o: OpsOverview) => o.stock.low },
-  { key: 'noShows', severity: 'danger', href: '/desk', count: (o: OpsOverview) => o.bookings.noShows },
+  { key: 'dayNotOpen', severity: 'danger', href: '/admin/day-close', count: (o: OpsOverview) => (o.dayClose.open ? 0 : 1) },
   { key: 'waiterCalls', severity: 'warn', href: '/till/tabs', count: (o: OpsOverview) => o.cafe.waiterCallsOpen },
+  { key: 'ticketsLate', severity: 'danger', href: null, count: (o: OpsOverview) => o.cafe.ticketsLate },
+  { key: 'low', severity: 'danger', href: STOCK_HREF.low, count: (o: OpsOverview) => o.stock.low },
+  { key: 'expired', severity: 'danger', href: STOCK_HREF.expired, count: (o: OpsOverview) => o.stock.expired },
 ] as const;
 
 export type OpsAlertKey = (typeof OPS_ALERTS)[number]['key'];
@@ -231,35 +269,29 @@ export interface OpsAlert {
   key: OpsAlertKey;
   count: number;
   severity: OpsSeverity;
-  href: string;
+  href: string | null;
 }
 
-/** The non-zero alarms, worst first. Table order IS the order; nothing is sorted by value. */
+/** The standing alarms, in table order. Nothing is sorted by value. */
 export function alertsFor(o: OpsOverview): OpsAlert[] {
   return OPS_ALERTS.map((a) => ({ key: a.key, severity: a.severity, href: a.href, count: a.count(o) })).filter((a) => a.count > 0);
 }
 
-/** The loudest severity present, for the band's own ground. */
-export function worstSeverity(alerts: readonly OpsAlert[]): OpsSeverity | null {
-  if (alerts.length === 0) return null;
-  return alerts.some((a) => a.severity === 'danger') ? 'danger' : 'warn';
-}
-
 /**
- * Day close as one word rather than four figures the manager has to combine.
+ * Day close as one word rather than figures the manager has to combine.
  *
  * The four states are exactly the four the day-close screen itself names
- * (`ws.manager.dayClose.state.*`), so the overview and the screen it routes to
- * describe the same situation in the same words instead of inventing a second
- * vocabulary for it. Open tabs outrank a queued write because a tab needs
- * somebody on the floor, while a queue usually only needs the network back.
+ * (`ws.manager.dayClose.state.*`), so this screen and its destination describe
+ * the same situation in the same words. Open tabs outrank queued writes because
+ * a tab needs somebody on the floor, while a queue usually only needs the
+ * network back.
  */
 export type DayCloseState = 'closed' | 'blockedByOpenTabs' | 'blockedByUnsyncedQueue' | 'ready';
 
-export function dayCloseState(d: OpsOverview['dayClose']): DayCloseState {
+export function dayCloseState(d: OpsOverview['dayClose'], queued: number): DayCloseState {
   if (!d.open) return 'closed';
   if (d.blockingCount > 0) return 'blockedByOpenTabs';
-  if (d.queued > 0) return 'blockedByUnsyncedQueue';
+  if (queued > 0) return 'blockedByUnsyncedQueue';
   return 'ready';
 }
 
@@ -269,17 +301,3 @@ export const DAY_CLOSE_TONE: Record<DayCloseState, 'neutral' | 'danger' | 'warn'
   blockedByUnsyncedQueue: 'warn',
   ready: 'success',
 };
-
-/**
- * The basis the exception bars are drawn against.
- *
- * Money where the server sends money for every figure, counts otherwise. Mixing
- * the two inside one list of bars would put a 15,000 IQD discount and a count of
- * 3 on the same scale, which is not a comparison of anything. `null` means the
- * bars have no basis at all (every figure is zero) and none should be drawn.
- */
-export function exceptionBasis(figures: readonly OpsCount[]): { by: 'amount' | 'count'; max: number } | null {
-  const by = figures.every((f) => f.amountIqd !== null) ? 'amount' : 'count';
-  const max = figures.reduce((m, f) => Math.max(m, (by === 'amount' ? f.amountIqd : f.count) ?? 0), 0);
-  return max > 0 ? { by, max } : null;
-}

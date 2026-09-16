@@ -69,7 +69,7 @@ export interface NavItem {
 
 export interface NavGroup {
   /** i18n key under ws.shell.nav, or null for the primary (untitled) group. */
-  labelKey: 'groupOperations' | 'groupSetup' | null;
+  labelKey: 'groupOperations' | 'groupRun' | 'groupRecords' | 'groupSetup' | null;
   items: readonly NavItem[];
 }
 
@@ -113,12 +113,33 @@ const CASHIER: readonly NavItem[] = [
   { to: '/till/drawer', labelKey: 'cashDrawer', icon: 'drawer' },
 ];
 
-const MANAGER_OPS: readonly NavItem[] = [
-  { to: '/ops', labelKey: 'overview', icon: 'dashboard' },
+/**
+ * The manager's rail, grouped by WHEN a manager reaches for each row rather
+ * than printed as one ten-row column. It used to put Bookings, Day close and
+ * the Audit log at the same level with nothing between them, so the four
+ * screens used every shift sat in the same stack as the ones used once a
+ * week.
+ *
+ *   * Today — the landing screen: what needs the manager now, and how the day
+ *     is going.
+ *   * Run the day — the working screens a shift moves between.
+ *   * Records — what already happened.
+ *   * Setup — what the other screens are priced and built from.
+ *
+ * Row names match the title of the screen they open ("Open tabs", not
+ * "Tills"): a row that says one thing and lands on a page headed another made
+ * a manager check whether they had clicked the right one.
+ */
+const MANAGER_TODAY: readonly NavItem[] = [{ to: '/ops', labelKey: 'today', icon: 'dashboard' }];
+
+const MANAGER_RUN: readonly NavItem[] = [
   { to: '/desk', labelKey: 'bookings', icon: 'calendar', activePrefix: '/desk' },
-  { to: '/till/tabs', labelKey: 'tills', icon: 'receipt', activePrefix: '/till' },
-  { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
+  { to: '/till/tabs', labelKey: 'openTabs', icon: 'receipt', activePrefix: '/till' },
   { to: '/stock', labelKey: 'stock', icon: 'package' },
+  { to: '/admin/day-close', labelKey: 'dayClose', icon: 'sun' },
+];
+
+const MANAGER_RECORDS: readonly NavItem[] = [
   { to: '/reports/courts', labelKey: 'reports', icon: 'chart', activePrefix: '/reports' },
   { to: '/admin/audit', labelKey: 'audit', icon: 'fileText' },
 ];
@@ -241,7 +262,9 @@ export const WORKSPACES: Record<WorkspaceKey, Workspace> = {
     home: '/ops',
     icon: 'dashboard',
     groups: [
-      { labelKey: null, items: MANAGER_OPS },
+      { labelKey: null, items: MANAGER_TODAY },
+      { labelKey: 'groupRun', items: MANAGER_RUN },
+      { labelKey: 'groupRecords', items: MANAGER_RECORDS },
       { labelKey: 'groupSetup', items: MANAGER_SETUP },
     ],
   },

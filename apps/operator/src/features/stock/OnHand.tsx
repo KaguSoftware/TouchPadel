@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { formatDateTime, formatNumber } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { useLocale, pickName } from '../../lib/i18n';
@@ -41,7 +41,12 @@ export function isBelowPar(r: OnHandRow): boolean {
 export function OnHand() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<Filter>('all');
+  // `?filter=low` / `?filter=belowPar` opens the list already narrowed, so the
+  // manager's Today screen can link "3 running low" straight to those three.
+  const search = useSearch({ strict: false }) as { filter?: unknown };
+  const [filter, setFilter] = useState<Filter>(() =>
+    search.filter === 'low' || search.filter === 'belowPar' ? search.filter : 'all',
+  );
   const [open, setOpen] = useState<OnHandRow | null>(null);
 
   const onHandQ = useQuery({ queryKey: SK.onHand, queryFn: fetchOnHand, refetchInterval: 60_000 });

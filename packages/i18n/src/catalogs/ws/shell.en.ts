@@ -117,6 +117,8 @@ export const shellEn = {
     marketing: 'Marketing',
     telegram: 'Telegram',
     groupOperations: 'Operations',
+    groupRun: 'Run the day',
+    groupRecords: 'Records',
     groupSetup: 'Setup',
     // The way out of a section rail, back to the workspace's own.
     backTo: 'Back to {workspace}',

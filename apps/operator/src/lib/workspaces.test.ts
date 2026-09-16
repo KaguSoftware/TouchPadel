@@ -239,3 +239,23 @@ describe('workspaceOwnsPath', () => {
     expect(workspaceOwnsPath('manager', '/panel')).toBe(false);
   });
 });
+
+describe('the manager rail', () => {
+  // Grouped by when a manager reaches for each row, and every row named after
+  // the screen it opens. It used to be one ten-row column with "Tills" opening
+  // a page headed "Open tabs".
+  it('groups its rows as Today, Run the day, Records and Setup', () => {
+    expect(WORKSPACES.manager.groups.map((g) => [g.labelKey, g.items.map((i) => i.labelKey)])).toEqual([
+      [null, ['today']],
+      ['groupRun', ['bookings', 'openTabs', 'stock', 'dayClose']],
+      ['groupRecords', ['reports', 'audit']],
+      ['groupSetup', ['menu', 'rates', 'promotions']],
+    ]);
+  });
+
+  it('only links screens a manager may open', () => {
+    for (const item of workspaceItems(WORKSPACES.manager)) {
+      expect(canAccess('manager', item.to), item.to).toBe(true);
+    }
+  });
+});
