@@ -26,16 +26,23 @@
  * OTPIQ dashboard "Limits" tab) answers 429 — surfaced here as
  * SmsProviderError status 429, which the hook stamps `failed`.
  *
- * Secrets: OTPIQ_API_KEY; optional OTPIQ_PROVIDER (default "sms" — owner's
- * decision 2026-09-12: SMS only, no WhatsApp; "whatsapp-sms" would try WhatsApp
- * first and fall back to SMS), OTPIQ_SENDER_ID.
+ * Secrets: OTPIQ_API_KEY; optional OTPIQ_PROVIDER (default "whatsapp-sms" —
+ * owner's decision 2026-09-16: WhatsApp is the main channel and OTPIQ falls
+ * back to SMS for a number that cannot receive it, so no guest is left without
+ * a code; "whatsapp" is WhatsApp only, "sms" SMS only), OTPIQ_SENDER_ID.
+ *
+ * WHICH CHANNEL ACTUALLY DELIVERED is not in the send response — OTPIQ picks it
+ * after we return, and only its trackSms endpoint (not called here) knows. The
+ * result therefore reports the FIRST channel of the routing string, so a
+ * `whatsapp-sms` row in app.sms_sends reads `whatsapp` even when the guest got
+ * an SMS. Read a per-message truth in the OTPIQ dashboard, not in our log.
  */
 import { SmsProviderError, type SmsChannel, type SmsProvider, type SmsSendArgs, type SmsSendResult } from './types.ts';
 
 export const OTPIQ_SEND_URL = 'https://api.otpiq.com/api/sms';
 
 export function otpiqProvider(env: { apiKey: string; provider?: string; senderId?: string }): SmsProvider {
-  const routing = env.provider?.trim() || 'sms';
+  const routing = env.provider?.trim() || 'whatsapp-sms';
   return {
     name: 'otpiq',
     async send(args: SmsSendArgs): Promise<SmsSendResult> {

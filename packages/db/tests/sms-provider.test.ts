@@ -170,10 +170,10 @@ describe('otpiq adapter (docs.otpiq.com/api-reference/messaging/post)', () => {
       phoneNumber: '9647701234567', // digits, no '+'
       smsType: 'verification',
       verificationCode: '123456',
-      provider: 'sms', // default routing: SMS only, no WhatsApp (owner decision 2026-09-12)
+      provider: 'whatsapp-sms', // default routing: WhatsApp first, SMS when it cannot be delivered (owner decision 2026-09-16)
       senderId: 'TouchPadel',
     });
-    expect(res).toEqual({ id: ok.smsId, channel: 'sms', costIqd: 200, remainingCredit: 14800 });
+    expect(res).toEqual({ id: ok.smsId, channel: 'whatsapp', costIqd: 200, remainingCredit: 14800 });
   });
 
   it('omits senderId when unset and reports the first channel of the routing string', async () => {

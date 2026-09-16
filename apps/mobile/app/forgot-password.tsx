@@ -14,7 +14,7 @@ import { Button, ErrorText, FormScreen, Screen, Title } from '../src/components/
 
 /**
  * Forgot password, by phone (2026-09-15; the emailed reset link went with
- * email sign-in). A WhatsApp code to the account's number signs the guest in
+ * email sign-in). A code to the account's number (WhatsApp, else SMS) signs the guest in
  * (app/verify-otp.tsx, mode reset), and app/reset-password.tsx then sets the
  * new password on that session. Also how an account made by the old
  * code-only phone sign-in gets its first password.

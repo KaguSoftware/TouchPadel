@@ -16,7 +16,7 @@ const LINK_GRACE_MS = 4000;
 
 /**
  * Sets a new password on a recovery session: reached from app/verify-otp.tsx
- * (mode reset) once the WhatsApp code has signed the guest in, or from an old
+ * (mode reset) once the phone code has signed the guest in, or from an old
  * touchpadel://reset-password email link. Ungated so a signed-in redirect
  * cannot bounce us away.
  *

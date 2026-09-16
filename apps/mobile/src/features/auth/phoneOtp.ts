@@ -5,7 +5,8 @@
  * and app/phone-sign-in.tsx (linking a number to a social account).
  *
  * Owner decision 2026-09-15: an account is created with a phone number and a
- * password, confirmed ONCE by a WhatsApp code; every later sign-in is phone +
+ * password, confirmed ONCE by a code (WhatsApp, or SMS if that number has no
+ * WhatsApp — vendor routing, 2026-09-16); every later sign-in is phone +
  * password. Email sign-up / sign-in are gone from the guest app. The code is
  * spent again only to recover a forgotten password or to link a number.
  *

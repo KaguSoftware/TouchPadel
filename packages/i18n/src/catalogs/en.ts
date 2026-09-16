@@ -40,7 +40,7 @@ export const en = {
     // session, matching PetApp's Cancel / destructive-Sign-out shape.
     signOutConfirm: "You'll need to log back in to see your bookings.",
     // Owner decision 2026-09-15: guests create an account with phone + password
-    // (one WhatsApp code confirms the number) and sign in with phone + password.
+    // (one code, on WhatsApp or by SMS, confirms the number) and sign in with phone + password.
     // Email sign-up / sign-in are gone from the guest app; the email keys that
     // remain serve old emailed links and older accounts' password change.
     emailLabel: 'Email',
@@ -113,7 +113,7 @@ export const en = {
     verifiedBody: "You're all set, {name}.",
     verifiedPending: "Let's finish booking {label}.",
     continueCta: 'Continue',
-    forgotIntro: "Enter your account's phone number and we'll send a code to its WhatsApp.",
+    forgotIntro: "Enter your account's phone number and we'll send a code to it on WhatsApp or by SMS.",
     resetNoAccount: 'No account uses this number. Check the country code, or create an account.',
     welcomeBack: 'Welcome back',
     welcomeToApp: 'Welcome to Touch Padel',
@@ -131,25 +131,27 @@ export const en = {
     googlePlayServices: 'Google Play services are not available on this device. Sign in with your phone number instead.',
     socialFailed: "Couldn't sign you in with {provider}. Try again or use your phone number.",
     appleUnavailable: 'Sign in with Apple is not available on this device.',
-    // Phone codes (WhatsApp via OTPIQ): confirming a sign-up, recovering a
-    // password, and linking a number to a social account.
+    // Phone codes (OTPIQ, WhatsApp first and SMS when the number cannot receive
+    // it — owner decision 2026-09-16, so the copy must promise neither channel
+    // alone): confirming a sign-up, recovering a password, and linking a number
+    // to a social account.
     orContinueWithPhone: 'or continue with your phone number',
     phoneSignInTitle: 'Your phone number',
-    phoneLinkBody: "We'll send a 6-digit code to this number's WhatsApp to confirm it's yours.",
+    phoneLinkBody: "We'll send a 6-digit code to this number — on WhatsApp, or by SMS — to confirm it's yours.",
     phoneOtpInvalid: 'Enter a valid phone number, and check the country code.',
     sendCode: 'Send code',
     otpTitle: 'Enter the code',
-    otpBody: 'We sent a 6-digit code to {phone} on WhatsApp.',
+    otpBody: 'We sent a 6-digit code to {phone} on WhatsApp — if that number has no WhatsApp, check your SMS.',
     otpLabel: 'Verification code',
     // GoTrue answers otp_expired for BOTH a wrong and a stale code, so one message covers both.
     otpInvalid: "That code isn't right or has expired. Check it, or send a new one.",
     otpTooMany: 'Too many codes requested. Wait a while and try again.',
-    // Codes go out on WhatsApp only (owner decision 2026-09-15): the usual cause is a number without WhatsApp.
-    otpSendFailed: "We couldn't send the code. Check that this number has WhatsApp, then try again.",
+    // WhatsApp with an SMS fallback (2026-09-16), so a failure is no longer "no WhatsApp": it is the number, the gate or the vendor.
+    otpSendFailed: "We couldn't send the code. Check the number, then try again.",
     phoneSignInUnavailable: "Phone codes aren't available right now. Try again in a little while.",
     resendCode: 'Resend code',
     resendCodeIn: 'Resend code in {seconds}s',
-    codeSentAgain: 'We sent a new code to your WhatsApp.',
+    codeSentAgain: 'We sent a new code to that number.',
     changeNumber: 'Use a different number',
     verifyPhoneRow: 'Verify phone number',
     phoneVerified: 'Phone number verified',
@@ -857,7 +859,7 @@ export const en = {
           'Your first name and surname, your phone number, your password and your preferred language. Your phone number is required. Your password is stored only in hashed form, so nobody at the venue can read it.',
         codesLead: 'Verification codes.',
         codes:
-          'When you create an account, reset your password or change your phone number, we send a one-time code to that number on WhatsApp through a messaging provider. The provider receives your phone number and the code only to deliver it.',
+          'When you create an account, reset your password or change your phone number, we send a one-time code to that number — on WhatsApp, or by SMS if it cannot receive WhatsApp — through a messaging provider. The provider receives your phone number and the code only to deliver it.',
         bookingsLead: 'Your bookings.',
         bookings:
           'The court, date, time, duration and price, the number of players if you enter it, the booking reference, and its status: upcoming, played, cancelled or no-show.',
@@ -889,7 +891,7 @@ export const en = {
         supabase: 'Supabase — database, sign-in and server hosting (Frankfurt, Germany);',
         push: 'Expo, Apple Push Notification service and Firebase Cloud Messaging — delivering notifications to your device;',
         signIn: 'Apple and Google — only if you choose to sign in with them;',
-        whatsapp: 'a WhatsApp messaging provider — delivering verification codes;',
+        whatsapp: 'a WhatsApp and SMS messaging provider — delivering verification codes;',
         vercel: 'Vercel — hosting this website;',
         posthog: 'PostHog (EU) — website page-view analytics, as described above.',
         noSale:
@@ -953,12 +955,12 @@ export const en = {
         title: 'Account help',
         forgotLead: 'Forgot your password?',
         forgot:
-          'On the sign-in screen, tap “Forgot password?”, enter your account’s phone number, and we send a code to its WhatsApp. Enter the code, then choose a new password.',
+          'On the sign-in screen, tap “Forgot password?”, enter your account’s phone number, and we send a code to that number on WhatsApp or by SMS. Enter the code, then choose a new password.',
         noCodeLead: 'No code arrived?',
         noCode:
-          'Codes are sent on WhatsApp only, so the number must have WhatsApp. Check the country code and try again.',
+          'Codes arrive on WhatsApp, or by SMS if the number has no WhatsApp — check both. If nothing arrives, check the country code and try again.',
         phoneLead: 'Changing your phone number.',
-        phone: 'Go to Profile → Edit profile, enter the new number, and confirm it with the code sent to its WhatsApp.',
+        phone: 'Go to Profile → Edit profile, enter the new number, and confirm it with the code we send to that number.',
         socialLead: 'Signed up with Apple or Google?',
         social: 'Use the same button again to sign in.',
       },
