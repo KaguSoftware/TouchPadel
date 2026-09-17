@@ -947,6 +947,71 @@ function IdleLock() {
 }
 
 /**
+ * "Exit forced full screen" — the middle ground between a kiosk and Quit.
+ *
+ * Production till and KDS windows open with `kiosk: true` (main/index.ts
+ * createWindow), which on macOS takes the menu bar and the traffic lights and
+ * on Windows takes the taskbar. That is right for trading and wrong for the
+ * half hour where someone has to reach the OS: install a printer driver, take
+ * a support call, open a PDF beside the till. Until now the only way out of
+ * that was Quit, which ends service to answer a question that did not need
+ * service ended.
+ *
+ * So this leaves the kiosk and leaves the app running. No confirmation and no
+ * PIN: nothing is lost, the station keeps trading, and the operator can drop
+ * back to full screen from the OS. It is deliberately quieter than Quit —
+ * same muted rail weight, no danger colour — because it is the reversible one.
+ *
+ * Electron fixes `frame` at window creation, so a production window cannot
+ * grow a titlebar here; main compensates by resizing it off full-bleed, which
+ * is what actually reads as "you are out" on both platforms.
+ *
+ * Nothing at all in browser mode (rulebook 4.4), where there is no kiosk.
+ */
+function ExitFullscreen() {
+  const { tr } = useLocale();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  if (typeof window === 'undefined' || !window.touch) return null;
+
+  async function exit() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await touch.exitFullscreen();
+      if (!res.ok) throw new Error(res.error ?? 'refused');
+      // No success line: the window visibly leaving full screen IS the
+      // feedback, and a rail that keeps a sentence around after the fact only
+      // adds something to ignore. A failure still speaks, below.
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="tp-nav-item"
+        onClick={() => void exit()}
+        disabled={busy}
+        style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)', fontWeight: 500 }}
+      >
+        <Icon name="shrink" size={16} />
+        <span>{tr('ws.shell.nav.exitFullscreen')}</span>
+      </button>
+      {error != null && (
+        <div style={{ paddingInline: RAIL_ITEM_PAD }}>
+          <ErrorText error={error} />
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
  * "Quit to desktop" (design-arch §2.5) — production kiosk windows are not
  * closable any other way. Hidden entirely in browser mode.
  *
@@ -998,6 +1063,10 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
     <>
       {variant === 'rail' ? (
         <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-rail-border)' }}>
+          {/* Above Quit, inside Quit's separator rather than behind one of its
+              own: both rows are "get out of the kiosk", and the destructive one
+              stays last so the reversible one is what a hurried tap lands on. */}
+          <ExitFullscreen />
           <button
             type="button"
             className="tp-nav-item"

@@ -110,6 +110,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     languageAlt: 'العربية',
     signOut: 'تسجيل الخروج',
     station: 'المحطة {id}',
+    exitFullscreen: 'الخروج من وضع ملء الشاشة',
     quit: 'الخروج إلى سطح المكتب',
     quitConfirm: 'هذا ينهي الخدمة على هذه المحطة. تتوقف الطلبات ويظهر الجهاز خارج الاتصال.',
     kitchenNoNav: 'شاشة المطبخ',
