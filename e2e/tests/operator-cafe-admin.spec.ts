@@ -452,8 +452,12 @@ test.describe('operator cafe admin', () => {
     await search.fill('');
     await page.getByLabel('Area').selectOption('menu');
     // Scoped by attribute: the expanded before/after table repeats the column
-    // positions, so an nth-child selector would also match its cells.
-    const actions = await page.locator('[data-audit-action]').allInnerTexts();
+    // positions, so an nth-child selector would also match its cells. Read the
+    // attribute, not the text — the cell shows the action in words.
+    await expect(page.locator('[data-audit-action]').first()).toBeVisible();
+    const actions = await page
+      .locator('[data-audit-action]')
+      .evaluateAll((cells) => cells.map((c) => c.getAttribute('data-audit-action') ?? ''));
     expect(actions.length).toBeGreaterThan(0);
     expect(actions.every((a) => a.startsWith('menu.'))).toBe(true);
 
