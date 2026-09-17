@@ -142,7 +142,7 @@ export function AnalyticsBar({
   const nonDefault = (deck ? Number(deck.startHour !== 4) : 0) + (deck?.cafe ? Number(deck.cafe.excludedIds.length > 0) : 0);
 
   return (
-    <div style={bar}>
+    <div id="analytics-bar" style={bar}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
         <AnalyticsTabs value={tab} />
         {zones.length > 0 && <ZoneNav zones={zones} />}

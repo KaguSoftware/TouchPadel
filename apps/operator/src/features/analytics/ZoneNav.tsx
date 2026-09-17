@@ -4,7 +4,7 @@
  */
 import { useMemo } from 'react';
 import { useLocale } from '../../lib/i18n';
-import { useZoneSpy, type ZoneDef } from './Zone';
+import { scrollToZone, useZoneSpy, type ZoneDef } from './Zone';
 
 export function ZoneNav({ zones }: { zones: readonly ZoneDef[] }) {
   const { tr } = useLocale();
@@ -19,7 +19,7 @@ export function ZoneNav({ zones }: { zones: readonly ZoneDef[] }) {
             key={zone.id}
             type="button"
             aria-current={selected ? 'true' : undefined}
-            onClick={() => document.getElementById(`zone-${zone.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            onClick={() => scrollToZone(zone.id)}
             style={{
               // The deck stands every control on --tp-row-h; these pills came
               // to ~30px and floated inside that band.
