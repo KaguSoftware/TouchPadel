@@ -62,12 +62,16 @@ const rowShell = {
   minBlockSize: '2.25rem',
   paddingBlock: 'var(--tp-sp-1-5)',
   paddingInline: 'var(--tp-sp-2)',
-  fontSize: 'var(--tp-fs-sm)',
   border: '1px solid transparent',
   borderRadius: 'var(--tp-radius-ctl)',
   background: 'transparent',
   color: 'inherit',
+  // The button reset comes FIRST: `font` is a shorthand, so it resets
+  // font-size/weight/family/line-height wholesale. Below `fontSize` it would
+  // drop these rows back to the inherited size and off the token scale, which
+  // is what made this workspace read in a different face to every other one.
   font: 'inherit',
+  fontSize: 'var(--tp-fs-sm)',
 } as const;
 
 /** Whether any row in the surrounding list opens something. */
@@ -123,6 +127,11 @@ export function FigureRow({
           marginInlineStart: 'auto',
           fontWeight: 700,
           fontVariantNumeric: 'tabular-nums',
+          // Paired with tabular-nums the way every other end-of-row figure in
+          // the app pairs them (ManagementPanel, FinancialHome, Money, Kpi).
+          // Without it a <Money> value, which sets the token itself, and a
+          // plain count resolved to different tokens in the same RowList.
+          fontFamily: 'var(--tp-font-numeric)',
           textAlign: 'end',
           // An amount is one token: "65,000 IQD" never breaks across lines,
           // however long the hint beside it runs.
@@ -224,7 +233,7 @@ export function Step({
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', fontSize: 'var(--tp-fs-sm)' }}>
         <span style={{ fontWeight: 600, color: done ? 'var(--tp-muted-fg)' : 'var(--tp-fg)' }}>{title}</span>
         {status && (
-          <span style={{ marginInlineStart: 'auto', fontWeight: 600, color: done ? MARK_FG.success : MARK_FG[tone] }}>{status}</span>
+          <span style={{ marginInlineStart: 'auto', fontWeight: 700, color: done ? MARK_FG.success : MARK_FG[tone] }}>{status}</span>
         )}
       </div>
       {children && <div style={{ gridColumn: 2 }}>{children}</div>}

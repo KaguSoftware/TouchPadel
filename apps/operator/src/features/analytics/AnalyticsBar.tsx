@@ -57,7 +57,7 @@ const bar: CSSProperties = {
   // sticky offset is measured from the scrollport's CONTENT edge, so 0 would
   // park the stuck bar a full --tp-sp-4 below the top of the pane.
   insetBlockStart: 'calc(-1 * var(--tp-sp-4))',
-  zIndex: 'var(--tp-z-table-head)',
+  zIndex: 'var(--tp-z-section-bar)',
   background: 'var(--tp-bg)',
   borderBlockEnd: '1px solid var(--tp-border)',
   marginInline: 'calc(-1 * var(--tp-sp-4))',

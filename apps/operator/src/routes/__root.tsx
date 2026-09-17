@@ -392,7 +392,15 @@ const navButtonStyle: CSSProperties = {
   border: 'none',
   inlineSize: '100%',
   cursor: 'pointer',
-  font: 'inherit',
+  // LONGHANDS, not `font: inherit`. The shorthand also resets font-weight, and
+  // inline styles outrank class rules, so it silently overrode .tp-nav-item's
+  // 500 and [data-active]'s 700 on every rail control that is a <button> —
+  // leaving them a weight lighter than the <Link> rows beside them. Operations
+  // is where that shows, because its collapsible group titles are the only
+  // buttons sitting directly above links in the same list.
+  fontFamily: 'inherit',
+  fontSize: 'inherit',
+  lineHeight: 'inherit',
   textAlign: 'start',
 };
 
@@ -1172,7 +1180,7 @@ function ExitFullscreen() {
         className="tp-nav-item"
         onClick={() => void exit()}
         disabled={busy}
-        style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)', fontWeight: 500 }}
+        style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)' }}
       >
         <Icon name="shrink" size={16} />
         <span>{tr('ws.shell.nav.exitFullscreen')}</span>
@@ -1246,7 +1254,7 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
             type="button"
             className="tp-nav-item"
             onClick={() => setOpen(true)}
-            style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)', fontWeight: 500 }}
+            style={{ ...navButtonStyle, color: 'var(--tp-rail-muted)' }}
           >
             <Icon name="x" size={16} />
             <span>{tr('ws.shell.nav.quit')}</span>
