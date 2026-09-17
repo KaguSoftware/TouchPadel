@@ -55,16 +55,16 @@ describe('AnalyticsBar', () => {
     expect(setSearch).toHaveBeenCalledWith({ court: 'c1' });
   });
 
-  it('opens the More panel, keeps it open through a setting write, and closes on Escape', async () => {
+  it('opens the Settings panel, keeps it open through a setting write, and closes on Escape', async () => {
     renderBar({ deck: { startHour: 4 } });
-    const more = screen.getByRole('button', { name: 'More' });
+    const more = screen.getByRole('button', { name: 'Settings' });
     expect(more.getAttribute('aria-expanded')).toBe('false');
     await userEvent.click(more);
-    const panel = screen.getByRole('dialog', { name: 'More' });
+    const panel = screen.getByRole('dialog', { name: 'Settings' });
     expect(panel).toBeTruthy();
     await userEvent.selectOptions(screen.getByLabelText('Business day starts at'), '6');
     expect(mutate).toHaveBeenCalledWith({ key: 'analytics_business_day_start_hour', value: 6 });
-    expect(screen.getByRole('dialog', { name: 'More' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(more);

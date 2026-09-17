@@ -120,6 +120,14 @@ const CASHIER_UP = ex<RpcExpectation>('guarded', {
 const PREP_UP = ex<RpcExpectation>('guarded', {
   anon: 'denied', prep: 'execute', cashier: 'execute', manager: 'execute', owner: 'execute',
 });
+/** The till surface plus the court desk (0106: the desk takes court payment). */
+const CASHIER_DESK_UP = ex<RpcExpectation>('guarded', {
+  anon: 'denied', cashier: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+});
+/** Any active staff role (0105 breaks): guests are refused, anon has no grant. */
+const STAFF_ANY = ex<RpcExpectation>('guarded', {
+  anon: 'denied', cashier: 'execute', prep: 'execute', court_desk: 'execute', manager: 'execute', owner: 'execute',
+});
 /** Granted to `authenticated` only; answers about the caller alone. */
 const SELF_AUTHED = ex<RpcExpectation>('execute', { anon: 'denied' });
 /** Granted to `anon` too: the menu surface, before any identity exists. */
@@ -312,11 +320,15 @@ export const matrix: MatrixRule[] = [
     // not an error), desk roles see it.
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
+      cashier: 'rows',
       court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
     }),
-    note: 'guests see only their own rows; cashier/prep have no reservations read in the matrix',
+    // 0106 reservations_cashier_read: a cashier reads bookings that carry a tab
+    // or start within a day of now. The suite seeds one starting in two hours
+    // (rows); the named case below proves the weeks-out probe stays hidden.
+    note: 'guests see only their own rows; prep never; cashier only near-now or tabbed bookings (0106)',
     drop: 1,
   },
   {
@@ -813,9 +825,11 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'day_sessions',
+    // 0106: the desk reads the day row to say "the trading day is not open".
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows',
+      court_desk: 'rows',
       manager: 'rows',
       owner: 'rows',
     }),
@@ -961,12 +975,7 @@ export const matrix: MatrixRule[] = [
     schema: 'app',
     name: 'open_tab',
     args: { p_table_id: NIL_UUID },
-    expect: ex<RpcExpectation>('guarded', {
-      anon: 'denied',
-      cashier: 'execute',
-      manager: 'execute',
-      owner: 'execute',
-    }),
+    expect: CASHIER_DESK_UP,
     note: 'nil table fails NO_OPEN_DAY/TABLE_NOT_FOUND past the guard — no side effect',
     drop: 2,
   },
@@ -988,13 +997,8 @@ export const matrix: MatrixRule[] = [
     schema: 'app',
     name: 'settle_tab',
     args: { p_tab_id: NIL_UUID, p_method: 'cash' },
-    expect: ex<RpcExpectation>('guarded', {
-      anon: 'denied',
-      cashier: 'execute',
-      manager: 'execute',
-      owner: 'execute',
-    }),
-    note: 'prep can SEE tabs/orders but can NOT settle',
+    expect: CASHIER_DESK_UP,
+    note: 'prep can SEE tabs/orders but can NOT settle; the court desk can (0106)',
     drop: 2,
   },
   {
@@ -2261,6 +2265,12 @@ export const matrix: MatrixRule[] = [
   },
   { kind: 'rpc', schema: 'app', name: 'set_telegram_staff', args: { p_tg_user_id: 1, p_staff_id: NIL_UUID }, expect: OWNER_ONLY, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'retry_telegram_outbox', args: { p_id: 9_999_999_999 }, expect: OWNER_ONLY, drop: 7 },
+  {
+    kind: 'rpc', schema: 'app', name: 'set_venue_details',
+    // The timezone is not an editable key -> INVALID_ARGUMENT before anything
+    // is written. A valid patch here would rewrite the live venue on every run.
+    args: { p_patch: { timezone: 'UTC' } }, expect: OWNER_ONLY, drop: 7,
+  },
 
   // ── owner only: the money-facing reports (app.reports_guard(true)) ────────
   { kind: 'rpc', schema: 'app', name: 'panel_headline', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: OWNER_ONLY, drop: 7 },
@@ -2271,6 +2281,8 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'ops_overview', args: {}, expect: MANAGER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'report_cafe', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'report_courts', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
+  // An unknown report -> INVALID_ARGUMENT after the guard (0103).
+  { kind: 'rpc', schema: 'app', name: 'report_compare', args: { p_report: '__nope__', p_from: DAY_FROM, p_to: DAY_TO, p_compare: 'previousPeriod' }, expect: MANAGER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'report_drill', args: { p_figure: '__not_a_figure__', p_key: 'x', p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'report_staff_activity', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'report_stock', args: { p_from: DAY_FROM, p_to: DAY_TO }, expect: MANAGER_UP, drop: 7 },
@@ -2331,12 +2343,12 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'upsert_variant', args: { p_item_id: NIL_UUID, p_name_en: 'x', p_name_ar: 'x', p_price_iqd: 1000 }, expect: MANAGER_UP, drop: 7 },
 
   // ── cashier + manager + owner: the till surface ───────────────────────────
-  { kind: 'rpc', schema: 'app', name: 'merge_tabs', args: { p_donor_tab_id: NIL_UUID, p_survivor_tab_id: NIL_UUID }, expect: CASHIER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'merge_tabs', args: { p_donor_tab_id: NIL_UUID, p_survivor_tab_id: NIL_UUID }, expect: CASHIER_DESK_UP, drop: 7 },
   // Nil tab stops at NO_OPEN_DAY/TAB_NOT_FOUND past the guard — nothing is voided.
   // The reason is mandatory (0100), so it is supplied here: without it every
   // allowed role would stop at REASON_REQUIRED and the row would prove nothing
   // about the guard it exists to test.
-  { kind: 'rpc', schema: 'app', name: 'cancel_tab', args: { p_tab_id: NIL_UUID, p_reason_code: 'matrix' }, expect: CASHIER_UP, drop: 7 },
+  { kind: 'rpc', schema: 'app', name: 'cancel_tab', args: { p_tab_id: NIL_UUID, p_reason_code: 'matrix' }, expect: CASHIER_DESK_UP, drop: 7 },
   {
     kind: 'rpc', schema: 'app', name: 'override_price',
     // The CORRECT manager PIN on purpose. A wrong one writes a failed row to
@@ -2350,7 +2362,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'rpc', schema: 'app', name: 'record_drawer_open',
     args: { p_reason_code: '' }, // REASON_REQUIRED — nothing is recorded
-    expect: CASHIER_UP, drop: 7,
+    expect: CASHIER_DESK_UP, drop: 7,
   },
   { kind: 'rpc', schema: 'app', name: 'resolve_waiter_call', args: { p_call_id: NIL_UUID }, expect: CASHIER_UP, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'split_by_item', args: { p_tab_id: NIL_UUID, p_groups: [] }, expect: CASHIER_UP, drop: 7 },
@@ -2408,4 +2420,47 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'order_is_callers', args: { p_order_id: NIL_UUID }, expect: SELF_AUTHED, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'tab_is_callers', args: { p_tab_id: NIL_UUID }, expect: SELF_AUTHED, drop: 7 },
   { kind: 'rpc', schema: 'app', name: 'verify_table_token', args: { p_token: 'not-a-real-token' }, expect: SELF_AUTHED, drop: 7 },
+
+  // ── 0105: staff breaks with cover ─────────────────────────────────────────
+  // Every staff role takes breaks (a prep cook has a rail-less screen, but the
+  // RPC does not know that), so the guard is "active staff", not a role tier.
+  // The arguments are chosen to fail BEFORE the PIN check for every principal:
+  // start_break refuses an empty station id, end_break and cover_station find
+  // no open break. A PIN comparison here would write pin_attempts rows under
+  // five principals every run and collide with the limiter suites.
+  {
+    kind: 'rpc', schema: 'app', name: 'break_status',
+    args: { p_device_id: 'TILL-MATRIX' }, expect: STAFF_ANY, drop: 9,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'start_break',
+    args: { p_pin: '000000', p_device_id: '' }, expect: STAFF_ANY, drop: 9,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'end_break',
+    args: { p_pin: '000000', p_device_id: 'TILL-MATRIX' }, expect: STAFF_ANY, drop: 9,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'cover_station',
+    args: { p_staff_id: NIL_UUID, p_pin: '000000', p_device_id: 'TILL-MATRIX' }, expect: STAFF_ANY, drop: 9,
+  },
+  // Assigning cover is a floor matter: manager and owner, not owner alone.
+  {
+    kind: 'rpc', schema: 'app', name: 'set_station_staff',
+    args: { p_staff_id: NIL_UUID, p_station_ids: [] }, expect: MANAGER_UP, drop: 9,
+  },
+
+  // ── 0106: the court desk takes court payment ─────────────────────────────
+  // Nil ids stop every allowed principal past the guard with nothing written:
+  // settle_zero_tab at NO_OPEN_DAY/TAB_NOT_FOUND (the reason is supplied so it
+  // is not REASON_REQUIRED that answers), booking_bill at RESERVATION_NOT_FOUND,
+  // booking_bill_states on an empty list, unpaid_played_bookings on a day that
+  // does not exist.
+  {
+    kind: 'rpc', schema: 'app', name: 'settle_zero_tab',
+    args: { p_tab_id: NIL_UUID, p_reason_code: 'matrix' }, expect: CASHIER_DESK_UP, drop: 10,
+  },
+  { kind: 'rpc', schema: 'app', name: 'booking_bill', args: { p_reservation_id: NIL_UUID }, expect: CASHIER_DESK_UP, drop: 10 },
+  { kind: 'rpc', schema: 'app', name: 'booking_bill_states', args: { p_reservation_ids: [] }, expect: CASHIER_DESK_UP, drop: 10 },
+  { kind: 'rpc', schema: 'app', name: 'unpaid_played_bookings', args: { p_day_session_id: NIL_UUID }, expect: MANAGER_UP, drop: 10 },
 ];

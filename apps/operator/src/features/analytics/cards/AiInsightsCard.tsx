@@ -14,6 +14,14 @@
  * court the card reads and writes that court's set, never the venue-wide one.
  * On a live range (today still inside it) the numbers keep moving under a
  * stored set, so the card prints when the shown set was generated.
+ *
+ * The buttons say what they do: "Ask for findings" (a model reads the
+ * numbers, which is billed) and "Check they still hold" (the shown findings
+ * re-tested against today's numbers). The second is absent, not disabled
+ * without a reason, while there is nothing to check. Hiding a finding is a
+ * labelled button, not a bare "✕", and a model that is not available is a
+ * plain note, not a red error: the findings shown are still true, only
+ * templated.
  */
 import { useRef, useState, type ReactNode } from 'react';
 import type { CompareBasis, DateRange } from '@touch/core';
@@ -180,25 +188,19 @@ export function AiInsightsCard({
       actions={
         <>
           {busy && <Spinner size="xs" label={tr('analytics.insights.checking')} />}
-          <Button
-            disabled={!ready || busy !== null}
-            onClick={() => void run('insights')}
-            style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}
-          >
+          {shown.length > 0 && (
+            <Button size="sm" disabled={!ready || busy !== null} onClick={() => void run('revalidate', shown.map((i) => i.text))}>
+              {tr('analytics.insights.recheck')}
+            </Button>
+          )}
+          <Button size="sm" icon="spark" disabled={!ready || busy !== null} onClick={() => void run('insights')}>
             {tr('analytics.insights.generate')}
-          </Button>
-          <Button
-            disabled={!ready || busy !== null || shown.length === 0}
-            onClick={() => void run('revalidate', shown.map((i) => i.text))}
-            style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}
-          >
-            {tr('analytics.insights.recheck')}
           </Button>
         </>
       }
     >
       <div style={{ display: 'grid', gap: '0.5rem' }}>
-        {degraded && <p style={{ ...muted, color: 'var(--tp-danger)' }}>{tr('analytics.insights.degraded')}</p>}
+        {degraded && <p style={muted}>{tr('analytics.insights.degraded')}</p>}
         {live && fresh === null && latest && shown.length > 0 && (
           <p style={muted}>{tr('analytics.insights.generatedAt', { date: f.dateTime(latest.created_at) })}</p>
         )}
@@ -220,15 +222,8 @@ export function AiInsightsCard({
                   </span>
                 )}
               </span>
-              <Button
-                kind="ghost"
-                aria-label={tr('analytics.insights.reject')}
-                title={tr('analytics.insights.reject')}
-                disabled={busy !== null}
-                onClick={() => void reject(insight)}
-                style={{ paddingBlock: '0.1rem', paddingInline: '0.35rem' }}
-              >
-                ✕
+              <Button size="sm" kind="ghost" icon="eyeOff" disabled={busy !== null} onClick={() => void reject(insight)}>
+                {tr('analytics.insights.hide')}
               </Button>
             </li>
           ))}

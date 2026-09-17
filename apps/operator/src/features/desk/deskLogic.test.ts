@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   allowedMarks,
   arrivalsDue,
-  chargeStateFor,
   courtAvailability,
   groupByStart,
   isOverrideRefusal,
@@ -39,25 +38,6 @@ describe('toBookingStatus', () => {
   it('passes the seven known statuses through and leaves unknown strings alone', () => {
     expect(toBookingStatus('no_show')).toBe('no_show');
     expect(toBookingStatus('weird')).toBe('weird');
-  });
-});
-
-describe('chargeStateFor', () => {
-  const r = row({ id: 'r1' });
-  it('is unknowable (null) when the tabs have not loaded, nothing is priced, or it is not a booking', () => {
-    expect(chargeStateFor(r, undefined)).toBeNull();
-    expect(chargeStateFor(row({ id: 'r1', price_iqd: null }), [])).toBeNull();
-    expect(chargeStateFor(row({ id: 'm', kind: 'maintenance' }), [{ reservation_id: 'm', status: 'settled' }])).toBeNull();
-  });
-  it('is "none" — a fact, not a gap — when the tabs loaded and none charges this booking', () => {
-    expect(chargeStateFor(r, [])).toBe('none');
-    expect(chargeStateFor(r, [{ reservation_id: 'other', status: 'settled' }])).toBe('none');
-    // A voided tab does not count as a charge.
-    expect(chargeStateFor(r, [{ reservation_id: 'r1', status: 'void' }])).toBe('none');
-  });
-  it('is paid only when a settled tab charges the booking', () => {
-    expect(chargeStateFor(r, [{ reservation_id: 'r1', status: 'settled' }])).toBe('paid');
-    expect(chargeStateFor(r, [{ reservation_id: 'r1', status: 'open' }])).toBe('unpaid');
   });
 });
 

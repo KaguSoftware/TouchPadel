@@ -18,8 +18,14 @@
  *     when, or in use until when and by whom. A free tile books that court; a
  *     busy one opens its booking.
  *  3. **What does the whole day look like?** Every booking, in start order,
- *     with its status and whether the court fee is paid. Rows that have ended
+ *     with its status and where its court fee stands. Rows that have ended
  *     recede. The whole row opens the booking.
+ *
+ * Money the desk still has to collect (0106) sits with the arrivals, because
+ * it is the same moment: the group coming off court passes the group walking
+ * on. "Played, not paid" lists games that are over with the fee still open,
+ * and an arriving group's row says when the group before them on that court
+ * has not paid. Every figure and state comes from app.booking_bill_states.
  *
  * Marking a guest arrived no longer asks for a reason. An arrival is the
  * normal course of a booking, not an override, and the prompt offered only
@@ -42,10 +48,12 @@ import { Button, Skeleton } from '../../components/ui';
 import { AsyncStateWrapper, CustomerFlagBadge, EmptyState, PageHeader, Panel, StatusBadge, type AsyncStatus } from '../../components/kit';
 import { ChevronForward, Icon, type IconName } from '../../components/icons';
 import { ChargeCell, ReservationBadge } from './deskStatus';
-import { arrivalsDue, chargeStateFor, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, type CourtAvailability } from './deskLogic';
-import type { CustomerFlag, ReservationRow, TabLinkRow } from './deskTypes';
+import { arrivalsDue, courtAvailability, isVisible, nightSummary, slotTaken, sortByStart, type CourtAvailability } from './deskLogic';
+import type { CustomerFlag, ReservationRow } from './deskTypes';
 import { CreateReservationDialog } from './CreateReservationDialog';
-import { todayInTz, tonightInTz, useTabLinks, useTradingNight } from './useTradingNight';
+import { todayInTz, tonightInTz, useTradingNight } from './useTradingNight';
+import { hasEnded, statesById, toSettle, unsettledBefore, type BillStateRow } from './payment/deskPaymentLogic';
+import { useBookingBillStates } from './payment/useBookingBill';
 
 const ARRIVAL_HORIZON_MS = 60 * 60_000;
 /**
@@ -67,7 +75,8 @@ export interface TodaysBoardViewProps {
   courts: readonly CourtRow[];
   /** Visible rows for the trading night (cancelled / expired already filtered). */
   reservations: readonly ReservationRow[];
-  tabLinks?: readonly TabLinkRow[];
+  /** Court fee state per booking id (0106); undefined while unknown. */
+  billStates?: ReadonlyMap<string, BillStateRow>;
   /** Flags by guest id, when the customer data is available. */
   flagsByGuest?: ReadonlyMap<string, readonly CustomerFlag[]>;
   live: boolean;
@@ -87,6 +96,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
   const summary = useMemo(() => nightSummary(p.reservations, p.nowIso), [p.reservations, p.nowIso]);
   const availability = useMemo(() => courtAvailability(p.courts.map((c) => c.id), p.reservations, p.nowIso), [p.courts, p.reservations, p.nowIso]);
   const due = useMemo(() => arrivalsDue(p.reservations, p.nowIso, p.horizonIso), [p.reservations, p.nowIso, p.horizonIso]);
+  const unpaid = useMemo(() => toSettle(p.reservations, p.billStates, p.nowIso), [p.reservations, p.billStates, p.nowIso]);
   const dayNoon = new Date(`${p.date}T12:00:00Z`);
   const ready = p.status === 'ready' || p.status === 'empty';
 
@@ -105,6 +115,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
               <SubtitleFigure label={tr('ws.courtDesk.board.summaryBookings')} value={summary.bookings} />
               <SubtitleFigure label={tr('ws.courtDesk.board.summaryArrived')} value={summary.arrived} />
               <SubtitleFigure label={tr('ws.courtDesk.board.summaryToCome')} value={summary.toCome} />
+              {unpaid.length > 0 && <SubtitleFigure label={tr('ws.courtDesk.board.toSettleTitle')} value={unpaid.length} />}
             </>
           )}
         </span>
@@ -163,6 +174,8 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
         <div style={{ display: 'grid', gap: 'var(--tp-sp-4)' }}>
           <ArrivalsPanel
             due={due}
+            unpaid={unpaid}
+            billStates={p.billStates}
             reservations={p.reservations}
             nowIso={p.nowIso}
             tz={p.tz}
@@ -194,7 +207,7 @@ export function TodaysBoardView(p: TodaysBoardViewProps) {
                       courtName={courtName(r.court_id)}
                       tz={p.tz}
                       nowIso={p.nowIso}
-                      tabLinks={p.tabLinks}
+                      billState={p.billStates?.get(r.id)}
                       flags={r.guest_id ? p.flagsByGuest?.get(r.guest_id) : undefined}
                       marking={p.markingId === r.id}
                       onSelect={() => p.onSelectReservation(r.id)}
@@ -243,6 +256,8 @@ const minutesBetween = (a: string, b: string) => Math.max(0, Math.round((new Dat
 
 function ArrivalsPanel({
   due,
+  unpaid,
+  billStates,
   reservations,
   nowIso,
   tz,
@@ -253,6 +268,8 @@ function ArrivalsPanel({
   onOpen,
 }: {
   due: ReturnType<typeof arrivalsDue>;
+  unpaid: readonly ReservationRow[];
+  billStates?: ReadonlyMap<string, BillStateRow>;
   reservations: readonly ReservationRow[];
   nowIso: string;
   tz: string;
@@ -263,7 +280,11 @@ function ArrivalsPanel({
   onOpen: (id: string) => void;
 }) {
   const { tr, locale } = useLocale();
-  const nothing = due.late.length === 0 && due.soon.length === 0;
+  const nothing = due.late.length === 0 && due.soon.length === 0 && unpaid.length === 0;
+  const previousUnpaid = (r: ReservationRow) => {
+    const prev = unsettledBefore(r, reservations, billStates, nowIso);
+    return prev ? tr('ws.courtDesk.board.previousUnpaid', { name: guestLabel(prev, tr) }) : undefined;
+  };
   // With nobody due, say when the next guest is — the question that follows.
   const next = nothing ? sortByStart(reservations).find((r) => r.kind === 'booking' && r.status === 'confirmed' && r.start_at > nowIso) : undefined;
 
@@ -285,6 +306,24 @@ function ArrivalsPanel({
         </p>
       ) : (
         <div style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}>
+          {unpaid.length > 0 && (
+            <ArrivalGroup title={tr('ws.courtDesk.board.toSettleTitle')} hint={tr('ws.courtDesk.board.toSettleHint')}>
+              {unpaid.map((r) => (
+                <ArrivalRow
+                  key={r.id}
+                  r={r}
+                  tone="warn"
+                  when={formatTimeRange(new Date(r.start_at), new Date(r.end_at), locale, tz)}
+                  tz={tz}
+                  courtName={courtName(r.court_id)}
+                  flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
+                  marking={false}
+                  billState={billStates?.get(r.id)}
+                  onOpen={() => onOpen(r.id)}
+                />
+              ))}
+            </ArrivalGroup>
+          )}
           {due.late.length > 0 && (
             <ArrivalGroup title={tr('ws.courtDesk.board.lateTitle')} hint={tr('ws.courtDesk.board.lateHint')}>
               {due.late.map((r) => (
@@ -297,6 +336,7 @@ function ArrivalsPanel({
                   courtName={courtName(r.court_id)}
                   flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
                   marking={markingId === r.id}
+                  notice={previousUnpaid(r)}
                   onMarkArrived={() => onMarkArrived(r.id)}
                   onOpen={() => onOpen(r.id)}
                 />
@@ -315,6 +355,7 @@ function ArrivalsPanel({
                   courtName={courtName(r.court_id)}
                   flags={r.guest_id ? flagsByGuest?.get(r.guest_id) : undefined}
                   marking={markingId === r.id}
+                  notice={previousUnpaid(r)}
                   onMarkArrived={() => onMarkArrived(r.id)}
                   onOpen={() => onOpen(r.id)}
                 />
@@ -345,6 +386,8 @@ function ArrivalRow({
   courtName,
   flags,
   marking,
+  notice,
+  billState,
   onMarkArrived,
   onOpen,
 }: {
@@ -355,7 +398,12 @@ function ArrivalRow({
   courtName: string;
   flags?: readonly CustomerFlag[];
   marking: boolean;
-  onMarkArrived: () => void;
+  /** One line the desk should know as this group walks in. */
+  notice?: string;
+  /** Set on "Played, not paid" rows: the fee state replaces "Mark arrived". */
+  billState?: BillStateRow;
+  /** Absent on "Played, not paid" rows — they are settled from the booking. */
+  onMarkArrived?: () => void;
   onOpen: () => void;
 }) {
   const { tr, locale } = useLocale();
@@ -398,14 +446,29 @@ function ArrivalRow({
             </bdi>
           )}
         </span>
+        {notice && (
+          <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1)', alignItems: 'center', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-warn-fg)' }}>
+            <Icon name="alert" size={14} style={{ flex: '0 0 auto' }} />
+            <bdi>{notice}</bdi>
+          </span>
+        )}
       </span>
-      <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', marginInlineStart: 'auto' }}>
-        <Button kind="ghost" iconEnd="chevronEnd" onClick={onOpen} aria-label={`${tr('ws.courtDesk.board.open')} ${name}`}>
-          {tr('ws.courtDesk.board.open')}
-        </Button>
-        <Button kind="primary" icon="check" busy={marking} onClick={onMarkArrived}>
-          {tr('ws.courtDesk.board.markArrived')}
-        </Button>
+      <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-2)', alignItems: 'center', marginInlineStart: 'auto' }}>
+        {billState && <ChargeCell state={billState} kind={r.kind} ended />}
+        {onMarkArrived ? (
+          <>
+            <Button kind="ghost" iconEnd="chevronEnd" onClick={onOpen} aria-label={`${tr('ws.courtDesk.board.open')} ${name}`}>
+              {tr('ws.courtDesk.board.open')}
+            </Button>
+            <Button kind="primary" icon="check" busy={marking} onClick={onMarkArrived}>
+              {tr('ws.courtDesk.board.markArrived')}
+            </Button>
+          </>
+        ) : (
+          <Button kind="primary" icon="banknote" onClick={onOpen} aria-label={`${tr('ws.courtDesk.board.takePayment')} ${name}`}>
+            {tr('ws.courtDesk.board.takePayment')}
+          </Button>
+        )}
       </span>
     </li>
   );
@@ -545,7 +608,7 @@ function BoardRow({
   courtName,
   tz,
   nowIso,
-  tabLinks,
+  billState,
   flags,
   marking,
   onSelect,
@@ -555,7 +618,7 @@ function BoardRow({
   courtName: string;
   tz: string;
   nowIso: string;
-  tabLinks?: readonly TabLinkRow[];
+  billState?: BillStateRow;
   flags?: readonly CustomerFlag[];
   marking: boolean;
   onSelect: () => void;
@@ -563,7 +626,7 @@ function BoardRow({
 }) {
   const { tr, locale } = useLocale();
   const inProgress = r.start_at <= nowIso && r.end_at > nowIso;
-  const ended = r.end_at <= nowIso || r.status === 'completed';
+  const ended = hasEnded(r, nowIso);
   const label = guestLabel(r, tr);
   return (
     <tr
@@ -605,7 +668,7 @@ function BoardRow({
         <ReservationBadge reservation={r} size="sm" />
       </td>
       <td>
-        <ChargeCell state={chargeStateFor(r, tabLinks)} kind={r.kind} />
+        <ChargeCell state={billState} kind={r.kind} ended={ended} />
       </td>
       <td style={{ textAlign: 'end', whiteSpace: 'nowrap' }}>
         <span style={{ display: 'inline-flex', gap: '0.3rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
@@ -647,7 +710,8 @@ export function TodaysBoardScreen() {
 
   const visible = useMemo(() => night.reservations.filter((r) => isVisible(r, nowMs)), [night.reservations, nowMs]);
   const bookingIds = useMemo(() => visible.filter((r) => r.kind === 'booking').map((r) => r.id), [visible]);
-  const tabLinksQ = useTabLinks(bookingIds);
+  const billStatesQ = useBookingBillStates(bookingIds);
+  const billStates = useMemo(() => statesById(billStatesQ.data), [billStatesQ.data]);
 
   const [createAt, setCreateAt] = useState<{ courtId: string; startAt: Date } | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
@@ -730,7 +794,7 @@ export function TodaysBoardScreen() {
         horizonIso={horizonIso}
         courts={courts}
         reservations={visible}
-        tabLinks={tabLinksQ.data}
+        billStates={billStates}
         live={!reservationsQ.isError}
         markingId={markingId}
         onRetry={retry}

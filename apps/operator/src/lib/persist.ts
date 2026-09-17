@@ -46,12 +46,53 @@ export function shouldPersistQuery(query: PersistableQuery): boolean {
   return typeof root === 'string' && PERSISTED_ROOTS.has(root) && query.state.status === 'success';
 }
 
-export function makePersister() {
-  return createSyncStoragePersister({
-    storage: typeof window === 'undefined' ? undefined : window.localStorage,
-    key: 'touch-operator-query-cache',
+const CACHE_KEY = 'touch-operator-query-cache';
+
+/**
+ * The sync persister's throttle is TRAILING-only: a change is written when the
+ * timer fires, 2 s later. A page that unloads inside that window — an owner
+ * adds a court and a reload, a crash recovery or the shell's
+ * render-process-gone restart follows — never writes it, so the next boot
+ * restores the list from BEFORE the change. Worse, that snapshot is only
+ * seconds old, inside the 10 s staleTime, so the screen trusts it and does not
+ * refetch: the new court was simply missing until something remounted the
+ * query. The e2e courts case caught it.
+ *
+ * So the newest snapshot handed to the persister is kept, and written
+ * synchronously when the page is hidden for good (`pagehide`), which is the
+ * last event a browser or Electron renderer reliably delivers before unload.
+ */
+export function makePersister(storage: Storage | undefined = typeof window === 'undefined' ? undefined : window.localStorage) {
+  const base = createSyncStoragePersister({
+    storage,
+    key: CACHE_KEY,
     // localStorage writes are sync; throttle so a chatty invalidation burst
     // doesn't serialise the cache dozens of times a second.
     throttleTime: 2_000,
   });
+  let latest: Parameters<typeof base.persistClient>[0] | null = null;
+
+  const flush = () => {
+    if (!storage || !latest) return;
+    try {
+      storage.setItem(CACHE_KEY, JSON.stringify(latest));
+    } catch {
+      /* quota or private mode: the throttled write is the fallback */
+    }
+  };
+  if (typeof window !== 'undefined') window.addEventListener('pagehide', flush);
+
+  return {
+    persistClient: (client: Parameters<typeof base.persistClient>[0]) => {
+      latest = client;
+      return base.persistClient(client);
+    },
+    restoreClient: base.restoreClient,
+    removeClient: () => {
+      latest = null;
+      return base.removeClient();
+    },
+    /** Write the newest snapshot now. Exposed for tests; `pagehide` calls it. */
+    flush,
+  };
 }

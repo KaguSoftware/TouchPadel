@@ -1,10 +1,10 @@
-/** 04 How people book: durations, lead time, channel by hour, then group size, standing bookings and app holds. */
+/** How people book: length, lead time and group size open; app against desk, standing bookings and app holds one click away. */
 import { useLocale } from '../../../../lib/i18n';
 import { ChartCard } from '../../charts/ChartCard';
 import { CountBars } from '../../charts/CountBars';
 import { StackedBars } from '../../charts/StackedBars';
 import { barTwin, seriesTwin } from '../../charts/twins';
-import { ZoneGrid } from '../../Zone';
+import { MoreCharts, ZoneGrid } from '../../Zone';
 import { shortBucket } from '../copy';
 import { StatPair } from '../cards/StatPair';
 import { rateText, spanText } from '../format';
@@ -69,30 +69,30 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
           <CountBars rows={leadRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.bookings')} />
         </ChartCard>
         <ChartCard
-          title={tr('ws.analytics.courts.cards.sourceByHour')}
-          tip={tr('ws.analytics.courts.tips.sourceByHour')}
-          state={empty ? 'empty' : state}
+          title={tr('ws.analytics.courts.cards.players')}
+          tip={tr('ws.analytics.courts.tips.players')}
+          note={demand && !playersEmpty ? tr('ws.analytics.courts.notices.playersKnown', { pct: f.pct(playersKnownPct) }) : undefined}
+          state={playersEmpty ? 'empty' : state}
           refreshing={refreshing}
-          emptyKey="ws.analytics.courts.empty.bookings"
+          emptyKey="ws.analytics.courts.empty.players"
           height={200}
-          twin={seriesTwin(sourceRows, tr('ws.analytics.courts.cards.leadTime'), series, `channel-by-lead-${rangeLabel}`)}
+          twin={barTwin(playersRows, tr('ws.analytics.courts.cards.players'), tr('ws.analytics.courts.units.bookings'), `players-${rangeLabel}`)}
         >
-          <StackedBars rows={sourceRows} series={series} format={(n) => f.num(n)} />
+          <CountBars rows={playersRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.bookings')} />
         </ChartCard>
       </ZoneGrid>
-      <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
+      <MoreCharts id="courts-shape" count={empty ? 0 : 3}>
+        <ZoneGrid columns={3}>
           <ChartCard
-            title={tr('ws.analytics.courts.cards.players')}
-            tip={tr('ws.analytics.courts.tips.players')}
-            note={demand && !playersEmpty ? tr('ws.analytics.courts.notices.playersKnown', { pct: f.pct(playersKnownPct) }) : undefined}
-            state={playersEmpty ? 'empty' : state}
+            title={tr('ws.analytics.courts.cards.sourceByHour')}
+            tip={tr('ws.analytics.courts.tips.sourceByHour')}
+            state={empty ? 'empty' : state}
             refreshing={refreshing}
-            emptyKey="ws.analytics.courts.empty.players"
+            emptyKey="ws.analytics.courts.empty.bookings"
             height={200}
-            twin={barTwin(playersRows, tr('ws.analytics.courts.cards.players'), tr('ws.analytics.courts.units.bookings'), `players-${rangeLabel}`)}
+            twin={seriesTwin(sourceRows, tr('ws.analytics.courts.cards.leadTime'), series, `channel-by-lead-${rangeLabel}`)}
           >
-            <CountBars rows={playersRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.bookings')} />
+            <StackedBars rows={sourceRows} series={series} format={(n) => f.num(n)} />
           </ChartCard>
           <StatPair
             title={tr('ws.analytics.courts.cards.seriesShare')}
@@ -101,7 +101,7 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
             refreshing={refreshing}
             emptyKey="ws.analytics.courts.empty.bookings"
             items={[
-              { label: tr('ws.analytics.courts.series.standing'), value: f.num(demand?.series.seriesBookings ?? 0), sub: demand?.series.seriesPct == null ? undefined : f.pct(demand.series.seriesPct) },
+              { label: tr('ws.analytics.courts.series.standing'), value: f.num(demand?.series.seriesBookings ?? 0), sub: demand ? rateText(tr, f, demand.series.seriesPct, demand.series.seriesBookings, demand.series.seriesBookings + demand.series.singleBookings) : undefined },
               { label: tr('ws.analytics.courts.series.single'), value: f.num(demand?.series.singleBookings ?? 0) },
             ]}
           />
@@ -117,8 +117,8 @@ export function ShapeSection({ raw, state, refreshing, f, rangeLabel }: SectionP
               { label: tr('ws.analytics.courts.cards.holdsEnded'), value: f.num(Math.max(0, (funnel?.holdsEnded ?? 0) - (funnel?.converted ?? 0))) },
             ]}
           />
-        </div>
-      </div>
+        </ZoneGrid>
+      </MoreCharts>
     </>
   );
 }

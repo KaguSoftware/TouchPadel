@@ -1,14 +1,23 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LocaleProvider } from '../../lib/i18n';
 import type { StaffRole } from '../../lib/auth';
+import type { StaffRow } from './staff/staffModel';
+import type * as SettingsModule from '../../lib/settings';
 
-// The landing screen of the Setup section: one card per destination, and the
-// same role wall as the rail it replaced — a card is a link to a screen, so a
-// role that may not open the screen may not be offered the card.
+// The landing screen of the Setup section: what in setup will bite a shift,
+// then one card per destination with the same role wall as the rail — a card
+// is a link to a screen, so a role that may not open the screen may not be
+// offered the card.
 
 let role: StaffRole = 'owner';
+const data: {
+  staff: StaffRow[];
+  outbox: { status: 'queued' | 'sent' | 'failed' | 'skipped'; created_at: string }[];
+  telegram: { telegram_enabled: boolean; telegram_chat_id: string | null };
+} = { staff: [], outbox: [], telegram: { telegram_enabled: false, telegram_chat_id: null } };
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ to, children, ...rest }: { to: string; children: ReactNode }) => (
@@ -16,8 +25,28 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
+  useNavigate: () => vi.fn(),
 }));
-vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAnonKey: '' }));
+vi.mock('../../lib/supabase', () => {
+  const chain: Record<string, unknown> = {};
+  chain.select = () => chain;
+  chain.order = () => chain;
+  // Courts and tables are counted (head: true); the outbox is listed.
+  chain.eq = () => Promise.resolve({ count: 4, error: null });
+  chain.limit = () => Promise.resolve({ data: data.outbox, error: null });
+  return { supabase: { from: () => chain }, supabaseUrl: '', supabaseAnonKey: '' };
+});
+vi.mock('../../lib/appRpc', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  appRpc: vi.fn(async () => data.staff),
+}));
+vi.mock('../../lib/settings', async (importOriginal) => {
+  const actual = await importOriginal<typeof SettingsModule>();
+  return {
+    ...actual,
+    useCafeSettings: () => ({ isSuccess: true, isLoading: false, isError: false, settings: { ...actual.CAFE_SETTING_DEFAULTS, ...data.telegram } }),
+  };
+});
 vi.mock('../../lib/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAuth: () => ({ staff: { id: 's1', displayName: 'Owner', role } }),
@@ -25,23 +54,36 @@ vi.mock('../../lib/auth', async (importOriginal) => ({
 
 import { SetupHomeScreen } from './SetupHome';
 
+const person = (over: Partial<StaffRow>): StaffRow => ({ id: 'x', display_name: 'X', role: 'cashier', is_active: true, has_pin: false, ...over });
+
 function renderSetup(as: StaffRole) {
   role = as;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <LocaleProvider>
-      <SetupHomeScreen />
-    </LocaleProvider>,
+    <QueryClientProvider client={client}>
+      <LocaleProvider>
+        <SetupHomeScreen />
+      </LocaleProvider>
+    </QueryClientProvider>,
   );
 }
 
+const check = (key: string) => document.querySelector(`li[data-check="${key}"]`) as HTMLElement | null;
+
 describe('SetupHomeScreen', () => {
+  beforeEach(() => {
+    data.staff = [person({ id: 'o1', role: 'owner', has_pin: true }), person({ id: 'o2', role: 'owner', has_pin: true })];
+    data.outbox = [];
+    data.telegram = { telegram_enabled: false, telegram_chat_id: null };
+  });
+
   it('offers every setup destination, each with what the screen decides', () => {
     renderSetup('owner');
     expect(screen.getByRole('heading', { name: 'Setup' })).toBeTruthy();
     const links = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
     expect(links).toEqual(['/admin/staff', '/admin/courts', '/admin/qr', '/admin/settings', '/admin/hero']);
     // The card says more than its rail row could: names alone are not answers.
-    expect(screen.getByText(/Rotate a code when a card is lost/)).toBeTruthy();
+    expect(screen.getByText(/replace a lost one/)).toBeTruthy();
   });
 
   it('never offers the section overview a card back to itself', () => {
@@ -55,5 +97,41 @@ describe('SetupHomeScreen', () => {
     const links = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
     expect(links).not.toContain('/admin/staff');
     expect(links).toContain('/admin/courts');
+  });
+
+  it('says plainly when nothing needs attention, and a switched-off Telegram is a choice, not a problem', async () => {
+    renderSetup('owner');
+    expect(await screen.findByText('Nothing in setup needs attention.')).toBeTruthy();
+    expect(check('telegram')).toBeNull();
+  });
+
+  it('raises a manager with no PIN and a lone owner, each with the way to fix it', async () => {
+    data.staff = [
+      person({ id: 'o1', role: 'owner', has_pin: true }),
+      person({ id: 'm1', role: 'manager', has_pin: false }),
+      person({ id: 'm2', role: 'manager', has_pin: false, is_active: false }),
+      person({ id: 'c1', role: 'cashier' }),
+    ];
+    renderSetup('owner');
+    await waitFor(() => expect(check('pins')).toBeTruthy());
+    // Only the active manager counts; a cashier holds no PIN at all.
+    expect(within(check('pins')!).getByText('1')).toBeTruthy();
+    expect(within(check('pins')!).getByRole('button', { name: 'Set PINs' })).toBeTruthy();
+    expect(check('owner')).toBeTruthy();
+  });
+
+  it('raises Telegram when it is switched on but has no real group', async () => {
+    data.telegram = { telegram_enabled: true, telegram_chat_id: '-1001234567890' };
+    renderSetup('owner');
+    await waitFor(() => expect(check('telegram')).toBeTruthy());
+    expect(within(check('telegram')!).getByText(/no staff group is chosen/)).toBeTruthy();
+  });
+
+  it('puts one honest live line on the cards it can count', async () => {
+    data.staff = [person({ id: 'o1', role: 'owner', has_pin: true }), person({ id: 'o2', role: 'owner', has_pin: true }), person({ id: 'x', is_active: false })];
+    renderSetup('owner');
+    const staffCard = screen.getAllByRole('link').find((a) => a.getAttribute('href') === '/admin/staff')!;
+    await waitFor(() => expect(within(staffCard).getByText('People with access')).toBeTruthy());
+    expect(within(staffCard).getByText('2')).toBeTruthy();
   });
 });

@@ -5,7 +5,7 @@
  * price, a duration or a total. The board renders what the server returned.
  */
 import type { BookingStatus } from '../../components/kit';
-import type { ReservationRow, TabLinkRow } from './deskTypes';
+import type { ReservationRow } from './deskTypes';
 
 /** Statuses that occupy a court (the exclusion constraint's own set). */
 export const BLOCKING_STATUSES: ReadonlySet<string> = new Set(['pending', 'confirmed', 'arrived']);
@@ -102,25 +102,6 @@ export function arrivalsDue(reservations: readonly ReservationRow[], nowIso: str
     else if (r.start_at > nowIso && r.start_at <= horizonIso) soon.push(r);
   }
   return { late, soon };
-}
-
-/** How a booking's court fee stands on the till. */
-export type ChargeState = 'paid' | 'unpaid' | 'none';
-
-/**
- * Read from the tabs that charge this booking. `null` when that cannot be
- * known (not a booking, no price, or the tabs were not loaded): the screen
- * prints "—", never a guess. `none` is a fact, not a gap — the desk can read
- * tabs, and no tab charges this booking yet.
- */
-export function chargeStateFor(
-  reservation: Pick<ReservationRow, 'id' | 'price_iqd' | 'kind'>,
-  tabs: readonly TabLinkRow[] | undefined,
-): ChargeState | null {
-  if (reservation.kind !== 'booking' || reservation.price_iqd == null || tabs === undefined) return null;
-  const linked = tabs.filter((t) => t.reservation_id === reservation.id && t.status !== 'void');
-  if (linked.length === 0) return 'none';
-  return linked.some((t) => t.status === 'settled') ? 'paid' : 'unpaid';
 }
 
 export interface NightSummary {

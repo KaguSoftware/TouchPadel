@@ -1289,11 +1289,12 @@ export function HeadlineFigure({
         {busy ? <Skeleton lines={1} blockSize="1.6rem" style={{ inlineSize: '60%' }} /> : value}
       </span>
       <span style={{ display: 'block', marginBlockStart: '0.3rem', minBlockSize: '1rem' }}>
-        {comparison ? (
-          <ComparisonDelta changeAbs={comparison.changeAbs} changePct={comparison.changePct} format={format} invert={invert} />
-        ) : hint ? (
-          <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{hint}</span>
-        ) : null}
+        {/* Both when both exist: a report tile's note ("Bookings: 15") still
+            matters once a comparison is switched on. */}
+        {comparison && <ComparisonDelta changeAbs={comparison.changeAbs} changePct={comparison.changePct} format={format} invert={invert} />}
+        {hint && (
+          <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlockStart: comparison ? '0.15rem' : 0 }}>{hint}</span>
+        )}
       </span>
     </>
   );
@@ -1314,14 +1315,25 @@ export function HeadlineFigure({
 }
 
 export type ComparisonMode = 'previousPeriod' | 'sameLastYear' | 'none';
-export function ComparisonControl({ mode, onChange, disabled }: { mode: ComparisonMode; onChange: (m: ComparisonMode) => void; disabled?: boolean }) {
+export function ComparisonControl({
+  mode,
+  onChange,
+  disabled,
+  label,
+}: {
+  mode: ComparisonMode;
+  onChange: (m: ComparisonMode) => void;
+  disabled?: boolean;
+  /** Its accessible name when a visible label sits beside it ("Compare with"). */
+  label?: string;
+}) {
   const { tr } = useLocale();
   return (
     <Select<ComparisonMode>
       value={mode}
       onChange={onChange}
       disabled={disabled}
-      aria-label={tr('ws.kit.comparison.vs', { label: '' })}
+      aria-label={label ?? tr('ws.kit.comparison.vs', { label: '' })}
       style={{ inlineSize: 'auto' }}
       options={[
         { value: 'none', label: tr('ws.kit.comparison.none') },

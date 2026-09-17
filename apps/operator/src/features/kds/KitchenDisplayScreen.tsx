@@ -9,6 +9,7 @@
 import { useCallback, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { formatNumber, formatTime } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
+import { errorToMessageKey } from '../../lib/errors';
 import { useAudioArming } from '../../lib/audio';
 import type { BroadcastStatus } from '../../lib/realtime';
 import { Button, ErrorText } from '../../components/ui';
@@ -110,12 +111,18 @@ export function KitchenDisplayScreen({
           {tr('kds.title')}
         </h1>
         <span style={{ marginInlineStart: 'auto' }} />
-        <span
-          data-testid="open-count"
-          style={{ fontSize: 'var(--tp-fs-kds-lg)', fontWeight: 700, whiteSpace: 'nowrap' }}
-        >
-          <bdi>{tr('ws.prep.open', { count: formatNumber(open, locale) })}</bdi>
-        </span>
+        {/* Only a loaded board has a count. While loading or failed the old
+            header printed "0 open" — a figure the server never sent, beside a
+            panel saying the tickets could not be read — and on an empty board
+            it repeated the "all caught up" message below it. */}
+        {status === 'ready' && (
+          <span
+            data-testid="open-count"
+            style={{ fontSize: 'var(--tp-fs-kds-lg)', fontWeight: 700, whiteSpace: 'nowrap' }}
+          >
+            <bdi>{tr('ws.prep.open', { count: formatNumber(open, locale) })}</bdi>
+          </span>
+        )}
         <bdi
           style={{
             fontSize: 'var(--tp-fs-kds-lg)',
@@ -174,7 +181,12 @@ export function KitchenDisplayScreen({
           >
             {/* The literal glyph is the e2e suite's anchor for this banner. */}
             <span aria-hidden="true">⚠</span>
-            <bdi>{tr('op.kds.staleBanner', { count: formatNumber(staleCount, locale) })}</bdi>
+            {/* The count is its own figure, so the sentence needs no plural
+                and the number reads first from across the kitchen. */}
+            <bdi style={{ fontSize: 'var(--tp-fs-kds-lg)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+              {formatNumber(staleCount, locale)}
+            </bdi>
+            <span>{tr('op.kds.staleBanner')}</span>
           </p>
         )}
         <ErrorText
@@ -302,17 +314,25 @@ function KdsStartShiftBanner() {
         ...notice,
         justifyContent: 'space-between',
         minBlockSize: KDS_BAND_BLOCK,
-        background: 'var(--tp-kds-fresh)',
+        // Amber, not green: a kitchen screen that cannot chime is a problem to
+        // fix, and the green strip read as "all good" beside the red one.
+        background: 'var(--tp-kds-warm)',
         color: 'var(--tp-kds-on-fill)',
         border: 'none',
         inlineSize: '100%',
         textAlign: 'start',
-        font: 'inherit',
+        // Longhands only. The `font` shorthand here reset the size back to the
+        // button default, so the one instruction on the strip read at desk size.
+        fontFamily: 'inherit',
+        fontWeight: 600,
         fontSize: 'var(--tp-fs-kds)',
         cursor: 'pointer',
       }}
     >
-      <span>{tr('op.kds.startShiftHint')}</span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-2)' }}>
+        <Icon name="bell" size={22} />
+        {tr('op.kds.startShiftHint')}
+      </span>
       <strong
         style={{
           display: 'inline-flex',
@@ -382,42 +402,51 @@ function KdsEmpty({ title, body }: { title: string; body: string | null }) {
 
 function KdsErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const { tr } = useLocale();
+  // The generic "Something went wrong" under a title that already says what
+  // went wrong was a third message saying nothing; a specific one (a refused
+  // permission, say) still earns its line.
+  const specific = errorToMessageKey(error) !== 'errors.generic';
   return (
-    <div
-      role="alert"
-      style={{
-        ...kdsCard,
-        display: 'grid',
-        gap: 'var(--tp-sp-3)',
-        justifyItems: 'start',
-        paddingBlock: 'var(--tp-sp-5)',
-        paddingInline: 'var(--tp-sp-5)',
-        maxInlineSize: 'var(--tp-measure-form)',
-      }}
-    >
-      <p
+    <div style={{ display: 'grid', placeItems: 'center', minBlockSize: '60%', paddingBlock: 'var(--tp-sp-6)' }}>
+      <div
+        role="alert"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--tp-sp-2-5)',
-          fontSize: 'var(--tp-fs-kds-lg)',
-          fontWeight: 700,
-          color: 'var(--tp-kds-late)',
+          ...kdsCard,
+          display: 'grid',
+          gap: 'var(--tp-sp-3)',
+          justifyItems: 'start',
+          paddingBlock: 'var(--tp-sp-5)',
+          paddingInline: 'var(--tp-sp-5)',
+          maxInlineSize: 'var(--tp-measure-form)',
         }}
       >
-        <Icon name="alert" size={28} />
-        {tr('ws.prep.error.title')}
-      </p>
-      <ErrorText
-        error={error}
-        style={{ marginBlock: 0, background: 'var(--tp-kds-card-2)', color: 'var(--tp-kds-fg)', fontSize: 'var(--tp-fs-kds)' }}
-      />
-      <p style={{ fontSize: 'var(--tp-fs-kds)', color: 'var(--tp-kds-muted)' }}>{tr('ws.prep.error.hint')}</p>
-      {onRetry && (
-        <Button size="xl" kind="primary" icon="refresh" onClick={onRetry}>
-          {tr('ws.kit.async.retry')}
-        </Button>
-      )}
+        <p
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--tp-sp-2-5)',
+            fontSize: 'var(--tp-fs-kds-lg)',
+            fontWeight: 700,
+            lineHeight: 1.2,
+            color: 'var(--tp-kds-fg)',
+          }}
+        >
+          <Icon name="wifiOff" size={28} style={{ color: 'var(--tp-kds-late)', flex: '0 0 auto' }} />
+          {tr('ws.prep.error.title')}
+        </p>
+        {specific && (
+          <ErrorText
+            error={error}
+            style={{ marginBlock: 0, background: 'var(--tp-kds-card-2)', color: 'var(--tp-kds-fg)', fontSize: 'var(--tp-fs-kds)' }}
+          />
+        )}
+        <p style={{ fontSize: 'var(--tp-fs-kds)', color: 'var(--tp-kds-muted)' }}>{tr('ws.prep.error.hint')}</p>
+        {onRetry && (
+          <Button size="xl" kind="primary" icon="refresh" onClick={onRetry}>
+            {tr('ws.kit.async.retry')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -466,6 +495,9 @@ function KeyLegend({ dir }: { dir: 'ltr' | 'rtl' }) {
         <Icon name="keyboard" size={20} />
         {tr('ws.prep.keys.legend')}
       </span>
+      {/* S, R and C are not listed: each is printed on its own button, on the
+          ticket it acts on. Listing them again made the legend two lines on
+          every screen up to 1440px and said nothing the cards did not. */}
       {entry(<KdsKbd>1–9</KdsKbd>, tr('ws.prep.keys.ticket'))}
       {entry(
         <>
@@ -482,9 +514,6 @@ function KeyLegend({ dir }: { dir: 'ltr' | 'rtl' }) {
         tr('ws.prep.keys.items'),
       )}
       {entry(<KdsKbd>Space</KdsKbd>, tr('ws.prep.keys.toggle'))}
-      {entry(<KdsKbd>S</KdsKbd>, tr('ws.prep.keys.start'))}
-      {entry(<KdsKbd>R</KdsKbd>, tr('ws.prep.keys.ready'))}
-      {entry(<KdsKbd>C</KdsKbd>, tr('ws.prep.keys.complete'))}
       {entry(<KdsKbd>Esc</KdsKbd>, tr('ws.prep.keys.clear'))}
     </footer>
   );

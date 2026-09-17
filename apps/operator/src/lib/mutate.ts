@@ -100,6 +100,7 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_amount_iqd: p?.amountIqd ?? null,
       p_idempotency_key: key,
       p_device_id: device,
+      p_expected_total_iqd: p?.expectedTotalIqd ?? null,
     },
   }),
   'payment.record': (p, key, device) => ({
@@ -111,6 +112,7 @@ export const DIRECT_RPC: Record<MutationType, PayloadMapper> = {
       p_amount_iqd: p?.amountIqd ?? null,
       p_idempotency_key: key,
       p_device_id: device,
+      p_expected_total_iqd: p?.expectedTotalIqd ?? null,
     },
   }),
   'ticket.status': (p, _key, device) => ({

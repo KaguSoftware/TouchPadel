@@ -1,4 +1,4 @@
-/** 03 When: the occupancy heatmap full-bleed, then hour and weekday roll-ups as a pair. */
+/** When courts are busy: the occupancy heatmap full-bleed; the hour and weekday roll-ups one click away. */
 import { useState } from 'react';
 import { useLocale } from '../../../../lib/i18n';
 import { SegmentedControl } from '../../../../components/kit';
@@ -6,7 +6,7 @@ import { ChartCard } from '../../charts/ChartCard';
 import { CountBars } from '../../charts/CountBars';
 import { WeekHeatmap } from '../../charts/WeekHeatmap';
 import { barTwin, heatTwin } from '../../charts/twins';
-import { ZoneGrid } from '../../Zone';
+import { MoreCharts, ZoneGrid } from '../../Zone';
 import { weekdayName } from '../../copy';
 import type { SectionProps } from './types';
 
@@ -25,7 +25,8 @@ export function WhenSection({ raw, derived, state, refreshing, f, rangeLabel }: 
   const unit = tr(measure === 'occupancy' ? 'ws.analytics.courts.units.occupancy' : measure === 'bookings' ? 'ws.analytics.courts.units.bookings' : 'ws.analytics.courts.units.revenue');
   const empty = state === 'ready' && (raw?.summary.kpis.bookings ?? 0) === 0;
   const hourRows = (derived?.byHour ?? []).map((h) => ({ label: f.hour(h.hour), value: h.occupancyPct ?? 0 }));
-  const dowRows = (derived?.byDow ?? []).map((d) => ({ label: weekdayName(tr, d.dow).slice(0, 3), value: d.occupancyPct ?? 0 }));
+  // f.weekday, not a sliced name: three letters of an Arabic weekday is not a word ("الأ").
+  const dowRows = (derived?.byDow ?? []).map((d) => ({ label: f.weekday(d.dow), value: d.occupancyPct ?? 0 }));
   return (
     <>
       <ChartCard
@@ -34,7 +35,7 @@ export function WhenSection({ raw, derived, state, refreshing, f, rangeLabel }: 
         state={empty ? 'empty' : state}
         refreshing={refreshing}
         emptyKey="ws.analytics.courts.empty.heat"
-        height={230}
+        height={200}
         actions={
           <SegmentedControl<Measure>
             size="sm"
@@ -58,7 +59,7 @@ export function WhenSection({ raw, derived, state, refreshing, f, rangeLabel }: 
       >
         <WeekHeatmap cells={cells} f={f} format={format} unit={unit} hint={tr('ws.analytics.heatmap.hint')} />
       </ChartCard>
-      <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
+      <MoreCharts id="courts-when" count={empty ? 0 : 2}>
         <ZoneGrid columns={2}>
           <ChartCard
             title={tr('ws.analytics.courts.cards.byHour')}
@@ -83,7 +84,7 @@ export function WhenSection({ raw, derived, state, refreshing, f, rangeLabel }: 
             <CountBars rows={dowRows} format={(n) => f.pct(n)} name={tr('ws.analytics.courts.units.occupancy')} />
           </ChartCard>
         </ZoneGrid>
-      </div>
+      </MoreCharts>
     </>
   );
 }

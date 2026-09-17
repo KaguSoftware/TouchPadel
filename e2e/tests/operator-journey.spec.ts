@@ -124,7 +124,8 @@ test.describe('operator journeys', () => {
     await tableSelect.selectOption({ label: 'T8' });
     await newTab.getByRole('button', { name: 'Open tab' }).click();
     await expect(newTab).toBeHidden();
-    await expect(page.getByRole('heading', { name: 'Table T8' })).toBeVisible();
+    // exact: the basket's own "Basket for Table T8" heading matches a substring.
+    await expect(page.getByRole('heading', { name: 'Table T8', exact: true })).toBeVisible();
 
     // ---- item 1: Cappuccino (Regular) + Oat Milk modifier -----------------
     // Leftover db-test categories can sort ahead of the fixtures — pick the
@@ -337,7 +338,8 @@ test.describe('operator journeys', () => {
     try {
       await signIn(page, SEED_STAFF.manager);
       await page.goto(`${OPERATOR_URL}/admin/hours`);
-      await expect(page.getByRole('heading', { name: 'Opening hours' })).toBeVisible({
+      // level 1: the page title; the settings section repeats it as an h2.
+      await expect(page.getByRole('heading', { name: 'Opening hours', level: 1 })).toBeVisible({
         timeout: 30_000,
       });
 
@@ -350,6 +352,10 @@ test.describe('operator journeys', () => {
       // The close is on the following day, and the screen has to say so.
       await expect(page.getByText('next day').first()).toBeVisible();
 
+      // Save stays disabled until something is edited. Edit and put the value
+      // back: the form is dirty, the hours are exactly what was loaded.
+      await opens.first().fill('10:00');
+      await opens.first().fill('09:00');
       await page.getByRole('button', { name: /Save/ }).click();
 
       // Both windows still present in the database, on every day.
@@ -414,7 +420,9 @@ test.describe('operator journeys', () => {
     await expect(page.getByText('3,000 IQD').first()).toBeVisible();
 
     // ---- price override (L450-451): PIN + reason, same as a discount -----
-    await page.getByRole('button', { name: 'Change price' }).first().click();
+    // A sent line keeps Change price / Void behind a press on the line itself.
+    await page.getByRole('button', { name: /Turkish Coffee.*change price or void/ }).click();
+    await page.getByRole('button', { name: /^Change price — .*Turkish Coffee/ }).click();
     const override = page.getByRole('dialog', { name: 'Change price' });
     await override.getByLabel('New price each').fill('2500');
     await override.getByRole('button', { name: 'Change price' }).click();

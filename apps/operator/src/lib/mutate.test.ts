@@ -61,6 +61,9 @@ describe('DIRECT_RPC', () => {
     const card = DIRECT_RPC['tab.settle']({ tabId: UUID_A, method: 'card' }, KEY, DEV);
     expect(card.args.p_tendered_iqd).toBeNull();
     expect(card.args.p_amount_iqd).toBeNull();
+    expect(card.args.p_expected_total_iqd).toBeNull();
+    const guarded = DIRECT_RPC['tab.settle']({ tabId: UUID_A, method: 'card', expectedTotalIqd: 45000 }, KEY, DEV);
+    expect(guarded.args.p_expected_total_iqd).toBe(45000);
   });
 
   it('adjustment.apply discriminates discount vs price override, both idempotent (0049)', () => {

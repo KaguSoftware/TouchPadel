@@ -336,15 +336,34 @@ export function basketLineEstimate(l: BasketLine): number {
 }
 
 /**
- * Whether this role can read court bookings at all. `reservations` is readable
- * by court_desk, manager and owner only (policy reservations_staff_read, 0008);
- * for a cashier the booking picker comes back empty whatever is booked, so
- * offering "Charge to booking" to a cashier offered a list that could never
- * have anything in it. A UX mirror of the policy — the server stays the
+ * Whether this role can read the court bookings the till offers. `reservations`
+ * is readable by court_desk, manager and owner (policy reservations_staff_read,
+ * 0008), and since 0106 by a cashier for tonight's bookings — any booking that
+ * carries a tab or starts within a day of now (reservations_cashier_read). That
+ * is exactly the window the till's picker asks for, so the cashier can open a
+ * tab by court and charge a table's tab to a booking (SOW L443). Before 0106
+ * the picker came back empty for a cashier whatever was booked, which is why
+ * this gate exists. A UX mirror of the policies — the server stays the
  * authority, exactly as with lib/auth's permissions.
  */
 export function canReadBookings(role: string | null | undefined): boolean {
-  return role === 'court_desk' || role === 'manager' || role === 'owner';
+  return role === 'cashier' || role === 'court_desk' || role === 'manager' || role === 'owner';
+}
+
+/** A tab that is still taking orders or payment — the one tab a booking may have at a time (0106). */
+const LIVE_TAB_STATUSES: ReadonlySet<string> = new Set(['open', 'awaiting_payment']);
+
+/**
+ * True when a booking can take a new tab: it has no LIVE tab. A settled tab
+ * does not hold it — since 0106 a second tab charges only the court fee still
+ * owed (0 once the court was paid), so drinks after a paid court are a normal
+ * tab, not a double charge. A live tab does: the server allows one per booking
+ * and refuses a second with BOOKING_TAB_OPEN. A missing embed reads as no tabs,
+ * which is safe here: the server's unique index is the guard, the picker only
+ * decides what to offer.
+ */
+export function bookingTakesNewTab(r: { tabs?: readonly { status: string }[] | null }): boolean {
+  return !(r.tabs ?? []).some((t) => LIVE_TAB_STATUSES.has(t.status));
 }
 
 /** The label a tab is known by on the floor: table number, guest name or free label. */

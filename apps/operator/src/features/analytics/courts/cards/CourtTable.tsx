@@ -58,8 +58,9 @@ export function CourtTable({
       r.court.occupancyPct,
       r.court.revenueIqd,
       r.court.revPerOpenHourIqd,
-      r.court.cancellations,
-      r.court.noShows,
+      // The columns are RATES; this used to write the raw counts under the rate headers.
+      r.court.cancellationRatePct,
+      r.court.noShowRatePct,
       r.cafe?.attachPct ?? null,
       r.court.playersAvg,
     ]);
@@ -81,6 +82,7 @@ export function CourtTable({
         rowKey={(r) => r.court.courtId}
         selectedKey={selectedCourtId ?? undefined}
         dense
+        maxBlockSize="28rem"
         aria-label={tr('ws.analytics.courts.cards.courtTable')}
       />
     </CardShell>

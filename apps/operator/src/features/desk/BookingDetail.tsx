@@ -14,14 +14,16 @@
  * ("customer request", "weather"…) did not describe them. Everything that
  * changes or ends the booking still asks why.
  *
- * "Charge on till" shows only to roles that can open the till. The court desk
- * cannot, and the button used to send the desk to a refusal screen.
+ * The court fee and any cafe bill charged to the booking are paid right here
+ * (CourtBillPanel, 0106) — the desk takes the money without the till.
+ * "Charge on till" stays only for roles that can open the till, as a way to
+ * add items; the court desk never sees a button that leads to a refusal.
  */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { wallTimeToUtc } from '@touch/core';
-import { formatDate, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
+import { formatDate, formatIQD, formatTimeRange, formatWeekdayShort, VENUE_TZ } from '@touch/i18n';
 import { supabase } from '../../lib/supabase';
 import { mutate } from '../../lib/mutate';
 import { AppRpcError, appRpc } from '../../lib/appRpc';
@@ -42,12 +44,13 @@ import {
   Panel,
   ReasonCodePrompt,
 } from '../../components/kit';
-import { allowedMarks, chargeStateFor, isLive, isOverrideRefusal } from './deskLogic';
+import { allowedMarks, isLive, isOverrideRefusal } from './deskLogic';
 import { tradingDateOf } from './calendar/monthLogic';
-import { ChargeCell, ReservationBadge } from './deskStatus';
+import { ReservationBadge } from './deskStatus';
 import type { CustomerRecord, ReservationRow } from './deskTypes';
 import { OVERRIDE_REASONS, STEP_MIN } from './ReservationActionsDialog';
-import { useTabLinks } from './useTradingNight';
+import { CourtBillPanel } from './payment/CourtBillPanel';
+import type { BookingBill } from './payment/deskPaymentLogic';
 
 const CANCEL_REASONS = ['customer_request', 'weather', 'staff_error', 'duplicate', 'other'] as const;
 
@@ -94,7 +97,6 @@ export function BookingDetailScreen() {
     queryFn: () => appRpc<CustomerRecord>('customer_record', { p_customer_id: r!.guest_id }),
     retry: false,
   });
-  const tabLinksQ = useTabLinks(useMemo(() => (r ? [r.id] : []), [r]));
 
   const [pending, setPending] = useState<ActionKind | null>(null);
   const [busy, setBusy] = useState<ActionKind | null>(null);
@@ -109,6 +111,9 @@ export function BookingDetailScreen() {
     void queryClient.invalidateQueries({ queryKey: ['reservations'] });
     void queryClient.invalidateQueries({ queryKey: ['reservationsMonth'] });
     void queryClient.invalidateQueries({ queryKey: ['series'] });
+    // Moving, extending or ending a booking can change what it owes (0106).
+    void queryClient.invalidateQueries({ queryKey: ['bookingBill'] });
+    void queryClient.invalidateQueries({ queryKey: ['bookingBillStates'] });
   }
 
   /** `reason` is absent for arrived / completed: the server records its own default. */
@@ -153,7 +158,11 @@ export function BookingDetailScreen() {
       }
       setPending(null);
       setDone(true);
-      toast.ok(tr('ws.courtDesk.detail.done'));
+      // Completing a game whose court fee is still open says so, once, where
+      // the clerk is looking — the bill panel beside it offers the payment.
+      const owed = kind === 'completed' ? queryClient.getQueryData<BookingBill>(['bookingBill', r.id]) : undefined;
+      if (owed && owed.court_remaining_iqd > 0) toast.info(`${tr('ws.courtDesk.payment.completedOwed')} ${formatIQD(owed.court_remaining_iqd, locale)}`);
+      else toast.ok(tr('ws.courtDesk.detail.done'));
       invalidate();
     } catch (e) {
       if (e instanceof AppRpcError && isOverrideRefusal(e.code)) {
@@ -274,7 +283,6 @@ export function BookingDetailScreen() {
                         },
                         { label: tr('ws.courtDesk.detail.contact'), value: r.guest_phone ? <bdi dir="ltr">{r.guest_phone}</bdi> : '—' },
                         { label: tr('ws.courtDesk.detail.price'), value: <Money amount={r.price_iqd} />, numeric: true },
-                        { label: tr('ws.courtDesk.detail.payment'), value: <ChargeCell state={chargeStateFor(r, tabLinksQ.data)} kind={r.kind} /> },
                       ]
                     : []),
                   { label: tr('ws.courtDesk.detail.court'), value: <bdi>{court ? pickName(locale, court) : '—'}</bdi> },
@@ -301,6 +309,8 @@ export function BookingDetailScreen() {
                 </div>
               )}
             </Panel>
+
+            {r.kind === 'booking' && <CourtBillPanel reservationId={r.id} tz={tz} />}
 
             <Panel title={tr('ws.courtDesk.detail.actions')}>
               {done && <MessagePresenter tone="success" message={tr('ws.courtDesk.detail.done')} style={{ marginBlockEnd: '0.75rem' }} />}

@@ -149,12 +149,17 @@ describe('capability matrix', () => {
     }
   });
 
-  it('gates the four controls that actually needed it', () => {
+  it('gates the controls that actually need it', () => {
     // Named explicitly so deleting one from the matrix fails here rather
     // than silently exposing the control.
     expect(ALL_CAPS.sort()).toEqual(
-      ['rotateTableToken', 'setAnalyticsExclusions', 'setBusinessDayStart', 'setEngagementFloor'].sort(),
+      ['editVenueDetails', 'rotateTableToken', 'setAnalyticsExclusions', 'setBusinessDayStart', 'setEngagementFloor'].sort(),
     );
+  });
+
+  it('leaves the venue details to the owner, as app.set_venue_details does', () => {
+    expect(can('owner', 'editVenueDetails')).toBe(true);
+    expect(can('manager', 'editVenueDetails')).toBe(false);
   });
 
   it('never lists an unknown role', () => {
@@ -182,6 +187,17 @@ describe('permissionsFor (spec §03 can.*)', () => {
     const owner = permissionsFor('owner');
     expect(owner.manageStaff).toBe(true);
     expect(owner.viewFinancials).toBe(true);
+  });
+  it('lets the court desk take court payment without the till (0106)', async () => {
+    const { permissionsFor, canAccess, requiredRoleFor } = await import('./auth');
+    const desk = permissionsFor('court_desk');
+    expect(desk.takeCourtPayment).toBe(true);
+    expect(desk.takePayment).toBe(false);
+    expect(desk.refund).toBe(false);
+    expect(canAccess('court_desk', '/till')).toBe(false);
+    expect(permissionsFor('prep').takeCourtPayment).toBe(false);
+    expect(permissionsFor('cashier').takeCourtPayment).toBe(true);
+    expect(requiredRoleFor('takeCourtPayment')).toBe('court_desk');
   });
   it('new workspace routes are default-deny for the wrong role', async () => {
     const { canAccess } = await import('./auth');
