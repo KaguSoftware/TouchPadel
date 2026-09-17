@@ -156,10 +156,11 @@ describe.skipIf(!up)('0051 staff administration', () => {
       expect(row.after.role).toBe('manager');
     });
 
-    it('clears the PIN when the role drops below manager', async () => {
-      // PINs exist for managers and owners only (0026). Leaving one behind on a
-      // demoted cashier is a live authorisation credential for someone who can
-      // no longer authorise anything.
+    it('keeps the PIN when the role drops below manager (0105)', async () => {
+      // Until 0105 a demotion cleared the PIN, because a PIN existed only to
+      // approve money moves. It is the person's PIN now — it starts and ends
+      // their breaks and unlocks the station — and verify_manager_pin filters
+      // on the role at verification time, so nothing is left that can approve.
       const id = await makeStaff('demote', 'manager');
       expect((await appRpc(owner, 'set_staff_pin', { p_staff_id: id, p_pin: '482913' })).error)
         .toBeNull();
@@ -168,7 +169,7 @@ describe.skipIf(!up)('0051 staff administration', () => {
       expect(
         (await appRpc(owner, 'set_staff_role', { p_staff_id: id, p_role: 'cashier' })).error,
       ).toBeNull();
-      expect((await readStaff(id)).pin_hash).toBeNull();
+      expect((await readStaff(id)).pin_hash).not.toBeNull();
     });
 
     it('keeps the PIN when moving between manager and owner', async () => {

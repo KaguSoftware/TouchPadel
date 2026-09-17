@@ -87,6 +87,19 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
       guest_name: 'RLS Probe',
     });
     if (resErr) throw new Error(`probe reservation failed: ${resErr.message}`);
+    // 0106 reservations_cashier_read: a booking starting within a day of now is
+    // readable by the cashier (the till charges tabs to tonight's bookings), so
+    // the cashier's 'rows' does not depend on what other suites left behind.
+    const { error: nearErr } = await svc.from('reservations').insert({
+      court_id: probeCourt,
+      kind: 'booking',
+      status: 'confirmed',
+      start_at: new Date(Date.now() + 2 * 3600_000).toISOString(),
+      end_at: new Date(Date.now() + 3 * 3600_000).toISOString(),
+      source: 'desk',
+      guest_name: 'RLS Probe Tonight',
+    });
+    if (nearErr) throw new Error(`near-now probe reservation failed: ${nearErr.message}`);
     // drop 5 (0066): a series belonging to no guest, for the reservation_series row.
     const { error: seriesErr } = await svc.from('reservation_series').insert({
       court_id: probeCourt,
@@ -182,6 +195,17 @@ describe.skipIf(!up)('RLS role matrix (drops 1-8: the whole granted RPC surface 
   }
 
   // ── Stateful named cases the declarative matrix cannot express ────────────
+
+  it('reservations_cashier_read (0106): the cashier sees tonight, not the calendar', async () => {
+    const far = await clients.cashier.from('reservations').select('id').eq('guest_name', 'RLS Probe');
+    expect(far.error).toBeNull();
+    expect(far.data ?? []).toHaveLength(0);
+    const near = await clients.cashier.from('reservations').select('id').eq('guest_name', 'RLS Probe Tonight');
+    expect(near.error).toBeNull();
+    expect((near.data ?? []).length).toBeGreaterThan(0);
+    const prep = await clients.prep.from('reservations').select('id').eq('guest_name', 'RLS Probe Tonight');
+    expect(prep.data ?? []).toHaveLength(0);
+  });
 
   it('verify_manager_pin: correct PIN returns authorizer; wrong PIN -> null; 6th attempt -> PIN_LOCKED', async () => {
     const device = `TEST-PIN-${Date.now()}`;

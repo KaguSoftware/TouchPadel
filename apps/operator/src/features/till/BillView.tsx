@@ -13,7 +13,11 @@
  * own print is a usable stopgap on a station whose printer is not installed yet.
  *
  * Money comes from `tabTotals`, the same computation the settle buttons use —
- * a bill that disagrees with the amount charged is worse than no bill.
+ * a bill that disagrees with the amount charged is worse than no bill. That
+ * includes the court fee on a booking's bill (a server figure the caller put
+ * into the totals): it is printed on its own line between the goods and the
+ * total, so "one payment for court and cafe" reads as what it is. The receipt
+ * document is built from this markup, so the line prints on paper as well.
  */
 import { formatIQD, formatTime } from '@touch/i18n';
 import { BRAND_FAMILY, fontFaceCssFrom } from '@touch/ui';
@@ -105,6 +109,7 @@ export function BillView({
   heading,
   orders,
   totals,
+  courtLabel,
   payments,
   taxInclusive,
   onClose,
@@ -114,6 +119,8 @@ export function BillView({
   heading: string;
   orders: readonly BillOrder[];
   totals: TabTotals;
+  /** "Court fee · Court 2" — printed when `totals.court` is above zero. */
+  courtLabel?: string;
   payments: readonly { id: string; method: string; amount_iqd: number }[];
   taxInclusive: boolean;
   onClose(): void;
@@ -195,6 +202,9 @@ export function BillView({
             label={taxInclusive ? tr('op.till.taxIncluded') : tr('op.till.tax')}
             value={formatIQD(totals.tax, locale)}
           />
+        )}
+        {totals.court > 0 && (
+          <BillRow label={courtLabel ?? tr('ws.cashier.detail.courtFee')} value={formatIQD(totals.court, locale)} />
         )}
         <BillRow label={tr('common.total')} value={formatIQD(totals.total, locale)} strong />
 

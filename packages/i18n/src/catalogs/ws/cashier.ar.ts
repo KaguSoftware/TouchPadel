@@ -215,6 +215,9 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     chargedTo: 'محمَّل على حجز',
     lineActions: '{name} — تعديل السعر أو الإلغاء',
     openedAt: 'فُتح {time}',
+    courtFee: 'رسوم الملعب',
+    courtFeeRow: 'رسوم الملعب · {court}',
+    courtPaidEarlier: 'دُفعت في فاتورة سابقة',
   },
 
   payment: {
@@ -256,6 +259,8 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     enterTendered: 'أدخل ما سلّمه الضيف.',
     changeToGive: 'الباقي للضيف',
     short: 'ما زال ناقصًا',
+    courtLoading: 'جارٍ تحميل رسوم الملعب…',
+    courtFailed: 'تعذّر تحميل رسوم الملعب. أعد المحاولة قبل استلام الدفع.',
   },
 
   split: {
@@ -296,10 +301,10 @@ export const cashierAr: DeepMessages<typeof cashierEn> = {
     lead: 'تسوّي المجموعة الملعب والمقهى بدفعة واحدة.',
     search: 'البحث في حجوزات اليوم',
     searchPlaceholder: 'اسم الضيف أو الملعب…',
-    noBookings: 'لا توجد حجوزات اليوم بلا حساب.',
+    noBookings: 'لا توجد حجوزات اليوم بلا حساب مفتوح.',
     noMatches: 'لا توجد حجوزات مطابقة.',
     selected: 'الحجز المحدَّد',
-    consequence: 'يُفتح حساب مرتبط بالحجز وتنتقل إليه أسطر هذا الحساب وطلباته ودفعاته. يختم الخادم رسوم الملعب عند التسوية.',
+    consequence: 'تنتقل أسطر هذا الحساب وطلباته ودفعاته إلى حساب الحجز، ويُفتح هذا الحساب الآن إن لم يكن موجودًا. ويُحتسب عليه أيضًا ما تبقّى من رسوم الملعب.',
     confirm: 'تحميل على هذا الحجز',
     pickBooking: 'اختر حجزًا من القائمة أولًا.',
     partialFailure: 'فُتح حساب الحجز لكن الدمج رُفض — هذا الحساب لم يُمَس. ادمجه يدويًا من الحسابات المفتوحة.',

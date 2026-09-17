@@ -57,25 +57,36 @@ describe('DiagnosePanel', () => {
     renderPanel();
     expect(edge).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Run diagnosis' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run a check' }));
 
     await waitFor(() => expect(item('settings')).toBeTruthy());
     expect(edge).toHaveBeenCalledWith('telegram-diagnose', { action: 'diagnose' }, { ttlMs: 0 });
     expect(document.querySelectorAll('li[data-check]')).toHaveLength(8);
     expect(item('settings').dataset.status).toBe('fail');
     expect(item('settings').textContent).toContain('is the example number, not a real group');
-    expect(item('chat').textContent).toContain('Telegram does not know this chat for this bot');
+    expect(item('chat').textContent).toContain('Telegram does not know this group for this bot');
     expect(item('membership').textContent).toContain('Not checked');
     expect(screen.queryByText('Everything checks out.')).toBeNull();
   });
 
-  it('offers Re-register webhook for a fixable webhook state and re-runs afterwards', async () => {
+  it('says how many checks need attention and lists those first, in their original order', async () => {
+    edge.mockResolvedValue(PLACEHOLDER);
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Run a check' }));
+    await waitFor(() => expect(item('settings')).toBeTruthy());
+    // fail (settings, chat, outbox) and warn (webhook) = 4.
+    expect(screen.getByText('Needs attention: 4')).toBeTruthy();
+    const order = [...document.querySelectorAll('li[data-check]')].map((li) => (li as HTMLElement).dataset.check);
+    expect(order).toEqual(['settings', 'chat', 'outbox', 'webhook', 'membership', 'token', 'bot', 'allowlist']);
+  });
+
+  it('offers Reconnect button taps for a fixable webhook state and re-runs afterwards', async () => {
     edge.mockResolvedValueOnce(PLACEHOLDER).mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce(PLACEHOLDER);
     renderPanel();
-    await userEvent.click(screen.getByRole('button', { name: 'Run diagnosis' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run a check' }));
     await waitFor(() => expect(item('webhook')).toBeTruthy());
 
-    await userEvent.click(within(item('webhook')).getByRole('button', { name: 'Re-register webhook' }));
+    await userEvent.click(within(item('webhook')).getByRole('button', { name: 'Reconnect button taps' }));
 
     await waitFor(() => expect(edge).toHaveBeenCalledTimes(3));
     expect(edge.mock.calls[1]).toEqual(['telegram-diagnose', { action: 'register_webhook' }, { ttlMs: 0 }]);
@@ -91,7 +102,7 @@ describe('DiagnosePanel', () => {
     };
     edge.mockResolvedValue(migrated);
     const { onUseChatId } = renderPanel();
-    await userEvent.click(screen.getByRole('button', { name: 'Run diagnosis' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run a check' }));
     await waitFor(() => expect(item('chat')).toBeTruthy());
 
     await userEvent.click(within(item('chat')).getByRole('button', { name: 'Use the new ID' }));
@@ -104,14 +115,14 @@ describe('DiagnosePanel', () => {
       checks: PLACEHOLDER.checks.map((c) => ({ ...c, status: 'ok' as const, code: 'TOKEN_SET' })),
     });
     renderPanel();
-    await userEvent.click(screen.getByRole('button', { name: 'Run diagnosis' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run a check' }));
     expect(await screen.findByText('Everything checks out.')).toBeTruthy();
   });
 
-  it('an unknown code from a newer function still renders, as the raw code', async () => {
+  it('an unknown code from a newer function still renders, naming the code', async () => {
     edge.mockResolvedValue({ ...PLACEHOLDER, checks: [{ id: 'bot', status: 'warn', code: 'SOMETHING_NEW' }] });
     renderPanel();
-    await userEvent.click(screen.getByRole('button', { name: 'Run diagnosis' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run a check' }));
     await waitFor(() => expect(item('bot')).toBeTruthy());
     expect(item('bot').textContent).toContain('SOMETHING_NEW');
   });

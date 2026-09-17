@@ -1,10 +1,10 @@
-/** 07 Guests: anonymous counts only. Returning against new, visit frequency, regulars, the weekly series. */
+/** Guests, as anonymous counts only: returning against new and the regulars open; visit frequency and the weekly series one click away. */
 import { useLocale } from '../../../../lib/i18n';
 import { ChartCard } from '../../charts/ChartCard';
 import { CountBars } from '../../charts/CountBars';
 import { StackedBars } from '../../charts/StackedBars';
 import { barTwin, seriesTwin } from '../../charts/twins';
-import { ZoneGrid } from '../../Zone';
+import { MoreCharts, ZoneGrid } from '../../Zone';
 import { StatPair } from '../cards/StatPair';
 import { rateText } from '../format';
 import type { SectionProps } from './types';
@@ -24,7 +24,7 @@ export function GuestsSection({ raw, state, refreshing, f, rangeLabel }: Section
   const identifiedPct = g && g.identifiedBookings + g.unidentifiedBookings > 0 ? (g.identifiedBookings / (g.identifiedBookings + g.unidentifiedBookings)) * 100 : 0;
   return (
     <>
-      <ZoneGrid columns={3}>
+      <ZoneGrid columns={2}>
         <StatPair
           title={tr('ws.analytics.courts.cards.returning')}
           tip={tr('ws.analytics.courts.tips.returning')}
@@ -37,17 +37,6 @@ export function GuestsSection({ raw, state, refreshing, f, rangeLabel }: Section
             { label: tr('ws.analytics.courts.type.new'), value: f.num(g?.newBookings ?? 0) },
           ]}
         />
-        <ChartCard
-          title={tr('ws.analytics.courts.cards.frequency')}
-          tip={tr('ws.analytics.courts.tips.frequency')}
-          state={empty ? 'empty' : state}
-          refreshing={refreshing}
-          emptyKey="ws.analytics.courts.empty.guests"
-          height={180}
-          twin={barTwin(freqRows, tr('ws.analytics.courts.cards.frequency'), tr('ws.analytics.courts.units.identities'), `visit-frequency-${rangeLabel}`)}
-        >
-          <CountBars rows={freqRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.identities')} />
-        </ChartCard>
         <StatPair
           title={tr('ws.analytics.courts.cards.regulars')}
           tip={tr('ws.analytics.courts.tips.regulars')}
@@ -55,24 +44,37 @@ export function GuestsSection({ raw, state, refreshing, f, rangeLabel }: Section
           refreshing={refreshing}
           emptyKey="ws.analytics.courts.empty.guests"
           items={[
-            { label: tr('ws.analytics.courts.cards.regulars'), value: f.num(g?.regulars ?? 0), sub: g?.regularsBookingsPct == null ? undefined : `${f.pct(g.regularsBookingsPct)} ${tr('ws.analytics.courts.units.bookings').toLowerCase()}` },
+            { label: tr('ws.analytics.courts.cards.regulars'), value: f.num(g?.regulars ?? 0), sub: g?.regularsBookingsPct == null ? undefined : tr('ws.analytics.courts.cards.regularsShare', { pct: f.pct(g.regularsBookingsPct) }) },
             { label: tr('ws.analytics.courts.cards.lapsing'), value: f.num(g?.lapsingRegulars ?? 0) },
           ]}
         />
       </ZoneGrid>
-      <div style={{ marginBlockStart: 'var(--tp-sp-3)' }}>
-        <ChartCard
-          title={tr('ws.analytics.courts.cards.byWeek')}
-          tip={tr('ws.analytics.courts.tips.byWeek')}
-          state={empty || (state === 'ready' && weekRows.length === 0) ? 'empty' : state}
-          refreshing={refreshing}
-          emptyKey="ws.analytics.courts.empty.guests"
-          height={200}
-          twin={seriesTwin(weekRows, tr('ws.analytics.courts.cards.byWeek'), weekSeries, `guests-by-week-${rangeLabel}`)}
-        >
-          <StackedBars rows={weekRows} series={weekSeries} format={(n) => f.num(n)} interval={weekRows.length > 16 ? 1 : 0} />
-        </ChartCard>
-      </div>
+      <MoreCharts id="courts-guests" count={empty ? 0 : 2}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 20rem), 1fr))', gap: 'var(--tp-sp-3)', alignItems: 'start' }}>
+          <ChartCard
+            title={tr('ws.analytics.courts.cards.frequency')}
+            tip={tr('ws.analytics.courts.tips.frequency')}
+            state={empty ? 'empty' : state}
+            refreshing={refreshing}
+            emptyKey="ws.analytics.courts.empty.guests"
+            height={180}
+            twin={barTwin(freqRows, tr('ws.analytics.courts.cards.frequency'), tr('ws.analytics.courts.units.identities'), `visit-frequency-${rangeLabel}`)}
+          >
+            <CountBars rows={freqRows} format={(n) => f.num(n)} name={tr('ws.analytics.courts.units.identities')} />
+          </ChartCard>
+          <ChartCard
+            title={tr('ws.analytics.courts.cards.byWeek')}
+            tip={tr('ws.analytics.courts.tips.byWeek')}
+            state={empty || (state === 'ready' && weekRows.length === 0) ? 'empty' : state}
+            refreshing={refreshing}
+            emptyKey="ws.analytics.courts.empty.guests"
+            height={200}
+            twin={seriesTwin(weekRows, tr('ws.analytics.courts.cards.byWeek'), weekSeries, `guests-by-week-${rangeLabel}`)}
+          >
+            <StackedBars rows={weekRows} series={weekSeries} format={(n) => f.num(n)} interval={weekRows.length > 16 ? 1 : 0} />
+          </ChartCard>
+        </div>
+      </MoreCharts>
     </>
   );
 }

@@ -96,20 +96,17 @@ export function PatternsCard({
       actions={
         <>
           {busy && <Spinner size="xs" />}
-          <Button
-            disabled={busy || candidates.length === 0}
-            onClick={() => void judge()}
-            style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}
-          >
-            {tr('analytics.insights.recheck')}
-          </Button>
-          <Button
-            disabled={busy || level >= 2}
-            onClick={() => setLevel((l) => Math.min(2, l + 1) as PatternLevel)}
-            style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}
-          >
-            {tr('analytics.patterns.rescan')}
-          </Button>
+          {candidates.length > 0 && (
+            <Button size="sm" disabled={busy} onClick={() => void judge()}>
+              {tr('analytics.patterns.reword')}
+            </Button>
+          )}
+          {/* Each step lowers the sample floor; the confidence badge on every line says what that costs. */}
+          {level < 2 && (
+            <Button size="sm" disabled={busy} onClick={() => setLevel((l) => Math.min(2, l + 1) as PatternLevel)}>
+              {tr('analytics.patterns.rescan')}
+            </Button>
+          )}
         </>
       }
     >

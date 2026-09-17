@@ -227,6 +227,9 @@ export const cashierEn = {
     chargedTo: 'Charged to booking',
     lineActions: '{name} — change price or void',
     openedAt: 'Opened {time}',
+    courtFee: 'Court fee',
+    courtFeeRow: 'Court fee · {court}',
+    courtPaidEarlier: 'Paid on an earlier bill',
   },
 
   payment: {
@@ -268,6 +271,8 @@ export const cashierEn = {
     enterTendered: 'Enter what the guest handed over.',
     changeToGive: 'Change to give',
     short: 'Still short',
+    courtLoading: 'Loading the court fee…',
+    courtFailed: 'The court fee could not be loaded. Try again before taking payment.',
   },
 
   split: {
@@ -308,10 +313,10 @@ export const cashierEn = {
     lead: 'The group settles court and cafe in one payment.',
     search: 'Search today’s bookings',
     searchPlaceholder: 'Guest name or court…',
-    noBookings: 'No bookings today without a tab.',
+    noBookings: 'No bookings today without an open tab.',
     noMatches: 'No bookings match.',
     selected: 'Selected booking',
-    consequence: 'A tab bound to the booking is opened and this tab’s lines, orders and payments move onto it. The court fee is stamped by the server at settlement.',
+    consequence: 'This tab’s lines, orders and payments move onto the booking’s tab, which is opened now if it has none. That tab also charges the court fee still owed.',
     confirm: 'Charge to this booking',
     pickBooking: 'Pick a booking from the list first.',
     partialFailure: 'The booking tab was opened but the merge was refused — this tab is untouched. Merge it by hand from Open tabs.',

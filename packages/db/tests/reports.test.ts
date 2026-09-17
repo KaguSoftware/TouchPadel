@@ -521,7 +521,9 @@ describe.skipIf(!up)('0068 reports and overviews', () => {
     expect(mine.kind).toBe('tab');
     expect(Number(mine.amountIqd)).toBe(tabTotal);
     expect(mine.staffName).toBe('Dev Cashier');
-    for (const t of tx) expect(Object.keys(t).sort()).toEqual(['amountIqd', 'at', 'id', 'kind', 'label', 'reference', 'staffId', 'staffName']);
+    // 0102 added `detail`: the facts behind the English label, for the operator to word.
+    for (const t of tx) expect(Object.keys(t).sort()).toEqual(['amountIqd', 'at', 'detail', 'id', 'kind', 'label', 'reference', 'staffId', 'staffName']);
+    expect((mine as unknown as { detail: { sub: string } }).detail.sub).toBe('settledTab');
     expect(tx.length).toBeLessThanOrEqual(500);
     // Newest first.
     for (let i = 1; i < tx.length; i++) expect(tx[i - 1]!.at >= tx[i]!.at).toBe(true);

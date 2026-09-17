@@ -27,8 +27,13 @@ vi.mock('../../lib/appRpc', () => ({
   appRpc: vi.fn(async (fn: string) => (fn === 'price_slot' ? priceRows : [])),
 }));
 vi.mock('../../components/toast', () => ({ useToast: () => ({ ok: vi.fn(), err: vi.fn() }) }));
+const { navigateSpy } = vi.hoisted(() => ({ navigateSpy: vi.fn() }));
+vi.mock('../../lib/auth', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { ...actual, useAuth: () => ({ staff: { role: 'court_desk' } }) };
+});
 vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateSpy,
   Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }));
 
@@ -132,6 +137,15 @@ describe('ReservationActionsDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Mark arrived' }));
     expect(onChanged).toHaveBeenCalled();
     expect(mutate).toHaveBeenCalledWith('reservation.update', { action: 'mark', reservationId: 'r1', status: 'arrived' });
+  });
+
+  it('takes the desk to the booking screen to take payment (0106)', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    wrap(<ReservationActionsDialog reservation={booking({ id: 'r1', status: 'completed' })} courts={courts} date={DATE} tz={TZ} rows={rows} onClose={onClose} onChanged={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Take payment' }));
+    expect(onClose).toHaveBeenCalled();
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/desk/bookings/$id', params: { id: 'r1' } });
   });
 
   it('carries the chosen reason on an override (SOW L313)', async () => {

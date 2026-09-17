@@ -6,6 +6,12 @@
  *
  * Steps: choose a role (Till / Desk / Kitchen screen) → details → for a
  * kitchen screen, the LAN search for the till → saving (the shell relaunches).
+ *
+ * Every button names its step's real next move. A kitchen screen's form
+ * submits "Find the till", because that is what happens next — it used to say
+ * "Finish setup" and then start a network search. When the search finds
+ * nothing, the choices are the ones its message offers (search again, enter
+ * the address), not a "Try again" that quietly went back to the form.
  */
 import type { FormEvent, ReactNode } from 'react';
 import { formatPairingCode } from '@touch/core';
@@ -133,18 +139,23 @@ function Step({ state, dispatch }: { state: SetupState; dispatch: (a: SetupActio
       );
     case 'notFound': {
       const key = { none: 'none', 'bad-code': 'badCode', 'no-lan': 'noLan', unreachable: 'unreachable' } as const;
+      const badCode = state.reason === 'bad-code';
       return (
         <StepFrame title={tr('ws.shell.setup.mode.kds')}>
           <p role="alert" style={alertStyle}>
-            {tr(`ws.shell.setup.notFound.${key[state.reason]}`, { host: state.details.host })}
+            <Icon name={state.reason === 'no-lan' ? 'wifiOff' : 'alert'} size={16} style={{ flex: '0 0 auto', marginBlockStart: '0.1rem' }} />
+            <span>{tr(`ws.shell.setup.notFound.${key[state.reason]}`, { host: state.details.host })}</span>
           </p>
           <Actions>
             <Button onClick={() => dispatch({ type: 'back' })}>{tr('ws.shell.setup.back')}</Button>
+            {state.reason === 'none' && (
+              <Button onClick={() => dispatch({ type: 'enterAddress' })}>{tr('ws.shell.setup.enterAddress')}</Button>
+            )}
             {canSaveAnyway(state) && (
               <Button onClick={() => dispatch({ type: 'saveAnyway' })}>{tr('ws.shell.setup.saveAnyway')}</Button>
             )}
-            <Button kind="primary" onClick={() => dispatch({ type: 'retry' })}>
-              {tr('ws.shell.setup.retry')}
+            <Button kind="primary" icon={badCode ? undefined : 'refresh'} onClick={() => dispatch({ type: 'retry' })}>
+              {badCode ? tr('ws.shell.setup.retypeCode') : tr('ws.shell.setup.searchAgain')}
             </Button>
           </Actions>
         </StepFrame>
@@ -163,13 +174,17 @@ function Step({ state, dispatch }: { state: SetupState; dispatch: (a: SetupActio
       return (
         <StepFrame title={tr(`ws.shell.setup.mode.${state.details.mode}`)}>
           <p role="alert" style={alertStyle}>
-            {state.error === 'already-configured' ? tr('ws.shell.setup.alreadyConfigured') : tr('ws.shell.setup.failed')}
+            <Icon name="alert" size={16} style={{ flex: '0 0 auto', marginBlockStart: '0.1rem' }} />
+            <span>{state.error === 'already-configured' ? tr('ws.shell.setup.alreadyConfigured') : tr('ws.shell.setup.failed')}</span>
           </p>
           <Actions>
             <Button onClick={() => dispatch({ type: 'back' })}>{tr('ws.shell.setup.back')}</Button>
-            <Button kind="primary" onClick={() => dispatch({ type: 'retry' })}>
-              {tr('ws.shell.setup.retry')}
-            </Button>
+            {/* Saving again cannot fix "already set up"; the message says restart. */}
+            {state.error !== 'already-configured' && (
+              <Button kind="primary" icon="refresh" onClick={() => dispatch({ type: 'retry' })}>
+                {tr('ws.shell.setup.retry')}
+              </Button>
+            )}
           </Actions>
         </StepFrame>
       );
@@ -177,6 +192,9 @@ function Step({ state, dispatch }: { state: SetupState; dispatch: (a: SetupActio
 }
 
 const alertStyle = {
+  display: 'flex',
+  gap: 'var(--tp-sp-2)',
+  alignItems: 'flex-start',
   color: 'var(--tp-danger-fg)',
   background: 'var(--tp-danger-soft)',
   borderRadius: 'var(--tp-radius-ctl)',
@@ -196,7 +214,7 @@ function StepFrame({ title, children }: { title: string; children: ReactNode }) 
 
 function Actions({ children }: { children: ReactNode }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)' }}>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-2)' }}>
       {children}
     </div>
   );
@@ -205,7 +223,9 @@ function Actions({ children }: { children: ReactNode }) {
 function ModeStep({ dispatch }: { dispatch: (a: SetupAction) => void }) {
   const { tr } = useLocale();
   return (
-    <StepFrame title={tr('ws.shell.setup.title')}>
+    // The side panel already says "Set up this station"; the step asks the one
+    // question it needs answered.
+    <StepFrame title={tr('ws.shell.setup.modeTitle')}>
       <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.setup.lead')}</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: 'var(--tp-sp-3)' }}>
         {STATION_MODES.map((mode) => (
@@ -221,7 +241,8 @@ function ModeStep({ dispatch }: { dispatch: (a: SetupAction) => void }) {
               paddingBlock: '1rem',
               paddingInline: '1rem',
               display: 'grid',
-              gap: '0.5rem',
+              gap: 'var(--tp-sp-2)',
+              alignContent: 'start',
               minBlockSize: '8rem',
               textAlign: 'start',
             }}
@@ -247,6 +268,11 @@ function ModeStep({ dispatch }: { dispatch: (a: SetupAction) => void }) {
           </button>
         ))}
       </div>
+      {/* For the installer, not for staff — so it is a footnote, not the lead. */}
+      <p style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'flex-start', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
+        <Icon name="info" size={15} style={{ flex: '0 0 auto', marginBlockStart: '0.15rem' }} />
+        <span>{tr('ws.shell.setup.changeLater')}</span>
+      </p>
     </StepFrame>
   );
 }
@@ -300,13 +326,19 @@ function DetailsStep({ d, dispatch }: { d: DetailsState; dispatch: (a: SetupActi
               />
             </Field>
             <div>
-              <Button kind="ghost" size="sm" aria-expanded={d.showAdvanced} onClick={() => dispatch({ type: 'toggleAdvanced' })}>
+              <Button
+                kind="ghost"
+                size="sm"
+                iconEnd="chevronDown"
+                aria-expanded={d.showAdvanced}
+                onClick={() => dispatch({ type: 'toggleAdvanced' })}
+              >
                 {tr('ws.shell.setup.advanced')}
               </Button>
             </div>
             {d.showAdvanced && (
               <Field
-                label={tr('ws.shell.setup.advanced')}
+                label={tr('ws.shell.setup.hostLabel')}
                 hint={tr('ws.shell.setup.advancedHint')}
                 error={valid.host ? undefined : tr('ws.shell.setup.hostInvalid')}
               >
@@ -316,6 +348,7 @@ function DetailsStep({ d, dispatch }: { d: DetailsState; dispatch: (a: SetupActi
                   inputMode="decimal"
                   autoComplete="off"
                   spellCheck={false}
+                  autoFocus
                   value={d.host}
                   onChange={(e) => dispatch({ type: 'host', value: e.target.value })}
                 />
@@ -325,8 +358,14 @@ function DetailsStep({ d, dispatch }: { d: DetailsState; dispatch: (a: SetupActi
         )}
         <Actions>
           <Button onClick={() => dispatch({ type: 'back' })}>{tr('ws.shell.setup.back')}</Button>
-          <Button kind="primary" type="submit" disabled={!valid.all}>
-            {tr('ws.shell.setup.confirm')}
+          <Button
+            kind="primary"
+            type="submit"
+            icon={d.mode === 'kds' ? 'search' : undefined}
+            disabled={!valid.all}
+            disabledReason={!valid.all && d.mode === 'kds' && !valid.code ? tr('ws.shell.setup.codeInvalid') : undefined}
+          >
+            {d.mode === 'kds' ? tr('ws.shell.setup.find') : tr('ws.shell.setup.confirm')}
           </Button>
         </Actions>
       </StepFrame>

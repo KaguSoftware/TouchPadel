@@ -11,21 +11,27 @@ export const analyticsEn = {
   },
   courts: {
     zones: {
-      pulse: 'Pulse',
+      pulse: 'Summary',
       pulseDesc: 'The booking figures that matter for this period, each against the comparison window.',
-      insights: 'Insights',
+      insights: 'What stands out',
+      insightsNav: 'Stands out',
       insightsDesc: 'Patterns mined from the bookings with sample floors, and the AI reading of them when it is on.',
-      when: 'When',
+      when: 'When courts are busy',
+      whenNav: 'Busy times',
       whenDesc: 'Which weekday and hour cells fill and which stay empty, over the hours the venue is open.',
       shape: 'How people book',
+      shapeNav: 'Booking habits',
       shapeDesc: 'Durations, how far ahead people book, the app against the desk, group size and standing bookings.',
-      courts: 'Courts',
+      courts: 'Courts compared',
+      courtsNav: 'Courts',
       courtsDesc: 'Every court side by side: occupancy, revenue, losses and the cafe attach.',
-      losses: 'Losses',
+      losses: 'Cancellations and no-shows',
+      lossesNav: 'Cancellations',
       lossesDesc: 'Cancellations and no-shows as rates of what was booked: by hour and lead time, notice against the venue\'s own policy window, who cancelled and what became of the slot, then by weekday, court, channel, guest type and length.',
       guests: 'Guests',
       guestsDesc: 'Returning against new bookings, visit frequency and regulars, as anonymous counts only.',
-      cafe: 'Court and cafe',
+      cafe: 'Court players at the cafe',
+      cafeNav: 'At the cafe',
       cafeDesc: 'What court bookings buy from the cafe, from tabs the till linked to a booking.',
     },
     kpi: {
@@ -40,7 +46,33 @@ export const analyticsEn = {
       attachRate: 'Cafe attach',
       revPerOpenHourShort: 'Per open hour',
       nOfN: '{n} of {total}',
-      noShowsCount: '{n} no-shows',
+      lost: 'Cancelled or no-show',
+      lostSplit: '{cancelled} cancelled · {noShows} no-shows',
+    },
+    // The summary's two lists of supporting figures.
+    summary: {
+      time: 'Court time',
+      beyond: 'Cafe and the whole venue',
+    },
+    // Each section's answer, the sentence above its charts (courts/takeaways.ts).
+    lead: {
+      whenPeak: 'Fullest hour: {slot}, {pct} booked across the {days} days it was open.',
+      whenDays: 'Busiest weekday: {busy} ({busyPct}); quietest: {quiet} ({quietPct}).',
+      fewBookings: 'Bookings in this period: only {n}, so a single booking moves these shares a lot.',
+      courtsOccupancy: '{best} was the fullest court at {bestPct}; {worst} the emptiest at {worstPct}.',
+      courtsEven: 'Every court was equally full: {pct}.',
+      courtsBookings: '{best} took the most bookings ({bestN}); {worst} the fewest ({worstN}).',
+      losses: '{cancelled} cancelled and {noShows} did not show, out of {total} bookings.',
+      lossesLate: '{late} were cancelled with less than {window} notice: {resold} of those slots were booked again and {empty} stayed empty.',
+      lossesThin: 'Too few bookings to say where losses cluster; the charts show where each one fell.',
+      shapeDuration: 'Most common length: {length}, {n} of {total} bookings.',
+      shapeLead: 'Half are booked less than {span} before they start.',
+      shapeApp: 'Booked in the app: {n} of {total}.',
+      guestsReturning: 'Bookings by returning guests: {n} of the {total} with a known guest.',
+      guestsRegulars: 'Regulars: {regulars}; gone quiet (no booking in four weeks): {lapsing}.',
+      cafeNoLinks: 'None of the {n} bookings has a cafe tab linked to it yet.',
+      cafeAttach: 'Bookings that bought from the cafe: {n} of {total}.',
+      cafeSpend: 'Each of those spent {money} at the cafe on average.',
     },
     cards: {
       heatmap: 'Occupancy by weekday and hour',
@@ -70,8 +102,10 @@ export const analyticsEn = {
       lossByCourt: 'Losses by court',
       lossByDuration: 'Losses by booking length',
       revPerBookedHour: 'Revenue per booked hour',
-      bySlotDay: 'cancelled by slot day',
-      cancelledInPeriod: 'cancelled during this period',
+      whoCounts: '{slotDay} cancelled bookings were for this period; {inPeriod} cancellations were made during it.',
+      topCourts: 'The {n} highest of {total} courts. The table view lists every court.',
+      topCourtsLosses: 'The {n} courts with the most losses, of {total}. The table view lists every court.',
+      regularsShare: '{pct} of bookings',
       lateRevenue: 'Freed by late cancellations',
       afterLate: 'After late cancellations',
       resold: 'Resold',
@@ -209,7 +243,9 @@ export const analyticsEn = {
       noHours: 'Opening hours are not set, so occupancy has no denominator.',
       noHoursLink: 'Set opening hours',
       thin: 'Fewer than a week of days with bookings: read the rates as counts.',
-      compareMuted: 'Comparison muted: the comparison window has too many days without bookings.',
+      compareMuted: 'Changes are not shown: the comparison window ({range}) has too many days without bookings for a change to mean anything. The earlier figures are still printed.',
+      noHoursShort: 'Opening hours not set',
+      smallSample: 'Changes are not shown: both periods have fewer than {n} bookings, too few for a percentage change to mean anything. The earlier figures are printed instead.',
       leadSeries: 'Standing bookings are left out of lead time: their date is set when the series is created.',
       playersKnown: 'Size recorded on {pct} of bookings',
       identified: '{pct} of bookings had a known guest',
@@ -223,6 +259,8 @@ export const analyticsEn = {
       pricePerBookedHour: 'Court revenue for each hour actually booked: what an hour of court time sells for on average.',
       cancelRate: 'Cancellations over everything that was booked (live plus cancelled plus no-show). Shown as a count until there are twenty bookings.',
       noShowRate: 'No-shows over everything that was booked. Shown as a count until there are twenty bookings.',
+      lost: 'Cancellations plus no-shows over everything that was booked (live, cancelled and no-show). Shown as a count until there are twenty bookings. Each opens its own transactions.',
+      insights: 'A model reads this tab\'s numbers and the patterns beside it, and writes findings. Each run is billed; without an AI key the findings are templates from the same numbers.',
       attachRate: 'Bookings with at least one tab the till linked to them. QR orders at a cafe table are not linked, so this is the till habit as much as the guests\'.',
       heatmap: 'Each cell is booked minutes over the minutes every court was open in that hour, keyed by the business weekday of the booking (a 01:00 booking counts with the evening before). Maintenance blocks and retired courts are not open time. A 90-minute booking splits across the hours it covers. Hatched cells were closed.',
       byHour: 'Occupancy across the period for each hour of the day, every court and weekday together.',
@@ -278,16 +316,49 @@ export const analyticsEn = {
   tips: {
     about: 'About {title}',
   },
-  // The sticky bar's disclosure for the once-a-month settings.
+  // The page line under the title.
+  period: '{range}, compared with {compare}',
+  // A section's folded charts.
   more: {
-    title: 'More',
-    count: 'More ({n})',
+    show: 'Show more ({n})',
+    hide: 'Show fewer',
+  },
+  // The sticky bar's disclosure for the once-a-month settings.
+  settings: {
+    title: 'Settings',
+    count: 'Settings ({n} changed)',
+    excludedHint: 'Items left out of the item charts and tables, such as water or bags.',
+    excludedNone: 'Choose items',
+    excludedCount: 'Choose items ({n} left out)',
+    excludedSaved: 'Excluded items saved.',
+  },
+  // The notice list above the first section.
+  notices: {
+    title: 'Before you read',
+    someFailed: 'Some figures could not be loaded.',
+    settingsFailed: 'The venue settings could not be loaded, so the business day starts at the default 04:00.',
+  },
+  // A figure's change line.
+  summary: {
+    points: '{n} pts',
+    was: 'was {value}',
   },
   // Cafe tab additions (its older strings live under the root analytics.* block).
   cafe: {
     tillHeatmap: 'Orders by weekday and hour',
-    tillHeatmapTip: 'Till and guest orders placed in each hour, on the weekday of the business day they belong to (a 01:00 order counts with the evening before). Works without guest analytics.',
+    tillHeatmapTip: 'Orders on settled tabs (till and guest) placed in each hour, on the weekday of the business day they belong to (a 01:00 order counts with the evening before). Works without guest analytics.',
     viewsHeatmapTip: 'Guest menu sessions from the QR menu by weekday and hour, from guest analytics.',
+    summary: {
+      taken: 'Money taken',
+      givenAway: 'Given away and thrown out',
+      guests: 'How guests order',
+    },
+    sessionsNote: 'from {n} sessions with a basket',
+    smallSample: 'Changes are not shown: both periods have fewer than {n} orders, too few for a percentage change to mean anything. The earlier figures are printed instead.',
+    bestSellersTip: 'The eight items that brought in the most money in this period. Excluded items are left out.',
+    engagementOff: 'Needs guest menu data, which is not set up.',
+    engagementDown: 'Needs guest menu data, which did not load.',
+    engagementFailed: 'Guest menu figures (views, sessions, the funnel) could not be loaded. Sales figures are not affected.',
     toggleOrders: 'Orders',
     toggleRevenue: 'Sales',
     priceBandsTip: 'Per list-price band: QR-menu views (guest attention) beside the units the till sold. Views and sales are different populations, so they are shown side by side; a band that draws views but sells little is a pricing question. Without guest analytics the views bar is empty.',
@@ -312,7 +383,7 @@ export const analyticsEn = {
   grossNote: '{amount} before refunds',
   // A pulse tile opens the transactions behind it (report_drill), as the management panel does.
   drill: {
-    open: 'Transactions',
+    open: 'See transactions',
     openAria: 'Open the transactions behind {figure}',
     title: '{figure} — transactions',
     cash: 'Cash',
@@ -329,11 +400,6 @@ export const analyticsEn = {
   // Venue revenue on both pulse rows.
   venue: {
     revenueTip: 'Cafe net revenue plus the price of live court bookings, for the whole venue. The court filter does not narrow it.',
-  },
-  // The KPI tile's delta opens both figures.
-  kpi: {
-    compareLabel: '{label}: both figures',
-    compareValues: '{previous} before, {current} now',
   },
   // Every chart's table and CSV twin.
   twin: {

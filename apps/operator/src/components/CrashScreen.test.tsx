@@ -117,7 +117,21 @@ describe('NotFoundPanel', () => {
     expect(screen.getByText('Screen not found')).toBeTruthy();
     // Retrying a bad URL changes nothing, so it is not offered.
     expect(screen.queryByRole('button', { name: 'Try this screen again' })).toBeNull();
+    // Nor is a restart: reloading a bad address lands on the same bad address.
+    expect(screen.queryByRole('button', { name: 'Restart the app' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Go to my home screen' }));
     expect(onHome).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the restart as the last way out when there is no home to offer', () => {
+    withLocale(<NotFoundPanel />);
+    expect(screen.getByRole('button', { name: 'Restart the app' })).toBeTruthy();
+  });
+});
+
+describe('CrashPanel guidance', () => {
+  it('says what to do if the fault keeps coming back', () => {
+    withLocale(<CrashPanel error={new Error('x')} />);
+    expect(screen.getByText(/tell the manager what you were doing/)).toBeTruthy();
   });
 });

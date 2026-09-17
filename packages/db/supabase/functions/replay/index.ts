@@ -153,6 +153,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_method: p?.method,
       p_tendered_iqd: p?.tenderedIqd ?? null,
       p_amount_iqd: p?.amountIqd ?? null,
+      p_expected_total_iqd: p?.expectedTotalIqd ?? null, // 0106: TOTAL_CHANGED guard
       ...common(c),
     }),
   }),
@@ -164,6 +165,7 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       p_method: p?.method,
       p_tendered_iqd: p?.tenderedIqd ?? null,
       p_amount_iqd: p?.amountIqd ?? null,
+      p_expected_total_iqd: p?.expectedTotalIqd ?? null, // 0106: TOTAL_CHANGED guard
       ...common(c),
     }),
   }),

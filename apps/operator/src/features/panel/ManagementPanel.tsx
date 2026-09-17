@@ -37,7 +37,6 @@ import {
   ComparisonControl,
   ComparisonDelta,
   DateRangeControl,
-  DrillThroughPanel,
   EmptyState,
   ExportButton,
   HeadlineFigure,
@@ -51,8 +50,7 @@ import {
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
 import { downloadCsv, toCsv } from '../analytics/csv';
-import { normalizeColumns, type DrillResult, type ReportRow } from '../reports/reportTypes';
-import { toDataColumns } from '../reports/columns';
+import { DrillDialog } from '../reports/DrillDialog';
 import { FIGURES, figuresIn, figuresToCsvRows, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
@@ -81,14 +79,6 @@ export function ManagementPanelScreen() {
   });
   const figures = useMemo(() => mapFigures(headlineQ.data), [headlineQ.data]);
   const status = asyncStatus(headlineQ, panelIsEmpty);
-
-  const drillQ = useQuery({
-    queryKey: ['panel', 'drill', drill, period.from, period.to],
-    queryFn: () => appRpc<DrillResult>('report_drill', { p_figure: drill, p_key: null, p_from: period.from, p_to: period.to }),
-    enabled: drill !== null,
-  });
-  const transactions: ReportRow[] = useMemo(() => drillQ.data?.transactions ?? [], [drillQ.data]);
-  const drillColumns = useMemo(() => toDataColumns(normalizeColumns(null, transactions), locale, tr), [transactions, locale, tr]);
 
   const label = (key: FigureKey) => tr(`ws.owner.panel.figures.${key}`);
   const money = (n: number) => (Number.isInteger(n) ? formatIQD(n, locale) : formatNumber(n, locale));
@@ -194,16 +184,12 @@ export function ManagementPanelScreen() {
         </nav>
       </AsyncStateWrapper>
 
+      {/* The same transactions window the reports open, so a figure reads the
+          same here as on its report: when, what in words, who, and the amount. */}
       {drill && (
-        <DrillThroughPanel
-          title={tr('ws.owner.panel.drillTitle', { figure: label(drill) })}
-          status={asyncStatus(drillQ, (d) => (d?.transactions ?? []).length === 0)}
-          transactions={transactions}
-          columns={drillColumns}
-          rowKey={(row, i) => String(row.id ?? i)}
+        <DrillDialog
+          request={{ what: label(drill), figures: [{ key: drill, label: label(drill) }], scope: null, from: period.from, to: period.to }}
           onClose={() => setDrill(null)}
-          onRetry={() => void drillQ.refetch()}
-          error={drillQ.error}
         />
       )}
     </div>

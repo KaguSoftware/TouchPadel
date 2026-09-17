@@ -60,7 +60,9 @@ import { isElectron } from '../lib/mutate';
 import { useUpdateReady } from '../lib/updates';
 import { UpdateReadyControl } from '../components/UpdateReady';
 import { StationSetupContainer } from '../features/setup/StationSetupContainer';
-import { qrModules, qrPath } from '../features/admin/qr/qrCardGeometry';
+import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
+import { BreakOverlay } from '../features/breaks/BreakOverlay';
+import { BreakRailControl } from '../features/breaks/BreakRailControl';
 import { formatPairingCode } from '@touch/core';
 
 export const rootRoute = createRootRoute({
@@ -130,14 +132,7 @@ function RootShell() {
   if (loading) return <AppBootScreen fullBleed />;
   if (!session) return <SignInScreen />;
   if (notStaff || !staff) {
-    return (
-      <AppBootScreen
-        fullBleed
-        error={tr('op.signIn.notStaff')}
-        onRetry={() => window.location.reload()}
-        onSignOut={() => void signOut()}
-      />
-    );
+    return <NotStaffScreen email={session.user.email ?? null} onSignOut={() => void signOut()} />;
   }
 
   return <WorkspaceShell role={staff.role} venue={venue} />;
@@ -210,6 +205,41 @@ export function AppBootScreen({
   );
 }
 
+/**
+ * A signed-in account with no active staff row. This used to be the boot
+ * screen's failure face — "The app could not start." over "This account is not
+ * registered as staff." with Try again as the primary button — but the app had
+ * started fine, and reloading cannot give an account a staff row. What the
+ * person can actually do is sign in as somebody else, or have the owner add
+ * them and check again, so those are the two buttons, in that order, and the
+ * screen says which account it is talking about.
+ */
+function NotStaffScreen({ email, onSignOut }: { email: string | null; onSignOut: () => void }) {
+  const { tr } = useLocale();
+  return (
+    <div role="alert" style={{ minBlockSize: '100vh', display: 'grid', placeItems: 'center', paddingBlock: 'var(--tp-sp-6)', paddingInline: 'var(--tp-sp-5)', background: 'var(--tp-bg)' }}>
+      <div className="tp-rise" style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'center', textAlign: 'center', maxInlineSize: '30rem' }}>
+        <BrandLockup size={36} title="Touch Padel" />
+        <span style={{ display: 'grid', placeItems: 'center', inlineSize: '3rem', blockSize: '3rem', borderRadius: '50%', background: 'var(--tp-warn-soft)', color: 'var(--tp-warn-fg)', marginBlockStart: 'var(--tp-sp-2)' }}>
+          <Icon name="user" size={22} />
+        </span>
+        <h1 style={{ fontSize: 'var(--tp-fs-2xl)' }}>{tr('ws.shell.signIn.notStaffTitle')}</h1>
+        <p style={{ color: 'var(--tp-muted-fg)' }}>
+          {tr('ws.shell.signIn.notStaffBody', { email: email ?? '—' })}
+        </p>
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', justifyContent: 'center', marginBlockStart: 'var(--tp-sp-2)' }}>
+          <Button kind="primary" icon="logOut" onClick={onSignOut}>
+            {tr('ws.shell.signIn.otherAccount')}
+          </Button>
+          <Button icon="refresh" onClick={() => window.location.reload()}>
+            {tr('ws.shell.signIn.checkAgain')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // WorkspaceShell — rail + banner region + routed screen
 // ---------------------------------------------------------------------------
@@ -251,12 +281,17 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
 
   return (
     <WorkspaceContext.Provider value={value}>
+      {/* Break state (0105) sits above the rail, the routed screen and both
+          locks: the rail row starts a break, the overlay owns the station
+          while somebody is away, and the idle lock defers to it. */}
+      <BreakProvider>
       <div
         data-workspace={active}
         style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: noNav ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
       >
         <SkipToMain />
         <IdleLock />
+        <BreakOverlay />
         <VenueStatusBanner state={venue} />
         {noNav && update && (
           <UpdateReadyControl variant="pill" version={update.version} onInstall={() => void touch.installUpdate()} />
@@ -281,6 +316,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           </main>
         </div>
       </div>
+      </BreakProvider>
     </WorkspaceContext.Provider>
   );
 }
@@ -637,6 +673,13 @@ function WorkspaceNav({
           />
         )}
 
+        {/* 0105: "Go on break" / "{name} is back". Same box as the rows above
+            it; its caption uses the identity block's muted line. */}
+        <BreakRailControl
+          style={navButtonStyle}
+          captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
+        />
+
         {/* Rulebook 4.5 wants the role and the scoped context legible at all
             times. One line reading "Mohammed Al-Rashid · Court desk · TILL-01"
             inside a 13.5rem rail truncated to about the first name, so in
@@ -644,21 +687,8 @@ function WorkspaceNav({
             and role share a line because they answer "who is signed in"; the
             station answers "which till" and gets its own, using the
             ws.shell.nav.station key that had been sitting unused. */}
-        <div style={{ paddingInline: RAIL_ITEM_PAD, paddingBlockStart: 'var(--tp-sp-2)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
-            <bdi
-              title={staff?.displayName}
-              style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-brand-white)' }}
-            >
-              {staff?.displayName}
-            </bdi>
-            <StatusBadge
-              size="sm"
-              dot={false}
-              label={tr(`op.roles.${staff?.role ?? 'cashier'}`)}
-              style={{ flexShrink: 0 }}
-            />
-          </div>
+        <RailIdentity />
+        <div style={{ paddingInline: RAIL_ITEM_PAD, display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <p
             title={tr('ws.shell.nav.station', { id: station.stationId })}
             style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -667,17 +697,58 @@ function WorkspaceNav({
           </p>
           {/* The shell build, so "which version is that till on" is answerable
               from the till itself and not only from device_heartbeats. */}
+          {/* The version is isolated, not the line: `dir="ltr"` on the whole
+              paragraph pinned the Arabic "الإصدار dev" to the rail's left edge
+              while every other identity line sat on the right. */}
           <p
-            dir="ltr"
             style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'start' }}
           >
-            {tr('ws.shell.nav.version', { version: station.appVersion })}
+            {/* U+2068/U+2069 isolate the Latin version inside either direction. */}
+            {tr('ws.shell.nav.version', { version: `\u2068${station.appVersion}\u2069` })}
           </p>
         </div>
 
         <QuitToDesktop />
       </div>
     </nav>
+  );
+}
+
+/**
+ * Who is at this station. Normally the signed-in person and their role; while
+ * a cover holds the till (0105) it is the cover's name with a "Covering"
+ * badge and, underneath, whom they are covering for — the session behind the
+ * screen is still the first person's, and the rail must not pretend otherwise.
+ */
+function RailIdentity() {
+  const { tr } = useLocale();
+  const { staff } = useAuth();
+  const brk = useBreak();
+  const cover = brk.phase === 'covered' ? (brk.status?.open?.cover ?? null) : null;
+  const name = cover ? cover.display_name : staff?.displayName;
+  return (
+    <div style={{ paddingInline: RAIL_ITEM_PAD, paddingBlockStart: 'var(--tp-sp-2)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
+        <bdi
+          title={name}
+          style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-brand-white)' }}
+        >
+          {name}
+        </bdi>
+        <StatusBadge
+          size="sm"
+          dot={false}
+          tone={cover ? 'warn' : 'neutral'}
+          label={cover ? tr('ws.shell.break.covering') : tr(`op.roles.${staff?.role ?? 'cashier'}`)}
+          style={{ flexShrink: 0 }}
+        />
+      </div>
+      {cover && (
+        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {tr('ws.shell.break.coveringFor', { name: staff?.displayName ?? '' })}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -692,6 +763,18 @@ function IdleLock() {
   const { tr } = useLocale();
   const { staff, session, signOut } = useAuth();
   const { settings } = useCafeSettings();
+  const brk = useBreak();
+  /**
+   * 0105. While somebody COVERS the station, the lock asks for THEIR PIN —
+   * the signed-in person is on a break and not here to type theirs. The
+   * cover's PIN is re-verified through app.cover_station, which is
+   * idempotent for the same person. `ownerBack` is the other way off: the
+   * person on break has returned to a locked till and ends the break with
+   * their own PIN, which unlocks as well. While the person is AWAY with no
+   * cover, the break screen is the lock, and this one stands down.
+   */
+  const cover = brk.phase === 'covered' ? (brk.status?.open?.cover ?? null) : null;
+  const [ownerBack, setOwnerBack] = useState(false);
   const timeoutS = settings.till_idle_lock_seconds;
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState('');
@@ -701,8 +784,12 @@ function IdleLock() {
   const [busy, setBusy] = useState(false);
   const lastActivity = useRef(Date.now());
   const cardRef = useRef<HTMLDivElement>(null);
+  const fieldRef = useRef<HTMLInputElement>(null);
+  // "Type your PIN first" — shown on the field when Unlock is pressed empty.
+  const [empty, setEmpty] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
 
-  const enabled = !!staff && timeoutS > 0;
+  const enabled = !!staff && timeoutS > 0 && brk.phase !== 'away';
 
   /**
    * SEC-34, the self-unlock gap. Does THIS person have an unlock PIN?
@@ -766,15 +853,54 @@ function IdleLock() {
     // the PIN box would put the cashier back in front of the credential they do
     // not have on the very next idle timeout, which is the whole gap.
     setUsePassword(hasPin === false);
+    setOwnerBack(false);
     setError(null);
+    setEmpty(false);
     lastActivity.current = Date.now();
   }
 
+  /**
+   * A wrong PIN used to leave focus nowhere: the field was `disabled` while
+   * the check ran, and a disabled control drops focus, so every retry started
+   * with a tap back into the box. The fields are read-only while busy instead
+   * and focus is put back here, so a mistyped PIN is fixed by just typing.
+   */
+  function refocus() {
+    requestAnimationFrame(() => fieldRef.current?.focus());
+  }
+
+  function switchMode(toPassword: boolean) {
+    setUsePassword(toPassword);
+    setError(null);
+    setEmpty(false);
+    setPin('');
+    setPassword('');
+    refocus();
+  }
+
+  // The password belongs to the signed-in account; a cover has only a PIN.
+  const pinOnly = !!cover;
+  const askPassword = usePassword && !pinOnly;
+
   async function unlock() {
+    if (busy) return;
+    if ((askPassword ? password : pin).length === 0) {
+      setEmpty(true);
+      refocus();
+      return;
+    }
+    setEmpty(false);
     setBusy(true);
     setError(null);
     try {
-      if (usePassword) {
+      if (cover) {
+        // Both throw PIN_INVALID / PIN_LOCKED like verify_own_pin would.
+        if (ownerBack) await brk.end(pin);
+        else await brk.cover(cover.id, pin);
+        clearAndUnlock();
+        return;
+      }
+      if (askPassword) {
         const email = session?.user.email;
         if (!email) throw new Error('no email on session');
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
@@ -789,6 +915,7 @@ function IdleLock() {
       if (!ok) {
         setError(new AppRpcError('PIN_INVALID', 'PIN_INVALID'));
         setPin('');
+        refocus();
         return;
       }
       // Only an authorising role's pin feeds the offline manager-pin cache.
@@ -804,6 +931,7 @@ function IdleLock() {
         setError(e);
       }
       setPin('');
+      refocus();
     } finally {
       setBusy(false);
     }
@@ -866,80 +994,127 @@ function IdleLock() {
         tone="onDark"
         style={{ position: 'absolute', insetBlockStart: '2rem', insetInlineStart: '2rem' }}
       />
-      <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, position: 'relative', outline: 'none', inlineSize: 'min(22rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-5)', paddingInline: 'var(--tp-sp-5)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
-          <Icon name="lock" size={18} style={{ color: 'var(--tp-accent)' }} />
-          <h2 style={{ fontSize: 'var(--tp-fs-xl)' }}>{tr('ws.shell.lock.title')}</h2>
-        </div>
-        <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)', fontSize: 'var(--tp-fs-sm)' }}>
-          {/* SEC-34: say WHY the password is being asked for, so a cashier with
-              no PIN is not left wondering what they have forgotten. */}
-          {hasPin === false && usePassword
-            ? tr('ws.shell.lock.hintPassword', { name: staff.displayName })
-            : tr('ws.shell.lock.hint', { name: staff.displayName })}
-        </p>
-        {usePassword ? (
-          <Field label={tr('auth.passwordLabel')}>
-            <input
-              style={inputStyle}
-              type="password"
-              value={password}
-              autoFocus
-              disabled={busy}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void unlock()}
-            />
-          </Field>
-        ) : (
-          <Field label={tr('ws.shell.lock.pin')}>
-            <input
-              style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
-              type="password"
-              inputMode="numeric"
-              dir="ltr"
-              value={pin}
-              autoFocus
-              disabled={busy}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-              onKeyDown={(e) => e.key === 'Enter' && void unlock()}
-            />
-          </Field>
-        )}
-        <ErrorText error={error} />
-        {/*
-         * Both the row AND the pair inside it wrap. `.tp-btn` is
-         * `white-space: nowrap`, so a button is as wide as its longest label
-         * and never shrinks; a flex item is also floored at its own
-         * min-content unless it is told otherwise. In Arabic
-         * ('استخدم كلمة المرور بدلًا من ذلك' beside 'فتح القفل')
-         * that pair is wider than the card, so with a rigid span the primary
-         * button hung off the card's inline-end edge — the left, under RTL.
-         * minInlineSize 0 lets the span narrow to the card and its own
-         * flexWrap drops the buttons onto a second line instead of overflowing.
-         */}
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-          <Button kind="ghost" icon="users" onClick={() => void signOut()} disabled={busy}>
-            {tr('ws.shell.lock.switchUser')}
-          </Button>
-          <span style={{ display: 'flex', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', justifyContent: 'flex-end', flex: '1 1 auto', minInlineSize: 0 }}>
-            {/* Offered only to somebody who HAS a PIN and is being asked for it.
-                For a cashier with none, "Use password instead" is the only
-                route, and presenting it as the alternative implies a PIN they
-                could have used. */}
-            {!usePassword && hasPin !== false && (
-              <Button kind="ghost" onClick={() => setUsePassword(true)} disabled={busy}>
-                {tr('ws.shell.lock.usePassword')}
-              </Button>
+      {/*
+        Who is signed in is the headline, because it is the first thing anyone
+        walking up to a locked till needs: is this my session or somebody
+        else's? Then one field, one full-width Unlock, and the two ways out as
+        quiet links underneath. The old card spread Switch user, Use password
+        instead and Unlock over three ragged lines of equal-looking buttons,
+        and once someone chose the password there was no way back to the PIN.
+      */}
+      <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, position: 'relative', outline: 'none', inlineSize: 'min(24rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-5)', paddingInline: 'var(--tp-sp-5)', display: 'grid', gap: 'var(--tp-sp-3)' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+          <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
+            <Icon name="lock" size={15} />
+            {tr('ws.shell.lock.title')}
+          </p>
+          <h2 style={{ fontSize: 'var(--tp-fs-2xl)', display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+            <bdi>{cover && !ownerBack ? cover.display_name : staff.displayName}</bdi>
+            {cover && !ownerBack ? (
+              <StatusBadge size="sm" dot={false} tone="warn" label={tr('ws.shell.break.covering')} />
+            ) : (
+              <StatusBadge size="sm" dot={false} label={tr(`op.roles.${staff.role}`)} />
             )}
-            <Button
-              kind="primary"
-              busy={busy}
-              disabled={usePassword ? password.length === 0 : pin.length < 4}
-              onClick={() => void unlock()}
+          </h2>
+          <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+            {/* SEC-34: say WHY the password is being asked for, so a cashier with
+                no PIN is not left wondering what they have forgotten. */}
+            {cover
+              ? ownerBack
+                ? tr('ws.shell.break.endLead')
+                : tr('ws.shell.break.lockCovering', { name: cover.display_name })
+              : hasPin === false && usePassword
+                ? tr('ws.shell.lock.hintPassword')
+                : tr('ws.shell.lock.hint')}
+          </p>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void unlock();
+          }}
+          style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}
+        >
+          {askPassword ? (
+            <Field
+              label={tr('auth.passwordLabel')}
+              error={empty ? tr('ws.shell.lock.passwordFirst') : undefined}
+              hint={capsLock ? tr('ws.shell.signIn.capsLock') : undefined}
+              style={{ marginBlockEnd: 0 }}
             >
-              {tr('ws.shell.lock.unlock')}
+              <input
+                ref={fieldRef}
+                style={inputStyle}
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                autoFocus
+                readOnly={busy}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setEmpty(false);
+                }}
+                onKeyDown={(e) => setCapsLock(e.getModifierState('CapsLock'))}
+                onKeyUp={(e) => setCapsLock(e.getModifierState('CapsLock'))}
+              />
+            </Field>
+          ) : (
+            <Field label={tr('ws.shell.lock.pin')} error={empty ? tr('ws.shell.lock.pinFirst') : undefined} style={{ marginBlockEnd: 0 }}>
+              <input
+                ref={fieldRef}
+                style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                dir="ltr"
+                value={pin}
+                autoFocus
+                readOnly={busy}
+                onChange={(e) => {
+                  setPin(e.target.value.replace(/\D/g, ''));
+                  setEmpty(false);
+                }}
+              />
+            </Field>
+          )}
+          <ErrorText error={error} style={{ marginBlock: 0 }} />
+          <Button kind="primary" size="lg" type="submit" icon="lock" busy={busy} style={{ inlineSize: '100%' }}>
+            {tr('ws.shell.lock.unlock')}
+          </Button>
+        </form>
+        {/*
+         * Both links wrap. In Arabic the pair is wider than the card, and a
+         * rigid row pushed the second one off the card's inline-end edge.
+         */}
+        <div style={{ display: 'flex', gap: 'var(--tp-sp-1) var(--tp-sp-2)', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Offered only to somebody who HAS a PIN. For a cashier with none,
+              the password is the only route, and a PIN link would imply a PIN
+              they could have used. */}
+          {cover ? (
+            <Button
+              kind="ghost"
+              size="sm"
+              icon={ownerBack ? undefined : 'undo'}
+              onClick={() => {
+                setOwnerBack((v) => !v);
+                setError(null);
+                setPin('');
+                refocus();
+              }}
+              disabled={busy}
+            >
+              {ownerBack ? tr('ws.shell.break.chooseAgain') : tr('ws.shell.break.lockOwnerBack', { cover: cover.display_name, name: staff.displayName })}
             </Button>
-          </span>
+          ) : hasPin !== false ? (
+            <Button kind="ghost" size="sm" onClick={() => switchMode(!usePassword)} disabled={busy}>
+              {usePassword ? tr('ws.shell.lock.usePin') : tr('ws.shell.lock.usePassword')}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Button kind="ghost" size="sm" icon="logOut" onClick={() => void signOut()} disabled={busy}>
+            {tr('ws.shell.lock.switchUser', { name: staff.displayName })}
+          </Button>
         </div>
       </div>
     </div>
@@ -1101,7 +1276,6 @@ function PairKitchenScreen() {
     }
   }
 
-  const qr = info ? qrPath(qrModules(info.code)) : null;
   const refusalKey = { 'not-a-till': 'notTill', 'no-psk': 'noPsk', 'custom-psk': 'customPsk' } as const;
 
   return (
@@ -1117,55 +1291,72 @@ function PairKitchenScreen() {
           onClose={close}
           footer={
             info || refusal ? (
-              <Button onClick={close}>{tr('common.back')}</Button>
+              <Button kind={info ? 'primary' : 'default'} onClick={close}>
+                {tr(info ? 'ws.shell.pair.done' : 'common.back')}
+              </Button>
             ) : (
               <>
                 <Button onClick={close}>{tr('common.back')}</Button>
-                <Button kind="primary" busy={busy} disabled={pin.length < 4} onClick={() => void reveal()}>
-                  {tr('ws.shell.pair.title')}
+                {/* Says what it does. It used to repeat the dialog's title,
+                    "Pair a kitchen screen", which pairs nothing: it shows a code. */}
+                <Button kind="primary" icon="eye" busy={busy} disabled={pin.length < 4} onClick={() => void reveal()}>
+                  {tr('ws.shell.pair.reveal')}
                 </Button>
               </>
             )
           }
         >
-          {info && qr ? (
-            <div style={{ display: 'grid', gap: 'var(--tp-sp-3)', justifyItems: 'center', textAlign: 'center' }}>
-              <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.shell.pair.lead')}</p>
-              <p
-                dir="ltr"
-                aria-label={tr('ws.shell.pair.code')}
-                style={{ fontSize: 'var(--tp-fs-3xl)', fontWeight: 700, letterSpacing: '0.18em', fontVariantNumeric: 'tabular-nums' }}
-              >
-                {formatPairingCode(info.code)}
-              </p>
-              <svg
-                viewBox={`-2 -2 ${qr.size + 4} ${qr.size + 4}`}
-                width="9rem"
-                height="9rem"
-                role="img"
-                aria-label={tr('ws.shell.pair.code')}
-                style={{ background: 'var(--tp-brand-white)', color: '#000', borderRadius: 'var(--tp-radius-ctl)' }}
-              >
-                <path d={qr.d} fill="currentColor" shapeRendering="crispEdges" />
-              </svg>
-              <p dir="ltr" style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-                {info.host
-                  ? tr('ws.shell.pair.host', { host: info.host, port: String(info.port) })
-                  : tr('ws.shell.pair.noHost')}
-              </p>
-            </div>
+          {info ? (
+            /*
+             * Two numbered steps with the code between them, in the order they
+             * happen at the kitchen screen. The QR code that sat under the code
+             * is gone: nothing reads it — the kitchen screen's setup has a text
+             * field and no camera — so it was a large square that looked like
+             * the thing to use. The port is gone too: nothing asks for it.
+             */
+            <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
+              <PairStep n={1}>{tr('ws.shell.pair.step1')}</PairStep>
+              <PairStep n={2}>
+                {tr('ws.shell.pair.step2')}
+                <p
+                  dir="ltr"
+                  aria-label={tr('ws.shell.pair.code')}
+                  style={{
+                    marginBlockStart: 'var(--tp-sp-2)',
+                    paddingBlock: 'var(--tp-sp-3)',
+                    paddingInline: 'var(--tp-sp-3)',
+                    borderRadius: 'var(--tp-radius-ctl)',
+                    background: 'var(--tp-surface-2)',
+                    textAlign: 'center',
+                    fontSize: 'var(--tp-fs-3xl)',
+                    fontWeight: 700,
+                    letterSpacing: '0.18em',
+                    fontVariantNumeric: 'tabular-nums',
+                    color: 'var(--tp-fg)',
+                  }}
+                >
+                  {formatPairingCode(info.code)}
+                </p>
+              </PairStep>
+              <li style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+                {info.host ? tr('ws.shell.pair.host', { host: `\u2068${info.host}\u2069`, port: String(info.port) }) : tr('ws.shell.pair.noHost')}
+              </li>
+            </ol>
           ) : refusal ? (
             <p role="alert">{tr(`ws.shell.pair.${refusalKey[refusal]}`)}</p>
           ) : (
             <>
+              <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>{tr('ws.shell.pair.pinLead')}</p>
               <Field label={tr('op.common.pin')}>
                 <input
                   style={inputStyle}
                   type="password"
                   inputMode="numeric"
+                  autoComplete="off"
                   dir="ltr"
                   autoFocus
                   value={pin}
+                  readOnly={busy}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
                   onKeyDown={(e) => e.key === 'Enter' && pin.length >= 4 && !busy && void reveal()}
                 />
@@ -1179,30 +1370,95 @@ function PairKitchenScreen() {
   );
 }
 
+/** One numbered instruction in the pairing card. */
+function PairStep({ n, children }: { n: number; children: ReactNode }) {
+  return (
+    <li style={{ display: 'grid', gridTemplateColumns: '1.5rem 1fr', columnGap: 'var(--tp-sp-2)', alignItems: 'start' }}>
+      <span
+        aria-hidden="true"
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          inlineSize: '1.375rem',
+          blockSize: '1.375rem',
+          borderRadius: '999px',
+          fontSize: 'var(--tp-fs-xs)',
+          fontWeight: 700,
+          background: 'var(--tp-accent-soft)',
+          color: 'var(--tp-accent-soft-fg)',
+        }}
+      >
+        {n}
+      </span>
+      <div>{children}</div>
+    </li>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // StaffSignInScreen — email + password. States: ready · busy · error.
 // ---------------------------------------------------------------------------
+type SignInFailure = 'invalid' | 'network' | 'disabled';
+
+/**
+ * What went wrong, in the three cases a person can do something different
+ * about. Supabase says "User is banned" for an account an owner turned off —
+ * that used to read as a wrong password, so a disabled cashier kept retyping
+ * a password that was right. The "disabled" copy had been sitting unused.
+ */
+function signInFailure(err: unknown): SignInFailure {
+  const e = err as { name?: string; message?: string; status?: number; code?: string } | null;
+  const msg = (e?.message ?? '').toLowerCase();
+  if (e?.name === 'AuthRetryableFetchError' || e?.status === 0 || msg.includes('fetch') || msg.includes('network')) return 'network';
+  if (e?.code === 'user_banned' || msg.includes('banned')) return 'disabled';
+  return 'invalid';
+}
+
 function SignInScreen() {
   const { signIn } = useAuth();
   const { tr, toggleLocale, locale } = useLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<'invalid' | 'network' | null>(null);
+  const [error, setError] = useState<SignInFailure | null>(null);
+  // Which field was empty on submit. The button used to sit disabled until
+  // both were filled, which told nobody why it would not press.
+  const [missing, setMissing] = useState<'email' | 'password' | null>(null);
+  const [capsLock, setCapsLock] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
+    if (!email.trim()) {
+      setMissing('email');
+      emailRef.current?.focus();
+      return;
+    }
+    if (!password) {
+      setMissing('password');
+      passwordRef.current?.focus();
+      return;
+    }
+    setMissing(null);
     setBusy(true);
     setError(null);
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
     } catch (err) {
-      const msg = err instanceof Error ? err.message.toLowerCase() : '';
-      setError(msg.includes('fetch') || msg.includes('network') ? 'network' : 'invalid');
+      const kind = signInFailure(err);
+      setError(kind);
+      // A wrong password is retyped, not edited: clear it and put the cursor
+      // back. A network failure keeps both, because nothing was wrong with them.
+      if (kind === 'invalid') setPassword('');
+      passwordRef.current?.focus();
     } finally {
       setBusy(false);
     }
   }
+
+  const caps = (ev: KeyboardEvent<HTMLInputElement>) => setCapsLock(ev.getModifierState('CapsLock'));
 
   return (
     <div style={{ minBlockSize: '100vh', display: 'grid', gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)', background: 'var(--tp-bg)' }}>
@@ -1226,51 +1482,74 @@ function SignInScreen() {
         </p>
       </aside>
       <div style={{ position: 'relative', display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
+        {/* The language switch is a page control, so it sits in the page's
+            corner. Beside Sign in it read as the form's second button. */}
+        <Button
+          kind="ghost"
+          size="sm"
+          icon="globe"
+          onClick={toggleLocale}
+          style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-3)', insetInlineStart: 'var(--tp-sp-3)' }}
+        >
+          <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
+        </Button>
         {/* A till and a kitchen screen run frameless and non-closable, and the
             rail — the only other way out — is behind a sign-in. A station
             powered on by mistake, or signed out at the end of the night, was
-            therefore a machine nobody could close. Same manager-PIN gate as
-            the rail's; only the placement is the window control's. */}
+            therefore a machine nobody could close. Only the placement is the
+            window control's. */}
         <QuitToDesktop variant="signIn" />
-        <form onSubmit={(e) => void submit(e)} className="tp-rise" style={{ inlineSize: 'min(22rem, 100%)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
+        <form noValidate onSubmit={(e) => void submit(e)} className="tp-rise" style={{ inlineSize: 'min(22rem, 100%)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
           <h1 style={{ fontSize: 'var(--tp-fs-2xl)', marginBlockEnd: 'var(--tp-sp-1)' }}>{tr('op.signIn.title')}</h1>
           <p style={{ color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-4)' }}>{tr('ws.shell.signIn.lead')}</p>
-          <Field label={tr('auth.emailLabel')}>
+          <Field label={tr('auth.emailLabel')} error={missing === 'email' ? tr('ws.shell.signIn.emailRequired') : undefined}>
             <input
+              ref={emailRef}
               style={inputStyle}
               dir="ltr"
               type="email"
               autoComplete="username"
               autoFocus
               value={email}
-              disabled={busy}
-              onChange={(e) => setEmail(e.target.value)}
+              readOnly={busy}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (missing === 'email') setMissing(null);
+              }}
             />
           </Field>
-          <Field label={tr('auth.passwordLabel')}>
+          <Field
+            label={tr('auth.passwordLabel')}
+            error={missing === 'password' ? tr('ws.shell.signIn.passwordRequired') : undefined}
+            hint={capsLock ? tr('ws.shell.signIn.capsLock') : undefined}
+          >
             <input
+              ref={passwordRef}
               style={inputStyle}
               dir="ltr"
               type="password"
               autoComplete="current-password"
               value={password}
-              disabled={busy}
-              onChange={(e) => setPassword(e.target.value)}
+              readOnly={busy}
+              onKeyDown={caps}
+              onKeyUp={caps}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (missing === 'password') setMissing(null);
+              }}
             />
           </Field>
           {error && (
-            <p role="alert" style={{ color: 'var(--tp-danger-fg)', background: 'var(--tp-danger-soft)', borderRadius: 'var(--tp-radius-ctl)', paddingBlock: 'var(--tp-sp-1-5)', paddingInline: 'var(--tp-sp-2-5)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-2)' }}>
-              {error === 'network' ? tr('ws.shell.signIn.network') : tr('op.signIn.failed')}
+            <p role="alert" style={{ display: 'flex', gap: 'var(--tp-sp-2)', alignItems: 'flex-start', color: 'var(--tp-danger-fg)', background: 'var(--tp-danger-soft)', borderRadius: 'var(--tp-radius-ctl)', paddingBlock: 'var(--tp-sp-2)', paddingInline: 'var(--tp-sp-2-5)', fontSize: 'var(--tp-fs-sm)', marginBlockEnd: 'var(--tp-sp-2)' }}>
+              <Icon name={error === 'network' ? 'wifiOff' : 'alert'} size={16} style={{ flex: '0 0 auto', marginBlockStart: '0.1rem' }} />
+              <span>
+                {error === 'network' ? tr('ws.shell.signIn.network') : error === 'disabled' ? tr('ws.shell.signIn.disabled') : tr('ws.shell.signIn.invalid')}
+              </span>
             </p>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBlockStart: 'var(--tp-sp-2)' }}>
-            <Button kind="ghost" icon="globe" onClick={toggleLocale}>
-              <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
-            </Button>
-            <Button kind="primary" type="submit" busy={busy} disabled={!email || !password}>
-              {tr('op.signIn.submit')}
-            </Button>
-          </div>
+          <Button kind="primary" size="lg" type="submit" busy={busy} style={{ inlineSize: '100%', marginBlockStart: 'var(--tp-sp-1)' }}>
+            {tr('op.signIn.submit')}
+          </Button>
         </form>
       </div>
     </div>

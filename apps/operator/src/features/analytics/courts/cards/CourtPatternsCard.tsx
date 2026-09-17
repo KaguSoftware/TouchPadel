@@ -100,9 +100,11 @@ export function CourtPatternsCard({
       actions={
         <>
           {busy && <Spinner size="xs" />}
-          <Button disabled={busy || shown.length === 0 || state !== 'ready'} onClick={() => void judge()} style={{ fontSize: 'var(--tp-fs-sm)', paddingBlock: '0.25rem' }}>
-            {tr('analytics.insights.recheck')}
-          </Button>
+          {shown.length > 0 && (
+            <Button size="sm" disabled={busy || state !== 'ready'} onClick={() => void judge()}>
+              {tr('analytics.patterns.reword')}
+            </Button>
+          )}
         </>
       }
     >

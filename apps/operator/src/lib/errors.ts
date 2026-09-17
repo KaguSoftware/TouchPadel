@@ -139,6 +139,21 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'REQUEST_NOT_FOUND',
   'CAMPAIGN_NOT_FOUND',
   'AUDIENCE_NOT_FOUND',
+  // Staff breaks (0105).
+  'BREAK_ALREADY_OPEN',
+  'BREAK_ALLOWANCE_USED',
+  'BREAK_NOT_OPEN',
+  'COVER_NOT_ALLOWED',
+  'INVALID_STATION',
+  'NO_PIN_SET',
+  // Desk payment (0106).
+  'BOOKING_TAB_OPEN',
+  'BOOKING_TAB_DONOR',
+  'RESERVATION_NOT_LIVE',
+  'TOTAL_CHANGED',
+  'NOT_ZERO',
+  'REFUND_DUE',
+  'TAB_EMPTY',
   // Edge-function client codes (lib/edge.ts), prefixed to keep them apart from SQL codes.
   'EDGE_NOT_CONFIGURED',
   'EDGE_FORBIDDEN',

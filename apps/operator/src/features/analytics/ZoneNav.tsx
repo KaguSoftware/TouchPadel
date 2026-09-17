@@ -35,9 +35,6 @@ export function ZoneNav({ zones }: { zones: readonly ZoneDef[] }) {
               whiteSpace: 'nowrap',
             }}
           >
-            <span aria-hidden="true" style={{ opacity: 0.7, marginInlineEnd: 'var(--tp-sp-1-5)' }}>
-              {zone.ordinal}
-            </span>
             {tr(zone.navKey ?? zone.titleKey)}
           </button>
         );

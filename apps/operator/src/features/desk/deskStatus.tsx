@@ -12,10 +12,11 @@
  * Everything here derives from the kit's Tone vocabulary, so a badge, a grid
  * block and a week chip that mean the same thing always look the same.
  */
+import { formatIQD } from '@touch/i18n';
 import { BookingStatusIndicator, StatusBadge, type Tone } from '../../components/kit';
 import { useLocale } from '../../lib/i18n';
-import type { ChargeState } from './deskLogic';
 import type { ReservationKind } from './deskTypes';
+import { chargeLabelOf, type BillStateRow } from './payment/deskPaymentLogic';
 
 /** The tinted ground a labelled block sits on. */
 export const TONE_SOFT: Record<Tone, string> = {
@@ -90,12 +91,17 @@ export function ReservationBadge({ reservation: r, size }: { reservation: Reserv
   return <StatusBadge size={size} tone={reservationTone(r)} label={tr(`ws.kit.reservationKind.${kind}`)} />;
 }
 
-/** Whether the court fee is paid. Holds and blocks have no fee; unknowable prints "—". */
-export function ChargeCell({ state, kind }: { state: ChargeState | null; kind: string }) {
-  const { tr } = useLocale();
+/**
+ * Where the court fee stands (0106), from app.booking_bill_states. Holds and
+ * blocks have no fee; a state that could not be loaded prints "—", never a
+ * guess. "Not paid" is only a warning once the game is over.
+ */
+export function ChargeCell({ state, kind, ended }: { state: BillStateRow | undefined; kind: string; ended: boolean }) {
+  const { tr, locale } = useLocale();
   if (kind !== 'booking') return null;
-  if (state === null) return <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>;
-  if (state === 'paid') return <StatusBadge size="sm" tone="success" label={tr('ws.courtDesk.board.chargePaid')} />;
-  if (state === 'unpaid') return <StatusBadge size="sm" tone="warn" label={tr('ws.courtDesk.board.chargeUnpaid')} />;
-  return <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.courtDesk.board.chargeNone')}</span>;
+  if (!state) return <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>;
+  const label = chargeLabelOf(state, ended);
+  const text = tr(`ws.courtDesk.board.charge.${label.key}`, { amount: label.amount != null ? formatIQD(label.amount, locale) : '' });
+  if (label.tone === 'muted') return <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{text}</span>;
+  return <StatusBadge size="sm" tone={label.tone} label={text} />;
 }

@@ -4,7 +4,7 @@
  * loses a draft value. Save writes ONLY the changed keys through
  * `set_cafe_setting`, sequentially, then toasts.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { useLocale } from '../../../lib/i18n';
@@ -20,10 +20,13 @@ import { useToast } from '../../../components/toast';
 import { Switch } from '../../../components/Switch';
 import { ImageField } from '../../../components/ImageField';
 import { BilingualFields, PercentInput } from '../../../components/inputs';
-import { Button, Field, Skeleton, card, inputStyle } from '../../../components/ui';
+import { Button, Field, Skeleton, inputStyle } from '../../../components/ui';
+import { PageHeader, Panel } from '../../../components/kit';
+import { Icon } from '../../../components/icons';
 import { HeroPreview, type HeroPreviewItem } from './HeroPreview';
 import { TickerEditor } from './TickerEditor';
 import {
+  TICKER_MAX_ROWS,
   normalizeTicker,
   pairTicker,
   sameStringArray,
@@ -204,153 +207,183 @@ export function HeroBuilder() {
     { id: 'media', label: tr('op.hero.modeMedia'), hint: tr('op.hero.modeMediaHint') },
     { id: 'featured', label: tr('op.hero.modeFeatured'), hint: tr('op.hero.modeFeaturedHint') },
   ];
+  const dirty = writes.length > 0;
+  const blocked = modeProblem ?? (tickerProblem === 'incomplete' ? tr('op.hero.rowIncomplete') : tickerProblem ? tr('op.hero.tickerTooLong') : null);
 
   return (
-    <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <div style={{ flex: '1 1 26rem', minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
-        <h2 style={{ margin: 0 }}>{tr('op.hero.title')}</h2>
-
-        <section style={card}>
-          <Field label={tr('op.hero.mode')}>
-            <div role="radiogroup" style={{ display: 'flex', gap: 'var(--tp-sp-1-5)', flexWrap: 'wrap' }}>
-              {modes.map((m) => (
-                <Button
-                  key={m.id}
-                  kind={draft.hero_mode === m.id ? 'primary' : 'default'}
-                  onClick={() => patch({ hero_mode: m.id })}
-                  title={m.hint}
-                  aria-label={m.label}
-                >
-                  {m.label}
-                </Button>
-              ))}
+    <div>
+      <PageHeader title={tr('op.hero.title')} subtitle={tr('op.hero.lead')} />
+      <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 26rem', minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-3)' }}>
+          <Panel title={tr('op.hero.mode')}>
+            <div role="group" aria-label={tr('op.hero.mode')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(10rem, 1fr))', gap: 'var(--tp-sp-2)' }}>
+              {modes.map((m) => {
+                const on = draft.hero_mode === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className="tp-tile"
+                    aria-pressed={on}
+                    aria-label={m.label}
+                    onClick={() => patch({ hero_mode: m.id })}
+                    style={{
+                      display: 'grid',
+                      gap: 'var(--tp-sp-1)',
+                      textAlign: 'start',
+                      paddingBlock: 'var(--tp-sp-2-5)',
+                      paddingInline: 'var(--tp-sp-3)',
+                      borderRadius: 'var(--tp-radius-ctl)',
+                      border: on ? '2px solid var(--tp-accent)' : '1px solid var(--tp-border)',
+                      background: on ? 'var(--tp-info-soft)' : 'var(--tp-surface)',
+                      color: 'var(--tp-fg)',
+                      font: 'inherit',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontWeight: 700 }}>
+                      <Icon name={on ? 'checkCircle' : 'minus'} size={14} style={{ color: on ? 'var(--tp-accent)' : 'var(--tp-muted-fg)' }} />
+                      {m.label}
+                    </span>
+                    <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{m.hint}</span>
+                  </button>
+                );
+              })}
             </div>
-          </Field>
-          <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-            {modes.find((m) => m.id === draft.hero_mode)?.hint}
-          </p>
-        </section>
+          </Panel>
 
-        {/* Media panel — mounted always, hidden unless active (keeps the draft). */}
-        <section style={{ ...card, display: draft.hero_mode === 'media' ? 'block' : 'none' }}>
-          <ImageField
-            label={tr('op.hero.media')}
-            value={draft.hero_media_path}
-            onChange={(path) => patch({ hero_media_path: path })}
-            folder="hero"
-            accept="image+video"
-            aspect="16:9"
-            maxPx={HERO_IMAGE_MAX_PX}
-            maxBytes={HERO_IMAGE_MAX_BYTES}
-            maxVideoMb={HERO_VIDEO_MAX_MB}
-          />
-          <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-            {tr('op.hero.mediaHint', { mb: HERO_VIDEO_MAX_MB })}
-          </p>
-        </section>
+          {/* Media panel — mounted always, hidden unless active (keeps the draft). */}
+          <div style={{ display: draft.hero_mode === 'media' ? 'block' : 'none' }}>
+            <Panel title={tr('op.hero.media')}>
+              <ImageField
+                label={tr('op.hero.media')}
+                value={draft.hero_media_path}
+                onChange={(path) => patch({ hero_media_path: path })}
+                folder="hero"
+                accept="image+video"
+                aspect="16:9"
+                maxPx={HERO_IMAGE_MAX_PX}
+                maxBytes={HERO_IMAGE_MAX_BYTES}
+                maxVideoMb={HERO_VIDEO_MAX_MB}
+              />
+              <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.hero.mediaHint', { mb: HERO_VIDEO_MAX_MB })}</p>
+            </Panel>
+          </div>
 
-        <section style={{ ...card, display: draft.hero_mode === 'featured' ? 'block' : 'none' }}>
-          <Field label={tr('op.hero.featuredItem')}>
-            <select
-              style={inputStyle}
-              value={draft.featured_item_id ?? ''}
-              onChange={(e) => patch({ featured_item_id: e.target.value || null })}
-            >
-              <option value="">{tr('op.hero.pickItem')}</option>
-              {grouped.map((g) => (
-                <optgroup
-                  key={g.category.id}
-                  label={locale === 'ar' ? g.category.name_ar : g.category.name_en}
-                >
-                  {g.items.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {locale === 'ar' ? i.name_ar : i.name_en}
-                    </option>
+          <div style={{ display: draft.hero_mode === 'featured' ? 'block' : 'none' }}>
+            <Panel title={tr('op.hero.featuredTitle')}>
+              <Field label={tr('op.hero.featuredItem')} hint={tr('op.hero.featuredItemHint')}>
+                <select style={inputStyle} value={draft.featured_item_id ?? ''} onChange={(e) => patch({ featured_item_id: e.target.value || null })}>
+                  <option value="">{tr('op.hero.pickItem')}</option>
+                  {grouped.map((g) => (
+                    <optgroup key={g.category.id} label={locale === 'ar' ? g.category.name_ar : g.category.name_en}>
+                      {g.items.map((i) => (
+                        <option key={i.id} value={i.id}>
+                          {locale === 'ar' ? i.name_ar : i.name_en}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
-                </optgroup>
-              ))}
-            </select>
-          </Field>
-          {menuQ.isSuccess && grouped.length === 0 && (
-            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.hero.noItems')}</p>
-          )}
-          <BilingualFields
-            labelEn={`${tr('op.hero.label')} (EN)`}
-            labelAr={`${tr('op.hero.label')} (AR)`}
-            en={draft.featured_label_en}
-            ar={draft.featured_label_ar}
-            onEn={(v) => patch({ featured_label_en: v })}
-            onAr={(v) => patch({ featured_label_ar: v })}
-            maxLength={LABEL_MAX}
-          />
-          <BilingualFields
-            labelEn={`${tr('op.hero.badge')} (EN)`}
-            labelAr={`${tr('op.hero.badge')} (AR)`}
-            en={draft.featured_badge_en}
-            ar={draft.featured_badge_ar}
-            onEn={(v) => patch({ featured_badge_en: v })}
-            onAr={(v) => patch({ featured_badge_ar: v })}
-            maxLength={BADGE_MAX}
-          />
-          <Field label={tr('op.hero.discount')}>
-            <PercentInput
-              value={draft.featured_discount_pct}
-              onChange={(v) => patch({ featured_discount_pct: v })}
-            />
-          </Field>
-        </section>
+                </select>
+              </Field>
+              {menuQ.isSuccess && grouped.length === 0 && <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.hero.noItems')}</p>}
+              <BilingualFields
+                labelEn={`${tr('op.hero.label')} (EN)`}
+                labelAr={`${tr('op.hero.label')} (AR)`}
+                en={draft.featured_label_en}
+                ar={draft.featured_label_ar}
+                onEn={(v) => patch({ featured_label_en: v })}
+                onAr={(v) => patch({ featured_label_ar: v })}
+                maxLength={LABEL_MAX}
+              />
+              <Hint>{tr('op.hero.labelHint')}</Hint>
+              <BilingualFields
+                labelEn={`${tr('op.hero.badge')} (EN)`}
+                labelAr={`${tr('op.hero.badge')} (AR)`}
+                en={draft.featured_badge_en}
+                ar={draft.featured_badge_ar}
+                onEn={(v) => patch({ featured_badge_en: v })}
+                onAr={(v) => patch({ featured_badge_ar: v })}
+                maxLength={BADGE_MAX}
+              />
+              <Hint>{tr('op.hero.badgeHint')}</Hint>
+              {/* The discount is charged, not decorative: app.add_order_items
+                  prices the featured item with it while this mode is on (0030). */}
+              <Field label={tr('op.hero.discount')} hint={tr('op.hero.discountHint')} style={{ marginBlockEnd: 0 }}>
+                <PercentInput value={draft.featured_discount_pct} onChange={(v) => patch({ featured_discount_pct: v })} />
+              </Field>
+            </Panel>
+          </div>
 
-        <section style={card}>
-          <Field label={tr('op.hero.ticker')}>
-            <span style={{ display: 'block', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-1-5)' }}>
-              {tr('op.hero.tickerHint')}
+          <Panel title={tr('op.hero.ticker')}>
+            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockEnd: 'var(--tp-sp-2)' }}>{tr('op.hero.tickerHint', { max: TICKER_MAX_ROWS })}</p>
+            <TickerEditor rows={draft.ticker} onChange={(ticker) => patch({ ticker })} />
+            {tickerProblem === 'incomplete' && (
+              <p role="alert" style={{ color: 'var(--tp-danger-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+                {tr('op.hero.rowIncomplete')}
+              </p>
+            )}
+          </Panel>
+
+          <Panel title={tr('op.hero.bellTitle')}>
+            <Switch checked={draft.bell_tutorial_enabled} onChange={(next) => patch({ bell_tutorial_enabled: next })} label={tr('op.hero.bellTutorial')} />
+            <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('op.hero.bellTutorialHint')}</p>
+          </Panel>
+
+          {/* One Save, kept in reach at the foot of the column however far the
+              form has scrolled, and it says whether there is anything to keep. */}
+          <div
+            style={{
+              position: 'sticky',
+              insetBlockEnd: 0,
+              display: 'flex',
+              gap: 'var(--tp-sp-2)',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              paddingBlock: 'var(--tp-sp-2)',
+              paddingInline: 'var(--tp-sp-3)',
+              background: 'var(--tp-surface)',
+              border: '1px solid var(--tp-border)',
+              borderRadius: 'var(--tp-radius-panel)',
+              boxShadow: dirty ? 'var(--tp-shadow-raised)' : undefined,
+            }}
+          >
+            <span style={{ fontSize: 'var(--tp-fs-sm)', color: dirty ? 'var(--tp-fg)' : 'var(--tp-muted-fg)', fontWeight: dirty ? 600 : 400, marginInlineEnd: 'auto' }}>
+              {dirty ? tr('op.hero.unsaved') : tr('op.hero.upToDate')}
             </span>
-          </Field>
-          <TickerEditor rows={draft.ticker} onChange={(ticker) => patch({ ticker })} />
-          {tickerProblem === 'incomplete' && (
-            <p role="alert" style={{ color: 'var(--tp-danger)', fontSize: 'var(--tp-fs-sm)' }}>
-              {tr('op.hero.rowIncomplete')}
-            </p>
-          )}
-        </section>
-
-        <section style={card}>
-          <Switch
-            checked={draft.bell_tutorial_enabled}
-            onChange={(next) => patch({ bell_tutorial_enabled: next })}
-            label={tr('op.hero.bellTutorial')}
-          />
-          <p style={{ margin: 0, marginBlockStart: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-            {tr('op.hero.bellTutorialHint')}
-          </p>
-        </section>
-
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-2-5)', alignItems: 'center' }}>
-          <Button kind="primary" disabled={!canSave} onClick={() => void save()}>
-            {tr('common.save')}
-          </Button>
-          {modeProblem && <span style={{ color: 'var(--tp-danger)', fontSize: 'var(--tp-fs-sm)' }}>{modeProblem}</span>}
+            {dirty && (
+              <Button kind="ghost" disabled={saving} onClick={() => setDraft(fromSettings(settings))}>
+                {tr('op.hero.discard')}
+              </Button>
+            )}
+            <Button kind="primary" icon="check" busy={saving} disabled={!canSave} disabledReason={dirty && blocked ? blocked : undefined} onClick={() => void save()}>
+              {tr('common.save')}
+            </Button>
+          </div>
         </div>
-      </div>
 
-      <aside data-no-print style={{ flex: '0 0 auto', position: 'sticky', insetBlockStart: 'var(--tp-sp-4)' }}>
-        <p style={{ margin: 0, marginBlockEnd: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>
-          {tr('op.hero.preview')}
-        </p>
-        <HeroPreview
-          mode={draft.hero_mode}
-          mediaPath={draft.hero_media_path}
-          mediaIsVideo={isVideoPath(draft.hero_media_path)}
-          item={featuredItem}
-          labelEn={draft.featured_label_en}
-          labelAr={draft.featured_label_ar}
-          badgeEn={draft.featured_badge_en}
-          badgeAr={draft.featured_badge_ar}
-          discountPct={draft.featured_discount_pct}
-          ticker={draft.ticker}
-          bellTutorial={draft.bell_tutorial_enabled}
-        />
-      </aside>
+        <aside data-no-print style={{ flex: '0 0 auto', position: 'sticky', insetBlockStart: 'var(--tp-sp-4)', display: 'grid', gap: 'var(--tp-sp-1-5)' }}>
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-sm)', fontWeight: 600 }}>{tr('op.hero.preview')}</p>
+          <p style={{ margin: 0, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', maxInlineSize: '24rem' }}>{tr('op.hero.previewHint')}</p>
+          <HeroPreview
+            mode={draft.hero_mode}
+            mediaPath={draft.hero_media_path}
+            mediaIsVideo={isVideoPath(draft.hero_media_path)}
+            item={featuredItem}
+            labelEn={draft.featured_label_en}
+            labelAr={draft.featured_label_ar}
+            badgeEn={draft.featured_badge_en}
+            badgeAr={draft.featured_badge_ar}
+            discountPct={draft.featured_discount_pct}
+            ticker={draft.ticker}
+            bellTutorial={draft.bell_tutorial_enabled}
+          />
+        </aside>
+      </div>
     </div>
   );
+}
+
+function Hint({ children }: { children: ReactNode }) {
+  return <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', marginBlock: 'calc(-1 * var(--tp-sp-2)) var(--tp-sp-3)' }}>{children}</p>;
 }

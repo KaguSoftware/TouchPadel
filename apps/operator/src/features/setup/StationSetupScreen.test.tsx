@@ -21,8 +21,9 @@ function renderStep(state: SetupState) {
 const kds: DetailsState = { step: 'details', mode: 'kds', stationId: 'KDS-01', code: '', host: '', showAdvanced: false };
 
 describe('StationSetupScreen', () => {
-  it('mode: three roles to pick from, the version in the footer', async () => {
+  it('mode: asks what the machine is for, three roles to pick from, the version in the footer', async () => {
     const dispatch = renderStep({ step: 'mode' });
+    expect(screen.getByRole('heading', { name: 'What is this machine for?' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Till/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Desk/ })).toBeTruthy();
     expect(screen.getByText('Version 0.2.0')).toBeTruthy();
@@ -32,7 +33,7 @@ describe('StationSetupScreen', () => {
 
   it('till: the suggested id is prefilled and Finish is live; an invalid id explains itself', () => {
     renderStep({ step: 'details', mode: 'till', stationId: 'TILL-01', code: '', host: '', showAdvanced: false });
-    expect((screen.getByLabelText(/Station id/) as HTMLInputElement).value).toBe('TILL-01');
+    expect((screen.getByLabelText(/Station name/) as HTMLInputElement).value).toBe('TILL-01');
     expect((screen.getByRole('button', { name: 'Finish setup' }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByLabelText(/Pairing code/)).toBeNull();
   });
@@ -43,21 +44,24 @@ describe('StationSetupScreen', () => {
     expect((screen.getByRole('button', { name: 'Finish setup' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('kds: typing the code dispatches it raw; Advanced reveals the address field', async () => {
+  it('kds: typing the code dispatches it raw; the address toggle reveals the address field', async () => {
     const dispatch = renderStep(kds);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText(/Pairing code/), 'a');
     expect(dispatch).toHaveBeenCalledWith({ type: 'code', value: 'a' });
-    expect(screen.queryByLabelText(/Advanced: till address/)).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Advanced: till address' }));
+    expect(screen.queryByLabelText(/Till address/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Enter the till address yourself' }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'toggleAdvanced' });
-    expect((screen.getByRole('button', { name: 'Finish setup' }) as HTMLButtonElement).disabled).toBe(true);
+    // The next step is a search, and the button says so — and why it is off.
+    const find = screen.getByRole('button', { name: 'Find the till' }) as HTMLButtonElement;
+    expect(find.disabled).toBe(true);
+    expect(screen.getAllByText('The code is 10 letters and digits.').length).toBeGreaterThan(0);
   });
 
-  it('kds: a complete code shows grouped and enables Finish', () => {
+  it('kds: a complete code shows grouped and enables Find the till', () => {
     renderStep({ ...kds, code: 'ABCDEFGHJK' });
     expect((screen.getByLabelText(/Pairing code/) as HTMLInputElement).value).toBe('ABCDE-FGHJK');
-    expect((screen.getByRole('button', { name: 'Finish setup' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: 'Find the till' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('scanning and saving are live regions; choose lists the tills', async () => {
@@ -71,12 +75,21 @@ describe('StationSetupScreen', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'pickTill', host: '10.0.0.3' });
   });
 
-  it('not found: a refused code has no "Save anyway"; an unreachable address does', async () => {
+  it('not found: a refused code has no "Save anyway" and asks for the code again', async () => {
     const dispatch = renderStep({ step: 'notFound', details: { ...kds, code: 'ABCDEFGHJK' }, reason: 'bad-code' });
     expect(screen.getByRole('alert').textContent).toContain('did not accept that code');
     expect(screen.queryByRole('button', { name: 'Save anyway' })).toBeNull();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Type the code again' }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'retry' });
+  });
+
+  it('not found: nothing answered offers the two things the message suggests', async () => {
+    const dispatch = renderStep({ step: 'notFound', details: { ...kds, code: 'ABCDEFGHJK' }, reason: 'none' });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Search again' }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'retry' });
+    await user.click(screen.getByRole('button', { name: 'Enter the till address' }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'enterAddress' });
   });
 
   it('not found: unreachable names the address and offers Save anyway', async () => {
@@ -92,9 +105,14 @@ describe('StationSetupScreen', () => {
     expect(screen.getByText(/Saving and restarting/)).toBeTruthy();
   });
 
-  it('failed: already configured is its own message', () => {
+  it('failed: already configured is its own message, with no retry that cannot help', () => {
     renderStep({ step: 'failed', details: kds, error: 'already-configured' });
     expect(screen.getByRole('alert').textContent).toContain('already set up');
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+
+  it('failed: a write failure can be retried', () => {
+    renderStep({ step: 'failed', details: kds, error: 'write-failed' });
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 });

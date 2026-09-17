@@ -328,6 +328,25 @@ export type Database = {
       }
       b64url_decode: { Args: { p: string }; Returns: string }
       b64url_encode: { Args: { p: string }; Returns: string }
+      booking_bill: { Args: { p_reservation_id: string }; Returns: Json }
+      booking_bill_states: {
+        Args: { p_reservation_ids: string[] }
+        Returns: Json
+      }
+      break_allowance_seconds: { Args: never; Returns: number }
+      break_cover_candidates: {
+        Args: { p_for: string; p_station_id: string }
+        Returns: Json
+      }
+      break_row_json: {
+        Args: { p_row: Database["public"]["Tables"]["staff_breaks"]["Row"] }
+        Returns: Json
+      }
+      break_status: { Args: { p_device_id: string }; Returns: Json }
+      break_used_seconds: {
+        Args: { p_date: string; p_staff_id: string }
+        Returns: number
+      }
       business_date:
         | { Args: { p_at: string }; Returns: string }
         | {
@@ -475,6 +494,18 @@ export type Database = {
         Args: { p_order_item_id: string; p_ticket_id?: string }
         Returns: undefined
       }
+      court_fee_paid: {
+        Args: { p_exclude_tab_id?: string; p_reservation_id: string }
+        Returns: number
+      }
+      court_fee_remaining: {
+        Args: { p_exclude_tab_id?: string; p_reservation_id: string }
+        Returns: number
+      }
+      cover_station: {
+        Args: { p_device_id: string; p_pin: string; p_staff_id: string }
+        Returns: Json
+      }
       create_guest_order: {
         Args: {
           p_device_id?: string
@@ -547,6 +578,7 @@ export type Database = {
         Args: { p_code?: string; p_tab_id: string }
         Returns: Json
       }
+      end_break: { Args: { p_device_id: string; p_pin: string }; Returns: Json }
       enqueue_telegram: {
         Args: { p_kind: string; p_payload?: Json; p_ref_id: string }
         Returns: number
@@ -844,6 +876,17 @@ export type Database = {
         Args: { p_filters?: Json; p_from: string; p_to: string }
         Returns: Json
       }
+      report_compare: {
+        Args: {
+          p_compare: string
+          p_filters?: Json
+          p_from: string
+          p_group?: string
+          p_report: string
+          p_to: string
+        }
+        Returns: Json
+      }
       report_courts: {
         Args: { p_filters?: Json; p_from: string; p_to: string }
         Returns: Json
@@ -1048,6 +1091,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_station_staff: {
+        Args: { p_staff_id: string; p_station_ids: string[] }
+        Returns: Json
+      }
       set_table_bell: {
         Args: { p_enabled: boolean; p_table_id: string }
         Returns: undefined
@@ -1071,6 +1118,7 @@ export type Database = {
         }
         Returns: Json
       }
+      set_venue_details: { Args: { p_patch: Json }; Returns: Json }
       set_waiter_call_cooldown: {
         Args: { p_seconds: number }
         Returns: undefined
@@ -1079,11 +1127,16 @@ export type Database = {
         Args: {
           p_amount_iqd?: number
           p_device_id?: string
+          p_expected_total_iqd?: number
           p_idempotency_key?: string
           p_method: Database["public"]["Enums"]["payment_method"]
           p_tab_id: string
           p_tendered_iqd?: number
         }
+        Returns: Json
+      }
+      settle_zero_tab: {
+        Args: { p_device_id?: string; p_reason_code: string; p_tab_id: string }
         Returns: Json
       }
       sms_send_gate: {
@@ -1135,6 +1188,10 @@ export type Database = {
       staff_role: {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
+      }
+      start_break: {
+        Args: { p_device_id: string; p_pin: string }
+        Returns: Json
       }
       start_count: { Args: never; Returns: Json }
       submit_staff_request: {
@@ -1195,6 +1252,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      unpaid_played_bookings: {
+        Args: { p_day_session_id?: string }
+        Returns: Json
       }
       unreject_insight: { Args: { p_id: string }; Returns: undefined }
       upsert_cafe_table: {
@@ -1348,6 +1409,10 @@ export type Database = {
         Returns: undefined
       }
       venue_mode: { Args: never; Returns: Json }
+      venue_patch_int: {
+        Args: { p_key: string; p_max: number; p_min: number; p_patch: Json }
+        Returns: number
+      }
       verify_manager_pin: {
         Args: { p_device_id?: string; p_pin: string }
         Returns: string
@@ -3687,6 +3752,54 @@ export type Database = {
           },
         ]
       }
+      staff_breaks: {
+        Row: {
+          business_date: string
+          cover_started_at: string | null
+          covered_by: string | null
+          ended_at: string | null
+          id: string
+          staff_id: string
+          started_at: string
+          station_id: string
+        }
+        Insert: {
+          business_date: string
+          cover_started_at?: string | null
+          covered_by?: string | null
+          ended_at?: string | null
+          id?: string
+          staff_id: string
+          started_at?: string
+          station_id: string
+        }
+        Update: {
+          business_date?: string
+          cover_started_at?: string | null
+          covered_by?: string | null
+          ended_at?: string | null
+          id?: string
+          staff_id?: string
+          started_at?: string
+          station_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_breaks_covered_by_fkey"
+            columns: ["covered_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_breaks_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_requests: {
         Row: {
           amount_iqd: number | null
@@ -3740,6 +3853,42 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_requests_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      station_staff: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          staff_id: string
+          station_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          staff_id: string
+          station_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          staff_id?: string
+          station_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "station_staff_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "station_staff_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
@@ -4731,6 +4880,8 @@ export type Database = {
           cash_variance_iqd: number | null
           closed_at: string | null
           day_session_id: string | null
+          desk_card_iqd: number | null
+          desk_cash_iqd: number | null
           discounts_iqd: number | null
           notes: string | null
           opened_at: string | null

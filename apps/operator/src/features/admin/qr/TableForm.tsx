@@ -53,6 +53,9 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
   });
 
   const title = initial.id ? tr('op.qr.editTable') : tr('op.qr.addTable');
+  // Switching a table off kills its printed card (verify_table_token refuses an
+  // inactive table), so the switch says so while it is off, not after.
+  const goingOff = initial.id !== null && initial.is_active && !draft.is_active;
 
   return (
     <Modal title={title} onClose={onClose}>
@@ -62,7 +65,7 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
           if (draft.table_number.trim()) save.mutate();
         }}
       >
-        <Field label={tr('op.qr.tableNumber')}>
+        <Field label={tr('op.qr.tableNumber')} required hint={tr('ws.owner.tables.form.numberHint')}>
           <input
             style={inputStyle}
             dir="ltr"
@@ -72,7 +75,7 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
             onChange={(e) => setDraft({ ...draft, table_number: e.target.value })}
           />
         </Field>
-        <Field label={`${tr('op.qr.zone')} (${tr('op.common.optional')})`}>
+        <Field label={tr('op.qr.zone')} optional hint={tr('ws.owner.tables.form.zoneHint')}>
           <input
             style={inputStyle}
             maxLength={40}
@@ -80,7 +83,7 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
             onChange={(e) => setDraft({ ...draft, zone: e.target.value })}
           />
         </Field>
-        <Field label={`${tr('op.qr.capacity')} (${tr('op.common.optional')})`}>
+        <Field label={tr('op.qr.capacity')} optional>
           <input
             style={{ ...inputStyle, inlineSize: '6rem' }}
             dir="ltr"
@@ -93,20 +96,30 @@ export function TableForm({ initial, onClose }: { initial: TableDraft; onClose: 
             }
           />
         </Field>
-        <div style={{ marginBlockEnd: 'var(--tp-sp-3)' }}>
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', marginBlockEnd: 'var(--tp-sp-3)' }}>
           <Switch
             checked={draft.is_active}
             onChange={(next) => setDraft((d) => ({ ...d, is_active: next }))}
             label={tr('op.qr.activeTable')}
           />
+          <p style={{ fontSize: 'var(--tp-fs-xs)', color: goingOff ? 'var(--tp-warn-fg)' : 'var(--tp-muted-fg)' }}>
+            {draft.is_active ? tr('ws.owner.tables.form.inUseHint') : tr('ws.owner.tables.form.notInUseHint')}
+          </p>
         </div>
         <ErrorText error={save.error} />
         <div style={{ display: 'flex', gap: 'var(--tp-sp-2)', justifyContent: 'flex-end' }}>
           <Button onClick={onClose} disabled={save.isPending}>
             {tr('common.cancel')}
           </Button>
-          <Button type="submit" kind="primary" disabled={save.isPending || !draft.table_number.trim()}>
-            {tr('common.save')}
+          <Button
+            type="submit"
+            kind="primary"
+            icon="check"
+            busy={save.isPending}
+            disabled={!draft.table_number.trim()}
+            disabledReason={!draft.table_number.trim() ? tr('ws.owner.tables.form.numberRequired') : undefined}
+          >
+            {initial.id ? tr('common.save') : tr('op.qr.addTable')}
           </Button>
         </div>
       </form>

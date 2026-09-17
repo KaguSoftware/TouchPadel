@@ -332,6 +332,8 @@ export const CAPABILITY_ROLES = {
   setAnalyticsExclusions: ['owner'],
   /** Engagement floor: the date before which engagement data is ignored. */
   setEngagementFloor: ['owner'],
+  /** Venue name, phone and booking rules (app.set_venue_details, 0104). */
+  editVenueDetails: ['owner'],
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITY_ROLES;
@@ -366,6 +368,11 @@ export function homeRoute(role: StaffRole): string {
  */
 export interface Permissions {
   takePayment: boolean;
+  /**
+   * Take payment for a court booking and the cafe bill charged to it, from the
+   * booking screen (0106). The court desk has this without the till.
+   */
+  takeCourtPayment: boolean;
   discount: boolean;
   override: boolean;
   void: boolean;
@@ -387,6 +394,7 @@ export function permissionsFor(role: StaffRole | undefined): Permissions {
   const is = (roles: readonly StaffRole[]) => role !== undefined && roles.includes(role);
   return {
     takePayment: is(CASHIER_UP),
+    takeCourtPayment: is(['cashier', 'court_desk', 'manager', 'owner']),
     // A cashier may START a discount; the manager PIN prompt authorises it.
     discount: is(CASHIER_UP),
     override: is(CASHIER_UP),
@@ -409,6 +417,8 @@ export function requiredRoleFor(permission: keyof Permissions): StaffRole {
     case 'manageStaff':
     case 'viewFinancials':
       return 'owner';
+    case 'takeCourtPayment':
+      return 'court_desk';
     case 'takePayment':
     case 'discount':
     case 'override':

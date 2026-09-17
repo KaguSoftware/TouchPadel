@@ -78,7 +78,7 @@ export function WeekHeatmap({
         <div
           role="img"
           aria-label={`${unit}: ${cells.length} ${tr('ws.analytics.heatmap.cells')}`}
-          style={{ display: 'grid', gridTemplateColumns: `3rem repeat(24, minmax(0, 1fr))`, gap: '1px', minInlineSize: '42rem' }}
+          style={{ display: 'grid', gridTemplateColumns: `max-content repeat(24, minmax(0, 1fr))`, gap: '1px', minInlineSize: '42rem' }}
         >
           <span />
           {HOURS.map((h) => (
@@ -90,7 +90,7 @@ export function WeekHeatmap({
             <Row
               key={dow}
               dow={dow}
-              label={weekdayName(tr, dow).slice(0, 3)}
+              label={f.weekday(dow)}
               byKey={byKey}
               max={max}
               active={active}
@@ -132,7 +132,7 @@ function Row({
 }) {
   return (
     <>
-      <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', lineHeight: '1.1rem' }}>{label}</span>
+      <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', lineHeight: '1.1rem', paddingInlineEnd: 'var(--tp-sp-2)', whiteSpace: 'nowrap' }}>{label}</span>
       {HOURS.map((hour) => {
         const key = `${dow}:${hour}`;
         const cell = byKey.get(key);

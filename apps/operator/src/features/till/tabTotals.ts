@@ -20,6 +20,14 @@
  * The one simplification against the server: the pro-rata spread of a WHOLE-TAB
  * discount across tax groups. The till has at most a couple of groups and the
  * difference is sub-IQD, and the server figure is the one that gets charged.
+ *
+ * The court fee is NOT mirrored, and must not be. Since 0106 a booking tab
+ * charges the court fee still OWED on the booking — the price now, less what
+ * other settled tabs of that booking already stamped — and the client cannot
+ * see those other tabs. So the caller passes the server's figure: the stamped
+ * `tabs.court_iqd` for a settled tab, `booking_bill.live_tab.court_iqd` for an
+ * open one. This file only adds it, the way 0106 does: after the goods total
+ * is floored at zero, so a discount can never eat into the court fee.
  */
 
 export interface TotalsLine {
@@ -62,6 +70,8 @@ export interface TabTotals {
   subtotal: number;
   discount: number;
   tax: number;
+  /** The court fee this tab charges — a server figure passed in, 0 for a tab with no booking. */
+  court: number;
   total: number;
   paid: number;
   /** What is still owed. Never negative — an overpayment is a refund, not a credit. */
@@ -77,8 +87,15 @@ export function liveLines(orders: readonly TotalsOrder[] | undefined): TotalsLin
     .flatMap((o) => (o.order_items ?? []).filter((i) => !i.voided));
 }
 
-export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null): TabTotals {
-  if (!tab) return { subtotal: 0, discount: 0, tax: 0, total: 0, paid: 0, due: 0 };
+/**
+ * @param court The court fee from the SERVER (see the header): stamped
+ *   `tabs.court_iqd` for a settled tab, `booking_bill.live_tab.court_iqd` for an
+ *   open one. Absent, null or negative counts as no court fee.
+ */
+export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null, court?: number | null): TabTotals {
+  // No tab is nothing to pay, court or not: the fee belongs to a tab that has loaded.
+  if (!tab) return { subtotal: 0, discount: 0, tax: 0, court: 0, total: 0, paid: 0, due: 0 };
+  const courtFee = court != null && Number.isFinite(court) && court > 0 ? court : 0;
 
   const lines = liveLines(tab.orders);
   const subtotal = lines.reduce((s, l) => s + l.line_total_iqd, 0);
@@ -102,10 +119,11 @@ export function computeTabTotals(tab: TotalsInput | null, tax: TaxContext | null
     taxTotal += Math.round((groupSubtotal * rate) / 10000);
   }
 
-  const total = Math.max(subtotal - discount + (tax?.taxInclusive ? 0 : taxTotal), 0);
+  // Goods floored at zero first, then the court fee on top — 0106's order.
+  const total = Math.max(subtotal - discount + (tax?.taxInclusive ? 0 : taxTotal), 0) + courtFee;
   const paid = (tab.payments ?? []).reduce((s, p) => s + p.amount_iqd, 0);
 
-  return { subtotal, discount, tax: taxTotal, total, paid, due: Math.max(total - paid, 0) };
+  return { subtotal, discount, tax: taxTotal, court: courtFee, total, paid, due: Math.max(total - paid, 0) };
 }
 
 /**
