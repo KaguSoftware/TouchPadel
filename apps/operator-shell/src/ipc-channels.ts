@@ -29,6 +29,8 @@ export const IPC = {
   lanStatus: 'touch:lan-status',
   /** Invoke: quit to desktop — the only way a production window closes. No PIN. */
   quitApp: 'touch:quit-app',
+  /** Invoke: drop kiosk/fullscreen so the station can be used as a normal window. */
+  exitFullscreen: 'touch:exit-fullscreen',
   /** Invoke (first run only): write station.json, then relaunch. Refused once configured. */
   saveStation: 'touch:save-station',
   /** Invoke (till, manager PIN): LAN host + port + the pairing code a kitchen screen types. */

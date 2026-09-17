@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, screen, shell } from 'electron';
 import { IPC, type PrintResult } from '../ipc-channels';
 import {
   enqueue,
@@ -398,6 +398,56 @@ if (gotTheLock) {
         return { ok: true as const };
       }),
     );
+    // "Exit forced full screen" — the escape hatch for a station that needs to
+    // be driven like a normal machine for a moment (a support session, reading
+    // a PDF beside the till, reaching the Dock or the taskbar). Kiosk mode
+    // swallows the OS chrome on both platforms — macOS hides the traffic
+    // lights and the menu bar, Windows hides the taskbar — and neither one is
+    // recoverable from inside the page, so it has to be done here.
+    //
+    // It does NOT end service: the renderer keeps running, the queue keeps
+    // replaying, and the window stays on screen. What it gives back is the
+    // titlebar and the ability to close/minimise, which is why it also lifts
+    // the `closable: false` that createWindow set — a window with an X that
+    // refuses to close would be worse than one with no X at all.
+    ipcMain.handle(IPC.exitFullscreen, (e) =>
+      guardIpc('exitFullscreen', () => {
+        const win = BrowserWindow.fromWebContents(e.sender);
+        if (!win || win.isDestroyed()) return { ok: false as const, error: 'no-window' };
+        // Order matters: kiosk off first, because on macOS leaving kiosk is
+        // itself a fullscreen transition and setFullScreen(false) before it
+        // gets undone. setSimpleFullScreen covers the macOS-only variant.
+        if (win.isKiosk()) win.setKiosk(false);
+        if (win.isFullScreen()) win.setFullScreen(false);
+        if (process.platform === 'darwin' && win.isSimpleFullScreen()) {
+          win.setSimpleFullScreen(false);
+        }
+        win.setClosable(true);
+        win.setMenuBarVisibility(true);
+        win.setAutoHideMenuBar(false);
+        win.setAlwaysOnTop(false);
+        // Production windows are built frameless (`frame: relaxed`), and
+        // Electron cannot grow a titlebar after creation — so dropping kiosk
+        // alone would leave an undecorated sheet still covering the screen,
+        // which reads as "nothing happened". Shrink it to a windowed size and
+        // centre it: that, not the titlebar, is what tells the operator they
+        // are out, and the desktop behind it becomes reachable either way.
+        if (win.isMaximized()) win.unmaximize();
+        const { width, height } = screen.getDisplayMatching(win.getBounds()).workAreaSize;
+        win.setBounds(
+          {
+            width: Math.round(width * 0.9),
+            height: Math.round(height * 0.9),
+            x: Math.round(width * 0.05),
+            y: Math.round(height * 0.05),
+          },
+          true,
+        );
+        win.setMovable(true);
+        return { ok: true as const };
+      }),
+    );
+
     ipcMain.on(IPC.getStation, (e) => {
       e.returnValue = {
         stationId: station.stationId,

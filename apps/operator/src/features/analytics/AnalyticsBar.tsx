@@ -57,7 +57,7 @@ const bar: CSSProperties = {
   // sticky offset is measured from the scrollport's CONTENT edge, so 0 would
   // park the stuck bar a full --tp-sp-4 below the top of the pane.
   insetBlockStart: 'calc(-1 * var(--tp-sp-4))',
-  zIndex: 'var(--tp-z-table-head)',
+  zIndex: 'var(--tp-z-section-bar)',
   background: 'var(--tp-bg)',
   borderBlockEnd: '1px solid var(--tp-border)',
   marginInline: 'calc(-1 * var(--tp-sp-4))',
@@ -147,7 +147,7 @@ export function AnalyticsBar({
   const nonDefault = (deck ? Number(deck.startHour !== 4) : 0) + (deck?.cafe ? Number(deck.cafe.excludedIds.length > 0) : 0);
 
   return (
-    <div style={bar}>
+    <div id="analytics-bar" style={bar}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--tp-sp-3)', flexWrap: 'wrap' }}>
         <AnalyticsTabs value={tab} />
         {zones.length > 0 && <ZoneNav zones={zones} />}
