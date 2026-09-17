@@ -32,35 +32,103 @@ export const CAFE_ZONES: readonly ZoneDef[] = [
   { id: 'time', titleKey: 'analytics.zones.time', descKey: 'analytics.zones.timeDesc', navKey: 'analytics.zones.timeNav' },
 ];
 
-/** Id of the zone currently nearest the top of the viewport. */
+/**
+ * Height of the stuck AnalyticsBar, which is what a zone has to clear to count
+ * as "at the top". The bar wraps at narrow widths and grows when the custom
+ * date inputs open, so it is measured rather than guessed: the scroll target
+ * (scrollMarginBlockStart) and the spy's top boundary have to agree, or a click
+ * parks a section just under a boundary it never crosses and the previous chip
+ * stays lit.
+ */
+const BAR_FALLBACK = 104;
+
+/** Breathing room between the bar's bottom border and the zone heading. */
+const LANDING_GAP = 12;
+
+function barOffset(): number {
+  const bar = document.getElementById('analytics-bar');
+  return bar ? bar.getBoundingClientRect().height : BAR_FALLBACK;
+}
+
+function useBarOffset(): number {
+  const [offset, setOffset] = useState(BAR_FALLBACK);
+  useEffect(() => {
+    const bar = document.getElementById('analytics-bar');
+    if (!bar || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setOffset(bar.getBoundingClientRect().height));
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
+  return offset;
+}
+
+/**
+ * Zone a click asked for. The smooth scroll that follows takes ~500ms and the
+ * short trailing zones can never reach the top line at all (the scroller
+ * bottoms out first), so position alone would leave the previous chip lit.
+ * The click wins until the next scroll gesture, which hands control back.
+ */
+let clicked: { id: string } | null = null;
+const spies = new Set<(id: string) => void>();
+
+/**
+ * Id of the active zone: whichever one you last clicked, else the zone you have
+ * scrolled to.
+ *
+ * Picking the first *intersecting* section does not work: a tall zone's tail
+ * still overlaps the boundary band while the next zone's heading sits at the
+ * top, so the previous chip stays lit. Position is instead read as the LAST
+ * zone whose top has crossed the line under the bar, with the bottom of the
+ * scroller selecting the final zone outright.
+ */
 export function useZoneSpy(ids: readonly string[]): string {
   const [active, setActive] = useState(ids[0] ?? '');
   const key = ids.join(',');
   const offset = useBarOffset();
   useEffect(() => {
-    const nodes = key
-      .split(',')
-      .map((id) => document.getElementById(`zone-${id}`))
-      .filter((n): n is HTMLElement => n !== null);
-    if (nodes.length === 0 || typeof IntersectionObserver === 'undefined') return;
-    const visible = new Set<string>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = entry.target.id.replace('zone-', '');
-          if (entry.isIntersecting) visible.add(id);
-          else visible.delete(id);
-        }
-        const order = key.split(',');
-        const first = order.find((id) => visible.has(id));
-        if (first) setActive(first);
-      },
-      // The sticky bar (tabs, jump pills, filters) is about 12rem tall: a section under it is not in view yet.
-      { rootMargin: '-210px 0px -50% 0px', threshold: 0 },
-    );
-    for (const node of nodes) observer.observe(node);
-    return () => observer.disconnect();
-  }, [key]);
+    const order = key.split(',');
+    const scroller = document.getElementById('tp-main');
+    if (!scroller) return;
+    const line = offset + LANDING_GAP + 2;
+
+    const fromPosition = () => {
+      // Scrolled to the end: the last zone is as reached as it will ever be.
+      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) {
+        return order[order.length - 1] ?? '';
+      }
+      let current = order[0] ?? '';
+      for (const id of order) {
+        const node = document.getElementById(`zone-${id}`);
+        if (!node) continue;
+        if (node.getBoundingClientRect().top <= line) current = id;
+        else break;
+      }
+      return current;
+    };
+
+    const read = () => setActive(clicked ? clicked.id : fromPosition());
+    // A real scroll gesture means the person is browsing again, not jumping.
+    const release = () => {
+      clicked = null;
+      read();
+    };
+
+    read();
+    spies.add(setActive);
+    scroller.addEventListener('scroll', read, { passive: true });
+    scroller.addEventListener('wheel', release, { passive: true });
+    scroller.addEventListener('touchmove', release, { passive: true });
+    window.addEventListener('keydown', release);
+    window.addEventListener('resize', read);
+    return () => {
+      spies.delete(setActive);
+      scroller.removeEventListener('scroll', read);
+      scroller.removeEventListener('wheel', release);
+      scroller.removeEventListener('touchmove', release);
+      window.removeEventListener('keydown', release);
+      window.removeEventListener('resize', read);
+    };
+  }, [key, offset]);
   return active;
 }
 
