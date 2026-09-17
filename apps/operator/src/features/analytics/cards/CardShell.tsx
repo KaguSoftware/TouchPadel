@@ -23,7 +23,13 @@ import { Button, ErrorText, Skeleton, card } from '../../../components/ui';
 import { InfoTip } from '../../../components/InfoTip';
 import { useLocale } from '../../../lib/i18n';
 
-export type CardState = 'loading' | 'ready' | 'empty' | 'unconfigured' | 'error';
+/**
+ * `unconfigured` and `unavailable` are the guest-menu (PostHog) states: not
+ * set up, or set up and not answering. Both print one short muted line; the
+ * page's notice carries the full sentence (and the retry) ONCE, instead of a
+ * red "Something went wrong" in every card that reads guest-menu data.
+ */
+export type CardState = 'loading' | 'ready' | 'empty' | 'unconfigured' | 'unavailable' | 'error';
 
 const head: CSSProperties = {
   display: 'flex',
@@ -82,7 +88,8 @@ export function CardShell({
       {note && <div style={{ ...muted, marginBlockEnd: 'var(--tp-sp-2)' }}>{note}</div>}
       {state === 'loading' && <Skeleton lines={skeletonLines} />}
       {state === 'empty' && <p style={muted}>{tr(emptyKey)}</p>}
-      {state === 'unconfigured' && <p style={muted}>{tr('analytics.notices.noPosthog')}</p>}
+      {state === 'unconfigured' && <p style={muted}>{tr('ws.analytics.cafe.engagementOff')}</p>}
+      {state === 'unavailable' && <p style={muted}>{tr('ws.analytics.cafe.engagementDown')}</p>}
       {state === 'error' && (
         <div>
           {/* A card may know its error or only that one happened — never render an

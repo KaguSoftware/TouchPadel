@@ -302,6 +302,12 @@ export const tabSettlePayloadSchema = z
     method: z.enum(['cash', 'card']),
     amountIqd: intIqd.optional(),
     tenderedIqd: intIqd.optional(),
+    /**
+     * The bill total the clerk was shown (0106). When present, settle_tab
+     * refuses with TOTAL_CHANGED if the server's total differs, so a card
+     * amount keyed into the terminal can never silently disagree with the bill.
+     */
+    expectedTotalIqd: intIqd.optional(),
   })
   .strict()
   .superRefine((p, ctx) => {

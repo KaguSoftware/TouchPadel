@@ -22,6 +22,13 @@
  * The right column is the day's record: discounts, voids, refunds and waste,
  * each opening those entries in the audit log, then every PIN-authorised
  * adjustment in words ("10% off · whole bill") instead of `discount_percent`.
+ *
+ * Since the court desk takes payment (0106): the cash and card steps say how
+ * much of the day's takings the desk recorded (already inside those figures —
+ * the desk keeps its own cash box), an open tab that belongs to a booking also
+ * opens that booking, and bookings that were played but never paid are listed
+ * above the record as a WARNING. They never hold the close: nothing about them
+ * reaches deriveDayCloseState or closeBlock.
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -33,7 +40,7 @@ import { deviceId } from '../../lib/idem';
 import { QK, fetchOpenDay } from '../../lib/queries';
 import { sendHeartbeat } from '../../lib/heartbeat';
 import { errorCodeToMessageKey } from '../../lib/errors';
-import { useLocale } from '../../lib/i18n';
+import { pickName, useLocale } from '../../lib/i18n';
 import { usePermissions, requiredRoleFor } from '../../lib/auth';
 import { touch, type QueueRowInfo } from '../../ipc/bridge';
 import { AmountPad, Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
@@ -62,18 +69,22 @@ import {
   knownReason,
   queueErrorCode,
   queueWriteKey,
+  unpaidPlayedRows,
   varianceMagnitude,
   varianceSign,
   type CloseResult,
   type DayAdjustmentRow,
   type DayCloseState,
   type DaySummaryRow,
+  type UnpaidPlayedBooking,
 } from './dayCloseLogic';
 
 interface OpenTabRow {
   id: string;
   status: string;
   label: string | null;
+  /** Set when the tab is a booking's bill — the court desk can take it from the booking. */
+  reservation_id: string | null;
   table: { table_number: string } | null;
   reservation: { guest_name: string | null } | null;
 }
@@ -89,7 +100,8 @@ type Locale = ReturnType<typeof useLocale>['locale'];
 const SUMMARY_COLUMNS =
   'day_session_id, business_date, status, opening_float_iqd, cash_payments_iqd, card_payments_iqd, ' +
   'cash_expected_iqd, cash_counted_iqd, cash_variance_iqd, card_expected_iqd, card_terminal_batch_iqd, ' +
-  'discounts_iqd, adjustment_count, authorizer_names, voided_lines_iqd, voided_line_count, refunds_iqd, refund_count, waste_cost_iqd';
+  'discounts_iqd, adjustment_count, authorizer_names, voided_lines_iqd, voided_line_count, refunds_iqd, refund_count, waste_cost_iqd, ' +
+  'desk_cash_iqd, desk_card_iqd';
 
 const STATE_TONE: Partial<Record<DayCloseState, 'success' | 'danger' | 'warn' | 'neutral'>> = {
   ready: 'success',
@@ -126,7 +138,7 @@ export function DayClose() {
     queryFn: async () => {
       const { data, error: err } = await supabase
         .from('tabs')
-        .select('id, status, label, table:cafe_tables(table_number), reservation:reservations(guest_name)')
+        .select('id, status, label, reservation_id, table:cafe_tables(table_number), reservation:reservations(guest_name)')
         .eq('day_session_id', day?.id ?? '')
         .in('status', ['open', 'awaiting_payment']);
       if (err) throw err;
@@ -134,6 +146,14 @@ export function DayClose() {
     },
     enabled: Boolean(day),
     refetchInterval: 30_000,
+  });
+
+  // Played, not paid (0106): a warning list for the open day. Never a block.
+  const unpaidQ = useQuery({
+    queryKey: ['unpaidPlayedBookings', day?.id],
+    enabled: Boolean(day),
+    refetchInterval: 60_000,
+    queryFn: async () => unpaidPlayedRows(await appRpc<unknown>('unpaid_played_bookings', { p_day_session_id: day?.id ?? null })),
   });
 
   // Day summary (v_day_close_summary, 0020): cash / card payments so far while
@@ -240,6 +260,7 @@ export function DayClose() {
     void queryClient.invalidateQueries({ queryKey: ['dayOpenTabs'] });
     void queryClient.invalidateQueries({ queryKey: ['dayCloseSummary'] });
     void queryClient.invalidateQueries({ queryKey: ['dayCloseAdjustments'] });
+    void queryClient.invalidateQueries({ queryKey: ['unpaidPlayedBookings'] });
     void queryClient.invalidateQueries({ queryKey: ['dayLastClose'] });
     void queryClient.invalidateQueries({ queryKey: ['tabs'] });
   }
@@ -333,6 +354,8 @@ export function DayClose() {
         openingFloat: tr('ws.manager.dayClose.openingFloat'),
         cashPayments: tr('ws.manager.dayClose.cashPayments'),
         cardPayments: tr('ws.manager.dayClose.cardPayments'),
+        deskCash: tr('ws.manager.dayClose.deskCash'),
+        deskCard: tr('ws.manager.dayClose.deskCard'),
       },
       closeResult,
       summary,
@@ -454,6 +477,17 @@ export function DayClose() {
                           <Button size="sm" kind="soft" icon="receipt" iconEnd="arrowUpRight" onClick={() => void navigate({ href: tillTabHref(t.id) })}>
                             {tr('ws.manager.dayClose.openTab')}
                           </Button>
+                          {t.reservation_id && (
+                            <Button
+                              size="sm"
+                              kind="soft"
+                              icon="calendar"
+                              iconEnd="arrowUpRight"
+                              onClick={() => void navigate({ to: '/desk/bookings/$id', params: { id: t.reservation_id as string } })}
+                            >
+                              {tr('ws.manager.dayClose.openBooking')}
+                            </Button>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -504,6 +538,9 @@ export function DayClose() {
                   <RowList chevrons={false}>
                     <FigureRow label={tr('ws.manager.dayClose.openingFloat')} value={<Money amount={day?.opening_float_iqd ?? summary?.opening_float_iqd} />} />
                     <FigureRow label={tr('ws.manager.dayClose.cashPayments')} value={<Money amount={summary?.cash_payments_iqd} />} />
+                    {summary?.desk_cash_iqd != null && (
+                      <FigureRow label={tr('ws.manager.dayClose.deskCash')} hint={tr('ws.manager.dayClose.deskCashHint')} value={<Money amount={summary.desk_cash_iqd} />} />
+                    )}
                   </RowList>
                   <div style={{ display: 'flex', gap: 'var(--tp-sp-4)', flexWrap: 'wrap', alignItems: 'start' }}>
                     <Field label={tr('ws.manager.dayClose.countedCash')} hint={tr('ws.manager.dayClose.countedHint')} style={{ flex: '1 1 13rem', minInlineSize: 0, marginBlockEnd: 0 }}>
@@ -524,6 +561,9 @@ export function DayClose() {
                 <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
                   <RowList chevrons={false}>
                     <FigureRow label={tr('ws.manager.dayClose.cardPayments')} value={<Money amount={summary?.card_payments_iqd} />} />
+                    {summary?.desk_card_iqd != null && (
+                      <FigureRow label={tr('ws.manager.dayClose.deskCard')} hint={tr('ws.manager.dayClose.deskCardHint')} value={<Money amount={summary.desk_card_iqd} />} />
+                    )}
                   </RowList>
                   <Field label={tr('ws.manager.dayClose.cardBatch')} hint={tr('ws.manager.dayClose.cardBatchHint')} style={{ marginBlockEnd: 0 }}>
                     <MoneyInput value={cardBatch} onChange={setCardBatch} allowEmpty disabled={busy} />
@@ -561,6 +601,14 @@ export function DayClose() {
 
         {/* ------------------------------------------------ the day's record */}
         <div style={{ display: 'grid', gap: 'var(--tp-sp-4)', minInlineSize: 0 }}>
+          {!closeResult && (
+            <UnpaidPlayed
+              rows={unpaidQ.data ?? []}
+              error={unpaidQ.error}
+              onRetry={() => void unpaidQ.refetch()}
+              onOpenBooking={(id) => void navigate({ to: '/desk/bookings/$id', params: { id } })}
+            />
+          )}
           <DaySummary summary={summary} error={summaryQ.error} joinNames={joinNames} />
           <Panel title={<CardTitle icon="shield">{tr('ws.manager.dayClose.adjustmentsTitle')}</CardTitle>} padded={false}>
             <ErrorText error={adjustmentsQ.error} style={{ marginInline: 'var(--tp-sp-3)' }} />
@@ -658,6 +706,84 @@ function QueueRow({ row, canDismiss, onDismiss }: { row: QueueRowInfo; canDismis
         </Button>
       )}
     </li>
+  );
+}
+
+/**
+ * Bookings played on this business day whose court fee was never taken. A
+ * warning in the warn tone, not a block: the close stays open (decided
+ * 2026-09-17 — refusing it would hold the whole venue's day for one guest who
+ * left). Nothing to list, nothing rendered.
+ */
+function UnpaidPlayed({
+  rows,
+  error,
+  onRetry,
+  onOpenBooking,
+}: {
+  rows: readonly UnpaidPlayedBooking[];
+  error: unknown;
+  onRetry: () => void;
+  onOpenBooking: (reservationId: string) => void;
+}) {
+  const { tr, locale } = useLocale();
+  if (rows.length === 0 && error == null) return null;
+  return (
+    <Panel
+      title={<CardTitle icon="court">{tr('ws.manager.dayClose.unpaid.title')}</CardTitle>}
+      actions={rows.length > 0 ? <StatusBadge tone="warn" label={tr('ws.manager.dayClose.unpaid.badge', { count: formatNumber(rows.length, locale) })} /> : undefined}
+    >
+      {rows.length === 0 ? (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', justifyItems: 'start' }}>
+          <ErrorText error={error} style={{ marginBlock: 0 }} />
+          <Button size="sm" icon="refresh" onClick={onRetry}>
+            {tr('ws.kit.async.retry')}
+          </Button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.dayClose.unpaid.lead')}</p>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            {rows.map((r) => {
+              const court =
+                r.court_name_en && r.court_name_ar ? pickName(locale, { name_en: r.court_name_en, name_ar: r.court_name_ar }) : (r.court_name_en ?? r.court_name_ar ?? '');
+              return (
+                <li
+                  key={r.reservation_id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--tp-sp-2)',
+                    flexWrap: 'wrap',
+                    paddingBlock: 'var(--tp-sp-1)',
+                    paddingInline: 'var(--tp-sp-2)',
+                    borderRadius: 'var(--tp-radius-ctl)',
+                    background: 'var(--tp-surface-2)',
+                    fontSize: 'var(--tp-fs-sm)',
+                  }}
+                >
+                  <span style={{ display: 'grid', flex: '1 1 12rem', minInlineSize: 0 }}>
+                    <bdi style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{r.guest_name ?? tr('ws.manager.dayClose.unpaid.noName')}</bdi>
+                    <bdi style={{ color: 'var(--tp-muted-fg)' }}>
+                      {formatTime(new Date(r.start_at), locale)}
+                      {court ? ` · ${court}` : ''}
+                    </bdi>
+                  </span>
+                  <span style={{ display: 'grid', justifyItems: 'end' }}>
+                    <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.manager.dayClose.unpaid.owed')}</span>
+                    <Money amount={r.remaining_iqd} strong style={{ color: MARK_FG.warn }} />
+                  </span>
+                  <Button size="sm" kind="soft" icon="calendar" iconEnd="arrowUpRight" onClick={() => onOpenBooking(r.reservation_id)}>
+                    {tr('ws.manager.dayClose.openBooking')}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+          <ErrorText error={error} style={{ marginBlock: 0 }} />
+        </div>
+      )}
+    </Panel>
   );
 }
 

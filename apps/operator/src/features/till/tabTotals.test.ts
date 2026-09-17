@@ -54,10 +54,19 @@ describe('computeTabTotals', () => {
       subtotal: 0,
       discount: 0,
       tax: 0,
+      court: 0,
       total: 0,
       paid: 0,
       due: 0,
     });
+  });
+
+  it('reports no court fee when none is passed — a plain table tab is unchanged', () => {
+    const t = computeTabTotals(tab(), TEN_PCT);
+    expect(t.court).toBe(0);
+    expect(t.total).toBe(11_000);
+    expect(computeTabTotals(tab(), TEN_PCT, null)).toEqual(t);
+    expect(computeTabTotals(tab(), TEN_PCT, 0)).toEqual(t);
   });
 
   it('sums the live lines', () => {
@@ -177,6 +186,59 @@ describe('computeTabTotals', () => {
     const t = computeTabTotals(tab(), null);
     expect(t.tax).toBe(0);
     expect(t.total).toBe(10_000);
+  });
+});
+
+describe('computeTabTotals — the court fee is a server figure', () => {
+  // D4: the till's due and printed bill used to leave the court out, so the
+  // "one payment" bill read short by the court while the server charged it.
+
+  it('adds the court fee it is given to the total and the amount due', () => {
+    const t = computeTabTotals(tab(), TEN_PCT, 30_000);
+    expect(t.court).toBe(30_000);
+    expect(t.subtotal).toBe(10_000);
+    expect(t.total).toBe(41_000);
+    expect(t.due).toBe(41_000);
+  });
+
+  it('charges a court-only booking tab with nothing ordered', () => {
+    const t = computeTabTotals(tab({ orders: [] }), NO_TAX, 30_000);
+    expect(t).toMatchObject({ subtotal: 0, court: 30_000, total: 30_000, due: 30_000 });
+  });
+
+  it('never lets a discount eat into the court fee — goods are floored first', () => {
+    // 0106: greatest(subtotal - discount + tax, 0) + court.
+    const t = computeTabTotals(
+      tab({ tab_adjustments: [{ kind: 'discount_amount', amount_iqd: 10_000 }] }),
+      NO_TAX,
+      30_000,
+    );
+    expect(t.discount).toBe(10_000);
+    expect(t.total).toBe(30_000);
+  });
+
+  it('keeps tax off the court fee', () => {
+    const t = computeTabTotals(tab(), TEN_PCT, 30_000);
+    expect(t.tax).toBe(1000);
+  });
+
+  it('counts payments against goods and court together', () => {
+    const t = computeTabTotals(tab({ payments: [{ amount_iqd: 35_000 }] }), NO_TAX, 30_000);
+    expect(t.paid).toBe(35_000);
+    expect(t.due).toBe(5000);
+  });
+
+  it('a court already paid on another tab arrives as 0 and charges nothing', () => {
+    expect(computeTabTotals(tab(), NO_TAX, 0)).toMatchObject({ court: 0, total: 10_000 });
+  });
+
+  it('ignores a nonsense court figure rather than charging it', () => {
+    expect(computeTabTotals(tab(), NO_TAX, -5000).court).toBe(0);
+    expect(computeTabTotals(tab(), NO_TAX, Number.NaN).total).toBe(10_000);
+  });
+
+  it('is all zeroes for no tab, even with a court figure', () => {
+    expect(computeTabTotals(null, NO_TAX, 30_000)).toMatchObject({ court: 0, total: 0, due: 0 });
   });
 });
 

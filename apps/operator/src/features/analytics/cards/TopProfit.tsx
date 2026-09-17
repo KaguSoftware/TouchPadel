@@ -23,7 +23,7 @@ export function TopProfit({ derived, state, f }: { derived: Derived | null; stat
           <li key={i.id} style={{ fontSize: 'var(--tp-fs-sm)' }}>
             <span>{pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.id}</span>
             <span style={{ ...muted, marginInlineStart: '0.4rem' }}>
-              {f.money(i.profitIqd)} · {f.pct(i.marginPct)} · {f.num(i.qty)}
+              {tr('analytics.cards.topProfitLine', { money: f.money(i.profitIqd), margin: f.pct(i.marginPct), qty: f.num(i.qty) })}
             </span>
           </li>
         ))}

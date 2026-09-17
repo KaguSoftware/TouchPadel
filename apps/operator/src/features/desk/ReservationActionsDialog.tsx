@@ -2,6 +2,7 @@
  * Quick actions from the calendar: arrived / completed / no-show, shorten,
  * extend, move, cancel. The full screen with every action and the customer
  * lives at /desk/bookings/$id ("Open booking"); this dialog stays for speed.
+ * Payment is taken on that screen (0106), so "Take payment" goes there.
  *
  * Two groups, because they are two different kinds of act:
  *
@@ -27,6 +28,7 @@ import { mutate } from '../../lib/mutate';
 import type { CourtRow } from '../../lib/queries';
 import { useToast } from '../../components/toast';
 import { useLocale, pickName } from '../../lib/i18n';
+import { permissionsFor, useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { ReservationBadge } from './deskStatus';
 import { allowedMarks, isLive } from './deskLogic';
@@ -58,6 +60,8 @@ export function ReservationActionsDialog({
   const { tr, locale } = useLocale();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { staff } = useAuth();
+  const canPay = permissionsFor(staff?.role).takeCourtPayment && r.kind === 'booking' && ['confirmed', 'arrived', 'completed'].includes(r.status);
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -132,6 +136,18 @@ export function ReservationActionsDialog({
           <Button onClick={onClose} disabled={busy}>
             {tr('common.close')}
           </Button>
+          {canPay && (
+            <Button
+              icon="banknote"
+              disabled={busy}
+              onClick={() => {
+                onClose();
+                void navigate({ to: '/desk/bookings/$id', params: { id: r.id } });
+              }}
+            >
+              {tr('ws.courtDesk.board.takePayment')}
+            </Button>
+          )}
           <Button
             kind="soft"
             iconEnd="chevronEnd"

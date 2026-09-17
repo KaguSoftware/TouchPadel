@@ -47,6 +47,14 @@ export interface DaySummaryRow {
   refunds_iqd: number;
   refund_count: number;
   waste_cost_iqd: number;
+  /**
+   * 0106: payments recorded by court-desk staff. ALREADY inside
+   * cash_payments_iqd / card_payments_iqd and the expected cash — shown so the
+   * manager knows how much of the cash sits in the desk's own box. Optional
+   * because a row cached before the columns existed does not carry them.
+   */
+  desk_cash_iqd?: number | null;
+  desk_card_iqd?: number | null;
 }
 
 /** v_day_close_adjustments (0020) — one row per PIN-authorised adjustment. */
@@ -122,6 +130,8 @@ export interface CsvLabels {
   openingFloat: string;
   cashPayments: string;
   cardPayments: string;
+  deskCash: string;
+  deskCard: string;
 }
 
 /**
@@ -143,7 +153,10 @@ export function dayCloseCsv(
   if (summary) {
     rows.push([labels.openingFloat, summary.opening_float_iqd, null, null]);
     rows.push([labels.cashPayments, summary.cash_payments_iqd, null, null]);
+    // Parts of the two lines above, not additions to them.
+    if (summary.desk_cash_iqd != null) rows.push([labels.deskCash, summary.desk_cash_iqd, null, null]);
     rows.push([labels.cardPayments, summary.card_payments_iqd, null, null]);
+    if (summary.desk_card_iqd != null) rows.push([labels.deskCard, summary.desk_card_iqd, null, null]);
   }
   if (close) {
     rows.push([labels.cashExpected, close.cash_expected_iqd, null, null]);
@@ -244,6 +257,35 @@ export function queueWriteKey(mutationType: string): QueueWriteKey {
 export function queueErrorCode(lastError: string | null): string | null {
   const m = lastError?.match(/^[A-Z][A-Z0-9_]+/);
   return m ? m[0] : null;
+}
+
+/** One row of app.unpaid_played_bookings (0106): played on this business day, court fee still owed. */
+export interface UnpaidPlayedBooking {
+  reservation_id: string;
+  guest_name: string | null;
+  status: string;
+  start_at: string;
+  end_at: string;
+  court_name_en: string | null;
+  court_name_ar: string | null;
+  price_iqd: number | null;
+  /** What is still owed on the court — the server's figure, shown as is. */
+  remaining_iqd: number;
+  live_tab_id: string | null;
+}
+
+/**
+ * The RPC's payload as rows. A WARNING list, never a close block: it feeds a
+ * soft section and nothing in deriveDayCloseState / closeBlock reads it. A
+ * payload that is not an array (or a row with no id) is read as nothing to
+ * warn about rather than breaking the close screen.
+ */
+export function unpaidPlayedRows(payload: unknown): UnpaidPlayedBooking[] {
+  if (!Array.isArray(payload)) return [];
+  return payload.filter(
+    (r): r is UnpaidPlayedBooking =>
+      r != null && typeof r === 'object' && typeof (r as { reservation_id?: unknown }).reservation_id === 'string',
+  );
 }
 
 export type CloseBlock = 'openTabs' | 'unsynced' | 'noCount' | null;

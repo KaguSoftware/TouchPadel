@@ -18,13 +18,14 @@ import { touch, type MutationResult, type Unsub } from '../ipc/bridge';
 export const RESULT_INVALIDATIONS: Record<string, readonly (readonly string[])[]> = {
   'order.create': [['tab'], ['tabs']],
   'order.add_items': [['tab'], ['tabs']],
-  'tab.open': [['tabs']],
-  'tab.settle': [['tab'], ['tabs'], ['day']],
-  'payment.record': [['tab'], ['tabs'], ['day']],
+  'tab.open': [['tabs'], ['bookingBill'], ['bookingBillStates']],
+  'tab.settle': [['tab'], ['tabs'], ['day'], ['bookingBill'], ['bookingBillStates']],
+  'payment.record': [['tab'], ['tabs'], ['day'], ['bookingBill'], ['bookingBillStates']],
   'ticket.status': [['tickets']],
   'adjustment.apply': [['tab'], ['tabs']],
   'reservation.create': [['reservations'], ['reservationsMonth']],
-  'reservation.update': [['reservations'], ['reservationsMonth']],
+  // A move or extend re-prices the booking, so its bill moves with it (0106).
+  'reservation.update': [['reservations'], ['reservationsMonth'], ['bookingBill'], ['bookingBillStates']],
   'waiter_call.action': [['waiterCalls']],
   'stock.waste': [['stock']],
 };

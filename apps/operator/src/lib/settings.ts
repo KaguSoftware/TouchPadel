@@ -34,6 +34,8 @@ export interface CafeSettings {
   analytics_engagement_floor: string | null;
   /** 0064: seconds of till inactivity before the lock overlay (0 = disabled). */
   till_idle_lock_seconds: number;
+  /** 0105: minutes of break per person per business day, across all their breaks (0 = no breaks). */
+  break_allowance_minutes: number;
 }
 export type CafeSettingKey = keyof CafeSettings;
 
@@ -59,6 +61,7 @@ export const CAFE_SETTING_DEFAULTS: Readonly<CafeSettings> = {
   analytics_excluded_item_ids: [],
   analytics_engagement_floor: null,
   till_idle_lock_seconds: 300,
+  break_allowance_minutes: 60,
 };
 
 export const CAFE_SETTING_KEYS = Object.keys(CAFE_SETTING_DEFAULTS) as readonly CafeSettingKey[];

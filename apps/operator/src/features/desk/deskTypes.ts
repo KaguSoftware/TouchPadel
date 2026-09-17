@@ -27,12 +27,6 @@ export interface ReservationRow {
 export const RESERVATION_COLUMNS =
   'id, court_id, kind, status, start_at, end_at, guest_id, guest_name, guest_phone, price_iqd, hold_expires_at, notes';
 
-/** A tab row, as far as the desk needs it: does this booking's tab exist and is it settled? */
-export interface TabLinkRow {
-  reservation_id: string | null;
-  status: 'open' | 'awaiting_payment' | 'settled' | 'void' | string;
-}
-
 // ---------------------------------------------------------------------------
 // 0065 customers (build plan §4)
 // ---------------------------------------------------------------------------

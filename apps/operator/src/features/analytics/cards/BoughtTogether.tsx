@@ -28,9 +28,11 @@ export function BoughtTogether({ derived, state, f }: { derived: Derived | null;
             <span>
               {name(p.a)} + {name(p.b)}
             </span>
-            <span style={{ ...muted, marginInlineStart: '0.4rem' }}>
-              {tr('analytics.cards.withX', { pct: f.num(p.confidencePct) })}
-              {p.lift != null && ` · ×${f.num1(p.lift)}`} · {f.num(p.count)}
+            {/* Every number named: the old line read "with 67% of orders · ×92 · 2". */}
+            <span style={{ ...muted, display: 'block' }}>
+              {p.lift != null
+                ? tr('analytics.cards.pairLine', { pct: f.num(p.confidencePct), lift: f.num1(p.lift), n: f.num(p.count) })
+                : tr('analytics.cards.pairLineNoLift', { pct: f.num(p.confidencePct), n: f.num(p.count) })}
             </span>
           </li>
         ))}

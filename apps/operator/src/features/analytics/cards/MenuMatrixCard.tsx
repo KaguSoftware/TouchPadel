@@ -1,7 +1,12 @@
 /**
- * Menu-engineering 2×2 (stars / plowhorses / puzzles / dogs) with the cost
+ * Menu-engineering 2×2 with the cost
  * coverage stated up front: a quadrant computed from a third of the menu is a
  * hint, not a verdict, so the card says how much of revenue actually has a cost.
+ *
+ * The quadrants are named for what they are ("Popular, thin margin"), not the
+ * textbook's "Stars / Plowhorses / Puzzles / Dogs", which an owner would have
+ * to look up; and each item's two numbers say which is the profit and which
+ * the count.
  */
 import { Link } from '@tanstack/react-router';
 import { pickLocale, type MenuQuadrant } from '@touch/core';
@@ -85,7 +90,10 @@ export function MenuMatrixCard({ derived, state, f }: { derived: Derived | null;
                 <ul style={{ margin: 0, paddingInlineStart: '1rem', fontSize: 'var(--tp-fs-sm)' }}>
                   {items.slice(0, 4).map((i) => (
                     <li key={i.id} style={{ color: i.losingMoney ? 'var(--tp-danger)' : undefined }}>
-                      {pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.id} — {f.money(i.unitMarginIqd)} · {f.num(i.qty)}
+                      {pickLocale({ en: i.nameEn, ar: i.nameAr }, locale) || i.id}
+                      <span style={{ display: 'block', color: i.losingMoney ? undefined : 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-xs)' }}>
+                        {tr('analytics.matrix.itemLine', { margin: f.money(i.unitMarginIqd), qty: f.num(i.qty) })}
+                      </span>
                     </li>
                   ))}
                 </ul>

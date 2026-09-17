@@ -1,11 +1,16 @@
 /**
  * The sticky bar both analytics tabs share (operator-slice.md §5.1, reworked
- * 2026-09-13). Two lines: the Courts | Cafe strip with the zone jump-nav on
+ * 2026-09-13). Two lines: the Courts | Cafe strip with the section jump-nav on
  * its inline-end side, then ONE filter row: period (custom dates only when
  * "custom" is chosen), the comparison basis, the court filter on the Courts
- * tab, and a "More" disclosure for the once-a-month settings. Range, compare
- * and court live in the URL (`AnalyticsSearch`); the business-day hour and
- * the exclusions are cafe-wide settings.
+ * tab, and a "Settings" disclosure for the once-a-month settings. Range,
+ * compare and court live in the URL (`AnalyticsSearch`); the business-day hour
+ * and the exclusions are cafe-wide settings.
+ *
+ * The disclosure used to be called "More", which said nothing about what was
+ * behind it; it is named for what it holds, and counts the settings that are
+ * not at their default ("Settings (1 changed)") because each one changes
+ * every figure on the page.
  *
  * Explanations (what a comparison basis means, what the business day is) sit
  * behind info buttons; STATE (a failed setting write) stays visible on the row.
@@ -223,10 +228,10 @@ export function AnalyticsBar({
               onClick={() => setMoreOpen((v) => !v)}
               style={{ minBlockSize: 'var(--tp-row-h)', fontSize: 'var(--tp-fs-sm)', display: 'inline-flex', alignItems: 'center', gap: 'var(--tp-sp-1)' }}
             >
-              {nonDefault > 0 ? tr('ws.analytics.more.count', { n: nonDefault }) : tr('ws.analytics.more.title')}
+              {nonDefault > 0 ? tr('ws.analytics.settings.count', { n: nonDefault }) : tr('ws.analytics.settings.title')}
               <Icon name="chevronDown" size={14} />
             </button>
-            <MorePanel id={moreId} open={moreOpen} anchorRef={moreRef} onClose={closeMore} label={tr('ws.analytics.more.title')}>
+            <MorePanel id={moreId} open={moreOpen} anchorRef={moreRef} onClose={closeMore} label={tr('ws.analytics.settings.title')}>
               <Group label={tr('analytics.deck.businessDay')} tip={tr('analytics.notices.businessDayLine', { hour: String(deck.startHour).padStart(2, '0') })}>
                 <Select<string>
                   value={String(deck.startHour)}
@@ -239,12 +244,22 @@ export function AnalyticsBar({
               </Group>
               <ErrorText error={setSetting.error} />
               {deck.cafe && (
-                <Group>
-                  <Button onClick={() => { setMoreOpen(false); setExcludedOpen(true); }} style={{ minBlockSize: 'var(--tp-row-h)', fontSize: 'var(--tp-fs-sm)' }}>
-                    {tr('analytics.deck.excluded')}
-                    {deck.cafe.excludedIds.length > 0 ? ` (${deck.cafe.excludedIds.length})` : ''}
+                <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+                  <span style={groupLabel}>{tr('analytics.deck.excluded')}</span>
+                  <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.analytics.settings.excludedHint')}</span>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setExcludedOpen(true);
+                    }}
+                    style={{ justifySelf: 'start' }}
+                  >
+                    {deck.cafe.excludedIds.length > 0
+                      ? tr('ws.analytics.settings.excludedCount', { n: deck.cafe.excludedIds.length })
+                      : tr('ws.analytics.settings.excludedNone')}
                   </Button>
-                </Group>
+                </div>
               )}
             </MorePanel>
           </Group>

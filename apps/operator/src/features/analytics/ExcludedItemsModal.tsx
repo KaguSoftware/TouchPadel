@@ -46,7 +46,7 @@ export function ExcludedItemsModal({
   async function save() {
     try {
       await setSetting.mutateAsync({ key: 'analytics_excluded_item_ids', value: [...selected] });
-      toast.ok(tr('common.save'));
+      toast.ok(tr('ws.analytics.settings.excludedSaved'));
       onClose();
     } catch {
       /* error surfaces through <ErrorText/> below */
@@ -55,9 +55,11 @@ export function ExcludedItemsModal({
 
   return (
     <Modal title={tr('analytics.deck.excluded')} onClose={onClose} wide>
+      <p style={{ marginBlock: '0 var(--tp-sp-2)', fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)' }}>{tr('ws.analytics.settings.excludedHint')}</p>
       <input
         style={{ ...inputStyle, marginBlockEnd: '0.6rem' }}
         placeholder={tr('analytics.conversion.searchItems')}
+        aria-label={tr('analytics.conversion.searchItems')}
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
       />

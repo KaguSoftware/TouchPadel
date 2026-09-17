@@ -112,30 +112,32 @@ beforeEach(() => {
 });
 
 describe('CafeTab', () => {
-  it('shows skeletons on first load, then the five zones with the settle-day figures and the venue total', async () => {
+  it('shows skeletons on first load, then the five sections with the settle-day figures and the venue total', async () => {
     serveFixtures();
     renderTab();
     expect(skeletons()).toBeGreaterThan(0);
     await waitFor(() => expect(skeletons()).toBe(0), { timeout: 5000 });
 
-    for (const name of ['Pulse', 'Insights', 'Menu', 'Sales & engagement', 'Time']) {
-      expect(screen.getByRole('heading', { level: 2, name })).toBeTruthy();
-    }
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Summary', 'What stands out', 'Menu', 'Sales and the guest menu', 'Busy times']);
     expect(rpc.dailySales).toHaveBeenCalledTimes(2);
 
-    const pulse = screen.getByRole('region', { name: 'Pulse' });
+    const pulse = screen.getByRole('region', { name: 'Summary' });
+    // A lead figure is a tile; a supporting figure is a row in a named list.
     const tile = (label: string) => within(pulse).getByText(label).closest('div')!;
+    const row = (label: string) => within(pulse).getByText(label).closest('li')!;
     expect(within(tile('Cafe sales')).getByText('700,000 IQD', { selector: 'strong' })).toBeTruthy();
     // Venue revenue = cafe net 700,000 + the venue-wide court revenue 1,200,000.
-    expect(within(tile('Venue revenue')).getByText('1,900,000 IQD', { selector: 'strong' })).toBeTruthy();
+    expect(within(row('Venue revenue')).getByText('1,900,000 IQD', { selector: 'strong' })).toBeTruthy();
     // Case-insensitive: en-GB compact notation is '700K' in older ICU and '700k' in
     // the newer CLDR that CI's Node 22 ships. The figure is what is under test.
-    expect(within(tile('Venue revenue')).getByText(/^700K cafe · 1\.2M courts$/i)).toBeTruthy();
-    expect(within(tile('Cash / card')).getByText('630,000 / 350,000', { selector: 'strong' })).toBeTruthy();
-    expect(within(tile('Cash / card')).getByText('64% cash')).toBeTruthy();
-    expect(within(tile('Refunds')).getByText('70,000 IQD', { selector: 'strong' })).toBeTruthy();
-    // 0099: waste sits in the money row, the panel's figure summed by day.
-    expect(within(tile('Waste')).getByText('21,000 IQD', { selector: 'strong' })).toBeTruthy();
+    expect(within(row('Venue revenue')).getByText(/^700K cafe · 1\.2M courts$/i)).toBeTruthy();
+    // Cash and card are two rows with their units, not "630,000 / 350,000".
+    expect(within(row('Cash')).getByText('630,000 IQD', { selector: 'strong' })).toBeTruthy();
+    expect(within(row('Cash')).getByText('64% of cash and card')).toBeTruthy();
+    expect(within(row('Card')).getByText('350,000 IQD', { selector: 'strong' })).toBeTruthy();
+    expect(within(row('Refunds')).getByText('70,000 IQD', { selector: 'strong' })).toBeTruthy();
+    // 0099: waste sits with the money given away, the panel's figure summed by day.
+    expect(within(row('Waste')).getByText('21,000 IQD', { selector: 'strong' })).toBeTruthy();
     // The panel's cafe figures: before refunds (under the sales figure), orders, and their average.
     expect(within(tile('Cafe sales')).getByText('770,000 IQD before refunds')).toBeTruthy();
     expect(within(tile('Orders')).getByText('84', { selector: 'strong' })).toBeTruthy();
@@ -145,20 +147,32 @@ describe('CafeTab', () => {
     vi.mocked(appRpc).mockResolvedValue({ transactions: [{ id: 't1', at: '2026-09-01T10:00:00Z', kind: 'tab', label: 'Table 4', amountIqd: 12000 }] } as never);
     fireEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind Cafe sales' }));
     await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'cafeNet', p_key: null })));
-    expect(await screen.findByText('Cafe sales — transactions')).toBeTruthy();
+    // The shared transactions window: titled by figure and dates, columns in words.
+    expect(await screen.findByText(/^Cafe sales · /)).toBeTruthy();
     expect(await screen.findByText('Table 4')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Amount' })).toBeTruthy();
+    expect(screen.queryByText('amountIqd')).toBeNull();
     fireEvent.click(within(pulse).getByRole('button', { name: 'Open the transactions behind Card' }));
     await waitFor(() => expect(appRpc).toHaveBeenCalledWith('report_drill', expect.objectContaining({ p_figure: 'card' })));
-    expect(within(tile('QR share of orders')).getByText('33%', { selector: 'strong' })).toBeTruthy();
-    expect(within(tile('QR share of orders')).getByText('28 QR · 56 till')).toBeTruthy();
+    expect(within(row('QR share of orders')).getByText('33%', { selector: 'strong' })).toBeTruthy();
+    expect(within(row('QR share of orders')).getByText('28 QR · 56 till')).toBeTruthy();
     // The retired cards are gone.
     expect(screen.queryByText('Covers')).toBeNull();
     expect(screen.queryByText('Peak hours')).toBeNull();
     expect(screen.queryByText('Table activity')).toBeNull();
     expect(screen.queryByText('Language preference')).toBeNull();
-    // Without PostHog the engagement cards say so, and nothing errors.
-    expect(screen.getAllByText(/Guest analytics are not configured yet/).length).toBeGreaterThan(0);
+    // Without PostHog the page says so ONCE, the guest-menu rows are left out of the
+    // summary rather than printed as dashes, and nothing errors.
+    expect(screen.getAllByText(/Guest analytics are not configured yet/)).toHaveLength(1);
+    expect(within(pulse).queryByText('Menu views')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
+    // Each section opens with its answer; the refinements are folded and counted.
+    const sales = screen.getByRole('region', { name: 'Sales and the guest menu' });
+    expect(within(sales).getByText(/^Best seller: /)).toBeTruthy();
+    expect(within(sales).queryByText('Looked, not bought')).toBeNull();
+    fireEvent.click(within(sales).getByRole('button', { name: 'Show more (4)' }));
+    expect(within(sales).getByText('Looked, not bought')).toBeTruthy();
+    expect(within(sales).getAllByText('Needs guest menu data, which is not set up.').length).toBeGreaterThan(0);
   });
 
   it('keeps every other card standing when one RPC rejects', async () => {
@@ -167,17 +181,19 @@ describe('CafeTab', () => {
     renderTab();
     await waitFor(() => expect(skeletons()).toBe(0), { timeout: 5000 });
 
-    // The best-sellers card broke, and so did the two Insights cards, which
-    // read every number on purpose; nothing else did.
+    // The best-sellers card broke, and so did the two cards under What stands
+    // out, which read every number on purpose; nothing else did.
     expect(screen.getAllByRole('alert')).toHaveLength(3);
-    const pulse = screen.getByRole('region', { name: 'Pulse' });
+    const pulse = screen.getByRole('region', { name: 'Summary' });
     expect(within(pulse).getByText('700,000 IQD', { selector: 'strong' })).toBeTruthy();
     expect(within(pulse).queryByRole('alert')).toBeNull();
-    const sales = screen.getByRole('region', { name: 'Sales & engagement' });
+    const sales = screen.getByRole('region', { name: 'Sales and the guest menu' });
     expect(within(sales).getAllByRole('alert')).toHaveLength(1);
-    expect(within(screen.getByRole('region', { name: 'Insights' })).getAllByRole('alert')).toHaveLength(2);
+    // With best sellers missing, the section has no sentence to lead with rather than a half-true one.
+    expect(within(sales).queryByText(/^Best seller: /)).toBeNull();
+    expect(within(screen.getByRole('region', { name: 'What stands out' })).getAllByRole('alert')).toHaveLength(2);
     expect(within(screen.getByRole('region', { name: 'Menu' })).queryByRole('alert')).toBeNull();
-    expect(within(screen.getByRole('region', { name: 'Time' })).queryByRole('alert')).toBeNull();
+    expect(within(screen.getByRole('region', { name: 'Busy times' })).queryByRole('alert')).toBeNull();
     // The bought-together pair still renders from its own query.
     expect(screen.getByText(/Kahi \+ Latte|Latte \+ Kahi/)).toBeTruthy();
   });

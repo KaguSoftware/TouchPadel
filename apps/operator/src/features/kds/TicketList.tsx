@@ -14,7 +14,7 @@ import { formatNumber, formatTime, type MessageKey, type TParams } from '@touch/
 import { useLocale } from '../../lib/i18n';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/icons';
-import { ageStateVar, formatAge, type AgeState } from './ageColor';
+import { ageParts, ageStateVar, type AgeState } from './ageColor';
 import type { TicketAction, TicketItemView, TicketView } from './ticketView';
 
 export const kdsCard: CSSProperties = {
@@ -40,10 +40,16 @@ const CARD_TRACK = '22rem';
 export const KDS_BAND_BLOCK = '3.5rem';
 
 /**
- * Start / Ready / Complete share one width, so the primary target does not
- * move under the chef's hand as a ticket walks the lifecycle (rulebook 11.5).
+ * The footer is two equal columns and every action has a fixed one: Start on
+ * the start side, Ready and then Complete on the end side. So the button under
+ * the chef's hand never jumps as a ticket walks the lifecycle (rulebook 11.5),
+ * and a double tap on Start lands on empty space, not on Ready.
+ *
+ * It used to be a wrapping flex row of 8rem buttons beside the progress text.
+ * In a 22rem card that wrapped Start and Ready onto two lines under a mostly
+ * empty strip, so every waiting ticket was a row taller than it needed to be.
  */
-const ACTION_INLINE = '8rem';
+const ACTION_COLUMNS = 'repeat(2, minmax(0, 1fr))';
 
 /**
  * Selection sits OUTSIDE the card, the alarm INSIDE it, so a selected stale
@@ -106,9 +112,16 @@ export function TicketAgeIndicator({
   /** Completed tickets keep the number but drop the colour and the label. */
   muted?: boolean;
 }) {
-  const { tr } = useLocale();
+  const { tr, locale } = useLocale();
   const label = tr(`ws.prep.age.${state}`);
   const targetMinutes = Math.round(targetSeconds / 60);
+  const parts = ageParts(ageSeconds);
+  const printed =
+    parts.kind === 'clock'
+      ? parts.text
+      : parts.kind === 'hours'
+        ? tr('ws.prep.age.hours', { h: formatNumber(parts.h, locale), m: formatNumber(parts.m, locale) })
+        : tr('ws.prep.age.days', { d: formatNumber(parts.d, locale) });
   return (
     <span
       data-age-state={state}
@@ -129,7 +142,7 @@ export function TicketAgeIndicator({
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        {formatAge(ageSeconds)}
+        {printed}
       </bdi>
       {!muted && (
         // Was --tp-fs-sm (13px) in caps with tracking — the desk scale, on the
@@ -214,6 +227,10 @@ export const TicketCard = memo(function TicketCard({
   const band = urgent ? ageStateVar(t.ageState) : 'var(--tp-kds-card-2)';
   const bandFg = urgent ? 'var(--tp-kds-on-fill)' : 'var(--tp-kds-fg)';
   const readyCount = t.items.filter((i) => i.ready).length;
+  // "0 of 1 ready" under a one-item ticket repeats its only checkbox. The
+  // count earns its line once there is more than one thing to tick — and the
+  // offline note always does, because it explains why the boxes are gone.
+  const showProgress = t.items.length > 1 || !t.canMarkItems;
 
   // Keyboard selection moves DOM focus to the card so the ring, the screen
   // reader and the scroll position all follow the cursor; pointer focus goes
@@ -335,7 +352,7 @@ export const TicketCard = memo(function TicketCard({
       </div>
 
       {/*
-        Meta: source · status · actor · placed at. Every state has a label
+        Meta: status · source · actor · placed at. Every state has a label
         (DESIGN.md). One line, never two: the strip used to wrap, so the moment
         a ticket went stale its three-character status became "Waiting too long"
         and the card grew a row — which re-flowed every other card on the same
@@ -355,19 +372,8 @@ export const TicketCard = memo(function TicketCard({
           whiteSpace: 'nowrap',
         }}
       >
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--tp-sp-1-5)',
-            color: 'var(--tp-kds-fg)',
-            fontWeight: 700,
-            flexShrink: 0,
-          }}
-        >
-          <Icon name={t.source === 'web' ? 'globe' : 'drawer'} size={20} />
-          {tr(t.source === 'web' ? 'ws.kit.source.web' : 'ws.kit.source.till')}
-        </span>
+        {/* Status first: it is what the cook acts on. Where the order came
+            from is context, so it steps down to the muted ink. */}
         <span
           style={{
             fontWeight: 700,
@@ -376,6 +382,17 @@ export const TicketCard = memo(function TicketCard({
           }}
         >
           {t.stale ? tr('op.kds.stale') : statusLabel}
+        </span>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--tp-sp-1-5)',
+            flexShrink: 0,
+          }}
+        >
+          <Icon name={t.source === 'web' ? 'globe' : 'drawer'} size={18} />
+          {tr(t.source === 'web' ? 'ws.kit.source.web' : 'ws.kit.source.till')}
         </span>
         {t.actorLabel && (
           <bdi
@@ -417,67 +434,59 @@ export const TicketCard = memo(function TicketCard({
         ))}
       </ul>
 
-      {/* Footer: progress + the one or two legal moves, each with its key. */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 'var(--tp-sp-2-5)',
-          paddingBlock: 'var(--tp-sp-2-5)',
-          paddingInline: GUTTER,
-          marginBlockStart: 'auto',
-          borderBlockStart: '1px solid var(--tp-kds-border)',
-        }}
-      >
-        <span
-          style={{
-            fontSize: 'var(--tp-fs-kds-sm)',
-            color: 'var(--tp-kds-muted)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {t.canMarkItems ? (
-            <bdi>
-              {tr('ws.prep.ticket.itemsDone', {
-                done: formatNumber(readyCount, locale),
-                total: formatNumber(t.items.length, locale),
-              })}
-            </bdi>
-          ) : (
-            tr('ws.prep.ticket.marksOffline')
-          )}
-        </span>
+      {/* Footer: progress, then the legal moves in their fixed columns. */}
+      {(showProgress || !done) && (
         <div
           style={{
-            display: 'flex',
+            display: 'grid',
             gap: 'var(--tp-sp-2)',
-            flexWrap: 'wrap',
-            justifyContent: 'flex-end',
+            paddingBlock: 'var(--tp-sp-2-5)',
+            paddingInline: GUTTER,
+            marginBlockStart: 'auto',
+            borderBlockStart: '1px solid var(--tp-kds-border)',
           }}
         >
-          {t.status === 'queued' && (
-            <ActionButton kind="primary" keyLabel="S" busy={busy} onClick={() => onStatus(t.id, 'preparing')}>
-              {tr('op.kds.start')}
-            </ActionButton>
+          {showProgress && (
+            <span style={{ fontSize: 'var(--tp-fs-kds-sm)', color: 'var(--tp-kds-muted)' }}>
+              {t.canMarkItems ? (
+                <bdi>
+                  {tr('ws.prep.ticket.itemsDone', {
+                    done: formatNumber(readyCount, locale),
+                    total: formatNumber(t.items.length, locale),
+                  })}
+                </bdi>
+              ) : (
+                tr('ws.prep.ticket.marksOffline')
+              )}
+            </span>
           )}
-          {(t.status === 'queued' || t.status === 'preparing') && (
-            <ActionButton
-              kind={t.status === 'preparing' ? 'primary' : 'default'}
-              keyLabel="R"
-              busy={busy}
-              onClick={() => onStatus(t.id, 'ready')}
-            >
-              {tr('op.kds.ready')}
-            </ActionButton>
-          )}
-          {t.status === 'ready' && (
-            <ActionButton kind="primary" keyLabel="C" busy={busy} onClick={() => onStatus(t.id, 'completed')}>
-              {tr('op.kds.complete')}
-            </ActionButton>
+          {!done && (
+            <div style={{ display: 'grid', gridTemplateColumns: ACTION_COLUMNS, gap: 'var(--tp-sp-2)' }}>
+              {t.status === 'queued' && (
+                <ActionButton kind="primary" keyLabel="S" busy={busy} column={1} onClick={() => onStatus(t.id, 'preparing')}>
+                  {tr('op.kds.start')}
+                </ActionButton>
+              )}
+              {(t.status === 'queued' || t.status === 'preparing') && (
+                <ActionButton
+                  kind={t.status === 'preparing' ? 'primary' : 'default'}
+                  keyLabel="R"
+                  busy={busy}
+                  column={2}
+                  onClick={() => onStatus(t.id, 'ready')}
+                >
+                  {tr('op.kds.ready')}
+                </ActionButton>
+              )}
+              {t.status === 'ready' && (
+                <ActionButton kind="primary" keyLabel="C" busy={busy} column={2} onClick={() => onStatus(t.id, 'completed')}>
+                  {tr('op.kds.complete')}
+                </ActionButton>
+              )}
+            </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 });
@@ -487,16 +496,18 @@ function ActionButton({
   keyLabel,
   kind,
   busy,
+  column,
   onClick,
 }: {
   children: ReactNode;
   keyLabel: string;
   kind: 'primary' | 'default';
   busy: boolean;
+  column: 1 | 2;
   onClick: () => void;
 }) {
   return (
-    <Button kind={kind} size="xl" busy={busy} onClick={onClick} style={{ minInlineSize: ACTION_INLINE }}>
+    <Button kind={kind} size="xl" busy={busy} onClick={onClick} style={{ gridColumn: column, inlineSize: '100%' }}>
       {children}
       <KdsKbd>{keyLabel}</KdsKbd>
     </Button>
@@ -637,7 +648,10 @@ export const kdsGrid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_TRACK}, 1fr))`,
   gap: 'var(--tp-sp-4)',
-  alignItems: 'start',
+  // Cards on one grid line share a height, so their footers — and the Start
+  // and Ready buttons in them — sit on one line across the wall instead of
+  // leaving a ragged edge and holes under the shorter tickets.
+  alignItems: 'stretch',
 };
 
 export function TicketList({

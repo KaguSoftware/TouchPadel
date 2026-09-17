@@ -7,6 +7,7 @@
  * compares and arranges what it returned (PRODUCT.md principle 3).
  */
 import {
+  MIN_RATE_DENOM,
   RELIABLE_COVERAGE,
   buildCourtsBasis,
   isThinCourtsPeriod,
@@ -258,4 +259,15 @@ export function deriveCourts(raw: RawCourts, copy: CourtPatternsCopy): DerivedCo
 /** Bookings that were not series occurrences, for the demand cards' "n of N" notes. */
 export function singleBookings(demand: CourtsDemand): number {
   return demand.series.singleBookings;
+}
+
+/**
+ * Both windows booked fewer than twenty times (MIN_RATE_DENOM): a percentage
+ * change between them is a handful of bookings, not a trend. The summary then
+ * prints the earlier figure and no change.
+ */
+export function smallCourtSample(raw: RawCourts | null): boolean {
+  const k = raw?.summary.kpis;
+  const kp = raw?.summaryPrev?.kpis;
+  return Boolean(k && kp && k.bookings < MIN_RATE_DENOM && kp.bookings < MIN_RATE_DENOM);
 }

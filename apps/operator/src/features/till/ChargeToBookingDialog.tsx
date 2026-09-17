@@ -9,10 +9,15 @@
  * the open succeeded, the copy says so — the original tab is untouched and the
  * (empty) booking tab is visible on Open tabs.
  *
+ * A booking has at most one live tab (0106). When someone opened it between
+ * the picker loading and this press, `open_tab` refuses with BOOKING_TAB_OPEN
+ * and names that tab in `details` — which is the tab this one belongs on, so
+ * the merge goes there instead of the press failing.
+ *
  * A tab opened with a booking from the start uses NewTabDialog's picker.
  */
 import { useState } from 'react';
-import { appRpc } from '../../lib/appRpc';
+import { AppRpcError, appRpc } from '../../lib/appRpc';
 import { mutate } from '../../lib/mutate';
 import { useLocale } from '../../lib/i18n';
 import { Button, ErrorText, Modal } from '../../components/ui';
@@ -49,15 +54,25 @@ export function ChargeToBookingDialog({
     setPartialFailure(false);
     let survivorId: string | null = null;
     try {
-      const outcome = await mutate<{ tab_id: string }>('tab.open', { reservationId: selected.id });
-      if (!outcome.result) {
-        // Queued offline: the merge cannot reference a tab that has no server
-        // id yet. Refuse cleanly rather than half-do it.
-        throw new Error('QUEUED');
+      let target: string;
+      try {
+        const outcome = await mutate<{ tab_id: string }>('tab.open', { reservationId: selected.id });
+        if (!outcome.result) {
+          // Queued offline: the merge cannot reference a tab that has no server
+          // id yet. Refuse cleanly rather than half-do it.
+          throw new Error('QUEUED');
+        }
+        target = outcome.result.tab_id;
+        survivorId = target;
+      } catch (e) {
+        // The booking already has its live tab: merge into that one. Not a
+        // partial failure if the merge is then refused — nothing was opened.
+        const existing = e instanceof AppRpcError && e.code === 'BOOKING_TAB_OPEN' ? e.details?.trim() : undefined;
+        if (!existing) throw e;
+        target = existing;
       }
-      survivorId = outcome.result.tab_id;
-      await appRpc('merge_tabs', { p_donor_tab_id: tabId, p_survivor_tab_id: survivorId });
-      onDone(survivorId);
+      await appRpc('merge_tabs', { p_donor_tab_id: tabId, p_survivor_tab_id: target });
+      onDone(target);
     } catch (e) {
       setError(e);
       if (survivorId) setPartialFailure(true);

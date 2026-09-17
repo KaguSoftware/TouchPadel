@@ -17,7 +17,7 @@ import { supabase } from '../../lib/supabase';
 import { cachedQuery } from '../../lib/refCache';
 import { QK, fetchVenueSettings, fetchActiveCourts, type CourtRow, type VenueSettingsRow } from '../../lib/queries';
 import { useBroadcast } from '../../lib/realtime';
-import { RESERVATION_COLUMNS, type ReservationRow, type TabLinkRow } from './deskTypes';
+import { RESERVATION_COLUMNS, type ReservationRow } from './deskTypes';
 import { tradingDateOf, type OpeningHours } from './calendar/monthLogic';
 
 export const DAY_KEYS: readonly DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -134,24 +134,4 @@ export function useTradingNight(date: string): TradingNight {
     closed,
     closedDates,
   };
-}
-
-/**
- * Which of these bookings a tab charges, and whether it is settled. The desk
- * may not be allowed to read `tabs` (RLS) — an error here degrades to
- * "payment unknown", never to a broken board.
- */
-export function useTabLinks(reservationIds: readonly string[]): UseQueryResult<TabLinkRow[]> {
-  const ids = useMemo(() => [...reservationIds].sort(), [reservationIds]);
-  return useQuery({
-    queryKey: ['tabLinks', ids],
-    enabled: ids.length > 0,
-    queryFn: async (): Promise<TabLinkRow[]> => {
-      const { data, error } = await supabase.from('tabs').select('reservation_id, status').in('reservation_id', ids);
-      if (error) throw error;
-      return (data ?? []) as TabLinkRow[];
-    },
-    retry: false,
-    refetchInterval: 60_000,
-  });
 }

@@ -1,29 +1,26 @@
 /**
  * Last 20 `telegram_outbox` rows (RLS: manager|owner read), refetched every
- * 10 s; Retry re-queues through `app.retry_telegram_outbox` (owner).
+ * 10 s; Send again re-queues through `app.retry_telegram_outbox` (owner).
  *
- * The hand-rolled <table> with its own `th`/`td` style objects is gone: it was
- * a fifth spelling of the shared table (12px headers, no row-height floor, no
- * loading or empty treatment) sitting one import away from DataTable.
+ * Each row is said in words: "New order", not `order_new`; the group by its
+ * name where the bot has seen it, not only a number. The retry button used to
+ * sit on every row with a disabled-reason under each queued one, so a normal
+ * queue of waiting messages printed "This message has not been attempted yet"
+ * down the whole table. It now appears only where resending means something —
+ * a message that failed or was skipped; a queued row's status already says
+ * it is waiting. Resending a message that was already delivered only
+ * posted it to the group twice, so that is no longer offered.
  */
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { formatDate, formatTime } from '@touch/i18n';
+import { formatDate, formatNumber, formatTime, isolate } from '@touch/i18n';
 import { supabase } from '../../../lib/supabase';
 import { appRpc } from '../../../lib/appRpc';
 import { useLocale } from '../../../lib/i18n';
 import { useToast } from '../../../components/toast';
-import { Button, ErrorText } from '../../../components/ui';
-import {
-  AsyncStateWrapper,
-  DataTable,
-  EmptyState,
-  ResultCount,
-  StatusBadge,
-  TableSkeleton,
-  asyncStatus,
-  type Column,
-  type Tone,
-} from '../../../components/kit';
+import { Button } from '../../../components/ui';
+import { AsyncStateWrapper, DataTable, EmptyState, StatusBadge, TableSkeleton, asyncStatus, type Column, type Tone } from '../../../components/kit';
+import { useTelegramChats } from './DetectedGroups';
+import { isKnownKind } from './telegramStatus';
 
 export const OUTBOX_QUERY_KEY: QueryKey = ['telegramOutbox'];
 
@@ -61,12 +58,8 @@ function when(iso: string | null, locale: 'en' | 'ar'): string {
   return `${formatDate(d, locale)} ${formatTime(d, locale)}`;
 }
 
-export function OutboxList() {
-  const { tr, locale } = useLocale();
-  const toast = useToast();
-  const queryClient = useQueryClient();
-
-  const outboxQ = useQuery({
+export function useOutbox() {
+  return useQuery({
     queryKey: OUTBOX_QUERY_KEY,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -79,6 +72,15 @@ export function OutboxList() {
     },
     refetchInterval: 10_000,
   });
+}
+
+export function OutboxList() {
+  const { tr, locale } = useLocale();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const outboxQ = useOutbox();
+  const chatsQ = useTelegramChats();
+  const titles = new Map((chatsQ.data ?? []).map((c) => [c.chat_id, c.title]));
 
   const retry = useMutation({
     mutationFn: (id: number) => appRpc('retry_telegram_outbox', { p_id: id }),
@@ -95,75 +97,66 @@ export function OutboxList() {
     {
       key: 'kind',
       header: tr('op.telegram.kind'),
-      render: (r) => (
-        <span style={{ display: 'inline-flex', gap: 'var(--tp-sp-1-5)', alignItems: 'center', flexWrap: 'wrap' }}>
-          <StatusChip status={r.status} />
-          <span dir="ltr">{r.kind}</span>
-        </span>
-      ),
+      render: (r) => <span style={{ fontWeight: 600 }}>{isKnownKind(r.kind) ? tr(`ws.manager.settings.telegram.kinds.${r.kind}`) : <span dir="ltr">{r.kind}</span>}</span>,
     },
+    { key: 'status', header: tr('ws.manager.settings.telegram.outboxStatus'), render: (r) => <StatusChip status={r.status} /> },
     {
       key: 'chat',
-      header: tr('op.telegram.chatId'),
-      render: (r) => (
-        <span dir="ltr" style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-          {r.chat_id}
-        </span>
-      ),
+      header: tr('ws.manager.settings.telegram.outboxGroup'),
+      truncate: true,
+      truncateTitle: (r) => titles.get(r.chat_id) ?? r.chat_id,
+      render: (r) => {
+        const title = titles.get(r.chat_id);
+        return title ? (
+          <bdi>{isolate(title)}</bdi>
+        ) : (
+          <span dir="ltr" style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: 'var(--tp-muted-fg)' }}>
+            {r.chat_id}
+          </span>
+        );
+      },
     },
     { key: 'created', header: tr('op.telegram.created'), render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{when(r.created_at, locale)}</span> },
     { key: 'sent', header: tr('op.telegram.sentAt'), render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{when(r.sent_at, locale)}</span> },
-    { key: 'attempts', header: tr('op.telegram.attemptsCol'), numeric: true, render: (r) => <span dir="ltr">{r.attempts}</span> },
+    { key: 'attempts', header: tr('op.telegram.attemptsCol'), numeric: true, render: (r) => formatNumber(r.attempts, locale) },
     {
       key: 'error',
       header: tr('op.telegram.lastError'),
       truncate: true,
       truncateTitle: (r) => r.last_error ?? '',
-      render: (r) => (
-        <span dir="ltr" style={{ color: r.last_error ? 'var(--tp-danger-fg)' : 'var(--tp-muted-fg)' }}>
-          {r.last_error ?? '—'}
-        </span>
-      ),
+      render: (r) =>
+        r.last_error ? (
+          <span dir="ltr" style={{ color: 'var(--tp-danger-fg)' }}>
+            {r.last_error}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--tp-muted-fg)' }}>—</span>
+        ),
     },
     {
       key: 'retry',
-      header: '',
+      header: <span className="tp-sr-only">{tr('op.telegram.retry')}</span>,
       align: 'end',
-      render: (r) => (
-        <Button
-          kind="ghost"
-          size="sm"
-          icon="refresh"
-          disabled={r.status === 'queued' || retry.isPending}
-          // Rulebook 4.3 in its cheapest form: the button used to VANISH on a
-          // queued row, so the operator could not tell "cannot retry yet" from
-          // "this venue cannot retry at all".
-          disabledReason={r.status === 'queued' ? tr('ws.manager.settings.telegram.retryDisabled') : undefined}
-          onClick={() => retry.mutate(r.id)}
-        >
-          {tr('op.telegram.retry')}
-        </Button>
-      ),
+      render: (r) =>
+        r.status === 'failed' || r.status === 'skipped' ? (
+          <Button kind="ghost" size="sm" icon="refresh" disabled={retry.isPending} onClick={() => retry.mutate(r.id)}>
+            {tr('op.telegram.retry')}
+          </Button>
+        ) : null,
     },
   ];
 
   return (
-    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
-      <div style={{ display: 'flex', gap: 'var(--tp-sp-3)', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.manager.settings.telegram.outboxLead')}</p>
-        <ResultCount shown={rows.length} total={rows.length} />
-      </div>
-      <ErrorText error={outboxQ.error} />
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-2)', marginBlockStart: 'var(--tp-sp-3)' }}>
+      <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>{tr('ws.manager.settings.telegram.outboxLead')}</p>
       <AsyncStateWrapper
         status={asyncStatus(outboxQ, (d) => d.length === 0)}
         error={outboxQ.error}
         onRetry={() => void outboxQ.refetch()}
         skeleton={<TableSkeleton columns={columns} rows={4} />}
-        emptyContent={
-          <EmptyState icon="bell" title={tr('op.telegram.emptyOutbox')} body={tr('ws.manager.settings.telegram.outboxEmptyBody')} />
-        }
+        emptyContent={<EmptyState icon="bell" title={tr('op.telegram.emptyOutbox')} body={tr('ws.manager.settings.telegram.outboxEmptyBody')} />}
       >
-        <DataTable columns={columns} rows={rows} rowKey={(r) => String(r.id)} aria-label={tr('op.telegram.outbox')} />
+        <DataTable columns={columns} rows={rows} rowKey={(r) => String(r.id)} dense aria-label={tr('op.telegram.outbox')} />
       </AsyncStateWrapper>
     </div>
   );

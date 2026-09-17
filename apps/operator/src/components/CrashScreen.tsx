@@ -18,6 +18,7 @@ import { Component, type CSSProperties, type ErrorInfo, type ReactNode } from 'r
 import { useLocale } from '../lib/i18n';
 import { captureException, describeError } from '../lib/telemetry';
 import { Button, card } from './ui';
+import { Icon, type IconName } from './icons';
 
 /**
  * Where the recovery card sits.
@@ -45,6 +46,25 @@ function wrapStyle(fullBleed: boolean): CSSProperties {
   };
 }
 
+/** The card both panels share: a glyph, the title, then the body. */
+const panelCard: CSSProperties = {
+  ...card,
+  maxInlineSize: '32rem',
+  paddingBlock: 'var(--tp-sp-5)',
+  paddingInline: 'var(--tp-sp-5)',
+  display: 'grid',
+  gap: 'var(--tp-sp-2)',
+};
+
+function PanelTitle({ icon, children }: { icon: IconName; children: ReactNode }) {
+  return (
+    <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', fontSize: 'var(--tp-fs-2xl)' }}>
+      <Icon name={icon} size={22} style={{ color: 'var(--tp-warn-mark)', flex: '0 0 auto' }} />
+      {children}
+    </h1>
+  );
+}
+
 function Actions({
   onRetry,
   onHome,
@@ -56,7 +76,8 @@ function Actions({
   onHome?: () => void;
   retryLabel: string;
   homeLabel: string;
-  reloadLabel: string;
+  /** Omitted where a restart cannot help (an unknown address). */
+  reloadLabel?: string;
 }) {
   return (
     <div
@@ -64,18 +85,25 @@ function Actions({
         display: 'flex',
         gap: 'var(--tp-sp-2-5)',
         flexWrap: 'wrap',
-        marginBlockStart: 'var(--tp-sp-4)',
+        marginBlockStart: 'var(--tp-sp-2)',
       }}
     >
       {onRetry && (
-        <Button kind="primary" onClick={onRetry}>
+        <Button kind="primary" icon="refresh" onClick={onRetry}>
           {retryLabel}
         </Button>
       )}
-      {onHome && <Button onClick={onHome}>{homeLabel}</Button>}
-      <Button kind="ghost" onClick={() => window.location.reload()}>
-        {reloadLabel}
-      </Button>
+      {/* Home is the primary way out when there is nothing to retry. */}
+      {onHome && (
+        <Button kind={onRetry ? 'default' : 'primary'} icon="home" onClick={onHome}>
+          {homeLabel}
+        </Button>
+      )}
+      {reloadLabel && (
+        <Button kind="ghost" onClick={() => window.location.reload()}>
+          {reloadLabel}
+        </Button>
+      )}
     </div>
   );
 }
@@ -100,10 +128,8 @@ export function CrashPanel({
   const { tr } = useLocale();
   return (
     <div style={wrapStyle(fullBleed)}>
-      <div style={{ ...card, maxInlineSize: '32rem' }} role="alert">
-        <h1 style={{ marginBlockStart: 0, fontSize: 'var(--tp-fs-2xl)' }}>
-          {tr('op.crash.title')}
-        </h1>
+      <div style={panelCard} role="alert">
+        <PanelTitle icon="alert">{tr('op.crash.title')}</PanelTitle>
         <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.crash.body')}</p>
         <Actions
           onRetry={onRetry}
@@ -112,7 +138,12 @@ export function CrashPanel({
           homeLabel={tr('op.crash.home')}
           reloadLabel={tr('op.crash.reload')}
         />
-        <details style={{ marginBlockStart: 'var(--tp-sp-4)' }}>
+        {/* What to do if the cheap escapes do not hold, in words: nothing on
+            this screen can report the fault, a person can. */}
+        <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', marginBlockStart: 'var(--tp-sp-2)' }}>
+          {tr('op.crash.again')}
+        </p>
+        <details>
           <summary
             style={{ cursor: 'pointer', color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}
           >
@@ -136,7 +167,10 @@ export function CrashPanel({
   );
 }
 
-/** The 404 screen. Same shape, no retry — retrying a bad URL changes nothing. */
+/**
+ * The 404 screen. Same shape, no retry and no restart — retrying or reloading
+ * a bad address lands on the same bad address, so the only offer is home.
+ */
 export function NotFoundPanel({
   onHome,
   fullBleed = false,
@@ -147,16 +181,16 @@ export function NotFoundPanel({
   const { tr } = useLocale();
   return (
     <div style={wrapStyle(fullBleed)}>
-      <div style={{ ...card, maxInlineSize: '32rem' }} role="alert">
-        <h1 style={{ marginBlockStart: 0, fontSize: 'var(--tp-fs-2xl)' }}>
-          {tr('op.crash.notFoundTitle')}
-        </h1>
+      <div style={panelCard} role="alert">
+        <PanelTitle icon="search">{tr('op.crash.notFoundTitle')}</PanelTitle>
         <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('op.crash.notFoundBody')}</p>
+        {/* Restart stays only as the last resort when there is no home to
+            offer, so the screen is never left with zero ways out. */}
         <Actions
           onHome={onHome}
           retryLabel=""
           homeLabel={tr('op.crash.home')}
-          reloadLabel={tr('op.crash.reload')}
+          reloadLabel={onHome ? undefined : tr('op.crash.reload')}
         />
       </div>
     </div>

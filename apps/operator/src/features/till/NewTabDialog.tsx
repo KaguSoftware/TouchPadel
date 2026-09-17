@@ -16,7 +16,7 @@ import { useLocale, pickName } from '../../lib/i18n';
 import { useAuth } from '../../lib/auth';
 import { Button, ErrorText, Field, Modal, inputStyle } from '../../components/ui';
 import { MessagePresenter, SearchField } from '../../components/kit';
-import { canReadBookings, type TabListRow } from './tillData';
+import { bookingTakesNewTab, canReadBookings, type TabListRow } from './tillData';
 import { muted, reasonedFooter, touchTarget } from './tillStyles';
 
 export interface OpenReservationRow {
@@ -24,12 +24,12 @@ export interface OpenReservationRow {
   start_at: string;
   guest_name: string | null;
   court: { name_en: string; name_ar: string } | null;
-  tabs: { id: string }[];
+  tabs: { id: string; status: string }[];
 }
 
 /**
- * Today's confirmed/arrived bookings that have no tab yet. RLS: cashiers may
- * see none — the picker simply stays empty for them.
+ * Today's confirmed/arrived bookings without a live tab. RLS: since 0106 a
+ * cashier reads tonight's bookings too (reservations_cashier_read).
  */
 export function useTodaysOpenReservations(enabled = true) {
   return useQuery({
@@ -41,13 +41,13 @@ export function useTodaysOpenReservations(enabled = true) {
       const dayEnd = new Date(dayStart.getTime() + 86_400_000);
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, start_at, end_at, guest_name, court:courts(name_en, name_ar), tabs(id)')
+        .select('id, start_at, end_at, guest_name, court:courts(name_en, name_ar), tabs(id, status)')
         .in('status', ['confirmed', 'arrived'])
         .gte('start_at', dayStart.toISOString())
         .lt('start_at', dayEnd.toISOString())
         .order('start_at');
       if (error) throw error;
-      return (data as unknown as OpenReservationRow[]).filter((r) => (r.tabs ?? []).length === 0);
+      return (data as unknown as OpenReservationRow[]).filter(bookingTakesNewTab);
     },
   });
 }
@@ -73,7 +73,7 @@ export function reservationMatches(r: OpenReservationRow, query: string): boolea
   );
 }
 
-/** Searchable list of today's bookings without a tab; one is selected at a time. */
+/** Searchable list of today's bookings without a live tab; one is selected at a time. */
 export function ReservationPicker({
   rows,
   selectedId,
@@ -150,9 +150,9 @@ export function NewTabDialog({
 }) {
   const { tr, locale } = useLocale();
   const { staff } = useAuth();
-  // A cashier cannot read bookings (see canReadBookings), so the picker was a
-  // select that only ever held "No booking". Shown when it can hold something,
-  // or when the desk already chose the booking.
+  // A role that cannot read bookings (see canReadBookings) would get a select
+  // that only ever held "No booking". Shown when it can hold something, or
+  // when the desk already chose the booking.
   const showBookings = canReadBookings(staff?.role) || Boolean(initialReservationId);
   const [tableId, setTableId] = useState('');
   const [label, setLabel] = useState('');

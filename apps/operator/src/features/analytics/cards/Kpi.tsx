@@ -1,124 +1,119 @@
 /**
- * One pulse tile: big number, optional signed delta vs the comparison window,
- * and a muted footnote. A `null` delta is never rendered as 0 % — the tile says
- * why the comparison is unavailable instead (`reason`).
+ * The summary figures of both analytics tabs, in two sizes.
  *
- * The delta is the tile's hover layer: with `compare` set it becomes a small
- * text button that opens an InfoTip with both figures and the window they are
- * measured against, so the tile itself stays one number and one signed change.
- * `tip` (an explanation of what is counted) hangs off the label the same way.
- * `drills` are the ways into the transactions behind the figure (0099: the
- * management panel's drill, so both screens list the same rows); a tile with
- * two figures (cash / card) names each.
+ *  - `Kpi` is a LEAD figure: one of the three or four numbers the tab answers
+ *    first, as a tile with a large value.
+ *  - `FigureLine` is a SUPPORTING figure: a row in a list, value at the end,
+ *    the way the management panel lists its figures.
+ *
+ * The page used to give ten (courts) or fourteen (cafe) figures the same tile,
+ * so nothing said which ones matter; and when the comparison was unreliable
+ * every tile printed the same two-line reason, ten times over. Now:
+ *
+ *  - The change is ONE short line: an arrow, the signed change in its proper
+ *    unit (percent for amounts, points for rates, see ../change.ts) and what
+ *    the figure was before. When there is no reliable change the line says
+ *    only what it was, or nothing, and the page's notice says why, once.
+ *  - The value prints "—" when the query behind it failed, never a 0.
+ *  - A figure that opens its transactions says so in words ("See
+ *    transactions"), and a tile with two figures names each.
  */
 import type { ReactNode } from 'react';
 import { Button, Skeleton, card } from '../../../components/ui';
 import { InfoTip } from '../../../components/InfoTip';
+import { Icon } from '../../../components/icons';
 import { useLocale } from '../../../lib/i18n';
+import { MARK_FG } from '../../ops/OpsVisuals';
+import { describeChange, type Change, type DeltaKind } from '../change';
 import type { Formatters } from '../format';
 
-export interface KpiCompare {
-  /** "vs 1 – 30 Jul" */
-  label: string;
-  current: string;
-  previous: string;
-}
-
 export interface KpiDrill {
-  /** Names the figure when a tile carries more than one; a lone drill reads "Transactions". */
+  /** Names the figure when a tile carries more than one; a lone drill reads "See transactions". */
   label?: string;
   onOpen: () => void;
 }
 
-export function Kpi({
-  label,
-  value,
-  delta,
-  reason,
-  note,
-  tip,
-  compare,
-  invert = false,
-  neutral = false,
-  estimated,
-  loading,
-  unavailable,
-  vsLabel,
-  drills,
-  f,
-}: {
-  /** The query behind this tile failed — show a dash, never a misleading 0. */
-  unavailable?: boolean;
+interface FigureProps {
   label: string;
   value: string;
+  /** Whole-number change against the comparison window; null = none to show. */
   delta?: number | null;
-  /** "vs 1 – 30 Jul" — precomputed by the page so every tile says the same thing. */
-  vsLabel?: string;
-  /** Shown in place of the delta when it is null (muted comparison, no baseline). */
-  reason?: string;
-  /** STATE under the number (a sample size, an estimate note). Stays visible. */
+  /** 'points' for rates (a 20% → 23% move is "+3 pts"). */
+  kind?: DeltaKind;
+  /** Up is bad (a cancellation rate): a rise reads in the danger tone. */
+  invert?: boolean;
+  /** Neither direction is good (waiter calls, session length): the change stays muted. */
+  neutral?: boolean;
+  /** The comparison window's figure, formatted. Printed as "was …". */
+  previous?: string | null;
+  /** STATE under the number (a split, a sample size). Stays visible. */
   note?: ReactNode;
   /** EXPLANATION of what is counted. Behind the info button. */
   tip?: ReactNode;
-  /** Both figures behind the delta, read on hover / focus / tap. */
-  compare?: KpiCompare;
-  /** Up is bad (a cancellation rate): a rise reads in the danger tone, a fall in the accent. */
-  invert?: boolean;
-  /** Neither direction is good (waiter calls, session length): the delta stays muted. */
-  neutral?: boolean;
-  estimated?: boolean;
-  loading?: boolean;
   /** Open the transactions behind the figure. Hidden while loading or unavailable. */
   drills?: readonly KpiDrill[];
+  loading?: boolean;
+  /** The query behind this figure failed — show a dash, never a misleading 0. */
+  unavailable?: boolean;
   f: Formatters;
-}) {
+}
+
+function useChange(delta: number | null | undefined, kind: DeltaKind | undefined, invert: boolean | undefined, neutral: boolean | undefined, f: Formatters): Change | null {
   const { tr } = useLocale();
-  const shownDelta = unavailable ? null : delta;
-  const good = shownDelta == null ? null : invert ? shownDelta < 0 : shownDelta > 0;
-  const bad = shownDelta == null ? null : invert ? shownDelta > 0 : shownDelta < 0;
-  const tone = neutral ? 'var(--tp-muted-fg)' : good ? 'var(--tp-accent)' : bad ? 'var(--tp-danger)' : 'var(--tp-muted-fg)';
-  const deltaText = shownDelta == null ? (unavailable ? '' : (reason ?? '')) : `${f.signedPct(shownDelta)} ${vsLabel ?? ''}`;
+  return describeChange(delta, { kind, invert, neutral }, { num: f.num, points: (n) => tr('ws.analytics.summary.points', { n }) });
+}
+
+/** "▲ +12% · was 540,000 IQD" — or just "was …", or nothing. */
+function ChangeLine({ change, previous }: { change: Change | null; previous?: string | null }) {
+  const { tr } = useLocale();
+  if (!change && !previous) return null;
   return (
-    <div style={{ ...card, minInlineSize: 0 }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
-        <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {label}
+    <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 'var(--tp-sp-1)', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>
+      {change && (
+        <span
+          dir="ltr"
+          data-tone={change.tone}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--tp-sp-0)',
+            fontWeight: 600,
+            fontVariantNumeric: 'tabular-nums',
+            color: change.tone === 'neutral' ? 'var(--tp-muted-fg)' : MARK_FG[change.tone],
+          }}
+        >
+          {change.direction !== 'flat' && <Icon name={change.direction === 'up' ? 'trendUp' : 'trendDown'} size={13} />}
+          {change.text}
         </span>
+      )}
+      {change && previous && <span aria-hidden="true">·</span>}
+      {previous && <bdi>{tr('ws.analytics.summary.was', { value: previous })}</bdi>}
+    </span>
+  );
+}
+
+/** A lead figure: a tile with a large value. */
+export function Kpi({ label, value, delta, kind, invert, neutral, previous, note, tip, drills, loading, unavailable, f }: FigureProps) {
+  const { tr } = useLocale();
+  const change = useChange(unavailable ? null : delta, kind, invert, neutral, f);
+  const live = !loading && !unavailable;
+  return (
+    <div style={{ ...card, minInlineSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-1)' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
+        <span style={{ fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
         {tip && <InfoTip content={tip} label={tr('ws.analytics.tips.about', { title: label })} style={{ marginBlock: '-0.4rem' }} />}
       </span>
       {loading ? (
-        <Skeleton lines={1} blockSize="1.5rem" style={{ marginBlock: '0.35rem' }} />
+        <Skeleton lines={1} blockSize="1.75rem" style={{ marginBlock: '0.2rem' }} />
       ) : (
-        <strong style={{ display: 'block', fontSize: 'var(--tp-fs-2xl)', lineHeight: 1.3 }}>
-          {estimated && !unavailable && <span style={{ color: 'var(--tp-muted-fg)', fontWeight: 400 }}>~</span>}
+        <strong dir="auto" style={{ display: 'block', fontSize: 'var(--tp-fs-2xl)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)' }}>
           {unavailable ? '—' : value}
         </strong>
       )}
-      {compare && shownDelta != null ? (
-        <InfoTip
-          content={
-            <span style={{ display: 'grid', gap: 'var(--tp-sp-0)' }}>
-              <span style={{ color: 'var(--tp-muted-fg)' }}>{compare.label}</span>
-              <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {tr('ws.analytics.kpi.compareValues', { previous: compare.previous, current: compare.current })}
-              </span>
-            </span>
-          }
-          label={tr('ws.analytics.kpi.compareLabel', { label })}
-        >
-          <button
-            type="button"
-            style={{ display: 'block', background: 'none', border: 0, padding: 0, margin: 0, font: 'inherit', fontSize: 'var(--tp-fs-xs)', color: tone, cursor: 'help', textAlign: 'start' }}
-          >
-            {deltaText}
-          </button>
-        </InfoTip>
-      ) : (
-        <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: tone }}>{deltaText}</span>
-      )}
-      {note && <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{note}</span>}
-      {drills && drills.length > 0 && !loading && !unavailable && (
-        <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1)', marginBlockStart: 'var(--tp-sp-1)', marginInlineStart: 'calc(-1 * var(--tp-sp-2))' }}>
+      {live && <ChangeLine change={change} previous={previous} />}
+      {live && note && <span style={{ display: 'block', fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{note}</span>}
+      {live && drills && drills.length > 0 && (
+        <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--tp-sp-1)', marginBlockStart: 'auto', paddingBlockStart: 'var(--tp-sp-1)', marginInlineStart: 'calc(-1 * var(--tp-sp-2))' }}>
           {drills.map((d, i) => (
             <Button
               key={d.label ?? i}
@@ -134,5 +129,60 @@ export function Kpi({
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * A supporting figure: label (and its change) at the start, the value at the
+ * end, and an icon button into the transactions when there are any. Rows
+ * without a drill keep the button's width so every value ends on one edge.
+ */
+export function FigureLine({ label, value, delta, kind, invert, neutral, previous, note, tip, drills, loading, unavailable, f }: FigureProps) {
+  const { tr } = useLocale();
+  const change = useChange(unavailable ? null : delta, kind, invert, neutral, f);
+  const live = !loading && !unavailable;
+  const drill = live ? drills?.[0] : undefined;
+  return (
+    <li
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) auto 2rem',
+        alignItems: 'center',
+        columnGap: 'var(--tp-sp-2)',
+        paddingBlock: 'var(--tp-sp-2)',
+        borderBlockEnd: '1px solid var(--tp-border)',
+      }}
+    >
+      <span style={{ display: 'grid', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-0)', minInlineSize: 0 }}>
+          <span style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', fontWeight: 600 }}>{label}</span>
+          {tip && <InfoTip content={tip} label={tr('ws.analytics.tips.about', { title: label })} style={{ marginBlock: '-0.4rem' }} />}
+        </span>
+        {live && <ChangeLine change={change} previous={previous} />}
+        {live && note && <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{note}</span>}
+      </span>
+      {loading ? (
+        <Skeleton lines={1} blockSize="1.1rem" style={{ inlineSize: '5rem' }} />
+      ) : (
+        <strong dir="auto" style={{ fontSize: 'var(--tp-fs-lg)', fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--tp-font-numeric)', textAlign: 'end' }}>
+          {unavailable ? '—' : value}
+        </strong>
+      )}
+      {drill ? (
+        <Button size="sm" kind="ghost" icon="arrowUpRight" onClick={drill.onOpen} aria-label={tr('ws.analytics.drill.openAria', { figure: drill.label ?? label })} />
+      ) : (
+        <span aria-hidden="true" />
+      )}
+    </li>
+  );
+}
+
+/** A titled list of supporting figures (the panel's figure-row look). */
+export function FigureGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section style={{ ...card, minInlineSize: 0 }}>
+      <h3 style={{ margin: 0, fontSize: 'var(--tp-fs-md)', fontWeight: 700 }}>{title}</h3>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{children}</ul>
+    </section>
   );
 }

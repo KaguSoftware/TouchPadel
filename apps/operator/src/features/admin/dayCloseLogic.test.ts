@@ -9,6 +9,7 @@ import {
   queueWriteKey,
   varianceMagnitude,
   varianceSign,
+  unpaidPlayedRows,
   type CsvLabels,
 } from './dayCloseLogic';
 
@@ -59,6 +60,7 @@ describe('dayCloseCsv', () => {
     cashExpected: 'Cash expected', cashCounted: 'Cash counted', variance: 'Variance',
     cardExpected: 'Card expected', cardBatch: 'Card batch', discounts: 'Discounts', voids: 'Voids',
     refunds: 'Refunds', waste: 'Waste', openingFloat: 'Float', cashPayments: 'Cash in', cardPayments: 'Card in',
+    deskCash: 'Desk cash', deskCard: 'Desk card',
   };
   const summary = {
     day_session_id: 'd1', business_date: '2026-09-03', status: 'closed', opening_float_iqd: 50000,
@@ -66,6 +68,7 @@ describe('dayCloseCsv', () => {
     cash_variance_iqd: -2000, card_expected_iqd: 80000, card_terminal_batch_iqd: 80000,
     discounts_iqd: 15000, adjustment_count: 2, authorizer_names: ['Dev Manager', 'Dev Owner'],
     voided_lines_iqd: 4000, voided_line_count: 1, refunds_iqd: 0, refund_count: 0, waste_cost_iqd: 2500,
+    desk_cash_iqd: 30000, desk_card_iqd: 0,
   };
   const close = {
     day_session_id: 'd1', business_date: '2026-09-03', cash_expected_iqd: 170000, cash_counted_iqd: 168000,
@@ -82,6 +85,21 @@ describe('dayCloseCsv', () => {
     expect(rows).toContainEqual(['Discounts', 15000, 2, 'Dev Manager, Dev Owner']);
     // The adjustment line carries the screen's words, not the enum.
     expect(rows[rows.length - 1]).toEqual(['words for discount', 5000, 1, 'Dev Manager']);
+  });
+
+  it('lists the court desk’s cash and card right after the totals they are part of', () => {
+    const { rows } = dayCloseCsv(labels, null, summary, [], (n) => n.join(', '), () => '');
+    const names = rows.map((r) => r[0]);
+    expect(rows).toContainEqual(['Desk cash', 30000, null, null]);
+    expect(rows).toContainEqual(['Desk card', 0, null, null]);
+    expect(names.indexOf('Desk cash')).toBe(names.indexOf('Cash in') + 1);
+    expect(names.indexOf('Desk card')).toBe(names.indexOf('Card in') + 1);
+  });
+
+  it('leaves the desk lines out when the server did not send them', () => {
+    const older = { ...summary, desk_cash_iqd: undefined, desk_card_iqd: undefined };
+    const { rows } = dayCloseCsv(labels, null, older, [], (n) => n.join(', '), () => '');
+    expect(rows.some((r) => r[0] === 'Desk cash' || r[0] === 'Desk card')).toBe(false);
   });
 
   it('exports what it has before the close (no close figures yet)', () => {
@@ -131,5 +149,29 @@ describe('closeBlock', () => {
 
   it('treats a count of zero as a count, not as missing', () => {
     expect(closeBlock('ready', 0)).toBeNull();
+  });
+});
+
+describe('played today, not paid', () => {
+  const row = {
+    reservation_id: 'r1', guest_name: 'Ali', status: 'completed', start_at: '2026-09-17T18:00:00Z', end_at: '2026-09-17T19:30:00Z',
+    court_name_en: 'Court 1', court_name_ar: 'الملعب 1', price_iqd: 30000, remaining_iqd: 30000, live_tab_id: null,
+  };
+
+  it('reads the RPC payload as rows', () => {
+    expect(unpaidPlayedRows([row])).toEqual([row]);
+  });
+
+  it('reads anything that is not a list of bookings as nothing to warn about', () => {
+    expect(unpaidPlayedRows(null)).toEqual([]);
+    expect(unpaidPlayedRows({ error: 'x' })).toEqual([]);
+    expect(unpaidPlayedRows([null, { guest_name: 'no id' }, row])).toEqual([row]);
+  });
+
+  it('never holds the close: unpaid bookings are not an input to the state or the block', () => {
+    // A warning, not a block (decided 2026-09-17). The state machine has no
+    // input for them, so a ready day with unpaid bookings stays ready.
+    expect(deriveDayCloseState(base)).toBe('ready');
+    expect(closeBlock('ready', 125000)).toBeNull();
   });
 });

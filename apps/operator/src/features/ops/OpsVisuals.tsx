@@ -124,6 +124,9 @@ export function FigureRow({
           fontWeight: 700,
           fontVariantNumeric: 'tabular-nums',
           textAlign: 'end',
+          // An amount is one token: "65,000 IQD" never breaks across lines,
+          // however long the hint beside it runs.
+          whiteSpace: 'nowrap',
           // Zero and unreported counts recede; everything else reads at full ink.
           color: active ? MARK_FG[tone] : isCount && !value ? 'var(--tp-muted-fg)' : 'var(--tp-fg)',
         }}

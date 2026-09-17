@@ -4,6 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { LocaleProvider } from '../../lib/i18n';
 import { TodaysBoardView, type TodaysBoardViewProps } from './TodaysBoard';
 import type { ReservationRow } from './deskTypes';
+import { statesById, type BillStateRow } from './payment/deskPaymentLogic';
+
+function billState(over: Partial<BillStateRow> & { reservation_id: string }): BillStateRow {
+  return { state: 'none', live_tab_id: null, due_iqd: 30000, court_paid_iqd: 0, court_remaining_iqd: 30000, court_refund_due_iqd: 0, ...over };
+}
 
 const courts = [
   { id: 'c1', name_en: 'Court 1', name_ar: 'ملعب 1', duration_options: [60, 90], sort_order: 1 },
@@ -125,16 +130,21 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
         row({ id: 'r3', start_at: '2026-09-03T19:00:00.000Z', end_at: '2026-09-03T20:00:00.000Z', guest_name: 'Nadia' }),
         row({ id: 'm1', kind: 'maintenance', court_id: 'c2', start_at: '2026-09-03T18:00:00.000Z', end_at: '2026-09-03T19:00:00.000Z', guest_name: null, notes: 'Net repair', price_iqd: null }),
       ],
-      tabLinks: [{ reservation_id: 'r1', status: 'settled' }],
+      billStates: statesById([
+        billState({ reservation_id: 'r1', state: 'paid', due_iqd: 0, court_paid_iqd: 30000, court_remaining_iqd: 0 }),
+        billState({ reservation_id: 'r2' }),
+        billState({ reservation_id: 'r3' }),
+      ]),
       flagsByGuest: new Map([['g1', [{ type: 'vip', label: null }]]]),
     });
     const table = screen.getByRole('table', { name: 'All bookings today' });
     expect(table.querySelectorAll('tbody tr')).toHaveLength(4);
     const t = within(table);
     expect(t.getByText('VIP')).toBeTruthy();
-    // Court fee: settled tab → Paid; tabs loaded but none charges it → a fact, not "unknown".
+    // Court fee, from the server: paid → Paid; not paid while the game is on or
+    // still to come → a quiet fact, not a warning.
     expect(t.getByText('Paid')).toBeTruthy();
-    expect(t.getAllByText('Not charged yet').length).toBe(2);
+    expect(t.getAllByText('Not paid yet').length).toBe(2);
     expect(t.getByText('Net repair')).toBeTruthy();
     // Court 2 is in use right now (Omar, 14:00–15:00): its tile says so, and opens his booking.
     const omarTile = screen.getByRole('button', { name: /^Court 2 · In use until .* · Open$/ });
@@ -143,6 +153,31 @@ describe("TodaysBoardView — Today's board (spec 06.1)", () => {
     expect(screen.getByRole('button', { name: /^Court 1 · Free until .* · Book this court$/ })).toBeTruthy();
     await user.click(t.getByRole('button', { name: 'Open Nadia' }));
     expect(props.onSelectReservation).toHaveBeenCalledWith('r3');
+  });
+
+  it('played, not paid: games that are over with the fee open are listed to settle, and the next group hears about it', async () => {
+    const user = userEvent.setup();
+    const props = renderView({
+      reservations: [
+        row({ id: 'early', start_at: '2026-09-03T13:00:00.000Z', end_at: '2026-09-03T14:00:00.000Z', guest_name: 'Early Group' }),
+        row({ id: 'paidEarly', court_id: 'c2', start_at: '2026-09-03T12:00:00.000Z', end_at: '2026-09-03T13:00:00.000Z', guest_name: 'Paid Group' }),
+        row({ id: 'next', start_at: '2026-09-03T15:00:00.000Z', end_at: '2026-09-03T16:00:00.000Z', guest_name: 'Next Group' }),
+      ],
+      billStates: statesById([
+        billState({ reservation_id: 'early' }),
+        billState({ reservation_id: 'paidEarly', state: 'paid', due_iqd: 0 }),
+        billState({ reservation_id: 'next' }),
+      ]),
+    });
+    const toSettle = within(screen.getByRole('heading', { name: 'Played, not paid' }).closest('section')!);
+    expect(toSettle.getByText('Early Group')).toBeTruthy();
+    expect(toSettle.queryByText('Paid Group')).toBeNull();
+    expect(toSettle.getByText(/^Not paid · /)).toBeTruthy();
+    await user.click(toSettle.getByRole('button', { name: 'Take payment Early Group' }));
+    expect(props.onSelectReservation).toHaveBeenCalledWith('early');
+    // The group due on the same court next is told, on its own arrival row.
+    const soon = within(screen.getByRole('heading', { name: 'Due in the next hour' }).closest('section')!);
+    expect(soon.getByText('The group before on this court has not paid: Early Group')).toBeTruthy();
   });
 
   it('court fee prints "—" while the tabs are unknown, never a guess', () => {

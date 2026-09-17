@@ -268,8 +268,13 @@ export function Field({
   // of the two is ever on screen to describe the control.
   const describedBy = error ? errorId : hint ? hintId : undefined;
 
+  // A <select> inside its <label> takes the label's whole text as its name —
+  // every <option> included ("RoleCashierKitchenCourt desk…"), which is what a
+  // screen reader announced and why exact label queries found nothing. Naming
+  // it by the label text alone fixes both.
+  const isSelect = isValidElement(children) && (children.type === 'select' || children.type === Select);
   let control = children;
-  if (isValidElement(children) && (describedBy !== undefined || group)) {
+  if (isValidElement(children) && (describedBy !== undefined || group || isSelect)) {
     const child = children as ReactElement<Record<string, unknown>>;
     control = cloneElement(child, {
       // A control that already names its own description keeps it; ours is appended.
@@ -280,7 +285,7 @@ export function Field({
           }
         : null),
       // The group carries the name the <label> can no longer give it.
-      ...(group ? { 'aria-labelledby': labelId } : null),
+      ...(group || isSelect ? { 'aria-labelledby': labelId } : null),
     });
   }
 
@@ -290,7 +295,7 @@ export function Field({
     <div style={{ marginBlockEnd: 'var(--tp-sp-4)', ...style }}>
       <Wrapper style={{ display: 'block' }}>
         <span
-          id={group ? labelId : undefined}
+          id={group || isSelect ? labelId : undefined}
           // The required marker is a CSS pseudo-element, not a character: an
           // asterisk in the label's text becomes part of the control's name.
           className={required ? 'tp-req' : undefined}
@@ -917,6 +922,9 @@ export function Select<T extends string>({
   id,
   style,
   'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
 }: {
   value: T | '';
   onChange: (next: T) => void;
@@ -926,6 +934,10 @@ export function Select<T extends string>({
   id?: string;
   style?: CSSProperties;
   'aria-label'?: string;
+  /** Set by Field, which names and describes the control it wraps. */
+  'aria-labelledby'?: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
 }) {
   return (
     <select
@@ -933,6 +945,9 @@ export function Select<T extends string>({
       value={value}
       disabled={disabled}
       aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy}
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid}
       onChange={(e) => onChange(e.target.value as T)}
       style={{ ...inputStyle, ...style }}
     >

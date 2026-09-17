@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tabIsRemovable, tabRemovalBlocker, type TabListRow } from './tillData';
+import { bookingTakesNewTab, canReadBookings, tabIsRemovable, tabRemovalBlocker, type TabListRow } from './tillData';
 
 /** A tab as the board sees it: opened, never touched. */
 const bare: TabListRow = {
@@ -68,5 +68,39 @@ describe('tabIsRemovable — the mirror of app.cancel_tab', () => {
     // existed must not read as an empty tab.
     const stale = { ...bare, orders: undefined } as unknown as TabListRow;
     expect(tabIsRemovable(stale)).toBe(false);
+  });
+});
+
+describe('canReadBookings — the mirror of the reservations read policies', () => {
+  it('lets the cashier see tonight’s bookings (0106 reservations_cashier_read)', () => {
+    expect(canReadBookings('cashier')).toBe(true);
+  });
+
+  it('keeps the roles that already could', () => {
+    expect(canReadBookings('court_desk')).toBe(true);
+    expect(canReadBookings('manager')).toBe(true);
+    expect(canReadBookings('owner')).toBe(true);
+  });
+
+  it('refuses kitchen staff and a missing role', () => {
+    expect(canReadBookings('prep')).toBe(false);
+    expect(canReadBookings(null)).toBe(false);
+    expect(canReadBookings(undefined)).toBe(false);
+  });
+});
+
+describe('bookingTakesNewTab — the till picker hides only bookings with a live tab', () => {
+  it('offers a booking with no tab', () => {
+    expect(bookingTakesNewTab({ tabs: [] })).toBe(true);
+  });
+
+  it('offers a booking whose court was paid on a settled tab (drinks after the court)', () => {
+    expect(bookingTakesNewTab({ tabs: [{ status: 'settled' }] })).toBe(true);
+    expect(bookingTakesNewTab({ tabs: [{ status: 'void' }, { status: 'settled' }] })).toBe(true);
+  });
+
+  it('hides a booking that already has an open or settling tab', () => {
+    expect(bookingTakesNewTab({ tabs: [{ status: 'open' }] })).toBe(false);
+    expect(bookingTakesNewTab({ tabs: [{ status: 'settled' }, { status: 'awaiting_payment' }] })).toBe(false);
   });
 });
