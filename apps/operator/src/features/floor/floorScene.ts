@@ -15,7 +15,8 @@
  * owner keeps their bearings, and cut straight when the machine asks for
  * reduced motion. The one loop is the RALLY on a court the server says is in
  * play (owner request, 2026-09-18): the mobile app's rackets and stroke
- * (./rally), a capsule following each hand, and the ball between them. It is
+ * (./rally) and the ball between them — the rackets stand in for the players,
+ * nobody is drawn holding them (owner call, 2026-09-18). It is
  * the server's state made visible, not decoration — a court that stops being
  * in play stops moving — and under reduced motion it holds the freeze frame
  * the phone holds, the ball on the striker's face.
@@ -32,7 +33,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { FloorSnapshot, FloorTarget, Room } from './floorModel';
 import { buildRacketKit, type RacketKit, type RacketRig } from './rally/racket';
-import { BALL_RADIUS, PLAYERS, applyEulerYXZ, layAngle, nextLegStart, rallyAt, v3 } from './rally/rally';
+import { BALL_RADIUS, PLAYERS, layAngle, nextLegStart, rallyAt } from './rally/rally';
 
 export interface FloorSceneEvents {
   onHover: (target: FloorTarget | null, point: { x: number; y: number }) => void;
@@ -610,14 +611,13 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
   // court there is the same 10 × 20 m with the net on z = 0, so the rally's
   // court-local metres drop straight into a court group here. One kit shared
   // by every racket; each in-play court gets four rigs (the count hides the
-  // spots the booking leaves empty), a capsule per rig that walks with the
-  // hand, the ball and its ground disc. Built on first use, kept and hidden
+  // spots the booking leaves empty), the ball and its ground disc. No figure
+  // holds the racket: the swinging racket IS the player. Built on first use, kept and hidden
   // once the court empties, so a court that goes in and out of play does not
   // rebuild thirty geometries each time.
   interface CourtRally {
     group: THREE.Group;
     rigs: RacketRig[];
-    bodies: THREE.Mesh[];
     ball: THREE.Group;
     shade: THREE.Mesh;
     count: number;
@@ -647,13 +647,6 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
       group.add(rig.mount);
       return rig;
     });
-    const bodies = PLAYERS.map(() => {
-      const b = new THREE.Mesh(capGeo, M.green);
-      b.castShadow = true;
-      b.receiveShadow = true;
-      group.add(b);
-      return b;
-    });
     const ball = new THREE.Group();
     const core = new THREE.Mesh(ballGeo, ballMat);
     core.castShadow = true;
@@ -665,7 +658,7 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     shade.rotation.x = -Math.PI / 2;
     shade.position.y = 0.075;
     group.add(shade);
-    const r: CourtRally = { group, rigs, bodies, ball, shade, count: 4, phase: slot * 0.7 };
+    const r: CourtRally = { group, rigs, ball, shade, count: 4, phase: slot * 0.7 };
     rallies.set(slot, r);
     return r;
   };
@@ -675,20 +668,12 @@ export function createFloorScene(host: HTMLElement, events: FloorSceneEvents, op
     const state = rallyAt(t, 1, r.count);
     state.rackets.forEach((pose, i) => {
       const rig = r.rigs[i]!;
-      const body = r.bodies[i]!;
       rig.mount.visible = pose.present;
-      body.visible = pose.present;
       if (!pose.present) return;
       rig.mount.position.set(pose.position.x, pose.position.y, pose.position.z);
       rig.mount.rotation.set(pose.rotation.x, pose.rotation.y, pose.rotation.z);
       rig.pivot.position.set(pose.swing.position.x, pose.swing.position.y, pose.swing.position.z);
       rig.pivot.rotation.set(pose.swing.rotation.x, pose.swing.rotation.y, pose.swing.rotation.z);
-      // The body stands a forearm inboard of the hand and walks with it: the
-      // hold puts the handle out to the player's side, so "inboard" is the
-      // other way along the stance's x.
-      const hand = applyEulerYXZ(pose.swing.position, pose.rotation);
-      const inboard = applyEulerYXZ(v3(-PLAYERS[i]!.hand * 0.35, 0, 0), pose.rotation);
-      body.position.set(pose.position.x + hand.x + inboard.x, 0.53, pose.position.z + hand.z + inboard.z);
     });
     r.ball.position.set(state.ball.x, state.ball.y, state.ball.z);
     r.ball.rotation.x += 0.12;

@@ -9,13 +9,20 @@
  *
  * Polled every 30 s and invalidated on the 'floor' and 'courts' broadcasts,
  * the same pair the manager's Today screen listens to.
+ *
+ * ALL OF WHICH IS CURRENTLY OFF. While the Phase 2 gate is on (phaseGate.ts)
+ * neither subscription is opened and the poll never runs; `useLiveFloor`
+ * answers with an empty floor and a 'disconnected' pill instead. Everything
+ * below is intact and untouched — one constant stands between it and live.
  */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useBroadcast, type BroadcastStatus } from '../../lib/realtime';
+import { PHASE_2_RESTRICTED } from './phaseGate';
 import {
   composeSnapshot,
+  EMPTY_SNAPSHOT,
   LOOKAHEAD_MS,
   type FloorRaw,
   type FloorSnapshot,
@@ -80,13 +87,22 @@ export interface LiveFloorResult {
 }
 
 export function useLiveFloor(): LiveFloorResult {
+  /**
+   * PHASE 2 GATE (phaseGate.ts). While it is on, this hook opens NO socket and
+   * reads NO rows: both `enabled` flags below are false, so `useBroadcast`
+   * returns before `supabase.channel(...)` and the poll never fires. The hooks
+   * are still CALLED — unconditionally, in the same order — because that is
+   * what the rules of hooks require; they simply do nothing.
+   */
+  const live = !PHASE_2_RESTRICTED;
   const q = useQuery({
     queryKey: FLOOR_QUERY_KEY,
     queryFn: () => fetchFloorRaw(),
     refetchInterval: FLOOR_REFETCH_MS,
+    enabled: live,
   });
-  const floor = useBroadcast({ topic: 'floor', isPrivate: true, invalidateKeys: [FLOOR_QUERY_KEY] });
-  const courts = useBroadcast({ topic: 'courts', isPrivate: true, invalidateKeys: [FLOOR_QUERY_KEY] });
+  const floor = useBroadcast({ topic: 'floor', isPrivate: true, invalidateKeys: [FLOOR_QUERY_KEY], enabled: live });
+  const courts = useBroadcast({ topic: 'courts', isPrivate: true, invalidateKeys: [FLOOR_QUERY_KEY], enabled: live });
 
   // Composed against the moment the rows arrived, not the render: a court
   // whose booking ends between two polls flips on the next read, as the
@@ -95,6 +111,13 @@ export function useLiveFloor(): LiveFloorResult {
 
   const connection: BroadcastStatus =
     floor.status === 'live' && courts.status === 'live' ? 'live' : floor.status === 'disconnected' || courts.status === 'disconnected' ? 'disconnected' : 'connecting';
+
+  // The static off state: a ready panel with an empty floor and a disconnected
+  // pill. 'ready' rather than 'loading' on purpose — nothing is on its way, so
+  // a skeleton would be a lie about a fetch that is not happening.
+  if (PHASE_2_RESTRICTED) {
+    return { snapshot: EMPTY_SNAPSHOT, status: 'ready', error: null, updatedAt: 0, connection: 'disconnected', refetch: () => {} };
+  }
 
   return {
     snapshot,

@@ -33,6 +33,7 @@ import { ConnectionPill } from '../../components/ConnectionPill';
 import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
 import { countsOf, type FloorSnapshot, type FloorTarget, type Room } from './floorModel';
 import { useLiveFloor } from './floorData';
+import { PHASE_2_LABEL, PHASE_2_RESTRICTED } from './phaseGate';
 import type { FloorSceneHandle } from './floorScene';
 
 const ROOM_LABEL: Record<Room, 'reception' | 'bar' | 'kitchen' | 'office' | 'meeting' | 'floor'> = {
@@ -106,9 +107,81 @@ export function LiveFloor({
           </div>
         }
       >
-        {snapshot && <FloorBody snapshot={snapshot} blockSize={blockSize} />}
+        {snapshot &&
+          (PHASE_2_RESTRICTED ? (
+            <Restricted>
+              <FloorBody snapshot={snapshot} blockSize={blockSize} />
+            </Restricted>
+          ) : (
+            <FloorBody snapshot={snapshot} blockSize={blockSize} />
+          ))}
       </AsyncStateWrapper>
     </Panel>
+  );
+}
+
+/**
+ * PHASE 2 GATE — the visible half (the invisible half is phaseGate.ts).
+ *
+ * The real panel is still BUILT and still laid out underneath: same grid, same
+ * counts, same stage box, so the day the flag flips there is nothing to put
+ * back and no layout that has never been rendered. It is only put out of
+ * focus, out of the accessibility tree and out of reach:
+ *   · `filter: blur` + a dim — the shape of the thing is legible, the content
+ *     is not, which is exactly what "restricted" should look like.
+ *   · `inert` takes the whole subtree out of the tab order and out of the
+ *     accessibility tree in one attribute (React 19 passes it through), so a
+ *     keyboard or a screen reader cannot land inside a panel the eye has
+ *     already been told is closed. `pointerEvents: none` is the mouse's half
+ *     of the same rule, kept because `inert` is the newer of the two.
+ *   · `aria-hidden` alongside it, belt and braces, for anything old enough not
+ *     to honour `inert`.
+ *
+ * The label is NOT blurred, is NOT inside the inert subtree, and carries no
+ * translation: see PHASE_2_LABEL.
+ */
+function Restricted({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        inert
+        aria-hidden="true"
+        // Light enough that the plan still reads as the venue — the courts, the
+        // building, the shape of the place — and heavy enough that no figure or
+        // label on it can be read (owner, 2026-09-18: "less blur, I want the 3D
+        // model to show a bit").
+        style={{ filter: 'blur(2.5px)', opacity: 0.8, pointerEvents: 'none', userSelect: 'none' }}
+      >
+        {children}
+      </div>
+      <div
+        // Centred on the panel body, over the plan. `pointerEvents: none` so it
+        // never becomes a thing to click at either — there is nothing behind it
+        // to reach, and a chip that swallows clicks reads as a broken button.
+        style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}
+      >
+        <span
+          // Geometry, like the plan it stands on: the words do not mirror.
+          dir="ltr"
+          data-testid="phase-2-restricted"
+          style={{
+            paddingBlock: 'var(--tp-sp-2)',
+            paddingInline: 'var(--tp-sp-4)',
+            borderRadius: 'var(--tp-radius-pill)',
+            background: 'var(--tp-surface)',
+            border: '1px solid var(--tp-border)',
+            boxShadow: 'var(--tp-shadow-popover)',
+            color: 'var(--tp-muted-fg)',
+            fontSize: 'var(--tp-fs-sm)',
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {PHASE_2_LABEL}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -281,7 +354,7 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
           <Skeleton lines={1} blockSize="100%" style={{ blockSize: '100%' }} />
         </div>
       )}
-      {ready && (
+      {ready && !PHASE_2_RESTRICTED && (
         <div style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-2)', insetInlineEnd: 'var(--tp-sp-2)', display: 'flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
           {/* Only once the view has moved: at the whole floor the button would
               be a control that does nothing. */}
@@ -328,6 +401,7 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
           </Button>
         </div>
       )}
+      {!PHASE_2_RESTRICTED && (
       <p
         style={{
           position: 'absolute',
@@ -345,6 +419,7 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
       >
         {tr(full ? 'ws.owner.floor.hintFull' : 'ws.owner.floor.hint')}
       </p>
+      )}
       {/* Pointer coordinates are physical, so the tooltip is placed inside an
           LTR overlay and only its content follows the document direction. */}
       {hover && (
