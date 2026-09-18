@@ -51,6 +51,7 @@ import {
 import { Icon } from '../../components/icons';
 import { downloadCsv, toCsv } from '../analytics/csv';
 import { DrillDialog } from '../reports/DrillDialog';
+import { LiveFloor } from '../floor/LiveFloor';
 import { FIGURES, figuresIn, figuresToCsvRows, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
@@ -103,6 +104,14 @@ export function ManagementPanelScreen() {
         subtitle={periodLine(period, compare === 'none' ? null : (headlineQ.data?.comparison ?? null), locale, tr)}
         actions={<ExportButton onExport={exportCsv} disabled={status !== 'ready'} />}
       />
+      {/* Now, before the period: the floor this minute is the one thing on the
+          screen the date range does not govern, so it sits above the range
+          control rather than among the figures it would otherwise seem to
+          belong to (owner request, 2026-09-18). */}
+      <div style={{ marginBlockEnd: 'var(--tp-sp-4)' }}>
+        <LiveFloor blockSize="24rem" boardLinks />
+      </div>
+
       <Toolbar end={<ComparisonControl mode={compare} onChange={setCompare} disabled={headlineQ.isFetching} />}>
         <DateRangeControl period={period} onChange={setPeriod} disabled={headlineQ.isFetching} now={today} />
       </Toolbar>

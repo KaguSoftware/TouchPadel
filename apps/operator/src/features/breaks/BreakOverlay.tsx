@@ -136,7 +136,7 @@ export function BreakOverlay() {
             {tr('ws.shell.break.away', { time: `⁨${formatElapsed(elapsed)}⁩` })}
             {' · '}
             {remaining >= 0 ? (
-              tr('ws.shell.break.left', { minutes: n(wholeMinutes(remaining)) })
+              tr('ws.shell.break.remainingToday', { minutes: n(wholeMinutes(remaining)) })
             ) : (
               <span style={{ color: 'var(--tp-warn-fg)', fontWeight: 600 }}>{tr('ws.shell.break.over', { minutes: n(wholeMinutes(remaining)) })}</span>
             )}
