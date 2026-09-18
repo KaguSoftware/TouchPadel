@@ -52,7 +52,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
   // Staff breaks (0105)
   break: {
     goOnBreak: 'بدء استراحة',
-    left: 'تبقّى {minutes} دقيقة اليوم',
+    remainingToday: 'تبقّى {minutes} دقيقة اليوم',
     noneLeft: 'لم يتبقَّ وقت استراحة اليوم',
     startTitle: 'بدء استراحة',
     startLead: 'رمزك السري يبدأ الاستراحة. أثناء غيابك تعرض المحطة من يستطيع التغطية.',

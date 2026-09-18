@@ -66,7 +66,7 @@ export const shellEn = {
   break: {
     goOnBreak: 'Go on break',
     // Under the rail button: how much of today's allowance is left.
-    left: '{minutes} min left today',
+    remainingToday: '{minutes} min left today',
     noneLeft: 'No break time left today',
     startTitle: 'Go on break',
     startLead: 'Your PIN starts the break. While you are away the station shows who can cover.',

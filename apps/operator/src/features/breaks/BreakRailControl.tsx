@@ -47,7 +47,7 @@ export function BreakRailControl({ style, captionStyle }: { style: CSSProperties
             <span>{tr('ws.shell.break.goOnBreak')}</span>
           </button>
           <p id="tp-break-left" style={captionStyle}>
-            {can ? tr('ws.shell.break.left', { minutes: n(wholeMinutes(remaining)) }) : tr('ws.shell.break.noneLeft')}
+            {can ? tr('ws.shell.break.remainingToday', { minutes: n(wholeMinutes(remaining)) }) : tr('ws.shell.break.noneLeft')}
           </p>
         </div>
       ) : (
