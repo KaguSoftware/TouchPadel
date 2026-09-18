@@ -65,3 +65,28 @@ export function mayOpenExternally(url: string, policy: NavigationPolicy): boolea
   const allowed = policy.isDev ? EXTERNAL_SCHEMES_DEV : EXTERNAL_SCHEMES_PROD;
   return allowed.has(target.protocol);
 }
+
+/** Chromium's ERR_ABORTED: a load superseded by another, not a failure. */
+const ERR_ABORTED = -3;
+
+/**
+ * Should a failed load send the window back to the renderer's index.html?
+ *
+ * The renderer is one file on disk. A top-level `file:` load of anything else
+ * — a stale pushState path like file:///C:/till from before the router used
+ * hash history, reloaded by Ctrl+R or by the crash recovery — fails with
+ * ERR_FILE_NOT_FOUND and leaves a white window a kiosk cannot get out of.
+ * Only file: loads qualify (the dev server reports its own errors), never
+ * index.html itself (a missing renderer would loop), never subframes, and
+ * never ERR_ABORTED.
+ */
+export function shouldRecoverToRenderer(
+  failed: { url: string; errorCode: number; isMainFrame: boolean },
+  rendererUrl: string,
+): boolean {
+  if (!failed.isMainFrame || failed.errorCode === ERR_ABORTED) return false;
+  const target = parse(failed.url);
+  const renderer = parse(rendererUrl);
+  if (!target || !renderer || target.protocol !== 'file:') return false;
+  return target.pathname !== renderer.pathname;
+}

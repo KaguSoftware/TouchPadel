@@ -100,7 +100,7 @@ function SignUpScreen() {
 
   return (
     <Screen gutter={20} edges={[]}>
-      <FormScreen>
+      <FormScreen contentStyle={{ flexGrow: 1 }}>
         <Title plain>{t('auth.signUp')}</Title>
         <SocialSignInBlock
           available={social.available}
@@ -176,13 +176,14 @@ function SignUpScreen() {
           onPress={() => router.replace('/sign-in')}
           style={{ marginTop: 18 }}
         />
+        {/* Pushed to the bottom of the screen (flexGrow content) so it reads
+            as a persistent footer instead of crowding the Sign in link. */}
         <FooterLink
-          lead={t('auth.privacyLead')}
           label={t('settings.privacyPolicy')}
           onPress={() =>
             void Linking.openURL(legalUrl('privacy', locale)).catch(() => toast(t('settings.linkFailed'), 'error'))
           }
-          style={{ marginTop: 14 }}
+          style={{ marginTop: 'auto', paddingTop: 14 }}
         />
       </FormScreen>
     </Screen>

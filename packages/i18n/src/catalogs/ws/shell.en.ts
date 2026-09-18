@@ -185,6 +185,7 @@ export const shellEn = {
     languageAlt: 'English',
     signOut: 'Sign out',
     station: 'Station {id}',
+    exitFullscreen: 'Exit forced full screen',
     quit: 'Quit to desktop',
     quitConfirm: 'This ends service on this station. Orders stop and the venue sees it go offline.',
     kitchenNoNav: 'Kitchen display',

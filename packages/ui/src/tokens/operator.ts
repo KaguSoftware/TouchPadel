@@ -227,6 +227,14 @@ export const operatorVars = {
   // z-index scale
   /** Sticky table heads sat on a bare z-index:1, outside the scale. */
   '--tp-z-table-head': '5',
+  /**
+   * A sticky bar that owns the top of a scrolling pane (the analytics filter
+   * bar). It has to outrank --tp-z-table-head: a sticky `th` inside the pane
+   * pins to the scrollport's top edge, which is BEHIND the bar, and on an
+   * equal z-index the later element in DOM order — the table — would paint
+   * over it.
+   */
+  '--tp-z-section-bar': '6',
   '--tp-z-sticky': '10',
   '--tp-z-rail': '20',
   '--tp-z-banner': '30',

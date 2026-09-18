@@ -396,7 +396,7 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
               />
             </>
           )}
-          <Button size="sm" icon={full ? 'shrink' : 'expand'} onClick={() => setFull((f) => !f)}>
+          <Button size="sm" icon={full ? 'collapse' : 'expand'} onClick={() => setFull((f) => !f)}>
             {tr(full ? 'ws.owner.floor.exitFullScreen' : 'ws.owner.floor.fullScreen')}
           </Button>
         </div>

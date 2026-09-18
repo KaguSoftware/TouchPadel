@@ -209,6 +209,8 @@ export interface TouchBridge {
   resolveQueueRow(req: ResolveQueueRowRequest): Promise<ResolveQueueRowResult | IpcRefusal>;
   /** Quit to desktop — the only way a production kiosk window closes. No PIN. */
   quitApp(): Promise<{ ok: boolean; error?: string }>;
+  /** Drop kiosk/fullscreen so the station behaves like a normal window. Service continues. */
+  exitFullscreen(): Promise<{ ok: boolean; error?: string }>;
   /** First run only: write station.json and relaunch. */
   saveStation(req: StationSetupRequest): Promise<StationSetupResult | IpcRefusal>;
   /** Till only, behind the manager PIN: what a kitchen screen needs to pair. */
@@ -260,6 +262,10 @@ const mock: TouchBridge = {
     return { ok: false, error: 'not-resolvable' };
   },
   async quitApp() {
+    return { ok: false, error: 'not-in-electron' };
+  },
+  async exitFullscreen() {
+    // Browser mode has no kiosk to leave; the control does not render there.
     return { ok: false, error: 'not-in-electron' };
   },
   async getCachedRef(key) {

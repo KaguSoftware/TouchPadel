@@ -330,7 +330,8 @@ export function FooterLink({
   onPress,
   style,
 }: {
-  lead: string;
+  /** Omit to render just the bold action line, with no lead sentence above it. */
+  lead?: string;
   label: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
@@ -341,7 +342,7 @@ export function FooterLink({
       accessibilityRole="link"
       // The two lines are one control: read as one sentence, not as a stray
       // fragment followed by a link with no context.
-      accessibilityLabel={`${lead} ${label}`}
+      accessibilityLabel={lead ? `${lead} ${label}` : label}
       onPress={onPress}
       hitSlop={{ top: 10, bottom: 10 }}
       style={({ pressed }) => [
@@ -355,17 +356,19 @@ export function FooterLink({
           weight then rides on `fontWeight` alone — which the bold action below
           would otherwise be the only one to state, leaving these two lines
           looking like different colours rather than different weights. */}
-      <Text
-        style={{
-          fontFamily: fonts.body400,
-          fontWeight: '400',
-          fontSize: 12.5,
-          color: colors.mut,
-          textAlign: 'center',
-        }}
-      >
-        {lead}
-      </Text>
+      {lead ? (
+        <Text
+          style={{
+            fontFamily: fonts.body400,
+            fontWeight: '400',
+            fontSize: 12.5,
+            color: colors.mut,
+            textAlign: 'center',
+          }}
+        >
+          {lead}
+        </Text>
+      ) : null}
       <Text
         style={{
           fontFamily: fonts.body800,
@@ -437,7 +440,7 @@ const LEAD_GAP = 10;
  * reserves — and the field's height would differ with it. 17 is what the 14px
  * face resolves to on iOS, which is the height the design was drawn against.
  */
-const LINE = 17;
+export const LINE = 17;
 
 export function Field({
   label,
@@ -559,7 +562,6 @@ export function Field({
             // placeholder ride low in the first place.
             paddingTop: 0,
             paddingBottom: 0,
-            alignSelf: 'stretch',
             // ANDROID: an EditText reserves space above and below the glyphs
             // for the font's ascent/descent hints and then sits the text
             // against the TOP of that box, so the placeholder rides low inside
@@ -567,6 +569,21 @@ export function Field({
             // reserved space makes the text box exactly the glyphs, and
             // centring it in what the padding leaves puts it on the box's
             // middle — where iOS already has it.
+            //
+            // iOS with a `lead` adornment (only the phone field, so far):
+            // stretching the input to the row's full height measures it a few
+            // points taller than the `lineHeight` line box its neighbours
+            // use (the chip's `Text`, the divider), so it renders a hair
+            // lower than them despite matching `lineHeight`. Left unstretched
+            // there, the input's natural (line-box) height is centred by the
+            // row's own `alignItems: 'center'` instead — what every other
+            // child in that row already gets.
+            alignSelf: lead && Platform.OS === 'ios' ? undefined : 'stretch',
+            // Even unstretched, the UITextField's own line box still measures
+            // a few points taller than the `lineHeight` box the chip's `Text`
+            // and the divider use, so centring it still left it a hair below
+            // them. 4pt pulls it back level — calibrated against the device.
+            ...(lead && Platform.OS === 'ios' ? { marginTop: -4 } : null),
             ...Platform.select({
               android: { includeFontPadding: false, textAlignVertical: 'center' as const },
               default: null,

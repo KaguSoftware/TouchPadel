@@ -46,6 +46,9 @@ const touch = {
 
   quitApp: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC.quitApp),
 
+  exitFullscreen: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC.exitFullscreen),
+
   getCachedRef: (key: string): Promise<unknown> => ipcRenderer.invoke(IPC.getCachedRef, key),
 
   // Fire-and-forget pushes: the renderer is the auth + connectivity authority.

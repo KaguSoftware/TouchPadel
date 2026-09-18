@@ -64,7 +64,6 @@ export const en = {
     newHereLead: 'New here?',
     createAccountLink: 'Create an account',
     alreadyLead: 'Already playing with us?',
-    privacyLead: 'How we handle your details',
     passwordMinPlaceholder: 'Password (min 8 characters)',
     // Field-level validation (spec 05.3/05.4) — rendered on the field it concerns.
     nameRequired: 'Enter your full name.',

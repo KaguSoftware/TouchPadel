@@ -7,6 +7,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import { EventEmitter } from 'node:events';
 
 let userData: string | null = null;
 
@@ -29,6 +30,12 @@ export const app = {
     __calls.push('exit:' + code);
   },
 };
+
+/**
+ * Electron's native autoUpdater — Squirrel.Mac on macOS. updater.ts only
+ * listens to it for update-downloaded; a test emits that.
+ */
+export const autoUpdater = new EventEmitter();
 
 /** Every process-level call a module under test made (relaunch, exit). */
 export const __calls: string[] = [];

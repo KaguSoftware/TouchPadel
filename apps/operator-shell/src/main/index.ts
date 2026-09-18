@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron';
+import { pathToFileURL } from 'node:url';
+import { BrowserWindow, app, dialog, ipcMain, screen, shell } from 'electron';
 import { IPC, type PrintResult } from '../ipc-channels';
 import {
   enqueue,
@@ -24,7 +25,7 @@ import { getAuthState, setAuthState } from './auth-state';
 import { observePin, unlockPinOffline } from './pin-cache';
 import { printReceiptHtml } from './print/print-receipt';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
-import { mayNavigateTo, mayOpenExternally, type NavigationPolicy } from './window-security';
+import { mayNavigateTo, mayOpenExternally, shouldRecoverToRenderer, type NavigationPolicy } from './window-security';
 import {
   IpcValidationError,
   validateAuthState,
@@ -195,13 +196,23 @@ function createWindow(): BrowserWindow {
 
   if (devServerUrl) {
     void win.loadURL(devServerUrl);
-  } else if (app.isPackaged) {
-    // The SPA rides as extraResources/renderer (electron-builder.yml) — loaded
-    // from disk, never a URL: the UI boots with zero network (design-arch §2).
-    void win.loadFile(path.join(process.resourcesPath, 'renderer', 'index.html'));
   } else {
-    // Monorepo-local `pnpm build` of apps/operator, for `electron .` smoke runs.
-    void win.loadFile(path.join(__dirname, '../../../operator/dist/index.html'));
+    const rendererFile = app.isPackaged
+      ? // The SPA rides as extraResources/renderer (electron-builder.yml) — loaded
+        // from disk, never a URL: the UI boots with zero network (design-arch §2).
+        path.join(process.resourcesPath, 'renderer', 'index.html')
+      : // Monorepo-local `pnpm build` of apps/operator, for `electron .` smoke runs.
+        path.join(__dirname, '../../../operator/dist/index.html');
+    void win.loadFile(rendererFile);
+
+    // A reload of a URL that is not index.html used to end on a white window
+    // (window-security.ts shouldRecoverToRenderer). Put the renderer back.
+    const rendererUrl = pathToFileURL(rendererFile).href;
+    win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, url, isMainFrame) => {
+      if (!shouldRecoverToRenderer({ url, errorCode, isMainFrame }, rendererUrl)) return;
+      console.error('[window] load failed, returning to the renderer:', url, errorDescription);
+      void win.loadFile(rendererFile);
+    });
   }
 
   // Crash recovery (design-arch.md §2.5): renderer gone → reload. Note this
@@ -380,12 +391,63 @@ if (gotTheLock) {
       guardIpc('quitApp', () => {
         setTimeout(() => {
           // A downloaded update installs on the way out. app.exit() skips
-          // will-quit, so autoInstallOnAppQuit alone would never fire here.
+          // will-quit, so autoInstallOnAppQuit alone would never fire here;
+          // installOnQuit quits itself, and exits hard if that quit stalls.
           if (!updater?.installOnQuit()) app.exit(0);
         }, 50); // let the reply reach the renderer
         return { ok: true as const };
       }),
     );
+    // "Exit forced full screen" — the escape hatch for a station that needs to
+    // be driven like a normal machine for a moment (a support session, reading
+    // a PDF beside the till, reaching the Dock or the taskbar). Kiosk mode
+    // swallows the OS chrome on both platforms — macOS hides the traffic
+    // lights and the menu bar, Windows hides the taskbar — and neither one is
+    // recoverable from inside the page, so it has to be done here.
+    //
+    // It does NOT end service: the renderer keeps running, the queue keeps
+    // replaying, and the window stays on screen. What it gives back is the
+    // titlebar and the ability to close/minimise, which is why it also lifts
+    // the `closable: false` that createWindow set — a window with an X that
+    // refuses to close would be worse than one with no X at all.
+    ipcMain.handle(IPC.exitFullscreen, (e) =>
+      guardIpc('exitFullscreen', () => {
+        const win = BrowserWindow.fromWebContents(e.sender);
+        if (!win || win.isDestroyed()) return { ok: false as const, error: 'no-window' };
+        // Order matters: kiosk off first, because on macOS leaving kiosk is
+        // itself a fullscreen transition and setFullScreen(false) before it
+        // gets undone. setSimpleFullScreen covers the macOS-only variant.
+        if (win.isKiosk()) win.setKiosk(false);
+        if (win.isFullScreen()) win.setFullScreen(false);
+        if (process.platform === 'darwin' && win.isSimpleFullScreen()) {
+          win.setSimpleFullScreen(false);
+        }
+        win.setClosable(true);
+        win.setMenuBarVisibility(true);
+        win.setAutoHideMenuBar(false);
+        win.setAlwaysOnTop(false);
+        // Production windows are built frameless (`frame: relaxed`), and
+        // Electron cannot grow a titlebar after creation — so dropping kiosk
+        // alone would leave an undecorated sheet still covering the screen,
+        // which reads as "nothing happened". Shrink it to a windowed size and
+        // centre it: that, not the titlebar, is what tells the operator they
+        // are out, and the desktop behind it becomes reachable either way.
+        if (win.isMaximized()) win.unmaximize();
+        const { width, height } = screen.getDisplayMatching(win.getBounds()).workAreaSize;
+        win.setBounds(
+          {
+            width: Math.round(width * 0.9),
+            height: Math.round(height * 0.9),
+            x: Math.round(width * 0.05),
+            y: Math.round(height * 0.05),
+          },
+          true,
+        );
+        win.setMovable(true);
+        return { ok: true as const };
+      }),
+    );
+
     ipcMain.on(IPC.getStation, (e) => {
       e.returnValue = {
         stationId: station.stationId,
@@ -461,6 +523,11 @@ if (gotTheLock) {
       onReady: (info) => {
         if (!win.isDestroyed()) win.webContents.send(IPC.updateReady, info);
       },
+      allowClose: () => {
+        for (const w of BrowserWindow.getAllWindows()) w.setClosable(true);
+      },
+      exit: (code) => app.exit(code),
+      logFile: path.join(app.getPath('userData'), 'updater.log'),
     });
 
     // A second launch should surface the station that is already trading, not

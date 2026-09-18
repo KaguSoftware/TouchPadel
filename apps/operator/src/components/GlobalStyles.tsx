@@ -199,13 +199,13 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-nav-item[data-active='true'] { background: var(--tp-rail-active); color: var(--tp-rail-fg-active); font-weight: 700; }
 .tp-nav-item:focus-visible { outline-color: var(--tp-rail-green); }
 .tp-nav-item svg { opacity: 0.85; }
-/* A collapsible rail group's title (routes/__root.tsx RailGroup). Same 44px
-   row as a destination so it is as easy to hit, but set as a caption — small
-   caps, muted — so it still reads as a heading over rows, not as a row. */
-.tp-rail-group {
-  color: var(--tp-rail-muted); font-size: var(--tp-fs-xs); font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.08em;
-}
+/* A collapsible rail group's title (routes/__root.tsx RailGroup). It is set as
+   a rail ROW, not a caption: Operations is the only workspace that uses these
+   groups, so when this was small-caps/xs/muted it was the one rail in the app
+   whose top-level entries did not match Management's section rows beside it —
+   which reads as a different font, not as a heading. It keeps .tp-nav-item's
+   size and weight and only the chevron marks it as something that opens. */
+.tp-rail-group { color: var(--tp-rail-fg); }
 .tp-rail-group:hover, .tp-rail-group[aria-expanded='true'] { color: var(--tp-rail-fg); }
 .tp-rail-group-chevron { transition: transform var(--tp-dur-fast) var(--tp-ease-out); }
 .tp-rail-group[aria-expanded='false'] .tp-rail-group-chevron { transform: rotate(-90deg); }
