@@ -35,16 +35,27 @@
  * see `docs/PHASE-2-RECONNECT.md`.
  *
  * Typed `boolean` on purpose, NOT left to infer the literal `true`: with a
- * literal type TypeScript narrows `!PHASE_2_RESTRICTED` to `false` and reports
+ * literal type TypeScript narrows `!HELD_FOR_PHASE_2` to `false` and reports
  * the live branches as dead code, so flipping the flag would be a compile
  * error rather than a one-character change.
  */
-export const PHASE_2_RESTRICTED: boolean = true;
+export const HELD_FOR_PHASE_2: boolean = true;
 
 /**
- * The words over the blurred plan. Deliberately NOT an i18n key: this is a
- * build-state notice for the people building it, not venue copy, and it leaves
- * with the flag. Putting it in the catalogues would mean shipping a string to
- * translate that is meant to be deleted.
+ * The words over the plan, in both languages.
+ *
+ * WHY THIS WORDING. Not "restricted" — that reads as a door someone locked,
+ * and invites the question of who is allowed through it. This is a roadmap
+ * note: the plan is part of a later phase, and that is the whole story anyone
+ * outside the build needs (owner, 2026-09-18).
+ *
+ * BILINGUAL, because the venue reads Arabic and this is shown to them, not
+ * only to us. Held HERE rather than in the i18n catalogues on purpose: it is a
+ * temporary notice that should leave with the flag, and a key in the
+ * catalogues would outlive it — a string still being translated long after the
+ * thing it labelled came back on.
  */
-export const PHASE_2_LABEL = 'PHASE 2 RESTRICTED';
+export const PHASE_2_LABEL: Record<'en' | 'ar', string> = {
+  en: 'COMING IN PHASE 2',
+  ar: 'قريباً في المرحلة الثانية',
+};

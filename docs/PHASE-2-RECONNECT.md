@@ -10,7 +10,7 @@ Open [apps/operator/src/features/floor/phaseGate.ts](../apps/operator/src/featur
 and change one word:
 
 ```ts
-export const PHASE_2_RESTRICTED: boolean = false;
+export const HELD_FOR_PHASE_2: boolean = false;
 ```
 
 That is the whole revert. Save, and Vite's hot reload brings the plan back in
@@ -21,14 +21,14 @@ uncommented, and there is no second switch anywhere.
 If you prefer it as a command, from the repository root:
 
 ```bash
-sed -i '' 's/PHASE_2_RESTRICTED: boolean = true/PHASE_2_RESTRICTED: boolean = false/' \
+sed -i '' 's/HELD_FOR_PHASE_2: boolean = true/HELD_FOR_PHASE_2: boolean = false/' \
   apps/operator/src/features/floor/phaseGate.ts
 ```
 
 Then check it took:
 
 ```bash
-grep -n 'PHASE_2_RESTRICTED: boolean' apps/operator/src/features/floor/phaseGate.ts
+grep -n 'HELD_FOR_PHASE_2: boolean' apps/operator/src/features/floor/phaseGate.ts
 ```
 
 ## What the gate turns off
@@ -63,7 +63,8 @@ server calls in play and the server is not being asked.
 The panel still mounts and still lays itself out. It is fed an empty floor and
 reports its connection as disconnected, which is the honest picture of a plan
 with no feed: every count reads zero of zero, the venue stands there empty and
-still, and the whole body is blurred behind the words **PHASE 2 RESTRICTED**.
+still, and the whole body is blurred behind the words **COMING IN PHASE 2**
+(**قريباً في المرحلة الثانية** in Arabic).
 
 The blur is deliberately light. The plan should still read as the venue — the
 courts, the building, the shape of the place — while nothing written or marked
@@ -72,6 +73,17 @@ there is no state to explore, and a control behind a blur only looks broken.
 
 The blurred half is marked `inert` and `aria-hidden`, so nobody reaches it by
 keyboard, mouse or screen reader while it is closed.
+
+## The wording
+
+The notice says **coming in phase 2**, not *restricted*. "Restricted" reads as
+a door somebody locked, and invites the question of who is allowed through it.
+This is a roadmap note, and that is the whole story anyone outside the build
+needs.
+
+It is held in `phaseGate.ts` in both languages rather than in the i18n
+catalogues, because it should leave with the flag. A catalogue key would
+outlive it — a string still being translated long after the plan came back on.
 
 ## Why it is built this way
 
@@ -92,6 +104,7 @@ leave with the flag instead of leaving a string behind in the catalogues.
 ## When you have reconnected it
 
 1. Delete `apps/operator/src/features/floor/phaseGate.ts`.
-2. Remove its four references — two in `floorData.ts`, three in
-   `LiveFloor.tsx`, which `grep -rn PHASE_2 apps/operator/src` will list.
+2. Remove its references in `floorData.ts` and `LiveFloor.tsx`, which
+   `grep -rn PHASE_2 apps/operator/src` will list, and delete
+   `phaseGate.test.tsx` with them.
 3. Delete this page.

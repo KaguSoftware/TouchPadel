@@ -33,7 +33,7 @@ import { ConnectionPill } from '../../components/ConnectionPill';
 import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
 import { countsOf, type FloorSnapshot, type FloorTarget, type Room } from './floorModel';
 import { useLiveFloor } from './floorData';
-import { PHASE_2_LABEL, PHASE_2_RESTRICTED } from './phaseGate';
+import { PHASE_2_LABEL, HELD_FOR_PHASE_2 } from './phaseGate';
 import type { FloorSceneHandle } from './floorScene';
 
 const ROOM_LABEL: Record<Room, 'reception' | 'bar' | 'kitchen' | 'office' | 'meeting' | 'floor'> = {
@@ -108,10 +108,10 @@ export function LiveFloor({
         }
       >
         {snapshot &&
-          (PHASE_2_RESTRICTED ? (
-            <Restricted>
+          (HELD_FOR_PHASE_2 ? (
+            <HeldForPhase2>
               <FloorBody snapshot={snapshot} blockSize={blockSize} />
-            </Restricted>
+            </HeldForPhase2>
           ) : (
             <FloorBody snapshot={snapshot} blockSize={blockSize} />
           ))}
@@ -128,7 +128,8 @@ export function LiveFloor({
  * back and no layout that has never been rendered. It is only put out of
  * focus, out of the accessibility tree and out of reach:
  *   · `filter: blur` + a dim — the shape of the thing is legible, the content
- *     is not, which is exactly what "restricted" should look like.
+ *     is not, which is what "not yet" should look like: the venue is there,
+ *     the detail on it is not.
  *   · `inert` takes the whole subtree out of the tab order and out of the
  *     accessibility tree in one attribute (React 19 passes it through), so a
  *     keyboard or a screen reader cannot land inside a panel the eye has
@@ -140,7 +141,8 @@ export function LiveFloor({
  * The label is NOT blurred, is NOT inside the inert subtree, and carries no
  * translation: see PHASE_2_LABEL.
  */
-function Restricted({ children }: { children: ReactNode }) {
+function HeldForPhase2({ children }: { children: ReactNode }) {
+  const { locale, dir } = useLocale();
   return (
     <div style={{ position: 'relative' }}>
       <div
@@ -161,9 +163,10 @@ function Restricted({ children }: { children: ReactNode }) {
         style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}
       >
         <span
-          // Geometry, like the plan it stands on: the words do not mirror.
-          dir="ltr"
-          data-testid="phase-2-restricted"
+          // The words follow the document, unlike the plan underneath them:
+          // this is a sentence, not geometry.
+          dir={dir}
+          data-testid="phase-2-notice"
           style={{
             paddingBlock: 'var(--tp-sp-2)',
             paddingInline: 'var(--tp-sp-4)',
@@ -174,11 +177,13 @@ function Restricted({ children }: { children: ReactNode }) {
             color: 'var(--tp-muted-fg)',
             fontSize: 'var(--tp-fs-sm)',
             fontWeight: 700,
-            letterSpacing: '0.12em',
+            // Tracking opens up Latin capitals; Arabic has no capitals and its
+            // letters JOIN, so the same value would pull the word apart.
+            letterSpacing: locale === 'ar' ? undefined : '0.12em',
             whiteSpace: 'nowrap',
           }}
         >
-          {PHASE_2_LABEL}
+          {PHASE_2_LABEL[locale === 'ar' ? 'ar' : 'en']}
         </span>
       </div>
     </div>
@@ -354,7 +359,7 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
           <Skeleton lines={1} blockSize="100%" style={{ blockSize: '100%' }} />
         </div>
       )}
-      {ready && !PHASE_2_RESTRICTED && (
+      {ready && !HELD_FOR_PHASE_2 && (
         <div style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-2)', insetInlineEnd: 'var(--tp-sp-2)', display: 'flex', gap: 'var(--tp-sp-1)', alignItems: 'center' }}>
           {/* Only once the view has moved: at the whole floor the button would
               be a control that does nothing. */}
@@ -401,7 +406,7 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
           </Button>
         </div>
       )}
-      {!PHASE_2_RESTRICTED && (
+      {!HELD_FOR_PHASE_2 && (
       <p
         style={{
           position: 'absolute',

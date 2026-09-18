@@ -20,12 +20,12 @@ vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 const live = vi.fn<() => LiveFloorResult>();
 vi.mock('./floorData', () => ({ useLiveFloor: () => live() }));
 
-const gate = vi.hoisted(() => ({ restricted: true }));
+const gate = vi.hoisted(() => ({ held: true }));
 vi.mock('./phaseGate', () => ({
-  get PHASE_2_RESTRICTED() {
-    return gate.restricted;
+  get HELD_FOR_PHASE_2() {
+    return gate.held;
   },
-  PHASE_2_LABEL: 'PHASE 2 RESTRICTED',
+  PHASE_2_LABEL: { en: 'COMING IN PHASE 2', ar: 'قريباً في المرحلة الثانية' },
 }));
 
 import { LiveFloor } from './LiveFloor';
@@ -50,16 +50,19 @@ function renderFloor() {
 }
 
 beforeEach(() => {
-  gate.restricted = true;
+  gate.held = true;
   live.mockReset();
   navigate.mockReset();
 });
 
-describe('Phase 2 gate — restricted', () => {
-  it('says PHASE 2 RESTRICTED over the panel', () => {
+describe('Phase 2 gate — held', () => {
+  it('says the plan is coming in phase 2, not that it is barred', () => {
     live.mockReturnValue(offResult());
     renderFloor();
-    expect(screen.getByTestId('phase-2-restricted').textContent).toBe('PHASE 2 RESTRICTED');
+    const notice = screen.getByTestId('phase-2-notice');
+    expect(notice.textContent).toBe('COMING IN PHASE 2');
+    // The word the owner rejected: it reads as a door someone locked.
+    expect(document.body.textContent).not.toMatch(/restricted/i);
   });
 
   it('blurs the panel body and puts it out of reach of pointer, keyboard and screen reader', () => {
@@ -79,7 +82,7 @@ describe('Phase 2 gate — restricted', () => {
   it('leaves the label itself sharp and untouchable', () => {
     live.mockReturnValue(offResult());
     renderFloor();
-    const label = screen.getByTestId('phase-2-restricted');
+    const label = screen.getByTestId('phase-2-notice');
     expect(label.closest('[inert]')).toBeNull();
     expect((label.parentElement as HTMLElement).style.pointerEvents).toBe('none');
   });
@@ -98,7 +101,7 @@ describe('Phase 2 gate — restricted', () => {
   it('shows nothing even if the hook hands it a busy floor', () => {
     live.mockReturnValue({ ...offResult(), snapshot: busy, connection: 'live' });
     renderFloor();
-    expect(screen.getByTestId('phase-2-restricted')).toBeTruthy();
+    expect(screen.getByTestId('phase-2-notice')).toBeTruthy();
     expect(screen.getByText('Courts in play').closest('[inert]')).toBeTruthy();
   });
 
@@ -121,15 +124,15 @@ describe('Phase 2 gate — restricted', () => {
   });
 });
 
-describe('Phase 2 gate — reconnected', () => {
+describe('Phase 2 gate — released', () => {
   beforeEach(() => {
-    gate.restricted = false;
+    gate.held = false;
   });
 
   it('the label and the blur are gone', () => {
     live.mockReturnValue({ snapshot: busy, status: 'ready', error: null, updatedAt: Date.parse('2026-09-18T18:20:00Z'), connection: 'live', refetch: vi.fn() });
     renderFloor();
-    expect(screen.queryByTestId('phase-2-restricted')).toBeNull();
+    expect(screen.queryByTestId('phase-2-notice')).toBeNull();
     expect(document.querySelector('[inert]')).toBeNull();
   });
 

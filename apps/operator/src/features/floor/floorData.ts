@@ -19,7 +19,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { useBroadcast, type BroadcastStatus } from '../../lib/realtime';
-import { PHASE_2_RESTRICTED } from './phaseGate';
+import { HELD_FOR_PHASE_2 } from './phaseGate';
 import {
   composeSnapshot,
   EMPTY_SNAPSHOT,
@@ -94,7 +94,7 @@ export function useLiveFloor(): LiveFloorResult {
    * are still CALLED — unconditionally, in the same order — because that is
    * what the rules of hooks require; they simply do nothing.
    */
-  const live = !PHASE_2_RESTRICTED;
+  const live = !HELD_FOR_PHASE_2;
   const q = useQuery({
     queryKey: FLOOR_QUERY_KEY,
     queryFn: () => fetchFloorRaw(),
@@ -115,7 +115,7 @@ export function useLiveFloor(): LiveFloorResult {
   // The static off state: a ready panel with an empty floor and a disconnected
   // pill. 'ready' rather than 'loading' on purpose — nothing is on its way, so
   // a skeleton would be a lie about a fetch that is not happening.
-  if (PHASE_2_RESTRICTED) {
+  if (HELD_FOR_PHASE_2) {
     return { snapshot: EMPTY_SNAPSHOT, status: 'ready', error: null, updatedAt: 0, connection: 'disconnected', refetch: () => {} };
   }
 
