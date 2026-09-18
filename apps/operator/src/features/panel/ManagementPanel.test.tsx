@@ -13,6 +13,10 @@ vi.mock('../../lib/supabase', () => ({ supabase: {}, supabaseUrl: '', supabaseAn
 vi.mock('../../lib/settings', () => ({
   useCafeSettings: () => ({ isSuccess: true, isError: false, settings: { analytics_business_day_start_hour: 4 } }),
 }));
+// The live floor has its own reads, broadcasts and a three.js scene; the
+// panel's tests are about the panel's figures. It is covered in
+// ../floor/LiveFloor.test.tsx.
+vi.mock('../floor/LiveFloor', () => ({ LiveFloor: () => <div data-testid="live-floor" /> }));
 vi.mock('../../lib/appRpc', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   appRpc: vi.fn(),

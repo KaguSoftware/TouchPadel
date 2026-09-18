@@ -42,6 +42,7 @@ import { OPS_OVERVIEW_KEY, OPS_REFETCH_MS } from '../ops/OperationsOverview';
 import { alertsFor, normalizeOverview } from '../ops/opsLogic';
 import { MARKETING_QUERY_KEY, overdueCampaigns, type MarketingOverview } from '../marketing/marketingTypes';
 import { REQUESTS_QUERY_KEY, type StaffRequestsPage } from './requestTypes';
+import { LiveFloor } from '../floor/LiveFloor';
 
 type CardKey =
   | 'floorNow' | 'bookings' | 'tills'
@@ -116,6 +117,11 @@ export function ObservationHomeScreen() {
       screensTitle={tr('ws.owner.observationHome.screens')}
     >
       <WaitingOnYou pendingQ={pendingQ} marketingQ={canMarketing ? marketingQ : null} />
+      <div style={{ blockSize: 'var(--tp-sp-4)' }} />
+      {/* After what needs a decision, what the floor is doing right now (owner
+          request, 2026-09-18). The Bookings and Tills cards below are the way
+          deeper, so the plan does not repeat them as buttons here. */}
+      <LiveFloor blockSize="30rem" />
       <div style={{ blockSize: 'var(--tp-sp-4)' }} />
     </SectionHome>
   );
