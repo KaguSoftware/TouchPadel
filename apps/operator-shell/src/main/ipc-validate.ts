@@ -229,10 +229,17 @@ export function validateAuthState(value: unknown): AuthState | null {
   return { accessToken, staffId, supabaseUrl: supabaseUrl.replace(/\/+$/, ''), anonKey };
 }
 
+/** Whether the renderer is showing a screen that wants no window buttons. */
+export function validateChromeless(value: unknown): boolean {
+  if (typeof value !== 'boolean') fail('chromeless must be a boolean');
+  return value;
+}
+
 export function validateConnState(value: unknown): boolean {
   if (typeof value !== 'boolean') fail('connState must be a boolean');
   return value;
 }
+
 
 /** A KDS renderer's bump, bound for the till over the LAN. kdsStation is
  *  stamped by main from station.json — never trusted from the renderer. */

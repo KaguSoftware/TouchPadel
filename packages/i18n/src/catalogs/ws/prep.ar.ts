@@ -19,6 +19,7 @@ export const prepAr: DeepMessages<typeof prepEn> = {
     hours: '{h}س {m}د',
     days: '{d} يوم',
   },
+  exit: 'مغادرة شاشة المطبخ',
   ticket: {
     number: 'تذكرة {n}',
     selected: 'محددة',

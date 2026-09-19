@@ -54,9 +54,30 @@ const touch = {
   // Fire-and-forget pushes: the renderer is the auth + connectivity authority.
   pushAuthState: (s: AuthState | null): void => ipcRenderer.send(IPC.authState, s),
   pushConnState: (online: boolean): void => ipcRenderer.send(IPC.connState, online),
+  /** The kitchen board is up (or gone) — hides/shows the macOS traffic lights. */
+  pushChromeless: (chromeless: boolean): void => ipcRenderer.send(IPC.chromeless, chromeless),
   cachePut: (key: string, payload: unknown): void =>
     ipcRenderer.send(IPC.cachePut, { key, payload }),
   pinObserved: (pin: string): void => ipcRenderer.send(IPC.pinObserved, pin),
+
+  /**
+   * Full-screen state, pushed on every change and once on subscribe — the
+   * rail mounts long after the window settled, so a subscriber has to be told
+   * where things stand rather than wait for the next transition.
+   */
+  onFullscreenState: (cb: (fullscreen: boolean) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, fullscreen: boolean) => cb(fullscreen);
+    ipcRenderer.on(IPC.fullscreenState, listener);
+    void ipcRenderer.invoke(IPC.fullscreenState).then((v: boolean) => cb(v));
+    return () => ipcRenderer.removeListener(IPC.fullscreenState, listener);
+  },
+
+  /** The red traffic light was pressed; main has held the close. */
+  onCloseRequested: (cb: () => void): (() => void) => {
+    const listener = () => cb();
+    ipcRenderer.on(IPC.closeRequested, listener);
+    return () => ipcRenderer.removeListener(IPC.closeRequested, listener);
+  },
 
   onMutationResult: (cb: (r: MutationResult) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, r: MutationResult) => cb(r);

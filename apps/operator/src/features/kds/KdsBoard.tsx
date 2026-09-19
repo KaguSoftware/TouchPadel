@@ -11,11 +11,14 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { supabase } from '../../lib/supabase';
 import { appRpc } from '../../lib/appRpc';
 import { isElectron, mutate } from '../../lib/mutate';
 import { touch } from '../../ipc/bridge';
 import { useLocale } from '../../lib/i18n';
+import { useWorkspaceOrNull } from '../../routes/__root';
+import { WORKSPACES, type WorkspaceKey } from '../../lib/workspaces';
 import { asyncStatus, type AsyncStatus } from '../../components/kit';
 import { lanTicketViews, useLanTickets, useVariantNames } from './LanBoard';
 import { useKdsAlarms } from './useKdsAlarms';
@@ -167,6 +170,34 @@ export function KdsBoard() {
   );
   const retry = useCallback(() => void ticketsQ.refetch(), [ticketsQ]);
 
+  // The way off the board. The prep workspace renders no rail on purpose (a
+  // wall screen has nothing to get lost in), so anyone who holds ANOTHER
+  // workspace — a cashier covering the pass, a manager who followed a link —
+  // had no route back at all. One header button, and only for them: a
+  // prep-only account still sees a board with no navigation on it.
+  const navigate = useNavigate();
+  const workspace = useWorkspaceOrNull();
+  const exitTo = useMemo(() => {
+    // workspacesForRole lists the role's OWN workspace first, so dropping prep
+    // leaves the place this account started in at the head of the list.
+    const others: readonly WorkspaceKey[] = (workspace?.available ?? []).filter((key) => key !== 'prep');
+    return others[0] ?? null;
+  }, [workspace]);
+  const several = (workspace?.available.length ?? 0) > 2;
+  const onExit = useCallback(() => {
+    if (!exitTo) return;
+    // Leave the WORKSPACE, not just the route. The prep workspace carries the
+    // dark board theme on [data-workspace='prep'], and /workspaces is a shared
+    // route that workspaceForRoute maps to nothing — so navigating without
+    // this left the light switcher tiles sitting on the black KDS background
+    // with their titles inheriting --tp-kds-fg, i.e. invisible.
+    workspace?.setActive(exitTo);
+    // Several to choose from and nothing here knows which they want, so the
+    // switcher asks. The active workspace is already theirs by then, so it
+    // renders in the desk palette and "You are here" points at the right tile.
+    void navigate({ to: several ? '/workspaces' : WORKSPACES[exitTo].home });
+  }, [exitTo, several, navigate, workspace]);
+
   return (
     <KitchenDisplayScreen
       status={status}
@@ -181,6 +212,8 @@ export function KdsBoard() {
       onRetry={retry}
       onStatus={onStatus}
       onItemReady={onItemReady}
+      onExit={exitTo ? onExit : undefined}
     />
   );
 }
+

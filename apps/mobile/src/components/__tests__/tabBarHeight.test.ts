@@ -30,7 +30,7 @@ describe('tab bar height never throws on render', () => {
 
   it('falls back to a real height when no navigator provides one', () => {
     expect(HOOK).toMatch(/if \(measured != null\) return measured;/);
-    expect(HOOK).toMatch(/IOS_TAB_BAR_HEIGHT : ANDROID_TAB_BAR_HEIGHT\) \+ bottomInset/);
+    expect(HOOK).toMatch(/IOS_TAB_BAR_HEIGHT : ANDROID_TAB_BAR_HEIGHT\)\s*\+\s*bottomInset/);
   });
 
   it('keeps every tab screen on the safe hook', () => {

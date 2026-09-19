@@ -111,6 +111,15 @@ export const SearchIcon = (p: IconProps) => (
 );
 export const ChevronIcon = (p: IconProps) => <StrokeIcon d={['M9 6l6 6-6 6']} flip {...p} />;
 export const BackChevronIcon = (p: IconProps) => <StrokeIcon d={['M15 6l-6 6 6 6']} flip {...p} />;
+/**
+ * Android's back affordance. Material navigates back with an ARROW (shaft plus
+ * head), not iOS's bare chevron — the two platforms draw the same gesture with
+ * different glyphs, so the button that means "back" uses whichever one the user
+ * already reads as back. Directional like the chevron: it mirrors under RTL.
+ */
+export const BackArrowIcon = (p: IconProps) => (
+  <StrokeIcon d={['M20 12H4M10 6l-6 6 6 6']} flip {...p} />
+);
 export const PencilIcon = (p: IconProps) => (
   <StrokeIcon d={['M4 20l1.2-4.2L16.5 4.5a2.05 2.05 0 012.9 2.9L8.2 18.8 4 20z']} {...p} />
 );

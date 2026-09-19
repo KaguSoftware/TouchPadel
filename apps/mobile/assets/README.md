@@ -18,6 +18,22 @@ as the web app's icon — chosen by the owner on 2026-09-12, replacing the padel
 placeholder of 2026-09-06. The notification glyph stays the ball: a wordmark is
 illegible at 24 dp.
 
+## The splash is narrower on Android, on purpose
+
+`imageWidth` is **220 on iOS and 150 on Android** (`app.config.ts`, the splash
+plugin's `android` block). Android 12+ hands the launch icon to the platform's
+`Theme.SplashScreen` and masks it to a **circle** — about the inner two thirds
+of the icon window. At 220 the mask cut both ends off the lockup and the launch
+screen read "ouch Pad" until `BootOverlay` replaced it with the full wordmark.
+
+A 900×332 mark inscribed in the 160 dp safe circle may be at most
+`160 / sqrt(1 + (332/900)²)` ≈ **150 dp** wide. iOS draws its storyboard image
+unmasked, so it keeps 220.
+
+`BootOverlay`'s `LOGO_W` matches this per platform — its first frame is the
+splash's last one, so a mismatch shows as a snap at the handoff. Both numbers,
+and the mask limit, are held by `src/features/boot/__tests__/bootOverlay.test.ts`.
+
 ## Regenerating
 
 ```sh

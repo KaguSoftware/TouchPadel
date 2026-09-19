@@ -63,6 +63,22 @@ function renderScreen(over: Partial<KitchenDisplayScreenProps> = {}) {
   return props;
 }
 
+describe('KitchenDisplayScreen exit', () => {
+  it('no exit control when the account holds nothing but the prep board', () => {
+    renderScreen();
+    expect(screen.queryByTestId('kds-exit')).toBeNull();
+  });
+
+  it('staff with another workspace get one way back, in the header', async () => {
+    const onExit = vi.fn();
+    renderScreen({ onExit });
+    const exit = screen.getByRole('button', { name: 'Leave kitchen display' });
+    expect(screen.getByTestId('kds-exit')).toBe(exit);
+    await userEvent.click(exit);
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('KitchenDisplayScreen states', () => {
   it('loading: a dark skeleton, no list, the legend still on screen', () => {
     renderScreen({ status: 'loading', tickets: [] });
@@ -90,6 +106,24 @@ describe('KitchenDisplayScreen states', () => {
     expect(screen.getByTestId('open-count').textContent).toBe('2 open');
     expect(screen.getByTestId('connection-pill').getAttribute('data-status')).toBe('live');
     expect(screen.queryByRole('navigation')).toBeNull();
+  });
+
+  it('the clock is the header\u2019s own middle column, not a sibling of the open count', () => {
+    renderScreen();
+    const clock = screen.getByTestId('kds-clock');
+    expect(clock.textContent).toBeTruthy();
+    // Centred on the header means it is a direct child of the three-column
+    // grid, between the two 1fr side columns. Nested inside either side it
+    // would drift as that side's contents changed width.
+    const header = clock.closest('header');
+    expect(header).toBeTruthy();
+    expect(clock.parentElement).toBe(header);
+    const columns = Array.from(header!.children);
+    expect(columns).toHaveLength(3);
+    expect(columns[1]).toBe(clock);
+    // The count and the pill are in the end column, so neither can push it.
+    expect(screen.getByTestId('open-count').parentElement).toBe(columns[2]);
+    expect(screen.getByTestId('connection-pill').parentElement).toBe(columns[2]);
   });
 
   it('empty: says so in kitchen-size type, without a "0 open" repeating it', () => {

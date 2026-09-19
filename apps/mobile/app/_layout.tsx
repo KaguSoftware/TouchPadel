@@ -13,6 +13,7 @@ import { useFonts } from 'expo-font';
 // this app pins LTR on purpose (see RootStack), so the context stays.
 import { LocaleDirContext } from 'expo-router/react-navigation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ImmersiveInsets } from '../src/navigation/immersiveInsets';
 import { onlineManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { queryClient, persistOptions, startFocusLifecycle } from '../src/lib/queryClient';
@@ -348,24 +349,26 @@ function AppRoot({ prefs }: { prefs: BootPrefs }) {
     // network at all.
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <SafeAreaProvider>
-        <LocaleProvider initialLocale={prefs.locale}>
-          <ThemeProvider initialAppearance={prefs.appearance}>
-            {/* Everything that paints sits under DirectionRoot: the navigator,
-                the offline banner, the toast host ToastProvider appends. */}
-            <DirectionRoot>
-              <AuthProvider>
-                <ToastProvider>
-                  <ThemedChrome />
-                  <RootStack />
-                  <ConnectivityBanner />
-                </ToastProvider>
-              </AuthProvider>
-              {/* Over the navigator and the native tab bar, outside every
-                  route: the loading screen, and the hand on the splash. */}
-              <BootOverlay />
-            </DirectionRoot>
-          </ThemeProvider>
-        </LocaleProvider>
+        <ImmersiveInsets>
+          <LocaleProvider initialLocale={prefs.locale}>
+            <ThemeProvider initialAppearance={prefs.appearance}>
+              {/* Everything that paints sits under DirectionRoot: the navigator,
+                  the offline banner, the toast host ToastProvider appends. */}
+              <DirectionRoot>
+                <AuthProvider>
+                  <ToastProvider>
+                    <ThemedChrome />
+                    <RootStack />
+                    <ConnectivityBanner />
+                  </ToastProvider>
+                </AuthProvider>
+                {/* Over the navigator and the native tab bar, outside every
+                    route: the loading screen, and the hand on the splash. */}
+                <BootOverlay />
+              </DirectionRoot>
+            </ThemeProvider>
+          </LocaleProvider>
+        </ImmersiveInsets>
       </SafeAreaProvider>
     </PersistQueryClientProvider>
   );

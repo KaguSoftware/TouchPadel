@@ -16,8 +16,10 @@
  *   scroll edges: 10 / 14 px fades on the pills, 12 / 24 px on the grid, their
  *   ink squared towards the edge so the band never bleeds inward over the
  *   content; the leading fade only once scrolled.
- * Frosted: iOS blurs the court behind (expo-blur) under a 35 % tint; Android
- * draws the tint flat at 94 % — the tab bar's own convention. The blur view
+ * Frosted: both platforms blur the court behind (expo-blur) under the same
+ * 35 % (light) / 45 % (dark) tint — Android used to draw the tint flat at 94 %
+ * with no blur, which read as a solid plate under the grid where iOS read as
+ * glass (owner, 2026-09-19). The blur view
  * itself never sits under an animated opacity (a UIVisualEffectView beneath
  * an alpha < 1 ancestor does not render its blur until alpha hits 1, which
  * would pop it in at p = 0.45): the card's transform lives on the outer view
@@ -38,7 +40,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -200,9 +201,11 @@ export function BookingSheet({
     [progress],
   );
 
-  // Frosted glass: blur + tint on iOS, a near-opaque tint on Android.
-  const glass =
-    Platform.OS === 'ios' ? withAlpha(colors.bg, dark ? 0.45 : 0.35) : withAlpha(colors.bg, 0.94);
+  // Frosted glass: blur + the same tint on both platforms. Android used to get
+  // a near-opaque 0.94 tint and no blur, which read as a solid plate under the
+  // grid where iOS reads as glass (owner, 2026-09-19) — expo-blur renders on
+  // Android now, so both sides share one alpha.
+  const glass = withAlpha(colors.bg, dark ? 0.45 : 0.35);
   const glassLine = withAlpha(brand.white, dark ? 0.14 : 0.55);
   const shadow = dark ? shadows.sheetDark : shadows.sheet;
 
@@ -421,23 +424,22 @@ export function BookingSheet({
               overflow: 'hidden',
             }}
           >
-            {Platform.OS === 'ios' ? (
-              // PARKED, NOT FADED. The blur may never sit under an animated
-              // opacity (header), so at rest it is slid below the clip instead
-              // — entirely outside it, so nothing renders — and rides back up
-              // over the tint's own fade slice. Native-driven, like every other
-              // node that reads p.
-              <Animated.View
-                pointerEvents="none"
-                style={[StyleSheet.absoluteFill, { transform: [{ translateY: sheet.blurPark }] }]}
-              >
-                <BlurView
-                  intensity={50}
-                  tint={dark ? 'dark' : 'light'}
-                  style={StyleSheet.absoluteFill}
-                />
-              </Animated.View>
-            ) : null}
+            {/* PARKED, NOT FADED. The blur may never sit under an animated
+                opacity (header), so at rest it is slid below the clip instead
+                — entirely outside it, so nothing renders — and rides back up
+                over the tint's own fade slice. Native-driven, like every other
+                node that reads p. Android runs it too, so the grid's plate is
+                the same glass there as on iOS. */}
+            <Animated.View
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, { transform: [{ translateY: sheet.blurPark }] }]}
+            >
+              <BlurView
+                intensity={50}
+                tint={dark ? 'dark' : 'light'}
+                style={StyleSheet.absoluteFill}
+              />
+            </Animated.View>
             <Animated.View
               accessibilityViewIsModal={isOpen}
               style={{ flexShrink: 1, opacity: sheet.opacity, paddingTop: 2, paddingBottom: 2 }}

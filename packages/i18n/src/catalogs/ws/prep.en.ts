@@ -27,6 +27,12 @@ export const prepEn = {
     hours: '{h}h {m}m',
     days: '{d}d',
   },
+  /**
+   * The one way off a wall board that otherwise has no navigation. Only
+   * rendered for staff who hold another workspace — a prep-only account has
+   * nowhere to go and never sees it.
+   */
+  exit: 'Leave kitchen display',
   ticket: {
     number: 'Ticket {n}',
     selected: 'Selected',

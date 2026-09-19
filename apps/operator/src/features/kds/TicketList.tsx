@@ -6,8 +6,7 @@
  * ≥ 44px, primary actions 56px.
  *
  * Cards are keyboard first (spec R11): the card is the focusable unit, the
- * selected card carries a high-contrast ring, the item under the cursor is
- * highlighted, and each action button shows its key.
+ * item under the cursor is highlighted, and each action button shows its key.
  */
 import { memo, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { formatNumber, formatTime, type MessageKey, type TParams } from '@touch/i18n';
@@ -52,15 +51,13 @@ export const KDS_BAND_BLOCK = '3.5rem';
 const ACTION_COLUMNS = 'repeat(2, minmax(0, 1fr))';
 
 /**
- * Selection sits OUTSIDE the card, the alarm INSIDE it, so a selected stale
- * ticket carries both signals without either ring eating the other. The alarm
- * must be inset for a second reason: it is painted by a child of a card that
- * sets `overflow: hidden`, which clips a child's OUTER shadow away at the card
- * edge — so the ring the board's most urgent state depends on was being
- * cropped to nothing. Inset also means the alarm costs no layout and never
- * reaches into the grid gutter, so the board does not move when a ticket ages.
+ * The alarm is inset for two reasons: it is painted by a child of a card
+ * that sets `overflow: hidden`, which clips a child's OUTER shadow away at
+ * the card edge — so the ring the board's most urgent state depends on was
+ * being cropped to nothing. Inset also means the alarm costs no layout and
+ * never reaches into the grid gutter, so the board does not move when a
+ * ticket ages.
  */
-const RING_SELECTED = '0 0 0 4px var(--tp-kds-fg)';
 const RING_ALARM = 'inset 0 0 0 4px var(--tp-kds-late)';
 /** The item cursor, a rung lighter than the card ring so the two never read alike. */
 const RING_ITEM_CURSOR = 'inset 0 0 0 2px var(--tp-kds-fg)';
@@ -232,9 +229,9 @@ export const TicketCard = memo(function TicketCard({
   // offline note always does, because it explains why the boxes are gone.
   const showProgress = t.items.length > 1 || !t.canMarkItems;
 
-  // Keyboard selection moves DOM focus to the card so the ring, the screen
-  // reader and the scroll position all follow the cursor; pointer focus goes
-  // the other way through onFocus → onSelect.
+  // Keyboard selection moves DOM focus to the card so the screen reader and
+  // the scroll position follow the cursor; pointer focus goes the other way
+  // through onFocus → onSelect.
   useEffect(() => {
     const el = ref.current;
     if (!selected || !el) return;
@@ -266,11 +263,6 @@ export const TicketCard = memo(function TicketCard({
         flexDirection: 'column',
         opacity: done ? 'var(--tp-opacity-disabled)' : 1,
         outline: 'none',
-        // Selection only. The stale ring is a child (below), so a selected
-        // stale ticket keeps BOTH signals — it used to lose the red one
-        // entirely to the white selection ring.
-        boxShadow: selected ? RING_SELECTED : undefined,
-        transition: 'box-shadow var(--tp-dur-fast) var(--tp-ease-out)',
       }}
     >
       {/*

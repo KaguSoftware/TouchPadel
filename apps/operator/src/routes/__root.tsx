@@ -75,12 +75,72 @@ function RootProviders() {
   return (
     <>
       <GlobalStyles />
+      <WindowDragStrip />
       <ToastProvider>
         <ConfirmProvider>
+          {/* The macOS red traffic light's confirmation. It lives up here
+              because that button works on EVERY screen — sign-in and the
+              first-run setup included — while the rail's Quit row only
+              exists once somebody is signed in. Renders nothing until main
+              says the button was pressed. */}
+          <QuitToDesktop variant="windowClose" />
           <RootShell />
         </ConfirmProvider>
       </ToastProvider>
     </>
+  );
+}
+
+/**
+ * Lets the operator move the macOS window by its top edge, on EVERY screen.
+ *
+ * It lives up here rather than in WorkspaceShell because most of the screens
+ * that need it are the ones rendered before the shell exists — sign-in, first
+ * run, the boot and config-error screens — and a window you cannot move while
+ * signing in is the one place it is most annoying.
+ *
+ * Fixed and overlaid, not laid out: the pre-auth screens are 100vh boxes, so a
+ * real row would push them past the viewport and grow a scrollbar.
+ *
+ * `pointerEvents: none` is what makes overlaying safe. A drag region otherwise
+ * swallows the clicks under it (electron/electron#1354), which here would eat
+ * the top of the rail and of every screen. Chromium registers the draggable
+ * region with macOS from the painted box and does NOT consult pointer-events,
+ * so the window still drags while the controls underneath stay clickable —
+ * verified both ways with real OS mouse events, since the two behaviours look
+ * contradictory and neither is documented.
+ *
+ * Electron on macOS only: titleBarInset is 0/absent on Windows, in browser dev
+ * and on every kiosk, and this renders nothing there.
+ */
+/**
+ * Height of the band the macOS traffic lights are drawn into, for the few
+ * screens that put something in the top corners and would otherwise put it
+ * underneath them. 0 everywhere the lights do not exist.
+ */
+function useTitleBarInset(): number {
+  return useMemo(() => touch.getStation().titleBarInset ?? 0, []);
+}
+
+function WindowDragStrip() {
+  const inset = useTitleBarInset();
+  if (!inset) return null;
+  return (
+    <div
+      aria-hidden="true"
+      data-no-print
+      style={
+        {
+          position: 'fixed',
+          insetBlockStart: 0,
+          insetInline: 0,
+          blockSize: inset,
+          zIndex: 'var(--tp-z-drag)',
+          pointerEvents: 'none',
+          WebkitAppRegion: 'drag',
+        } as CSSProperties
+      }
+    />
   );
 }
 
@@ -101,6 +161,15 @@ export function useWorkspace(): WorkspaceContextValue {
   const ctx = useContext(WorkspaceContext);
   if (!ctx) throw new Error('useWorkspace outside WorkspaceShell');
   return ctx;
+}
+/**
+ * The same context for a screen that only ADDS something when it happens to
+ * be inside the shell — the kitchen board's way back, which a unit test
+ * renders on its own. Nothing depends on it being there, so an absent shell
+ * is a fact to read, not a bug to throw on.
+ */
+export function useWorkspaceOrNull(): WorkspaceContextValue | null {
+  return useContext(WorkspaceContext);
 }
 
 // Nav filtering is UX only; RLS + in-RPC role guards are the real wall.
@@ -275,6 +344,28 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
   const value = useMemo(() => ({ active, available, setActive }), [active, available, setActive]);
   const workspace = WORKSPACES[active];
   const noNav = workspace.groups.length === 0;
+  // The kitchen board is a wall-mounted screen: no traffic lights over its
+  // header, and so no room to reserve for them either. Both follow noNav, and
+  // both are restored the moment the operator leaves the board.
+  useEffect(() => {
+    touch.pushChromeless(noNav);
+  }, [noNav]);
+  // Browser mode has no kiosk window to hide chrome on, so the board asks the
+  // OS itself for full screen instead — same "wall screen, no chrome" intent
+  // as pushChromeless above, just through the other door. Electron already
+  // opens its KDS window with `kiosk: true` (main/index.ts), so this would be
+  // a no-op there at best and a fight with ExitFullscreen's own control at
+  // worst; it runs in browser mode only. Best-effort: a browser can refuse
+  // fullscreen (no prior user gesture, permission policy), and the board is
+  // usable either way, so failures are swallowed rather than surfaced.
+  useEffect(() => {
+    if (isElectron()) return;
+    if (noNav) {
+      void document.documentElement.requestFullscreen?.().catch(() => {});
+    } else if (document.fullscreenElement) {
+      void document.exitFullscreen?.().catch(() => {});
+    }
+  }, [noNav]);
   // A downloaded update waiting for a restart: a rail row where there is a
   // rail, a floating pill on the kitchen screen, which has none.
   const update = useUpdateReady();
@@ -292,7 +383,10 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
         <SkipToMain />
         <IdleLock />
         <BreakOverlay />
-        <VenueStatusBanner state={venue} />
+        {/* On the kitchen screen there is no rail, so the strip spans the
+            window as it always has. Where there IS a rail it moves inside the
+            content column instead — see below. */}
+        {noNav && <VenueStatusBanner state={venue} />}
         {noNav && update && (
           <UpdateReadyControl variant="pill" version={update.version} onInstall={() => void touch.installUpdate()} />
         )}
@@ -300,20 +394,29 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           {!noNav && <WorkspaceNav workspaceKey={active} path={path} update={update} />}
           {/* tabIndex -1 so the skip link has somewhere to land; the routed
               screen's own first heading is the next stop from here. */}
-          <main
-            id="tp-main"
-            tabIndex={-1}
-            style={{
-              flex: 1,
-              minInlineSize: 0,
-              minBlockSize: 0,
-              overflow: 'auto',
-              paddingBlock: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-4)',
-              paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
-            }}
-          >
-            <Outlet />
-          </main>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minInlineSize: 0, minBlockSize: 0 }}>
+            {/* The strip starts where the rail ends, not at the window's edge.
+                Full width, it ran under the macOS traffic lights: 'hiddenInset'
+                draws them INSIDE the page, and the rail is the only thing that
+                reserves room for them (its spacer). Beginning after the blue
+                panel puts the strip clear of the buttons without a second
+                inset to keep in step with the first. */}
+            {!noNav && <VenueStatusBanner state={venue} />}
+            <main
+              id="tp-main"
+              tabIndex={-1}
+              style={{
+                flex: 1,
+                minInlineSize: 0,
+                minBlockSize: 0,
+                overflow: 'auto',
+                paddingBlock: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-4)',
+                paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
+              }}
+            >
+              <Outlet />
+            </main>
+          </div>
         </div>
       </div>
       </BreakProvider>
@@ -563,13 +666,33 @@ function WorkspaceNav({
         overflow: 'hidden',
       }}
     >
-      {/* Rail header: the one committed brand surface. */}
-      <div style={{ position: 'relative', paddingBlock: 'var(--tp-sp-4) var(--tp-sp-3)', paddingInline: RAIL_EDGE, borderBlockEnd: '1px solid var(--tp-rail-border)', overflow: 'hidden' }}>
+      {/* Rail header: the one committed brand surface.
+
+          Its top padding ALSO carries the room the macOS traffic lights need
+          ('hiddenInset' draws them inside the page, right here). That used to
+          be a separate spacer above this block, which read as an empty navy
+          band between the buttons and the lockup — the court lines started
+          below it and the header looked pushed down. Folding it into the
+          header's own padding clears the buttons with no band. 0 on Windows,
+          in browser dev, and on every kiosk, where the scale value stands. */}
+      <div
+        style={{
+          position: 'relative',
+          paddingBlockStart: station.titleBarInset ? `${station.titleBarInset}px` : 'var(--tp-sp-4)',
+          paddingBlockEnd: 'var(--tp-sp-3)',
+          paddingInline: RAIL_EDGE,
+          borderBlockEnd: '1px solid var(--tp-rail-border)',
+          overflow: 'hidden',
+        }}
+      >
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           <CourtLines opacity={0.16} />
         </div>
         <div style={{ position: 'relative' }}>
-          <BrandLockup size={26} tone="onDark" />
+          {/* 34, not the old 26: the header's top padding grew to clear the
+              macOS traffic lights, and at 26 the lockup read as small against
+              it. Still below the sign-in screen's 40, which is the hero. */}
+          <BrandLockup size={34} tone="onDark" />
           {/* The way out of a section, in the place a browser back button
               would be and above the name of where you are. Sizing, surface and
               colour live in .tp-rail-back (GlobalStyles) — this is a control,
@@ -1014,11 +1137,6 @@ function IdleLock() {
       <div aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
         <CourtLines opacity={0.2} />
       </div>
-      <BrandLockup
-        size={28}
-        tone="onDark"
-        style={{ position: 'absolute', insetBlockStart: '2rem', insetInlineStart: '2rem' }}
-      />
       {/*
         Who is signed in is the headline, because it is the first thing anyone
         walking up to a locked till needs: is this my session or somebody
@@ -1026,120 +1144,128 @@ function IdleLock() {
         quiet links underneath. The old card spread Switch user, Use password
         instead and Unlock over three ragged lines of equal-looking buttons,
         and once someone chose the password there was no way back to the PIN.
+
+        The logo sits above the card, centered with it as one column, rather
+        than pinned to the corner — this is the longest-lived full-screen
+        brand moment in a shift, so the mark belongs with the card it is
+        introducing, not off in a corner unrelated to it.
       */}
-      <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, position: 'relative', outline: 'none', inlineSize: 'min(24rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-5)', paddingInline: 'var(--tp-sp-5)', display: 'grid', gap: 'var(--tp-sp-3)' }}>
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
-            <Icon name="lock" size={15} />
-            {tr('ws.shell.lock.title')}
-          </p>
-          <h2 style={{ fontSize: 'var(--tp-fs-2xl)', display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-            <bdi>{cover && !ownerBack ? cover.display_name : staff.displayName}</bdi>
-            {cover && !ownerBack ? (
-              <StatusBadge size="sm" dot={false} tone="warn" label={tr('ws.shell.break.covering')} />
+      <div style={{ position: 'relative', display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-6)' }}>
+        <BrandLockup size={96} tone="onDark" />
+        <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, outline: 'none', inlineSize: 'min(24rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-5)', paddingInline: 'var(--tp-sp-5)', display: 'grid', gap: 'var(--tp-sp-3)' }}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
+              <Icon name="lock" size={15} />
+              {tr('ws.shell.lock.title')}
+            </p>
+            <h2 style={{ fontSize: 'var(--tp-fs-2xl)', display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+              <bdi>{cover && !ownerBack ? cover.display_name : staff.displayName}</bdi>
+              {cover && !ownerBack ? (
+                <StatusBadge size="sm" dot={false} tone="warn" label={tr('ws.shell.break.covering')} />
+              ) : (
+                <StatusBadge size="sm" dot={false} label={tr(`op.roles.${staff.role}`)} />
+              )}
+            </h2>
+            <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+              {/* SEC-34: say WHY the password is being asked for, so a cashier with
+                  no PIN is not left wondering what they have forgotten. */}
+              {cover
+                ? ownerBack
+                  ? tr('ws.shell.break.endLead')
+                  : tr('ws.shell.break.lockCovering', { name: cover.display_name })
+                : hasPin === false && usePassword
+                  ? tr('ws.shell.lock.hintPassword')
+                  : tr('ws.shell.lock.hint')}
+            </p>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void unlock();
+            }}
+            style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}
+          >
+            {askPassword ? (
+              <Field
+                label={tr('auth.passwordLabel')}
+                error={empty ? tr('ws.shell.lock.passwordFirst') : undefined}
+                hint={capsLock ? tr('ws.shell.signIn.capsLock') : undefined}
+                style={{ marginBlockEnd: 0 }}
+              >
+                <input
+                  ref={fieldRef}
+                  style={inputStyle}
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  autoFocus
+                  readOnly={busy}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setEmpty(false);
+                  }}
+                  onKeyDown={(e) => setCapsLock(e.getModifierState('CapsLock'))}
+                  onKeyUp={(e) => setCapsLock(e.getModifierState('CapsLock'))}
+                />
+              </Field>
             ) : (
-              <StatusBadge size="sm" dot={false} label={tr(`op.roles.${staff.role}`)} />
+              <Field label={tr('ws.shell.lock.pin')} error={empty ? tr('ws.shell.lock.pinFirst') : undefined} style={{ marginBlockEnd: 0 }}>
+                <input
+                  ref={fieldRef}
+                  style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  dir="ltr"
+                  value={pin}
+                  autoFocus
+                  readOnly={busy}
+                  onChange={(e) => {
+                    setPin(e.target.value.replace(/\D/g, ''));
+                    setEmpty(false);
+                  }}
+                />
+              </Field>
             )}
-          </h2>
-          <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-            {/* SEC-34: say WHY the password is being asked for, so a cashier with
-                no PIN is not left wondering what they have forgotten. */}
-            {cover
-              ? ownerBack
-                ? tr('ws.shell.break.endLead')
-                : tr('ws.shell.break.lockCovering', { name: cover.display_name })
-              : hasPin === false && usePassword
-                ? tr('ws.shell.lock.hintPassword')
-                : tr('ws.shell.lock.hint')}
-          </p>
-        </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void unlock();
-          }}
-          style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}
-        >
-          {askPassword ? (
-            <Field
-              label={tr('auth.passwordLabel')}
-              error={empty ? tr('ws.shell.lock.passwordFirst') : undefined}
-              hint={capsLock ? tr('ws.shell.signIn.capsLock') : undefined}
-              style={{ marginBlockEnd: 0 }}
-            >
-              <input
-                ref={fieldRef}
-                style={inputStyle}
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                autoFocus
-                readOnly={busy}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setEmpty(false);
-                }}
-                onKeyDown={(e) => setCapsLock(e.getModifierState('CapsLock'))}
-                onKeyUp={(e) => setCapsLock(e.getModifierState('CapsLock'))}
-              />
-            </Field>
-          ) : (
-            <Field label={tr('ws.shell.lock.pin')} error={empty ? tr('ws.shell.lock.pinFirst') : undefined} style={{ marginBlockEnd: 0 }}>
-              <input
-                ref={fieldRef}
-                style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
-                type="password"
-                inputMode="numeric"
-                autoComplete="off"
-                dir="ltr"
-                value={pin}
-                autoFocus
-                readOnly={busy}
-                onChange={(e) => {
-                  setPin(e.target.value.replace(/\D/g, ''));
-                  setEmpty(false);
-                }}
-              />
-            </Field>
-          )}
-          <ErrorText error={error} style={{ marginBlock: 0 }} />
-          <Button kind="primary" size="lg" type="submit" icon="lock" busy={busy} style={{ inlineSize: '100%' }}>
-            {tr('ws.shell.lock.unlock')}
-          </Button>
-        </form>
-        {/*
-         * Both links wrap. In Arabic the pair is wider than the card, and a
-         * rigid row pushed the second one off the card's inline-end edge.
-         */}
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-1) var(--tp-sp-2)', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Offered only to somebody who HAS a PIN. For a cashier with none,
-              the password is the only route, and a PIN link would imply a PIN
-              they could have used. */}
-          {cover ? (
-            <Button
-              kind="ghost"
-              size="sm"
-              icon={ownerBack ? undefined : 'undo'}
-              onClick={() => {
-                setOwnerBack((v) => !v);
-                setError(null);
-                setPin('');
-                refocus();
-              }}
-              disabled={busy}
-            >
-              {ownerBack ? tr('ws.shell.break.chooseAgain') : tr('ws.shell.break.lockOwnerBack', { cover: cover.display_name, name: staff.displayName })}
+            <ErrorText error={error} style={{ marginBlock: 0 }} />
+            <Button kind="primary" size="lg" type="submit" icon="lock" busy={busy} style={{ inlineSize: '100%' }}>
+              {tr('ws.shell.lock.unlock')}
             </Button>
-          ) : hasPin !== false ? (
-            <Button kind="ghost" size="sm" onClick={() => switchMode(!usePassword)} disabled={busy}>
-              {usePassword ? tr('ws.shell.lock.usePin') : tr('ws.shell.lock.usePassword')}
+          </form>
+          {/*
+           * Both links wrap. In Arabic the pair is wider than the card, and a
+           * rigid row pushed the second one off the card's inline-end edge.
+           */}
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-1) var(--tp-sp-2)', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Offered only to somebody who HAS a PIN. For a cashier with none,
+                the password is the only route, and a PIN link would imply a PIN
+                they could have used. */}
+            {cover ? (
+              <Button
+                kind="ghost"
+                size="sm"
+                icon={ownerBack ? undefined : 'undo'}
+                onClick={() => {
+                  setOwnerBack((v) => !v);
+                  setError(null);
+                  setPin('');
+                  refocus();
+                }}
+                disabled={busy}
+              >
+                {ownerBack ? tr('ws.shell.break.chooseAgain') : tr('ws.shell.break.lockOwnerBack', { cover: cover.display_name, name: staff.displayName })}
+              </Button>
+            ) : hasPin !== false ? (
+              <Button kind="ghost" size="sm" onClick={() => switchMode(!usePassword)} disabled={busy}>
+                {usePassword ? tr('ws.shell.lock.usePin') : tr('ws.shell.lock.usePassword')}
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button kind="ghost" size="sm" icon="logOut" onClick={() => void signOut()} disabled={busy}>
+              {tr('ws.shell.lock.switchUser', { name: staff.displayName })}
             </Button>
-          ) : (
-            <span />
-          )}
-          <Button kind="ghost" size="sm" icon="logOut" onClick={() => void signOut()} disabled={busy}>
-            {tr('ws.shell.lock.switchUser', { name: staff.displayName })}
-          </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -1172,7 +1298,18 @@ function ExitFullscreen() {
   const { tr } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  // Only while the window IS full screen. Windowed, the macOS traffic lights
+  // are right there and this row is a second control for what the green one
+  // already does; full screen, they are hidden behind a mouse-to-the-top
+  // reveal a touch station cannot perform, and this is the only way back.
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.touch) return;
+    return touch.onFullscreenState(setFullscreen);
+  }, []);
+
   if (typeof window === 'undefined' || !window.touch) return null;
+  if (!fullscreen) return null;
 
   async function exit() {
     setBusy(true);
@@ -1236,12 +1373,30 @@ function ExitFullscreen() {
  * variant carries its own separator: browser mode then renders nothing rather
  * than an empty corner box.
  */
-function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
+function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'windowClose' }) {
   const { tr } = useLocale();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // The sign-in variant sits in the top INLINE-END corner, inside the band
+  // the window-drag strip covers. It has to out-rank that strip and opt out
+  // of the drag, or the corner it lives in belongs to the window, not to it.
+  const inset = useTitleBarInset();
+
+  // 'windowClose' renders no control of its own: it is the macOS red traffic
+  // light's dialog. Main prevents the close and pushes touch:close-requested,
+  // and the window stays open until the operator confirms here.
+  useEffect(() => {
+    if (variant !== 'windowClose') return;
+    if (typeof window === 'undefined' || !window.touch) return;
+    return touch.onCloseRequested(() => setOpen(true));
+  }, [variant]);
+
   if (typeof window === 'undefined' || !window.touch) return null;
+  // The sign-in control stands down where the red traffic light already asks
+  // this question. It stays on a till or a KDS: those kiosks have no traffic
+  // lights, and with the rail behind a sign-in it is their only way out.
+  if (variant === 'signIn' && inset) return null;
 
   async function quit() {
     setBusy(true);
@@ -1261,7 +1416,7 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
 
   return (
     <>
-      {variant === 'rail' ? (
+      {variant === 'windowClose' ? null : variant === 'rail' ? (
         <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-rail-border)' }}>
           {/* Above Quit, inside Quit's separator rather than behind one of its
               own: both rows are "get out of the kiosk", and the destructive one
@@ -1283,7 +1438,19 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
           size="sm"
           icon="x"
           onClick={() => setOpen(true)}
-          style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)', color: 'var(--tp-muted-fg)' }}
+          style={
+            {
+              position: 'absolute',
+              insetBlockStart: 'var(--tp-sp-3)',
+              insetInlineEnd: 'var(--tp-sp-3)',
+              color: 'var(--tp-muted-fg)',
+              // Above the drag strip, and not draggable itself: this corner is
+              // the button's, even though the strip crosses it.
+              ...(inset
+                ? { zIndex: 'var(--tp-z-drag-over)', WebkitAppRegion: 'no-drag' }
+                : {}),
+            } as CSSProperties
+          }
         >
           {tr('ws.shell.nav.quit')}
         </Button>
@@ -1510,7 +1677,7 @@ function signInFailure(err: unknown): SignInFailure {
 
 function SignInScreen() {
   const { signIn } = useAuth();
-  const { tr, toggleLocale, locale } = useLocale();
+  const { tr, toggleLocale, locale, dir } = useLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1521,6 +1688,12 @@ function SignInScreen() {
   const [capsLock, setCapsLock] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  // The traffic lights stay at the window's physical top-LEFT in both
+  // languages, while these two panels are placed logically — so the navy panel
+  // is under them in English and the form panel is under them in Arabic.
+  // Whichever is physically first takes the padding.
+  const inset = useTitleBarInset();
+  const navyIsUnderLights = dir === 'ltr';
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -1558,7 +1731,22 @@ function SignInScreen() {
     <div style={{ minBlockSize: '100vh', display: 'grid', gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)', background: 'var(--tp-bg)' }}>
       <aside
         aria-hidden="true"
-        style={{ position: 'relative', background: 'var(--tp-rail)', color: 'var(--tp-brand-white)', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2rem' }}
+        style={
+          {
+            position: 'relative',
+            background: 'var(--tp-rail)',
+            color: 'var(--tp-brand-white)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '2rem',
+            // Room for the macOS traffic lights, in English — in Arabic this
+            // panel is on the right and the form takes the padding instead.
+            // Dragging is WindowDragStrip's, across the whole top edge.
+            paddingBlockStart: inset && navyIsUnderLights ? `${inset}px` : undefined,
+          } as CSSProperties
+        }
       >
         {/* The swoosh, bleeding off the inline end the way it does across the
             brand deck's covers. It settles in behind the lockup; the ONE call
@@ -1575,15 +1763,29 @@ function SignInScreen() {
           {tr('ws.shell.signIn.tagline')}
         </p>
       </aside>
-      <div style={{ position: 'relative', display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
+      <div
+        style={{
+          position: 'relative',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 'var(--tp-sp-6)',
+          // Arabic: this panel is the physically first one, so the traffic
+          // lights are over ITS corner.
+          paddingBlockStart: inset && !navyIsUnderLights ? `${inset}px` : undefined,
+        }}
+      >
         {/* The language switch is a page control, so it sits in the page's
-            corner. Beside Sign in it read as the form's second button. */}
+            outer BOTTOM corner: bottom-right in English, bottom-left in
+            Arabic, which is what insetInlineEnd resolves to on its own. Not
+            inline-START — that is this panel's inner edge, which put it in
+            the middle of the window beside the form. And not the top corner,
+            where it crowded the window controls. */}
         <Button
           kind="ghost"
           size="sm"
           icon="globe"
           onClick={toggleLocale}
-          style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-3)', insetInlineStart: 'var(--tp-sp-3)' }}
+          style={{ position: 'absolute', insetBlockEnd: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)' }}
         >
           <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
         </Button>

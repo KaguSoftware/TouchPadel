@@ -239,6 +239,21 @@ export const operatorVars = {
   '--tp-z-rail': '20',
   '--tp-z-banner': '30',
   '--tp-z-popover': '40',
+  /**
+   * The macOS window-drag strip along the top edge (Electron shell only).
+   * Above the rail, the banner and any popover, so the window stays movable by
+   * its top edge on every screen — but BELOW the overlay, the lock and the
+   * toast, which own the whole screen while they are up and must keep their
+   * own top edge interactive.
+   */
+  '--tp-z-drag': '50',
+  /**
+   * A control that sits INSIDE the drag strip's band and has to stay the
+   * owner of its corner — the sign-in Quit button. One step above the strip,
+   * and it pairs with `-webkit-app-region: no-drag` on the same element:
+   * the z-index wins the paint, the no-drag wins the pointer.
+   */
+  '--tp-z-drag-over': '51',
   '--tp-z-overlay': '100',
   '--tp-z-lock': '150',
   '--tp-z-toast': '200',

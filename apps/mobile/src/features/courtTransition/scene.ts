@@ -14,10 +14,10 @@
  * All motion numbers come from rally.ts (unit-tested); this file only builds
  * meshes and applies those numbers each frame. The `lite` tier (quality.ts,
  * low-end phones) builds the same court with no shadow pass — no caster, no
- * receiver, no invisible ball caster — no trail, and a plainer racket
- * (racket.ts); the ball's ground disc stands in for its shadow. Colours are the prototype's own
- * (its brand stickers); the page colour behind the court is the renderer's
- * clear colour, set by the component per theme.
+ * receiver, no invisible ball caster — and a plainer racket (racket.ts); the
+ * ball's ground disc stands in for its shadow. The trail is the same on both.
+ * Colours are the prototype's own (its brand stickers); the page colour behind
+ * the court is the renderer's clear colour, set by the component per theme.
  */
 import * as THREE from 'three';
 import {
@@ -28,6 +28,7 @@ import {
   BALL_RADIUS,
   layAngle,
   RACKET_Y,
+  LEG_SECONDS,
 } from './rally';
 import { buildRacketKit } from './racket';
 import { buildPatternBackdrop, type BackdropViewport } from './patternBackdrop';
@@ -44,10 +45,24 @@ const NAVY = 0x172c4f;
 const LIME = 0xa5d06f;
 const BLUE = 0x3360ab;
 const TURF = 0x2d5495;
-/** The ghost trail: 36 fading spheres spread over the last 22 samples. */
+/**
+ * The ghost trail: 36 fading spheres over the ball's last 0.367 s of flight.
+ *
+ * The ghosts are the ball re-evaluated at fixed times behind the rally clock,
+ * NOT a buffer of past frames. A per-frame buffer ties ghost spacing to the
+ * framerate: the ball crosses the court at ~11 m/s, so at 60 fps it moves
+ * ~0.18 m per frame and consecutive ghosts overlap into a streak, while at
+ * 30 fps they land ~0.36 m apart — past the 0.44 m the spheres span — and the
+ * trail reads as a row of separate circles. That is why it beaded on Android
+ * and not on iOS. Sampling on a time grid makes the two identical.
+ *
+ * 0.367 s is the old 22-frames-at-60fps span, kept so the trail's length on
+ * screen is unchanged. The count is what keeps it continuous rather than
+ * beaded, so it is not a tier knob; lite saves its frame time on the shadow
+ * pass (quality.ts), and these spheres are unlit and never write depth.
+ */
 const TRAIL_N = 36;
-const TRAIL_HISTORY = 24;
-const TRAIL_SPAN = 22;
+const TRAIL_LAG = 22 / 60;
 
 export interface CourtScene {
   /** The court: cage, net, rackets, turf with the ball's cast shadow. Opaque, under the button. */
@@ -77,7 +92,6 @@ export interface CourtScene {
 
 export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
   const shadows = quality === 'full';
-  const trailN = quality === 'full' ? TRAIL_N : 0;
   const disposables: { dispose(): void }[] = [];
   const scene = new THREE.Scene();
   const overlay = new THREE.Scene();
@@ -337,9 +351,9 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     caster = add(new THREE.SphereGeometry(BALL_RADIUS, 16, 12), casterMat, 0, 0, 0, true);
   }
 
-  // trail: fading ghosts of recent ball positions (none on the lite tier)
+  // trail: fading ghosts of recent ball positions (both tiers, see TRAIL_N)
   const trail: THREE.Mesh[] = [];
-  for (let i = 0; i < trailN; i++) {
+  for (let i = 0; i < TRAIL_N; i++) {
     const k = 1 - i / TRAIL_N;
     const m = new THREE.Mesh(
       geo(new THREE.SphereGeometry(BALL_RADIUS * (0.25 + 0.7 * k), 12, 10)),
@@ -355,7 +369,6 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
     overlay.add(m);
     trail.push(m);
   }
-  const history: THREE.Vector3[] = [];
 
   // the ground disc under the ball (overlay too: the prototype's disc rides over the button)
   const shadeMat = new THREE.MeshBasicMaterial({ color: NAVY, transparent: true, opacity: 0.28 });
@@ -414,18 +427,19 @@ export function buildCourtScene(quality: CourtQuality = 'full'): CourtScene {
       caster?.position.copy(ball.position);
       ball.rotation.x += 0.12;
       ball.rotation.z += 0.07;
-      if (trailN > 0) {
-        if (state.newLeg) history.length = 0;
-        history.unshift(ball.position.clone());
-        if (history.length > TRAIL_HISTORY) history.pop();
-      }
+      // Each ghost is the ball re-evaluated at a fixed time BEHIND t, so the
+      // spacing is the same at 30fps as at 60 (see TRAIL_LAG). The lookback
+      // stops at the current leg's start — the ball turns at the racket, and a
+      // trail that reached past it would cut a straight chord through the bat.
+      const legStart = Math.floor(t / LEG_SECONDS) * LEG_SECONDS;
       trail.forEach((m, i) => {
-        const f = ((i + 1) * TRAIL_SPAN) / TRAIL_N;
-        const j = Math.floor(f);
-        const a = history[j];
-        const b = history[j + 1];
-        m.visible = !!(a && b);
-        if (a && b) m.position.lerpVectors(a, b, f - j);
+        const back = ((i + 1) * TRAIL_LAG) / TRAIL_N;
+        const at = t - back;
+        m.visible = at > legStart;
+        if (m.visible) {
+          const p = rallyAt(at, camK).ball;
+          m.position.set(p.x, p.y, p.z);
+        }
       });
       shade.position.set(state.shade.x, 0.012, state.shade.z);
       shade.scale.setScalar(state.shade.scale);

@@ -25,11 +25,22 @@ import { getAuthState, setAuthState } from './auth-state';
 import { observePin, unlockPinOffline } from './pin-cache';
 import { printReceiptHtml } from './print/print-receipt';
 import { startSyncWorker, type SyncWorker } from './sync-worker';
-import { mayNavigateTo, mayOpenExternally, shouldRecoverToRenderer, type NavigationPolicy } from './window-security';
+import {
+  clampWindowMinimum,
+  LAYOUT_MIN_HEIGHT,
+  LAYOUT_MIN_WIDTH,
+  openingWindowSize,
+  mayNavigateTo,
+  mayOpenExternally,
+  shouldRecoverToRenderer,
+  shouldShowTrafficLights,
+  type NavigationPolicy,
+} from './window-security';
 import {
   IpcValidationError,
   validateAuthState,
   validateCachePut,
+  validateChromeless,
   validateConnState,
   validateDiscoverRequest,
   validateLanStatus,
@@ -44,6 +55,15 @@ import {
 const devServerUrl = process.env.VITE_DEV_SERVER_URL; // e.g. http://localhost:5174 (apps/operator `pnpm dev`)
 const isDev = !!devServerUrl || !app.isPackaged;
 const navPolicy: NavigationPolicy = { devServerUrl, isDev };
+
+/**
+ * Height in CSS px that `titleBarStyle: 'hiddenInset'` reserves at the
+ * top-left for the macOS traffic lights. The buttons themselves are ~14pt on a
+ * 12pt inset; 52 is the first round number that clears them plus a little
+ * breathing room, and it is what the renderer pads its rail by.
+ */
+const TRAFFIC_LIGHT_INSET = 52;
+
 
 // Single-instance lock (design-arch.md §2.5 kiosk behavior).
 //
@@ -131,6 +151,20 @@ function guardIpc<T>(name: string, fn: () => T): T | { error: string } {
   }
 }
 
+/**
+ * The windows that were created WITH traffic lights. Hiding buttons on a
+ * window that never had them is meaningless, and showing them again would
+ * hand a kiosk an exit it is not supposed to have.
+ */
+const windowsWithTrafficLights = new WeakSet<BrowserWindow>();
+
+/**
+ * Windows whose renderer asked for a bare window (the kitchen board). Kept so
+ * a full-screen transition recomputes button visibility without handing the
+ * board its traffic lights back.
+ */
+const chromeless = new WeakSet<BrowserWindow>();
+
 function createWindow(): BrowserWindow {
   const station = loadStation();
   // An UNCONFIGURED station (first run, before station.json exists) is a
@@ -138,16 +172,50 @@ function createWindow(): BrowserWindow {
   // kiosk whose only exit is the setup screen would be a machine nobody can
   // close if it was launched by mistake. Kiosk starts on the relaunch after setup.
   const relaxed = isDev || !station.configured;
+  // macOS: every window that is not a till/KDS kiosk keeps the real OS
+  // close/minimise/zoom buttons. `hiddenInset` draws them over the content
+  // instead of a full titlebar, so a desk station still looks like the app and
+  // not like a browser — see shouldShowTrafficLights for which windows qualify.
+  // Never larger than the screen it opens on: a floor macOS cannot honour
+  // would push the bottom of the app off the work area for good.
+  const workArea = screen.getPrimaryDisplay().workAreaSize;
+  const floor = { width: LAYOUT_MIN_WIDTH, height: LAYOUT_MIN_HEIGHT };
+  const minimum = clampWindowMinimum(floor, workArea);
+  // Opened at a size that already clears the floor, so macOS has nothing to
+  // correct on the first drag. See openingWindowSize.
+  const opening = openingWindowSize(floor, workArea);
+  const trafficLights = shouldShowTrafficLights({
+    platform: process.platform,
+    isDev,
+    configured: station.configured,
+    mode: station.mode,
+  });
   const win = new BrowserWindow({
     // Kiosk-leaning per design-arch.md §2.5, but closable in dev.
     kiosk: !relaxed && (station.mode === 'till' || station.mode === 'kds'),
     autoHideMenuBar: true,
-    frame: relaxed,
+    // Electron's default window is 800x600 — smaller than the floor below, so
+    // the window opened cramped and then JUMPED to the minimum the moment it
+    // was dragged, because macOS enforces the minimum on the first resize.
+    // Opening at a size that already respects the floor is what removes the
+    // jump; `opening` is the floor grown to a comfortable share of the screen.
+    width: opening.width,
+    height: opening.height,
+    // A floor, not a size: this only stops the window being dragged down to
+    // where the rail and the screen beside it no longer fit. Harmless on a
+    // kiosk, which the OS sizes anyway.
+    minWidth: minimum.width,
+    minHeight: minimum.height,
+    // The traffic lights are drawn by the frame, so a macOS window that shows
+    // them is framed even when `relaxed` is false.
+    frame: relaxed || trafficLights,
+    ...(trafficLights ? { titleBarStyle: 'hiddenInset' as const } : {}),
     // Production: the window closes only through Quit to desktop
     // (touch:quit-app below), so there is no OS titlebar X on a till — but
     // that action no longer asks for a PIN, so what stops a casual exit is
-    // its confirmation dialog, not a credential.
-    closable: relaxed,
+    // its confirmation dialog, not a credential. Where the traffic lights are
+    // shown the red button has to actually close, or it is worse than absent.
+    closable: relaxed || trafficLights,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -219,6 +287,45 @@ function createWindow(): BrowserWindow {
   // covers a PROCESS crash only; a React render throw is caught by the
   // renderer's own error boundary (apps/operator/src/components/CrashScreen.tsx).
   win.webContents.on('render-process-gone', () => win.webContents.reload());
+
+  // The red traffic light must ask before it ends service. macOS closes the
+  // window the moment it is clicked, which on a station means the app is gone
+  // mid-shift on one mis-click — so the close is held here and handed to the
+  // page, which opens the same "Quit to desktop?" dialog the rail row uses.
+  // Confirming there calls touch:quit-app, and that exits through app.exit(),
+  // which does not raise 'close' — so this guard cannot block the real quit.
+  //
+  // Only where the buttons exist. A kiosk has no traffic lights and no OS
+  // close at all, and dev/browser windows are closed deliberately.
+  // Full screen and the traffic lights are alternatives, not companions. In a
+  // macOS full-screen Space the buttons only reappear on a mouse-to-the-top
+  // reveal, so a station driven by touch has no visible way back — that is the
+  // rail's "Exit forced full screen" row, which shows itself exactly while
+  // this is true. Windowed, the buttons are right there and the row would be a
+  // second control for what the green one already does.
+  //
+  // Published for EVERY window, not just the ones with buttons: a till or a
+  // KDS is born `kiosk: true` with no traffic lights at all, and that row is
+  // its only way out — so it has to hear about the transition too.
+  const publishFullscreen = () => {
+    if (win.isDestroyed()) return;
+    const fullscreen = win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
+    if (trafficLights) win.setWindowButtonVisibility(!fullscreen && !chromeless.has(win));
+    win.webContents.send(IPC.fullscreenState, fullscreen);
+  };
+  win.on('enter-full-screen', publishFullscreen);
+  win.on('leave-full-screen', publishFullscreen);
+  win.webContents.on('did-finish-load', publishFullscreen);
+
+  if (trafficLights) {
+    windowsWithTrafficLights.add(win);
+
+    win.on('close', (event) => {
+      if (win.isDestroyed()) return;
+      event.preventDefault();
+      win.webContents.send(IPC.closeRequested);
+    });
+  }
   return win;
 }
 
@@ -278,6 +385,51 @@ if (gotTheLock) {
         return null;
       });
     });
+
+    // The kitchen board asks for a bare window: no traffic lights over its
+    // header. Only where they exist in the first place — a kiosk has none, and
+    // Windows draws none. The window keeps its 'hiddenInset' inset either way,
+    // so the renderer's spacer stays correct whichever screen is up.
+    //
+    // A KDS-mode station is already `kiosk: true` from createWindow, but a
+    // till/desk operator can still switch INTO the same board from within the
+    // app (a cashier covering the pass) without the window itself ever being
+    // a kitchen kiosk. That window has traffic lights and is not full screen,
+    // so without this the board rendered inset in the middle of a windowed
+    // macOS app the moment someone browsed to it — the wall-mounted, edge-to-
+    // edge board design-arch §2.5 wants. Windows' taskbar-covering kiosk
+    // already reads as full screen without this.
+    //
+    // setFullScreen, not setSimpleFullScreen: the ask is the real macOS
+    // full-screen Space (the same transition as the green button, its own
+    // Mission Control tile, the menu bar auto-hidden), not the borderless-
+    // window imitation, even though that means eating the Space-switch
+    // animation on every workspace toggle.
+    ipcMain.on(IPC.chromeless, (e, v: unknown) => {
+      guardIpc('chromeless', () => {
+        if (process.platform !== 'darwin') return null;
+        const win = BrowserWindow.fromWebContents(e.sender);
+        if (!win || win.isDestroyed() || !windowsWithTrafficLights.has(win)) return null;
+        const bare = validateChromeless(v);
+        if (bare) chromeless.add(win);
+        else chromeless.delete(win);
+        const fullscreen = win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
+        win.setWindowButtonVisibility(!bare && !fullscreen);
+        if (!win.isKiosk()) win.setFullScreen(bare);
+        return null;
+      });
+    });
+
+    // A subscriber's first read: the rail mounts long after the window
+    // settled into whatever state it is in, so it asks rather than waiting for
+    // the next transition that may never come.
+    ipcMain.handle(IPC.fullscreenState, (e) =>
+      guardIpc('fullscreenState', () => {
+        const win = BrowserWindow.fromWebContents(e.sender);
+        if (!win || win.isDestroyed()) return false;
+        return win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
+      }),
+    );
 
     ipcMain.on(IPC.connState, (_e, v: unknown) => {
       guardIpc('connState', () => {
@@ -456,6 +608,16 @@ if (gotTheLock) {
         configured: station.configured,
         ...(station.configError ? { configError: station.configError } : {}),
         appVersion: app.getVersion(),
+        // The rail would start UNDER the traffic lights otherwise: 'hiddenInset'
+        // draws them inside the page, not above it.
+        titleBarInset: shouldShowTrafficLights({
+          platform: process.platform,
+          isDev,
+          configured: station.configured,
+          mode: station.mode,
+        })
+          ? TRAFFIC_LIGHT_INSET
+          : 0,
       };
     });
 
