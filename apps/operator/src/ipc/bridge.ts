@@ -219,6 +219,12 @@ export interface TouchBridge {
    * The page owes the operator the quit confirmation; nothing closes until
    * quitApp() is called.
    */
+  /**
+   * Full-screen state, pushed on every change and once on subscribe. The
+   * rail's "Exit forced full screen" row shows itself only while this is
+   * true: in a window the macOS traffic lights already offer the way out.
+   */
+  onFullscreenState(cb: (fullscreen: boolean) => void): Unsub;
   onCloseRequested(cb: () => void): Unsub;
   onMutationResult(cb: (r: MutationResult) => void): Unsub;
   getQueueRows(): Promise<QueueRowInfo[]>;
@@ -271,6 +277,11 @@ const mock: TouchBridge = {
   pushConnState() {},
   pushChromeless() {
     // Browser mode has no window chrome to hide.
+  },
+  onFullscreenState(cb) {
+    // A browser tab is never the app's own full screen.
+    cb(false);
+    return () => {};
   },
   onCloseRequested() {
     // Browser mode has no window chrome to intercept.

@@ -350,6 +350,22 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
   useEffect(() => {
     touch.pushChromeless(noNav);
   }, [noNav]);
+  // Browser mode has no kiosk window to hide chrome on, so the board asks the
+  // OS itself for full screen instead — same "wall screen, no chrome" intent
+  // as pushChromeless above, just through the other door. Electron already
+  // opens its KDS window with `kiosk: true` (main/index.ts), so this would be
+  // a no-op there at best and a fight with ExitFullscreen's own control at
+  // worst; it runs in browser mode only. Best-effort: a browser can refuse
+  // fullscreen (no prior user gesture, permission policy), and the board is
+  // usable either way, so failures are swallowed rather than surfaced.
+  useEffect(() => {
+    if (isElectron()) return;
+    if (noNav) {
+      void document.documentElement.requestFullscreen?.().catch(() => {});
+    } else if (document.fullscreenElement) {
+      void document.exitFullscreen?.().catch(() => {});
+    }
+  }, [noNav]);
   // A downloaded update waiting for a restart: a rail row where there is a
   // rail, a floating pill on the kitchen screen, which has none.
   const update = useUpdateReady();
@@ -1121,11 +1137,6 @@ function IdleLock() {
       <div aria-hidden="true" style={{ position: 'absolute', inset: 0 }}>
         <CourtLines opacity={0.2} />
       </div>
-      <BrandLockup
-        size={28}
-        tone="onDark"
-        style={{ position: 'absolute', insetBlockStart: '2rem', insetInlineStart: '2rem' }}
-      />
       {/*
         Who is signed in is the headline, because it is the first thing anyone
         walking up to a locked till needs: is this my session or somebody
@@ -1133,120 +1144,128 @@ function IdleLock() {
         quiet links underneath. The old card spread Switch user, Use password
         instead and Unlock over three ragged lines of equal-looking buttons,
         and once someone chose the password there was no way back to the PIN.
+
+        The logo sits above the card, centered with it as one column, rather
+        than pinned to the corner — this is the longest-lived full-screen
+        brand moment in a shift, so the mark belongs with the card it is
+        introducing, not off in a corner unrelated to it.
       */}
-      <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, position: 'relative', outline: 'none', inlineSize: 'min(24rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-5)', paddingInline: 'var(--tp-sp-5)', display: 'grid', gap: 'var(--tp-sp-3)' }}>
-        <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
-            <Icon name="lock" size={15} />
-            {tr('ws.shell.lock.title')}
-          </p>
-          <h2 style={{ fontSize: 'var(--tp-fs-2xl)', display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
-            <bdi>{cover && !ownerBack ? cover.display_name : staff.displayName}</bdi>
-            {cover && !ownerBack ? (
-              <StatusBadge size="sm" dot={false} tone="warn" label={tr('ws.shell.break.covering')} />
+      <div style={{ position: 'relative', display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-6)' }}>
+        <BrandLockup size={96} tone="onDark" />
+        <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, outline: 'none', inlineSize: 'min(24rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-5)', paddingInline: 'var(--tp-sp-5)', display: 'grid', gap: 'var(--tp-sp-3)' }}>
+          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
+            <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
+              <Icon name="lock" size={15} />
+              {tr('ws.shell.lock.title')}
+            </p>
+            <h2 style={{ fontSize: 'var(--tp-fs-2xl)', display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+              <bdi>{cover && !ownerBack ? cover.display_name : staff.displayName}</bdi>
+              {cover && !ownerBack ? (
+                <StatusBadge size="sm" dot={false} tone="warn" label={tr('ws.shell.break.covering')} />
+              ) : (
+                <StatusBadge size="sm" dot={false} label={tr(`op.roles.${staff.role}`)} />
+              )}
+            </h2>
+            <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
+              {/* SEC-34: say WHY the password is being asked for, so a cashier with
+                  no PIN is not left wondering what they have forgotten. */}
+              {cover
+                ? ownerBack
+                  ? tr('ws.shell.break.endLead')
+                  : tr('ws.shell.break.lockCovering', { name: cover.display_name })
+                : hasPin === false && usePassword
+                  ? tr('ws.shell.lock.hintPassword')
+                  : tr('ws.shell.lock.hint')}
+            </p>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void unlock();
+            }}
+            style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}
+          >
+            {askPassword ? (
+              <Field
+                label={tr('auth.passwordLabel')}
+                error={empty ? tr('ws.shell.lock.passwordFirst') : undefined}
+                hint={capsLock ? tr('ws.shell.signIn.capsLock') : undefined}
+                style={{ marginBlockEnd: 0 }}
+              >
+                <input
+                  ref={fieldRef}
+                  style={inputStyle}
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  autoFocus
+                  readOnly={busy}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setEmpty(false);
+                  }}
+                  onKeyDown={(e) => setCapsLock(e.getModifierState('CapsLock'))}
+                  onKeyUp={(e) => setCapsLock(e.getModifierState('CapsLock'))}
+                />
+              </Field>
             ) : (
-              <StatusBadge size="sm" dot={false} label={tr(`op.roles.${staff.role}`)} />
+              <Field label={tr('ws.shell.lock.pin')} error={empty ? tr('ws.shell.lock.pinFirst') : undefined} style={{ marginBlockEnd: 0 }}>
+                <input
+                  ref={fieldRef}
+                  style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  dir="ltr"
+                  value={pin}
+                  autoFocus
+                  readOnly={busy}
+                  onChange={(e) => {
+                    setPin(e.target.value.replace(/\D/g, ''));
+                    setEmpty(false);
+                  }}
+                />
+              </Field>
             )}
-          </h2>
-          <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-            {/* SEC-34: say WHY the password is being asked for, so a cashier with
-                no PIN is not left wondering what they have forgotten. */}
-            {cover
-              ? ownerBack
-                ? tr('ws.shell.break.endLead')
-                : tr('ws.shell.break.lockCovering', { name: cover.display_name })
-              : hasPin === false && usePassword
-                ? tr('ws.shell.lock.hintPassword')
-                : tr('ws.shell.lock.hint')}
-          </p>
-        </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void unlock();
-          }}
-          style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}
-        >
-          {askPassword ? (
-            <Field
-              label={tr('auth.passwordLabel')}
-              error={empty ? tr('ws.shell.lock.passwordFirst') : undefined}
-              hint={capsLock ? tr('ws.shell.signIn.capsLock') : undefined}
-              style={{ marginBlockEnd: 0 }}
-            >
-              <input
-                ref={fieldRef}
-                style={inputStyle}
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                autoFocus
-                readOnly={busy}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setEmpty(false);
-                }}
-                onKeyDown={(e) => setCapsLock(e.getModifierState('CapsLock'))}
-                onKeyUp={(e) => setCapsLock(e.getModifierState('CapsLock'))}
-              />
-            </Field>
-          ) : (
-            <Field label={tr('ws.shell.lock.pin')} error={empty ? tr('ws.shell.lock.pinFirst') : undefined} style={{ marginBlockEnd: 0 }}>
-              <input
-                ref={fieldRef}
-                style={{ ...inputStyle, fontSize: 'var(--tp-fs-2xl)', letterSpacing: '0.35em', textAlign: 'center' }}
-                type="password"
-                inputMode="numeric"
-                autoComplete="off"
-                dir="ltr"
-                value={pin}
-                autoFocus
-                readOnly={busy}
-                onChange={(e) => {
-                  setPin(e.target.value.replace(/\D/g, ''));
-                  setEmpty(false);
-                }}
-              />
-            </Field>
-          )}
-          <ErrorText error={error} style={{ marginBlock: 0 }} />
-          <Button kind="primary" size="lg" type="submit" icon="lock" busy={busy} style={{ inlineSize: '100%' }}>
-            {tr('ws.shell.lock.unlock')}
-          </Button>
-        </form>
-        {/*
-         * Both links wrap. In Arabic the pair is wider than the card, and a
-         * rigid row pushed the second one off the card's inline-end edge.
-         */}
-        <div style={{ display: 'flex', gap: 'var(--tp-sp-1) var(--tp-sp-2)', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Offered only to somebody who HAS a PIN. For a cashier with none,
-              the password is the only route, and a PIN link would imply a PIN
-              they could have used. */}
-          {cover ? (
-            <Button
-              kind="ghost"
-              size="sm"
-              icon={ownerBack ? undefined : 'undo'}
-              onClick={() => {
-                setOwnerBack((v) => !v);
-                setError(null);
-                setPin('');
-                refocus();
-              }}
-              disabled={busy}
-            >
-              {ownerBack ? tr('ws.shell.break.chooseAgain') : tr('ws.shell.break.lockOwnerBack', { cover: cover.display_name, name: staff.displayName })}
+            <ErrorText error={error} style={{ marginBlock: 0 }} />
+            <Button kind="primary" size="lg" type="submit" icon="lock" busy={busy} style={{ inlineSize: '100%' }}>
+              {tr('ws.shell.lock.unlock')}
             </Button>
-          ) : hasPin !== false ? (
-            <Button kind="ghost" size="sm" onClick={() => switchMode(!usePassword)} disabled={busy}>
-              {usePassword ? tr('ws.shell.lock.usePin') : tr('ws.shell.lock.usePassword')}
+          </form>
+          {/*
+           * Both links wrap. In Arabic the pair is wider than the card, and a
+           * rigid row pushed the second one off the card's inline-end edge.
+           */}
+          <div style={{ display: 'flex', gap: 'var(--tp-sp-1) var(--tp-sp-2)', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Offered only to somebody who HAS a PIN. For a cashier with none,
+                the password is the only route, and a PIN link would imply a PIN
+                they could have used. */}
+            {cover ? (
+              <Button
+                kind="ghost"
+                size="sm"
+                icon={ownerBack ? undefined : 'undo'}
+                onClick={() => {
+                  setOwnerBack((v) => !v);
+                  setError(null);
+                  setPin('');
+                  refocus();
+                }}
+                disabled={busy}
+              >
+                {ownerBack ? tr('ws.shell.break.chooseAgain') : tr('ws.shell.break.lockOwnerBack', { cover: cover.display_name, name: staff.displayName })}
+              </Button>
+            ) : hasPin !== false ? (
+              <Button kind="ghost" size="sm" onClick={() => switchMode(!usePassword)} disabled={busy}>
+                {usePassword ? tr('ws.shell.lock.usePin') : tr('ws.shell.lock.usePassword')}
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button kind="ghost" size="sm" icon="logOut" onClick={() => void signOut()} disabled={busy}>
+              {tr('ws.shell.lock.switchUser', { name: staff.displayName })}
             </Button>
-          ) : (
-            <span />
-          )}
-          <Button kind="ghost" size="sm" icon="logOut" onClick={() => void signOut()} disabled={busy}>
-            {tr('ws.shell.lock.switchUser', { name: staff.displayName })}
-          </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -1279,7 +1298,18 @@ function ExitFullscreen() {
   const { tr } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  // Only while the window IS full screen. Windowed, the macOS traffic lights
+  // are right there and this row is a second control for what the green one
+  // already does; full screen, they are hidden behind a mouse-to-the-top
+  // reveal a touch station cannot perform, and this is the only way back.
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.touch) return;
+    return touch.onFullscreenState(setFullscreen);
+  }, []);
+
   if (typeof window === 'undefined' || !window.touch) return null;
+  if (!fullscreen) return null;
 
   async function exit() {
     setBusy(true);

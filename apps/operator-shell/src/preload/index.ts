@@ -60,6 +60,18 @@ const touch = {
     ipcRenderer.send(IPC.cachePut, { key, payload }),
   pinObserved: (pin: string): void => ipcRenderer.send(IPC.pinObserved, pin),
 
+  /**
+   * Full-screen state, pushed on every change and once on subscribe — the
+   * rail mounts long after the window settled, so a subscriber has to be told
+   * where things stand rather than wait for the next transition.
+   */
+  onFullscreenState: (cb: (fullscreen: boolean) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, fullscreen: boolean) => cb(fullscreen);
+    ipcRenderer.on(IPC.fullscreenState, listener);
+    void ipcRenderer.invoke(IPC.fullscreenState).then((v: boolean) => cb(v));
+    return () => ipcRenderer.removeListener(IPC.fullscreenState, listener);
+  },
+
   /** The red traffic light was pressed; main has held the close. */
   onCloseRequested: (cb: () => void): (() => void) => {
     const listener = () => cb();

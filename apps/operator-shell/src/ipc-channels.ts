@@ -30,6 +30,13 @@ export const IPC = {
    * instead of dropping a station out of service on one mis-click.
    */
   closeRequested: 'touch:close-requested',
+  /**
+   * Main → renderer (push): the window entered or left full screen, by any
+   * route — the green traffic light, the kitchen board, kiosk mode, or the
+   * rail's own "Exit forced full screen". The rail shows that row only while
+   * it is true, because in a window the macOS buttons already do the job.
+   */
+  fullscreenState: 'touch:fullscreen-state',
   /** Main → renderer (push): a queued mutation reached a terminal state. */
   mutationResult: 'touch:mutation-result',
   /** Invoke: every non-acked row — the day-close pre-check and conflicts panel. */

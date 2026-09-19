@@ -158,6 +158,13 @@ function guardIpc<T>(name: string, fn: () => T): T | { error: string } {
  */
 const windowsWithTrafficLights = new WeakSet<BrowserWindow>();
 
+/**
+ * Windows whose renderer asked for a bare window (the kitchen board). Kept so
+ * a full-screen transition recomputes button visibility without handing the
+ * board its traffic lights back.
+ */
+const chromeless = new WeakSet<BrowserWindow>();
+
 function createWindow(): BrowserWindow {
   const station = loadStation();
   // An UNCONFIGURED station (first run, before station.json exists) is a
@@ -290,8 +297,29 @@ function createWindow(): BrowserWindow {
   //
   // Only where the buttons exist. A kiosk has no traffic lights and no OS
   // close at all, and dev/browser windows are closed deliberately.
+  // Full screen and the traffic lights are alternatives, not companions. In a
+  // macOS full-screen Space the buttons only reappear on a mouse-to-the-top
+  // reveal, so a station driven by touch has no visible way back — that is the
+  // rail's "Exit forced full screen" row, which shows itself exactly while
+  // this is true. Windowed, the buttons are right there and the row would be a
+  // second control for what the green one already does.
+  //
+  // Published for EVERY window, not just the ones with buttons: a till or a
+  // KDS is born `kiosk: true` with no traffic lights at all, and that row is
+  // its only way out — so it has to hear about the transition too.
+  const publishFullscreen = () => {
+    if (win.isDestroyed()) return;
+    const fullscreen = win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
+    if (trafficLights) win.setWindowButtonVisibility(!fullscreen && !chromeless.has(win));
+    win.webContents.send(IPC.fullscreenState, fullscreen);
+  };
+  win.on('enter-full-screen', publishFullscreen);
+  win.on('leave-full-screen', publishFullscreen);
+  win.webContents.on('did-finish-load', publishFullscreen);
+
   if (trafficLights) {
     windowsWithTrafficLights.add(win);
+
     win.on('close', (event) => {
       if (win.isDestroyed()) return;
       event.preventDefault();
@@ -362,15 +390,46 @@ if (gotTheLock) {
     // header. Only where they exist in the first place — a kiosk has none, and
     // Windows draws none. The window keeps its 'hiddenInset' inset either way,
     // so the renderer's spacer stays correct whichever screen is up.
+    //
+    // A KDS-mode station is already `kiosk: true` from createWindow, but a
+    // till/desk operator can still switch INTO the same board from within the
+    // app (a cashier covering the pass) without the window itself ever being
+    // a kitchen kiosk. That window has traffic lights and is not full screen,
+    // so without this the board rendered inset in the middle of a windowed
+    // macOS app the moment someone browsed to it — the wall-mounted, edge-to-
+    // edge board design-arch §2.5 wants. Windows' taskbar-covering kiosk
+    // already reads as full screen without this.
+    //
+    // setFullScreen, not setSimpleFullScreen: the ask is the real macOS
+    // full-screen Space (the same transition as the green button, its own
+    // Mission Control tile, the menu bar auto-hidden), not the borderless-
+    // window imitation, even though that means eating the Space-switch
+    // animation on every workspace toggle.
     ipcMain.on(IPC.chromeless, (e, v: unknown) => {
       guardIpc('chromeless', () => {
         if (process.platform !== 'darwin') return null;
         const win = BrowserWindow.fromWebContents(e.sender);
         if (!win || win.isDestroyed() || !windowsWithTrafficLights.has(win)) return null;
-        win.setWindowButtonVisibility(!validateChromeless(v));
+        const bare = validateChromeless(v);
+        if (bare) chromeless.add(win);
+        else chromeless.delete(win);
+        const fullscreen = win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
+        win.setWindowButtonVisibility(!bare && !fullscreen);
+        if (!win.isKiosk()) win.setFullScreen(bare);
         return null;
       });
     });
+
+    // A subscriber's first read: the rail mounts long after the window
+    // settled into whatever state it is in, so it asks rather than waiting for
+    // the next transition that may never come.
+    ipcMain.handle(IPC.fullscreenState, (e) =>
+      guardIpc('fullscreenState', () => {
+        const win = BrowserWindow.fromWebContents(e.sender);
+        if (!win || win.isDestroyed()) return false;
+        return win.isFullScreen() || win.isKiosk() || win.isSimpleFullScreen();
+      }),
+    );
 
     ipcMain.on(IPC.connState, (_e, v: unknown) => {
       guardIpc('connState', () => {
