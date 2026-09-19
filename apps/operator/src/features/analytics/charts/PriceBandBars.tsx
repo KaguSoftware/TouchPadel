@@ -12,7 +12,7 @@ import type { PriceBandSales } from '@touch/core';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
 import type { Formatters } from '../format';
-import { BAR_MUTED, BLUE } from './colors';
+import { useChartColors } from './colors';
 import { StatusBadge } from '../../../components/kit';
 
 export function bandLabel(f: Formatters, b: { minIqd: number; maxIqd: number | null }): string {
@@ -20,6 +20,7 @@ export function bandLabel(f: Formatters, b: { minIqd: number; maxIqd: number | n
 }
 
 export function PriceBandBars({ bands, f, hasViews }: { bands: readonly PriceBandSales[]; f: Formatters; hasViews: boolean }) {
+  const { BAR_MUTED, BLUE } = useChartColors();
   const { tr, locale } = useLocale();
   const [open, setOpen] = useState<number | null>(null);
   const maxViews = Math.max(1, ...bands.map((b) => b.views));

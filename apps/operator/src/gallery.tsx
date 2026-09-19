@@ -13,6 +13,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from '@touch/ui';
 import { LocaleProvider, useLocale } from './lib/i18n';
+import { ThemeModeProvider, useThemeMode } from './lib/themeMode';
 import { GlobalStyles } from './components/GlobalStyles';
 import { Button, Field, Skeleton, Spinner, Tabs, card, inputStyle } from './components/ui';
 import {
@@ -282,13 +283,23 @@ function Gallery() {
   );
 }
 
+/** The gallery follows the station's appearance too; flip it from the rail in the app. */
+function ThemedGallery() {
+  const { mode } = useThemeMode();
+  return (
+    <ThemeProvider theme="operator" dir="ltr" mode={mode}>
+      <GlobalStyles />
+      <Gallery />
+    </ThemeProvider>
+  );
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <LocaleProvider>
-      <ThemeProvider theme="operator" dir="ltr">
-        <GlobalStyles />
-        <Gallery />
-      </ThemeProvider>
+      <ThemeModeProvider>
+        <ThemedGallery />
+      </ThemeModeProvider>
     </LocaleProvider>
   </StrictMode>,
 );

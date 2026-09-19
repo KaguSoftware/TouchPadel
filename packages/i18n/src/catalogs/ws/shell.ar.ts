@@ -152,6 +152,8 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     leaveConfirm: 'نعم، انتقل',
     language: 'English',
     languageAlt: 'العربية',
+    blueMode: 'الوضع الأزرق',
+    lightMode: 'الوضع الفاتح',
     signOut: 'تسجيل الخروج',
     station: 'المحطة {id}',
     exitFullscreen: 'الخروج من وضع ملء الشاشة',

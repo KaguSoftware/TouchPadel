@@ -7,7 +7,7 @@
  */
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useLocale } from '../../../lib/i18n';
-import { AXIS, BAR_CURSOR, BAR_MUTED, GRID, HIGHLIGHT } from './colors';
+import { useChartColors } from './colors';
 
 export interface CountBarRow {
   label: string;
@@ -36,6 +36,7 @@ export function CountBars({
   /** 'max' emphasises the peak, 'rows' trusts each row's `highlight`, 'none' paints one colour. */
   emphasise?: 'max' | 'rows' | 'none';
 }) {
+  const { AXIS, BAR_CURSOR, BAR_MUTED, GRID, HIGHLIGHT } = useChartColors();
   const { dir } = useLocale();
   const max = rows.reduce((m, r) => (r.thin ? m : Math.max(m, r.value)), 0);
   const data = rows.map((r) => ({

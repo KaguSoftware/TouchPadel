@@ -10,9 +10,10 @@ import type { AbandonedView } from '@touch/core';
 import { pickLocale } from '@touch/core';
 import { useLocale } from '../../../lib/i18n';
 import type { Formatters } from '../format';
-import { AXIS, DWELL, GRID } from './colors';
+import { useChartColors } from './colors';
 
 export function AbandonedViewsChart({ rows, f }: { rows: readonly AbandonedView[]; f: Formatters }) {
+  const { AXIS, DWELL, GRID } = useChartColors();
   const { tr, dir, locale } = useLocale();
   const data = rows.slice(0, 8).map((r) => ({
     label: pickLocale({ en: r.nameEn, ar: r.nameAr }, locale) || r.id,
