@@ -38,6 +38,13 @@ export interface KitchenDisplayScreenProps {
   onRetry?: () => void;
   onStatus: (ticketId: string, status: TicketAction) => void;
   onItemReady: (ticketId: string, itemId: string, ready: boolean) => void;
+  /**
+   * Leave the board. Passed only for staff who hold another workspace: a
+   * prep-only account has nowhere to go, so the header stays navigation-free
+   * exactly as the wall-mounted case wants it. Without this a cashier or a
+   * manager who opened /kds was stranded — the prep workspace renders no rail.
+   */
+  onExit?: () => void;
 }
 
 export function KitchenDisplayScreen({
@@ -53,6 +60,7 @@ export function KitchenDisplayScreen({
   onRetry,
   onStatus,
   onItemReady,
+  onExit,
 }: KitchenDisplayScreenProps) {
   const { tr, locale, dir } = useLocale();
 
@@ -95,9 +103,20 @@ export function KitchenDisplayScreen({
         color: 'var(--tp-kds-fg)',
       }}
     >
+      {/*
+        Three columns, not one flex row with a spacer: the clock is centred on
+        the HEADER, so it holds the middle of the screen no matter what sits
+        either side of it. In a flex row it was merely "after the open count",
+        which moved it every time the count went from 9 to 10 open — a clock
+        that shifts is a clock the room stops trusting at a glance.
+
+        The side columns are 1fr each, so they stay equal and the centre stays
+        centred even when only one of them has anything in it.
+      */}
       <header
         style={{
-          display: 'flex',
+          display: 'grid',
+          gridTemplateColumns: '1fr auto 1fr',
           alignItems: 'center',
           gap: 'var(--tp-sp-4)',
           paddingBlockEnd: 'var(--tp-sp-2-5)',
@@ -106,24 +125,23 @@ export function KitchenDisplayScreen({
           flexShrink: 0,
         }}
       >
-        <BrandLockup size={24} tone="onDark" />
-        <h1 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 600, color: 'var(--tp-kds-muted)' }}>
-          {tr('kds.title')}
-        </h1>
-        <span style={{ marginInlineStart: 'auto' }} />
-        {/* Only a loaded board has a count. While loading or failed the old
-            header printed "0 open" — a figure the server never sent, beside a
-            panel saying the tickets could not be read — and on an empty board
-            it repeated the "all caught up" message below it. */}
-        {status === 'ready' && (
-          <span
-            data-testid="open-count"
-            style={{ fontSize: 'var(--tp-fs-kds-lg)', fontWeight: 700, whiteSpace: 'nowrap' }}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-4)', minInlineSize: 0 }}>
+          <BrandLockup size={24} tone="onDark" />
+          <h1
+            style={{
+              fontSize: 'var(--tp-fs-xl)',
+              fontWeight: 600,
+              color: 'var(--tp-kds-muted)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
           >
-            <bdi>{tr('ws.prep.open', { count: formatNumber(open, locale) })}</bdi>
-          </span>
-        )}
+            {tr('kds.title')}
+          </h1>
+        </span>
         <bdi
+          data-testid="kds-clock"
           style={{
             fontSize: 'var(--tp-fs-kds-lg)',
             fontWeight: 600,
@@ -134,7 +152,30 @@ export function KitchenDisplayScreen({
         >
           {formatTime(new Date(nowMs), locale)}
         </bdi>
-        <KdsConnectionPill status={connection} />
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 'var(--tp-sp-4)',
+            minInlineSize: 0,
+          }}
+        >
+          {/* Only a loaded board has a count. While loading or failed the old
+              header printed "0 open" — a figure the server never sent, beside a
+              panel saying the tickets could not be read — and on an empty board
+              it repeated the "all caught up" message below it. */}
+          {status === 'ready' && (
+            <span
+              data-testid="open-count"
+              style={{ fontSize: 'var(--tp-fs-kds-lg)', fontWeight: 700, whiteSpace: 'nowrap' }}
+            >
+              <bdi>{tr('ws.prep.open', { count: formatNumber(open, locale) })}</bdi>
+            </span>
+          )}
+          <KdsConnectionPill status={connection} />
+          {onExit && <KdsExitButton onExit={onExit} />}
+        </span>
       </header>
 
       {/*
@@ -297,6 +338,42 @@ export function KdsConnectionPill({ status }: { status: BroadcastStatus }) {
       />
       {label}
     </span>
+  );
+}
+
+/**
+ * The way back to the rest of the app, at the header's end edge. A plain
+ * button rather than the shared <Button>: those carry the light desk palette,
+ * and this one has to sit on the dark board beside the connection pill, which
+ * is the box it copies.
+ */
+function KdsExitButton({ onExit }: { onExit: () => void }) {
+  const { tr } = useLocale();
+  return (
+    <button
+      type="button"
+      onClick={onExit}
+      data-testid="kds-exit"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 'var(--tp-sp-2)',
+        fontFamily: 'inherit',
+        fontSize: 'var(--tp-fs-kds-sm)',
+        fontWeight: 700,
+        color: 'var(--tp-kds-fg)',
+        border: '1px solid var(--tp-kds-border)',
+        background: 'var(--tp-kds-card)',
+        borderRadius: 'var(--tp-radius-pill)',
+        paddingInline: 'var(--tp-sp-4)',
+        minBlockSize: 'var(--tp-row-h)',
+        whiteSpace: 'nowrap',
+        cursor: 'pointer',
+      }}
+    >
+      <Icon name="logOut" size={20} />
+      {tr('ws.prep.exit')}
+    </button>
   );
 }
 

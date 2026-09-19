@@ -102,6 +102,15 @@ export function useWorkspace(): WorkspaceContextValue {
   if (!ctx) throw new Error('useWorkspace outside WorkspaceShell');
   return ctx;
 }
+/**
+ * The same context for a screen that only ADDS something when it happens to
+ * be inside the shell — the kitchen board's way back, which a unit test
+ * renders on its own. Nothing depends on it being there, so an absent shell
+ * is a fact to read, not a bug to throw on.
+ */
+export function useWorkspaceOrNull(): WorkspaceContextValue | null {
+  return useContext(WorkspaceContext);
+}
 
 // Nav filtering is UX only; RLS + in-RPC role guards are the real wall.
 function RootShell() {

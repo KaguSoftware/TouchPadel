@@ -6,6 +6,7 @@ import { LocaleProvider } from '../../lib/i18n';
 import { mutate } from '../../lib/mutate';
 import { KdsBoard } from './KdsBoard';
 import type { TicketRow } from './ticketView';
+import type { WorkspaceKey } from '../../lib/workspaces';
 
 // The container: a real query client over a mocked table read, the single
 // write path mocked at `mutate()`. The alarms hook is stubbed so no realtime
@@ -65,6 +66,15 @@ vi.mock('./useKdsAlarms', () => ({
   useKdsAlarms: () => ({ stale: new Set<string>(), unseen: 0, status: 'live' }),
 }));
 
+// The exit button's two collaborators: the router and the shell's workspace
+// context. Mocked rather than mounted because the whole point of the control
+// is which workspace it leaves the shell in, and that is a call, not a render.
+const navigate = vi.fn();
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
+let workspaceCtx: { active: WorkspaceKey; available: readonly WorkspaceKey[]; setActive: (k: WorkspaceKey) => void } | null =
+  null;
+vi.mock('../../routes/__root', () => ({ useWorkspaceOrNull: () => workspaceCtx }));
+
 function renderBoard() {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -80,6 +90,8 @@ function renderBoard() {
 
 beforeEach(() => {
   serverRows = rows;
+  workspaceCtx = null;
+  navigate.mockClear();
   vi.mocked(mutate).mockClear();
   // The browser-mode bridge mock warns on every cache miss; expected here.
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -98,5 +110,39 @@ describe('KdsBoard', () => {
     // Optimistic: the card is already "Preparing" before the server answers.
     expect(await screen.findByText('Preparing')).toBeTruthy();
     expect(screen.getByTestId('ticket-card').getAttribute('data-status')).toBe('preparing');
+  });
+});
+
+describe('KdsBoard exit', () => {
+  const setActive = vi.fn();
+
+  beforeEach(() => setActive.mockClear());
+
+  it('a prep-only station gets no exit control at all', async () => {
+    workspaceCtx = { active: 'prep', available: ['prep'], setActive };
+    renderBoard();
+    expect(await screen.findByText('Table 9')).toBeTruthy();
+    expect(screen.queryByTestId('kds-exit')).toBeNull();
+  });
+
+  it('one other workspace: leaves the prep workspace AND lands on its home', async () => {
+    workspaceCtx = { active: 'prep', available: ['prep', 'cashier'], setActive };
+    renderBoard();
+    await userEvent.click(await screen.findByTestId('kds-exit'));
+    // Both halves matter. Navigating without setActive left the destination
+    // rendering under [data-workspace='prep'] — the dark board theme, on a
+    // light screen.
+    expect(setActive).toHaveBeenCalledWith('cashier');
+    expect(navigate).toHaveBeenCalledWith({ to: '/till' });
+  });
+
+  it('several: asks via the switcher, having already left prep for the account\u2019s own workspace', async () => {
+    workspaceCtx = { active: 'prep', available: ['owner', 'manager', 'courtDesk', 'cashier', 'prep'], setActive };
+    renderBoard();
+    await userEvent.click(await screen.findByTestId('kds-exit'));
+    // 'owner' because workspacesForRole puts the role's own workspace first,
+    // so the switcher opens in the right palette with the right tile current.
+    expect(setActive).toHaveBeenCalledWith('owner');
+    expect(navigate).toHaveBeenCalledWith({ to: '/workspaces' });
   });
 });
