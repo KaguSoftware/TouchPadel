@@ -13,7 +13,7 @@
  * its own list, and a way back to the workspace. Which section is open comes
  * from the URL, so a deep link and a reload land on the same rail as a click.
  */
-import { Link, Outlet, createRootRoute, useRouterState } from '@tanstack/react-router';
+import { Link, Outlet, createRootRoute, useNavigate, useRouterState } from '@tanstack/react-router';
 import {
   createContext,
   useCallback,
@@ -52,7 +52,7 @@ import { supabase } from '../lib/supabase';
 import { useCafeSettings } from '../lib/settings';
 import { GlobalStyles } from '../components/GlobalStyles';
 import { ToastProvider } from '../components/toast';
-import { ConfirmProvider } from '../components/ConfirmDialog';
+import { ConfirmProvider, useConfirm } from '../components/ConfirmDialog';
 import { touch, type UpdateReadyInfo } from '../ipc/bridge';
 import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
 import { VenueStatusBanner } from '../components/VenueStatusBanner';
@@ -535,7 +535,23 @@ function WorkspaceNav({
   const { available } = useWorkspace();
   const station = touch.getStation();
   const workspace = WORKSPACES[workspaceKey];
-  const canSwitch = available.length > 1;
+  // Only the jokers change workspace (owner call, 2026-09-18): a cashier or a
+  // desk clerk has one, and the row was never more than a dead end for them.
+  const canSwitch = available.length > 1 && (staff?.role === 'manager' || staff?.role === 'owner');
+  const navigate = useNavigate();
+  const confirm = useConfirm();
+  // Leaving a workspace, or a section for its workspace, is a move the person
+  // may not have meant — the rail's foot is where fingers rest — so both ask
+  // first, in the same words.
+  const leaveTo = async (to: string, destination: string) => {
+    const ok = await confirm({
+      title: tr('ws.shell.nav.leaveTitle', { destination }),
+      body: tr('ws.shell.nav.leaveBody'),
+      confirmLabel: tr('ws.shell.nav.leaveConfirm'),
+      kind: 'primary',
+    });
+    if (ok) void navigate({ to });
+  };
   // Inside a section the rail IS the section: its name, its list, and one way
   // back. Read from the path, so the rail and the screen can never disagree.
   const section = sectionForPath(workspace, path);
@@ -578,17 +594,18 @@ function WorkspaceNav({
               accessible name, so a screen reader still hears "Back to
               Management" and only the pixels are shorter.
             */
-            <Link
-              to={workspace.home}
+            <button
+              type="button"
               className="tp-rail-back"
-              style={{ marginBlockStart: 'var(--tp-sp-2-5)' }}
+              style={{ marginBlockStart: 'var(--tp-sp-2-5)', font: 'inherit', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, cursor: 'pointer', textAlign: 'start' }}
               aria-label={tr('ws.shell.nav.backTo', { workspace: tr(`ws.shell.workspace.${workspaceKey}`) })}
+              onClick={() => void leaveTo(workspace.home, tr(`ws.shell.workspace.${workspaceKey}`))}
             >
               <ChevronBack size={14} />
               <span style={{ minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {tr(`ws.shell.workspace.${workspaceKey}`)}
               </span>
-            </Link>
+            </button>
           )}
           {/* One gap either way now. The section case used to be tightened to
               --tp-sp-1 so the back link read as part of the title below it;
@@ -666,11 +683,11 @@ function WorkspaceNav({
       </div>
 
       <div style={{ borderBlockStart: '1px solid var(--tp-rail-border)', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-0)' }}>
-        {canSwitch && (
-          <Link to="/workspaces" className="tp-nav-item" style={navItemStyle} data-active={path === '/workspaces' ? 'true' : undefined}>
+        {canSwitch && path !== '/workspaces' && (
+          <button type="button" className="tp-nav-item" style={navButtonStyle} onClick={() => void leaveTo('/workspaces', tr('ws.shell.nav.switchWorkspace'))}>
             <Icon name="repeat" size={16} />
             <span>{tr('ws.shell.nav.switchWorkspace')}</span>
-          </Link>
+          </button>
         )}
         <button type="button" className="tp-nav-item" onClick={toggleLocale} style={navButtonStyle}>
           <Icon name="globe" size={16} />

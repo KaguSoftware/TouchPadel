@@ -27,6 +27,10 @@ export function BreakRailControl({ style, captionStyle }: { style: CSSProperties
   const [dialog, setDialog] = useState<'start' | 'end' | null>(null);
 
   if (!staff || !brk.status || brk.phase === 'away') return null;
+  // Managers and owners are the jokers (owner call, 2026-09-18): they hold no
+  // station of their own to leave, they cover everyone else's, and the plan
+  // shows them at work wherever they are signed in. No break row for them.
+  if (staff.role === 'manager' || staff.role === 'owner') return null;
   const n = (v: number) => formatNumber(v, locale);
   const remaining = remainingSeconds(brk.status, brk.nowMs);
   const can = canStartBreak(brk.status, brk.nowMs);
@@ -47,7 +51,7 @@ export function BreakRailControl({ style, captionStyle }: { style: CSSProperties
             <span>{tr('ws.shell.break.goOnBreak')}</span>
           </button>
           <p id="tp-break-left" style={captionStyle}>
-            {can ? tr('ws.shell.break.left', { minutes: n(wholeMinutes(remaining)) }) : tr('ws.shell.break.noneLeft')}
+            {can ? tr('ws.shell.break.remainingToday', { minutes: n(wholeMinutes(remaining)) }) : tr('ws.shell.break.noneLeft')}
           </p>
         </div>
       ) : (

@@ -2111,6 +2111,7 @@ export type Database = {
           is_till: boolean
           last_seen_at: string
           queue_depth: number
+          staff_id: string | null
         }
         Insert: {
           app_version?: string | null
@@ -2118,6 +2119,7 @@ export type Database = {
           is_till?: boolean
           last_seen_at?: string
           queue_depth?: number
+          staff_id?: string | null
         }
         Update: {
           app_version?: string | null
@@ -2125,8 +2127,17 @@ export type Database = {
           is_till?: boolean
           last_seen_at?: string
           queue_depth?: number
+          staff_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "device_heartbeats_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       guest_sessions: {
         Row: {

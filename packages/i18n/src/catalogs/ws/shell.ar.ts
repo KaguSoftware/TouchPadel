@@ -52,7 +52,7 @@ export const shellAr: DeepMessages<typeof shellEn> = {
   // Staff breaks (0105)
   break: {
     goOnBreak: 'بدء استراحة',
-    left: 'تبقّى {minutes} دقيقة اليوم',
+    remainingToday: 'تبقّى {minutes} دقيقة اليوم',
     noneLeft: 'لم يتبقَّ وقت استراحة اليوم',
     startTitle: 'بدء استراحة',
     startLead: 'رمزك السري يبدأ الاستراحة. أثناء غيابك تعرض المحطة من يستطيع التغطية.',
@@ -147,6 +147,9 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     backTo: 'العودة إلى {workspace}',
     skipToMain: 'تخطَّ إلى المحتوى الرئيسي',
     switchWorkspace: 'تبديل مساحة العمل',
+    leaveTitle: '{destination}؟',
+    leaveBody: 'أنت على وشك مغادرة هذه الشاشة. لن يضيع شيء هنا، ويمكنك العودة بالطريقة نفسها.',
+    leaveConfirm: 'نعم، انتقل',
     language: 'English',
     languageAlt: 'العربية',
     signOut: 'تسجيل الخروج',

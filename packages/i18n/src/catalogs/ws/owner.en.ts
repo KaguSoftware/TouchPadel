@@ -49,6 +49,81 @@ export const ownerEn = {
     },
   },
   /**
+   * The live floor (owner request, 2026-09-18): a three-dimensional plan of the
+   * venue drawn from the same rows the boards read — bookings for the courts,
+   * open tabs for the tables, station heartbeats and breaks for the staff.
+   * Every figure is what the server holds right now; nothing is estimated.
+   * Where a count is not known (how many guests sit at a table) the copy does
+   * not pretend to know it.
+   */
+  floor: {
+    title: 'Live floor',
+    updated: 'Updated {time}',
+    counters: {
+      courts: 'Courts in play',
+      tables: 'Tables occupied',
+      staff: 'Staff at a station',
+      onBreak: 'On break',
+      of: '{n} of {total}',
+    },
+    notDrawnCourts: 'Courts not on this plan',
+    notDrawnTables: 'Tables not on this plan',
+    notDrawnHint: 'The plan draws the venue as built. Extra courts or tables are counted above but have no place on it.',
+    legend: {
+      inPlay: 'In play / occupied',
+      booked: 'Booked, nobody there yet',
+      free: 'Free',
+      staffWorking: 'Staff at a station',
+      staffBreak: 'Staff on break',
+      players: 'Players',
+      seated: 'Tab open',
+      paying: 'Awaiting payment',
+    },
+    court: {
+      inPlay: 'In play',
+      booked: 'Booked, nobody there yet',
+      free: 'Free',
+      until: 'Until {time}',
+      players: 'Players',
+      next: 'Next booking {time}',
+    },
+    table: {
+      occupied: 'Occupied',
+      free: 'Free',
+      since: 'Since {time}',
+      open: 'Tab open',
+      awaiting: 'Awaiting payment',
+      table: 'Table {number}',
+    },
+    staff: {
+      working: 'At a station',
+      break: 'On break',
+      station: 'Station {station}',
+      covering: 'Covering for {name}',
+      since: 'Since {time}',
+      nobody: 'Nobody here right now',
+    },
+    rooms: {
+      reception: 'Reception',
+      bar: 'Vitamin bar',
+      kitchen: 'Kitchen',
+      office: 'Office',
+      meeting: 'Meeting room',
+      floor: 'Cafe floor',
+    },
+    showWhole: 'Show whole floor',
+    zoomIn: 'Closer',
+    zoomOut: 'Further',
+    fullScreen: 'Full screen',
+    exitFullScreen: 'Exit full screen',
+    hintFull: 'Scroll to zoom, drag to look around. Click a court, a table or a room to move closer. Esc leaves full screen.',
+    hint: 'Drag to look around. Click a court, a table or a room to move closer.',
+    noWebgl: 'This computer cannot draw the 3D plan. The counts above are still live.',
+    ariaLabel: 'Three-dimensional plan of the venue',
+    openBookings: 'Bookings board',
+    openTills: 'Tills board',
+  },
+  /**
    * The Setup section's landing screen (/setup). One card per destination,
    * each saying what the screen decides — a rail row can only say its name,
    * and "Tables & QR" does not tell an owner it is where a lost table card is
