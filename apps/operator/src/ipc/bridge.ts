@@ -131,6 +131,12 @@ export interface StationInfo {
   configError?: string;
   /** The shell build (app.getVersion()) — what auto-update replaces. */
   appVersion: string;
+  /**
+   * Pixels at the top-left that the macOS traffic lights are drawn over —
+   * titleBarStyle 'hiddenInset' puts them INSIDE the page, so the rail has to
+   * start below them. 0 or absent everywhere else: Windows, and every kiosk.
+   */
+  titleBarInset?: number;
 }
 
 /** What the first-run setup screen sends. Only accepted while unconfigured. */
@@ -198,10 +204,22 @@ export interface TouchBridge {
   pushAuthState(s: AuthState | null): void;
   /** Push the heartbeat's server-reachability verdict after every beat. */
   pushConnState(online: boolean): void;
+  /**
+   * The screen on show wants a bare window (the kitchen board): hides the
+   * macOS traffic lights while it is up, restores them when it is not. A
+   * no-op where the window has no buttons — kiosks, Windows, the browser.
+   */
+  pushChromeless(chromeless: boolean): void;
   /** Store a fresh reference-data payload for offline trading (fetched_at stamped in main). */
   cachePut(key: RefKey, payload: unknown): void;
   /** A PIN just succeeded server-side — cache its hash for offline unlock. */
   pinObserved(pin: string): void;
+  /**
+   * The macOS red traffic light was pressed and main is HOLDING the close.
+   * The page owes the operator the quit confirmation; nothing closes until
+   * quitApp() is called.
+   */
+  onCloseRequested(cb: () => void): Unsub;
   onMutationResult(cb: (r: MutationResult) => void): Unsub;
   getQueueRows(): Promise<QueueRowInfo[]>;
   /** Manager PIN: park a conflict/failed row as resolved so it stops blocking day close.
@@ -251,6 +269,13 @@ const mock: TouchBridge = {
     // Browser mode has no main process; writes go straight to the network.
   },
   pushConnState() {},
+  pushChromeless() {
+    // Browser mode has no window chrome to hide.
+  },
+  onCloseRequested() {
+    // Browser mode has no window chrome to intercept.
+    return () => {};
+  },
   onMutationResult() {
     return () => {};
   },

@@ -75,12 +75,72 @@ function RootProviders() {
   return (
     <>
       <GlobalStyles />
+      <WindowDragStrip />
       <ToastProvider>
         <ConfirmProvider>
+          {/* The macOS red traffic light's confirmation. It lives up here
+              because that button works on EVERY screen — sign-in and the
+              first-run setup included — while the rail's Quit row only
+              exists once somebody is signed in. Renders nothing until main
+              says the button was pressed. */}
+          <QuitToDesktop variant="windowClose" />
           <RootShell />
         </ConfirmProvider>
       </ToastProvider>
     </>
+  );
+}
+
+/**
+ * Lets the operator move the macOS window by its top edge, on EVERY screen.
+ *
+ * It lives up here rather than in WorkspaceShell because most of the screens
+ * that need it are the ones rendered before the shell exists — sign-in, first
+ * run, the boot and config-error screens — and a window you cannot move while
+ * signing in is the one place it is most annoying.
+ *
+ * Fixed and overlaid, not laid out: the pre-auth screens are 100vh boxes, so a
+ * real row would push them past the viewport and grow a scrollbar.
+ *
+ * `pointerEvents: none` is what makes overlaying safe. A drag region otherwise
+ * swallows the clicks under it (electron/electron#1354), which here would eat
+ * the top of the rail and of every screen. Chromium registers the draggable
+ * region with macOS from the painted box and does NOT consult pointer-events,
+ * so the window still drags while the controls underneath stay clickable —
+ * verified both ways with real OS mouse events, since the two behaviours look
+ * contradictory and neither is documented.
+ *
+ * Electron on macOS only: titleBarInset is 0/absent on Windows, in browser dev
+ * and on every kiosk, and this renders nothing there.
+ */
+/**
+ * Height of the band the macOS traffic lights are drawn into, for the few
+ * screens that put something in the top corners and would otherwise put it
+ * underneath them. 0 everywhere the lights do not exist.
+ */
+function useTitleBarInset(): number {
+  return useMemo(() => touch.getStation().titleBarInset ?? 0, []);
+}
+
+function WindowDragStrip() {
+  const inset = useTitleBarInset();
+  if (!inset) return null;
+  return (
+    <div
+      aria-hidden="true"
+      data-no-print
+      style={
+        {
+          position: 'fixed',
+          insetBlockStart: 0,
+          insetInline: 0,
+          blockSize: inset,
+          zIndex: 'var(--tp-z-drag)',
+          pointerEvents: 'none',
+          WebkitAppRegion: 'drag',
+        } as CSSProperties
+      }
+    />
   );
 }
 
@@ -284,6 +344,12 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
   const value = useMemo(() => ({ active, available, setActive }), [active, available, setActive]);
   const workspace = WORKSPACES[active];
   const noNav = workspace.groups.length === 0;
+  // The kitchen board is a wall-mounted screen: no traffic lights over its
+  // header, and so no room to reserve for them either. Both follow noNav, and
+  // both are restored the moment the operator leaves the board.
+  useEffect(() => {
+    touch.pushChromeless(noNav);
+  }, [noNav]);
   // A downloaded update waiting for a restart: a rail row where there is a
   // rail, a floating pill on the kitchen screen, which has none.
   const update = useUpdateReady();
@@ -301,7 +367,10 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
         <SkipToMain />
         <IdleLock />
         <BreakOverlay />
-        <VenueStatusBanner state={venue} />
+        {/* On the kitchen screen there is no rail, so the strip spans the
+            window as it always has. Where there IS a rail it moves inside the
+            content column instead — see below. */}
+        {noNav && <VenueStatusBanner state={venue} />}
         {noNav && update && (
           <UpdateReadyControl variant="pill" version={update.version} onInstall={() => void touch.installUpdate()} />
         )}
@@ -309,20 +378,29 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           {!noNav && <WorkspaceNav workspaceKey={active} path={path} update={update} />}
           {/* tabIndex -1 so the skip link has somewhere to land; the routed
               screen's own first heading is the next stop from here. */}
-          <main
-            id="tp-main"
-            tabIndex={-1}
-            style={{
-              flex: 1,
-              minInlineSize: 0,
-              minBlockSize: 0,
-              overflow: 'auto',
-              paddingBlock: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-4)',
-              paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
-            }}
-          >
-            <Outlet />
-          </main>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minInlineSize: 0, minBlockSize: 0 }}>
+            {/* The strip starts where the rail ends, not at the window's edge.
+                Full width, it ran under the macOS traffic lights: 'hiddenInset'
+                draws them INSIDE the page, and the rail is the only thing that
+                reserves room for them (its spacer). Beginning after the blue
+                panel puts the strip clear of the buttons without a second
+                inset to keep in step with the first. */}
+            {!noNav && <VenueStatusBanner state={venue} />}
+            <main
+              id="tp-main"
+              tabIndex={-1}
+              style={{
+                flex: 1,
+                minInlineSize: 0,
+                minBlockSize: 0,
+                overflow: 'auto',
+                paddingBlock: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-4)',
+                paddingInline: noNav ? 'var(--tp-sp-3)' : 'var(--tp-sp-5)',
+              }}
+            >
+              <Outlet />
+            </main>
+          </div>
         </div>
       </div>
       </BreakProvider>
@@ -572,13 +650,33 @@ function WorkspaceNav({
         overflow: 'hidden',
       }}
     >
-      {/* Rail header: the one committed brand surface. */}
-      <div style={{ position: 'relative', paddingBlock: 'var(--tp-sp-4) var(--tp-sp-3)', paddingInline: RAIL_EDGE, borderBlockEnd: '1px solid var(--tp-rail-border)', overflow: 'hidden' }}>
+      {/* Rail header: the one committed brand surface.
+
+          Its top padding ALSO carries the room the macOS traffic lights need
+          ('hiddenInset' draws them inside the page, right here). That used to
+          be a separate spacer above this block, which read as an empty navy
+          band between the buttons and the lockup — the court lines started
+          below it and the header looked pushed down. Folding it into the
+          header's own padding clears the buttons with no band. 0 on Windows,
+          in browser dev, and on every kiosk, where the scale value stands. */}
+      <div
+        style={{
+          position: 'relative',
+          paddingBlockStart: station.titleBarInset ? `${station.titleBarInset}px` : 'var(--tp-sp-4)',
+          paddingBlockEnd: 'var(--tp-sp-3)',
+          paddingInline: RAIL_EDGE,
+          borderBlockEnd: '1px solid var(--tp-rail-border)',
+          overflow: 'hidden',
+        }}
+      >
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           <CourtLines opacity={0.16} />
         </div>
         <div style={{ position: 'relative' }}>
-          <BrandLockup size={26} tone="onDark" />
+          {/* 34, not the old 26: the header's top padding grew to clear the
+              macOS traffic lights, and at 26 the lockup read as small against
+              it. Still below the sign-in screen's 40, which is the hero. */}
+          <BrandLockup size={34} tone="onDark" />
           {/* The way out of a section, in the place a browser back button
               would be and above the name of where you are. Sizing, surface and
               colour live in .tp-rail-back (GlobalStyles) — this is a control,
@@ -1245,12 +1343,30 @@ function ExitFullscreen() {
  * variant carries its own separator: browser mode then renders nothing rather
  * than an empty corner box.
  */
-function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
+function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' | 'windowClose' }) {
   const { tr } = useLocale();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  // The sign-in variant sits in the top INLINE-END corner, inside the band
+  // the window-drag strip covers. It has to out-rank that strip and opt out
+  // of the drag, or the corner it lives in belongs to the window, not to it.
+  const inset = useTitleBarInset();
+
+  // 'windowClose' renders no control of its own: it is the macOS red traffic
+  // light's dialog. Main prevents the close and pushes touch:close-requested,
+  // and the window stays open until the operator confirms here.
+  useEffect(() => {
+    if (variant !== 'windowClose') return;
+    if (typeof window === 'undefined' || !window.touch) return;
+    return touch.onCloseRequested(() => setOpen(true));
+  }, [variant]);
+
   if (typeof window === 'undefined' || !window.touch) return null;
+  // The sign-in control stands down where the red traffic light already asks
+  // this question. It stays on a till or a KDS: those kiosks have no traffic
+  // lights, and with the rail behind a sign-in it is their only way out.
+  if (variant === 'signIn' && inset) return null;
 
   async function quit() {
     setBusy(true);
@@ -1270,7 +1386,7 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
 
   return (
     <>
-      {variant === 'rail' ? (
+      {variant === 'windowClose' ? null : variant === 'rail' ? (
         <div style={{ marginBlockStart: 'var(--tp-sp-2)', paddingBlockStart: 'var(--tp-sp-1)', borderBlockStart: '1px solid var(--tp-rail-border)' }}>
           {/* Above Quit, inside Quit's separator rather than behind one of its
               own: both rows are "get out of the kiosk", and the destructive one
@@ -1292,7 +1408,19 @@ function QuitToDesktop({ variant = 'rail' }: { variant?: 'rail' | 'signIn' }) {
           size="sm"
           icon="x"
           onClick={() => setOpen(true)}
-          style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)', color: 'var(--tp-muted-fg)' }}
+          style={
+            {
+              position: 'absolute',
+              insetBlockStart: 'var(--tp-sp-3)',
+              insetInlineEnd: 'var(--tp-sp-3)',
+              color: 'var(--tp-muted-fg)',
+              // Above the drag strip, and not draggable itself: this corner is
+              // the button's, even though the strip crosses it.
+              ...(inset
+                ? { zIndex: 'var(--tp-z-drag-over)', WebkitAppRegion: 'no-drag' }
+                : {}),
+            } as CSSProperties
+          }
         >
           {tr('ws.shell.nav.quit')}
         </Button>
@@ -1519,7 +1647,7 @@ function signInFailure(err: unknown): SignInFailure {
 
 function SignInScreen() {
   const { signIn } = useAuth();
-  const { tr, toggleLocale, locale } = useLocale();
+  const { tr, toggleLocale, locale, dir } = useLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1530,6 +1658,12 @@ function SignInScreen() {
   const [capsLock, setCapsLock] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  // The traffic lights stay at the window's physical top-LEFT in both
+  // languages, while these two panels are placed logically — so the navy panel
+  // is under them in English and the form panel is under them in Arabic.
+  // Whichever is physically first takes the padding.
+  const inset = useTitleBarInset();
+  const navyIsUnderLights = dir === 'ltr';
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -1567,7 +1701,22 @@ function SignInScreen() {
     <div style={{ minBlockSize: '100vh', display: 'grid', gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 7fr)', background: 'var(--tp-bg)' }}>
       <aside
         aria-hidden="true"
-        style={{ position: 'relative', background: 'var(--tp-rail)', color: 'var(--tp-brand-white)', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2rem' }}
+        style={
+          {
+            position: 'relative',
+            background: 'var(--tp-rail)',
+            color: 'var(--tp-brand-white)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '2rem',
+            // Room for the macOS traffic lights, in English — in Arabic this
+            // panel is on the right and the form takes the padding instead.
+            // Dragging is WindowDragStrip's, across the whole top edge.
+            paddingBlockStart: inset && navyIsUnderLights ? `${inset}px` : undefined,
+          } as CSSProperties
+        }
       >
         {/* The swoosh, bleeding off the inline end the way it does across the
             brand deck's covers. It settles in behind the lockup; the ONE call
@@ -1584,15 +1733,29 @@ function SignInScreen() {
           {tr('ws.shell.signIn.tagline')}
         </p>
       </aside>
-      <div style={{ position: 'relative', display: 'grid', placeItems: 'center', padding: 'var(--tp-sp-6)' }}>
+      <div
+        style={{
+          position: 'relative',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 'var(--tp-sp-6)',
+          // Arabic: this panel is the physically first one, so the traffic
+          // lights are over ITS corner.
+          paddingBlockStart: inset && !navyIsUnderLights ? `${inset}px` : undefined,
+        }}
+      >
         {/* The language switch is a page control, so it sits in the page's
-            corner. Beside Sign in it read as the form's second button. */}
+            outer BOTTOM corner: bottom-right in English, bottom-left in
+            Arabic, which is what insetInlineEnd resolves to on its own. Not
+            inline-START — that is this panel's inner edge, which put it in
+            the middle of the window beside the form. And not the top corner,
+            where it crowded the window controls. */}
         <Button
           kind="ghost"
           size="sm"
           icon="globe"
           onClick={toggleLocale}
-          style={{ position: 'absolute', insetBlockStart: 'var(--tp-sp-3)', insetInlineStart: 'var(--tp-sp-3)' }}
+          style={{ position: 'absolute', insetBlockEnd: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)' }}
         >
           <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
         </Button>

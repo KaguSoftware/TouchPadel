@@ -119,29 +119,20 @@ export function Button(props: ButtonProps) {
   const showReason = disabledReason !== undefined && disabled === true;
 
   /*
-   * The start slot used to be `busy ? <Spinner/> : icon ? <Icon/> : null`, so a
-   * button with no icon grew a 14px glyph plus a 0.45rem gap the instant it was
-   * clicked and its label slid sideways — rulebook 11.5, on the controls that
-   * are pressed most often in the building.
+   * Two ways to show `busy`, picked by whether this button owns a glyph.
    *
-   * The slot is present whenever this button can ever hold a glyph, and the
-   * test is `'busy' in props` rather than `busy !== undefined`: 64 call sites
-   * pass `busy={busy}` from an optional prop that reads `undefined` at rest and
-   * `true` while the RPC runs, and testing the value would reserve the space
-   * only once it was already too late to matter.
+   * With an `icon`, the spinner takes the icon's box: one slot, two occupants,
+   * the icon fades out as the spinner fades in and the label never moves.
+   *
+   * Without one, we used to reserve an empty glyph box *plus* a mirror spacer
+   * on every button that merely accepts `busy` — 64 call sites — which left a
+   * visible hole beside the label at rest, on buttons that are idle almost all
+   * of the time. Now nothing is reserved: the spinner is painted as an overlay
+   * centred over the whole button and the label is hidden beneath it, so the
+   * press still costs zero layout and the resting button is just its label.
    */
-  const hasGlyphSlot = icon !== undefined || 'busy' in props;
-  /*
-   * …and the reserved slot has to be reserved at BOTH ends, or it un-centres
-   * the label it was added to hold still. A button with no glyph of its own —
-   * every `<Button kind="primary" busy>Confirm</Button>` in a modal footer —
-   * got an empty 14-16px box plus a 0.45rem gap in front of its text and
-   * nothing behind it, so `justify-content: center` centred the pair and left
-   * the WORD sitting right of the button's middle. The mirror spacer is
-   * inert: it exists only when this button can never paint a glyph at the end
-   * (no `icon`, no `iconEnd`) and it is the same size as the slot it balances.
-   */
-  const needsEndSpacer = hasGlyphSlot && Boolean(children) && icon === undefined && iconEnd === undefined;
+  const hasGlyphSlot = icon !== undefined;
+  const overlaySpinner = busy === true && icon === undefined;
   // No transition. `busy` flips true on the operator's own click, so a fade
   // here would animate the press itself — the exact case the motion rule
   // excludes, on the highest-frequency control in the building. The reserved
@@ -161,7 +152,7 @@ export function Button(props: ButtonProps) {
       disabled={disabled || busy}
       aria-busy={busy || undefined}
       aria-describedby={showReason ? reasonId : undefined}
-      style={style}
+      style={overlaySpinner ? { position: 'relative', ...style } : style}
       autoFocus={autoFocus}
       title={title}
       aria-label={ariaLabel}
@@ -186,11 +177,30 @@ export function Button(props: ButtonProps) {
           {icon && <Icon name={icon} size={iconSize} style={glyphFade} />}
         </span>
       )}
-      {children}
+      {/* Glyph-less and busy: the label stays mounted (it is what sizes the
+          button) but is hidden under the centred spinner, so the press neither
+          resizes the button nor slides the text. */}
+      {overlaySpinner ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'inherit', opacity: 0 }}>{children}</span>
+      ) : (
+        children
+      )}
       {/* Stays mounted while busy for the same reason: dropping it narrowed the
           button mid-press and pulled the label with it. */}
       {iconEnd && <Icon name={iconEnd} size={iconSize} style={glyphFade} />}
-      {needsEndSpacer && <span aria-hidden="true" style={{ inlineSize: `${iconSize}px`, flex: '0 0 auto' }} />}
+      {overlaySpinner && (
+        <Spinner
+          size="xs"
+          style={{
+            position: 'absolute',
+            insetBlockStart: '50%',
+            insetInlineStart: '50%',
+            transform: 'translate(-50%, -50%)',
+            inlineSize: `${iconSize}px`,
+            blockSize: `${iconSize}px`,
+          }}
+        />
+      )}
     </button>
   );
 

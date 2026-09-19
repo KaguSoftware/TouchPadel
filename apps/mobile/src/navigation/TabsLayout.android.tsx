@@ -3,14 +3,26 @@ import { Tabs } from 'expo-router';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../i18n/text';
 import { BlurView } from 'expo-blur';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InnerScreen, ScreenContext, type ScreenProps } from 'react-native-screens';
 import { useLocale } from '../i18n/LocaleProvider';
 import { brand, radius, useTheme } from '../theme';
 import { TabBookIcon, TabBookingsIcon, TabProfileIcon } from '../components/icons';
 
-/** Design: 62 pt bar; the home indicator / Android nav bar inset is added below it. */
-const TAB_BAR_BASE = 62;
+/**
+ * Bar height, measured from what it holds: the 21 pt icon, a 2 pt gap, the
+ * 9.5 pt display label (~13 pt line box), a 2 pt gap and the 3 pt active dot —
+ * 41 pt — plus the bar's own 4 pt `paddingTop` and the item's 2 pt.
+ *
+ * It was 62 back when the bar added `insets.bottom` on top and the surplus was
+ * swallowed by the system nav bar's strip. 49 (`TABBAR_HEIGHT_UIKIT`) was then
+ * tried and was too tight: Android clipped the labels mid-glyph and dropped the
+ * active dot entirely.
+ *
+ * Must stay equal to ANDROID_TAB_BAR_HEIGHT in components/useTabBarHeight.ts —
+ * that is the fallback for this same bar, and a drift pads scroll content to a
+ * height the bar does not have.
+ */
+const TAB_BAR_BASE = 56;
 
 /** Display-face label + the 14×3 green active dot, per the design. */
 function TabLabel({ text, focused }: { text: string; focused: boolean }) {
@@ -101,7 +113,6 @@ export default function TabsLayoutAndroid() {
 function AndroidTabs() {
   const { t } = useLocale();
   const { colors, appearance } = useTheme();
-  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -153,8 +164,22 @@ function AndroidTabs() {
           borderTopWidth: 1,
           borderTopColor: colors.line,
           elevation: 0,
-          height: TAB_BAR_BASE + insets.bottom,
-          paddingBottom: insets.bottom,
+          /**
+           * JUST THE BAR'S OWN CONTENT, SITTING ON THE SCREEN EDGE — the system
+           * nav bar floats OVER it when revealed (owner, this is the intent).
+           *
+           * `position: 'absolute'` pins it to the bottom of the window and the
+           * safe-area inset is zeroed app-wide (navigation/immersiveInsets.tsx),
+           * so nothing reserves space below it and nothing stretches it. The
+           * revealed nav bar is a translucent overlay on top, which is what an
+           * overlay is for.
+           *
+           * It briefly grew by `hiddenInset` here to cover the grey band. That
+           * band was Android's `enforceNavigationBarContrast` scrim, now turned
+           * off natively in app.config.ts, so there is nothing left to cover and
+           * the padding would only make the bar too tall.
+           */
+          height: TAB_BAR_BASE,
           paddingTop: 4,
         },
         tabBarBackground:
@@ -167,11 +192,23 @@ function AndroidTabs() {
                 />
               )
             : undefined,
-        // Items stretch to fill the tab bar row by default — including the
-        // `paddingBottom: insets.bottom` strip below, where the system nav bar sits.
-        // A fixed height keeps the item (and its ripple/background) confined to the
-        // bar's own content area, clear of that strip.
-        tabBarItemStyle: { paddingTop: 2, height: TAB_BAR_BASE - 4 },
+        /**
+         * The item FILLS the bar rather than being pinned to a height of its
+         * own. It used to be `height: TAB_BAR_BASE - 4`, to keep the ripple out
+         * of the `paddingBottom: insets.bottom` strip where the system nav bar
+         * sat — but that strip is gone now (the nav bar is hidden and the inset
+         * is zeroed in navigation/immersiveInsets.tsx), so the fixed height had
+         * nothing left to protect against and only did harm: the tablist row is
+         * `flex: 1` over the bar's full height, so a shorter item sat
+         * top-aligned in it and left a band of bare bar below the labels — and
+         * once the bar was trimmed to fit, that same fixed height clipped the
+         * labels and cut the active dot off entirely.
+         *
+         * `flex: 1` makes the item exactly as tall as the bar's content box,
+         * so the ripple still cannot reach past it and the content centres in
+         * it instead of hanging from the top.
+         */
+        tabBarItemStyle: { paddingTop: 2, flex: 1 },
         // expo-router's BottomTabItem defaults to `android_ripple: { borderless: true }`,
         // an unbounded gray circle that ignores the tab item's box — on this
         // absolutely-positioned edge-to-edge bar it painted past the bar into the

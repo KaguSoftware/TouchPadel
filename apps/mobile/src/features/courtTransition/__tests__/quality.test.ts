@@ -3,7 +3,7 @@ import { courtQualityFor, LITE_ANDROID_MEMORY, LITE_YEAR_CLASS } from '../qualit
 
 const GIB = 1024 ** 3;
 
-describe('court quality tier (shadows + trail only on phones that can afford them)', () => {
+describe('court quality tier (the shadow pass only on phones that can afford it)', () => {
   it('iOS: the year class alone decides — A11 and older are lite, newer are full', () => {
     expect(courtQualityFor({ os: 'ios', yearClass: LITE_YEAR_CLASS.ios, totalMemory: 2 * GIB })).toBe('lite');
     expect(courtQualityFor({ os: 'ios', yearClass: 2015, totalMemory: 2 * GIB })).toBe('lite');

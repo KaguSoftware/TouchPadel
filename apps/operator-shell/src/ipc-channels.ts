@@ -13,8 +13,23 @@ export const IPC = {
   getStation: 'touch:get-station',
   /** Renderer → main (send): the staff session the sync worker replays with. */
   authState: 'touch:auth-state',
+  /**
+   * Renderer → main (send): the kitchen board is (or is no longer) the screen
+   * on show. A wall-mounted board has no pointer near its top corner and
+   * nobody meant to close it, so the macOS traffic lights are hidden while it
+   * is up — the window is one OS window, so this cannot be decided per screen
+   * at creation time.
+   */
+  chromeless: 'touch:chromeless',
   /** Renderer → main (send): the heartbeat's verdict on server reachability. */
   connState: 'touch:conn-state',
+  /**
+   * Main → renderer (push): the operator pressed the macOS red traffic light.
+   * The close is PREVENTED in main and handed to the page, so the window
+   * button asks the same "Quit to desktop?" question the rail row does
+   * instead of dropping a station out of service on one mis-click.
+   */
+  closeRequested: 'touch:close-requested',
   /** Main → renderer (push): a queued mutation reached a terminal state. */
   mutationResult: 'touch:mutation-result',
   /** Invoke: every non-acked row — the day-close pre-check and conflicts panel. */
@@ -173,6 +188,15 @@ export interface StationInfo {
   configError?: string;
   /** app.getVersion() — the shell build, which is what auto-update replaces. */
   appVersion: string;
+  /**
+   * Pixels of content at the top-left that the macOS traffic lights sit over
+   * (titleBarStyle 'hiddenInset' draws them INSIDE the page). 0 or absent
+   * where the window has no traffic lights — Windows, and every kiosk.
+   *
+   * A window fact, not a station fact: StationConfig extends this interface
+   * and station.json knows nothing about it, which is why it is optional.
+   */
+  titleBarInset?: number;
 }
 
 /** What the first-run setup screen sends. Only accepted while unconfigured. */

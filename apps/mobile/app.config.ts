@@ -89,6 +89,27 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   // Welcome screen's gradient (a native splash cannot draw the gradient itself),
   // so the first frame of the app is the same colour as the last frame of the
   // splash. assets/README.md covers every brand file here.
+  //
+  // ANDROID CLIPS THE SPLASH ICON TO A CIRCLE, AND THAT IS WHY ITS WIDTH IS
+  // SMALLER THAN iOS's.
+  //
+  // Since Android 12 the launch icon is drawn by the platform's own
+  // `Theme.SplashScreen`, via `windowSplashScreenAnimatedIcon`, and the OS masks
+  // that drawable to a CIRCLE — roughly the inner two thirds of the icon window.
+  // It is the framework's mask, not a layout of ours, so nothing in JS or in the
+  // image can reach it: whatever falls outside the circle is simply not drawn.
+  //
+  // At 220 the lockup rendered 220 x 81 dp and the mask cut both ends off it —
+  // the launch screen read "ouch Pad", then snapped to the full wordmark the
+  // moment BootOverlay took over. That snap WAS the bug (owner, Android builds).
+  //
+  // A 900x332 lockup inscribed in the 160 dp safe circle may be at most
+  // 160 / sqrt(1 + (332/900)^2) = 150 dp wide, so Android gets 150 and keeps the
+  // whole word. iOS has no mask — its storyboard draws the image as given — so
+  // it stays at 220 and loses nothing.
+  //
+  // BootOverlay's LOGO_W matches this PER PLATFORM (the two must agree or the
+  // handoff jumps); bootOverlay.test.ts holds the numbers to each other.
   [
     'expo-splash-screen',
     {
@@ -96,6 +117,7 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
       imageWidth: 220,
       resizeMode: 'contain',
       backgroundColor: '#3360AB',
+      android: { imageWidth: 150 },
     },
   ],
   // Android status-bar glyph (white-on-transparent, the platform tints it) and
@@ -104,6 +126,34 @@ const plugins: NonNullable<ExpoConfig['plugins']> = [
   // Sign in with Apple entitlement (com.apple.developer.applesignin). EAS Build
   // syncs the capability to the App ID on every build (EXPO_NO_CAPABILITY_SYNC opts out).
   'expo-apple-authentication',
+  /**
+   * THE GREY BAND UNDER THE TAB BAR IS `enforceNavigationBarContrast`, AND ONLY
+   * A NATIVE THEME ATTRIBUTE CAN TURN IT OFF.
+   *
+   * Android draws a translucent SCRIM over the navigation-bar region so the
+   * system buttons stay legible against app content. It is the framework's own
+   * `android:enforceNavigationBarContrast`, it defaults to TRUE, and the OS
+   * paints it above the app and below the system bar.
+   *
+   * That is why it outlived every JS fix attempted for it: zeroing the
+   * safe-area inset, trimming the bar height, letting the tab items fill the
+   * bar, stretching the bar's background over the strip. None of them could
+   * reach it — it is not the tab bar, not a layout gap and not a themed colour.
+   * It also explains the one clue that never fitted: the band VANISHES when the
+   * nav bar is swiped up, because the buttons are then drawn over the scrim.
+   *
+   * `hidden: true` matches what navigation/immersiveInsets.tsx asks for at
+   * runtime, so the bar starts hidden from the very first frame instead of
+   * being hidden a moment after launch.
+   *
+   * The app is managed (no android/ directory — styles.xml is generated at
+   * build time), so this plugin is the ONLY way to set either attribute. Until
+   * it was declared here, nothing ever wrote them and Android kept its default.
+   *
+   * NATIVE CHANGE: needs a new dev client or EAS build. An OTA update cannot
+   * carry it, and neither can a JS reload.
+   */
+  ['expo-navigation-bar', { enforceContrast: false, hidden: true }],
 ];
 if (googleIosUrlScheme) {
   plugins.push(['react-native-nitro-google-signin', { iosUrlScheme: googleIosUrlScheme }]);

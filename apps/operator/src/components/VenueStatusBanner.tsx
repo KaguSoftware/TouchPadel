@@ -69,6 +69,10 @@ const stripBase = {
   alignItems: 'center',
   gap: 'var(--tp-sp-2)',
   blockSize: 'var(--tp-row-h-dense)',
+  // The strip is the same shape every second of a shift (see the message
+  // comment below), which means it does not give up height to the scrolling
+  // screen it now sits above in the content column.
+  flexShrink: 0,
   paddingInline: 'var(--tp-sp-3)',
   fontSize: 'var(--tp-fs-md)',
   fontWeight: 600,
