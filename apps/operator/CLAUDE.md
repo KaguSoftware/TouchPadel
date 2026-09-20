@@ -33,11 +33,20 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
 - Every business write is an `app.*` RPC through `appRpc` (`src/lib/appRpc.ts`) or a queued mutation
   through `mutate()` (`src/lib/mutate.ts:262`). Never `supabase.from(...).insert` in the renderer
   (`CONTRIBUTING.md`); reads are fine.
-- A new mutation type is registered in all five copies: `packages/core/src/schemas/mutations.ts:17`,
-  `src/lib/mutate.ts:75` (`DIRECT_RPC`), `packages/db/supabase/functions/replay/index.ts:49`,
-  `apps/operator-shell/src/main/ipc-validate.ts:61` and `src/lib/queueResults.ts`.
+- A new mutation type is registered in all six code copies, appended in the SAME order in each
+  (the shell's test compares arrays): `packages/core/src/schemas/mutations.ts` (`MUTATION_TYPES` +
+  a payload schema + an envelope variant), `src/lib/mutate.ts` (`DIRECT_RPC`),
+  `packages/db/supabase/functions/replay/index.ts` (`MUTATION_RPCS`),
+  `apps/operator-shell/src/main/ipc-validate.ts` (`MUTATION_TYPES`), `src/lib/queueResults.ts`
+  (`RESULT_INVALIDATIONS`, registry keys only) and `src/features/admin/dayCloseLogic.ts`
+  (`QUEUE_WRITE_KEY`, the word the day-close list shows; typed against `MutationType`).
 - The one list is `packages/db/supabase/functions/_shared/mutation-types.json`;
-  `src/lib/mutate.test.ts` fails when `DIRECT_RPC` drifts from it.
+  `src/lib/mutate.test.ts` fails when `DIRECT_RPC` drifts from it, `queueResults.test.ts` and
+  `dayCloseLogic.test.ts` when their maps do, and the replay function refuses to boot.
+- A refusal that arrives while `mutate()` is still waiting (8 s) throws to the caller and is shown
+  beside the control; one that arrives later reaches `onFailedResult` (`src/lib/queueResults.ts`),
+  which `components/QueueFailureToasts.tsx` turns into a toast and a screen may turn back into
+  its own per-row message (OpenTabs removals, TabDetailPanel voids).
 - Idempotency keys come from `src/lib/idem.ts` (`{station}:{mutation_type}:{ulid}`, real Crockford
   ULIDs); the queue validator and the replay function refuse anything else.
 - Payloads never carry a price (`mutations.ts:13-14`) and only carry a `pin` where the server
@@ -48,14 +57,17 @@ item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification. Databa
 - `electron`, `fs` and `node:fs` are restricted imports in the renderer (`eslint.config.mjs:21-27`);
   go through `src/ipc/bridge.ts`.
 - `merge_tabs`, `record_drawer_open`, `open_day` and `close_day` stay online-only by decision
-  (2026-09-20) and are listed in the scope ledger; `refund`, `cancel_tab`, `settle_zero_tab` and
-  `void_after_send` become queued types in Milestone 0 item 9.
+  (Parsa 2026-09-20; the "Till online-only ops" row of the scope ledger in `HANDOFF.md`). Every
+  other till money write is a queued type: `refund` (`payment.refund`), `cancel_tab`
+  (`tab.cancel`), `settle_zero_tab` (`tab.settle_zero`), `void_after_send` (`order_item.void`) and
+  `record_waste` (`stock.waste`) since Milestone 0 item 9 (migration 0120). A PIN-gated one carries
+  `pin` in its payload; the replay function proves it first (0115).
 
 ## Queries and realtime
 
-- Shared query keys live in `QK` (`src/lib/queries.ts:35`); a feature-private key stays in its
-  module. `src/lib/queueResults.ts` invalidates by mutation type, so a new type lists its keys there
-  (its literals sit outside `QK` today; Milestone 0 item 10 moves them).
+- Shared query keys live in `QK` (`src/lib/queryKeys.ts`, re-exported by `src/lib/queries.ts`); a
+  feature-private key stays in its module. `src/lib/queueResults.ts` invalidates by mutation type
+  and may only name registry keys (`queueResults.test.ts`), so a new type lists its keys there.
 - Realtime topics (`kds`, `courts`, `floor`, `menu`) are subscribed through `src/lib/realtime.ts`,
   which owns auth and reconnect; do not open a channel elsewhere.
 

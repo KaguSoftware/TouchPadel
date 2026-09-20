@@ -35,23 +35,59 @@ export const RESULT_INVALIDATIONS: Record<string, readonly QueryKey[]> = {
   'reservation.update': [...RESERVATION_LIST_KEYS, QK.bookingBill.all, QK.bookingBillStates.all],
   'waiter_call.action': [QK.waiterCalls],
   'stock.waste': [QK.stock.all],
+  // Item 9 / C3 (0120). The desk keys are named unconditionally, as tab.settle
+  // does: only mounted queries refetch. A void flips tickets too (0039).
+  'tab.cancel': [QK.tabs, QK.tab.all, QK.bookingBill.all, QK.bookingBillStates.all],
+  'tab.settle_zero': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all],
+  'payment.refund': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all],
+  'order_item.void': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all, QK.tickets],
 };
 
 const waiters = new Map<string, (r: MutationResult) => void>();
 const terminalListeners = new Set<(r: MutationResult) => void>();
 
+/**
+ * One terminal result, fanned out. Exported for the test; initQueueResults is
+ * the only production caller.
+ *
+ * A result a waiter consumed is NOT re-announced to the failed-result
+ * listeners: mutate() throws that refusal to its caller, who shows it beside
+ * the control that was pressed. The listeners are for the later ones — the
+ * write that was queued offline and refused minutes afterwards.
+ */
+export function dispatchResult(r: MutationResult, queryClient: Pick<QueryClient, 'invalidateQueries'>): void {
+  for (const key of RESULT_INVALIDATIONS[r.mutationType] ?? []) {
+    void queryClient.invalidateQueries({ queryKey: [...key] });
+  }
+  const waiter = waiters.get(r.localId);
+  if (waiter) {
+    waiter(r);
+    return;
+  }
+  if (r.state === 'conflict' || r.state === 'failed') {
+    for (const listener of terminalListeners) listener(r);
+  }
+}
+
 /** Mounted once at app root (main.tsx). Idempotent per subscription handle. */
 export function initQueueResults(queryClient: QueryClient): Unsub {
-  return touch.onMutationResult((r) => {
-    for (const key of RESULT_INVALIDATIONS[r.mutationType] ?? []) {
-      void queryClient.invalidateQueries({ queryKey: [...key] });
-    }
-    const waiter = waiters.get(r.localId);
-    if (waiter) waiter(r);
-    if (r.state === 'conflict' || r.state === 'failed') {
-      for (const listener of terminalListeners) listener(r);
-    }
-  });
+  return touch.onMutationResult((r) => dispatchResult(r, queryClient));
+}
+
+const CODE = /^[A-Z][A-Z0-9_]*$/;
+
+/**
+ * The machine code behind a refused result: the replay function's `error`
+ * (an upper-snake code) or `code`, else the code inside the worker's
+ * "400: CODE" string. null when there is none — the toast then says only
+ * that the write did not sync.
+ */
+export function resultErrorCode(r: MutationResult): string | null {
+  const body = (r.serverResult ?? {}) as Record<string, unknown>;
+  if (typeof body.error === 'string' && CODE.test(body.error)) return body.error;
+  if (typeof body.code === 'string' && CODE.test(body.code)) return body.code;
+  const m = r.error?.match(/(?:^|:\s*)([A-Z][A-Z0-9_]+)/);
+  return m ? m[1]! : null;
 }
 
 /**

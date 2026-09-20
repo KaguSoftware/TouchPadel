@@ -471,6 +471,9 @@ export const courtDeskEn = {
     paidChangeToast: 'Payment taken. Give {amount} change.',
     queuedToast: 'Payment saved. It will reach the server when the connection is back.',
     openQueued: 'The bill could not be opened while offline. Try again when the connection is back.',
+    // Item 9 (0120): closing a bill at zero rides the durable queue too.
+    closeQueuedToast: 'Bill close saved. It will be recorded when the connection is back.',
+    closeQueued: 'The close is waiting to sync; the bill updates when the connection is back.',
     loading: 'Loading the bill…',
     error: 'The bill could not be loaded.',
     retry: 'Try again',

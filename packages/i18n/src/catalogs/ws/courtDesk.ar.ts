@@ -462,6 +462,8 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     paidChangeToast: 'استُلمت الدفعة. أعطِ الباقي {amount}.',
     queuedToast: 'حُفظت الدفعة. ستصل إلى الخادم عند عودة الاتصال.',
     openQueued: 'تعذّر فتح الفاتورة دون اتصال. حاول مرة أخرى عند عودة الاتصال.',
+    closeQueuedToast: 'حُفظ إغلاق الفاتورة. سيُسجَّل عند عودة الاتصال.',
+    closeQueued: 'الإغلاق بانتظار المزامنة؛ تتحدّث الفاتورة عند عودة الاتصال.',
     loading: 'جارٍ تحميل الفاتورة…',
     error: 'تعذّر تحميل الفاتورة.',
     retry: 'حاول مرة أخرى',

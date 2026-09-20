@@ -142,7 +142,8 @@ describe('CourtBillView', () => {
     await user.click(screen.getByRole('button', { name: 'Close the bill' }));
     const dialog = within(await screen.findByRole('dialog'));
     await user.click(dialog.getByRole('button', { name: 'Close the bill' }));
-    await waitFor(() => expect(appRpc).toHaveBeenCalledWith('cancel_tab', { p_tab_id: 't1', p_reason_code: 'booking_no_show' }));
+    // Item 9 (0120): the removal rides the durable queue as tab.cancel.
+    await waitFor(() => expect(mutate).toHaveBeenCalledWith('tab.cancel', { tabId: 't1', reasonCode: 'booking_no_show' }));
   });
 
   it('a bill that held voided items closes at zero instead of being removed', async () => {
@@ -151,7 +152,7 @@ describe('CourtBillView', () => {
     await user.click(screen.getByRole('button', { name: 'Close the bill' }));
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Close the bill' }));
     await waitFor(() =>
-      expect(appRpc).toHaveBeenCalledWith('settle_zero_tab', { p_tab_id: 't1', p_reason_code: 'booking_cancelled', p_device_id: 'DESK-1' }),
+      expect(mutate).toHaveBeenCalledWith('tab.settle_zero', { tabId: 't1', reasonCode: 'booking_cancelled' }),
     );
   });
 

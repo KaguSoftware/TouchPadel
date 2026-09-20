@@ -17,8 +17,8 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0119`
-  (`20260921000119_fix_pin_grant_overloads.sql`); the next is `0120`.
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0121`
+  (`20260921000121_phone_digits_service_role.sql`); the next is `0122`.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
   `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
   `migration-ordinal-not-max`).
@@ -107,13 +107,22 @@ is a line in that file.
 
 ## Offline mutation contract
 
-- A queued mutation type lives in five code copies: `packages/core/src/schemas/mutations.ts:17`
-  (`MUTATION_TYPES`), `apps/operator/src/lib/mutate.ts:75` (`DIRECT_RPC`),
-  `supabase/functions/replay/index.ts:49` (`MUTATION_RPCS`),
-  `apps/operator-shell/src/main/ipc-validate.ts:61` (`MUTATION_TYPES`) and
-  `apps/operator/src/lib/queueResults.ts` (keys to invalidate).
+- A queued mutation type lives in six code copies, appended in the SAME order in each (the shell's
+  test compares arrays): `packages/core/src/schemas/mutations.ts` (`MUTATION_TYPES` + payload
+  schema + envelope variant), `apps/operator/src/lib/mutate.ts` (`DIRECT_RPC`),
+  `supabase/functions/replay/index.ts` (`MUTATION_RPCS`),
+  `apps/operator-shell/src/main/ipc-validate.ts` (`MUTATION_TYPES`),
+  `apps/operator/src/lib/queueResults.ts` (`RESULT_INVALIDATIONS`) and
+  `apps/operator/src/features/admin/dayCloseLogic.ts` (`QUEUE_WRITE_KEY`).
 - The one list is `supabase/functions/_shared/mutation-types.json`: replay asserts against it at
-  boot (`replay/index.ts:237-240`) and `apps/operator/src/lib/mutate.test.ts` compares `DIRECT_RPC`.
+  boot and `apps/operator/src/lib/mutate.test.ts` compares `DIRECT_RPC`. Since 0120 the queued
+  types are `order.create`, `order.add_items`, `ticket.status`, `payment.record`,
+  `reservation.create`, `reservation.update`, `waiter_call.action`, `stock.waste`, `tab.open`,
+  `tab.settle`, `adjustment.apply`, `tab.cancel`, `tab.settle_zero`, `payment.refund`,
+  `order_item.void`; `merge_tabs`, `record_drawer_open`, `open_day`, `close_day` stay online-only
+  by decision (scope ledger row in `HANDOFF.md`). A state-idempotent RPC (`set_ticket_status`,
+  `void_after_send`) takes no key; every other money write takes `p_idempotency_key` +
+  `app.claim_replay`.
 - Payloads never carry a price (`mutations.ts:13-14`). Secrets that must not persist (a manager
   `pin`) are stripped by `redactSecrets` (`_shared/redact.ts`) before any record or echo; a new
   secret field is added there, not handled ad hoc.

@@ -17,7 +17,9 @@ Written 2026-09-19 at `main` @ `3d70643` (clean tree, `two` fully merged). Sourc
 
 `0092` is `reservation_players` (one smallint column), not series — series is `0066`. There is no station registry (`station_staff` is break cover); multi-venue must build one. 66 public tables, not 45; the backfill must disable the five `forbid_mutation` triggers; five global UNIQUE constraints collide at branch two. `check:authz` runs in the CI db job, not in `pnpm security` (which has no stack). The mutation contract has five copies (add `apps/operator-shell/src/main/ipc-validate.ts` and `queueResults.ts`). Push kinds need a CHECK migration plus copy in `functions/send-push` and the function deployed first. Every enum widening is its own migration. `llm_usage` stays global. The loyalty and shop designs in C5/C6 needed reshaping (points as a payment method would touch 61 filters; retail as a separate tree forks eight stock functions); the adopted shapes are in the decisions above.
 
-### Milestone 0 (criticals) — built 2026-09-20, all gates green, pushed
+### Milestone 0 (criticals) — built 2026-09-20/21, all gates green
+
+**2026-09-21, first local run of the db suite with Docker:** two defects in `1daa960` found and fixed in `2b9adf7`. (a) `0115` re-issued `apply_discount` and `override_price` at the arity `0049` had dropped (the "latest body" search matched `create or replace` only; `0049` used plain `create function`), so two overloads of each coexisted: keyed callers ran the old body and never consumed the PIN grant, keyless callers got `PGRST203`. `0119` drops the strays and re-issues from `0049`; `check:rpc-registry` now replays every function signature across the migrations and fails on a second live one unless `fixtures/rpc-overloads.json` allows it; `tests/rpc-overloads.test.ts` proves it against `pg_proc`. (b) `0116` granted `app.phone_digits` to anon/authenticated only, and a CHECK runs as the writing role, so every service-role UPDATE on `profiles` failed; `0121` grants `service_role`. Neither reached hosted.
 
 | Part B item | State |
 | --- | --- |
@@ -29,17 +31,17 @@ Written 2026-09-19 at `main` @ `3d70643` (clean tree, `two` fully merged). Sourc
 | 6 mobile S6 + email sign-in restored | done — deep-link tokens branch gone, reset form only after an in-session recovery, Phone \| Email on sign-in/sign-up/forgot; **owner:** Supabase Auth email settings and redirect allow-list |
 | 7 C2 `retire_device` + thresholds + screen | done — `0118`, Settings → Venue details "Offline mode" + Devices panel |
 | 8 S7 profile CHECKs, S8 web CSP, S9 workflows, S10/S11 OTP config | S7 `0116`, S8 (matcher, `requireLocale()`, token route handler) and S9 done; **S10 open** |
-| 9 C3 queued money ops, `refund` idempotency key, `stock.waste` | **open** |
+| 9 C3 queued money ops, `refund` idempotency key, `stock.waste` | done — `0120`: `refund`, `settle_zero_tab`, `cancel_tab` gain `p_idempotency_key` + `app.claim_replay` (`cancel_tab` also `p_device_id`, now on its audit row); `void_after_send` stays keyless (state-idempotent); four queued types `tab.cancel`, `tab.settle_zero`, `payment.refund`, `order_item.void` in all six copies + the shared JSON; `stock.waste` gets a real schema and `WasteAndProduction` uses it; five call sites converted with queued states; `QueueFailureToasts` for a queued write refused later; online-only ops (`merge_tabs`, `record_drawer_open`, `open_day`, `close_day`) recorded in the HANDOFF scope ledger |
 | 10 ordinal gate rules, S13 one allowlist, `QK` keys | done (`check:authz` already in the CI db job) |
 | 11 web/mobile jsdom smoke tests, `testID`s, `packages/db/bench` | **open** |
 | 12 rules files, HANDOFF reconciliation, scope addendum, deviation records | rules files done (`packages/db`, `apps/operator`, `apps/mobile`, `apps/web` `CLAUDE.md`); **rest open** |
 | C5 quote = charge | done — `0117`: hold stamps price, `PRICE_CHANGED` at confirm, mobile maps it |
 
-Also done: registry gate replays GRANT/REVOKE/DROP; data-hygiene gate requires digit boundaries; assistant map regenerated; `types.gen.ts` hand-patched for `retire_device`, `consume_pin_grant`, `pin_grant_ttl` minus `log_replay` (regenerate with Docker). DB integration suites (`pin-grants`, `booking-quote`, `retire-device`) are CI-only until Docker runs. **Next migration ordinal: 0119.**
+Also done: registry gate replays GRANT/REVOKE/DROP and function signatures; data-hygiene gate requires digit boundaries; assistant map regenerated; `types.gen.ts` regenerated from the local stack (the 09-20 hand patch had missed `pin_grants` and `assistant_job_tick_nudge`). The whole db suite runs locally now (Docker), including `pin-grants`, `booking-quote`, `retire-device`, `rpc-overloads`, `profiles-checks`, `replay-idempotency` and the RLS matrix. **Next migration ordinal: 0122.**
 
 ### What is left, by milestone
 
-- **0** items 9, 11, the docs remainder of 12, S10, and the owner steps above. About one third of the milestone.
+- **0** item 11 (web jsdom, mobile jest-expo smoke renders + `testID`s, `packages/db/bench`), S10 (the committed test-OTP code), the docs remainder of 12 (HANDOFF reconciliation, scope addendum, deviation records incl. S12/PITR/email-auth, owner runbook for the hosted push), and the owner steps above. About a quarter of the milestone.
 - **1 multi-venue** (6–7 weeks): `venues`, `venue_id` on every scoped parent table with the trigger-aware backfill, `stations` registry replacing the client-asserted station id, `staff_venues`, `platform_settings` split off `venue_settings`, composite uniques, per-venue degraded mode with zero-arg overloads kept, realtime topics per venue, the seven `.single()` client reads converted, owner venue switcher, mobile venue picker, web default venue, venue axis on the assistant tools, matrix principals per venue, two-venue fixture, rehearsal on staging.
 - **2 payment** (3–4 weeks + Qi lead time): Majed's design with `venue_id` + widened `purpose`, `booking_payments` after `reservations` in the lock order, `court_fee_paid` nets online amounts, `expo-web-browser`, `/pay/return` + `/pay/status` + `+not-found`, web return page, four edge functions + fake provider, bulk refund RPC, day-close and report columns, go-live gates.
 - **3 customers + loyalty** (6–7 weeks): `tabs.customer_id`, session re-key RPC, web sign-in (phone OTP + Google + Apple), `customer_identities`, `customer_metrics` table, `customer_360` role-shaped, SEC-29 predicate for `customer_%`, loyalty tables and hooks, `loyalty_redeem` adjustment kind, tier promotions on goods, clawback in `refund`.
@@ -51,9 +53,9 @@ Also done: registry gate replays GRANT/REVOKE/DROP; data-hygiene gate requires d
 
 | Measure | Value |
 | --- | --- |
-| Milestone 0 (criticals) | about 65 % |
+| Milestone 0 (criticals; now sized 4–5 agent-weeks, item 11 and the 0115/0116 fixes added) | about 75 % |
 | The nine Phase 2 scope items, delivered to the client | 0 % |
-| Whole programme by effort (38 agent-weeks mid-estimate; M0 two-thirds done + Qi design) | about 6 % |
+| Whole programme by effort (≈40 agent-weeks mid-estimate; M0 three-quarters done + Qi design) | about 10 % |
 
 ---
 
@@ -198,7 +200,7 @@ Each has file evidence; `NNNN:line` refers to `packages/db/supabase/migrations/�
 
 ### A5. Rules every change must obey (gate-enforced)
 
-- **Migrations**: version strictly greater than every file on `main` (next ordinal `0119` as of 2026-09-20; `0069` and `0071` are already doubled and `0023`/`0040`/`0101` are holes, never reuse or fill; `check-migrations.mjs` now enforces both); `set lock_timeout='3s'; set statement_timeout='60s'`; `NOT VALID` then separate `VALIDATE` inside an idempotent `pg_constraint` guard; new index → own migration or `MIGRATION-RISK-ACCEPTED`; re-issuing a function → copy the latest body verbatim (`grep -l "function app.<name>" *.sql | tail -1`); signature change → `drop function` by exact signature, recreate, re-issue `revoke … from public, anon` + `grant execute … to authenticated`.
+- **Migrations**: version strictly greater than every file on `main` (next ordinal `0122` as of 2026-09-21; `0069` and `0071` are already doubled and `0023`/`0040`/`0101` are holes, never reuse or fill; `check-migrations.mjs` now enforces both); `set lock_timeout='3s'; set statement_timeout='60s'`; `NOT VALID` then separate `VALIDATE` inside an idempotent `pg_constraint` guard; new index → own migration or `MIGRATION-RISK-ACCEPTED`; re-issuing a function → copy the latest body verbatim (`grep -n "function app.<name>(" *.sql | tail -1` — a plain `create function` counts, which is how 0115 created stray overloads; `check:rpc-registry` now fails on a second live signature unless `fixtures/rpc-overloads.json` allows it); signature change → `drop function` by exact signature, recreate, re-issue `revoke … from public, anon` + `grant execute … to authenticated`; a function used in a CHECK, generated column or non-definer trigger is granted to every writing role including `service_role` (0121).
 - **Tables**: `iqd`/`iqd_signed` for money; `_en`/`_ar` for guest-visible text; `enable row level security` (by hand for `app` schema); select-only policies; guest-writable text gets a sanitiser trigger plus a length CHECK.
 - **RPCs**: SECURITY DEFINER, `search_path`, revoke/grant, dollar tag `$name_0NNN$`, guard as first statement, `P0001` machine codes with `MAPPED_CODES` entries on the client, no WHERE-less writes, `app.lock_court` before any reservation write, lock order `day_sessions → tabs → orders → order_items → tickets → payments → refunds → stock_batches → court_advisory → reservations`, registry entry with ≥10-char reason + `rls-matrix.ts` rule (ratchet 157/160), `app.claim_replay` for non-idempotent money writes.
 - **Offline mutation**: `MUTATION_TYPES` (core) + `DIRECT_RPC` (operator) + `MUTATION_RPCS` (replay) + `ipc-validate` + `queueResults` + `dayCloseLogic`. No secrets in payloads.
@@ -449,7 +451,6 @@ Tooling: `packages/db/bench/` with SQL scripts and a Node runner writing p50/p95
 - D-Q14b The specific AI feature the client showed (Parsa will describe).
 - Payment provider name (client).
 - S12 Quit-to-desktop without PIN: sign off or restore.
-- C3 (A3) which till operations are allowed to be online-only.
 - O4/O5 Phase 1 client inputs and acceptance demonstrations: who owns the delay record.
 - Lesson kinds (private, group, course) and coach surface: milestone 5.
 

@@ -1101,6 +1101,10 @@ export const en = {
         conflict: 'Conflict — resolve at the desk',
         failed: 'Failed — will not retry',
       },
+      // A write that was queued and later refused by the server (item 9): the
+      // moment-of-failure cue; Day close lists and dismisses the row.
+      refused: '{write} did not sync — {reason}',
+      refusedGeneric: '{write} did not sync. See the Day close screen.',
     },
     common: {
       forbidden: 'Your role does not have access to this screen.',
@@ -1960,6 +1964,11 @@ export const en = {
       VOID_REQUIRES_REFUND: 'This tab has payments — refund before voiding.',
       INVALID_ARGUMENT: 'Invalid input — check the values and try again.',
       REJECTION_NOT_FOUND: 'That rejected finding no longer exists.',
+      // 0120 — refunds and queued money corrections.
+      REFUND_EXCEEDS_PAYMENT: 'The refund is more than what is left on this payment.',
+      PAYMENT_NOT_FOUND: 'That payment could not be found.',
+      ITEM_NOT_ON_TAB: 'That line is not on this tab.',
+      IDEMPOTENCY_CONFLICT: 'This write was already recorded from another session. Refresh and check the tab.',
     },
   },
 } as const;

@@ -10,10 +10,15 @@ import {
   mutationEnvelopeSchema,
   orderAddItemsPayloadSchema,
   orderCreatePayloadSchema,
+  orderItemVoidPayloadSchema,
   paymentRecordPayloadSchema,
+  paymentRefundPayloadSchema,
   reservationCreatePayloadSchema,
+  stockWastePayloadSchema,
+  tabCancelPayloadSchema,
   tabOpenPayloadSchema,
   tabSettlePayloadSchema,
+  tabSettleZeroPayloadSchema,
   ticketStatusPayloadSchema,
   type MutationEnvelope,
 } from './mutations';
@@ -130,6 +135,23 @@ describe('mutationEnvelopeSchema', () => {
       deviceId: STATION,
     });
     expect(result.success).toBe(false);
+  });
+
+  it('stock.waste is no longer a TODO: a junk payload is refused at enqueue (item 9)', () => {
+    const envelope = (payload: unknown) => ({
+      localId: makeClientRef(STATION),
+      idempotencyKey: makeIdempotencyKey(STATION, 'stock.waste'),
+      mutationType: 'stock.waste',
+      payload,
+      createdAt: new Date().toISOString(),
+      staffId: UUID_STAFF,
+      deviceId: STATION,
+    });
+    expect(mutationEnvelopeSchema.safeParse(envelope({ anything: 'goes' })).success).toBe(false);
+    const ok = mutationEnvelopeSchema.safeParse(envelope({ ingredientId: UUID_A, qty: 2.5, reasonCode: 'dropped a tray' }));
+    expect(ok.success).toBe(true);
+    // zod applied the default: the PARSED payload rides the queue with it.
+    expect((ok.data as { payload: { movementType: string } }).payload.movementType).toBe('waste_spill');
   });
 
   it('requires ISO createdAt and uuid staffId', () => {
@@ -442,5 +464,60 @@ describe('reservation.create payload', () => {
     expect(
       reservationCreatePayloadSchema.safeParse({ ...valid(), rateRuleId: UUID_B }).success,
     ).toBe(false);
+  });
+});
+
+describe('item 9 / C3 payloads (0120)', () => {
+  it('tab.cancel and tab.settle_zero: a tab id and a non-blank reason, nothing else', () => {
+    expect(tabCancelPayloadSchema.safeParse({ tabId: UUID_A, reasonCode: 'duplicate: opened twice' }).success).toBe(true);
+    expect(tabCancelPayloadSchema.safeParse({ tabId: UUID_A, reasonCode: '   ' }).success).toBe(false);
+    expect(tabCancelPayloadSchema.safeParse({ tabId: UUID_A, reasonCode: 'x', extra: 1 }).success).toBe(false);
+    expect(tabSettleZeroPayloadSchema.safeParse({ tabId: UUID_A, reasonCode: 'booking_no_show' }).success).toBe(true);
+    expect(tabSettleZeroPayloadSchema.safeParse({ tabId: 'not-a-uuid', reasonCode: 'x' }).success).toBe(false);
+  });
+
+  it('payment.refund: a positive integer amount, a 4-12 digit pin, optional non-empty items, no prices', () => {
+    const base = { paymentId: UUID_A, amountIqd: 5000, pin: '1234', reasonCode: 'wrong_item' };
+    expect(paymentRefundPayloadSchema.safeParse(base).success).toBe(true);
+    expect(paymentRefundPayloadSchema.safeParse({ ...base, items: [{ orderItemId: UUID_B, qty: 1 }] }).success).toBe(true);
+    expect(paymentRefundPayloadSchema.safeParse({ ...base, items: [] }).success).toBe(false);
+    expect(paymentRefundPayloadSchema.safeParse({ ...base, amountIqd: 1.5 }).success).toBe(false);
+    expect(paymentRefundPayloadSchema.safeParse({ ...base, amountIqd: 0 }).success).toBe(false);
+    expect(paymentRefundPayloadSchema.safeParse({ ...base, pin: '12a4' }).success).toBe(false);
+    expect(paymentRefundPayloadSchema.safeParse({ ...base, unitPriceIqd: 1 }).success).toBe(false);
+  });
+
+  it('order_item.void: the line, the pin and the reason', () => {
+    expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, pin: '123456', reasonCode: 'dropped' }).success).toBe(true);
+    expect(orderItemVoidPayloadSchema.safeParse({ orderItemId: UUID_B, reasonCode: 'dropped' }).success).toBe(false);
+  });
+
+  it('stock.waste: a positive numeric quantity, the two waste movements only, spill by default', () => {
+    const ok = stockWastePayloadSchema.safeParse({ ingredientId: UUID_A, qty: 0.25, reasonCode: 'spilled' });
+    expect(ok.success && ok.data.movementType).toBe('waste_spill');
+    expect(stockWastePayloadSchema.safeParse({ ingredientId: UUID_A, qty: 0, reasonCode: 'x' }).success).toBe(false);
+    expect(stockWastePayloadSchema.safeParse({ ingredientId: UUID_A, qty: 1, movementType: 'expired_writeoff', reasonCode: 'x' }).success).toBe(false);
+  });
+
+  it('an envelope of each new type is minted and accepted with a matching key', () => {
+    const cases = [
+      ['tab.cancel', { tabId: UUID_A, reasonCode: 'duplicate' }],
+      ['tab.settle_zero', { tabId: UUID_A, reasonCode: 'nothing_owed' }],
+      ['payment.refund', { paymentId: UUID_A, amountIqd: 5000, pin: '1234', reasonCode: 'goodwill' }],
+      ['order_item.void', { orderItemId: UUID_B, pin: '1234', reasonCode: 'dropped' }],
+    ] as const;
+    for (const [type, payload] of cases) {
+      const env = {
+        localId: makeClientRef(STATION),
+        idempotencyKey: makeIdempotencyKey(STATION, type),
+        mutationType: type,
+        payload,
+        createdAt: new Date().toISOString(),
+        staffId: UUID_STAFF,
+        deviceId: STATION,
+      };
+      expect(mutationEnvelopeSchema.safeParse(env).success, type).toBe(true);
+      expect(mutationEnvelopeSchema.safeParse({ ...env, payload: { anything: 'goes' } }).success, type).toBe(false);
+    }
   });
 });

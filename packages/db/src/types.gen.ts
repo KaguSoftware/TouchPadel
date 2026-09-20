@@ -637,7 +637,12 @@ export type Database = {
         Returns: Json
       }
       cancel_tab: {
-        Args: { p_reason_code?: string; p_tab_id: string }
+        Args: {
+          p_device_id?: string
+          p_idempotency_key?: string
+          p_reason_code?: string
+          p_tab_id: string
+        }
         Returns: Json
       }
       claim_due_index: {
@@ -1094,6 +1099,7 @@ export type Database = {
         Args: {
           p_amount_iqd: number
           p_device_id?: string
+          p_idempotency_key?: string
           p_items?: Json
           p_payment_id: string
           p_pin: string
@@ -1388,7 +1394,12 @@ export type Database = {
         Returns: Json
       }
       settle_zero_tab: {
-        Args: { p_device_id?: string; p_reason_code: string; p_tab_id: string }
+        Args: {
+          p_device_id?: string
+          p_idempotency_key?: string
+          p_reason_code: string
+          p_tab_id: string
+        }
         Returns: Json
       }
       sms_send_gate: {

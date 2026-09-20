@@ -156,4 +156,135 @@ describe.skipIf(!up)('0049 replay idempotency', () => {
     // The ledger is append-only: a double deduction has no undo.
     expect(await onHand()).toBe(before - 10);
   });
+
+  // ── Item 9 / C3 (0120): the till's money corrections join the queue ────────
+  // refund, settle_zero_tab and cancel_tab gained p_idempotency_key + claim_replay;
+  // void_after_send did not (void_order_item_internal is state-idempotent, 0039).
+  // The helper verifies the manager PIN before refund / void_after_send (0115).
+
+  const lineOf = async (tabId: string) => {
+    const { data: orders } = await svc.from('orders').select('id').eq('tab_id', tabId);
+    const { data: items } = await svc
+      .from('order_items')
+      .select('id')
+      .in('order_id', (orders ?? []).map((o) => o.id))
+      .eq('voided', false)
+      .limit(1);
+    return items![0]!.id;
+  };
+
+  const emptyTab = async () => {
+    const tableId = await createTestCafeTable(svc, 'RP0');
+    const res = await appRpc(manager, 'open_tab', {
+      p_table_id: tableId,
+      p_label: 'rp-empty',
+      p_idempotency_key: testIdemKey('tab.open'),
+    }).then(outcome);
+    expect(res.ok, res.errorMessage).toBe(true);
+    return (res.data as { tab_id: string }).tab_id;
+  };
+
+  it('refund: a replayed refund refunds ONCE and echoes the same refund_id', async () => {
+    const tabId = await freshTab();
+    const paid = await appRpc(manager, 'settle_tab', {
+      p_tab_id: tabId,
+      p_method: 'cash',
+      p_tendered_iqd: 100_000,
+      p_idempotency_key: testIdemKey('tab.settle'),
+    }).then(outcome);
+    expect(paid.ok, paid.errorMessage).toBe(true);
+    const paymentId = (paid.data as { payment_id: string }).payment_id;
+
+    const args = {
+      p_payment_id: paymentId,
+      p_amount_iqd: 5_000,
+      p_pin: DEV_PINS.manager,
+      p_reason_code: 'replay-test',
+      p_device_id: 'TILL-RP',
+      p_idempotency_key: testIdemKey('payment.refund'),
+    };
+    const first = await appRpc(manager, 'refund', args).then(outcome);
+    const second = await appRpc(manager, 'refund', args).then(outcome);
+    expect(first.ok, first.errorMessage).toBe(true);
+    expect(second.ok, second.errorMessage).toBe(true);
+    expect(second.duplicate).toBe(true);
+    expect((second.data as { refund_id: string }).refund_id).toBe((first.data as { refund_id: string }).refund_id);
+    const { data: refunds } = await svc.from('refunds').select('id').eq('payment_id', paymentId);
+    expect(refunds).toHaveLength(1);
+  });
+
+  it('refund: another principal cannot replay your key', async () => {
+    const tabId = await freshTab();
+    const paid = await appRpc(manager, 'settle_tab', {
+      p_tab_id: tabId,
+      p_method: 'cash',
+      p_tendered_iqd: 100_000,
+      p_idempotency_key: testIdemKey('tab.settle'),
+    }).then(outcome);
+    expect(paid.ok, paid.errorMessage).toBe(true);
+    const paymentId = (paid.data as { payment_id: string }).payment_id;
+    const key = testIdemKey('payment.refund');
+    const mine = await appRpc(manager, 'refund', {
+      p_payment_id: paymentId, p_amount_iqd: 1_000, p_pin: DEV_PINS.manager, p_reason_code: 'replay-test', p_idempotency_key: key,
+    }).then(outcome);
+    expect(mine.ok, mine.errorMessage).toBe(true);
+    const theirs = await appRpc(owner, 'refund', {
+      p_payment_id: paymentId, p_amount_iqd: 1_000, p_pin: DEV_PINS.owner, p_reason_code: 'replay-test', p_idempotency_key: key,
+    }).then(outcome);
+    expect(theirs.ok).toBe(false);
+    expect(theirs.errorMessage).toContain('IDEMPOTENCY_CONFLICT');
+  });
+
+  it('void_after_send: a repeated void answers duplicate:true with no key (state-idempotent)', async () => {
+    const tabId = await freshTab();
+    const args = { p_order_item_id: await lineOf(tabId), p_pin: DEV_PINS.manager, p_reason_code: 'replay-test', p_device_id: 'TILL-RP' };
+    const first = await appRpc(manager, 'void_after_send', args).then(outcome);
+    const second = await appRpc(manager, 'void_after_send', args).then(outcome);
+    expect(first.ok, first.errorMessage).toBe(true);
+    expect(first.duplicate).toBe(false);
+    expect(second.ok, second.errorMessage).toBe(true);
+    expect(second.duplicate).toBe(true);
+  });
+
+  it('settle_zero_tab: a replayed zero close closes ONCE, with one audit row', async () => {
+    const tabId = await freshTab();
+    // Void the only line: the tab has been used (not TAB_EMPTY) and owes nothing.
+    const voided = await appRpc(manager, 'void_after_send', {
+      p_order_item_id: await lineOf(tabId), p_pin: DEV_PINS.manager, p_reason_code: 'replay-test', p_device_id: 'TILL-RP',
+    }).then(outcome);
+    expect(voided.ok, voided.errorMessage).toBe(true);
+
+    const args = { p_tab_id: tabId, p_reason_code: 'nothing_owed', p_device_id: 'TILL-RP', p_idempotency_key: testIdemKey('tab.settle_zero') };
+    const first = await appRpc(manager, 'settle_zero_tab', args).then(outcome);
+    const second = await appRpc(manager, 'settle_zero_tab', args).then(outcome);
+    expect(first.ok, first.errorMessage).toBe(true);
+    expect((first.data as { status: string }).status).toBe('settled');
+    expect(second.ok, second.errorMessage).toBe(true);
+    expect(second.duplicate).toBe(true);
+    const { data: audit } = await svc.from('audit_log').select('action').eq('entity_id', tabId).eq('action', 'tab.settle');
+    expect(audit).toHaveLength(1);
+  });
+
+  it('cancel_tab: a replayed removal voids ONCE, and the audit row now carries the device', async () => {
+    const tabId = await emptyTab();
+    const args = { p_tab_id: tabId, p_reason_code: 'duplicate', p_device_id: 'TILL-RP-0120', p_idempotency_key: testIdemKey('tab.cancel') };
+    const first = await appRpc(manager, 'cancel_tab', args).then(outcome);
+    const second = await appRpc(manager, 'cancel_tab', args).then(outcome);
+    expect(first.ok, first.errorMessage).toBe(true);
+    expect((first.data as { status: string }).status).toBe('void');
+    expect(second.ok, second.errorMessage).toBe(true);
+    expect(second.duplicate).toBe(true);
+    const { data: audit } = await svc.from('audit_log').select('device_id').eq('entity_id', tabId).eq('action', 'tab.cancel');
+    expect(audit).toEqual([{ device_id: 'TILL-RP-0120' }]);
+  });
+
+  it('cancel_tab: another principal cannot replay your key', async () => {
+    const tabId = await emptyTab();
+    const key = testIdemKey('tab.cancel');
+    const mine = await appRpc(manager, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'duplicate', p_idempotency_key: key }).then(outcome);
+    expect(mine.ok, mine.errorMessage).toBe(true);
+    const theirs = await appRpc(owner, 'cancel_tab', { p_tab_id: tabId, p_reason_code: 'duplicate', p_idempotency_key: key }).then(outcome);
+    expect(theirs.ok).toBe(false);
+    expect(theirs.errorMessage).toContain('IDEMPOTENCY_CONFLICT');
+  });
 });

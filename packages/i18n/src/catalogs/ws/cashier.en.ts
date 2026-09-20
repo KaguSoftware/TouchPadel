@@ -172,6 +172,9 @@ export const cashierEn = {
     summaryOpen: 'Open: {count}',
     summaryAwaiting: 'Waiting for payment: {count}',
     remove: 'Remove',
+    // Item 9 (0120): the removal is on the durable queue; the row leaves the
+    // board when the server confirms it, or shows the refusal if it does not.
+    removalQueued: 'Removal waiting to sync',
     nothingYet: 'Nothing on it yet',
     since: 'since {time}',
     courtFeeNote: 'Court fees are not in these totals. They are added when a booking’s tab is paid.',
@@ -187,6 +190,9 @@ export const cashierEn = {
     voidAction: 'void a sent line',
     voidConsequence: 'This item has already gone to the kitchen. Voiding it records it as waste, with your name and the reason. It stays on the tab, crossed out.',
     voidRefused: 'This tab has payments, so a sent line cannot be voided now. Refund first, then void.',
+    // Item 9 (0120): void and refund ride the durable queue when the link is down.
+    voidQueued: 'Void waiting to sync',
+    refundQueued: 'Refund saved on this station. It will be recorded when the connection is back; the payments list updates then.',
     voided: 'Voided',
     noLines: 'Nothing on this tab yet — pick items from the grid.',
     totalsTitle: 'Totals',

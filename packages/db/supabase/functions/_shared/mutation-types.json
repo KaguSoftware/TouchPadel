@@ -11,7 +11,11 @@
     "stock.waste",
     "tab.open",
     "tab.settle",
-    "adjustment.apply"
+    "adjustment.apply",
+    "tab.cancel",
+    "tab.settle_zero",
+    "payment.refund",
+    "order_item.void"
   ],
   "pinGatedRpcs": [
     "apply_discount",
