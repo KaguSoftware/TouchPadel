@@ -22,9 +22,14 @@
  * The subtitle is the period itself and, when comparing, the window the
  * changes are measured against — `panel_headline` returns it and the screen
  * used to drop it, so a "+25%" never said "against when".
+ *
+ * Export CSV writes everything the panel was given for the period: the
+ * window, the figures, and every transaction behind every figure (the drill
+ * rows, read in full — see exportAll.ts). It used to write the thirteen
+ * totals and nothing else.
  */
 import { useMemo, useState, type CSSProperties } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { businessTodayISO, normalizeBusinessDayStart, resolveRange } from '@touch/core';
 import { VENUE_TZ, formatDate, formatIQD, formatNumber, type Locale } from '@touch/i18n';
@@ -49,16 +54,19 @@ import {
   type Period,
 } from '../../components/kit';
 import { Icon } from '../../components/icons';
-import { downloadCsv, toCsv } from '../analytics/csv';
+import { downloadCsv, toCsvSections } from '../analytics/csv';
 import { DrillDialog } from '../reports/DrillDialog';
+import { readDrill } from '../reports/reportPayloads';
 import { LiveFloor } from '../floor/LiveFloor';
-import { FIGURES, figuresIn, figuresToCsvRows, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
+import { FIGURES, figuresIn, mapFigures, panelIsEmpty, type FigureKey, type FigureMeta, type HeadlineFigureRow, type PanelHeadline } from './figures';
+import { DRILLABLE_FIGURES, buildPanelExport, fetchAllTransactions, type DrillRange } from './exportAll';
 
 export const PANEL_QUERY_KEY = ['panel', 'headline'] as const;
 
 export function ManagementPanelScreen() {
   const { tr, locale } = useLocale();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   // Analytics' calendar: its business-day start hour decides which day "today" is.
   const settings = useCafeSettings();
   const settingsReady = settings.isSuccess || settings.isError;
@@ -69,6 +77,8 @@ export function ManagementPanelScreen() {
   const period = picked ?? defaultPeriod;
   const [compare, setCompare] = useState<ComparisonMode>('previousPeriod');
   const [drill, setDrill] = useState<FigureKey | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportFailed, setExportFailed] = useState(false);
 
   const headlineQ = useQuery({
     queryKey: [...PANEL_QUERY_KEY, period.from, period.to, compare],
@@ -87,12 +97,37 @@ export function ManagementPanelScreen() {
   const valueOf = (meta: FigureMeta, f: HeadlineFigureRow | undefined) =>
     f?.value == null ? '—' : meta.kind === 'money' ? money(f.value) : count(f.value);
 
-  function exportCsv() {
-    const csv = toCsv(
-      [tr('ws.owner.panel.csv.figure'), tr('ws.owner.panel.csv.value'), tr('ws.owner.panel.csv.previous'), tr('ws.owner.panel.csv.changeAbs'), tr('ws.owner.panel.csv.changePct')],
-      figuresToCsvRows(figures, label),
-    );
-    downloadCsv(`${tr('ws.owner.panel.exportFile')}_${period.from}_${period.to}.csv`, csv);
+  // The same query key the drill dialog uses, so a window already opened is
+  // not read twice; a call that fails fails the whole export, never a partial file.
+  const fetchDrill = (figure: FigureKey, range: DrillRange) => {
+    const args = { p_figure: figure, p_key: null, p_from: range.from, p_to: range.to };
+    return queryClient.fetchQuery({ queryKey: ['reports', 'drill', args], queryFn: async () => readDrill(await appRpc<unknown>('report_drill', args)) });
+  };
+
+  async function exportCsv() {
+    setExporting(true);
+    setExportFailed(false);
+    try {
+      const transactions = await Promise.all(DRILLABLE_FIGURES.filter((k) => figures.has(k)).map((k) => fetchAllTransactions(k, period, fetchDrill)));
+      const csv = toCsvSections(
+        buildPanelExport({
+          period,
+          compare,
+          comparison: compare === 'none' ? null : (headlineQ.data?.comparison ?? null),
+          figures,
+          transactions,
+          exportedAt: new Date(),
+          tr,
+          locale,
+        }),
+      );
+      downloadCsv(`${tr('ws.owner.panel.exportFile')}_${period.from}_${period.to}.csv`, csv);
+    } catch (error) {
+      console.error('panel export failed', error);
+      setExportFailed(true);
+    } finally {
+      setExporting(false);
+    }
   }
 
   const go = (to: FigureMeta['report']) => void navigate({ to });
@@ -102,8 +137,13 @@ export function ManagementPanelScreen() {
       <PageHeader
         title={tr('ws.owner.panel.title')}
         subtitle={periodLine(period, compare === 'none' ? null : (headlineQ.data?.comparison ?? null), locale, tr)}
-        actions={<ExportButton onExport={exportCsv} disabled={status !== 'ready'} />}
+        actions={<ExportButton onExport={() => void exportCsv()} busy={exporting} disabled={status !== 'ready'} />}
       />
+      {exportFailed && (
+        <p role="alert" style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-danger-fg)', marginBlockEnd: 'var(--tp-sp-3)' }}>
+          {tr('ws.owner.panel.csv.failed')}
+        </p>
+      )}
       {/* Now, before the period: the floor this minute is the one thing on the
           screen the date range does not govern, so it sits above the range
           control rather than among the figures it would otherwise seem to

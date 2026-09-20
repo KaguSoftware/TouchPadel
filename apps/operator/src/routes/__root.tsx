@@ -64,6 +64,7 @@ import { StationSetupContainer } from '../features/setup/StationSetupContainer';
 import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
 import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
+import { AssistantDrawer, AssistantDrawerProvider, AssistantRailButton } from '../features/assistant/AssistantDrawer';
 import { formatPairingCode } from '@touch/core';
 
 export const rootRoute = createRootRoute({
@@ -377,6 +378,10 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           locks: the rail row starts a break, the overlay owns the station
           while somebody is away, and the idle lock defers to it. */}
       <BreakProvider>
+      {/* The owner assistant's drawer (docs/design/assistant §5.1) is one
+          sheet for the whole shell: the rail footer row and Ctrl/⌘ K open it,
+          and it is mounted once, beside the break overlay. */}
+      <AssistantDrawerProvider>
       <div
         data-workspace={active}
         style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: noNav ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
@@ -384,6 +389,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
         <SkipToMain />
         <IdleLock />
         <BreakOverlay />
+        <AssistantDrawer />
         {/* On the kitchen screen there is no rail, so the strip spans the
             window as it always has. Where there IS a rail it moves inside the
             content column instead — see below. */}
@@ -420,6 +426,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           </div>
         </div>
       </div>
+      </AssistantDrawerProvider>
       </BreakProvider>
     </WorkspaceContext.Provider>
   );
@@ -805,6 +812,8 @@ function WorkspaceNav({
             <span>{tr('ws.shell.nav.switchWorkspace')}</span>
           </button>
         )}
+        {/* The owner assistant: owner only (it renders nothing otherwise). */}
+        <AssistantRailButton style={navButtonStyle} />
         <button type="button" className="tp-nav-item" onClick={toggleLocale} style={navButtonStyle}>
           <Icon name="globe" size={16} />
           <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>

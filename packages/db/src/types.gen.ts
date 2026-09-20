@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   app: {
     Tables: {
+      assistant_readable_columns: {
+        Row: {
+          column_name: string
+          data_type: string | null
+          is_default: boolean
+          kind: string
+          note: string | null
+          ordinal: number | null
+          table_name: string
+        }
+        Insert: {
+          column_name: string
+          data_type?: string | null
+          is_default?: boolean
+          kind: string
+          note?: string | null
+          ordinal?: number | null
+          table_name: string
+        }
+        Update: {
+          column_name?: string
+          data_type?: string | null
+          is_default?: boolean
+          kind?: string
+          note?: string | null
+          ordinal?: number | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       pin_attempts: {
         Row: {
           attempted_at: string
@@ -311,6 +341,163 @@ export type Database = {
         Args: { p_start_at: string }
         Returns: undefined
       }
+      assistant_archive_conversation: { Args: { p_id: string }; Returns: Json }
+      assistant_audit_page: {
+        Args: {
+          p_action_prefix?: string
+          p_actor_id?: string
+          p_count_only?: boolean
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_text?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_bookings_list: {
+        Args: {
+          p_count_only?: boolean
+          p_court_id?: string
+          p_customer_id?: string
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_status?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_break_history: {
+        Args: {
+          p_count_only?: boolean
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_staff_id?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_chunk_source: {
+        Args: { p_kind: string; p_ref: string }
+        Returns: Json
+      }
+      assistant_count: {
+        Args: { p_args?: Json; p_tool: string }
+        Returns: number
+      }
+      assistant_courts_and_rates: { Args: never; Returns: Json }
+      assistant_delete_chunk: {
+        Args: { p_kind: string; p_ref: string }
+        Returns: number
+      }
+      assistant_in_list: {
+        Args: { p_col: string; p_values: Json }
+        Returns: string
+      }
+      assistant_index_done: { Args: { p_ids: number[] }; Returns: number }
+      assistant_index_fail: {
+        Args: { p_error: string; p_id: number }
+        Returns: undefined
+      }
+      assistant_index_nudge: { Args: never; Returns: undefined }
+      assistant_job_allowed: {
+        Args: { p_from: string; p_to: string }
+        Returns: boolean
+      }
+      assistant_job_cancel: {
+        Args: { p_id: string }
+        Returns: Database["public"]["Tables"]["assistant_jobs"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assistant_job_transition: {
+        Args: { p_id: string; p_patch?: Json; p_status: string }
+        Returns: Database["public"]["Tables"]["assistant_jobs"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assistant_page: {
+        Args: { p_limit: number; p_offset: number }
+        Returns: Record<string, unknown>
+      }
+      assistant_payments_list: {
+        Args: {
+          p_count_only?: boolean
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_offset?: number
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_run_tool: {
+        Args: { p_args?: Json; p_tool: string }
+        Returns: Json
+      }
+      assistant_search: {
+        Args: {
+          p_embedding?: string
+          p_kinds?: string[]
+          p_limit?: number
+          p_query: string
+        }
+        Returns: Json
+      }
+      assistant_set_scopes: {
+        Args: { p_id: string; p_range?: Json; p_scopes: string[] }
+        Returns: Database["public"]["Tables"]["assistant_conversations"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_conversations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assistant_settings_read: { Args: never; Returns: Json }
+      assistant_stock_view: {
+        Args: { p_limit?: number; p_offset?: number; p_view: string }
+        Returns: Json
+      }
+      assistant_system_status: { Args: never; Returns: Json }
+      assistant_table_read: {
+        Args: {
+          p_columns?: string[]
+          p_count_only?: boolean
+          p_filters?: Json
+          p_limit?: number
+          p_offset?: number
+          p_order?: string
+          p_table: string
+        }
+        Returns: Json
+      }
+      assistant_tabs_list: {
+        Args: {
+          p_count_only?: boolean
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_status?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      assistant_upsert_chunk: { Args: { p: Json }; Returns: number }
+      assistant_usage: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       audit_log_page: {
         Args: {
           p_action_prefix?: string
@@ -424,6 +611,16 @@ export type Database = {
       cancel_tab: {
         Args: { p_reason_code?: string; p_tab_id: string }
         Returns: Json
+      }
+      claim_due_index: {
+        Args: { p_limit?: number }
+        Returns: Database["public"]["Tables"]["assistant_index_queue"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "assistant_index_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       claim_due_notifications: {
         Args: { p_limit?: number }
@@ -647,6 +844,7 @@ export type Database = {
           qty: number
         }[]
       }
+      jsonb_top_keys_text: { Args: { p: Json }; Returns: string }
       like_escape: { Args: { p_text: string }; Returns: string }
       link_item_modifier_group: {
         Args: {
@@ -668,14 +866,47 @@ export type Database = {
         }[]
       }
       llm_begin_request: { Args: never; Returns: Json }
-      llm_record_usage: {
+      llm_price_calc: {
         Args: {
-          p_completion_tokens: number
-          p_model_calls: number
-          p_prompt_tokens: number
+          p_cache_read: number
+          p_cache_write: number
+          p_input: number
+          p_model: string
+          p_output: number
         }
-        Returns: undefined
+        Returns: number
       }
+      llm_price_micros: {
+        Args: {
+          p_cache_read: number
+          p_cache_write: number
+          p_input: number
+          p_model: string
+          p_output: number
+        }
+        Returns: number
+      }
+      llm_record_usage:
+        | {
+            Args: {
+              p_cache_read: number
+              p_cache_write: number
+              p_input: number
+              p_model: string
+              p_model_calls: number
+              p_output: number
+              p_surface?: string
+            }
+            Returns: number
+          }
+        | {
+            Args: {
+              p_completion_tokens: number
+              p_model_calls: number
+              p_prompt_tokens: number
+            }
+            Returns: undefined
+          }
       llm_usage_summary: { Args: never; Returns: Json }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
       log_replay: {
@@ -1690,6 +1921,297 @@ export type Database = {
           },
         ]
       }
+      assistant_calls: {
+        Row: {
+          cache_read_tokens: number
+          cache_write_tokens: number
+          call_no: number
+          cost_micros: number
+          created_at: string
+          id: number
+          input_tokens: number
+          message_id: string
+          model: string
+          ms: number | null
+          output_tokens: number
+          stop_reason: string | null
+        }
+        Insert: {
+          cache_read_tokens?: number
+          cache_write_tokens?: number
+          call_no: number
+          cost_micros?: number
+          created_at?: string
+          id?: never
+          input_tokens?: number
+          message_id: string
+          model: string
+          ms?: number | null
+          output_tokens?: number
+          stop_reason?: string | null
+        }
+        Update: {
+          cache_read_tokens?: number
+          cache_write_tokens?: number
+          call_no?: number
+          cost_micros?: number
+          created_at?: string
+          id?: never
+          input_tokens?: number
+          message_id?: string
+          model?: string
+          ms?: number | null
+          output_tokens?: number
+          stop_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_calls_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_chunks: {
+        Row: {
+          body: string
+          embedding: string | null
+          id: number
+          indexed_at: string
+          kind: string
+          lang: string
+          ref: string
+          route: string | null
+          source_updated_at: string | null
+          title: string | null
+          tsv: unknown
+        }
+        Insert: {
+          body: string
+          embedding?: string | null
+          id?: never
+          indexed_at?: string
+          kind: string
+          lang: string
+          ref: string
+          route?: string | null
+          source_updated_at?: string | null
+          title?: string | null
+          tsv?: unknown
+        }
+        Update: {
+          body?: string
+          embedding?: string | null
+          id?: never
+          indexed_at?: string
+          kind?: string
+          lang?: string
+          ref?: string
+          route?: string | null
+          source_updated_at?: string | null
+          title?: string | null
+          tsv?: unknown
+        }
+        Relationships: []
+      }
+      assistant_conversations: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          handles: Json
+          id: string
+          owner_id: string
+          range: Json | null
+          scopes: string[]
+          title: string | null
+          tokens: Json
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          handles?: Json
+          id?: string
+          owner_id: string
+          range?: Json | null
+          scopes?: string[]
+          title?: string | null
+          tokens?: Json
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          handles?: Json
+          id?: string
+          owner_id?: string
+          range?: Json | null
+          scopes?: string[]
+          title?: string | null
+          tokens?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_conversations_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_index_queue: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          enqueued_at: string
+          id: number
+          kind: string
+          last_error: string | null
+          op: string
+          ref: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          enqueued_at?: string
+          id?: never
+          kind: string
+          last_error?: string | null
+          op: string
+          ref: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          enqueued_at?: string
+          id?: never
+          kind?: string
+          last_error?: string | null
+          op?: string
+          ref?: string
+        }
+        Relationships: []
+      }
+      assistant_jobs: {
+        Row: {
+          batch_id: string | null
+          chunks_done: number
+          chunks_total: number | null
+          conversation_id: string | null
+          created_at: string
+          error: string | null
+          estimate: Json
+          finished_at: string | null
+          id: string
+          message_id: string | null
+          mode: string | null
+          plan: Json
+          result: Json | null
+          started_at: string | null
+          status: string
+          tokens: Json
+        }
+        Insert: {
+          batch_id?: string | null
+          chunks_done?: number
+          chunks_total?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          estimate: Json
+          finished_at?: string | null
+          id?: string
+          message_id?: string | null
+          mode?: string | null
+          plan: Json
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          tokens?: Json
+        }
+        Update: {
+          batch_id?: string | null
+          chunks_done?: number
+          chunks_total?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          estimate?: Json
+          finished_at?: string | null
+          id?: string
+          message_id?: string | null
+          mode?: string | null
+          plan?: Json
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          tokens?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_jobs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assistant_jobs_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_messages: {
+        Row: {
+          content: Json
+          conversation_id: string
+          created_at: string
+          gate: Json | null
+          id: string
+          role: string
+          seq: number
+          sources: Json
+          tokens: Json
+        }
+        Insert: {
+          content: Json
+          conversation_id: string
+          created_at?: string
+          gate?: Json | null
+          id?: string
+          role: string
+          seq: number
+          sources?: Json
+          tokens?: Json
+        }
+        Update: {
+          content?: Json
+          conversation_id?: string
+          created_at?: string
+          gate?: Json | null
+          id?: string
+          role?: string
+          seq?: number
+          sources?: Json
+          tokens?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -1704,6 +2226,7 @@ export type Database = {
           entity_id: string
           id: number
           reason_code: string | null
+          search_text: unknown
         }
         Insert: {
           action: string
@@ -1718,6 +2241,7 @@ export type Database = {
           entity_id: string
           id?: never
           reason_code?: string | null
+          search_text?: unknown
         }
         Update: {
           action?: string
@@ -1732,6 +2256,7 @@ export type Database = {
           entity_id?: string
           id?: never
           reason_code?: string | null
+          search_text?: unknown
         }
         Relationships: []
       }
@@ -2240,6 +2765,8 @@ export type Database = {
       }
       llm_usage: {
         Row: {
+          cache_read_tokens: number
+          cache_write_tokens: number
           completion_tokens: number
           cost_micros: number
           model_calls: number
@@ -2249,6 +2776,8 @@ export type Database = {
           usage_date: string
         }
         Insert: {
+          cache_read_tokens?: number
+          cache_write_tokens?: number
           completion_tokens?: number
           cost_micros?: number
           model_calls?: number
@@ -2258,6 +2787,8 @@ export type Database = {
           usage_date: string
         }
         Update: {
+          cache_read_tokens?: number
+          cache_write_tokens?: number
           completion_tokens?: number
           cost_micros?: number
           model_calls?: number
@@ -4639,6 +5170,7 @@ export type Database = {
           llm_cost_micros_per_mtok: number
           llm_daily_request_limit: number
           llm_monthly_cost_cap_micros: number
+          llm_pricing: Json
           max_booking_horizon_days: number
           max_live_holds_per_guest: number
           opening_hours: Json
@@ -4665,6 +5197,7 @@ export type Database = {
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
           llm_monthly_cost_cap_micros?: number
+          llm_pricing?: Json
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           opening_hours: Json
@@ -4691,6 +5224,7 @@ export type Database = {
           llm_cost_micros_per_mtok?: number
           llm_daily_request_limit?: number
           llm_monthly_cost_cap_micros?: number
+          llm_pricing?: Json
           max_booking_horizon_days?: number
           max_live_holds_per_guest?: number
           opening_hours?: Json

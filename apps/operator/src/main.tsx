@@ -24,6 +24,8 @@ import { financialRoute } from './routes/financial';
 import { observationRoute } from './routes/observation';
 import { observationChildren } from './routes/observation/_children';
 import { marketingRoute } from './routes/marketing';
+import { assistantRoute } from './routes/assistant';
+import { assistantChildren } from './routes/assistant/_children';
 import { workspacesRoute } from './routes/workspaces';
 import { reportsRoute } from './routes/reports';
 import { reportsChildren } from './routes/reports/_children';
@@ -51,6 +53,7 @@ const routeTree = rootRoute.addChildren([
   financialRoute,
   observationRoute.addChildren([...observationChildren]),
   marketingRoute,
+  assistantRoute.addChildren([...assistantChildren]),
   reportsRoute.addChildren([...reportsChildren]),
   stockRoute.addChildren([...stockChildren]),
   adminRoute.addChildren([...adminChildren]),

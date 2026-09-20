@@ -1,0 +1,325 @@
+/**
+ * One conversation, end to end (plan §5.2): the stored turns, the live turn
+ * streaming in, any job estimate or running job, the scope strip above the
+ * composer, and the composer. The drawer and the full page both render this;
+ * `compact` is the only thing that changes between them.
+ *
+ * The record is the database. The live turn is shown until the messages
+ * query carries its ids, then the stored rows take over; a turn that failed
+ * stays with its error sentence until the next question.
+ */
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ASSISTANT_SCOPES, type AssistantScope } from '@touch/core/assistant/tools';
+import { useAuth } from '../../lib/auth';
+import { useLocale } from '../../lib/i18n';
+import { useToast } from '../../components/toast';
+import { Button, ErrorText, Spinner } from '../../components/ui';
+import type { PricingMap } from '../../lib/assistantPricing';
+import { formatTokens } from '../../lib/assistantPricing';
+import {
+  QK,
+  TERMINAL_JOB_STATUSES,
+  acceptJob,
+  fetchConversation,
+  fetchConversationJobs,
+  fetchMessages,
+  fetchUsage,
+  packSizes,
+  setScopes,
+  sourcesOf,
+  textOfContent,
+  type JobMode,
+  type MessageRow,
+} from './api';
+import { Composer } from './Composer';
+import { JobEstimateCard } from './JobEstimateCard';
+import { JobProgress } from './JobProgress';
+import { Message } from './Message';
+import { ScopeStrip, type PackSizes } from './ScopeStrip';
+import { UsageMeter } from './UsageMeter';
+import { normaliseScopes, refusedScopes, saveRememberedScopes } from './scopes';
+import { useAssistantChat } from './useAssistantChat';
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** The month so far — the meter's Today and This month slots read from it. */
+export function monthSoFar(now = new Date()): { from: string; to: string } {
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  return { from: isoDate(from), to: isoDate(now) };
+}
+
+export function Thread({
+  conversationId,
+  onConversation,
+  newScopes,
+  onNewScopesChange,
+  compact,
+  autoFocus,
+  onNavigate,
+}: {
+  conversationId: string | null;
+  onConversation: (id: string) => void;
+  /** The checked set for a chat that does not exist yet. */
+  newScopes: readonly AssistantScope[];
+  onNewScopesChange: (next: AssistantScope[]) => void;
+  compact?: boolean;
+  autoFocus?: boolean;
+  /** A source link was followed (the drawer closes itself). */
+  onNavigate?: () => void;
+}) {
+  const { tr, locale } = useLocale();
+  const { staff } = useAuth();
+  const toast = useToast();
+  const qc = useQueryClient();
+
+  const conversation = useQuery({
+    queryKey: QK.conversation(conversationId ?? ''),
+    queryFn: () => fetchConversation(conversationId!),
+    enabled: conversationId !== null,
+  });
+  const messages = useQuery({
+    queryKey: QK.messages(conversationId ?? ''),
+    queryFn: () => fetchMessages(conversationId!),
+    enabled: conversationId !== null,
+  });
+  const jobs = useQuery({
+    queryKey: QK.jobs(conversationId ?? ''),
+    queryFn: () => fetchConversationJobs(conversationId!),
+    enabled: conversationId !== null,
+    refetchInterval: (q) => (q.state.data?.some((j) => !TERMINAL_JOB_STATUSES.includes(j.status) && j.status !== 'estimated') ? 5_000 : false),
+  });
+  const month = useMemo(() => monthSoFar(), []);
+  const usage = useQuery({ queryKey: QK.usage(month.from, month.to), queryFn: () => fetchUsage(month.from, month.to), staleTime: 60_000 });
+  const pricing: PricingMap | null = usage.data?.pricing ?? null;
+  const fallback = usage.data?.fallback_micros_per_mtok ?? 0;
+
+  // Sizes for EVERY scope in one dry-run call, so an unchecked box shows what
+  // checking it would cost. Cached for the range; the edge caches 30 s too.
+  const packsQ = useQuery({
+    queryKey: QK.packs('default'),
+    queryFn: () => packSizes(ASSISTANT_SCOPES, undefined),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const packs = useMemo<PackSizes>(() => {
+    const out: PackSizes = {};
+    for (const p of packsQ.data ?? []) out[p.scope] = p.tokens_est;
+    return out;
+  }, [packsQ.data]);
+
+  const scopes = useMemo<AssistantScope[]>(
+    () => (conversation.data ? normaliseScopes(conversation.data.scopes) : normaliseScopes(newScopes)),
+    [conversation.data, newScopes],
+  );
+
+  const chat = useAssistantChat({
+    conversationId,
+    onConversation,
+    scopes,
+    lang: locale,
+  });
+
+  const changeScopes = useMutation({
+    mutationFn: async (next: AssistantScope[]) => {
+      if (conversationId) await setScopes(conversationId, next, conversation.data?.range ?? null);
+      else onNewScopesChange(next);
+      if (staff) saveRememberedScopes(staff.id, next);
+      return next;
+    },
+    onSuccess: () => {
+      if (conversationId) {
+        toast.ok(tr('ws.owner.assistant.scopes.saved'));
+        void qc.invalidateQueries({ queryKey: QK.conversation(conversationId) });
+        void qc.invalidateQueries({ queryKey: QK.conversations });
+      }
+    },
+  });
+
+  // "Cafe context is off for this chat" → Turn on Cafe → re-ask.
+  const [turningOn, setTurningOn] = useState(false);
+  const turnOn = async (scope: AssistantScope) => {
+    setTurningOn(true);
+    try {
+      await changeScopes.mutateAsync(normaliseScopes([...scopes, scope]));
+      if (chat.lastQuestion) void chat.ask(chat.lastQuestion);
+    } finally {
+      setTurningOn(false);
+    }
+  };
+  const scopeLabels = useMemo(() => {
+    const out = {} as Record<AssistantScope, string[]>;
+    for (const s of ASSISTANT_SCOPES) out[s] = [s, tr(`ws.owner.assistant.scopes.${s}`)];
+    return out;
+  }, [tr]);
+
+  // Jobs: accept from the estimate card, then watch the row.
+  const [dismissedJobs, setDismissedJobs] = useState<Set<string>>(() => new Set());
+  const [watchedJobs, setWatchedJobs] = useState<string[]>([]);
+  const [acceptBusy, setAcceptBusy] = useState<JobMode | 'aggregate' | null>(null);
+  const accept = async (jobId: string, mode: JobMode) => {
+    setAcceptBusy(mode);
+    try {
+      await acceptJob(jobId, mode);
+      toast.ok(tr('ws.owner.assistant.job.accepted'));
+      setWatchedJobs((w) => (w.includes(jobId) ? w : [...w, jobId]));
+      setDismissedJobs((d) => new Set(d).add(jobId));
+      if (conversationId) void qc.invalidateQueries({ queryKey: QK.jobs(conversationId) });
+    } catch (err) {
+      toast.err(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAcceptBusy(null);
+    }
+  };
+  const aggregate = (jobId: string, tools: string[]) => {
+    setDismissedJobs((d) => new Set(d).add(jobId));
+    void chat.ask(tr('ws.owner.assistant.job.aggregateAsk', { tools: tools.join(', ') }));
+  };
+
+  // The live turn is superseded once its stored rows are in the list.
+  const rows: MessageRow[] = messages.data ?? [];
+  const live = chat.live;
+  const liveSuperseded =
+    live !== null && live.done && !live.error && !live.stopped && live.assistantMessageId !== null && rows.some((m) => m.id === live.assistantMessageId);
+  const showLive = live !== null && !liveSuperseded;
+
+  // Keep the newest thing in view as it arrives.
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [rows.length, live?.text, live?.tools.length, live?.jobEstimate]);
+
+  const model = live?.usage?.model ?? conversation.data?.tokens.model ?? Object.keys(pricing ?? {})[0] ?? '';
+  const visibleJobs = (jobs.data ?? []).filter((j) => j.status !== 'estimated' && (!TERMINAL_JOB_STATUSES.includes(j.status) || watchedJobs.includes(j.id)));
+  const liveEstimate = live?.jobEstimate && !dismissedJobs.has(live.jobEstimate.job_id) ? live.jobEstimate : null;
+
+  const [stripOpen, setStripOpen] = useState(!compact);
+  const stripTotal = scopes.reduce((n, s) => n + (packs[s] ?? 0), 0);
+
+  const todayRow = usage.data?.days.find((d) => d.usage_date === month.to);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minBlockSize: 0, blockSize: '100%', gap: 'var(--tp-sp-2)' }}>
+      <div ref={scroller} data-thread-scroll="" style={{ flex: 1, minBlockSize: 0, overflowY: 'auto', display: 'grid', gap: 'var(--tp-sp-4)', alignContent: 'start', paddingInlineEnd: 'var(--tp-sp-1)' }}>
+        {conversationId && messages.isLoading && (
+          <div style={{ display: 'flex', justifyContent: 'center', paddingBlock: 'var(--tp-sp-4)' }}>
+            <Spinner size="md" />
+          </div>
+        )}
+        {messages.isError && <ErrorText error={messages.error} />}
+        {conversationId && conversation.isSuccess && conversation.data === null && (
+          <p style={{ color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.notFound')}</p>
+        )}
+        {!conversationId && !live && (
+          <p style={{ color: 'var(--tp-muted-fg)', maxInlineSize: '60ch' }}>{tr('ws.owner.assistant.lead')}</p>
+        )}
+
+        {rows.map((m) => {
+          if (m.role === 'user') return <Message key={m.id} role="user" text={textOfContent(m.content)} compact={compact} />;
+          const src = sourcesOf(m);
+          const text = textOfContent(m.content);
+          return (
+            <Message
+              key={m.id}
+              role="assistant"
+              text={text}
+              tools={src.items}
+              scopes={src.scopes.length > 0 ? src.scopes : null}
+              gate={m.gate}
+              usage={m.tokens}
+              pricing={pricing}
+              fallbackMicrosPerMtok={fallback}
+              fromJob={src.jobIds.length > 0}
+              compact={compact}
+              onNavigate={onNavigate}
+              turnOn={refusedScopes(text, src.items.map((t) => t.error ?? '').filter(Boolean), scopeLabels, scopes)}
+              onTurnOn={(s) => void turnOn(s)}
+              turningOn={turningOn}
+            />
+          );
+        })}
+
+        {showLive && live && (
+          <>
+            <Message role="user" text={live.userText} compact={compact} />
+            <Message
+              role="assistant"
+              text={live.text}
+              tools={live.tools}
+              scopes={live.scopes}
+              gate={live.gate}
+              usage={live.usage}
+              pricing={pricing}
+              fallbackMicrosPerMtok={fallback}
+              streaming={!live.done}
+              stopped={live.stopped}
+              error={live.error}
+              compact={compact}
+              onNavigate={onNavigate}
+              turnOn={live.done ? refusedScopes(live.text, live.tools.map((t) => t.error ?? '').filter(Boolean), scopeLabels, scopes) : []}
+              onTurnOn={(s) => void turnOn(s)}
+              turningOn={turningOn}
+            />
+          </>
+        )}
+
+        {liveEstimate && (
+          <JobEstimateCard
+            estimate={liveEstimate}
+            model={model}
+            pricing={pricing}
+            fallbackMicrosPerMtok={fallback}
+            busy={acceptBusy}
+            onAccept={(mode) => void accept(liveEstimate.job_id, mode)}
+            onAggregate={(tools) => aggregate(liveEstimate.job_id, tools)}
+            onDismiss={() => setDismissedJobs((d) => new Set(d).add(liveEstimate.job_id))}
+          />
+        )}
+
+        {visibleJobs.map((j) => (
+          <JobProgress key={j.id} jobId={j.id} initial={j} model={j.tokens.model ?? model} pricing={pricing} fallbackMicrosPerMtok={fallback} />
+        ))}
+      </div>
+
+      {(conversation.data || usage.data) && (
+        <UsageMeter
+          compact
+          pricing={pricing}
+          fallbackMicrosPerMtok={fallback}
+          slots={[
+            ...(conversation.data ? [{ label: 'thisChat' as const, tokens: conversation.data.tokens, costMicros: conversation.data.tokens.cost_micros ?? null, model: conversation.data.tokens.model ?? null }] : []),
+            ...(todayRow
+              ? [{ label: 'today' as const, tokens: { input: todayRow.input_tokens, cache_write: todayRow.cache_write_tokens, cache_read: todayRow.cache_read_tokens, output: todayRow.output_tokens }, costMicros: todayRow.cost_micros }]
+              : []),
+            ...(usage.data
+              ? [{ label: 'month' as const, tokens: { input: usage.data.month.input_tokens, cache_write: usage.data.month.cache_write_tokens, cache_read: usage.data.month.cache_read_tokens, output: usage.data.month.output_tokens }, costMicros: usage.data.month.cost_micros }]
+              : []),
+          ]}
+        />
+      )}
+
+      <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-2)', display: 'grid', gap: 'var(--tp-sp-2)' }}>
+        {compact && (
+          <Button size="sm" kind="ghost" icon={stripOpen ? 'chevronDown' : 'chevronEnd'} onClick={() => setStripOpen((o) => !o)} aria-pressed={stripOpen} style={{ justifySelf: 'start' }}>
+            {tr('ws.owner.assistant.scopes.toggle')} · {scopes.length} · {tr('ws.owner.assistant.scopes.packSize', { tokens: `⁨${formatTokens(stripTotal)}⁩` })}
+          </Button>
+        )}
+        {stripOpen && (
+          <ScopeStrip
+            scopes={scopes}
+            onChange={(next) => changeScopes.mutate(next)}
+            packs={packs}
+            measuring={packsQ.isLoading}
+            disabled={changeScopes.isPending || chat.streaming}
+            compact={compact}
+          />
+        )}
+        {changeScopes.isError && <ErrorText error={changeScopes.error} />}
+        <Composer onAsk={(q) => void chat.ask(q)} onStop={chat.stop} streaming={chat.streaming} autoFocus={autoFocus} disabled={conversationId !== null && conversation.isSuccess && conversation.data === null} />
+      </div>
+    </div>
+  );
+}

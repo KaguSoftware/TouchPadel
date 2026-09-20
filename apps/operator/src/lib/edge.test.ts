@@ -7,6 +7,7 @@ import {
   invalidateEdgeCache,
   stableStringify,
   statusToEdgeCode,
+  streamEdge,
 } from './edge';
 
 function json(status: number, body: unknown): Response {
@@ -160,5 +161,95 @@ describe('callEdge', () => {
     const err = await callEdge('analytics-insights', {}).catch((e: unknown) => e);
     expect((err as EdgeError).code).toBe('AUTH_REQUIRED');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// streamEdge
+// ---------------------------------------------------------------------------
+
+/** A Response whose body arrives in the given chunks, split wherever the test says. */
+function sse(chunks: readonly string[], status = 200): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+      controller.close();
+    },
+  });
+  return new Response(stream, { status, headers: { 'Content-Type': 'text/event-stream' } });
+}
+
+describe('streamEdge', () => {
+  it('POSTs with the staff JWT and emits every event in order, whatever the chunk boundaries', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      sse([
+        'event: message_start\ndata: {"conversation_id":"c1"}\n\nevent: del',
+        'ta\ndata: {"text":"Hel',
+        'lo"}\n\nevent: delta\ndata: {"text":" there"}\n\n',
+        'event: done\ndata: {"message_id":"m1","stop_reason":"end_turn"}',
+      ]),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const seen: [string, unknown][] = [];
+
+    await streamEdge('assistant-chat', { text: 'hi' }, { onEvent: (name, data) => seen.push([name, data]) });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toMatch(/\/functions\/v1\/assistant-chat$/);
+    expect(init.method).toBe('POST');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer jwt-1');
+    expect((init.headers as Record<string, string>).Accept).toBe('text/event-stream');
+    expect(init.body).toBe(JSON.stringify({ text: 'hi' }));
+    expect(seen).toEqual([
+      ['message_start', { conversation_id: 'c1' }],
+      ['delta', { text: 'Hello' }],
+      ['delta', { text: ' there' }],
+      ['done', { message_id: 'm1', stop_reason: 'end_turn' }],
+    ]);
+  });
+
+  it('maps a pre-stream JSON refusal through statusToEdgeCode', async () => {
+    for (const [status, body, code] of [
+      [401, {}, 'AUTH_REQUIRED'],
+      [403, { code: 'FORBIDDEN', message: 'owner only' }, 'FORBIDDEN'],
+      [429, { code: 'LLM_MONTHLY_CAP' }, 'RATE_LIMITED'],
+      [503, { code: 'NOT_CONFIGURED' }, 'NOT_CONFIGURED'],
+      [502, {}, 'UPSTREAM'],
+    ] as const) {
+      const fetchMock = vi.fn().mockResolvedValue(json(status, body));
+      vi.stubGlobal('fetch', fetchMock);
+      const onEvent = vi.fn();
+      const err = await streamEdge('assistant-chat', {}, { onEvent }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(EdgeError);
+      expect((err as EdgeError).code).toBe(code);
+      expect((err as EdgeError).status).toBe(status);
+      expect(onEvent).not.toHaveBeenCalled();
+      // Never retried: one billed request per press.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    }
+    const refused = await streamEdge('assistant-chat', {}, { onEvent: vi.fn() }).catch((e: unknown) => e);
+    expect((refused as EdgeError).detail).toBeUndefined();
+  });
+
+  it('never caches: two identical calls are two fetches', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(sse(['event: done\ndata: {}\n\n'])));
+    vi.stubGlobal('fetch', fetchMock);
+    await streamEdge('assistant-chat', { a: 1 }, { onEvent: vi.fn() });
+    await streamEdge('assistant-chat', { a: 1 }, { onEvent: vi.fn() });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes the abort signal through to fetch and throws AUTH_REQUIRED without a session', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(sse([]));
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    await streamEdge('assistant-chat', {}, { onEvent: vi.fn(), signal: controller.signal });
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[1].signal).toBe(controller.signal);
+
+    stubSession(null);
+    const err = await streamEdge('assistant-chat', {}, { onEvent: vi.fn() }).catch((e: unknown) => e);
+    expect((err as EdgeError).code).toBe('AUTH_REQUIRED');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

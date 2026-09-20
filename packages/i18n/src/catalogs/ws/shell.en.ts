@@ -165,6 +165,9 @@ export const shellEn = {
     requests: 'Requests',
     marketing: 'Marketing',
     telegram: 'Telegram',
+    // The owner assistant: a rail row on Management's own list and the drawer
+    // button in the rail footer share this label.
+    assistant: 'Assistant',
     groupOperations: 'Operations',
     groupRun: 'Run the day',
     groupRecords: 'Records',

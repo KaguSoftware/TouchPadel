@@ -2463,4 +2463,39 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'booking_bill', args: { p_reservation_id: NIL_UUID }, expect: CASHIER_DESK_UP, drop: 10 },
   { kind: 'rpc', schema: 'app', name: 'booking_bill_states', args: { p_reservation_ids: [] }, expect: CASHIER_DESK_UP, drop: 10 },
   { kind: 'rpc', schema: 'app', name: 'unpaid_played_bookings', args: { p_day_session_id: NIL_UUID }, expect: MANAGER_UP, drop: 10 },
+
+  // ── 0108–0112: the owner assistant ───────────────────────────────────────
+  // Owner-only by decision (plan §12 DECIDE 5). Nil ids and an unknown tool
+  // name stop the owner past the guard with nothing written: CONVERSATION_NOT_FOUND,
+  // ASSISTANT_UNKNOWN_TOOL / ASSISTANT_NOT_COUNTABLE, JOB_NOT_FOUND; search,
+  // pricing and the meter are pure reads.
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_archive_conversation',
+    args: { p_id: NIL_UUID }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_set_scopes',
+    args: { p_id: NIL_UUID, p_scopes: ['howto'] }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_run_tool',
+    args: { p_tool: 'matrix_probe', p_args: {} }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_count',
+    args: { p_tool: 'matrix_probe', p_args: {} }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_search',
+    args: { p_query: 'matrix probe', p_embedding: null, p_kinds: null, p_limit: 1 }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'llm_price_micros',
+    args: { p_model: 'matrix', p_input: 0, p_cache_write: 0, p_cache_read: 0, p_output: 0 }, expect: OWNER_ONLY, drop: 11,
+  },
+  { kind: 'rpc', schema: 'app', name: 'assistant_usage', args: {}, expect: OWNER_ONLY, drop: 11 },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_job_cancel',
+    args: { p_id: NIL_UUID }, expect: OWNER_ONLY, drop: 11,
+  },
 ];

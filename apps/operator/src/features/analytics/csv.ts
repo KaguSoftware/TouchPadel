@@ -22,6 +22,30 @@ export function toCsv(headers: readonly string[], rows: readonly (readonly CsvCe
   return CSV_BOM + lines.join('\r\n') + '\r\n';
 }
 
+/**
+ * One block of a sectioned CSV: an optional title line, an optional header
+ * row, then the rows. Sections are separated by a blank line so a spreadsheet
+ * shows them as distinct tables in one sheet.
+ */
+export interface CsvSection {
+  title?: string;
+  headers?: readonly string[];
+  rows: readonly (readonly CsvCell[])[];
+}
+
+/** Several tables in one file — the management panel's full export. */
+export function toCsvSections(sections: readonly CsvSection[]): string {
+  const blocks: string[] = [];
+  for (const section of sections) {
+    const lines: string[] = [];
+    if (section.title !== undefined) lines.push(escapeCell(section.title));
+    if (section.headers) lines.push(section.headers.map(escapeCell).join(','));
+    for (const row of section.rows) lines.push(row.map(escapeCell).join(','));
+    blocks.push(lines.join('\r\n'));
+  }
+  return CSV_BOM + blocks.join('\r\n\r\n') + '\r\n';
+}
+
 /** Trigger a browser download of `csv` as `filename`. */
 export function downloadCsv(filename: string, csv: string): void {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
