@@ -202,3 +202,13 @@ verify_jwt = true                           # owner session JWT; the body re-che
 verify_jwt = true                           # cron/pg_net posts with the service-role JWT; an owner session may run {mode:'map'}
 [functions.assistant-job]
 verify_jwt = true                           # owner session JWT to accept/cancel; cron posts the service-role JWT for {action:'tick'}
+[functions.assistant-component]
+verify_jwt = true                           # owner session JWT for one card; cron posts the service-role JWT for {prewarm:true}
+
+# Edge runtime policy for `supabase functions serve` ONLY (hosted always keeps
+# workers alive). The default `oneshot` spins a fresh worker per request, so an
+# in-runtime embedding model (assistant-index with EMBEDDING_PROVIDER=local)
+# reloads on every call and trips the per-request CPU limit at 32 texts
+# (2026-09-20). `per_worker` keeps the model loaded between requests, as hosted does.
+[edge_runtime]
+policy = "per_worker"

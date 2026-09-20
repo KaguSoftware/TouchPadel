@@ -35,6 +35,8 @@ export interface LiveTurn {
   text: string;
   tools: ToolRow[];
   scopes: string[] | null;
+  /** The model answering this turn (`message_start`), confirmed by `usage`. */
+  model: string | null;
   gate: GatePayload | null;
   usage: UsagePayload | null;
   jobEstimate: JobEstimate | null;
@@ -50,6 +52,8 @@ export interface UseAssistantChatOptions {
   /** Scopes for a NEW conversation; an existing one carries its own. */
   scopes: readonly AssistantScope[];
   range?: DateRange;
+  /** Model for a NEW conversation (null = venue default); an existing one carries its own row. */
+  model?: string | null;
   lang: 'en' | 'ar';
 }
 
@@ -71,6 +75,7 @@ function emptyTurn(conversationId: string | null, userText: string): LiveTurn {
     text: '',
     tools: [],
     scopes: null,
+    model: null,
     gate: null,
     usage: null,
     jobEstimate: null,
@@ -103,6 +108,7 @@ export function applyEvent(turn: LiveTurn, name: string, data: unknown): LiveTur
         userMessageId: str(d.user_message_id),
         assistantMessageId: str(d.assistant_message_id),
         scopes: Array.isArray(d.scopes) ? d.scopes.filter((s): s is string => typeof s === 'string') : turn.scopes,
+        model: str(d.model) ?? turn.model,
       };
     case 'delta':
       // `reset: true` precedes a gate retry: the first answer is withdrawn and
@@ -149,7 +155,7 @@ export function applyEvent(turn: LiveTurn, name: string, data: unknown): LiveTur
     case 'gate':
       return { ...turn, gate: d as unknown as GatePayload };
     case 'usage':
-      return { ...turn, usage: d as unknown as UsagePayload };
+      return { ...turn, usage: d as unknown as UsagePayload, model: str(d.model) ?? turn.model };
     case 'job_estimate':
       return { ...turn, jobEstimate: d as unknown as JobEstimate };
     case 'done':
@@ -210,7 +216,7 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
   const ask = useCallback(async (text: string) => {
     const question = text.trim();
     if (question === '' || controller.current) return;
-    const { conversationId, scopes, range, lang, onConversation } = optsRef.current;
+    const { conversationId, scopes, range, model, lang, onConversation } = optsRef.current;
     const ac = new AbortController();
     controller.current = ac;
     setStreaming(true);
@@ -224,7 +230,8 @@ export function useAssistantChat(opts: UseAssistantChatOptions): UseAssistantCha
           conversation_id: conversationId,
           text: question,
           lang,
-          ...(conversationId ? {} : { scopes: [...scopes] }),
+          // A new chat carries its checked set and its model; an existing row already has both.
+          ...(conversationId ? {} : { scopes: [...scopes], ...(model ? { model } : {}) }),
           ...(range ? { range } : {}),
         },
         {

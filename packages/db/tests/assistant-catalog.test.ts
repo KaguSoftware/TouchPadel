@@ -50,7 +50,11 @@ describe('assistant catalog ↔ dispatcher', () => {
     const rpcs = ASSISTANT_TOOLS.filter((t) => t.rpc).map((t) => t.rpc);
     expect(new Set(rpcs).size).toBe(rpcs.length);
     expect(rpcs.length).toBe(DISPATCHED_RPCS.length);
-    for (const t of ASSISTANT_TOOLS.filter((t) => !t.rpc)) expect(['knowledge', 'meta']).toContain(t.kind);
+    // `posthog` is the one aggregate served by the edge function itself (it
+    // forwards to analytics-posthog as the owner); everything else without an
+    // rpc is knowledge or meta.
+    for (const t of ASSISTANT_TOOLS.filter((t) => !t.rpc && t.name !== 'posthog')) expect(['knowledge', 'meta']).toContain(t.kind);
+    expect(ASSISTANT_TOOLS.find((t) => t.name === 'posthog')?.kind).toBe('aggregate');
   });
 
   it('the edge-function copy of tools.ts is byte-identical to the core module', () => {

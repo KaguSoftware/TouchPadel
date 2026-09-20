@@ -367,6 +367,13 @@ async function submitBatch(book: Book, asOwner: SupabaseClient, job: JobRow, chu
   }
 }
 
+/** Batch is a vendor capability (provider.ts): the chat's model, else the fallback provider, decides. */
+function jobProviderCapable(_service: unknown, conv: unknown, fallback: Provider | null): boolean {
+  const model = (conv as { model?: string | null } | null)?.model ?? null;
+  const p = model ? providerFromEnv((n) => Deno.env.get(n), model) : fallback;
+  return !!p && p.capabilities.batch;
+}
+
 async function tick(book: Book, signal: AbortSignal) {
   const { data, error } = await book.service.from('assistant_jobs').select('*').eq('status', 'running').eq('mode', 'batch').not('batch_id', 'is', null);
   if (error) return json({ ok: false, error: error.message });
@@ -374,14 +381,17 @@ async function tick(book: Book, signal: AbortSignal) {
   const report: Record<string, unknown>[] = [];
   for (const job of jobs) {
     const spend: Spend = { ...zeroSpend(), ...((job.tokens ?? {}) as Partial<Spend>) };
+    // 0114: the model the job was accepted on (tokens.model), else the tick's default provider.
+    const jobModel = (job.tokens as { model?: string } | null)?.model ?? null;
+    const jb = jobModel ? new Book(book.service, providerFromEnv((n) => Deno.env.get(n), jobModel) ?? book.provider) : book;
     try {
-      const status = await book.provider.batchStatus(job.batch_id!);
-      await book.patch(job.id, { chunks_done: status.counts.succeeded + status.counts.errored + status.counts.canceled + status.counts.expired });
+      const status = await jb.provider.batchStatus(job.batch_id!);
+      await jb.patch(job.id, { chunks_done: status.counts.succeeded + status.counts.errored + status.counts.canceled + status.counts.expired });
       if (!status.ended) {
         report.push({ job_id: job.id, status: status.status, counts: status.counts });
         continue;
       }
-      const results = await book.provider.batchResults(job.batch_id!);
+      const results = await jb.provider.batchResults(job.batch_id!);
       const total = job.chunks_total ?? results.size;
       const objects: unknown[] = [];
       const calls: CallRow[] = [];
@@ -395,11 +405,11 @@ async function tick(book: Book, signal: AbortSignal) {
           objects.push({ chunk: no, error: r.error });
           continue;
         }
-        await book.account(job, spend, calls, r.usage, 0, r.stop_reason);
+        await jb.account(job, spend, calls, r.usage, 0, r.stop_reason);
         objects.push({ ...parseObject(textOf(r.content as ContentBlock[])), chunk: no });
       }
       if (isOverEstimate(spend.total, job.estimate)) {
-        await book.transition(job.id, 'over_estimate', { chunks_done: objects.length, tokens: spend, result: { objects } });
+        await jb.transition(job.id, 'over_estimate', { chunks_done: objects.length, tokens: spend, result: { objects } });
         report.push({ job_id: job.id, status: 'over_estimate' });
         continue;
       }
@@ -407,7 +417,7 @@ async function tick(book: Book, signal: AbortSignal) {
       report.push({ job_id: job.id, status: 'done', message_id });
     } catch (e) {
       const msg = errorText(e);
-      await book.fail(job, msg, spend);
+      await jb.fail(job, msg, spend);
       report.push({ job_id: job.id, status: 'failed', error: msg });
     }
   }
@@ -448,7 +458,7 @@ Deno.serve(async (req) => {
     if (jobErr) return json({ error: 'INTERNAL', message: jobErr.message }, 500);
     if (!jobData) return json({ error: 'NOT_FOUND', code: 'NOT_FOUND', message: 'job not found' }, 404);
     const job = jobData as JobRow;
-    const { data: conv } = await service.from('assistant_conversations').select('owner_id, handles').eq('id', job.conversation_id).maybeSingle();
+    const { data: conv } = await service.from('assistant_conversations').select('owner_id, handles, model').eq('id', job.conversation_id).maybeSingle();
     if (!conv || (conv as { owner_id: string }).owner_id !== auth.userId) return json({ error: 'FORBIDDEN', message: 'not your job' }, 403);
     const asOwner = ownerClient(req);
 
@@ -473,14 +483,22 @@ Deno.serve(async (req) => {
     const mode = body.mode === 'live' || body.mode === 'batch' ? body.mode : null;
     if (!mode) return json({ error: 'INVALID_REQUEST', message: "mode must be 'live' or 'batch'" }, 400);
     if (job.status !== 'estimated') return json({ error: 'INVALID_TRANSITION', code: 'INVALID_TRANSITION', message: `job is ${job.status}` }, 409);
+    if (mode === 'batch' && !jobProviderCapable(service, conv, provider)) {
+      return json({ error: 'INVALID_REQUEST', message: 'batch jobs are not available on this model; run the job live' }, 400);
+    }
     if (mode === 'live' && (!job.estimate.modes.live.allowed || job.estimate.chunks > LIVE_MAX_CHUNKS)) {
       return json({ error: 'INVALID_REQUEST', message: job.estimate.modes.live.reason ?? `live jobs run at most ${LIVE_MAX_CHUNKS} chunks; choose batch` }, 400);
     }
     const chunks = chunksOf(job);
     if (typeof chunks === 'string') return json({ error: 'INVALID_REQUEST', message: chunks }, 400);
 
-    const book = new Book(service, provider);
-    await book.transition(job.id, 'accepted', { mode });
+    // 0114: the job runs on the chat's model, else the venue default; the tick
+    // rebuilds the same provider from tokens.model, stamped below.
+    const { data: vs } = await service.from('venue_settings').select('llm_default_model').limit(1).maybeSingle();
+    const jobModel = (conv as { model?: string | null }).model ?? (vs as { llm_default_model?: string | null } | null)?.llm_default_model ?? null;
+    const jobProvider = providerFromEnv((n) => Deno.env.get(n), jobModel) ?? provider;
+    const book = new Book(service, jobProvider);
+    await book.transition(job.id, 'accepted', { mode, tokens: { ...(job.tokens ?? {}), model: jobProvider.model } });
     await book.transition(job.id, 'running', { started_at: new Date().toISOString(), chunks_total: chunks.length });
     job.mode = mode;
     job.chunks_total = chunks.length;

@@ -176,6 +176,7 @@ customer_record — lookup, customers, /desk/customers
 analytics_promo — aggregate, marketing, /admin/promotions
 marketing_overview — aggregate, marketing, /marketing
 marketing_campaign_performance — lookup, marketing, /marketing
+posthog — aggregate, engagement, /analytics/cafe
 settings_read — aggregate, settings, /admin/settings
 system_status — aggregate, system, /ops
 table_read — list, tables

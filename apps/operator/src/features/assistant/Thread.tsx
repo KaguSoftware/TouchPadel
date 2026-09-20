@@ -14,7 +14,7 @@ import { ASSISTANT_SCOPES, type AssistantScope } from '@touch/core/assistant/too
 import { useAuth } from '../../lib/auth';
 import { useLocale } from '../../lib/i18n';
 import { useToast } from '../../components/toast';
-import { Button, ErrorText, Spinner } from '../../components/ui';
+import { ErrorText, Spinner } from '../../components/ui';
 import type { PricingMap } from '../../lib/assistantPricing';
 import { formatTokens } from '../../lib/assistantPricing';
 import {
@@ -24,6 +24,7 @@ import {
   fetchConversation,
   fetchConversationJobs,
   fetchMessages,
+  fetchModels,
   fetchUsage,
   packSizes,
   setScopes,
@@ -36,6 +37,8 @@ import { Composer } from './Composer';
 import { JobEstimateCard } from './JobEstimateCard';
 import { JobProgress } from './JobProgress';
 import { Message } from './Message';
+import { Disclosure } from './Disclosure';
+import { ModelSwitch, modelName } from './ModelSwitch';
 import { ScopeStrip, type PackSizes } from './ScopeStrip';
 import { UsageMeter } from './UsageMeter';
 import { normaliseScopes, refusedScopes, saveRememberedScopes } from './scopes';
@@ -115,10 +118,19 @@ export function Thread({
     [conversation.data, newScopes],
   );
 
+  // 0114: the model. An existing chat carries its own (null = venue default);
+  // a chat with no row yet holds the choice here and the first question
+  // carries it. Switching chats drops the held choice.
+  const [newModel, setNewModel] = useState<string | null>(null);
+  useEffect(() => setNewModel(null), [conversationId]);
+  const modelsQ = useQuery({ queryKey: QK.models, queryFn: fetchModels, staleTime: 5 * 60_000 });
+  const chosenModel: string | null = conversationId ? (conversation.data?.model ?? null) : newModel;
+
   const chat = useAssistantChat({
     conversationId,
     onConversation,
     scopes,
+    model: chosenModel,
     lang: locale,
   });
 
@@ -192,11 +204,13 @@ export function Thread({
     if (el) el.scrollTop = el.scrollHeight;
   }, [rows.length, live?.text, live?.tools.length, live?.jobEstimate]);
 
-  const model = live?.usage?.model ?? conversation.data?.tokens.model ?? Object.keys(pricing ?? {})[0] ?? '';
+  // The model that priced the live answer beats the one the next answer will
+  // use, which beats what the chat last paid, which beats any priced model.
+  const model =
+    live?.model ?? live?.usage?.model ?? chosenModel ?? modelsQ.data?.default_model ?? conversation.data?.tokens.model ?? Object.keys(pricing ?? {})[0] ?? '';
   const visibleJobs = (jobs.data ?? []).filter((j) => j.status !== 'estimated' && (!TERMINAL_JOB_STATUSES.includes(j.status) || watchedJobs.includes(j.id)));
   const liveEstimate = live?.jobEstimate && !dismissedJobs.has(live.jobEstimate.job_id) ? live.jobEstimate : null;
 
-  const [stripOpen, setStripOpen] = useState(!compact);
   const stripTotal = scopes.reduce((n, s) => n + (packs[s] ?? 0), 0);
 
   const todayRow = usage.data?.days.find((d) => d.usage_date === month.to);
@@ -221,9 +235,12 @@ export function Thread({
           if (m.role === 'user') return <Message key={m.id} role="user" text={textOfContent(m.content)} compact={compact} />;
           const src = sourcesOf(m);
           const text = textOfContent(m.content);
+          const asked = [...rows].reverse().find((r) => r.role === 'user' && r.seq < m.seq);
           return (
             <Message
               key={m.id}
+              messageId={m.id}
+              question={asked ? textOfContent(asked.content) : undefined}
               role="assistant"
               text={text}
               tools={src.items}
@@ -247,11 +264,13 @@ export function Thread({
             <Message role="user" text={live.userText} compact={compact} />
             <Message
               role="assistant"
+              messageId={live.done && !live.error ? (live.assistantMessageId ?? undefined) : undefined}
+              question={live.userText}
               text={live.text}
               tools={live.tools}
               scopes={live.scopes}
               gate={live.gate}
-              usage={live.usage}
+              usage={live.usage ? { ...live.usage, model: live.usage.model ?? live.model ?? undefined } : null}
               pricing={pricing}
               fallbackMicrosPerMtok={fallback}
               streaming={!live.done}
@@ -302,12 +321,12 @@ export function Thread({
       )}
 
       <div style={{ borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-2)', display: 'grid', gap: 'var(--tp-sp-2)' }}>
-        {compact && (
-          <Button size="sm" kind="ghost" icon={stripOpen ? 'chevronDown' : 'chevronEnd'} onClick={() => setStripOpen((o) => !o)} aria-pressed={stripOpen} style={{ justifySelf: 'start' }}>
-            {tr('ws.owner.assistant.scopes.toggle')} · {scopes.length} · {tr('ws.owner.assistant.scopes.packSize', { tokens: `⁨${formatTokens(stripTotal)}⁩` })}
-          </Button>
-        )}
-        {stripOpen && (
+        <Disclosure
+          storageKey={compact ? 'drawer-scopes' : 'page-scopes'}
+          defaultOpen={!compact}
+          title={tr('ws.owner.assistant.scopes.title')}
+          summary={`${scopes.length} · ${tr('ws.owner.assistant.scopes.packSize', { tokens: `⁨${formatTokens(stripTotal)}⁩` })}`}
+        >
           <ScopeStrip
             scopes={scopes}
             onChange={(next) => changeScopes.mutate(next)}
@@ -315,9 +334,21 @@ export function Thread({
             measuring={packsQ.isLoading}
             disabled={changeScopes.isPending || chat.streaming}
             compact={compact}
+            titleHidden
           />
-        )}
+        </Disclosure>
         {changeScopes.isError && <ErrorText error={changeScopes.error} />}
+        <Disclosure storageKey="model" defaultOpen={false} title={tr('ws.owner.assistant.model.title')} summary={`⁨${modelName(tr, model)}⁩`}>
+          <ModelSwitch
+            conversationId={conversationId}
+            value={chosenModel}
+            onChange={(next) => {
+              if (!conversationId) setNewModel(next);
+            }}
+            disabled={chat.streaming || (conversationId !== null && !conversation.data)}
+            titleHidden
+          />
+        </Disclosure>
         <Composer onAsk={(q) => void chat.ask(q)} onStop={chat.stop} streaming={chat.streaming} autoFocus={autoFocus} disabled={conversationId !== null && conversation.isSuccess && conversation.data === null} />
       </div>
     </div>

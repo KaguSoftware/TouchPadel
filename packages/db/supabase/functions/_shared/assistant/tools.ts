@@ -30,6 +30,7 @@ export const ASSISTANT_SCOPES = [
   'customers',
   'audit',
   'marketing',
+  'engagement',
   'settings',
   'system',
   'howto',
@@ -57,6 +58,7 @@ export const SCOPE_CHUNK_KINDS: Readonly<Record<AssistantScope, readonly string[
   customers: ['note'],
   audit: [],
   marketing: ['promotion'],
+  engagement: [],
   settings: ['setting', 'enum'],
   system: ['system'],
   howto: ['page', 'nav', 'label', 'rpc', 'action', 'table', 'column', 'rule'],
@@ -167,7 +169,8 @@ export interface ToolSpec {
   route: string | null;
   /**
    * The `app.*` function the dispatcher calls, or null when the tool is served
-   * by the edge function itself (knowledge, meta).
+   * by the edge function itself (knowledge, meta, and `posthog`, which the
+   * chat function forwards to the analytics-posthog function as the owner).
    */
   rpc: string | null;
   args: Readonly<Record<string, ToolArg>>;
@@ -740,6 +743,46 @@ export const ASSISTANT_TOOLS: readonly ToolSpec[] = [
     rpc: 'marketing_campaign_performance',
     args: { id: { type: 'id', description: 'Campaign id or handle.', required: true, param: 'p_campaign' } },
     result: { rows_path: null, id_keys: ['id', 'campaign_id'] },
+    core: false,
+    tokens_per_row: null,
+  },
+
+  // ── Guest engagement (PostHog, through the analytics-posthog function) ──
+  {
+    name: 'posthog',
+    scope: 'engagement',
+    kind: 'aggregate',
+    description:
+      "Guest engagement from the guest site (PostHog): one of the analytics page's templates — daily_engagement, funnel, peak_hours, abandoned_by_dwell, top_viewed_items, top_carted_items, basket_to_call, locale_split, table_activity, week_heatmap, promo_engagement, item_views_with_price, session_stats, category_popularity, locale_preferences — for a range. Live minus a 30 s proxy cache; says so when PostHog is not configured.",
+    route: '/analytics/cafe',
+    rpc: null,
+    args: {
+      template: {
+        type: 'enum',
+        description: 'Which analytics template to run.',
+        values: [
+          'daily_engagement',
+          'funnel',
+          'peak_hours',
+          'abandoned_by_dwell',
+          'top_viewed_items',
+          'top_carted_items',
+          'basket_to_call',
+          'locale_split',
+          'table_activity',
+          'week_heatmap',
+          'promo_engagement',
+          'item_views_with_price',
+          'session_stats',
+          'category_popularity',
+          'locale_preferences',
+        ],
+        required: true,
+      },
+      ...RANGE,
+      limit: { type: 'integer', description: 'Rows for the "top N" templates, 1–100.', min: 1, max: 100 },
+    },
+    result: { rows_path: 'rows' },
     core: false,
     tokens_per_row: null,
   },

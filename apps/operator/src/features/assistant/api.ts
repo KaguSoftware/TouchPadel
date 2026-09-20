@@ -36,6 +36,8 @@ export interface ConversationRow {
   title: string | null;
   scopes: string[];
   range: DateRange | null;
+  /** 0114: this chat's model, or null to follow the venue default. */
+  model: string | null;
   tokens: Partial<TokenKinds> & { cost_micros?: number; calls?: number; model?: string };
   created_at: string;
   updated_at: string | null;
@@ -63,6 +65,8 @@ export interface GatePayload {
   unverified: { raw: string; value: number }[];
   checked: number;
   retried?: boolean;
+  /** Every number the tools gave that turn — the re-check baseline (stored messages only). */
+  numbers?: number[];
 }
 
 export interface UsagePayload extends TokenKinds {
@@ -131,6 +135,7 @@ export type AssistantErrorCode =
   | 'UPSTREAM'
   | 'TIMEOUT'
   | 'INVALID_REQUEST'
+  | 'ASSISTANT_MODEL_NOT_PRICED'
   | 'UNKNOWN';
 
 export const ASSISTANT_ERROR_CODES: readonly AssistantErrorCode[] = [
@@ -143,6 +148,7 @@ export const ASSISTANT_ERROR_CODES: readonly AssistantErrorCode[] = [
   'UPSTREAM',
   'TIMEOUT',
   'INVALID_REQUEST',
+  'ASSISTANT_MODEL_NOT_PRICED',
   'UNKNOWN',
 ];
 
@@ -184,6 +190,8 @@ export const QK = {
   /** Every job of one conversation — the thread needs the running ones. */
   jobs: (conversationId: string) => ['assistant', 'jobs', conversationId] as const,
   usage: (from: string, to: string) => ['assistant', 'usage', from, to] as const,
+  /** The venue default model and every model the pricing table can bill (0114). */
+  models: ['assistant', 'models'] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -220,7 +228,13 @@ async function rows<T>(q: Result<T>): Promise<T> {
   return data;
 }
 
-export type AssistantRpcName = 'assistant_usage' | 'assistant_set_scopes' | 'assistant_archive_conversation';
+export type AssistantRpcName =
+  | 'assistant_usage'
+  | 'assistant_set_scopes'
+  | 'assistant_archive_conversation'
+  | 'assistant_models'
+  | 'assistant_set_model'
+  | 'assistant_set_default_model';
 
 /** `appRpc` for the assistant RPCs until `types.gen.ts` carries them. */
 export async function assistantRpc<T>(fn: AssistantRpcName, args: Record<string, unknown> = {}): Promise<T> {
@@ -238,7 +252,7 @@ export async function assistantRpc<T>(fn: AssistantRpcName, args: Record<string,
 export async function fetchConversations(): Promise<ConversationRow[]> {
   const data = await rows(
     table<ConversationRow>('assistant_conversations')
-      .select('id, owner_id, title, scopes, range, tokens, created_at, updated_at, archived_at')
+      .select('id, owner_id, title, scopes, range, model, tokens, created_at, updated_at, archived_at')
       .is('archived_at', null)
       .order('updated_at', { ascending: false })
       .limit(200),
@@ -249,7 +263,7 @@ export async function fetchConversations(): Promise<ConversationRow[]> {
 export async function fetchConversation(id: string): Promise<ConversationRow | null> {
   return rows(
     table<ConversationRow>('assistant_conversations')
-      .select('id, owner_id, title, scopes, range, tokens, created_at, updated_at, archived_at')
+      .select('id, owner_id, title, scopes, range, model, tokens, created_at, updated_at, archived_at')
       .eq('id', id)
       .maybeSingle(),
   );
@@ -288,6 +302,30 @@ export function archiveConversation(conversationId: string): Promise<void> {
   return assistantRpc<void>('assistant_archive_conversation', { p_id: conversationId });
 }
 
+/** `assistant_models()` (0114): the venue default and every model with rates, sorted. */
+export interface ModelsPayload {
+  default_model: string | null;
+  models: string[];
+}
+
+export async function fetchModels(): Promise<ModelsPayload> {
+  const raw = await assistantRpc<Partial<ModelsPayload> | null>('assistant_models');
+  return {
+    default_model: typeof raw?.default_model === 'string' ? raw.default_model : null,
+    models: Array.isArray(raw?.models) ? raw.models.filter((m): m is string => typeof m === 'string') : [],
+  };
+}
+
+/** This chat's model; `null` follows the venue default. Refused with ASSISTANT_MODEL_NOT_PRICED when unpriced. */
+export function setModel(conversationId: string, model: string | null): Promise<ConversationRow> {
+  return assistantRpc<ConversationRow>('assistant_set_model', { p_id: conversationId, p_model: model });
+}
+
+/** The model a new chat uses when it names none. Refused with ASSISTANT_MODEL_NOT_PRICED when unpriced. */
+export function setDefaultModel(model: string): Promise<void> {
+  return assistantRpc<void>('assistant_set_default_model', { p_model: model });
+}
+
 export function acceptJob(jobId: string, mode: JobMode): Promise<unknown> {
   return callEdge('assistant-job', { action: 'accept', job_id: jobId, mode }, { ttlMs: 0 });
 }
@@ -296,12 +334,52 @@ export function cancelJob(jobId: string): Promise<unknown> {
   return callEdge('assistant-job', { action: 'cancel', job_id: jobId }, { ttlMs: 0 });
 }
 
+// ---------------------------------------------------------------------------
+// Re-check (plan §3.5, DECIDE 10): the message's tool calls again, no model
+// ---------------------------------------------------------------------------
+
+export interface RecheckTool {
+  name: string;
+  args: Record<string, unknown>;
+  row_count: number | null;
+  ms: number;
+  error?: string;
+}
+
+export interface RecheckChange {
+  /** The figure as the answer printed it. */
+  value_then: number;
+  /** The nearest new live value, when one is close enough to have replaced it. */
+  value_now?: number;
+}
+
+export interface RecheckResult {
+  message_id: string;
+  checked_at: string;
+  tools: RecheckTool[];
+  changed: RecheckChange[];
+  unchanged: number;
+  /** False for an answer saved before figures were recorded; the tools still ran. */
+  baseline: boolean;
+}
+
+/**
+ * Re-run a saved answer's tool calls against live data and diff the figures
+ * it printed. A unary call that answers JSON (no stream), never cached, never
+ * billed: the function calls no model.
+ */
+export function recheckMessage(messageId: string): Promise<RecheckResult> {
+  return callEdge<{ recheck: { message_id: string } }, RecheckResult>('assistant-chat', { recheck: { message_id: messageId } }, { ttlMs: 0 });
+}
+
 export interface ChatRequest {
   conversation_id: string | null;
   text: string;
   lang: 'en' | 'ar';
   scopes?: readonly AssistantScope[];
   range?: DateRange;
+  /** 0114: sets the conversation's model on create or update, like `scopes`. */
+  model?: string;
 }
 
 /** One question. Events arrive through `opts.onEvent`; resolves when the stream ends. */

@@ -56,7 +56,7 @@ export interface JobEstimate {
   modes: {
     aggregate: { calls: JobCall[]; tokens_est: number } | null;
     live: { allowed: boolean; reason?: string };
-    batch: { allowed: true };
+    batch: { allowed: boolean; reason?: string };
   };
   assumptions: string[];
   first_chunk_exact: number | null;

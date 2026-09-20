@@ -23,8 +23,9 @@ import { createServiceClient, isServiceRoleRequest } from '../_shared/supabase.t
 import { requireStaffRole } from '../_shared/auth.ts';
 import { json } from '../_shared/http.ts';
 import { clean, CleanError, sourceForChunk, type Cleaned } from '../_shared/assistant/clean.ts';
-import { EMBED_BATCH, embed, embeddingProvider, EmbedError } from '../_shared/assistant/embed.ts';
+import { EMBED_BATCH, EMBEDDING_DIMS, embed, embeddingProvider, EmbedError } from '../_shared/assistant/embed.ts';
 import { newHandleTable } from '../_shared/assistant/handles.ts';
+import { LOCAL_MAX_TEXTS, localRunner } from '../_shared/assistant/localRunner.ts';
 import { MAP_KINDS, mapChunks, mapGeneratedFrom, type MapChunk } from '../_shared/assistant/map.ts';
 
 const CLAIM_LIMIT = 50;
@@ -53,6 +54,8 @@ const ROUTE_BY_KIND: Readonly<Record<string, string>> = {
 };
 
 interface Prepared {
+  /** A vector the poster computed with the same model (local provider only); the worker then embeds nothing. */
+  precomputed?: number[] | null;
   kind: string;
   ref: string;
   lang: Lang;
@@ -64,19 +67,7 @@ interface Prepared {
 
 const env = (name: string) => Deno.env.get(name);
 
-/**
- * The `local` provider's runner: Supabase's built-in gte-small session, which
- * exists only in the edge runtime (declared here, never in the pure module).
- */
-function localRunner(): ((texts: readonly string[]) => Promise<ArrayLike<number>[]>) | undefined {
-  const g = globalThis as unknown as {
-    Supabase?: { ai?: { Session: new (model: string) => { run(text: string, opts: { mean_pool: boolean; normalize: boolean }): Promise<ArrayLike<number>> } } };
-  };
-  const ai = g.Supabase?.ai;
-  if (!ai) return undefined;
-  const session = new ai.Session('gte-small');
-  return (texts) => Promise.all(texts.map((t) => session.run(t, { mean_pool: true, normalize: true })));
-}
+const isLocal = () => embeddingProvider(env) === 'local';
 
 function firstLine(text: string): string {
   return (text.split('\n')[0] ?? '').slice(0, 200);
@@ -92,12 +83,22 @@ function prepare(kind: string, ref: string, row: Record<string, unknown>, fallba
 }
 
 async function embedAll(items: Prepared[]): Promise<(number[] | null)[]> {
-  const out: (number[] | null)[] = [];
+  const out: (number[] | null)[] = new Array(items.length).fill(null);
   const local = localRunner();
-  for (let i = 0; i < items.length; i += EMBED_BATCH) {
-    const slice = items.slice(i, i + EMBED_BATCH);
+  // Precomputed vectors (scripts/assistant-index-map.mjs) are trusted only when
+  // this worker's own provider is the same built-in model; otherwise they are
+  // ignored and the text is embedded here like any other.
+  const usePre = isLocal();
+  const todo: number[] = [];
+  items.forEach((p, i) => {
+    if (usePre && Array.isArray(p.precomputed) && p.precomputed.length === EMBEDDING_DIMS) out[i] = p.precomputed;
+    else todo.push(i);
+  });
+  for (let i = 0; i < todo.length; i += EMBED_BATCH) {
+    const idx = todo.slice(i, i + EMBED_BATCH);
+    const slice = idx.map((k) => items[k]!);
     const vectors = await embed(slice.map((p) => p.cleaned.text), slice[0]?.lang ?? 'en', env, fetch as never, { inputType: 'document', local });
-    out.push(...vectors);
+    idx.forEach((k, j) => { out[k] = vectors[j] ?? null; });
   }
   return out;
 }
@@ -135,7 +136,7 @@ async function upsertAll(db: ReturnType<typeof createServiceClient>, items: Prep
 // Drain the queue
 // ---------------------------------------------------------------------------
 async function drain(db: ReturnType<typeof createServiceClient>): Promise<{ processed: number; failed: number; claimed: number }> {
-  const { data: claimed, error: claimErr } = await db.schema('app').rpc('claim_due_index', { p_limit: CLAIM_LIMIT });
+  const { data: claimed, error: claimErr } = await db.schema('app').rpc('claim_due_index', { p_limit: isLocal() ? LOCAL_MAX_TEXTS : CLAIM_LIMIT });
   if (claimErr) throw new Error(`claim_due_index: ${claimErr.message}`);
   const rows = (claimed ?? []) as QueueRow[];
   if (!rows.length) return { processed: 0, failed: 0, claimed: 0 };
@@ -213,7 +214,7 @@ async function drain(db: ReturnType<typeof createServiceClient>): Promise<{ proc
 async function indexMap(
   db: ReturnType<typeof createServiceClient>,
   posted: readonly MapChunk[] | null,
-): Promise<{ processed: number; failed: number; deleted: number; generated_from: string }> {
+): Promise<{ processed: number; failed: number; deleted: number; precomputed: number; generated_from: string }> {
   const items: Prepared[] = [];
   let failed = 0;
   const source: readonly MapChunk[] = posted ?? mapChunks();
@@ -224,12 +225,13 @@ async function indexMap(
     }
     try {
       const item = prepare(c.kind, c.ref, { title: c.title, body: c.body, route: c.route, lang: c.lang }, c.route);
-      items.push({ ...item, lang: c.lang, title: c.title.slice(0, 200) });
+      items.push({ ...item, lang: c.lang, title: c.title.slice(0, 200), precomputed: Array.isArray(c.embedding) ? c.embedding : null });
     } catch (e) {
       failed++;
       console.error('[assistant-index] map chunk refused', c.kind, c.ref, e instanceof Error ? e.message : String(e));
     }
   }
+  const precomputed = isLocal() ? items.filter((p) => Array.isArray(p.precomputed) && p.precomputed.length === EMBEDDING_DIMS).length : 0;
   const vectors = await embedAll(items);
   const r = await upsertAll(db, items, vectors);
   failed += r.failed.length;
@@ -237,7 +239,7 @@ async function indexMap(
 
   // Stale refs — bundled load only, and only of the kinds it carried.
   let deleted = 0;
-  if (posted) return { processed: r.ok.length, failed, deleted, generated_from: mapGeneratedFrom() };
+  if (posted) return { processed: r.ok.length, failed, deleted, precomputed, generated_from: mapGeneratedFrom() };
   const keep = new Set(items.map((i) => `${i.kind}\u0000${i.ref}`));
   const kindsLoaded = [...new Set(items.map((i) => i.kind))];
   const { data: existing, error } = await db.from('assistant_chunks').select('kind, ref').in('kind', kindsLoaded);
@@ -248,7 +250,7 @@ async function indexMap(
     if (del.error) console.error('[assistant-index] stale delete failed', x.kind, x.ref, del.error.message);
     else deleted++;
   }
-  return { processed: r.ok.length, failed, deleted, generated_from: mapGeneratedFrom() };
+  return { processed: r.ok.length, failed, deleted, precomputed, generated_from: mapGeneratedFrom() };
 }
 
 /** Delete chunks of `kinds` whose ref is not in `keep` — the last step of scripts/assistant-index-map.mjs. */
@@ -300,6 +302,17 @@ Deno.serve(async (req) => {
 
   try {
     embeddingProvider(env); // an unknown EMBEDDING_PROVIDER fails the run before any claim
+    if (mode === 'map' && isLocal()) {
+      // The built-in model cannot embed the whole map in one worker: the bundled
+      // load is refused and the posted batches are capped (scripts/assistant-index-map.mjs sends 16).
+      if (!Array.isArray(body.chunks)) {
+        return json({ ok: false, error: `EMBEDDING_PROVIDER=local cannot load the bundled map in one call; run scripts/assistant-index-map.mjs, which posts ${LOCAL_MAX_TEXTS} chunks a request` }, 400);
+      }
+      const needEmbedding = body.chunks.filter((c) => !(Array.isArray(c.embedding) && c.embedding.length === EMBEDDING_DIMS)).length;
+      if (needEmbedding > LOCAL_MAX_TEXTS) {
+        return json({ ok: false, error: `at most ${LOCAL_MAX_TEXTS} chunks without a precomputed vector a request with EMBEDDING_PROVIDER=local (got ${needEmbedding})` }, 400);
+      }
+    }
     const result =
       mode === 'map'
         ? await indexMap(db, Array.isArray(body.chunks) ? body.chunks : null)

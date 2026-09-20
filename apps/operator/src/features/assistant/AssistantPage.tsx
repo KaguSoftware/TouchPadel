@@ -12,6 +12,7 @@ import { useLocale } from '../../lib/i18n';
 import { Kbd, PageHeader } from '../../components/kit';
 import { Button } from '../../components/ui';
 import { ConversationList } from './ConversationList';
+import { loadOpen, saveOpen } from './Disclosure';
 import { Thread } from './Thread';
 import { initialScopes, saveSessionConversation } from './scopes';
 
@@ -22,6 +23,9 @@ export function AssistantPageScreen() {
   const { id } = useParams({ strict: false }) as { id?: string };
   const conversationId = id ?? null;
   const [newScopes, setNewScopes] = useState<AssistantScope[]>(() => initialScopes('/assistant', staff?.id ?? ''));
+  // The chat list folds to a narrow strip (owner call 2026-09-21); a station preference like the workspace.
+  const [listOpen, setListOpen] = useState(() => loadOpen('page-list', true));
+  const toggleList = () => setListOpen((o) => { saveOpen('page-list', !o); return !o; });
 
   const goTo = (next: string | null) => {
     saveSessionConversation(next);
@@ -49,14 +53,27 @@ export function AssistantPageScreen() {
             </Link>
           </>
         }
-      >
-        {/* Decision 10: a re-check button on a saved answer is v1.1; say so rather than grey one out. */}
-        <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)' }}>{tr('ws.owner.assistant.recheckAbsent')}</p>
-      </PageHeader>
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(14rem, 18rem) minmax(0, 1fr)', gap: 'var(--tp-sp-4)', flex: 1, minBlockSize: 0 }}>
-        <aside style={{ borderInlineEnd: '1px solid var(--tp-border)', paddingInlineEnd: 'var(--tp-sp-3)', minBlockSize: 0, display: 'flex', flexDirection: 'column' }}>
-          <ConversationList activeId={conversationId} onSelect={(next) => goTo(next)} onNew={() => goTo(null)} onArchived={(archived) => archived === conversationId && goTo(null)} />
+      <div style={{ display: 'grid', gridTemplateColumns: listOpen ? 'minmax(14rem, 18rem) minmax(0, 1fr)' : 'auto minmax(0, 1fr)', gap: 'var(--tp-sp-4)', flex: 1, minBlockSize: 0 }}>
+        <aside data-chat-list={listOpen ? 'open' : 'closed'} style={{ borderInlineEnd: '1px solid var(--tp-border)', paddingInlineEnd: 'var(--tp-sp-3)', minBlockSize: 0, display: 'flex', flexDirection: 'column', gap: 'var(--tp-sp-2)' }}>
+          <Button
+            size="sm"
+            kind="ghost"
+            icon={listOpen ? 'chevronDown' : 'chevronEnd'}
+            onClick={toggleList}
+            aria-expanded={listOpen}
+            aria-label={tr(listOpen ? 'ws.owner.assistant.conversations.hideList' : 'ws.owner.assistant.conversations.showList')}
+            title={tr(listOpen ? 'ws.owner.assistant.conversations.hideList' : 'ws.owner.assistant.conversations.showList')}
+            style={{ justifySelf: 'start' }}
+          >
+            {listOpen ? tr('ws.owner.assistant.conversations.title') : ''}
+          </Button>
+          {listOpen ? (
+            <ConversationList activeId={conversationId} onSelect={(next) => goTo(next)} onNew={() => goTo(null)} onArchived={(archived) => archived === conversationId && goTo(null)} />
+          ) : (
+            <Button size="sm" kind="primary" icon="plus" onClick={() => goTo(null)} aria-label={tr('ws.owner.assistant.newChat')} title={tr('ws.owner.assistant.newChat')} />
+          )}
         </aside>
         <section aria-label={tr('ws.owner.assistant.title')} style={{ minBlockSize: 0, minInlineSize: 0 }}>
           <Thread conversationId={conversationId} onConversation={(next) => goTo(next)} newScopes={newScopes} onNewScopesChange={setNewScopes} autoFocus />

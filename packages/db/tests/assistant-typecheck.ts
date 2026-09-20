@@ -12,8 +12,10 @@ import * as estimate from '../supabase/functions/_shared/assistant/estimate.ts';
 import * as gate from '../supabase/functions/_shared/assistant/gate.ts';
 import * as handles from '../supabase/functions/_shared/assistant/handles.ts';
 import * as prompt from '../supabase/functions/_shared/assistant/prompt.ts';
+import * as recheck from '../supabase/functions/_shared/assistant/recheck.ts';
 import * as scopes from '../supabase/functions/_shared/assistant/scopes.ts';
 import * as sse from '../supabase/functions/_shared/assistant/sse.ts';
 import * as tools from '../supabase/functions/_shared/assistant/tools.ts';
+import * as groqWire from '../supabase/functions/_shared/assistant/groqWire.ts';
 
-export const ASSISTANT_PURE_MODULES = { clean, embed, estimate, gate, handles, prompt, scopes, sse, tools } as const;
+export const ASSISTANT_PURE_MODULES = { clean, embed, estimate, gate, groqWire, handles, prompt, recheck, scopes, sse, tools } as const;

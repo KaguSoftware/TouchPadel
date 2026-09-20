@@ -5,15 +5,17 @@
  * not in the table is priced at the blended fallback, and the page says
  * which ones were.
  */
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDate, formatMonthYear, formatNumber } from '@touch/i18n';
 import { useLocale } from '../../lib/i18n';
+import { useToast } from '../../components/toast';
 import { AsyncStateWrapper, DataTable, PageHeader, Panel, asyncStatus, type Column } from '../../components/kit';
-import { Button } from '../../components/ui';
+import { Button, ErrorText } from '../../components/ui';
 import { TOKEN_KINDS, formatTokens, formatUsd, isBlendedFallback, type PricingRates } from '../../lib/assistantPricing';
-import { QK, fetchConversations, fetchUsage, type UsageDay } from './api';
+import { QK, fetchConversations, fetchModels, fetchUsage, setDefaultModel, type UsageDay } from './api';
+import { ModelChoice, ModelError } from './ModelSwitch';
 
 const iso = (s: string) => `⁨${s}⁩`;
 
@@ -25,6 +27,9 @@ function monthBounds(year: number, month0: number): { from: string; to: string }
 
 export function UsagePageScreen() {
   const { tr, locale } = useLocale();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const defaultLeadId = useId();
   const now = new Date();
   const [ym, setYm] = useState<{ y: number; m: number }>({ y: now.getUTCFullYear(), m: now.getUTCMonth() });
   const bounds = useMemo(() => monthBounds(ym.y, ym.m), [ym]);
@@ -57,6 +62,16 @@ export function UsagePageScreen() {
     for (const c of convs.data ?? []) if (c.tokens.model && isBlendedFallback(c.tokens.model, pricing)) models.add(c.tokens.model);
     return [...models];
   }, [convs.data, pricing]);
+
+  // 0114: the venue default model, chosen from what the pricing table can bill.
+  const modelsQ = useQuery({ queryKey: QK.models, queryFn: fetchModels, staleTime: 5 * 60_000 });
+  const saveDefault = useMutation({
+    mutationFn: (model: string) => setDefaultModel(model),
+    onSuccess: () => {
+      toast.ok(tr('ws.owner.assistant.model.saved'));
+      void qc.invalidateQueries({ queryKey: QK.models });
+    },
+  });
 
   const cap = q.data?.cap;
   const capMicros = cap?.monthly_cap_micros ?? null;
@@ -145,6 +160,31 @@ export function UsagePageScreen() {
           </div>
         </Panel>
       )}
+
+      <Panel title={tr('ws.owner.assistant.model.defaultTitle')}>
+        <div data-default-model="" style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}>
+          <p id={defaultLeadId} style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-muted-fg)', margin: 0 }}>
+            {tr('ws.owner.assistant.model.defaultLead')}
+          </p>
+          {modelsQ.isLoading && <p style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', margin: 0 }}>{tr('ws.owner.assistant.model.loading')}</p>}
+          {modelsQ.isError && <ErrorText error={modelsQ.error} />}
+          {modelsQ.isSuccess && modelsQ.data.models.length === 0 && (
+            <p style={{ fontSize: 'var(--tp-fs-sm)', color: 'var(--tp-warn-fg)', margin: 0 }}>{tr('ws.owner.assistant.model.none')}</p>
+          )}
+          {modelsQ.data && modelsQ.data.models.length > 0 && (
+            <ModelChoice
+              models={modelsQ.data.models}
+              value={modelsQ.data.default_model}
+              onChange={(next) => {
+                if (next && next !== modelsQ.data.default_model) saveDefault.mutate(next);
+              }}
+              disabled={saveDefault.isPending}
+              aria-describedby={defaultLeadId}
+            />
+          )}
+          {saveDefault.isError && <ModelError error={saveDefault.error} />}
+        </div>
+      </Panel>
 
       {q.data && (
         <Panel title={tr('ws.owner.assistant.usage.pricingTitle')}>

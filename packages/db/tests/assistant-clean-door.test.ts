@@ -29,7 +29,7 @@ const files = [
     .flatMap((n) => walk(join(FUNCTIONS, n))),
 ].map((p) => ({ path: relative(FUNCTIONS, p), text: readFileSync(p, 'utf8') }));
 
-const PURE = ['tools', 'clean', 'handles', 'gate', 'estimate', 'sse', 'scopes', 'prompt', 'embed'].map((m) => `_shared/assistant/${m}.ts`);
+const PURE = ['tools', 'clean', 'handles', 'gate', 'estimate', 'sse', 'scopes', 'prompt', 'embed', 'recheck'].map((m) => `_shared/assistant/${m}.ts`);
 const DENO = ['_shared/assistant/provider.ts', '_shared/assistant/map.ts', 'assistant-chat/index.ts', 'assistant-index/index.ts', 'assistant-job/index.ts'];
 
 describe('the clean door', () => {
@@ -39,6 +39,7 @@ describe('the clean door', () => {
   });
 
   it('builds tool_result blocks in clean.ts only', () => {
+    // groqWire.ts READS tool_result blocks to translate them for Groq (it builds the type name from two words, never the literal).
     const offenders = files.filter((f) => f.path !== '_shared/assistant/clean.ts' && /type:\s*['"]tool_result['"]|"tool_result"|'tool_result'/.test(f.text));
     expect(offenders.map((f) => f.path)).toEqual([]);
   });
