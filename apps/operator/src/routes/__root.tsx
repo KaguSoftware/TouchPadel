@@ -29,6 +29,7 @@ import {
 } from 'react';
 import { useAuth, canAccess, homeRoute, type StaffRole } from '../lib/auth';
 import { useLocale } from '../lib/i18n';
+import { useThemeMode } from '../lib/themeMode';
 import {
   WORKSPACES,
   isNavActive,
@@ -63,6 +64,7 @@ import { StationSetupContainer } from '../features/setup/StationSetupContainer';
 import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
 import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
+import { AssistantDrawer, AssistantDrawerProvider, AssistantRailButton } from '../features/assistant/AssistantDrawer';
 import { formatPairingCode } from '@touch/core';
 
 export const rootRoute = createRootRoute({
@@ -376,6 +378,10 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           locks: the rail row starts a break, the overlay owns the station
           while somebody is away, and the idle lock defers to it. */}
       <BreakProvider>
+      {/* The owner assistant's drawer (docs/design/assistant §5.1) is one
+          sheet for the whole shell: the rail footer row and Ctrl/⌘ K open it,
+          and it is mounted once, beside the break overlay. */}
+      <AssistantDrawerProvider>
       <div
         data-workspace={active}
         style={{ display: 'flex', flexDirection: 'column', blockSize: '100vh', background: noNav ? 'var(--tp-kds-bg)' : 'var(--tp-bg)' }}
@@ -383,6 +389,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
         <SkipToMain />
         <IdleLock />
         <BreakOverlay />
+        <AssistantDrawer />
         {/* On the kitchen screen there is no rail, so the strip spans the
             window as it always has. Where there IS a rail it moves inside the
             content column instead — see below. */}
@@ -419,6 +426,7 @@ function WorkspaceShell({ role, venue }: { role: StaffRole; venue: HeartbeatStat
           </div>
         </div>
       </div>
+      </AssistantDrawerProvider>
       </BreakProvider>
     </WorkspaceContext.Provider>
   );
@@ -625,6 +633,7 @@ function WorkspaceNav({
   update: UpdateReadyInfo | null;
 }) {
   const { tr, toggleLocale, locale } = useLocale();
+  const { mode, toggleMode } = useThemeMode();
   const { staff, signOut } = useAuth();
   const { available } = useWorkspace();
   const station = touch.getStation();
@@ -828,9 +837,17 @@ function WorkspaceNav({
             <span>{tr('ws.shell.nav.switchWorkspace')}</span>
           </button>
         )}
+        {/* The owner assistant: owner only (it renders nothing otherwise). */}
+        <AssistantRailButton style={navButtonStyle} />
         <button type="button" className="tp-nav-item" onClick={toggleLocale} style={navButtonStyle}>
           <Icon name="globe" size={16} />
           <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
+        </button>
+        {/* The appearance switch sits with the language switch: both are
+            station preferences, both name where the press takes you. */}
+        <button type="button" className="tp-nav-item" onClick={toggleMode} style={navButtonStyle} aria-pressed={mode === 'blue'}>
+          <Icon name={mode === 'blue' ? 'sun' : 'moon'} size={16} />
+          <span>{tr(mode === 'blue' ? 'ws.shell.nav.lightMode' : 'ws.shell.nav.blueMode')}</span>
         </button>
         <button type="button" className="tp-nav-item" onClick={() => void signOut()} style={navButtonStyle}>
           <Icon name="logOut" size={16} />
@@ -1540,7 +1557,15 @@ function PairKitchenScreen() {
     setError(null);
     try {
       try {
-        await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
+        // verify_manager_pin RETURNS null for a wrong PIN (it raises only for a
+        // lockout or a non-staff caller). Treating that null as success cached the
+        // wrong PIN as observed and the shell's cache check then passed it: any
+        // PIN opened this gate while online. Refuse here, before the cache learns it.
+        const authorizer = await appRpc<string | null>('verify_manager_pin', {
+          p_pin: pin,
+          p_device_id: touch.getStation().stationId,
+        });
+        if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
         touch.pinObserved(pin);
       } catch (e) {
         // Offline: fall through to the cache check in main. A server REFUSAL
@@ -1703,6 +1728,7 @@ function signInFailure(err: unknown): SignInFailure {
 function SignInScreen() {
   const { signIn } = useAuth();
   const { tr, toggleLocale, locale, dir } = useLocale();
+  const { mode, toggleMode } = useThemeMode();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1805,15 +1831,14 @@ function SignInScreen() {
             inline-START — that is this panel's inner edge, which put it in
             the middle of the window beside the form. And not the top corner,
             where it crowded the window controls. */}
-        <Button
-          kind="ghost"
-          size="sm"
-          icon="globe"
-          onClick={toggleLocale}
-          style={{ position: 'absolute', insetBlockEnd: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)' }}
-        >
-          <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
-        </Button>
+        <div style={{ position: 'absolute', insetBlockEnd: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)', display: 'flex', gap: 'var(--tp-sp-1)' }}>
+          <Button kind="ghost" size="sm" icon={mode === 'blue' ? 'sun' : 'moon'} onClick={toggleMode} aria-pressed={mode === 'blue'}>
+            {tr(mode === 'blue' ? 'ws.shell.nav.lightMode' : 'ws.shell.nav.blueMode')}
+          </Button>
+          <Button kind="ghost" size="sm" icon="globe" onClick={toggleLocale}>
+            <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
+          </Button>
+        </div>
         {/* A till and a kitchen screen run frameless and non-closable, and the
             rail — the only other way out — is behind a sign-in. A station
             powered on by mistake, or signed out at the end of the night, was

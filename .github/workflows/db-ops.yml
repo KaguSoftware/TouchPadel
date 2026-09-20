@@ -30,6 +30,11 @@ concurrency:
   group: db-ops
   cancel-in-progress: false
 
+# Security audit S9 (2026-09-20): read-only GITHUB_TOKEN. The hosted project is
+# reached with its own secrets; nothing here writes to the repository.
+permissions:
+  contents: read
+
 jobs:
   run:
     name: ${{ inputs.task }}
@@ -46,7 +51,12 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned 2026-09-20 (audit S9): a `latest` CLI holding the production
+          # DB password changes under the workflow with no review. 2.116.0 is
+          # what ci.yml's db and e2e jobs have run green on since 2026-09-07, so
+          # every workflow now uses one version; the lockfile's 2.115.0 is the
+          # developer copy. Bump all five workflows together.
+          version: 2.116.0
 
       - name: Preflight — are the deploy secrets configured?
         env:

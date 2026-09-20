@@ -7,6 +7,7 @@
  * code for the i18n mapper (lib/errors.ts).
  */
 import type { Database } from '@touch/db';
+import { PIN_GATED_RPC_SET } from '@touch/core/schemas/mutations';
 import { supabase } from './supabase';
 
 export type AppFunctionName = keyof Database['app']['Functions'] & string;
@@ -59,6 +60,22 @@ export async function appRpc<T = unknown>(
   fn: AppFunctionName,
   args: Record<string, unknown> = {},
 ): Promise<T> {
+  // 0115 (S3): a manager PIN is proved to verify_manager_pin FIRST — its own
+  // round trip, so the attempt row commits whatever the money RPC does next and
+  // the 5-failure lockout engages. The RPC then consumes the single-use grant
+  // that verification minted; without it the RPC refuses PIN_GRANT_REQUIRED
+  // whatever the PIN, so nothing here is worth guessing at. PIN_INVALID and
+  // PIN_LOCKED surface from this first call exactly as they used to.
+  if (PIN_GATED_RPC_SET.has(fn) && typeof args.p_pin === 'string') {
+    const authorizer = await callAppRpc<string | null>('verify_manager_pin', {
+      p_pin: args.p_pin,
+      p_device_id: typeof args.p_device_id === 'string' ? args.p_device_id : null,
+    });
+    // verify_manager_pin RETURNS null for a wrong PIN (it raises only PIN_LOCKED
+    // and FORBIDDEN) — the attempt is already recorded; raise the code here so
+    // the prompt says "incorrect PIN", not "authorisation expired".
+    if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
+  }
   return callAppRpc<T>(fn, args);
 }
 

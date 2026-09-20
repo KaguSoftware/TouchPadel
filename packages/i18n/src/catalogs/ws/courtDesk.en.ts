@@ -393,7 +393,7 @@ export const courtDeskEn = {
     lead: 'Creates a real guest account the customer can later claim from the app.',
     name: 'Full name',
     phone: 'Phone',
-    phoneHint: 'Iraqi mobile, e.g. 0770 123 4567.',
+    phoneHint: 'Iraqi mobile, e.g. 0770 000 0001.',
     email: 'Email (optional)',
     language: 'Preferred language',
     submit: 'Create customer',

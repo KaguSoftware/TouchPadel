@@ -498,6 +498,10 @@ export interface DrillTransaction {
   label: string | null;
   amountIqd: number | null;
   staffName: string | null;
+  /** Who did it, as an id; the export writes it beside the name. */
+  staffId: string | null;
+  /** The tab, booking or movement the row belongs to, as the server sends it. */
+  reference: string | null;
   /** The facts behind `label`, when the server sends them (0102). */
   detail: Record<string, unknown> | null;
 }
@@ -511,6 +515,8 @@ export function readDrill(payload: unknown): DrillTransaction[] {
     label: str(t.label),
     amountIqd: num(t.amountIqd ?? t.amount_iqd),
     staffName: str(t.staffName),
+    staffId: str(t.staffId),
+    reference: str(t.reference),
     detail: obj(t.detail),
   }));
 }

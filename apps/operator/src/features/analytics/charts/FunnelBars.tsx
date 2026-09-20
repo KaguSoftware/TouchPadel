@@ -7,7 +7,7 @@ import type { MessageKey } from '@touch/i18n';
 import { useLocale } from '../../../lib/i18n';
 import type { FunnelStep } from '../shape';
 import type { Formatters } from '../format';
-import { BLUE } from './colors';
+import { useChartColors } from './colors';
 
 /** The four steps of the PostHog session funnel (analytics-posthog `funnel`), by their raw event names. */
 const STEP_KEYS: Record<string, MessageKey> = {
@@ -19,6 +19,7 @@ const STEP_KEYS: Record<string, MessageKey> = {
 };
 
 export function FunnelBars({ steps, f }: { steps: readonly FunnelStep[]; f: Formatters }) {
+  const { BLUE } = useChartColors();
   const { tr } = useLocale();
   const top = steps[0]?.sessions ?? 0;
   return (

@@ -1315,7 +1315,7 @@ drift, lint/typecheck/test/build, e2e EN+AR)**:
   does NOT count. So the Day 16 "works locally with no vendor" claim was never true — every
   `signInWithOtp` returned `Unsupported phone provider`. `config.toml` now carries a placeholder
   `[auth.sms.twilio]` block; GoTrue resolves `test_otp` numbers BEFORE any provider send, so vitest and
-  dev never reach Twilio. (b) The gate test fed a national shape `0770 999 0069` to
+  dev never reach Twilio. (b) The gate test fed a national shape `0770 000 0005` to
   `sms_send_gate(p_phone_e164)`, whose allow-list checks raw digits → `PHONE_NOT_ALLOWED`. The hook
   only ever passes E.164; the test now uses an E.164 variant.
 - `supabase/setup-cli` pinned to **2.116.0** in both CI jobs (was `latest`) so the types-drift check

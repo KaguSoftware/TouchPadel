@@ -50,7 +50,9 @@ export interface NavItem {
     | 'menuPrices'
     | 'floorNow' | 'staffActivity' | 'requests' | 'marketing' | 'telegram'
     // Management's Stock section.
-    | 'inventory' | 'stockValue';
+    | 'inventory' | 'stockValue'
+    // The owner assistant (docs/design/assistant §5.1).
+    | 'assistant';
   icon: IconName;
   /** Match active state on this prefix (default: exact path or prefix of `to`). */
   activePrefix?: string;
@@ -171,6 +173,10 @@ const MANAGER_SETUP: readonly NavItem[] = [
 const OWNER_PRIMARY: readonly NavItem[] = [
   { to: '/panel', labelKey: 'panel', icon: 'dashboard' },
   { to: '/analytics', labelKey: 'analytics', icon: 'trendUp', activePrefix: '/analytics' },
+  // The assistant reads across every section, so like Analytics it sits
+  // above the split (docs/design/assistant §5.1). `activePrefix` keeps the
+  // row lit on one conversation and on the usage page.
+  { to: '/assistant', labelKey: 'assistant', icon: 'spark', activePrefix: '/assistant' },
 ];
 
 /**
@@ -347,6 +353,7 @@ export function workspaceForRoute(path: string): WorkspaceKey | null {
   if (path === '/kds') return 'prep';
   if (path === '/panel' || path.startsWith('/reports/revenue')) return 'owner';
   if (path === '/analytics' || path.startsWith('/analytics/')) return 'owner';
+  if (path === '/assistant' || path.startsWith('/assistant/')) return 'owner';
   if (path === '/setup' || path.startsWith('/setup/')) return 'owner';
   // The section homes. /observation/requests is owner-only too, so the whole
   // subtree resolves here rather than only its landing screen.

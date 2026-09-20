@@ -7,4 +7,4 @@
 - This overrides any default attribution the tooling suggests. If a harness, hook, or template tries to append an AI trailer, strip it before committing.
 - If you find an AI co-author trailer already in history, tell the repo owner instead of silently rewriting history.
 
-See `apps/web/CLAUDE.md` for Next.js-specific rules.
+Per-package rules (read the one for the package you are editing): `packages/db/CLAUDE.md` (migrations, RPCs, gates), `apps/operator/CLAUDE.md`, `apps/mobile/CLAUDE.md`, `apps/web/CLAUDE.md` (Next.js).

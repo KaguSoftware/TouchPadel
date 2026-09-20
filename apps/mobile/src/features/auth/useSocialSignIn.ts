@@ -24,7 +24,7 @@ import {
   SocialAuthError,
   buildProfilePatch,
   mapSocialError,
-  needsProfileCompletion,
+  postSignInStep,
   type SocialProvider,
 } from './social';
 import { newNonce } from './providers/nonce';
@@ -126,20 +126,15 @@ export function useSocialSignIn(opts: { onComplete: () => void; disabled?: boole
             captureException(error, { scope: 'auth.social.name', provider });
           }
         }
-        const incomplete = needsProfileCompletion(profile);
-        addBreadcrumb('auth.social.success', { provider, incomplete });
-        if (incomplete) {
-          // D3: phone required before the flow continues. With a pending slot the
-          // (auth) layout is exempt from redirecting, so this hook must navigate
-          // (the slot stays put; the screen's save calls continueAfterAuth()).
-          // Without one the layout ALREADY routes an incomplete profile to
-          // complete-profile from derived state — a second replace here would
-          // re-key the route and remount the form, discarding anything typed.
-          if (getPendingSlot() !== null) {
-            router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
-          }
-          return;
+        // D3: phone required before the flow continues. The decision (and why
+        // the no-slot case navigates nowhere) is postSignInStep's, shared with
+        // the email sign-in so the two paths cannot drift.
+        const step = postSignInStep(profile, getPendingSlot() !== null);
+        addBreadcrumb('auth.social.success', { provider, incomplete: step !== 'continue' });
+        if (step === 'complete-profile') {
+          router.replace({ pathname: '/complete-profile', params: { returnTo: 'continue' } });
         }
+        if (step !== 'continue') return;
         onComplete();
       } catch (error) {
         const outcome = mapSocialError(error);

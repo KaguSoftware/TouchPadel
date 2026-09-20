@@ -165,6 +165,9 @@ export const shellEn = {
     requests: 'Requests',
     marketing: 'Marketing',
     telegram: 'Telegram',
+    // The owner assistant: a rail row on Management's own list and the drawer
+    // button in the rail footer share this label.
+    assistant: 'Assistant',
     groupOperations: 'Operations',
     groupRun: 'Run the day',
     groupRecords: 'Records',
@@ -183,6 +186,11 @@ export const shellEn = {
     leaveConfirm: 'Yes, go',
     language: 'العربية',
     languageAlt: 'English',
+    // The appearance switch. Like `language`, each label names the appearance
+    // the press takes you TO. Blue mode is the operator's "dark mode" — the
+    // brand blue as the ground rather than a dark gray (owner call, 2026-09-19).
+    blueMode: 'Blue mode',
+    lightMode: 'Light mode',
     signOut: 'Sign out',
     station: 'Station {id}',
     exitFullscreen: 'Exit forced full screen',

@@ -132,9 +132,9 @@ describe('readStaff / dayClosesOf', () => {
 });
 
 describe('readDrill', () => {
-  it('reads transactions and drops nothing the dialog shows', () => {
+  it('reads transactions and drops nothing the dialog or the export shows', () => {
     expect(readDrill({ transactions: [{ id: 't1', at: '2026-09-01T10:00:00Z', kind: 'refund', label: 'refund · spill · cash', amountIqd: 5000, staffId: 's', staffName: 'Dev', reference: 'x' }] })).toEqual([
-      { id: 't1', at: '2026-09-01T10:00:00Z', kind: 'refund', label: 'refund · spill · cash', amountIqd: 5000, staffName: 'Dev', detail: null },
+      { id: 't1', at: '2026-09-01T10:00:00Z', kind: 'refund', label: 'refund · spill · cash', amountIqd: 5000, staffName: 'Dev', staffId: 's', reference: 'x', detail: null },
     ]);
     // 0102: the structured detail passes through for the dialog to word.
     expect(readDrill({ transactions: [{ id: 't2', detail: { sub: 'refund', reason: 'spill', method: 'cash' } }] })[0]!.detail).toEqual({ sub: 'refund', reason: 'spill', method: 'cash' });

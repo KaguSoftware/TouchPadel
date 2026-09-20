@@ -57,8 +57,12 @@ describe('figuresToCsvRows', () => {
       ],
     });
     expect(figuresToCsvRows(m, (k) => k.toUpperCase())).toEqual([
-      ['REVENUE', 100, null, null, null],
-      ['ORDERS', 3, 2, 1, 50],
+      ['REVENUE', 'revenue', 'headline', 'money', 100, null, null, null],
+      ['ORDERS', 'orders', 'cafe', 'count', 3, 2, 1, 50],
     ]);
+  });
+  it('lets the screen word the group and the kind', () => {
+    const m = mapFigures({ figures: [{ key: 'waste', value: 7 }] });
+    expect(figuresToCsvRows(m, (k) => k, (g) => `G:${g}`, (k) => `K:${k}`)).toEqual([['waste', 'waste', 'G:losses', 'K:money', 7, null, null, null]]);
   });
 });

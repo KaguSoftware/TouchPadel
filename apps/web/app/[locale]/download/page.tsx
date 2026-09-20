@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { makeT } from '@touch/i18n';
-import { LOCALES, asLocale } from '@/lib/locales';
+import { LOCALES, requireLocale } from '@/lib/locales';
 
 /**
  * Staff download page for the operator desktop app — /{locale}/download.
@@ -32,7 +32,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
-  const locale = asLocale((await params).locale);
+  const locale = requireLocale((await params).locale);
   const tr = makeT(locale);
   return {
     title: tr('download.title'),
@@ -42,7 +42,7 @@ export async function generateMetadata({
 }
 
 export default async function DownloadPage({ params }: { params: Promise<{ locale: string }> }) {
-  const locale = asLocale((await params).locale);
+  const locale = requireLocale((await params).locale);
   const tr = makeT(locale);
   return (
     <div className="tp-cafe" data-theme="cafe">

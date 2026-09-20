@@ -30,6 +30,25 @@ export const MUTATION_TYPES = [
 
 export type MutationType = (typeof MUTATION_TYPES)[number];
 
+/**
+ * RPCs that take a manager PIN. Since migration 0115 they do not check the PIN
+ * themselves: the caller proves it to app.verify_manager_pin first (its own
+ * transaction, so the attempt persists and the lockout can engage) and the RPC
+ * consumes the single-use grant that verification minted. Every transport that
+ * calls one of these must verify first — apps/operator/src/lib/appRpc.ts,
+ * packages/db/tests/helpers.ts and functions/replay/index.ts do. The list is
+ * mirrored in functions/_shared/mutation-types.json for Deno; a test holds
+ * them equal.
+ */
+export const PIN_GATED_RPCS = [
+  'apply_discount',
+  'override_price',
+  'refund',
+  'void_after_send',
+  'write_off_expired',
+] as const;
+export const PIN_GATED_RPC_SET: ReadonlySet<string> = new Set(PIN_GATED_RPCS);
+
 /** Crockford base32, 26 chars (no I, L, O, U). */
 const ULID_SRC = '[0-9A-HJKMNP-TV-Z]{26}';
 /** Station / device id, e.g. 'TILL-01', 'DESK-01', 'KDS-01'. */

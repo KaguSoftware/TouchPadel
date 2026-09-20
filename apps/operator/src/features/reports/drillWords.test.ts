@@ -14,6 +14,8 @@ const tx = (detail: Record<string, unknown> | null, label = 'raw label'): DrillT
   label,
   amountIqd: 1000,
   staffName: null,
+  staffId: null,
+  reference: null,
   detail,
 });
 const words = (d: Record<string, unknown> | null, locale: Locale = 'en') =>

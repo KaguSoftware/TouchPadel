@@ -1,0 +1,23 @@
+{
+  "_readme": "The queued mutation types, ONE list for three copies: packages/core/src/schemas/mutations.ts MUTATION_TYPES, apps/operator/src/lib/mutate.ts DIRECT_RPC and functions/replay/index.ts MUTATION_RPCS. replay asserts against this file at boot (a mismatch fails the deploy); apps/operator/src/lib/mutate.test.ts asserts DIRECT_RPC and MUTATION_TYPES against it. Deno cannot import the core package, so this JSON is the shared artefact (PHASE-2 criticals, C4). pinGatedRpcs: the RPCs the replay function must verify_manager_pin for before dispatching (0115); mirrors packages/core PIN_GATED_RPCS.",
+  "types": [
+    "order.create",
+    "order.add_items",
+    "ticket.status",
+    "payment.record",
+    "reservation.create",
+    "reservation.update",
+    "waiter_call.action",
+    "stock.waste",
+    "tab.open",
+    "tab.settle",
+    "adjustment.apply"
+  ],
+  "pinGatedRpcs": [
+    "apply_discount",
+    "override_price",
+    "refund",
+    "void_after_send",
+    "write_off_expired"
+  ]
+}

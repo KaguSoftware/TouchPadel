@@ -1136,27 +1136,8 @@ export const matrix: MatrixRule[] = [
     note: 'staff devices only; PROBE device id never flips degraded mode',
     drop: 3,
   },
-  {
-    kind: 'rpc',
-    schema: 'app',
-    name: 'log_replay',
-    args: {
-      p_device_id: 'PROBE-RLS',
-      p_idempotency_key: 'PROBE:never-inserted',
-      p_entity: 'order',
-      p_result: 'not-a-result',
-    },
-    expect: ex<RpcExpectation>('guarded', {
-      anon: 'denied',
-      cashier: 'execute',
-      prep: 'execute',
-      court_desk: 'execute',
-      manager: 'execute',
-      owner: 'execute',
-    }),
-    note: 'invalid result fails INVALID_RESULT past the guard — nothing is inserted',
-    drop: 3,
-  },
+  // app.log_replay: dropped in 0114 (S5) — sync_replays is written only by the
+  // replay edge function as the service role; no client-callable rule remains.
   {
     kind: 'rpc',
     schema: 'app',
@@ -2463,4 +2444,54 @@ export const matrix: MatrixRule[] = [
   { kind: 'rpc', schema: 'app', name: 'booking_bill', args: { p_reservation_id: NIL_UUID }, expect: CASHIER_DESK_UP, drop: 10 },
   { kind: 'rpc', schema: 'app', name: 'booking_bill_states', args: { p_reservation_ids: [] }, expect: CASHIER_DESK_UP, drop: 10 },
   { kind: 'rpc', schema: 'app', name: 'unpaid_played_bookings', args: { p_day_session_id: NIL_UUID }, expect: MANAGER_UP, drop: 10 },
+
+  // ── 0108–0112: the owner assistant ───────────────────────────────────────
+  // Owner-only by decision (plan §12 DECIDE 5). Nil ids and an unknown tool
+  // name stop the owner past the guard with nothing written: CONVERSATION_NOT_FOUND,
+  // ASSISTANT_UNKNOWN_TOOL / ASSISTANT_NOT_COUNTABLE, JOB_NOT_FOUND; search,
+  // pricing and the meter are pure reads.
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_archive_conversation',
+    args: { p_id: NIL_UUID }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_set_scopes',
+    args: { p_id: NIL_UUID, p_scopes: ['howto'] }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_run_tool',
+    args: { p_tool: 'matrix_probe', p_args: {} }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_count',
+    args: { p_tool: 'matrix_probe', p_args: {} }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_search',
+    args: { p_query: 'matrix probe', p_embedding: null, p_kinds: null, p_limit: 1 }, expect: OWNER_ONLY, drop: 11,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'llm_price_micros',
+    args: { p_model: 'matrix', p_input: 0, p_cache_write: 0, p_cache_read: 0, p_output: 0 }, expect: OWNER_ONLY, drop: 11,
+  },
+  { kind: 'rpc', schema: 'app', name: 'assistant_usage', args: {}, expect: OWNER_ONLY, drop: 11 },
+  {
+    kind: 'rpc', schema: 'app', name: 'assistant_job_cancel',
+    args: { p_id: NIL_UUID }, expect: OWNER_ONLY, drop: 11,
+  },
+
+  // ── drop 12 · Phase 2 milestone 0 (criticals) ───────────────────────────────
+  {
+    kind: 'rpc', schema: 'app', name: 'phone_digits',
+    args: { p_phone: '٠٧٧٠ ١٢٣ ٤٥٦٧' },
+    expect: ex<RpcExpectation>('execute'),
+    note: '0116/S7: pure text folding, granted to anon+authenticated because the profiles_phone_format CHECK evaluates it as the writing role',
+    drop: 12,
+  },
+  {
+    kind: 'rpc', schema: 'app', name: 'retire_device',
+    args: { p_device_id: 'PROBE-RLS-NEVER' }, expect: OWNER_ONLY,
+    note: '0118/C2: owner ends a stale till hold on degraded mode; an unknown id fails DEVICE_NOT_FOUND past the guard',
+    drop: 12,
+  },
 ];

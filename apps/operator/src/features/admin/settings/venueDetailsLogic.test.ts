@@ -29,13 +29,14 @@ const saved: VenueAdminRow = {
   cancellation_window_hours: 12,
   hold_ttl_seconds: 300,
   protected_horizon_hours: 48,
+  heartbeat_stale_seconds: 45,
   max_booking_horizon_days: 180,
   max_live_holds_per_guest: 3,
 };
 
 describe('editing venue details', () => {
   it('starts the form from the saved values, the hold in minutes', () => {
-    expect(draftFromVenue(saved)).toEqual({ venueName: 'Touch Padel', phone: '', cancellationHours: '12', holdMinutes: '5', horizonDays: '180', maxHolds: '3' });
+    expect(draftFromVenue(saved)).toEqual({ venueName: 'Touch Padel', phone: '', cancellationHours: '12', holdMinutes: '5', horizonDays: '180', maxHolds: '3', protectedHours: '48', staleSeconds: '45' });
   });
 
   it('sends only what changed, in the server units', () => {

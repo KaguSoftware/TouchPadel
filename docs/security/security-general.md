@@ -276,6 +276,10 @@ Migration **0048** (booking hardening) and **0049** (replay idempotency), both 2
       does capture is `app.secrets` (the table-token secret's fallback store), `sms_sends`, `pin_attempts` and
       `rpc_replays`, uploaded as a 30-day artifact any repo reader can download — failed runs included. Delete the
       existing `ledger-snapshot-*` artifacts and dump the public ledger tables. The diff half stands. (M7)
+      ✔ *2026-09-20* **Code half done.** `db-migrate.yml` dumps the five public append-only ledgers (`audit_log`, `payments`,
+      `refunds`, `stock_movements`, `sync_replays`) via a catalog-driven exclusion list, artifact renamed `public-ledgers-<sha>`,
+      7-day retention, CLI pinned 2.116.0, `permissions: contents: read` on every workflow. Owner half (delete the old
+      `ledger-snapshot-*` artifacts, check `app.secrets` on hosted): runbook `docs/client/release-gate-2026-09-20.md` §4. (M7)
 - [x] **`timeout-minutes: 15` on `db-migrate`** — DONE, DEV, 2026-09-04. GitHub's default is 360 minutes. This is the outer bound; `lock_timeout = '3s'` is the real control. *(Layer 1 Block 3.)* (SEC-02 · DEV)
 - [ ] `[FREEZE]` Re-verify that required reviewers are still enabled on the `staging` GitHub Environment. It is an out-of-repo setting with no git trace, and it is the only thing between a merge to `main` and the client's production database. (SEC-02 · SEC)
 - [ ] ★ Bring the hosted project to the local migration head through that gated procedure. This has already

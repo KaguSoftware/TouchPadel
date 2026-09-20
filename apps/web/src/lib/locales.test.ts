@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asLocale, hrefForLocale, otherLocale } from './locales';
+import { asLocale, hrefForLocale, otherLocale, requireLocale } from './locales';
 
 describe('asLocale', () => {
   it('narrows to en, defaulting everything else to ar', () => {
@@ -40,5 +40,22 @@ describe('hrefForLocale', () => {
 
   it('handles the bare root', () => {
     expect(hrefForLocale('/', '', 'en')).toBe('/en/');
+  });
+});
+
+describe('requireLocale', () => {
+  it('returns a supported locale unchanged', () => {
+    expect(requireLocale('en')).toBe('en');
+    expect(requireLocale('ar')).toBe('ar');
+  });
+
+  it('refuses anything else with a 404 instead of coercing to Arabic', () => {
+    // notFound() throws Next's HTTP-fallback error; the digest is the contract
+    // the App Router keys on, so it is what is asserted, not the message.
+    for (const bad of ['api', 'x.y', '.well-known', '_next', 'fr', '', 'EN']) {
+      expect(() => requireLocale(bad), bad).toThrowError(
+        expect.objectContaining({ digest: expect.stringMatching(/^NEXT_HTTP_ERROR_FALLBACK;404/) }),
+      );
+    }
   });
 });

@@ -177,6 +177,32 @@ export function profileGateState(query: {
   return needsProfileCompletion(query.data) ? 'incomplete' : 'complete';
 }
 
+export type PostSignInStep = 'complete-profile' | 'await-gate' | 'continue';
+
+/**
+ * What a screen does once a password or social sign-in has landed and the
+ * profile row has been read. One decision for social (useSocialSignIn) and
+ * email sign-in (app/sign-in.tsx, 2026-09-20) so the D3 phone gate cannot
+ * differ between them:
+ *
+ *   continue          the profile is complete: welcome toast + continueAfterAuth.
+ *   complete-profile  incomplete AND a slot is pending: RequireNoSession is
+ *                     exempt from redirecting while the slot exists, so the
+ *                     screen must navigate itself (the slot stays put; the
+ *                     complete-profile save calls continueAfterAuth).
+ *   await-gate        incomplete, no slot: RequireNoSession ALREADY routes an
+ *                     incomplete profile to complete-profile from derived
+ *                     state — a second replace would re-key the route and
+ *                     remount the form, discarding anything typed. Do nothing.
+ */
+export function postSignInStep(
+  profile: { phone: string | null; full_name?: string | null } | null | undefined,
+  hasPendingSlot: boolean,
+): PostSignInStep {
+  if (!needsProfileCompletion(profile)) return 'continue';
+  return hasPendingSlot ? 'complete-profile' : 'await-gate';
+}
+
 /**
  * The trigger app.handle_new_user falls back to the email's local part for
  * full_name. Hide that fallback so the complete-profile name field shows its

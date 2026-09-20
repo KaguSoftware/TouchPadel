@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { LocaleProvider } from '../../../lib/i18n';
 import { makeFormatters } from '../format';
-import { HEAT_RAMP } from './colors';
+import { LIGHT_CHART_COLORS } from './colors';
 import { WeekHeatmap } from './WeekHeatmap';
+
+// Rendered without a ThemeModeProvider, so the light set is what paints.
+const { HEAT_RAMP } = LIGHT_CHART_COLORS;
 
 const f = makeFormatters('en');
 

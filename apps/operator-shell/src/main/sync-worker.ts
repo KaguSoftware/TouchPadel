@@ -18,7 +18,11 @@ import {
  *
  * Outcome map (mirrors the replay function's contract):
  *   200                  → ack(echo). 'duplicate' is an ack too — the server already
- *                          holds the result; re-sending is what the key is for.
+ *                          holds the result; re-sending is what the key is for —
+ *                          UNLESS prior_result is 'conflict': the server holds a
+ *                          terminal refusal for this key, so acking would report a
+ *                          settle or a discount as done that never applied (C1).
+ *                          That is a conflict, exactly as a fresh 409 is.
  *   409                  → markConflict(detail): the desk resolves manually, replay
  *                          of LATER rows continues (an exclusion clash on one
  *                          reservation must not stop tonight's food orders).
@@ -141,6 +145,13 @@ export function startSyncWorker(opts: SyncWorkerOptions): SyncWorker {
 
     if (res.ok) {
       noteTransportOk();
+      const dup = (body ?? {}) as { result?: unknown; prior_result?: unknown };
+      if (dup.result === 'duplicate' && dup.prior_result === 'conflict') {
+        // The key was already judged and refused. Never ack it as applied.
+        markConflict(row.idempotencyKey, body);
+        emit(row, 'conflict', { serverResult: body });
+        return true;
+      }
       ack(row.idempotencyKey, body);
       emit(row, 'acked', { serverResult: body });
       return true;

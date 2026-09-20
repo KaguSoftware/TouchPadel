@@ -101,13 +101,23 @@ export function panelIsEmpty(result: PanelHeadline | null | undefined): boolean 
   return figures.every((f) => f.value == null || f.value === 0);
 }
 
-/** One CSV row per known figure, raw numbers, in panel order. */
-export function figuresToCsvRows(figures: ReadonlyMap<FigureKey, HeadlineFigureRow>, labelOf: (key: FigureKey) => string): CsvCell[][] {
+/**
+ * One CSV row per known figure, raw numbers, in panel order: the label, then
+ * the server key, the group and the kind (so a reader can tell IQD from a
+ * count), then value, previous, change and change %.
+ */
+export function figuresToCsvRows(
+  figures: ReadonlyMap<FigureKey, HeadlineFigureRow>,
+  labelOf: (key: FigureKey) => string,
+  groupOf: (group: FigureGroup) => string = (g) => g,
+  kindOf: (kind: FigureMeta['kind']) => string = (k) => k,
+): CsvCell[][] {
   const rows: CsvCell[][] = [];
   for (const key of FIGURE_KEYS) {
     const f = figures.get(key);
     if (!f) continue;
-    rows.push([labelOf(key), f.value ?? null, f.previous ?? null, f.changeAbs ?? null, f.changePct ?? null]);
+    const meta = FIGURES[key];
+    rows.push([labelOf(key), key, groupOf(meta.group), kindOf(meta.kind), f.value ?? null, f.previous ?? null, f.changeAbs ?? null, f.changePct ?? null]);
   }
   return rows;
 }

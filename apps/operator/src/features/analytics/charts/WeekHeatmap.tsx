@@ -16,7 +16,7 @@ import { useState, type CSSProperties } from 'react';
 import { useLocale } from '../../../lib/i18n';
 import { weekdayName } from '../copy';
 import type { Formatters } from '../format';
-import { GRID, HEAT_RAMP, heatColor } from './colors';
+import { heatColor, useChartColors } from './colors';
 
 export interface HeatValue {
   dow: number;
@@ -53,6 +53,7 @@ export function WeekHeatmap({
   /** Idle readout text (what hovering will reveal). */
   hint: string;
 }) {
+  const { GRID, HEAT_RAMP } = useChartColors();
   const { tr } = useLocale();
   const byKey = new Map(cells.map((c) => [`${c.dow}:${c.hour}`, c]));
   const max = cells.reduce((m, c) => Math.max(m, c.open === false || c.thin ? 0 : c.value), 0);
@@ -130,6 +131,7 @@ function Row({
   active: string | null;
   onActive: (key: string | null) => void;
 }) {
+  const { GRID, HEAT_RAMP } = useChartColors();
   return (
     <>
       <span style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-muted-fg)', lineHeight: '1.1rem', paddingInlineEnd: 'var(--tp-sp-2)', whiteSpace: 'nowrap' }}>{label}</span>
@@ -152,7 +154,7 @@ function Row({
               blockSize: '1.1rem',
               ...(closed
                 ? closedGround
-                : { background: peak ? HEAT_RAMP[HEAT_RAMP.length - 1] : heatColor(max > 0 ? Math.min(1, value / max) : 0) }),
+                : { background: peak ? HEAT_RAMP[HEAT_RAMP.length - 1] : heatColor(HEAT_RAMP, max > 0 ? Math.min(1, value / max) : 0) }),
               opacity: thin ? 0.35 : undefined,
               border: `1px solid ${isActive ? 'var(--tp-accent)' : GRID}`,
               borderRadius: '2px',

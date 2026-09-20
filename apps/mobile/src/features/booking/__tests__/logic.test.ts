@@ -28,6 +28,7 @@ describe('error mapping', () => {
     expect(mapErrorToKey(new Error('DEGRADED_LOCKOUT'))).toBe('degraded.bookingRefusedShort');
     expect(mapErrorToKey(new Error('AUTH_REQUIRED'))).toBe('auth.sessionExpired');
     expect(mapErrorToKey(new Error('NO_RATE'))).toBe('booking.noRate');
+    expect(mapErrorToKey(new Error('PRICE_CHANGED'))).toBe('booking.priceChanged');
     expect(mapErrorToKey(new Error('SLOT_IN_PAST'))).toBe('booking.slotInPast');
     expect(mapErrorToKey(new Error('PIN_INVALID'))).toBe('auth.pinInvalid');
     // 0048/C1 + 0058 — all four used to fall through to 'errors.generic'.

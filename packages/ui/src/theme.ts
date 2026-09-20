@@ -17,6 +17,7 @@ import { fontVars } from './tokens/typography';
 import { fontFaceCss } from './fontFace';
 import { cafeBrandVars, dirVars, statusVars } from './tokens/cafeBrand';
 import { operatorVars } from './tokens/operator';
+import { OPERATOR_BLUE_MODE, operatorBlueVars } from './tokens/operatorBlue';
 
 function varsBlock(vars: Readonly<Record<string, string>>, indent = '  '): string {
   return Object.entries(vars)
@@ -44,6 +45,18 @@ function themeBlock(name: ThemeName): string {
   return `:root[data-theme='${name}'],\n[data-theme='${name}'] {\n${varsBlock(vars)}\n}`;
 }
 
+/**
+ * The operator's blue mode (tokens/operatorBlue.ts): the same theme with the
+ * brand blue moved into the ground. Keyed by a SECOND attribute on the same
+ * element rather than a fourth theme name, so every `[data-theme='operator']`
+ * rule in the app keeps matching and only the colours it names are replaced.
+ * Two attributes (0,3,0) out-specify the theme block (0,2,0) by construction.
+ */
+function operatorBlueBlock(): string {
+  const sel = `[data-theme='operator'][data-mode='${OPERATOR_BLUE_MODE}']`;
+  return `:root${sel},\n${sel} {\n  color-scheme: dark;\n${varsBlock(operatorBlueVars)}\n}`;
+}
+
 export const themeCss: string = [
   `/* Generated from @touch/ui tokens — do not edit by hand. */`,
   // The brand faces ride with the tokens, so every surface that inlines
@@ -58,6 +71,7 @@ export const themeCss: string = [
   themeBlock('padel'),
   themeBlock('cafe'),
   themeBlock('operator'),
+  operatorBlueBlock(),
   // Base ground: paint from tokens so an unthemed flash never shows raw UA colors.
   // Fallbacks are tokens, not raw #fff / #000: DESIGN.md forbids both, and an
   // unthemed flash is exactly the moment a raw value would be visible.

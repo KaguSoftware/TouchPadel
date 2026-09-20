@@ -238,6 +238,9 @@ export const ROUTE_ROLES: Record<string, readonly StaffRole[]> = {
   // Campaigns move money and speak to guests in the venue's name, so this is
   // the owner's alone — not manager, the way /admin/telegram already is.
   '/marketing': ['owner'],
+  // The owner assistant (docs/design/assistant, decision 5): the tool guards,
+  // the audit access and the money figures it reads are all owner-level.
+  '/assistant': ['owner'],
   '/workspaces': ['manager', 'owner'],
 };
 
