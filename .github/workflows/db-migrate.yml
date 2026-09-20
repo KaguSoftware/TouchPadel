@@ -27,6 +27,12 @@ concurrency:
   group: db-migrate
   cancel-in-progress: false # never cancel a running migration push
 
+# Security audit S9 (2026-09-20): read-only GITHUB_TOKEN. The push reaches the
+# hosted project through SUPABASE_ACCESS_TOKEN + the DB password, and the
+# snapshot artifact needs no token scope; nothing here writes to the repository.
+permissions:
+  contents: read
+
 jobs:
   staging:
     name: Push migrations to staging
@@ -63,7 +69,13 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned 2026-09-20 (audit S9): a `latest` CLI holding the production
+          # DB password changes under the workflow with no review — and this is
+          # the one job that writes to the client's database. 2.116.0 is what
+          # ci.yml's db and e2e jobs have run green on since 2026-09-07, so every
+          # workflow now uses one version; the lockfile's 2.115.0 is the
+          # developer copy. Bump all five workflows together.
+          version: 2.116.0
 
       # The hosted rollout is owner-run and the deploy secrets are deliberately
       # absent until then (see HANDOFF roadmap). An unconfigured repo must SKIP
@@ -143,21 +155,52 @@ jobs:
       # Security Layer 1, Block 3 (SEC-02): a data-only dump of the APPEND-ONLY
       # ledgers, taken BEFORE the push and retained as an artifact.
       #
-      # These four tables are the ones with no undo: audit_log, stock_ledger and
-      # payments have UPDATE and DELETE revoked precisely because they are the
-      # financial and accountability record. If a migration goes wrong against
-      # them there is no staging copy to compare with and no PITR rehearsal
-      # (D1/SEC-38) — this dump is the only "before" that will exist.
+      # The five public tables with an `*_ao` forbid_mutation trigger —
+      # audit_log, payments, refunds, stock_movements, sync_replays — are the
+      # ones with no undo: UPDATE and DELETE are revoked precisely because they
+      # are the financial and accountability record. If a migration goes wrong
+      # against them there is no staging copy to compare with and no PITR
+      # rehearsal (D1/SEC-38) — this dump is the only "before" that will exist.
       #
       # Data only, no schema: it is evidence, not a restore path.
+      #
+      # Until 2026-09-20 this dumped `--schema app` (audit M7 / plan S9). The
+      # ledgers live in `public`; what `app` holds is app.secrets (the
+      # table-token HMAC fallback), sms_sends phone numbers and pin_attempts,
+      # all of which went into an artifact any repo reader could download.
+      # `db dump` has no include-table flag — only `--schema` plus
+      # `-x schema.table`, each of which becomes a pg_dump --exclude-table
+      # (verify with --dry-run) — so the exclusion list is read from the live
+      # catalog on every run: every public base table that is not a ledger.
+      # A table added tomorrow is therefore excluded by default instead of
+      # leaking by default, and a listing that cannot be parsed takes no
+      # snapshot at all. `db query` goes through the Management API, so it
+      # needs the link and the access token but not the DB password.
       - name: Ledger snapshot before the push
         if: steps.preflight.outputs.configured == 'true'
         working-directory: packages/db
         continue-on-error: true
         run: |
-          set -o pipefail
-          supabase db dump --linked --data-only \
-            --schema app \
+          set -euo pipefail
+          ledgers="audit_log payments refunds stock_movements sync_replays"
+          quoted=$(printf "'%s'," $ledgers); quoted=${quoted%,}
+          others="from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' and table_name not in ($quoted)"
+          # One statement (`db query` returns only the last result): a marked
+          # row per table to exclude, plus a count row to check the parse
+          # against, so a wrapped or truncated listing fails closed.
+          if ! listing=$(supabase db query --linked "select 'x:' || table_name as t $others union all select 'n:' || count(*) $others"); then
+            echo "::error title=Ledger snapshot skipped::could not list the public tables; nothing was dumped"
+            exit 1
+          fi
+          mapfile -t exclude < <(grep -oE '\bx:[a-z0-9_]+' <<<"$listing" | cut -c3- | sort -u)
+          expected=$(grep -oE '\bn:[0-9]+' <<<"$listing" | head -1 | cut -c3- || true)
+          if [ -z "$expected" ] || [ "$expected" -lt 1 ] || [ "${#exclude[@]}" -ne "$expected" ]; then
+            echo "::error title=Ledger snapshot skipped::parsed ${#exclude[@]} tables to exclude but the catalog says '${expected:-?}'; nothing was dumped"
+            exit 1
+          fi
+          echo "dumping: $ledgers (excluding ${#exclude[@]} other public tables)"
+          supabase db dump --linked --data-only --schema public \
+            -x "$(printf 'public.%s,' "${exclude[@]}" | sed 's/,$//')" \
             -f ledger-snapshot.sql 2>&1 | tail -5
           ls -lh ledger-snapshot.sql
 
@@ -165,12 +208,15 @@ jobs:
         if: steps.preflight.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: ledger-snapshot-${{ github.sha }}
+          # Renamed from ledger-snapshot-* on 2026-09-20 so the pre-fix artifacts
+          # (the `app` schema) can be deleted by name without touching these.
+          name: public-ledgers-${{ github.sha }}
           path: packages/db/ledger-snapshot.sql
-          # Long enough to cover a dispute that surfaces weeks later; short
-          # enough that guest data is not retained indefinitely in CI storage
-          # (the retention policy lands in security-general.md phase 8).
-          retention-days: 30
+          # A migration that damages a ledger shows up within the first service
+          # day or two; a week covers the diff-and-decide window. Audit rows
+          # still name guests and devices, so the file does not sit in CI
+          # storage for a month (2026-09-20, was 30).
+          retention-days: 7
           if-no-files-found: warn
 
       # `--yes` because this is non-interactive (the CLI otherwise prompts on a
@@ -200,7 +246,7 @@ jobs:
   #     - uses: actions/checkout@v4
   #     - uses: supabase/setup-cli@v1
   #       with:
-  #         version: latest
+  #         version: 2.116.0 # keep equal to the staging job's pin
   #     - name: Link to production project
   #       working-directory: packages/db
   #       run: supabase link --project-ref "${{ secrets.PROJECT_REF_PROD }}"

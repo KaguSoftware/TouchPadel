@@ -691,6 +691,7 @@ export type Database = {
         Args: { p_order_item_id: string; p_ticket_id?: string }
         Returns: undefined
       }
+      consume_pin_grant: { Args: { p_device_id?: string }; Returns: string }
       court_fee_paid: {
         Args: { p_exclude_tab_id?: string; p_reservation_id: string }
         Returns: number
@@ -909,16 +910,6 @@ export type Database = {
           }
       llm_usage_summary: { Args: never; Returns: Json }
       lock_court: { Args: { p_court_id: string }; Returns: undefined }
-      log_replay: {
-        Args: {
-          p_conflict_detail?: Json
-          p_device_id: string
-          p_entity: string
-          p_idempotency_key: string
-          p_result: string
-        }
-        Returns: Json
-      }
       mark_reservation: {
         Args: {
           p_reason?: string
@@ -1002,6 +993,7 @@ export type Database = {
       phone_canon: { Args: { p_phone: string }; Returns: string }
       phone_digits: { Args: { p_phone: string }; Returns: string }
       pin_delay_floor: { Args: never; Returns: string }
+      pin_grant_ttl: { Args: never; Returns: string }
       pin_is_weak: { Args: { p_pin: string }; Returns: boolean }
       pin_pad_to_floor: { Args: { p_started: string }; Returns: undefined }
       preview_series: {
@@ -1158,6 +1150,7 @@ export type Database = {
         Returns: Record<string, unknown>
       }
       resolve_waiter_call: { Args: { p_call_id: string }; Returns: Json }
+      retire_device: { Args: { p_device_id: string }; Returns: Json }
       retry_telegram_outbox: { Args: { p_id: number }; Returns: undefined }
       revoke_user_sessions: { Args: { p_user_id: string }; Returns: number }
       rotate_table_token: { Args: { p_table_id: string }; Returns: number }

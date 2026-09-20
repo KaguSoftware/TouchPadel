@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { makeT } from '@touch/i18n';
-import { asLocale } from '@/lib/locales';
+import { requireLocale } from '@/lib/locales';
 import { getCachedCafeSettings, getCachedMenu, getCachedVenue } from '@/lib/menu.server';
 import { CafeApp } from '@/components/cafe/CafeApp';
 import { TABLE_COOKIE } from '@/lib/security/headers';
@@ -30,7 +30,7 @@ import { TABLE_COOKIE } from '@/lib/security/headers';
  *
  * So what the exchange actually bought is precise, and worth stating plainly:
  *   FIXED     the token no longer sits in the address bar, so it is no longer
- *             sent in `Referer` to Google Fonts or PostHog, no longer captured
+ *             sent in `Referer` to PostHog or the image CDN, no longer captured
  *             as `$current_url`, no longer written to browser history, and no
  *             longer visible in a screenshot or a shared link.
  *   NOT FIXED an XSS in this app could still read the token out of the RSC
@@ -49,7 +49,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
-  const locale = asLocale((await params).locale);
+  const locale = requireLocale((await params).locale);
   const tr = makeT(locale);
   return {
     title: tr('seo.tableTitle'),
@@ -74,7 +74,7 @@ export default async function TableSessionPage({
 
   return (
     <CafeApp
-      locale={asLocale(rawLocale)}
+      locale={requireLocale(rawLocale)}
       token={token}
       initialMenu={menuResult.categories}
       menuStatus={menuResult.status}

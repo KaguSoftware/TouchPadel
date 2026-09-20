@@ -8,10 +8,18 @@
  *  - applied                    -> RPC result echo, HTTP 200, sync_replays 'applied'
  *  - exclusion conflict (23P01 / SLOT_TAKEN) -> HTTP 409, sync_replays 'conflict'
  *    + manager_alerts('replay_conflict') — the desk resolves manually, no overwrite
+ *  - transient (serialization, deadlock, lock/statement timeout, pool, connection)
+ *                               -> HTTP 503 { result: 'retry' }, NOTHING recorded: the
+ *    write was never judged, and a sync_replays row here would turn the till's
+ *    retry into a 'duplicate' ack of a settle that never happened (C1)
+ *  - PIN-gated types (adjustment.apply): verify_manager_pin runs first as the staff
+ *    session (0115) so the lockout counts; its refusal is handled like the RPC's
  *  - anything else (validation, forbidden, ...) -> mapped error, AND a
  *    sync_replays row (result 'conflict' with the error detail): a queued write
  *    must never vanish without a durable trace — the till still marks the queue
- *    row failed and surfaces it, but the server keeps the record.
+ *    row failed and surfaces it, but the server keeps the record. Secrets in
+ *    the payload (a manager PIN on adjustment.apply) are redacted before the
+ *    record is written or echoed (S2).
  *
  * AuthZ: the request must carry a STAFF session JWT. The RPC dispatch reuses
  * that JWT (a client bound to the caller's Authorization header) so every
@@ -23,7 +31,9 @@ import {
   createServiceClient,
   getCallerUserId,
 } from '../_shared/supabase.ts';
-import { json, mapPgError, isExclusionConflict, type PgError } from '../_shared/http.ts';
+import { json, mapPgError, isExclusionConflict, isRetryablePgError, type PgError } from '../_shared/http.ts';
+import { redactSecrets } from '../_shared/redact.ts';
+import mutationTypes from '../_shared/mutation-types.json' with { type: 'json' };
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 // ---------------------------------------------------------------------------
@@ -222,6 +232,17 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
  * jsonb shape app.add_order_items reads: variant_id / qty / notes /
  * modifiers[{modifier_id, qty}].
  */
+// Parity with the shared list (C4): a type added in one place and not the
+// other fails this function at BOOT, which fails the deploy loudly instead of a
+// 400 on the first real replay of the missing type.
+{
+  const here = Object.keys(MUTATION_RPCS).sort();
+  const shared = [...mutationTypes.types].sort();
+  if (JSON.stringify(here) !== JSON.stringify(shared)) {
+    throw new Error(`replay MUTATION_RPCS drifted from _shared/mutation-types.json: ${JSON.stringify({ here, shared })}`);
+  }
+}
+
 function orderItems(p: any): unknown[] {
   const items = Array.isArray(p?.items) ? p.items : [];
   return items.map((it: any) => ({
@@ -293,7 +314,7 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (dup.error) return json({ error: dup.error.message }, 500);
   if (dup.data) {
-    return json({ result: 'duplicate', prior_result: dup.data.result, echo: dup.data.conflict_detail });
+    return json({ result: 'duplicate', prior_result: dup.data.result, echo: redactSecrets(dup.data.conflict_detail) });
   }
 
   const routeFor = MUTATION_RPCS[mutation_type];
@@ -361,9 +382,31 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: req.headers.get('Authorization')! } },
     },
   );
-  const { data: rpcResult, error: rpcError } = await asStaff
-    .schema('app')
-    .rpc(route.rpc, route.args(effectivePayload, ctx));
+  // 0115 (S3): a queued PIN-gated mutation still carries the typed PIN. Prove
+  // it to verify_manager_pin FIRST, as the staff session — its own statement, so
+  // the attempt persists whatever the money RPC does next — and let the RPC
+  // consume the grant that verification minted. A refusal here (PIN_INVALID,
+  // PIN_LOCKED) is terminal for the row and is recorded below exactly like any
+  // other RPC refusal; a transient error is retried like any other.
+  let rpcResult: unknown = null;
+  let rpcError: PgError | null = null;
+  const queuedPin = (effectivePayload as { pin?: unknown } | null)?.pin;
+  if (mutationTypes.pinGatedRpcs.includes(route.rpc) && typeof queuedPin === 'string') {
+    const verified = await asStaff
+      .schema('app')
+      .rpc('verify_manager_pin', { p_pin: queuedPin, p_device_id: station_id });
+    if (verified.error) rpcError = verified.error as PgError;
+    // A wrong PIN RETURNS null (the attempt is already recorded); make it the
+    // same terminal refusal the RPC used to raise.
+    else if (verified.data === null) rpcError = { code: 'P0001', message: 'PIN_INVALID' };
+  }
+  if (!rpcError) {
+    const dispatched = await asStaff
+      .schema('app')
+      .rpc(route.rpc, route.args(effectivePayload, ctx));
+    rpcResult = dispatched.data;
+    rpcError = (dispatched.error as PgError | null) ?? null;
+  }
 
   // NOTE on sync_replays: canonical DDL (design-data §1.9) has `conflict_detail
   // jsonb`; this endpoint uses that column as the generic result echo for ALL
@@ -393,16 +436,22 @@ Deno.serve(async (req) => {
 
   if (rpcError) {
     const pgErr = rpcError as PgError;
+    // Transient: the write was never judged. Record NOTHING (see header) and
+    // answer 503 so the worker releases the row to pending with backoff.
+    if (isRetryablePgError(pgErr)) {
+      const mapped = mapPgError(pgErr);
+      return json({ result: 'retry', ...mapped }, mapped.status);
+    }
     if (isExclusionConflict(pgErr)) {
       const detail = {
         code: 'SLOT_TAKEN',
         message: pgErr.message,
         details: pgErr.details ?? null,
         mutation_type,
-        payload,
+        payload: redactSecrets(payload),
       };
       const prior = await record('conflict', detail);
-      if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: prior.conflict_detail });
+      if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: redactSecrets(prior.conflict_detail) });
       // Surface to the desk: shows a conflict rather than an overwrite (SoW).
       const alert = await service.from('manager_alerts').insert({
         kind: 'replay_conflict',
@@ -426,11 +475,11 @@ Deno.serve(async (req) => {
       message: pgErr.message,
       details: pgErr.details ?? null,
       mutation_type,
-      payload,
+      payload: redactSecrets(payload),
     };
     const priorErr = await record('conflict', errDetail);
     if (priorErr) {
-      return json({ result: 'duplicate', prior_result: priorErr.result, echo: priorErr.conflict_detail });
+      return json({ result: 'duplicate', prior_result: priorErr.result, echo: redactSecrets(priorErr.conflict_detail) });
     }
     return json({ result: 'error', ...mapped }, mapped.status);
   }
@@ -439,7 +488,7 @@ Deno.serve(async (req) => {
   // already existed (e.g. an online race): record the truthful outcome.
   const wasDuplicate = !!(rpcResult && typeof rpcResult === 'object' && (rpcResult as any).duplicate);
   const prior = await record(wasDuplicate ? 'duplicate' : 'applied', rpcResult);
-  if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: prior.conflict_detail });
+  if (prior) return json({ result: 'duplicate', prior_result: prior.result, echo: redactSecrets(prior.conflict_detail) });
 
   return json({ result: wasDuplicate ? 'duplicate' : 'applied', echo: rpcResult });
 });

@@ -109,8 +109,34 @@ export async function shapedGuest(
   return { id: data.user.id, email, client: await signedInClient(email) };
 }
 
-/** Call an app-schema RPC. */
-export function appRpc(c: SupabaseClient, fn: string, args: Record<string, unknown>) {
+/**
+ * RPCs that consume a manager-PIN grant since 0115 (mirrors packages/core
+ * PIN_GATED_RPCS; the operator wrapper does the same). A suite that wants the
+ * RAW behaviour — no grant, PIN_GRANT_REQUIRED — calls c.schema('app').rpc
+ * directly, as pin-grants.test.ts does.
+ */
+const PIN_GATED_RPCS = new Set(['apply_discount', 'override_price', 'refund', 'void_after_send', 'write_off_expired']);
+
+/**
+ * Call an app-schema RPC. For a PIN-gated RPC carrying p_pin it proves the PIN
+ * to app.verify_manager_pin first (its own round trip, so the attempt commits
+ * and the lockout counts — 0115), exactly as every production client does; a
+ * refusal there is returned in the same { data, error } shape.
+ */
+export async function appRpc(c: SupabaseClient, fn: string, args: Record<string, unknown>) {
+  if (PIN_GATED_RPCS.has(fn) && typeof args.p_pin === 'string') {
+    const verified = await c.schema('app').rpc('verify_manager_pin', {
+      p_pin: args.p_pin,
+      p_device_id: typeof args.p_device_id === 'string' ? args.p_device_id : null,
+    });
+    if (verified.error) return verified;
+    // A wrong PIN RETURNS null; hand back the refusal the RPC used to raise, in
+    // the same { data, error } shape the suites destructure.
+    if (verified.data === null) {
+      const refused = { data: null, error: { message: 'PIN_INVALID', code: 'P0001', details: null, hint: null } };
+      return refused as unknown as typeof verified;
+    }
+  }
   return c.schema('app').rpc(fn, args);
 }
 

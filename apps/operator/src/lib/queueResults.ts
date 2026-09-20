@@ -11,23 +11,30 @@
  *   3. notifies terminal-result listeners (the root banner/toast for
  *      conflict/failed rows the cashier must see).
  */
-import type { QueryClient } from '@tanstack/react-query';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import { touch, type MutationResult, type Unsub } from '../ipc/bridge';
+import { QK, RESERVATION_LIST_KEYS } from './queryKeys';
 
-/** Query keys each mutation type invalidates on ANY terminal result. */
-export const RESULT_INVALIDATIONS: Record<string, readonly (readonly string[])[]> = {
-  'order.create': [['tab'], ['tabs']],
-  'order.add_items': [['tab'], ['tabs']],
-  'tab.open': [['tabs'], ['bookingBill'], ['bookingBillStates']],
-  'tab.settle': [['tab'], ['tabs'], ['day'], ['bookingBill'], ['bookingBillStates']],
-  'payment.record': [['tab'], ['tabs'], ['day'], ['bookingBill'], ['bookingBillStates']],
-  'ticket.status': [['tickets']],
-  'adjustment.apply': [['tab'], ['tabs']],
-  'reservation.create': [['reservations'], ['reservationsMonth']],
+/**
+ * Query keys each mutation type invalidates on ANY terminal result. Every
+ * entry is a registry key or family root from lib/queryKeys.ts — the screens
+ * read through the same registry, so a renamed key fails typecheck here
+ * instead of quietly invalidating nothing (the literals lived here until
+ * 2026-09-20, mirrored by comment only).
+ */
+export const RESULT_INVALIDATIONS: Record<string, readonly QueryKey[]> = {
+  'order.create': [QK.tab.all, QK.tabs],
+  'order.add_items': [QK.tab.all, QK.tabs],
+  'tab.open': [QK.tabs, QK.bookingBill.all, QK.bookingBillStates.all],
+  'tab.settle': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all],
+  'payment.record': [QK.tab.all, QK.tabs, QK.day, QK.bookingBill.all, QK.bookingBillStates.all],
+  'ticket.status': [QK.tickets],
+  'adjustment.apply': [QK.tab.all, QK.tabs],
+  'reservation.create': RESERVATION_LIST_KEYS,
   // A move or extend re-prices the booking, so its bill moves with it (0106).
-  'reservation.update': [['reservations'], ['reservationsMonth'], ['bookingBill'], ['bookingBillStates']],
-  'waiter_call.action': [['waiterCalls']],
-  'stock.waste': [['stock']],
+  'reservation.update': [...RESERVATION_LIST_KEYS, QK.bookingBill.all, QK.bookingBillStates.all],
+  'waiter_call.action': [QK.waiterCalls],
+  'stock.waste': [QK.stock.all],
 };
 
 const waiters = new Map<string, (r: MutationResult) => void>();

@@ -385,7 +385,7 @@ export const courtDeskAr: DeepMessages<typeof courtDeskEn> = {
     lead: 'ينشئ حساب ضيف حقيقياً يمكن للزبون المطالبة به لاحقاً من التطبيق.',
     name: 'الاسم الكامل',
     phone: 'الهاتف',
-    phoneHint: 'رقم عراقي، مثل 0770 123 4567.',
+    phoneHint: 'رقم عراقي، مثل 0770 000 0001.',
     email: 'البريد (اختياري)',
     language: 'اللغة المفضلة',
     submit: 'إنشاء الزبون',

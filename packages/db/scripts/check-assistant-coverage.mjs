@@ -38,6 +38,7 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import {
   CHUNK_KINDS,
   PATHS,
@@ -62,7 +63,9 @@ const edge = inventoryEdgeFunctions();
 const cron = inventoryCron(migrations);
 const docs = inventoryDocs();
 
-const catalog = await import(PATHS.catalog);
+// file:// URL, not a bare path: on Windows an absolute path starts with a drive
+// letter and Node's ESM loader rejects it (ERR_UNSUPPORTED_ESM_URL_SCHEME).
+const catalog = await import(pathToFileURL(PATHS.catalog).href);
 const toolByName = new Map(catalog.ASSISTANT_TOOLS.map((t) => [t.name, t]));
 const toolByRpc = new Map(catalog.ASSISTANT_TOOLS.filter((t) => t.rpc).map((t) => [t.rpc, t]));
 

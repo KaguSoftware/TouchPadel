@@ -7,6 +7,7 @@ import type { Database } from '@touch/db';
 import type { Locale } from '@touch/i18n';
 
 import { clearPushToken } from '../profile/api';
+import { isValidEmail } from './emailAuth';
 
 type Client = SupabaseClient<Database>;
 
@@ -24,6 +25,7 @@ type Client = SupabaseClient<Database>;
  * lands the phone's browser on a port nothing is listening on.
  */
 export const VERIFY_REDIRECT = 'touchpadel://verify-email';
+export const RESET_REDIRECT = 'touchpadel://reset-password';
 
 export interface SignUpArgs {
   firstName: string;
@@ -39,13 +41,23 @@ export function fullNameOf(firstName: string, lastName: string): string {
   return [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
 }
 
+/** The metadata app.handle_new_user builds the profiles row from, shared by both sign-ups. */
+function signUpMetadata(args: SignUpArgs) {
+  return {
+    full_name: fullNameOf(args.firstName, args.lastName),
+    given_name: args.firstName.trim(),
+    family_name: args.lastName.trim(),
+    phone: args.phone,
+    preferred_lang: args.preferredLang,
+  };
+}
+
 /**
- * Phone + password sign-up (owner decision 2026-09-15: phone is the only way
- * to create an account; email sign-up is gone). With [auth.sms]
- * enable_confirmations on, GoTrue creates the user UNCONFIRMED and sends a
- * code through the Send SMS hook; verifyPhoneOtp confirms it and returns the
- * session. The DB trigger app.handle_new_user creates the profiles row from
- * this metadata (full_name / phone / preferred_lang) at insert time.
+ * Phone + password sign-up (owner decision 2026-09-15; the default method).
+ * With [auth.sms] enable_confirmations on, GoTrue creates the user UNCONFIRMED
+ * and sends a code through the Send SMS hook; verifyPhoneOtp confirms it and
+ * returns the session. The DB trigger app.handle_new_user creates the profiles
+ * row from this metadata (full_name / phone / preferred_lang) at insert time.
  *
  * Signing up again with a number that never confirmed re-sends the code and
  * replaces the password; a CONFIRMED number is refused (isPhoneTaken).
@@ -54,15 +66,37 @@ export async function signUpWithPhone(client: Client, args: SignUpArgs) {
   const { data, error } = await client.auth.signUp({
     phone: args.phone,
     password: args.password,
-    options: {
-      data: {
-        full_name: fullNameOf(args.firstName, args.lastName),
-        given_name: args.firstName.trim(),
-        family_name: args.lastName.trim(),
-        phone: args.phone,
-        preferred_lang: args.preferredLang,
-      },
-    },
+    options: { data: signUpMetadata(args) },
+  });
+  if (error) throw error;
+  return data;
+}
+
+export interface EmailSignUpArgs extends SignUpArgs {
+  email: string;
+}
+
+/**
+ * Email + password sign-up, restored beside phone on 2026-09-20 (Phase 2
+ * plan, O2). With email confirmations on, GoTrue creates the user UNCONFIRMED,
+ * mails a PKCE link to `redirectTo`, and the exchange in useAuthDeepLink
+ * lands the session; with confirmations off the session comes back here. The
+ * phone is still carried (the sign-up form requires it, spec 05.3) so the
+ * trigger writes it and the guest never meets PHONE_REQUIRED at confirm.
+ *
+ * With confirmations on, an address that already has a CONFIRMED account is
+ * NOT an error: GoTrue answers with an identity-less user instead (see
+ * emailAuth.signUpHidExistingEmail).
+ */
+export async function signUpWithEmail(
+  client: Client,
+  args: EmailSignUpArgs,
+  redirectTo = VERIFY_REDIRECT,
+) {
+  const { data, error } = await client.auth.signUp({
+    email: args.email.trim(),
+    password: args.password,
+    options: { emailRedirectTo: redirectTo, data: signUpMetadata(args) },
   });
   if (error) throw error;
   return data;
@@ -76,8 +110,8 @@ export async function signInWithPhone(client: Client, phoneE164: string, passwor
 }
 
 /**
- * Email + password proof, kept for change-password on accounts created before
- * phone sign-up (and staff): nothing in the guest UI signs in by email any more.
+ * Email + password sign-in: the guest sign-in's email segment (2026-09-20),
+ * staff, and change-password's proof for accounts created before 2026-09-15.
  */
 export async function signIn(client: Client, email: string, password: string) {
   const { data, error } = await client.auth.signInWithPassword({
@@ -100,6 +134,18 @@ export async function resendVerification(
     // Site URL again -- the resend button would "work" and still dead-end.
     options: { emailRedirectTo: redirectTo },
   });
+  if (error) throw error;
+}
+
+/**
+ * Forgot password, by email: GoTrue mails a recovery PKCE link to `redirectTo`.
+ * The exchange (useAuthDeepLink) both signs the guest in and marks the
+ * recovery session that lets app/reset-password.tsx render its form. GoTrue
+ * answers success whether or not the address has an account, so the screen
+ * must not claim to know either (spec 05.7).
+ */
+export async function sendPasswordReset(client: Client, email: string, redirectTo = RESET_REDIRECT) {
+  const { error } = await client.auth.resetPasswordForEmail(email.trim(), { redirectTo });
   if (error) throw error;
 }
 
@@ -133,6 +179,7 @@ export async function signOut(client: Client) {
 export type SignUpValidation =
   | 'FIRST_NAME_REQUIRED'
   | 'LAST_NAME_REQUIRED'
+  | 'EMAIL_INVALID'
   | 'PHONE_REQUIRED'
   | 'PASSWORD_TOO_SHORT'
   | null;
@@ -140,18 +187,22 @@ export type SignUpValidation =
 export const PASSWORD_MIN = 8;
 
 /**
- * In the form's order — first name, surname, phone, password — so the guest is
- * corrected top to bottom. The phone's LENGTH rule is the phone field's own
- * (validatePhoneInput), checked by the screen after this.
+ * In the form's order — first name, surname, (email), phone, password — so
+ * the guest is corrected top to bottom. `email` is checked only when the form
+ * has an email field (the email segment); the phone segment passes none. The
+ * phone's LENGTH rule is the phone field's own (validatePhoneInput), checked by
+ * the screen after this.
  */
 export function validateSignUp(args: {
   firstName: string;
   lastName: string;
+  email?: string;
   phoneNational: string;
   password: string;
 }): SignUpValidation {
   if (!args.firstName.trim()) return 'FIRST_NAME_REQUIRED';
   if (!args.lastName.trim()) return 'LAST_NAME_REQUIRED';
+  if (args.email !== undefined && !isValidEmail(args.email)) return 'EMAIL_INVALID';
   if (!args.phoneNational.trim()) return 'PHONE_REQUIRED';
   if (args.password.length < PASSWORD_MIN) return 'PASSWORD_TOO_SHORT';
   return null;

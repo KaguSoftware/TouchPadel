@@ -7,8 +7,10 @@
  * Owner decision 2026-09-15: an account is created with a phone number and a
  * password, confirmed ONCE by a code (WhatsApp, or SMS if that number has no
  * WhatsApp — vendor routing, 2026-09-16); every later sign-in is phone +
- * password. Email sign-up / sign-in are gone from the guest app. The code is
- * spent again only to recover a forgotten password or to link a number.
+ * password. The code is spent again only to recover a forgotten password or
+ * to link a number. Email sign-up / sign-in left the guest app that day and
+ * came back BESIDE phone on 2026-09-20 (Phase 2 plan O2; ./emailAuth.ts) —
+ * phone remains the default segment on every screen.
  *
  * EXPO_PUBLIC_PHONE_OTP now gates only the optional number-linking flows
  * (Profile → Verify phone number, Edit profile's number change); sign-up,

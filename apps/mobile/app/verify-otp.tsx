@@ -19,6 +19,7 @@ import {
   sanitizeOtpInput,
 } from '../src/features/auth/phoneOtp';
 import { useAuth } from '../src/features/auth/context';
+import { markRecoverySession } from '../src/features/auth/recovery';
 import { RequireSession } from '../src/features/auth/RequireSession';
 import { updateOwnProfile } from '../src/features/profile/api';
 import { profileKeys } from '../src/features/profile/hooks';
@@ -116,6 +117,10 @@ function VerifyOtpForm({ mode, phone, from }: { mode: Mode; phone: string; from?
       // The profile row was written at sign-up; drop any signed-out cache of it.
       void queryClient.invalidateQueries({ queryKey: profileKeys.own });
       if (mode === 'reset') {
+        // The code just proved the guest holds the account's number: this is
+        // what lets reset-password render its form (S6). Marked before the
+        // navigation so the screen never mounts in its "link expired" state.
+        markRecoverySession();
         router.replace('/reset-password');
         return;
       }

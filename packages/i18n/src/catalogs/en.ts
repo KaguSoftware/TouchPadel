@@ -41,8 +41,9 @@ export const en = {
     signOutConfirm: "You'll need to log back in to see your bookings.",
     // Owner decision 2026-09-15: guests create an account with phone + password
     // (one code, on WhatsApp or by SMS, confirms the number) and sign in with phone + password.
-    // Email sign-up / sign-in are gone from the guest app; the email keys that
-    // remain serve old emailed links and older accounts' password change.
+    // 2026-09-20 (Phase 2 plan, O2): email sign-up / sign-in / verify / reset
+    // are back BESIDE phone on the same screens — phone stays the default
+    // segment, email is the other. The SOW's M1 acceptance names email.
     emailLabel: 'Email',
     passwordLabel: 'Password',
     placeholder: 'you@example.com',
@@ -50,6 +51,7 @@ export const en = {
     verifyEmailSent: 'We sent a verification link to {email}. Check your inbox.',
     resetEmailSent: 'We sent a password reset link to {email}.',
     invalidCredentials: 'Phone number or password is incorrect.',
+    invalidEmailCredentials: 'Email or password is incorrect.',
     pinPrompt: 'Manager PIN required',
     pinInvalid: 'Incorrect PIN.',
     sessionExpired: 'Your session has expired. Please sign in again.',
@@ -70,8 +72,11 @@ export const en = {
     firstNameRequired: 'Enter your first name.',
     lastNameRequired: 'Enter your surname.',
     passwordRequired: 'Enter your password.',
-    // Sign-up: a confirmed account already owns this number.
+    emailRequired: 'Enter your email address.',
+    emailInvalid: 'Enter a valid email address.',
+    // Sign-up: a confirmed account already owns this number / address.
     phoneTaken: 'This number already has an account. Sign in instead.',
+    emailTaken: 'This email already has an account. Sign in instead.',
     phoneRequired: 'Enter your phone number.',
     phoneInvalid: "That doesn't look like a phone number.",
     // Country-code picker on every phone field. Iraq is the default (the venue's
@@ -90,6 +95,8 @@ export const en = {
     resendEmail: 'Resend verification email',
     resendEmailDone: 'Verification email sent again.',
     resetPasswordTitle: 'Reset password',
+    sendResetLink: 'Send reset link',
+    backToSignIn: 'Back to sign in',
     newPasswordLabel: 'New password',
     passwordUpdated: 'Your password has been updated.',
     passwordMismatch: 'Passwords do not match.',
@@ -114,6 +121,10 @@ export const en = {
     continueCta: 'Continue',
     forgotIntro: "Enter your account's phone number and we'll send a code to it on WhatsApp or by SMS.",
     resetNoAccount: 'No account uses this number. Check the country code, or create an account.',
+    forgotIntroEmail: "Enter your account's email and we'll send a reset link.",
+    // The emailed reset deliberately does not disclose whether the account exists (spec 05.7);
+    // the phone reset can (resetNoAccount), because sign-up already refuses a taken number.
+    resetSubmitted: 'If an account exists for that email, a reset link is on its way. Check your inbox.',
     welcomeBack: 'Welcome back',
     welcomeToApp: 'Welcome to Touch Padel',
     // Social sign-in (vendor addition 2026-09-01; SOW L259-260 lists it as not
@@ -135,6 +146,8 @@ export const en = {
     // alone): confirming a sign-up, recovering a password, and linking a number
     // to a social account.
     orContinueWithPhone: 'or continue with your phone number',
+    // Divider above the phone | email segments (2026-09-20).
+    orContinueWithPassword: 'or continue with a password',
     phoneSignInTitle: 'Your phone number',
     phoneLinkBody: "We'll send a 6-digit code to this number — on WhatsApp, or by SMS — to confirm it's yours.",
     phoneOtpInvalid: 'Enter a valid phone number, and check the country code.',
@@ -457,6 +470,7 @@ export const en = {
     cancellationWindow: 'Too close to the start time to cancel online. Please contact the venue.',
     notCancellable: 'This booking can no longer be cancelled.',
     noRate: 'This slot cannot be booked online.',
+    priceChanged: 'The price of this slot changed while you were booking. Hold it again to see the new price.',
     slotInPast: 'That time has already passed.',
     upcoming: 'Upcoming',
     past: 'Past',
@@ -1801,6 +1815,7 @@ export const en = {
       DEGRADED_LOCKOUT: 'The venue is in offline mode — this action is blocked right now.',
       PIN_INVALID: 'Incorrect PIN.',
       PIN_LOCKED: 'Too many wrong PINs — locked for a few minutes.',
+      PIN_GRANT_REQUIRED: 'Manager authorisation expired — enter the PIN again.',
       FORBIDDEN: 'You do not have permission for that.',
       AUTH_REQUIRED: 'You must be signed in.',
       ALREADY_NOTIFIED: 'Staff have already been notified for this table.',

@@ -1,0 +1,84 @@
+# apps/mobile — rules for every change
+
+The guest app: Expo SDK 57 with expo-router screens under `app/` and feature code under
+`src/features/{auth,availability,booking,boot,courtTransition,profile}`. Written 2026-09-20 (Phase
+2, Milestone 0 item 12) from `PHASE-2-PLAN.md` Part A5 plus the 09-20 code verification.
+Database-side rules are in `packages/db/CLAUDE.md`.
+
+## Commits
+
+- No AI co-author trailer of any kind (`Co-Authored-By: Claude …`, Copilot, …). If a harness appends
+  one, strip it. Root `CLAUDE.md`.
+- Commit and push only when Parsa says "commit" or "push". Never run `git add`, `commit`, `stash`,
+  `checkout`, `reset` or `clean` on your own.
+- One commit carries the screen, its keys in `packages/i18n/src/catalogs/en.ts` and `ar.ts`, and,
+  when an RPC changed, the regenerated `packages/db/src/types.gen.ts`.
+
+## Writes and errors
+
+- Every write is an `app.*` RPC on the shared client (`src/lib/supabase.ts`). Reservation writes
+  carry a per-intent idempotency key from `src/lib/idempotency.ts`
+  (`{station}:{mutation_type}:{ulid}`; mobile is one logical station) passed as `p_idempotency_key`
+  (`src/features/booking/api.ts:25`).
+- A retry of the same intent reuses its key; a new intent gets a new key. Never mint a key inside a
+  retry loop.
+- Server codes map through `CODE_TO_KEY` and `mapErrorToKey`
+  (`src/features/booking/errors.ts:12,83`); a new code gets an entry there and both catalogs.
+  `isDegradedRefusal` (`:73`) is the only place that recognises a degraded-mode refusal.
+- `isTransportError` (`src/lib/network.ts:66`) decides what `src/lib/queryClient.ts` retries; a
+  P0001 business error is never retried and never shown as "offline".
+- Auth links: only the code-exchange path in `src/features/auth/deepLink.ts`. The raw-tokens branch
+  is S6 and goes in Milestone 0 item 6, as does the `app/reset-password.tsx` guard (render only
+  after a recovery exchange in this session). Do not build on either.
+
+## Queries
+
+- Query keys are families exported next to their hooks: `availabilityKeys`, `bookingKeys`,
+  `profileKeys` (`src/features/*/hooks.ts`) and `historyKeys` (`src/features/booking/history.ts`).
+  Extend a family; never inline a key array in a component.
+- Retry, online-pause, focus refetch and persistence are set once in `src/lib/queryClient.ts`; a
+  screen does not override them.
+
+## Native feel, direction and theme
+
+- Native-feel rule (owner, 2026-08-24): expo-router `Tabs`, native stack with platform back
+  gestures, platform pickers, switches and sheets; no web-styled custom nav
+  (`docs/design/mobile-audit-2026-08-27.md` section 1.5;
+  `src/navigation/TabsLayout.android.tsx:96`).
+- `Text` comes from `src/i18n/text.tsx`, never from `react-native` (restricted import,
+  `eslint.config.mjs:51-52`): it carries the paragraph's writing direction.
+- Direction is app state from `useLocale().dir` (`src/i18n/direction.tsx`); `I18nManager`,
+  `DevSettings` and `reloadAsync` are restricted imports (`eslint.config.mjs:39-57`). A language
+  switch never reloads the app.
+- Logical style props only (`paddingStart`, `marginEnd`, `start`, `end`); `rtlGuardRules` from
+  `packages/config/src/eslint.js` fails `lint` on the physical ones, and
+  `src/lib/__tests__/rtlGuard.test.ts` pins the rule.
+- Colours come from `src/theme/tokens.ts` (the palette is closed, owner 2026-09-05); components
+  never reference raw hex. Import `@touch/ui` by subpath only (`eslint.config.mjs:26-31`), never the
+  barrel.
+- Strings live in `packages/i18n/src/catalogs/en.ts` + `ar.ts` under the shared namespaces (`auth`,
+  `booking`, `profile`, `cafe`, `errors`, `degraded`, …); `packages/i18n/src/__tests__/t.test.ts:35`
+  asserts key parity.
+
+## Config and builds
+
+- Env is `EXPO_PUBLIC_*`, inlined at build time (`src/lib/supabase.ts:11-12`, `app.config.ts`). A
+  new variable goes into `app.config.ts` and into the `env` block of all three `eas.json` build
+  profiles (`development`, `staging`, `production`); nothing goes in `extra`.
+- Service-role or `sb_secret_` values never reach the bundle; `clientSecrets` lint
+  (`@touch/config/eslint`) fails on them, and CI runs
+  `scripts/security/check-artifact-secrets.mjs --only=mobile` on the export (`ci.yml:241`).
+- Migrations reach hosted before a build that calls them. `eas` and `expo` run from `apps/mobile`,
+  never the repo root. Production `eas build` and any store submit are Parsa's to run; prepare the
+  command and hand it over.
+
+## Tests
+
+- Unit tests run under plain node against pure modules only (`vitest.config.ts`:
+  `src/**/__tests__/**/*.test.ts`); nothing under test may import `react-native` or `expo`. Put
+  logic in `src/features/<x>/{assemble,logic,errors}.ts` so it is testable.
+- There are zero `testID`s and zero component tests today (Q1). Until Milestone 0 item 11 adds the
+  jsdom glob from `apps/operator/vitest.config.ts:27` and a smoke render per screen, a new screen
+  ships with a `testID` on every interactive element.
+- Run `pnpm --filter @touch/mobile typecheck`, `lint` and `test`;
+  `pnpm --filter @touch/mobile doctor` after any dependency change. Report the exact result.

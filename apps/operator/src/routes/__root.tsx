@@ -1532,7 +1532,15 @@ function PairKitchenScreen() {
     setError(null);
     try {
       try {
-        await appRpc('verify_manager_pin', { p_pin: pin, p_device_id: touch.getStation().stationId });
+        // verify_manager_pin RETURNS null for a wrong PIN (it raises only for a
+        // lockout or a non-staff caller). Treating that null as success cached the
+        // wrong PIN as observed and the shell's cache check then passed it: any
+        // PIN opened this gate while online. Refuse here, before the cache learns it.
+        const authorizer = await appRpc<string | null>('verify_manager_pin', {
+          p_pin: pin,
+          p_device_id: touch.getStation().stationId,
+        });
+        if (authorizer === null) throw new AppRpcError('PIN_INVALID', 'PIN_INVALID');
         touch.pinObserved(pin);
       } catch (e) {
         // Offline: fall through to the cache check in main. A server REFUSAL

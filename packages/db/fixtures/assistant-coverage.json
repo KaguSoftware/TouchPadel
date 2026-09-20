@@ -8,6 +8,7 @@
     "analytics_patterns": "table_read",
     "app.assistant_readable_columns": "excluded: the assistant's own column allowlist (0109); it feeds the describe tool and table_read validation directly, so a chunk of it would only restate itself",
     "app.pin_attempts": "excluded: PIN lockout counters per device (0004/0011); security telemetry, not venue knowledge — the owner sees lockouts as PIN_LOCKED on the screen",
+    "app.pin_grants": "excluded: app schema (0115) — single-use manager-PIN grants between verify_manager_pin and the money RPC; server-side bookkeeping no client reads",
     "app.rpc_replays": "excluded: raw idempotency claim rows with request payloads (0049); the OUTCOME of every replay is readable in public.sync_replays",
     "app.secrets": "excluded: HMAC and signing secrets (0009/0019); never readable by anyone but definer functions, and never sent to a model vendor",
     "app.sms_limits": "excluded: OTP kill switch and send caps (phone-otp 2026-09-05); only aggregate counts reach the assistant through system_status",
@@ -191,6 +192,7 @@
     "confirm_booking": "map:action",
     "consume_fefo": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "consume_for_order_item": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "consume_pin_grant": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "court_fee_paid": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "court_fee_remaining": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "cover_station": "map:action",
@@ -265,6 +267,7 @@
     "phone_canon": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "phone_digits": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "pin_delay_floor": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
+    "pin_grant_ttl": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "pin_is_weak": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "pin_pad_to_floor": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "preview_series": "map:action",
@@ -300,6 +303,7 @@
     "reports_guard": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "reports_parse_scope": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "resolve_waiter_call": "map:action",
+    "retire_device": "map:action",
     "retry_telegram_outbox": "map:action",
     "revoke_user_sessions": "excluded: service_role only — an internal helper reached by other RPCs, edge functions or cron, never by a client",
     "rotate_table_token": "map:action",
@@ -508,6 +512,7 @@
     "docs/client/next-session-prompts-2026-08-30.md": "index:doc",
     "docs/client/operator-download-2026-09-05.md": "index:doc",
     "docs/client/phone-otp-activation.md": "index:doc",
+    "docs/client/release-gate-2026-09-20.md": "excluded: an owner runbook for the GitHub release-environment gate (Milestone 0 item 5); operations instructions, not venue knowledge",
     "docs/client/social-auth-setup-2026-09-01.md": "index:doc",
     "docs/DESIGN.md": "index:doc",
     "docs/design/assistant/build-contracts-2026-09-20.md": "index:doc",
@@ -552,6 +557,7 @@
     "docs/store/app-store-submission.md": "index:doc",
     "HANDOFF.md": "index:doc",
     "packages/db/README.md": "index:doc",
+    "PHASE-2-PLAN.md": "excluded: an engineering audit and build plan (security findings, milestone sizing); not venue knowledge the owner asks the assistant about",
     "README.md": "index:doc"
   }
 }

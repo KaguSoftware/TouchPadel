@@ -14,6 +14,23 @@ export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
 }
 
+/**
+ * Anything but `en` and `ar` in the first segment is a 404, not Arabic.
+ *
+ * This declares it; `requireLocale()` in every page enforces it. Measured on
+ * the 16.3.4 production build (2026-09-20), this flag alone changed nothing
+ * at request time: the whole tree renders dynamically (the `headers()` read
+ * below, C11), so no prerender entry exists for the runtime to check a
+ * param against, and `/.well-known/t` still came back 200 with the table
+ * page. It stays because it is the statement Next reads — the build refuses
+ * it if generateStaticParams above ever stops covering `locale`, and it
+ * becomes live for any route in this tree that is later made static (C11's
+ * fix). The layout itself keeps coercing with `asLocale`: Next forbids
+ * notFound() in a root layout, and the 404 the pages throw still needs a
+ * `lang` and a `dir` to render in.
+ */
+export const dynamicParams = false;
+
 export function generateViewport(): Viewport {
   return {
     width: 'device-width',

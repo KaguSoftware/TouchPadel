@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import { Linking, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { RequireNoSession } from '../src/features/auth/RequireNoSession';
 import { isPhoneTaken, mapOtpError, validatePhoneInput } from '../src/features/auth/phoneOtp';
+import {
+  isEmailTaken,
+  mapEmailAuthError,
+  parseAuthMethod,
+  signUpHidExistingEmail,
+  type AuthMethod,
+} from '../src/features/auth/emailAuth';
 import type { Locale } from '@touch/i18n';
 import { supabase } from '../src/lib/supabase';
-import { signUpWithPhone, validateSignUp } from '../src/features/auth/api';
+import { signUpWithEmail, signUpWithPhone, validateSignUp } from '../src/features/auth/api';
+import { verifyRedirect } from '../src/features/auth/redirects';
 import { hasSocial, useSocialSignIn } from '../src/features/auth/useSocialSignIn';
 import { usePostAuthContinue } from '../src/features/booking/usePostAuthContinue';
 import { classifyUpdateFailure } from '../src/features/profile/changePasswordFlow';
@@ -29,16 +37,29 @@ import { DEFAULT_ISO } from '../src/features/profile/phone';
 import { SocialSignInBlock } from '../src/components/social';
 import { useToast } from '../src/components/overlays';
 
-type FieldErrors = { firstName?: string; lastName?: string; phone?: string; password?: string };
+type FieldErrors = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+};
 
 /**
- * Create account. Phone is the only way to make one (owner decision
- * 2026-09-15; email sign-up removed): first name · surname · phone · password
- * · preferred language. Submitting sends ONE code — WhatsApp, or SMS when the
- * number has no WhatsApp — to confirm the
- * number (app/verify-otp.tsx, mode signup); every later sign-in is phone +
- * password with no code. Validation renders on the field it concerns, in the
- * form's order.
+ * Create account: first name · surname · (email) · phone · password ·
+ * preferred language, with a password proved by the phone number (default
+ * segment, owner decision 2026-09-15) or by an email address (restored beside
+ * phone 2026-09-20, Phase 2 plan O2). Validation renders on the field it
+ * concerns, in the form's order.
+ *
+ *   phone  submitting sends ONE code — WhatsApp, or SMS when the number has no
+ *          WhatsApp — to confirm the number (app/verify-otp.tsx, mode signup);
+ *          every later sign-in is phone + password with no code.
+ *   email  submitting mails ONE link; app/verify-email.tsx waits for it and
+ *          useAuthDeepLink exchanges it. The phone is still required (spec
+ *          05.3: the desk calls it), so an email guest never meets
+ *          PHONE_REQUIRED at confirm_booking; complete-profile remains the
+ *          backstop for accounts that lack one.
  *
  * Continue with Apple / Google sit above the form (vendor addition 2026-09-01).
  * A social sign-up has no phone, so complete-profile collects one before the
@@ -47,8 +68,11 @@ type FieldErrors = { firstName?: string; lastName?: string; phone?: string; pass
 function SignUpScreen() {
   const { t, locale, setLocale } = useLocale();
   const router = useRouter();
+  const params = useLocalSearchParams<{ method?: string }>();
+  const [method, setMethod] = useState<AuthMethod>(() => parseAuthMethod(params.method));
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
   // Country + national digits; the API receives the composed E.164.
   const [iso, setIso] = useState(DEFAULT_ISO);
   const [national, setNational] = useState('');
@@ -67,32 +91,81 @@ function SignUpScreen() {
     disabled: busy,
   });
 
+  /** Shared field checks; the E.164 or null when something is wrong (already rendered). */
+  const validate = (): string | null => {
+    const invalid = validateSignUp({
+      firstName,
+      lastName,
+      email: method === 'email' ? email : undefined,
+      phoneNational: national,
+      password,
+    });
+    if (invalid === 'FIRST_NAME_REQUIRED') {
+      setFieldErrors({ firstName: t('auth.firstNameRequired') });
+      return null;
+    }
+    if (invalid === 'LAST_NAME_REQUIRED') {
+      setFieldErrors({ lastName: t('auth.lastNameRequired') });
+      return null;
+    }
+    if (invalid === 'EMAIL_INVALID') {
+      setFieldErrors({ email: t(email.trim() ? 'auth.emailInvalid' : 'auth.emailRequired') });
+      return null;
+    }
+    if (invalid === 'PHONE_REQUIRED') {
+      setFieldErrors({ phone: t('auth.phoneRequired') });
+      return null;
+    }
+    const { e164 } = validatePhoneInput(iso, national);
+    // A code to a number that cannot be one is paid for; stop at the field.
+    if (!e164) {
+      setFieldErrors({ phone: t('auth.phoneOtpInvalid') });
+      return null;
+    }
+    if (invalid === 'PASSWORD_TOO_SHORT') {
+      setFieldErrors({ password: t('auth.passwordTooShort') });
+      return null;
+    }
+    return e164;
+  };
+
   const onSubmit = async () => {
     setError(null);
     setFieldErrors({});
     social.clearError();
-    const invalid = validateSignUp({ firstName, lastName, phoneNational: national, password });
-    if (invalid === 'FIRST_NAME_REQUIRED') return setFieldErrors({ firstName: t('auth.firstNameRequired') });
-    if (invalid === 'LAST_NAME_REQUIRED') return setFieldErrors({ lastName: t('auth.lastNameRequired') });
-    if (invalid === 'PHONE_REQUIRED') return setFieldErrors({ phone: t('auth.phoneRequired') });
-    const { e164 } = validatePhoneInput(iso, national);
-    // A code to a number that cannot be one is paid for; stop at the field.
-    if (!e164) return setFieldErrors({ phone: t('auth.phoneOtpInvalid') });
-    if (invalid === 'PASSWORD_TOO_SHORT') return setFieldErrors({ password: t('auth.passwordTooShort') });
+    const e164 = validate();
+    if (!e164) return;
     setBusy(true);
     try {
-      await signUpWithPhone(supabase, { firstName, lastName, phone: e164, password, preferredLang });
+      if (method === 'email') {
+        const data = await signUpWithEmail(
+          supabase,
+          { firstName, lastName, email, phone: e164, password, preferredLang },
+          verifyRedirect(),
+        );
+        if (signUpHidExistingEmail(data)) return setFieldErrors({ email: t('auth.emailTaken') });
+      } else {
+        await signUpWithPhone(supabase, { firstName, lastName, phone: e164, password, preferredLang });
+      }
       // The chosen language becomes the app language — strings, faces and
       // layout direction switch in one commit, under a short crossfade, before
-      // the code screen comes up.
+      // the code / check-your-email screen comes up.
       await setLocale(preferredLang);
-      router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signup' } });
+      if (method === 'email') {
+        // Confirmations on: no session yet, verify-email waits for the link.
+        // Off: the session has landed and verify-email's own session effect
+        // advances to verify-result.
+        router.replace({ pathname: '/verify-email', params: { email: email.trim() } });
+      } else {
+        router.push({ pathname: '/verify-otp', params: { phone: e164, mode: 'signup' } });
+      }
     } catch (err) {
-      if (isPhoneTaken(err)) return setFieldErrors({ phone: t('auth.phoneTaken') });
+      if (method === 'email' && isEmailTaken(err)) return setFieldErrors({ email: t('auth.emailTaken') });
+      if (method === 'phone' && isPhoneTaken(err)) return setFieldErrors({ phone: t('auth.phoneTaken') });
       if (classifyUpdateFailure(err) === 'weak-password') {
         return setFieldErrors({ password: t('auth.passwordTooShort') });
       }
-      setError(t(mapOtpError(err)));
+      setError(t(method === 'email' ? mapEmailAuthError(err) : mapOtpError(err)));
     } finally {
       setBusy(false);
     }
@@ -110,8 +183,22 @@ function SignUpScreen() {
           style={{ marginTop: 14 }}
         />
         {hasSocial(social.available) ? (
-          <LabeledDivider label={t('auth.orContinueWithPhone')} style={{ marginTop: 18, marginBottom: 4 }} />
+          <LabeledDivider label={t('auth.orContinueWithPassword')} style={{ marginTop: 18, marginBottom: 4 }} />
         ) : null}
+        <View style={{ marginTop: 6 }}>
+          <SegmentedControl<AuthMethod>
+            options={[
+              { value: 'phone', label: t('auth.phoneLabel') },
+              { value: 'email', label: t('auth.emailLabel') },
+            ]}
+            value={method}
+            onChange={(next) => {
+              setMethod(next);
+              setFieldErrors({});
+              setError(null);
+            }}
+          />
+        </View>
         <Field
           placeholder={t('auth.firstNameLabel')}
           value={firstName}
@@ -131,6 +218,19 @@ function SignUpScreen() {
           textContentType="familyName"
           error={fieldErrors.lastName}
         />
+        {method === 'email' ? (
+          <Field
+            placeholder={t('auth.emailLabel')}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            error={fieldErrors.email}
+          />
+        ) : null}
         <PhoneField
           placeholder={t('auth.phoneLabel')}
           iso={iso}
@@ -172,8 +272,9 @@ function SignUpScreen() {
         <FooterLink
           lead={t('auth.alreadyLead')}
           label={t('auth.signIn')}
-          // Reached from Profile as well as Welcome — always land on sign-in.
-          onPress={() => router.replace('/sign-in')}
+          // Reached from Profile as well as Welcome — always land on sign-in,
+          // on the segment the guest was using here.
+          onPress={() => router.replace({ pathname: '/sign-in', params: { method } })}
           style={{ marginTop: 18 }}
         />
         {/* Pushed to the bottom of the screen (flexGrow content) so it reads

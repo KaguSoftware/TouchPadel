@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MUTATION_TYPES } from '@touch/core/schemas/mutations';
+// Relative on purpose: the replay function (Deno) cannot import @touch/core, so this
+// JSON under functions/_shared is the one artefact all three copies are checked against.
+import shared from '../../../../packages/db/supabase/functions/_shared/mutation-types.json';
+import { MUTATION_TYPES, PIN_GATED_RPCS } from '@touch/core/schemas/mutations';
 import { DIRECT_RPC } from './mutate';
 
 /**
@@ -17,6 +20,19 @@ const UUID_B = '5c9f1f1e-2b3a-4c4d-8e9f-000000000002';
 describe('DIRECT_RPC', () => {
   it('covers every registered mutation type', () => {
     expect(Object.keys(DIRECT_RPC).sort()).toEqual([...MUTATION_TYPES].sort());
+  });
+
+  it('matches the shared mutation-types.json the replay function boots against', () => {
+    // Deno cannot import @touch/core, so the replay function asserts its
+    // MUTATION_RPCS against this JSON at boot. Asserting the same list here
+    // closes the loop: core ↔ operator ↔ replay are one list, proven, not mirrored
+    // by comment (PHASE-2 criticals, C4).
+    expect([...shared.types].sort()).toEqual([...MUTATION_TYPES].sort());
+    expect(Object.keys(DIRECT_RPC).sort()).toEqual([...shared.types].sort());
+  });
+
+  it('matches the shared pinGatedRpcs list the replay function verifies against (0115)', () => {
+    expect([...shared.pinGatedRpcs].sort()).toEqual([...PIN_GATED_RPCS].sort());
   });
 
   it('order.add_items maps to till_add_items with snake_case items', () => {

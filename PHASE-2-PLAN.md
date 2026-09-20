@@ -2,7 +2,58 @@
 
 Written 2026-09-19 at `main` @ `3d70643` (clean tree, `two` fully merged). Sources: three Opus audits (backend, frontends, contract/ops) plus direct verification against migrations, edge functions, apps, the live deployment and the signed SOW. Every claim below was checked against code, not against `HANDOFF.md`, which is six days and ~4,000 diff lines stale and misstates several security items (see A3, O8).
 
-**Status: planning only. Nothing is being built yet.** The new scope is unsigned. Parsa's decisions so far are recorded in Part D and already folded into Part C.
+**Status 2026-09-20: approved and building.** Change-control is agreed; the build runs on `main`, Parsa + agents only, criticals first. The section below is the live status; Parts A–D are the 09-19 audit and stand as written except where the status section corrects them. The full decision record and per-milestone design now live in `~/.claude/plans/i-got-this-scope-binary-piglet.md` (Parsa's machine); where it and this file disagree, that file wins.
+
+## Status 2026-09-20 — what changed, what is built, what is left
+
+### Decisions since 09-19
+
+- **Scope is nine items; item 10 (AI analysis) is dropped.** Majed's owner assistant (migrations 0108–0113, three edge functions, operator drawer, pushed 09-20 21:21) stays on `main` **gated and unbilled**: off while `ANTHROPIC_API_KEY` is unset and `venue_settings.llm_daily_request_limit = 0`. It was built single-venue; milestone 1 gives it the venue axis.
+- **Payment = Qi Card**, hosted page first. Majed's design `docs/design/payments/qi-deposit-plan-2026-09-20.md` ("nothing built") is adopted as the payment model with `venue_id` and a `purpose` column widened to deposit / balance / seat / tournament / lesson. It replaces C1's `payment_intents` sketch, which violated the lock-order gate. Deposit defaults: 50 %, floor 10,000 IQD, forfeit inside the window and on no-show, launch `optional`. Credentials pending from Qi.
+- **Milestone order:** 0 criticals → 1 multi-venue → 2 payment → 3 Customer 360 + loyalty (with web sign-in at checkout) → 4 shop + AI receipts → 5 coaching → 6 open matches → tournaments.
+- Second venue opening soon, seeded as a copy of venue 1; everything per venue with copy-from-venue-1. Coaches are guests with a coach record (phone-app coach mode, no staff role); 60 % of the fee net of the court share, monthly statement, payout outside the till. Loyalty 1 pt / 1,000 IQD in every domain, redeemed as a `tab_adjustments` kind (never a payment method) plus a rewards catalogue; three tiers over rolling 12 months, goods discount only in v1. Matches: 4 seats, equal split, host covers empty seats, first name + last initial shown. Tournaments: individuals enter, desk records scores, standings per event by polling. Shop: hybrid model (menu items in `kind = 'shop'` categories + a `retail` ingredient kind). Receipts: manager confirms, 20 USD/month cap. Customer 360: LTV net of refunds; managers see contact details. S12 (Quit without PIN) accepted. C3: queue `refund`, `cancel_tab`, `settle_zero_tab`, `void_after_send`; the rest stays online-only. Same legal entity, one Qi merchant. **PITR and a staging project before the multi-venue push** (reverses the 08-30 decision). Arabic drafted by agents, client reviews, AR e2e must pass. TestFlight + Play internal testing per milestone.
+
+### Corrections to Parts A–C found by the 09-20 code verification
+
+`0092` is `reservation_players` (one smallint column), not series — series is `0066`. There is no station registry (`station_staff` is break cover); multi-venue must build one. 66 public tables, not 45; the backfill must disable the five `forbid_mutation` triggers; five global UNIQUE constraints collide at branch two. `check:authz` runs in the CI db job, not in `pnpm security` (which has no stack). The mutation contract has five copies (add `apps/operator-shell/src/main/ipc-validate.ts` and `queueResults.ts`). Push kinds need a CHECK migration plus copy in `functions/send-push` and the function deployed first. Every enum widening is its own migration. `llm_usage` stays global. The loyalty and shop designs in C5/C6 needed reshaping (points as a payment method would touch 61 filters; retail as a separate tree forks eight stock functions); the adopted shapes are in the decisions above.
+
+### Milestone 0 (criticals) — built 2026-09-20, all gates green, pushed
+
+| Part B item | State |
+| --- | --- |
+| 1 hosted state, PITR, staging project | **owner, open** |
+| 2 rotate seed staff accounts and PINs | **owner, open** — must land before 0115 reaches hosted (weak pre-0078 PINs are refused there) |
+| 3 replay: C1 lost mutations, S2 PIN leak, S5 `log_replay`, C4 parity | done — `0114`, `_shared/http.ts` retryable classes, `_shared/redact.ts`, `_shared/mutation-types.json` + boot guard, worker treats duplicate-of-conflict as conflict |
+| 4 S3 PIN lockout on money RPCs | done — `0115`: single-use grant minted by `verify_manager_pin`, consumed by the five money RPCs (`PIN_GRANT_REQUIRED` without one); weak-PIN refusal; `appRpc`, replay and the test helper verify first; two operator gates that accepted any PIN online fixed |
+| 5 S4 release gate, workflow permissions, S9 CLI pin + ledger dump | code done — `environment: release` on publish, `permissions: contents: read` ×6, CLI 2.116.0, dump = five public ledgers; **owner half open** (`docs/client/release-gate-2026-09-20.md`) |
+| 6 mobile S6 + email sign-in restored | done — deep-link tokens branch gone, reset form only after an in-session recovery, Phone \| Email on sign-in/sign-up/forgot; **owner:** Supabase Auth email settings and redirect allow-list |
+| 7 C2 `retire_device` + thresholds + screen | done — `0118`, Settings → Venue details "Offline mode" + Devices panel |
+| 8 S7 profile CHECKs, S8 web CSP, S9 workflows, S10/S11 OTP config | S7 `0116`, S8 (matcher, `requireLocale()`, token route handler) and S9 done; **S10 open** |
+| 9 C3 queued money ops, `refund` idempotency key, `stock.waste` | **open** |
+| 10 ordinal gate rules, S13 one allowlist, `QK` keys | done (`check:authz` already in the CI db job) |
+| 11 web/mobile jsdom smoke tests, `testID`s, `packages/db/bench` | **open** |
+| 12 rules files, HANDOFF reconciliation, scope addendum, deviation records | rules files done (`packages/db`, `apps/operator`, `apps/mobile`, `apps/web` `CLAUDE.md`); **rest open** |
+| C5 quote = charge | done — `0117`: hold stamps price, `PRICE_CHANGED` at confirm, mobile maps it |
+
+Also done: registry gate replays GRANT/REVOKE/DROP; data-hygiene gate requires digit boundaries; assistant map regenerated; `types.gen.ts` hand-patched for `retire_device`, `consume_pin_grant`, `pin_grant_ttl` minus `log_replay` (regenerate with Docker). DB integration suites (`pin-grants`, `booking-quote`, `retire-device`) are CI-only until Docker runs. **Next migration ordinal: 0119.**
+
+### What is left, by milestone
+
+- **0** items 9, 11, the docs remainder of 12, S10, and the owner steps above. About one third of the milestone.
+- **1 multi-venue** (6–7 weeks): `venues`, `venue_id` on every scoped parent table with the trigger-aware backfill, `stations` registry replacing the client-asserted station id, `staff_venues`, `platform_settings` split off `venue_settings`, composite uniques, per-venue degraded mode with zero-arg overloads kept, realtime topics per venue, the seven `.single()` client reads converted, owner venue switcher, mobile venue picker, web default venue, venue axis on the assistant tools, matrix principals per venue, two-venue fixture, rehearsal on staging.
+- **2 payment** (3–4 weeks + Qi lead time): Majed's design with `venue_id` + widened `purpose`, `booking_payments` after `reservations` in the lock order, `court_fee_paid` nets online amounts, `expo-web-browser`, `/pay/return` + `/pay/status` + `+not-found`, web return page, four edge functions + fake provider, bulk refund RPC, day-close and report columns, go-live gates.
+- **3 customers + loyalty** (6–7 weeks): `tabs.customer_id`, session re-key RPC, web sign-in (phone OTP + Google + Apple), `customer_identities`, `customer_metrics` table, `customer_360` role-shaped, SEC-29 predicate for `customer_%`, loyalty tables and hooks, `loyalty_redeem` adjustment kind, tier promotions on goods, clawback in `refund`.
+- **4 shop + receipts** (5–6 weeks): `ingredient_kind` + `movement_type` enum migrations, shop categories without kitchen tickets, `retail_variants`, `suppliers`, receipt tables + private bucket + signed upload URL, phone camera page, `receipt-parse` edge function on the existing meter, `pg_trgm` matching, `confirm_receipt` with an idempotent `receive_delivery`.
+- **5 coaching** (4–5 weeks): `reservation_kind` + `lesson`, coach tables, generic `event_participants`, `lock_coach`, settlements, phone-app coach mode, lessons masked in `court_availability`.
+- **6 matches → tournaments** (8–9 weeks): matches on `event_participants`, `lock_match`, definer read RPCs, seat money into `court_fee_paid`, tournament scheduling modules in `packages/core`, atomic multi-court block, entries and standings, reports.
+
+### Done so far, as a share of the programme
+
+| Measure | Value |
+| --- | --- |
+| Milestone 0 (criticals) | about 65 % |
+| The nine Phase 2 scope items, delivered to the client | 0 % |
+| Whole programme by effort (38 agent-weeks mid-estimate; M0 two-thirds done + Qi design) | about 6 % |
 
 ---
 
@@ -147,7 +198,7 @@ Each has file evidence; `NNNN:line` refers to `packages/db/supabase/migrations/�
 
 ### A5. Rules every change must obey (gate-enforced)
 
-- **Migrations**: version strictly greater than every file on `main` (next ordinal `0108`; `0069` and `0071` are already doubled, never reuse); `set lock_timeout='3s'; set statement_timeout='60s'`; `NOT VALID` then separate `VALIDATE` inside an idempotent `pg_constraint` guard; new index → own migration or `MIGRATION-RISK-ACCEPTED`; re-issuing a function → copy the latest body verbatim (`grep -l "function app.<name>" *.sql | tail -1`); signature change → `drop function` by exact signature, recreate, re-issue `revoke … from public, anon` + `grant execute … to authenticated`.
+- **Migrations**: version strictly greater than every file on `main` (next ordinal `0119` as of 2026-09-20; `0069` and `0071` are already doubled and `0023`/`0040`/`0101` are holes, never reuse or fill; `check-migrations.mjs` now enforces both); `set lock_timeout='3s'; set statement_timeout='60s'`; `NOT VALID` then separate `VALIDATE` inside an idempotent `pg_constraint` guard; new index → own migration or `MIGRATION-RISK-ACCEPTED`; re-issuing a function → copy the latest body verbatim (`grep -l "function app.<name>" *.sql | tail -1`); signature change → `drop function` by exact signature, recreate, re-issue `revoke … from public, anon` + `grant execute … to authenticated`.
 - **Tables**: `iqd`/`iqd_signed` for money; `_en`/`_ar` for guest-visible text; `enable row level security` (by hand for `app` schema); select-only policies; guest-writable text gets a sanitiser trigger plus a length CHECK.
 - **RPCs**: SECURITY DEFINER, `search_path`, revoke/grant, dollar tag `$name_0NNN$`, guard as first statement, `P0001` machine codes with `MAPPED_CODES` entries on the client, no WHERE-less writes, `app.lock_court` before any reservation write, lock order `day_sessions → tabs → orders → order_items → tickets → payments → refunds → stock_batches → court_advisory → reservations`, registry entry with ≥10-char reason + `rls-matrix.ts` rule (ratchet 157/160), `app.claim_replay` for non-idempotent money writes.
 - **Offline mutation**: `MUTATION_TYPES` (core) + `DIRECT_RPC` (operator) + `MUTATION_RPCS` (replay) + `ipc-validate` + `queueResults` + `dayCloseLogic`. No secrets in payloads.
@@ -319,16 +370,15 @@ Covered by C0. One stock location per branch (decided), so nothing beyond `venue
 
 | # | Milestone | Contains | Depends on | Size (agent-weeks) |
 | --- | --- | --- | --- | --- |
-| 0 | Phase 1 close-out | Part B | | 3 |
-| 1 | Multi-venue | C0 | 0 | 5 to 6 |
-| 2 | Customers and loyalty | C7 → C6 incl. web sign-in at checkout | 1 | 6 |
-| 3 | Online payment | C1 (court bookings) + provider adapter | 1; provider onboarding from week 1 | 3 to 4 |
-| 4 | Shop and receipts | C5 + `suppliers` → C9 | 1 | 4.5 |
-| 5 | Coaching | C2 (surface decided at milestone start) | 1, 3 | 4 to 5 |
-| 6 | Matches and tournaments | C3 → C4 (Americano, knockout, leagues) | 1, 3 | 8 |
-| 7 | AI analysis | C10 (ii) after 1, (i) after 2, (iii) after 5 and 6, (iv) TBD | 2, 5, 6 | 4 to 6 |
+| 0 | Phase 1 close-out | Part B (+ C5) | | 3 — about two thirds done 2026-09-20 |
+| 1 | Multi-venue | C0 + stations registry + settings split + assistant venue axis | 0 | 6 to 7 |
+| 2 | Online payment | Qi deposit design + `venue_id` + widened `purpose` | 1; Qi credentials for go-live | 3 to 4 |
+| 3 | Customers and loyalty | C7 → C6 incl. web sign-in at checkout, `tabs.customer_id` | 1 | 6 to 7 |
+| 4 | Shop and receipts | C5 (hybrid) + `suppliers` → C9 | 1 | 5 to 6 |
+| 5 | Coaching | C2, phone-app coach mode, generic participants | 1, 2 | 4 to 5 |
+| 6 | Matches and tournaments | C3 → C4 (Americano/Mexicano, knockout, leagues) | 1, 2, 5 | 8 to 9 |
 
-Sequential total: roughly 38 to 43 agent-weeks. Milestones 3 and 4 do not touch each other and can run in parallel lanes; 5 and 6 likewise. With two lanes the calendar is about five months after milestone 1. Present to the client as a programme, not a date.
+Item 10 (AI analysis, the former milestone 7) is dropped as of 2026-09-20; the built owner assistant stays gated and unbilled. Sequential total: roughly 35 to 41 agent-weeks; about 2.5 are done (revised order and sizes decided 2026-09-20, see the status section at the top).
 
 ---
 

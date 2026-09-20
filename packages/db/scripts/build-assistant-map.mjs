@@ -53,7 +53,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 export const DB = path.resolve(import.meta.dirname, '..');
@@ -649,7 +649,7 @@ function gitSha() {
 }
 
 async function loadCatalog() {
-  const mod = await import(PATHS.catalog);
+  const mod = await import(pathToFileURL(PATHS.catalog).href);
   return mod;
 }
 

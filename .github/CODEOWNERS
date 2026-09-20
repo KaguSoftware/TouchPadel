@@ -45,3 +45,8 @@
 /scripts/security/                  @KaguSoftware/tech-leads
 /packages/db/scripts/check-*.mjs    @KaguSoftware/tech-leads
 /packages/db/fixtures/rpc-allowlist.json @KaguSoftware/tech-leads
+
+# 2026-09-20 (S4/S9): the release pipeline ships an auto-installing till build; db-ops and functions-deploy hold the hosted project secrets.
+/.github/workflows/operator-release.yml @KaguSoftware/tech-leads
+/.github/workflows/db-ops.yml @KaguSoftware/tech-leads
+/.github/workflows/functions-deploy.yml @KaguSoftware/tech-leads

@@ -19,9 +19,18 @@
  * Anything that gets past the guard and fails on argument validation instead is
  * reported and fails the run.
  *
+ * The exemption list is fixtures/rpc-allowlist.json, and only that (S13,
+ * 2026-09-20). This script used to keep its own PUBLIC_BY_DESIGN Set, and the
+ * two lists drifted: the registry gate (check-rpc-registry.mjs) classified one
+ * way, this sweep exempted another, and a reviewer had to read both to know
+ * what a guest may call. Now the JSON is the single security decision and this
+ * script is its executable proof.
+ *
  * Usage:  node scripts/check-rpc-authz.mjs      (exit 1 on any unrefused RPC)
  */
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 const URL_BASE = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const ANON =
@@ -30,38 +39,23 @@ const ANON =
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER ?? 'supabase_db_touchpadel';
 
 /**
- * Reachable by a guest ON PURPOSE. Everything here is either read-only public
- * data the menu needs before any identity exists, or is guarded by SESSION
- * ownership rather than by role. Adding a name here is a security decision:
- * it asserts a café guest may call it.
+ * Reachable by a guest ON PURPOSE — read from the registry, never listed here.
+ * Every name in `publicByDesign` carries its reason in the JSON; adding one is
+ * a security decision made in that file, where check-rpc-registry.mjs insists
+ * on the reason being written down.
  */
-const PUBLIC_BY_DESIGN = new Set([
-  // The guest menu app, pre-identity.
-  'open_table_session', 'verify_table_token', 'menu_availability', 'venue_mode',
-  'is_degraded', 'price_slot', 'item_active_groups', 'business_date',
-  // Tell-me-about-myself helpers; they leak only the caller's own standing.
-  'is_staff', 'staff_role', 'is_own_session', 'order_is_callers', 'tab_is_callers',
-  'touch_guest_session',
-  // 0087/SEC-34. Whether the CALLER's own account has an idle-lock PIN. Takes
-  // no argument at all, so it cannot be pointed at another account, and it
-  // answers `false` for anyone who is not active staff — which is every guest.
-  'has_own_pin',
-  // Guest ordering surface — guarded by guest_sessions ownership, not by role.
-  'create_guest_order', 'raise_waiter_call',
-  // Booking surface — any signed-in ACCOUNT, by design. hold_slot is NOT here:
-  // since 0048 (C1) it refuses an anonymous session with ACCOUNT_REQUIRED, so the
-  // sweep above proves it rather than exempting it. confirm/cancel are ownership-
-  // guarded, not role-guarded, so the OWNERSHIP stage below is what covers them.
-  'confirm_booking', 'cancel_reservation', 'expire_stale_holds',
-  // Device telemetry from the till/guest app.
-  'heartbeat', 'log_replay',
-  // Settings > "Send a test notification" (0070): any signed-in session, by
-  // design — it can only ever push to auth.uid()'s own token, and a guest
-  // without one is turned away with NO_PUSH_TOKEN.
-  'send_test_push',
-  // Trigger function; never usefully callable directly.
-  'trg_order_item_line_no',
-]);
+const REGISTRY = path.resolve(import.meta.dirname, '../fixtures/rpc-allowlist.json');
+const registry = JSON.parse(readFileSync(REGISTRY, 'utf8'));
+const PUBLIC_BY_DESIGN = new Set(Object.keys(registry.publicByDesign ?? {}));
+const GUARDED = new Set(registry.guarded ?? []);
+
+/**
+ * Not RPCs, so not the registry's business: trigger functions are unreachable
+ * through PostgREST (probing one 404s and would read as unguarded). The catalog
+ * query below already drops `returns trigger`; this list is the belt to that
+ * brace, so loosening the query can never turn a trigger into a finding.
+ */
+const NOT_AN_RPC = new Set(['trg_order_item_line_no']);
 
 const psql = (sql) =>
   execFileSync(
@@ -104,9 +98,12 @@ if (!token) throw new Error('could not obtain an anonymous guest token — is th
 const REFUSED = /FORBIDDEN|AUTH_REQUIRED|ACCOUNT_REQUIRED|permission denied|SESSION_EXPIRED|DEGRADED_LOCKOUT/i;
 
 const unrefused = [];
+/** Listed publicByDesign, yet a guard turned the guest away: the registry is wrong about them. */
+const mislabeled = [];
 let refused = 0;
 
 for (const f of fns.sort((a, b) => a.name.localeCompare(b.name))) {
+  if (NOT_AN_RPC.has(f.name)) continue;
   const body = Object.fromEntries((f.args ?? []).map((a) => [a, null]));
   const r = await fetch(`${URL_BASE}/rest/v1/rpc/${f.name}`, {
     method: 'POST',
@@ -120,9 +117,16 @@ for (const f of fns.sort((a, b) => a.name.localeCompare(b.name))) {
     body: JSON.stringify(body),
   });
   const text = await r.text();
-  if (REFUSED.test(text)) refused++;
-  else if (!PUBLIC_BY_DESIGN.has(f.name)) {
-    unrefused.push({ name: f.name, status: r.status, body: text.slice(0, 200).replace(/\s+/g, ' ') });
+  if (REFUSED.test(text)) {
+    refused++;
+    if (PUBLIC_BY_DESIGN.has(f.name)) mislabeled.push(f.name);
+  } else if (!PUBLIC_BY_DESIGN.has(f.name)) {
+    unrefused.push({
+      name: f.name,
+      status: r.status,
+      body: text.slice(0, 200).replace(/\s+/g, ' '),
+      listed: GUARDED.has(f.name) ? 'listed guarded' : 'NOT in the registry',
+    });
   }
 }
 
@@ -130,14 +134,24 @@ console.log(`probed ${fns.length} client-callable SECURITY DEFINER RPCs as an an
 console.log(`  refused by an in-function guard : ${refused}`);
 console.log(`  public by design               : ${fns.length - refused - unrefused.length}`);
 
+// Reported, not failed. A guest is turned away either way, so nothing is
+// exposed; what is wrong is the registry's story. And "refused" cannot tell a
+// role guard from an ownership guard that met a NULL id, so a hard failure here
+// could flag a correct entry. Move the name to `guarded` and it goes quiet.
+if (mislabeled.length) {
+  console.log(`\nMISLABELED in fixtures/rpc-allowlist.json (${mislabeled.length}) — listed publicByDesign, refused a guest:`);
+  for (const n of mislabeled) console.log(`  ${n}`);
+  console.log('  FIX: move each to "guarded"; the registry should say what the guard proves.');
+}
+
 if (unrefused.length) {
   console.error(`\nRPCs REACHABLE BY A GUEST (${unrefused.length}):`);
-  for (const u of unrefused) console.error(`  ${u.name.padEnd(28)} HTTP ${u.status}  ${u.body}`);
+  for (const u of unrefused) console.error(`  ${u.name.padEnd(28)} HTTP ${u.status}  [${u.listed}]  ${u.body}`);
   console.error(
     '\nA café guest holds `authenticated`, exactly as staff do, so an RPC without\n' +
     'its own guard is open to anyone who scans a table QR. Add the role check as\n' +
     "the function's FIRST statement — or, if this is deliberate, add the name to\n" +
-    'PUBLIC_BY_DESIGN in this script and say why.',
+    '"publicByDesign" in fixtures/rpc-allowlist.json with the reason written down.',
   );
   process.exit(1);
 }

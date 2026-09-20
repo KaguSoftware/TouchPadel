@@ -118,7 +118,9 @@ function WelcomeScreen() {
       </View>
 
       <View style={{ paddingStart: 20, paddingEnd: 20, paddingBottom: 26 + insets.bottom, gap: 9 }}>
-        {/* Both lead to phone + password (2026-09-15): Create account is the green CTA, as designed. */}
+        {/* Both lead to a password screen with phone (default) and email segments
+            (phone-only 2026-09-15; email restored beside it 2026-09-20). Create
+            account is the green CTA, as designed. */}
         <Button
           label={t('auth.signIn')}
           onPress={() => router.push('/sign-in')}

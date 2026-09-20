@@ -32,11 +32,11 @@
     "check:rpc-registry": "node scripts/check-rpc-registry.mjs",
     "check:broadcast": "node scripts/check-broadcast-payloads.mjs",
     "check:analytics": "node scripts/check-analytics-payload.mjs",
-    "check:assistant-coverage": "node scripts/check-assistant-coverage.mjs",
-    "assistant:map": "node scripts/build-assistant-map.mjs",
-    "assistant:measure": "node scripts/measure-assistant-tokens.mjs",
+    "check:assistant-coverage": "node --experimental-strip-types scripts/check-assistant-coverage.mjs",
+    "assistant:map": "node --experimental-strip-types scripts/build-assistant-map.mjs",
+    "assistant:measure": "node --experimental-strip-types scripts/measure-assistant-tokens.mjs",
     "lint": "eslint .",
-    "assistant:index-map": "node scripts/assistant-index-map.mjs"
+    "assistant:index-map": "node --experimental-strip-types scripts/assistant-index-map.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.47.0",

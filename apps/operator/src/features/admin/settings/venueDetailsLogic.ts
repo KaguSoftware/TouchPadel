@@ -33,6 +33,9 @@ export interface VenueDraft {
   holdMinutes: string;
   horizonDays: string;
   maxHolds: string;
+  /** 0118: degraded-mode thresholds, owner-editable. */
+  protectedHours: string;
+  staleSeconds: string;
 }
 
 export type VenueField = keyof VenueDraft;
@@ -42,11 +45,14 @@ export type VenueFieldError = 'nameLength' | 'phoneFormat' | 'wholeNumber' | 'ra
  * The ranges app.set_venue_details enforces, in the units the form uses. The
  * hold is stored in seconds and edited in minutes (60..3600 s = 1..60 min).
  */
-export const VENUE_RANGES: Record<'cancellationHours' | 'holdMinutes' | 'horizonDays' | 'maxHolds', { min: number; max: number }> = {
+export const VENUE_RANGES: Record<'cancellationHours' | 'holdMinutes' | 'horizonDays' | 'maxHolds' | 'protectedHours' | 'staleSeconds', { min: number; max: number }> = {
   cancellationHours: { min: 0, max: 168 },
   holdMinutes: { min: 1, max: 60 },
   horizonDays: { min: 0, max: 730 },
   maxHolds: { min: 1, max: 10 },
+  // 0118: the till beats every 10 s; below 15 s one dropped beat trips degraded mode.
+  protectedHours: { min: 0, max: 168 },
+  staleSeconds: { min: 15, max: 600 },
 };
 
 export function draftFromVenue(v: VenueAdminRow): VenueDraft {
@@ -57,6 +63,8 @@ export function draftFromVenue(v: VenueAdminRow): VenueDraft {
     holdMinutes: String(Math.max(1, Math.round(v.hold_ttl_seconds / 60))),
     horizonDays: String(v.max_booking_horizon_days),
     maxHolds: String(v.max_live_holds_per_guest),
+    protectedHours: String(v.protected_horizon_hours),
+    staleSeconds: String(v.heartbeat_stale_seconds),
   };
 }
 
@@ -89,5 +97,7 @@ export function venuePatch(saved: VenueAdminRow, d: VenueDraft): Record<string, 
   if (String(Math.max(1, Math.round(saved.hold_ttl_seconds / 60))) !== d.holdMinutes.trim()) patch.hold_ttl_seconds = holdSeconds;
   if (Number(d.horizonDays) !== saved.max_booking_horizon_days) patch.max_booking_horizon_days = Number(d.horizonDays);
   if (Number(d.maxHolds) !== saved.max_live_holds_per_guest) patch.max_live_holds_per_guest = Number(d.maxHolds);
+  if (Number(d.protectedHours) !== saved.protected_horizon_hours) patch.protected_horizon_hours = Number(d.protectedHours);
+  if (Number(d.staleSeconds) !== saved.heartbeat_stale_seconds) patch.heartbeat_stale_seconds = Number(d.staleSeconds);
   return patch;
 }

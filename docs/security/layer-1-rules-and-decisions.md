@@ -223,8 +223,8 @@ None of these can be written into the repository. Each needs somebody signed in.
 | PITR on the Supabase tier | Supabase → Billing | SOW promises it; if the tier lacks it that is a contract gap |
 | Account ownership at handover | All of the above | Longest-lead item in the project |
 | ⚠ *2026-09-13* Remove the dev seed staff accounts | Supabase → Auth, operator admin | `@dev.touch.local` and `owner@touchpadel.local`. Real accounts and the till's sign-in first, then deactivate, delete, and reset every manager/owner PIN (audit C1) |
-| ⚠ *2026-09-13* Swap **and revoke** `RELEASES_GH_TOKEN`; tag ruleset for `operator-v*` | GitHub | The current secret is a personal OAuth token with `admin:org`; overwriting the secret does not revoke it (H1) |
-| ⚠ *2026-09-13* Delete the `ledger-snapshot-*` artifacts | GitHub → Actions | They hold the `app` schema, including `app.secrets` (M7) |
+| ⚠ *2026-09-13* Swap **and revoke** `RELEASES_GH_TOKEN`; tag ruleset for `operator-v*` | GitHub | The current secret is a personal OAuth token with `admin:org`; overwriting the secret does not revoke it (H1)  Runbook: `docs/client/release-gate-2026-09-20.md` §2–3. `environment: release` on the publish job landed in code 2026-09-20 (a no-op until the environment exists). |
+| ⚠ *2026-09-13* Delete the `ledger-snapshot-*` artifacts | GitHub → Actions | They hold the `app` schema, including `app.secrets` (M7)  Runbook: `docs/client/release-gate-2026-09-20.md` §4. Since 2026-09-20 the dump is `public-ledgers-<sha>` (public ledgers only, 7 days). |
 | ⚠ *2026-09-13* Confirm custody of the EAS Update private key | Password manager, EAS | Before the store build — or regenerate the keypair (M15) |
 | ⚠ *2026-09-13* Minimum password length 8; "Secure password change" on | Supabase → Auth | With the leaked-password row above (L11, M2) |
 

@@ -27,6 +27,11 @@ concurrency:
   group: db-drift
   cancel-in-progress: true
 
+# Security audit S9 (2026-09-20): read-only GITHUB_TOKEN. This job talks to the
+# hosted project with its own secrets and writes nothing to the repository.
+permissions:
+  contents: read
+
 jobs:
   drift:
     name: hosted project vs migration head
@@ -45,7 +50,12 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned 2026-09-20 (audit S9): a `latest` CLI holding the production
+          # DB password changes under the workflow with no review. 2.116.0 is
+          # what ci.yml's db and e2e jobs have run green on since 2026-09-07, so
+          # every workflow now uses one version; the lockfile's 2.115.0 is the
+          # developer copy. Bump all five workflows together.
+          version: 2.116.0
 
       - name: Preflight — are the deploy secrets configured?
         id: preflight

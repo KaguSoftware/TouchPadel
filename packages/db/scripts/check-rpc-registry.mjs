@@ -42,17 +42,37 @@ const FLOOR_FILE = path.join(DB, 'fixtures/rpc-coverage-floor.json');
 const UPDATE_FLOOR = process.argv.includes('--update-floor');
 
 // ── the exposed surface, from the grants themselves ───────────────────────────
+// GRANT, REVOKE and DROP FUNCTION are replayed in migration order (files sorted,
+// statements in file order) so the derived surface is the FINAL grant state,
+// not "was ever granted". Before 0114 this loop read grants only, so a function
+// revoked or dropped in a later migration still counted as client-callable and
+// could never leave the registry.
 const GRANT = /grant\s+execute\s+on\s+function\s+app\.([a-z0-9_]+)\s*\(([^)]*)\)\s*to\s+([a-z_,\s]+);/gi;
+const REVOKE = /revoke\s+(?:all|execute)(?:\s+privileges)?\s+on\s+function\s+app\.([a-z0-9_]+)\s*\(([^)]*)\)\s*from\s+([a-z_,\s]+);/gi;
+const DROP = /drop\s+function\s+(?:if\s+exists\s+)?app\.([a-z0-9_]+)\s*\(([^)]*)\)/gi;
 
 const grantedTo = new Map();
+const roleList = (txt) => txt.split(',').map((r) => r.trim().toLowerCase()).filter(Boolean);
 for (const file of readdirSync(MIGRATIONS).sort()) {
   if (!file.endsWith('.sql')) continue;
   const sql = readFileSync(path.join(MIGRATIONS, file), 'utf8');
-  for (const m of sql.matchAll(GRANT)) {
-    const name = m[1].toLowerCase();
-    const roles = m[3].split(',').map((r) => r.trim().toLowerCase()).filter(Boolean);
-    if (!grantedTo.has(name)) grantedTo.set(name, new Set());
-    for (const r of roles) grantedTo.get(name).add(r);
+  const events = [];
+  for (const m of sql.matchAll(GRANT)) events.push({ at: m.index, op: 'grant', name: m[1].toLowerCase(), roles: roleList(m[3]) });
+  for (const m of sql.matchAll(REVOKE)) events.push({ at: m.index, op: 'revoke', name: m[1].toLowerCase(), roles: roleList(m[3]) });
+  for (const m of sql.matchAll(DROP)) events.push({ at: m.index, op: 'drop', name: m[1].toLowerCase(), roles: [] });
+  events.sort((x, y) => x.at - y.at);
+  for (const e of events) {
+    if (e.op === 'drop') {
+      grantedTo.delete(e.name);
+      continue;
+    }
+    if (!grantedTo.has(e.name)) grantedTo.set(e.name, new Set());
+    const roles = grantedTo.get(e.name);
+    for (const r of e.roles) {
+      if (e.op === 'grant') roles.add(r);
+      else if (r === 'public') roles.clear();
+      else roles.delete(r);
+    }
   }
 }
 

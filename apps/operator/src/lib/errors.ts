@@ -12,6 +12,9 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   'DEGRADED_LOCKOUT',
   'PIN_INVALID',
   'PIN_LOCKED',
+  // 0115: a money RPC reached without a fresh verify_manager_pin grant. appRpc
+  // verifies first, so a user sees this only after a very slow round trip.
+  'PIN_GRANT_REQUIRED',
   'FORBIDDEN',
   'AUTH_REQUIRED',
   'ALREADY_NOTIFIED',
