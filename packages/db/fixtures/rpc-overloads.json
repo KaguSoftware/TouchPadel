@@ -1,0 +1,14 @@
+{
+  "_readme": [
+    "Deliberate overloads in schema app: one entry per function name that MAY end the migration",
+    "replay with more than one live signature, with the reason. check-rpc-registry.mjs fails on any",
+    "other name that does (scripts/lib/fn-signatures.mjs); tests/rpc-overloads.test.ts proves the same",
+    "list against pg_proc. Why: 0115 re-issued apply_discount and override_price at arities 0049 had",
+    "dropped, creating stray overloads nobody could see (0119 removed them). A name enters this file",
+    "only when both signatures are meant to coexist and are called by different code."
+  ],
+  "allowed": {
+    "business_date": "0034:62-75 — the 1-arg definer form (venue timezone + day-start setting) wraps the 3-arg immutable arithmetic the analytics GROUP BYs inline; both service_role only",
+    "llm_record_usage": "0079 3-arg form (analytics-insights: p_model_calls, p_prompt_tokens, p_completion_tokens) beside the 0111 7-arg per-kind form (assistant-chat); disjoint parameter names, both service_role only"
+  }
+}

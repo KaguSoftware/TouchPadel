@@ -17,24 +17,34 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0114`
-  (`20260920000114_replay_pin_purge_drop_log_replay.sql`); the next is `0115`.
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0119`
+  (`20260921000119_fix_pin_grant_overloads.sql`); the next is `0120`.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
-  `scripts/check-migrations.mjs` checks versions today; the ordinal rules land with Milestone 0
-  item 10.
+  `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
+  `migration-ordinal-not-max`).
 - Open every file with `set lock_timeout = '3s'; set statement_timeout = '60s';`
   (`check-migrations.mjs:247-248,467-483`).
 - `add constraint … NOT VALID`, then a separate `VALIDATE CONSTRAINT` inside an idempotent
   `pg_constraint` guard; a `create index` needs its own migration or
   `MIGRATION-RISK-ACCEPTED: <reason>` in the PR body (`check-migrations.mjs:36,262,282-288`).
 - Re-issue a function only from its latest body, verbatim:
-  `grep -l "function app.<name>" supabase/migrations/*.sql | tail -1`. The latest file is often not
-  the obvious one: `is_degraded` 0026, `heartbeat` 0107, `set_opening_hours` 0052,
-  `verify_manager_pin` 0086, `staff_create_reservation` 0092, `cafe_setting_specs` 0105.
+  `grep -n "function app.<name>(" supabase/migrations/*.sql | tail -1`. **Both spellings count**:
+  a plain `create function` (0049 `apply_discount`, `override_price`, `record_waste`; 0097
+  `upsert_court`) is as much "the latest body" as `create or replace function`. Searching for the
+  long form only is how 0115 re-issued two RPCs at an arity 0049 had dropped and created stray
+  overloads (fixed by 0119). The latest file is often not the obvious one: `is_degraded` 0026,
+  `heartbeat` 0107, `set_opening_hours` 0052, `verify_manager_pin` 0115, `apply_discount` and
+  `override_price` 0119, `staff_create_reservation` 0092, `cafe_setting_specs` 0105.
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
-  GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs:45-62`), so a missing re-grant
-  shows up there.
+  GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows
+  up there — and it forgets a name's grants on ANY drop, so re-grant even when the new signature
+  already existed.
+- No accidental overloads: the same gate replays every `create [or replace] function app.X(...)`
+  and `drop function app.X(...)` (`scripts/lib/fn-signatures.mjs`) and fails when a name ends with
+  two signatures unless `fixtures/rpc-overloads.json` says so (`business_date`, `llm_record_usage`
+  today; multi-venue will add `is_degraded`, `venue_mode`). `tests/rpc-overloads.test.ts` proves
+  the same list against `pg_proc` when Docker is up.
 - Enum widening (`alter type … add value`) is its own migration file, landing strictly before the
   file that uses the value. No migration does this yet; do not put the first one beside its first
   use.
@@ -53,6 +63,10 @@ is a line in that file.
   is `_en` + `_ar`, both `NOT NULL` (`CONTRIBUTING.md`).
 - `enable row level security` on every new table (by hand for schema `app`); select-only policies;
   guest-writable text gets a sanitiser trigger (`app.safe_line`, 0080) and a length CHECK.
+- A function named in a CHECK constraint, a generated column or a non-definer trigger runs as the
+  WRITING role, so grant it to every role that writes the table: anon, authenticated AND
+  service_role (edge functions, seeds, tests). 0116 granted `app.phone_digits` to the two client
+  roles only and every service-role UPDATE on `profiles` failed until 0121.
 - Append rules for the table to `tests/rls-matrix.ts` (data only; `tests/rls-matrix.test.ts` runs it
   against 8 principals). Never restructure that file.
 - A table that holds guest data is declared in `GUEST_DATA` (`tests/stored-fields.test.ts:86`,
@@ -87,9 +101,9 @@ is a line in that file.
   `fixtures/rpc-allowlist.json` with a reason of at least 10 characters
   (`check-rpc-registry.mjs:94-95`). The floor in `fixtures/rpc-coverage-floor.json` (164/167 on
   2026-09-20) only rises, via `--update-floor`.
-- `scripts/check-rpc-authz.mjs` keeps its own `PUBLIC_BY_DESIGN` set (`:38`); it runs in the CI db
-  job after `supabase start` and is not yet in `pnpm security` (Milestone 0 item 10 wires it in and
-  reconciles the two lists).
+- `scripts/check-rpc-authz.mjs` reads `fixtures/rpc-allowlist.json` (one list, since Milestone 0
+  item 10); it needs a running stack, so it runs in the CI db job after `supabase start` and must
+  NOT join `pnpm security`, which runs stackless.
 
 ## Offline mutation contract
 

@@ -188,6 +188,95 @@ describe.skipIf(!up)('0115 manager-PIN grants (S3)', () => {
     expect(g[0]!.consumed_at).not.toBeNull();
   });
 
+  // ── 0119 ──────────────────────────────────────────────────────────────────
+  // 0115 re-issued apply_discount and override_price at the arity 0049 had
+  // dropped, which CREATED a second overload of each. The KEYED call — what the
+  // till (mutate.ts) and the replay function send — resolved to the 0049 body,
+  // whose verify_manager_pin ran a second time and never touched the grant; a
+  // keyless call was PGRST203-ambiguous. These three cases would have failed
+  // against 0115 and pin the fixed shape.
+
+  async function lineId(): Promise<string> {
+    const { data: orders } = await svc.from('orders').select('id').eq('tab_id', tabId);
+    const { data: items } = await svc
+      .from('order_items')
+      .select('id')
+      .in('order_id', (orders ?? []).map((o) => o.id))
+      .eq('voided', false)
+      .limit(1);
+    return items![0]!.id;
+  }
+
+  async function adjustments(): Promise<number> {
+    const { data } = await svc.from('tab_adjustments').select('id').eq('tab_id', tabId);
+    return (data ?? []).length;
+  }
+
+  const discountKeyed = (c: SupabaseClient, key: string) =>
+    raw(c, 'apply_discount', {
+      p_tab_id: tabId,
+      p_kind: 'discount_percent',
+      p_value: 500,
+      p_pin: DEV_PINS.manager,
+      p_reason_code: 'pin-grants-test',
+      p_device_id: 'TILL-GRANT-TEST',
+      p_idempotency_key: key,
+    }).then(outcome);
+
+  it('0119: the KEYED call consumes the grant, verifies once and claims the key', async () => {
+    const key = testIdemKey('adjustment.apply');
+    const v = await raw(manager, 'verify_manager_pin', { p_pin: DEV_PINS.manager, p_device_id: 'TILL-GRANT-TEST' }).then(outcome);
+    expect(v.ok, v.errorMessage).toBe(true);
+
+    const r = await discountKeyed(manager, key);
+    expect(r.ok, r.errorMessage).toBe(true);
+    expect(r.duplicate).toBeFalsy();
+
+    const g = await grants();
+    expect(g).toHaveLength(1);
+    expect(g[0]!.consumed_at).not.toBeNull();
+    // ONE attempt row: the money RPC no longer verifies the PIN a second time.
+    expect(await attempts()).toBe(1);
+    const { data: replays } = await svc.schema('app').from('rpc_replays').select('fn').eq('idempotency_key', key);
+    expect(replays).toEqual([{ fn: 'apply_discount' }]);
+  });
+
+  it('0119: a keyed call without a grant is PIN_GRANT_REQUIRED (not PIN_INVALID) for both re-issued RPCs', async () => {
+    const d = await discountKeyed(manager, testIdemKey('adjustment.apply'));
+    expect(d.errorMessage).toBe('PIN_GRANT_REQUIRED');
+
+    const o = await raw(manager, 'override_price', {
+      p_order_item_id: await lineId(),
+      p_new_unit_price_iqd: 4_000,
+      p_pin: DEV_PINS.manager,
+      p_reason_code: 'pin-grants-test',
+      p_device_id: 'TILL-GRANT-TEST',
+      p_idempotency_key: testIdemKey('adjustment.apply'),
+    }).then(outcome);
+    expect(o.errorMessage).toBe('PIN_GRANT_REQUIRED');
+    expect(await attempts()).toBe(0);
+  });
+
+  it('0119: replaying the same key echoes duplicate:true, writes once and spends no second grant', async () => {
+    const key = testIdemKey('adjustment.apply');
+    const before = await adjustments();
+
+    await raw(manager, 'verify_manager_pin', { p_pin: DEV_PINS.manager, p_device_id: 'TILL-GRANT-TEST' });
+    const first = await discountKeyed(manager, key);
+    expect(first.ok, first.errorMessage).toBe(true);
+
+    await raw(manager, 'verify_manager_pin', { p_pin: DEV_PINS.manager, p_device_id: 'TILL-GRANT-TEST' });
+    const second = await discountKeyed(manager, key);
+    expect(second.ok, second.errorMessage).toBe(true);
+    expect(second.duplicate).toBe(true);
+    expect((second.data as { adjustment_id: string }).adjustment_id).toBe((first.data as { adjustment_id: string }).adjustment_id);
+
+    expect(await adjustments()).toBe(before + 1);
+    const g = await grants();
+    expect(g).toHaveLength(2);
+    expect(g.filter((x) => x.consumed_at !== null)).toHaveLength(1);
+  });
+
   it('consume_pin_grant is not client-callable', async () => {
     const r = await raw(manager, 'consume_pin_grant', { p_device_id: 'TILL-GRANT-TEST' }).then(outcome);
     expect(r.ok).toBe(false);

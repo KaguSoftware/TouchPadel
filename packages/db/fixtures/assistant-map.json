@@ -1,5 +1,5 @@
 {
-  "generated_from": "5958591cd4ef52ed1a291fe11df25f9edc56268b",
+  "generated_from": "1daa960928ad14d881e8268131f5ca1cf1fc8c24",
   "chunks": [
     {
       "kind": "page",
@@ -1782,7 +1782,7 @@
       "ref": "action:app.apply_discount",
       "lang": "en",
       "title": "app.apply_discount",
-      "body": "Signature: app.apply_discount(p_tab_id uuid, p_kind adjustment_kind, p_value int, p_pin text, p_reason_code text, p_order_item_id uuid default null, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: discount.apply.\nError codes: FORBIDDEN, INVALID_KIND, REASON_REQUIRED, TAB_NOT_FOUND, TAB_NOT_OPEN, ITEM_NOT_ON_TAB, INVALID_VALUE, DISCOUNT_REQUIRES_REFUND.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0115 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0119: the 0049 body (claim_replay) with the 0115 PIN grant; the only live signature.\nSignature: app.apply_discount(p_tab_id uuid, p_kind adjustment_kind, p_value int, p_pin text, p_reason_code text, p_order_item_id uuid default null, p_device_id text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: discount.apply.\nError codes: FORBIDDEN, INVALID_KIND, REASON_REQUIRED, TAB_NOT_FOUND, TAB_NOT_OPEN, ITEM_NOT_ON_TAB, INVALID_VALUE, DISCOUNT_REQUIRES_REFUND.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0119 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2198,7 +2198,7 @@
       "ref": "action:app.override_price",
       "lang": "en",
       "title": "app.override_price",
-      "body": "Signature: app.override_price(p_order_item_id uuid, p_new_unit_price_iqd bigint, p_pin text, p_reason_code text, p_device_id text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: price.override.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_PRICE, ITEM_NOT_FOUND, TAB_MOVED, ITEM_VOIDED, TAB_NOT_OPEN, OVERRIDE_REQUIRES_REFUND.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0115 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0119: the 0049 body (claim_replay) with the 0115 PIN grant; the only live signature.\nSignature: app.override_price(p_order_item_id uuid, p_new_unit_price_iqd bigint, p_pin text, p_reason_code text, p_device_id text default null, p_idempotency_key text default null) returns jsonb.\nGranted to: authenticated. Guard: staff role in (cashier,manager,owner).\nAudit actions written: price.override.\nError codes: FORBIDDEN, REASON_REQUIRED, INVALID_PRICE, ITEM_NOT_FOUND, TAB_MOVED, ITEM_VOIDED, TAB_NOT_OPEN, OVERRIDE_REQUIRES_REFUND.\nCalled from: apps/operator/src/lib/mutate.ts (till queue).\nDefined in migration 0119 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {
@@ -2206,7 +2206,7 @@
       "ref": "action:app.phone_digits",
       "lang": "en",
       "title": "app.phone_digits",
-      "body": "0065/0116. Arabic-Indic digits folded to ASCII, every non-digit dropped. Pure text, no data access. Granted to anon/authenticated since 0116 because the profiles_phone_format CHECK evaluates it as the writing role.\nSignature: app.phone_digits(p_phone text) returns text.\nGranted to: anon, authenticated. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0065 (last definition). The assistant cannot call this; it only explains it.",
+      "body": "0065/0116. Arabic-Indic digits folded to ASCII, every non-digit dropped. Pure text, no data access. Granted to anon/authenticated since 0116 because the profiles_phone_format CHECK evaluates it as the writing role.\nSignature: app.phone_digits(p_phone text) returns text.\nGranted to: anon, authenticated, service_role. Guard: not detected by pattern — read the migration.\nWrites no audit row of its own (or via a helper).\nNot called directly by the operator app (edge function, guest app, queue or internal).\nDefined in migration 0065 (last definition). The assistant cannot call this; it only explains it.",
       "route": null
     },
     {

@@ -57,6 +57,33 @@ export type Database = {
         }
         Relationships: []
       }
+      pin_grants: {
+        Row: {
+          authorizer_id: string
+          caller_id: string
+          consumed_at: string | null
+          created_at: string
+          device_id: string | null
+          id: number
+        }
+        Insert: {
+          authorizer_id: string
+          caller_id: string
+          consumed_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: never
+        }
+        Update: {
+          authorizer_id?: string
+          caller_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: never
+        }
+        Relationships: []
+      }
       rpc_replays: {
         Row: {
           at: string
@@ -416,6 +443,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      assistant_job_tick_nudge: { Args: never; Returns: undefined }
       assistant_job_transition: {
         Args: { p_id: string; p_patch?: Json; p_status: string }
         Returns: Database["public"]["Tables"]["assistant_jobs"]["Row"]
