@@ -29,21 +29,18 @@ const CASES: SmokeCase[] = [
     // the language assertion lands on the option the guest would tap. In
     // Arabic that option still reads "English" — `pinOrder` holds the pair in
     // place — which is exactly what `t('settings.english')` returns in both.
-    primary: 'settings.language',
     nearbyKey: 'settings.arabic',
     options: { session: 'in', queryData: SIGNED_IN },
   },
   {
     route: 'profile-edit',
     Component: ProfileEditScreen,
-    primary: 'profile-edit.save',
     labelKey: 'profile.saveChanges',
     options: { session: 'in', queryData: SIGNED_IN },
   },
   {
     route: 'change-password',
     Component: ChangePasswordScreen,
-    primary: 'change-password.submit',
     labelKey: 'profile.updatePassword',
     options: { session: 'in', queryData: SIGNED_IN },
   },
@@ -52,7 +49,6 @@ const CASES: SmokeCase[] = [
     Component: DeleteAccountScreen,
     // MOUNTED but disabled until the confirmation word is typed — which is the
     // state worth smoking: the screen must offer the action and refuse it.
-    primary: 'delete-account.confirm',
     labelKey: 'profile.deleteAccount',
     options: { session: 'in', queryData: SIGNED_IN },
   },

@@ -14,9 +14,9 @@
  */
 import type { Locale } from '@touch/i18n';
 
-export const TEST_USER_ID = '00000000-0000-4000-8000-00000000beef';
+const TEST_USER_ID = '00000000-0000-4000-8000-00000000beef';
 export const TEST_RESERVATION_ID = '11111111-1111-4111-8111-111111111111';
-export const TEST_COURT_ID = '22222222-2222-4222-8222-222222222222';
+const TEST_COURT_ID = '22222222-2222-4222-8222-222222222222';
 
 export interface ProfileFixture {
   id: string;

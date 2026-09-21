@@ -75,9 +75,10 @@ export function PhoneField({
    * `<route>.phone` for the digits input. The country chip that opens the
    * picker takes `${testID}.country`, and each row of the picker
    * `${testID}.country.<iso>` — a test picks Iraq by name, not by scroll
-   * offset in a 66-row list.
+   * offset in a 66-row list. REQUIRED: the chip, the picker and its rows all
+   * derive their ids from it.
    */
-  testID?: string;
+  testID: string;
 }) {
   const { colors, fonts } = useTheme();
   const { t } = useLocale();
@@ -192,7 +193,7 @@ export function PhoneField({
         error={error}
         lead={
           <Pressable
-            testID={testID ? `${testID}.country` : undefined}
+            testID={`${testID}.country`}
             accessibilityRole="button"
             accessibilityLabel={t('auth.countryCode')}
             accessibilityValue={{ text: `+${country.dial}` }}
@@ -275,7 +276,7 @@ export function PhoneField({
       />
 
       <CountryPicker
-        testID={testID ? `${testID}.country` : undefined}
+        testID={`${testID}.country`}
         visible={pickerOpen}
         selected={iso}
         onSelect={(next) => {
@@ -376,7 +377,7 @@ function CountryPicker({
   onSelect: (iso: string) => void;
   onClose: () => void;
   /** `<route>.phone.country`; each JS row becomes `${testID}.<iso>`. */
-  testID?: string;
+  testID: string;
 }) {
   const { locale } = useLocale();
   const display = useMemo(() => {
@@ -471,7 +472,7 @@ function CountryPickerJS({
   /** Shared with the iOS sheet by the dispatcher, so the two cannot drift. */
   nameOf: (c: Country) => string;
   /** `<route>.phone.country`; the search field, the scrim and each row hang off it. */
-  testID?: string;
+  testID: string;
 }) {
   const { colors, fonts } = useTheme();
   const { t, dir } = useLocale();
@@ -538,7 +539,7 @@ function CountryPickerJS({
           }}
         >
           <Pressable
-            testID={testID ? `${testID}.scrim` : undefined}
+            testID={`${testID}.scrim`}
             accessibilityRole="button"
             accessibilityLabel={t('common.close')}
             onPress={onClose}
@@ -593,7 +594,7 @@ function CountryPickerJS({
               {t('auth.countryCode')}
             </Text>
             <Field
-              testID={testID ? `${testID}.search` : undefined}
+              testID={`${testID}.search`}
               value={query}
               onChangeText={setQuery}
               placeholder={t('auth.countryCodeSearch')}
@@ -663,7 +664,7 @@ function CountryPickerJS({
             }
             renderItem={({ item }) => (
               <CountryRow
-                testID={testID ? `${testID}.${item.iso.toLowerCase()}` : undefined}
+                testID={`${testID}.${item.iso.toLowerCase()}`}
                 country={item}
                 name={nameOf(item)}
                 active={item.iso === selected}

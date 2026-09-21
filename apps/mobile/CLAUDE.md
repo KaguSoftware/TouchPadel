@@ -89,10 +89,16 @@ Database-side rules are in `packages/db/CLAUDE.md`.
   with `(tabs)/index` → `book`, `booking/[id]` → `booking-detail`, `(tabs)/_layout` → `tabs`.
   A shared component NEVER mints an id: it takes `testID?: string` and forwards it EXPLICITLY
   (`testID={testID}` — a `{...spread}` does not count, because the lint rule reads the JSX).
-- `testIdRules` from `@touch/config/eslint` fails `lint` on any interactive element without one;
-  `src/lib/__tests__/testIdGuard.test.ts` pins the rule. `no-restricted-syntax` is not merged by
+- `testIdRules` from `@touch/config/eslint` fails `lint` on any interactive element without one
+  (and on `testID={undefined}`); `src/lib/__tests__/testIdGuard.test.ts` pins the rule. A new
+  Pressable wrapper (anything under `src/components/**` that renders a `Pressable`) must be added
+  to `testIdElements` in `packages/config/src/eslint.js`, or the rule never sees its call sites.
+  A wrapper that derives child ids from its own takes `testID: string` (required) and forwards
+  `${testID}.<child>` unconditionally. `no-restricted-syntax` is not merged by
   ESLint, so `eslint.config.mjs` composes RTL + client-secret + testID into ONE array in ONE entry.
 - A new screen ships with a smoke case, or `src/navigation/__tests__/smokeCoverage.test.ts` fails:
-  it walks `app/**/*.tsx` against the checked-in table in `src/smoke/routes.ts`.
+  it walks `app/**/*.tsx` against the checked-in table in `src/smoke/routes.ts`, and reads every
+  `src/smoke/*.smoke.test.tsx` to check each table route is named by exactly one suite. A case
+  names its `route`; the primary id comes from the table.
 - Run `pnpm --filter @touch/mobile typecheck`, `lint`, `test` and `test:smoke`;
   `pnpm --filter @touch/mobile doctor` after any dependency change. Report the exact result.

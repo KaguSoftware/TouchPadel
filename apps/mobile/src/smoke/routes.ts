@@ -2,11 +2,14 @@
  * Every route in `app/`, with the testID of the action that screen exists for.
  *
  * TWO READERS, ON PURPOSE:
- *  • the smoke suites (`*.smoke.test.tsx`) drive their `it.each` from it, so a
- *    route's primary id is written down once;
- *  • `src/navigation/__tests__/smokeCoverage.test.ts` walks `app/**​/*.tsx` and
- *    fails when a file is missing from here — a new screen therefore cannot
- *    ship without either a smoke case or a deliberate `todo` beside it.
+ *  • the smoke suites (`*.smoke.test.tsx`) name a route and get its primary id
+ *    (and its `todo`) from here through `src/test/smokeCase.tsx`, so an id is
+ *    written down once;
+ *  • `src/navigation/__tests__/smokeCoverage.test.ts` walks `app/**​/*.tsx`
+ *    against this table AND reads every suite's source for `route: '<name>'`,
+ *    so a new screen cannot ship without an entry here and a case in exactly
+ *    one suite (or a deliberate `todo` beside the entry, which the runner
+ *    skips by name).
  *
  * PLAIN DATA, NO REACT. The coverage test runs under vitest in plain node,
  * where importing react-native throws, so this file holds strings and nothing
@@ -65,10 +68,3 @@ export const SMOKE_ROUTES: readonly SmokeRoute[] = [
   // it is the one thing this file MUST put on screen.
   { file: '_layout.tsx', route: 'app', primary: 'app.direction-root' },
 ];
-
-/** Lookup by route name, for a suite that wants one entry by hand. */
-export function smokeRoute(route: string): SmokeRoute {
-  const found = SMOKE_ROUTES.find((r) => r.route === route);
-  if (!found) throw new Error(`No smoke route named ${route}`);
-  return found;
-}

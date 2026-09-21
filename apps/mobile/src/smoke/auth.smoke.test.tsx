@@ -50,13 +50,12 @@ afterAll(() => {
 });
 
 const CASES: SmokeCase[] = [
-  { route: 'welcome', Component: WelcomeScreen, primary: 'welcome.sign-in', labelKey: 'auth.signIn' },
-  { route: 'sign-in', Component: SignInScreen, primary: 'sign-in.submit', labelKey: 'auth.signIn' },
-  { route: 'sign-up', Component: SignUpScreen, primary: 'sign-up.submit', labelKey: 'auth.signUp' },
+  { route: 'welcome', Component: WelcomeScreen, labelKey: 'auth.signIn' },
+  { route: 'sign-in', Component: SignInScreen, labelKey: 'auth.signIn' },
+  { route: 'sign-up', Component: SignUpScreen, labelKey: 'auth.signUp' },
   {
     route: 'forgot-password',
     Component: ForgotPasswordScreen,
-    primary: 'forgot-password.submit',
     // The method segment defaults to PHONE (`parseAuthMethod` treats anything
     // but the literal 'email' as phone), so the CTA sends a code, not a link.
     labelKey: 'auth.sendCode',
@@ -64,7 +63,6 @@ const CASES: SmokeCase[] = [
   {
     route: 'reset-password',
     Component: ResetPasswordScreen,
-    primary: 'reset-password.save',
     labelKey: 'common.save',
     // S6: the form renders ONLY while an in-session recovery marker is set AND
     // a session exists — anything else is a spinner for four seconds and then
@@ -79,34 +77,29 @@ const CASES: SmokeCase[] = [
   {
     route: 'verify-email',
     Component: VerifyEmailScreen,
-    primary: 'verify-email.resend',
     labelKey: 'auth.resendLink',
     options: { params: { email: 'guest@example.test' } },
   },
   {
     route: 'verify-otp',
     Component: VerifyOtpScreen,
-    primary: 'verify-otp.continue',
     labelKey: 'auth.continueCta',
     options: { session: 'in', params: { phone: '+9647700000000', mode: 'signup' } },
   },
   {
     route: 'verify-result',
     Component: VerifyResultScreen,
-    primary: 'verify-result.continue',
     labelKey: 'auth.continueCta',
   },
   {
     route: 'phone-sign-in',
     Component: PhoneSignInScreen,
-    primary: 'phone-sign-in.send-code',
     labelKey: 'auth.sendCode',
     options: { session: 'in', params: { mode: 'link' } },
   },
   {
     route: 'complete-profile',
     Component: CompleteProfileScreen,
-    primary: 'complete-profile.submit',
     labelKey: 'auth.completeProfileCta',
     // Without a profile row the screen is a skeleton: it renders the form only
     // once `useOwnProfile` has settled. Seeded rather than fetched, so the
