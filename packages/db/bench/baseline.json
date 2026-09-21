@@ -1,0 +1,155 @@
+{
+  "meta": {
+    "sha": "175f34cd4a0a9478bb1da45b86e62e819a51150b",
+    "node": "v24.15.0",
+    "cli": "2.115.0",
+    "os": "Windows_NT 10.0.26200 (16 GB)",
+    "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz",
+    "cores": 16,
+    "runner": "local-placeholder",
+    "startedAt": "2026-09-21T09:55:18.894Z",
+    "repeat": 1
+  },
+  "rows": {
+    "booking.hold_slot@1.one_court": {
+      "p50": 21.42,
+      "p95": 30.1,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "booking.hold_slot@10.one_court": {
+      "p50": 29.91,
+      "p95": 49.69,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 10
+    },
+    "booking.hold_slot@50.one_court": {
+      "p50": 132.02,
+      "p95": 236.96,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 50
+    },
+    "booking.hold_slot@10.four_courts": {
+      "p50": 15.89,
+      "p95": 24.06,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 10
+    },
+    "booking.hold_slot@50.four_courts": {
+      "p50": 60.86,
+      "p95": 97.18,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 50
+    },
+    "booking.confirm_booking@1": {
+      "p50": 8.5,
+      "p95": 10.85,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "booking.confirm_booking@10": {
+      "p50": 12.74,
+      "p95": 17,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 10
+    },
+    "booking.confirm_booking@50": {
+      "p50": 53.19,
+      "p95": 82.08,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 50
+    },
+    "booking.contention@50.same_slot": {
+      "p50": 60.9,
+      "p95": 103.43,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 50
+    },
+    "cafe.create_guest_order.10lines_3mods": {
+      "p50": 20.51,
+      "p95": 85.11,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "cafe.compute_tab_totals.40lines": {
+      "p50": 6.7,
+      "p95": 12.45,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_summary.12mo": {
+      "p50": 529.56,
+      "p95": 598.2,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_demand.12mo": {
+      "p50": 76.44,
+      "p95": 93.35,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_endings.12mo": {
+      "p50": 8020.55,
+      "p95": 8020.55,
+      "outcome": "timeout",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_guests.12mo": {
+      "p50": 8030.51,
+      "p95": 8030.51,
+      "outcome": "timeout",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_cafe.12mo": {
+      "p50": 471.84,
+      "p95": 608.16,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.hourly.12mo": {
+      "p50": 1853.66,
+      "p95": 2024.16,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.report_revenue.12mo": {
+      "p50": 33.41,
+      "p95": 37.1,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "analytics.courts_summary.400d": {
+      "p50": 529.72,
+      "p95": 549.18,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    },
+    "replay.drain_500": {
+      "p50": 70.58,
+      "p95": 90.38,
+      "outcome": "ok",
+      "unit": "ms",
+      "concurrency": 1
+    }
+  }
+}

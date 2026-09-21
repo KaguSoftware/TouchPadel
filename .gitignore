@@ -71,3 +71,7 @@ credentials.json
 !apps/mobile/store/out/
 apps/mobile/store/out/*
 !apps/mobile/store/out/iphone-6.9/
+
+# Bench results (packages/db/bench). Every nightly run writes a fresh results.json;
+# the committed artefact is bench/baseline.json, taken from the CI runner.
+packages/db/bench/results/
