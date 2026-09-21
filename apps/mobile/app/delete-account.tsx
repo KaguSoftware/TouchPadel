@@ -212,6 +212,7 @@ function DeleteAccountScreen() {
         </Text>
 
         <Field
+          testID="delete-account.confirm-word"
           placeholder={word}
           value={typed}
           onChangeText={setTyped}
@@ -225,6 +226,7 @@ function DeleteAccountScreen() {
         <ErrorText>{error}</ErrorText>
 
         <Button
+          testID="delete-account.confirm"
           label={t('profile.deleteAccount')}
           variant="danger"
           busy={busy}
@@ -233,6 +235,7 @@ function DeleteAccountScreen() {
           style={{ marginTop: 6 }}
         />
         <Button
+          testID="delete-account.cancel"
           label={t('common.cancel')}
           variant="ghost"
           size="medium"

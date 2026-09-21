@@ -103,6 +103,7 @@ function ChangePasswordScreen() {
       <Stack.Screen options={{ title: t('profile.changePassword') }} />
       <FormScreen contentStyle={{ paddingTop: 4 }}>
         <Field
+          testID="change-password.current-password"
           placeholder={t('profile.currentPassword')}
           value={current}
           onChangeText={setCurrent}
@@ -113,6 +114,7 @@ function ChangePasswordScreen() {
           error={currentError}
         />
         <Field
+          testID="change-password.new-password"
           placeholder={t('profile.newPasswordMin')}
           value={next}
           onChangeText={setNext}
@@ -123,6 +125,7 @@ function ChangePasswordScreen() {
           error={nextError}
         />
         <Field
+          testID="change-password.confirm-password"
           placeholder={t('profile.confirmNewPassword')}
           value={confirm}
           onChangeText={setConfirm}
@@ -134,6 +137,7 @@ function ChangePasswordScreen() {
         />
         <ErrorText>{error}</ErrorText>
         <Button
+          testID="change-password.submit"
           label={t('profile.updatePassword')}
           variant="cta"
           busy={busy}

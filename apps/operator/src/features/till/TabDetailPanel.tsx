@@ -44,6 +44,8 @@ import { supabase } from '../../lib/supabase';
 import { appRpc, AppRpcError } from '../../lib/appRpc';
 import { deviceId } from '../../lib/idem';
 import { mutate } from '../../lib/mutate';
+import { onFailedResult, resultErrorCode } from '../../lib/queueResults';
+import { QK } from '../../lib/queries';
 import { touch } from '../../ipc/bridge';
 import { useLocale, pickName } from '../../lib/i18n';
 import { useAuth, usePermissions } from '../../lib/auth';
@@ -108,6 +110,14 @@ export function TabDetailPanel({
   const [promoNotice, setPromoNotice] = useState<{ tone: 'success' | 'refused'; text: string } | null>(null);
   const [drawerNoted, setDrawerNoted] = useState(false);
   const [voidRefused, setVoidRefused] = useState(false);
+  /**
+   * Voids that went onto the durable queue (item 9, 0120): line id -> the
+   * envelope's localId, until the server answers. A pending line shows its
+   * badge and hides its actions; the ack refetches the tab (the line comes back
+   * voided), a refusal arrives through onFailedResult below.
+   */
+  const [pendingVoids, setPendingVoids] = useState<ReadonlyMap<string, string>>(new Map());
+  const [refundQueued, setRefundQueued] = useState(false);
   const [actionError, setActionError] = useState<unknown>(null);
   const [pinError, setPinError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -201,7 +211,29 @@ export function TabDetailPanel({
     setOverlay({ kind: 'none' });
     setPromoOpen(false);
     setOpenLineId(null);
+    setPendingVoids(new Map());
+    setRefundQueued(false);
   }, [tabId]);
+
+  // A void queued offline and refused later: the modal is long closed, so the
+  // answer lands where the synchronous one would have — VOID_REQUIRES_REFUND
+  // beside the lines, anything else as the action error. (The root also toasts it.)
+  useEffect(
+    () =>
+      onFailedResult((r) => {
+        const lineId = [...pendingVoids].find(([, localId]) => localId === r.localId)?.[0];
+        if (!lineId) return;
+        setPendingVoids((m) => {
+          const next = new Map(m);
+          next.delete(lineId);
+          return next;
+        });
+        const code = resultErrorCode(r) ?? 'UNKNOWN';
+        if (code === 'VOID_REQUIRES_REFUND') setVoidRefused(true);
+        else setActionError(new AppRpcError(code, code));
+      }),
+    [pendingVoids],
+  );
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['tab', tabId] });
@@ -289,13 +321,16 @@ export function TabDetailPanel({
     setPinError(null);
     setVoidRefused(false);
     try {
-      await appRpc('void_after_send', {
-        p_order_item_id: lineId,
-        p_pin: pin,
-        p_reason_code: reasonCode,
-        p_device_id: deviceId(),
+      // Item 9 (0120): the void rides the durable queue; the PIN travels in the
+      // payload and is proved at replay. Online, VOID_REQUIRES_REFUND still
+      // throws here inside the call, exactly as the direct RPC did.
+      const outcome = await mutate<{ duplicate: boolean; order_item_id: string }>('order_item.void', {
+        orderItemId: lineId,
+        pin,
+        reasonCode,
       });
-      touch.pinObserved(pin);
+      if (!outcome.queued) touch.pinObserved(pin);
+      else setPendingVoids((m) => new Map(m).set(lineId, outcome.localId));
       close();
       refresh();
     } catch (e) {
@@ -451,6 +486,7 @@ export function TabDetailPanel({
                   line={line}
                   settled={Boolean(settled)}
                   busy={busy}
+                  pending={!line.voided && pendingVoids.has(line.id)}
                   open={openLineId === line.id}
                   onToggle={() => setOpenLineId((cur) => (cur === line.id ? null : line.id))}
                   onOverride={() => setOverlay({ kind: 'override', lineId: line.id })}
@@ -464,6 +500,7 @@ export function TabDetailPanel({
             </ul>
           ))}
           {voidRefused && <MessagePresenter tone="refused" message={tr('ws.cashier.detail.voidRefused')} />}
+          {refundQueued && <MessagePresenter tone="info" icon="wifiOff" message={tr('ws.cashier.detail.refundQueued')} />}
         </div>
 
         {/* ---- totals ---- */}
@@ -678,9 +715,12 @@ export function TabDetailPanel({
           payments={tab.payments}
           lines={allLines}
           canRefund={can.refund}
-          onDone={() => {
+          onDone={(queued) => {
             close();
             refresh();
+            // A refund moves the day's takings; the day panel reads QK.day.
+            void queryClient.invalidateQueries({ queryKey: [...QK.day] });
+            setRefundQueued(queued);
           }}
           onClose={close}
         />
@@ -788,6 +828,7 @@ function TabLine({
   line,
   settled,
   busy,
+  pending = false,
   open,
   onToggle,
   onOverride,
@@ -796,6 +837,8 @@ function TabLine({
   line: TabLineRow;
   settled: boolean;
   busy: boolean;
+  /** A void for this line is on the durable queue, unanswered (item 9). */
+  pending?: boolean;
   open: boolean;
   onToggle: () => void;
   onOverride: () => void;
@@ -803,7 +846,7 @@ function TabLine({
 }) {
   const { tr, locale } = useLocale();
   const name = `${line.qty}× ${pickName(locale, line.menu_item)}${line.variant ? ` (${pickName(locale, line.variant)})` : ''}`;
-  const actionable = !line.voided && !settled;
+  const actionable = !line.voided && !settled && !pending;
   const body = (
     <>
       <span style={{ minInlineSize: 0, flex: 1, textAlign: 'start' }}>
@@ -811,6 +854,11 @@ function TabLine({
         {line.voided && (
           <span style={{ ...muted, fontSize: 'var(--tp-fs-xs)', marginInlineStart: '0.4rem', display: 'inline-block' }}>
             {tr('ws.cashier.detail.voided')}
+          </span>
+        )}
+        {pending && (
+          <span style={{ marginInlineStart: '0.4rem', display: 'inline-block', verticalAlign: 'middle' }}>
+            <StatusBadge tone="info" icon="wifiOff" size="sm" label={tr('ws.cashier.detail.voidQueued')} />
           </span>
         )}
         {line.order_item_modifiers.length > 0 && (

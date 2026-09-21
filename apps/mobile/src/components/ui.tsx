@@ -6,6 +6,15 @@
  * and text leaves `textAlign` unset unless centred: the layout direction on
  * the root (src/i18n/direction.tsx) mirrors every one of them, live. The one
  * exception is `Field` — see there. Colors/fonts come exclusively from useTheme().
+ *
+ * TEST IDs. Every interactive primitive here takes `testID?: string` and
+ * forwards it EXPLICITLY to the element that takes the press. It never MINTS
+ * one: the id names a place in a screen (`<route>.<element>`, kebab-case, dots
+ * between segments — `sign-in.submit`, `availability.duration`), and only the
+ * call site knows the route. A component that invented `button.submit` would
+ * collide with itself the moment a screen used two of them. The
+ * `no-restricted-syntax` rule in `@touch/config/eslint` (`testIdRules`) fails
+ * `lint` on any call site that leaves one off.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
@@ -297,15 +306,19 @@ export function LinkText({
   onPress,
   color,
   style,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   color?: string;
   style?: StyleProp<ViewStyle>;
+  /** `<route>.<element>` — minted by the CALL SITE, forwarded explicitly below. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="link"
       onPress={onPress}
       hitSlop={LINK_HIT_SLOP}
@@ -329,16 +342,20 @@ export function FooterLink({
   label,
   onPress,
   style,
+  testID,
 }: {
   /** Omit to render just the bold action line, with no lead sentence above it. */
   lead?: string;
   label: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  /** `<route>.<element>` — minted by the CALL SITE, forwarded explicitly below. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="link"
       // The two lines are one control: read as one sentence, not as a stray
       // fragment followed by a link with no context.
@@ -608,6 +625,12 @@ export function Field({
           forceLtr && { textAlign: 'left', writingDirection: 'ltr' },
           text,
         ]}
+        // EXPLICIT, not left to the `{...inputProps}` spread below (which does
+        // carry it — `testID` is a TextInputProps): the testID lint rule reads
+        // the JSX, so a spread alone would satisfy nothing and a field could
+        // ship without an id. Same value either way; this one is the one the
+        // rule can see. The id is `<route>.<element>`, minted by the caller.
+        testID={inputProps.testID}
         placeholderTextColor={colors.fnt2}
         autoCapitalize="none"
         onFocus={(e) => {
@@ -658,6 +681,7 @@ export function SegmentedControl<T extends string | number>({
   activeColor,
   fit = false,
   pinOrder = false,
+  testID,
 }: {
   options: readonly { value: T; label: string }[];
   value: T;
@@ -679,6 +703,12 @@ export function SegmentedControl<T extends string | number>({
    * mirroring; this is a deliberate exception, not the default.
    */
   pinOrder?: boolean;
+  /**
+   * `<route>.<element>` for the TRACK; each segment gets
+   * `${testID}.${option.value}` — so a test can assert the control is mounted
+   * and then tap one named option. Minted by the call site, never here.
+   */
+  testID?: string;
 }) {
   const { colors, appearance, fonts, tracking } = useTheme();
   const { dir } = useLocale();
@@ -755,6 +785,7 @@ export function SegmentedControl<T extends string | number>({
 
   return (
     <View
+      testID={testID}
       accessibilityRole="tablist"
       onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
       style={{
@@ -796,6 +827,9 @@ export function SegmentedControl<T extends string | number>({
         return (
           <Pressable
             key={String(o.value)}
+            // The track's id plus the OPTION's value, not its index: the ids
+            // then survive an option being added or reordered.
+            testID={testID ? `${testID}.${o.value}` : undefined}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(o.value)}
@@ -923,6 +957,12 @@ export interface ButtonProps {
   labelColor?: string;
   /** Background while pressed (design `active` states); defaults to a dim. */
   pressedBg?: string;
+  /**
+   * `<route>.<element>` (kebab-case, dots between segments). Minted by the
+   * CALL SITE — a shared component never invents an id of its own — and
+   * forwarded explicitly to the Pressable below.
+   */
+  testID?: string;
 }
 
 const SIZES: Record<ButtonSize, { radius: number; padV: number; font: number; ls: number; minH: number }> = {
@@ -941,6 +981,7 @@ export function Button({
   style,
   labelColor,
   pressedBg,
+  testID,
 }: ButtonProps) {
   const { colors, fonts, tracking, appearance } = useTheme();
   const visual = {
@@ -967,6 +1008,7 @@ export function Button({
 
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!(disabled || busy), busy: !!busy }}
       onPress={onPress}

@@ -136,6 +136,7 @@ export default function VerifyEmailScreen() {
         {notice ? <Hint style={{ textAlign: 'center' }}>{notice}</Hint> : null}
         <ErrorText>{error}</ErrorText>
         <Button
+          testID="verify-email.resend"
           label={
             coolingDown ? t('auth.resendIn', { seconds: secondsLeft }) : t('auth.resendLink')
           }
@@ -148,6 +149,7 @@ export default function VerifyEmailScreen() {
           style={{ marginTop: 22, alignSelf: 'stretch' }}
         />
         <Button
+          testID="verify-email.use-different-email"
           label={t('auth.useDifferentEmail')}
           // Back to the email segment, not the phone default (2026-09-20).
           onPress={() => router.replace({ pathname: '/sign-up', params: { method: 'email' } })}
@@ -156,6 +158,7 @@ export default function VerifyEmailScreen() {
           style={{ marginTop: space.sm }}
         />
         <Button
+          testID="verify-email.sign-out"
           label={t('auth.signOut')}
           onPress={() => void onSignOut()}
           variant="ghost"

@@ -116,6 +116,7 @@ function ForgotPasswordScreen() {
               </Text>
             </View>
             <Button
+              testID="forgot-password.back-to-sign-in"
               label={t('auth.backToSignIn')}
               variant="secondary"
               size="medium"
@@ -128,6 +129,7 @@ function ForgotPasswordScreen() {
           <>
             <View style={{ marginTop: 10 }}>
               <SegmentedControl<AuthMethod>
+                testID="forgot-password.method"
                 options={[
                   { value: 'phone', label: t('auth.phoneLabel') },
                   { value: 'email', label: t('auth.emailLabel') },
@@ -153,6 +155,7 @@ function ForgotPasswordScreen() {
             </Text>
             {method === 'email' ? (
               <Field
+                testID="forgot-password.email"
                 placeholder={t('auth.emailLabel')}
                 value={email}
                 onChangeText={(next) => {
@@ -170,6 +173,7 @@ function ForgotPasswordScreen() {
               />
             ) : (
               <PhoneField
+                testID="forgot-password.phone"
                 placeholder={t('auth.phoneLabel')}
                 iso={iso}
                 onChangeIso={(next) => {
@@ -186,6 +190,7 @@ function ForgotPasswordScreen() {
             )}
             <ErrorText>{error ?? (linkError ? t(linkError) : null)}</ErrorText>
             <Button
+              testID="forgot-password.submit"
               label={t(method === 'email' ? 'auth.sendResetLink' : 'auth.sendCode')}
               onPress={() => void onSubmit()}
               busy={busy}

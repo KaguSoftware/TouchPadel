@@ -277,6 +277,7 @@ function ReviewScreen() {
           </Text>
           {/* Design: inline-width green button (padding 14×26, 13 pt). */}
           <Button
+            testID="review.back-to-availability"
             label={t('booking.backToAvailability')}
             onPress={backToAvailability}
             variant="cta"
@@ -460,6 +461,7 @@ function ReviewScreen() {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
               {PLAYER_OPTIONS.map((n) => (
                 <PlayersChip
+                  testID={`review.players.${n}`}
                   key={n}
                   label={String(n)}
                   selected={playersPick === n}
@@ -467,6 +469,7 @@ function ReviewScreen() {
                 />
               ))}
               <PlayersChip
+                testID="review.players.other"
                 label={t('booking.players.other')}
                 selected={playersPick === 'other'}
                 onPress={() => setPlayersPick((prev) => (prev === 'other' ? '' : 'other'))}
@@ -476,6 +479,7 @@ function ReviewScreen() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                 {PLAYER_COUNTS.map((n) => (
                   <PlayersChip
+                    testID={`review.players-other.${n}`}
                     key={n}
                     label={String(n)}
                     selected={playersOther === n}
@@ -528,6 +532,7 @@ function ReviewScreen() {
               {t('auth.profileIncompleteNotice')}
             </Text>
             <LinkText
+              testID="review.add-phone"
               label={t('auth.addPhoneLink')}
               color={colors.ambstrong}
               onPress={addPhone}
@@ -556,6 +561,7 @@ function ReviewScreen() {
         }}
       >
         <Button
+          testID="review.reserve"
           label={t('booking.reserveCta')}
           onPress={() => setDialogOpen(true)}
           variant="cta"
@@ -597,14 +603,18 @@ function PlayersChip({
   label,
   selected,
   onPress,
+  testID,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
+  /** `review.players.<n>` — named by the group size it picks, not by index. */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}

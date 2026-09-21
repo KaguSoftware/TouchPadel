@@ -8,7 +8,15 @@
 // "CSS logical properties only (lint-enforced)". The preset with that RTL guard
 // was written on day 1 and consumed by nobody. This wires it up.
 import expoConfig from 'eslint-config-expo/flat.js';
-import { base, react, clientSecrets, clientSecretRules } from '@touch/config/eslint';
+import {
+  base,
+  react,
+  clientSecrets,
+  clientSecretRules,
+  rtlGuardRules,
+  testIdRules,
+  composeRestrictedSyntax,
+} from '@touch/config/eslint';
 
 export default [
   ...expoConfig,
@@ -18,6 +26,12 @@ export default [
   {
     name: '@touch/mobile',
     rules: {
+      // ONE composed array, inside this one entry — not a fourth config object.
+      // ESLint does not MERGE `no-restricted-syntax`: whichever entry defines
+      // it last wins outright, so a separate `{ rules: testIdRules }` here
+      // would silently delete the RTL guard and the client-secret guard that
+      // `base` and `clientSecrets` above set. This restates all three.
+      ...composeRestrictedSyntax(rtlGuardRules, clientSecretRules, testIdRules),
       'no-restricted-imports': [
         'error',
         {
@@ -95,12 +109,40 @@ export default [
     rules: { 'no-restricted-imports': 'off' },
   },
   {
+    /**
+     * The smoke suite's global mocks — NOT app code.
+     *
+     * `jest.setup.ts` stands in for native modules, so it reaches for
+     * react-native's own `Text` (the UIKit tab-bar label has no paragraph
+     * direction to carry, and `src/i18n/text` would drag LocaleProvider into a
+     * mock that must work before any provider mounts). The component factories
+     * it builds are stubs, not screens, and giving each a display name says
+     * nothing a reader of this file needs.
+     *
+     * The testID selectors stay ON: a stub that renders a `Pressable` still
+     * owes an id, or a test could find the mock instead of the screen.
+     */
+    name: '@touch/mobile/test-harness',
+    files: ['jest.setup.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
+      'react/display-name': 'off',
+    },
+  },
+  {
     // Physical coordinates by design: the decorative court art (rooted in an
     // LtrIsland, so it is invariant under the language — pinned by
     // src/i18n/__tests__/direction.test.ts) and three.js camera geometry.
     // Drops the RTL selectors ONLY — see the operator's recharts note: a blanket
     // 'off' would now also disable the client-secret guard, which shares the
     // rule name.
+    //
+    // It drops the TESTID selectors with them, and that is correct: these two
+    // files are drawings. `CourtIllustration` is a picture of a court and
+    // `features/courtTransition/**` is three.js geometry — neither holds a
+    // control, so there is nothing for a test to press and nothing an id would
+    // name. The client-secret guard is the one thing that must survive here,
+    // and `clientSecretRules` is exactly it.
     name: '@touch/mobile/physical-art',
     files: ['src/components/CourtIllustration.tsx', 'src/features/courtTransition/**/*.ts'],
     rules: clientSecretRules,
@@ -108,6 +150,9 @@ export default [
   {
     // scripts/ holds Node build tooling (make-icons.mjs uses Buffer) — not app
     // code, and the RN globals set has no Buffer. Same carve-out operator-shell makes.
-    ignores: ['.expo/**', 'expo-env.d.ts', 'android/**', 'ios/**', 'dist/**', 'babel.config.js', 'metro.config.js', 'scripts/**', 'store/**'],
+    // `jest.config.js` joins babel/metro on this list for the same reason: it
+    // is a CommonJS NODE config (it reads `__dirname`), not app code, and the
+    // RN globals set has neither.
+    ignores: ['.expo/**', 'expo-env.d.ts', 'android/**', 'ios/**', 'dist/**', 'babel.config.js', 'metro.config.js', 'jest.config.js', 'scripts/**', 'store/**'],
   },
 ];

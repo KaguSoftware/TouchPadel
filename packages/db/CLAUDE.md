@@ -17,24 +17,34 @@ is a line in that file.
 
 ## Migrations
 
-- Ordinal strictly greater than the current max, never a reused one. Latest is `0114`
-  (`20260920000114_replay_pin_purge_drop_log_replay.sql`); the next is `0115`.
+- Ordinal strictly greater than the current max, never a reused one. Latest is `0121`
+  (`20260921000121_phone_digits_service_role.sql`); the next is `0122`.
 - `0069` and `0071` are already doubled; `0023`, `0040` and `0101` have no file, so leave the gaps.
-  `scripts/check-migrations.mjs` checks versions today; the ordinal rules land with Milestone 0
-  item 10.
+  `scripts/check-migrations.mjs` enforces both rules (`migration-duplicate-ordinal`,
+  `migration-ordinal-not-max`).
 - Open every file with `set lock_timeout = '3s'; set statement_timeout = '60s';`
   (`check-migrations.mjs:247-248,467-483`).
 - `add constraint … NOT VALID`, then a separate `VALIDATE CONSTRAINT` inside an idempotent
   `pg_constraint` guard; a `create index` needs its own migration or
   `MIGRATION-RISK-ACCEPTED: <reason>` in the PR body (`check-migrations.mjs:36,262,282-288`).
 - Re-issue a function only from its latest body, verbatim:
-  `grep -l "function app.<name>" supabase/migrations/*.sql | tail -1`. The latest file is often not
-  the obvious one: `is_degraded` 0026, `heartbeat` 0107, `set_opening_hours` 0052,
-  `verify_manager_pin` 0086, `staff_create_reservation` 0092, `cafe_setting_specs` 0105.
+  `grep -n "function app.<name>(" supabase/migrations/*.sql | tail -1`. **Both spellings count**:
+  a plain `create function` (0049 `apply_discount`, `override_price`, `record_waste`; 0097
+  `upsert_court`) is as much "the latest body" as `create or replace function`. Searching for the
+  long form only is how 0115 re-issued two RPCs at an arity 0049 had dropped and created stray
+  overloads (fixed by 0119). The latest file is often not the obvious one: `is_degraded` 0026,
+  `heartbeat` 0107, `set_opening_hours` 0052, `verify_manager_pin` 0115, `apply_discount` and
+  `override_price` 0119, `staff_create_reservation` 0092, `cafe_setting_specs` 0105.
 - Signature change: `drop function` by exact signature, recreate, re-issue
   `revoke … from public, anon` and `grant execute … to authenticated`. The registry gate replays
-  GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs:45-62`), so a missing re-grant
-  shows up there.
+  GRANT/REVOKE/DROP in file order (`scripts/check-rpc-registry.mjs`), so a missing re-grant shows
+  up there — and it forgets a name's grants on ANY drop, so re-grant even when the new signature
+  already existed.
+- No accidental overloads: the same gate replays every `create [or replace] function app.X(...)`
+  and `drop function app.X(...)` (`scripts/lib/fn-signatures.mjs`) and fails when a name ends with
+  two signatures unless `fixtures/rpc-overloads.json` says so (`business_date`, `llm_record_usage`
+  today; multi-venue will add `is_degraded`, `venue_mode`). `tests/rpc-overloads.test.ts` proves
+  the same list against `pg_proc` when Docker is up.
 - Enum widening (`alter type … add value`) is its own migration file, landing strictly before the
   file that uses the value. No migration does this yet; do not put the first one beside its first
   use.
@@ -53,6 +63,10 @@ is a line in that file.
   is `_en` + `_ar`, both `NOT NULL` (`CONTRIBUTING.md`).
 - `enable row level security` on every new table (by hand for schema `app`); select-only policies;
   guest-writable text gets a sanitiser trigger (`app.safe_line`, 0080) and a length CHECK.
+- A function named in a CHECK constraint, a generated column or a non-definer trigger runs as the
+  WRITING role, so grant it to every role that writes the table: anon, authenticated AND
+  service_role (edge functions, seeds, tests). 0116 granted `app.phone_digits` to the two client
+  roles only and every service-role UPDATE on `profiles` failed until 0121.
 - Append rules for the table to `tests/rls-matrix.ts` (data only; `tests/rls-matrix.test.ts` runs it
   against 8 principals). Never restructure that file.
 - A table that holds guest data is declared in `GUEST_DATA` (`tests/stored-fields.test.ts:86`,
@@ -87,19 +101,28 @@ is a line in that file.
   `fixtures/rpc-allowlist.json` with a reason of at least 10 characters
   (`check-rpc-registry.mjs:94-95`). The floor in `fixtures/rpc-coverage-floor.json` (164/167 on
   2026-09-20) only rises, via `--update-floor`.
-- `scripts/check-rpc-authz.mjs` keeps its own `PUBLIC_BY_DESIGN` set (`:38`); it runs in the CI db
-  job after `supabase start` and is not yet in `pnpm security` (Milestone 0 item 10 wires it in and
-  reconciles the two lists).
+- `scripts/check-rpc-authz.mjs` reads `fixtures/rpc-allowlist.json` (one list, since Milestone 0
+  item 10); it needs a running stack, so it runs in the CI db job after `supabase start` and must
+  NOT join `pnpm security`, which runs stackless.
 
 ## Offline mutation contract
 
-- A queued mutation type lives in five code copies: `packages/core/src/schemas/mutations.ts:17`
-  (`MUTATION_TYPES`), `apps/operator/src/lib/mutate.ts:75` (`DIRECT_RPC`),
-  `supabase/functions/replay/index.ts:49` (`MUTATION_RPCS`),
-  `apps/operator-shell/src/main/ipc-validate.ts:61` (`MUTATION_TYPES`) and
-  `apps/operator/src/lib/queueResults.ts` (keys to invalidate).
+- A queued mutation type lives in six code copies, appended in the SAME order in each (the shell's
+  test compares arrays): `packages/core/src/schemas/mutations.ts` (`MUTATION_TYPES` + payload
+  schema + envelope variant), `apps/operator/src/lib/mutate.ts` (`DIRECT_RPC`),
+  `supabase/functions/replay/index.ts` (`MUTATION_RPCS`),
+  `apps/operator-shell/src/main/ipc-validate.ts` (`MUTATION_TYPES`),
+  `apps/operator/src/lib/queueResults.ts` (`RESULT_INVALIDATIONS`) and
+  `apps/operator/src/features/admin/dayCloseLogic.ts` (`QUEUE_WRITE_KEY`).
 - The one list is `supabase/functions/_shared/mutation-types.json`: replay asserts against it at
-  boot (`replay/index.ts:237-240`) and `apps/operator/src/lib/mutate.test.ts` compares `DIRECT_RPC`.
+  boot and `apps/operator/src/lib/mutate.test.ts` compares `DIRECT_RPC`. Since 0120 the queued
+  types are `order.create`, `order.add_items`, `ticket.status`, `payment.record`,
+  `reservation.create`, `reservation.update`, `waiter_call.action`, `stock.waste`, `tab.open`,
+  `tab.settle`, `adjustment.apply`, `tab.cancel`, `tab.settle_zero`, `payment.refund`,
+  `order_item.void`; `merge_tabs`, `record_drawer_open`, `open_day`, `close_day` stay online-only
+  by decision (scope ledger row in `HANDOFF.md`). A state-idempotent RPC (`set_ticket_status`,
+  `void_after_send`) takes no key; every other money write takes `p_idempotency_key` +
+  `app.claim_replay`.
 - Payloads never carry a price (`mutations.ts:13-14`). Secrets that must not persist (a manager
   `pin`) are stripped by `redactSecrets` (`_shared/redact.ts`) before any record or echo; a new
   secret field is added there, not handled ad hoc.
@@ -117,6 +140,20 @@ is a line in that file.
   never computes a number the page did not already have.
 - Secrets come from `supabase secrets set`, never the repo or `config.toml`. `supabase`, `eas` and
   `expo` run from their package directory, never the repo root.
+- **Never run `supabase config push`.** `config.toml` describes the LOCAL stack; hosted auth is
+  dashboard-managed (`docs/client/phone-otp-activation.md`). One push on 2026-08-24 overwrote it and
+  carried the then-committed test-OTP pair to the client's project
+  (`docs/security/security-audit-2026-09-13.md:191`, M8). `[auth.sms.test_otp]` now carries
+  `env(SUPABASE_AUTH_SMS_TEST_OTP_CODE)` and never a literal — locally from `packages/db/.env`, in
+  CI from the repository variable. Two gates fail the build on a regression:
+  `scripts/check-config-env.mjs` (in `db:start` with `--require-values`, static in `pnpm security`
+  as `check:config-env`) and `scripts/security/check-no-config-push.mjs` (root
+  `pnpm security:config-push`). The hosted store-review account is a different thing entirely:
+  `scripts/create-review-account.mjs` provisions a phone-confirmed guest on the hosted project with
+  a run-time-generated number and password, printed once and never committed, so the reviewer signs
+  in with phone + password and needs no code at all. If a hosted test-OTP pair is still wanted, the
+  owner picks a fresh one per review in the dashboard and deletes it after the decision — never a
+  value from this repo.
 
 ## Verify before you report
 

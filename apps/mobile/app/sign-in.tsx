@@ -178,6 +178,7 @@ function SignInScreen() {
       <FormScreen>
         <Title plain>{t('auth.signIn')}</Title>
         <SocialSignInBlock
+          testID="sign-in.social"
           available={social.available}
           busyProvider={social.busyProvider}
           disabled={busy || holdBusy}
@@ -189,6 +190,7 @@ function SignInScreen() {
         ) : null}
         <View style={{ marginTop: 6 }}>
           <SegmentedControl<AuthMethod>
+            testID="sign-in.method"
             options={[
               { value: 'phone', label: t('auth.phoneLabel') },
               { value: 'email', label: t('auth.emailLabel') },
@@ -202,6 +204,7 @@ function SignInScreen() {
         </View>
         {method === 'email' ? (
           <Field
+            testID="sign-in.email"
             placeholder={t('auth.emailLabel')}
             value={email}
             onChangeText={setEmail}
@@ -215,6 +218,7 @@ function SignInScreen() {
           />
         ) : (
           <PhoneField
+            testID="sign-in.phone"
             placeholder={t('auth.phoneLabel')}
             iso={iso}
             onChangeIso={setIso}
@@ -224,6 +228,7 @@ function SignInScreen() {
           />
         )}
         <Field
+          testID="sign-in.password"
           placeholder={t('auth.passwordLabel')}
           value={password}
           onChangeText={setPassword}
@@ -235,6 +240,7 @@ function SignInScreen() {
         />
         <ErrorText>{error ?? social.errorText ?? (linkError ? t(linkError) : null)}</ErrorText>
         <Button
+          testID="sign-in.submit"
           label={t('auth.signIn')}
           onPress={() => void onSubmit()}
           busy={busy || holdBusy}
@@ -243,11 +249,13 @@ function SignInScreen() {
           style={{ marginTop: space.l }}
         />
         <LinkText
+          testID="sign-in.forgot-password"
           label={t('auth.forgotPassword')}
           onPress={() => router.push({ pathname: '/forgot-password', params: { method } })}
           style={{ marginTop: 12, paddingStart: 4 }}
         />
         <FooterLink
+          testID="sign-in.create-account"
           lead={t('auth.newHereLead')}
           label={t('auth.createAccountLink')}
           onPress={() => router.push({ pathname: '/sign-up', params: { method } })}

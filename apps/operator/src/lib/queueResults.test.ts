@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MUTATION_TYPES } from '@touch/core/schemas/mutations';
-import { RESULT_INVALIDATIONS, awaitResult } from './queueResults';
+import type { MutationResult } from '../ipc/bridge';
+import { RESULT_INVALIDATIONS, awaitResult, dispatchResult, onFailedResult, resultErrorCode } from './queueResults';
 import { QK, RESERVATION_LIST_KEYS } from './queryKeys';
 
 const serialize = (key: readonly unknown[]) => JSON.stringify(key);
@@ -27,7 +28,7 @@ describe('RESULT_INVALIDATIONS', () => {
   });
 
   it('money paths invalidate both the tab detail root and the rail', () => {
-    for (const type of ['order.add_items', 'tab.settle', 'adjustment.apply']) {
+    for (const type of ['order.add_items', 'tab.settle', 'adjustment.apply', 'tab.cancel', 'tab.settle_zero', 'payment.refund', 'order_item.void']) {
       const keys = RESULT_INVALIDATIONS[type]!.map(serialize);
       expect(keys, type).toContain(serialize(QK.tab.all));
       expect(keys, type).toContain(serialize(QK.tabs));
@@ -46,5 +47,55 @@ describe('awaitResult', () => {
   it('resolves null after the timeout — the write is queued, not lost', async () => {
     const result = await awaitResult('TILL1-01J5XAAAAAAAAAAAAAAAAAAAAA', 10);
     expect(result).toBeNull();
+  });
+});
+
+const result = (over: Partial<MutationResult> = {}): MutationResult => ({
+  localId: 'TILL1-01J5XAAAAAAAAAAAAAAAAAAAAB',
+  idempotencyKey: 'TILL1:tab.cancel:01J5XAAAAAAAAAAAAAAAAAAAAB',
+  mutationType: 'tab.cancel',
+  state: 'failed',
+  ...over,
+});
+
+describe('dispatchResult (item 9)', () => {
+  it('invalidates the mapped keys on every terminal result, acked included', () => {
+    const qc = { invalidateQueries: vi.fn() };
+    dispatchResult(result({ state: 'acked' }), qc);
+    expect(qc.invalidateQueries).toHaveBeenCalledTimes(RESULT_INVALIDATIONS['tab.cancel']!.length);
+  });
+
+  it('a refusal a waiter consumed is NOT re-announced — mutate() throws it to its caller', async () => {
+    const qc = { invalidateQueries: vi.fn() };
+    const seen: MutationResult[] = [];
+    const off = onFailedResult((r) => seen.push(r));
+    const localId = 'TILL1-01J5XAAAAAAAAAAAAAAAAAAAAC';
+    const waiting = awaitResult(localId, 1_000);
+    dispatchResult(result({ localId, state: 'failed' }), qc);
+    expect((await waiting)?.state).toBe('failed');
+    expect(seen).toEqual([]);
+    off();
+  });
+
+  it('a refusal nobody was waiting for reaches the failed-result listeners once; an ack never does', () => {
+    const qc = { invalidateQueries: vi.fn() };
+    const seen: MutationResult[] = [];
+    const off = onFailedResult((r) => seen.push(r));
+    dispatchResult(result({ state: 'conflict' }), qc);
+    dispatchResult(result({ state: 'acked', localId: 'TILL1-01J5XAAAAAAAAAAAAAAAAAAAAD' }), qc);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.state).toBe('conflict');
+    off();
+  });
+});
+
+describe('resultErrorCode', () => {
+  it('prefers the replay function’s upper-snake error, then its code, then the worker’s "400: CODE"', () => {
+    expect(resultErrorCode(result({ serverResult: { error: 'REFUND_EXCEEDS_PAYMENT', message: 'paid 5000' } }))).toBe('REFUND_EXCEEDS_PAYMENT');
+    expect(resultErrorCode(result({ serverResult: { code: 'TAB_NOT_EMPTY' } }))).toBe('TAB_NOT_EMPTY');
+    expect(resultErrorCode(result({ error: '400: PIN_INVALID' }))).toBe('PIN_INVALID');
+    expect(resultErrorCode(result({ error: 'ITEM_NOT_ON_TAB: detail' }))).toBe('ITEM_NOT_ON_TAB');
+    expect(resultErrorCode(result({ serverResult: { error: 'not a code' }, error: 'network down' }))).toBeNull();
+    expect(resultErrorCode(result())).toBeNull();
   });
 });

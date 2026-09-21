@@ -60,6 +60,7 @@ function PhoneLinkForm() {
         <Title plain>{t('auth.phoneSignInTitle')}</Title>
         <Hint style={{ marginTop: 8 }}>{t('auth.phoneLinkBody')}</Hint>
         <PhoneField
+          testID="phone-sign-in.phone"
           placeholder={t('auth.phoneLabel')}
           iso={iso}
           onChangeIso={(next) => {
@@ -75,6 +76,7 @@ function PhoneLinkForm() {
         />
         <ErrorText>{error}</ErrorText>
         <Button
+          testID="phone-sign-in.send-code"
           label={t('auth.sendCode')}
           onPress={() => void onSubmit()}
           busy={busy}

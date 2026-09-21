@@ -10,7 +10,7 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "db:start": "supabase start",
+    "db:start": "node scripts/check-config-env.mjs --require-values && supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local --schema public,app > src/types.gen.ts",
@@ -33,6 +33,7 @@
     "check:broadcast": "node scripts/check-broadcast-payloads.mjs",
     "check:analytics": "node scripts/check-analytics-payload.mjs",
     "check:assistant-coverage": "node --experimental-strip-types scripts/check-assistant-coverage.mjs",
+    "check:config-env": "node scripts/check-config-env.mjs",
     "assistant:map": "node --experimental-strip-types scripts/build-assistant-map.mjs",
     "assistant:measure": "node --experimental-strip-types scripts/measure-assistant-tokens.mjs",
     "lint": "eslint .",

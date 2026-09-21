@@ -89,6 +89,7 @@ export default function ResetPasswordScreen() {
           <>
             <Hint>{t('auth.passwordUpdated')}</Hint>
             <Button
+              testID="reset-password.done"
               label={t('common.ok')}
               variant="primary"
               // A slot tapped before signing in is still held for them.
@@ -100,6 +101,7 @@ export default function ResetPasswordScreen() {
         ) : ready ? (
           <>
             <Field
+              testID="reset-password.password"
               placeholder={t('auth.newPasswordLabel')}
               value={password}
               onChangeText={setPassword}
@@ -110,6 +112,7 @@ export default function ResetPasswordScreen() {
               style={{ marginTop: 6 }}
             />
             <Field
+              testID="reset-password.confirm-password"
               placeholder={t('auth.confirmPasswordLabel')}
               value={confirm}
               onChangeText={setConfirm}
@@ -120,6 +123,7 @@ export default function ResetPasswordScreen() {
             />
             <ErrorText>{error}</ErrorText>
             <Button
+              testID="reset-password.save"
               label={t('common.save')}
               variant="primary"
               onPress={() => void onSubmit()}
@@ -162,6 +166,7 @@ export default function ResetPasswordScreen() {
               </Text>
             </View>
             <Button
+              testID="reset-password.request-new-link"
               label={t('auth.requestNewLink')}
               variant="primary"
               onPress={() => router.replace('/forgot-password')}

@@ -24,6 +24,17 @@ import { TabBookIcon, TabBookingsIcon, TabProfileIcon } from '../components/icon
  */
 const TAB_BAR_BASE = 56;
 
+/**
+ * expo-router's BottomTabItem defaults to `android_ripple: { borderless: true }`,
+ * an unbounded gray circle that ignores the tab item's box — on this
+ * absolutely-positioned edge-to-edge bar it painted past the bar into the
+ * system nav bar below. `borderless: false` makes Android clip the ripple to
+ * the pressable's own rect instead, keeping the original gray highlight but
+ * confined to the (now correctly sized) tab item.
+ */
+const RIPPLE = (color: string) => ({ color, borderless: false });
+const TAB_BUTTON = { borderRadius: radius.pill, overflow: 'hidden' } as const;
+
 /** Display-face label + the 14×3 green active dot, per the design. */
 function TabLabel({ text, focused }: { text: string; focused: boolean }) {
   const { colors, fonts, tracking } = useTheme();
@@ -209,26 +220,24 @@ function AndroidTabs() {
          * it instead of hanging from the top.
          */
         tabBarItemStyle: { paddingTop: 2, flex: 1 },
-        // expo-router's BottomTabItem defaults to `android_ripple: { borderless: true }`,
-        // an unbounded gray circle that ignores the tab item's box — on this
-        // absolutely-positioned edge-to-edge bar it painted past the bar into the
-        // system nav bar below. `borderless: false` makes Android clip the ripple
-        // to the pressable's own rect instead, keeping the original gray highlight
-        // but confined to the (now correctly sized) tab item.
-        tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
-          <Pressable
-            {...props}
-            android_ripple={{ color: colors.line, borderless: false }}
-            style={[props.style, { borderRadius: radius.pill, overflow: 'hidden' }]}
-          />
-        ),
         tabBarHideOnKeyboard: true,
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
+      {/*
+       * `tabBarButton` is declared PER SCREEN rather than once in
+       * `screenOptions`, where it used to live, for one reason: the testID.
+       * screenOptions is shared by all three tabs, so a button built there
+       * cannot say WHICH tab it is, and `tabs.book` / `tabs.bookings` /
+       * `tabs.profile` have to differ — they are what the smoke tests press.
+       * The ripple override below is unchanged and is repeated with it.
+       */}
       <Tabs.Screen
         name="bookings"
         options={{
+          tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
+            <Pressable {...props} testID="tabs.bookings" android_ripple={RIPPLE(colors.line)} style={[props.style, TAB_BUTTON]} />
+          ),
           tabBarIcon: ({ focused, color }) => (
             <TabBookingsIcon color={focused ? brand.green : color} />
           ),
@@ -238,6 +247,9 @@ function AndroidTabs() {
       <Tabs.Screen
         name="index"
         options={{
+          tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
+            <Pressable {...props} testID="tabs.book" android_ripple={RIPPLE(colors.line)} style={[props.style, TAB_BUTTON]} />
+          ),
           tabBarIcon: ({ focused, color }) => (
             <TabBookIcon color={focused ? brand.green : color} />
           ),
@@ -247,6 +259,9 @@ function AndroidTabs() {
       <Tabs.Screen
         name="profile"
         options={{
+          tabBarButton: ({ href: _href, ref: _ref, ...props }) => (
+            <Pressable {...props} testID="tabs.profile" android_ripple={RIPPLE(colors.line)} style={[props.style, TAB_BUTTON]} />
+          ),
           tabBarIcon: ({ focused, color }) => (
             <TabProfileIcon color={focused ? brand.green : color} />
           ),

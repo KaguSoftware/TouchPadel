@@ -79,8 +79,17 @@ worth a desk correction before §D.
    hook replaces them). Confirm "Confirm phone" on.
 6. **Dashboard → Authentication → Rate limits / Settings:** SMS sent per hour (start at 30–60), OTP expiry ≤ 5 min,
    OTP length 6, minimum interval between resends 60 s.
-7. **Store-review number:** Dashboard → Phone provider → Test OTPs: add the reviewer's demo number and a fixed code
-   (App Store / Play reviewers cannot receive Iraqi SMS). `9647700000001 = 123456` matches local dev.
+7. **Store-review pair — a FRESH one, every review.** App Store / Play reviewers cannot receive Iraqi SMS, so they
+   need a way in that does not involve a code arriving. The normal route is `node scripts/create-review-account.mjs`,
+   which provisions a phone-confirmed guest on the hosted project with a number and a password it generates at run
+   time and prints **once** (sign-in is phone + password, no code, so no Test OTP entry is needed at all). If you do
+   add a Dashboard → Phone provider → Test OTPs entry as well, the pair is chosen NOW, by the owner, for this review:
+   the number from that script's run, the code picked by you on the spot. **Never** `SUPABASE_AUTH_SMS_TEST_OTP_CODE`,
+   never the local development code, never any value that appears anywhere in this repository or its git history — a
+   test-OTP pair on a live project is a working sign-in for anyone who can read the repo (this is exactly finding M8,
+   `docs/security/security-audit-2026-09-13.md:191`). Record the pair in the password manager, delete it from the
+   dashboard once the review decision lands, and generate a new one for the next review cycle. `--delete` on the same
+   script cancels the reviewer's bookings and removes the account.
 8. **OTPIQ — one live send** before opening the gate. The adapter (`functions/_shared/sms/otpiq.ts`) matches the
    vendor's published API reference (read 2026-09-12) and is pinned by `packages/db/tests/sms-provider.test.ts`, but the
    account itself has not been exercised. Send one code to a staff phone with `enabled = true` for that phone's window,
@@ -207,7 +216,16 @@ history. The uniqueness guards remove the collision cases but not the typo case.
 
 ## E. Local development (no vendor needed)
 
-- `EXPO_PUBLIC_PHONE_OTP=on` in `apps/mobile/.env`; number `0770 000 0001`, code `123456`.
+- `EXPO_PUBLIC_PHONE_OTP=on` in `apps/mobile/.env`; number `0770 000 0001`. The **code is whatever
+  `SUPABASE_AUTH_SMS_TEST_OTP_CODE` is set to in `packages/db/.env`** — the repository carries no OTP code by design
+  (S10): `config.toml` holds `env(SUPABASE_AUTH_SMS_TEST_OTP_CODE)` and the CLI substitutes it at `supabase start`.
+  `pnpm db:start` refuses to start when the name is unset, and refuses the old committed code by name as well. Copy
+  `packages/db/.env.example`, pick any six digits, and remember that this local code is unrelated to the hosted
+  store-review pair in step 7.
+  Honest note: taking the literal out of `config.toml` does not take it out of git history — the old pair is still
+  readable in earlier commits, and always will be. That is acceptable because the local code was never a secret: it
+  only ever unlocked a stack running on a developer's own machine. What changed is that the repository no longer
+  names a pair that this runbook then told the owner to install on the client's live project.
 - To exercise the real hook locally: `[auth.hook.send_sms] enabled = true` in `config.toml`, `supabase stop && supabase start`,
   `supabase functions serve --env-file supabase/functions/.env` with `SMS_PROVIDER=log` and the committed local
   `SEND_SMS_HOOK_SECRET`; `update app.sms_limits set enabled = true;`; sign in with any Iraqi number — the code is

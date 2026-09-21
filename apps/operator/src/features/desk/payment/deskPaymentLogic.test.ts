@@ -121,11 +121,11 @@ describe('panelStateOf', () => {
 describe('closeBillPlan', () => {
   it('removes an empty bill, naming the booking state as the reason', () => {
     const b = bill({ live: false, live_tab: tab({ court_iqd: 0, total_iqd: 0, due_iqd: 0 }) }, { status: 'no_show' });
-    expect(closeBillPlan(b)).toEqual({ rpc: 'cancel_tab', reason: 'booking_no_show' });
+    expect(closeBillPlan(b)).toEqual({ mutation: 'tab.cancel', reason: 'booking_no_show' });
   });
   it('closes at zero a bill that ever held anything', () => {
     const b = bill({ live: false, live_tab: tab({ court_iqd: 0, total_iqd: 0, due_iqd: 0, has_orders: true }) }, { status: 'cancelled' });
-    expect(closeBillPlan(b)).toEqual({ rpc: 'settle_zero_tab', reason: 'booking_cancelled' });
+    expect(closeBillPlan(b)).toEqual({ mutation: 'tab.settle_zero', reason: 'booking_cancelled' });
   });
   it('never closes a bill that owes money or was over-paid', () => {
     expect(closeBillPlan(bill({ live_tab: tab() }))).toBeNull();

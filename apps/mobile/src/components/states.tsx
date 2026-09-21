@@ -84,22 +84,37 @@ export function SkeletonList({ rows = 4, height = 84 }: { rows?: number; height?
 }
 
 // ── Error ───────────────────────────────────────────────────────────────────
+
+/**
+ * The retry button's id, derived from the block's: `bookings.error` →
+ * `bookings.retry`. The smoke tests assert `<route>.retry` on every screen
+ * that can fail, and deriving it means a screen cannot label the block and
+ * then forget the one control that gets a guest out of the failure.
+ */
+function retryTestID(testID: string | undefined): string | undefined {
+  return testID ? `${testID.replace(/\.[^.]*$/, '')}.retry` : undefined;
+}
+
 export function ErrorState({
   title,
   message,
   retryLabel,
   onRetry,
   busy,
+  testID,
 }: {
   title: string;
   message: string;
   retryLabel: string;
   onRetry?: () => void;
   busy?: boolean;
+  /** `<route>.error`; the retry Button takes `<route>.retry` (see above). */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <View
+      testID={testID}
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
       style={{
@@ -148,7 +163,13 @@ export function ErrorState({
       </Text>
       {onRetry ? (
         <View style={{ alignSelf: 'stretch', marginTop: space.sm }}>
-          <Button label={retryLabel} onPress={onRetry} busy={busy} variant="cta" />
+          <Button
+            testID={retryTestID(testID)}
+            label={retryLabel}
+            onPress={onRetry}
+            busy={busy}
+            variant="cta"
+          />
         </View>
       ) : null}
     </View>
@@ -162,6 +183,8 @@ export function EmptyState({
   actionLabel,
   onAction,
   fill = false,
+  testID,
+  actionTestID,
 }: {
   title: string;
   message?: string;
@@ -169,10 +192,19 @@ export function EmptyState({
   onAction?: () => void;
   /** Centre in the remaining space instead of sitting under the header. */
   fill?: boolean;
+  /** `<route>.empty` for the block itself. */
+  testID?: string;
+  /**
+   * The action Button's id, given separately. Unlike the error state's retry,
+   * an empty state's action is not one fixed verb — it is "book a court",
+   * "browse courts", whatever the screen has none of — so the caller names it.
+   */
+  actionTestID?: string;
 }) {
   const { colors, fonts } = useTheme();
   return (
     <View
+      testID={testID}
       style={{
         flex: fill ? 1 : undefined,
         alignItems: 'center',
@@ -213,6 +245,7 @@ export function EmptyState({
       {actionLabel && onAction ? (
         // Design: inline-width compact green button (radius 12, 13×22, 12 pt).
         <Button
+          testID={actionTestID}
           label={actionLabel}
           onPress={onAction}
           variant="cta"

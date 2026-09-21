@@ -122,14 +122,21 @@ function WelcomeScreen() {
             (phone-only 2026-09-15; email restored beside it 2026-09-20). Create
             account is the green CTA, as designed. */}
         <Button
+          testID="welcome.sign-in"
           label={t('auth.signIn')}
           onPress={() => router.push('/sign-in')}
           variant="secondary"
           style={{ backgroundColor: brand.white, borderWidth: 0 }}
           labelColor={brand.welcomeInk}
         />
-        <Button label={t('auth.signUp')} onPress={() => router.push('/sign-up')} variant="cta" />
         <Button
+          testID="welcome.sign-up"
+          label={t('auth.signUp')}
+          onPress={() => router.push('/sign-up')}
+          variant="cta"
+        />
+        <Button
+          testID="welcome.keep-browsing"
           label={t('auth.keepBrowsing')}
           onPress={() => {
             clearPendingSlot();

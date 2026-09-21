@@ -121,11 +121,18 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
   //   settle_tab(p_tab_id, p_method, p_tendered_iqd, p_amount_iqd,
   //              p_idempotency_key, p_device_id)
   //   apply_discount(p_tab_id, p_kind, p_value, p_pin, p_reason_code,
-  //                  p_order_item_id, p_device_id)                       — no idem key
+  //                  p_order_item_id, p_device_id, p_idempotency_key)    — keyed since 0049 (0119)
   //   override_price(p_order_item_id, p_new_unit_price_iqd, p_pin,
-  //                  p_reason_code, p_device_id)                         — no idem key
+  //                  p_reason_code, p_device_id, p_idempotency_key)      — keyed since 0049 (0119)
   //   record_waste(p_ingredient_id, p_qty, p_movement_type, p_reason_code,
-  //                p_device_id)                                          — no idem key
+  //                p_device_id, p_idempotency_key)                       — keyed since 0049
+  // Item 9 / C3 (0120):
+  //   cancel_tab(p_tab_id, p_reason_code, p_device_id, p_idempotency_key)
+  //   settle_zero_tab(p_tab_id, p_reason_code, p_device_id, p_idempotency_key)
+  //   refund(p_payment_id, p_amount_iqd, p_pin, p_reason_code, p_items,
+  //          p_device_id, p_idempotency_key)
+  //   void_after_send(p_order_item_id, p_pin, p_reason_code, p_device_id)  — no idem key
+  //                  (void_order_item_internal is state-idempotent, 0039)
   'tab.open': (p, c) => ({
     rpc: 'open_tab',
     entity: 'tab',
@@ -225,6 +232,42 @@ const MUTATION_RPCS: Record<string, (p: any, c: Ctx) => Route> = {
       ...common(c),            // 0049: was p_device_id only -- a replay deducted stock twice
     }),
   }),
+
+  // --- Item 9 / C3 (0120): the till's money corrections ------------------------
+  'tab.cancel': (p, c) => ({
+    rpc: 'cancel_tab',
+    entity: 'tab',
+    args: () => ({ p_tab_id: p?.tabId, p_reason_code: p?.reasonCode, ...common(c) }),
+  }),
+  'tab.settle_zero': (p, c) => ({
+    rpc: 'settle_zero_tab',
+    entity: 'tab',
+    args: () => ({ p_tab_id: p?.tabId, p_reason_code: p?.reasonCode, ...common(c) }),
+  }),
+  'payment.refund': (p, c) => ({
+    rpc: 'refund',
+    entity: 'refund',
+    args: () => ({
+      p_payment_id: p?.paymentId,
+      p_amount_iqd: p?.amountIqd,
+      p_pin: p?.pin,
+      p_reason_code: p?.reasonCode,
+      p_items: refundItems(p),
+      ...common(c),
+    }),
+  }),
+  'order_item.void': (p, c) => ({
+    rpc: 'void_after_send',
+    entity: 'order_item',
+    // State-idempotent (void_order_item_internal returns {duplicate:true} on a
+    // voided line, 0039), so no p_idempotency_key -- like set_ticket_status.
+    args: () => ({
+      p_order_item_id: p?.orderItemId,
+      p_pin: p?.pin,
+      p_reason_code: p?.reasonCode,
+      p_device_id: c.stationId,
+    }),
+  }),
 };
 
 /**
@@ -254,6 +297,13 @@ function orderItems(p: any): unknown[] {
       qty: m?.qty ?? 1,
     })),
   }));
+}
+
+/** payment.refund items -> app.refund's p_items jsonb, or null for a money-only refund. */
+function refundItems(p: any): unknown[] | null {
+  const items = Array.isArray(p?.items) ? p.items : [];
+  if (items.length === 0) return null;
+  return items.map((it: any) => ({ order_item_id: it?.orderItemId, qty: it?.qty }));
 }
 
 class BadRequest extends Error {}

@@ -1023,6 +1023,8 @@ export const ar: Messages = {
         conflict: 'تعارض — يُحل من المكتب',
         failed: 'فشل — لن يُعاد',
       },
+      refused: '{write} لم يُزامَن — {reason}',
+      refusedGeneric: '{write} لم يُزامَن. راجع شاشة إغلاق اليوم.',
     },
     common: {
       forbidden: 'لا تملك صلاحية الوصول إلى هذه الشاشة.',
@@ -1875,6 +1877,10 @@ export const ar: Messages = {
       VOID_REQUIRES_REFUND: 'هذا الحساب يحتوي على دفعات — أعد المبلغ قبل الإلغاء.',
       INVALID_ARGUMENT: 'إدخال غير صالح — تحقق من القيم وحاول مجددًا.',
       REJECTION_NOT_FOUND: 'الاستنتاج المرفوض لم يعد موجودًا.',
+      REFUND_EXCEEDS_PAYMENT: 'المبلغ المسترجع أكبر مما تبقّى من هذه الدفعة.',
+      PAYMENT_NOT_FOUND: 'لم يتم العثور على هذه الدفعة.',
+      ITEM_NOT_ON_TAB: 'هذا السطر ليس على هذا الحساب.',
+      IDEMPOTENCY_CONFLICT: 'سُجّل هذا الإجراء من جلسة أخرى. حدّث الصفحة وتحقق من الحساب.',
     },
   },
 };

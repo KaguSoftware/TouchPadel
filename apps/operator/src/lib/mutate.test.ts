@@ -169,6 +169,57 @@ describe('DIRECT_RPC', () => {
     ).toBe('resolve_waiter_call');
   });
 
+  // --- Item 9 / C3 (0120) -------------------------------------------------------
+  it('tab.cancel and tab.settle_zero carry the reason, the key and the device', () => {
+    const cancel = DIRECT_RPC['tab.cancel']({ tabId: UUID_A, reasonCode: 'mistake: opened twice' }, KEY, DEV);
+    expect(cancel.fn).toBe('cancel_tab');
+    expect(cancel.args).toEqual({ p_tab_id: UUID_A, p_reason_code: 'mistake: opened twice', p_idempotency_key: KEY, p_device_id: DEV });
+    const zero = DIRECT_RPC['tab.settle_zero']({ tabId: UUID_A, reasonCode: 'booking_no_show' }, KEY, DEV);
+    expect(zero.fn).toBe('settle_zero_tab');
+    expect(zero.args).toEqual({ p_tab_id: UUID_A, p_reason_code: 'booking_no_show', p_idempotency_key: KEY, p_device_id: DEV });
+  });
+
+  it('payment.refund maps items to snake_case p_items, or null for a money-only refund', () => {
+    const withItems = DIRECT_RPC['payment.refund'](
+      { paymentId: UUID_A, amountIqd: 5000, pin: '1234', reasonCode: 'wrong_item', items: [{ orderItemId: UUID_B, qty: 2 }] },
+      KEY,
+      DEV,
+    );
+    expect(withItems.fn).toBe('refund');
+    expect(withItems.args).toEqual({
+      p_payment_id: UUID_A,
+      p_amount_iqd: 5000,
+      p_pin: '1234',
+      p_reason_code: 'wrong_item',
+      p_items: [{ order_item_id: UUID_B, qty: 2 }],
+      p_idempotency_key: KEY,
+      p_device_id: DEV,
+    });
+    const moneyOnly = DIRECT_RPC['payment.refund']({ paymentId: UUID_A, amountIqd: 5000, pin: '1234', reasonCode: 'goodwill' }, KEY, DEV);
+    expect(moneyOnly.args.p_items).toBeNull();
+  });
+
+  it('order_item.void declares NO idempotency key — void_order_item_internal is state-idempotent', () => {
+    const call = DIRECT_RPC['order_item.void']({ orderItemId: UUID_B, pin: '1234', reasonCode: 'dropped' }, KEY, DEV);
+    expect(call.fn).toBe('void_after_send');
+    expect(call.args).toEqual({ p_order_item_id: UUID_B, p_pin: '1234', p_reason_code: 'dropped', p_device_id: DEV });
+    expect('p_idempotency_key' in call.args).toBe(false);
+  });
+
+  it('stock.waste maps to record_waste with the key, defaulting the movement to a spill', () => {
+    const call = DIRECT_RPC['stock.waste']({ ingredientId: UUID_A, qty: 2.5, reasonCode: 'dropped a tray' }, KEY, DEV);
+    expect(call.fn).toBe('record_waste');
+    expect(call.args).toEqual({
+      p_ingredient_id: UUID_A,
+      p_qty: 2.5,
+      p_movement_type: 'waste_spill',
+      p_reason_code: 'dropped a tray',
+      p_idempotency_key: KEY,
+      p_device_id: DEV,
+    });
+    expect(DIRECT_RPC['stock.waste']({ ingredientId: UUID_A, qty: 1, movementType: 'waste_spoilage', reasonCode: 'x' }, KEY, DEV).args.p_movement_type).toBe('waste_spoilage');
+  });
+
   it('never lets a price field through — prices are server snapshots', () => {
     const call = DIRECT_RPC['order.add_items'](
       { tabId: UUID_A, items: [{ variantId: UUID_B, qty: 1, unitPriceIqd: 1 }] },

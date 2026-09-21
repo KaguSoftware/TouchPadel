@@ -102,6 +102,7 @@ export default function VerifyResultScreen() {
           ) : null}
         </Text>
         <Button
+          testID="verify-result.continue"
           label={t('auth.continueCta')}
           onPress={continueAfterAuth}
           busy={holdBusy}

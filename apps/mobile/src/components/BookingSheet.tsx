@@ -64,7 +64,7 @@ import {
 } from '../features/courtTransition/spec';
 import { brand, shadows, space, useTheme, withAlpha } from '../theme';
 import { Button, SegmentedControl } from './ui';
-import { DayChip, SlotCell } from './booking';
+import { DayChip, SlotCell, slotTestID } from './booking';
 import { WifiOffIcon } from './icons';
 import { SkeletonList } from './states';
 import { ErrorAlert, NoticeSheet } from './overlays';
@@ -113,6 +113,13 @@ export interface BookingSheetProps {
   isOpen: boolean;
   /** A hold call is in flight — the caller keeps the sheet mounted and the back button idle. */
   onBusyChange?: (busy: boolean) => void;
+  /**
+   * `book.sheet`. Everything inside hangs off it — `book.sheet.retry`,
+   * `book.sheet.duration`, `book.sheet.day.<date>`, `book.sheet.slot.<id>`,
+   * `book.sheet.call-venue` — so the Book tab's own ids and the sheet's never
+   * collide even though they live on the same route.
+   */
+  testID?: string;
 }
 
 export function BookingSheet({
@@ -121,6 +128,7 @@ export function BookingSheet({
   bottomInset,
   isOpen,
   onBusyChange,
+  testID,
 }: BookingSheetProps) {
   const { t, locale, dir } = useLocale();
   const { colors, fonts, appearance } = useTheme();
@@ -240,6 +248,7 @@ export function BookingSheet({
           {t(mapErrorToKey(a.day.error))}
         </Text>
         <Button
+          testID={testID ? `${testID}.retry` : undefined}
           label={t('common.retry')}
           onPress={a.day.refetch}
           busy={a.day.isRefetching}
@@ -341,6 +350,7 @@ export function BookingSheet({
               {row.map((cell, c) => (
                 <SlotCell
                   key={c}
+                  testID={testID ? slotTestID(`${testID}.slot`, cell) : undefined}
                   compact
                   cell={cell}
                   time={formatTime(cell.startAt, locale, a.tz)}
@@ -359,6 +369,7 @@ export function BookingSheet({
 
   return (
     <View
+      testID={testID}
       pointerEvents="box-none"
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
@@ -498,6 +509,7 @@ export function BookingSheet({
                         style={{ opacity: e.opacity, transform: [{ translateY: e.translateY }] }}
                       >
                         <DayChip
+                          testID={testID ? `${testID}.day.${d}` : undefined}
                           compact
                           dow={formatWeekdayShort(noon, locale, a.tz)}
                           dayNum={formatDayNumber(noon, locale, a.tz)}
@@ -523,6 +535,7 @@ export function BookingSheet({
                 }}
               >
                 <SegmentedControl
+                  testID={testID ? `${testID}.duration` : undefined}
                   fit
                   options={a.durations.map((m) => ({
                     value: m,
@@ -554,6 +567,7 @@ export function BookingSheet({
                   }}
                 >
                   <Pressable
+                    testID={testID ? `${testID}.call-venue` : undefined}
                     accessibilityRole="button"
                     accessibilityLabel={a.phone ? t('profile.callVenue') : undefined}
                     disabled={!a.phone}

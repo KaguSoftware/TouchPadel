@@ -65,9 +65,17 @@ rules are in `packages/db/CLAUDE.md`.
 
 ## Tests
 
-- Unit tests are `src/**/*.test.ts` under node (`vitest.config.ts`). No component tests exist (Q1);
-  Milestone 0 item 11 adds jsdom for `*.test.tsx` from `apps/operator/vitest.config.ts:27`. A new
-  component ships with one.
+- Two environments in one `vitest.config.ts`: `*.test.ts` runs under node (the default — pure logic
+  keeps its speed), `*.test.tsx` under jsdom via `environmentMatchGlobs`. Both `src/` and `app/` are
+  in `include`, so a PAGE test sits next to its page (`app/[locale]/page.test.tsx`). Render a server
+  page with `renderServerPage` from `src/test/renderPage.tsx` (it awaits the async component with
+  `params: Promise.resolve({ locale })`); menu/settings/venue fixtures are in `src/test/fixtures.ts`
+  and the reads are mocked at `@/lib/menu.server`, never against a live Supabase. `vitest.setup.ts`
+  unmounts between cases and stubs what jsdom lacks (`IntersectionObserver`, `ResizeObserver`,
+  `matchMedia`, `navigator.vibrate`, `Element.scrollTo`, `CSS.escape`). `dir` is set only on `<html>`
+  in `layout.tsx`, which a page test does not render — assert Arabic as catalog strings via
+  `t(locale, key)` and leave the rendered direction to Playwright. A new page or component ships
+  with a `.test.tsx`.
 - Playwright: `e2e/tests/cafe-*.spec.ts`, EN and AR projects (`e2e/playwright.config.ts:55-64`);
   `pnpm e2e` from the root.
 - Run `pnpm --filter @touch/web typecheck`, `lint` and `test`, then `pnpm security:web` from the

@@ -176,6 +176,7 @@ function SignUpScreen() {
       <FormScreen contentStyle={{ flexGrow: 1 }}>
         <Title plain>{t('auth.signUp')}</Title>
         <SocialSignInBlock
+          testID="sign-up.social"
           available={social.available}
           busyProvider={social.busyProvider}
           disabled={busy || holdBusy}
@@ -187,6 +188,7 @@ function SignUpScreen() {
         ) : null}
         <View style={{ marginTop: 6 }}>
           <SegmentedControl<AuthMethod>
+            testID="sign-up.method"
             options={[
               { value: 'phone', label: t('auth.phoneLabel') },
               { value: 'email', label: t('auth.emailLabel') },
@@ -200,6 +202,7 @@ function SignUpScreen() {
           />
         </View>
         <Field
+          testID="sign-up.first-name"
           placeholder={t('auth.firstNameLabel')}
           value={firstName}
           onChangeText={setFirstName}
@@ -210,6 +213,7 @@ function SignUpScreen() {
           style={{ marginTop: 6 }}
         />
         <Field
+          testID="sign-up.last-name"
           placeholder={t('auth.lastNameLabel')}
           value={lastName}
           onChangeText={setLastName}
@@ -220,6 +224,7 @@ function SignUpScreen() {
         />
         {method === 'email' ? (
           <Field
+            testID="sign-up.email"
             placeholder={t('auth.emailLabel')}
             value={email}
             onChangeText={setEmail}
@@ -232,6 +237,7 @@ function SignUpScreen() {
           />
         ) : null}
         <PhoneField
+          testID="sign-up.phone"
           placeholder={t('auth.phoneLabel')}
           iso={iso}
           onChangeIso={setIso}
@@ -240,6 +246,7 @@ function SignUpScreen() {
           error={fieldErrors.phone}
         />
         <Field
+          testID="sign-up.password"
           placeholder={t('auth.passwordMinPlaceholder')}
           value={password}
           onChangeText={setPassword}
@@ -251,6 +258,7 @@ function SignUpScreen() {
         <View style={{ marginTop: space.sm }}>
           <MicroLabel style={{ marginBottom: 5 }}>{t('auth.preferredLanguage')}</MicroLabel>
           <SegmentedControl<Locale>
+            testID="sign-up.language"
             options={[
               { value: 'en', label: t('settings.english') },
               { value: 'ar', label: t('settings.arabic') },
@@ -262,6 +270,7 @@ function SignUpScreen() {
         </View>
         <ErrorText>{error ?? social.errorText}</ErrorText>
         <Button
+          testID="sign-up.submit"
           label={t('auth.signUp')}
           onPress={() => void onSubmit()}
           busy={busy || holdBusy}
@@ -270,6 +279,7 @@ function SignUpScreen() {
           style={{ marginTop: space.l }}
         />
         <FooterLink
+          testID="sign-up.sign-in"
           lead={t('auth.alreadyLead')}
           label={t('auth.signIn')}
           // Reached from Profile as well as Welcome — always land on sign-in,
@@ -280,6 +290,7 @@ function SignUpScreen() {
         {/* Pushed to the bottom of the screen (flexGrow content) so it reads
             as a persistent footer instead of crowding the Sign in link. */}
         <FooterLink
+          testID="sign-up.privacy-policy"
           label={t('settings.privacyPolicy')}
           onPress={() =>
             void Linking.openURL(legalUrl('privacy', locale)).catch(() => toast(t('settings.linkFailed'), 'error'))

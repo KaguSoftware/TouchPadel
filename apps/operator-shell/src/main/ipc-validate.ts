@@ -70,6 +70,11 @@ export const MUTATION_TYPES = [
   'tab.open',
   'tab.settle',
   'adjustment.apply',
+  // Item 9 / C3 (0120) — same order as packages/core (the test compares arrays).
+  'tab.cancel',
+  'tab.settle_zero',
+  'payment.refund',
+  'order_item.void',
 ] as const;
 
 const MUTATION_TYPE_ALT = MUTATION_TYPES.map((t) => t.replace(/\./g, '\\.')).join('|');

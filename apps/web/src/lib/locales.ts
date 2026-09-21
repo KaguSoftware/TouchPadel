@@ -41,6 +41,22 @@ export function asLocale(value: string): Locale {
  * for these routes: the tree is fully dynamic (C11), so no prerender entry
  * exists for the runtime to check against, and `/.well-known/t` came back
  * 200. Hence code, not config.
+ *
+ * RE-MEASURED 2026-09-21 on the same production build, with this function in
+ * place: `/.well-known/t` and `/xx.y` are 404, `/xx/t/tok.x` is a 404 with an
+ * empty body from the route handler. `notFound()` works from wherever it is
+ * called — including, as `t/page.tsx` used to, from inside the JSX after the
+ * awaits. The refusal was never the broken part.
+ *
+ * WHAT A 404 BODY CONTAINS, because a test was written against the wrong
+ * belief about it (e2e/tests/web-security-headers.spec.ts): notFound() renders
+ * `app/[locale]/not-found.tsx` INSIDE `app/[locale]/layout.tsx`, and that
+ * layout inlines the whole cafe stylesheet. So a correct 404 carries every
+ * class name in `src/styles/cafe/**` — `tp-cafe__table` included — as CSS
+ * text. A class name is therefore not evidence that a page rendered. In `next
+ * dev` it is not even that: the dev server answers a 404 with a bare shell and
+ * none of the app's markup, so a body assertion that holds under `dev` says
+ * nothing about the built app.
  */
 export function requireLocale(value: string): Locale {
   if (!isLocale(value)) notFound();

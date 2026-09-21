@@ -1022,7 +1022,9 @@ export const matrix: MatrixRule[] = [
       p_tab_id: NIL_UUID,
       p_kind: 'discount_percent',
       p_value: 100,
-      p_pin: '000000',
+      // 0115: the helper proves the PIN to verify_manager_pin BEFORE the call, so
+      // a placeholder PIN never reaches the role guard (PIN_INVALID for everyone).
+      p_pin: MANAGER_PIN,
       p_reason_code: '',
     },
     expect: ex<RpcExpectation>('guarded', {
@@ -1038,13 +1040,13 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc',
     schema: 'app',
     name: 'refund',
-    args: { p_payment_id: NIL_UUID, p_amount_iqd: 1, p_pin: '000000', p_reason_code: '' },
+    args: { p_payment_id: NIL_UUID, p_amount_iqd: 1, p_pin: MANAGER_PIN, p_reason_code: '' },
     expect: ex<RpcExpectation>('guarded', {
       anon: 'denied',
       manager: 'execute',
       owner: 'execute',
     }),
-    note: 'cashiers can NOT refund (manager/owner only); reason check precedes PIN',
+    note: 'cashiers can NOT refund (manager/owner only); the helper proves the PIN first (0115), then the role guard, then the reason check',
     drop: 2,
   },
   {

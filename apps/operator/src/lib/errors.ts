@@ -15,6 +15,11 @@ export const MAPPED_CODES: ReadonlySet<string> = new Set([
   // 0115: a money RPC reached without a fresh verify_manager_pin grant. appRpc
   // verifies first, so a user sees this only after a very slow round trip.
   'PIN_GRANT_REQUIRED',
+  // 0120: refunds and the other queued money corrections (item 9 / C3).
+  'REFUND_EXCEEDS_PAYMENT',
+  'PAYMENT_NOT_FOUND',
+  'ITEM_NOT_ON_TAB',
+  'IDEMPOTENCY_CONFLICT',
   'FORBIDDEN',
   'AUTH_REQUIRED',
   'ALREADY_NOTIFIED',

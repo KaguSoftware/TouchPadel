@@ -33,6 +33,7 @@ export function CodeInput({
   error,
   autoFocus,
   onSubmitEditing,
+  testID,
 }: {
   label?: string;
   value: string;
@@ -41,6 +42,12 @@ export function CodeInput({
   error?: boolean;
   autoFocus?: boolean;
   onSubmitEditing?: () => void;
+  /**
+   * `<route>.code` for the row of boxes (what a guest taps); the hidden
+   * TextInput that actually holds the digits takes `${testID}.input` — a test
+   * types into THAT, because the boxes are pure presentation.
+   */
+  testID?: string;
 }) {
   const { colors, fonts } = useTheme();
   const ref = useRef<TextInput>(null);
@@ -53,6 +60,7 @@ export function CodeInput({
     <View style={{ marginTop: space.sm }}>
       {label ? <MicroLabel style={{ marginBottom: 5 }}>{label}</MicroLabel> : null}
       <Pressable
+        testID={testID}
         onPress={() => ref.current?.focus()}
         // One target for the whole row: tapping any box opens the keyboard,
         // which is what a guest expects from something that looks like a field.
@@ -110,6 +118,11 @@ export function CodeInput({
        * caret and a zero-width selection colour as well.
        */}
       <TextInput
+        // `.input`, not the bare id: the boxes above are what a guest taps and
+        // what carries the id, but they hold no text — a test that types the
+        // code has to reach the real field, and the two must not be the same
+        // node or `getByTestId` would be ambiguous.
+        testID={testID ? `${testID}.input` : undefined}
         ref={ref}
         value={value}
         onChangeText={onChangeText}

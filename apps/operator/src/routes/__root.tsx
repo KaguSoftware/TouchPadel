@@ -61,6 +61,7 @@ import { isElectron } from '../lib/mutate';
 import { useUpdateReady } from '../lib/updates';
 import { UpdateReadyControl } from '../components/UpdateReady';
 import { StationSetupContainer } from '../features/setup/StationSetupContainer';
+import { QueueFailureToasts } from '../components/QueueFailureToasts';
 import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
 import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
@@ -79,6 +80,9 @@ function RootProviders() {
       <GlobalStyles />
       <WindowDragStrip />
       <ToastProvider>
+        {/* A queued write the server refused after its caller stopped waiting
+            (item 9): the toast is the cue, Day close holds the row. */}
+        <QueueFailureToasts />
         <ConfirmProvider>
           {/* The macOS red traffic light's confirmation. It lives up here
               because that button works on EVERY screen — sign-in and the
