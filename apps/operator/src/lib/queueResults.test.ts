@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MUTATION_TYPES } from '@touch/core/schemas/mutations';
 import type { MutationResult } from '../ipc/bridge';
-import { RESULT_INVALIDATIONS, awaitResult, dispatchResult, onFailedResult, resultErrorCode } from './queueResults';
+import { RESULT_INVALIDATIONS, awaitResult, dispatchResult, errorStringCode, onFailedResult, onResult, resultErrorCode } from './queueResults';
 import { QK, RESERVATION_LIST_KEYS } from './queryKeys';
 
 const serialize = (key: readonly unknown[]) => JSON.stringify(key);
@@ -86,6 +86,38 @@ describe('dispatchResult (item 9)', () => {
     expect(seen).toHaveLength(1);
     expect(seen[0]!.state).toBe('conflict');
     off();
+  });
+});
+
+describe('onResult', () => {
+  it('sees every terminal result, acked included, waiter or not — a screen retires its pending row on any of them', async () => {
+    const qc = { invalidateQueries: vi.fn() };
+    const seen: string[] = [];
+    const off = onResult((r) => seen.push(`${r.localId}:${r.state}`));
+    const waited = 'TILL1-01J5XAAAAAAAAAAAAAAAAAAAAE';
+    const waiting = awaitResult(waited, 1_000);
+    dispatchResult(result({ localId: waited, state: 'acked' }), qc);
+    dispatchResult(result({ localId: 'TILL1-01J5XAAAAAAAAAAAAAAAAAAAAF', state: 'acked' }), qc);
+    dispatchResult(result({ localId: 'TILL1-01J5XAAAAAAAAAAAAAAAAAAAAG', state: 'failed' }), qc);
+    expect((await waiting)?.state).toBe('acked');
+    expect(seen).toEqual([`${waited}:acked`, 'TILL1-01J5XAAAAAAAAAAAAAAAAAAAAF:acked', 'TILL1-01J5XAAAAAAAAAAAAAAAAAAAAG:failed']);
+    off();
+    dispatchResult(result({ state: 'failed' }), qc);
+    expect(seen).toHaveLength(3);
+  });
+});
+
+describe('errorStringCode', () => {
+  it('reads the code after the worker’s status, or leading with its detail, and nothing from prose', () => {
+    expect(errorStringCode('400: TAB_NOT_EMPTY')).toBe('TAB_NOT_EMPTY');
+    expect(errorStringCode('ITEM_UNAVAILABLE: the item is sold out')).toBe('ITEM_UNAVAILABLE');
+    expect(errorStringCode('PIN_INVALID')).toBe('PIN_INVALID');
+    // The colon form is anchored first: an upper-case word at the start of prose is not a code.
+    expect(errorStringCode('HTTP 503 gateway')).toBeNull();
+    expect(errorStringCode('400: the server said no')).toBeNull();
+    expect(errorStringCode('network down')).toBeNull();
+    expect(errorStringCode(null)).toBeNull();
+    expect(errorStringCode(undefined)).toBeNull();
   });
 });
 

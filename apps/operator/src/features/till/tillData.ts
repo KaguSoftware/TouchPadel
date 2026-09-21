@@ -277,7 +277,7 @@ export interface TabDetail {
   table: { table_number: string } | null;
   reservation: { guest_name: string | null; court: { name_en: string; name_ar: string } | null } | null;
   orders: TabOrderRow[];
-  payments: { id: string; method: string; amount_iqd: number; change_iqd: number | null }[];
+  payments: { id: string; method: string; amount_iqd: number; change_iqd: number | null; refunds: { amount_iqd: number }[] }[];
   tab_adjustments: TabAdjustmentRow[];
 }
 
@@ -297,7 +297,7 @@ export async function fetchTabDetail(tabId: string): Promise<TabDetail> {
            order_item_modifiers(qty, price_delta_iqd, modifier:modifiers(name_en, name_ar))
          )
        ),
-       payments(id, method, amount_iqd, change_iqd),
+       payments(id, method, amount_iqd, change_iqd, refunds(amount_iqd)),
        tab_adjustments(id, kind, amount_iqd, reason_code)`,
     )
     .eq('id', tabId)
