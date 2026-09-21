@@ -44,33 +44,33 @@ set statement_timeout = '60s';
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  if not exists (select 1 from pg_constraint where conname = 'reservations_court_venue_fkey') then
+  if not exists (select 1 from pg_constraint where conname = 'reservations_court_venue_fkey' and conrelid = 'reservations'::regclass) then
     alter table reservations
       add constraint reservations_court_venue_fkey
       foreign key (court_id, venue_id) references courts (id, venue_id) not valid;
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'tabs_reservation_venue_fkey') then
+  if not exists (select 1 from pg_constraint where conname = 'tabs_reservation_venue_fkey' and conrelid = 'tabs'::regclass) then
     alter table tabs
       add constraint tabs_reservation_venue_fkey
       foreign key (reservation_id, venue_id) references reservations (id, venue_id)
       match simple not valid;
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'orders_tab_venue_fkey') then
+  if not exists (select 1 from pg_constraint where conname = 'orders_tab_venue_fkey' and conrelid = 'orders'::regclass) then
     alter table orders
       add constraint orders_tab_venue_fkey
       foreign key (tab_id, venue_id) references tabs (id, venue_id) not valid;
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'guest_sessions_table_venue_fkey') then
+  if not exists (select 1 from pg_constraint where conname = 'guest_sessions_table_venue_fkey' and conrelid = 'guest_sessions'::regclass) then
     alter table guest_sessions
       add constraint guest_sessions_table_venue_fkey
       foreign key (table_id, venue_id) references cafe_tables (id, venue_id) not valid;
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'station_staff_station_venue_fkey') then
+  if not exists (select 1 from pg_constraint where conname = 'station_staff_station_venue_fkey' and conrelid = 'station_staff'::regclass) then
     alter table station_staff
       add constraint station_staff_station_venue_fkey
       foreign key (station_id, venue_id) references stations (id, venue_id) not valid;
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'device_heartbeats_device_venue_fkey') then
+  if not exists (select 1 from pg_constraint where conname = 'device_heartbeats_device_venue_fkey' and conrelid = 'device_heartbeats'::regclass) then
     alter table device_heartbeats
       add constraint device_heartbeats_device_venue_fkey
       foreign key (device_id, venue_id) references stations (id, venue_id) not valid;

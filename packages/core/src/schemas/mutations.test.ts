@@ -111,6 +111,40 @@ describe('mutationEnvelopeSchema', () => {
     expect(mutationEnvelopeSchema.safeParse({ ...env, extra: true }).success).toBe(false);
   });
 
+  it('has an envelope variant for EVERY registered type — the sixth copy of the contract', () => {
+    // envelopeVariants is the one copy of the six with no other gate: a type
+    // appended to MUTATION_TYPES without a variant would fail at the
+    // discriminator, not on its payload, and the queue would refuse the write.
+    for (const type of MUTATION_TYPES) {
+      const result = mutationEnvelopeSchema.safeParse({
+        localId: makeClientRef(STATION),
+        idempotencyKey: makeIdempotencyKey(STATION, type),
+        mutationType: type,
+        payload: {},
+        createdAt: new Date().toISOString(),
+        staffId: UUID_STAFF,
+        deviceId: STATION,
+      });
+      if (result.success) continue; // a permissive (still-TODO) payload is fine
+      // Only the ENVELOPE discriminator: a payload's own inner union
+      // (adjustment.apply's `kind`) may fail on the empty payload, and should.
+      const discriminator = result.error.issues.filter((i) => i.path.length === 1 && i.path[0] === 'mutationType');
+      expect(discriminator, `${type} has no envelope variant`).toEqual([]);
+    }
+    // The gate itself: an unregistered type IS a discriminator failure.
+    const unknown = mutationEnvelopeSchema.safeParse({
+      localId: makeClientRef(STATION),
+      idempotencyKey: `${STATION}:order.destroy:${ulid()}`,
+      mutationType: 'order.destroy',
+      payload: {},
+      createdAt: new Date().toISOString(),
+      staffId: UUID_STAFF,
+      deviceId: STATION,
+    });
+    expect(unknown.success).toBe(false);
+    expect(!unknown.success && unknown.error.issues.some((i) => i.path.length === 1 && i.path[0] === 'mutationType')).toBe(true);
+  });
+
   it('still-TODO types accept any payload for now', () => {
     const result = mutationEnvelopeSchema.safeParse({
       localId: makeClientRef(STATION),

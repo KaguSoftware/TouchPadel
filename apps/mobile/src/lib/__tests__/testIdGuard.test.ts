@@ -52,8 +52,23 @@ describe('the testID lint guard fires', () => {
     // the rule reads the JSX, so a component relying on one ships id-less and
     // nothing says so. Every wrapper states it explicitly instead.
     ['<Button {...props} />'],
+    // The attribute is present, so the selectors above are satisfied — and the
+    // element still has no id. This is what the old wrapper idiom
+    // `testID={testID ? `${testID}.x` : undefined}` compiled to whenever a
+    // caller forgot the prop; the wrappers take a required `testID` now.
+    ['<Pressable testID={undefined} onPress={f} />'],
+    ['<CountryRow testID={undefined} country={c} />'],
+    // Not on the list either, and still an error: a literal undefined is
+    // never what anyone meant, whatever the element.
+    ['<View testID={undefined} />'],
   ])('%s is an error', (code) => {
     expect(errors(`const x = ${code};`)).toHaveLength(1);
+  });
+
+  it('reports a listed element with testID={undefined} once, not twice', () => {
+    // The "no testID" selector must not ALSO fire: the attribute is there.
+    expect(errors('const x = <CountryRow testID={undefined} />;')).toHaveLength(1);
+    expect(errors('const x = <CountryRow />;')).toHaveLength(1);
   });
 
   it('does not let a NESTED testID satisfy its parent', () => {
@@ -68,6 +83,10 @@ describe('the testID lint guard fires', () => {
     ['<Pressable testID="sign-in.submit" onPress={f} />'],
     ['<Button testID={id} label={l} />'],
     ['<Field testID={`bookings.filter.${k}`} />'],
+    ['<CountryRow testID={`${testID}.${iso}`} country={c} />'],
+    // A conditional is not the literal: the rule reads the JSX and stops at
+    // what is written. The wrappers no longer write this (required prop).
+    ['<Button testID={id ? `${id}.x` : undefined} />'],
     // Not on the list: a View is not interactive, whatever props it is handed,
     // and a Text is scenery.
     ['<View onPress={f} />'],

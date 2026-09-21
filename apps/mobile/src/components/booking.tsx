@@ -1002,8 +1002,8 @@ export function DegradedBanner({
   blockLead?: boolean;
   /** When given, renders the close button; the notice never self-dismisses. */
   onDismiss?: () => void;
-  /** `<route>.degraded`; the close button takes `${testID}.dismiss`. */
-  testID?: string;
+  /** `<route>.degraded`; the close button takes `${testID}.dismiss`. Required. */
+  testID: string;
 }) {
   const { colors, fonts } = useTheme();
   const { t } = useLocale();
@@ -1050,7 +1050,7 @@ export function DegradedBanner({
       </Text>
       {onDismiss ? (
         <Pressable
-          testID={testID ? `${testID}.dismiss` : undefined}
+          testID={`${testID}.dismiss`}
           accessibilityRole="button"
           accessibilityLabel={t('common.close')}
           onPress={onDismiss}

@@ -205,10 +205,10 @@ None of these can be written into the repository. Each needs somebody signed in.
 | Item | Where | Note |
 |---|---|---|
 | MFA org-wide | GitHub, Supabase, Vercel, PostHog, Expo, Apple, Google, registrar | Recovery codes to the **client's** owner, never a Kagu inbox |
-| Branch protection on `main` | GitHub → Rules | No direct pushes, 1 approving review, CI green |
-| "Require review from Code Owners" | GitHub → Rules | **`.github/CODEOWNERS` is inert without this** |
-| The `@KaguSoftware/tech-leads` team | GitHub → Teams | CODEOWNERS silently ignores an owner it cannot resolve |
-| Required reviewers on `staging` | GitHub → Environments | No repo artifact; verify by looking, add to the freeze pass |
+| ~~Branch protection on `main`~~ | GitHub → Rules | **Withdrawn 2026-09-21, owner decision (D11): none. Every writer pushes to `main`.** |
+| ~~"Require review from Code Owners"~~ | GitHub → Rules | **Withdrawn 2026-09-21 (D11); `.github/CODEOWNERS` deleted.** |
+| ~~The `@KaguSoftware/tech-leads` team~~ | GitHub → Teams | **Withdrawn 2026-09-21 (D11); no CODEOWNERS to serve.** |
+| ~~Required reviewers on `staging`~~ | GitHub → Environments | **Withdrawn 2026-09-21 (D11): none. A push to `main` touching migrations applies to the client's project at once.** |
 | Supabase member roles | Supabase → Organization | §2 above |
 | CAPTCHA on | Supabase → Auth → Attack Protection | ⚠ Do **not** disable anonymous sign-in — it is the cafe's guest identity. ⚠ *2026-09-13* And do not switch CAPTCHA on until the web table session and the mobile sign-up send a token — it breaks café sign-in |
 | Auth redirect allowlist | Supabase → Auth → URL Configuration | Exact production URLs. No wildcards, no `localhost`, no `exp://*` |
@@ -223,7 +223,7 @@ None of these can be written into the repository. Each needs somebody signed in.
 | PITR on the Supabase tier | Supabase → Billing | SOW promises it; if the tier lacks it that is a contract gap |
 | Account ownership at handover | All of the above | Longest-lead item in the project |
 | ⚠ *2026-09-13* Remove the dev seed staff accounts | Supabase → Auth, operator admin | `@dev.touch.local` and `owner@touchpadel.local`. Real accounts and the till's sign-in first, then deactivate, delete, and reset every manager/owner PIN (audit C1) |
-| ⚠ *2026-09-13* Swap **and revoke** `RELEASES_GH_TOKEN`; tag ruleset for `operator-v*` | GitHub | The current secret is a personal OAuth token with `admin:org`; overwriting the secret does not revoke it (H1)  Runbook: `docs/client/release-gate-2026-09-20.md` §2–3. `environment: release` on the publish job landed in code 2026-09-20 (a no-op until the environment exists). |
+| ⚠ *2026-09-13* Swap **and revoke** `RELEASES_GH_TOKEN`; ~~tag ruleset for `operator-v*`~~ (ruleset and `release` environment withdrawn 2026-09-21, D11; token swap done and kept) | GitHub | The current secret is a personal OAuth token with `admin:org`; overwriting the secret does not revoke it (H1)  Runbook: `docs/client/release-gate-2026-09-20.md` §2–3. `environment: release` on the publish job landed in code 2026-09-20 (a no-op until the environment exists). |
 | ⚠ *2026-09-13* Delete the `ledger-snapshot-*` artifacts | GitHub → Actions | They hold the `app` schema, including `app.secrets` (M7)  Runbook: `docs/client/release-gate-2026-09-20.md` §4. Since 2026-09-20 the dump is `public-ledgers-<sha>` (public ledgers only, 7 days). |
 | ⚠ *2026-09-13* Confirm custody of the EAS Update private key | Password manager, EAS | Before the store build — or regenerate the keypair (M15) |
 | ⚠ *2026-09-13* Minimum password length 8; "Secure password change" on | Supabase → Auth | With the leaked-password row above (L11, M2) |

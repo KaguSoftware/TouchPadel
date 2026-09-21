@@ -1,4 +1,6 @@
-# Release gate, publish token, tag ruleset, old CI artifacts (owner runbook, 2026-09-20)
+# Release gate, publish token, tag ruleset, old CI artifacts (owner runbook, 2026-09-20) — WITHDRAWN
+
+**Withdrawn 2026-09-21, owner decision (Parsa):** no GitHub protection rules on this repository. Everyone with write access pushes branches and tags; an `operator-v*` tag publishes with no approval stop. Undone the same day: §1 (`release` environment, reviewer, tag pattern; `environment: release` removed from `operator-release.yml`), §3 (the `operator release tags` ruleset), `.github/CODEOWNERS` deleted, no reviewers on `staging`. §2 (the fine-grained `RELEASES_GH_TOKEN`) and §4 (artifact deletion) stand. Accepted risk, recorded as D11 in `docs/security/security-general.md` §01. The rest of this file is history.
 
 **Why this exists.** The 2026-09-13 security audit found two things the code alone
 cannot close (H1 and M7; plan items S4 and S9):

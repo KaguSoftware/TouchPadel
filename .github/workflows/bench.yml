@@ -150,6 +150,13 @@ jobs:
             packages/db/bench/baseline.json
           retention-days: 30
 
+      # What seed.sql wrote, removed — the step the seed comment above and
+      # teardown.sql both promise. `always()`: a red compare is the common
+      # case, and the teardown is idempotent (every delete is a predicate).
+      - name: Tear down the bench fixture
+        if: always()
+        run: pnpm --filter @touch/db bench:teardown
+
       - name: Stop the stack
         if: always()
         working-directory: packages/db

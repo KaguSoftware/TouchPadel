@@ -16,4 +16,6 @@ export function signatureEvents(clean: string): SignatureEvent[];
 export function replaySignatures(files: { file: string; sql: string }[]): {
   live: Map<string, Map<string, string>>;
   misses: { file: string; name: string; sig: string }[];
+  /** Bare `drop function app.x;` while x had more than one live signature — Postgres rejects it. */
+  errors: { file: string; name: string; sigs: string[] }[];
 };

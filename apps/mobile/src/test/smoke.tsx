@@ -22,7 +22,7 @@
  * failing fixture into a failing render immediately instead of three seconds
  * later, and a shared client would leak one case's data into the next.
  */
-import type { ComponentType, ReactNode } from 'react';
+import type { ComponentType } from 'react';
 import { StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -74,7 +74,6 @@ export interface SmokeResult extends RenderResult {
    * on every Arabic case.
    */
   direction: () => string | undefined;
-  client: QueryClient;
 }
 
 export function renderRoute(
@@ -121,22 +120,10 @@ export function renderRoute(
 
   return {
     ...result,
-    client,
     direction: () => {
       const root = result.getByTestId('app.direction-root');
       const flat = StyleSheet.flatten(root.props.style) as { direction?: string } | undefined;
       return flat?.direction;
     },
   };
-}
-
-/** Convenience for a test that only wants to wrap children, not a whole route. */
-export function Providers({ children, locale = 'en' }: { children: ReactNode; locale?: Locale }) {
-  return (
-    <LocaleProvider initialLocale={locale}>
-      <ThemeProvider>
-        <DirectionRoot>{children}</DirectionRoot>
-      </ThemeProvider>
-    </LocaleProvider>
-  );
 }

@@ -113,7 +113,6 @@ export const BITES: MenuCategory = {
 
 /** Two categories, four items — enough for section bands, rows and a scroll spy. */
 export const MENU_FIXTURE: MenuCategory[] = [SIPS, BITES];
-export const MENU_ITEMS: MenuItem[] = [FLAT_WHITE, ICED_TEA, CAKE, SOLD_OUT_ITEM];
 
 export const SETTINGS_FIXTURE: CafeSettings = {
   ...DEFAULT_CAFE_SETTINGS,

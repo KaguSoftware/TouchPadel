@@ -2514,7 +2514,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'staff_venues',
-    note: '0123: granted to authenticated only. A staffer reads their own membership (staff_venues_read_own); manager/owner read every row; a guest sees nothing rather than an error',
+    note: '0123/0139: granted to authenticated only. A staffer reads their own membership (staff_venues_read_own); manager/owner read the rows of THEIR venues (staff_venues_read_mgmt, venue-scoped since 0139; the owner holds every active venue); a guest sees nothing rather than an error',
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows', prep: 'rows', court_desk: 'rows', manager: 'rows', owner: 'rows',
@@ -2524,7 +2524,7 @@ export const matrix: MatrixRule[] = [
   {
     kind: 'select',
     name: 'stations',
-    note: '0124: the device registry is staff-only (stations_read_staff). ensureStationProbe plants TILL-PROBE-A at venue A so the five staff have a row to see',
+    note: '0124/0139: the device registry is staff-only and venue-scoped (stations_read_staff, venue conjunct since 0139). ensureStationProbe plants TILL-PROBE-A at venue A so the five staff have a row to see',
     expect: ex<SelectExpectation>('silence', {
       anon: 'denied',
       cashier: 'rows', prep: 'rows', court_desk: 'rows', manager: 'rows', owner: 'rows',
@@ -2590,8 +2590,8 @@ export const matrix: MatrixRule[] = [
     kind: 'rpc', schema: 'app', name: 'is_staff_at',
     // VARIADIC roles staff_role[] after a named argument — same shape as the
     // is_staff rule in drop 7: PostgREST needs the array under its real name.
-    note: '0123: "is the caller one of these roles AT this venue" — the venue axis of every policy written in 0136',
-    args: { p_venue: VENUE_A, roles: ['owner'] }, expect: SELF_ANON_OK, drop: 13,
+    note: '0123/0139: "is the caller one of these roles AT this venue". Called by no policy in slice 1 (0136 scopes on staff_venue_ids()); kept for slice 2 per-venue roles. 0139 revoked anon: it is authenticated-only',
+    args: { p_venue: VENUE_A, roles: ['owner'] }, expect: SELF_AUTHED, drop: 13,
   },
   {
     kind: 'rpc', schema: 'app', name: 'is_degraded',

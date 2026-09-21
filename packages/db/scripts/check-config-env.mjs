@@ -16,6 +16,11 @@
  * `packages/db/.env` locally and in a GitHub repository variable in CI — in
  * neither case in a tracked file.
  *
+ * A SECOND STATIC RULE, file-wide: any key whose NAME looks like a credential
+ * (`secret`, `password`, `token`, `api_key`, `*_secret`, `*_key`, …) may hold
+ * `""` or an `env(NAME)` reference and nothing else. The test_otp section was
+ * the one that leaked; this rule is for the next key that would.
+ *
  * TWO MODES.
  *   (default)          STATIC. No stack, no `.env`, no Docker. Parses the file
  *                      and fails on any literal, and on an `env(NAME)` whose
@@ -25,10 +30,14 @@
  *                      This is the mode `pnpm security` runs, so it must stay
  *                      stackless and must pass with no `.env` present.
  *   --require-values   Additionally loads `packages/db/.env` and requires every
- *                      referenced NAME to be non-empty. This is the mode
- *                      `pnpm db:start` runs, because a stack that starts with
- *                      an empty test_otp code is a stack whose phone tests fail
- *                      much later and much less legibly.
+ *                      NAME referenced inside ENV_ONLY_SECTIONS to be non-empty.
+ *                      This is the mode `pnpm db:start` runs, because a stack
+ *                      that starts with an empty test_otp code is a stack whose
+ *                      phone tests fail much later and much less legibly. An
+ *                      `env(NAME)` outside those sections that resolves to
+ *                      nothing is reported as a note, not a failure: the CLI
+ *                      substitutes an empty string, which for an optional
+ *                      provider secret is exactly what an unset value means.
  *
  * `123456` is refused outright: it is in this repository's git history, so it
  * is not a value anyone should still be typing.
@@ -54,6 +63,21 @@ const requireValues = process.argv.slice(2).includes('--require-values');
 /** Sections whose every value must be an env() reference. */
 const ENV_ONLY_SECTIONS = ['auth.sms.test_otp'];
 
+/**
+ * Keys that, anywhere in the file, may carry only `""` or `env(NAME)`. Matched
+ * against the bare key, case-insensitively: `secret`, `auth_token` does NOT
+ * match (`token` is anchored) but `client_secret`, `service_key` and `api_key` do.
+ */
+const SECRET_KEY = /^(secret|pass|password|token|key|api_key|client_secret|.*_secret|.*_key)$/i;
+/**
+ * The one literal a secret-shaped key may hold: the marker the local stack uses
+ * for a provider whose secret is never exercised locally (Apple / Google sign-in
+ * exchange happens in the browser against the HOSTED project). The CLI rejects
+ * an empty secret for an enabled provider, so it cannot be "". Anything else
+ * — a real-looking value, a test pair, a token — fails.
+ */
+const PLACEHOLDER_LITERALS = new Set(['local-dev-unused']);
+
 /** The one value that must never come back, whatever it is set to. */
 const BURNED = new Map([['SUPABASE_AUTH_SMS_TEST_OTP_CODE', '123456']]);
 
@@ -70,14 +94,17 @@ if (!existsSync(CONFIG)) fail([`the file does not exist — run this from packag
 const source = readFileSync(CONFIG, 'utf8');
 const lines = source.split('\n');
 
-// ── parse: the env-only sections, line by line ──────────────────────────────
+// ── parse: every `key = "string"` assignment, with its section ───────────────
 // A deliberately small parser. config.toml is hand-written, flat, and this gate
 // has to be readable by whoever it fails on; a TOML dependency here would buy
 // nothing but a dependency.
 const problems = [];
+const notes = [];
 let section = null;
 /** [{ key, value, line }] for every key in an ENV_ONLY_SECTIONS section. */
 const guarded = [];
+/** [{ section, key, value, line }] for every string-valued key anywhere. */
+const strings = [];
 
 for (const [i, raw] of lines.entries()) {
   const line = raw.trim();
@@ -87,8 +114,9 @@ for (const [i, raw] of lines.entries()) {
     section = header[1];
     continue;
   }
-  if (!ENV_ONLY_SECTIONS.includes(section)) continue;
   const kv = /^([^=]+?)\s*=\s*"([^"]*)"\s*(?:#.*)?$/.exec(line);
+  if (kv) strings.push({ section, key: kv[1].trim(), value: kv[2], line: i + 1 });
+  if (!ENV_ONLY_SECTIONS.includes(section)) continue;
   if (!kv) {
     problems.push(
       `${i + 1}: cannot read this line as key = "value" under [${section}]: ${line.slice(0, 80)}`,
@@ -110,6 +138,21 @@ for (const { key, value, line } of guarded) {
     `${line}: ${key} = "${value}" is a literal. Write ` +
       `${key} = "env(SUPABASE_AUTH_SMS_TEST_OTP_CODE)" and put the code in ` +
       `${rel(ENV_FILE)} (copy ${rel(ENV_EXAMPLE)}).`,
+  );
+}
+
+// ── no secret-shaped key holds a literal, anywhere in the file ───────────────
+// The value itself is not echoed: a gate that prints the credential it found
+// into a CI log has only moved the leak.
+const secretLiterals = strings.filter(
+  ({ key, value }) =>
+    SECRET_KEY.test(key) && value !== '' && !ENV_REF.test(value) && !PLACEHOLDER_LITERALS.has(value),
+);
+for (const { section: s, key, line } of secretLiterals) {
+  const dotted = s ? `${s}.${key}` : key;
+  problems.push(
+    `${line}: ${dotted} is a literal (secret-shaped key). Only "" or "env(NAME)" is allowed here — ` +
+      `move the value to ${rel(ENV_FILE)} and declare NAME in ${rel(ENV_EXAMPLE)}.`,
   );
 }
 
@@ -135,6 +178,12 @@ for (const [i, raw] of lines.entries()) {
   }
 }
 
+/** The names referenced inside ENV_ONLY_SECTIONS: the only ones --require-values insists on. */
+const mandatory = new Set();
+for (const { value } of guarded) {
+  for (const m of value.matchAll(ENV_REF_ANY)) mandatory.add(m[1]);
+}
+
 for (const [name, line] of referenced) {
   if (declared.has(name)) continue;
   problems.push(
@@ -144,7 +193,7 @@ for (const [name, line] of referenced) {
   );
 }
 
-// ── --require-values: the names actually carry a usable value ───────────────
+// ── --require-values: the mandatory names actually carry a usable value ─────
 if (requireValues && problems.length === 0) {
   const dotenv = await import('dotenv');
   const parsed = existsSync(ENV_FILE) ? dotenv.parse(readFileSync(ENV_FILE)) : {};
@@ -159,7 +208,14 @@ if (requireValues && problems.length === 0) {
   for (const [name, line] of referenced) {
     const v = value(name).trim();
     if (!v) {
-      problems.push(`${line}: env(${name}) resolves to nothing. ${howToSet.replace('%s', name)}`);
+      if (mandatory.has(name)) {
+        problems.push(`${line}: env(${name}) resolves to nothing. ${howToSet.replace('%s', name)}`);
+      } else {
+        notes.push(
+          `${line}: env(${name}) resolves to nothing (outside [${ENV_ONLY_SECTIONS.join('], [')}] — ` +
+            `the CLI substitutes ""; set it only if that section is meant to work).`,
+        );
+      }
       continue;
     }
     if (BURNED.get(name) === v) {
@@ -178,8 +234,11 @@ if (requireValues && problems.length === 0) {
 
 if (problems.length > 0) fail(problems);
 
+for (const n of notes) console.log(`NOTE  ${n}`);
+
 console.log(
   `PASS  ${rel(CONFIG)}: ${guarded.length} test_otp value(s) via env(), ` +
-    `${referenced.size} name(s) declared in ${rel(ENV_EXAMPLE)}` +
-    (requireValues ? ', all set' : ''),
+    `${referenced.size} name(s) declared in ${rel(ENV_EXAMPLE)}, ` +
+    `no secret-shaped literal` +
+    (requireValues ? `, ${mandatory.size} required name(s) set` : ''),
 );

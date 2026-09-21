@@ -5,6 +5,7 @@
  * and how to lay the server figures out for a CSV.
  */
 import type { MutationType } from '@touch/core/schemas/mutations';
+import { errorStringCode } from '../../lib/queueResults';
 import type { CsvCell } from '../analytics/csv';
 
 export type DayCloseState =
@@ -267,8 +268,8 @@ export function queueWriteKey(mutationType: string): QueueWriteKey {
  * ("400: ITEM_UNAVAILABLE", sync-worker.ts markFailed).
  */
 export function queueErrorCode(lastError: string | null): string | null {
-  const m = lastError?.match(/(?:^|:\s*)([A-Z][A-Z0-9_]+)/);
-  return m ? m[1]! : null;
+  // One reader for every error string (queueResults.ts), the toast's included.
+  return errorStringCode(lastError);
 }
 
 /** One row of app.unpaid_played_bookings (0106): played on this business day, court fee still owed. */

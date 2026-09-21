@@ -707,8 +707,10 @@ export function SegmentedControl<T extends string | number>({
    * `<route>.<element>` for the TRACK; each segment gets
    * `${testID}.${option.value}` — so a test can assert the control is mounted
    * and then tap one named option. Minted by the call site, never here.
+   * REQUIRED: the segments derive their ids from it, and an optional prop
+   * meant a forgotten call site shipped a control with no ids at all.
    */
-  testID?: string;
+  testID: string;
 }) {
   const { colors, appearance, fonts, tracking } = useTheme();
   const { dir } = useLocale();
@@ -829,7 +831,7 @@ export function SegmentedControl<T extends string | number>({
             key={String(o.value)}
             // The track's id plus the OPTION's value, not its index: the ids
             // then survive an option being added or reordered.
-            testID={testID ? `${testID}.${o.value}` : undefined}
+            testID={`${testID}.${o.value}`}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(o.value)}

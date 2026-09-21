@@ -12,6 +12,8 @@ import { appRpc, futureSlot, guestClient, outcome, serviceClient } from '../../t
 import {
   CONCURRENT_ROUNDS,
   SERIAL_SAMPLES,
+  WARMUP_ROUNDS,
+  WARMUP_SERIAL,
   errorCode,
   invariants,
   makeRow,
@@ -40,6 +42,23 @@ export const BENCH_COURTS = [
  * cleanup below finds exactly the rows this run created and nothing else.
  */
 export const BENCH_STATION = 'BENCH1';
+
+/**
+ * The error codes of the calls that SURVIVE warmup trimming, in call order.
+ *
+ * `makeRow` drops the first `warmup` samples (harness.ts: WARMUP_SERIAL calls
+ * on a serial row, WARMUP_ROUNDS x concurrency on a concurrent one) before it
+ * summarises, so a row's `outcome` and `errors` must be derived from the same
+ * calls — a cold-cache refusal in round one used to stamp `error:…` on a row
+ * whose measured calls were all clean. `codes` is a SPARSE array indexed by
+ * call position (round * concurrency + caller for a concurrent row), so the
+ * slice lines up with the samples that were kept. Same rule as `dropWarmup`:
+ * a run shorter than its warmup keeps everything.
+ */
+function measuredCodes(codes: readonly (string | undefined)[], warmup: number): string[] {
+  const kept = codes.length > warmup ? codes.slice(warmup) : codes;
+  return kept.filter((c): c is string => typeof c === 'string');
+}
 
 /**
  * A 26-character pseudo-ULID: 10 of timestamp, 6 of per-process entropy, 10 of
@@ -126,7 +145,7 @@ export async function run(): Promise<BenchRow[]> {
   // ───────────────────────────────────────────────────────────────────────────
   {
     const serialSlots = slots(SERIAL_SAMPLES);
-    const codes: string[] = [];
+    const codes: (string | undefined)[] = [];
     const timed = await runSerial(
       SERIAL_SAMPLES,
       async (i) => {
@@ -135,7 +154,7 @@ export async function run(): Promise<BenchRow[]> {
           'hold_slot',
           holdArgs(BENCH_COURTS[0]!, serialSlots[i]!),
         );
-        if (res.error) codes.push(errorCode(res.error));
+        if (res.error) codes[i] = errorCode(res.error);
         return res;
       },
       // Untimed: release the hold so the cap (3 live holds per guest) never
@@ -143,14 +162,15 @@ export async function run(): Promise<BenchRow[]> {
       () => clearRunRows(svc),
     );
     await clearRunRows(svc);
+    const measured = measuredCodes(codes, WARMUP_SERIAL);
     rows.push(
       makeRow({
         id: 'booking.hold_slot@1.one_court',
         area: 'booking',
         concurrency: 1,
         callSamples: timed.map((t) => t.ms),
-        outcome: codes.length === 0 ? 'ok' : `error:${codes[0]}`,
-        errors: tally(codes),
+        outcome: measured.length === 0 ? 'ok' : `error:${measured[0]}`,
+        errors: tally(measured),
       }),
     );
   }
@@ -168,14 +188,14 @@ export async function run(): Promise<BenchRow[]> {
     [50, 'four_courts'],
   ] as const) {
     const callerSlots = slots(concurrency);
-    const codes: string[] = [];
+    const codes: (string | undefined)[] = [];
     const roundsOut = await runConcurrent(
       CONCURRENT_ROUNDS,
       concurrency,
-      async (_r, c) => {
+      async (r, c) => {
         const court = spread === 'one_court' ? BENCH_COURTS[0]! : BENCH_COURTS[c % 4]!;
         const res = await appRpc(guests[c]!, 'hold_slot', holdArgs(court, callerSlots[c]!));
-        if (res.error) codes.push(errorCode(res.error));
+        if (res.error) codes[r * concurrency + c] = errorCode(res.error);
         return res;
       },
       // Untimed, between rounds: the slots have to go back, because the same
@@ -183,6 +203,7 @@ export async function run(): Promise<BenchRow[]> {
       // SLOT_TAKEN in microseconds — thirty rounds of measuring a rejection.
       () => clearRunRows(svc),
     );
+    const measured = measuredCodes(codes, concurrency * WARMUP_ROUNDS);
     rows.push(
       makeRow({
         id: `booking.hold_slot@${concurrency}.${spread}`,
@@ -190,8 +211,8 @@ export async function run(): Promise<BenchRow[]> {
         concurrency,
         callSamples: roundsOut.flatMap((r) => r.calls.map((c) => c.ms)),
         roundSamples: roundsOut.map((r) => r.roundMs),
-        outcome: codes.length === 0 ? 'ok' : `error:${codes[0]}`,
-        errors: tally(codes),
+        outcome: measured.length === 0 ? 'ok' : `error:${measured[0]}`,
+        errors: tally(measured),
       }),
     );
   }
@@ -204,7 +225,7 @@ export async function run(): Promise<BenchRow[]> {
   for (const concurrency of [1, 10, 50] as const) {
     const callSamples: number[] = [];
     const roundSamples: number[] = [];
-    const codes: string[] = [];
+    const codes: (string | undefined)[] = [];
     const rounds = concurrency === 1 ? SERIAL_SAMPLES : CONCURRENT_ROUNDS;
     const callerSlots = slots(concurrency);
 
@@ -226,7 +247,7 @@ export async function run(): Promise<BenchRow[]> {
       // would put two different quantities in one column.
       const t0 = performance.now();
       const timed = await Promise.all(
-        holds.map((h) =>
+        holds.map((h, c) =>
           timeIt(async () => {
             if (!h.id) throw new Error('hold was not created');
             const res = await appRpc(h.client, 'confirm_booking', {
@@ -234,7 +255,7 @@ export async function run(): Promise<BenchRow[]> {
               p_guest_name: 'bench-guest',
               p_players: 4,
             });
-            if (res.error) codes.push(errorCode(res.error));
+            if (res.error) codes[r * concurrency + c] = errorCode(res.error);
             return res;
           }),
         ),
@@ -245,6 +266,10 @@ export async function run(): Promise<BenchRow[]> {
       await clearRunRows(svc);
     }
 
+    const measured = measuredCodes(
+      codes,
+      concurrency > 1 ? concurrency * WARMUP_ROUNDS : WARMUP_SERIAL,
+    );
     rows.push(
       makeRow({
         id: `booking.confirm_booking@${concurrency}`,
@@ -252,8 +277,8 @@ export async function run(): Promise<BenchRow[]> {
         concurrency,
         callSamples,
         roundSamples: concurrency > 1 ? roundSamples : undefined,
-        outcome: codes.length === 0 ? 'ok' : `error:${codes[0]}`,
-        errors: tally(codes),
+        outcome: measured.length === 0 ? 'ok' : `error:${measured[0]}`,
+        errors: tally(measured),
       }),
     );
   }

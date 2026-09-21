@@ -1614,12 +1614,14 @@ mobile `testID`s and jest-expo, `packages/db/bench`), S10 (the committed test-OT
 repo), the docs remainder of item 12, and the owner steps — for which the ordered runbook is
 **`docs/client/hosted-push-milestone0-2026-09-21.md`**. Client-facing paperwork:
 **`docs/scope/phase2-change-order-2026-09-21.md`** (bilingual, for Mustafa's signature) and the
-deviation table in `docs/security/security-general.md` §01, now D1–D10.
+deviation table in `docs/security/security-general.md` §01, now D1–D11.
+
+**Day 32 (2026-09-21, later): the GitHub gates came off.** Earlier that day the release-gate runbook was applied (the `release` environment with a required reviewer and an `operator-v*` tag pattern, the `operator release tags` ruleset with an admin bypass, `SUPABASE_AUTH_SMS_TEST_OTP_CODE`, the `RELEASES_GH_TOKEN` swap); the ruleset stopped Parsa's own `operator-v0.2.14` push (admin override in the org audit log). **Owner decision: no protection rules.** Everyone with write access pushes branches and tags; releases have no approval stop. Removed: the ruleset, the `release` environment, any main protection, reviewers on `staging`, `.github/CODEOWNERS`, and `environment: release` in `operator-release.yml`. Kept: the fine-grained token and the OTP variable. Recorded as **D11** in `docs/security/security-general.md` §01; the runbook `docs/client/release-gate-2026-09-20.md` carries a withdrawn header. Do not re-add any of these without asking Parsa.
 
 **Day 32 (2026-09-21, night): Milestone 1 slice 1 — the multi-venue schema foundation.**
 Migrations **0122–0138**, built by three Opus agents from an approved plan and green locally
 (`db:reset`, the six stack gates, `check:rpc-registry`, `check:assistant-coverage`, the whole db
-suite, typecheck, lint). **Committed, not pushed**: Parsa's decision is to buy PITR, create the
+suite, typecheck, lint). **Decision was "committed, not pushed"; the commits reached `origin/main` at 16:34 from the second machine anyway (`b3e7e1e`..`58b5b27`), and `db-migrate.yml` fires on that path — hosted state UNVERIFIED, first owner step below.** The plan was to buy PITR, create the
 staging project from a backup and rehearse 0122–0138 there first (D3). The design note is
 `docs/design/multi-venue/slice-1-2026-09-21.md`; the tick list is in `PHASE-2-CHECKLIST.md`. The
 calls worth knowing before touching anything venue-shaped:

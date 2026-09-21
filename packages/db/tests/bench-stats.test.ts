@@ -143,8 +143,9 @@ describe('median of the per-repeat p95s', () => {
     expect(medianOf([120, 95, 400])).toBe(120);
   });
 
-  it('nearest-rank on an even count takes the lower middle', () => {
-    expect(medianOf([10, 20, 30, 40])).toBe(20);
+  it('an even count averages the two middles rather than taking the lower', () => {
+    expect(medianOf([10, 20, 30, 40])).toBe(25);
+    expect(medianOf([95, 120])).toBe(107.5);
   });
 
   it('--repeat=1 is the single value', () => {

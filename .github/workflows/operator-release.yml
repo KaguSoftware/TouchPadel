@@ -298,24 +298,6 @@ jobs:
       && (needs.macos.result == 'success' || needs.macos.result == 'skipped')
     runs-on: ubuntu-latest
 
-    # Security audit H1 / plan S4 (added 2026-09-20). Any operator-v* tag builds
-    # an installer that is unsigned until a certificate exists (§4 of the
-    # download runbook) and auto-installs on every till within six hours of
-    # going live — and until now the only thing between a tag push and that
-    # rollout was push rights on the tag. Binding this job to the `release`
-    # GitHub Environment (required reviewers; owner steps in
-    # docs/client/release-gate-2026-09-20.md) puts a human approval between
-    # "assets are in the draft" and "the updater feed serves them". Same pattern
-    # as the `staging` gate in db-migrate.yml, and like it a no-op until the
-    # environment exists with a reviewer.
-    #
-    # Only this job is gated: a draft and its uploads are invisible to
-    # electron-updater, and gating `prepare` would make the reviewer approve
-    # before anyone knows whether the build even succeeds. No job-level
-    # `permissions:` either — the write goes to the PUBLIC repo through
-    # RELEASES_GH_TOKEN, so this repo's GITHUB_TOKEN stays `contents: read`.
-    environment: release
-
     env:
       GH_TOKEN: ${{ secrets.RELEASES_GH_TOKEN }}
       VERSION: ${{ needs.prepare.outputs.version }}

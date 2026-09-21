@@ -371,6 +371,8 @@ that file). It is part of S10, step 9 below.
 
 ## Step 9. GitHub, release gate, the tag, the OTP variable
 
+**2026-09-21, later the same day:** §1 and §3 of the release-gate runbook were applied and then undone on the owner's decision (no protection rules; see that file's header and D11). Only 9.3, the OTP variable, remains in force from this step.
+
 1. **`docs/client/release-gate-2026-09-20.md` §1–§5.** Do not re-read the detail here; that file is
    the runbook. The order matters: **§4 before §2**, because §2 revokes the `gh` session §4 uses.
    §1 the `release` environment with a required reviewer and an `operator-v*` tag rule; §2 swap

@@ -49,7 +49,6 @@ const CASES: SmokeCase[] = [
     // holds no text of its own, so the label assertion moves to a segment's.
     // It is mounted above the grid's own branches, which is why it is the
     // primary — an empty or failed day still has a duration to pick.
-    primary: 'availability.duration',
     nearbyKey: 'booking.durationMinutes',
     labelParams: { minutes: 60 },
     options: { session: 'in', queryData: VENUE },
@@ -57,7 +56,6 @@ const CASES: SmokeCase[] = [
   {
     route: 'booking-detail',
     Component: BookingDetailScreen,
-    primary: 'booking-detail.cancel',
     labelKey: 'booking.cancelBooking',
     // The cancel action appears only for an UPCOMING, still-active booking
     // whose cancellation policy has loaded — `upcomingActive && policyKnown &&
@@ -72,7 +70,6 @@ const CASES: SmokeCase[] = [
   {
     route: 'booking-history',
     Component: BookingHistoryScreen,
-    primary: 'booking-history.clear',
     labelKey: 'booking.clearHistory',
     // The Clear button is the list's FOOTER: it renders only when there is
     // history to clear, so the fixture is a booking that has already happened.
@@ -96,7 +93,6 @@ const CASES: SmokeCase[] = [
   {
     route: 'review',
     Component: ReviewScreen,
-    primary: 'review.reserve',
     labelKey: 'booking.reserveCta',
     // Without a live `holdId` the screen renders its "hold expired" branch and
     // a way back to availability instead of the CTA.
@@ -105,7 +101,6 @@ const CASES: SmokeCase[] = [
   {
     route: 'success',
     Component: SuccessScreen,
-    primary: 'success.done',
     labelKey: 'common.done',
     options: {
       session: 'in',

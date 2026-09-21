@@ -2,15 +2,15 @@
  * The committed baseline and the suite that measures it must name the SAME
  * rows. Nothing here runs a query, starts a stack or looks at a millisecond.
  *
- * WHY ONLY ROW-ID PARITY. The baseline that ships today is a local PLACEHOLDER
- * (bench/README.md says so, and compare.ts stamps `runner: 'local-placeholder'`
- * on it): a laptop's numbers are not a gate. Asserting any timing here would
- * either be asserting a number nobody should trust, or it would go red on every
- * machine that is not the one it was written on — and a test that is expected to
- * be red teaches people to ignore it. The row IDS are different: they are a
- * contract between bench/areas/*.ts and bench/compare.ts, they do not vary by
- * machine, and drift between them is the one failure compare.ts cannot report
- * on its own, because it would simply never run.
+ * WHY ONLY ROW-ID PARITY. The committed baseline was taken on the CI runner
+ * (`meta.runner: 'github-actions'`, since 72ce0d9), and its numbers are a gate
+ * THERE and nowhere else: a laptop, or a hosted runner with a different CPU,
+ * differs by far more than the 10 % rule. Asserting any timing here would go
+ * red on every machine that is not the one it was written on — and a test that
+ * is expected to be red teaches people to ignore it. The row IDS are different:
+ * they are a contract between bench/areas/*.ts and bench/compare.ts, they do
+ * not vary by machine, and drift between them is the one failure compare.ts
+ * cannot report on its own, because it would simply never run.
  */
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';

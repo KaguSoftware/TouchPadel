@@ -85,6 +85,12 @@ interface ButtonProps {
   disabledReason?: string;
   type?: 'button' | 'submit';
   style?: CSSProperties;
+  /**
+   * An extra class on the <button> itself, composed with .tp-btn rather than
+   * replacing it. Only for a palette a token cannot reach: the rail's buttons
+   * sit on the rail's own ground, so they are styled by .tp-rail-btn.tp-btn.
+   */
+  className?: string;
   autoFocus?: boolean;
   title?: string;
   'aria-label'?: string;
@@ -115,6 +121,7 @@ export function Button(props: ButtonProps) {
     'aria-describedby': ariaDescribedBy,
     type = 'button',
     style,
+    className,
     autoFocus,
     title,
     'aria-label': ariaLabel,
@@ -149,7 +156,7 @@ export function Button(props: ButtonProps) {
   const button = (
     <button
       type={type}
-      className={`tp-btn${!children ? ' tp-iconbtn' : ''}`}
+      className={`tp-btn${!children ? ' tp-iconbtn' : ''}${className ? ` ${className}` : ''}`}
       data-kind={kind}
       data-size={size}
       data-busy={busy ? 'true' : undefined}
