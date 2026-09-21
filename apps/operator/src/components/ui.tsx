@@ -88,6 +88,12 @@ interface ButtonProps {
   autoFocus?: boolean;
   title?: string;
   'aria-label'?: string;
+  /**
+   * For a caller that renders its own reason text outside the button — a
+   * joined pair cannot use `disabledReason`, whose grid wrapper would break
+   * the shared border. Ignored while `disabledReason` is showing its own.
+   */
+  'aria-describedby'?: string;
   /** For toggle-group buttons (range presets): exposes which one is active. */
   'aria-pressed'?: boolean;
   'data-testid'?: string;
@@ -106,6 +112,7 @@ export function Button(props: ButtonProps) {
     disabled,
     busy,
     disabledReason,
+    'aria-describedby': ariaDescribedBy,
     type = 'button',
     style,
     autoFocus,
@@ -151,7 +158,7 @@ export function Button(props: ButtonProps) {
       onFocus={onFocus}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
-      aria-describedby={showReason ? reasonId : undefined}
+      aria-describedby={showReason ? reasonId : ariaDescribedBy}
       style={overlaySpinner ? { position: 'relative', ...style } : style}
       autoFocus={autoFocus}
       title={title}
@@ -405,6 +412,7 @@ export function Modal({
   wide,
   size,
   subtitle,
+  titleAfter,
   footer,
 }: {
   title: string;
@@ -413,6 +421,8 @@ export function Modal({
   wide?: boolean;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   subtitle?: ReactNode;
+  /** Rendered inline right after the heading — a status pill, not a second title. */
+  titleAfter?: ReactNode;
   footer?: ReactNode;
 }) {
   const { tr } = useLocale();
@@ -515,7 +525,10 @@ export function Modal({
           }}
         >
           <div style={{ minInlineSize: 0 }}>
-            <h2 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700 }}>{title}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap', minInlineSize: 0 }}>
+              <h2 style={{ fontSize: 'var(--tp-fs-xl)', fontWeight: 700, minInlineSize: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h2>
+              {titleAfter}
+            </div>
             {subtitle && (
               <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', marginBlockStart: 'var(--tp-sp-0)' }}>
                 {subtitle}

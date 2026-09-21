@@ -391,6 +391,34 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-swoosh-in {
   animation: tpSwooshIn var(--tp-dur-ceremony) var(--tp-ease-settle) 90ms both;
 }
+/*
+ * The assistant sheet sliding in from the inline-end edge, and back out again.
+ * It used to mount and unmount on the spot, so it appeared and vanished
+ * between two frames with nothing to follow.
+ *
+ * Travel is 100% of the sheet's own inline size, multiplied by --tp-dir-sign
+ * the way tpMarquee and tpSwooshIn do, so the sheet leaves towards whichever
+ * edge it is pinned to and Arabic needs no second rule. The scrim only ever
+ * fades: it spans the viewport, so moving it would be nothing but paint.
+ *
+ * --tp-ease-settle, not --tp-ease-out: this is sheet-length travel across a
+ * third of the screen, which is exactly the case --tp-ease-out stops dead on.
+ * The exit runs on --tp-dur-fast because a dismissal that takes as long as the
+ * arrival reads as the sheet being reluctant to go.
+ */
+@keyframes tpSheetIn {
+  from { transform: translateX(calc(100% * var(--tp-dir-sign, 1))); }
+  to   { transform: none; }
+}
+@keyframes tpSheetOut {
+  from { transform: none; }
+  to   { transform: translateX(calc(100% * var(--tp-dir-sign, 1))); }
+}
+.tp-sheet-inline { animation: tpSheetIn var(--tp-dur-base) var(--tp-ease-settle) both; }
+.tp-sheet-inline[data-closing] { animation: tpSheetOut var(--tp-dur-fast) var(--tp-ease-settle) both; }
+.tp-sheet-scrim { animation: tpFadeIn var(--tp-dur-base) var(--tp-ease-out) both; }
+.tp-sheet-scrim[data-closing] { animation: tpFadeIn var(--tp-dur-fast) var(--tp-ease-out) reverse both; }
+
 /* ---- form grids ---- */
 /*
  * repeat(auto-fit, minmax(N, 1fr)) fits as many columns as the width allows.
