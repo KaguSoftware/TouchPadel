@@ -28,6 +28,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { formatNumber, formatTime } from '@touch/i18n';
 import { useLocale, pickName } from '../../lib/i18n';
 import { Button, Skeleton } from '../../components/ui';
+import { ScreenOwnerClaim } from '../../lib/screenOwner';
 import { AsyncStateWrapper, Panel } from '../../components/kit';
 import { ConnectionPill } from '../../components/ConnectionPill';
 import { CardTitle, MARK, MARK_FG } from '../ops/OpsVisuals';
@@ -268,6 +269,9 @@ function Stage({ snapshot, blockSize }: { snapshot: FloorSnapshot; blockSize: st
 
   return (
     <div style={stage}>
+      {/* Full screen only: the exit and zoom buttons sit in the top corner,
+          which is where the macOS drag strip would be. Inline, not laid out. */}
+      {full && <ScreenOwnerClaim />}
       <div
         ref={hostRef}
         role="img"

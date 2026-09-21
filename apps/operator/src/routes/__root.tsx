@@ -46,7 +46,9 @@ import {
 } from '../lib/workspaces';
 import { Button, ErrorText, Field, Modal, Spinner, card, inputStyle, trapTab } from '../components/ui';
 import { PermissionRefusedNotice, StatusBadge } from '../components/kit';
-import { ChevronBack, ChevronForward, Icon, CourtLines } from '../components/icons';
+import { ChevronBack, ChevronForward, Icon, CourtLines, ThemeModeIcon } from '../components/icons';
+import { RAIL_EDGE, RAIL_ITEM_PAD, RAIL_PAD, navButtonStyle, navItemStyle } from '../components/railStyles';
+import { RailMoreMenu } from '../components/RailMoreMenu';
 import { BrandLockup, BrandSwoosh } from '../components/brand';
 import { appRpc, AppRpcError } from '../lib/appRpc';
 import { supabase } from '../lib/supabase';
@@ -58,6 +60,7 @@ import { touch, type UpdateReadyInfo } from '../ipc/bridge';
 import { useHeartbeat, type HeartbeatState } from '../lib/heartbeat';
 import { VenueStatusBanner } from '../components/VenueStatusBanner';
 import { isElectron } from '../lib/mutate';
+import { ScreenOwnerClaim, ScreenOwnerProvider, useScreenOwned } from '../lib/screenOwner';
 import { useUpdateReady } from '../lib/updates';
 import { UpdateReadyControl } from '../components/UpdateReady';
 import { StationSetupContainer } from '../features/setup/StationSetupContainer';
@@ -65,7 +68,7 @@ import { QueueFailureToasts } from '../components/QueueFailureToasts';
 import { BreakProvider, useBreak } from '../features/breaks/BreakProvider';
 import { BreakOverlay } from '../features/breaks/BreakOverlay';
 import { BreakRailControl } from '../features/breaks/BreakRailControl';
-import { AssistantDrawer, AssistantDrawerProvider, AssistantRailButton } from '../features/assistant/AssistantDrawer';
+import { AssistantDrawer, AssistantDrawerProvider } from '../features/assistant/AssistantDrawer';
 import { formatPairingCode } from '@touch/core';
 
 export const rootRoute = createRootRoute({
@@ -78,21 +81,25 @@ function RootProviders() {
   return (
     <>
       <GlobalStyles />
-      <WindowDragStrip />
-      <ToastProvider>
-        {/* A queued write the server refused after its caller stopped waiting
-            (item 9): the toast is the cue, Day close holds the row. */}
-        <QueueFailureToasts />
-        <ConfirmProvider>
-          {/* The macOS red traffic light's confirmation. It lives up here
-              because that button works on EVERY screen — sign-in and the
-              first-run setup included — while the rail's Quit row only
-              exists once somebody is signed in. Renders nothing until main
-              says the button was pressed. */}
-          <QuitToDesktop variant="windowClose" />
-          <RootShell />
-        </ConfirmProvider>
-      </ToastProvider>
+      {/* Wraps the strip AND everything that can open an overlay, so an
+          overlay's claim reaches the strip. */}
+      <ScreenOwnerProvider>
+        <WindowDragStrip />
+        <ToastProvider>
+          {/* A queued write the server refused after its caller stopped waiting
+              (item 9): the toast is the cue, Day close holds the row. */}
+          <QueueFailureToasts />
+          <ConfirmProvider>
+            {/* The macOS red traffic light's confirmation. It lives up here
+                because that button works on EVERY screen — sign-in and the
+                first-run setup included — while the rail's Quit row only
+                exists once somebody is signed in. Renders nothing until main
+                says the button was pressed. */}
+            <QuitToDesktop variant="windowClose" />
+            <RootShell />
+          </ConfirmProvider>
+        </ToastProvider>
+      </ScreenOwnerProvider>
     </>
   );
 }
@@ -130,7 +137,10 @@ function useTitleBarInset(): number {
 
 function WindowDragStrip() {
   const inset = useTitleBarInset();
-  if (!inset) return null;
+  const owned = useScreenOwned();
+  // An overlay is up and owns its own top edge. Not painting the strip is the
+  // only thing that frees those pixels — see lib/screenOwner.tsx.
+  if (!inset || owned) return null;
   return (
     <div
       aria-hidden="true"
@@ -484,41 +494,6 @@ function SkipToMain() {
   );
 }
 
-/**
- * The rail's ONE start edge (rulebook 10.8). Header, group label, link and
- * identity line all resolve to RAIL_PAD + RAIL_ITEM_PAD from the rail's inline
- * start, so nothing sits a few pixels off its neighbour. The header used to be
- * inset 0.9rem against everything else's 1.2rem, and the rhythm around it was
- * freehand — 0.9 / 0.7 / 0.6 / 0.5 / 0.45 / 0.4 / 0.2 / 0.15rem, not one of
- * them on the 4px scale.
- *
- * RAIL_ITEM_PAD is applied inline rather than in GlobalStyles because
- * .tp-nav-item's own 0.7rem is shared with consumers outside this file.
- */
-const RAIL_PAD = 'var(--tp-sp-2)';
-const RAIL_ITEM_PAD = 'var(--tp-sp-3)';
-const RAIL_EDGE = `calc(${RAIL_PAD} + ${RAIL_ITEM_PAD})`;
-
-const navItemStyle: CSSProperties = { paddingInline: RAIL_ITEM_PAD };
-/** A rail control that is a <button>, not a <Link>: same box, no chrome. */
-const navButtonStyle: CSSProperties = {
-  ...navItemStyle,
-  background: 'transparent',
-  border: 'none',
-  inlineSize: '100%',
-  cursor: 'pointer',
-  // LONGHANDS, not `font: inherit`. The shorthand also resets font-weight, and
-  // inline styles outrank class rules, so it silently overrode .tp-nav-item's
-  // 500 and [data-active]'s 700 on every rail control that is a <button> —
-  // leaving them a weight lighter than the <Link> rows beside them. Operations
-  // is where that shows, because its collapsible group titles are the only
-  // buttons sitting directly above links in the same list.
-  fontFamily: 'inherit',
-  fontSize: 'inherit',
-  lineHeight: 'inherit',
-  textAlign: 'start',
-};
-
 /** One rail destination. Same row whether it comes from a group or a section. */
 function RailLink({ item, path }: { item: NavItem; path: string }) {
   const { tr } = useLocale();
@@ -636,8 +611,7 @@ function WorkspaceNav({
   path: string;
   update: UpdateReadyInfo | null;
 }) {
-  const { tr, toggleLocale, locale } = useLocale();
-  const { mode, toggleMode } = useThemeMode();
+  const { tr } = useLocale();
   const { staff, signOut } = useAuth();
   const { available } = useWorkspace();
   const station = touch.getStation();
@@ -658,6 +632,27 @@ function WorkspaceNav({
       kind: 'primary',
     });
     if (ok) void navigate({ to });
+  };
+  // Sign out asks first, through the same dialog the leave paths use. It is
+  // one press on the rail foot and it ends the shift, so a stray touch while
+  // reaching for the identity block should not drop the till to a sign-in.
+  const confirmSignOut = async () => {
+    const ok = await confirm({
+      title: tr('ws.shell.nav.signOutTitle'),
+      body: tr('ws.shell.nav.signOutBody'),
+      confirmLabel: tr('ws.shell.nav.signOutConfirm'),
+      // Red, and the confirm button says the deed rather than "Yes, …" —
+      // the words that were pressed on the rail come back on the button that
+      // carries them out.
+      kind: 'danger',
+      // Beside Cancel, not pushed to the far edge (owner call, 2026-09-21).
+      // Rulebook 7.8 spreads a destructive confirm so a mis-tap cannot land
+      // on it; signing out is red but REVERSIBLE — you sign back in — so it
+      // pairs like every other dialog instead. A real destructive write keeps
+      // the spread.
+      pairActions: true,
+    });
+    if (ok) await signOut();
   };
   // Inside a section the rail IS the section: its name, its list, and one way
   // back. Read from the path, so the rail and the screen can never disagree.
@@ -835,28 +830,18 @@ function WorkspaceNav({
       </div>
 
       <div style={{ borderBlockStart: '1px solid var(--tp-rail-border)', paddingBlock: 'var(--tp-sp-2-5)', paddingInline: RAIL_PAD, display: 'grid', gap: 'var(--tp-sp-0)' }}>
-        {canSwitch && path !== '/workspaces' && (
-          <button type="button" className="tp-nav-item" style={navButtonStyle} onClick={() => void leaveTo('/workspaces', tr('ws.shell.nav.switchWorkspace'))}>
-            <Icon name="repeat" size={16} />
-            <span>{tr('ws.shell.nav.switchWorkspace')}</span>
-          </button>
-        )}
-        {/* The owner assistant: owner only (it renders nothing otherwise). */}
-        <AssistantRailButton style={navButtonStyle} />
-        <button type="button" className="tp-nav-item" onClick={toggleLocale} style={navButtonStyle}>
-          <Icon name="globe" size={16} />
-          <span lang={locale === 'ar' ? 'en' : 'ar'}>{tr('ws.shell.nav.language')}</span>
-        </button>
-        {/* The appearance switch sits with the language switch: both are
-            station preferences, both name where the press takes you. */}
-        <button type="button" className="tp-nav-item" onClick={toggleMode} style={navButtonStyle} aria-pressed={mode === 'blue'}>
-          <Icon name={mode === 'blue' ? 'sun' : 'moon'} size={16} />
-          <span>{tr(mode === 'blue' ? 'ws.shell.nav.lightMode' : 'ws.shell.nav.blueMode')}</span>
-        </button>
-        <button type="button" className="tp-nav-item" onClick={() => void signOut()} style={navButtonStyle}>
-          <Icon name="logOut" size={16} />
-          <span>{tr('auth.signOut')}</span>
-        </button>
+        {/* Workspace, assistant, language and appearance behind one row. The
+            assistant is owner-only and the switch manager-and-up, so the menu
+            holds two items for a cashier and four for an owner. */}
+        <RailMoreMenu
+          canSwitch={canSwitch}
+          // On the picker the row is lit rather than hidden, so the menu holds
+          // the same items on every screen. RailMoreMenu makes the press a no-op
+          // there, which keeps leaveTo from asking permission to leave for where
+          // we already are.
+          onWorkspacePicker={path === '/workspaces'}
+          onSwitchWorkspace={() => void leaveTo('/workspaces', tr('ws.shell.nav.switchWorkspace'))}
+        />
         <PairKitchenScreen />
         {update && (
           <UpdateReadyControl
@@ -874,32 +859,70 @@ function WorkspaceNav({
           captionStyle={{ paddingInline: RAIL_ITEM_PAD, fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)' }}
         />
 
-        {/* Rulebook 4.5 wants the role and the scoped context legible at all
+        {/* Who is at this till, and the way off it.
+
+            Rulebook 4.5 wants the role and the scoped context legible at all
             times. One line reading "Mohammed Al-Rashid · Court desk · TILL-01"
             inside a 13.5rem rail truncated to about the first name, so in
             practice neither the role nor the station was visible at all. Name
             and role share a line because they answer "who is signed in"; the
             station answers "which till" and gets its own, using the
-            ws.shell.nav.station key that had been sitting unused. */}
-        <RailIdentity />
-        <div style={{ paddingInline: RAIL_ITEM_PAD, display: 'grid', gap: 'var(--tp-sp-1)' }}>
-          <p
-            title={tr('ws.shell.nav.station', { id: station.stationId })}
-            style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >
-            {tr('ws.shell.nav.station', { id: station.stationId })}
-          </p>
-          {/* The shell build, so "which version is that till on" is answerable
-              from the till itself and not only from device_heartbeats. */}
-          {/* The version is isolated, not the line: `dir="ltr"` on the whole
-              paragraph pinned the Arabic "الإصدار dev" to the rail's left edge
-              while every other identity line sat on the right. */}
-          <p
-            style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'start' }}
-          >
-            {/* U+2068/U+2069 isolate the Latin version inside either direction. */}
-            {tr('ws.shell.nav.version', { version: `\u2068${station.appVersion}\u2069` })}
-          </p>
+            ws.shell.nav.station key that had been sitting unused.
+
+            The build is NOT here. It used to sit under the station as a
+            third line, answering a question asked about twice a year in
+            front of every shift all day. It now stands once, centred at the
+            foot of the workspace chooser (routes/workspaces.tsx), where
+            somebody looking up "which version is that till on" can be sent.
+
+            Sign out is an icon button on the END edge, beside those two lines
+            (owner call, 2026-09-21). It ends the shift, it does not go
+            anywhere, so it should not read as one more nav row above rows that
+            navigate; and standing beside the name and the station, it is
+            unmistakably the control that ends THAT session. Icon-only,
+            because the glyph plus its aria-label says it in the width a
+            13.5rem rail can spare next to the text.
+
+            `flex-start` + the name row's own half-leading, NOT `center`: the
+            text beside it is a two-line stack, and centring against both
+            floats the button down by the station line — a muted caption it
+            has nothing to do with. Sitting on the name's optical centre makes
+            it read as that person's control. */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--tp-sp-2)', minInlineSize: 0, paddingInline: RAIL_ITEM_PAD, paddingBlockStart: 'var(--tp-sp-2)' }}>
+          {/* sp-2, not sp-1: the name and the station answer two different
+              questions — who is signed in, and which till — and at 0.25rem
+              the station read as a second line of the name rather than as
+              its own fact. */}
+          <div style={{ flex: 1, minInlineSize: 0, display: 'grid', gap: 'var(--tp-sp-2)' }}>
+            <RailIdentity />
+            <p
+              title={tr('ws.shell.nav.station', { id: station.stationId })}
+              style={{ fontSize: 'var(--tp-fs-xs)', color: 'var(--tp-rail-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {tr('ws.shell.nav.station', { id: station.stationId })}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            icon="logOut"
+            onClick={() => void confirmSignOut()}
+            aria-label={tr('auth.signOut')}
+            title={tr('auth.signOut')}
+            data-testid="rail.signOut"
+            /* Rail palette + the rail's hover ground; see .tp-rail-btn. */
+            className="tp-rail-btn"
+            style={{
+              flexShrink: 0,
+              /* The 1.85rem square is one line taller than the name it sits
+                 beside, so a flush top sets it a touch high. Half that
+                 difference puts its glyph on the name's optical centre. */
+              marginBlockStart: '-0.1rem',
+              /* Pull the border box onto the rail's true end edge, so the
+                 button's edge lines up with RAIL_EDGE the way every other
+                 row's text does rather than sitting a border in from it. */
+              marginInlineEnd: '-1px',
+            }}
+          />
         </div>
 
         <QuitToDesktop />
@@ -921,7 +944,9 @@ function RailIdentity() {
   const cover = brk.phase === 'covered' ? (brk.status?.open?.cover ?? null) : null;
   const name = cover ? cover.display_name : staff?.displayName;
   return (
-    <div style={{ paddingInline: RAIL_ITEM_PAD, paddingBlockStart: 'var(--tp-sp-2)', display: 'grid', gap: 'var(--tp-sp-1)' }}>
+    /* No padding of its own: the rail's foot now wraps this and the station /
+       version lines in one padded row beside the sign-out button. */
+    <div style={{ display: 'grid', gap: 'var(--tp-sp-1)', minInlineSize: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', minInlineSize: 0 }}>
         <bdi
           title={name}
@@ -1076,6 +1101,21 @@ function IdleLock() {
   const pinOnly = !!cover;
   const askPassword = usePassword && !pinOnly;
 
+  /**
+   * The line under "Station locked", or null when there is nothing worth
+   * saying. A plain idle lock is the null case: the title and the PIN box
+   * already say it. The three that remain each carry a fact the screen does
+   * not otherwise give — who is covering, that the break is ending, and why
+   * a password is being asked of somebody who has no PIN.
+   */
+  const lead = cover
+    ? ownerBack
+      ? tr('ws.shell.break.endLead')
+      : tr('ws.shell.break.lockCovering', { name: cover.display_name })
+    : hasPin === false && usePassword
+      ? tr('ws.shell.lock.hintPassword')
+      : null;
+
   async function unlock() {
     if (busy) return;
     if ((askPassword ? password : pin).length === 0) {
@@ -1177,6 +1217,7 @@ function IdleLock() {
         overflow: 'hidden',
       }}
     >
+      <ScreenOwnerClaim />
       {/* One opacity, in one place. This used to be 0.6 on the wrapper times
           0.14 on the motif = 0.084, i.e. an undifferentiated navy rectangle —
           on the longest-lived full-screen brand moment in a shift. */}
@@ -1198,13 +1239,23 @@ function IdleLock() {
       */}
       <div style={{ position: 'relative', display: 'grid', justifyItems: 'center', gap: 'var(--tp-sp-6)' }}>
         <BrandLockup size={96} tone="onDark" />
-        <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, outline: 'none', inlineSize: 'min(24rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-5)', paddingInline: 'var(--tp-sp-5)', display: 'grid', gap: 'var(--tp-sp-3)' }}>
-          <div style={{ display: 'grid', gap: 'var(--tp-sp-1)' }}>
-            <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-1-5)', fontSize: 'var(--tp-fs-sm)', fontWeight: 600, color: 'var(--tp-muted-fg)' }}>
-              <Icon name="lock" size={15} />
-              {tr('ws.shell.lock.title')}
-            </p>
-            <h2 style={{ fontSize: 'var(--tp-fs-2xl)', display: 'flex', alignItems: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
+        <div ref={cardRef} tabIndex={-1} className="tp-rise" style={{ ...card, outline: 'none', inlineSize: 'min(24rem, 92vw)', boxShadow: 'var(--tp-shadow-dialog)', paddingBlock: 'var(--tp-sp-6)', paddingInline: 'var(--tp-sp-5)', display: 'grid', gap: 'var(--tp-sp-5)' }}>
+          {/* The header is one centred column: who is signed in, and — only
+              when there is something to say — one line under it.
+
+              Neither the lock glyph nor "Station locked" is drawn any more. A
+              full-screen card asking for a PIN over the darkened station is
+              already unmistakably a lock, so the eyebrow named what the person
+              could see and pushed the thing they came for down the card. It
+              survives as the overlay's aria-label, which is where it does real
+              work: a screen reader still announces "Station locked" on open.
+
+              The line beneath carries only what the screen does NOT otherwise
+              say — who is covering, that a break is ending, and (SEC-34) why a
+              password is being asked of somebody with no PIN. A plain idle lock
+              has nothing to add, so the line is absent rather than empty. */}
+          <div style={{ display: 'grid', justifyItems: 'center', textAlign: 'center', gap: 'var(--tp-sp-2)' }}>
+            <h2 style={{ fontSize: 'var(--tp-fs-2xl)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--tp-sp-2)', flexWrap: 'wrap' }}>
               <bdi>{cover && !ownerBack ? cover.display_name : staff.displayName}</bdi>
               {cover && !ownerBack ? (
                 <StatusBadge size="sm" dot={false} tone="warn" label={tr('ws.shell.break.covering')} />
@@ -1212,24 +1263,16 @@ function IdleLock() {
                 <StatusBadge size="sm" dot={false} label={tr(`op.roles.${staff.role}`)} />
               )}
             </h2>
-            <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)' }}>
-              {/* SEC-34: say WHY the password is being asked for, so a cashier with
-                  no PIN is not left wondering what they have forgotten. */}
-              {cover
-                ? ownerBack
-                  ? tr('ws.shell.break.endLead')
-                  : tr('ws.shell.break.lockCovering', { name: cover.display_name })
-                : hasPin === false && usePassword
-                  ? tr('ws.shell.lock.hintPassword')
-                  : tr('ws.shell.lock.hint')}
-            </p>
+            {lead !== null && (
+              <p style={{ color: 'var(--tp-muted-fg)', fontSize: 'var(--tp-fs-sm)', textWrap: 'balance' }}>{lead}</p>
+            )}
           </div>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void unlock();
             }}
-            style={{ display: 'grid', gap: 'var(--tp-sp-2)' }}
+            style={{ display: 'grid', gap: 'var(--tp-sp-3)' }}
           >
             {askPassword ? (
               <Field
@@ -1277,15 +1320,16 @@ function IdleLock() {
             <Button kind="primary" size="lg" type="submit" icon="lock" busy={busy} style={{ inlineSize: '100%' }}>
               {tr('ws.shell.lock.unlock')}
             </Button>
-          </form>
-          {/*
-           * Both links wrap. In Arabic the pair is wider than the card, and a
-           * rigid row pushed the second one off the card's inline-end edge.
-           */}
-          <div style={{ display: 'flex', gap: 'var(--tp-sp-1) var(--tp-sp-2)', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Offered only to somebody who HAS a PIN. For a cashier with none,
-                the password is the only route, and a PIN link would imply a PIN
-                they could have used. */}
+            {/* The other-credential link belongs to the button above it: it
+                changes what you are about to type, so it sits just under
+                Unlock rather than a full card gap away down with Sign out.
+                Inside the form for that reason, at the form's own tighter
+                rhythm, with the ghost button's padding pulled back so the
+                gap reads as sp-1 rather than sp-1 plus its own box.
+
+                Offered only to somebody who HAS a PIN. For a cashier with
+                none, the password is the only route, and a PIN link would
+                imply a PIN they could have used. */}
             {cover ? (
               <Button
                 kind="ghost"
@@ -1298,18 +1342,55 @@ function IdleLock() {
                   refocus();
                 }}
                 disabled={busy}
+                style={{ justifySelf: 'center', marginBlockStart: 'calc(-1 * var(--tp-sp-2))' }}
               >
                 {ownerBack ? tr('ws.shell.break.chooseAgain') : tr('ws.shell.break.lockOwnerBack', { cover: cover.display_name, name: staff.displayName })}
               </Button>
             ) : hasPin !== false ? (
-              <Button kind="ghost" size="sm" onClick={() => switchMode(!usePassword)} disabled={busy}>
+              <Button
+                kind="ghost"
+                size="sm"
+                onClick={() => switchMode(!usePassword)}
+                disabled={busy}
+                style={{ justifySelf: 'center', marginBlockStart: 'calc(-1 * var(--tp-sp-2))' }}
+              >
                 {usePassword ? tr('ws.shell.lock.usePin') : tr('ws.shell.lock.usePassword')}
               </Button>
-            ) : (
-              <span />
-            )}
-            <Button kind="ghost" size="sm" icon="logOut" onClick={() => void signOut()} disabled={busy}>
-              {tr('ws.shell.lock.switchUser', { name: staff.displayName })}
+            ) : null}
+          </form>
+          {/* The way OFF the station rather than into it, so it stands alone at
+              the foot of the card, centred, divided from the unlock path by a
+              rule.
+
+              `flex-shrink: 0` is what keeps the icon on the label's line. This
+              is the widest control on the card — "Not {name}? Sign out" carries
+              a name, and the Arabic is wider still — so in a flex row it was
+              squeezed below its content width. .tp-btn's own `white-space:
+              nowrap` cannot help there: the icon is a flex SIBLING of the text
+              with `flex: 0 0 auto`, so it held its box while the label took the
+              whole squeeze and dropped beneath it. Refusing to shrink lets the
+              button keep its natural width; the card is 24rem and the label
+              fits, and a name long enough to exceed it now widens the button
+              rather than folding the glyph off its line. */}
+          <div style={{ display: 'flex', justifyContent: 'center', borderBlockStart: '1px solid var(--tp-border)', paddingBlockStart: 'var(--tp-sp-3)' }}>
+            <Button
+              kind="ghost"
+              size="sm"
+              onClick={() => void signOut()}
+              disabled={busy}
+              style={{ flexShrink: 0, maxInlineSize: '100%' }}
+            >
+              {/* The glyph is button CONTENT rather than the `icon` prop so it
+                  can be nudged. `align-items: center` centres the icon's box
+                  against the label's LINE box, and a 1.25 line-height line box
+                  is taller than the letters it holds — the extra sits mostly
+                  below the baseline, as descender space this label barely uses.
+                  Centred against that, the arrow rides above the visual middle
+                  of the words. 1px down puts it on the text's optical centre.
+                  Done here, not in Button's shared slot, which every other
+                  icon button in the app depends on. */}
+              <Icon name="logOut" size={14} style={{ marginBlockStart: '1px' }} />
+              <bdi style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tr('ws.shell.lock.switchUser', { name: staff.displayName })}</bdi>
             </Button>
           </div>
         </div>
@@ -1836,7 +1917,12 @@ function SignInScreen() {
             the middle of the window beside the form. And not the top corner,
             where it crowded the window controls. */}
         <div style={{ position: 'absolute', insetBlockEnd: 'var(--tp-sp-3)', insetInlineEnd: 'var(--tp-sp-3)', display: 'flex', gap: 'var(--tp-sp-1)' }}>
-          <Button kind="ghost" size="sm" icon={mode === 'blue' ? 'sun' : 'moon'} onClick={toggleMode} aria-pressed={mode === 'blue'}>
+          {/* The glyph is button CONTENT, not the `icon` prop: `icon` takes a
+              name out of the set and swaps the whole <svg> on a flip, which is
+              the blink ThemeModeIcon exists to replace. 14px is what `size="sm"`
+              gives its own icon slot, so the row is unchanged. */}
+          <Button kind="ghost" size="sm" onClick={toggleMode} aria-pressed={mode === 'blue'}>
+            <ThemeModeIcon mode={mode} size={14} />
             {tr(mode === 'blue' ? 'ws.shell.nav.lightMode' : 'ws.shell.nav.blueMode')}
           </Button>
           <Button kind="ghost" size="sm" icon="globe" onClick={toggleLocale}>

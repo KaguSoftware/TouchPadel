@@ -38,7 +38,6 @@ export const shellAr: DeepMessages<typeof shellEn> = {
   },
   lock: {
     title: 'المحطة مقفلة',
-    hint: 'قُفلت لأن أحدًا لم يستخدمها لفترة. كل ما كان مفتوحًا لا يزال هنا.',
     // SEC-34
     hintPassword: 'لا يوجد رمز سري لفتح القفل لهذا الحساب، لذا أدخل كلمة المرور.',
     pin: 'رمزك السري',
@@ -147,6 +146,9 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     groupSetup: 'الإعداد',
     backTo: 'العودة إلى {workspace}',
     skipToMain: 'تخطَّ إلى المحتوى الرئيسي',
+    // "Options" — خيارات — not "المزيد" ("more"); see the EN catalog.
+    more: 'خيارات',
+    moreMenu: 'إعدادات المحطة',
     switchWorkspace: 'تبديل مساحة العمل',
     leaveTitle: '{destination}؟',
     leaveBody: 'أنت على وشك مغادرة هذه الشاشة. لن يضيع شيء هنا، ويمكنك العودة بالطريقة نفسها.',
@@ -156,6 +158,9 @@ export const shellAr: DeepMessages<typeof shellEn> = {
     blueMode: 'الوضع الأزرق',
     lightMode: 'الوضع الفاتح',
     signOut: 'تسجيل الخروج',
+    signOutTitle: 'تسجيل الخروج؟',
+    signOutBody: 'هذا ينهي جلستك على هذه المحطة. كل ما تم إرساله محفوظ؛ وسيحتاج الشخص التالي إلى تسجيل الدخول.',
+    signOutConfirm: 'تسجيل الخروج',
     station: 'المحطة {id}',
     exitFullscreen: 'الخروج من وضع ملء الشاشة',
     quit: 'الخروج إلى سطح المكتب',

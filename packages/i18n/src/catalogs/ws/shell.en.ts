@@ -47,7 +47,6 @@ export const shellEn = {
   },
   lock: {
     title: 'Station locked',
-    hint: 'Locked because nobody used it for a while. Everything that was open is still here.',
     // SEC-34. Shown when the account has no unlock PIN — most cashiers. Says
     // WHY the password is being asked for, so nobody thinks they have
     // forgotten a PIN they were never given.
@@ -177,6 +176,16 @@ export const shellEn = {
     // The owner's rail puts 17 links and four controls before the routed
     // screen; without this every navigation costs up to 21 Tab presses.
     skipToMain: 'Skip to main content',
+    // The four station controls — workspace, assistant, language,
+    // appearance — live behind one rail row rather than four (owner call,
+    // 2026-09-21), so the foot of the rail reads as one thing to press.
+    // Sign out stays outside it: it ends the shift and is not a setting.
+    // "Options", not "More" (owner call, 2026-09-21): "More" only says there
+    // is something further down, which the chevron already says; the row
+    // holds settings, and the key keeps its name so the testids and the
+    // accordion wiring do not churn for a word.
+    more: 'Options',
+    moreMenu: 'Station controls',
     switchWorkspace: 'Switch workspace',
     // Both ways out of where you are — another workspace, or a section's own
     // workspace — ask first (owner call, 2026-09-18). {destination} is the
@@ -192,6 +201,19 @@ export const shellEn = {
     blueMode: 'Blue mode',
     lightMode: 'Light mode',
     signOut: 'Sign out',
+    // Sign out asks first (owner call, 2026-09-21). It is one press on the
+    // rail foot, where fingers rest, and it ends the shift for whoever is on
+    // the till — the same reason Quit and the two leave paths already ask.
+    // The body names the consequence rather than asking "are you sure": the
+    // till stays signed in to nothing, and the next person has to sign in.
+    signOutTitle: 'Sign out?',
+    signOutBody: 'This ends your session on this station. Anything already sent is safe; the next person will need to sign in.',
+    // Same words as `signOut` above, deliberately its own key: that one names
+    // the control on the rail, this one the button that carries the deed out.
+    // Not "Yes, sign out" (owner call, 2026-09-21) — the confirm button says
+    // the deed, so the words pressed on the rail come back on the button that
+    // does it.
+    signOutConfirm: 'Sign out',
     station: 'Station {id}',
     exitFullscreen: 'Exit forced full screen',
     quit: 'Quit to desktop',

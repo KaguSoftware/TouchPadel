@@ -199,6 +199,15 @@ input:disabled, select:disabled, textarea:disabled {
 .tp-nav-item[data-active='true'] { background: var(--tp-rail-active); color: var(--tp-rail-fg-active); font-weight: 700; }
 .tp-nav-item:focus-visible { outline-color: var(--tp-rail-green); }
 .tp-nav-item svg { opacity: 0.85; }
+/* A .tp-btn standing ON the rail (the rail foot's Sign out). .tp-btn's ground
+   is --tp-surface/--tp-fg, which are the LIGHT tokens: on a 25%-lightness rail
+   that paints a white chip. This restates the same three properties in the
+   rail's own palette, and takes the rail's hover ground rather than .tp-btn's,
+   so it answers a finger the way the rows above it do. In CSS, not inline,
+   because an inline background would outrank every :hover rule there is. */
+.tp-rail-btn.tp-btn { background: transparent; border-color: var(--tp-rail-border); color: var(--tp-rail-fg); }
+.tp-rail-btn.tp-btn:hover:not(:disabled) { background: var(--tp-rail-2); border-color: var(--tp-rail-active); color: var(--tp-rail-fg-active); filter: none; }
+.tp-rail-btn.tp-btn:focus-visible { outline-color: var(--tp-rail-green); }
 /* A collapsible rail group's title (routes/__root.tsx RailGroup). It is set as
    a rail ROW, not a caption: Operations is the only workspace that uses these
    groups, so when this was small-caps/xs/muted it was the one rail in the app
@@ -215,6 +224,32 @@ input:disabled, select:disabled, textarea:disabled {
   transition: grid-template-rows var(--tp-dur-base) var(--tp-ease-settle);
 }
 .tp-rail-group-body[data-open='true'] { grid-template-rows: 1fr; }
+/* Options' four rows read as children of the row that opens them (owner call,
+   2026-09-21). They used to sit flush with their own title, so the open drawer
+   was one undifferentiated column and the title was told apart only by its
+   chevron. They step in by one --tp-sp-3 with a hairline stem down the group:
+
+     Options
+       │  Switch workspace
+       │  Assistant
+
+   Scoped to OPTIONS, not to .tp-rail-group-body: the workspace's own groups
+   (Run the day, Records, Setup) hold destinations you navigate to and stay
+   flush, so the indent means "these belong to the row above", not "these are
+   nested rows". The stem is a ::before rather than a border-inline-start, so it
+   stops at the last row instead of running through the padding above it, and
+   inset-inline-start makes RTL mirror it for free. It is marked on the LIST and
+   not on the animating body, which owns the 0fr->1fr track: padding there would
+   leave the shut drawer a few pixels tall instead of nothing. */
+.tp-rail-options-list {
+  position: relative;
+  padding-inline-start: var(--tp-sp-3);
+}
+.tp-rail-options-list::before {
+  content: ''; position: absolute;
+  inset-block: 0.25rem; inset-inline-start: calc(var(--tp-sp-3) / 2);
+  inline-size: 1px; background: var(--tp-rail-border);
+}
 .tp-nav-item[data-active='true'] svg { opacity: 1; color: var(--tp-rail-green); }
 /* The way out of a section rail.
    It used to be styled as the quietest thing on the rail — 11px, --tp-rail-muted,

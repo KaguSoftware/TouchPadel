@@ -5,6 +5,7 @@
  * (`aria-hidden`); pass `label` when an icon stands alone.
  */
 import type { CSSProperties } from 'react';
+import type { ThemeMode } from '@touch/ui';
 
 const PATHS = {
   calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
@@ -26,6 +27,11 @@ const PATHS = {
   trendUp: 'M22 7l-8.5 8.5-5-5L2 17M16 7h6v6',
   trendDown: 'M22 17l-8.5-8.5-5 5L2 7M16 17h6v-6',
   settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+  // The mobile app's settings glyph, same path (apps/mobile/src/components/
+  // icons.tsx SlidersIcon), so the one thing both apps call "settings" is the
+  // one thing both apps draw. Both sets are 24x24 Lucide-style strokes, so it
+  // ports as-is.
+  sliders: 'M4 6.5h16M4 12h16M4 17.5h16M15.5 4.5v4M8.5 10v4M13 15.5v4',
   shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
   logOut: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
@@ -119,6 +125,95 @@ export function Icon({
       focusable="false"
       data-chevron={dataChevron ? '' : undefined}
       style={{ display: 'inline-block', flexShrink: 0, verticalAlign: 'middle', ...style }}
+    >
+      <path d={PATHS[name]} />
+    </svg>
+  );
+}
+
+/**
+ * The appearance switch's glyph, which MORPHS between the two modes rather
+ * than being replaced (owner call, 2026-09-21).
+ *
+ * Swapping `name` on <Icon> unmounts one <svg> and mounts another, so the sun
+ * simply blinked into a moon — a state change with no motion to say which way
+ * it went. Both glyphs are rendered here at once, one layer each, and only
+ * opacity and transform change: the incoming one turns in and scales up while
+ * the outgoing one turns out and shrinks. Nothing is remounted, so the
+ * transition runs on the compositor and survives being pressed mid-flight.
+ *
+ * The two turn the SAME way (sun clockwise to leave, moon clockwise to
+ * arrive), so the pair reads as one object rotating rather than two glyphs
+ * trading places. The rays are the busy half, so the sun also carries the
+ * scale — it shrinks as it leaves, which keeps the 16px box from looking
+ * crowded halfway through.
+ *
+ * The rotation is NOT mirrored in RTL: this is a thing turning, not a
+ * direction being pointed, so `data-chevron` and its scaleX(-1) stay off.
+ *
+ * --tp-dur-base and --tp-ease-settle are the rail's own accordion values, and
+ * the blanket prefers-reduced-motion rule in GlobalStyles cuts both layers to
+ * 0.01ms, which lands on the plain swap this replaced.
+ */
+export function ThemeModeIcon({ mode, size = 16 }: { mode: ThemeMode; size?: number }) {
+  const blue = mode === 'blue';
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: 'inline-grid',
+        flexShrink: 0,
+        inlineSize: size,
+        blockSize: size,
+        verticalAlign: 'middle',
+      }}
+    >
+      {/* Both layers occupy the one grid cell, so the row's height never
+          shifts as they cross over. Which one is SHOWN names the destination,
+          matching the label beside it: in light mode the moon stands for "go
+          to blue", and in blue mode the sun stands for "come back to light".
+          That polarity is the one this replaced — do not read it as the
+          current state. */}
+      <ThemeGlyph name="sun" size={size} shown={blue} turn={-90} scale={0.5} />
+      <ThemeGlyph name="moon" size={size} shown={!blue} turn={90} scale={0.7} />
+    </span>
+  );
+}
+
+/** One layer of ThemeModeIcon: parked at `turn`/`scale` until it is shown. */
+function ThemeGlyph({
+  name,
+  size,
+  shown,
+  turn,
+  scale,
+}: {
+  name: IconName;
+  size: number;
+  shown: boolean;
+  turn: number;
+  scale: number;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      focusable="false"
+      style={{
+        gridArea: '1 / 1',
+        opacity: shown ? 1 : 0,
+        transform: shown ? 'rotate(0deg) scale(1)' : `rotate(${turn}deg) scale(${scale})`,
+        transition:
+          'opacity var(--tp-dur-base) var(--tp-ease-settle), transform var(--tp-dur-base) var(--tp-ease-settle)',
+        // The hidden layer must never eat the press meant for the row.
+        pointerEvents: 'none',
+      }}
     >
       <path d={PATHS[name]} />
     </svg>

@@ -242,9 +242,14 @@ export const operatorVars = {
   /**
    * The macOS window-drag strip along the top edge (Electron shell only).
    * Above the rail, the banner and any popover, so the window stays movable by
-   * its top edge on every screen — but BELOW the overlay, the lock and the
-   * toast, which own the whole screen while they are up and must keep their
-   * own top edge interactive.
+   * its top edge on every screen.
+   *
+   * Being BELOW the overlay, the lock and the toast is necessary but NOT
+   * sufficient for those to keep their own top edge interactive: Chromium hands
+   * macOS a drag region built from the strip's painted box and never consults
+   * z-order, so an overlay that merely outranks it still has those pixels eaten.
+   * An overlay claims the edge with `useOwnsScreen()` (operator
+   * lib/screenOwner.tsx), which unmounts the strip outright.
    */
   '--tp-z-drag': '50',
   /**
@@ -255,6 +260,13 @@ export const operatorVars = {
    */
   '--tp-z-drag-over': '51',
   '--tp-z-overlay': '100',
+  /**
+   * A panel that has to paint over its OWN scrim while both are children of
+   * one overlay — the assistant drawer's sheet. Not a way to outrank another
+   * overlay: two overlays at --tp-z-overlay are settled by DOM order, and the
+   * later one (the Modal you just opened) is meant to win.
+   */
+  '--tp-z-overlay-raised': '101',
   '--tp-z-lock': '150',
   '--tp-z-toast': '200',
 

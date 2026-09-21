@@ -16,6 +16,7 @@ import { useLocale } from '../../lib/i18n';
 import { Button, trapTab } from '../../components/ui';
 import { Kbd } from '../../components/kit';
 import { Icon } from '../../components/icons';
+import { useOwnsScreen } from '../../lib/screenOwner';
 import { Thread } from './Thread';
 import { initialScopes, loadSessionConversation, saveSessionConversation } from './scopes';
 
@@ -97,6 +98,10 @@ function DrawerSheet({ onClose }: { onClose: () => void }) {
   const [conversationId, setConversationId] = useState<string | null>(() => loadSessionConversation());
   const [newScopes, setNewScopes] = useState<AssistantScope[]>(() => initialScopes(path, staff?.id ?? ''));
 
+  // The sheet runs to the top edge, so its header sits where the macOS drag
+  // strip would be. This stands the strip down for as long as it is open.
+  useOwnsScreen();
+
   const pick = (id: string | null) => {
     setConversationId(id);
     saveSessionConversation(id);
@@ -123,7 +128,7 @@ function DrawerSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div onClick={onClose} aria-hidden="true" style={{ position: 'fixed', inset: 0, background: 'var(--tp-scrim, rgba(0,0,0,0.25))', zIndex: 60 }} />
+      <div onClick={onClose} aria-hidden="true" style={{ position: 'fixed', inset: 0, background: 'var(--tp-scrim, rgba(0,0,0,0.25))', zIndex: 'var(--tp-z-overlay)' as CSSProperties['zIndex'] }} />
       <div
         ref={panel}
         role="dialog"
@@ -140,7 +145,9 @@ function DrawerSheet({ onClose }: { onClose: () => void }) {
           background: 'var(--tp-surface)',
           borderInlineStart: '1px solid var(--tp-border)',
           boxShadow: 'var(--tp-shadow-lg, 0 0 2rem rgba(0,0,0,0.2))',
-          zIndex: 61,
+          // One above its own scrim. A Modal opened from inside the sheet is
+          // --tp-z-overlay too and later in DOM order, so it still wins.
+          zIndex: 'var(--tp-z-overlay-raised)' as CSSProperties['zIndex'],
           display: 'flex',
           flexDirection: 'column',
           paddingBlock: 'var(--tp-sp-3)',
