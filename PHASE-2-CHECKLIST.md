@@ -32,7 +32,7 @@ done and what is left. Update it in the same commit as the work it describes.
 - [ ] Item 11 mobile: a `testID` on every interactive element (`<route>.<element>`), an ESLint rule that enforces it, jest-expo beside vitest, one smoke render per screen (24 routes) in EN and AR.
 - [ ] Item 11 bench: `packages/db/bench` (booking, cafe, analytics, replay), committed baseline from the CI runner, nightly `bench.yml`, compare with a 10 % regression rule.
 - [ ] S10: the test-OTP code leaves the repo (`env(SUPABASE_AUTH_SMS_TEST_OTP_CODE)`), `db:start` verifies the substitution, a gate refuses any `config push`, the activation runbook demands a fresh reviewer pair.
-- [ ] Item 12 docs: HANDOFF reconciliation, bilingual Phase 2 change order in `docs/scope/`, deviation records D3–D5 amended and D8–D10 added, owner runbook for the hosted push.
+- [x] Item 12 docs: `HANDOFF.md` reconciled against O8 (booking criticals, `check:locks`, `compute_tab_totals`, PITR, one hosted-state line, Days 26–31, file map, roadmap), `docs/scope/phase2-change-order-2026-09-21.md` (bilingual, EN + AR), `docs/security/security-general.md` §01 (D3–D5 amended, D8–D10 added, walk line now D1–D10), `docs/client/hosted-push-milestone0-2026-09-21.md` (owner runbook for the hosted push).
 - [ ] Finding to carry into the bench and Milestone 1: `analytics_courts_summary` over 400 days hits the statement timeout on a database full of test data.
 
 ## Milestone 0 — left (owner, Parsa)
